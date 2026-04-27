@@ -115,6 +115,16 @@ def test_action_result_failure_with_guidance() -> None:
         reason="code_shape_violation",
         retryable=True,
         operator_guidance="Fix oversized functions, then rerun.",
+        reason_chain=("guard_bundle_failed", "code_shape_violation"),
+        remediation="split_oversized_functions",
+        auto_executable=False,
+        errors=(
+            {
+                "reason": "code_shape_violation",
+                "remediation": "split_oversized_functions",
+                "auto_executable": False,
+            },
+        ),
         findings_count=3,
         warnings=("Skipped 2 files due to parse errors.",),
     )
@@ -123,6 +133,10 @@ def test_action_result_failure_with_guidance() -> None:
     assert payload["reason"] == "code_shape_violation"
     assert payload["retryable"] is True
     assert payload["operator_guidance"] == "Fix oversized functions, then rerun."
+    assert payload["reason_chain"] == ["guard_bundle_failed", "code_shape_violation"]
+    assert payload["remediation"] == "split_oversized_functions"
+    assert payload["auto_executable"] is False
+    assert payload["errors"][0]["reason"] == "code_shape_violation"
     assert payload["findings_count"] == 3
 
 
@@ -134,6 +148,15 @@ def test_action_result_from_mapping_coerces_types() -> None:
             "status": "complete",
             "findings_count": "7",
             "warnings": ["skipped test files"],
+            "errors": [
+                {
+                    "reason": "host_process_cleanup_post_age_out",
+                    "auto_executable": True,
+                }
+            ],
+            "reason_chain": ["guard_bundle_failed", "host-process-cleanup-post"],
+            "remediation": "host_process_cleanup_post_age_retry",
+            "auto_executable": "true",
             "artifact_paths": ["dev/reports/probes/latest/review_packet.json"],
         }
     )
@@ -141,6 +164,10 @@ def test_action_result_from_mapping_coerces_types() -> None:
     assert result.ok is True
     assert result.findings_count == 7
     assert result.warnings == ("skipped test files",)
+    assert result.errors[0]["reason"] == "host_process_cleanup_post_age_out"
+    assert result.reason_chain == ("guard_bundle_failed", "host-process-cleanup-post")
+    assert result.remediation == "host_process_cleanup_post_age_retry"
+    assert result.auto_executable is True
     assert result.artifact_paths == ("dev/reports/probes/latest/review_packet.json",)
 
 

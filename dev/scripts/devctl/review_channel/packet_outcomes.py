@@ -270,6 +270,7 @@ def _event_search_text(event: Mapping[str, object]) -> str:
         "target_ref",
         "target_revision",
         "guard_results_summary",
+        "full_guard_bundle_evidence",
     ):
         values.append(_text(event.get(key)))
     for key in ("evidence_refs", "guidance_refs", "anchor_refs"):

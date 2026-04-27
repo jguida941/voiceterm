@@ -15,6 +15,7 @@ from .commit_preflight_support import (
     COMMIT_START_COMMAND,
     next_command_guidance,
 )
+from .commit_preflight_stage_failure import StageFailureContext, stage_failure_report
 from .commit_visibility import commit_visibility_payload
 from .governed_executor import GovernedVcsExecutor
 from .orphan_snapshot_advisory import append_orphan_snapshot_advisory
@@ -124,79 +125,20 @@ def prepare_pipeline(
         pipeline = vcs_executor.load_pipeline()
         stage_warnings = list(stage_result.warnings)
         if not stage_result.ok:
-            report_warnings = list(stage_result.warnings)
-            operator_guidance = stage_result.operator_guidance
-            handoff_packet_id = ""
-            handoff_target = ""
-            handoff_error = ""
-            if stage_result.reason == "git_index_write_blocked":
-                commit_message = str(getattr(args, "message", "") or "")
-                handoff_target, handoff_packet_id, handoff_error = (
-                    resolved_deps.post_commit_stage_handoff_fn(
+            return (
+                pipeline,
+                stage_warnings,
+                stage_failure_report(
+                    StageFailureContext(
+                        args=args,
                         repo_root=repo_root,
-                        review_channel_path=vcs_executor.review_channel_path,
-                        commit_message_draft=commit_message,
-                        stage_reason=stage_result.reason,
-                        stage_warnings=report_warnings,
-                    )
-                )
-                if handoff_packet_id and handoff_target:
-                    operator_guidance = (
-                        "The current execution sandbox cannot create `.git/index.lock`. "
-                        f"Posted typed `action_request` packet `{handoff_packet_id}` "
-                        f"to `{handoff_target}` so the remote-control lane can run "
-                        "the same governed commit staging with repo-approved "
-                        "filesystem access."
-                    )
-                    report_warnings.append(
-                        f"commit_stage_request_packet={handoff_packet_id}"
-                    )
-                    report_warnings.append(
-                        f"commit_stage_request_target={handoff_target}"
-                    )
-                elif handoff_error:
-                    report_warnings.append(handoff_error)
-            if (
-                not handoff_packet_id
-                and stage_result.reason == "git_index_write_blocked"
-                and not stale_pipeline
-                and pipeline.pipeline_id
-                and str(getattr(pipeline, "approval_state", "") or "").strip()
-                == "approved"
-                and str(
-                    getattr(getattr(pipeline, "intent", None), "staged_tree_hash", "")
-                    or ""
-                ).strip()
-            ):
-                handoff_target, handoff_packet_id, handoff_error = (
-                    resolved_deps.post_commit_execution_handoff_fn(
+                        vcs_executor=vcs_executor,
+                        deps=resolved_deps,
                         pipeline=pipeline,
-                        repo_root=repo_root,
-                        review_channel_path=vcs_executor.review_channel_path,
+                        stage_result=stage_result,
+                        stale_pipeline=stale_pipeline,
                     )
-                )
-                if handoff_packet_id and handoff_target:
-                    operator_guidance = (
-                        "The current execution sandbox cannot create `.git/index.lock`. "
-                        f"Posted typed `action_request` packet `{handoff_packet_id}` "
-                        f"to `{handoff_target}` so the writable lane can run the "
-                        "same approved governed commit."
-                    )
-                    report_warnings.append(
-                        f"commit_execution_request_packet={handoff_packet_id}"
-                    )
-                    report_warnings.append(
-                        f"commit_execution_request_target={handoff_target}"
-                    )
-                elif handoff_error:
-                    report_warnings.append(handoff_error)
-            return pipeline, stage_warnings, _build_report(
-                status="blocked",
-                reason=stage_result.reason,
-                pipeline_id=pipeline.pipeline_id,
-                pipeline_state=pipeline.state,
-                operator_guidance=operator_guidance,
-                warnings=report_warnings,
+                ),
             )
     stage_warnings, atomicity_report = preflight_import_index_atomicity(
         repo_root=repo_root,

@@ -66,6 +66,7 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         pipeline_generation=event.get("pipeline_generation"),
         staged_snapshot_hash=event.get("staged_snapshot_hash"),
         guard_results_summary=event.get("guard_results_summary"),
+        full_guard_bundle_evidence=event.get("full_guard_bundle_evidence"),
         status=event.get("status"),
         posted_at=event.get("timestamp_utc"),
         acked_by=None,
@@ -111,6 +112,14 @@ def apply_packet_transition(
         next_packet["guard_results_summary"] = (
             event.get("guard_results_summary")
             or packet.get("guard_results_summary")
+        )
+    if (
+        event.get("full_guard_bundle_evidence") is not None
+        or packet.get("full_guard_bundle_evidence")
+    ):
+        next_packet["full_guard_bundle_evidence"] = (
+            event.get("full_guard_bundle_evidence")
+            or packet.get("full_guard_bundle_evidence")
         )
     actor = str((event.get("metadata") or {}).get("actor") or "").strip()
     if event_type == "packet_acked":

@@ -27,6 +27,7 @@ from dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime import (
     resolve_commit_stage_target as _resolve_commit_stage_target,
 )
 from dev.scripts.devctl.commands.vcs.governed_executor_packets import (
+    CommitStageRequestFields,
     build_commit_stage_request,
 )
 from dev.scripts.devctl.commands.vcs.governed_executor_phases import (
@@ -140,11 +141,13 @@ def test_stage_action_persists_staged_snapshot_hash(tmp_path: Path) -> None:
 
 def test_commit_stage_request_allows_pre_pipeline_runtime_target() -> None:
     request = build_commit_stage_request(
-        to_agent="claude",
-        head_sha="abc123",
-        commit_message_draft="feat: checkpoint",
-        stage_reason="git_index_write_blocked",
-        stage_warnings=("index.lock denied",),
+        CommitStageRequestFields(
+            to_agent="claude",
+            head_sha="abc123",
+            commit_message_draft="feat: checkpoint",
+            stage_reason="git_index_write_blocked",
+            stage_warnings=("index.lock denied",),
+        )
     )
 
     validate_post_request(request)
@@ -155,6 +158,7 @@ def test_commit_stage_request_allows_pre_pipeline_runtime_target() -> None:
     assert request.target.target_kind == "runtime"
     assert request.target.target_ref == "devctl_commit:abc123"
     assert request.target.target_revision == "abc123"
+    assert request.guard_bundle_evidence.full_guard_bundle_evidence == "--profile ci"
 
 
 def test_stage_replaces_cross_branch_active_pipeline(tmp_path: Path) -> None:
@@ -229,7 +233,7 @@ def test_stage_surfaces_write_tree_error_when_git_index_is_blocked(
     executor = _executor(repo_root)
 
     with patch(
-        "dev.scripts.devctl.commands.vcs.governed_executor_phases.index_tree_hash_result",
+        "dev.scripts.devctl.commands.vcs.governed_executor_stage_index.index_tree_hash_result",
         return_value=(
             "",
             "fatal: Unable to create '/tmp/repo/.git/index.lock': Operation not permitted",
@@ -249,6 +253,14 @@ def test_stage_surfaces_write_tree_error_when_git_index_is_blocked(
     assert result.ok is False
     assert result.reason == "git_index_write_blocked"
     assert ".git/index.lock" in result.operator_guidance
+    assert result.reason_chain == (
+        "staged_tree_hash_unavailable",
+        "git_index_write_blocked",
+        "sandbox_index_lock_denied",
+    )
+    assert result.remediation == "stage_commit_pipeline"
+    assert result.auto_executable is False
+    assert result.errors[0]["reason"] == "git_index_write_blocked"
     assert result.warnings == (
         "fatal: Unable to create '/tmp/repo/.git/index.lock': Operation not permitted",
     )
@@ -262,7 +274,7 @@ def test_stage_surfaces_git_add_sandbox_block_as_index_write_blocked(
     executor = _executor(repo_root)
 
     with patch(
-        "dev.scripts.devctl.commands.vcs.governed_executor_phases.run_git_capture",
+        "dev.scripts.devctl.commands.vcs.governed_executor_stage_index.run_git_capture",
         return_value=(
             128,
             "",
@@ -283,6 +295,14 @@ def test_stage_surfaces_git_add_sandbox_block_as_index_write_blocked(
     assert result.ok is False
     assert result.reason == "git_index_write_blocked"
     assert ".git/index.lock" in result.operator_guidance
+    assert result.reason_chain == (
+        "git_add_failed",
+        "git_index_write_blocked",
+        "sandbox_index_lock_denied",
+    )
+    assert result.remediation == "stage_commit_pipeline"
+    assert result.auto_executable is False
+    assert result.errors[0]["reason"] == "git_index_write_blocked"
     assert result.warnings == (
         "fatal: Unable to create '/tmp/repo/.git/index.lock': Operation not permitted",
     )

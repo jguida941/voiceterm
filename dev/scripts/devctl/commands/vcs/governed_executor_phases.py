@@ -9,13 +9,11 @@ from typing import Any
 from ...runtime import ActionResult, TypedAction
 from ...runtime.action_contracts import ActionOutcome
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
-from ...runtime.vcs import run_git_capture
 from .governed_executor_actions import build_staged_pipeline
 from .governed_executor_field_access import bool_field
 from .governed_executor_git import (
     current_branch,
     dirty_paths,
-    index_tree_hash_result,
     normalize_paths,
     staged_diff_summary,
 )
@@ -28,28 +26,21 @@ from .governed_executor_stage_snapshot import (
     refresh_and_stage_review_snapshot,
     refresh_snapshot_staging,
 )
+from .governed_executor_index_lock import (
+    git_index_busy_guidance as _git_index_busy_guidance,
+    git_index_failure_guidance as _git_index_failure_guidance,
+    git_index_failure_reason as _git_index_failure_reason,
+    git_index_result_kwargs as _git_index_result_kwargs,
+    git_index_write_blocked as _git_index_write_blocked,
+    review_snapshot_index_failure_warning as _review_snapshot_index_failure_warning,
+)
+from .governed_executor_stage_index import (
+    stage_selected_paths as _stage_selected_paths,
+    staged_tree_hash_or_failure,
+)
 
 ResultBuilder = Callable[..., ActionResult]
 PipelinePersister = Callable[[RemoteCommitPipelineContract], list[str]]
-
-
-def _git_index_write_blocked(error: str) -> bool:
-    text = str(error or "")
-    return "index.lock" in text and "Operation not permitted" in text
-
-
-def _git_index_failure_reason(error: str, *, default: str) -> str:
-    if _git_index_write_blocked(error):
-        return "git_index_write_blocked"
-    return default
-
-
-def _git_index_failure_guidance() -> str:
-    return (
-        "The current execution sandbox cannot create `.git/index.lock`. "
-        "Rerun the governed command with repo-approved filesystem access or "
-        "from the implementer-owned local terminal lane, then retry `vcs.stage`."
-    )
 
 
 def _staged_index_preservation_failed(
@@ -120,37 +111,6 @@ def _snapshot_only_staged_scope_result(
     )
 
 
-def _stage_selected_paths(
-    action: TypedAction,
-    *,
-    repo_root: Path,
-    selected_paths: list[str],
-    result_builder: ResultBuilder,
-) -> ActionResult | None:
-    stage_code, _, stage_error = run_git_capture(
-        ["add", "-A", "--", *selected_paths],
-        repo_root=repo_root,
-    )
-    if stage_code == 0:
-        return None
-    guidance = (
-        _git_index_failure_guidance()
-        if _git_index_write_blocked(stage_error)
-        else "Repair the git index error and rerun `vcs.stage`."
-    )
-    return result_builder(
-        action_id=action.action_id,
-        ok=False,
-        status=ActionOutcome.FAIL,
-        reason=_git_index_failure_reason(
-            stage_error,
-            default="git_add_failed",
-        ),
-        operator_guidance=guidance,
-        warnings=((stage_error,) if stage_error else ()),
-    )
-
-
 def _refresh_staged_snapshot(
     action: TypedAction,
     *,
@@ -164,6 +124,13 @@ def _refresh_staged_snapshot(
         repo_root=repo_root,
         refresh_snapshot_fn=refresh_and_stage_review_snapshot,
     )
+    index_failure = _review_snapshot_index_failure_result(
+        action=action,
+        refresh_warnings=refresh_warnings,
+        result_builder=result_builder,
+    )
+    if index_failure is not None:
+        return index_failure, [], []
     if lost_paths:
         return (
             _staged_index_preservation_failed(
@@ -188,6 +155,41 @@ def _refresh_staged_snapshot(
             [],
         )
     return None, refresh_warnings, staged
+
+
+def _review_snapshot_index_failure_result(
+    *,
+    action: TypedAction,
+    refresh_warnings: list[str],
+    result_builder: ResultBuilder,
+) -> ActionResult | None:
+    index_warning = _review_snapshot_index_failure_warning(refresh_warnings)
+    if not index_warning:
+        return None
+    reason = _git_index_failure_reason(
+        index_warning,
+        default="review_snapshot_stage_failed",
+    )
+    guidance = (
+        _git_index_failure_guidance()
+        if _git_index_write_blocked(index_warning)
+        else _git_index_busy_guidance()
+        if reason == "git_index_lock_busy"
+        else "Repair ReviewSnapshot staging and rerun `vcs.stage`."
+    )
+    return result_builder(
+        action_id=action.action_id,
+        ok=False,
+        status=ActionOutcome.FAIL,
+        reason=reason,
+        operator_guidance=guidance,
+        warnings=tuple(refresh_warnings),
+        **_git_index_result_kwargs(
+            error=index_warning,
+            reason=reason,
+            default_reason="review_snapshot_stage_failed",
+        ),
+    )
 
 
 def execute_stage(
@@ -296,24 +298,13 @@ def execute_stage(
         if failure is not None:
             return failure
 
-    tree_hash, tree_error = index_tree_hash_result(repo_root)
-    if not tree_hash:
-        guidance = (
-            _git_index_failure_guidance()
-            if _git_index_write_blocked(tree_error)
-            else "Repair the git index state and rerun `vcs.stage`."
-        )
-        return result_builder(
-            action_id=action.action_id,
-            ok=False,
-            status=ActionOutcome.FAIL,
-            reason=_git_index_failure_reason(
-                tree_error,
-                default="staged_tree_hash_unavailable",
-            ),
-            operator_guidance=guidance,
-            warnings=((tree_error,) if tree_error else ()),
-        )
+    tree_hash, tree_failure = staged_tree_hash_or_failure(
+        action,
+        repo_root=repo_root,
+        result_builder=result_builder,
+    )
+    if tree_failure is not None:
+        return tree_failure
 
     new_pipeline = build_staged_pipeline(
         action=action,

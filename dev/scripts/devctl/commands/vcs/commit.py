@@ -10,6 +10,7 @@ from ...runtime.governance_scan import scan_repo_governance_safely
 from ...runtime.review_snapshot_refresh import receipt_commit_parent_sha
 from ...runtime.commit_permission import build_commit_permission_decision_for_executor
 from .commit_caller_role import caller_role_report
+from .commit_action_result_report import action_result_report_fields
 from .commit_guard_bundle import (
     _pipeline_has_validation_plan,
     guard_result,
@@ -157,6 +158,7 @@ def run_commit(
             pipeline=pipeline,
         )
         if guard_rc != 0:
+            guard_action_result = pipeline.guard_result
             report = _build_report(
                 status="blocked",
                 reason="guard_bundle_failed",
@@ -165,6 +167,11 @@ def run_commit(
                 pipeline_state=pipeline.state,
                 approval_state=pipeline.approval_state,
                 **commit_visibility_payload(pipeline),
+                **(
+                    action_result_report_fields(guard_action_result)
+                    if guard_action_result is not None
+                    else _empty_action_result_report()
+                ),
                 warnings=stage_warnings,
             )
             _emit_report(args, report)
@@ -226,6 +233,7 @@ def run_commit(
                 commit_sha=commit_sha,
             )
         ),
+        action_result=commit_result.to_dict(),
         operator_guidance=commit_result.operator_guidance,
         interaction_mode=resolved_mode,
         warnings=[*stage_warnings, *commit_result.warnings],
@@ -241,6 +249,16 @@ def _receipt_projection_state(*, commit_ok: bool, commit_sha: str) -> str:
     if commit_sha:
         return "receipt_projection_pending_or_not_required"
     return "commit_not_recorded"
+
+
+def _empty_action_result_report() -> dict[str, object]:
+    return {
+        "action_result": None,
+        "reason_chain": [],
+        "remediation": "",
+        "auto_executable": False,
+        "errors": [],
+    }
 
 
 def run(args) -> int:

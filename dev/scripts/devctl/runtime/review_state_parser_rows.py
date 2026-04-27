@@ -165,6 +165,9 @@ def packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
                 pipeline_generation=_string(mapping.get("pipeline_generation")),
                 staged_snapshot_hash=_string(mapping.get("staged_snapshot_hash")),
                 guard_results_summary=_string(mapping.get("guard_results_summary")),
+                full_guard_bundle_evidence=_string(
+                    mapping.get("full_guard_bundle_evidence")
+                ),
                 acked_by=_string(mapping.get("acked_by")),
                 acked_at_utc=_string(mapping.get("acked_at_utc")),
                 applied_at_utc=_string(mapping.get("applied_at_utc")),

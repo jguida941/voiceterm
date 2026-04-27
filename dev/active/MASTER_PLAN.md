@@ -136,6 +136,14 @@
   the bounded push-finding seam now, Slice E before broad Slice D refactors, and
   typed `system-spine` work folded into the existing context-graph/system-map
   projection chain rather than a parallel system.
+- 2026-04-27 governed-commit self-resolution and structured errors (MP-377):
+  `devctl commit` now extends the existing commit pipeline instead of asking an
+  agent/operator to retry mechanical blockers. Guard replay auto-runs one
+  bounded host-process age-out retry when `host-process-cleanup-post` is the
+  blocker, shared git helpers back off transient `.git/index.lock` contention
+  for index writers, and `ActionResult` carries structured `errors`,
+  `reason_chain`, `remediation`, and `auto_executable` fields for stage,
+  guard, and commit reports.
 - 2026-04-23 session-resume bootstrap repair (also under MP-377):
   `session-resume --role reviewer|implementer` now calls
   `ControlPlaneReadModel` through `ControlPlaneReadModelOptions` for
@@ -335,6 +343,27 @@
   `AUTOMATION_DEBT_REGISTER.md` carries ADR-024 through ADR-027 for the
   warning-first guard family. This keeps the work in existing typed authority
   surfaces and leaves compatibility projections as projections.
+- 2026-04-27 Plan 4.1 N1 governed-push heartbeat automation (MP-377):
+  `devctl push` now extends the existing pre-validation projection sync rather
+  than adding another recovery surface. When the bridge liveness projection
+  says `reviewer_mode=active_dual_agent` and `Last Codex poll` is beyond the
+  five-minute freshness threshold, push pre-validation runs one headless
+  repo-owned `reviewer-heartbeat` with
+  `reason=auto-refresh-during-publication`, records the phase result in the
+  managed projection sync payload, and then continues into the existing
+  ReviewSnapshot/receipt/router cascade. This closes the current
+  compatibility-only push blocker and advances the typed `next=` automation
+  rule; the follow-up commit-pipeline slice now projects those reason chains
+  through the existing `ActionResult` envelope instead of a new result system.
+- 2026-04-27 Plan 4.1 governed-commit self-resolution (MP-377):
+  `rev_pkt_2055` is closed as an architectural extension on the existing commit
+  pipeline. `commit_guard_bundle.py` recognizes the host-cleanup age-out
+  warning, runs one bounded process-watch retry, and replays the guard bundle;
+  `runtime/vcs.py` retries transient `.git/index.lock` busy failures for
+  index-writing git commands; and stage/commit failure reports now include
+  structured `ActionResult.errors`, `reason_chain`, `remediation`, and
+  `auto_executable` fields. This unblocks the pending N1 publication without
+  making Claude or Codex run a manual workaround.
 - 2026-04-24 remote-control liveness split-brain closure (MP-355 + MP-377
   follow-up): `review-channel status --refresh-bridge-heartbeat-if-stale`
   now treats a live typed `remote_control_attachment` as continuity evidence

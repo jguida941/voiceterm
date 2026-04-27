@@ -19,6 +19,7 @@ from dev.scripts.devctl.review_channel.events import (
     transition_packet,
 )
 from dev.scripts.devctl.review_channel.packet_contract import (
+    PacketGuardBundleEvidenceFields,
     PacketPostRequest,
     PacketRuntimeApprovalFields,
     PacketTargetFields,
@@ -111,6 +112,38 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
             args.guard_results_summary,
             "bundle.tooling pass; doctor still blocked on runtime_missing",
         )
+
+    def test_cli_accepts_full_guard_bundle_evidence(self) -> None:
+        parser = build_parser()
+
+        args = parser.parse_args(
+            [
+                "review-channel",
+                "--action",
+                "post",
+                "--from-agent",
+                "codex",
+                "--to-agent",
+                "claude",
+                "--kind",
+                "action_request",
+                "--summary",
+                "Stage verified commit pipeline",
+                "--body",
+                "Full guard profile passed.",
+                "--requested-action",
+                "stage_commit_pipeline",
+                "--target-kind",
+                "runtime",
+                "--target-ref",
+                "devctl_commit:abc123",
+                "--target-revision",
+                "abc123",
+                "--full-guard-bundle-evidence=--profile ci",
+            ]
+        )
+
+        self.assertEqual(args.full_guard_bundle_evidence, "--profile ci")
 
     def test_plan_patch_review_packets_preserve_plan_fields_through_apply(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -813,6 +846,76 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                         approval_required=False,
                     ),
                 )
+
+    def test_stage_commit_pipeline_requires_full_guard_bundle_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "Stage-commit action_request packets require "
+                "--full-guard-bundle-evidence",
+            ):
+                post_packet(
+                    repo_root=root,
+                    review_channel_path=review_channel_path,
+                    artifact_paths=artifact_paths,
+                    request=PacketPostRequest(
+                        from_agent="codex",
+                        to_agent="claude",
+                        kind="action_request",
+                        summary="Stage verified commit pipeline",
+                        body="Full guard evidence was omitted.",
+                        requested_action="stage_commit_pipeline",
+                        policy_hint="safe_auto_apply",
+                        approval_required=False,
+                        target=PacketTargetFields.from_values(
+                            target_kind="runtime",
+                            target_ref="devctl_commit:abc123",
+                            target_revision="abc123",
+                        ),
+                    ),
+                )
+
+    def test_stage_commit_pipeline_preserves_full_guard_bundle_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+
+            bundle, _ = post_packet(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+                request=PacketPostRequest(
+                    from_agent="codex",
+                    to_agent="claude",
+                    kind="action_request",
+                    summary="Stage verified commit pipeline",
+                    body="Full guard profile passed.",
+                    requested_action="stage_commit_pipeline",
+                    policy_hint="safe_auto_apply",
+                    approval_required=False,
+                    target=PacketTargetFields.from_values(
+                        target_kind="runtime",
+                        target_ref="devctl_commit:abc123",
+                        target_revision="abc123",
+                    ),
+                    guard_bundle_evidence=PacketGuardBundleEvidenceFields.from_values(
+                        full_guard_bundle_evidence="--profile ci",
+                    ),
+                ),
+            )
+
+        posted_packet = bundle.review_state["packets"][0]
+        self.assertEqual(posted_packet["requested_action"], "stage_commit_pipeline")
+        self.assertEqual(posted_packet["full_guard_bundle_evidence"], "--profile ci")
 
     def test_commit_action_request_packets_preserve_runtime_binding(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

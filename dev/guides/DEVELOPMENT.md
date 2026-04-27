@@ -401,6 +401,10 @@ Three quality layers matter in practice:
   packet actions, and status values do not remain metadata-only. The default
   bundle lane is warning-only; use `--fail-on-disconnected` only for explicit
   Slice C retirement/adoption scans until the baseline is cleared.
+- `ActionResult` is the shared failure envelope. When a runtime or governance
+  command can name a blocker, include `errors`, `reason_chain`, `remediation`,
+  and `auto_executable` instead of only a prose warning, so dashboard, Codex,
+  Claude, and automation loops all see the same next-step evidence.
 - Worktree-orphan governance contracts are part of the platform contract
   surface, not disposable parser structs. `devctl orphan-inventory` builds the
   bounded local `OrphanInventoryReport` across the current checkout,
@@ -1517,6 +1521,12 @@ Workflow permissions note:
    `published_remote` snapshot immediately after `git push` succeeds, and
    matches that artifact against the current HEAD so stale local `ahead 1`
    tracking refs do not trigger a second push.
+   Before routed preflight, governed push also inspects the typed bridge
+   liveness projection and, when `reviewer_mode=active_dual_agent` with a
+   stale `Last Codex poll`, runs one headless
+   `review-channel --action reviewer-heartbeat --reason auto-refresh-during-publication`
+   through the existing pre-validation phase instead of making the operator or
+   AI shell that repair manually.
    `published_remote=true` plus `post_push_green=false` means "repair the
    post-push follow-up" rather than "push again." Interactive runs also emit
    progress notices when publication is recorded and before each post-push

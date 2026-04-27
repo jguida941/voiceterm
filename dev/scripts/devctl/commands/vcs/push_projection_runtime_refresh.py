@@ -8,6 +8,14 @@ from pathlib import Path
 from ...repo_packs import active_path_config
 from ...review_channel.event_reducer import load_or_refresh_event_bundle
 from ...review_channel.event_store import resolve_artifact_paths
+from ...review_channel.handoff import (
+    extract_bridge_snapshot,
+    summarize_bridge_liveness,
+)
+from ...review_channel.peer_liveness import (
+    CODEX_POLL_STALE_AFTER_SECONDS,
+    reviewer_mode_is_active,
+)
 from ...review_channel.state import refresh_status_snapshot
 from .push_recovery_loop_repair import (
     PRE_VALIDATION_RECOVERY_LOOP_REPAIR,
@@ -41,6 +49,90 @@ REVIEW_CHANNEL_ENSURE_FOLLOW_COMMAND = (
     "--follow-inactivity-timeout-seconds",
     "1",
 )
+REVIEW_CHANNEL_REVIEWER_HEARTBEAT_COMMAND = (
+    sys.executable,
+    "dev/scripts/devctl.py",
+    "review-channel",
+    "--action",
+    "reviewer-heartbeat",
+    "--reviewer-mode",
+    "active_dual_agent",
+    "--reason",
+    "auto-refresh-during-publication",
+    "--terminal",
+    "none",
+    "--format",
+    "json",
+)
+
+
+def refresh_stale_reviewer_heartbeat_before_publication(
+    state,
+    *,
+    command_runner,
+    repo_root: Path,
+    next_step_label: str,
+) -> dict[str, object]:
+    """Run one bounded reviewer heartbeat refresh before routed push checks."""
+    config = active_path_config()
+    bridge_path = repo_root / config.bridge_rel
+    result: dict[str, object] = {
+        "step": "reviewer_heartbeat_refresh",
+        "status": "skipped",
+        "reason": "bridge_missing",
+        "threshold_seconds": CODEX_POLL_STALE_AFTER_SECONDS,
+    }
+    if not bridge_path.is_file():
+        return result
+    try:
+        bridge_text = bridge_path.read_text(encoding="utf-8")
+        liveness = summarize_bridge_liveness(extract_bridge_snapshot(bridge_text))
+    except (OSError, ValueError) as exc:
+        result.update(status="failed", reason="bridge_liveness_unreadable")
+        state.errors.append(
+            "Unable to inspect reviewer heartbeat before "
+            f"{next_step_label}: {exc}"
+        )
+        return result
+
+    reviewer_mode = str(liveness.reviewer_mode or "").strip()
+    poll_age_seconds = liveness.last_codex_poll_age_seconds
+    result.update(
+        reviewer_mode=reviewer_mode,
+        last_codex_poll_age_seconds=poll_age_seconds,
+    )
+    if not reviewer_mode_is_active(reviewer_mode):
+        result["reason"] = "reviewer_mode_inactive"
+        return result
+    if (
+        poll_age_seconds is None
+        or poll_age_seconds <= CODEX_POLL_STALE_AFTER_SECONDS
+    ):
+        result["reason"] = "reviewer_heartbeat_not_stale"
+        return result
+
+    step = command_runner(
+        "push-refresh-reviewer-heartbeat",
+        list(REVIEW_CHANNEL_REVIEWER_HEARTBEAT_COMMAND),
+        cwd=repo_root,
+    )
+    result["command_step"] = step
+    if step.get("returncode", 1) != 0:
+        detail = str(step.get("failure_output") or step.get("error") or "").strip()
+        suffix = f": {detail}" if detail else ""
+        result.update(status="failed", reason="reviewer_heartbeat_refresh_failed")
+        state.errors.append(
+            "Reviewer heartbeat auto-refresh failed before "
+            f"{next_step_label}{suffix}"
+        )
+        return result
+
+    result.update(status="refreshed", reason="reviewer_heartbeat_stale")
+    state.warnings.append(
+        "Auto-refreshed stale reviewer heartbeat during push pre-validation "
+        f"before {next_step_label}."
+    )
+    return result
 
 
 def refresh_runtime_surfaces_after_projection_receipt(
@@ -222,5 +314,6 @@ def _refresh_review_channel_projection_bundle_after_projection_receipt(
 
 __all__ = [
     "PRE_VALIDATION_RECOVERY_LOOP_REPAIR",
+    "refresh_stale_reviewer_heartbeat_before_publication",
     "refresh_runtime_surfaces_after_projection_receipt",
 ]

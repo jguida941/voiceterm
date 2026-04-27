@@ -14,9 +14,9 @@ from ...review_channel.remote_commit_pipeline_artifact import (
 )
 from ...runtime import ActionResult, TypedAction
 from ...runtime.action_contracts import (
-    ACTION_RESULT_CONTRACT_ID,
-    ACTION_RESULT_SCHEMA_VERSION,
     ActionOutcome,
+    ActionResultFields,
+    build_action_result,
 )
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
 from ...runtime.startup_context import build_startup_context
@@ -324,27 +324,6 @@ class GovernedVcsExecutor:
 
     def _result(
         self,
-        *,
-        action_id: str,
-        ok: bool,
-        status: str,
-        reason: str,
-        retryable: bool = False,
-        partial_progress: bool = False,
-        operator_guidance: str = "",
-        warnings: Sequence[str] = (),
-        artifact_paths: Sequence[str] = (),
+        **kwargs,
     ) -> ActionResult:
-        return ActionResult(
-            schema_version=ACTION_RESULT_SCHEMA_VERSION,
-            contract_id=ACTION_RESULT_CONTRACT_ID,
-            action_id=action_id,
-            ok=ok,
-            status=status,
-            reason=reason,
-            retryable=retryable,
-            partial_progress=partial_progress,
-            operator_guidance=operator_guidance,
-            warnings=tuple(warnings),
-            artifact_paths=tuple(artifact_paths),
-        )
+        return build_action_result(ActionResultFields(**kwargs))

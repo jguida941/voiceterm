@@ -24,10 +24,12 @@ from .governed_executor_commit_runtime import (
 )
 from .governed_executor_field_access import bool_field, string_value
 from .governed_executor_git import head_commit, index_tree_hash
-from .governed_executor_phases import (
-    _git_index_failure_guidance,
-    _git_index_failure_reason,
-    _git_index_write_blocked,
+from .governed_executor_index_lock import (
+    git_index_busy_guidance as _git_index_busy_guidance,
+    git_index_failure_guidance as _git_index_failure_guidance,
+    git_index_failure_reason as _git_index_failure_reason,
+    git_index_result_kwargs as _git_index_result_kwargs,
+    git_index_write_blocked as _git_index_write_blocked,
 )
 from .governed_executor_support import (
     CommitBlock,
@@ -322,6 +324,8 @@ def _commit_failure_result(
     failure_guidance = (
         _git_index_failure_guidance()
         if _git_index_write_blocked(commit_error)
+        else _git_index_busy_guidance()
+        if failure_reason == "git_index_lock_busy"
         else "Inspect the git commit failure, repair the repo state, then recover the pipeline."
     )
     handoff_packet_id = ""
@@ -370,6 +374,11 @@ def _commit_failure_result(
         operator_guidance=failure_guidance,
         warnings=tuple(warnings),
         artifact_paths=(context.pipeline_artifact_relpath,),
+        **_git_index_result_kwargs(
+            error=commit_error,
+            reason=failure_reason,
+            default_reason="commit_failed",
+        ),
     )
 
 

@@ -147,6 +147,11 @@ def _append_packet_section(lines: list[str], packet: dict) -> None:
         lines.append(f"- staged_snapshot_hash: {packet.get('staged_snapshot_hash')}")
     if packet.get("guard_results_summary"):
         lines.append(f"- guard_results_summary: {packet.get('guard_results_summary')}")
+    if packet.get("full_guard_bundle_evidence"):
+        lines.append(
+            "- full_guard_bundle_evidence: "
+            f"{packet.get('full_guard_bundle_evidence')}"
+        )
     append_context_pack_ref_lines(
         lines,
         packet.get("context_pack_refs"),

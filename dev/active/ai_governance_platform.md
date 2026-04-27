@@ -117,6 +117,24 @@ Current 2026-04-27 governed-push execution-truth note:
   need fetch, preflight, push, post-push, and remote-ref evidence, otherwise
   they emit `SilentPushFailure` and stay blocked.
 
+Current 2026-04-27 governed-commit self-resolution note:
+- The `rev_pkt_2055` publication blocker is an automation-surface gap, not a
+  manual retry instruction. Governed commit guard replay now treats
+  `host-process-cleanup-post` age-out as a bounded auto-remediation phase:
+  run the existing process cleanup loop once, rerun the quick guard bundle,
+  and persist the resulting `ActionResult` on the active pipeline. Shared git
+  execution also retries transient `.git/index.lock` contention with bounded
+  backoff while preserving sandbox-denial handoff behavior. `ActionResult`
+  carries structured `errors`, `reason_chain`, `remediation`, and
+  `auto_executable` fields so commit/push/dogfood consumers receive machine
+  reasons instead of prose-only "blocked" state.
+- This does not close the operator's same-system-both-agents question by
+  itself. It supplies the canonical result/error envelope that the queued
+  `MP377-P0-T14` and `MP377-P0-T18` enforcement slices should consume; until
+  those gates require fresh dashboard-probe evidence on Codex handoff packets,
+  the dashboard rotation remains a required live discipline rather than a
+  fully enforced typed gate.
+
 Current 2026-04-25 SYSTEM_MAP connectivity authority note:
 - `ConnectivityRegistrySnapshot` is now the shared typed source for contract,
   writer, reader, and generated-surface connectivity. `context-graph` consumes
@@ -3390,6 +3408,11 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       depends_on: `MP377-P0-T08`, `MP377-P0-T09`, `MP377-P0-T12A`
       scope: Promote the rev_pkt_2035 self-dogfood command list from advisory bootstrap prose into the Codex packet/handoff path, then fold the durable receipt into the Slice B poll-loop/tandem validation flow.
       acceptance_criteria: Handoff output records `check_function_duplication.py`, `check_structural_similarity.py`, `check_contract_connectivity.py`, `findings-priority --format json`, and `probe-report --format json`; high-severity findings touching the slice are acknowledged or block handoff; the stage request cites the verification receipt.
+      progress: 2026-04-27 Codex 29 manually executed the dashboard-probe
+      rotation during the Path I slice and confirmed this is still discipline,
+      not enforcement. The next T14 implementation must make the
+      `stage_commit_pipeline` post path require fresh typed evidence for the
+      same probes rather than relying on AGENTS.md memory.
 - [ ] `MP377-P0-T15` Parallel-system and canonical-seam guard family: add warning-first guards for semantic contract parallels, canonical seam bypasses, TypedAction runtime-origin drift, and SYSTEM_MAP completeness, then retire baselines before fail-closed promotion.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`
@@ -3411,6 +3434,12 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       depends_on: `MP377-P0-T13`, `MP377-P0-T15`, `MP377-P1-T06`
       scope: Retire the Section 5 parallel implementations by moving ReviewState reconstruction to `review_state_from_payload()`, deriving command/result models from `ActionResult`, and replacing ad-hoc `dict[str, Any]` parser coercion with typed payload contracts.
       acceptance_criteria: Connectivity guards show no new ReviewState rebuilders, representative result types inherit or wrap `ActionResult`, typed parser fixtures cover payload conversion, and legacy helpers are explicit compatibility shims with owner/retirement metadata.
+      progress: 2026-04-27 Path I moved governed commit self-resolution
+      evidence onto `ActionResult` by adding structured `errors`,
+      `reason_chain`, `remediation`, and `auto_executable`, then projecting
+      those fields through commit preflight, guard replay, and executor
+      reports. Full T17 remains queued for the wider ReviewState/parser
+      retirement sweep.
 - [ ] `MP377-P0-T18` Agent-proof-of-navigation regression suite: prove Codex and Claude can answer role, blocker, and canonical-seam questions from typed startup/connectivity/system-map state without chat memory or prose-only bridge authority.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`

@@ -103,6 +103,39 @@ def make_policy(**overrides) -> PushPolicy:
     )
 
 
+def _bridge_text_for_push_heartbeat(
+    *,
+    last_codex_poll: str,
+    reviewer_mode: str = "active_dual_agent",
+) -> str:
+    return "\n".join(
+        [
+            "- Last Codex poll: `" + last_codex_poll + "`",
+            "- Last Codex poll (Local America/New_York): "
+            "`2026-04-27 14:00:00 EDT`",
+            "- Last non-audit worktree hash: `reviewed-hash`",
+            "- Reviewer mode: `" + reviewer_mode + "`",
+            "- Current instruction revision: `rev-1`",
+            "",
+            "## Poll Status",
+            "- reviewer-checkpoint reason=review-pass",
+            "",
+            "## Current Instruction For Claude",
+            "- continue the governed push path",
+            "",
+            "## Claude Status",
+            "- implemented the slice",
+            "",
+            "## Claude Ack",
+            "- ack rev-1",
+            "",
+            "## Last Reviewed Scope",
+            "- dev/scripts/devctl/commands/vcs/push_projection_runtime_refresh.py",
+            "",
+        ]
+    )
+
+
 def _publication_authorization(
     *,
     authorized: bool = True,
@@ -1431,10 +1464,21 @@ class PushCommandTests(unittest.TestCase):
             }
         ]
 
-        with patch.object(
-            push_preflight_projection,
-            "auto_commit_managed_projection_receipt",
-            return_value={"ok": True, "committed": False, "paths": ()},
+        with (
+            patch.object(
+                push_preflight_projection,
+                "auto_commit_managed_projection_receipt",
+                return_value={"ok": True, "committed": False, "paths": ()},
+            ),
+            patch.object(
+                push_preflight_projection,
+                "refresh_stale_reviewer_heartbeat_before_publication",
+                return_value={
+                    "step": "reviewer_heartbeat_refresh",
+                    "status": "skipped",
+                    "reason": "unit_test",
+                },
+            ),
         ):
             rc = push.run(make_args(execute=True))
 
@@ -2241,6 +2285,98 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertIn(
             "Refreshed startup-context and context-graph after managed projection "
             "receipt before push preflight.",
+            state.warnings,
+        )
+
+    def test_refresh_managed_projections_auto_refreshes_stale_reviewer_heartbeat(
+        self,
+    ) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+        calls: list[tuple[str, list[str]]] = []
+
+        def _runner(name, cmd, cwd=None, env=None):
+            del cwd, env
+            calls.append((name, list(cmd)))
+            return {
+                "name": name,
+                "cmd": list(cmd),
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            bridge_path = repo_root / "bridge.md"
+            bridge_path.write_text(
+                _bridge_text_for_push_heartbeat(
+                    last_codex_poll="2000-01-01T00:00:00Z"
+                ),
+                encoding="utf-8",
+            )
+
+            with (
+                patch.object(
+                    push_projection_runtime_refresh,
+                    "active_path_config",
+                    return_value=SimpleNamespace(
+                        bridge_rel="bridge.md",
+                        review_channel_rel="dev/active/review_channel.md",
+                        review_status_dir_rel="dev/reports/review_channel/latest",
+                    ),
+                ),
+                patch.object(
+                    push_preflight_projection,
+                    "refresh_review_snapshot_file",
+                    return_value=[],
+                ),
+                patch.object(
+                    push_preflight_projection,
+                    "auto_commit_managed_projection_receipt",
+                    return_value={
+                        "ok": True,
+                        "committed": True,
+                        "paths": ("bridge.md",),
+                    },
+                ),
+            ):
+                refresh = (
+                    push_preflight_projection.refresh_managed_projections_before_preflight
+                )
+                result = (
+                    refresh(
+                        state,
+                        policy,
+                        repo_root=repo_root,
+                        command_runner=_runner,
+                    )
+                )
+
+        self.assertEqual(
+            [name for name, _cmd in calls],
+            [
+                "push-refresh-reviewer-heartbeat",
+                "push-refresh-startup-context",
+                "push-refresh-context-graph",
+                "push-refresh-review-snapshot-receipt",
+            ],
+        )
+        heartbeat_cmd = calls[0][1]
+        self.assertIn("reviewer-heartbeat", heartbeat_cmd)
+        self.assertIn("auto-refresh-during-publication", heartbeat_cmd)
+        self.assertEqual(
+            result["reviewer_heartbeat_refresh"]["status"],
+            "refreshed",
+        )
+        self.assertEqual(
+            result["reviewer_heartbeat_refresh"]["reason"],
+            "reviewer_heartbeat_stale",
+        )
+        self.assertIn(
+            "Auto-refreshed stale reviewer heartbeat during push pre-validation "
+            "before push preflight.",
             state.warnings,
         )
 
@@ -3412,10 +3548,21 @@ class PushBridgeSyncTests(unittest.TestCase):
 
         run_cmd_mock.side_effect = _run_cmd
 
-        with patch.object(
-            push_preflight_projection,
-            "auto_commit_managed_projection_receipt",
-            return_value={"ok": True, "committed": False, "paths": ()},
+        with (
+            patch.object(
+                push_preflight_projection,
+                "auto_commit_managed_projection_receipt",
+                return_value={"ok": True, "committed": False, "paths": ()},
+            ),
+            patch.object(
+                push_preflight_projection,
+                "refresh_stale_reviewer_heartbeat_before_publication",
+                return_value={
+                    "step": "reviewer_heartbeat_refresh",
+                    "status": "skipped",
+                    "reason": "unit_test",
+                },
+            ),
         ):
             rc = push.run(make_args(execute=True))
 
@@ -3497,10 +3644,21 @@ class PushBridgeSyncTests(unittest.TestCase):
 
         run_cmd_mock.side_effect = _run_cmd
 
-        with patch.object(
-            push_preflight_projection,
-            "auto_commit_managed_projection_receipt",
-            return_value={"ok": True, "committed": False, "paths": ()},
+        with (
+            patch.object(
+                push_preflight_projection,
+                "auto_commit_managed_projection_receipt",
+                return_value={"ok": True, "committed": False, "paths": ()},
+            ),
+            patch.object(
+                push_preflight_projection,
+                "refresh_stale_reviewer_heartbeat_before_publication",
+                return_value={
+                    "step": "reviewer_heartbeat_refresh",
+                    "status": "skipped",
+                    "reason": "unit_test",
+                },
+            ),
         ):
             rc = push.run(make_args(execute=True))
 
@@ -3630,10 +3788,21 @@ class PushBridgeSyncTests(unittest.TestCase):
             },
         ]
 
-        with patch.object(
-            push_preflight_projection,
-            "auto_commit_managed_projection_receipt",
-            return_value={"ok": True, "committed": False, "paths": ()},
+        with (
+            patch.object(
+                push_preflight_projection,
+                "auto_commit_managed_projection_receipt",
+                return_value={"ok": True, "committed": False, "paths": ()},
+            ),
+            patch.object(
+                push_preflight_projection,
+                "refresh_stale_reviewer_heartbeat_before_publication",
+                return_value={
+                    "step": "reviewer_heartbeat_refresh",
+                    "status": "skipped",
+                    "reason": "unit_test",
+                },
+            ),
         ):
             rc = push.run(make_args(execute=True))
 

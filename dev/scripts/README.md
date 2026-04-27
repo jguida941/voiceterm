@@ -100,6 +100,10 @@ posts a typed `action_request` with `requested_action=stage_commit_pipeline`
 to the active remote-control attachment provider and binds it to
 `devctl_commit:<head_sha>` instead of asking the local operator to click
 through a hidden prompt.
+Transient `.git/index.lock` contention is handled separately: shared git helpers
+back off and retry index-writing commands when git reports a temporary
+"File exists" / "Another git process" lock, while `Operation not permitted`
+continues down the typed remote-control handoff path.
 `devctl push` also enforces live execution identity before it can report
 publication: `vcs.push` branch parameters are forced from
 `git rev-parse --abbrev-ref HEAD`, approved target identity comes from live
@@ -458,13 +462,22 @@ Portability note:
   summary` receipt writer before failing on `attention_revision_stale`; the
   stale gate remains fail-closed only when that refresh cannot prove current
   packet attention.
+  Guard replay also self-resolves the host-process age-out case: when the quick
+  bundle fails only because `host-process-cleanup-post` reports recent detached
+  repo processes, `devctl commit` runs one bounded `process-watch --cleanup
+  --strict --stop-on-clean` retry and replays the same guard bundle once. The
+  resulting `ActionResult` includes structured `errors`, `reason_chain`,
+  `remediation`, and `auto_executable` fields for dashboard/AI readers.
 - `review-channel --action post --kind action_request` is the event-backed
   source for bridge `## Action Requests`, but executable requests are
   fail-closed on typed runtime binding. Use `--requested-action run_check`,
   `kill_process`, or `stage_commit_pipeline` with `--target-kind runtime`,
-  `--target-ref`, and `--target-revision`; use `--requested-action commit`
-  or `push` only with `--target-ref remote_commit_pipeline:<pipeline_id>`
-  plus `--pipeline-generation`, `--staged-snapshot-hash`, and
+  `--target-ref`, and `--target-revision`; `stage_commit_pipeline` also
+  requires `--full-guard-bundle-evidence` naming the routed full-bundle proof
+  (`bundle.runtime`, `bundle.tooling`, `bundle.docs`, `bundle.release`, or
+  `--profile ci`). Use `--requested-action commit` or `push` only with
+  `--target-ref remote_commit_pipeline:<pipeline_id>` plus
+  `--pipeline-generation`, `--staged-snapshot-hash`, and
   `--guard-results-summary`. Targeted `review-channel --action inbox|watch`
   polls now stamp `delivery_observed_at_utc` / `delivery_observed_by` only
   when `--actor` matches the target agent for live `action_request` packets,
@@ -939,7 +952,9 @@ Portability note:
   `PushAuthorizationRecord` through the contiguous managed
   bridge/ReviewSnapshot/generated-surface receipt chain back to the approved
   content commit, and push preflight now runs `render-surfaces --write` plus
-  ReviewSnapshot refresh before routed preflight, creates managed generated
+  a one-shot reviewer-heartbeat refresh before ReviewSnapshot refresh when
+  active dual-agent `Last Codex poll` exceeds the bridge freshness threshold,
+  creates managed generated
   surface/projection receipts when tracked repo-pack output or
   bridge/status/ReviewSnapshot reprojection leaves only governed receipt
   artifacts dirty, runs

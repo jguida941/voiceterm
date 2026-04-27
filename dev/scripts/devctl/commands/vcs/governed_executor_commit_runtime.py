@@ -24,6 +24,7 @@ from .governed_executor_commit_targets import (
 )
 from .governed_executor_git import head_commit
 from .governed_executor_packets import (
+    CommitStageRequestFields,
     build_commit_execution_request,
     build_commit_stage_request,
 )
@@ -272,11 +273,13 @@ def post_commit_stage_handoff(
             review_channel_path=review_channel_path,
             artifact_paths=artifact_paths,
             request=build_commit_stage_request(
-                to_agent=target_agent,
-                head_sha=head_commit(repo_root),
-                commit_message_draft=commit_message_draft,
-                stage_reason=stage_reason,
-                stage_warnings=tuple(stage_warnings),
+                CommitStageRequestFields(
+                    to_agent=target_agent,
+                    head_sha=head_commit(repo_root),
+                    commit_message_draft=commit_message_draft,
+                    stage_reason=stage_reason,
+                    stage_warnings=tuple(stage_warnings),
+                )
             ),
         )
     except (OSError, ValueError) as exc:

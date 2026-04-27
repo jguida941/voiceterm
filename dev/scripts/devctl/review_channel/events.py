@@ -118,6 +118,7 @@ def post_packet(
         "approval_required": request.approval_required,
         **request.target.to_event_fields(),
         **request.runtime_approval.to_event_fields(),
+        **request.guard_bundle_evidence.to_event_fields(),
         "status": "pending",
         "idempotency_key": "",
         "nonce": secrets.token_hex(12),
@@ -217,6 +218,7 @@ def transition_packet(
         "pipeline_generation": packet.get("pipeline_generation"),
         "staged_snapshot_hash": packet.get("staged_snapshot_hash"),
         "guard_results_summary": packet.get("guard_results_summary"),
+        "full_guard_bundle_evidence": packet.get("full_guard_bundle_evidence"),
         "status": {
             "ack": "acked",
             "dismiss": "dismissed",

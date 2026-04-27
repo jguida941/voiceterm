@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from ...review_channel.packet_contract import (
+    PacketGuardBundleEvidenceFields,
     PacketPostRequest,
     PacketRuntimeApprovalFields,
     PacketTargetFields,
@@ -95,19 +97,22 @@ def build_commit_execution_request(
     )
 
 
-def build_commit_stage_request(
-    *,
-    to_agent: str,
-    head_sha: str,
-    commit_message_draft: str,
-    stage_reason: str,
-    stage_warnings: Sequence[str] = (),
-    expires_in_minutes: int = 30,
-) -> PacketPostRequest:
+@dataclass(frozen=True, slots=True)
+class CommitStageRequestFields:
+    to_agent: str
+    head_sha: str
+    commit_message_draft: str
+    stage_reason: str
+    stage_warnings: Sequence[str] = ()
+    expires_in_minutes: int = 30
+    full_guard_bundle_evidence: str = "--profile ci"
+
+
+def build_commit_stage_request(fields: CommitStageRequestFields) -> PacketPostRequest:
     """Build a typed handoff when sandbox policy blocks pipeline staging."""
-    target_revision = str(head_sha or "").strip()
+    target_revision = str(fields.head_sha or "").strip()
     warning_summary = "\n".join(
-        f"- {warning}" for warning in stage_warnings if str(warning).strip()
+        f"- {warning}" for warning in fields.stage_warnings if str(warning).strip()
     )
     body = (
         "The current lane could not create `.git/index.lock` while preparing "
@@ -116,15 +121,15 @@ def build_commit_stage_request(
         "the pipeline emit the normal guard, approval, commit, and push "
         "receipts."
     )
-    if commit_message_draft:
-        body += f"\n\nCommit message draft: `{commit_message_draft}`"
-    if stage_reason:
-        body += f"\n\nStage block reason: `{stage_reason}`"
+    if fields.commit_message_draft:
+        body += f"\n\nCommit message draft: `{fields.commit_message_draft}`"
+    if fields.stage_reason:
+        body += f"\n\nStage block reason: `{fields.stage_reason}`"
     if warning_summary:
         body += f"\n\nWarnings:\n{warning_summary}"
     return PacketPostRequest(
         from_agent="system",
-        to_agent=to_agent,
+        to_agent=fields.to_agent,
         kind="action_request",
         summary="Run governed commit staging from remote-control lane",
         body=body,
@@ -132,11 +137,14 @@ def build_commit_stage_request(
         policy_hint="safe_auto_apply",
         approval_required=False,
         trace_id=f"devctl_commit:{target_revision}",
-        expires_in_minutes=expires_in_minutes,
+        expires_in_minutes=fields.expires_in_minutes,
         target=PacketTargetFields.from_values(
             target_kind="runtime",
-            target_ref=commit_stage_target_ref(head_sha),
+            target_ref=commit_stage_target_ref(fields.head_sha),
             target_revision=target_revision,
+        ),
+        guard_bundle_evidence=PacketGuardBundleEvidenceFields.from_values(
+            full_guard_bundle_evidence=fields.full_guard_bundle_evidence,
         ),
     )
 

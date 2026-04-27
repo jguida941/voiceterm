@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import asdict, dataclass, field
 
 from .value_coercion import (
     coerce_bool,
@@ -87,6 +87,26 @@ class ActionOutcome:
 
 
 @dataclass(frozen=True, slots=True)
+class ActionResultFields:
+    """Inputs for building the canonical ActionResult envelope."""
+
+    action_id: str
+    ok: bool
+    status: str
+    reason: str
+    retryable: bool = False
+    partial_progress: bool = False
+    operator_guidance: str = ""
+    warnings: Sequence[str] = field(default_factory=tuple)
+    errors: Sequence[dict[str, object]] = field(default_factory=tuple)
+    reason_chain: Sequence[str] = field(default_factory=tuple)
+    remediation: str = ""
+    auto_executable: bool = False
+    findings_count: int = 0
+    artifact_paths: Sequence[str] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True, slots=True)
 class ActionResult:
     """Canonical result envelope for any command, service call, or agent action.
 
@@ -110,14 +130,45 @@ class ActionResult:
     partial_progress: bool = False
     operator_guidance: str = ""
     warnings: tuple[str, ...] = ()
+    errors: tuple[dict[str, object], ...] = ()
+    reason_chain: tuple[str, ...] = ()
+    remediation: str = ""
+    auto_executable: bool = False
     findings_count: int = 0
     artifact_paths: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         d = asdict(self)
         d["warnings"] = list(self.warnings)
+        d["errors"] = [dict(item) for item in self.errors]
+        d["reason_chain"] = list(self.reason_chain)
         d["artifact_paths"] = list(self.artifact_paths)
         return d
+
+
+def build_action_result(fields: ActionResultFields) -> ActionResult:
+    warnings = tuple(fields.warnings)
+    errors = tuple(dict(item) for item in fields.errors)
+    reason_chain = tuple(fields.reason_chain)
+    artifact_paths = tuple(fields.artifact_paths)
+    return ActionResult(
+        schema_version=ACTION_RESULT_SCHEMA_VERSION,
+        contract_id=ACTION_RESULT_CONTRACT_ID,
+        action_id=fields.action_id,
+        ok=fields.ok,
+        status=fields.status,
+        reason=fields.reason,
+        retryable=fields.retryable,
+        partial_progress=fields.partial_progress,
+        operator_guidance=fields.operator_guidance,
+        warnings=warnings,
+        errors=errors,
+        reason_chain=reason_chain,
+        remediation=fields.remediation,
+        auto_executable=fields.auto_executable,
+        findings_count=fields.findings_count,
+        artifact_paths=artifact_paths,
+    )
 
 
 def action_result_from_mapping(payload: Mapping[str, object]) -> ActionResult:
@@ -134,9 +185,24 @@ def action_result_from_mapping(payload: Mapping[str, object]) -> ActionResult:
         partial_progress=coerce_bool(payload.get("partial_progress")),
         operator_guidance=coerce_string(payload.get("operator_guidance")),
         warnings=coerce_string_items(payload.get("warnings")),
+        errors=_coerce_error_items(payload.get("errors")),
+        reason_chain=coerce_string_items(payload.get("reason_chain")),
+        remediation=coerce_string(payload.get("remediation")),
+        auto_executable=coerce_bool(payload.get("auto_executable")),
         findings_count=coerce_int(payload.get("findings_count")),
         artifact_paths=coerce_string_items(payload.get("artifact_paths")),
     )
+
+
+def _coerce_error_items(value: object) -> tuple[dict[str, object], ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    errors: list[dict[str, object]] = []
+    for item in value:
+        mapping = dict(coerce_mapping(item))
+        if mapping:
+            errors.append(mapping)
+    return tuple(errors)
 
 
 def typed_action_from_mapping(payload: Mapping[str, object]) -> TypedAction:

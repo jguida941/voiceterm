@@ -108,6 +108,26 @@ RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Human-readable next-step guidance on failure.",
             ),
             ContractField("warnings", "list[str]", "Non-fatal advisory messages."),
+            ContractField(
+                "errors",
+                "list[dict[str, object]]",
+                "Structured failure details with reason/remediation evidence.",
+            ),
+            ContractField(
+                "reason_chain",
+                "list[str]",
+                "Ordered machine-readable reason path for blockers.",
+            ),
+            ContractField(
+                "remediation",
+                "str",
+                "Machine-readable remediation or next bounded action.",
+            ),
+            ContractField(
+                "auto_executable",
+                "bool",
+                "Whether the remediation can be run by automation without a new operator decision.",
+            ),
             ContractField("findings_count", "int", "Findings emitted during the action."),
             ContractField(
                 "artifact_paths",

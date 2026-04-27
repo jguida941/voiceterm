@@ -36,6 +36,7 @@ class ReviewPacketRow(TypedDict):
     pipeline_generation: object
     staged_snapshot_hash: object
     guard_results_summary: object
+    full_guard_bundle_evidence: object
     status: object
     acked_by: object
     acked_at_utc: object

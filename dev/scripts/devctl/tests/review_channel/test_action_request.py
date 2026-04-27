@@ -363,6 +363,7 @@ class TestActionRequestsFromPackets:
                 "target_kind": "runtime",
                 "target_ref": "devctl_commit:abc123",
                 "target_revision": "abc123def456",
+                "full_guard_bundle_evidence": "--profile ci",
             },
         ]
         result = action_requests_from_packets(packets)

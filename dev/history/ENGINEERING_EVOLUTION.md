@@ -37,6 +37,59 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-27 - Governed commit now self-resolves host cleanup age-out and transient index locks
+
+Fact: the live `rev_pkt_2053` publication attempt exposed two places where the
+commit pipeline still behaved like a manual checklist. A quick guard run could
+fail only because `host-process-cleanup-post` saw recently detached repo
+processes that were already aging out, and ReviewSnapshot staging could lose a
+race with another transient `.git/index.lock` writer.
+
+Change: commit guard replay now recognizes the existing host-cleanup age-out
+warning, runs one bounded `process-watch --cleanup --strict --stop-on-clean`
+retry, then replays the same quick guard bundle once. Shared `run_git_capture`
+also retries transient `index.lock` "File exists" / "Another git process"
+failures for index-writing git commands while preserving the existing
+`Operation not permitted` sandbox handoff path. `ActionResult` now carries
+structured `errors`, `reason_chain`, `remediation`, and `auto_executable`
+fields, and governed stage/commit reports project those fields so AI and
+dashboard readers can see why a blocker happened and whether the remediation
+was already automation-safe.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/commit_guard_bundle.py`
+- `dev/scripts/devctl/runtime/vcs.py`
+- `dev/scripts/devctl/runtime/action_contracts.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_phases.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py`
+- `dev/scripts/devctl/tests/vcs/test_commit_guard_bundle.py`
+- `dev/scripts/devctl/tests/runtime/test_vcs.py`
+- `dev/scripts/devctl/tests/runtime/test_action_contracts.py`
+
+### 2026-04-27 - Governed push now refreshes stale reviewer heartbeat before preflight
+
+Fact: the Plan 4.1 remote-control publication lane still had a
+compatibility-only manual step after the typed `next=` recovery loop landed.
+`check_review_channel_bridge.py` could block `devctl push --execute` because
+`Last Codex poll` was older than the five-minute active dual-agent freshness
+threshold, even though the repair was a bounded repo-owned reviewer heartbeat
+action.
+
+Change: governed push pre-validation now reads the existing bridge liveness
+projection before ReviewSnapshot refresh. When `reviewer_mode=active_dual_agent`
+and `last_codex_poll_age_seconds` exceeds the shared stale-poll threshold, it
+runs one headless `review-channel --action reviewer-heartbeat --reason
+auto-refresh-during-publication`, records the result under the managed
+projection sync payload, and continues through the existing ReviewSnapshot,
+receipt, startup/context-graph, recovery-loop, and router cascade. Inactive
+reviewer modes and fresh heartbeats stay no-op, so the slice extends the
+existing publication path instead of adding a parallel recovery system.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/push_projection_runtime_refresh.py`
+- `dev/scripts/devctl/commands/vcs/push_preflight_projection.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
 ### 2026-04-27 - Governed push now auto-runs bounded startup next recovery
 
 Fact: the live `rev_pkt_2019` push attempt proved an automation gap in the

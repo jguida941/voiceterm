@@ -47,6 +47,7 @@ class ActionKind(str, Enum):
 
 VALID_ACTION_KINDS = frozenset(member.value for member in ActionKind)
 PIPELINE_ACTION_KINDS = frozenset({ActionKind.COMMIT.value, ActionKind.PUSH.value})
+STAGE_PIPELINE_ACTION_KINDS = frozenset({ActionKind.STAGE_COMMIT_PIPELINE.value})
 
 
 class ActionStatus(str, Enum):
@@ -201,6 +202,8 @@ def _has_runtime_binding(
                 "guard_results_summary",
             )
         )
+    if requested_action in STAGE_PIPELINE_ACTION_KINDS:
+        return bool(str(packet.get("full_guard_bundle_evidence") or "").strip())
     return True
 
 

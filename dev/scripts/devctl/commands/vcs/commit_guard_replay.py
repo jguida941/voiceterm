@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ...runtime.action_contracts import ActionOutcome
-from .commit_guard_bundle import guard_result, run_guard_bundle
+from .commit_guard_bundle import run_guard_bundle_with_result
 from .governed_executor import GovernedVcsExecutor
 from .governed_executor_actions import APPROVAL_PACKET_KIND
 from .governed_executor_sync import sync_pipeline_approval
@@ -46,12 +46,12 @@ def replay_pipeline_guards(
     pipeline,
 ):
     """Replay the routed guard bundle for one reusable governed pipeline."""
-    guard_rc = run_guard_bundle(
+    guard_rc, action_result = run_guard_bundle_with_result(
         repo_root=repo_root,
         runner=guard_runner,
         pipeline=pipeline,
     )
-    pipeline = vcs_executor.record_guard_result(guard_result(guard_rc))
+    pipeline = vcs_executor.record_guard_result(action_result)
     if guard_rc == 0:
         pipeline = sync_pipeline_approval_state(vcs_executor, pipeline)
     return guard_rc, pipeline

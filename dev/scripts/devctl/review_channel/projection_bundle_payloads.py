@@ -72,6 +72,7 @@ def _action_row(packet: dict[str, object]) -> dict[str, object]:
     row["pipeline_generation"] = packet.get("pipeline_generation")
     row["staged_snapshot_hash"] = packet.get("staged_snapshot_hash")
     row["guard_results_summary"] = packet.get("guard_results_summary")
+    row["full_guard_bundle_evidence"] = packet.get("full_guard_bundle_evidence")
     row["context_pack_refs"] = normalize_context_pack_refs(
         packet.get("context_pack_refs")
     )

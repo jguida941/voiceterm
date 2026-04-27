@@ -4,10 +4,24 @@ from __future__ import annotations
 
 import os
 import subprocess
+import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from ..config import REPO_ROOT
+
+INDEX_LOCK_RETRY_DELAYS = (0.1, 0.2, 0.4, 0.8)
+_INDEX_WRITING_GIT_COMMANDS = {
+    "add",
+    "checkout",
+    "commit",
+    "mv",
+    "reset",
+    "restore",
+    "rm",
+    "stash",
+    "write-tree",
+}
 
 def git_command_env(
     repo_root: Path,
@@ -31,6 +45,28 @@ def run_git_capture(
     extra_env: Mapping[str, str] | None = None,
 ) -> tuple[int, str, str]:
     """Run a git command and return ``(returncode, stdout, stderr)``."""
+    attempts = 1 + (len(INDEX_LOCK_RETRY_DELAYS) if _uses_git_index(args) else 0)
+    last_result: tuple[int, str, str] = (127, "", "git command did not run")
+    for attempt in range(attempts):
+        last_result = _run_git_capture_once(
+            args,
+            repo_root=repo_root,
+            extra_env=extra_env,
+        )
+        code, _stdout, stderr = last_result
+        if code == 0 or not git_index_lock_busy(stderr):
+            return last_result
+        if attempt < len(INDEX_LOCK_RETRY_DELAYS):
+            time.sleep(INDEX_LOCK_RETRY_DELAYS[attempt])
+    return last_result
+
+
+def _run_git_capture_once(
+    args: Sequence[str],
+    *,
+    repo_root: Path = REPO_ROOT,
+    extra_env: Mapping[str, str] | None = None,
+) -> tuple[int, str, str]:
     try:
         completed = subprocess.run(
             ["git", *args],
@@ -47,6 +83,37 @@ def run_git_capture(
         (completed.stdout or "").strip(),
         (completed.stderr or "").strip(),
     )
+
+
+def _uses_git_index(args: Sequence[str]) -> bool:
+    command = next((str(part).strip() for part in args if str(part).strip()), "")
+    return command in _INDEX_WRITING_GIT_COMMANDS
+
+
+def git_index_write_blocked(stderr: str) -> bool:
+    text = str(stderr or "")
+    return "index.lock" in text and "Operation not permitted" in text
+
+
+def git_index_lock_busy(stderr: str) -> bool:
+    text = str(stderr or "")
+    if "index.lock" not in text:
+        return False
+    if git_index_write_blocked(text):
+        return False
+    return (
+        "File exists" in text
+        or "Another git process" in text
+        or "Unable to create" in text
+    )
+
+
+def classify_git_index_error(stderr: str, *, default: str) -> str:
+    if git_index_write_blocked(stderr):
+        return "git_index_write_blocked"
+    if git_index_lock_busy(stderr):
+        return "git_index_lock_busy"
+    return default
 
 
 def remote_exists(remote: str, *, repo_root: Path = REPO_ROOT) -> bool:

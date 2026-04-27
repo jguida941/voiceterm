@@ -11,6 +11,7 @@ from ...runtime.review_snapshot_refresh import refresh_review_snapshot_file
 from ...runtime.vcs import run_git_capture
 from .push_preflight_commit import auto_commit_preflight_generated_changes
 from .push_projection_runtime_refresh import (
+    refresh_stale_reviewer_heartbeat_before_publication,
     refresh_runtime_surfaces_after_projection_receipt,
 )
 from .push_projection_receipt import auto_commit_managed_projection_receipt
@@ -47,6 +48,20 @@ def refresh_managed_projections_before_preflight(
         result["ok"] = False
         _record_phase_state(state, PRE_VALIDATION_MANAGED_PROJECTION_SYNC, result)
         return result
+    result = _base_pre_validation_result(render_result=render_result)
+    heartbeat_result = refresh_stale_reviewer_heartbeat_before_publication(
+        state,
+        command_runner=runner,
+        repo_root=repo_root,
+        next_step_label="push preflight",
+    )
+    if heartbeat_result.get("status") != "skipped":
+        result["reviewer_heartbeat_refresh"] = heartbeat_result
+    if getattr(state, "errors", ()):
+        result["status"] = "blocked"
+        result["ok"] = False
+        _record_phase_state(state, PRE_VALIDATION_MANAGED_PROJECTION_SYNC, result)
+        return result
     warnings = refresh_review_snapshot_file(repo_root=repo_root)
     state.warnings.extend(warning for warning in warnings if warning)
     receipt_result = auto_commit_managed_projection_receipt(
@@ -56,7 +71,6 @@ def refresh_managed_projections_before_preflight(
     )
     if not isinstance(receipt_result, dict):
         receipt_result = {}
-    result = _base_pre_validation_result(render_result=render_result)
     result["status"] = (
         "completed" if bool(receipt_result.get("ok", True)) else "failed"
     )
@@ -297,5 +311,6 @@ __all__ = [
     "refresh_managed_projections_before_preflight",
     "refresh_policy_owned_render_surfaces_before_preflight",
     "refresh_preflight_generated_changes_before_authorization",
+    "refresh_stale_reviewer_heartbeat_before_publication",
     "refresh_runtime_surfaces_after_projection_receipt",
 ]

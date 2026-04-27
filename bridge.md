@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-27T19:11:44Z`
-- Last Codex poll (Local America/New_York): `2026-04-27 15:11:44 EDT`
+- Last Codex poll: `2026-04-27T22:57:21Z`
+- Last Codex poll (Local America/New_York): `2026-04-27 18:57:21 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `31fe60bdfe29ff4301c0f2df8ad46bfe0af46255498943395d7f4a48728bd471`
-- Current instruction revision: ``
+- Last non-audit worktree hash: `6d56c1757786cb3a4303a128fd5cd4a6dbcd608ddda5e6a533c047612165b126`
+- Current instruction revision: `8a50b64e9f35`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: heartbeat-refresh-for-publication; reviewed-tree: 31fe60bdfe29).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: codex30-check-router-facade-fix; reviewed-tree: d9c50c40453f).
 
 ## Current Verdict
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s); 488 expired unresolved review packet(s)
+1 pending review packet(s); 497 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -134,11 +134,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+Priority action_request: Codex 30 Path I stage_commit_pipeline: full CI evidence attached
 
 ## Last Reviewed Scope
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- No pending action requests.
+- [rev_pkt_2063] stage_commit_pipeline: target=runtime:devctl_commit:120c12498b50797d05df6d000978c6f65f96f907@120c12498b50797d05df6d000978c6f65f96f907; Codex 30 Path I stage_commit_pipeline: full CI evidence attached (status: pending)

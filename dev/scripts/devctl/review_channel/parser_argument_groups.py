@@ -132,6 +132,15 @@ def build_packet_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             "--guard-results-summary",
             help="Typed guard summary carried on a runtime approval packet",
         ),
+        arg_builder(
+            "--full-guard-bundle-evidence",
+            help=(
+                "Typed guard-bundle evidence label required for "
+                "`stage_commit_pipeline` action_request packets. Use one of "
+                "`bundle.runtime`, `bundle.tooling`, `bundle.docs`, "
+                "`bundle.release`, or `--profile ci`."
+            ),
+        ),
     ]
 
 

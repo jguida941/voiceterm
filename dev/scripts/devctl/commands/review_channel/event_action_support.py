@@ -8,6 +8,7 @@ from pathlib import Path
 from ...review_channel.context_refs import resolve_context_pack_refs
 from ...review_channel.events import post_packet, transition_packet
 from ...review_channel.packet_contract import (
+    PacketGuardBundleEvidenceFields,
     PacketPostRequest,
     PacketRuntimeApprovalFields,
     PacketTargetFields,
@@ -76,6 +77,13 @@ def run_post_action(
                 pipeline_generation=getattr(context.args, "pipeline_generation", None),
                 staged_snapshot_hash=getattr(context.args, "staged_snapshot_hash", None),
                 guard_results_summary=getattr(context.args, "guard_results_summary", None),
+            ),
+            guard_bundle_evidence=PacketGuardBundleEvidenceFields.from_values(
+                full_guard_bundle_evidence=getattr(
+                    context.args,
+                    "full_guard_bundle_evidence",
+                    None,
+                ),
             ),
         ),
     )

@@ -12,6 +12,11 @@ from .event_store import (
     DEFAULT_REVIEW_CHANNEL_SESSION_ID,
 )
 from .packet_agents import default_packet_agent_ids
+from .pending_packet_models import (
+    PacketGuardBundleEvidenceFields,
+    PacketRuntimeApprovalFields,
+    validate_full_guard_bundle_evidence,
+)
 
 VALID_AGENT_IDS = frozenset(default_packet_agent_ids())
 COMMIT_APPROVAL_PACKET_KIND = "commit_approval"
@@ -126,45 +131,6 @@ class PacketTargetFields:
 
 
 @dataclass(frozen=True, slots=True)
-class PacketRuntimeApprovalFields:
-    """Typed metadata carried by runtime commit-approval packets."""
-
-    pipeline_generation: str = ""
-    staged_snapshot_hash: str = ""
-    guard_results_summary: str = ""
-
-    @classmethod
-    def from_values(
-        cls,
-        *,
-        pipeline_generation: object = None,
-        staged_snapshot_hash: object = None,
-        guard_results_summary: object = None,
-    ) -> "PacketRuntimeApprovalFields":
-        return cls(
-            pipeline_generation=_clean_optional_text(pipeline_generation) or "",
-            staged_snapshot_hash=_clean_optional_text(staged_snapshot_hash) or "",
-            guard_results_summary=_clean_optional_text(guard_results_summary) or "",
-        )
-
-    def to_event_fields(self) -> dict[str, object]:
-        fields: dict[str, object] = {}
-        fields["pipeline_generation"] = self.pipeline_generation or None
-        fields["staged_snapshot_hash"] = self.staged_snapshot_hash or None
-        fields["guard_results_summary"] = self.guard_results_summary or None
-        return fields
-
-    def has_values(self) -> bool:
-        return any(
-            (
-                self.pipeline_generation,
-                self.staged_snapshot_hash,
-                self.guard_results_summary,
-            )
-        )
-
-
-@dataclass(frozen=True, slots=True)
 class PacketPostRequest:
     """Validated review-packet post request."""
 
@@ -189,6 +155,9 @@ class PacketPostRequest:
     target: PacketTargetFields = field(default_factory=PacketTargetFields)
     runtime_approval: PacketRuntimeApprovalFields = field(
         default_factory=PacketRuntimeApprovalFields
+    )
+    guard_bundle_evidence: PacketGuardBundleEvidenceFields = field(
+        default_factory=PacketGuardBundleEvidenceFields
     )
 
 
@@ -236,6 +205,7 @@ def validate_post_request(
         requested_action=request.requested_action,
         target=request.target,
         runtime_approval=request.runtime_approval,
+        guard_bundle_evidence=request.guard_bundle_evidence,
     )
 
 
@@ -245,6 +215,7 @@ def _validate_target_fields(
     requested_action: str,
     target: PacketTargetFields,
     runtime_approval: PacketRuntimeApprovalFields,
+    guard_bundle_evidence: PacketGuardBundleEvidenceFields,
 ) -> None:
     if target.target_kind and target.target_kind not in VALID_TARGET_KINDS:
         raise ValueError(
@@ -256,9 +227,9 @@ def _validate_target_fields(
 
     if planning_kind:
         _validate_plan_target_fields(kind=kind, target=target)
-        if runtime_approval.has_values():
+        if runtime_approval.has_values() or guard_bundle_evidence.has_values():
             raise ValueError(
-                "Runtime approval fields are only allowed on runtime approval packet kinds."
+                "Runtime guard fields are only allowed on runtime packet kinds."
             )
         return
 
@@ -266,6 +237,7 @@ def _validate_target_fields(
         _validate_runtime_approval_target_fields(
             target=target,
             runtime_approval=runtime_approval,
+            guard_bundle_evidence=guard_bundle_evidence,
         )
         return
 
@@ -274,10 +246,15 @@ def _validate_target_fields(
             requested_action=requested_action,
             target=target,
             runtime_approval=runtime_approval,
+            guard_bundle_evidence=guard_bundle_evidence,
         )
         return
 
-    if target.has_values() or runtime_approval.has_values():
+    if (
+        target.has_values()
+        or runtime_approval.has_values()
+        or guard_bundle_evidence.has_values()
+    ):
         raise ValueError(
             "Target fields are only allowed on plan review packets or `commit_approval` packets."
         )
@@ -322,6 +299,7 @@ def _validate_runtime_approval_target_fields(
     *,
     target: PacketTargetFields,
     runtime_approval: PacketRuntimeApprovalFields,
+    guard_bundle_evidence: PacketGuardBundleEvidenceFields,
 ) -> None:
     if target.target_kind != "runtime":
         raise ValueError("Commit approval packets must set --target-kind runtime.")
@@ -343,6 +321,8 @@ def _validate_runtime_approval_target_fields(
         raise ValueError("Commit approval packets require --staged-snapshot-hash.")
     if not runtime_approval.guard_results_summary:
         raise ValueError("Commit approval packets require --guard-results-summary.")
+    if guard_bundle_evidence.has_values():
+        validate_full_guard_bundle_evidence(guard_bundle_evidence)
 
 
 def _validate_action_request_target_fields(
@@ -350,10 +330,15 @@ def _validate_action_request_target_fields(
     requested_action: str,
     target: PacketTargetFields,
     runtime_approval: PacketRuntimeApprovalFields,
+    guard_bundle_evidence: PacketGuardBundleEvidenceFields,
 ) -> None:
     action = (requested_action or "").strip()
     if action not in RUNTIME_ACTION_REQUEST_ACTIONS:
-        if target.has_values() or runtime_approval.has_values():
+        if (
+            target.has_values()
+            or runtime_approval.has_values()
+            or guard_bundle_evidence.has_values()
+        ):
             raise ValueError(
                 "Target fields on `action_request` packets are only allowed "
                 "for runtime actions: "
@@ -386,6 +371,10 @@ def _validate_action_request_target_fields(
                 "Stage-commit action_request packets do not carry runtime "
                 "approval fields until a commit pipeline exists."
             )
+        validate_full_guard_bundle_evidence(
+            guard_bundle_evidence,
+            required=True,
+        )
         return
 
     if action in PIPELINE_ACTION_REQUEST_ACTIONS:
@@ -406,12 +395,15 @@ def _validate_action_request_target_fields(
             raise ValueError(
                 "Commit/push action_request packets require --guard-results-summary."
             )
+        if guard_bundle_evidence.has_values():
+            validate_full_guard_bundle_evidence(guard_bundle_evidence)
         return
 
-    if runtime_approval.has_values():
+    if runtime_approval.has_values() or guard_bundle_evidence.has_values():
         raise ValueError(
-            "Runtime approval fields are only allowed on commit/push "
-            "action_request packets or `commit_approval` packets."
+            "Runtime guard fields are only allowed on commit/push "
+            "action_request packets, stage-commit action_request packets, or "
+            "`commit_approval` packets."
         )
 
 
