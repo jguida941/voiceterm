@@ -2489,7 +2489,15 @@ class PushBridgeSyncTests(unittest.TestCase):
                 "name": name,
                 "cmd": [],
                 "cwd": ".",
-                "returncode": 1 if name == "push-refresh-startup-context" else 0,
+                "returncode": (
+                    1
+                    if name
+                    in {
+                        "push-refresh-startup-context",
+                        "push-refresh-startup-context-retry",
+                    }
+                    else 0
+                ),
                 "duration_s": 0.1,
                 "skipped": False,
             }
@@ -2513,13 +2521,94 @@ class PushBridgeSyncTests(unittest.TestCase):
                 command_runner=_runner,
             )
 
-        self.assertEqual(calls, ["push-refresh-startup-context"])
+        self.assertEqual(
+            calls,
+            [
+                "push-refresh-startup-context",
+                "push-refresh-review-channel-ensure-follow",
+                "push-refresh-startup-context-retry",
+            ],
+        )
         self.assertEqual(
             state.errors,
             [
                 "Managed projection receipt moved HEAD, but startup-context "
                 "refresh failed before push preflight."
             ],
+        )
+
+    def test_refresh_managed_projections_recovers_plain_startup_refresh_failure_once(
+        self,
+    ) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+        calls: list[tuple[str, list[str]]] = []
+
+        def _runner(name, cmd, cwd=None, env=None):
+            del cwd, env
+            calls.append((name, list(cmd)))
+            result = {
+                "name": name,
+                "cmd": list(cmd),
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+            if name == "push-refresh-startup-context":
+                result["returncode"] = 1
+                result["failure_output"] = "startup-context refresh failed"
+            return result
+
+        with (
+            patch.object(
+                push_preflight_projection,
+                "refresh_review_snapshot_file",
+                return_value=[],
+            ),
+            patch.object(
+                push_preflight_projection,
+                "auto_commit_managed_projection_receipt",
+                return_value={"ok": True, "committed": True, "paths": ("bridge.md",)},
+            ),
+            patch.object(
+                push_preflight_projection,
+                "auto_commit_review_snapshot_freshness_receipt",
+                return_value={"committed": False},
+            ),
+        ):
+            result = (
+                push_preflight_projection.refresh_managed_projections_before_preflight(
+                    state,
+                    policy,
+                    repo_root=Path("/tmp/repo"),
+                    command_runner=_runner,
+                )
+            )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(state.errors, [])
+        self.assertEqual(
+            [name for name, _cmd in calls],
+            [
+                "push-refresh-startup-context",
+                "push-refresh-review-channel-ensure-follow",
+                "push-refresh-startup-context-retry",
+                "push-refresh-context-graph",
+            ],
+        )
+        self.assertIn("review-channel", calls[1][1])
+        self.assertIn("ensure", calls[1][1])
+        self.assertIn("--follow", calls[1][1])
+        self.assertIn("none", calls[1][1])
+        self.assertIn(
+            "Startup-context refresh failed after managed projection receipt; ran "
+            "review-channel ensure --follow and retried once before push preflight.",
+            state.warnings,
+        )
+        self.assertEqual(
+            state.pre_validation_recovery_loop_repair["status"],
+            "not_needed",
         )
 
     def test_sync_managed_projection_recovers_dead_reviewer_worker(
