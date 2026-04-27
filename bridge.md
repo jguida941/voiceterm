@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-27T17:04:54Z`
-- Last Codex poll (Local America/New_York): `2026-04-27 13:04:54 EDT`
+- Last Codex poll: `2026-04-27T18:28:06Z`
+- Last Codex poll (Local America/New_York): `2026-04-27 14:28:06 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `e00fee14b45c0e4ff2c1220f3c7d25a60a4011b25c8e3bde5153a47153508f62`
-- Current instruction revision: `7a886544ed1c`
+- Last non-audit worktree hash: `40d12870e5ed382a79e26c2cc660365dbce37be08852dcfa6c32a4f38ef26a22`
+- Current instruction revision: `3a5d0fc5ab66`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: codex-regression-slice-validation; reviewed-tree: b9eb7c37d69e).
+- Reviewer state rebuilt from typed review-state projection at 2026-04-27T17:36:51.890881Z.
 
 ## Current Verdict
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-3 pending review packet(s); 481 expired unresolved review packet(s)
+7 pending review packet(s); 484 expired unresolved review packet(s)
 
 ## Claude Status
 
-waiting_for_ack
+- Status unavailable.
 
 ## Claude Questions
 
@@ -138,12 +138,14 @@ pending
 
 ## Current Instruction For Claude
 
-Priority action_request: Stage governed publication pipeline for branch-identity invariant repair
+Priority action_request: Final stage_commit_pipeline for rev_pkt_2035 Plan 4.1 bundle
 
 ## Last Reviewed Scope
 
-- (missing)
+MP-355
 
 ## Action Requests
 
-- [rev_pkt_2033] stage_commit_pipeline: target=runtime:devctl_commit:dc4863ead71e@dc4863ead71ef2800571241baf11f693392d160b; Stage governed publication pipeline for branch-identity invariant repair (status: pending)
+- [rev_pkt_2044] stage_commit_pipeline: target=runtime:devctl_commit:dc4863ead71ef2800571241baf11f693392d160b@dc4863ead71ef2800571241baf11f693392d160b; Supersedes rev_pkt_2039: stage push_findings noqa rationale tweak (status: pending)
+- [rev_pkt_2043] stage_commit_pipeline: target=runtime:devctl_commit:dc4863ead71ef2800571241baf11f693392d160b@dc4863ead71ef2800571241baf11f693392d160b; Supersedes rev_pkt_2039: stage push_findings split for publication (status: pending)
+- [rev_pkt_2039] stage_commit_pipeline: target=runtime:devctl_commit:dc4863ead71ef2800571241baf11f693392d160b@dc4863ead71ef2800571241baf11f693392d160b; Final stage_commit_pipeline for rev_pkt_2035 Plan 4.1 bundle (status: pending)
