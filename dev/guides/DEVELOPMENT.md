@@ -1097,7 +1097,10 @@ Three quality layers matter in practice:
   wired together.
   Keep `startup_surface_tokens` current on every implemented platform
   contract row so startup/bootstrap surfaces project the same inventory the
-  closure guard validates. As of 2026-04-06 the field-route proof helper is
+  closure guard validates. As of 2026-04-27, the finding spine rows include
+  `FindingReview`, `FindingBacklog`, and `PlatformFindingIngest`; do not let
+  those executable contracts exist only as local dataclasses outside the
+  platform blueprint. As of 2026-04-06 the field-route proof helper is
   AST-backed and ignores module/class/function docstrings, so new route
   tokens must be identifiers, attribute names, dotted chains, or explicit
   string-literal keys that the consumer genuinely executes, and a docstring
@@ -2089,12 +2092,13 @@ Structured audit/event ledgers are separate from that handoff surface:
   `python3 dev/scripts/devctl.py governance-review --record --signal-type dogfood`
   remains the manual fallback for later closeout or reclassification.
   `PlatformFindingIngest` is the shared write seam underneath the linked
-  dogfood/governance closeout. The dispatcher also has an opt-in,
-  fail-open Slice A finalization hook:
-  `DEVCTL_PLATFORM_FINDING_INGEST_AUTO_RECORD=1` records failed non-read-only
-  devctl commands as `signal_type=dogfood` findings after audit emission.
-  It skips read-only commands, dogfood/governance recursion, and artifact-only
-  refreshes, and `DEVCTL_PLATFORM_FINDING_INGEST_DISABLE=1` disables it.
+  dogfood/governance closeout. The dispatcher now runs the fail-open Slice A
+  finalization hook by default in report-only mode: failed non-read-only devctl
+  commands append a `DogfoodRun` row and a stable `signal_type=dogfood`
+  FindingBacklog/governance-review row after audit emission. It skips read-only
+  commands, dogfood/governance recursion, and artifact-only refreshes; use
+  `DEVCTL_PLATFORM_FINDING_INGEST_AUTO_RECORD=0` for the compatibility opt-out
+  or `DEVCTL_PLATFORM_FINDING_INGEST_DISABLE=1` as the kill switch.
   Dogfood is the development proof ledger, not the runtime role switch:
   review-channel/startup/session-resume should derive who mutates, who
   verifies, and who owns the watcher/dashboard lane from typed

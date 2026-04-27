@@ -3324,6 +3324,10 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `in_progress`
       depends_on: `MP377-P0-T01`, `MP377-P0-T06`
+      progress: 2026-04-27 Slice A promoted failed-command dogfood auto-ingest
+      to default report-only recording through the existing dogfood ledger plus
+      governance-review/FindingBacklog seam. Remaining T08 scope is packet
+      finding/ad-hoc capture lifecycle metadata and non-distraction ordering.
 - [ ] `MP377-P0-T09` Add `CodexAgentPollLoop` as the consumer loop for Codex-targeted packets: poll `review-channel inbox --target codex --status pending` on cadence, handle findings at slice-boundary/non-critical cadence, route action_requests through typed preconditions, emit dogfood rows per tick, and write superseded outcomes for satisfied asks through the Slice B reducer.
       owner_doc: `dev/active/remote_control_runtime.md`
       status: `queued`
@@ -5653,14 +5657,29 @@ working on `MP-377`.
   that distinguishes review-gated publication, git push failure, remote
   publication with post-push pending, and fully green push. Slice A now has
   `PlatformFindingIngest` as the canonical dogfood -> governance-review ->
-  `FindingBacklog` write seam, and dispatcher auto-ingest is opt-in/fail-open
-  behind `DEVCTL_PLATFORM_FINDING_INGEST_AUTO_RECORD=1` until report-only
-  evidence justifies default recording. Continue with default-on dogfood
-  evidence, per-guard finding emission, packet-lifecycle reconciliation, and
-  the Slice 0 runtime-agreement diagnostic tracked in ADR-010 through ADR-013.
+  `FindingBacklog` write seam, and dispatcher auto-ingest initially landed as
+  an opt-in/fail-open hook. Continue with per-guard finding emission,
+  packet-lifecycle reconciliation, and the Slice 0 runtime-agreement
+  diagnostic tracked in ADR-011 through ADR-013.
   Remote-control recovery also now fails closed before local Terminal.app UI
   can appear, keeping Claude/operator remote-control lanes on typed headless
   commands rather than invisible local prompts.
+- 2026-04-27 Plan 4.1 Slice A report-only dogfood automation:
+  `PlatformFindingIngest` failed-command auto-ingest now runs by default in
+  fail-open report-only mode. Failed non-read-only devctl commands append both
+  the `DogfoodRun` ledger row and a stable `signal_type=dogfood`
+  governance-review/FindingBacklog row after audit emission, refresh summaries,
+  and leave the original command return code unchanged if ingest itself fails.
+  Duplicate failures dedupe at the FindingBacklog/latest-row layer while
+  retaining per-run dogfood evidence. Read-only, recursive dogfood/governance,
+  and artifact-only commands remain excluded; `DEVCTL_PLATFORM_FINDING_INGEST_AUTO_RECORD=0`
+  and `DEVCTL_PLATFORM_FINDING_INGEST_DISABLE=1` are the opt-out/kill-switch
+  controls. Next T08 work stays bounded to review-channel/ad-hoc finding
+  lifecycle fields and slice-boundary ordering, not a parallel finding system.
+  The closeout also registers `FindingReview`, `FindingBacklog`, and
+  `PlatformFindingIngest` in the platform contract blueprint while ADR-019
+  keeps `check_contract_connectivity.py` enforcement promotion deferred to
+  Slice C baseline retirement.
 - 2026-04-26 Plan 4.1 Slice 0 governed-push closeout:
   the live push blocker is now narrowed to fresh approval rather than
   self-invalidating state. Managed bridge/ReviewSnapshot receipt chains are
@@ -7845,6 +7864,19 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-27: Promoted Plan 4.1 Slice A failed-command dogfood ingest from
+  opt-in to default report-only recording. The dispatcher now records failed
+  non-read-only devctl commands through the existing `PlatformFindingIngest`
+  seam into both `dev/reports/dogfood/runs.jsonl` and the stable
+  governance-review/FindingBacklog row, refreshes both summaries, and emits
+  only a warning if that report-only path cannot complete. Regression coverage
+  proves opt-out controls, read-only exclusion, duplicate-failure backlog
+  dedupe, dogfood run retention, and startup `quality_signals` visibility.
+  ADR-010 is closed; ADR-011 remains open for warning-only guard failure
+  routing through the same seam. `FindingReview`, `FindingBacklog`, and
+  `PlatformFindingIngest` are now registered platform contracts; ADR-019 tracks
+  the remaining Slice C promotion from advisory connectivity findings to
+  baseline-retired enforcement.
 - 2026-04-26: Began the Connected AI Platform Plan 4.1 runtime-agreement
   campaign with the bounded Slice 0/A pieces that can land safely now.
   Commit/push reports gained machine-readable diagnostic fields so operators
@@ -7856,8 +7888,8 @@ Execution order for this section:
   audit emission. The same campaign closed the attention-revision self-stale
   loop exposed by typed dogfood finding packets: governed stage/commit
   preflight now refreshes the existing startup receipt before failing on
-  `attention_revision_stale`. Automation Debt Register rows ADR-010 through
-  ADR-013 hold the remaining default-on, per-guard, packet-classifier, and
+  `attention_revision_stale`. Automation Debt Register rows ADR-011 through
+  ADR-013 hold the remaining per-guard, packet-classifier, and
   runtime-agreement automation before any enforcement.
 - 2026-04-23: Partially closed ADR-005 in the MP-377 runtime-authority lane.
   `dev/scripts/devctl/runtime/advisory_next_action_role_filter.py` is now the

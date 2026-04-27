@@ -189,6 +189,31 @@ Evidence:
 - `dev/scripts/devctl/tests/runtime/test_push_authorization.py`
 - `dev/scripts/devctl/tests/vcs/test_push.py`
 
+### 2026-04-27 - PlatformFindingIngest auto-recording becomes default report-only
+
+Fact: Plan 4.1 Slice A needed dogfood failures to enter the existing finding
+spine without depending on manual `dogfood --record --record-governance`
+replay or waking Codex mid-slice for non-critical findings.
+
+Change: failed non-read-only devctl commands now run the
+`PlatformFindingIngest` finalization hook by default after audit emission. The
+hook stays fail-open/report-only, appends the `DogfoodRun` row, records the
+stable `signal_type=dogfood` governance-review/FindingBacklog row, refreshes
+both summaries, and keeps the original command return code unchanged if ingest
+fails. Read-only, recursive dogfood/governance, and artifact-only commands
+remain excluded; `DEVCTL_PLATFORM_FINDING_INGEST_AUTO_RECORD=0` is the
+compatibility opt-out and `DEVCTL_PLATFORM_FINDING_INGEST_DISABLE=1` remains
+the kill switch. The same closeout registers `FindingReview`,
+`FindingBacklog`, and `PlatformFindingIngest` in the platform contract
+blueprint; ADR-019 records that stranded-consumer enforcement remains Slice C
+debt until the baseline can be retired.
+
+Evidence:
+- `dev/scripts/devctl/platform/runtime_state_contract_rows.py`
+- `dev/scripts/devctl/runtime/platform_finding_ingest.py`
+- `dev/scripts/devctl/runtime/dogfood_render.py`
+- `dev/scripts/devctl/tests/runtime/test_platform_finding_ingest.py`
+
 ### 2026-04-26 - Plan 4.1 starts with report diagnostics and finding ingest
 
 Fact: the connected AI platform campaign needed runtime surfaces to agree

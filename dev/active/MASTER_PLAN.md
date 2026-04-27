@@ -193,11 +193,10 @@
   remote publication, and post-push state. `PlatformFindingIngest` is the
   shared FindingBacklog/governance-review seam for dogfood findings,
   `devctl dogfood --record-governance` routes through it, and the dispatcher
-  has an opt-in fail-open finalization hook
-  (`DEVCTL_PLATFORM_FINDING_INGEST_AUTO_RECORD=1`) that auto-records failed
-  non-read-only devctl commands after audit emission while excluding read-only,
-  dogfood/governance-recursive, and artifact-only commands. ADR-010 through
-  ADR-013 track the remaining default-on/per-guard/post-commit/runtime-agreement
+  initially gained an opt-in fail-open finalization hook for failed
+  non-read-only devctl commands while excluding read-only,
+  dogfood/governance-recursive, and artifact-only commands. ADR-011 through
+  ADR-013 track the remaining per-guard/post-commit/runtime-agreement
   automation before enforcement. The same Slice 0 runtime agreement work now
   treats attached remote-control liveness as launch authority: status/doctor
   recommend headless `--terminal none`, and explicit visible Terminal.app
@@ -238,6 +237,22 @@
   on the new receipt HEAD before publication checks run. This closes
   `rev_pkt_1983` / ADR-018 and removes the recurring SYSTEM_MAP manual
   regeneration gap from the push cascade.
+- 2026-04-27 Plan 4.1 Slice A report-only dogfood automation (MP-377):
+  `PlatformFindingIngest` auto-recording is now default-on and fail-open for
+  failed non-read-only devctl commands. The dispatcher appends the dogfood
+  ledger row and the stable `signal_type=dogfood` governance-review /
+  `FindingBacklog` row after audit emission, refreshes dogfood and governance
+  summaries, and keeps the command result unchanged if report-only ingest
+  fails. Read-only commands, recursive dogfood/governance paths, and
+  artifact-only commands stay excluded; `DEVCTL_PLATFORM_FINDING_INGEST_AUTO_RECORD=0`
+  is the compatibility opt-out and `DEVCTL_PLATFORM_FINDING_INGEST_DISABLE=1`
+  remains the hard kill switch. Regression coverage now proves duplicate
+  command failures collapse to one latest FindingBacklog identity while the
+  dogfood ledger keeps both run rows and startup `quality_signals` reads the
+  deduped backlog. The same closeout registers `FindingReview`,
+  `FindingBacklog`, and `PlatformFindingIngest` in the platform blueprint and
+  records ADR-019 for the remaining Slice C connectivity-enforcement
+  promotion.
 - 2026-04-24 remote-control liveness split-brain closure (MP-355 + MP-377
   follow-up): `review-channel status --refresh-bridge-heartbeat-if-stale`
   now treats a live typed `remote_control_attachment` as continuity evidence

@@ -3,9 +3,53 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
+from typing import Any, NamedTuple
 
-from .dogfood_models import DogfoodReport
+from ..governance.ledger_helpers import optional_text
+from .dogfood_log import (
+    append_dogfood_record,
+    build_dogfood_report,
+    resolve_dogfood_log_path,
+    resolve_dogfood_summary_root,
+)
+from .dogfood_models import DogfoodRecord, DogfoodReport
+
+
+class PersistedDogfoodRun(NamedTuple):
+    """Result of appending one dogfood run row."""
+
+    log_path: str
+    record: dict[str, Any]
+    summary_paths: dict[str, str]
+
+
+def persist_dogfood_run(
+    record: DogfoodRecord,
+    *,
+    governance_row: dict[str, Any] | None,
+    repo_root: Path,
+    refresh_summary: bool,
+) -> PersistedDogfoodRun:
+    """Append a dogfood run row and optionally refresh its report summary."""
+    log_path = resolve_dogfood_log_path(repo_root=repo_root)
+    persisted_record = _record_with_governance_finding(record, governance_row)
+    append_dogfood_record(persisted_record, log_path=log_path)
+
+    summary_paths: dict[str, str] = {}
+    if refresh_summary:
+        summary_paths = _refresh_dogfood_summary(
+            log_path=log_path,
+            summary_root=resolve_dogfood_summary_root(repo_root=repo_root),
+            repo_root=repo_root,
+        )
+
+    return PersistedDogfoodRun(
+        log_path=str(log_path),
+        record=persisted_record.to_dict(),
+        summary_paths=summary_paths,
+    )
 
 
 def render_dogfood_markdown(report: DogfoodReport) -> str:
@@ -77,6 +121,33 @@ def write_dogfood_summary(
         "summary_json": str(summary_json),
         "summary_md": str(summary_md),
     }
+
+
+def _refresh_dogfood_summary(
+    *,
+    log_path: Path,
+    summary_root: Path,
+    repo_root: Path,
+) -> dict[str, str]:
+    report = build_dogfood_report(
+        log_path=log_path,
+        summary_root=summary_root,
+        repo_root=repo_root,
+    )
+    return write_dogfood_summary(report, summary_root=summary_root)
+
+
+def _record_with_governance_finding(
+    record: DogfoodRecord,
+    row: dict[str, Any] | None,
+) -> DogfoodRecord:
+    finding_id = optional_text((row or {}).get("finding_id"))
+    if not finding_id or finding_id in record.governance_finding_ids:
+        return record
+    return replace(
+        record,
+        governance_finding_ids=(*record.governance_finding_ids, finding_id),
+    )
 
 
 def _render_record_line(record) -> str:

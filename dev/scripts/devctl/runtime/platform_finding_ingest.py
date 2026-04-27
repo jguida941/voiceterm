@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -23,12 +23,14 @@ from ..governance_review.render import write_governance_review_summary
 from .dogfood_governance import build_dogfood_governance_input
 from .dogfood_log import build_dogfood_record
 from .dogfood_models import DogfoodRecord, DogfoodRecordInput
+from .dogfood_render import persist_dogfood_run
 from .finding_backlog import FindingBacklogWriteResult, record_finding_backlog_row
 
 PLATFORM_FINDING_INGEST_CONTRACT_ID = "PlatformFindingIngest"
 PLATFORM_FINDING_INGEST_SCHEMA_VERSION = 1
 AUTO_INGEST_ENV = "DEVCTL_PLATFORM_FINDING_INGEST_AUTO_RECORD"
 AUTO_INGEST_DISABLE_ENV = "DEVCTL_PLATFORM_FINDING_INGEST_DISABLE"
+AUTO_INGEST_FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 AUTO_INGEST_SKIPPED_COMMANDS = frozenset(
     {
         "data-science",
@@ -51,11 +53,16 @@ class PlatformFindingIngestResult:
     log_path: str = ""
     row: dict[str, Any] | None = None
     finding: dict[str, Any] | None = None
+    dogfood_log_path: str = ""
+    dogfood_record: dict[str, Any] | None = None
+    dogfood_summary_paths: dict[str, str] | None = None
     summary_paths: dict[str, str] | None = None
     promotion_candidate: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
+        payload["dogfood_record"] = self.dogfood_record or {}
+        payload["dogfood_summary_paths"] = self.dogfood_summary_paths or {}
         payload["summary_paths"] = self.summary_paths or {}
         return payload
 
@@ -145,10 +152,12 @@ class PlatformFindingIngest:
         *,
         options: DogfoodFindingIngestOptions | None = None,
         refresh_summary: bool = True,
+        persist_run: bool = False,
+        refresh_dogfood_summary: bool = False,
     ) -> PlatformFindingIngestResult:
         """Record one dogfood run outcome as a canonical FindingBacklog row."""
         resolved = options or DogfoodFindingIngestOptions()
-        return self.record_review_input(
+        result = self.record_review_input(
             build_dogfood_governance_input(
                 record,
                 finding_id=resolved.finding_id,
@@ -169,6 +178,34 @@ class PlatformFindingIngest:
             ),
             refresh_summary=refresh_summary,
         )
+        if not persist_run:
+            return result
+        return self._persist_dogfood_run(
+            record,
+            result=result,
+            refresh_dogfood_summary=refresh_dogfood_summary,
+        )
+
+    def _persist_dogfood_run(
+        self,
+        record: DogfoodRecord,
+        *,
+        result: PlatformFindingIngestResult,
+        refresh_dogfood_summary: bool,
+    ) -> PlatformFindingIngestResult:
+        """Append the dogfood ledger row after the canonical finding is known."""
+        persisted = persist_dogfood_run(
+            record,
+            governance_row=result.row,
+            repo_root=self.repo_root,
+            refresh_summary=refresh_dogfood_summary,
+        )
+        return replace(
+            result,
+            dogfood_log_path=persisted.log_path,
+            dogfood_record=persisted.record,
+            dogfood_summary_paths=persisted.summary_paths,
+        )
 
 
 def maybe_auto_ingest_devctl_result(
@@ -181,14 +218,16 @@ def maybe_auto_ingest_devctl_result(
 ) -> PlatformFindingIngestResult:
     """Optionally ingest a failed devctl command as dogfood evidence.
 
-    This is fail-open and opt-in while Slice A gathers report-only confidence:
-    callers enable recording with ``DEVCTL_PLATFORM_FINDING_INGEST_AUTO_RECORD=1``.
+    This is fail-open and default-on in report-only mode while Slice A gathers
+    confidence. Operators can still suppress recording with
+    ``DEVCTL_PLATFORM_FINDING_INGEST_DISABLE=1`` or a false-valued
+    ``DEVCTL_PLATFORM_FINDING_INGEST_AUTO_RECORD`` compatibility override.
     """
     normalized_command = optional_text(command)
     if os.environ.get(AUTO_INGEST_DISABLE_ENV, "").strip():
         return PlatformFindingIngestResult("skipped", "disabled_by_env")
-    if not os.environ.get(AUTO_INGEST_ENV, "").strip():
-        return PlatformFindingIngestResult("skipped", "auto_record_not_enabled")
+    if _auto_ingest_disabled_by_setting():
+        return PlatformFindingIngestResult("skipped", "auto_record_disabled_by_env")
     if read_only:
         return PlatformFindingIngestResult("skipped", "read_only_command")
     if normalized_command in AUTO_INGEST_SKIPPED_COMMANDS:
@@ -214,9 +253,19 @@ def maybe_auto_ingest_devctl_result(
         return PlatformFindingIngest(repo_root=effective_root).record_dogfood_result(
             record,
             options=DogfoodFindingIngestOptions(source_command=record.source_command),
+            persist_run=True,
+            refresh_dogfood_summary=True,
         )
     except (OSError, ValueError) as exc:
         return PlatformFindingIngestResult("failed", f"ingest_failed: {exc}")
+
+
+def _auto_ingest_disabled_by_setting() -> bool:
+    value = os.environ.get(AUTO_INGEST_ENV)
+    if value is None:
+        return False
+    normalized = value.strip().lower()
+    return bool(normalized) and normalized in AUTO_INGEST_FALSE_VALUES
 
 
 def _source_command(argv: list[str]) -> str:
@@ -257,6 +306,7 @@ def _result_from_write(
 __all__ = [
     "AUTO_INGEST_DISABLE_ENV",
     "AUTO_INGEST_ENV",
+    "AUTO_INGEST_FALSE_VALUES",
     "DogfoodFindingIngestOptions",
     "PlatformFindingIngest",
     "PlatformFindingIngestResult",

@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-27T02:38:41Z`
-- Last Codex poll (Local America/New_York): `2026-04-26 22:38:41 EDT`
+- Last Codex poll: `2026-04-27T03:50:30Z`
+- Last Codex poll (Local America/New_York): `2026-04-26 23:50:30 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `02da9e45ba5279d76f575bbf02d66bfb4c219c7b129b4cc9fd70a2530938fb83`
-- Current instruction revision: ``
+- Last non-audit worktree hash: `7cd039cf68623c61355c3138fa0504ad207a8a05f8bc5636db9ff4587f0f2a58`
+- Current instruction revision: `936e692040b3`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-27T02:37:12.249225Z.
+- Reviewer state rebuilt from typed review-state projection at 2026-04-27T03:50:47.412664Z.
 
 ## Current Verdict
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-479 expired unresolved review packet(s)
+1 pending review packet(s); 476 expired unresolved review packet(s)
 
 ## Claude Status
 
-- Status unavailable.
+waiting_for_ack
 
 ## Claude Questions
 
@@ -134,16 +134,16 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+Priority action_request: Combined Plan 4.1 Slice A ready for stage_commit_pipeline
 
 ## Last Reviewed Scope
 
-MP-355
+- (missing)
 
 ## Action Requests
 
-- No pending action requests.
+- [rev_pkt_1997] stage_commit_pipeline: target=runtime:devctl_commit:8c49ff54ab57ceec9b24c6511dec7ce3dc7eb891@8c49ff54ab57ceec9b24c6511dec7ce3dc7eb891; Combined Plan 4.1 Slice A ready for stage_commit_pipeline (status: pending)
