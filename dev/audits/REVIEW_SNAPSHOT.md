@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `2193afad28ba` — Plan 4.1 Slice A: PlatformFindingIngest default report-only + register 3 orphan contracts + ADR-019 (rev_pkt_1997; closes ADR-010; supersedes rev_pkt_1994)
-- Tree hash: `86fe3b8cc822`
-- Generation stamp: `snap-1990928924ad`
-- Generated at (UTC): 2026-04-27T03:55:53Z
-- Push decision: `await_review` — checkpoint_required
-- Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
+- HEAD: `33c8ecb83450` — Refresh external review snapshot for 2193afad
+- Tree hash: `92f2f5e1b2ec`
+- Generation stamp: `snap-d146ffac7c6e`
+- Generated at (UTC): 2026-04-27T03:56:56Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- Reviewer mode: `tools_only` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 51 files, +5069/-1655
+- Delta since last snapshot: 24 commits, 51 files, +5140/-1729
 - Governance findings: 118 open / 88 fixed / 220 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,31 +54,34 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `2193afad28bac1d3a133715519c94620d78eca04`
+- HEAD SHA: `33c8ecb83450f2297dc7544b8299f47a08e94e2a`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-26T23:55:42-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_review`
-- reason: checkpoint_required
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
 - push_eligible_now: False
 - worktree_clean: True
 - staged_path_count: 0
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - latest_push_report: `dev/reports/push/latest.json`
-- latest_push_report_state: `post_push_green` (push_completed)
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push once review is accepted.
+- latest_push_report_state: `blocked` (push_preflight_running)
+- current_push_authorization: `push-auth-20260427T035522400296Z` (valid=True)
+- authorized_head_commit: `33c8ecb83450f2297dc7544b8299f47a08e94e2a`
+- approved_target_identity: `tree-receipt-20260427T035522400296Z:86fe3b8cc822783ad5804e356a6e78c3bb778459`
+- publication_backlog: recommended
+- publication_guidance: 2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
-- reviewer_mode: `active_dual_agent`
+- reviewer_mode: `tools_only`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: False
 - interaction_mode: `remote_control`
-- implementation_blocked: yes — checkpoint_required
+- implementation_blocked: yes — review_loop_relaunch_required
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -88,16 +91,16 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `repair_reviewer_loop` — checkpoint_required
+- advisory: `repair_reviewer_loop` — review_loop_relaunch_required
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `2193afad28ba`
+Range: last 24 commits ending at `33c8ecb83450`
 
 - commits: 24
 - files changed: 51
-- insertions: +5069
-- deletions: -1655
+- insertions: +5140
+- deletions: -1729
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 12 file(s)
 
@@ -105,30 +108,30 @@ Range: last 24 commits ending at `2193afad28ba`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `2193afad` | Plan 4.1 Slice A: PlatformFindingIngest default report-only… | 14 | +555/-128 | tooling |  |
-| 2 | `8c49ff54` | Refresh external review snapshot for 8b21a43e | 2 | +61/-61 | docs |  |
-| 3 | `8b21a43e` | Refresh external review snapshot for 748fb4d8 | 1 | +50/-47 | tooling |  |
-| 4 | `748fb4d8` | Refresh external review snapshot for f4f7b4e0 | 2 | +74/-79 | docs |  |
-| 5 | `f4f7b4e0` | Add render-surfaces auto-handle as first-class push preflig… | 20 | +972/-239 | tooling |  |
-| 6 | `c43aad75` | Refresh external review snapshot for a941f874 | 2 | +50/-50 | docs |  |
-| 7 | `a941f874` | Refresh external review snapshot for c691f08f | 2 | +53/-50 | docs |  |
-| 8 | `c691f08f` | Refresh external review snapshot for 74f06e13 | 2 | +93/-81 | docs |  |
-| 9 | `74f06e13` | Combine push pipeline phase split + non-destructive push-fa… | 31 | +1506/-134 | tooling |  |
-| 10 | `64ac3101` | Fix governed commit attention refresh — auto-refresh startu… | 11 | +409/-96 | tooling |  |
-| 11 | `73121da5` | Refresh external review snapshot for e9dd172c | 2 | +53/-54 | docs |  |
-| 12 | `e9dd172c` | Refresh external review snapshot for 0c4aca39 | 1 | +4/-4 | docs |  |
-| 13 | `0c4aca39` | Refresh external review snapshot for 3a4504a2 | 2 | +50/-50 | docs |  |
-| 14 | `3a4504a2` | Refresh external review snapshot for 82e5fb81 | 2 | +52/-49 | docs |  |
-| 15 | `82e5fb81` | Refresh external review snapshot for 7b23aced | 2 | +65/-74 | docs |  |
-| 16 | `7b23aced` | Extend managed-receipt-chain classifier to SystemPicture fr… | 5 | +236/-64 | tooling |  |
-| 17 | `1d0076e0` | Refresh external review snapshot for b3b8e523 | 2 | +46/-55 | docs |  |
-| 18 | `b3b8e523` | Refresh external review snapshot for cf5cd0db | 1 | +3/-3 | docs |  |
-| 19 | `cf5cd0db` | Refresh external review snapshot for 32864af3 | 2 | +42/-42 | docs |  |
-| 20 | `32864af3` | Refresh external review snapshot for 2e1fe033 | 2 | +55/-52 | docs |  |
-| 21 | `2e1fe033` | Refresh external review snapshot for 1109ff46 | 2 | +73/-74 | docs |  |
-| 22 | `1109ff46` | Extend receipt-chain semantics to snapshot freshness gate +… | 15 | +514/-115 | tooling |  |
-| 23 | `8369fea6` | Refresh external review snapshot for 36ba30c7 | 2 | +50/-51 | docs |  |
-| 24 | `36ba30c7` | Refresh external review snapshot for 992d1514 | 1 | +3/-3 | docs |  |
+| 1 | `33c8ecb8` | Refresh external review snapshot for 2193afad | 2 | +74/-77 | docs |  |
+| 2 | `2193afad` | Plan 4.1 Slice A: PlatformFindingIngest default report-only… | 14 | +555/-128 | tooling |  |
+| 3 | `8c49ff54` | Refresh external review snapshot for 8b21a43e | 2 | +61/-61 | docs |  |
+| 4 | `8b21a43e` | Refresh external review snapshot for 748fb4d8 | 1 | +50/-47 | tooling |  |
+| 5 | `748fb4d8` | Refresh external review snapshot for f4f7b4e0 | 2 | +74/-79 | docs |  |
+| 6 | `f4f7b4e0` | Add render-surfaces auto-handle as first-class push preflig… | 20 | +972/-239 | tooling |  |
+| 7 | `c43aad75` | Refresh external review snapshot for a941f874 | 2 | +50/-50 | docs |  |
+| 8 | `a941f874` | Refresh external review snapshot for c691f08f | 2 | +53/-50 | docs |  |
+| 9 | `c691f08f` | Refresh external review snapshot for 74f06e13 | 2 | +93/-81 | docs |  |
+| 10 | `74f06e13` | Combine push pipeline phase split + non-destructive push-fa… | 31 | +1506/-134 | tooling |  |
+| 11 | `64ac3101` | Fix governed commit attention refresh — auto-refresh startu… | 11 | +409/-96 | tooling |  |
+| 12 | `73121da5` | Refresh external review snapshot for e9dd172c | 2 | +53/-54 | docs |  |
+| 13 | `e9dd172c` | Refresh external review snapshot for 0c4aca39 | 1 | +4/-4 | docs |  |
+| 14 | `0c4aca39` | Refresh external review snapshot for 3a4504a2 | 2 | +50/-50 | docs |  |
+| 15 | `3a4504a2` | Refresh external review snapshot for 82e5fb81 | 2 | +52/-49 | docs |  |
+| 16 | `82e5fb81` | Refresh external review snapshot for 7b23aced | 2 | +65/-74 | docs |  |
+| 17 | `7b23aced` | Extend managed-receipt-chain classifier to SystemPicture fr… | 5 | +236/-64 | tooling |  |
+| 18 | `1d0076e0` | Refresh external review snapshot for b3b8e523 | 2 | +46/-55 | docs |  |
+| 19 | `b3b8e523` | Refresh external review snapshot for cf5cd0db | 1 | +3/-3 | docs |  |
+| 20 | `cf5cd0db` | Refresh external review snapshot for 32864af3 | 2 | +42/-42 | docs |  |
+| 21 | `32864af3` | Refresh external review snapshot for 2e1fe033 | 2 | +55/-52 | docs |  |
+| 22 | `2e1fe033` | Refresh external review snapshot for 1109ff46 | 2 | +73/-74 | docs |  |
+| 23 | `1109ff46` | Extend receipt-chain semantics to snapshot freshness gate +… | 15 | +514/-115 | tooling |  |
+| 24 | `8369fea6` | Refresh external review snapshot for 36ba30c7 | 2 | +50/-51 | docs |  |
 
 ### Files
 
@@ -136,12 +139,12 @@ Range: last 24 commits ending at `2193afad28ba`
 |---|---|---|
 | `AGENTS.md` | docs | +28/-17 |
 | `README.md` | docs | +1/-0 |
-| `bridge.md` | docs | +115/-115 |
+| `bridge.md` | docs | +120/-120 |
 | `dev/active/MASTER_PLAN.md` | tooling | +45/-9 |
 | `dev/active/ai_governance_platform.md` | tooling | +62/-15 |
 | `dev/active/remote_commit_pipeline.md` | tooling | +4/-3 |
 | `dev/audits/AUTOMATION_DEBT_REGISTER.md` | tooling | +5/-3 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1144/-1136 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1210/-1205 |
 | `dev/guides/DEVELOPMENT.md` | docs | +31/-15 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +6/-6 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +135/-2 |
@@ -251,6 +254,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`33c8ecb8`** — Refresh external review snapshot for 2193afad
+  - evolution: Fact: live Plan 4.1 dogfood exposed a bad remote-control recovery route. `review-channel status` recommended `recover --recover-provider claude --terminal terminal-app` while the active operator mode was remote-control,…
 - **`2193afad`** — Plan 4.1 Slice A: PlatformFindingIngest default report-only + register 3 orphan contracts + ADR-019 (rev_pkt_1997; closes ADR-010; supersedes rev_pkt_1994)
   - evolution: Fact: live Plan 4.1 dogfood exposed a bad remote-control recovery route. `review-channel status` recommended `recover --recover-provider claude --terminal terminal-app` while the active operator mode was remote-control,…
 - **`8c49ff54`** — Refresh external review snapshot for 8b21a43e
@@ -297,8 +302,6 @@ Recent findings:
   - evolution: Fact: live Plan 4.1 dogfood exposed a bad remote-control recovery route. `review-channel status` recommended `recover --recover-provider claude --terminal terminal-app` while the active operator mode was remote-control,…
 - **`8369fea6`** — Refresh external review snapshot for 36ba30c7
   - evolution: Fact: live Plan 4.1 dogfood exposed a bad remote-control recovery route. `review-channel status` recommended `recover --recover-provider claude --terminal terminal-app` while the active operator mode was remote-control,…
-- **`36ba30c7`** — Refresh external review snapshot for 992d1514
-  - evolution: Fact: live Plan 4.1 dogfood exposed a bad remote-control recovery route. `review-channel status` recommended `recover --recover-provider claude --terminal terminal-app` while the active operator mode was remote-control,…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -317,7 +320,7 @@ Recent findings:
 - open governance findings: 118
 
 ### Startup advisories
-- repair_reviewer_loop: checkpoint_required
+- repair_reviewer_loop: review_loop_relaunch_required
 
 ### Stale warnings
 - Cut a checkpoint before doing anything else.
@@ -332,4 +335,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-1990928924ad` binds this file to HEAD `2193afad28ba`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-d146ffac7c6e` binds this file to HEAD `33c8ecb83450`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
