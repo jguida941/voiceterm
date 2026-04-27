@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-27T15:10:28Z`
-- Last Codex poll (Local America/New_York): `2026-04-27 11:10:28 EDT`
+- Last Codex poll: `2026-04-27T15:27:55Z`
+- Last Codex poll (Local America/New_York): `2026-04-27 11:27:55 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `69a5c5b805e624c64143032f9f85f7c18a13401f5c3eb50a0d34ee5cd41972c9`
-- Current instruction revision: `f1f1e9b516fa`
+- Last non-audit worktree hash: `3eb0ded953a4d3717803233d1a3b612c7e12421ad71f66ce627cb5289a2cbc65`
+- Current instruction revision: `3ef6011cd2af`
 
 ## Protocol
 
@@ -138,7 +138,7 @@ pending
 
 ## Current Instruction For Claude
 
-Priority action_request: Codex 13 combined governed publication handoff
+Priority action_request: rev_pkt_2013 amended stage_commit_pipeline
 
 ## Last Reviewed Scope
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- [rev_pkt_2013] stage_commit_pipeline: target=runtime:devctl_commit:3db9f243aef7c27c506ed518a3c00e706b6b8755@3db9f243aef7c27c506ed518a3c00e706b6b8755; Codex 13 combined governed publication handoff (status: pending)
+- [rev_pkt_2016] stage_commit_pipeline: target=runtime:devctl_commit:3db9f243aef7c27c506ed518a3c00e706b6b8755@3db9f243aef7c27c506ed518a3c00e706b6b8755; rev_pkt_2013 amended stage_commit_pipeline (status: pending)
