@@ -8,7 +8,7 @@
 - HEAD: `f6e3783d7bb3` — Refresh external review snapshot for 80c1791a
 - Tree hash: `ed8cb6bd8c66`
 - Generation stamp: `snap-679a5b1cf07b`
-- Generated at (UTC): 2026-04-27T18:57:38Z
+- Generated at (UTC): 2026-04-27T18:57:44Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
