@@ -78,10 +78,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-27T16:01:55Z`
-- Last Codex poll (Local America/New_York): `2026-04-27 12:01:55 EDT`
+- Last Codex poll: `2026-04-27T16:13:42Z`
+- Last Codex poll (Local America/New_York): `2026-04-27 12:13:42 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `9e80d8472ebe7b7d7a068eb43e41e6fdcf933af79048ca95932e903b44b61479`
+- Last non-audit worktree hash: `b2ca4418e648a893ae96958525515250b912547b76119836a720e339aefb5683`
 - Current instruction revision: `603a02770af6`
 
 ## Protocol
@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-implementing
+- Status unavailable.
 
 ## Claude Questions
 
@@ -146,5 +146,5 @@ MP-355
 
 ## Action Requests
 
-- [rev_pkt_2021] stage_commit_pipeline: target=runtime:devctl_commit:ab077ec457ec8cf4adb30107c9f1ba285cf48aff@ab077ec457ec8cf4adb30107c9f1ba285cf48aff; Superseding governed publication handoff after Codex 16 post-receipt recovery fix (status: pending)
 - [rev_pkt_2023] stage_commit_pipeline: target=runtime:devctl_commit:ab077ec4@ab077ec4; Operator escalation: ship rev_pkt_2020 architectural extension this round with full implementation authority (status: pending)
+- [rev_pkt_2021] stage_commit_pipeline: target=runtime:devctl_commit:ab077ec457ec8cf4adb30107c9f1ba285cf48aff@ab077ec457ec8cf4adb30107c9f1ba285cf48aff; Superseding governed publication handoff after Codex 16 post-receipt recovery fix (status: pending)
