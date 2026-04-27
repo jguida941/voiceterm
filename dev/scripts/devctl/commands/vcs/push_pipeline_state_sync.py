@@ -13,6 +13,11 @@ from ...review_channel.remote_commit_pipeline_artifact import (
     persist_remote_commit_pipeline_contract,
 )
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
+from ...runtime.remote_commit_pipeline_state import (
+    AUTO_DELIVERY_TRANSITION_RULE,
+    STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
+)
+from ...runtime.pipeline_recovery_receipt import utc_now_iso
 from ...runtime.review_snapshot_refresh import (
     receipt_commit_ancestor_shas,
     receipt_commit_parent_sha,
@@ -52,6 +57,8 @@ def sync_commit_pipeline_with_push_report(
             repo_root=repo_root,
             projections_root=projections_root,
         ),
+        pipeline_state=str(pipeline.state or "").strip(),
+        local_commit_landed=bool(current_head_commit),
     )
     # Keep pipeline state monotonic: a no-op rerun on an already-published head
     # (e.g. reason=branch_already_pushed) must not regress a terminal
@@ -61,14 +68,26 @@ def sync_commit_pipeline_with_push_report(
         and projection.next_state != "push_completed"
     ):
         return False
-    updated = replace(
-        pipeline,
-        state=projection.next_state,
-        push_action_id=str(pipeline.push_action_id or action_id),
-        push_result=projection.push_result,
-        push_report_path=projection.push_report_path,
-        blocked_reason=projection.blocked_reason,
-    )
+    update_fields: dict[str, object] = {}
+    update_fields["state"] = projection.next_state
+    update_fields["push_action_id"] = str(pipeline.push_action_id or action_id)
+    update_fields["push_result"] = projection.push_result
+    update_fields["push_pipeline_phases"] = projection.push_pipeline_phases
+    update_fields["push_failure_transition"] = projection.push_failure_transition
+    update_fields["push_report_path"] = projection.push_report_path
+    update_fields["blocked_reason"] = projection.blocked_reason
+    if _projection_auto_delivered_local(projection):
+        update_fields.update(
+            {
+                "recovery_action_allowed": "",
+                "local_delivery_reason": str(
+                    projection.push_failure_transition.get("reason") or ""
+                ),
+                "delivered_at_utc": str(pipeline.delivered_at_utc or utc_now_iso()),
+                "delivered_by": str(pipeline.delivered_by or "devctl.push"),
+            }
+        )
+    updated = replace(pipeline, **update_fields)
     if updated == pipeline:
         return False
 
@@ -118,6 +137,16 @@ def _pipeline_matches_current_push(
     ):
         return False
     return True
+
+
+def _projection_auto_delivered_local(projection) -> bool:
+    if projection.next_state != STATE_DELIVERED_LOCALLY_PENDING_PUBLISH:
+        return False
+    transition = projection.push_failure_transition
+    return (
+        str(transition.get("rule") or "") == AUTO_DELIVERY_TRANSITION_RULE
+        and bool(transition.get("auto_transitioned"))
+    )
 
 
 def _persist_pipeline_contract(

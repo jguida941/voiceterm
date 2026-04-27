@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from ...runtime.remote_commit_pipeline_state import (
+    STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
+)
+
 _COMMIT_PENDING_PIPELINE_STATES = frozenset(
     {
         "staged",
@@ -42,6 +46,10 @@ def commit_visibility_payload(pipeline) -> dict[str, object]:
         pipeline_pending = False
         commit_phase = "published"
         commit_progress = "push_completed"
+    elif state == STATE_DELIVERED_LOCALLY_PENDING_PUBLISH:
+        pipeline_pending = False
+        commit_phase = "delivered_local_publication_pending"
+        commit_progress = "local_commit_delivered_publication_pending"
     elif state == "rejected":
         pipeline_pending = False
         commit_phase = "rejected"
@@ -97,6 +105,8 @@ def _post_commit_state(pipeline, *, state: str) -> str:
         return "commit_recorded_projection_pending"
     if state == "push_pending":
         return "publication_pending"
+    if state == STATE_DELIVERED_LOCALLY_PENDING_PUBLISH:
+        return "publication_pending"
     if state == "push_completed":
         return "complete"
     if state == "push_blocked" and str(getattr(pipeline, "commit_sha", "") or "").strip():
@@ -108,6 +118,8 @@ def _publication_state(pipeline, *, state: str) -> str:
     commit_sha = str(getattr(pipeline, "commit_sha", "") or "").strip()
     if state == "push_completed":
         return "published"
+    if state == STATE_DELIVERED_LOCALLY_PENDING_PUBLISH and commit_sha:
+        return "pending_after_local_delivery"
     if state in {"commit_recorded", "push_pending"} and commit_sha:
         return "awaiting_governed_push"
     if state == "push_blocked" and commit_sha:

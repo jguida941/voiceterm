@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-26
+**Last Updated:** 2026-04-27
 
 ## At a Glance
 
@@ -36,6 +36,58 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-04-27 - Startup refresh treats typed advisory output as success
+
+Fact: rev_pkt_1968 made governed commit preflight refresh the startup receipt
+before failing on stale packet attention, but the refresh classifier still
+treated every non-zero `startup-context` exit as an execution failure. In the
+live remote-control closeout, `startup-context --format summary` correctly
+returned exit 1 with `action=checkpoint_before_continue` and
+`reason=staged_index_budget_exceeded` for a 28-file checkpoint, but commit
+preflight blocked with `startup_context_refresh_failed`.
+
+Change: the governed commit refresh helper now distinguishes a valid
+startup-context advisory payload from a real command failure. Exit 1 with a
+parseable startup-context advisory such as `checkpoint_before_continue` or
+`resume_implementer_work` counts as a successful refresh and leaves the
+advisory as the current attention state; missing or unparseable output still
+fails closed as `startup_context_refresh_failed`.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_runtime.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+
+### 2026-04-27 - Push failure state now frees safely landed local commits
+
+Fact: a governed commit can land locally and then fail during publication for a
+reason that does not invalidate the committed work. In the live remote-control
+loop, rev_pkt_1968 landed at `64ac3101`, but the push failed on managed
+projection validation fallout and left `pipeline-263bc415bd87` stuck in
+`push_blocked`. The next governed commit was then blocked on
+`active_pipeline_requires_publish_or_recovery`, forcing the old manual
+`mark-delivered-local` path even though the local commit was already durable.
+
+Change: the remote commit pipeline now records `push_pipeline_phases` and a
+typed `push_failure_transition`. Non-destructive push failures such as
+validation/downstream gate failures or already-published/concurrent receipt
+evidence auto-transition a landed commit to
+`delivered_locally_pending_publish`, preserving publication as pending without
+blocking the next governed commit. Destructive remote rejection/conflict
+evidence stays `push_blocked` for explicit operator reconciliation, and
+`mark-delivered-local` remains the manual override path. Commit preflight also
+applies the same transition to legacy stuck artifacts when their persisted push
+result proves the local commit is landed.
+
+Evidence:
+- `dev/scripts/devctl/runtime/remote_commit_pipeline_state.py`
+- `dev/scripts/devctl/runtime/remote_commit_pipeline_models.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_push_result.py`
+- `dev/scripts/devctl/commands/vcs/push_pipeline_state_sync.py`
+- `dev/scripts/devctl/commands/vcs/commit_pipeline_blocking.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/scripts/devctl/tests/commands/test_pipeline_command.py`
+- `dev/scripts/devctl/tests/vcs/test_commit_gate.py`
 
 ### 2026-04-26 - Remote-control recover no longer opens invisible local Claude prompts
 

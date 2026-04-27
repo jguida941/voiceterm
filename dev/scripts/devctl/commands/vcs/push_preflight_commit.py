@@ -7,7 +7,10 @@ from pathlib import Path
 from ...collect import collect_git_status
 from ...config import REPO_ROOT
 from ...runtime.vcs import run_git_capture
+from .push_projection_receipt import managed_projection_receipt_paths
 from .push_worktree_changes import blocking_dirty_paths
+
+POST_VALIDATION_AUTO_COMMIT_REPAIR = "post_validation_auto_commit_repair"
 
 
 def auto_commit_preflight_generated_changes(
@@ -32,7 +35,7 @@ def auto_commit_preflight_generated_changes(
         return
     changes = git.get("changes", [])
     exclusions = (
-        *policy.checkpoint.compatibility_projection_paths,
+        *managed_projection_receipt_paths(policy, repo_root=repo_root),
         *policy.checkpoint.advisory_context_paths,
     )
     dirty = blocking_dirty_paths(changes, exclude_paths=exclusions)
@@ -64,6 +67,75 @@ def auto_commit_preflight_generated_changes(
                 error=commit_error,
             )
         )
+
+
+def run_post_validation_auto_commit_repair_phase(
+    state,
+    policy,
+    *,
+    repo_root: Path,
+    current_head_fn=None,
+    repair_fn=None,
+    validation_passed: bool,
+) -> dict[str, object]:
+    """Run the preflight-generated repair path only after validation passes."""
+    if not validation_passed:
+        result = _post_validation_phase_state(
+            allowed=False,
+            status="forbidden",
+            reason="validation_failed",
+        )
+        _record_phase_state(state, result)
+        return result
+
+    head_fn = current_head_fn or _current_head_sha
+    before_head = head_fn(repo_root=repo_root)
+    if repair_fn is None:
+        auto_commit_preflight_generated_changes(state, policy, repo_root=repo_root)
+    else:
+        repair_fn(
+            state,
+            policy,
+            repo_root=repo_root,
+        )
+    after_head = head_fn(repo_root=repo_root)
+    result = _post_validation_phase_state(
+        allowed=True,
+        status="blocked" if getattr(state, "errors", ()) else "completed",
+        reason="validation_passed",
+        head_moved=bool(before_head and after_head and before_head != after_head),
+    )
+    _record_phase_state(state, result)
+    return result
+
+
+def _post_validation_phase_state(
+    *,
+    allowed: bool,
+    status: str,
+    reason: str,
+    head_moved: bool | None = None,
+) -> dict[str, object]:
+    result: dict[str, object] = {}
+    result["phase"] = POST_VALIDATION_AUTO_COMMIT_REPAIR
+    result["allowed"] = allowed
+    result["status"] = status
+    result["reason"] = reason
+    if head_moved is not None:
+        result["head_moved"] = head_moved
+    return result
+
+
+def _current_head_sha(*, repo_root: Path) -> str:
+    code, stdout, _ = run_git_capture(["rev-parse", "HEAD"], repo_root=repo_root)
+    return stdout.strip() if code == 0 else ""
+
+
+def _record_phase_state(state, result: dict[str, object]) -> None:
+    try:
+        setattr(state, "post_validation_auto_commit_repair", dict(result))
+    except (AttributeError, TypeError):
+        return
 
 
 def _auto_commit_failure_message(

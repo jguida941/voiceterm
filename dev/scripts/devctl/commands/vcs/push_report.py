@@ -8,6 +8,10 @@ from typing import Any
 
 from ...governance.push_policy import PushPolicy
 from ...runtime.check_result_models import build_check_result
+from .governed_executor_push_result import (
+    append_push_pipeline_phase_lines,
+    build_push_pipeline_phases,
+)
 from .push_diagnostics import build_push_diagnostic
 
 
@@ -56,6 +60,8 @@ class PushReportInputs:
     approved_worktree_identity: str = ""
     push_authorization_id: str = ""
     push_authorization_mode: str = ""
+    pre_validation_managed_projection_sync: dict[str, Any] | None = None
+    post_validation_auto_commit_repair: dict[str, Any] | None = None
 
 
 def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
@@ -79,6 +85,12 @@ def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
     report["push_step"] = inputs.push_step
     report["post_push_steps"] = inputs.post_push_steps
     report["push_stages"] = asdict(inputs.push_stages)
+    report["push_pipeline_phases"] = build_push_pipeline_phases(
+        pre_validation_managed_projection_sync=(
+            inputs.pre_validation_managed_projection_sync
+        ),
+        post_validation_auto_commit_repair=inputs.post_validation_auto_commit_repair,
+    )
     report["push_diagnostic"] = build_push_diagnostic(
         execute=inputs.execute,
         push_stages=inputs.push_stages,
@@ -170,6 +182,7 @@ def render_push_report(report: dict[str, Any]) -> str:
         lines.append(f"- validation_ready: {push_stages.get('validation_ready')}")
         lines.append(f"- published_remote: {push_stages.get('published_remote')}")
         lines.append(f"- post_push_green: {push_stages.get('post_push_green')}")
+    append_push_pipeline_phase_lines(lines, report.get("push_pipeline_phases"))
     diagnostic = report.get("push_diagnostic") or {}
     if diagnostic:
         lines.append("")

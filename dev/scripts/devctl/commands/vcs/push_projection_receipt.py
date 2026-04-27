@@ -158,13 +158,22 @@ def _commit_staged_projection_receipt(
     }
 
 
-def _managed_receipt_paths(policy, *, repo_root: Path) -> tuple[str, ...]:
+def managed_projection_receipt_paths(
+    policy,
+    *,
+    repo_root: Path = REPO_ROOT,
+) -> tuple[str, ...]:
+    """Return the managed projection paths owned by receipt commits."""
     try:
         governance = scan_repo_governance_safely(repo_root)
     except (OSError, ValueError):
         governance = None
     configured = tuple(getattr(policy.checkpoint, "compatibility_projection_paths", ()))
     return tuple(dict.fromkeys((*receipt_artifact_relpaths(governance), *configured)))
+
+
+def _managed_receipt_paths(policy, *, repo_root: Path) -> tuple[str, ...]:
+    return managed_projection_receipt_paths(policy, repo_root=repo_root)
 
 
 def _dirty_paths(*, repo_root: Path) -> dict[str, object]:
@@ -203,3 +212,9 @@ def _staged_paths(*, repo_root: Path) -> dict[str, object]:
             line.strip() for line in output.splitlines() if line.strip()
         ),
     }
+
+
+__all__ = [
+    "auto_commit_managed_projection_receipt",
+    "managed_projection_receipt_paths",
+]

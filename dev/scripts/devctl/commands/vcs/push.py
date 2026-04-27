@@ -50,9 +50,10 @@ from .push_flow import (
 )
 from .push_pipeline_state_sync import sync_commit_pipeline_with_push_report
 from .push_preflight_projection import (
+    repair_preflight_generated_changes_for_push,
     refresh_managed_projections_before_preflight,
-    refresh_preflight_generated_changes_before_authorization,
 )
+from .push_preflight_commit import run_post_validation_auto_commit_repair_phase
 from .push_report import PushStageTruth, render_push_report
 from .push_snapshot import (
     PushReportContext,
@@ -60,7 +61,7 @@ from .push_snapshot import (
     persist_published_remote_snapshot,
     persist_push_progress_snapshot,
 )
-from .push_worktree_changes import blocking_dirty_paths
+from .push_worktree_changes import blocking_dirty_paths, push_exclusion_paths
 
 REQUESTED_BY = "devctl.push"
 
@@ -86,6 +87,8 @@ class PushRunState:
     approved_worktree_identity: str = ""
     push_authorization_id: str = ""
     push_authorization_mode: str = ""
+    pre_validation_managed_projection_sync: dict[str, Any] = field(default_factory=dict)
+    post_validation_auto_commit_repair: dict[str, Any] = field(default_factory=dict)
 
 
 def _load_run_state(
@@ -109,7 +112,7 @@ def _load_run_state(
     state.branch = str(git.get("branch", "")).strip()
     state.dirty_paths = blocking_dirty_paths(
         git.get("changes", []),
-        exclude_paths=_push_exclusion_paths(policy),
+        exclude_paths=push_exclusion_paths(policy, repo_root=repo_root),
     )
     if state.branch == "HEAD":
         state.errors.append("Detached HEAD is not supported. Check out a branch first.")
@@ -343,13 +346,6 @@ def _record_divergence(
     return True
 
 
-def _push_exclusion_paths(policy) -> tuple[str, ...]:
-    return (
-        *policy.checkpoint.compatibility_projection_paths,
-        *policy.checkpoint.advisory_context_paths,
-    )
-
-
 def _matches_allowed_prefixes(branch: str, prefixes: tuple[str, ...]) -> bool:
     if not prefixes:
         return True
@@ -446,14 +442,16 @@ def run_push_action(
         repo_root=repo_root,
         run_cmd_fn=run_cmd_fn,
     )
-    if run_cmd_fn is None and not state.errors:
-        refresh_preflight_generated_changes_before_authorization(
+    if run_cmd_fn is None:
+        run_post_validation_auto_commit_repair_phase(
             state,
             resolved_policy,
             repo_root=repo_root,
-            command_runner=run_cmd,
+            repair_fn=repair_preflight_generated_changes_for_push,
+            validation_passed=not state.errors,
         )
-        head_commit = current_head_commit_sha(repo_root=repo_root)
+        if not state.errors:
+            head_commit = current_head_commit_sha(repo_root=repo_root)
     _append_publication_authorization_errors(
         state,
         repo_root=repo_root,

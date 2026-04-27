@@ -27,6 +27,7 @@ from dev.scripts.devctl.commands.pipeline.auto_recover_action import (
 from dev.scripts.devctl.commands.pipeline.command import run as pipeline_run
 from dev.scripts.devctl.commands.pipeline.local_delivery_action import (
     LOCAL_DELIVERY_RECEIPT_FILENAME,
+    run_mark_delivered_local,
 )
 from dev.scripts.devctl.commands.pipeline.recover_action import run_recover
 from dev.scripts.devctl.commands.pipeline.refresh_authorization_action import (
@@ -542,6 +543,59 @@ class PipelineRefreshAuthorizationTests(unittest.TestCase):
             self.assertEqual(rc, 1)
         finally:
             fixture.close()
+
+
+class PipelineLocalDeliveryTests(unittest.TestCase):
+    def test_explicit_mark_delivered_local_accepts_push_failure_reasons(self) -> None:
+        for push_reason in ("validation_failed", "git_push_failed"):
+            with self.subTest(push_reason=push_reason):
+                fixture = _PipelineFixture(
+                    fake_head="deadbeef00000000000000000000000000000000",
+                )
+                try:
+                    payload = _with_commit_result(
+                        _sample_pipeline_payload(state="push_blocked")
+                    )
+                    payload["push_result"] = {
+                        "schema_version": 1,
+                        "contract_id": "ActionResult",
+                        "action_id": "vcs.push",
+                        "ok": False,
+                        "status": "fail",
+                        "reason": push_reason,
+                        "retryable": True,
+                        "partial_progress": False,
+                    }
+                    fixture.write_payload(payload)
+
+                    with patch(
+                        "dev.scripts.devctl.commands.pipeline.local_delivery_action.refresh_pipeline_projections",
+                        return_value=[],
+                    ):
+                        rc = run_mark_delivered_local(
+                            fixture.namespace(
+                                action="mark-delivered-local",
+                                reason="operator selected local delivery",
+                                operator_actor="operator",
+                            )
+                        )
+
+                    self.assertEqual(rc, 0)
+                    updated = fixture.read_payload()
+                    self.assertEqual(
+                        updated["state"],
+                        "delivered_locally_pending_publish",
+                    )
+                    self.assertEqual(
+                        updated["local_delivery_reason"],
+                        "operator selected local delivery",
+                    )
+                    receipt_path = (
+                        fixture.receipts_root / LOCAL_DELIVERY_RECEIPT_FILENAME
+                    )
+                    self.assertTrue(receipt_path.exists())
+                finally:
+                    fixture.close()
 
 
 class PipelineAutoRecoverTests(unittest.TestCase):

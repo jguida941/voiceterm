@@ -103,6 +103,16 @@ PIPELINE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Push action receipt when the governed publish path has run.",
             ),
             ContractField(
+                "push_pipeline_phases",
+                "Mapping[str, object]",
+                "Typed push phase boundary state for managed projection sync and post-validation repair.",
+            ),
+            ContractField(
+                "push_failure_transition",
+                "Mapping[str, object]",
+                "Typed push failure classification and state-transition evidence for automatic local-delivery movement.",
+            ),
+            ContractField(
                 "push_report_path",
                 "str",
                 "Artifact path for the current governed push report.",

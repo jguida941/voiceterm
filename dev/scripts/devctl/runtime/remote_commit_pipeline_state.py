@@ -4,9 +4,18 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from .value_coercion import coerce_bool, coerce_mapping, coerce_string
+from .value_coercion import (
+    coerce_bool,
+    coerce_mapping,
+    coerce_string,
+    coerce_string_items,
+)
 
 STATE_DELIVERED_LOCALLY_PENDING_PUBLISH = "delivered_locally_pending_publish"
+AUTO_DELIVERY_TRANSITION_RULE = "auto-transition-on-non-destructive-push-failure"
+PUSH_FAILURE_CLASSIFICATION_NONE = "none"
+PUSH_FAILURE_CLASSIFICATION_NON_DESTRUCTIVE = "non_destructive"
+PUSH_FAILURE_CLASSIFICATION_DESTRUCTIVE = "destructive"
 
 ACTIVE_PIPELINE_STATES = frozenset({
     "drafted",
@@ -49,6 +58,26 @@ PUSHABLE_PIPELINE_STATES = frozenset({
     "push_blocked",
 })
 
+_NON_DESTRUCTIVE_PUSH_FAILURE_REASONS = frozenset({
+    "branch_already_pushed",
+    "post_push_bundle_failed",
+    "post_push_skipped_by_policy",
+    "validation_failed",
+})
+
+_DESTRUCTIVE_PUSH_FAILURE_REASONS = frozenset({
+    "git_push_failed",
+})
+
+_DESTRUCTIVE_FAILURE_MARKERS = (
+    "behind ",
+    "conflict",
+    "fetch first",
+    "non-fast-forward",
+    "rejected",
+    "sync it before push",
+)
+
 
 def eligible_for_local_delivery(
     payload: Mapping[str, object],
@@ -74,13 +103,50 @@ def eligible_for_local_delivery(
     return True
 
 
+def classify_push_failure(report: Mapping[str, object]) -> str:
+    """Classify push failure evidence for automatic pipeline state movement."""
+    mapping = coerce_mapping(report)
+    if not mapping:
+        return PUSH_FAILURE_CLASSIFICATION_DESTRUCTIVE
+    stages = coerce_mapping(mapping.get("push_stages"))
+    if coerce_bool(stages.get("post_push_green")):
+        return PUSH_FAILURE_CLASSIFICATION_NONE
+    reason = coerce_string(mapping.get("reason"))
+    if reason in _DESTRUCTIVE_PUSH_FAILURE_REASONS:
+        return PUSH_FAILURE_CLASSIFICATION_DESTRUCTIVE
+    if _has_destructive_failure_marker(mapping):
+        return PUSH_FAILURE_CLASSIFICATION_DESTRUCTIVE
+    if coerce_bool(stages.get("published_remote")):
+        return PUSH_FAILURE_CLASSIFICATION_NON_DESTRUCTIVE
+    if reason in _NON_DESTRUCTIVE_PUSH_FAILURE_REASONS:
+        return PUSH_FAILURE_CLASSIFICATION_NON_DESTRUCTIVE
+    return PUSH_FAILURE_CLASSIFICATION_DESTRUCTIVE
+
+
+def _has_destructive_failure_marker(report: Mapping[str, object]) -> bool:
+    evidence: list[str] = []
+    evidence.append(coerce_string(report.get("reason")))
+    evidence.extend(coerce_string_items(report.get("errors")))
+    for key in ("fetch_step", "preflight_step", "push_step"):
+        step = coerce_mapping(report.get(key))
+        evidence.append(coerce_string(step.get("stderr")))
+        evidence.append(coerce_string(step.get("stdout")))
+    lower_evidence = "\n".join(item.lower() for item in evidence if item)
+    return any(marker in lower_evidence for marker in _DESTRUCTIVE_FAILURE_MARKERS)
+
+
 __all__ = [
     "ACTIVE_PIPELINE_STATES",
+    "AUTO_DELIVERY_TRANSITION_RULE",
     "BLOCKING_PIPELINE_STATES",
     "PUSHABLE_PIPELINE_STATES",
+    "PUSH_FAILURE_CLASSIFICATION_DESTRUCTIVE",
+    "PUSH_FAILURE_CLASSIFICATION_NON_DESTRUCTIVE",
+    "PUSH_FAILURE_CLASSIFICATION_NONE",
     "RECOVERABLE_PIPELINE_STATES",
     "REFRESHABLE_PIPELINE_STATES",
     "STATE_DELIVERED_LOCALLY_PENDING_PUBLISH",
     "TERMINAL_PIPELINE_STATES",
+    "classify_push_failure",
     "eligible_for_local_delivery",
 ]

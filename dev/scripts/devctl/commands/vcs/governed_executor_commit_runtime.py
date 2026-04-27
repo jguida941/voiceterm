@@ -27,6 +27,7 @@ from .governed_executor_packets import (
     build_commit_execution_request,
     build_commit_stage_request,
 )
+from .startup_context_refresh import startup_context_advisory_from_step
 
 
 CommandRunner = Callable[[str, list[str], Path], dict[str, object]]
@@ -38,6 +39,8 @@ class StartupContextRefreshResult:
 
     ok: bool
     warnings: tuple[str, ...] = ()
+    advisory_action: str = ""
+    advisory_reason: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +82,21 @@ def refresh_startup_context_receipt_before_vcs_preflight(
                 f"Refreshed startup-context receipt before {next_step_label}.",
             ),
         )
+    advisory_action, advisory_reason = startup_context_advisory_from_step(step)
+    if advisory_action:
+        advisory_detail = f"action={advisory_action}"
+        if advisory_reason:
+            advisory_detail = f"{advisory_detail}, reason={advisory_reason}"
+        return StartupContextRefreshResult(
+            ok=True,
+            warnings=(
+                "Refreshed startup-context receipt before "
+                f"{next_step_label}; startup-context returned advisory "
+                f"{advisory_detail} (exit {returncode}).",
+            ),
+            advisory_action=advisory_action,
+            advisory_reason=advisory_reason,
+        )
     detail = str(step.get("failure_output") or step.get("error") or "").strip()
     warning = (
         f"startup-context refresh failed before {next_step_label}"
@@ -96,11 +114,13 @@ def refresh_and_recheck_attention_revision(
     held_lease: str,
     next_step_label: str,
     stale_check_fn: Callable[..., bool] | None = None,
+    command_runner: CommandRunner | None = None,
 ) -> AttentionRevisionRefreshDecision:
     """Refresh startup receipt once, then rerun the stale-attention check."""
     refresh_result = refresh_startup_context_receipt_before_vcs_preflight(
         repo_root=repo_root,
         next_step_label=next_step_label,
+        command_runner=command_runner,
     )
     if not refresh_result.ok:
         return AttentionRevisionRefreshDecision(

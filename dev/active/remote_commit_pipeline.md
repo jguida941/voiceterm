@@ -227,9 +227,10 @@ compact readiness surface, not from full diff text.
 | `rejected` | operator denied the current request | `recover` |
 | `commit_pending` | governed executor has lease to create the commit | `commit_recorded`, `push_blocked` |
 | `commit_recorded` | commit SHA exists and matches the approved staged hash | `push_pending`, `push_blocked` |
-| `push_pending` | canonical `vcs.push` flow is executing | `push_completed`, `push_blocked` |
+| `push_pending` | canonical `vcs.push` flow is executing | `push_completed`, `push_blocked`, `delivered_locally_pending_publish` |
 | `push_completed` | commit is published and post-push truth is recorded | terminal |
-| `push_blocked` | executor or publish path failed closed | `recover` |
+| `delivered_locally_pending_publish` | governed commit is safely landed locally after a non-destructive push failure; publication remains pending | terminal |
+| `push_blocked` | executor or publish path failed closed and requires explicit reconciliation | `recover`, `delivered_locally_pending_publish` |
 
 `recover` is an explicit action, not an implicit downgrade. It may reopen a
 fresh pipeline, restage the same work, rerun guards, or clear a stale pending
@@ -244,7 +245,7 @@ artifact for auditability.
 | `guard` | routed guard bundle recorded as `ActionResult(action_id="quality.guard_bundle")` | existing repo guard stack | `staged -> guards_passed` | `guards_failed` on `fail`, `unknown`, or `defer`; no approval request is posted |
 | `approve` | `PacketPostRequest(kind="commit_approval")` for both request and operator decision packets | review-channel transport | `guards_passed -> approved` or `rejected` | no packet, stale packet, mismatched target revision, or prose-only approval keeps state at `operator_approval_pending` or forces `recover` |
 | `commit` | `TypedAction(action_id="vcs.commit")` executed by governed VCS executor | local repo-owned executor | `approved -> commit_recorded` + emit `PushAuthorizationRecord` bound to the exact commit/check/review proof | `push_blocked` with `commit_failed` reason and `ActionResult` evidence; never tell the operator to run raw `git commit` |
-| `push` | existing `TypedAction(action_id="vcs.push")` consuming the current `PushAuthorizationRecord` | existing canonical push path | `commit_recorded -> push_completed` | `push_blocked` with existing push report + `ActionResult`; publication and post-push green remain separate truths |
+| `push` | existing `TypedAction(action_id="vcs.push")` consuming the current `PushAuthorizationRecord` | existing canonical push path | `commit_recorded -> push_completed`, or `delivered_locally_pending_publish` when the local commit is landed and push failure classification is non-destructive | destructive publication failures stay `push_blocked` with existing push report + `ActionResult`; publication and post-push green remain separate truths |
 | `override_push` | typed `override_push` decision packet bound to the current pipeline generation and approved target identity | review-channel transport + existing canonical push path | `push_blocked -> push_pending` by rerunning normal `TypedAction(action_id="vcs.push")` under the recorded override receipt | no packet, expired approval, target drift, or operator rejection keeps `push_blocked` or forces `recover`; never tell the operator to run raw `git push` |
 | `recover` | `TypedAction(action_id="vcs.pipeline.recover")` | governance runtime | blocked state -> fresh `drafted` or `staged` pipeline | if recovery cannot prove current repo state, return typed blocked receipt and stop |
 

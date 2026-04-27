@@ -36,7 +36,10 @@ from .governed_executor_git import repo_relpath
 from .governed_executor_commit_phase import CommitPipelineContext, execute_commit
 from .governed_executor_packets import build_commit_approval_request
 from .governed_executor_phases import execute_stage
-from .governed_executor_push_result import project_push_report
+from .governed_executor_push_result import (
+    apply_push_report_projection,
+    project_push_report,
+)
 from .governed_executor_validation import build_validation_receipt
 from .governed_executor_sync import (
     load_event_packets,
@@ -216,13 +219,7 @@ class GovernedVcsExecutor:
             report=report,
             pipeline_artifact_relpath=self._pipeline_artifact_relpath(),
         )
-        updated = replace(
-            pending,
-            state=projection.next_state,
-            push_result=projection.push_result,
-            push_report_path=projection.push_report_path,
-            blocked_reason=projection.blocked_reason,
-        )
+        updated = apply_push_report_projection(pending, projection)
         warnings = self._persist_pipeline(updated)
         return self._result(
             action_id=action.action_id,

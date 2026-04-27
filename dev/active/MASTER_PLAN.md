@@ -214,7 +214,13 @@
   publication authorization reads them. This closes the live
   `head_changed_after_authorization` / proof-tick zref cascade that left the
   branch 66 commits ahead, while still requiring a fresh governed approval when
-  the authorization window itself expires. Queue the remaining Plan 4.1
+  the authorization window itself expires. The same closeout now splits
+  pre-validation managed projection sync from post-validation repair and
+  auto-transitions non-destructive push failures to
+  `delivered_locally_pending_publish`, so a landed local commit cannot leave
+  the state machine stuck in `push_blocked`; destructive remote
+  rejection/conflict evidence still requires explicit reconciliation. Queue
+  the remaining Plan 4.1
   additions through existing surfaces: FindingBacklog/governance-review/
   findings-priority/AutoModeState/dashboard/startup-context for
   finding-durability without distraction, `CodexAgentPollLoop` as a Slice A

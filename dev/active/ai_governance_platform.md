@@ -5661,7 +5661,12 @@ working on `MP-377`.
   read as authorized movement when they descend from the approved commit, and
   push preflight refreshes event-backed review-channel projections plus the
   ReviewSnapshot receipt after receipt commits before proof-tick parity and
-  snapshot-freshness checks run. Keep the next work in
+  snapshot-freshness checks run. The push state machine now also separates
+  pre-validation managed projection sync from post-validation repair and
+  auto-transitions non-destructive push failures to
+  `delivered_locally_pending_publish`, while destructive remote
+  rejection/conflict evidence stays `push_blocked` for explicit operator
+  reconciliation. Keep the next work in
   the existing Plan 4.1 spine: extend `PlatformFindingIngest` /
   `FindingBacklog` / `governance-review` / `findings-priority` /
   `AutoModeState` / dashboard / `startup-context.quality_signals` for

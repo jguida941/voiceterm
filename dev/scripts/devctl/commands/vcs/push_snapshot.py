@@ -75,6 +75,16 @@ def build_push_report_payload(
             approved_worktree_identity=context.approved_worktree_identity,
             push_authorization_id=context.push_authorization_id,
             push_authorization_mode=context.push_authorization_mode,
+            pre_validation_managed_projection_sync=getattr(
+                state,
+                "pre_validation_managed_projection_sync",
+                {},
+            ),
+            post_validation_auto_commit_repair=getattr(
+                state,
+                "post_validation_auto_commit_repair",
+                {},
+            ),
         )
     )
 

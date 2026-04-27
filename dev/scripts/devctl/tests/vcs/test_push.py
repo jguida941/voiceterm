@@ -41,6 +41,11 @@ from dev.scripts.devctl.review_channel.remote_commit_pipeline_artifact import (
 from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
     RemoteCommitPipelineContract,
 )
+from dev.scripts.devctl.runtime.remote_commit_pipeline_state import (
+    PUSH_FAILURE_CLASSIFICATION_DESTRUCTIVE,
+    PUSH_FAILURE_CLASSIFICATION_NON_DESTRUCTIVE,
+    STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
+)
 
 
 def make_args(**overrides) -> SimpleNamespace:
@@ -1614,6 +1619,108 @@ class PushBridgeSyncTests(unittest.TestCase):
             ],
         )
 
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    def test_managed_projection_dirty_paths_reach_prevalidation_sync(
+        self,
+        collect_git_status_mock,
+        _remote_exists_mock,
+    ) -> None:
+        policy = make_policy(
+            checkpoint=PushCheckpointPolicy(
+                compatibility_projection_paths=("bridge.md",),
+            )
+        )
+        collect_git_status_mock.return_value = {
+            "branch": "feature/demo",
+            "changes": [
+                {
+                    "path": "bridge.md",
+                    "raw_status": " M",
+                    "index_status": " ",
+                    "worktree_status": "M",
+                },
+                {
+                    "path": "dev/audits/REVIEW_SNAPSHOT.md",
+                    "raw_status": " M",
+                    "index_status": " ",
+                    "worktree_status": "M",
+                },
+            ],
+        }
+        state = push._load_run_state(policy, make_args())
+        calls: list[str] = []
+
+        def _runner(name, cmd, cwd=None, env=None):
+            calls.append(name)
+            return {
+                "name": name,
+                "cmd": cmd,
+                "cwd": str(cwd or "."),
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+
+        def _refresh_projections(_state, _policy, *, repo_root):
+            del _policy, repo_root
+            calls.append("pre-validation-managed-projection-sync")
+            _state.pre_validation_managed_projection_sync = {
+                "phase": "pre_validation_managed_projection_sync",
+                "status": "completed",
+                "allowed": True,
+                "receipt_committed": True,
+                "paths": ("bridge.md", "dev/audits/REVIEW_SNAPSHOT.md"),
+            }
+
+        with (
+            patch(
+                "dev.scripts.devctl.commands.vcs.push.remote_branch_exists",
+                return_value=True,
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+                return_value="origin/feature/demo",
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push.branch_divergence",
+                return_value={"behind": 0, "ahead": 1, "error": None},
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push.append_orphan_snapshot_advisory"
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push.refresh_managed_projections_before_preflight",
+                side_effect=_refresh_projections,
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                return_value="python3 dev/scripts/devctl.py check-router --execute",
+            ),
+        ):
+            push._run_fetch_and_preflight(
+                state,
+                policy,
+                make_args(),
+                repo_root=push.REPO_ROOT,
+                run_cmd_fn=_runner,
+            )
+
+        self.assertEqual(state.errors, [])
+        self.assertEqual(state.dirty_paths, [])
+        self.assertEqual(
+            calls,
+            [
+                "git-fetch",
+                "pre-validation-managed-projection-sync",
+                "push-preflight",
+            ],
+        )
+        self.assertEqual(
+            state.pre_validation_managed_projection_sync["paths"],
+            ("bridge.md", "dev/audits/REVIEW_SNAPSHOT.md"),
+        )
+
     def test_refresh_managed_projections_refreshes_snapshot_then_receipt(self) -> None:
         state = push.PushRunState(branch="feature/demo", remote="origin")
         policy = make_policy()
@@ -1654,11 +1761,18 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertEqual(
             result,
             {
+                "phase": "pre_validation_managed_projection_sync",
+                "allowed": True,
+                "status": "completed",
                 "ok": True,
                 "receipt_committed": False,
                 "paths": (),
                 "snapshot_warning_count": 1,
             },
+        )
+        self.assertEqual(
+            state.pre_validation_managed_projection_sync["phase"],
+            "pre_validation_managed_projection_sync",
         )
 
     def test_refresh_managed_projections_refreshes_system_picture_after_receipt(
@@ -1831,6 +1945,39 @@ class PushBridgeSyncTests(unittest.TestCase):
             "publication authorization.",
             state.warnings,
         )
+
+    def test_post_validation_auto_commit_repair_forbidden_after_validation_failure(
+        self,
+    ) -> None:
+        state = push.PushRunState(
+            branch="feature/demo",
+            remote="origin",
+            errors=["Configured push preflight failed."],
+        )
+        policy = make_policy()
+
+        with patch.object(
+            push_preflight_projection,
+            "refresh_preflight_generated_changes_before_authorization",
+        ) as repair_mock:
+            result = push_preflight_commit.run_post_validation_auto_commit_repair_phase(
+                state,
+                policy,
+                repo_root=Path("/tmp/repo"),
+                validation_passed=False,
+            )
+
+        repair_mock.assert_not_called()
+        self.assertEqual(
+            result,
+            {
+                "phase": "post_validation_auto_commit_repair",
+                "allowed": False,
+                "status": "forbidden",
+                "reason": "validation_failed",
+            },
+        )
+        self.assertEqual(state.post_validation_auto_commit_repair, result)
 
     def test_receipt_refresh_updates_event_bundle_before_system_picture(self) -> None:
         state = push.PushRunState(branch="feature/demo", remote="origin")
@@ -2072,9 +2219,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertIn("Repo policy blocks `--skip-post-push`", payload["errors"][0])
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
-    @patch(
-        "dev.scripts.devctl.commands.vcs.push.refresh_preflight_generated_changes_before_authorization"
-    )
+    @patch("dev.scripts.devctl.commands.vcs.push.repair_preflight_generated_changes_for_push")
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
@@ -2282,6 +2427,50 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertEqual(
             run_git_capture_mock.call_args_list[6].args[0],
             ["commit", "-m", "Refresh external review snapshot for abc1234"],
+        )
+
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_projection_receipt.scan_repo_governance_safely",
+        return_value=None,
+    )
+    def test_projection_receipt_commits_bridge_and_review_snapshot_drift(
+        self,
+        _scan_governance_mock,
+        run_git_capture_mock,
+    ) -> None:
+        run_git_capture_mock.side_effect = [
+            (0, "bridge.md\ndev/audits/REVIEW_SNAPSHOT.md", ""),
+            (0, "", ""),
+            (0, "", ""),
+            (0, "", ""),
+            (0, "bridge.md\ndev/audits/REVIEW_SNAPSHOT.md", ""),
+            (0, "abc1234", ""),
+            (0, "", ""),
+            (0, "receipt-sha", ""),
+        ]
+        state = SimpleNamespace(errors=[], warnings=[])
+
+        push_projection_receipt.auto_commit_managed_projection_receipt(
+            state,
+            make_policy(
+                checkpoint=PushCheckpointPolicy(
+                    compatibility_projection_paths=("bridge.md",),
+                )
+            ),
+        )
+
+        self.assertEqual(state.errors, [])
+        self.assertEqual(
+            run_git_capture_mock.call_args_list[3].args[0],
+            ["add", "--", "bridge.md", "dev/audits/REVIEW_SNAPSHOT.md"],
+        )
+        self.assertEqual(
+            state.warnings,
+            [
+                "Committed managed projection receipt receipt-sha for "
+                "bridge.md, dev/audits/REVIEW_SNAPSHOT.md before push."
+            ],
         )
 
     @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
@@ -3165,6 +3354,61 @@ class PushPipelineStateSyncTests(unittest.TestCase):
         self.assertTrue(projection.push_result.partial_progress)
         self.assertEqual(projection.push_result.reason, "branch_already_pushed")
 
+    def test_project_push_report_auto_transitions_non_destructive_failure(
+        self,
+    ) -> None:
+        projection = project_push_report(
+            action_id="vcs.push",
+            report={
+                "reason": "validation_failed",
+                "errors": ["Configured push preflight failed."],
+                "push_stages": {
+                    "validation_ready": False,
+                    "published_remote": False,
+                    "post_push_green": False,
+                },
+            },
+            pipeline_artifact_relpath="dev/reports/commit_pipeline.json",
+            pipeline_state="push_pending",
+            local_commit_landed=True,
+        )
+
+        self.assertEqual(
+            projection.next_state,
+            STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
+        )
+        self.assertEqual(projection.blocked_reason, "")
+        self.assertEqual(
+            projection.push_failure_transition["classification"],
+            PUSH_FAILURE_CLASSIFICATION_NON_DESTRUCTIVE,
+        )
+        self.assertTrue(projection.push_failure_transition["auto_transitioned"])
+
+    def test_project_push_report_keeps_destructive_failure_blocked(self) -> None:
+        projection = project_push_report(
+            action_id="vcs.push",
+            report={
+                "reason": "git_push_failed",
+                "push_step": {"stderr": "remote rejected non-fast-forward"},
+                "push_stages": {
+                    "validation_ready": True,
+                    "published_remote": False,
+                    "post_push_green": False,
+                },
+            },
+            pipeline_artifact_relpath="dev/reports/commit_pipeline.json",
+            pipeline_state="push_pending",
+            local_commit_landed=True,
+        )
+
+        self.assertEqual(projection.next_state, "push_blocked")
+        self.assertEqual(projection.blocked_reason, "git_push_failed")
+        self.assertEqual(
+            projection.push_failure_transition["classification"],
+            PUSH_FAILURE_CLASSIFICATION_DESTRUCTIVE,
+        )
+        self.assertFalse(projection.push_failure_transition["auto_transitioned"])
+
     def test_sync_commit_pipeline_with_push_report_updates_both_pipeline_artifacts(
         self,
     ) -> None:
@@ -3201,6 +3445,16 @@ class PushPipelineStateSyncTests(unittest.TestCase):
                         "published_remote": True,
                         "post_push_green": True,
                     },
+                    "push_pipeline_phases": {
+                        "pre_validation_managed_projection_sync": {
+                            "status": "completed",
+                            "receipt_committed": True,
+                        },
+                        "post_validation_auto_commit_repair": {
+                            "status": "completed",
+                            "head_moved": False,
+                        },
+                    },
                 },
             )
 
@@ -3219,6 +3473,139 @@ class PushPipelineStateSyncTests(unittest.TestCase):
             self.assertIsNotNone(legacy.push_result)
             self.assertEqual(persisted.push_result.reason, "push_completed")
             self.assertEqual(legacy.push_result.reason, "push_completed")
+            self.assertEqual(
+                persisted.push_pipeline_phases[
+                    "pre_validation_managed_projection_sync"
+                ]["status"],
+                "completed",
+            )
+            self.assertEqual(
+                legacy.push_pipeline_phases["post_validation_auto_commit_repair"][
+                    "status"
+                ],
+                "completed",
+            )
+
+    def test_sync_commit_pipeline_auto_transitions_non_destructive_push_failure(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+            projections_root = Path(artifact_paths.projections_root)
+            projections_root.mkdir(parents=True, exist_ok=True)
+
+            pipeline = RemoteCommitPipelineContract(
+                pipeline_id="pipeline-123",
+                state="push_pending",
+                branch="feature/demo",
+                remote="origin",
+                commit_sha="abc123",
+                approved_target_identity="tree-receipt-1",
+            )
+            persist_remote_commit_pipeline_contract(
+                pipeline,
+                output_root=projections_root,
+            )
+
+            synced = sync_commit_pipeline_with_push_report(
+                repo_root=repo_root,
+                current_branch="feature/demo",
+                current_remote="origin",
+                current_head_commit="abc123",
+                approved_target_identity="tree-receipt-1",
+                report={
+                    "reason": "validation_failed",
+                    "errors": ["Configured push preflight failed."],
+                    "artifacts": {"latest_json": "dev/reports/push/latest.json"},
+                    "push_stages": {
+                        "validation_ready": False,
+                        "published_remote": False,
+                        "post_push_green": False,
+                    },
+                },
+            )
+
+            self.assertTrue(synced)
+            persisted = load_remote_commit_pipeline_contract(
+                output_root=projections_root
+            )
+            legacy = load_remote_commit_pipeline_contract(
+                output_root=repo_root / "dev/reports/review_channel/latest"
+            )
+            self.assertEqual(
+                persisted.state,
+                STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
+            )
+            self.assertEqual(
+                legacy.state,
+                STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
+            )
+            self.assertEqual(persisted.blocked_reason, "")
+            self.assertEqual(persisted.delivered_by, "devctl.push")
+            self.assertTrue(persisted.delivered_at_utc)
+            self.assertEqual(
+                persisted.local_delivery_reason,
+                "non_destructive_push_failure_local_commit_delivered",
+            )
+            self.assertEqual(
+                persisted.push_failure_transition["classification"],
+                PUSH_FAILURE_CLASSIFICATION_NON_DESTRUCTIVE,
+            )
+
+    def test_sync_commit_pipeline_keeps_destructive_push_failure_blocked(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+            projections_root = Path(artifact_paths.projections_root)
+            projections_root.mkdir(parents=True, exist_ok=True)
+
+            pipeline = RemoteCommitPipelineContract(
+                pipeline_id="pipeline-123",
+                state="push_pending",
+                branch="feature/demo",
+                remote="origin",
+                commit_sha="abc123",
+                approved_target_identity="tree-receipt-1",
+            )
+            persist_remote_commit_pipeline_contract(
+                pipeline,
+                output_root=projections_root,
+            )
+
+            synced = sync_commit_pipeline_with_push_report(
+                repo_root=repo_root,
+                current_branch="feature/demo",
+                current_remote="origin",
+                current_head_commit="abc123",
+                approved_target_identity="tree-receipt-1",
+                report={
+                    "reason": "git_push_failed",
+                    "push_step": {"stderr": "remote rejected non-fast-forward"},
+                    "artifacts": {"latest_json": "dev/reports/push/latest.json"},
+                    "push_stages": {
+                        "validation_ready": True,
+                        "published_remote": False,
+                        "post_push_green": False,
+                    },
+                },
+            )
+
+            self.assertTrue(synced)
+            persisted = load_remote_commit_pipeline_contract(
+                output_root=projections_root
+            )
+            self.assertEqual(persisted.state, "push_blocked")
+            self.assertEqual(persisted.blocked_reason, "git_push_failed")
+            self.assertEqual(
+                persisted.push_failure_transition["classification"],
+                PUSH_FAILURE_CLASSIFICATION_DESTRUCTIVE,
+            )
+            self.assertFalse(
+                persisted.push_failure_transition["auto_transitioned"]
+            )
 
     def test_sync_commit_pipeline_accepts_managed_projection_receipt_head(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -3362,7 +3749,7 @@ class PushPipelineStateSyncTests(unittest.TestCase):
             self.assertIsNone(persisted.push_result)
             self.assertEqual(persisted.push_report_path, "")
 
-    def test_sync_commit_pipeline_with_push_report_does_not_heal_regressed_push_blocked_on_branch_already_pushed(
+    def test_sync_commit_pipeline_auto_transitions_regressed_push_blocked_on_branch_already_pushed(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -3408,14 +3795,27 @@ class PushPipelineStateSyncTests(unittest.TestCase):
             legacy = load_remote_commit_pipeline_contract(
                 output_root=repo_root / "dev/reports/review_channel/latest"
             )
-            self.assertEqual(persisted.state, "push_blocked")
-            self.assertEqual(legacy.state, "push_blocked")
+            self.assertEqual(
+                persisted.state,
+                STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
+            )
+            self.assertEqual(
+                legacy.state,
+                STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
+            )
             self.assertIsNotNone(persisted.push_result)
             self.assertIsNotNone(legacy.push_result)
             self.assertEqual(persisted.push_result.reason, "branch_already_pushed")
             self.assertEqual(legacy.push_result.reason, "branch_already_pushed")
             self.assertTrue(persisted.push_result.partial_progress)
             self.assertTrue(legacy.push_result.partial_progress)
+            self.assertEqual(
+                persisted.push_failure_transition["classification"],
+                PUSH_FAILURE_CLASSIFICATION_NON_DESTRUCTIVE,
+            )
+            self.assertTrue(
+                persisted.push_failure_transition["auto_transitioned"]
+            )
 
 
 if __name__ == "__main__":

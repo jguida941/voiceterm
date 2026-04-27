@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -33,6 +34,8 @@ from dev.scripts.devctl.commands.vcs.governed_executor_phases import (
 )
 from dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime import (
     StartupContextRefreshResult,
+    refresh_and_recheck_attention_revision,
+    refresh_startup_context_receipt_before_vcs_preflight,
 )
 from dev.scripts.devctl.commands.vcs.push import build_push_action
 from dev.scripts.devctl.review_channel.event_reducer import load_or_refresh_event_bundle
@@ -617,6 +620,99 @@ def test_stage_attention_revision_blocks_when_startup_refresh_fails(
     assert result.ok is False
     assert result.reason == "startup_context_refresh_failed"
     assert result.warnings == ("startup-context refresh failed",)
+
+
+def test_commit_attention_refresh_accepts_checkpoint_advisory_exit_one(
+    tmp_path: Path,
+) -> None:
+    repo_root = _repo_with_devctl(tmp_path)
+    output = "\n".join(
+        (
+            "action=checkpoint_before_continue",
+            "reason=staged_index_budget_exceeded",
+            "interaction_mode=remote_control",
+            "observed_control_topology=no_live_agents",
+            "implementation_permission=blocked",
+            "attention_revision=live-rev",
+        )
+    )
+
+    result = refresh_startup_context_receipt_before_vcs_preflight(
+        repo_root=repo_root,
+        next_step_label="commit preflight",
+        command_runner=_startup_context_runner(
+            returncode=1,
+            failure_output=output,
+        ),
+    )
+
+    assert result.ok is True
+    assert result.advisory_action == "checkpoint_before_continue"
+    assert result.advisory_reason == "staged_index_budget_exceeded"
+
+
+def test_commit_attention_refresh_accepts_resume_advisory_exit_one(
+    tmp_path: Path,
+) -> None:
+    repo_root = _repo_with_devctl(tmp_path)
+    decision = refresh_and_recheck_attention_revision(
+        repo_root=repo_root,
+        review_channel_path=None,
+        held_lease="",
+        next_step_label="commit preflight",
+        command_runner=_startup_context_runner(
+            returncode=1,
+            failure_output=_startup_context_json(
+                "resume_implementer_work",
+                "implementer_completion_stall",
+            ),
+        ),
+        stale_check_fn=lambda **_kwargs: False,
+    )
+
+    assert decision.status == "fresh"
+    assert "action=resume_implementer_work" in decision.warnings[0]
+
+
+def test_commit_attention_refresh_blocks_unparseable_exit_one(
+    tmp_path: Path,
+) -> None:
+    repo_root = _repo_with_devctl(tmp_path)
+    decision = refresh_and_recheck_attention_revision(
+        repo_root=repo_root,
+        review_channel_path=None,
+        held_lease="",
+        next_step_label="commit preflight",
+        command_runner=_startup_context_runner(
+            returncode=1,
+            failure_output="Traceback: startup-context crashed",
+        ),
+        stale_check_fn=lambda **_kwargs: False,
+    )
+
+    assert decision.status == "refresh_failed"
+    assert "startup-context refresh failed before commit preflight" in (
+        decision.warnings[0]
+    )
+
+
+def test_commit_attention_refresh_exit_zero_proceeds_without_payload(
+    tmp_path: Path,
+) -> None:
+    repo_root = _repo_with_devctl(tmp_path)
+    decision = refresh_and_recheck_attention_revision(
+        repo_root=repo_root,
+        review_channel_path=None,
+        held_lease="",
+        next_step_label="commit preflight",
+        command_runner=_startup_context_runner(returncode=0),
+        stale_check_fn=lambda **_kwargs: False,
+    )
+
+    assert decision.status == "fresh"
+    assert decision.warnings == (
+        "Refreshed startup-context receipt before commit preflight.",
+    )
 
 
 def test_stage_attention_revision_ignores_other_agents_actionable_packets() -> None:
@@ -2387,6 +2483,53 @@ def _executor(
         build_post_push_commands_fn=lambda policy, quality_policy_path=None, since_ref=None: [],
         refresh_projections=True,
     )
+
+
+def _repo_with_devctl(tmp_path: Path) -> Path:
+    repo_root = tmp_path / "repo"
+    scripts_dir = repo_root / "dev/scripts"
+    scripts_dir.mkdir(parents=True)
+    (scripts_dir / "devctl.py").write_text("", encoding="utf-8")
+    return repo_root
+
+
+def _startup_context_json(action: str, reason: str) -> str:
+    return json.dumps(
+        {
+            "schema_version": 1,
+            "contract_id": "StartupContext",
+            "action": action,
+            "reason": reason,
+            "advisory_action": action,
+            "advisory_reason": reason,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def _startup_context_runner(
+    *,
+    returncode: int,
+    failure_output: str = "",
+):
+    def _runner(name, command, cwd):
+        del cwd
+        assert name == "commit-refresh-startup-context"
+        assert command[-2:] == ["--format", "summary"]
+        result: dict[str, object] = {
+            "name": name,
+            "cmd": command,
+            "cwd": ".",
+            "returncode": returncode,
+            "duration_s": 0.1,
+            "skipped": False,
+        }
+        if failure_output:
+            result["failure_output"] = failure_output
+        return result
+
+    return _runner
 
 
 def _init_repo(repo_root: Path) -> Path:

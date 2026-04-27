@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
+from .push_projection_receipt import managed_projection_receipt_paths
+
 
 def change_blocks_push_dirty_tree(change: Mapping[str, object]) -> bool:
     """Return True when one collected git-status row should block push cleanliness.
@@ -44,3 +46,11 @@ def blocking_dirty_paths(
         if change_blocks_push_dirty_tree(change):
             paths.append(path)
     return paths
+
+
+def push_exclusion_paths(policy, *, repo_root) -> tuple[str, ...]:
+    """Return worktree paths that managed push phases own separately."""
+    return (
+        *managed_projection_receipt_paths(policy, repo_root=repo_root),
+        *policy.checkpoint.advisory_context_paths,
+    )

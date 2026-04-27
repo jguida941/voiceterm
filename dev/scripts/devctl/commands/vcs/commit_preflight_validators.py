@@ -8,6 +8,9 @@ from pathlib import Path
 from .commit_guard_bundle import GUARD_PROFILE
 from .commit_preflight_atomicity import preflight_import_index_atomicity
 from .commit_pipeline_blocking import build_active_pipeline_block_report
+from .commit_pipeline_blocking import (
+    auto_transition_non_destructive_push_failure,
+)
 from .commit_preflight_support import (
     COMMIT_START_COMMAND,
     next_command_guidance,
@@ -51,6 +54,9 @@ _EXPLICIT_APPROVAL_PIPELINE_STATES = frozenset(
 class CommitPreflightDeps:
     pipeline_is_stale_for_current_repo_fn: object = pipeline_is_stale_for_current_repo
     build_active_pipeline_block_report_fn: object = build_active_pipeline_block_report
+    auto_transition_non_destructive_push_failure_fn: object = (
+        auto_transition_non_destructive_push_failure
+    )
     post_commit_execution_handoff_fn: object = post_commit_execution_handoff
     post_commit_stage_handoff_fn: object = post_commit_stage_handoff
 
@@ -81,10 +87,19 @@ def prepare_pipeline(
         and pipeline.state in _PIPELINE_BLOCKING_STATES
         and not stale_pipeline
     ):
-        return pipeline, stage_warnings, resolved_deps.build_active_pipeline_block_report_fn(
+        pipeline = _reload_after_auto_push_failure_transition(
             repo_root=repo_root,
             pipeline=pipeline,
+            vcs_executor=vcs_executor,
+            deps=resolved_deps,
         )
+        if pipeline.state in _PIPELINE_BLOCKING_STATES:
+            return pipeline, stage_warnings, (
+                resolved_deps.build_active_pipeline_block_report_fn(
+                    repo_root=repo_root,
+                    pipeline=pipeline,
+                )
+            )
 
     if (
         not pipeline.pipeline_id
@@ -196,6 +211,22 @@ def prepare_pipeline(
         scan_trigger="commit_preflight",
     )
     return pipeline, stage_warnings, None
+
+
+def _reload_after_auto_push_failure_transition(
+    *,
+    repo_root: Path,
+    pipeline,
+    vcs_executor: GovernedVcsExecutor,
+    deps: CommitPreflightDeps,
+):
+    transitioned = deps.auto_transition_non_destructive_push_failure_fn(
+        repo_root=repo_root,
+        pipeline=pipeline,
+    )
+    if not transitioned:
+        return pipeline
+    return vcs_executor.load_pipeline()
 
 
 def load_pipeline_for_explicit_approval(

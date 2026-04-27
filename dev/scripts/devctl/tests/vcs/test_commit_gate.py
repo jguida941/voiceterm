@@ -35,6 +35,10 @@ from dev.scripts.devctl.commands.vcs.commit_preflight import (
     load_pipeline_for_explicit_approval,
     prepare_pipeline,
 )
+from dev.scripts.devctl.commands.vcs.commit_preflight_validators import (
+    CommitPreflightDeps,
+    prepare_pipeline as prepare_pipeline_with_deps,
+)
 from dev.scripts.devctl.commands.vcs.commit_preflight_support import (
     build_commit_approval_authority,
 )
@@ -65,6 +69,9 @@ from dev.scripts.devctl.review_channel.remote_control_attachment_artifact import
 from dev.scripts.devctl.runtime.commit_permission import CommitPermissionDecision
 from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
     RemoteCommitPipelineContract,
+)
+from dev.scripts.devctl.runtime.remote_commit_pipeline_state import (
+    STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
 )
 from dev.scripts.devctl.runtime.review_state_packet_models import ReviewPacketState
 from dev.scripts.devctl.runtime.reviewer_runtime_models import (
@@ -419,6 +426,69 @@ class TestStartupActionRouting(unittest.TestCase):
             "python3 dev/scripts/devctl.py push --execute",
         )
         self.assertEqual(report["commit_phase"], "push_blocked")
+
+    def test_prepare_pipeline_auto_transitions_non_destructive_push_block(
+        self,
+    ) -> None:
+        blocked_pipeline = SimpleNamespace(
+            pipeline_id="pipeline-123",
+            state="push_blocked",
+            approval_state="approved",
+            commit_sha="abc123",
+        )
+        delivered_pipeline = SimpleNamespace(
+            pipeline_id="pipeline-123",
+            state=STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
+            approval_state="approved",
+            commit_sha="abc123",
+        )
+        staged_pipeline = SimpleNamespace(
+            pipeline_id="pipeline-456",
+            state="staged",
+            approval_state="pending",
+        )
+        stage_result = SimpleNamespace(ok=True, warnings=(), reason="staged")
+        executor = MagicMock()
+        executor.load_pipeline.side_effect = [
+            blocked_pipeline,
+            delivered_pipeline,
+            staged_pipeline,
+        ]
+        executor.execute.return_value = stage_result
+
+        block_report = MagicMock()
+        auto_transition = MagicMock(return_value=True)
+
+        with (
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_preflight_validators.preflight_import_index_atomicity",
+                side_effect=lambda **kwargs: (kwargs["stage_warnings"], None),
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_preflight_validators.append_orphan_snapshot_advisory",
+            ),
+        ):
+            returned_pipeline, warnings, report = prepare_pipeline_with_deps(
+                args=_make_args(),
+                repo_root=Path("/tmp/repo"),
+                resolved_policy=SimpleNamespace(repo_pack_id="voiceterm"),
+                vcs_executor=executor,
+                deps=CommitPreflightDeps(
+                    pipeline_is_stale_for_current_repo_fn=lambda **_: False,
+                    build_active_pipeline_block_report_fn=block_report,
+                    auto_transition_non_destructive_push_failure_fn=auto_transition,
+                ),
+            )
+
+        self.assertIs(returned_pipeline, staged_pipeline)
+        self.assertEqual(warnings, [])
+        self.assertIsNone(report)
+        auto_transition.assert_called_once_with(
+            repo_root=Path("/tmp/repo"),
+            pipeline=blocked_pipeline,
+        )
+        block_report.assert_not_called()
+        executor.execute.assert_called_once()
 
     def test_prepare_pipeline_posts_handoff_when_reuse_staged_index_hits_git_lock(
         self,

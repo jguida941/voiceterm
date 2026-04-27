@@ -250,7 +250,10 @@ invocation to cross the approval boundary. When a typed packet is posted after
 the last startup refresh, governed stage/commit preflight now reruns the
 existing `startup-context --format summary` receipt writer before failing on
 `attention_revision_stale`; it still blocks if that refresh cannot prove the
-current packet-attention revision.
+current packet-attention revision. A non-zero `startup-context` exit with a
+parseable advisory payload, such as `checkpoint_before_continue`, is a
+successful refresh; only a crash, missing output, or unparseable payload is a
+`startup_context_refresh_failed` condition.
 Push cleanliness now blocks only on unstaged or untracked dirt. Staged-only
 "next commit" intent is allowed so `devctl push --execute` and its
 preflight auto-commit repair path do not loop on already-approved work just
@@ -1502,9 +1505,13 @@ Workflow permissions note:
    defaulting zero changed paths into the docs lane. That no-op receipt is
    not allowed to reconstruct a stale `push_blocked` commit-pipeline artifact
    into `push_completed`; startup/status recover current publication from the
-   persisted push artifact instead. The same runtime path now
-   also reuses the preflight-resolved `since_ref` for diff-sensitive post-push
-   commands, so existing upstream-backed branches audit the published delta
+   persisted push artifact instead. Non-destructive push failures such as
+   validation/downstream gate failures now auto-transition a landed commit to
+   `delivered_locally_pending_publish`; destructive remote rejection/conflict
+   evidence remains `push_blocked` for explicit reconciliation. The same
+   runtime path now also reuses the preflight-resolved `since_ref` for
+   diff-sensitive post-push commands, so existing upstream-backed branches
+   audit the published delta
    instead of reopening unrelated branch-vs-develop debt. The governed
    commit/push pipeline now also binds approval to the exact
    `worktree_identity` that staged it, so worker-lane publication approval

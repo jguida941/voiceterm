@@ -133,6 +133,8 @@ class RemoteCommitPipelineContract:
     commit_sha: str = ""
     push_action_id: str = ""
     push_result: ActionResult | None = None
+    push_pipeline_phases: Mapping[str, object] = field(default_factory=dict)
+    push_failure_transition: Mapping[str, object] = field(default_factory=dict)
     push_report_path: str = ""
     blocked_reason: str = "pipeline_unavailable"
     recovery_action_allowed: str = ""
@@ -181,6 +183,8 @@ class RemoteCommitPipelineContract:
         payload["push_result"] = (
             self.push_result.to_dict() if self.push_result is not None else None
         )
+        payload["push_pipeline_phases"] = dict(self.push_pipeline_phases)
+        payload["push_failure_transition"] = dict(self.push_failure_transition)
         payload["push_report_path"] = self.push_report_path
         payload["blocked_reason"] = self.blocked_reason
         payload["recovery_action_allowed"] = self.recovery_action_allowed
@@ -267,6 +271,9 @@ def remote_commit_pipeline_contract_from_mapping(
     mapping = coerce_mapping(payload)
     if not mapping:
         return RemoteCommitPipelineContract()
+    blocked_reason = coerce_string(mapping.get("blocked_reason"))
+    if "blocked_reason" not in mapping:
+        blocked_reason = "pipeline_unavailable"
 
     return RemoteCommitPipelineContract(
         schema_version=coerce_int(mapping.get("schema_version"))
@@ -295,9 +302,12 @@ def remote_commit_pipeline_contract_from_mapping(
         commit_sha=coerce_string(mapping.get("commit_sha")),
         push_action_id=coerce_string(mapping.get("push_action_id")),
         push_result=_action_result_from_object(mapping.get("push_result")),
+        push_pipeline_phases=coerce_mapping(mapping.get("push_pipeline_phases")),
+        push_failure_transition=coerce_mapping(
+            mapping.get("push_failure_transition")
+        ),
         push_report_path=coerce_string(mapping.get("push_report_path")),
-        blocked_reason=coerce_string(mapping.get("blocked_reason"))
-        or "pipeline_unavailable",
+        blocked_reason=blocked_reason,
         recovery_action_allowed=coerce_string(mapping.get("recovery_action_allowed")),
         generation_id=coerce_string(mapping.get("generation_id")),
         approval_expires_at_utc=coerce_string(mapping.get("approval_expires_at_utc")),

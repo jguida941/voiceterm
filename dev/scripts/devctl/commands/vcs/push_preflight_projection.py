@@ -16,6 +16,8 @@ from ...runtime.vcs import run_git_capture
 from .push_preflight_commit import auto_commit_preflight_generated_changes
 from .push_projection_receipt import auto_commit_managed_projection_receipt
 
+PRE_VALIDATION_MANAGED_PROJECTION_SYNC = "pre_validation_managed_projection_sync"
+
 
 def refresh_managed_projections_before_preflight(
     state,
@@ -34,13 +36,22 @@ def refresh_managed_projections_before_preflight(
     )
     if not isinstance(receipt_result, dict):
         receipt_result = {}
-    result = {
-        "ok": bool(receipt_result.get("ok", True)),
-        "receipt_committed": bool(receipt_result.get("committed"))
-        or bool(str(receipt_result.get("commit_sha", "") or "").strip()),
-        "paths": tuple(str(path) for path in receipt_result.get("paths", ()) or ()),
-        "snapshot_warning_count": len([warning for warning in warnings if warning]),
-    }
+    result: dict[str, object] = {}
+    result["phase"] = PRE_VALIDATION_MANAGED_PROJECTION_SYNC
+    result["allowed"] = True
+    result["status"] = (
+        "completed" if bool(receipt_result.get("ok", True)) else "failed"
+    )
+    result["ok"] = bool(receipt_result.get("ok", True))
+    result["receipt_committed"] = bool(receipt_result.get("committed")) or bool(
+        str(receipt_result.get("commit_sha", "") or "").strip()
+    )
+    result["paths"] = tuple(
+        str(path) for path in receipt_result.get("paths", ()) or ()
+    )
+    result["snapshot_warning_count"] = len(
+        [warning for warning in warnings if warning]
+    )
     if result["receipt_committed"] and not getattr(state, "errors", ()):
         refresh_runtime_surfaces_after_projection_receipt(
             state,
@@ -67,6 +78,13 @@ def refresh_managed_projections_before_preflight(
                 repo_root=repo_root,
                 next_step_label="push preflight snapshot receipt",
             )
+    if getattr(state, "errors", ()):
+        result["status"] = "blocked"
+    _record_phase_state(
+        state,
+        "pre_validation_managed_projection_sync",
+        result,
+    )
     return result
 
 
@@ -232,6 +250,21 @@ def refresh_preflight_generated_changes_before_authorization(
         )
 
 
+def repair_preflight_generated_changes_for_push(
+    state,
+    policy,
+    *,
+    repo_root: Path,
+) -> None:
+    """Run the real push repair path with the repo-owned command runner."""
+    refresh_preflight_generated_changes_before_authorization(
+        state,
+        policy,
+        repo_root=repo_root,
+        command_runner=run_cmd,
+    )
+
+
 def _receipt_result_committed(receipt_result: object) -> bool:
     if not isinstance(receipt_result, dict):
         return False
@@ -243,6 +276,13 @@ def _receipt_result_committed(receipt_result: object) -> bool:
 def _current_head_sha(*, repo_root: Path) -> str:
     code, stdout, _ = run_git_capture(["rev-parse", "HEAD"], repo_root=repo_root)
     return stdout.strip() if code == 0 else ""
+
+
+def _record_phase_state(state, attr: str, result: dict[str, object]) -> None:
+    try:
+        setattr(state, attr, dict(result))
+    except (AttributeError, TypeError):
+        return
 
 
 def _refresh_review_channel_projection_bundle_after_projection_receipt(
@@ -295,6 +335,8 @@ def _refresh_review_channel_projection_bundle_after_projection_receipt(
 __all__ = [
     "auto_commit_managed_projection_receipt_before_authorization",
     "auto_commit_review_snapshot_freshness_receipt",
+    "PRE_VALIDATION_MANAGED_PROJECTION_SYNC",
+    "repair_preflight_generated_changes_for_push",
     "refresh_managed_projections_before_preflight",
     "refresh_preflight_generated_changes_before_authorization",
     "refresh_runtime_surfaces_after_projection_receipt",
