@@ -883,10 +883,13 @@ Portability note:
   The same guard now freezes the Phase 0 proof tick across coordination,
   authority, control-plane, startup-context, session-resume, review-channel
   status, persisted review-state, registry, and bridge-compat surfaces. Where
-  a surface exposes proof-tick fields, reviewer mode, topology, instruction
-  revision, ownership, implementation permission, next command,
-  snapshot/generation identity, HEAD/worktree identity, and `zref` must match
-  the single producer tick and carry producer-owned `SurfaceProvenance`.
+  a surface exposes proof-tick fields, reviewer mode, effective reviewer mode,
+  operator interaction mode, topology, instruction revision, ownership,
+  implementation permission, next command, snapshot/generation identity,
+  HEAD/worktree identity, and `zref` must match the single producer tick and
+  carry producer-owned `SurfaceProvenance`. Expected values come from the
+  field's typed authority priority, not from first populated surface order, so
+  compatibility projections cannot silently become canonical.
   The control-topology comparison is scoped to explicit
   `observed_control_topology` fields; `coordination.observed_topology` remains
   coordination evidence and is not a substitute for the active control

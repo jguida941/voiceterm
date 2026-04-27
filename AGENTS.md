@@ -219,6 +219,7 @@ Release-governance note:
 | Where is the code-shape expansion research companion (readability, coupling, AI-specific, information-theoretic probes/guards)? | `dev/active/code_shape_expansion.md` (subordinate evidence/calibration companion feeding `dev/active/review_probes.md` Phase 5b+, not a second execution authority) |
 | Where is the portable code-governance engine / multi-repo portability and measurement plan? | `dev/active/portable_code_governance.md` (engine/adoption companion and owner reference for the portable-proof phase; live execution order stays in the typed phase/task registry in `dev/active/ai_governance_platform.md`) |
 | Where is the full reusable AI governance platform / package-extraction architecture plan? | `dev/active/ai_governance_platform.md` (the only main active architecture plan for this product scope; its typed phase/task registry at the top of `## Execution Checklist` is the live execution authority for `MP-377`) |
+| Where is the 2026-04-27 agent-substrate architecture review for proof-tick authority, mode-axis separation, and any-agent-any-role migration? | `dev/active/agent_substrate_architecture_review.md` (reference-only Plan 4.1 review; execution order stays in `dev/active/ai_governance_platform.md`) |
 | Where is the issue-to-guard/probe promotion queue owned? | `dev/active/ai_governance_platform.md` for the `FindingReview -> GuardPromotionCandidate` contract, `dev/active/portable_code_governance.md` for repo-pack path portability, and `dev/scripts/README.md` for `governance-review` queue behavior |
 | Where is the current `MP-377` startup-authority / repo-pack / typed-plan-registry / runtime-evidence-context closure plan? | `dev/active/platform_authority_loop.md` (subordinate `MP-377` owner reference; read after `dev/active/ai_governance_platform.md` only when the active typed phase/task route names it) |
 | Where is the scheduler-facing planning reducer for multi-agent slice routing documented? | `dev/active/ai_governance_platform.md` for execution authority, plus `dev/scripts/README.md` for the maintainer-facing `PlanningIRSnapshot` module surface |
@@ -709,10 +710,16 @@ checklist plus chat memory.
     startup-context, session-resume, review-channel status, persisted
     review-state, registry, and bridge-compat surfaces. For one proof tick,
     `reviewer_mode`, `effective_reviewer_mode`,
-    `observed_control_topology`, `current_instruction_revision`,
+    `operator_interaction_mode`, `observed_control_topology`,
+    `current_instruction_revision`,
     `ownership_status`, `implementation_permission`, `next_command`,
     `snapshot_id`, `generation_id`, `head_sha`, `worktree_hash`, and `zref`
     must agree wherever a surface exposes them.
+    The expected value must come from the field's typed authority priority,
+    not from first populated surface order. `reviewer_mode` and
+    `effective_reviewer_mode` remain review-loop posture fields, while
+    `operator_interaction_mode` is checked as the separate operator-channel
+    axis.
     `observed_control_topology` is the explicit control-posture field; do
     not infer it from `CoordinationSnapshot.observed_topology`, because the
     coordination topology may describe planned/live multi-agent structure

@@ -592,6 +592,61 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
             "\n".join(failed["errors"]),
         )
 
+    def test_build_report_uses_startup_context_as_reviewer_mode_authority(
+        self,
+    ) -> None:
+        payloads = self._phase_zero_payloads()
+        startup = payloads["startup_payload"]
+        coordination = payloads["review_state_payload"]["coordination"]
+        assert isinstance(startup, dict)
+        assert isinstance(coordination, dict)
+        startup["reviewer_gate"] = {"reviewer_mode": "single_agent"}
+        coordination["reviewer_mode"] = "tools_only"
+
+        report = self.script.build_report(**payloads, disk_review_state_payload=None)
+
+        self.assertFalse(report["ok"])
+        reviewer_mode_violations = [
+            violation
+            for violation in report["violations"]
+            if violation["category"] == "proof_tick_field_parity"
+            and violation["field"] == "reviewer_mode"
+        ]
+        self.assertEqual(len(reviewer_mode_violations), 1)
+        self.assertEqual(reviewer_mode_violations[0]["surface"], "coordination_snapshot")
+        self.assertEqual(reviewer_mode_violations[0]["expected"], "single_agent")
+        self.assertIn(
+            "from startup_context",
+            reviewer_mode_violations[0]["detail"],
+        )
+
+    def test_build_report_compares_operator_interaction_mode_axis(self) -> None:
+        payloads = self._phase_zero_payloads()
+        startup = payloads["startup_payload"]
+        control_plane = payloads["control_plane_payload"]
+        assert isinstance(startup, dict)
+        assert isinstance(control_plane, dict)
+        startup["interaction_mode"] = "remote_control"
+        startup["reviewer_gate"] = {"operator_interaction_mode": "remote_control"}
+        control_plane["operator_interaction_mode"] = "local_terminal"
+
+        report = self.script.build_report(**payloads, disk_review_state_payload=None)
+
+        self.assertFalse(report["ok"])
+        self.assertIn(
+            "proof-tick parity mismatch on operator_interaction_mode",
+            "\n".join(report["errors"]),
+        )
+        mode_violations = [
+            violation
+            for violation in report["violations"]
+            if violation["category"] == "proof_tick_field_parity"
+            and violation["field"] == "operator_interaction_mode"
+        ]
+        self.assertEqual(len(mode_violations), 1)
+        self.assertEqual(mode_violations[0]["surface"], "control_plane_read_model")
+        self.assertEqual(mode_violations[0]["expected"], "remote_control")
+
     def test_build_report_allows_dirty_startup_dynamic_command(self) -> None:
         payloads = self._phase_zero_payloads()
         startup = dict(payloads["startup_payload"])

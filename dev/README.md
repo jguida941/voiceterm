@@ -22,6 +22,7 @@ The main starting points are:
 | Build, test, or release | [`dev/guides/DEVELOPMENT.md`](guides/DEVELOPMENT.md) |
 | Understand how the runtime works | [`dev/guides/ARCHITECTURE.md`](guides/ARCHITECTURE.md) |
 | Understand the reusable AI governance platform thesis and architecture | [`dev/guides/AI_GOVERNANCE_PLATFORM.md`](guides/AI_GOVERNANCE_PLATFORM.md) and [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md) |
+| Review the 2026-04-27 agent-substrate decision for proof-tick authority, mode axes, and any-agent-any-role migration | [`dev/active/agent_substrate_architecture_review.md`](active/agent_substrate_architecture_review.md) after [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md) |
 | Choose Python contract/modeling patterns for platform/runtime tooling | [`dev/guides/PYTHON_ARCHITECTURE.md`](guides/PYTHON_ARCHITECTURE.md) after [`dev/guides/AI_GOVERNANCE_PLATFORM.md`](guides/AI_GOVERNANCE_PLATFORM.md) |
 | Understand the current `MP-377` priority lane for startup authority, repo packs, typed plan routing, and runtime/evidence/context closure | [`dev/active/platform_authority_loop.md`](active/platform_authority_loop.md) after [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md) |
 | Design or implement loop-v2 convergence over startup/work-intake, planning IR, findings priority, auto-mode, monitor, graph discoverability, and governed mutation | [`dev/active/autonomous_governance_loop_v2.md`](active/autonomous_governance_loop_v2.md) after [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md) and [`dev/active/platform_authority_loop.md`](active/platform_authority_loop.md), plus [`dev/active/continuous_swarm.md`](active/continuous_swarm.md), [`dev/active/autonomous_control_plane.md`](active/autonomous_control_plane.md), [`dev/active/review_channel.md`](active/review_channel.md), and [`dev/active/remote_commit_pipeline.md`](active/remote_commit_pipeline.md) for harness/runtime context |
@@ -62,6 +63,7 @@ The main starting points are:
 - Review probes: [`dev/active/review_probes.md`](active/review_probes.md)
 - Portable code governance engine/adoption companion: [`dev/active/portable_code_governance.md`](active/portable_code_governance.md)
 - AI governance platform extraction only main active plan for this product scope: [`dev/active/ai_governance_platform.md`](active/ai_governance_platform.md)
+- Agent substrate architecture review for Plan 4.1 proof-tick and role-axis decisions: [`dev/active/agent_substrate_architecture_review.md`](active/agent_substrate_architecture_review.md)
 - Platform authority loop priority lane under `MP-377`: [`dev/active/platform_authority_loop.md`](active/platform_authority_loop.md)
 - Governed active-plan markdown contract: [`dev/active/PLAN_FORMAT.md`](active/PLAN_FORMAT.md)
 - Naming/API cleanup: [`dev/active/naming_api_cohesion.md`](active/naming_api_cohesion.md)

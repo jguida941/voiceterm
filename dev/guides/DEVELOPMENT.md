@@ -1164,6 +1164,13 @@ Three quality layers matter in practice:
   JSON. When you touch that seam, rerun
   `python3 -m pytest dev/scripts/devctl/tests/runtime/test_startup_context.py dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_doctor.py -q`
   before trusting the broader platform bundle.
+- `check_review_surface_consistency.py` proof-tick parity must use explicit
+  field authority priority instead of first populated surface order.
+  `reviewer_mode` and `effective_reviewer_mode` are review-loop posture
+  fields, while `operator_interaction_mode` is the separate operator-channel
+  axis. When touching that guard, rerun
+  `python3 -m pytest dev/scripts/devctl/tests/checks/test_check_review_surface_consistency.py -q --tb=short`
+  plus the live guard entrypoint before handoff.
 - Use `python3 dev/scripts/devctl.py system-picture --format md` when that
   same platform/governance slice should refresh the generated external-review
   reducer and proof-ledger projection rather than leaving the proof surface as

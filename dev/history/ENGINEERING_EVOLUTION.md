@@ -37,6 +37,31 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-27 - Proof-tick authority now uses field-owned expected sources
+
+Fact: the live `rev_pkt_2000` push blocker exposed a hidden authority bug in
+`check_review_surface_consistency.py`. The proof-tick comparator normalized
+fields across coordination, authority, startup, review-state, bridge, and
+commit surfaces, but then chose `expected` from whichever surface appeared
+first with a value. That made insertion order, not typed authority, decide
+whether `reviewer_mode` was treated as `tools_only` or `active_dual_agent`.
+
+Change: proof-tick parity now chooses expected values from explicit field
+authority priority and reports the expected source in mismatch details.
+`operator_interaction_mode` is now part of the proof tick as its own
+operator-channel axis, separate from reviewer-loop posture. The
+reference-only `dev/active/agent_substrate_architecture_review.md` captures
+the larger Plan 4.1 architecture decision: keep `StartupContext` /
+`AuthoritySnapshot` as the turn-sized authority surface, leave compatibility
+projections non-authoritative, and defer dynamic any-agent-any-role reassignment
+to Slice E on the existing collaboration/capability contracts.
+
+Evidence:
+- `dev/scripts/checks/review_surface_consistency/proof_tick.py`
+- `dev/scripts/devctl/tests/checks/test_check_review_surface_consistency.py`
+- `dev/active/agent_substrate_architecture_review.md`
+- `dev/audits/AUTOMATION_DEBT_REGISTER.md` ADR-020
+
 ### 2026-04-27 - Governed push receipts policy-owned generated surfaces before docs gates
 
 Fact: after bridge and ReviewSnapshot receipt automation landed, the push

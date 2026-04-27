@@ -81,6 +81,13 @@
   explicit `observed_control_topology` separate from coordination
   `observed_topology`, so planned/live topology evidence cannot overwrite the
   active remote-control posture.
+- 2026-04-27 Plan 4.1 proof-tick authority repair (MP-377):
+  `dev/active/agent_substrate_architecture_review.md` records the validated
+  architecture decision for mode-axis separation, proof-tick authority, and
+  future any-agent-any-role migration. `check_review_surface_consistency.py`
+  now chooses expected proof-tick values through explicit field authority
+  priority instead of first-populated surface order, and compares
+  `operator_interaction_mode` separately from `reviewer_mode`.
 - 2026-04-23 session-resume bootstrap repair (also under MP-377):
   `session-resume --role reviewer|implementer` now calls
   `ControlPlaneReadModel` through `ControlPlaneReadModelOptions` for
@@ -253,6 +260,14 @@
   `FindingBacklog`, and `PlatformFindingIngest` in the platform blueprint and
   records ADR-019 for the remaining Slice C connectivity-enforcement
   promotion.
+- 2026-04-27 Plan 4.1 Slice C/D proof-tick authority repair (MP-377):
+  Codex 11 validated `rev_pkt_2001` against the repo and corrected the
+  `rev_pkt_2000` framing: the live failure was declared/effective
+  reviewer-mode authority drift plus first-found-wins expected-value selection,
+  not a missing `remote_control` reviewer enum. The bounded implementation
+  keeps `StartupContext` as turn-level proof authority for reviewer posture and
+  operator channel, adds `operator_interaction_mode` to the proof tick, and
+  leaves dynamic role flipping for Slice E capability migration.
 - 2026-04-24 remote-control liveness split-brain closure (MP-355 + MP-377
   follow-up): `review-channel status --refresh-bridge-heartbeat-if-stale`
   now treats a live typed `remote_control_attachment` as continuity evidence

@@ -8,6 +8,7 @@ from .parity import _nested
 _PROOF_TICK_FIELDS = (
     "reviewer_mode",
     "effective_reviewer_mode",
+    "operator_interaction_mode",
     "observed_control_topology",
     "current_instruction_revision",
     "ownership_status",
@@ -20,11 +21,28 @@ _PROOF_TICK_FIELDS = (
     "zref",
 )
 _PROOF_TICK_FIELD_PATHS: dict[str, tuple[tuple[str, ...], ...]] = {
-    "reviewer_mode": (("reviewer_mode",), ("reviewer_gate", "reviewer_mode")),
+    "reviewer_mode": (
+        ("reviewer_mode",),
+        ("reviewer_gate", "reviewer_mode"),
+        ("authority_snapshot", "reviewer_mode"),
+        ("reviewer_runtime", "reviewer_mode"),
+        ("bridge", "reviewer_mode"),
+    ),
     "effective_reviewer_mode": (
         ("effective_reviewer_mode",),
         ("reviewer_gate", "effective_reviewer_mode"),
         ("reviewer_runtime", "effective_reviewer_mode"),
+        ("authority_snapshot", "effective_reviewer_mode"),
+        ("bridge", "effective_reviewer_mode"),
+    ),
+    "operator_interaction_mode": (
+        ("operator_interaction_mode",),
+        ("interaction_mode",),
+        ("reviewer_gate", "operator_interaction_mode"),
+        ("authority_snapshot", "operator_interaction_mode"),
+        ("reviewer_runtime", "operator_interaction_mode"),
+        ("collaboration", "operator_interaction_mode"),
+        ("governance", "bridge_config", "operator_interaction_mode"),
     ),
     "observed_control_topology": (
         ("observed_control_topology",),
@@ -73,6 +91,46 @@ _PROOF_TICK_FIELD_PATHS: dict[str, tuple[tuple[str, ...], ...]] = {
     ),
     "zref": (("zref",), ("authority_snapshot", "zref")),
 }
+_DEFAULT_FIELD_AUTHORITY_PRIORITY = (
+    "startup_context",
+    "authority_snapshot",
+    "persisted_review_state",
+    "control_plane_read_model",
+    "session_resume",
+    "review_channel_status",
+    "coordination_snapshot",
+    "registry_agents",
+    "bridge_compat",
+    "compact_projection",
+    "commit_pipeline",
+)
+_PROOF_TICK_FIELD_AUTHORITY_PRIORITY: dict[str, tuple[str, ...]] = {
+    # StartupContext is the turn-sized reducer that resolves declared reviewer
+    # posture, effective runtime state, and operator channel from one frozen
+    # review-state tick. The bridge remains a compatibility projection.
+    "reviewer_mode": (
+        "startup_context",
+        "authority_snapshot",
+        "persisted_review_state",
+        "review_channel_status",
+        "bridge_compat",
+    ),
+    "effective_reviewer_mode": (
+        "startup_context",
+        "authority_snapshot",
+        "persisted_review_state",
+        "review_channel_status",
+        "bridge_compat",
+    ),
+    "operator_interaction_mode": (
+        "startup_context",
+        "control_plane_read_model",
+        "review_channel_status",
+        "persisted_review_state",
+        "authority_snapshot",
+        "bridge_compat",
+    ),
+}
 
 
 def proof_tick_field_parity_violations(
@@ -97,7 +155,7 @@ def proof_tick_field_parity_violations(
         }
         if len(set(values.values())) <= 1:
             continue
-        expected = next(iter(values.values()))
+        expected, expected_surface = _expected_value(field, values)
         for surface, actual in values.items():
             if actual == expected:
                 continue
@@ -110,7 +168,8 @@ def proof_tick_field_parity_violations(
                     actual=actual,
                     detail=(
                         f"proof-tick parity mismatch on {field}: "
-                        f"{surface}={actual!r}, expected={expected!r}"
+                        f"{surface}={actual!r}, expected={expected!r} "
+                        f"from {expected_surface}"
                     ),
                 )
             )
@@ -144,3 +203,14 @@ def _first_nested(
         if value:
             return value
     return ""
+
+
+def _expected_value(field: str, values: dict[str, str]) -> tuple[str, str]:
+    for surface in _PROOF_TICK_FIELD_AUTHORITY_PRIORITY.get(
+        field, _DEFAULT_FIELD_AUTHORITY_PRIORITY
+    ):
+        expected = values.get(surface, "")
+        if expected:
+            return expected, surface
+    surface, expected = next(iter(values.items()))
+    return expected, surface

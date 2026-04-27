@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-24 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-27 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -88,6 +88,15 @@ Current 2026-04-24 actor-authority grant note:
   This is the compatibility-preserving bridge from reviewer-mode labels to
   principal-actor capability checks; full fallback removal remains later
   cutover work after all surfaces prove grant parity.
+
+Current 2026-04-27 agent-substrate authority note:
+- `dev/active/agent_substrate_architecture_review.md` is the reference-only
+  architecture review for the operator's "system in one place" Plan 4.1 ask.
+  It validates that `reviewer_mode` is review-loop posture,
+  `operator_interaction_mode` is operator channel, proof-tick expected values
+  must come from explicit field authority priority, and dynamic any-agent
+  role reassignment belongs in the existing capability-on-identity chain
+  rather than a parallel role system.
 
 Current 2026-04-25 SYSTEM_MAP connectivity authority note:
 - `ConnectivityRegistrySnapshot` is now the shared typed source for contract,
@@ -3336,6 +3345,10 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/remote_control_runtime.md`
       status: `queued`
       depends_on: `MP377-P0-T05`, `MP377-P1-T08`
+- [x] `MP377-P0-T11` Repair proof-tick expected-value authority and mode-axis parity: `check_review_surface_consistency` must choose expected values from explicit field authority priority, compare `operator_interaction_mode` separately from `reviewer_mode`, and document the Plan 4.1 agent-substrate architecture decision without introducing a parallel role system.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `done`
+      depends_on: `MP377-P0-T07`
 
 ### Phase P1 - Typed Plan Ingestion And Registry Projection
 
@@ -5680,6 +5693,15 @@ working on `MP-377`.
   `PlatformFindingIngest` in the platform contract blueprint while ADR-019
   keeps `check_contract_connectivity.py` enforcement promotion deferred to
   Slice C baseline retirement.
+- 2026-04-27 Plan 4.1 proof-tick authority repair:
+  `dev/active/agent_substrate_architecture_review.md` now records the
+  reference-only architecture review for the operator's "system in one place"
+  request. The executable slice is `MP377-P0-T11`: proof-tick parity uses
+  explicit field authority priority instead of first-populated surface order,
+  and `operator_interaction_mode` is checked as its own operator-channel axis.
+  Dynamic any-agent-any-role reassignment stays queued for Slice E on the
+  existing `CollaborationSession` / `ActorAuthorityState` /
+  `CapabilityGrantState` chain.
 - 2026-04-26 Plan 4.1 Slice 0 governed-push closeout:
   the live push blocker is now narrowed to fresh approval rather than
   self-invalidating state. Managed bridge/ReviewSnapshot receipt chains are
@@ -7864,6 +7886,15 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-27: Closed `MP377-P0-T11` as the bounded proof-tick authority repair
+  discovered during `rev_pkt_2000` / `rev_pkt_2001`. The new
+  `dev/active/agent_substrate_architecture_review.md` keeps the architecture
+  decision in one reference surface, while execution authority stays in this
+  typed phase registry. `check_review_surface_consistency` now chooses
+  expected proof-tick values from explicit field authority priority and checks
+  `operator_interaction_mode` separately from reviewer posture; any-agent
+  dynamic role flipping remains Slice E capability migration on existing
+  collaboration contracts.
 - 2026-04-27: Promoted Plan 4.1 Slice A failed-command dogfood ingest from
   opt-in to default report-only recording. The dispatcher now records failed
   non-read-only devctl commands through the existing `PlatformFindingIngest`

@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-27T03:57:11Z`
-- Last Codex poll (Local America/New_York): `2026-04-26 23:57:11 EDT`
+- Last Codex poll: `2026-04-27T04:35:04Z`
+- Last Codex poll (Local America/New_York): `2026-04-27 00:35:04 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `7cd039cf68623c61355c3138fa0504ad207a8a05f8bc5636db9ff4587f0f2a58`
-- Current instruction revision: ``
+- Last non-audit worktree hash: `50ab99424c0c2f700b54341bbaa86cef2f25f537a87ffcda31b5adffc627bf99`
+- Current instruction revision: `78bad45d3f1a`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-27T03:56:42.415248Z.
+- Reviewer state rebuilt from typed review-state projection at 2026-04-27T04:35:15.493946Z.
 
 ## Current Verdict
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-476 expired unresolved review packet(s)
+1 pending review packet(s); 476 expired unresolved review packet(s)
 
 ## Claude Status
 
-- Status unavailable.
+waiting_for_ack
 
 ## Claude Questions
 
@@ -138,11 +138,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+Priority action_request: Stage and publish Plan 4.1 proof-tick authority repair plus local Slice A
 
 ## Last Reviewed Scope
 
-MP-355
+- (missing)
 
 ## Action Requests
 
