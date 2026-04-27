@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ...collect import collect_git_status
 from ...config import REPO_ROOT
+from ...runtime.review_snapshot_refresh import GENERATED_SURFACE_RECEIPT_SUBJECT_PREFIX
 from ...runtime.vcs import run_git_capture
 from .push_projection_receipt import managed_projection_receipt_paths
 from .push_worktree_changes import blocking_dirty_paths
@@ -41,6 +42,93 @@ def auto_commit_preflight_generated_changes(
     dirty = blocking_dirty_paths(changes, exclude_paths=exclusions)
     if not dirty:
         return
+    _commit_preflight_paths(
+        state,
+        dirty=dirty,
+        commit_message="chore(push): auto-commit preflight-generated changes",
+        repo_root=repo_root,
+        lookup_commit=False,
+    )
+
+
+def auto_commit_selected_preflight_generated_changes(
+    state,
+    policy,
+    *,
+    allowed_paths: tuple[str, ...],
+    repo_root: Path = REPO_ROOT,
+    commit_subject_prefix: str = GENERATED_SURFACE_RECEIPT_SUBJECT_PREFIX,
+) -> dict[str, object]:
+    """Auto-commit only selected generated paths while preserving staged intent."""
+    allowed = {str(path).strip() for path in allowed_paths if str(path).strip()}
+    if not allowed:
+        return {"ok": True, "committed": False, "paths": ()}
+    try:
+        git = collect_git_status(repo_root=repo_root)
+    except (OSError, FileNotFoundError):
+        return {"ok": True, "committed": False, "paths": ()}
+    changes = git.get("changes", [])
+    exclusions = (
+        *managed_projection_receipt_paths(policy, repo_root=repo_root),
+        *policy.checkpoint.advisory_context_paths,
+    )
+    dirty = blocking_dirty_paths(changes, exclude_paths=exclusions)
+    selected = [path for path in dirty if path in allowed]
+    unexpected = [path for path in dirty if path not in allowed]
+    if unexpected:
+        state.errors.append(
+            _auto_commit_failure_message(
+                dirty=unexpected,
+                step="render-surface dirty-path validation",
+                error="unexpected non-render-surface path(s) appeared",
+            )
+        )
+        return {
+            "ok": False,
+            "committed": False,
+            "paths": tuple(selected),
+            "unexpected_paths": tuple(unexpected),
+        }
+    if not selected:
+        return {"ok": True, "committed": False, "paths": ()}
+
+    head_code, head_short, head_error = run_git_capture(
+        ["rev-parse", "--short", "HEAD"],
+        repo_root=repo_root,
+    )
+    if head_code != 0:
+        state.errors.append(
+            _auto_commit_failure_message(
+                dirty=selected,
+                step="git rev-parse",
+                error=head_error,
+            )
+        )
+        return {"ok": False, "committed": False, "paths": tuple(selected)}
+
+    commit_result = _commit_preflight_paths(
+        state,
+        dirty=selected,
+        commit_message=f"{commit_subject_prefix}{head_short.strip()}",
+        repo_root=repo_root,
+        lookup_commit=True,
+    )
+    return {
+        "ok": not bool(getattr(state, "errors", ())),
+        "committed": bool(commit_result.get("committed")),
+        "commit_sha": str(commit_result.get("commit_sha", "") or ""),
+        "paths": tuple(selected),
+    }
+
+
+def _commit_preflight_paths(
+    state,
+    *,
+    dirty: list[str],
+    commit_message: str,
+    repo_root: Path,
+    lookup_commit: bool,
+) -> dict[str, object]:
     add_code, _, add_error = run_git_capture(
         ["add", "--", *dirty],
         repo_root=repo_root,
@@ -53,10 +141,10 @@ def auto_commit_preflight_generated_changes(
                 error=add_error,
             )
         )
-        return
+        return {"committed": False, "paths": tuple(dirty)}
 
     commit_code, _, commit_error = run_git_capture(
-        ["commit", "-m", "chore(push): auto-commit preflight-generated changes"],
+        ["commit", "-m", commit_message, "--", *dirty],
         repo_root=repo_root,
     )
     if commit_code != 0:
@@ -67,6 +155,22 @@ def auto_commit_preflight_generated_changes(
                 error=commit_error,
             )
         )
+        return {"committed": False, "paths": tuple(dirty)}
+    if not lookup_commit:
+        return {
+            "committed": True,
+            "commit_sha": "",
+            "paths": tuple(dirty),
+        }
+    commit_lookup_code, commit_sha, _ = run_git_capture(
+        ["rev-parse", "HEAD"],
+        repo_root=repo_root,
+    )
+    return {
+        "committed": True,
+        "commit_sha": commit_sha.strip() if commit_lookup_code == 0 else "",
+        "paths": tuple(dirty),
+    }
 
 
 def run_post_validation_auto_commit_repair_phase(

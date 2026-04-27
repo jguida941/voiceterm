@@ -900,10 +900,11 @@ Portability note:
   (`check_review_snapshot_freshness.py`) keeps `dev/audits/REVIEW_SNAPSHOT.md`
   bound to the current HEAD + generation stamp by comparing the fields
   embedded in the file against the live typed projection. A final commit that
-  changes the generated snapshot, or the snapshot plus the governed
-  `bridge.md` compatibility projection, is also accepted when the embedded
+  changes the generated snapshot, the snapshot plus the governed
+  `bridge.md` compatibility projection, or a tracked policy-owned
+  generated surface from `render-surfaces`, is also accepted when the embedded
   snapshot binds to that receipt commit's parent code state, or to any
-  ancestor in a contiguous governed bridge/ReviewSnapshot receipt chain,
+  ancestor in a contiguous governed bridge/ReviewSnapshot/generated-surface receipt chain,
   because a file inside a commit cannot contain its own final SHA. Whenever
   non-receipt HEAD moves or the typed generation stamp changes without a
   snapshot rewrite, the guard fails and instructs the caller to rerun
@@ -924,14 +925,18 @@ Portability note:
   `python3 dev/scripts/devctl.py push --execute`. `devctl push` consumes that
   shape directly: a receipt HEAD may satisfy a current
   `PushAuthorizationRecord` through the contiguous managed
-  bridge/ReviewSnapshot receipt chain back to the approved content commit, and
-  push preflight now refreshes ReviewSnapshot before routed preflight, creates
-  managed projection receipts when bridge/status/ReviewSnapshot reprojection
-  leaves only governed receipt artifacts dirty, runs
+  bridge/ReviewSnapshot/generated-surface receipt chain back to the approved
+  content commit, and push preflight now runs `render-surfaces --write` plus
+  ReviewSnapshot refresh before routed preflight, creates managed generated
+  surface/projection receipts when tracked repo-pack output or
+  bridge/status/ReviewSnapshot reprojection leaves only governed receipt
+  artifacts dirty, runs
   `review-snapshot --write --receipt-commit` when that batch moves `HEAD`,
   refreshes the event-backed review-channel projection bundle plus
   startup/context-graph surfaces after managed receipt movement, and then runs
-  the routed guard bundle against the committed freshness state. Push
+  the routed guard bundle against the committed freshness state. Selected
+  generated-surface receipts use pathspec commits so staged-only next-commit
+  intent stays out of the machine receipt. Push
   reporting, authorization, and pipeline-state
   sync then operate on the receipt HEAD while preserving the approved content
   commit as the parent target. `check_system_picture_freshness.py` is the
@@ -2066,9 +2071,9 @@ Machine-first output note:
 | `docs-check --strict-tooling` | you changed tooling, workflows, or process docs | enforces governance, active-plan sync, and durable guide coverage contracts |
 | `docs-check --strict-tooling --quality-policy /tmp/pilot-policy.json` | you want the same docs-governance contract in another repo without patching devctl | resolves canonical doc paths and deprecated-command policy from the supplied repo policy file |
 | `push` | you want the canonical repo-owned short-lived branch push validator without mutating git state yet | resolves `repo_governance.push`, checks branch/remote policy, runs the configured preflight, emits typed push stages (`validation_ready`, `published_remote`, `post_push_green`) without mutating git state, persists the latest typed push result at `dev/reports/push/latest.json` for later recovery, and short-circuits to the existing already-published receipt when fetch/divergence proves the tracked branch is already at `ahead == 0` |
-| `push --execute` | validation passed and you want the repo-owned push path instead of ad-hoc `git push` | runs the same policy-driven validation, writes phase-aware latest-push snapshots as the governed run starts (`push_preflight_running`) and becomes ready to publish (`push_pending`), auto-commits a managed projection receipt when preflight leaves only governed receipt/projection artifacts dirty, refreshes typed projection bundles after receipt movement, treats contiguous managed receipt commits above the authorized content commit as managed movement instead of stale HEAD drift, performs the branch push, writes a `published_remote` artifact snapshot as soon as `git push` succeeds, executes the configured post-push bundle, matches the persisted branch/HEAD/approved-target record against the current tracked upstream or default remote during startup recovery so stale local upstream counts do not trigger duplicate pushes, binds the staged pipeline plus persisted authorization to the exact `worktree_identity` that requested publication so a worker-lane approval cannot be replayed from the primary control lane, emits stderr progress notices when publication is recorded and before each post-push step so long audit bundles stay visibly in the "published, still auditing" phase, writes `push_pipeline_phases` for pre-validation managed projection sync vs post-validation repair, auto-transitions non-destructive push failures to `delivered_locally_pending_publish` so the landed local commit no longer blocks new governed commits, and no-ops to the same already-published receipt when a rerun fetch proves `ahead == 0` without reconstructing a stale `push_blocked` commit-pipeline artifact into `push_completed`; destructive remote rejection/conflict evidence remains `push_blocked` for explicit operator reconciliation, `--skip-preflight` / `--skip-post-push` only work when repo policy explicitly allows those bypasses, and the repo-owned default keeps `allow_skip_preflight` closed unless a tracked temporary override is deliberately in force |
+| `push --execute` | validation passed and you want the repo-owned push path instead of ad-hoc `git push` | runs the same policy-driven validation, writes phase-aware latest-push snapshots as the governed run starts (`push_preflight_running`) and becomes ready to publish (`push_pending`), runs `render-surfaces --write` before routed preflight, auto-commits managed generated-surface/projection receipts when preflight leaves only governed receipt/projection artifacts dirty, refreshes typed projection bundles after receipt movement, treats contiguous managed receipt commits above the authorized content commit as managed movement instead of stale HEAD drift, performs the branch push, writes a `published_remote` artifact snapshot as soon as `git push` succeeds, executes the configured post-push bundle, matches the persisted branch/HEAD/approved-target record against the current tracked upstream or default remote during startup recovery so stale local upstream counts do not trigger duplicate pushes, binds the staged pipeline plus persisted authorization to the exact `worktree_identity` that requested publication so a worker-lane approval cannot be replayed from the primary control lane, emits stderr progress notices when publication is recorded and before each post-push step so long audit bundles stay visibly in the "published, still auditing" phase, writes `push_pipeline_phases` for pre-validation managed projection sync vs post-validation repair, auto-transitions non-destructive push failures to `delivered_locally_pending_publish` so the landed local commit no longer blocks new governed commits, and no-ops to the same already-published receipt when a rerun fetch proves `ahead == 0` without reconstructing a stale `push_blocked` commit-pipeline artifact into `push_completed`; destructive remote rejection/conflict evidence remains `push_blocked` for explicit operator reconciliation, `--skip-preflight` / `--skip-post-push` only work when repo policy explicitly allows those bypasses, and the repo-owned default keeps `allow_skip_preflight` closed unless a tracked temporary override is deliberately in force |
 | `render-surfaces --format md` | you need to inspect repo-pack instruction/starter surfaces or validate drift without writing files | resolves `repo_governance.surface_generation`, reports current sync state for each governed surface, and includes the bounded connectivity-registry summary used by SYSTEM_MAP |
-| `render-surfaces --write --format md` | you changed a repo-pack template, starter stub, or surface-generation policy context | regenerates the governed outputs in place so `docs-check --strict-tooling` and the standalone guard stay green, including `CLAUDE.md`, `bridge.md`, and other compatibility projections rendered from typed state |
+| `render-surfaces --write --format md` | you changed a repo-pack template, starter stub, or surface-generation policy context | regenerates governed outputs in place so `docs-check --strict-tooling` and the standalone guard stay green, including tracked non-local outputs such as `AGENTS.md`, `SYSTEM_MAP.md`, slash templates, and portable hook/workflow stubs plus local-only outputs such as `CLAUDE.md` |
 | `system-map --format md` | you need the generated connectivity snapshot that feeds the managed SYSTEM_MAP block | renders the bounded `SystemMapSnapshot` over tracked architecture roots, governed surfaces, and the shared `ConnectivityRegistrySnapshot` consumed by context-graph, startup-context, session-resume, render-surfaces, and the platform closure guard |
 | `hygiene` | before merge on tooling/process work | catches doc/process drift and leaked runtime test processes |
 | `publication-sync --format md` | a paper/site depends on repo evidence and you need to know if it drifted | shows watched-path changes since the last recorded sync and the exact command to record a new baseline after publish |

@@ -227,6 +227,17 @@
   consumer of review-channel packets and dogfood ticks, and remote-control
   launch/recover/mode switching as caller-class + `review-channel --action
   launch` typed-contract work rather than a parallel automation launcher.
+- 2026-04-27 governed-push generated-surface receipt closure (MP-377):
+  `devctl push` now runs `render-surfaces --write` before routed preflight,
+  then commits any tracked, non-local repo-pack output drift as a managed
+  generated-surface receipt before `docs-check` can fail on stale policy-owned
+  surfaces. The receipt chain accepts those generated-surface commits above the
+  authorized content commit, selected receipt commits use pathspecs so
+  staged-only next-commit intent stays out of machine receipts, and the
+  follow-up runtime refresh keeps review-state/startup/context-graph evidence
+  on the new receipt HEAD before publication checks run. This closes
+  `rev_pkt_1983` / ADR-018 and removes the recurring SYSTEM_MAP manual
+  regeneration gap from the push cascade.
 - 2026-04-24 remote-control liveness split-brain closure (MP-355 + MP-377
   follow-up): `review-channel status --refresh-bridge-heartbeat-if-stale`
   now treats a live typed `remote_control_attachment` as continuity evidence

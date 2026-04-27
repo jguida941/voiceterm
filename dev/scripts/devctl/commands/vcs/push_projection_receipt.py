@@ -44,18 +44,20 @@ def _commit_projection_receipt_if_needed(
     *,
     repo_root: Path,
 ) -> dict[str, object]:
-    dirty_result = _dirty_paths(repo_root=repo_root)
+    managed_paths = set(_managed_receipt_paths(policy, repo_root=repo_root))
+    dirty_result = _dirty_paths(
+        managed_paths=managed_paths,
+        repo_root=repo_root,
+    )
     if not dirty_result["ok"]:
         return dirty_result
 
     dirty_paths = tuple(str(path) for path in dirty_result["dirty_paths"])
-    if not dirty_paths:
-        return {"ok": True, "reason": "no_projection_drift", "paths": ()}
-
-    managed_paths = set(_managed_receipt_paths(policy, repo_root=repo_root))
-    unmanaged = sorted(path for path in dirty_paths if path not in managed_paths)
+    unmanaged = tuple(str(path) for path in dirty_result.get("unmanaged_paths", ()))
     if unmanaged:
         return {"ok": True, "reason": "non_projection_dirty_paths_present", "paths": ()}
+    if not dirty_paths:
+        return {"ok": True, "reason": "no_projection_drift", "paths": ()}
 
     staged_result = _stage_managed_projection_paths(
         dirty_paths=dirty_paths,
@@ -76,6 +78,10 @@ def _stage_managed_projection_paths(
     managed_paths: set[str],
     repo_root: Path,
 ) -> dict[str, object]:
+    before_staged_result = _staged_paths(repo_root=repo_root)
+    if not before_staged_result["ok"]:
+        return before_staged_result
+    before_staged = set(str(path) for path in before_staged_result["staged_paths"])
     add_code, _, add_error = run_git_capture(
         ["add", "--", *dirty_paths],
         repo_root=repo_root,
@@ -91,11 +97,16 @@ def _stage_managed_projection_paths(
     staged_result = _staged_paths(repo_root=repo_root)
     if not staged_result["ok"]:
         return staged_result
-    staged_paths = tuple(str(path) for path in staged_result["staged_paths"])
+    after_staged = tuple(str(path) for path in staged_result["staged_paths"])
+    staged_paths = tuple(path for path in after_staged if path in dirty_paths)
     if not staged_paths:
         return {"ok": True, "reason": "projection_receipt_unchanged", "paths": ()}
 
-    unmanaged_staged = sorted(path for path in staged_paths if path not in managed_paths)
+    unmanaged_staged = sorted(
+        path
+        for path in set(after_staged).difference(before_staged)
+        if path not in managed_paths
+    )
     if unmanaged_staged:
         return {
             "ok": False,
@@ -123,7 +134,13 @@ def _commit_staged_projection_receipt(
         return {"ok": False, "reason": "head_lookup_failed", "error": head_error}
 
     commit_code, _, commit_error = run_git_capture(
-        ["commit", "-m", f"Refresh external review snapshot for {head_short}"],
+        [
+            "commit",
+            "-m",
+            f"Refresh external review snapshot for {head_short}",
+            "--",
+            *staged_paths,
+        ],
         repo_root=repo_root,
         extra_env={
             "DEVCTL_NO_REVIEW_SNAPSHOT_REFRESH": "1",
@@ -176,25 +193,44 @@ def _managed_receipt_paths(policy, *, repo_root: Path) -> tuple[str, ...]:
     return managed_projection_receipt_paths(policy, repo_root=repo_root)
 
 
-def _dirty_paths(*, repo_root: Path) -> dict[str, object]:
+def _dirty_paths(
+    *,
+    managed_paths: set[str],
+    repo_root: Path,
+) -> dict[str, object]:
+    code, output, error = run_git_capture(
+        ["status", "--porcelain", "--untracked-files=all"],
+        repo_root=repo_root,
+    )
+    if code != 0:
+        return {
+            "ok": False,
+            "reason": "git_status_failed",
+            "error": error,
+        }
     paths: set[str] = set()
-    for label, command in (
-        ("worktree", ["diff", "--name-only"]),
-        ("index", ["diff", "--cached", "--name-only"]),
-        ("untracked", ["ls-files", "--others", "--exclude-standard"]),
-    ):
-        code, output, error = run_git_capture(command, repo_root=repo_root)
-        if code != 0:
-            return {
-                "ok": False,
-                "reason": f"{label}_dirty_lookup_failed",
-                "error": error,
-            }
-        paths.update(line.strip() for line in output.splitlines() if line.strip())
+    unmanaged: set[str] = set()
+    for line in output.splitlines():
+        if not line:
+            continue
+        raw_status = line[:2]
+        path = line[3:].strip()
+        if "->" in path:
+            path = path.split("->")[-1].strip()
+        if not path:
+            continue
+        if path in managed_paths:
+            paths.add(path)
+            continue
+        status = raw_status.strip()
+        worktree_status = raw_status[1:2]
+        if status == "??" or (worktree_status and worktree_status != " "):
+            unmanaged.add(path)
     return {
         "ok": True,
         "reason": "dirty_paths_loaded",
         "dirty_paths": tuple(sorted(paths)),
+        "unmanaged_paths": tuple(sorted(unmanaged)),
     }
 
 

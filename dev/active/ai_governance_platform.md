@@ -105,6 +105,12 @@ Current 2026-04-25 SYSTEM_MAP connectivity authority note:
   `key_surfaces`, and `devctl push` refreshes ReviewSnapshot plus managed
   projection receipts before routed preflight validates startup/graph
   freshness.
+- The 2026-04-27 push closeout extends that preflight repair to every tracked,
+  non-local repo-pack render target: `devctl push` runs
+  `render-surfaces --write` before docs gates, commits resulting policy-owned
+  output drift as a pathscoped generated-surface receipt, accepts that receipt
+  in the same managed chain as bridge/ReviewSnapshot receipts, and preserves
+  staged-only next-commit intent outside the machine receipt.
 
 Current 2026-04-07 portability-by-default closure note:
 - Accept the review verdict as plan state: the architecture is portable by
@@ -3310,7 +3316,7 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `done`
       depends_on: `MP377-P0-T01`, `MP377-P0-T04`
-- [x] `MP377-P0-T07` Stabilize governed push after managed projection receipts: receipt chains must not invalidate their own `PushAuthorizationRecord` or ReviewSnapshot freshness gate, and receipt-time projection plus snapshot receipt refresh must keep review-state, compact, commit-pipeline, startup, and context-graph surfaces on one proof tick before preflight/publication checks.
+- [x] `MP377-P0-T07` Stabilize governed push after managed projection receipts: receipt chains must not invalidate their own `PushAuthorizationRecord` or ReviewSnapshot freshness gate, and receipt-time projection plus snapshot receipt refresh must keep review-state, compact, commit-pipeline, startup, context-graph, and policy-owned render surfaces on one proof tick before preflight/publication checks.
       owner_doc: `dev/active/remote_commit_pipeline.md`
       status: `done`
       depends_on: `MP377-P0-T05`

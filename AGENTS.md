@@ -211,6 +211,7 @@ Release-governance note:
 | Where is the 2026-04-22 stale-pipeline auto-recovery closure documented (`devctl pipeline --action auto-recover` classifies abandon/recover/refresh/no-op/ambiguous and writes `PipelineAutoRecoveryReceipt`)? | `dev/scripts/devctl/commands/pipeline/auto_recover_action.py` and `dev/scripts/devctl/commands/pipeline/auto_recover_result.py` for runtime behavior, `dev/scripts/devctl/runtime/pipeline_auto_recovery_contracts.py` for typed contracts, plus `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-22 entry "Pipeline auto-recover removes stale-pipeline manual selection" |
 | Where is the 2026-04-23 ADR-008 governed projection cleanup closure documented (`devctl push` commits bridge-only managed projection drift as a receipt before publication, and pipeline status treats that receipt HEAD as managed movement)? | `dev/scripts/devctl/commands/vcs/push_projection_receipt.py` for the narrow receipt helper, `dev/scripts/devctl/runtime/review_snapshot_refresh.py` for bridge-only receipt recognition, `dev/scripts/devctl/commands/pipeline/head_movement.py` / `status_action.py` for receipt-aware pipeline HEAD movement, and `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-23 entries "Governed push now receipts managed bridge projection drift before publication" and "Pipeline status now distinguishes managed receipt HEAD movement" |
 | Where is the 2026-04-26 governed-push receipt-chain closure documented (`devctl push`, pipeline status, startup push state, push authorization, and ReviewSnapshot freshness all accept contiguous managed bridge/ReviewSnapshot receipt commits above the authorized content commit and refresh typed projection bundles after receipt movement)? | `dev/scripts/devctl/runtime/review_snapshot_refresh.py` for receipt-chain detection, `dev/scripts/devctl/runtime/push_authorization.py` / `dev/scripts/devctl/governance/push_state_authorization.py` for authorization matching, `dev/scripts/checks/review_snapshot_freshness/command.py` for freshness-chain acceptance, `dev/scripts/devctl/commands/vcs/push_preflight_projection.py` for post-receipt projection and snapshot receipt refresh, and `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-26 entry "Governed push accepts managed receipt chains before publication" |
+| Where is the 2026-04-27 governed-push generated-surface receipt closure documented (`devctl push` runs `render-surfaces --write` before routed preflight, commits tracked non-local repo-pack surfaces such as `AGENTS.md` / `SYSTEM_MAP.md` as a managed receipt, and keeps staged-only intent out of that receipt)? | `dev/scripts/devctl/commands/vcs/push_preflight_projection.py` for preflight orchestration, `push_render_surface_sync.py` for the `render-surfaces --write` phase, `push_projection_runtime_refresh.py` for post-receipt proof refresh, `push_preflight_commit.py` / `push_projection_receipt.py` for pathscoped receipt commits that preserve staged-only intent, `dev/scripts/devctl/runtime/review_snapshot_refresh.py` for receipt-chain acceptance of policy-owned generated surfaces, and `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-27 entry "Governed push receipts policy-owned generated surfaces before docs gates" |
 | Where is the 2026-04-26/27 governed-commit attention-staleness closure documented (`devctl commit` refreshes the startup receipt before failing on packet `attention_revision_stale`, and treats non-zero-but-parseable startup advisory output as a successful refresh rather than `startup_context_refresh_failed`)? | `dev/scripts/devctl/commands/vcs/governed_executor_commit_runtime.py` for the shared preflight refresh helper/advisory-output classifier, `dev/scripts/devctl/commands/vcs/governed_executor_stage_attention.py` / `governed_executor_commit_phase.py` for the stage/commit consumers, and `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-26 entry "Governed commit refreshes startup attention before stale gates" plus 2026-04-27 entry "Startup refresh treats typed advisory output as success" |
 | Where is the 2026-04-27 push-failure state-machine closure documented (non-destructive push failures auto-transition a landed commit to `delivered_locally_pending_publish`, destructive remote rejection/conflict evidence stays `push_blocked`, and `mark-delivered-local` remains the explicit operator override)? | `dev/scripts/devctl/runtime/remote_commit_pipeline_state.py` for failure classification, `dev/scripts/devctl/commands/vcs/governed_executor_push_result.py` / `push_pipeline_state_sync.py` for transition projection and persistence, `dev/scripts/devctl/commands/vcs/commit_pipeline_blocking.py` for legacy stuck-pipeline self-heal during commit preflight, and `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-27 entry "Push failure state now frees safely landed local commits" |
 | Where is the Ralph guardrail remediation/control-plane plan? | `dev/active/ralph_guardrail_control_plane.md` |
@@ -1438,9 +1439,11 @@ false positives, and fixes real issues — then re-runs CodeRabbit to verify.
    chain when the embedded snapshot binds to that receipt commit's parent code
    state or to any ancestor in a contiguous managed bridge/ReviewSnapshot
    receipt chain; the governed receipt may refresh
-   `dev/audits/REVIEW_SNAPSHOT.md` alone or atomically with the generated
-   `bridge.md` compatibility projection, but any other HEAD drift still fails
-   closed. The managed `install-git-hooks`
+   `dev/audits/REVIEW_SNAPSHOT.md` alone, atomically with the generated
+   `bridge.md` compatibility projection, or as a pathscoped
+   policy-owned generated-surface receipt from `render-surfaces --write`
+   before the docs gates run. Any other HEAD drift still fails closed. The
+   managed `install-git-hooks`
    surface now installs the pre-commit projection hook, the post-commit
    receipt hook that delegates to `devctl review-snapshot --write
    --receipt-commit`, and a blocking pre-push hook that refuses raw `git push`
@@ -1452,10 +1455,12 @@ false positives, and fixes real issues — then re-runs CodeRabbit to verify.
    stale detached pipeline records are ignored in `single_agent` mode, while
    active dual-agent and current pipeline targets still require exact typed
    authorization. After a managed receipt moves HEAD, `devctl push` runs
+   `render-surfaces --write` for tracked non-local repo-pack outputs and
    `review-snapshot --write --receipt-commit` inside the same preflight
    autocommit batch, then refreshes the event-backed review-channel projection
    bundle plus startup/context-graph surfaces before trusting preflight or
-   publication authorization. The typed ReviewSnapshot surface
+   publication authorization. The selected receipt commit pathspec must
+   preserve staged-only next-commit intent. The typed ReviewSnapshot surface
    now also carries first-class probe run-state/artifact refs plus current
    push receipt/authorization refs so external review consumers can cite
    emitted evidence instead of command-only prose.

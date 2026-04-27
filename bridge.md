@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-27T01:29:44Z`
-- Last Codex poll (Local America/New_York): `2026-04-26 21:29:44 EDT`
+- Last Codex poll: `2026-04-27T02:33:52Z`
+- Last Codex poll (Local America/New_York): `2026-04-26 22:33:52 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `3bfe4d66370c193595541a9466b808e77776852f5053478692fd4a6d9e67af46`
-- Current instruction revision: ``
+- Last non-audit worktree hash: `02da9e45ba5279d76f575bbf02d66bfb4c219c7b129b4cc9fd70a2530938fb83`
+- Current instruction revision: `8f6db4015f8b`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-27T01:29:39.801007Z.
+- Reviewer state rebuilt from typed review-state projection at 2026-04-27T02:34:09.558437Z.
 
 ## Current Verdict
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-476 expired unresolved review packet(s)
+2 pending review packet(s); 478 expired unresolved review packet(s)
 
 ## Claude Status
 
-- Status unavailable.
+waiting_for_ack
 
 ## Claude Questions
 
@@ -134,16 +134,16 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+Priority action_request: stage_commit_pipeline for rev_pkt_1983 generated-surface sweep
 
 ## Last Reviewed Scope
 
-MP-355
+- (missing)
 
 ## Action Requests
 
-- No pending action requests.
+- [rev_pkt_1988] stage_commit_pipeline: target=runtime:devctl_commit:c43aad7548a7@c43aad7548a7; stage_commit_pipeline for rev_pkt_1983 generated-surface sweep (status: pending)

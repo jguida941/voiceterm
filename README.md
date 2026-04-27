@@ -321,6 +321,7 @@ Looking to contribute or dig into the codebase?
 |------|---------|
 | Quick sanity check while coding | `python3 dev/scripts/devctl.py check --profile quick` |
 | Before pushing to GitHub | `python3 dev/scripts/devctl.py check --profile prepush` |
+| Publish governed AI-governance changes | `python3 dev/scripts/devctl.py push --execute` |
 | Full CI-equivalent check locally | `python3 dev/scripts/devctl.py check --profile ci` |
 | Rust tests only | `cd rust && cargo test --bin voiceterm` |
 | Python tests only | `python3 -m pytest dev/scripts/devctl/tests/ -q` |

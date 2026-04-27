@@ -37,6 +37,33 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-27 - Governed push receipts policy-owned generated surfaces before docs gates
+
+Fact: after bridge and ReviewSnapshot receipt automation landed, the push
+pipeline still had a neighboring manual gap. Adding a new `devctl` command
+module changed the generated `SYSTEM_MAP.md` file-count and command-count
+block, so `check_instruction_surface_sync` blocked publication even though the
+drift was policy-owned output from `render-surfaces`.
+
+Change: governed push now runs `render-surfaces --write` before routed
+preflight and commits tracked, non-local repo-pack output drift as a managed
+generated-surface receipt. Receipt-chain readers accept that subject and the
+tracked render targets alongside bridge/ReviewSnapshot artifacts, while the
+selected receipt commit uses an explicit pathspec so staged-only next-commit
+intent remains outside machine receipts. If the generated-surface receipt moves
+`HEAD`, push refreshes the runtime projections again before docs/preflight or
+publication authorization consume the state.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/push_preflight_projection.py`
+- `dev/scripts/devctl/commands/vcs/push_render_surface_sync.py`
+- `dev/scripts/devctl/commands/vcs/push_projection_runtime_refresh.py`
+- `dev/scripts/devctl/commands/vcs/push_preflight_commit.py`
+- `dev/scripts/devctl/commands/vcs/push_projection_receipt.py`
+- `dev/scripts/devctl/runtime/review_snapshot_refresh.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/scripts/devctl/tests/runtime/test_push_authorization.py`
+
 ### 2026-04-27 - Startup refresh treats typed advisory output as success
 
 Fact: rev_pkt_1968 made governed commit preflight refresh the startup receipt

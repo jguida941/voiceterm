@@ -7,14 +7,18 @@ from pathlib import Path
 
 from ...common import run_cmd
 from ...config import REPO_ROOT
-from ...repo_packs import active_path_config
-from ...review_channel.event_reducer import load_or_refresh_event_bundle
-from ...review_channel.event_store import resolve_artifact_paths
-from ...review_channel.state import refresh_status_snapshot
 from ...runtime.review_snapshot_refresh import refresh_review_snapshot_file
 from ...runtime.vcs import run_git_capture
 from .push_preflight_commit import auto_commit_preflight_generated_changes
+from .push_projection_runtime_refresh import (
+    refresh_runtime_surfaces_after_projection_receipt,
+)
 from .push_projection_receipt import auto_commit_managed_projection_receipt
+from .push_render_surface_sync import (
+    POLICY_RENDER_SURFACE_SYNC,
+    refresh_policy_owned_render_surfaces_before_preflight,
+    render_surface_pre_validation_fields,
+)
 
 PRE_VALIDATION_MANAGED_PROJECTION_SYNC = "pre_validation_managed_projection_sync"
 
@@ -25,8 +29,23 @@ def refresh_managed_projections_before_preflight(
     *,
     repo_root: Path = REPO_ROOT,
     command_runner=None,
+    quality_policy_path: str | None = None,
 ) -> dict[str, object]:
     """Refresh ReviewSnapshot and commit managed projection drift before preflight."""
+    runner = run_cmd if command_runner is None else command_runner
+    render_result = refresh_policy_owned_render_surfaces_before_preflight(
+        state,
+        policy,
+        repo_root=repo_root,
+        command_runner=runner,
+        quality_policy_path=quality_policy_path,
+    )
+    if getattr(state, "errors", ()):
+        result = _base_pre_validation_result(render_result=render_result)
+        result["status"] = "blocked"
+        result["ok"] = False
+        _record_phase_state(state, PRE_VALIDATION_MANAGED_PROJECTION_SYNC, result)
+        return result
     warnings = refresh_review_snapshot_file(repo_root=repo_root)
     state.warnings.extend(warning for warning in warnings if warning)
     receipt_result = auto_commit_managed_projection_receipt(
@@ -36,9 +55,7 @@ def refresh_managed_projections_before_preflight(
     )
     if not isinstance(receipt_result, dict):
         receipt_result = {}
-    result: dict[str, object] = {}
-    result["phase"] = PRE_VALIDATION_MANAGED_PROJECTION_SYNC
-    result["allowed"] = True
+    result = _base_pre_validation_result(render_result=render_result)
     result["status"] = (
         "completed" if bool(receipt_result.get("ok", True)) else "failed"
     )
@@ -55,7 +72,7 @@ def refresh_managed_projections_before_preflight(
     if result["receipt_committed"] and not getattr(state, "errors", ()):
         refresh_runtime_surfaces_after_projection_receipt(
             state,
-            command_runner=run_cmd if command_runner is None else command_runner,
+            command_runner=runner,
             repo_root=repo_root,
             next_step_label="push preflight",
         )
@@ -63,7 +80,7 @@ def refresh_managed_projections_before_preflight(
             return result
         snapshot_receipt = auto_commit_review_snapshot_freshness_receipt(
             state,
-            command_runner=run_cmd if command_runner is None else command_runner,
+            command_runner=runner,
             repo_root=repo_root,
             next_step_label="push preflight",
         )
@@ -74,10 +91,17 @@ def refresh_managed_projections_before_preflight(
         if snapshot_receipt.get("committed") and not getattr(state, "errors", ()):
             refresh_runtime_surfaces_after_projection_receipt(
                 state,
-                command_runner=run_cmd if command_runner is None else command_runner,
+                command_runner=runner,
                 repo_root=repo_root,
                 next_step_label="push preflight snapshot receipt",
             )
+    elif render_result.get("committed") and not getattr(state, "errors", ()):
+        refresh_runtime_surfaces_after_projection_receipt(
+            state,
+            command_runner=runner,
+            repo_root=repo_root,
+            next_step_label="push preflight generated-surface receipt",
+        )
     if getattr(state, "errors", ()):
         result["status"] = "blocked"
     _record_phase_state(
@@ -86,60 +110,6 @@ def refresh_managed_projections_before_preflight(
         result,
     )
     return result
-
-
-def refresh_runtime_surfaces_after_projection_receipt(
-    state,
-    *,
-    command_runner,
-    repo_root: Path,
-    next_step_label: str,
-) -> None:
-    """Refresh freshness-guard inputs after a managed receipt moves HEAD."""
-    if not _refresh_review_channel_projection_bundle_after_projection_receipt(
-        state,
-        repo_root=repo_root,
-        next_step_label=next_step_label,
-    ):
-        return
-    refresh_steps = (
-        (
-            "push-refresh-startup-context",
-            (
-                sys.executable,
-                "dev/scripts/devctl.py",
-                "startup-context",
-                "--format",
-                "summary",
-            ),
-            "startup-context",
-        ),
-        (
-            "push-refresh-context-graph",
-            (
-                sys.executable,
-                "dev/scripts/devctl.py",
-                "context-graph",
-                "--mode",
-                "bootstrap",
-                "--format",
-                "md",
-            ),
-            "context-graph",
-        ),
-    )
-    for step_name, command, label in refresh_steps:
-        step = command_runner(step_name, list(command), cwd=repo_root)
-        if step.get("returncode", 1) != 0:
-            state.errors.append(
-                "Managed projection receipt moved HEAD, but "
-                f"{label} refresh failed before {next_step_label}."
-            )
-            return
-    state.warnings.append(
-        "Refreshed startup-context and context-graph after managed projection "
-        f"receipt before {next_step_label}."
-    )
 
 
 def auto_commit_managed_projection_receipt_before_authorization(
@@ -273,6 +243,17 @@ def _receipt_result_committed(receipt_result: object) -> bool:
     )
 
 
+def _base_pre_validation_result(
+    *,
+    render_result: dict[str, object],
+) -> dict[str, object]:
+    result: dict[str, object] = {}
+    result["phase"] = PRE_VALIDATION_MANAGED_PROJECTION_SYNC
+    result["allowed"] = True
+    result.update(render_surface_pre_validation_fields(render_result))
+    return result
+
+
 def _current_head_sha(*, repo_root: Path) -> str:
     code, stdout, _ = run_git_capture(["rev-parse", "HEAD"], repo_root=repo_root)
     return stdout.strip() if code == 0 else ""
@@ -285,59 +266,14 @@ def _record_phase_state(state, attr: str, result: dict[str, object]) -> None:
         return
 
 
-def _refresh_review_channel_projection_bundle_after_projection_receipt(
-    state,
-    *,
-    repo_root: Path,
-    next_step_label: str,
-) -> bool:
-    """Keep review-state sibling projections on the same proof tick as HEAD."""
-    config = active_path_config()
-    review_channel_path = repo_root / config.review_channel_rel
-    if not review_channel_path.is_file():
-        return True
-    try:
-        artifact_paths = resolve_artifact_paths(repo_root=repo_root)
-        event_log_path = Path(artifact_paths.event_log_path)
-        state_path = Path(artifact_paths.state_path)
-        if event_log_path.exists() or state_path.exists():
-            load_or_refresh_event_bundle(
-                repo_root=repo_root,
-                review_channel_path=review_channel_path,
-                artifact_paths=artifact_paths,
-            )
-            state.warnings.append(
-                "Refreshed review-channel projections after managed projection "
-                f"receipt before {next_step_label}."
-            )
-            return True
-        bridge_path = repo_root / config.bridge_rel
-        if bridge_path.is_file():
-            refresh_status_snapshot(
-                repo_root=repo_root,
-                bridge_path=bridge_path,
-                review_channel_path=review_channel_path,
-                output_root=repo_root / config.review_status_dir_rel,
-            )
-            state.warnings.append(
-                "Refreshed bridge-backed review projections after managed "
-                f"projection receipt before {next_step_label}."
-            )
-    except (OSError, ValueError) as exc:
-        state.errors.append(
-            "Managed projection receipt moved HEAD, but review-channel "
-            f"projection refresh failed before {next_step_label}: {exc}"
-        )
-        return False
-    return True
-
-
 __all__ = [
     "auto_commit_managed_projection_receipt_before_authorization",
     "auto_commit_review_snapshot_freshness_receipt",
     "PRE_VALIDATION_MANAGED_PROJECTION_SYNC",
+    "POLICY_RENDER_SURFACE_SYNC",
     "repair_preflight_generated_changes_for_push",
     "refresh_managed_projections_before_preflight",
+    "refresh_policy_owned_render_surfaces_before_preflight",
     "refresh_preflight_generated_changes_before_authorization",
     "refresh_runtime_surfaces_after_projection_receipt",
 ]

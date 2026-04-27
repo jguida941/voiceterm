@@ -305,6 +305,7 @@ def _run_fetch_and_preflight(
         state,
         policy,
         repo_root=repo_root,
+        quality_policy_path=getattr(args, "quality_policy", None),
     )
     if state.errors:
         return

@@ -19,6 +19,9 @@ from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
     PushAuthorizationRecord,
     RemoteCommitPipelineContract,
 )
+from dev.scripts.devctl.runtime.review_snapshot_refresh import (
+    GENERATED_SURFACE_RECEIPT_SUBJECT_PREFIX,
+)
 
 
 def _review_state() -> SimpleNamespace:
@@ -314,6 +317,60 @@ def test_snapshot_receipt_parent_sha_walks_managed_receipt_chain(
         "commit",
         "-m",
         f"Refresh external review snapshot for {first_receipt_short}",
+    )
+
+    parent = _snapshot_only_receipt_parent_sha(
+        repo_root=repo_root,
+        current_head=_git_output(repo_root, "rev-parse", "HEAD"),
+        governance=SimpleNamespace(
+            artifact_roots=SimpleNamespace(
+                review_snapshot_path="dev/audits/REVIEW_SNAPSHOT.md"
+            )
+        ),
+    )
+
+    assert parent.startswith(content_head)
+
+
+def test_snapshot_receipt_parent_sha_accepts_generated_surface_receipt(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    _init_git_repo(repo_root)
+
+    policy_path = repo_root / "dev/config/devctl_repo_policy.json"
+    system_map_path = repo_root / "dev/guides/SYSTEM_MAP.md"
+    snapshot_path = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+    policy_path.parent.mkdir(parents=True, exist_ok=True)
+    system_map_path.parent.mkdir(parents=True, exist_ok=True)
+    snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+    policy_path.write_text(
+        '{"repo_governance":{"surface_generation":{"surfaces":['
+        '{"output_path":"dev/guides/SYSTEM_MAP.md",'
+        '"tracked":true,"local_only":false}]}}}',
+        encoding="utf-8",
+    )
+    system_map_path.write_text("# SYSTEM_MAP\n\nseed\n", encoding="utf-8")
+    snapshot_path.write_text("# Seed snapshot\n", encoding="utf-8")
+    _git(
+        repo_root,
+        "add",
+        "dev/config/devctl_repo_policy.json",
+        "dev/guides/SYSTEM_MAP.md",
+        "dev/audits/REVIEW_SNAPSHOT.md",
+    )
+    _git(repo_root, "commit", "-m", "Seed generated surface policy")
+
+    content_head = _git_output(repo_root, "rev-parse", "HEAD")
+    content_short = _git_output(repo_root, "rev-parse", "--short", "HEAD")
+    system_map_path.write_text("# SYSTEM_MAP\n\nrefreshed\n", encoding="utf-8")
+    _git(repo_root, "add", "dev/guides/SYSTEM_MAP.md")
+    _git(
+        repo_root,
+        "commit",
+        "-m",
+        f"{GENERATED_SURFACE_RECEIPT_SUBJECT_PREFIX}{content_short}",
     )
 
     parent = _snapshot_only_receipt_parent_sha(

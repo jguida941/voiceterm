@@ -14,7 +14,9 @@ from dev.scripts.devctl.commands.vcs import (
     push,
     push_preflight_commit,
     push_preflight_projection,
+    push_projection_runtime_refresh,
     push_projection_receipt,
+    push_render_surface_sync,
 )
 from dev.scripts.devctl.commands.vcs.governed_executor_push_result import (
     project_push_report,
@@ -1565,8 +1567,14 @@ class PushBridgeSyncTests(unittest.TestCase):
             del _state, repo_root
             calls.append("bridge-sync")
 
-        def _refresh_projections(_state, _policy, *, repo_root):
-            del _state, _policy, repo_root
+        def _refresh_projections(
+            _state,
+            _policy,
+            *,
+            repo_root,
+            quality_policy_path=None,
+        ):
+            del _state, _policy, repo_root, quality_policy_path
             calls.append("managed-projection-refresh")
 
         with (
@@ -1662,8 +1670,14 @@ class PushBridgeSyncTests(unittest.TestCase):
                 "skipped": False,
             }
 
-        def _refresh_projections(_state, _policy, *, repo_root):
-            del _policy, repo_root
+        def _refresh_projections(
+            _state,
+            _policy,
+            *,
+            repo_root,
+            quality_policy_path=None,
+        ):
+            del _policy, repo_root, quality_policy_path
             calls.append("pre-validation-managed-projection-sync")
             _state.pre_validation_managed_projection_sync = {
                 "phase": "pre_validation_managed_projection_sync",
@@ -1763,6 +1777,17 @@ class PushBridgeSyncTests(unittest.TestCase):
             {
                 "phase": "pre_validation_managed_projection_sync",
                 "allowed": True,
+                "render_surface_sync": {
+                    "phase": "policy_render_surface_sync",
+                    "status": "skipped",
+                    "committed": False,
+                    "commit_sha": "",
+                    "paths": (),
+                    "reason": "no_tracked_surfaces",
+                },
+                "render_surface_receipt_committed": False,
+                "render_surface_receipt_commit_sha": "",
+                "render_surface_paths": (),
                 "status": "completed",
                 "ok": True,
                 "receipt_committed": False,
@@ -1773,6 +1798,119 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertEqual(
             state.pre_validation_managed_projection_sync["phase"],
             "pre_validation_managed_projection_sync",
+        )
+
+    def test_refresh_managed_projections_runs_render_surfaces_before_preflight(
+        self,
+    ) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+        calls: list[str] = []
+
+        def _runner(name, cmd, cwd=None, env=None):
+            del cmd, cwd, env
+            calls.append(name)
+            return {
+                "name": name,
+                "cmd": [],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+
+        with (
+            patch.object(
+                push_render_surface_sync,
+                "_tracked_policy_owned_surface_paths",
+                return_value=("dev/guides/SYSTEM_MAP.md",),
+            ),
+            patch.object(
+                push_render_surface_sync,
+                "auto_commit_selected_preflight_generated_changes",
+                return_value={
+                    "ok": True,
+                    "committed": True,
+                    "commit_sha": "surface-receipt",
+                    "paths": ("dev/guides/SYSTEM_MAP.md",),
+                },
+            ),
+            patch.object(
+                push_preflight_projection,
+                "refresh_review_snapshot_file",
+                return_value=[],
+            ),
+            patch.object(
+                push_preflight_projection,
+                "auto_commit_managed_projection_receipt",
+                return_value={"ok": True, "committed": False, "paths": ()},
+            ),
+        ):
+            result = (
+                push_preflight_projection.refresh_managed_projections_before_preflight(
+                    state,
+                    policy,
+                    repo_root=Path("/tmp/repo"),
+                    command_runner=_runner,
+                )
+            )
+
+        self.assertEqual(
+            calls,
+            [
+                "push-refresh-render-surfaces",
+                "push-refresh-startup-context",
+                "push-refresh-context-graph",
+            ],
+        )
+        self.assertTrue(result["render_surface_receipt_committed"])
+        self.assertEqual(
+            result["render_surface_paths"],
+            ("dev/guides/SYSTEM_MAP.md",),
+        )
+        self.assertIn(
+            "Committed policy-owned generated surface receipt surface-rece "
+            "for dev/guides/SYSTEM_MAP.md before push.",
+            state.warnings,
+        )
+
+    def test_render_surface_failure_blocks_before_snapshot_refresh(self) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+
+        def _runner(name, cmd, cwd=None, env=None):
+            del name, cmd, cwd, env
+            return {
+                "returncode": 1,
+                "failure_output": "surface drift could not be written",
+            }
+
+        with (
+            patch.object(
+                push_render_surface_sync,
+                "_tracked_policy_owned_surface_paths",
+                return_value=("dev/guides/SYSTEM_MAP.md",),
+            ),
+            patch.object(
+                push_preflight_projection,
+                "refresh_review_snapshot_file",
+            ) as refresh_snapshot_mock,
+        ):
+            result = (
+                push_preflight_projection.refresh_managed_projections_before_preflight(
+                    state,
+                    policy,
+                    repo_root=Path("/tmp/repo"),
+                    command_runner=_runner,
+                )
+            )
+
+        refresh_snapshot_mock.assert_not_called()
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["status"], "blocked")
+        self.assertIn(
+            "render-surfaces refresh failed before push preflight",
+            state.errors[0],
         )
 
     def test_refresh_managed_projections_refreshes_system_picture_after_receipt(
@@ -2017,7 +2155,7 @@ class PushBridgeSyncTests(unittest.TestCase):
 
             with (
                 patch.object(
-                    push_preflight_projection,
+                    push_projection_runtime_refresh,
                     "active_path_config",
                     return_value=SimpleNamespace(
                         review_channel_rel="dev/active/review_channel.md",
@@ -2026,7 +2164,7 @@ class PushBridgeSyncTests(unittest.TestCase):
                     ),
                 ),
                 patch.object(
-                    push_preflight_projection,
+                    push_projection_runtime_refresh,
                     "resolve_artifact_paths",
                     return_value=SimpleNamespace(
                         event_log_path=str(event_log_path),
@@ -2035,7 +2173,7 @@ class PushBridgeSyncTests(unittest.TestCase):
                     ),
                 ),
                 patch.object(
-                    push_preflight_projection,
+                    push_projection_runtime_refresh,
                     "load_or_refresh_event_bundle",
                     side_effect=_load_or_refresh_event_bundle,
                 ),
@@ -2312,6 +2450,58 @@ class PushBridgeSyncTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.collect_git_status")
+    def test_selected_generated_surface_commit_preserves_staged_only_paths(
+        self,
+        collect_git_status_mock,
+        run_git_capture_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [
+                {
+                    "path": "dev/guides/SYSTEM_MAP.md",
+                    "status": "M",
+                    "raw_status": " M",
+                    "index_status": " ",
+                    "worktree_status": "M",
+                },
+                {
+                    "path": "next_commit.py",
+                    "status": "M",
+                    "raw_status": "M ",
+                    "index_status": "M",
+                    "worktree_status": " ",
+                },
+            ]
+        }
+        run_git_capture_mock.side_effect = [
+            (0, "abc1234", ""),
+            (0, "", ""),
+            (0, "", ""),
+            (0, "surface-receipt", ""),
+        ]
+        state = SimpleNamespace(errors=[])
+
+        result = push_preflight_commit.auto_commit_selected_preflight_generated_changes(
+            state,
+            make_policy(),
+            allowed_paths=("dev/guides/SYSTEM_MAP.md",),
+        )
+
+        self.assertTrue(result["committed"])
+        self.assertEqual(
+            run_git_capture_mock.call_args_list[2].args[0],
+            [
+                "commit",
+                "-m",
+                "Refresh policy-owned generated surfaces for abc1234",
+                "--",
+                "dev/guides/SYSTEM_MAP.md",
+            ],
+        )
+        self.assertEqual(state.errors, [])
+
+    @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.collect_git_status")
     def test_preflight_autocommit_uses_git_subcommands_without_double_prefix(
         self,
         collect_git_status_mock,
@@ -2345,7 +2535,13 @@ class PushBridgeSyncTests(unittest.TestCase):
         )
         self.assertEqual(
             run_git_capture_mock.call_args_list[1].args[0],
-            ["commit", "-m", "chore(push): auto-commit preflight-generated changes"],
+            [
+                "commit",
+                "-m",
+                "chore(push): auto-commit preflight-generated changes",
+                "--",
+                "generated.py",
+            ],
         )
         self.assertEqual(state.errors, [])
 
@@ -2393,8 +2589,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         run_git_capture_mock,
     ) -> None:
         run_git_capture_mock.side_effect = [
-            (0, "bridge.md", ""),
-            (0, "", ""),
+            (0, " M bridge.md", ""),
             (0, "", ""),
             (0, "", ""),
             (0, "bridge.md", ""),
@@ -2421,12 +2616,18 @@ class PushBridgeSyncTests(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            run_git_capture_mock.call_args_list[3].args[0],
+            run_git_capture_mock.call_args_list[2].args[0],
             ["add", "--", "bridge.md"],
         )
         self.assertEqual(
-            run_git_capture_mock.call_args_list[6].args[0],
-            ["commit", "-m", "Refresh external review snapshot for abc1234"],
+            run_git_capture_mock.call_args_list[5].args[0],
+            [
+                "commit",
+                "-m",
+                "Refresh external review snapshot for abc1234",
+                "--",
+                "bridge.md",
+            ],
         )
 
     @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
@@ -2440,8 +2641,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         run_git_capture_mock,
     ) -> None:
         run_git_capture_mock.side_effect = [
-            (0, "bridge.md\ndev/audits/REVIEW_SNAPSHOT.md", ""),
-            (0, "", ""),
+            (0, " M bridge.md\n M dev/audits/REVIEW_SNAPSHOT.md", ""),
             (0, "", ""),
             (0, "", ""),
             (0, "bridge.md\ndev/audits/REVIEW_SNAPSHOT.md", ""),
@@ -2462,7 +2662,7 @@ class PushBridgeSyncTests(unittest.TestCase):
 
         self.assertEqual(state.errors, [])
         self.assertEqual(
-            run_git_capture_mock.call_args_list[3].args[0],
+            run_git_capture_mock.call_args_list[2].args[0],
             ["add", "--", "bridge.md", "dev/audits/REVIEW_SNAPSHOT.md"],
         )
         self.assertEqual(
@@ -2484,9 +2684,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         run_git_capture_mock,
     ) -> None:
         run_git_capture_mock.side_effect = [
-            (0, "bridge.md\nsource.py", ""),
-            (0, "", ""),
-            (0, "", ""),
+            (0, " M bridge.md\n M source.py", ""),
         ]
         state = SimpleNamespace(errors=[], warnings=[])
 
@@ -2501,7 +2699,55 @@ class PushBridgeSyncTests(unittest.TestCase):
 
         self.assertEqual(state.errors, [])
         self.assertEqual(state.warnings, [])
-        self.assertEqual(run_git_capture_mock.call_count, 3)
+        self.assertEqual(run_git_capture_mock.call_count, 1)
+
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_projection_receipt.scan_repo_governance_safely",
+        return_value=None,
+    )
+    def test_projection_receipt_preserves_staged_only_next_commit_intent(
+        self,
+        _scan_governance_mock,
+        run_git_capture_mock,
+    ) -> None:
+        run_git_capture_mock.side_effect = [
+            (0, " M bridge.md\nM  next_commit.py", ""),
+            (0, "next_commit.py", ""),
+            (0, "", ""),
+            (0, "bridge.md\nnext_commit.py", ""),
+            (0, "abc1234", ""),
+            (0, "", ""),
+            (0, "receipt-sha", ""),
+        ]
+        state = SimpleNamespace(errors=[], warnings=[])
+
+        push_projection_receipt.auto_commit_managed_projection_receipt(
+            state,
+            make_policy(
+                checkpoint=PushCheckpointPolicy(
+                    compatibility_projection_paths=("bridge.md",),
+                )
+            ),
+        )
+
+        self.assertEqual(state.errors, [])
+        self.assertEqual(
+            run_git_capture_mock.call_args_list[5].args[0],
+            [
+                "commit",
+                "-m",
+                "Refresh external review snapshot for abc1234",
+                "--",
+                "bridge.md",
+            ],
+        )
+        self.assertEqual(
+            state.warnings,
+            [
+                "Committed managed projection receipt receipt-sha for bridge.md before push."
+            ],
+        )
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch(
