@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-27T06:28:07Z`
-- Last Codex poll (Local America/New_York): `2026-04-27 02:28:07 EDT`
+- Last Codex poll: `2026-04-27T14:35:24Z`
+- Last Codex poll (Local America/New_York): `2026-04-27 10:35:24 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `f913ee33f9929e3c8128d782784fcf66fb53658cc262860add353e0a1752985e`
-- Current instruction revision: `d972a1c96caf`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-waiting_for_ack
+- Status unavailable.
 
 ## Claude Questions
 
@@ -134,15 +134,15 @@ waiting_for_ack
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
-Priority action_request: Combined governed commit+push handoff for rev_pkt_1997 rev_pkt_2003 and Slice C/D repair
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 
-- (missing)
+MP-355
 
 ## Action Requests
 
