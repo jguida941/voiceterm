@@ -62,6 +62,31 @@ Evidence:
 - `dev/active/agent_substrate_architecture_review.md`
 - `dev/audits/AUTOMATION_DEBT_REGISTER.md` ADR-020
 
+### 2026-04-27 - Push pipeline proof identity and enum connectivity now share the projection spine
+
+Fact: the follow-up `rev_pkt_2006` investigation found the immediate zref
+blocker in `sync_commit_pipeline_with_push_report`: the push report updated
+pipeline state but preserved a stale `snapshot_id` / `zref` while startup and
+review-state refreshes had moved to a newer proof tick. The same audit also
+confirmed that C-class connectivity guards covered dataclass fields but missed
+enum-value consumers such as operator modes and packet actions.
+
+Change: push pipeline sync now recomputes `commit_pipeline` proof identity
+from the current review-state runtime and push-decision payload before
+persisting both event-backed and legacy artifacts. `OperatorInteractionMode`
+has a central `OperatorModePolicy` matrix consumed by launch terminal
+discipline and commit approval authority, while
+`check_typed_enum_connectivity.py` enters the shared governance bundle in
+warning-only mode. Proof-tick parity now also has explicit authority priority
+for `implementation_permission` and `next_command`.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/push_pipeline_state_sync.py`
+- `dev/scripts/devctl/runtime/operator_context.py`
+- `dev/scripts/devctl/commands/review_channel/launcher_discipline.py`
+- `dev/scripts/checks/check_typed_enum_connectivity.py`
+- `dev/audits/AUTOMATION_DEBT_REGISTER.md` ADR-021
+
 ### 2026-04-27 - Governed push receipts policy-owned generated surfaces before docs gates
 
 Fact: after bridge and ReviewSnapshot receipt automation landed, the push

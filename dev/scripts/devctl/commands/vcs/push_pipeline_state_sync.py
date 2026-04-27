@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
@@ -22,6 +23,7 @@ from ...runtime.review_snapshot_refresh import (
     receipt_commit_ancestor_shas,
     receipt_commit_parent_sha,
 )
+from ...runtime.surface_snapshot import build_surface_snapshot_id, build_surface_zref
 from .governed_executor_push_result import project_push_report
 
 
@@ -87,7 +89,12 @@ def sync_commit_pipeline_with_push_report(
                 "delivered_by": str(pipeline.delivered_by or "devctl.push"),
             }
         )
-    updated = replace(pipeline, **update_fields)
+    updated = _attach_pipeline_surface_identity(
+        repo_root=repo_root,
+        projections_root=projections_root,
+        pipeline=replace(pipeline, **update_fields),
+        current_head_commit=current_head_commit,
+    )
     if updated == pipeline:
         return False
 
@@ -159,6 +166,59 @@ def _persist_pipeline_contract(
     legacy_root = repo_root / active_path_config().review_status_dir_rel
     if legacy_root.resolve() != projections_root.resolve():
         persist_remote_commit_pipeline_contract(pipeline, output_root=legacy_root)
+
+
+def _attach_pipeline_surface_identity(
+    *,
+    repo_root: Path,
+    projections_root: Path,
+    pipeline: RemoteCommitPipelineContract,
+    current_head_commit: str,
+) -> RemoteCommitPipelineContract:
+    review_state = _load_mapping(projections_root / "review_state.json")
+    compat = review_state.get("_compat") if isinstance(review_state, Mapping) else {}
+    compat_mapping = compat if isinstance(compat, Mapping) else {}
+    snapshot_id = build_surface_snapshot_id(
+        reviewer_runtime=_mapping_or_none(review_state.get("reviewer_runtime")),
+        commit_pipeline=pipeline,
+        push_decision=_mapping_or_none(compat_mapping.get("push_decision")),
+    )
+    head_sha = (
+        str(current_head_commit or "").strip()
+        or _review_state_head_sha(review_state)
+        or str(pipeline.commit_sha or "").strip()
+    )
+    return replace(
+        pipeline,
+        snapshot_id=snapshot_id,
+        zref=build_surface_zref(snapshot_id=snapshot_id, head_sha=head_sha),
+    )
+
+
+def _load_mapping(path: Path) -> dict[str, object]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _mapping_or_none(value: object) -> Mapping[str, object] | None:
+    return value if isinstance(value, Mapping) else None
+
+
+def _review_state_head_sha(review_state: Mapping[str, object]) -> str:
+    source_identity = review_state.get("source_identity")
+    if isinstance(source_identity, Mapping):
+        head_sha = str(source_identity.get("head_sha") or "").strip()
+        if head_sha:
+            return head_sha
+    compat = review_state.get("_compat")
+    if isinstance(compat, Mapping):
+        push_decision = compat.get("push_decision")
+        if isinstance(push_decision, Mapping):
+            return str(push_decision.get("head_sha") or "").strip()
+    return ""
 
 
 def _pipeline_artifact_relpath(*, repo_root: Path, projections_root: Path) -> str:

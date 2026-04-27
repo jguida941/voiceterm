@@ -3671,10 +3671,29 @@ class PushPipelineStateSyncTests(unittest.TestCase):
                 remote="origin",
                 commit_sha="abc123",
                 approved_target_identity="tree-receipt-1",
+                snapshot_id="snap-stale",
+                zref="zref_stale_abc123",
             )
             persist_remote_commit_pipeline_contract(
                 pipeline,
                 output_root=projections_root,
+            )
+            (projections_root / "review_state.json").write_text(
+                json.dumps(
+                    {
+                        "reviewer_runtime": {
+                            "reviewer_mode": "active_dual_agent",
+                            "effective_reviewer_mode": "active_dual_agent",
+                        },
+                        "_compat": {
+                            "push_decision": {
+                                "action": "run_devctl_push",
+                                "reason": "push_ready",
+                            }
+                        },
+                    }
+                ),
+                encoding="utf-8",
             )
 
             synced = sync_commit_pipeline_with_push_report(
@@ -3731,6 +3750,11 @@ class PushPipelineStateSyncTests(unittest.TestCase):
                 ],
                 "completed",
             )
+            self.assertTrue(persisted.snapshot_id.startswith("snap-"))
+            self.assertNotEqual(persisted.snapshot_id, "snap-stale")
+            self.assertEqual(legacy.snapshot_id, persisted.snapshot_id)
+            self.assertTrue(persisted.zref.endswith("_abc123"))
+            self.assertEqual(legacy.zref, persisted.zref)
 
     def test_sync_commit_pipeline_auto_transitions_non_destructive_push_failure(
         self,

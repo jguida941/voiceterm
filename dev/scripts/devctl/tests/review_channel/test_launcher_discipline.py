@@ -45,7 +45,7 @@ def test_empty_terminal_arg_returns_invalid_terminal_arg_denial() -> None:
     assert verdict.denial_reason == "invalid_terminal_arg"
 
 
-# ---------- Decision rule 2: terminal-app is always allowed ----------
+# ---------- Decision rule 2: terminal-app requires a local operator ----------
 
 
 def test_terminal_app_in_local_terminal_mode_is_allowed() -> None:
@@ -59,22 +59,24 @@ def test_terminal_app_in_local_terminal_mode_is_allowed() -> None:
     assert verdict.operator_message == ""
 
 
-def test_terminal_app_in_remote_control_mode_is_allowed() -> None:
-    """Remote operator can still legitimately request a visible launch."""
+def test_terminal_app_in_remote_control_mode_is_denied() -> None:
+    """Remote operators cannot see local Terminal.app provider prompts."""
     verdict = validate_visible_launch_in_local_mode(
         interaction_mode="remote_control",
         terminal_arg="terminal-app",
     )
-    assert verdict.allowed is True
+    assert verdict.allowed is False
+    assert verdict.denial_reason == "visible_launch_in_remote_control"
 
 
-def test_terminal_app_with_unresolved_interaction_mode_is_allowed() -> None:
-    """Unknown interaction mode + visible Terminal: still allowed (visible is safe)."""
+def test_terminal_app_with_unresolved_interaction_mode_is_denied() -> None:
+    """Unknown interaction mode cannot silently choose a local prompt path."""
     verdict = validate_visible_launch_in_local_mode(
         interaction_mode="",
         terminal_arg="terminal-app",
     )
-    assert verdict.allowed is True
+    assert verdict.allowed is False
+    assert verdict.denial_reason == "visible_launch_without_local_operator"
 
 
 # ---------- Decision rule 3: headless in remote_control is allowed ----------
@@ -94,6 +96,15 @@ def test_headless_in_remote_control_with_extra_whitespace_is_allowed() -> None:
     """Whitespace around the interaction_mode value must not break the match."""
     verdict = validate_visible_launch_in_local_mode(
         interaction_mode="  remote_control  ",
+        terminal_arg="none",
+    )
+    assert verdict.allowed is True
+
+
+def test_headless_in_dual_agent_mode_is_allowed() -> None:
+    """Dual-agent sessions use the typed remote handoff lane."""
+    verdict = validate_visible_launch_in_local_mode(
+        interaction_mode="dual_agent",
         terminal_arg="none",
     )
     assert verdict.allowed is True

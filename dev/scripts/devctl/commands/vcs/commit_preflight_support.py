@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from ...runtime.operator_context import (
     OperatorInteractionMode,
+    operator_mode_allows_commit_self_approval,
     resolve_operator_interaction_mode,
 )
 from ...runtime.reviewer_runtime_models import (
@@ -52,10 +53,7 @@ def build_commit_approval_authority(
 ) -> CommitApprovalAuthority:
     """Return the typed approval authority for one governed commit attempt."""
     mode = resolve_operator_interaction_mode(str(interaction_mode or "").strip()).value
-    if mode in {
-        OperatorInteractionMode.LOCAL_TERMINAL.value,
-        OperatorInteractionMode.SINGLE_AGENT.value,
-    }:
+    if operator_mode_allows_commit_self_approval(mode):
         return CommitApprovalAuthority(
             interaction_mode=mode,
             approval_actor="operator",

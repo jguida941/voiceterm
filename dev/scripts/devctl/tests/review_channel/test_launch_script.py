@@ -367,6 +367,18 @@ class TestResolveTerminalMode(unittest.TestCase):
             "none",
         )
 
+    def test_dual_agent_defaults_headless(self) -> None:
+        self.assertEqual(
+            resolve_terminal_mode(operator_interaction_mode="dual_agent"),
+            "none",
+        )
+
+    def test_unresolved_defaults_headless(self) -> None:
+        self.assertEqual(
+            resolve_terminal_mode(operator_interaction_mode="unresolved"),
+            "none",
+        )
+
     def test_parent_headless_is_inherited(self) -> None:
         self.assertEqual(resolve_terminal_mode(parent_terminal="none"), "none")
 

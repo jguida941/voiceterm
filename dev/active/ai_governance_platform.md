@@ -3349,6 +3349,10 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `done`
       depends_on: `MP377-P0-T07`
+- [x] `MP377-P0-T12` Close the immediate Slice C/D zref and enum-connectivity gap: push-result synchronization must refresh `commit_pipeline` `snapshot_id`/`zref` from the current review-state tick, `OperatorInteractionMode` must have one policy matrix for launch/approval decisions, and a warning-only typed enum connectivity guard must be registered in the shared governance bundle before any later fail-closed promotion.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `done`
+      depends_on: `MP377-P0-T07`, `MP377-P0-T11`
 
 ### Phase P1 - Typed Plan Ingestion And Registry Projection
 
@@ -5702,6 +5706,17 @@ working on `MP-377`.
   Dynamic any-agent-any-role reassignment stays queued for Slice E on the
   existing `CollaborationSession` / `ActorAuthorityState` /
   `CapabilityGrantState` chain.
+- 2026-04-27 Plan 4.1 Slice C/D zref and enum-connectivity repair:
+  `MP377-P0-T12` extends the existing projection spine rather than creating a
+  new PlatformProjectionSpine object. `sync_commit_pipeline_with_push_report`
+  now recomputes the pipeline `snapshot_id`/`zref` after push-result sync from
+  current review-state runtime and push-decision payloads; `OperatorModePolicy`
+  centralizes local-prompt/headless/remote-handoff/commit-approval decisions
+  for every `OperatorInteractionMode`; and warning-only
+  `check_typed_enum_connectivity.py` is registered in the script catalog plus
+  shared governance bundle. The first live run reports three disconnected
+  `ActionKind` packet values as Slice C retirement evidence, not a blocker for
+  this publication.
 - 2026-04-26 Plan 4.1 Slice 0 governed-push closeout:
   the live push blocker is now narrowed to fresh approval rather than
   self-invalidating state. Managed bridge/ReviewSnapshot receipt chains are
@@ -7886,6 +7901,16 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-27: Closed `MP377-P0-T12` as the bounded Slice C/D zref and
+  enum-connectivity repair from `rev_pkt_2006`. Push pipeline sync now refreshes
+  proof identity from the current review-state tick, preventing stale
+  `commit_pipeline` `snapshot_id`/`zref` from becoming the publication blocker
+  after managed receipts. `OperatorInteractionMode` now has one
+  `OperatorModePolicy` decision matrix consumed by commit approval and
+  review-channel launch terminal discipline. The new
+  `check_typed_enum_connectivity.py` guard is warning-only, registered in the
+  script catalog and governance bundle, and currently surfaces disconnected
+  `ActionKind` packet values for later Slice C baseline retirement.
 - 2026-04-27: Closed `MP377-P0-T11` as the bounded proof-tick authority repair
   discovered during `rev_pkt_2000` / `rev_pkt_2001`. The new
   `dev/active/agent_substrate_architecture_review.md` keeps the architecture

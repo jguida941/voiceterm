@@ -220,6 +220,7 @@ Release-governance note:
 | Where is the portable code-governance engine / multi-repo portability and measurement plan? | `dev/active/portable_code_governance.md` (engine/adoption companion and owner reference for the portable-proof phase; live execution order stays in the typed phase/task registry in `dev/active/ai_governance_platform.md`) |
 | Where is the full reusable AI governance platform / package-extraction architecture plan? | `dev/active/ai_governance_platform.md` (the only main active architecture plan for this product scope; its typed phase/task registry at the top of `## Execution Checklist` is the live execution authority for `MP-377`) |
 | Where is the 2026-04-27 agent-substrate architecture review for proof-tick authority, mode-axis separation, and any-agent-any-role migration? | `dev/active/agent_substrate_architecture_review.md` (reference-only Plan 4.1 review; execution order stays in `dev/active/ai_governance_platform.md`) |
+| Which guard catches typed enum values that are declared but never consumed by a decision branch, policy map, comparison, or typed reference? | `dev/scripts/checks/check_typed_enum_connectivity.py` (warning-only first; registered in shared governance bundles, with ADR-021 tracking later Slice C baseline retirement and `--fail-on-disconnected` promotion) |
 | Where is the issue-to-guard/probe promotion queue owned? | `dev/active/ai_governance_platform.md` for the `FindingReview -> GuardPromotionCandidate` contract, `dev/active/portable_code_governance.md` for repo-pack path portability, and `dev/scripts/README.md` for `governance-review` queue behavior |
 | Where is the current `MP-377` startup-authority / repo-pack / typed-plan-registry / runtime-evidence-context closure plan? | `dev/active/platform_authority_loop.md` (subordinate `MP-377` owner reference; read after `dev/active/ai_governance_platform.md` only when the active typed phase/task route names it) |
 | Where is the scheduler-facing planning reducer for multi-agent slice routing documented? | `dev/active/ai_governance_platform.md` for execution authority, plus `dev/scripts/README.md` for the maintainer-facing `PlanningIRSnapshot` module surface |
@@ -1841,6 +1842,7 @@ python3 dev/scripts/checks/check_bundle_workflow_parity.py
 python3 dev/scripts/checks/check_platform_layer_boundaries.py
 python3 dev/scripts/checks/check_platform_contract_closure.py
 python3 dev/scripts/checks/check_contract_connectivity.py
+python3 dev/scripts/checks/check_typed_enum_connectivity.py
 python3 dev/scripts/checks/check_platform_contract_sync.py
 python3 dev/scripts/checks/check_review_channel_bridge.py
 python3 dev/scripts/checks/check_startup_authority_contract.py
@@ -1910,6 +1912,7 @@ python3 dev/scripts/checks/check_bundle_workflow_parity.py
 python3 dev/scripts/checks/check_platform_layer_boundaries.py
 python3 dev/scripts/checks/check_platform_contract_closure.py
 python3 dev/scripts/checks/check_contract_connectivity.py
+python3 dev/scripts/checks/check_typed_enum_connectivity.py
 python3 dev/scripts/checks/check_platform_contract_sync.py
 python3 dev/scripts/checks/check_review_channel_bridge.py
 python3 dev/scripts/checks/check_startup_authority_contract.py

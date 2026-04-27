@@ -647,6 +647,74 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
         self.assertEqual(mode_violations[0]["surface"], "control_plane_read_model")
         self.assertEqual(mode_violations[0]["expected"], "remote_control")
 
+    def test_build_report_uses_startup_context_as_implementation_permission_authority(
+        self,
+    ) -> None:
+        payloads = self._phase_zero_payloads()
+        startup = payloads["startup_payload"]
+        assert isinstance(startup, dict)
+        startup["implementation_permission"] = "blocked"
+
+        report = self.script.build_report(**payloads, disk_review_state_payload=None)
+
+        self.assertFalse(report["ok"])
+        permission_violations = [
+            violation
+            for violation in report["violations"]
+            if violation["category"] == "proof_tick_field_parity"
+            and violation["field"] == "implementation_permission"
+        ]
+        self.assertTrue(permission_violations)
+        self.assertTrue(
+            all(
+                violation["expected"] == "blocked"
+                for violation in permission_violations
+            )
+        )
+        self.assertTrue(
+            any(
+                "from startup_context" in violation["detail"]
+                for violation in permission_violations
+            )
+        )
+
+    def test_build_report_uses_authority_snapshot_as_next_command_authority(
+        self,
+    ) -> None:
+        payloads = self._phase_zero_payloads()
+        review_state = payloads["review_state_payload"]
+        startup = payloads["startup_payload"]
+        assert isinstance(review_state, dict)
+        assert isinstance(startup, dict)
+        authority = dict(review_state["authority_snapshot"])
+        authority["next_command"] = "python3 dev/scripts/devctl.py authoritative-next"
+        review_state["authority_snapshot"] = authority
+        startup["next_command"] = "python3 dev/scripts/devctl.py stale-startup"
+
+        report = self.script.build_report(**payloads, disk_review_state_payload=None)
+
+        self.assertFalse(report["ok"])
+        next_command_violations = [
+            violation
+            for violation in report["violations"]
+            if violation["category"] == "proof_tick_field_parity"
+            and violation["field"] == "next_command"
+        ]
+        self.assertTrue(next_command_violations)
+        self.assertTrue(
+            all(
+                violation["expected"]
+                == "python3 dev/scripts/devctl.py authoritative-next"
+                for violation in next_command_violations
+            )
+        )
+        self.assertTrue(
+            any(
+                "from authority_snapshot" in violation["detail"]
+                for violation in next_command_violations
+            )
+        )
+
     def test_build_report_allows_dirty_startup_dynamic_command(self) -> None:
         payloads = self._phase_zero_payloads()
         startup = dict(payloads["startup_payload"])

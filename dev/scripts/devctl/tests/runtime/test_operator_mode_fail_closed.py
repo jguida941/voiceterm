@@ -17,6 +17,10 @@ from dev.scripts.devctl.runtime.operator_context import (
     OperatorInteractionMode,
     is_remote_mode,
     is_resolved,
+    operator_mode_allows_commit_self_approval,
+    operator_mode_allows_local_prompts,
+    operator_mode_policy,
+    operator_mode_requires_headless,
     resolve_operator_interaction_mode,
 )
 from dev.scripts.devctl.runtime.project_governance_parse import (
@@ -94,6 +98,21 @@ class TestOperatorInteractionModeEnum(unittest.TestCase):
         self.assertTrue(is_resolved("single_agent"))
         self.assertFalse(is_resolved("unresolved"))
         self.assertFalse(is_resolved(""))
+
+    def test_operator_mode_policy_covers_all_modes(self) -> None:
+        for mode in OperatorInteractionMode:
+            self.assertEqual(operator_mode_policy(mode.value).mode, mode.value)
+
+    def test_operator_mode_policy_drives_prompt_and_approval_decisions(self) -> None:
+        self.assertTrue(operator_mode_allows_local_prompts("local_terminal"))
+        self.assertFalse(operator_mode_allows_local_prompts("remote_control"))
+        self.assertTrue(operator_mode_requires_headless("remote_control"))
+        self.assertTrue(operator_mode_requires_headless("dual_agent"))
+        self.assertTrue(operator_mode_requires_headless("unresolved"))
+        self.assertFalse(operator_mode_requires_headless("single_agent"))
+        self.assertTrue(operator_mode_allows_commit_self_approval("single_agent"))
+        self.assertFalse(operator_mode_allows_commit_self_approval("dual_agent"))
+        self.assertFalse(operator_mode_allows_commit_self_approval("unresolved"))
 
 
 # -------------------------------------------------------

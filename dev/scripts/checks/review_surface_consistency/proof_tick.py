@@ -130,6 +130,34 @@ _PROOF_TICK_FIELD_AUTHORITY_PRIORITY: dict[str, tuple[str, ...]] = {
         "authority_snapshot",
         "bridge_compat",
     ),
+    # StartupContext is the launch/turn entrypoint for mutation authority and
+    # must win over compatibility projections or stale persisted mirrors.
+    "implementation_permission": (
+        "startup_context",
+        "authority_snapshot",
+        "control_plane_read_model",
+        "session_resume",
+        "review_channel_status",
+        "persisted_review_state",
+        "coordination_snapshot",
+        "compact_projection",
+        "bridge_compat",
+        "commit_pipeline",
+    ),
+    # AuthoritySnapshot is the reduced command contract used by startup,
+    # session-resume, dashboard, and review-channel readers.
+    "next_command": (
+        "authority_snapshot",
+        "startup_context",
+        "control_plane_read_model",
+        "session_resume",
+        "review_channel_status",
+        "persisted_review_state",
+        "compact_projection",
+        "bridge_compat",
+        "coordination_snapshot",
+        "commit_pipeline",
+    ),
 }
 
 

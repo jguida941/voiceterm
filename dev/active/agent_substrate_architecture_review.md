@@ -5,8 +5,10 @@ Date: 2026-04-27.
 
 Execution authority stays in `dev/active/MASTER_PLAN.md` and the typed phase
 registry in `dev/active/ai_governance_platform.md`. This document records the
-Codex 11 validation of `rev_pkt_2001`, `rev_pkt_2000`, and the four-agent
-investigation report at `/tmp/agent_investigation_reports_2026-04-27.md`.
+Codex 11 validation of `rev_pkt_2001`, `rev_pkt_2000`, the four-agent
+investigation report at `/tmp/agent_investigation_reports_2026-04-27.md`, and
+the Codex 12 validation of `rev_pkt_2006` plus
+`/tmp/agent_investigation_8parallel_2026-04-27.md`.
 
 ## Decision
 
@@ -14,6 +16,12 @@ The next executable slice is a narrow Slice C/D bridge: make the existing
 review-surface consistency proof use explicit field authority and compare
 `operator_interaction_mode` as its own axis. This unblocks the local Slice A
 commit without creating a second runtime system.
+
+Codex 12 extends that same Slice C/D bridge without changing the authority
+model: refresh `commit_pipeline` proof identity after push-result sync, add a
+warning-only enum-value connectivity guard, and centralize
+`OperatorInteractionMode` launch/approval policy in `operator_context.py`.
+Dynamic role flipping remains Slice E.
 
 The broader "system in one place" architecture is not a new service. It is the
 existing platform projection chain made explicit:
@@ -76,6 +84,11 @@ authority, with typed runtime/read-model surfaces as fallbacks and bridge
 compatibility later in the order. Other fields use a stable default priority
 instead of raw dictionary iteration.
 
+Codex 12 follow-up: `implementation_permission` now explicitly prefers
+`startup_context`, while `next_command` prefers `AuthoritySnapshot`, matching
+the existing runtime contract that reducers should project allowed actions
+from the authority snapshot instead of sibling compatibility projections.
+
 Plan mapping: this is the immediate Slice D projection-spine repair needed to
 publish the local Slice A commit. It also supports Slice C by making the guard
 say which projection drifted before any later fail-closed enforcement change.
@@ -121,6 +134,11 @@ diagnostics.
 Slice D: projection spine. Use it for the canonical field authority map,
 projection refresh ordering, and surface parity over one frozen proof tick.
 The rev_pkt_2000 fix is the first bounded piece.
+
+The rev_pkt_2006 zref repair also belongs here: commit-pipeline state sync is
+not allowed to write state-only drift after a managed receipt refresh. It must
+recompute `snapshot_id`/`zref` from the current review-state tick before
+persisting.
 
 Slice E: boundary and capability migration. Use it for dynamic role
 assignment, multi-role policy, caller identity binding, and removal of legacy

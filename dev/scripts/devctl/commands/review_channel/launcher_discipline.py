@@ -2,8 +2,8 @@
 
 Closes finding F21 (operator-flagged "IS IT HEADLESS CODEX HUGE PROBLEM"):
 implementer sessions launching Codex with ``--terminal none`` while the
-typed ``interaction_mode`` is ``local_terminal`` (or unresolved) silently
-hang on Codex CLI auth/permission prompts. The publisher daemon then keeps
+typed ``interaction_mode`` is ``local_terminal`` silently hang on Codex CLI
+auth/permission prompts. The publisher daemon then keeps
 the heartbeat fresh while no actual Codex CLI process is reading the
 bridge — the F4 false-positive pattern documented in ``bridge.md`` Root
 Cause Diagnosis.
@@ -14,6 +14,10 @@ CLAUDE.md Bootstrap explicitly states:
   ``--terminal terminal-app`` unless the operator explicitly asked for
   headless or the governed session is already intentionally headless. In
   ``remote_control``, keep ``--terminal none``."
+
+The portable operator-mode policy extends that branch table: modes that do
+not allow local prompts cannot launch visible Terminal windows, and modes
+without remote handoff authority cannot launch headless.
 
 This module turns that documented rule into a deterministic typed gate
 that the launch dispatcher can call before spawning conductors. The
@@ -37,27 +41,8 @@ from __future__ import annotations
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
 
-# Typed ``interaction_mode`` values that REQUIRE a visible Terminal.app
-# launch by default. ``unresolved`` and ``""`` are treated as "unknown,
-# fail closed to visible" — the launcher must not silently default to
-# headless when the typed authority is missing or empty. The
-# ``local_terminal`` value is the canonical local-operator case from
-# CLAUDE.md.
-_VISIBLE_REQUIRED_INTERACTION_MODES: Final[frozenset[str]] = frozenset(
-    {
-        "local_terminal",
-        "unresolved",
-        "",
-    }
-)
-
-# Typed ``interaction_mode`` value that legitimately permits headless
-# launches without an override. The remote operator cannot open a local
-# Terminal window, so ``--terminal none`` is the correct default per
-# CLAUDE.md ("In remote_control, keep --terminal none").
-_HEADLESS_PERMITTED_INTERACTION_MODE: Final[str] = "remote_control"
+from ...runtime.operator_context import operator_mode_policy
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,28 +89,23 @@ Decision rules (in evaluation order):
 
     1. ``terminal_arg`` is malformed (not ``terminal-app`` or ``none``) ->
        DENIED with ``invalid_terminal_arg``. Fail-closed catch.
-    2. ``terminal_arg == "terminal-app"`` AND
-       ``interaction_mode == "remote_control"`` -> DENIED with
-       ``visible_launch_in_remote_control``. The remote operator will not see
-       the local macOS provider prompt; route through the typed remote-control
-       lane instead.
+    2. ``terminal_arg == "terminal-app"`` AND the operator-mode policy
+       disallows local prompts -> DENIED with a visible-launch reason.
     3. ``terminal_arg == "terminal-app"`` -> ALLOWED. Visible Terminal is
        safe for local operator modes.
-    4. ``terminal_arg == "none"`` AND
-       ``interaction_mode == "remote_control"`` -> ALLOWED. Remote
-       operator legitimately needs headless because they cannot open a
-       local Terminal window.
-    5. ``terminal_arg == "none"`` AND
-       ``interaction_mode in {"local_terminal", "unresolved", ""}`` AND
-       no override -> DENIED with ``headless_launch_in_local_mode``. This is
-       the F21 trap.
+    4. ``terminal_arg == "none"`` AND the operator-mode policy allows remote
+       handoff -> ALLOWED.
+    5. ``terminal_arg == "none"`` AND the operator-mode policy requires local
+       prompts or the mode is unresolved -> DENIED with
+       ``headless_launch_in_local_mode``. This is the F21 trap.
     6. Anything else hitting ``terminal_arg == "none"`` (unknown
        interaction_mode value not covered above) -> DENIED with
        ``headless_launch_unknown_interaction_mode``. Fail-closed default
        so a future enum value cannot silently bypass the gate.
 
-    The function is pure: no side effects, no I/O, no globals. Tests
-    inject all three inputs and assert on the verdict.
+    The function is deterministic and side-effect free: no I/O and no runtime
+    state reads beyond the static operator-mode policy table. Tests inject all
+    inputs and assert on the verdict.
     """
     normalized_terminal = (terminal_arg or "").strip()
     if normalized_terminal not in {"terminal-app", "none"}:
@@ -138,23 +118,30 @@ Decision rules (in evaluation order):
             ),
         )
     normalized_mode = (interaction_mode or "").strip()
+    policy = operator_mode_policy(normalized_mode)
+    raw_mode_unknown = bool(normalized_mode) and policy.mode != normalized_mode
     if normalized_terminal == "terminal-app":
-        if normalized_mode == _HEADLESS_PERMITTED_INTERACTION_MODE:
+        if policy.headless_required:
+            denial_reason = (
+                "visible_launch_in_remote_control"
+                if policy.mode == "remote_control"
+                else "visible_launch_without_local_operator"
+            )
             return LauncherDisciplineVerdict(
                 allowed=False,
-                denial_reason="visible_launch_in_remote_control",
+                denial_reason=denial_reason,
                 operator_message=(
                     "Refusing visible Terminal.app launch because typed "
-                    "interaction_mode is `remote_control`. The remote operator "
+                    f"interaction_mode is `{policy.mode}`. The active operator "
                     "will not see local provider prompts; use `--terminal none` "
-                    "or route the action through the attached remote-control lane."
+                    "only when typed remote handoff authority is present."
                 ),
             )
         return LauncherDisciplineVerdict(allowed=True)
     # From here down: terminal_arg == "none" (headless launch requested).
-    if normalized_mode == _HEADLESS_PERMITTED_INTERACTION_MODE:
+    if policy.remote_handoff_allowed:
         return LauncherDisciplineVerdict(allowed=True)
-    if normalized_mode in _VISIBLE_REQUIRED_INTERACTION_MODES:
+    if policy.local_prompts_allowed or normalized_mode in {"", "unresolved"}:
         return LauncherDisciplineVerdict(
             allowed=False,
             denial_reason="headless_launch_in_local_mode",
@@ -165,6 +152,16 @@ Decision rules (in evaluation order):
                 " auth/permission prompts and the publisher daemon then fakes"
                 " aliveness. Use `--terminal terminal-app` (visible local"
                 " launch) per CLAUDE.md Bootstrap."
+            ),
+        )
+    if raw_mode_unknown:
+        return LauncherDisciplineVerdict(
+            allowed=False,
+            denial_reason="headless_launch_unknown_interaction_mode",
+            operator_message=(
+                "Refusing headless Codex launch (`--terminal none`) because typed"
+                f" interaction_mode `{normalized_mode!r}` is not in the recognized"
+                " set. Update the operator-mode policy before launching headless."
             ),
         )
     # Fail-closed default for any unknown interaction_mode token. A future

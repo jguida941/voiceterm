@@ -83,6 +83,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("screenshot_integrity", "check_screenshot_integrity.py"),
     ("startup_authority_contract", "check_startup_authority_contract.py"),
     ("test_coverage_parity", "check_test_coverage_parity.py"),
+    ("typed_enum_connectivity", "check_typed_enum_connectivity.py"),
     ("workflow_action_pinning", "check_workflow_action_pinning.py"),
     ("workflow_shell_hygiene", "check_workflow_shell_hygiene.py"),
     ("governance_closure", "check_governance_closure.py"),

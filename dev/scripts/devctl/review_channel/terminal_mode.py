@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ..runtime.operator_context import operator_mode_requires_headless
+
 
 def resolve_terminal_mode(
     explicit_terminal: str = "",
@@ -22,7 +24,7 @@ def resolve_terminal_mode(
         return terminal
 
     interaction_mode = str(operator_interaction_mode or "").strip()
-    if interaction_mode == "remote_control":
+    if interaction_mode and operator_mode_requires_headless(interaction_mode):
         return "none"
 
     inherited_terminal = str(parent_terminal or "").strip()

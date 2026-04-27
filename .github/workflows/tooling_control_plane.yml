@@ -403,6 +403,9 @@ jobs:
       - name: Run contract-connectivity guard
         run: python3 dev/scripts/checks/check_contract_connectivity.py
 
+      - name: Run typed-enum connectivity guard
+        run: python3 dev/scripts/checks/check_typed_enum_connectivity.py
+
       - name: Run platform-contract sync guard
         run: python3 dev/scripts/checks/check_platform_contract_sync.py
 

@@ -88,6 +88,15 @@
   now chooses expected proof-tick values through explicit field authority
   priority instead of first-populated surface order, and compares
   `operator_interaction_mode` separately from `reviewer_mode`.
+- 2026-04-27 Plan 4.1 Slice C/D zref + enum-connectivity repair (MP-377):
+  governed push now refreshes `commit_pipeline.json` proof identity from the
+  current review-state tick after push-result synchronization, so stale
+  pipeline `snapshot_id`/`zref` values cannot block publication after a
+  managed receipt refresh. The same slice adds warning-only
+  `check_typed_enum_connectivity.py`, registers it in the shared governance
+  bundle, and centralizes `OperatorInteractionMode` launch/approval policy in
+  `operator_context.py` so enum values connect to runtime decisions before
+  later Slice C enforcement promotion.
 - 2026-04-23 session-resume bootstrap repair (also under MP-377):
   `session-resume --role reviewer|implementer` now calls
   `ControlPlaneReadModel` through `ControlPlaneReadModelOptions` for

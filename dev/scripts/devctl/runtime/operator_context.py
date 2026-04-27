@@ -2,16 +2,19 @@
 
 OperatorInteractionMode captures how the human operator connects to the
 system (local keyboard, remote phone, dual-agent bridge, or single-AI auto).
-OperatorContext bundles that mode with device metadata so downstream code
-(recovery terminal selection, launch script rollover, startup summary) can
-make mode-aware decisions without string comparisons scattered across modules.
+ReviewerMode remains the review-loop posture axis; this module owns the
+operator-channel axis and the small decision matrix that tells launch,
+approval, recovery, and dashboard reducers which local prompts, headless
+handoffs, and self-approval paths are valid for each mode. Runtime facts such
+as RemoteControlAttachmentState can resolve the channel, but they do not
+replace this mode policy.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from .enum_compat import StrEnum
 from .value_coercion import (
@@ -32,6 +35,67 @@ class OperatorInteractionMode(StrEnum):
     DUAL_AGENT = "dual_agent"              # Codex reviews + Claude codes, bridge coordination
     SINGLE_AGENT = "single_agent"          # one AI, full auto
     UNRESOLVED = "unresolved"              # mode not yet determined — fail closed
+
+
+class OperatorModePolicy(NamedTuple):
+    """One explicit decision row for an operator interaction mode."""
+
+    mode: str
+    local_prompts_allowed: bool
+    headless_required: bool
+    remote_handoff_allowed: bool
+    commit_self_approval: bool
+    collaboration_topology: str
+    mutation_policy: str
+
+
+_MODE_POLICY_BY_MODE: Mapping[str, OperatorModePolicy] = {
+    OperatorInteractionMode.LOCAL_TERMINAL.value: OperatorModePolicy(
+        mode=OperatorInteractionMode.LOCAL_TERMINAL.value,
+        local_prompts_allowed=True,
+        headless_required=False,
+        remote_handoff_allowed=False,
+        commit_self_approval=True,
+        collaboration_topology="local_operator",
+        mutation_policy="local_operator_approval",
+    ),
+    OperatorInteractionMode.REMOTE_CONTROL.value: OperatorModePolicy(
+        mode=OperatorInteractionMode.REMOTE_CONTROL.value,
+        local_prompts_allowed=False,
+        headless_required=True,
+        remote_handoff_allowed=True,
+        commit_self_approval=False,
+        collaboration_topology="remote_operator",
+        mutation_policy="remote_operator_delegate_required",
+    ),
+    OperatorInteractionMode.DUAL_AGENT.value: OperatorModePolicy(
+        mode=OperatorInteractionMode.DUAL_AGENT.value,
+        local_prompts_allowed=False,
+        headless_required=True,
+        remote_handoff_allowed=True,
+        commit_self_approval=False,
+        collaboration_topology="reviewer_and_implementer",
+        mutation_policy="typed_capability_grant_required",
+    ),
+    OperatorInteractionMode.SINGLE_AGENT.value: OperatorModePolicy(
+        mode=OperatorInteractionMode.SINGLE_AGENT.value,
+        local_prompts_allowed=True,
+        headless_required=False,
+        remote_handoff_allowed=False,
+        commit_self_approval=True,
+        collaboration_topology="single_actor",
+        mutation_policy="single_actor_self_approval",
+    ),
+    OperatorInteractionMode.UNRESOLVED.value: OperatorModePolicy(
+        mode=OperatorInteractionMode.UNRESOLVED.value,
+        local_prompts_allowed=False,
+        headless_required=True,
+        remote_handoff_allowed=False,
+        commit_self_approval=False,
+        collaboration_topology="unknown",
+        mutation_policy="fail_closed",
+    ),
+}
 
 
 # Modes that represent a resolved operator state (safe to act on).
@@ -63,12 +127,33 @@ def resolve_operator_interaction_mode(raw: str) -> OperatorInteractionMode:
 
 def is_remote_mode(mode: str) -> bool:
     """Return True when the operator is NOT at a local keyboard."""
-    return mode in REMOTE_MODES
+    return operator_mode_policy(mode).remote_handoff_allowed
 
 
 def is_resolved(mode: str) -> bool:
     """Return True when the mode is known and safe to act on."""
     return mode in RESOLVED_MODES
+
+
+def operator_mode_policy(raw: str) -> OperatorModePolicy:
+    """Return the explicit decision policy for one operator mode."""
+    resolved = resolve_operator_interaction_mode(raw).value
+    return _MODE_POLICY_BY_MODE[resolved]
+
+
+def operator_mode_allows_local_prompts(raw: str) -> bool:
+    """Return True when local Terminal/app prompts are visible to the operator."""
+    return operator_mode_policy(raw).local_prompts_allowed
+
+
+def operator_mode_requires_headless(raw: str) -> bool:
+    """Return True when launch/recovery must avoid local-only terminal prompts."""
+    return operator_mode_policy(raw).headless_required
+
+
+def operator_mode_allows_commit_self_approval(raw: str) -> bool:
+    """Return True when commit approval can be satisfied without packet handoff."""
+    return operator_mode_policy(raw).commit_self_approval
 
 
 @dataclass(frozen=True, slots=True)

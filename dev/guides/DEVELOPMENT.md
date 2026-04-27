@@ -395,6 +395,12 @@ Three quality layers matter in practice:
   contracts, purpose-guided high-overlap duplicates, and raw-dict stranded
   consumers, and defaults to growth-based non-regression so existing debt
   stays visible without blocking unrelated slices.
+- `python3 dev/scripts/checks/check_typed_enum_connectivity.py` is the
+  warning-first companion for enum-value connectivity. It scans repo-owned
+  Python `Enum` / `StrEnum` members and AST decision consumers so new modes,
+  packet actions, and status values do not remain metadata-only. The default
+  bundle lane is warning-only; use `--fail-on-disconnected` only for explicit
+  Slice C retirement/adoption scans until the baseline is cleared.
 - Worktree-orphan governance contracts are part of the platform contract
   surface, not disposable parser structs. `devctl orphan-inventory` builds the
   bounded local `OrphanInventoryReport` across the current checkout,
@@ -1171,6 +1177,10 @@ Three quality layers matter in practice:
   axis. When touching that guard, rerun
   `python3 -m pytest dev/scripts/devctl/tests/checks/test_check_review_surface_consistency.py -q --tb=short`
   plus the live guard entrypoint before handoff.
+- `implementation_permission` and `next_command` are also proof-tick authority
+  fields: startup-context owns the implementation permission seen by fresh
+  agents, while `AuthoritySnapshot` owns the reduced next command projected to
+  startup, session-resume, dashboard, and review-channel surfaces.
 - Use `python3 dev/scripts/devctl.py system-picture --format md` when that
   same platform/governance slice should refresh the generated external-review
   reducer and proof-ledger projection rather than leaving the proof surface as
@@ -1251,6 +1261,7 @@ fallback bug into its fix).
    - `python3 dev/scripts/checks/check_review_snapshot_freshness.py`
    - `python3 dev/scripts/checks/check_system_picture_freshness.py`
    - `python3 dev/scripts/checks/check_review_surface_consistency.py` (enforces that `review_state.attention` matches the canonical projection from `recovery_assessment` when both are present; also validates snapshot/pipeline convergence)
+   - `python3 dev/scripts/checks/check_typed_enum_connectivity.py` (warning-only enum-value decision-site inventory; add `--fail-on-disconnected` only for explicit baseline-retirement scans)
    - For review-candidate / recovery / collaboration-model refactors, also run focused proof on the owning seams:
      `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_review_candidate.py dev/scripts/devctl/tests/review_channel/test_prompt_session_resume.py dev/scripts/devctl/tests/runtime/test_review_state.py dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/governance/test_startup_repair.py dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py -q --tb=short`
    - Bridge rendering portability: heartbeat timestamps, worktree-hash exclusion prefixes, and review-channel plan path are now derived from `RepoPathConfig` (`display_timezone`, `local_state_prefix_rel`, `review_channel_rel`) instead of hardcoded VoiceTerm-specific values.
