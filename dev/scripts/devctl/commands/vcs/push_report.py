@@ -7,12 +7,13 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ...governance.push_policy import PushPolicy
-from ...runtime.check_result_models import build_check_result
 from .governed_executor_push_result import (
     append_push_pipeline_phase_lines,
     build_push_pipeline_phases,
 )
 from .push_diagnostics import build_push_diagnostic
+from .push_findings import PushFindingPayload
+from .push_report_violations import _extract_preflight_violations
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +55,7 @@ class PushReportInputs:
     action_result: dict[str, Any]
     warnings: list[str]
     errors: list[str]
+    findings: list[PushFindingPayload] | None = None
     artifact_path: str = ""
     current_worktree_identity: str = ""
     approved_target_identity: str = ""
@@ -105,8 +107,10 @@ def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
     report["typed_action"] = inputs.typed_action
     report["action_result"] = inputs.action_result
     report["violations"] = _extract_preflight_violations(
-        inputs.preflight_step, report["timestamp"],
+        inputs.preflight_step,
+        report["timestamp"],
     )
+    report["findings"] = list(inputs.findings or [])
     report["warnings"] = inputs.warnings
     report["errors"] = inputs.errors
     if inputs.current_worktree_identity:
@@ -146,9 +150,7 @@ def render_push_report(report: dict[str, Any]) -> str:
             f"- approved_worktree_identity: {report.get('approved_worktree_identity')}"
         )
     if report.get("push_authorization_id"):
-        lines.append(
-            f"- push_authorization_id: {report.get('push_authorization_id')}"
-        )
+        lines.append(f"- push_authorization_id: {report.get('push_authorization_id')}")
     if report.get("push_authorization_mode"):
         lines.append(
             f"- push_authorization_mode: {report.get('push_authorization_mode')}"
@@ -166,9 +168,13 @@ def render_push_report(report: dict[str, Any]) -> str:
     lines.append("## Policy")
     lines.append("")
     policy = report.get("policy") or {}
-    lines.append(f"- development_branch: {policy.get('development_branch', '(unknown)')}")
+    lines.append(
+        f"- development_branch: {policy.get('development_branch', '(unknown)')}"
+    )
     lines.append(f"- release_branch: {policy.get('release_branch', '(unknown)')}")
-    lines.append("- protected_branches: " + ", ".join(policy.get("protected_branches", [])))
+    lines.append(
+        "- protected_branches: " + ", ".join(policy.get("protected_branches", []))
+    )
     lines.append(
         "- allowed_branch_prefixes: "
         + ", ".join(policy.get("allowed_branch_prefixes", []))
@@ -231,6 +237,17 @@ def render_push_report(report: dict[str, Any]) -> str:
         lines.append("## Errors")
         lines.append("")
         lines.extend(f"- {error}" for error in errors)
+    findings = report.get("findings") or []
+    if findings:
+        lines.append("")
+        lines.append("## Findings")
+        lines.append("")
+        for finding in findings:
+            if not isinstance(finding, dict):
+                continue
+            finding_type = finding.get("type", "Finding")
+            message = finding.get("message", "")
+            lines.append(f"- {finding_type}: {message}")
     return "\n".join(lines)
 
 
@@ -267,82 +284,6 @@ def _render_step_lines(step: dict[str, Any]) -> list[str]:
     if failure_output:
         lines.append(f"  failure_output: {failure_output}")
     return lines
-
-
-def _extract_preflight_violations(
-    preflight_step: dict[str, Any] | None,
-    timestamp: str,
-) -> list[dict[str, Any]]:
-    """Build typed ViolationRecord dicts from the preflight step result.
-
-    Parses the preflight step's ``failure_output`` for individual per-check
-    step lines (``FAIL  check_name  -- summary``) emitted by the check-router.
-    Each failed check becomes its own ViolationRecord with the real check name.
-    Falls back to treating the whole preflight as one violation when the output
-    cannot be parsed into individual checks.
-    Returns an empty list when no preflight step ran or it passed.
-    """
-    if not preflight_step:
-        return []
-    if preflight_step.get("returncode", 0) == 0:
-        return []
-    failure_output = str(preflight_step.get("failure_output") or "")
-    per_check = _parse_per_check_failures(failure_output)
-    if per_check:
-        steps = _per_check_to_steps(per_check, preflight_step)
-        result = build_check_result(
-            steps=steps, timestamp=timestamp, command="push-preflight",
-        )
-        return [v.to_dict() for v in result.violations]
-    step = dict(preflight_step)
-    if "name" not in step:
-        step["name"] = "push-preflight"
-    result = build_check_result(
-        steps=[step], timestamp=timestamp, command="push-preflight",
-    )
-    return [v.to_dict() for v in result.violations]
-
-
-_CHECK_LINE_RE = __import__("re").compile(
-    r"^\s*(PASS|FAIL|SKIP)\s+(\S+)(?:\s+--\s+(.*))?$"
-)
-
-
-def _parse_per_check_failures(
-    failure_output: str,
-) -> list[dict[str, str]]:
-    """Extract individual check results from check-router text output.
-
-    Recognizes lines like ``  FAIL  code_shape  -- file too long`` emitted
-    by ``render_check_result_text``.  Returns only the failed entries.
-    """
-    results: list[dict[str, str]] = []
-    for line in failure_output.splitlines():
-        m = _CHECK_LINE_RE.match(line)
-        if not m:
-            continue
-        status, name, summary = m.group(1), m.group(2), (m.group(3) or "")
-        if status == "FAIL":
-            results.append({"name": name, "summary": summary.strip()})
-    return results
-
-
-def _per_check_to_steps(
-    per_check: list[dict[str, str]],
-    preflight_step: dict[str, Any],
-) -> list[dict[str, Any]]:
-    """Convert parsed per-check failures into step dicts for build_check_result."""
-    rc = preflight_step.get("returncode", 1)
-    return [
-        {
-            "name": entry["name"],
-            "cmd": preflight_step.get("cmd", []),
-            "returncode": rc,
-            "failure_output": entry["summary"],
-            "skipped": False,
-        }
-        for entry in per_check
-    ]
 
 
 def _timestamp() -> str:

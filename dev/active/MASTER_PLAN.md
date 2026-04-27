@@ -115,6 +115,27 @@
   `check_review_surface_consistency.py` also treats
   `startup_context.reviewer_gate.reviewer_mode` as the reviewer-mode authority
   and projects bridge/coordination/registry values through that source.
+- 2026-04-27 governed-push execution-truth invariant (MP-377):
+  the `rev_pkt_2027` / `rev_pkt_2029` regression proved a Class-A trust
+  break: a push report could claim `published_remote` with a fixture branch
+  and stale approved target while the live remote ref did not advance. The
+  push action/report path now forces `TypedAction.parameters.branch` from
+  `git rev-parse --abbrev-ref HEAD`, binds approved target identity to live
+  publication authorization plus current worktree and HEAD, fails stale
+  authorization proof older than one hour, and downgrades any execute=true
+  publication claim without fetch/preflight/push/post-push subprocess evidence
+  or matching remote-ref proof to `SilentPushFailure`.
+- 2026-04-27 Plan 4.1 rev_pkt_2035 architectural bundle placement (MP-377):
+  the consolidated Claude/Explore bundle is now durable plan scope, not chat
+  memory. `ai_governance_platform.md` tracks `MP377-P0-T13` through
+  `MP377-P0-T18` for SYSTEM_MAP-as-typed-state, Codex self-dogfood
+  verification before `stage_commit_pipeline`, semantic/canonical-seam guard
+  coverage, Slice E role command-gating and `DEFAULT_PROVIDER_ROLE_MAP`
+  retirement, ReviewState/ActionResult/parser parallel-system retirement, and
+  agent-proof-of-navigation tests. The slice order is warning-first guards plus
+  the bounded push-finding seam now, Slice E before broad Slice D refactors, and
+  typed `system-spine` work folded into the existing context-graph/system-map
+  projection chain rather than a parallel system.
 - 2026-04-23 session-resume bootstrap repair (also under MP-377):
   `session-resume --role reviewer|implementer` now calls
   `ControlPlaneReadModel` through `ControlPlaneReadModelOptions` for
@@ -295,6 +316,25 @@
   keeps `StartupContext` as turn-level proof authority for reviewer posture and
   operator channel, adds `operator_interaction_mode` to the proof tick, and
   leaves dynamic role flipping for Slice E capability migration.
+- 2026-04-27 governed-push execution-truth invariant (MP-377):
+  `devctl push` now fails closed at action-build/report time when the configured
+  branch or templated approved target identity diverges from live git and
+  publication authorization. `published_remote` requires a successful
+  `git push` subprocess, populated fetch/preflight/post-push evidence, and
+  remote ref equality with current `HEAD`; missing proof emits
+  `SilentPushFailure` instead of a green push report. Plan 4.1 resumes after
+  this repair with Slice B packet lifecycle reduction, Slice D projection-spine
+  consolidation over existing typed surfaces, and Slice E role reassignment on
+  the existing capability contracts.
+- 2026-04-27 rev_pkt_2035 bundle intake and slice placement (MP-377):
+  Plan 4.1 now owns the consolidated SYSTEM_MAP, self-dogfood, platform-spine,
+  duplicate-system, guard-coverage, role-enforcement, and proof-of-navigation
+  findings. The umbrella registry adds `MP377-P0-T13` through `MP377-P0-T18`;
+  `agent_substrate_architecture_review.md` holds the Slice E sub-scope for
+  command gates and provider-role-default retirement; and
+  `AUTOMATION_DEBT_REGISTER.md` carries ADR-024 through ADR-027 for the
+  warning-first guard family. This keeps the work in existing typed authority
+  surfaces and leaves compatibility projections as projections.
 - 2026-04-24 remote-control liveness split-brain closure (MP-355 + MP-377
   follow-up): `review-channel status --refresh-bridge-heartbeat-if-stale`
   now treats a live typed `remote_control_attachment` as continuity evidence

@@ -42,6 +42,10 @@ _RECOVERABLE_PIPELINE_STATES = frozenset(
 _PUSHABLE_PIPELINE_STATES = PUSHABLE_PIPELINE_STATES
 
 
+def _unexpected_kwargs(kwargs: dict[str, object], allowed: str) -> list[str]:
+    return sorted(kwargs.keys() - set(allowed.split()))
+
+
 @dataclass(frozen=True, slots=True)
 class StageActionInputs:
     """Structured inputs for `vcs.stage`."""
@@ -85,6 +89,9 @@ class PushActionInputs:
     skip_post_push: bool = False
     approved_target_identity: str = ""
     approved_worktree_identity: str = ""
+    head_commit: str = ""
+    current_worktree_identity: str = ""
+    approved_target_identity_source: str = ""
     requested_by: str = "devctl.push"
 
 
@@ -95,20 +102,12 @@ def build_stage_action(
 ) -> TypedAction:
     """Build the canonical typed action for governed staging."""
     if inputs is None:
-        unexpected = sorted(kwargs.keys() - {
-            "repo_pack_id",
-            "paths",
-            "commit_message_draft",
-            "push_requested",
-            "guard_profile",
-            "risk_addons",
-            "proof_level",
-            "work_intake_ref",
-            "remote",
-            "reuse_staged_index",
-            "allow_empty",
-            "requested_by",
-        })
+        unexpected = _unexpected_kwargs(
+            kwargs,
+            "repo_pack_id paths commit_message_draft push_requested guard_profile "
+            "risk_addons proof_level work_intake_ref remote reuse_staged_index "
+            "allow_empty requested_by",
+        )
         if unexpected:
             raise TypeError(f"Unexpected stage action inputs: {', '.join(unexpected)}")
         resolved = StageActionInputs(
@@ -158,15 +157,11 @@ def build_commit_action(
 ) -> TypedAction:
     """Build the canonical typed action for governed commit execution."""
     if inputs is None:
-        unexpected = sorted(kwargs.keys() - {
-            "repo_pack_id",
-            "pipeline_id",
-            "commit_message_draft",
-            "amend",
-            "allow_empty",
-            "no_edit",
+        unexpected = _unexpected_kwargs(
+            kwargs,
+            "repo_pack_id pipeline_id commit_message_draft amend allow_empty no_edit "
             "requested_by",
-        })
+        )
         if unexpected:
             raise TypeError(f"Unexpected commit action inputs: {', '.join(unexpected)}")
         resolved = CommitActionInputs(
@@ -203,17 +198,12 @@ def build_push_action(
 ) -> TypedAction:
     """Build the canonical typed action for one governed push request."""
     if inputs is None:
-        unexpected = sorted(kwargs.keys() - {
-            "repo_pack_id",
-            "branch",
-            "remote",
-            "execute",
-            "skip_preflight",
-            "skip_post_push",
-            "approved_target_identity",
-            "approved_worktree_identity",
-            "requested_by",
-        })
+        unexpected = _unexpected_kwargs(
+            kwargs,
+            "repo_pack_id branch remote execute skip_preflight skip_post_push "
+            "approved_target_identity approved_worktree_identity head_commit "
+            "current_worktree_identity approved_target_identity_source requested_by",
+        )
         if unexpected:
             raise TypeError(f"Unexpected push action inputs: {', '.join(unexpected)}")
         resolved = PushActionInputs(
@@ -226,6 +216,11 @@ def build_push_action(
             approved_target_identity=str(kwargs.get("approved_target_identity", "")),
             approved_worktree_identity=str(
                 kwargs.get("approved_worktree_identity", "")
+            ),
+            head_commit=str(kwargs.get("head_commit", "")),
+            current_worktree_identity=str(kwargs.get("current_worktree_identity", "")),
+            approved_target_identity_source=str(
+                kwargs.get("approved_target_identity_source", "")
             ),
             requested_by=str(kwargs.get("requested_by", "devctl.push")),
         )
@@ -240,8 +235,14 @@ def build_push_action(
     if resolved.approved_target_identity:
         parameters["approved_target_identity"] = resolved.approved_target_identity
     if resolved.approved_worktree_identity:
-        parameters["approved_worktree_identity"] = (
-            resolved.approved_worktree_identity
+        parameters["approved_worktree_identity"] = resolved.approved_worktree_identity
+    if resolved.head_commit:
+        parameters["head_commit"] = resolved.head_commit
+    if resolved.current_worktree_identity:
+        parameters["current_worktree_identity"] = resolved.current_worktree_identity
+    if resolved.approved_target_identity_source:
+        parameters["approved_target_identity_source"] = (
+            resolved.approved_target_identity_source
         )
     return TypedAction(
         schema_version=1,
@@ -271,7 +272,10 @@ def build_recover_action(
         dry_run=False,
     )
 
-def _build_report(*, status: str, reason: str = "", **extra: object) -> dict[str, object]:
+
+def _build_report(
+    *, status: str, reason: str = "", **extra: object
+) -> dict[str, object]:
     """Build a commit report dict."""
     report: dict[str, object] = {
         "command": "commit",
@@ -303,6 +307,7 @@ def _emit_report(args, report: dict[str, Any]) -> None:
         pipe_args=getattr(args, "pipe_args", None),
         writer=write_output,
     )
+
 
 def build_staged_pipeline(
     *,

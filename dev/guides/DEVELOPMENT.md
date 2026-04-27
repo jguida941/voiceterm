@@ -1525,6 +1525,15 @@ Workflow permissions note:
    tracked branch and proves `ahead == 0`, `devctl push` now returns the
    existing already-published receipt before router preflight instead of
    defaulting zero changed paths into the docs lane. That no-op receipt is
+   not a fresh publication claim. A `published_remote` report must now prove
+   live execution truth: the `vcs.push` branch parameter is forced from
+   `git rev-parse --abbrev-ref HEAD`, approved target identity must come from
+   live publication authorization bound to the current worktree and `HEAD`,
+   and execute=true reports need fetch/preflight/push/post-push subprocess
+   evidence plus remote-ref equality with current `HEAD`. Missing proof emits
+   a typed `BranchIdentityViolation`, `ApprovedTargetIdentityViolation`, or
+   `SilentPushFailure` and the report stays blocked.
+   That no-op receipt is
    not allowed to reconstruct a stale `push_blocked` commit-pipeline artifact
    into `push_completed`; startup/status recover current publication from the
    persisted push artifact instead. Non-destructive push failures such as

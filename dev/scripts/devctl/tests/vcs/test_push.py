@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -14,8 +15,8 @@ from dev.scripts.devctl.commands.vcs import (
     push,
     push_preflight_commit,
     push_preflight_projection,
-    push_projection_runtime_refresh,
     push_projection_receipt,
+    push_projection_runtime_refresh,
     push_recovery_loop_repair,
     push_render_surface_sync,
 )
@@ -49,6 +50,7 @@ from dev.scripts.devctl.runtime.remote_commit_pipeline_state import (
     PUSH_FAILURE_CLASSIFICATION_NON_DESTRUCTIVE,
     STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
 )
+from dev.scripts.devctl.tests.vcs._git_helpers import _run_git
 
 
 def make_args(**overrides) -> SimpleNamespace:
@@ -109,7 +111,11 @@ def _publication_authorization(
     approved_target_identity: str = "tree-receipt-20260403T010000Z:tree-123",
     authorization_id: str = "push-auth-20260403T010000Z",
     approval_mode: str = "commit_pipeline_approval",
+    approved_at_utc: str = "",
 ) -> SimpleNamespace:
+    resolved_approved_at_utc = approved_at_utc or datetime.now(timezone.utc).isoformat(
+        timespec="seconds"
+    ).replace("+00:00", "Z")
     return SimpleNamespace(
         authorized=authorized,
         reason=reason,
@@ -119,6 +125,7 @@ def _publication_authorization(
                 approved_target_identity=approved_target_identity,
                 authorization_id=authorization_id,
                 approval_mode=approval_mode,
+                approved_at_utc=resolved_approved_at_utc,
             )
             if authorized
             else None
@@ -178,6 +185,42 @@ class PushCommandTests(unittest.TestCase):
             self._review_snapshot_refresh_patcher.start()
         )
         self.addCleanup(self._review_snapshot_refresh_patcher.stop)
+        self._progress_snapshot_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push.persist_push_progress_snapshot",
+            return_value="dev/reports/push/latest.json",
+        )
+        self.progress_snapshot_mock = self._progress_snapshot_patcher.start()
+        self.addCleanup(self._progress_snapshot_patcher.stop)
+        self._published_snapshot_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push.persist_published_remote_snapshot",
+            return_value="dev/reports/push/latest.json",
+        )
+        self.published_snapshot_mock = self._published_snapshot_patcher.start()
+        self.addCleanup(self._published_snapshot_patcher.stop)
+        self._head_commit_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push.current_head_commit_sha",
+            return_value="abc123",
+        )
+        self.head_commit_mock = self._head_commit_patcher.start()
+        self.addCleanup(self._head_commit_patcher.stop)
+        self._live_branch_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push._live_current_branch",
+            return_value="",
+        )
+        self.live_branch_mock = self._live_branch_patcher.start()
+        self.addCleanup(self._live_branch_patcher.stop)
+        self._push_flow_head_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push_flow.current_head_commit_sha",
+            return_value="abc123",
+        )
+        self.push_flow_head_mock = self._push_flow_head_patcher.start()
+        self.addCleanup(self._push_flow_head_patcher.stop)
+        self._push_flow_remote_head_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push_flow._remote_head_sha",
+            return_value="abc123",
+        )
+        self.push_flow_remote_head_mock = self._push_flow_remote_head_patcher.start()
+        self.addCleanup(self._push_flow_remote_head_patcher.stop)
 
     @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.emit_output")
     @patch(
@@ -207,7 +250,7 @@ class PushCommandTests(unittest.TestCase):
         executor_cls_mock.return_value = fake_executor
         load_push_policy_mock.return_value = make_policy()
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
-        load_latest_report_mock.return_value = {
+        fresh_report = {
             "ok": True,
             "branch": "feature/demo",
             "head_commit": "abc123",
@@ -217,6 +260,8 @@ class PushCommandTests(unittest.TestCase):
                 "validation_ready": True,
             },
         }
+        fake_executor.last_push_report = fresh_report
+        load_latest_report_mock.return_value = fresh_report
         emit_output_mock.return_value = 0
 
         rc = push.run(make_args(execute=True, format="json"))
@@ -282,7 +327,7 @@ class PushCommandTests(unittest.TestCase):
         executor_cls_mock.return_value = fake_executor
         load_push_policy_mock.return_value = make_policy()
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
-        load_latest_report_mock.return_value = {
+        fresh_report = {
             "ok": True,
             "branch": "feature/demo",
             "head_commit": "abc123",
@@ -292,6 +337,8 @@ class PushCommandTests(unittest.TestCase):
                 "validation_ready": True,
             },
         }
+        fake_executor.last_push_report = fresh_report
+        load_latest_report_mock.return_value = fresh_report
         emit_output_mock.return_value = 0
         apply_refresh_authorization_mock.return_value = {"ok": True}
 
@@ -333,7 +380,7 @@ class PushCommandTests(unittest.TestCase):
         executor_cls_mock.return_value = fake_executor
         load_push_policy_mock.return_value = make_policy()
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
-        load_latest_report_mock.return_value = {
+        fresh_report = {
             "ok": True,
             "branch": "feature/demo",
             "head_commit": "abc123",
@@ -343,6 +390,8 @@ class PushCommandTests(unittest.TestCase):
                 "validation_ready": True,
             },
         }
+        fake_executor.last_push_report = fresh_report
+        load_latest_report_mock.return_value = fresh_report
 
         rc = push.run(make_args(execute=True, format="json"))
 
@@ -377,7 +426,7 @@ class PushCommandTests(unittest.TestCase):
         executor_cls_mock.return_value = fake_executor
         load_push_policy_mock.return_value = make_policy(default_remote="upstream")
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
-        load_latest_report_mock.return_value = {
+        fresh_report = {
             "ok": True,
             "branch": "feature/demo",
             "head_commit": "abc123",
@@ -387,6 +436,8 @@ class PushCommandTests(unittest.TestCase):
                 "validation_ready": True,
             },
         }
+        fake_executor.last_push_report = fresh_report
+        load_latest_report_mock.return_value = fresh_report
         _emit_output_mock.return_value = 0
 
         rc = push.run(make_args(execute=True, format="json"))
@@ -398,6 +449,65 @@ class PushCommandTests(unittest.TestCase):
             action.parameters["approved_target_identity"],
             "tree-receipt-20260403T010000Z:tree-123",
         )
+
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_executor_routing.current_head_commit_sha",
+        return_value="current-head",
+    )
+    @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.emit_output")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_executor_routing.load_latest_push_report"
+    )
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
+    @patch("dev.scripts.devctl.commands.vcs.governed_executor.GovernedVcsExecutor")
+    def test_run_does_not_emit_stale_latest_report_for_executor_routed_push(
+        self,
+        executor_cls_mock,
+        load_push_policy_mock,
+        collect_git_status_mock,
+        _remote_exists_mock,
+        load_latest_report_mock,
+        emit_output_mock,
+        _current_head_mock,
+    ) -> None:
+        fake_executor = MagicMock()
+        fake_executor.load_pipeline.return_value = SimpleNamespace(
+            pipeline_id="pipeline-123",
+            state="push_blocked",
+            commit_sha="current-head",
+            branch="feature/current",
+        )
+        fake_executor.execute.return_value = SimpleNamespace(ok=False)
+        fake_executor.last_push_report = None
+        executor_cls_mock.return_value = fake_executor
+        load_push_policy_mock.return_value = make_policy()
+        collect_git_status_mock.return_value = {
+            "branch": "feature/current",
+            "changes": [],
+        }
+        self.live_branch_mock.return_value = "feature/current"
+        load_latest_report_mock.return_value = {
+            "ok": False,
+            "branch": "feature/demo",
+            "head_commit": "current-head",
+            "typed_action": {
+                "parameters": {
+                    "branch": "feature/demo",
+                    "approved_target_identity": (
+                        "tree-receipt-20260403T010000Z:tree-123"
+                    ),
+                }
+            },
+        }
+
+        rc = push.run(make_args(execute=True, format="json"))
+
+        self.assertEqual(rc, 1)
+        fake_executor.execute.assert_called_once()
+        load_latest_report_mock.assert_called_once()
+        emit_output_mock.assert_not_called()
 
     @patch("dev.scripts.devctl.commands.vcs.push.run_push_action")
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
@@ -1091,6 +1201,7 @@ class PushCommandTests(unittest.TestCase):
         write_output_mock,
     ) -> None:
         collect_git_status_mock.return_value = {"branch": "develop", "changes": []}
+        self.live_branch_mock.return_value = "develop"
         load_policy_mock.return_value = make_policy()
 
         rc = push.run(make_args())
@@ -1269,7 +1380,7 @@ class PushCommandTests(unittest.TestCase):
         )
         self.sync_bridge_mock.assert_not_called()
         payload = json.loads(write_output_mock.call_args.args[0])
-        self.assertEqual(payload["status"], "published_remote")
+        self.assertEqual(payload["status"], "validation_ready")
         self.assertEqual(payload["reason"], "branch_already_pushed")
         self.assertIsNone(payload["preflight_step"])
         self.assertIsNone(payload["push_step"])
@@ -1277,7 +1388,7 @@ class PushCommandTests(unittest.TestCase):
             payload["push_stages"],
             {
                 "validation_ready": True,
-                "published_remote": True,
+                "published_remote": False,
                 "post_push_green": False,
             },
         )
@@ -1320,7 +1431,12 @@ class PushCommandTests(unittest.TestCase):
             }
         ]
 
-        rc = push.run(make_args(execute=True))
+        with patch.object(
+            push_preflight_projection,
+            "auto_commit_managed_projection_receipt",
+            return_value={"ok": True, "committed": False, "paths": ()},
+        ):
+            rc = push.run(make_args(execute=True))
 
         self.assertEqual(rc, 0)
         self.assertEqual(
@@ -1328,7 +1444,7 @@ class PushCommandTests(unittest.TestCase):
             [["git", "fetch", "origin"]],
         )
         payload = json.loads(write_output_mock.call_args.args[0])
-        self.assertEqual(payload["status"], "published_remote")
+        self.assertEqual(payload["status"], "validation_ready")
         self.assertEqual(payload["reason"], "branch_already_pushed")
         self.assertIsNone(payload["preflight_step"])
         self.assertIsNone(payload["push_step"])
@@ -1608,6 +1724,42 @@ class PushBridgeSyncTests(unittest.TestCase):
         )
         self.preflight_status_mock = self._preflight_status_patcher.start()
         self.addCleanup(self._preflight_status_patcher.stop)
+        self._head_commit_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push.current_head_commit_sha",
+            return_value="abc123",
+        )
+        self.head_commit_mock = self._head_commit_patcher.start()
+        self.addCleanup(self._head_commit_patcher.stop)
+        self._progress_snapshot_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push.persist_push_progress_snapshot",
+            return_value="dev/reports/push/latest.json",
+        )
+        self.progress_snapshot_mock = self._progress_snapshot_patcher.start()
+        self.addCleanup(self._progress_snapshot_patcher.stop)
+        self._published_snapshot_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push.persist_published_remote_snapshot",
+            return_value="dev/reports/push/latest.json",
+        )
+        self.published_snapshot_mock = self._published_snapshot_patcher.start()
+        self.addCleanup(self._published_snapshot_patcher.stop)
+        self._live_branch_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push._live_current_branch",
+            return_value="",
+        )
+        self.live_branch_mock = self._live_branch_patcher.start()
+        self.addCleanup(self._live_branch_patcher.stop)
+        self._push_flow_head_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push_flow.current_head_commit_sha",
+            return_value="abc123",
+        )
+        self.push_flow_head_mock = self._push_flow_head_patcher.start()
+        self.addCleanup(self._push_flow_head_patcher.stop)
+        self._push_flow_remote_head_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push_flow._remote_head_sha",
+            return_value="abc123",
+        )
+        self.push_flow_remote_head_mock = self._push_flow_remote_head_patcher.start()
+        self.addCleanup(self._push_flow_remote_head_patcher.stop)
 
     def test_run_fetch_and_preflight_consults_orphan_snapshot_advisory(self) -> None:
         state = push.PushRunState(branch="feature/demo", remote="origin")
@@ -2507,11 +2659,13 @@ class PushBridgeSyncTests(unittest.TestCase):
                     )
             return result
 
-        result = push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
-            state,
-            policy,
-            repo_root=Path("/tmp/repo"),
-            command_runner=_runner,
+        result = (
+            push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
+                state,
+                policy,
+                repo_root=Path("/tmp/repo"),
+                command_runner=_runner,
+            )
         )
 
         self.assertTrue(result["ok"])
@@ -2651,7 +2805,9 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertIn("Repo policy blocks `--skip-post-push`", payload["errors"][0])
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
-    @patch("dev.scripts.devctl.commands.vcs.push.repair_preflight_generated_changes_for_push")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.repair_preflight_generated_changes_for_push"
+    )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
@@ -3077,53 +3233,26 @@ class PushBridgeSyncTests(unittest.TestCase):
             bypass=PushBypassPolicy(allow_skip_post_push=True),
         )
         publication_authorization_mock.return_value = _publication_authorization()
-        run_cmd_mock.side_effect = [
-            {
-                "name": "git-fetch",
-                "cmd": ["git", "fetch", "origin"],
-                "cwd": ".",
-                "returncode": 0,
-                "duration_s": 0.1,
-                "skipped": False,
-            },
-            {
-                "name": "push-refresh-render-surfaces",
-                "cmd": [
-                    "python3",
-                    "dev/scripts/devctl.py",
-                    "render-surfaces",
-                    "--write",
-                    "--format",
-                    "json",
-                ],
-                "cwd": ".",
-                "returncode": 0,
-                "duration_s": 0.1,
-                "skipped": False,
-            },
-            {
-                "name": "push-preflight",
-                "cmd": [
-                    "bash",
-                    "-lc",
-                    "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
-                ],
-                "cwd": ".",
-                "returncode": 0,
-                "duration_s": 0.1,
-                "skipped": False,
-            },
-            {
-                "name": "git-push",
-                "cmd": ["git", "push", "--set-upstream", "origin", "feature/demo"],
-                "cwd": ".",
-                "returncode": 0,
-                "duration_s": 0.1,
-                "skipped": False,
-            },
-        ]
 
-        rc = push.run(make_args(execute=True, skip_post_push=True))
+        def _run_cmd(name, cmd, cwd=None, env=None):
+            del env
+            return {
+                "name": name,
+                "cmd": list(cmd),
+                "cwd": str(cwd or "."),
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+
+        run_cmd_mock.side_effect = _run_cmd
+
+        with patch.object(
+            push_preflight_projection,
+            "auto_commit_managed_projection_receipt",
+            return_value={"ok": True, "committed": False, "paths": ()},
+        ):
+            rc = push.run(make_args(execute=True, skip_post_push=True))
 
         self.assertEqual(rc, 0)
         payload = json.loads(write_output_mock.call_args.args[0])
@@ -3180,61 +3309,26 @@ class PushBridgeSyncTests(unittest.TestCase):
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
         load_policy_mock.return_value = make_policy()
         publication_authorization_mock.return_value = _publication_authorization()
-        run_cmd_mock.side_effect = [
-            {
-                "name": "git-fetch",
-                "cmd": ["git", "fetch", "origin"],
-                "cwd": ".",
-                "returncode": 0,
-                "duration_s": 0.1,
-                "skipped": False,
-            },
-            {
-                "name": "push-refresh-render-surfaces",
-                "cmd": [
-                    "python3",
-                    "dev/scripts/devctl.py",
-                    "render-surfaces",
-                    "--write",
-                    "--format",
-                    "json",
-                ],
-                "cwd": ".",
-                "returncode": 0,
-                "duration_s": 0.1,
-                "skipped": False,
-            },
-            {
-                "name": "push-preflight",
-                "cmd": [
-                    "bash",
-                    "-lc",
-                    "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
-                ],
-                "cwd": ".",
-                "returncode": 0,
-                "duration_s": 0.1,
-                "skipped": False,
-            },
-            {
-                "name": "git-push",
-                "cmd": ["git", "push", "--set-upstream", "origin", "feature/demo"],
-                "cwd": ".",
-                "returncode": 0,
-                "duration_s": 0.1,
-                "skipped": False,
-            },
-            {
-                "name": "push-post-01",
-                "cmd": ["bash", "-lc", "git status"],
-                "cwd": ".",
-                "returncode": 1,
-                "duration_s": 0.1,
-                "skipped": False,
-            },
-        ]
 
-        rc = push.run(make_args(execute=True))
+        def _run_cmd(name, cmd, cwd=None, env=None):
+            del env
+            return {
+                "name": name,
+                "cmd": list(cmd),
+                "cwd": str(cwd or "."),
+                "returncode": 1 if name == "push-post-01" else 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+
+        run_cmd_mock.side_effect = _run_cmd
+
+        with patch.object(
+            push_preflight_projection,
+            "auto_commit_managed_projection_receipt",
+            return_value={"ok": True, "committed": False, "paths": ()},
+        ):
+            rc = push.run(make_args(execute=True))
 
         self.assertEqual(rc, 1)
         payload = json.loads(write_output_mock.call_args.args[0])
@@ -3300,61 +3394,26 @@ class PushBridgeSyncTests(unittest.TestCase):
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
         load_policy_mock.return_value = make_policy()
         publication_authorization_mock.return_value = _publication_authorization()
-        run_cmd_mock.side_effect = [
-            {
-                "name": "git-fetch",
-                "cmd": ["git", "fetch", "origin"],
-                "cwd": ".",
-                "returncode": 0,
-                "duration_s": 0.1,
-                "skipped": False,
-            },
-            {
-                "name": "push-refresh-render-surfaces",
-                "cmd": [
-                    "python3",
-                    "dev/scripts/devctl.py",
-                    "render-surfaces",
-                    "--write",
-                    "--format",
-                    "json",
-                ],
-                "cwd": ".",
-                "returncode": 0,
-                "duration_s": 0.1,
-                "skipped": False,
-            },
-            {
-                "name": "push-preflight",
-                "cmd": [
-                    "bash",
-                    "-lc",
-                    "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
-                ],
-                "cwd": ".",
-                "returncode": 0,
-                "duration_s": 0.1,
-                "skipped": False,
-            },
-            {
-                "name": "git-push",
-                "cmd": ["git", "push", "--set-upstream", "origin", "feature/demo"],
-                "cwd": ".",
-                "returncode": 0,
-                "duration_s": 0.1,
-                "skipped": False,
-            },
-            {
-                "name": "push-post-01",
-                "cmd": ["bash", "-lc", "git status"],
-                "cwd": ".",
-                "returncode": 1,
-                "duration_s": 0.1,
-                "skipped": False,
-            },
-        ]
 
-        rc = push.run(make_args(execute=True))
+        def _run_cmd(name, cmd, cwd=None, env=None):
+            del env
+            return {
+                "name": name,
+                "cmd": list(cmd),
+                "cwd": str(cwd or "."),
+                "returncode": 1 if name == "push-post-01" else 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+
+        run_cmd_mock.side_effect = _run_cmd
+
+        with patch.object(
+            push_preflight_projection,
+            "auto_commit_managed_projection_receipt",
+            return_value={"ok": True, "committed": False, "paths": ()},
+        ):
+            rc = push.run(make_args(execute=True))
 
         self.assertEqual(rc, 1)
         self.assertEqual(
@@ -3482,7 +3541,12 @@ class PushBridgeSyncTests(unittest.TestCase):
             },
         ]
 
-        rc = push.run(make_args(execute=True))
+        with patch.object(
+            push_preflight_projection,
+            "auto_commit_managed_projection_receipt",
+            return_value={"ok": True, "committed": False, "paths": ()},
+        ):
+            rc = push.run(make_args(execute=True))
 
         self.assertEqual(rc, 0)
         _post_push_commands_mock.assert_called_once_with(
@@ -3638,6 +3702,93 @@ class PushBridgeSyncTests(unittest.TestCase):
                 for command in commands
             )
         )
+
+
+class PushLiveExecutionTests(unittest.TestCase):
+    def test_execute_populates_real_fetch_preflight_and_push_returncodes(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            repo_root = tmp_root / "repo"
+            remote_root = tmp_root / "remote.git"
+            _run_git(tmp_root, "init", "--bare", str(remote_root))
+            _run_git(tmp_root, "init", str(repo_root))
+            _run_git(repo_root, "config", "user.email", "test@example.com")
+            _run_git(repo_root, "config", "user.name", "Test User")
+            _run_git(repo_root, "checkout", "-b", "feature/live-push")
+            (repo_root / "tracked.txt").write_text("initial\n", encoding="utf-8")
+            _run_git(repo_root, "add", "tracked.txt")
+            _run_git(repo_root, "commit", "-m", "initial")
+            _run_git(repo_root, "remote", "add", "origin", str(remote_root))
+            _run_git(repo_root, "push", "-u", "origin", "feature/live-push")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _run_git(repo_root, "commit", "-am", "update tracked file")
+
+            policy = make_policy(
+                development_branch="main",
+                release_branch="main",
+                protected_branches=("main",),
+            )
+
+            def _record_projection_phase(_state, _policy, **_kwargs):
+                _state.pre_validation_managed_projection_sync = {
+                    "phase": "pre_validation_managed_projection_sync",
+                    "status": "completed",
+                    "ok": True,
+                }
+
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                    return_value="git status --short",
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.push.refresh_managed_projections_before_preflight",
+                    side_effect=_record_projection_phase,
+                ),
+            ):
+                rc, report = push.run_push_action(
+                    make_args(execute=True),
+                    repo_root=repo_root,
+                    policy=policy,
+                    emit_output_report=False,
+                    run_cmd_fn=push.run_cmd,
+                    build_post_push_commands_fn=lambda _policy, **_kwargs: [],
+                    publication_authorization_fn=lambda **_kwargs: _publication_authorization(
+                        approved_target_identity="tree-receipt-live:tracked"
+                    ),
+                )
+
+            self.assertEqual(rc, 0)
+            self.assertEqual(report["branch"], "feature/live-push")
+            self.assertEqual(
+                report["typed_action"]["parameters"]["branch"],
+                "feature/live-push",
+            )
+            self.assertEqual(
+                report["approved_target_identity"],
+                "tree-receipt-live:tracked",
+            )
+            for step_name in ("fetch_step", "preflight_step", "push_step"):
+                self.assertIsNotNone(report[step_name])
+                self.assertEqual(report[step_name]["returncode"], 0)
+            self.assertEqual(report["fetch_step"]["name"], "git-fetch")
+            self.assertEqual(report["preflight_step"]["name"], "push-preflight")
+            self.assertEqual(report["push_step"]["name"], "git-push")
+            self.assertEqual(
+                _run_git(remote_root, "rev-parse", "refs/heads/feature/live-push"),
+                _run_git(repo_root, "rev-parse", "HEAD"),
+            )
+            self.assertEqual(
+                _run_git(
+                    repo_root,
+                    "rev-list",
+                    "--count",
+                    "origin/feature/live-push..HEAD",
+                ),
+                "0",
+            )
 
 
 class PushReceiptTests(unittest.TestCase):
@@ -4227,9 +4378,7 @@ class PushPipelineStateSyncTests(unittest.TestCase):
                 persisted.push_failure_transition["classification"],
                 PUSH_FAILURE_CLASSIFICATION_DESTRUCTIVE,
             )
-            self.assertFalse(
-                persisted.push_failure_transition["auto_transitioned"]
-            )
+            self.assertFalse(persisted.push_failure_transition["auto_transitioned"])
 
     def test_sync_commit_pipeline_accepts_managed_projection_receipt_head(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -4437,9 +4586,7 @@ class PushPipelineStateSyncTests(unittest.TestCase):
                 persisted.push_failure_transition["classification"],
                 PUSH_FAILURE_CLASSIFICATION_NON_DESTRUCTIVE,
             )
-            self.assertTrue(
-                persisted.push_failure_transition["auto_transitioned"]
-            )
+            self.assertTrue(persisted.push_failure_transition["auto_transitioned"])
 
 
 if __name__ == "__main__":

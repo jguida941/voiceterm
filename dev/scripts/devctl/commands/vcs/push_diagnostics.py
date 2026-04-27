@@ -84,8 +84,14 @@ def _git_push_state(
     push_stages: "PushStageTruth",
     push_step: dict[str, Any] | None,
 ) -> str:
-    if push_stages.published_remote:
+    if (
+        push_stages.published_remote
+        and push_step
+        and _returncode(push_step.get("returncode")) == 0
+    ):
         return "landed"
+    if push_stages.published_remote:
+        return "unproven"
     if push_step and _returncode(push_step.get("returncode")) != 0:
         return "failed"
     if push_stages.validation_ready:

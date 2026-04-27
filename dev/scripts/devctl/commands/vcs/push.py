@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import sys
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 from ...collect import collect_git_status
-from ...common import emit_output, pipe_output, run_cmd, write_output
+from ...common import pipe_output, run_cmd, write_output
 from ...config import REPO_ROOT
 from ...governance.push_policy import build_post_push_commands, load_push_policy
 from ...governance.push_routing import (
@@ -24,34 +24,45 @@ from ...review_channel.service_identity import worktree_identity_for_repo
 from ...review_channel.state import refresh_status_snapshot
 from ...runtime import TypedAction
 from ...runtime.push_authorization import publication_authorization_decision
-from ...runtime.vcs import branch_divergence, remote_branch_exists, remote_exists, run_git_capture
+from ...runtime.vcs import (
+    branch_divergence,
+    remote_branch_exists,
+    remote_exists,
+    run_git_capture,
+)
 from ..review_channel.status_bridge_sync import (
     sync_bridge_from_typed_projection_if_needed as _sync_bridge_from_typed_projection_if_needed,
 )
-from .governed_executor_actions import build_push_action
+from . import push_flow
 from .orphan_snapshot_advisory import append_orphan_snapshot_advisory
-from .push_artifact import (
-    append_push_receipt,
-    latest_push_report_relpath,
-    load_latest_push_report,
-    persist_latest_push_report,
-    serialize_push_report,
-)
 from .push_executor_routing import maybe_run_executor_routed_push
+from .push_findings import (
+    APPROVED_TARGET_IDENTITY_VIOLATION,
+    BRANCH_IDENTITY_VIOLATION,
+    PushFindingPayload,
+    append_approved_identity_errors,
+    append_finding,
+)
 from .push_flow import (
     PushFlowDependencies,
     bind_command_runner_to_repo,
+    execute_push_flow as _execute_push_flow,
     execute_push_flow_with_dependencies,
 )
+from .push_git_status import collect_git_status_for_repo
 from .push_pipeline_state_sync import sync_commit_pipeline_with_push_report
-from .push_preflight_projection import (
-    repair_preflight_generated_changes_for_push,
-    refresh_managed_projections_before_preflight,
-)
 from .push_preflight_commit import run_post_validation_auto_commit_repair_phase
-from .push_report import PushStageTruth, render_push_report
+from .push_preflight_projection import (
+    refresh_managed_projections_before_preflight,
+    repair_preflight_generated_changes_for_push,
+)
+from .push_report import PushStageTruth
+from .push_report_context import (
+    PushReportFinishInputs,
+    build_push_report_context,
+    finish_push_report,
+)
 from .push_snapshot import (
-    PushReportContext,
     build_push_report_payload,
     persist_published_remote_snapshot,
     persist_push_progress_snapshot,
@@ -65,11 +76,15 @@ REQUESTED_BY = "devctl.push"
 class PushRunState:
     """Mutable execution state for one guarded push attempt."""
 
+    repo_root: str = ""
     branch: str = ""
+    configured_branch: str = ""
+    live_branch: str = ""
     remote: str = ""
     dirty_paths: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    findings: list[PushFindingPayload] = field(default_factory=list)
     fetch_step: dict[str, Any] | None = None
     preflight_step: dict[str, Any] | None = None
     push_step: dict[str, Any] | None = None
@@ -82,10 +97,13 @@ class PushRunState:
     approved_worktree_identity: str = ""
     push_authorization_id: str = ""
     push_authorization_mode: str = ""
+    remote_head_after: str = ""
     pre_validation_managed_projection_sync: dict[str, Any] = field(default_factory=dict)
     pre_validation_recovery_loop_repair: dict[str, Any] = field(default_factory=dict)
     pre_validation_recovery_loop_repair_required: bool = False
-    pre_validation_recovery_loop_repair_startup: dict[str, Any] = field(default_factory=dict)
+    pre_validation_recovery_loop_repair_startup: dict[str, Any] = field(
+        default_factory=dict
+    )
     post_validation_auto_commit_repair: dict[str, Any] = field(default_factory=dict)
 
 
@@ -96,18 +114,37 @@ def _load_run_state(
     repo_root: Path = REPO_ROOT,
 ) -> PushRunState:
     state = PushRunState()
+    state.repo_root = str(repo_root)
     state.remote = (
         str(args.remote or policy.default_remote).strip() or policy.default_remote
     )
     state.current_worktree_identity = worktree_identity_for_repo(repo_root)
     state.warnings.extend(policy.warnings)
     _append_bypass_policy_errors(state, policy, args)
-    git = _collect_git_status_for_repo(repo_root)
+    git = collect_git_status_for_repo(
+        repo_root,
+        default_collect_fn=collect_git_status,
+    )
     if "error" in git:
         state.errors.append(str(git["error"]))
         return state
 
-    state.branch = str(git.get("branch", "")).strip()
+    state.configured_branch = str(git.get("branch", "")).strip()
+    state.live_branch = _live_current_branch(repo_root)
+    if state.configured_branch and state.live_branch:
+        state.branch = state.live_branch
+        if state.configured_branch != state.live_branch:
+            append_finding(
+                state,
+                BRANCH_IDENTITY_VIOLATION,
+                "Configured push branch does not match live git branch.",
+                evidence=dict(
+                    configured_branch=state.configured_branch,
+                    live_branch=state.live_branch,
+                ),
+            )
+    else:
+        state.branch = state.live_branch or state.configured_branch
     state.dirty_paths = blocking_dirty_paths(
         git.get("changes", []),
         exclude_paths=push_exclusion_paths(policy, repo_root=repo_root),
@@ -148,6 +185,16 @@ def _append_bypass_policy_errors(state: PushRunState, policy, args) -> None:
         )
 
 
+def _live_current_branch(repo_root: Path) -> str:
+    code, branch, error = run_git_capture(
+        ["rev-parse", "--abbrev-ref", "HEAD"],
+        repo_root=repo_root,
+    )
+    if code != 0:
+        return ""
+    return (branch or error or "").strip()
+
+
 def _append_publication_authorization_errors(
     state: PushRunState,
     *,
@@ -174,6 +221,11 @@ def _append_publication_authorization_errors(
             ).strip()
             state.push_authorization_id = authorization.authorization_id
             state.push_authorization_mode = authorization.approval_mode
+            append_approved_identity_errors(
+                state,
+                authorization=authorization,
+                repo_root=repo_root,
+            )
         return
     summary = str(decision.summary or decision.reason or "").strip()
     detail = f" {summary}" if summary else ""
@@ -296,6 +348,15 @@ def _run_fetch_and_preflight(
         scan_trigger="push_preflight",
     )
     if args.skip_preflight:
+        state.preflight_step = dict(
+            name="push-preflight",
+            cmd=[],
+            cwd=str(repo_root),
+            returncode=0,
+            duration_s=0.0,
+            skipped=True,
+            reason="preflight skipped by policy",
+        )
         return
 
     _sync_bridge_projection_before_preflight(state, repo_root=repo_root)
@@ -357,44 +418,6 @@ def _emit_push_progress_notice(message: str) -> None:
     print(f"[devctl push] {message}", file=sys.stderr, flush=True)
 
 
-def _build_push_report_context(
-    *,
-    repo_root: Path,
-    policy,
-    state: PushRunState,
-    args,
-    head_commit: str,
-    approved_target_identity: str = "",
-) -> PushReportContext:
-    """Build the reusable push-report context for one execution phase."""
-    typed_action = asdict(
-        build_push_action(
-            repo_pack_id=policy.repo_pack_id,
-            branch=state.branch,
-            remote=state.remote,
-            execute=bool(args.execute),
-            skip_preflight=bool(args.skip_preflight),
-            skip_post_push=bool(args.skip_post_push),
-            approved_target_identity=approved_target_identity,
-            approved_worktree_identity=state.approved_worktree_identity,
-        )
-    )
-    return PushReportContext(
-        repo_root=repo_root,
-        policy=policy,
-        state=state,
-        args=args,
-        head_commit=head_commit,
-        typed_action=typed_action,
-        artifact_path=latest_push_report_relpath(repo_root=repo_root),
-        current_worktree_identity=state.current_worktree_identity,
-        approved_target_identity=approved_target_identity,
-        approved_worktree_identity=state.approved_worktree_identity,
-        push_authorization_id=state.push_authorization_id,
-        push_authorization_mode=state.push_authorization_mode,
-    )
-
-
 def run_push_action(
     args,
     *,
@@ -407,7 +430,6 @@ def run_push_action(
     writer=None,
     piper=None,
 ) -> tuple[int, dict[str, Any]]:
-    """Run the governed push flow and return ``(exit_code, report)``."""
     resolved_policy = policy or load_push_policy(
         repo_root=repo_root,
         policy_path=getattr(args, "quality_policy", None),
@@ -420,7 +442,7 @@ def run_push_action(
     head_commit = current_head_commit_sha(repo_root=repo_root)
     if bool(args.execute) and not state.errors:
         persist_push_progress_snapshot(
-            _build_push_report_context(
+            build_push_report_context(
                 repo_root=repo_root,
                 policy=resolved_policy,
                 state=state,
@@ -457,11 +479,25 @@ def run_push_action(
         repo_root=repo_root,
         publication_authorization_fn=publication_authorization_fn,
     )
-    approved_target_identity = (
-        str(getattr(args, "approved_target_identity", "") or "").strip()
-        or state.approved_target_identity
-    )
-    report_context = _build_push_report_context(
+    requested_approved_target_identity = str(
+        getattr(args, "approved_target_identity", "") or ""
+    ).strip()
+    if (
+        requested_approved_target_identity
+        and state.approved_target_identity
+        and requested_approved_target_identity != state.approved_target_identity
+    ):
+        append_finding(
+            state,
+            APPROVED_TARGET_IDENTITY_VIOLATION,
+            "Requested approved target identity does not match live authorization.",
+            evidence=dict(
+                requested_approved_target_identity=requested_approved_target_identity,
+                live_approved_target_identity=state.approved_target_identity,
+            ),
+        )
+    approved_target_identity = state.approved_target_identity
+    report_context = build_push_report_context(
         repo_root=repo_root,
         policy=resolved_policy,
         state=state,
@@ -469,7 +505,6 @@ def run_push_action(
         head_commit=head_commit,
         approved_target_identity=approved_target_identity,
     )
-    artifact_path = report_context.artifact_path
     if (
         bool(args.execute)
         and not state.errors
@@ -498,6 +533,8 @@ def run_push_action(
         PushFlowDependencies(
             run_cmd_fn=bind_command_runner_to_repo(command_runner, repo_root),
             build_post_push_commands_fn=post_push_commands,
+            current_head_sha_fn=push_flow.current_head_commit_sha,
+            remote_head_sha_fn=push_flow._remote_head_sha,
             published_remote_snapshot_fn=lambda reason, operator_guidance, partial_progress: (
                 persist_published_remote_snapshot(
                     report_context,
@@ -519,26 +556,18 @@ def run_push_action(
             approved_target_identity=approved_target_identity,
             report=report,
         )
-    if not emit_output_report:
-        persist_latest_push_report(report, repo_root=repo_root)
-        append_push_receipt(report, repo_root=repo_root)
-        return (0 if outcome.ok else 1), report
-
-    append_push_receipt(report, repo_root=repo_root)
-    report_json = serialize_push_report(report)
-    output = report_json if args.format == "json" else render_push_report(report)
-    pipe_rc = emit_output(
-        output,
-        output_path=args.output,
-        pipe_command=args.pipe_command,
-        pipe_args=args.pipe_args,
-        additional_outputs=((report_json, artifact_path),),
-        writer=write_output if writer is None else writer,
-        piper=pipe_output if piper is None else piper,
+    return finish_push_report(
+        PushReportFinishInputs(
+            args=args,
+            repo_root=repo_root,
+            report=report,
+            artifact_path=report_context.artifact_path,
+            outcome_ok=outcome.ok,
+            emit_output_report=emit_output_report,
+            writer=write_output if writer is None else writer,
+            piper=pipe_output if piper is None else piper,
+        )
     )
-    if pipe_rc != 0:
-        return pipe_rc, report
-    return (0 if outcome.ok else 1), report
 
 
 def run(args) -> int:
@@ -570,53 +599,6 @@ def run(args) -> int:
         return routed_exit
     exit_code, _ = run_push_action(args, policy=resolved_policy)
     return exit_code
-
-
-def _execute_push_flow(state: PushRunState, policy, args):
-    """Compatibility seam for older callers that patch the push executor directly."""
-    return execute_push_flow_with_dependencies(
-        state,
-        policy,
-        args,
-        PushFlowDependencies(
-            run_cmd_fn=run_cmd,
-            build_post_push_commands_fn=build_post_push_commands,
-        ),
-    )
-
-
-def _collect_git_status_for_repo(repo_root: Path) -> dict[str, object]:
-    """Return branch and dirty state info for one repo root."""
-    if repo_root == REPO_ROOT:
-        return collect_git_status()
-
-    branch_code, branch, branch_error = run_git_capture(
-        ["rev-parse", "--abbrev-ref", "HEAD"],
-        repo_root=repo_root,
-    )
-    if branch_code != 0:
-        message = branch_error or f"git rev-parse exited with code {branch_code}"
-        return {"error": message}
-
-    status_code, status_output, status_error = run_git_capture(
-        ["status", "--porcelain", "--untracked-files=all"],
-        repo_root=repo_root,
-    )
-    if status_code != 0:
-        message = status_error or f"git status exited with code {status_code}"
-        return {"error": message}
-
-    changes: list[dict[str, str]] = []
-    for line in status_output.splitlines():
-        if not line:
-            continue
-        parts = line.split(maxsplit=1)
-        status = parts[0].strip()
-        path = parts[1] if len(parts) == 2 else ""
-        if "->" in path:
-            path = path.split("->")[-1].strip()
-        changes.append({"status": status, "path": path})
-    return {"branch": branch, "changes": changes}
 
 
 def build_push_args(

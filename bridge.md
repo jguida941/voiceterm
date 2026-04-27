@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-27T16:13:42Z`
-- Last Codex poll (Local America/New_York): `2026-04-27 12:13:42 EDT`
+- Last Codex poll: `2026-04-27T17:04:54Z`
+- Last Codex poll (Local America/New_York): `2026-04-27 13:04:54 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `b2ca4418e648a893ae96958525515250b912547b76119836a720e339aefb5683`
-- Current instruction revision: `603a02770af6`
+- Last non-audit worktree hash: `e00fee14b45c0e4ff2c1220f3c7d25a60a4011b25c8e3bde5153a47153508f62`
+- Current instruction revision: `7a886544ed1c`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-27T16:01:50.964225Z.
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: codex-regression-slice-validation; reviewed-tree: b9eb7c37d69e).
 
 ## Current Verdict
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-3 pending review packet(s); 477 expired unresolved review packet(s)
+3 pending review packet(s); 481 expired unresolved review packet(s)
 
 ## Claude Status
 
-- Status unavailable.
+waiting_for_ack
 
 ## Claude Questions
 
@@ -138,13 +138,12 @@ pending
 
 ## Current Instruction For Claude
 
-Priority action_request: Superseding governed publication handoff after Codex 16 post-receipt recovery fix
+Priority action_request: Stage governed publication pipeline for branch-identity invariant repair
 
 ## Last Reviewed Scope
 
-MP-355
+- (missing)
 
 ## Action Requests
 
-- [rev_pkt_2023] stage_commit_pipeline: target=runtime:devctl_commit:ab077ec4@ab077ec4; Operator escalation: ship rev_pkt_2020 architectural extension this round with full implementation authority (status: pending)
-- [rev_pkt_2021] stage_commit_pipeline: target=runtime:devctl_commit:ab077ec457ec8cf4adb30107c9f1ba285cf48aff@ab077ec457ec8cf4adb30107c9f1ba285cf48aff; Superseding governed publication handoff after Codex 16 post-receipt recovery fix (status: pending)
+- [rev_pkt_2033] stage_commit_pipeline: target=runtime:devctl_commit:dc4863ead71e@dc4863ead71ef2800571241baf11f693392d160b; Stage governed publication pipeline for branch-identity invariant repair (status: pending)

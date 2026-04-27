@@ -120,6 +120,23 @@ Plan mapping: this is Slice E boundary and capability migration work. It is
 not part of the immediate rev_pkt_2000 unblock because a partial role-flip
 implementation would create another authority layer.
 
+Slice E implementation sub-scope from `rev_pkt_2030` / `rev_pkt_2035`:
+
+- Add governed `assign_role` and `unassign_role` actions that mutate typed role
+  assignment state and re-run `CapabilityGrantState` derivation from that
+  assignment snapshot.
+- Gate `devctl commit`, `devctl push`, stage handoff, review checkpoint, and
+  approval flows on caller identity plus `ActorAuthorityState` capabilities such
+  as `repo.commit`, `repo.stage`, `repo.push`, `review.checkpoint`, and
+  `approval.commit`.
+- Retire `DEFAULT_PROVIDER_ROLE_MAP` as runtime authority. Provider names may
+  remain compatibility labels, but Codex and Claude must both be able to hold
+  reviewer, implementer, dashboard, observer, or multi-role authority when typed
+  policy grants it.
+- Add role-flip and out-of-role regression coverage proving provider defaults do
+  not decide mutation permission and dashboard/observer callers fail closed with
+  `actor_authority_capability_denied`.
+
 ## Slice Placement
 
 Slice B: packet lifecycle reducer and Codex packet consumer loop. Use it for

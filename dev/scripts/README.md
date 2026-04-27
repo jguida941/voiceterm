@@ -100,6 +100,12 @@ posts a typed `action_request` with `requested_action=stage_commit_pipeline`
 to the active remote-control attachment provider and binds it to
 `devctl_commit:<head_sha>` instead of asking the local operator to click
 through a hidden prompt.
+`devctl push` also enforces live execution identity before it can report
+publication: `vcs.push` branch parameters are forced from
+`git rev-parse --abbrev-ref HEAD`, approved target identity comes from live
+publication authorization bound to current worktree and `HEAD`, stale proof is
+rejected, and `published_remote` requires populated fetch/preflight/push/
+post-push evidence plus remote-ref equality with current `HEAD`.
 Commit
 authority is separate from implementation evidence now too: before staging or
 running guards, `devctl commit` reads the typed `CommitPermissionDecision` and

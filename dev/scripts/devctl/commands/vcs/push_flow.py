@@ -4,11 +4,15 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ...common import run_cmd
 from ...config import REPO_ROOT
 from ...governance.push_policy import build_post_push_commands
+from ...governance.push_state import current_head_commit_sha
+from ...runtime.vcs import run_git_capture
+from .push_findings import append_finding
 from .push_report import PushStageTruth
 
 if TYPE_CHECKING:
@@ -34,6 +38,8 @@ class PushFlowOutcome:
 class PushFlowDependencies:
     run_cmd_fn: Callable[..., dict[str, object]]
     build_post_push_commands_fn: Callable[..., list[str]]
+    current_head_sha_fn: Callable[..., str] | None = None
+    remote_head_sha_fn: Callable[..., str] | None = None
     published_remote_snapshot_fn: Callable[[str, str, bool], None] | None = None
     progress_notice_fn: Callable[[str], None] | None = None
 
@@ -88,10 +94,7 @@ def execute_push_flow_with_dependencies(
             operator_guidance=(
                 "No push is required; the current branch already matches the remote."
             ),
-            stages=PushStageTruth(
-                validation_ready=True,
-                published_remote=True,
-            ),
+            stages=PushStageTruth(validation_ready=True),
         )
     if not args.execute:
         return PushFlowOutcome(
@@ -130,6 +133,9 @@ def execute_push_flow_with_dependencies(
             ),
             stages=PushStageTruth(validation_ready=True),
         )
+    proof_outcome = _verify_remote_publication(state, dependencies)
+    if proof_outcome is not None:
+        return proof_outcome
     if dependencies.published_remote_snapshot_fn is not None:
         dependencies.published_remote_snapshot_fn(
             "post_push_bundle_pending",
@@ -144,6 +150,12 @@ def execute_push_flow_with_dependencies(
             "Remote publication recorded for the current HEAD; running post-push bundle."
         )
     if args.skip_post_push:
+        state.post_push_steps.append(
+            _skipped_step(
+                "push-post-skipped",
+                "post-push bundle skipped by policy",
+            )
+        )
         return PushFlowOutcome(
             ok=True,
             reason="post_push_skipped_by_policy",
@@ -205,6 +217,13 @@ def run_post_push_bundle(
         since_ref=state.post_push_since_ref,
     )
     total_commands = len(commands)
+    if total_commands == 0:
+        state.post_push_steps.append(
+            _skipped_step(
+                "push-post-none", "post-push bundle has no configured commands"
+            )
+        )
+        return True
     for index, command in enumerate(commands, start=1):
         if progress_notice_fn is not None:
             progress_notice_fn(f"Post-push step {index}/{total_commands}: {command}")
@@ -234,3 +253,78 @@ def _governed_git_push_cmd(
         cmd.append("--set-upstream")
     cmd.extend([remote, branch])
     return cmd
+
+
+def _remote_head_sha(remote: str, branch: str, *, repo_root: Path) -> str:
+    code, output, _error = run_git_capture(
+        ["ls-remote", "--heads", remote, f"refs/heads/{branch}"],
+        repo_root=repo_root,
+    )
+    if code != 0:
+        return ""
+    first_line = output.splitlines()[0].strip() if output.splitlines() else ""
+    return first_line.split()[0] if first_line else ""
+
+
+remote_head_sha = _remote_head_sha
+
+
+def _state_repo_root(state: object) -> Path:
+    raw = str(getattr(state, "repo_root", "") or "").strip()
+    return Path(raw) if raw else REPO_ROOT
+
+
+def _skipped_step(name: str, reason: str) -> dict[str, object]:
+    return dict(
+        name=name,
+        cmd=[],
+        cwd=str(REPO_ROOT),
+        returncode=0,
+        duration_s=0.0,
+        skipped=True,
+        reason=reason,
+    )
+
+
+def _verify_remote_publication(
+    state: object,
+    dependencies: PushFlowDependencies,
+) -> PushFlowOutcome | None:
+    if dependencies.remote_head_sha_fn is None:
+        return None
+    repo_root = _state_repo_root(state)
+    remote_head_after = dependencies.remote_head_sha_fn(
+        state.remote, state.branch, repo_root=repo_root
+    )
+    try:
+        state.remote_head_after = remote_head_after
+    except (AttributeError, TypeError):
+        pass
+    head_commit = (
+        dependencies.current_head_sha_fn(repo_root=repo_root)
+        if dependencies.current_head_sha_fn is not None
+        else current_head_commit_sha(repo_root=repo_root)
+    )
+    if remote_head_after and remote_head_after == head_commit:
+        return None
+    append_finding(
+        state,
+        "SilentPushFailure",
+        "git push returned success but the remote ref does not match current HEAD.",
+        evidence=dict(
+            branch=state.branch,
+            remote=state.remote,
+            head_commit=head_commit,
+            remote_head_after=remote_head_after,
+        ),
+    )
+    return PushFlowOutcome(
+        ok=False,
+        reason="remote_ref_not_updated",
+        operator_guidance=(
+            "The governed git push returned success, but the remote ref could not "
+            "be proven at the current HEAD. Inspect the remote and retry through "
+            "`devctl push --execute`."
+        ),
+        stages=PushStageTruth(),
+    )

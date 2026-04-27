@@ -79,9 +79,7 @@ def project_push_report(
     return PushReportProjection(
         push_result=push_result,
         push_report_path=push_report_path,
-        artifact_paths=tuple(
-            list(artifacts or ()) + [pipeline_artifact_relpath]
-        ),
+        artifact_paths=tuple(list(artifacts or ()) + [pipeline_artifact_relpath]),
         push_pipeline_phases=push_pipeline_phases,
         push_failure_transition=push_failure_transition,
         next_state=next_state,
@@ -151,6 +149,22 @@ def pipeline_push_result(
     report: Mapping[str, object],
 ) -> ActionResult:
     """Project one governed push report into an ActionResult."""
+    silent_failure = _silent_push_failure_reason(report)
+    if silent_failure:
+        return ActionResult(
+            schema_version=ACTION_RESULT_SCHEMA_VERSION,
+            contract_id=ACTION_RESULT_CONTRACT_ID,
+            action_id=action_id,
+            ok=False,
+            status=ActionOutcome.FAIL,
+            reason=silent_failure,
+            retryable=True,
+            operator_guidance=(
+                "The push report does not contain enough subprocess evidence to "
+                "prove remote publication. Rerun governed push after repairing "
+                "the push report path."
+            ),
+        )
     stages = mapping(report.get("push_stages"))
     reason = string_value(report.get("reason"))
     published_remote = bool(stages.get("published_remote"))
@@ -196,6 +210,31 @@ def pipeline_push_result(
 
 def _default_phase(name: str) -> dict[str, object]:
     return {"phase": name, "status": "not_run"}
+
+
+def _silent_push_failure_reason(report: Mapping[str, object]) -> str:
+    stages = mapping(report.get("push_stages"))
+    if not bool(stages.get("published_remote")):
+        return ""
+    if not bool(report.get("execute")):
+        return ""
+    push_step = mapping(report.get("push_step"))
+    if not push_step:
+        return "published_remote_without_push_step"
+    try:
+        push_returncode = int(push_step.get("returncode", 1))
+    except (TypeError, ValueError):
+        push_returncode = 1
+    if push_returncode != 0:
+        return "published_remote_push_step_failed"
+    if not mapping(report.get("fetch_step")):
+        return "published_remote_without_fetch_step"
+    if not mapping(report.get("preflight_step")):
+        return "published_remote_without_preflight_step"
+    post_push_steps = report.get("post_push_steps")
+    if not isinstance(post_push_steps, list) or not post_push_steps:
+        return "published_remote_without_post_push_steps"
+    return ""
 
 
 def _push_report_completed(report: Mapping[str, object]) -> bool:

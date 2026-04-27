@@ -87,6 +87,11 @@ def test_push_report_marks_remote_published_post_push_pending() -> None:
                 published_remote=True,
             ),
             action_result={"ok": False, "reason": "post_push_bundle_failed"},
+            push_step={
+                "name": "git-push",
+                "cmd": ["git", "push", "origin", "feature/demo"],
+                "returncode": 0,
+            },
             post_push_steps=[
                 {
                     "name": "push-post-01",

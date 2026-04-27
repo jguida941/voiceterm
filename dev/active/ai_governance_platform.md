@@ -106,6 +106,17 @@ Current 2026-04-27 agent-substrate authority note:
   role reassignment belongs in the existing capability-on-identity chain
   rather than a parallel role system.
 
+Current 2026-04-27 governed-push execution-truth note:
+- The `rev_pkt_2027` / `rev_pkt_2029` regression is now tracked as an MP-377
+  action/report authority break, not a one-off push mishap. `vcs.push`
+  `TypedAction` parameters must be built from live git/runtime values at
+  action-build time: branch comes from `git rev-parse --abbrev-ref HEAD`, and
+  approved target identity comes from live publication authorization bound to
+  current worktree plus current `HEAD`, with stale authorization proof refused.
+  `published_remote` is no longer a stage flag alone; execute=true reports
+  need fetch, preflight, push, post-push, and remote-ref evidence, otherwise
+  they emit `SilentPushFailure` and stay blocked.
+
 Current 2026-04-25 SYSTEM_MAP connectivity authority note:
 - `ConnectivityRegistrySnapshot` is now the shared typed source for contract,
   writer, reader, and generated-surface connectivity. `context-graph` consumes
@@ -3349,7 +3360,7 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/remote_control_runtime.md`
       status: `queued`
       depends_on: `MP377-P0-T08`, `MP377-P1-T06`
-- [ ] `MP377-P0-T10` Extend remote-control caller authority for automation-loop mode switching and session spawning: an automation_loop caller with an operator-scope stamp must be able to request `launch`, `recover`, reviewer-mode changes, and `spawn_codex_implementer` through existing caller-class policy, `agent_lane.permissions`, and `review-channel --action launch` typed contracts without requiring a local TTY prompt.
+- [ ] `MP377-P0-T10` Extend remote-control caller authority for automation-loop mode switching and session spawning: an automation_loop caller with an operator-scope stamp must be able to request `launch`, `recover`, `update_role_assignments`, reviewer-mode changes, and `spawn_codex_implementer` through existing caller-class policy, `agent_lane.permissions`, and `review-channel --action launch` typed contracts without requiring a local TTY prompt.
       owner_doc: `dev/active/remote_control_runtime.md`
       status: `queued`
       depends_on: `MP377-P0-T05`, `MP377-P1-T08`
@@ -3361,6 +3372,52 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `done`
       depends_on: `MP377-P0-T07`, `MP377-P0-T11`
+- [x] `MP377-P0-T12A` Enforce governed-push execution truth after the `rev_pkt_2027` / `rev_pkt_2029` Class-A regression: branch identity must be live-derived at `vcs.push` action-build time, approved target identity must bind to live worktree plus current HEAD, stale authorization proof must fail closed, and execute=true reports may not claim `published_remote` without subprocess and remote-ref evidence.
+      owner_doc: `dev/active/remote_commit_pipeline.md`
+      status: `done`
+      depends_on: `MP377-P0-T07`, `MP377-P0-T12`
+- [ ] `MP377-P0-T13` SYSTEM_MAP-as-typed-state internalization: make the generated SYSTEM_MAP and PlatformProjectionSpine navigable from typed runtime state, with completeness evidence over contracts, commands, guards, probes, writers, readers, and consumer edges.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T11`, `MP377-P0-T12`, `MP377-P0-T12A`
+      scope: Extend the existing `ConnectivityRegistrySnapshot` / `system_map_renderer` / context-graph chain so SYSTEM_MAP coverage is generated from typed contracts and cross-reference edges instead of prose-maintained lists.
+      acceptance_criteria: `SystemMapCompletenessReport` names typed-contract, command, guard, and probe coverage; SYSTEM_MAP generated sections reflect typed writer/reader edges; a warning-first `check_system_map_completeness.py` reports orphan typed surfaces and configurable threshold drift.
+- [ ] `MP377-P0-T14` Codex self-dogfood verification gate before stage_commit_pipeline: require Codex handoff slices to run the typed verification probe set before posting a new `stage_commit_pipeline` action_request.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `queued`
+      depends_on: `MP377-P0-T08`, `MP377-P0-T09`, `MP377-P0-T12A`
+      scope: Promote the rev_pkt_2035 self-dogfood command list from advisory bootstrap prose into the Codex packet/handoff path, then fold the durable receipt into the Slice B poll-loop/tandem validation flow.
+      acceptance_criteria: Handoff output records `check_function_duplication.py`, `check_structural_similarity.py`, `check_contract_connectivity.py`, `findings-priority --format json`, and `probe-report --format json`; high-severity findings touching the slice are acknowledged or block handoff; the stage request cites the verification receipt.
+- [ ] `MP377-P0-T15` Parallel-system and canonical-seam guard family: add warning-first guards for semantic contract parallels, canonical seam bypasses, TypedAction runtime-origin drift, and SYSTEM_MAP completeness, then retire baselines before fail-closed promotion.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T12`, `MP377-P0-T12A`, `MP377-P0-T13`
+      scope: Extend existing guard/check infrastructure instead of adding a parallel quality system: `check_semantic_contract_parallel.py`, `check_canonical_seam_bypass.py`, `check_typed_action_runtime_origin.py`, `check_system_map_completeness.py`, plus C-guard fail-closed promotion after baseline retirement.
+      acceptance_criteria: Required regression tests prove G1 duplicate residue, push_findings-style semantic parallels, direct `state.findings` mutation, fixture-derived TypedAction identity, orphan SYSTEM_MAP contracts, and C-guard promotion behavior; new guards start warning-only unless explicitly escalated.
+- [ ] `MP377-P0-T16` Role-enforcement command-gate and DEFAULT_PROVIDER_ROLE_MAP retirement: bind commit/push/review-channel mutation permission to actor identity and `ActorAuthorityState` grants, then remove provider-name role defaults as runtime authority.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/agent_substrate_architecture_review.md`
+      status: `queued`
+      depends_on: `MP377-P0-T10`, `MP377-P0-T12`, `MP377-P1-T06`
+      scope: Land the Slice E role-enforcement command gate from `rev_pkt_2030`: governed `assign_role` / `unassign_role` actions, multi-role assignment policy, capability re-granting, and command preflight checks for `repo.commit`, `repo.stage`, `repo.push`, `review.checkpoint`, and `approval.commit`.
+      acceptance_criteria: `DEFAULT_PROVIDER_ROLE_MAP` is compatibility-only or removed from runtime decisions; provider names no longer imply reviewer/implementer authority; dashboard/observer callers receive `actor_authority_capability_denied` for mutating commit/push actions without grants; tests cover Codex and Claude in both reviewer and implementer roles.
+- [ ] `MP377-P0-T17` ReviewState, ActionResult, and parser parallel-implementation retirement sweep: route high-fanout review-state rebuilding, custom result types, and untyped parser payloads through canonical runtime contracts.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T13`, `MP377-P0-T15`, `MP377-P1-T06`
+      scope: Retire the Section 5 parallel implementations by moving ReviewState reconstruction to `review_state_from_payload()`, deriving command/result models from `ActionResult`, and replacing ad-hoc `dict[str, Any]` parser coercion with typed payload contracts.
+      acceptance_criteria: Connectivity guards show no new ReviewState rebuilders, representative result types inherit or wrap `ActionResult`, typed parser fixtures cover payload conversion, and legacy helpers are explicit compatibility shims with owner/retirement metadata.
+- [ ] `MP377-P0-T18` Agent-proof-of-navigation regression suite: prove Codex and Claude can answer role, blocker, and canonical-seam questions from typed startup/connectivity/system-map state without chat memory or prose-only bridge authority.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T13`, `MP377-P0-T16`
+      scope: Add frozen typed-state fixtures and deterministic navigation prompts/tests for push blockers, `PlatformFindingIngest` discovery, and actor-authority command refusal across both agents.
+      acceptance_criteria: `test_claude_can_answer_what_blocks_push_via_typed_state_only.py`, `test_codex_can_locate_canonical_finding_seam_via_typed_state_only.py`, and `test_both_agents_refuse_out_of_role_actions_via_actor_authority.py` pass without consulting `bridge.md`, `AGENTS.md`, or chat-memory hints; manual Claude dogfood scans remain required until this suite is green.
 
 ### Phase P1 - Typed Plan Ingestion And Registry Projection
 
@@ -5725,6 +5782,17 @@ working on `MP-377`.
   shared governance bundle. The first live run reports three disconnected
   `ActionKind` packet values as Slice C retirement evidence, not a blocker for
   this publication.
+- 2026-04-27 governed-push execution-truth invariant:
+  `MP377-P0-T12A` closes the `rev_pkt_2027` / `rev_pkt_2029` regression where
+  the report could claim `published_remote` with fixture branch/target values.
+  The push path now forces branch from live git, ignores templated
+  `approved_target_identity` in favor of live authorization, rejects stale or
+  mismatched worktree/HEAD proof, verifies the remote ref after `git push`,
+  and structurally blocks execute=true publication reports missing subprocess
+  evidence. The manual TypedAction audit found the same risk class most acute
+  in `vcs.push`; `vcs.recovery_loop_repair` inherits push-state identity and
+  `vcs.commit` already uses pipeline/live state, but ADR-024 tracks a future
+  repo-wide runtime-origin guard.
 - 2026-04-27 startup push-state managed receipt classification:
   the `rev_pkt_2008` publication attempt exposed a read-side split between
   governed push and startup authority. Push preflight already owned
@@ -7940,6 +8008,14 @@ Execution order for this section:
   `check_typed_enum_connectivity.py` guard is warning-only, registered in the
   script catalog and governance bundle, and currently surfaces disconnected
   `ActionKind` packet values for later Slice C baseline retirement.
+- 2026-04-27: Closed `MP377-P0-T12A` as the Class-A governed-push
+  execution-truth repair from `rev_pkt_2027` / `rev_pkt_2029`. `vcs.push`
+  action/report construction now derives branch and approved target identity
+  from live git, worktree, HEAD, and publication authorization, refuses stale
+  proof, and prevents `published_remote` unless subprocess steps and remote-ref
+  advancement prove the publication. New regression tests cover branch
+  identity, live approved target binding, remote truth, and execute=true step
+  evidence.
 - 2026-04-27: Closed `MP377-P0-T11` as the bounded proof-tick authority repair
   discovered during `rev_pkt_2000` / `rev_pkt_2001`. The new
   `dev/active/agent_substrate_architecture_review.md` keeps the architecture

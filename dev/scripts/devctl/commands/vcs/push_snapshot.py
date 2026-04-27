@@ -8,8 +8,11 @@ from typing import Any
 
 from ...runtime import ActionResult
 from .push_artifact import persist_latest_push_report
+from .push_findings import append_finding
 from .push_flow import PushFlowOutcome
 from .push_report import PushReportInputs, PushStageTruth, build_push_report
+
+SILENT_PUSH_FAILURE = "SilentPushFailure"
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +40,7 @@ def build_push_report_payload(
 ) -> dict[str, Any]:
     """Build the canonical push report payload for the current execution state."""
     state = context.state
+    outcome = _enforce_execution_truth(context, outcome)
     action_result = ActionResult(
         schema_version=1,
         contract_id="ActionResult",
@@ -48,6 +52,7 @@ def build_push_report_payload(
         partial_progress=outcome.partial_progress,
         operator_guidance=outcome.operator_guidance,
         warnings=tuple(state.warnings),
+        findings_count=len(getattr(state, "findings", []) or []),
         artifact_paths=(context.artifact_path,),
     ).to_dict()
     return build_push_report(
@@ -69,6 +74,7 @@ def build_push_report_payload(
             action_result=action_result,
             warnings=state.warnings,
             errors=state.errors,
+            findings=list(getattr(state, "findings", []) or []),
             artifact_path=context.artifact_path,
             current_worktree_identity=context.current_worktree_identity,
             approved_target_identity=context.approved_target_identity,
@@ -92,6 +98,60 @@ def build_push_report_payload(
             ),
         )
     )
+
+
+def _enforce_execution_truth(
+    context: PushReportContext,
+    outcome: PushFlowOutcome,
+) -> PushFlowOutcome:
+    """Fail closed when a report claims publication without subprocess proof."""
+    if not bool(context.args.execute) or not outcome.stages.published_remote:
+        return outcome
+    state = context.state
+    missing: list[str] = []
+    for field_name in ("fetch_step", "preflight_step", "push_step"):
+        if getattr(state, field_name, None) is None:
+            missing.append(field_name)
+    if not list(getattr(state, "post_push_steps", []) or []):
+        missing.append("post_push_steps")
+    push_step = getattr(state, "push_step", None)
+    if isinstance(push_step, dict) and _returncode(push_step.get("returncode")) != 0:
+        missing.append("push_step.returncode")
+    remote_head_after = str(getattr(state, "remote_head_after", "") or "").strip()
+    if remote_head_after and remote_head_after != context.head_commit:
+        missing.append("remote_head_after")
+    if not missing:
+        return outcome
+    append_finding(
+        state,
+        SILENT_PUSH_FAILURE,
+        (
+            "Push report attempted to claim remote publication without complete "
+            "execution evidence."
+        ),
+        evidence={
+            "missing_or_invalid_fields": tuple(sorted(set(missing))),
+            "head_commit": context.head_commit,
+            "remote_head_after": remote_head_after,
+        },
+    )
+    return PushFlowOutcome(
+        ok=False,
+        reason="silent_push_failure",
+        operator_guidance=(
+            "The governed push report could not prove subprocess execution and "
+            "remote-ref publication. Inspect the typed finding and rerun through "
+            "`devctl push --execute` after repairing the push path."
+        ),
+        stages=PushStageTruth(),
+        partial_progress=False,
+    )
+
+def _returncode(value: object) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 1
 
 
 def persist_published_remote_snapshot(

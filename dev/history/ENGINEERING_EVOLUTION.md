@@ -70,6 +70,35 @@ Evidence:
 - `dev/scripts/devctl/tests/vcs/test_push.py`
 - `dev/scripts/devctl/tests/checks/test_check_review_surface_consistency.py`
 
+### 2026-04-27 - Governed push reports now require live branch and remote proof
+
+Fact: the `rev_pkt_2027` / `rev_pkt_2029` regression exposed a Class-A trust
+break in the governed push path. The report could claim
+`status=published_remote` with a fixture branch and stale approved target
+identity even though the live remote ref had not advanced.
+
+Change: `devctl push` now builds the `vcs.push` `TypedAction` from live git and
+publication authorization, not from config or caller templates. Branch identity
+is forced from `git rev-parse --abbrev-ref HEAD`; configured-branch drift emits
+`BranchIdentityViolation` and fails before push execution. Approved target
+identity is taken from live authorization bound to current worktree and HEAD,
+with stale proof refused. After `git push`, the command verifies the remote ref
+equals current `HEAD`, and the report builder downgrades any execute=true
+publication claim missing fetch, preflight, push, post-push, or remote-ref
+evidence to `SilentPushFailure`.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/commands/vcs/push_findings.py`
+- `dev/scripts/devctl/commands/vcs/push_flow.py`
+- `dev/scripts/devctl/commands/vcs/push_snapshot.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_actions.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_push_result.py`
+- `dev/scripts/devctl/tests/vcs/test_push_report_does_not_lie_about_remote_state.py`
+- `dev/scripts/devctl/tests/vcs/test_typed_action_branch_matches_current_branch.py`
+- `dev/scripts/devctl/tests/vcs/test_approved_target_identity_is_live_derived.py`
+- `dev/scripts/devctl/tests/vcs/test_subprocess_steps_populated_when_execute_true.py`
+
 ### 2026-04-27 - Proof-tick authority now uses field-owned expected sources
 
 Fact: the live `rev_pkt_2000` push blocker exposed a hidden authority bug in

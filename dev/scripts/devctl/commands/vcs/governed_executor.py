@@ -20,33 +20,30 @@ from ...runtime.action_contracts import (
 )
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
 from ...runtime.startup_context import build_startup_context
+from . import governed_executor_push_result as push_result
 from .governed_executor_actions import (
+    _PUSHABLE_PIPELINE_STATES,
+    _RECOVERABLE_PIPELINE_STATES,
     APPROVAL_PACKET_KIND,
     COMMIT_ACTION_ID,
     RECOVER_ACTION_ID,
     STAGE_ACTION_ID,
-    _PUSHABLE_PIPELINE_STATES,
-    _RECOVERABLE_PIPELINE_STATES,
     build_commit_action,
     build_recover_action,
     build_stage_action,
 )
+from .governed_executor_commit_phase import CommitPipelineContext, execute_commit
 from .governed_executor_field_access import string_value
 from .governed_executor_git import repo_relpath
-from .governed_executor_commit_phase import CommitPipelineContext, execute_commit
 from .governed_executor_packets import build_commit_approval_request
 from .governed_executor_phases import execute_stage
-from .governed_executor_push_result import (
-    apply_push_report_projection,
-    project_push_report,
-)
-from .governed_executor_validation import build_validation_receipt
 from .governed_executor_sync import (
     load_event_packets,
     persist_pipeline,
     persist_pipeline_contract_only,
     sync_pipeline_push_authorization,
 )
+from .governed_executor_validation import build_validation_receipt
 from .push import build_push_args, run_push_action
 
 
@@ -61,6 +58,7 @@ class GovernedVcsExecutor:
     push_policy: object | None = None
     build_post_push_commands_fn: Any = None
     refresh_projections: bool = True
+    last_push_report: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         config = active_path_config()
@@ -214,12 +212,13 @@ class GovernedVcsExecutor:
             emit_output_report=False,
             build_post_push_commands_fn=self.build_post_push_commands_fn,
         )
-        projection = project_push_report(
+        self.last_push_report = dict(report)
+        projection = push_result.project_push_report(
             action_id=action.action_id,
             report=report,
             pipeline_artifact_relpath=self._pipeline_artifact_relpath(),
         )
-        updated = apply_push_report_projection(pending, projection)
+        updated = push_result.apply_push_report_projection(pending, projection)
         warnings = self._persist_pipeline(updated)
         return self._result(
             action_id=action.action_id,
@@ -237,7 +236,11 @@ class GovernedVcsExecutor:
         pipeline = self.load_pipeline()
         strategy = string_value(action.parameters.get("strategy")) or "clear"
         force = bool(action.parameters.get("force"))
-        if not force and pipeline.pipeline_id and pipeline.state not in _RECOVERABLE_PIPELINE_STATES:
+        if (
+            not force
+            and pipeline.pipeline_id
+            and pipeline.state not in _RECOVERABLE_PIPELINE_STATES
+        ):
             return self._result(
                 action_id=action.action_id,
                 ok=False,
