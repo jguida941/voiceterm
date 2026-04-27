@@ -105,6 +105,16 @@
   source commits from managed receipt commits so publication-backlog pressure
   stays visible without turning receipt accumulation into a source-work
   blocker.
+- 2026-04-27 governed-push typed `next=` recovery-loop automation (MP-377):
+  `devctl push` now has a `pre_validation_recovery_loop_repair` phase between
+  managed projection sync and routed validation. Recoverable startup-context
+  failures are no longer a manual AI/operator checklist: the phase emits
+  `TypedAction(action_id="vcs.recovery_loop_repair")`, follows only
+  allowlisted headless review-channel `next=` commands, stops after five steps
+  or thirty seconds, and fails closed when the cascade reaches operator scope.
+  `check_review_surface_consistency.py` also treats
+  `startup_context.reviewer_gate.reviewer_mode` as the reviewer-mode authority
+  and projects bridge/coordination/registry values through that source.
 - 2026-04-23 session-resume bootstrap repair (also under MP-377):
   `session-resume --role reviewer|implementer` now calls
   `ControlPlaneReadModel` through `ControlPlaneReadModelOptions` for

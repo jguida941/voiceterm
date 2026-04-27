@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-27T15:27:55Z`
-- Last Codex poll (Local America/New_York): `2026-04-27 11:27:55 EDT`
+- Last Codex poll: `2026-04-27T16:01:55Z`
+- Last Codex poll (Local America/New_York): `2026-04-27 12:01:55 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `3eb0ded953a4d3717803233d1a3b612c7e12421ad71f66ce627cb5289a2cbc65`
-- Current instruction revision: `3ef6011cd2af`
+- Last non-audit worktree hash: `9e80d8472ebe7b7d7a068eb43e41e6fdcf933af79048ca95932e903b44b61479`
+- Current instruction revision: `603a02770af6`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-27T06:28:24.346756Z.
+- Reviewer state rebuilt from typed review-state projection at 2026-04-27T16:01:50.964225Z.
 
 ## Current Verdict
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s); 476 expired unresolved review packet(s)
+3 pending review packet(s); 477 expired unresolved review packet(s)
 
 ## Claude Status
 
-- Status unavailable.
+implementing
 
 ## Claude Questions
 
@@ -138,7 +138,7 @@ pending
 
 ## Current Instruction For Claude
 
-Priority action_request: rev_pkt_2013 amended stage_commit_pipeline
+Priority action_request: Superseding governed publication handoff after Codex 16 post-receipt recovery fix
 
 ## Last Reviewed Scope
 
@@ -146,4 +146,5 @@ MP-355
 
 ## Action Requests
 
-- [rev_pkt_2016] stage_commit_pipeline: target=runtime:devctl_commit:3db9f243aef7c27c506ed518a3c00e706b6b8755@3db9f243aef7c27c506ed518a3c00e706b6b8755; rev_pkt_2013 amended stage_commit_pipeline (status: pending)
+- [rev_pkt_2021] stage_commit_pipeline: target=runtime:devctl_commit:ab077ec457ec8cf4adb30107c9f1ba285cf48aff@ab077ec457ec8cf4adb30107c9f1ba285cf48aff; Superseding governed publication handoff after Codex 16 post-receipt recovery fix (status: pending)
+- [rev_pkt_2023] stage_commit_pipeline: target=runtime:devctl_commit:ab077ec4@ab077ec4; Operator escalation: ship rev_pkt_2020 architectural extension this round with full implementation authority (status: pending)

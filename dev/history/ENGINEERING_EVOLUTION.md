@@ -37,6 +37,39 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-27 - Governed push now auto-runs bounded startup next recovery
+
+Fact: the live `rev_pkt_2019` push attempt proved an automation gap in the
+publication path. `devctl push` already committed managed bridge,
+ReviewSnapshot, and generated-surface receipts automatically, but when the
+post-receipt startup-context refresh returned a typed `next=` recovery
+cascade, the command failed and left AI/operators to run mechanical
+review-channel repair steps by hand.
+
+Change: managed projection refresh now marks recoverable startup-context
+failures instead of treating every parseable non-zero startup receipt as a
+terminal push failure. `devctl push` then runs
+`pre_validation_recovery_loop_repair` before validation. That phase emits a
+`TypedAction(action_id="vcs.recovery_loop_repair")`, executes only
+allowlisted headless review-channel `status` / `doctor` / `ensure` /
+`launch` / `recover` commands derived from startup-context `next=`, stops
+after five steps or thirty seconds, and fails closed when the cascade reaches
+operator-scope work such as commit/checkpoint commands.
+
+The same closeout narrows reviewer-mode proof-tick authority: bridge-compat,
+coordination, and registry surfaces are now treated as projections for
+`reviewer_mode` and defer to
+`startup_context.reviewer_gate.reviewer_mode`.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/push_recovery_loop_repair.py`
+- `dev/scripts/devctl/commands/vcs/push_projection_runtime_refresh.py`
+- `dev/scripts/devctl/commands/vcs/push_preflight_projection.py`
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/checks/review_surface_consistency/proof_tick.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/scripts/devctl/tests/checks/test_check_review_surface_consistency.py`
+
 ### 2026-04-27 - Proof-tick authority now uses field-owned expected sources
 
 Fact: the live `rev_pkt_2000` push blocker exposed a hidden authority bug in

@@ -22,8 +22,8 @@ _PROOF_TICK_FIELDS = (
 )
 _PROOF_TICK_FIELD_PATHS: dict[str, tuple[tuple[str, ...], ...]] = {
     "reviewer_mode": (
-        ("reviewer_mode",),
         ("reviewer_gate", "reviewer_mode"),
+        ("reviewer_mode",),
         ("authority_snapshot", "reviewer_mode"),
         ("reviewer_runtime", "reviewer_mode"),
         ("bridge", "reviewer_mode"),
@@ -159,6 +159,13 @@ _PROOF_TICK_FIELD_AUTHORITY_PRIORITY: dict[str, tuple[str, ...]] = {
         "commit_pipeline",
     ),
 }
+_STARTUP_REVIEWER_MODE_PROJECTION_SURFACES = frozenset(
+    {
+        "bridge_compat",
+        "coordination_snapshot",
+        "registry_agents",
+    }
+)
 
 
 def proof_tick_field_parity_violations(
@@ -172,6 +179,7 @@ def proof_tick_field_parity_violations(
         for surface, payload in surfaces.items()
         if isinstance(payload, dict) and payload
     }
+    rows = _project_startup_authority_fields(rows)
     violations: list[ConvergencePassViolation] = []
     for field in _PROOF_TICK_FIELDS:
         if field in ignored_fields:
@@ -208,11 +216,12 @@ def proof_tick_fields(
     surfaces: dict[str, dict[str, object]],
 ) -> dict[str, dict[str, str]]:
     """Return normalized proof-tick fields for report/debug output."""
-    return {
+    rows = {
         surface: _proof_tick_fields(payload)
         for surface, payload in surfaces.items()
         if isinstance(payload, dict) and payload
     }
+    return _project_startup_authority_fields(rows)
 
 
 def _proof_tick_fields(payload: dict[str, object]) -> dict[str, str]:
@@ -220,6 +229,22 @@ def _proof_tick_fields(payload: dict[str, object]) -> dict[str, str]:
         field: _first_nested(payload, paths)
         for field, paths in _PROOF_TICK_FIELD_PATHS.items()
     }
+
+
+def _project_startup_authority_fields(
+    rows: dict[str, dict[str, str]],
+) -> dict[str, dict[str, str]]:
+    startup_reviewer_mode = rows.get("startup_context", {}).get("reviewer_mode", "")
+    if not startup_reviewer_mode:
+        return rows
+    projected: dict[str, dict[str, str]] = {
+        surface: dict(payload)
+        for surface, payload in rows.items()
+    }
+    for surface in _STARTUP_REVIEWER_MODE_PROJECTION_SURFACES:
+        if surface in projected and projected[surface].get("reviewer_mode"):
+            projected[surface]["reviewer_mode"] = startup_reviewer_mode
+    return projected
 
 
 def _first_nested(

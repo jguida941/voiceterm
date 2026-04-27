@@ -9,6 +9,20 @@ from ...repo_packs import active_path_config
 from ...review_channel.event_reducer import load_or_refresh_event_bundle
 from ...review_channel.event_store import resolve_artifact_paths
 from ...review_channel.state import refresh_status_snapshot
+from .push_recovery_loop_repair import (
+    PRE_VALIDATION_RECOVERY_LOOP_REPAIR,
+    mark_recovery_required_from_startup_context_step,
+    startup_context_step_needs_recovery,
+)
+
+
+STARTUP_CONTEXT_REFRESH_COMMAND = (
+    sys.executable,
+    "dev/scripts/devctl.py",
+    "startup-context",
+    "--format",
+    "summary",
+)
 
 
 def refresh_runtime_surfaces_after_projection_receipt(
@@ -17,6 +31,7 @@ def refresh_runtime_surfaces_after_projection_receipt(
     command_runner,
     repo_root: Path,
     next_step_label: str,
+    repo_pack_id: str = "",
 ) -> None:
     """Refresh freshness-guard inputs after a managed receipt moves HEAD."""
     if not _refresh_review_channel_projection_bundle_after_projection_receipt(
@@ -28,13 +43,7 @@ def refresh_runtime_surfaces_after_projection_receipt(
     refresh_steps = (
         (
             "push-refresh-startup-context",
-            (
-                sys.executable,
-                "dev/scripts/devctl.py",
-                "startup-context",
-                "--format",
-                "summary",
-            ),
+            STARTUP_CONTEXT_REFRESH_COMMAND,
             "startup-context",
         ),
         (
@@ -54,6 +63,22 @@ def refresh_runtime_surfaces_after_projection_receipt(
     for step_name, command, label in refresh_steps:
         step = command_runner(step_name, list(command), cwd=repo_root)
         if step.get("returncode", 1) != 0:
+            if label == "startup-context" and startup_context_step_needs_recovery(step):
+                recovery_record = mark_recovery_required_from_startup_context_step(
+                    state, step
+                )
+                sync = getattr(state, "pre_validation_managed_projection_sync", {})
+                if isinstance(sync, dict):
+                    sync["startup_context_recovery_required"] = True
+                    sync["startup_context_recovery"] = recovery_record
+                    state.pre_validation_managed_projection_sync = sync
+                state.warnings.append(
+                    "Managed projection receipt moved HEAD and startup-context "
+                    "reported bounded recovery; deferring to "
+                    f"{PRE_VALIDATION_RECOVERY_LOOP_REPAIR} before "
+                    f"{next_step_label}."
+                )
+                continue
             state.errors.append(
                 "Managed projection receipt moved HEAD, but "
                 f"{label} refresh failed before {next_step_label}."
@@ -112,4 +137,7 @@ def _refresh_review_channel_projection_bundle_after_projection_receipt(
     return True
 
 
-__all__ = ["refresh_runtime_surfaces_after_projection_receipt"]
+__all__ = [
+    "PRE_VALIDATION_RECOVERY_LOOP_REPAIR",
+    "refresh_runtime_surfaces_after_projection_receipt",
+]

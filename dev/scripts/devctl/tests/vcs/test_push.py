@@ -16,6 +16,7 @@ from dev.scripts.devctl.commands.vcs import (
     push_preflight_projection,
     push_projection_runtime_refresh,
     push_projection_receipt,
+    push_recovery_loop_repair,
     push_render_surface_sync,
 )
 from dev.scripts.devctl.commands.vcs.governed_executor_push_result import (
@@ -546,7 +547,7 @@ class PushCommandTests(unittest.TestCase):
                 return_value=pipeline,
             ),
             patch(
-                "dev.scripts.devctl.governance.push_state.receipt_commit_ancestor_shas",
+                "dev.scripts.devctl.governance.push_state.managed_receipt_ancestor_shas",
                 return_value=("receipt-1", "head-old"),
             ),
             patch(
@@ -1146,6 +1147,21 @@ class PushCommandTests(unittest.TestCase):
                 "skipped": False,
             },
             {
+                "name": "push-refresh-render-surfaces",
+                "cmd": [
+                    "python3",
+                    "dev/scripts/devctl.py",
+                    "render-surfaces",
+                    "--write",
+                    "--format",
+                    "json",
+                ],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+            {
                 "name": "push-preflight",
                 "cmd": [
                     "bash",
@@ -1364,6 +1380,21 @@ class PushCommandTests(unittest.TestCase):
                 "skipped": False,
             },
             {
+                "name": "push-refresh-render-surfaces",
+                "cmd": [
+                    "python3",
+                    "dev/scripts/devctl.py",
+                    "render-surfaces",
+                    "--write",
+                    "--format",
+                    "json",
+                ],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+            {
                 "name": "push-preflight",
                 "cmd": [
                     "bash",
@@ -1525,6 +1556,21 @@ class PushCommandTests(unittest.TestCase):
                 "skipped": False,
             },
             {
+                "name": "push-refresh-render-surfaces",
+                "cmd": [
+                    "python3",
+                    "dev/scripts/devctl.py",
+                    "render-surfaces",
+                    "--write",
+                    "--format",
+                    "json",
+                ],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+            {
                 "name": "push-preflight",
                 "cmd": [
                     "bash",
@@ -1648,9 +1694,10 @@ class PushBridgeSyncTests(unittest.TestCase):
             _policy,
             *,
             repo_root,
+            command_runner=None,
             quality_policy_path=None,
         ):
-            del _state, _policy, repo_root, quality_policy_path
+            del _state, _policy, repo_root, command_runner, quality_policy_path
             calls.append("managed-projection-refresh")
 
         with (
@@ -1751,9 +1798,10 @@ class PushBridgeSyncTests(unittest.TestCase):
             _policy,
             *,
             repo_root,
+            command_runner=None,
             quality_policy_path=None,
         ):
-            del _policy, repo_root, quality_policy_path
+            del _policy, repo_root, command_runner, quality_policy_path
             calls.append("pre-validation-managed-projection-sync")
             _state.pre_validation_managed_projection_sync = {
                 "phase": "pre_validation_managed_projection_sync",
@@ -2322,6 +2370,176 @@ class PushBridgeSyncTests(unittest.TestCase):
             ],
         )
 
+    def test_sync_managed_projection_recovers_dead_reviewer_worker(
+        self,
+    ) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+        calls: list[tuple[str, list[str]]] = []
+        failed_startup_context = "\n".join(
+            [
+                "action=repair_reviewer_loop",
+                "reason=runtime_missing",
+                "blockers=startup_authority,runtime_missing",
+                "next=python3 dev/scripts/devctl.py review-channel --action launch",
+                "observed_control_topology=no_live_agents",
+                "implementation_permission=blocked",
+                "attention_status=runtime_missing",
+                "recovery_action=relaunch_allowed",
+                "recovery_basis=process_dead",
+                "recovery_scope=entire_lane",
+            ]
+        )
+
+        def _runner(name, cmd, cwd=None, env=None):
+            del cwd, env
+            calls.append((name, list(cmd)))
+            result = {
+                "name": name,
+                "cmd": list(cmd),
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+            if name == "push-refresh-startup-context":
+                result["returncode"] = 1
+                result["failure_output"] = failed_startup_context
+            return result
+
+        with (
+            patch.object(
+                push_preflight_projection,
+                "refresh_review_snapshot_file",
+                return_value=[],
+            ),
+            patch.object(
+                push_preflight_projection,
+                "auto_commit_managed_projection_receipt",
+                return_value={"ok": True, "committed": True, "paths": ("bridge.md",)},
+            ),
+            patch.object(
+                push_preflight_projection,
+                "auto_commit_review_snapshot_freshness_receipt",
+                return_value={"committed": False},
+            ),
+        ):
+            push_preflight_projection.refresh_managed_projections_before_preflight(
+                state,
+                policy,
+                repo_root=Path("/tmp/repo"),
+                command_runner=_runner,
+            )
+
+        self.assertEqual(
+            [name for name, _cmd in calls],
+            [
+                "push-refresh-startup-context",
+                "push-refresh-context-graph",
+                "push-recovery-startup-context-1",
+            ],
+        )
+        self.assertEqual(state.errors, [])
+        self.assertTrue(state.pre_validation_recovery_loop_repair_required)
+        self.assertTrue(
+            any(
+                "deferring to pre_validation_recovery_loop_repair" in warning
+                for warning in state.warnings
+            )
+        )
+
+    def test_prevalidation_recovery_loop_runs_bounded_next_chain(self) -> None:
+        state = push.PushRunState(
+            branch="feature/demo",
+            remote="origin",
+            pre_validation_recovery_loop_repair_required=True,
+        )
+        policy = make_policy()
+        calls: list[tuple[str, list[str]]] = []
+        startup_attempts = 0
+
+        def _runner(name, cmd, cwd=None, env=None):
+            del cwd, env
+            nonlocal startup_attempts
+            calls.append((name, list(cmd)))
+            result = {
+                "name": name,
+                "cmd": list(cmd),
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+            if name.startswith("push-recovery-startup-context"):
+                startup_attempts += 1
+                if startup_attempts == 1:
+                    result["returncode"] = 1
+                    result["failure_output"] = "\n".join(
+                        [
+                            "action=repair_reviewer_loop",
+                            "reason=runtime_missing",
+                            "next=python3 dev/scripts/devctl.py review-channel --action ensure --follow",
+                            "implementation_permission=blocked",
+                            "attention_status=runtime_missing",
+                            "recovery_action=relaunch_allowed",
+                        ]
+                    )
+                elif startup_attempts == 2:
+                    result["returncode"] = 1
+                    result["failure_output"] = "\n".join(
+                        [
+                            "action=repair_reviewer_loop",
+                            "reason=runtime_missing",
+                            "next=python3 dev/scripts/devctl.py review-channel --action launch",
+                            "implementation_permission=blocked",
+                            "attention_status=runtime_missing",
+                            "recovery_action=relaunch_allowed",
+                        ]
+                    )
+                else:
+                    result["failure_output"] = "\n".join(
+                        [
+                            "action=push_allowed",
+                            "reason=push_preconditions_satisfied",
+                            "next=python3 dev/scripts/devctl.py push --execute",
+                            "implementation_permission=active",
+                        ]
+                    )
+            return result
+
+        result = push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
+            state,
+            policy,
+            repo_root=Path("/tmp/repo"),
+            command_runner=_runner,
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(
+            [name for name, _cmd in calls],
+            [
+                "push-recovery-startup-context-1",
+                "push-recovery-review-channel-ensure-1",
+                "push-recovery-startup-context-2",
+                "push-recovery-review-channel-launch-2",
+                "push-recovery-startup-context-3",
+            ],
+        )
+        self.assertIn("--follow", calls[1][1])
+        self.assertIn("--terminal", calls[3][1])
+        self.assertIn("none", calls[3][1])
+        self.assertEqual(
+            result["typed_action"]["action_id"],
+            "vcs.recovery_loop_repair",
+        )
+        self.assertEqual(
+            result["action_result"]["artifact_paths"],
+            [],
+        )
+        self.assertLessEqual(result["step_count"], 5)
+        self.assertEqual(state.errors, [])
+
     def test_sync_bridge_projection_before_preflight_reprojects_active_bridge(
         self,
     ) -> None:
@@ -2869,6 +3087,21 @@ class PushBridgeSyncTests(unittest.TestCase):
                 "skipped": False,
             },
             {
+                "name": "push-refresh-render-surfaces",
+                "cmd": [
+                    "python3",
+                    "dev/scripts/devctl.py",
+                    "render-surfaces",
+                    "--write",
+                    "--format",
+                    "json",
+                ],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+            {
                 "name": "push-preflight",
                 "cmd": [
                     "bash",
@@ -2951,6 +3184,21 @@ class PushBridgeSyncTests(unittest.TestCase):
             {
                 "name": "git-fetch",
                 "cmd": ["git", "fetch", "origin"],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+            {
+                "name": "push-refresh-render-surfaces",
+                "cmd": [
+                    "python3",
+                    "dev/scripts/devctl.py",
+                    "render-surfaces",
+                    "--write",
+                    "--format",
+                    "json",
+                ],
                 "cwd": ".",
                 "returncode": 0,
                 "duration_s": 0.1,
@@ -3056,6 +3304,21 @@ class PushBridgeSyncTests(unittest.TestCase):
             {
                 "name": "git-fetch",
                 "cmd": ["git", "fetch", "origin"],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+            {
+                "name": "push-refresh-render-surfaces",
+                "cmd": [
+                    "python3",
+                    "dev/scripts/devctl.py",
+                    "render-surfaces",
+                    "--write",
+                    "--format",
+                    "json",
+                ],
                 "cwd": ".",
                 "returncode": 0,
                 "duration_s": 0.1,
@@ -3169,6 +3432,21 @@ class PushBridgeSyncTests(unittest.TestCase):
             {
                 "name": "git-fetch",
                 "cmd": ["git", "fetch", "origin"],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+            {
+                "name": "push-refresh-render-surfaces",
+                "cmd": [
+                    "python3",
+                    "dev/scripts/devctl.py",
+                    "render-surfaces",
+                    "--write",
+                    "--format",
+                    "json",
+                ],
                 "cwd": ".",
                 "returncode": 0,
                 "duration_s": 0.1,

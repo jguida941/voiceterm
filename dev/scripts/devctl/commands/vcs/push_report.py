@@ -61,6 +61,7 @@ class PushReportInputs:
     push_authorization_id: str = ""
     push_authorization_mode: str = ""
     pre_validation_managed_projection_sync: dict[str, Any] | None = None
+    pre_validation_recovery_loop_repair: dict[str, Any] | None = None
     post_validation_auto_commit_repair: dict[str, Any] | None = None
 
 
@@ -89,6 +90,7 @@ def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
         pre_validation_managed_projection_sync=(
             inputs.pre_validation_managed_projection_sync
         ),
+        pre_validation_recovery_loop_repair=inputs.pre_validation_recovery_loop_repair,
         post_validation_auto_commit_repair=inputs.post_validation_auto_commit_repair,
     )
     report["push_diagnostic"] = build_push_diagnostic(

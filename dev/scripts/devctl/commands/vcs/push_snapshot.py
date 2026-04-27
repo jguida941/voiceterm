@@ -80,6 +80,11 @@ def build_push_report_payload(
                 "pre_validation_managed_projection_sync",
                 {},
             ),
+            pre_validation_recovery_loop_repair=getattr(
+                state,
+                "pre_validation_recovery_loop_repair",
+                {},
+            ),
             post_validation_auto_commit_repair=getattr(
                 state,
                 "post_validation_auto_commit_repair",

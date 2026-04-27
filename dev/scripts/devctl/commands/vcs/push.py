@@ -24,12 +24,7 @@ from ...review_channel.service_identity import worktree_identity_for_repo
 from ...review_channel.state import refresh_status_snapshot
 from ...runtime import TypedAction
 from ...runtime.push_authorization import publication_authorization_decision
-from ...runtime.vcs import (
-    branch_divergence,
-    remote_branch_exists,
-    remote_exists,
-    run_git_capture,
-)
+from ...runtime.vcs import branch_divergence, remote_branch_exists, remote_exists, run_git_capture
 from ..review_channel.status_bridge_sync import (
     sync_bridge_from_typed_projection_if_needed as _sync_bridge_from_typed_projection_if_needed,
 )
@@ -88,6 +83,9 @@ class PushRunState:
     push_authorization_id: str = ""
     push_authorization_mode: str = ""
     pre_validation_managed_projection_sync: dict[str, Any] = field(default_factory=dict)
+    pre_validation_recovery_loop_repair: dict[str, Any] = field(default_factory=dict)
+    pre_validation_recovery_loop_repair_required: bool = False
+    pre_validation_recovery_loop_repair_startup: dict[str, Any] = field(default_factory=dict)
     post_validation_auto_commit_repair: dict[str, Any] = field(default_factory=dict)
 
 
@@ -305,6 +303,7 @@ def _run_fetch_and_preflight(
         state,
         policy,
         repo_root=repo_root,
+        command_runner=command_runner,
         quality_policy_path=getattr(args, "quality_policy", None),
     )
     if state.errors:

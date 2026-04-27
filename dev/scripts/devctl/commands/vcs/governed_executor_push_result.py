@@ -105,6 +105,7 @@ def apply_push_report_projection(pipeline, projection: PushReportProjection):
 def build_push_pipeline_phases(
     *,
     pre_validation_managed_projection_sync: dict[str, object] | None,
+    pre_validation_recovery_loop_repair: dict[str, object] | None,
     post_validation_auto_commit_repair: dict[str, object] | None,
 ) -> dict[str, dict[str, object]]:
     """Return the report contract for push pipeline phase boundaries."""
@@ -112,6 +113,10 @@ def build_push_pipeline_phases(
         "pre_validation_managed_projection_sync": (
             pre_validation_managed_projection_sync
             or _default_phase("pre_validation_managed_projection_sync")
+        ),
+        "pre_validation_recovery_loop_repair": (
+            pre_validation_recovery_loop_repair
+            or _default_phase("pre_validation_recovery_loop_repair")
         ),
         "post_validation_auto_commit_repair": (
             post_validation_auto_commit_repair
@@ -129,6 +134,7 @@ def append_push_pipeline_phase_lines(lines: list[str], phase_state: object) -> N
     lines.append("")
     for name in (
         "pre_validation_managed_projection_sync",
+        "pre_validation_recovery_loop_repair",
         "post_validation_auto_commit_repair",
     ):
         phase = phase_state.get(name) or {}

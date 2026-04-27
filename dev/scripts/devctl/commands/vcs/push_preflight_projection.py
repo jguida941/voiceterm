@@ -14,6 +14,7 @@ from .push_projection_runtime_refresh import (
     refresh_runtime_surfaces_after_projection_receipt,
 )
 from .push_projection_receipt import auto_commit_managed_projection_receipt
+from .push_recovery_loop_repair import run_pre_validation_recovery_loop_repair_phase
 from .push_render_surface_sync import (
     POLICY_RENDER_SURFACE_SYNC,
     refresh_policy_owned_render_surfaces_before_preflight,
@@ -75,6 +76,7 @@ def refresh_managed_projections_before_preflight(
             command_runner=runner,
             repo_root=repo_root,
             next_step_label="push preflight",
+            repo_pack_id=str(getattr(policy, "repo_pack_id", "") or ""),
         )
         if getattr(state, "errors", ()):
             return result
@@ -94,6 +96,7 @@ def refresh_managed_projections_before_preflight(
                 command_runner=runner,
                 repo_root=repo_root,
                 next_step_label="push preflight snapshot receipt",
+                repo_pack_id=str(getattr(policy, "repo_pack_id", "") or ""),
             )
     elif render_result.get("committed") and not getattr(state, "errors", ()):
         refresh_runtime_surfaces_after_projection_receipt(
@@ -101,7 +104,18 @@ def refresh_managed_projections_before_preflight(
             command_runner=runner,
             repo_root=repo_root,
             next_step_label="push preflight generated-surface receipt",
+            repo_pack_id=str(getattr(policy, "repo_pack_id", "") or ""),
         )
+    recovery_record = getattr(
+        state,
+        "pre_validation_recovery_loop_repair_startup",
+        {},
+    )
+    if isinstance(recovery_record, dict) and recovery_record:
+        result["startup_context_recovery_required"] = bool(
+            recovery_record.get("required")
+        )
+        result["startup_context_recovery"] = dict(recovery_record)
     if getattr(state, "errors", ()):
         result["status"] = "blocked"
     _record_phase_state(
@@ -109,6 +123,13 @@ def refresh_managed_projections_before_preflight(
         "pre_validation_managed_projection_sync",
         result,
     )
+    if not getattr(state, "errors", ()):
+        run_pre_validation_recovery_loop_repair_phase(
+            state,
+            policy,
+            repo_root=repo_root,
+            command_runner=runner,
+        )
     return result
 
 
@@ -131,6 +152,7 @@ def auto_commit_managed_projection_receipt_before_authorization(
             command_runner=command_runner,
             repo_root=repo_root,
             next_step_label="publication authorization",
+            repo_pack_id=str(getattr(policy, "repo_pack_id", "") or ""),
         )
         if not state.errors:
             auto_commit_review_snapshot_freshness_receipt(

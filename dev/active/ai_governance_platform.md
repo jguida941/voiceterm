@@ -5734,6 +5734,18 @@ working on `MP-377`.
   receipt artifact contract for dirty-path classification and projects
   unpublished commits as source vs managed-receipt counts, keeping projection
   refresh churn advisory while real authored dirt remains blocking.
+- 2026-04-27 governed-push typed `next=` recovery-loop automation:
+  `rev_pkt_2019` exposed the next automation asymmetry: managed projection
+  receipts were automatic, but a deterministic startup-context recovery
+  cascade still asked an AI/operator to run obvious `next=` commands. Governed
+  push now records recoverable startup-context failures during managed
+  projection sync, then runs a bounded
+  `pre_validation_recovery_loop_repair` phase before validation. The phase
+  emits `vcs.recovery_loop_repair`, executes only allowlisted headless
+  review-channel repair/status/launch commands, caps the loop at five steps
+  and thirty seconds, and fails closed on non-bounded operator scope. The same
+  closeout makes reviewer-mode proof-tick parity defer bridge, coordination,
+  and registry projections to `startup_context.reviewer_gate.reviewer_mode`.
 - 2026-04-26 Plan 4.1 Slice 0 governed-push closeout:
   the live push blocker is now narrowed to fresh approval rather than
   self-invalidating state. Managed bridge/ReviewSnapshot receipt chains are

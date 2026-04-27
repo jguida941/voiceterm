@@ -592,7 +592,7 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
             "\n".join(failed["errors"]),
         )
 
-    def test_build_report_uses_startup_context_as_reviewer_mode_authority(
+    def test_build_report_projects_reviewer_mode_from_startup_context(
         self,
     ) -> None:
         payloads = self._phase_zero_payloads()
@@ -600,24 +600,23 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
         coordination = payloads["review_state_payload"]["coordination"]
         assert isinstance(startup, dict)
         assert isinstance(coordination, dict)
+        startup["reviewer_mode"] = "tools_only"
         startup["reviewer_gate"] = {"reviewer_mode": "single_agent"}
         coordination["reviewer_mode"] = "tools_only"
 
         report = self.script.build_report(**payloads, disk_review_state_payload=None)
 
-        self.assertFalse(report["ok"])
+        self.assertTrue(report["ok"])
         reviewer_mode_violations = [
             violation
             for violation in report["violations"]
             if violation["category"] == "proof_tick_field_parity"
             and violation["field"] == "reviewer_mode"
         ]
-        self.assertEqual(len(reviewer_mode_violations), 1)
-        self.assertEqual(reviewer_mode_violations[0]["surface"], "coordination_snapshot")
-        self.assertEqual(reviewer_mode_violations[0]["expected"], "single_agent")
-        self.assertIn(
-            "from startup_context",
-            reviewer_mode_violations[0]["detail"],
+        self.assertEqual(reviewer_mode_violations, [])
+        self.assertEqual(
+            report["proof_tick_fields"]["coordination_snapshot"]["reviewer_mode"],
+            "single_agent",
         )
 
     def test_build_report_compares_operator_interaction_mode_axis(self) -> None:
