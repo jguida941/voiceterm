@@ -78,8 +78,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-27T22:57:21Z`
-- Last Codex poll (Local America/New_York): `2026-04-27 18:57:21 EDT`
+- Last Codex poll: `2026-04-27T23:03:57Z`
+- Last Codex poll (Local America/New_York): `2026-04-27 19:03:57 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `6d56c1757786cb3a4303a128fd5cd4a6dbcd608ddda5e6a533c047612165b126`
 - Current instruction revision: `8a50b64e9f35`
@@ -134,7 +134,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- [rev_pkt_2063] stage_commit_pipeline: target=runtime:devctl_commit:120c12498b50797d05df6d000978c6f65f96f907@120c12498b50797d05df6d000978c6f65f96f907; Codex 30 Path I stage_commit_pipeline: full CI evidence attached (status: pending)
+- No pending action requests.
