@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-28T16:04:01Z`
-- Last Codex poll (Local America/New_York): `2026-04-28 12:04:01 EDT`
+- Last Codex poll: `2026-04-28T16:36:24Z`
+- Last Codex poll (Local America/New_York): `2026-04-28 12:36:24 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `93d905d0f53fb9052847360f7a18aad44d7ef81dced45d50b4df4735c293cddc`
-- Current instruction revision: `e133eeadcc8e`
+- Last non-audit worktree hash: `6efaae037309b1362aa7dc6c249cd8aff33e9f6cc7f3126f91503f2b3195e9da`
+- Current instruction revision: `5f244c3da31b`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-28T14:56:16.182505Z.
+- Reviewer state rebuilt from typed review-state projection at 2026-04-28T16:26:06.876277Z.
 
 ## Current Verdict
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-3 pending review packet(s); 509 expired unresolved review packet(s)
+509 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -134,11 +134,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
-Priority action_request: Run governed commit staging from remote-control lane
+Priority action_request: Codex 29 Path I: automate governed commit recovery blockers
 
 ## Last Reviewed Scope
 
@@ -146,6 +146,4 @@ MP-355
 
 ## Action Requests
 
-- [rev_pkt_2101] stage_commit_pipeline: target=runtime:devctl_commit:951ba6098f4adda09c33ad08b69ebf6e5c32daa7@951ba6098f4adda09c33ad08b69ebf6e5c32daa7; Run governed commit staging from remote-control lane (status: pending)
-- [rev_pkt_2100] stage_commit_pipeline: target=runtime:devctl_commit:951ba6098f4adda09c33ad08b69ebf6e5c32daa7@951ba6098f4adda09c33ad08b69ebf6e5c32daa7; Run governed commit staging from remote-control lane (status: pending)
-- [rev_pkt_2099] stage_commit_pipeline: target=runtime:devctl_commit:951ba6098f4adda09c33ad08b69ebf6e5c32daa7@951ba6098f4adda09c33ad08b69ebf6e5c32daa7; Run governed commit staging from remote-control lane (status: pending)
+- No pending action requests.
