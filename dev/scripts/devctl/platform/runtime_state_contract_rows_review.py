@@ -149,7 +149,12 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField(
                 "target_revision",
                 "str",
-                "Target revision copied from the packet-backed handoff scope.",
+                (
+                    "Target revision copied from the packet-backed handoff scope; "
+                    "metadata-free completed handoffs may be trusted by governed "
+                    "push only when this matches the current devctl_commit head "
+                    "or managed-receipt source chain."
+                ),
             ),
             ContractField(
                 "metadata_path",

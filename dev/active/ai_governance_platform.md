@@ -138,14 +138,16 @@ Current 2026-04-27 governed-commit self-resolution note:
 Current 2026-04-28 agent-session-outcome note:
 - Clean handoff is now typed runtime state, not a side effect inferred from a
   missing process. The review-channel `stage_commit_pipeline` packet path
-  emits `AgentSessionOutcome(outcome=completed_handoff)` when full guard
-  evidence is present, `CollaborationSession.session_outcomes` carries those
-  receipts, and governed push may waive `repair_reviewer_loop` only when the
-  current prepared-session token proves the missing live agent is the same
-  session that completed handoff. Process liveness, expired liveness events,
-  and conductor rows remain evidence for `process_died` / `unresolved` cases;
-  they are no longer sufficient to collapse completed handoff into dead-agent
-  recovery.
+	  emits `AgentSessionOutcome(outcome=completed_handoff)` when full guard
+	  evidence is present, `CollaborationSession.session_outcomes` carries those
+	  receipts, and governed push may waive `repair_reviewer_loop` only when the
+	  current prepared-session token proves the missing live agent is the same
+	  session that completed handoff, or when no provider-matching conductor
+	  metadata exists and the packet's `devctl_commit:<head>` target matches the
+	  current source/managed-receipt chain. Process liveness, expired liveness
+	  events, and conductor rows remain evidence for `process_died` /
+	  `unresolved` cases; they are no longer sufficient to collapse completed
+	  handoff into dead-agent recovery.
 - The operator's `rev_pkt_2066` multi-axis directive is plan state here:
   generated instruction surfaces, command-capability evidence, portability
   proof, no-parallel-system guards, and agent proof-of-navigation are tracked
@@ -3477,8 +3479,8 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       status: `in_progress`
       depends_on: `MP377-P0-T12A`, `MP377-P0-T14`, `MP377-P0-T16`
       scope: Extend the existing review-channel session lifecycle, `CollaborationSession`, startup/push recovery, and stall diagnostics so process exit after a guarded handoff is not treated like mid-slice death. Keep `bridge.md` and conductor liveness as compatibility evidence only.
-      acceptance_criteria: `stage_commit_pipeline` with full guard evidence emits `AgentSessionOutcome(outcome=completed_handoff)`; governed push bypasses `repair_reviewer_loop` only when that receipt matches the current prepared session; stale or mismatched receipts keep the existing recovery loop; `process_died` / `unresolved` classifications remain explicit follow-up states.
-      progress: 2026-04-28 landed the completed-handoff receipt, review-state projection, governed-push bypass, and 180-second recovery-loop budget. Remaining T20 scope is broader Codex-stall / flip-mode classification and producer coverage for `process_died` / `unresolved`.
+      acceptance_criteria: `stage_commit_pipeline` with full guard evidence emits `AgentSessionOutcome(outcome=completed_handoff)`; governed push bypasses `repair_reviewer_loop` only when that receipt matches the current prepared session or, for metadata-free codex-exec handoffs, the current `devctl_commit:<head>` / managed-receipt source chain; stale or mismatched receipts keep the existing recovery loop; `process_died` / `unresolved` classifications remain explicit follow-up states.
+      progress: 2026-04-28 landed the completed-handoff receipt, review-state projection, governed-push bypass, metadata-free same-head fallback, and 180-second recovery-loop budget. Remaining T20 scope is broader Codex-stall / flip-mode classification and producer coverage for `process_died` / `unresolved`.
 - [ ] `MP377-P0-T21` Command capability evidence index over the existing command catalog: map task classes to required command sequences and drift detectors without adding a parallel command registry.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`

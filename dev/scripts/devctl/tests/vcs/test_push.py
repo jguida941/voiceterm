@@ -17,6 +17,7 @@ from dev.scripts.devctl.commands.vcs import (
     push_preflight_projection,
     push_projection_receipt,
     push_projection_runtime_refresh,
+    push_recovery_loop_handoff,
     push_recovery_loop_repair,
     push_render_surface_sync,
 )
@@ -1834,16 +1835,19 @@ class PushBridgeSyncTests(unittest.TestCase):
         *,
         repo_root: Path,
         token: str,
+        write_metadata: bool = True,
+        target_revision: str = "abc123",
     ):
         review_channel_path = repo_root / "dev/active/review_channel.md"
         review_channel_path.parent.mkdir(parents=True, exist_ok=True)
         review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
         artifact_paths = resolve_artifact_paths(repo_root=repo_root)
-        self._write_codex_session_metadata(
-            repo_root=repo_root,
-            artifact_paths=artifact_paths,
-            token=token,
-        )
+        if write_metadata:
+            self._write_codex_session_metadata(
+                repo_root=repo_root,
+                artifact_paths=artifact_paths,
+                token=token,
+            )
         post_packet(
             repo_root=repo_root,
             review_channel_path=review_channel_path,
@@ -1859,8 +1863,8 @@ class PushBridgeSyncTests(unittest.TestCase):
                 approval_required=False,
                 target=PacketTargetFields.from_values(
                     target_kind="runtime",
-                    target_ref="devctl_commit:abc123",
-                    target_revision="abc123",
+                    target_ref=f"devctl_commit:{target_revision}",
+                    target_revision=target_revision,
                 ),
                 guard_bundle_evidence=PacketGuardBundleEvidenceFields.from_values(
                     full_guard_bundle_evidence="--profile ci",
@@ -1875,15 +1879,16 @@ class PushBridgeSyncTests(unittest.TestCase):
         repo_root: Path,
         artifact_paths,
         token: str,
+        provider: str = "codex",
     ) -> None:
         session_dir = Path(artifact_paths.projections_root) / "sessions"
         session_dir.mkdir(parents=True, exist_ok=True)
-        (session_dir / "codex-conductor.json").write_text(
+        (session_dir / f"{provider}-conductor.json").write_text(
             json.dumps(
                 {
-                    "provider": "codex",
+                    "provider": provider,
                     "role": "review_agent",
-                    "session_name": "codex-conductor",
+                    "session_name": f"{provider}-conductor",
                     "prepared_at": "2026-04-27T20:00:00Z",
                     "prepared_session_token": token,
                     "prepared_head_sha": "abc123",
@@ -3060,6 +3065,180 @@ class PushBridgeSyncTests(unittest.TestCase):
             "completed_handoff",
         )
         self.assertEqual(state.errors, [])
+
+    def test_prevalidation_recovery_loop_accepts_head_bound_handoff_without_session_metadata(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            artifact_paths = self._post_stage_commit_pipeline_handoff(
+                repo_root=repo_root,
+                token="",
+                write_metadata=False,
+            )
+            self._write_codex_session_metadata(
+                repo_root=repo_root,
+                artifact_paths=artifact_paths,
+                token="unrelated-provider-token",
+                provider="claude",
+            )
+            state = push.PushRunState(
+                branch="feature/demo",
+                remote="origin",
+                pre_validation_recovery_loop_repair_required=True,
+            )
+            state.pre_validation_recovery_loop_repair_startup = (
+                self._runtime_missing_recovery_record()
+            )
+            policy = make_policy()
+            calls: list[str] = []
+
+            def _runner(name, cmd, cwd=None, env=None):
+                del cmd, cwd, env
+                calls.append(name)
+                return {
+                    "name": name,
+                    "cmd": [],
+                    "cwd": str(repo_root),
+                    "returncode": 0,
+                    "duration_s": 0.1,
+                    "skipped": False,
+                }
+
+            with patch.object(
+                push_recovery_loop_handoff,
+                "_handoff_target_revisions",
+                return_value=("abc123",),
+            ):
+                result = (
+                    push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
+                        state,
+                        policy,
+                        repo_root=repo_root,
+                        command_runner=_runner,
+                    )
+                )
+
+        self.assertEqual(calls, [])
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["reason"], "agent_session_completed_handoff")
+        self.assertEqual(
+            result["agent_session_outcome"]["target_revision"],
+            "abc123",
+        )
+        self.assertEqual(state.errors, [])
+
+    def test_prevalidation_recovery_loop_rejects_wrong_head_handoff_without_metadata(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            self._post_stage_commit_pipeline_handoff(
+                repo_root=repo_root,
+                token="",
+                write_metadata=False,
+                target_revision="old123",
+            )
+            state = push.PushRunState(
+                branch="feature/demo",
+                remote="origin",
+                pre_validation_recovery_loop_repair_required=True,
+            )
+            state.pre_validation_recovery_loop_repair_startup = (
+                self._runtime_missing_recovery_record()
+            )
+            policy = make_policy()
+            calls: list[str] = []
+
+            def _runner(name, cmd, cwd=None, env=None):
+                del cmd, cwd, env
+                calls.append(name)
+                return {
+                    "name": name,
+                    "cmd": [],
+                    "cwd": str(repo_root),
+                    "returncode": 0,
+                    "duration_s": 0.1,
+                    "skipped": False,
+                }
+
+            with patch.object(
+                push_recovery_loop_handoff,
+                "_handoff_target_revisions",
+                return_value=("abc123",),
+            ):
+                result = (
+                    push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
+                        state,
+                        policy,
+                        repo_root=repo_root,
+                        command_runner=_runner,
+                    )
+                )
+
+        self.assertEqual(calls, ["push-recovery-startup-context-1"])
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["reason"], "startup_context_ready")
+        self.assertNotIn("agent_session_outcome", result)
+        self.assertEqual(state.errors, [])
+
+    def test_handoff_target_revisions_include_managed_receipt_source_parent(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            _run_git(repo_root, "init")
+            _run_git(repo_root, "config", "user.email", "test@example.com")
+            _run_git(repo_root, "config", "user.name", "Test User")
+
+            (repo_root / "source.txt").write_text("base\n", encoding="utf-8")
+            _run_git(repo_root, "add", "source.txt")
+            _run_git(repo_root, "commit", "-m", "base")
+            base_head = _run_git(repo_root, "rev-parse", "HEAD")
+
+            (repo_root / "source.txt").write_text("source\n", encoding="utf-8")
+            _run_git(repo_root, "add", "source.txt")
+            _run_git(repo_root, "commit", "-m", "source")
+            source_head = _run_git(repo_root, "rev-parse", "HEAD")
+
+            snapshot_path = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+            snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+            snapshot_path.write_text("receipt\n", encoding="utf-8")
+            _run_git(repo_root, "add", "dev/audits/REVIEW_SNAPSHOT.md")
+            _run_git(
+                repo_root,
+                "commit",
+                "-m",
+                f"Refresh external review snapshot for {source_head}",
+            )
+            receipt_head = _run_git(repo_root, "rev-parse", "HEAD")
+
+            artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+            pipeline_path = Path(artifact_paths.projections_root) / "commit_pipeline.json"
+            pipeline_path.parent.mkdir(parents=True, exist_ok=True)
+            pipeline_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "contract_id": "RemoteCommitPipelineContract",
+                        "pipeline_id": "pipeline-test",
+                        "commit_sha": source_head,
+                        "commit_result": {
+                            "schema_version": 1,
+                            "contract_id": "ActionResult",
+                            "action_id": "vcs.commit",
+                            "ok": True,
+                            "status": "pass",
+                            "reason": "commit_recorded",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            revisions = push_recovery_loop_handoff._handoff_target_revisions(repo_root)
+
+        self.assertEqual(revisions, (receipt_head, source_head, base_head))
 
     def test_prevalidation_recovery_loop_rejects_stale_completed_handoff(
         self,

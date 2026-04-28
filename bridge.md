@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-28T02:21:22Z`
-- Last Codex poll (Local America/New_York): `2026-04-27 22:21:22 EDT`
+- Last Codex poll: `2026-04-28T03:04:59Z`
+- Last Codex poll (Local America/New_York): `2026-04-27 23:04:59 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `f2f8077325ea08548c974295abc765fd50995d9de7244dc7e103c2f5f6ba3e89`
-- Current instruction revision: `5f244c3da31b`
+- Last non-audit worktree hash: `746b0796df7a9505ca35c1a74a6db9b2c02cc0638c9af003ca00834a3e77d663`
+- Current instruction revision: `1c6a75247605`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: auto-refresh-during-publication; reviewed-tree: f2f8077325ea).
+- Reviewer state rebuilt from typed review-state projection at 2026-04-28T03:04:59.915561Z.
 
 ## Current Verdict
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-499 expired unresolved review packet(s)
+2 pending review packet(s); 499 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -134,11 +134,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-Priority action_request: Codex 29 Path I: automate governed commit recovery blockers
+Priority action_request: Codex 32 T20 same-head completed-handoff fallback ready for governed commit and push
 
 ## Last Reviewed Scope
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- No pending action requests.
+- [rev_pkt_2073] stage_commit_pipeline: target=runtime:devctl_commit:a0a09dec06df5057d86a22ec237781402894c53e@a0a09dec06df5057d86a22ec237781402894c53e; Codex 32 T20 same-head completed-handoff fallback ready for governed commit and push (status: pending)

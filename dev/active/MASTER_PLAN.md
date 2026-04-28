@@ -117,13 +117,15 @@
   and projects bridge/coordination/registry values through that source.
 - 2026-04-28 completed-handoff session-outcome closure (MP-377):
   `stage_commit_pipeline` packets with full guard-bundle evidence now emit
-  `AgentSessionOutcome(outcome=completed_handoff)` through the existing
-  review-channel event log, and `CollaborationSession.session_outcomes`
-  projects the receipt for status/startup/push readers. Governed push may
-  skip `pre_validation_recovery_loop_repair` only when that receipt matches
-  the current prepared-session token and startup-context reports
-  `runtime_missing` / `no_live_agents`; stale or mismatched receipts still run
-  the existing bounded recovery loop. The remaining T20 scope is
+	  `AgentSessionOutcome(outcome=completed_handoff)` through the existing
+	  review-channel event log, and `CollaborationSession.session_outcomes`
+	  projects the receipt for status/startup/push readers. Governed push may
+	  skip `pre_validation_recovery_loop_repair` only when that receipt matches
+	  the current prepared-session token, or when provider-matching conductor
+	  metadata is absent and the packet target is bound to the current
+	  `devctl_commit:<head>` / managed-receipt source chain. Startup-context must
+	  still report `runtime_missing` / `no_live_agents`; stale or mismatched
+	  receipts still run the existing bounded recovery loop. The remaining T20 scope is
   `process_died` / `unresolved` producer coverage plus Codex-stall /
   flip-mode convergence.
 - 2026-04-27 governed-push execution-truth invariant (MP-377):

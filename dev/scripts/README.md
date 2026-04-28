@@ -477,11 +477,13 @@ Portability note:
   `--target-ref`, and `--target-revision`; `stage_commit_pipeline` also
   requires `--full-guard-bundle-evidence` naming the routed full-bundle proof
   (`bundle.runtime`, `bundle.tooling`, `bundle.docs`, `bundle.release`, or
-  `--profile ci`). A valid `stage_commit_pipeline` post also emits an
-  `AgentSessionOutcome(outcome=completed_handoff)` receipt; governed push may
-  use that receipt only when it matches the current prepared session and the
-  startup blocker is `runtime_missing` / `no_live_agents`, otherwise the
-  existing recovery loop still runs. Use `--requested-action commit` or
+	  `--profile ci`). A valid `stage_commit_pipeline` post also emits an
+	  `AgentSessionOutcome(outcome=completed_handoff)` receipt; governed push may
+	  use that receipt only when it matches the current prepared session, or when
+	  no provider-matching conductor metadata exists and the receipt is bound to
+	  the current `devctl_commit:<head>` / managed-receipt source chain. The
+	  startup blocker must still be `runtime_missing` / `no_live_agents`,
+	  otherwise the existing recovery loop still runs. Use `--requested-action commit` or
   `push` only with `--target-ref remote_commit_pipeline:<pipeline_id>` plus
   `--pipeline-generation`, `--staged-snapshot-hash`, and
   `--guard-results-summary`. Targeted `review-channel --action inbox|watch`

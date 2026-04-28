@@ -49,15 +49,24 @@ Change: `stage_commit_pipeline` packets with full guard-bundle evidence now
 emit an event-backed `AgentSessionOutcome(outcome=completed_handoff)` receipt.
 `CollaborationSession.session_outcomes` projects that receipt, and governed
 push may waive `pre_validation_recovery_loop_repair` only when the latest
-completed-handoff receipt matches the current prepared-session token and the
-startup blocker is `runtime_missing` / `no_live_agents`. Stale receipts or
-different startup blockers still run the existing recovery loop. The recovery
+completed-handoff receipt matches the current prepared-session token, or the
+metadata-free target-binding fallback described below applies, and the startup
+blocker is `runtime_missing` / `no_live_agents`. Stale receipts or different
+startup blockers still run the existing recovery loop. The recovery
 loop budget is now 180 seconds so a real `review-channel ensure --follow`
 repair has time to complete and re-check startup-context instead of expiring
 mid-repair. Tandem consistency also treats a fresh reviewer-owned bridge
 `- pending` reset as visible implementer state when event-backed projection
 rows lag behind the repo-owned bridge projection, so a stale typed
 `missing` / `waiting_for_ack` row cannot override an explicit live reset.
+
+Follow-up: codex-exec API handoffs do not always write provider conductor
+metadata. Governed push now keeps the prepared-session-token path first, but
+when no provider-matching conductor metadata exists it may use the same
+completed-handoff receipt only if the packet target is bound to the current
+`devctl_commit:<head>` or the managed-receipt source commit chain. Outcomes
+that carried prepared-session metadata, wrong target refs, wrong revisions, or
+unrelated startup blockers still fail closed into the bounded recovery loop.
 
 Evidence:
 - `dev/scripts/devctl/runtime/agent_session_outcome.py`

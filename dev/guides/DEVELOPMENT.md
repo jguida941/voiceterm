@@ -113,12 +113,14 @@ Use docs like this:
   `--target-ref`, and `--target-revision`, and `commit` / `push` additionally
   require `--target-ref remote_commit_pipeline:<pipeline_id>`,
   `--pipeline-generation`, `--staged-snapshot-hash`, and
-  `--guard-results-summary`. A `stage_commit_pipeline` packet with full guard
-  evidence also emits `AgentSessionOutcome(outcome=completed_handoff)`;
-  governed push may skip reviewer-loop repair only when that receipt matches
-  the current prepared session and startup-context reports
-  `runtime_missing` / `no_live_agents`. Prose-only runtime requests remain
-  packet history, not executable bridge authority.
+	  `--guard-results-summary`. A `stage_commit_pipeline` packet with full guard
+	  evidence also emits `AgentSessionOutcome(outcome=completed_handoff)`;
+	  governed push may skip reviewer-loop repair only when that receipt matches
+	  the current prepared session, or when no provider-matching conductor
+	  metadata exists and the packet target is bound to the current
+	  `devctl_commit:<head>` / managed-receipt source chain. Startup-context must
+	  still report `runtime_missing` / `no_live_agents`. Prose-only runtime
+	  requests remain packet history, not executable bridge authority.
 - The same event-backed packet path now carries typed delivery/execution
   receipts. `post` seeds `delivery_emitted_at_utc`, actor-matched `inbox` /
   `watch` polls stamp `delivery_observed_at_utc` / `delivery_observed_by`, and

@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import asdict
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -17,7 +16,10 @@ from ..runtime.agent_session_outcome import (
     agent_session_outcome_from_mapping,
     latest_agent_session_outcome,
 )
-from .session_probe import ConductorSessionRecord, load_conductor_sessions
+from .event_projection_current_session import (
+    completed_handoff_matches_current_context,
+)
+from .session_probe import load_conductor_sessions
 
 if TYPE_CHECKING:
     from .event_store import ReviewChannelArtifactPaths
@@ -140,6 +142,8 @@ def agent_session_outcomes_from_events(
 def latest_current_completed_handoff_outcome(
     *,
     repo_root: Path,
+    expected_target_revision: str = "",
+    expected_target_revisions: Sequence[str] = (),
 ) -> AgentSessionOutcomeState | None:
     """Return the latest completed handoff bound to current session metadata."""
     from .event_store import resolve_artifact_paths
@@ -158,7 +162,13 @@ def latest_current_completed_handoff_outcome(
     sessions = load_conductor_sessions(
         session_output_root=Path(artifact_paths.projections_root)
     )
-    if not _outcome_matches_current_session(latest, sessions):
+    if not completed_handoff_matches_current_context(
+        latest,
+        sessions,
+        repo_root=repo_root,
+        expected_target_revision=expected_target_revision,
+        expected_target_revisions=expected_target_revisions,
+    ):
         return None
 
     return latest
@@ -195,74 +205,6 @@ def _load_session_metadata(
     payload = dict(payload)
     payload["_metadata_path"] = str(path)
     return payload
-
-
-def _outcome_matches_current_session(
-    outcome: AgentSessionOutcomeState,
-    sessions: Sequence[ConductorSessionRecord],
-) -> bool:
-    for session in sessions or ():
-        provider = _text(session.provider).lower()
-        if provider != outcome.provider.lower():
-            continue
-
-        session_name = _text(session.session_name)
-        if (
-            outcome.session_name
-            and session_name
-            and outcome.session_name != session_name
-        ):
-            continue
-
-        if not _outcome_not_before_session(outcome, session):
-            continue
-
-        token = _text(session.prepared_session_token)
-        if outcome.prepared_session_token and token:
-            return outcome.prepared_session_token == token
-
-        prepared_at = _text(session.prepared_at)
-        if outcome.prepared_at_utc and prepared_at:
-            return outcome.prepared_at_utc == prepared_at
-
-        metadata_path = _text(session.metadata_path)
-        if outcome.metadata_path and metadata_path:
-            return _same_path(outcome.metadata_path, metadata_path)
-
-    return False
-
-
-def _outcome_not_before_session(
-    outcome: AgentSessionOutcomeState,
-    session: ConductorSessionRecord,
-) -> bool:
-    prepared_at = _parse_utc(_text(session.prepared_at))
-    finished_at = _parse_utc(outcome.finished_at_utc or outcome.observed_at_utc)
-
-    if prepared_at is None or finished_at is None:
-        return True
-
-    return finished_at >= prepared_at
-
-
-def _same_path(left: str, right: str) -> bool:
-    try:
-        return Path(left).resolve() == Path(right).resolve()
-    except OSError:
-        return left == right
-
-
-def _parse_utc(value: str) -> datetime | None:
-    text = value.strip()
-    if not text:
-        return None
-    try:
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
 
 
 def _metadata_text(payload: Mapping[str, object], key: str) -> str:

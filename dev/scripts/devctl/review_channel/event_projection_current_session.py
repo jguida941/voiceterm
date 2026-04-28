@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 from pathlib import Path
 
+from ..runtime.agent_session_outcome import AgentSessionOutcomeState
 from .current_session_attention import codex_packet_attention_requires_clear
 from .current_session_projection import (
     build_bridge_current_session,
     build_event_current_session,
 )
+from .session_probe import ConductorSessionRecord
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,3 +53,162 @@ def resolve_current_session(
             current_instruction_revision="",
         )
     return current_session
+
+
+def completed_handoff_matches_current_context(
+    outcome: AgentSessionOutcomeState,
+    sessions: Sequence[ConductorSessionRecord],
+    *,
+    repo_root: Path,
+    expected_target_revision: str = "",
+    expected_target_revisions: Sequence[str] = (),
+) -> bool:
+    """Match a completed handoff against live session metadata or target refs."""
+    if _outcome_matches_current_session(outcome, sessions):
+        return True
+    if _provider_sessions_for_outcome(outcome, sessions):
+        return False
+    return _outcome_matches_expected_target_revisions(
+        outcome,
+        repo_root=repo_root,
+        expected_target_revision=expected_target_revision,
+        expected_target_revisions=expected_target_revisions,
+    )
+
+
+def _provider_sessions_for_outcome(
+    outcome: AgentSessionOutcomeState,
+    sessions: Sequence[ConductorSessionRecord],
+) -> tuple[ConductorSessionRecord, ...]:
+    provider = outcome.provider.lower()
+    session_name = _text(outcome.session_name)
+    rows: list[ConductorSessionRecord] = []
+    for session in sessions or ():
+        if _text(session.provider).lower() != provider:
+            continue
+        candidate_name = _text(session.session_name)
+        if session_name and candidate_name and session_name != candidate_name:
+            continue
+        rows.append(session)
+    return tuple(rows)
+
+
+def _outcome_matches_expected_target_revisions(
+    outcome: AgentSessionOutcomeState,
+    *,
+    repo_root: Path,
+    expected_target_revision: str,
+    expected_target_revisions: Sequence[str],
+) -> bool:
+    revisions = _normalized_revisions(
+        (expected_target_revision, *tuple(expected_target_revisions or ()))
+    )
+    target_revision = _text(outcome.target_revision)
+    if not target_revision or target_revision not in revisions:
+        return False
+    if outcome.target_kind != "runtime":
+        return False
+    if outcome.handoff_requested_action != "stage_commit_pipeline":
+        return False
+    if outcome.target_ref != f"devctl_commit:{target_revision}":
+        return False
+    if not (_text(outcome.handoff_packet_id) and _text(outcome.source_event_id)):
+        return False
+    if _outcome_has_prepared_session_metadata(outcome):
+        return False
+    if outcome.workspace_root and not _same_path(outcome.workspace_root, str(repo_root)):
+        return False
+    return True
+
+
+def _normalized_revisions(values: Sequence[str]) -> frozenset[str]:
+    return frozenset(dict.fromkeys(_text(value) for value in values if _text(value)))
+
+
+def _outcome_has_prepared_session_metadata(
+    outcome: AgentSessionOutcomeState,
+) -> bool:
+    return any(
+        _text(value)
+        for value in (
+            outcome.metadata_path,
+            outcome.prepared_at_utc,
+            outcome.prepared_session_token,
+            outcome.prepared_head_sha,
+            outcome.prepared_instruction_revision,
+        )
+    )
+
+
+def _outcome_matches_current_session(
+    outcome: AgentSessionOutcomeState,
+    sessions: Sequence[ConductorSessionRecord],
+) -> bool:
+    for session in sessions or ():
+        provider = _text(session.provider).lower()
+        if provider != outcome.provider.lower():
+            continue
+
+        session_name = _text(session.session_name)
+        if (
+            outcome.session_name
+            and session_name
+            and outcome.session_name != session_name
+        ):
+            continue
+
+        if not _outcome_not_before_session(outcome, session):
+            continue
+
+        token = _text(session.prepared_session_token)
+        if outcome.prepared_session_token and token:
+            return outcome.prepared_session_token == token
+
+        prepared_at = _text(session.prepared_at)
+        if outcome.prepared_at_utc and prepared_at:
+            return outcome.prepared_at_utc == prepared_at
+
+        metadata_path = _text(session.metadata_path)
+        if outcome.metadata_path and metadata_path:
+            return _same_path(outcome.metadata_path, metadata_path)
+
+    return False
+
+
+def _outcome_not_before_session(
+    outcome: AgentSessionOutcomeState,
+    session: ConductorSessionRecord,
+) -> bool:
+    prepared_at = _parse_utc(_text(session.prepared_at))
+    finished_at = _parse_utc(outcome.finished_at_utc or outcome.observed_at_utc)
+
+    if prepared_at is None or finished_at is None:
+        return True
+
+    return finished_at >= prepared_at
+
+
+def _same_path(left: str, right: str) -> bool:
+    try:
+        return Path(left).resolve() == Path(right).resolve()
+    except OSError:
+        return left == right
+
+
+def _parse_utc(value: str) -> datetime | None:
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _text(value: object) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
