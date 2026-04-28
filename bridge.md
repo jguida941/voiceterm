@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-28T05:25:45Z`
-- Last Codex poll (Local America/New_York): `2026-04-28 01:25:45 EDT`
+- Last Codex poll: `2026-04-28T05:50:12Z`
+- Last Codex poll (Local America/New_York): `2026-04-28 01:50:12 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `70b686d8057e7c0e746e3abe27fd5ab4b8356183c39c28c1dc3cfe463955e693`
-- Current instruction revision: `7b4af7446196`
+- Last non-audit worktree hash: `6026874e25b30b927672dc05c791eee040fa318d69d011dbb5ede14f26b30267`
+- Current instruction revision: `5f244c3da31b`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-28T05:14:35.016985Z.
+- Reviewer state rebuilt from typed review-state projection at 2026-04-28T05:45:29.910777Z.
 
 ## Current Verdict
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-506 expired unresolved review packet(s)
+1 pending review packet(s); 506 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -138,7 +138,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-Priority action_request: Codex 34 completed-handoff startup-authority bypass ready for governed commit/push
+Priority action_request: Codex 29 Path I: automate governed commit recovery blockers
 
 ## Last Reviewed Scope
 
