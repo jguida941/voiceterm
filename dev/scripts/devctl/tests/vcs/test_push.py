@@ -38,6 +38,9 @@ from dev.scripts.devctl.governance.push_policy import (
     detect_push_enforcement_state,
     load_push_policy,
 )
+from dev.scripts.checks.startup_authority_contract.runtime_checks import (
+    collect_reviewer_loop_block_errors,
+)
 from dev.scripts.devctl.review_channel.event_store import resolve_artifact_paths
 from dev.scripts.devctl.review_channel.events import post_packet
 from dev.scripts.devctl.review_channel.packet_contract import (
@@ -1836,6 +1839,8 @@ class PushBridgeSyncTests(unittest.TestCase):
         token: str,
         write_metadata: bool = True,
         target_revision: str = "abc123",
+        from_agent: str = "codex",
+        to_agent: str = "claude",
     ):
         review_channel_path = repo_root / "dev/active/review_channel.md"
         review_channel_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1852,8 +1857,8 @@ class PushBridgeSyncTests(unittest.TestCase):
             review_channel_path=review_channel_path,
             artifact_paths=artifact_paths,
             request=PacketPostRequest(
-                from_agent="codex",
-                to_agent="claude",
+                from_agent=from_agent,
+                to_agent=to_agent,
                 kind="action_request",
                 summary="Stage verified commit pipeline",
                 body="Full guard profile passed.",
@@ -3336,6 +3341,124 @@ class PushBridgeSyncTests(unittest.TestCase):
             handoff_root,
         )
         self.assertEqual(state.errors, [])
+
+    def test_startup_authority_allows_completed_handoff_at_five_receipt_chain_root(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            _run_git(repo_root, "init")
+            _run_git(repo_root, "config", "user.email", "test@example.com")
+            _run_git(repo_root, "config", "user.name", "Test User")
+
+            (repo_root / "source.txt").write_text("handoff root\n", encoding="utf-8")
+            _run_git(repo_root, "add", "source.txt")
+            _run_git(repo_root, "commit", "-m", "handoff root")
+            handoff_root = _run_git(repo_root, "rev-parse", "HEAD")
+            artifact_paths = self._post_stage_commit_pipeline_handoff(
+                repo_root=repo_root,
+                token="",
+                write_metadata=False,
+                target_revision=handoff_root,
+            )
+
+            (repo_root / "source.txt").write_text("content\n", encoding="utf-8")
+            _run_git(repo_root, "add", "source.txt")
+            _run_git(repo_root, "commit", "-m", "content")
+
+            snapshot_path = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+            snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+            receipt_commits: list[str] = []
+            for index in range(5):
+                parent = _run_git(repo_root, "rev-parse", "HEAD")
+                snapshot_path.write_text(f"receipt {index}\n", encoding="utf-8")
+                _run_git(repo_root, "add", "dev/audits/REVIEW_SNAPSHOT.md")
+                _run_git(
+                    repo_root,
+                    "commit",
+                    "-m",
+                    f"Refresh external review snapshot for {parent[:8]}",
+                )
+                receipt_commits.append(_run_git(repo_root, "rev-parse", "HEAD"))
+
+            pipeline_path = (
+                Path(artifact_paths.projections_root) / "commit_pipeline.json"
+            )
+            pipeline_path.parent.mkdir(parents=True, exist_ok=True)
+            pipeline_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "contract_id": "RemoteCommitPipelineContract",
+                        "pipeline_id": "pipeline-test",
+                        "commit_sha": receipt_commits[2],
+                        "commit_result": {
+                            "schema_version": 1,
+                            "contract_id": "ActionResult",
+                            "action_id": "vcs.commit",
+                            "ok": True,
+                            "status": "pass",
+                            "reason": "commit_recorded",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            reviewer_gate = SimpleNamespace(
+                implementation_blocked=True,
+                review_gate_allows_push=False,
+                implementation_block_reason="runtime_missing",
+                reviewer_mode="active_dual_agent",
+                effective_reviewer_mode="tools_only",
+                review_accepted=False,
+            )
+
+            errors = collect_reviewer_loop_block_errors(
+                repo_root,
+                SimpleNamespace(),
+                reviewer_gate=reviewer_gate,
+            )
+
+        self.assertEqual(errors, [])
+
+    def test_startup_authority_rejects_wrong_provider_completed_handoff(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            _run_git(repo_root, "init")
+            _run_git(repo_root, "config", "user.email", "test@example.com")
+            _run_git(repo_root, "config", "user.name", "Test User")
+
+            (repo_root / "source.txt").write_text("handoff root\n", encoding="utf-8")
+            _run_git(repo_root, "add", "source.txt")
+            _run_git(repo_root, "commit", "-m", "handoff root")
+            handoff_root = _run_git(repo_root, "rev-parse", "HEAD")
+            self._post_stage_commit_pipeline_handoff(
+                repo_root=repo_root,
+                token="",
+                write_metadata=False,
+                target_revision=handoff_root,
+                from_agent="claude",
+                to_agent="codex",
+            )
+            reviewer_gate = SimpleNamespace(
+                implementation_blocked=True,
+                review_gate_allows_push=False,
+                implementation_block_reason="runtime_missing",
+                reviewer_mode="active_dual_agent",
+                effective_reviewer_mode="tools_only",
+                review_accepted=False,
+            )
+
+            errors = collect_reviewer_loop_block_errors(
+                repo_root,
+                SimpleNamespace(),
+                reviewer_gate=reviewer_gate,
+            )
+
+        self.assertEqual(len(errors), 1)
+        self.assertIn("Reviewer loop blocks", errors[0])
 
     def test_prevalidation_recovery_loop_rejects_stale_completed_handoff(
         self,

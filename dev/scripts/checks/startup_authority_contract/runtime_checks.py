@@ -61,6 +61,7 @@ except ModuleNotFoundError:
 
 from .runtime_import_atomicity import collect_import_index_atomicity_findings
 from .runtime_push_checks import collect_push_decision_contract_errors
+from .runtime_reviewer_loop import collect_reviewer_loop_block_errors
 
 _detect_reviewer_gate = import_repo_module(
     "dev.scripts.devctl.runtime.startup_context",
@@ -90,8 +91,6 @@ _index_tree_hash = import_repo_module(
     "dev.scripts.devctl.commands.vcs.governed_executor_git",
     repo_root=REPO_ROOT,
 ).index_tree_hash
-
-
 def _resolve_commit_pipeline_root_rel(governance) -> str:
     """Return the repo-relative review-status dir for the commit-pipeline artifact.
 
@@ -318,32 +317,5 @@ def collect_concurrent_writer_errors(
             f"delegated_agents={delegated_agents}."
         ]
     return []
-def collect_reviewer_loop_block_errors(
-    repo_root: Path,
-    gov,
-    *,
-    intent: str = _IMPLEMENTATION_STRICT_INTENT,
-    reviewer_gate=None,
-) -> list[str]:
-    """Return fail-closed errors when the active reviewer loop blocks implementation."""
-    if os.environ.get(_COMMIT_GATE_BYPASS_ENV, "").strip() == "1":
-        return []  # commit gate bypass — local checkpoint must not depend on live reviewer freshness
-    gate = reviewer_gate
-    if gate is None:
-        try:
-            gate = _detect_reviewer_gate(repo_root, governance=gov)
-        except AttributeError:
-            gate = _detect_reviewer_gate(repo_root)
-    if not gate.implementation_blocked:
-        return []
-    if gate.review_gate_allows_push:
-        return []
-    if intent == _REVIEWER_BOOTSTRAP_INTENT:
-        return []
-    reason = gate.implementation_block_reason or "reviewer_loop_blocked"
-    return [
-        "Reviewer loop blocks a new implementation slice: "
-        f"reviewer_mode={gate.reviewer_mode}, "
-        f"review_accepted={gate.review_accepted}, "
-        f"reason={reason}."
-    ]
+
+
