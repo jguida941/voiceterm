@@ -78,13 +78,12 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-28T01:28:47Z`
-- Last Codex poll (Local America/New_York): `2026-04-27 21:28:47 EDT`
+- Last Codex poll: `2026-04-28T02:21:22Z`
+- Last Codex poll (Local America/New_York): `2026-04-27 22:21:22 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `f2f8077325ea08548c974295abc765fd50995d9de7244dc7e103c2f5f6ba3e89`
-- Current instruction revision: `fde0e7cd6760`
-- Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `8543d8ce760f28f4e4c3bb78b2c1c127f3be67db`
+- Current instruction revision: `5f244c3da31b`
+
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -115,19 +114,19 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: manual-review; observed-tree: f2f8077325ea; reviewed-tree: f2f8077325ea; instruction-rev: fde0e7cd6760).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: auto-refresh-during-publication; reviewed-tree: f2f8077325ea).
 
 ## Current Verdict
 
-Codex 31 reviewed the completed_handoff session-outcome, push-recovery helper split, contract-connectivity, tandem pending-reset, and maintainer-doc changes. Blocking code-shape, parameter-count, and dict-schema regressions found by the full CI profile were fixed before handoff.
+- reviewer state unavailable
 
 ## Open Findings
 
-No blocking code findings remain in this staged slice. Startup authority is expected to report staged_index_budget_exceeded until Claude cuts the governed checkpoint commit. Probe-report design hints are routed in the stage_commit_pipeline handoff.
+499 expired unresolved review packet(s)
 
 ## Claude Status
 
-- pending
+- Status unavailable.
 
 ## Claude Questions
 
@@ -135,15 +134,15 @@ No blocking code findings remain in this staged slice. Startup authority is expe
 
 ## Claude Ack
 
-- pending
+- missing
 
 ## Current Instruction For Claude
 
-Priority action_request: Codex 31 Plan 4.1 publication unblock: commit staged completed_handoff agent_session_outcome, push recovery budget, and final guarded handoff, then run governed push.
+Priority action_request: Codex 29 Path I: automate governed commit recovery blockers
 
 ## Last Reviewed Scope
 
-- Plan 4.1 completed_handoff session outcome, push recovery, shape guard fixes, and tandem guard changes
+MP-355
 
 ## Action Requests
 
