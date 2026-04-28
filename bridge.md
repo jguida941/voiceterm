@@ -78,10 +78,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-28T16:39:49Z`
-- Last Codex poll (Local America/New_York): `2026-04-28 12:39:49 EDT`
+- Last Codex poll: `2026-04-28T19:00:14Z`
+- Last Codex poll (Local America/New_York): `2026-04-28 15:00:14 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `6efaae037309b1362aa7dc6c249cd8aff33e9f6cc7f3126f91503f2b3195e9da`
+- Last non-audit worktree hash: `e620c9b920423db3d67e915f47b1d3500a82d4b80f1fd5fb37f8f99b43912bf8`
 - Current instruction revision: `5f244c3da31b`
 
 ## Protocol
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-28T16:26:06.876277Z.
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: auto-refresh-during-publication; reviewed-tree: e620c9b92042).
 
 ## Current Verdict
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-509 expired unresolved review packet(s)
+1 pending review packet(s); 510 expired unresolved review packet(s)
 
 ## Claude Status
 
-stage_commit_pipeline_applied
+implementing
 
 ## Claude Questions
 
@@ -134,7 +134,7 @@ stage_commit_pipeline_applied
 
 ## Claude Ack
 
-- stage_commit_pipeline handoff applied; packet: `rev_pkt_2101`; target-revision: `951ba6098f4adda09c33ad08b69ebf6e5c32daa7`; applied-at: `2026-04-28T16:21:19.744678Z`
+- missing
 
 ## Current Instruction For Claude
 
