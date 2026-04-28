@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `22fcd435bce9` — Refresh external review snapshot for 00b8340f
-- Tree hash: `f29503bfe041`
-- Generation stamp: `snap-9470b1721fe7`
-- Generated at (UTC): 2026-04-28T14:22:55Z
+- HEAD: `10ab0bce2826` — Refresh external review snapshot for 22fcd435
+- Tree hash: `034048020c2e`
+- Generation stamp: `snap-8ba4888a82a4`
+- Generated at (UTC): 2026-04-28T14:24:22Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 25 files, +3058/-1710
+- Delta since last snapshot: 24 commits, 25 files, +3051/-1719
 - Governance findings: 126 open / 88 fixed / 228 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,9 +54,9 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `22fcd435bce993e6006a6d7cfab61f00c9bd6cb2`
+- HEAD SHA: `10ab0bce28267f82031af15bfbf5ccead616c909`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-28T10:14:51-04:00
+- HEAD timestamp (UTC): 2026-04-28T10:22:58-04:00
 
 ## 2. Governance state
 
@@ -74,7 +74,7 @@ adopters arrive.
 - authorized_head_commit: `22fcd435bce993e6006a6d7cfab61f00c9bd6cb2`
 - approved_target_identity: `tree-receipt-20260428T141328904006Z:e5282e5e9782ad056da0b9b4c10dfb57629a908c`
 - publication_backlog: urgent
-- publication_guidance: 60 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 61 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `active_dual_agent`
@@ -95,43 +95,43 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `22fcd435bce9`
+Range: last 24 commits ending at `10ab0bce2826`
 
 - commits: 24
 - files changed: 25
-- insertions: +3058
-- deletions: -1710
-- bundle classes touched: docs, tooling
+- insertions: +3051
+- deletions: -1719
+- bundle classes touched: tooling, docs
 - authority surfaces touched: 3 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `22fcd435` | Refresh external review snapshot for 00b8340f | 2 | +55/-58 | docs |  |
-| 2 | `00b8340f` | Plan 4.1 live-runtime completed-handoff matcher fix (Codex… | 4 | +187/-72 | tooling |  |
-| 3 | `20f1e4b6` | Refresh external review snapshot for cd3a1fb0 | 2 | +44/-44 | docs |  |
-| 4 | `cd3a1fb0` | Refresh external review snapshot for 7a5b14a5 | 1 | +68/-85 | tooling |  |
-| 5 | `7a5b14a5` | Refresh external review snapshot for ce90a950 | 2 | +43/-43 | docs |  |
-| 6 | `ce90a950` | Refresh external review snapshot for ddf7bfe1 | 1 | +49/-46 | tooling |  |
-| 7 | `ddf7bfe1` | Refresh external review snapshot for 8a2579eb | 2 | +67/-71 | docs |  |
-| 8 | `8a2579eb` | Plan 4.1 5-layer completed-handoff bypass propagation (Code… | 17 | +605/-90 | tooling |  |
-| 9 | `38ca87ad` | Refresh external review snapshot for 49a2c8ce | 2 | +42/-42 | docs |  |
-| 10 | `49a2c8ce` | Refresh external review snapshot for 63542766 | 1 | +47/-44 | tooling |  |
-| 11 | `63542766` | Refresh external review snapshot for 92f5c504 | 2 | +56/-59 | docs |  |
-| 12 | `92f5c504` | Plan 4.1 governed projection refresh: regenerated SYSTEM_MA… | 2 | +53/-50 | tooling |  |
-| 13 | `aa31fd7b` | Refresh external review snapshot for 9e5d1d33 | 2 | +64/-65 | docs |  |
-| 14 | `9e5d1d33` | Plan 4.1 completed-handoff startup authority publication by… | 6 | +420/-182 | tooling |  |
-| 15 | `59399406` | Refresh external review snapshot for 7ddb702b | 2 | +44/-44 | docs |  |
-| 16 | `7ddb702b` | Refresh external review snapshot for 9c8f0ca5 | 1 | +46/-43 | tooling |  |
-| 17 | `9c8f0ca5` | Refresh external review snapshot for 065a9587 | 2 | +59/-62 | docs |  |
-| 18 | `065a9587` | Plan 4.1 T20 receipt-chain depth fix (Codex 33): _handoff_t… | 9 | +261/-124 | tooling |  |
-| 19 | `32d84ab0` | Refresh external review snapshot for 17121f90 | 2 | +43/-43 | docs |  |
-| 20 | `17121f90` | Refresh external review snapshot for 20ba8450 | 1 | +70/-69 | tooling |  |
-| 21 | `20ba8450` | Refresh external review snapshot for 36e29446 | 2 | +64/-66 | docs |  |
-| 22 | `36e29446` | Plan 4.1 T20 same-HEAD completed-handoff fallback (Codex 32… | 13 | +551/-187 | tooling |  |
-| 23 | `a0a09dec` | Refresh external review snapshot for 42f65def | 2 | +51/-52 | docs |  |
-| 24 | `42f65def` | Refresh external review snapshot for 80e9299e | 1 | +69/-69 | tooling |  |
+| 1 | `10ab0bce` | Refresh external review snapshot for 22fcd435 | 1 | +62/-78 | tooling |  |
+| 2 | `22fcd435` | Refresh external review snapshot for 00b8340f | 2 | +55/-58 | docs |  |
+| 3 | `00b8340f` | Plan 4.1 live-runtime completed-handoff matcher fix (Codex… | 4 | +187/-72 | tooling |  |
+| 4 | `20f1e4b6` | Refresh external review snapshot for cd3a1fb0 | 2 | +44/-44 | docs |  |
+| 5 | `cd3a1fb0` | Refresh external review snapshot for 7a5b14a5 | 1 | +68/-85 | tooling |  |
+| 6 | `7a5b14a5` | Refresh external review snapshot for ce90a950 | 2 | +43/-43 | docs |  |
+| 7 | `ce90a950` | Refresh external review snapshot for ddf7bfe1 | 1 | +49/-46 | tooling |  |
+| 8 | `ddf7bfe1` | Refresh external review snapshot for 8a2579eb | 2 | +67/-71 | docs |  |
+| 9 | `8a2579eb` | Plan 4.1 5-layer completed-handoff bypass propagation (Code… | 17 | +605/-90 | tooling |  |
+| 10 | `38ca87ad` | Refresh external review snapshot for 49a2c8ce | 2 | +42/-42 | docs |  |
+| 11 | `49a2c8ce` | Refresh external review snapshot for 63542766 | 1 | +47/-44 | tooling |  |
+| 12 | `63542766` | Refresh external review snapshot for 92f5c504 | 2 | +56/-59 | docs |  |
+| 13 | `92f5c504` | Plan 4.1 governed projection refresh: regenerated SYSTEM_MA… | 2 | +53/-50 | tooling |  |
+| 14 | `aa31fd7b` | Refresh external review snapshot for 9e5d1d33 | 2 | +64/-65 | docs |  |
+| 15 | `9e5d1d33` | Plan 4.1 completed-handoff startup authority publication by… | 6 | +420/-182 | tooling |  |
+| 16 | `59399406` | Refresh external review snapshot for 7ddb702b | 2 | +44/-44 | docs |  |
+| 17 | `7ddb702b` | Refresh external review snapshot for 9c8f0ca5 | 1 | +46/-43 | tooling |  |
+| 18 | `9c8f0ca5` | Refresh external review snapshot for 065a9587 | 2 | +59/-62 | docs |  |
+| 19 | `065a9587` | Plan 4.1 T20 receipt-chain depth fix (Codex 33): _handoff_t… | 9 | +261/-124 | tooling |  |
+| 20 | `32d84ab0` | Refresh external review snapshot for 17121f90 | 2 | +43/-43 | docs |  |
+| 21 | `17121f90` | Refresh external review snapshot for 20ba8450 | 1 | +70/-69 | tooling |  |
+| 22 | `20ba8450` | Refresh external review snapshot for 36e29446 | 2 | +64/-66 | docs |  |
+| 23 | `36e29446` | Plan 4.1 T20 same-HEAD completed-handoff fallback (Codex 32… | 13 | +551/-187 | tooling |  |
+| 24 | `a0a09dec` | Refresh external review snapshot for 42f65def | 2 | +51/-52 | docs |  |
 
 ### Files
 
@@ -141,7 +141,7 @@ Range: last 24 commits ending at `22fcd435bce9`
 | `bridge.md` | docs | +75/-76 |
 | `dev/active/MASTER_PLAN.md` | tooling | +27/-16 |
 | `dev/active/ai_governance_platform.md` | tooling | +45/-10 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1257/-1275 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1250/-1284 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +4/-0 |
 | `dev/config/templates/portable_governance_pre_commit_hook.sh` | tooling | +4/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +17/-14 |
@@ -226,6 +226,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`10ab0bce`** — Refresh external review snapshot for 22fcd435
+  - evolution: Fact: push v6 proved the completed-handoff waiver was present in the push recovery caller, but the target matcher still stopped short of the actual handoff packet. A publication-only generated-surface recovery commit sa…
 - **`22fcd435`** — Refresh external review snapshot for 00b8340f
   - evolution: Fact: push v6 proved the completed-handoff waiver was present in the push recovery caller, but the target matcher still stopped short of the actual handoff packet. A publication-only generated-surface recovery commit sa…
 - **`00b8340f`** — Plan 4.1 live-runtime completed-handoff matcher fix (Codex 37): event_projection_current_session.py metadata-free matcher now accepts devctl_commit:<sha> target_ref when both outcome target_revision AND ref revision (including unambiguous abbreviated SHA) are in the same managed-receipt chain (fixes target_revision/target_ref equality strict-check that rejected valid handoffs where receipts accumulated above content commit) + push_recovery_loop_state.py merges parsed compact startup output with extracted typed record fields (initial bypass evaluation no longer requires startup-context/ensure loop cost) + +4 live-shape regression tests in test_push.py covering abbreviated-SHA matching + receipts-above-content-commit + merged startup payload acceptance; full check --profile ci 40/42 (only expected dirty-checkpoint + stale-implementer-ACK live-state gates remaining); test_push.py 95 tests passed; closes the live-runtime bypass mismatch that pushes v6/v7/v8 hit despite Codex 33+34+35's prior fixes
@@ -273,8 +275,6 @@ Recent findings:
   - evolution: Fact: the live `rev_pkt_2053` publication attempt exposed two places where the commit pipeline still behaved like a manual checklist. A quick guard run could fail only because `host-process-cleanup-post` saw recently de…
 - **`a0a09dec`** — Refresh external review snapshot for 42f65def
   - evolution: Fact: the live `rev_pkt_2053` publication attempt exposed two places where the commit pipeline still behaved like a manual checklist. A quick guard run could fail only because `host-process-cleanup-post` saw recently de…
-- **`42f65def`** — Refresh external review snapshot for 80e9299e
-  - evolution: Fact: the live `rev_pkt_2053` publication attempt exposed two places where the commit pipeline still behaved like a manual checklist. A quick guard run could fail only because `host-process-cleanup-post` saw recently de…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -314,4 +314,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-9470b1721fe7` binds this file to HEAD `22fcd435bce9`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-8ba4888a82a4` binds this file to HEAD `10ab0bce2826`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
