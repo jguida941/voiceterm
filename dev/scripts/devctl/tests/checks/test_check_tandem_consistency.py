@@ -132,10 +132,10 @@ class TestReviewerFreshness:
 
 
 class TestImplementerAckFreshness:
-    def test_present_ack_passes(self):
+    def test_present_ack_without_typed_authority_fails_closed(self):
         text = _bridge()
         result = check_implementer_ack_freshness(text)
-        assert result["ok"] is True
+        assert result["ok"] is False
         assert result["role"] == "implementer"
 
     def test_missing_ack_fails(self):
@@ -165,8 +165,8 @@ class TestImplementerAckFreshness:
             status="Working on tandem guard hash check.",
         )
         result = check_implementer_ack_freshness(text)
-        assert result["ok"] is True
-        assert result["tranche_aligned"] is True
+        assert result["ok"] is False
+        assert result["tranche_aligned"] is False
 
     def test_tranche_misaligned(self):
         text = _bridge(
@@ -401,7 +401,14 @@ def _mock_hash_matching():
 class TestBuildReport:
     def test_full_report_passes(self):
         text = _bridge()
-        with _mock_hash_matching():
+        with (
+            _mock_hash_matching(),
+            mock.patch(
+                "dev.scripts.checks.tandem_consistency.report."
+                "_load_typed_review_state",
+                return_value=_typed_state(),
+            ),
+        ):
             report = build_report(bridge_text=text)
         assert report["ok"] is True
         assert report["total_checks"] == 7
@@ -431,7 +438,17 @@ class TestBuildReport:
 
     def test_stale_reviewer_degrades(self):
         text = _bridge(poll_utc=_utc_stamp(-900))
-        with _mock_hash_matching():
+        with (
+            _mock_hash_matching(),
+            mock.patch(
+                "dev.scripts.checks.tandem_consistency.report."
+                "_load_typed_review_state",
+                return_value=_typed_state(
+                    reviewer_freshness="stale",
+                    last_codex_poll_age_seconds=900,
+                ),
+            ),
+        ):
             report = build_report(bridge_text=text)
         assert report["ok"] is False
         assert report["role_summary"]["reviewer"] == "degraded"
@@ -515,7 +532,14 @@ class TestBuildReport:
 class TestRenderMd:
     def test_markdown_output(self):
         text = _bridge()
-        with _mock_hash_matching():
+        with (
+            _mock_hash_matching(),
+            mock.patch(
+                "dev.scripts.checks.tandem_consistency.report."
+                "_load_typed_review_state",
+                return_value=_typed_state(),
+            ),
+        ):
             report = build_report(bridge_text=text)
         md = render_md(report)
         assert "check_tandem_consistency" in md
@@ -523,7 +547,14 @@ class TestRenderMd:
 
     def test_json_output(self):
         text = _bridge()
-        with _mock_hash_matching():
+        with (
+            _mock_hash_matching(),
+            mock.patch(
+                "dev.scripts.checks.tandem_consistency.report."
+                "_load_typed_review_state",
+                return_value=_typed_state(),
+            ),
+        ):
             report = build_report(bridge_text=text)
         parsed = json.loads(json.dumps(report))
         assert parsed["ok"] is True
@@ -541,7 +572,9 @@ def _typed_state(
     implementer_completion_stall: bool = False,
     review_accepted: bool = False,
     current_instruction: str = "Fix the tandem guard.",
+    current_instruction_revision: str = "rev-typed-1",
     implementer_ack: str = "Session 45 ack: fixing tandem guard.",
+    implementer_ack_revision: str = "rev-typed-1",
     implementer_status: str = "Working on tandem guard.",
     implementer_ack_state: str = "current",
     open_findings: str = "- H1: open.",
@@ -561,7 +594,9 @@ def _typed_state(
         },
         "current_session": {
             "current_instruction": current_instruction,
+            "current_instruction_revision": current_instruction_revision,
             "implementer_ack": implementer_ack,
+            "implementer_ack_revision": implementer_ack_revision,
             "implementer_status": implementer_status,
             "implementer_ack_state": implementer_ack_state,
             "open_findings": open_findings,
@@ -617,7 +652,44 @@ class TestTypedPathImplementerAck:
     def test_typed_ack_stale_fails(self):
         text = _bridge()
         result = check_implementer_ack_freshness(
-            text, typed_state=_typed_state(claude_ack_current=False)
+            text,
+            typed_state=_typed_state(
+                claude_ack_current=False,
+                implementer_ack_revision="rev-old",
+                implementer_ack_state="stale",
+            ),
+        )
+        assert result["ok"] is False
+        assert result["tranche_aligned"] is False
+
+    def test_typed_revision_equality_fallback_passes_without_prose(self):
+        text = _bridge(
+            instruction="Different words that should not keyword-match.",
+            ack="Opaque handoff receipt.",
+            status="Opaque status.",
+        )
+        result = check_implementer_ack_freshness(
+            text,
+            typed_state=_typed_state(
+                current_instruction="Different words that should not keyword-match.",
+                current_instruction_revision="rev-same",
+                implementer_ack="Opaque handoff receipt.",
+                implementer_ack_revision="rev-same",
+                implementer_status="Opaque status.",
+                implementer_ack_state="",
+            ),
+        )
+        assert result["ok"] is True
+        assert result["tranche_aligned"] is True
+
+    def test_typed_missing_state_fails_even_when_bridge_prose_matches(self):
+        text = _bridge()
+        result = check_implementer_ack_freshness(
+            text,
+            typed_state=_typed_state(
+                claude_ack_current=True,
+                implementer_ack_state="missing",
+            ),
         )
         assert result["ok"] is False
         assert result["tranche_aligned"] is False
@@ -681,10 +753,10 @@ class TestTypedPathImplementerAck:
         )
         assert result["ok"] is True
 
-    def test_falls_back_to_bridge_when_typed_missing(self):
+    def test_typed_missing_fails_closed_instead_of_bridge_keyword_fallback(self):
         text = _bridge()
         result = check_implementer_ack_freshness(text, typed_state=None)
-        assert result["ok"] is True  # bridge fixture has matching ack
+        assert result["ok"] is False
 
 
 class TestTypedPathCompletionStall:

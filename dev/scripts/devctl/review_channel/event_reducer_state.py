@@ -19,6 +19,7 @@ from ..runtime.review_state_models import (
 )
 from .core import DEFAULT_BRIDGE_REL
 from .event_projection import build_event_queue_state
+from .event_reducer_ack_projection import project_stage_commit_pipeline_ack
 from .event_reducer_support import build_agent_rows, legacy_agent_ids
 from .event_store import (
     DEFAULT_REVIEW_CHANNEL_PLAN_ID,
@@ -141,7 +142,12 @@ def build_reduced_review_state(
             inputs.stale_packet_count,
             inputs.packet_rows,
         ),
-        current_session=_PLACEHOLDER_CURRENT_SESSION,
+        current_session=project_stage_commit_pipeline_ack(
+            _PLACEHOLDER_CURRENT_SESSION,
+            packet_rows=inputs.packet_rows,
+            events=inputs.events,
+            repo_root=inputs.repo_root,
+        ),
         collaboration=_PLACEHOLDER_COLLABORATION,
         bridge=_PLACEHOLDER_BRIDGE,
         attention=None,

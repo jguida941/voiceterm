@@ -6,6 +6,10 @@ from dev.scripts.devctl.review_channel.peer_liveness import (
     normalize_reviewer_mode,
     reviewer_mode_is_active,
 )
+from dev.scripts.devctl.review_channel.ack_freshness_authority import (
+    current_session_from_mapping,
+    is_implementer_ack_current,
+)
 from dev.scripts.devctl.runtime.review_state_semantics import (
     is_missing_instruction,
     is_pending_implementer_state,
@@ -16,7 +20,6 @@ from dev.scripts.devctl.runtime.role_profile import TandemRole
 from .support import (
     REVIEWER_WAIT_STATE_MARKERS,
     STALL_MARKERS,
-    ack_references_instruction,
     contains_any_marker,
     extract_metadata_value,
     extract_section,
@@ -60,7 +63,6 @@ def check_implementer_ack_freshness(
     bridge_block = (typed_state or {}).get("bridge") or {}
     cs = (typed_state or {}).get("current_session") or {}
     typed_mode = str(bridge_block.get("reviewer_mode") or "").strip()
-    typed_ack_current = bridge_block.get("claude_ack_current")
 
     # Prefer typed reviewer_mode
     if typed_mode:
@@ -136,11 +138,7 @@ def check_implementer_ack_freshness(
             "Implementer status is empty — no active coding session visible.",
         )
 
-    # Use typed ack_current flag when available; else fall back to keyword matching
-    if typed_ack_current is not None:
-        aligned = bool(typed_ack_current)
-    else:
-        aligned = ack_references_instruction(instruction, ack, status)
+    aligned = is_implementer_ack_current(current_session_from_mapping(cs))
 
     return make_result(
         _CK,
@@ -149,8 +147,8 @@ def check_implementer_ack_freshness(
         "Implementer ACK and status are present and tranche-aligned."
         if aligned
         else (
-            "Implementer ACK/status may be from a prior tranche — does not "
-            "reference current instruction keywords."
+            "Implementer ACK/status may be from a prior tranche based on "
+            "typed ACK freshness state."
         ),
         tranche_aligned=aligned,
     )

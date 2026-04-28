@@ -59,52 +59,7 @@ def make_result(
     return payload
 
 
-def ack_references_instruction(instruction: str, ack: str, status: str) -> bool:
-    """Check whether ACK or status text references the current instruction."""
-    keywords = extract_instruction_keywords(instruction.lower())
-    if not keywords:
-        return True
-    combined_lower = f"{ack}\n{status}".lower()
-    matched = sum(1 for keyword in keywords if keyword in combined_lower)
-    return matched >= min(2, len(keywords))
-
-
-_KEYWORD_STOPWORDS = frozenset(
-    {
-        "the",
-        "this",
-        "that",
-        "from",
-        "into",
-        "with",
-        "after",
-        "before",
-        "should",
-        "must",
-        "keep",
-        "does",
-        "will",
-        "when",
-        "then",
-        "also",
-        "only",
-        "still",
-        "same",
-    }
-)
-
 STALL_MARKERS = IMPLEMENTER_STALL_MARKERS
-
-
-def extract_instruction_keywords(instruction: str) -> list[str]:
-    """Extract distinctive keywords from an instruction for tranche matching."""
-    keywords: list[str] = []
-    for token in re.findall(r"[a-z][a-z0-9_.-]{3,}", instruction):
-        if token not in _KEYWORD_STOPWORDS:
-            keywords.append(token)
-            if len(keywords) >= 8:
-                break
-    return keywords
 
 
 def leading_section_excerpt(text: str, *, max_lines: int = 12) -> str:

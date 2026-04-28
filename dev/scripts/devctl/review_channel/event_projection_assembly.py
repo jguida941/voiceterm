@@ -22,6 +22,7 @@ from .event_projection_context import (
     build_projection_identity,
 )
 from .event_projection_bridge import build_event_bridge_state_projection
+from .event_projection_ack_state import preserve_reducer_implementer_ack
 from .event_projection_support import (
     CompatProjectionInputs,
     apply_compat_projections,
@@ -300,6 +301,10 @@ def _resolve_current_session(
         bridge_liveness=bridge_liveness,
         prior_review_state=context.prior_review_state,
     )
+    current_session = preserve_reducer_implementer_ack(
+        current_session,
+        review_state,
+    )
     if codex_packet_attention_requires_clear(review_state):
         current_session = replace(
             current_session,
@@ -307,4 +312,3 @@ def _resolve_current_session(
             current_instruction_revision="",
         )
     return current_session
-
