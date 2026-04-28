@@ -9,6 +9,7 @@ from dev.scripts.devctl.review_channel.peer_liveness import (
 from dev.scripts.devctl.runtime.review_state_semantics import (
     is_missing_instruction,
     is_pending_implementer_state,
+    is_pending_placeholder,
 )
 from dev.scripts.devctl.runtime.role_profile import TandemRole
 
@@ -31,9 +32,16 @@ def _typed_or_bridge_section(
     bridge_text: str,
     section: str,
 ) -> str:
+    bridge_value = extract_section(bridge_text, section)
+    if section in {"Claude Status", "Claude Ack"} and is_pending_placeholder(
+        bridge_value
+    ):
+        return bridge_value.strip()
     if field in typed_current_session:
-        return str(typed_current_session.get(field) or "").strip()
-    return extract_section(bridge_text, section)
+        typed_value = str(typed_current_session.get(field) or "").strip()
+        if typed_value:
+            return typed_value
+    return bridge_value
 
 
 def check_implementer_ack_freshness(

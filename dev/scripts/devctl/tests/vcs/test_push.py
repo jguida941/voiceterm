@@ -38,9 +38,18 @@ from dev.scripts.devctl.governance.push_policy import (
     load_push_policy,
 )
 from dev.scripts.devctl.review_channel.event_store import resolve_artifact_paths
+from dev.scripts.devctl.review_channel.events import post_packet
+from dev.scripts.devctl.review_channel.packet_contract import (
+    PacketGuardBundleEvidenceFields,
+    PacketPostRequest,
+    PacketTargetFields,
+)
 from dev.scripts.devctl.review_channel.remote_commit_pipeline_artifact import (
     load_remote_commit_pipeline_contract,
     persist_remote_commit_pipeline_contract,
+)
+from dev.scripts.devctl.tests.test_review_channel_context_refs import (
+    _review_channel_text,
 )
 from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
     RemoteCommitPipelineContract,
@@ -1805,6 +1814,87 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.push_flow_remote_head_mock = self._push_flow_remote_head_patcher.start()
         self.addCleanup(self._push_flow_remote_head_patcher.stop)
 
+    def _runtime_missing_recovery_record(self) -> dict[str, object]:
+        return {
+            "required": True,
+            "reason": "runtime_missing",
+            "attention_status": "runtime_missing",
+            "implementation_permission": "blocked",
+            "observed_control_topology": "no_live_agents",
+            "recovery_action": "relaunch_allowed",
+            "recovery_basis": "process_dead",
+            "next_command": (
+                "python3 dev/scripts/devctl.py review-channel --action ensure "
+                "--follow --terminal none"
+            ),
+        }
+
+    def _post_stage_commit_pipeline_handoff(
+        self,
+        *,
+        repo_root: Path,
+        token: str,
+    ):
+        review_channel_path = repo_root / "dev/active/review_channel.md"
+        review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+        review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+        artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+        self._write_codex_session_metadata(
+            repo_root=repo_root,
+            artifact_paths=artifact_paths,
+            token=token,
+        )
+        post_packet(
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            artifact_paths=artifact_paths,
+            request=PacketPostRequest(
+                from_agent="codex",
+                to_agent="claude",
+                kind="action_request",
+                summary="Stage verified commit pipeline",
+                body="Full guard profile passed.",
+                requested_action="stage_commit_pipeline",
+                policy_hint="safe_auto_apply",
+                approval_required=False,
+                target=PacketTargetFields.from_values(
+                    target_kind="runtime",
+                    target_ref="devctl_commit:abc123",
+                    target_revision="abc123",
+                ),
+                guard_bundle_evidence=PacketGuardBundleEvidenceFields.from_values(
+                    full_guard_bundle_evidence="--profile ci",
+                ),
+            ),
+        )
+        return artifact_paths
+
+    def _write_codex_session_metadata(
+        self,
+        *,
+        repo_root: Path,
+        artifact_paths,
+        token: str,
+    ) -> None:
+        session_dir = Path(artifact_paths.projections_root) / "sessions"
+        session_dir.mkdir(parents=True, exist_ok=True)
+        (session_dir / "codex-conductor.json").write_text(
+            json.dumps(
+                {
+                    "provider": "codex",
+                    "role": "review_agent",
+                    "session_name": "codex-conductor",
+                    "prepared_at": "2026-04-27T20:00:00Z",
+                    "prepared_session_token": token,
+                    "prepared_head_sha": "abc123",
+                    "prepared_instruction_revision": "rev-1",
+                    "repo_root": str(repo_root),
+                    "workspace_root": str(repo_root),
+                }
+            ),
+            encoding="utf-8",
+        )
+
     def test_run_fetch_and_preflight_consults_orphan_snapshot_advisory(self) -> None:
         state = push.PushRunState(branch="feature/demo", remote="origin")
         policy = make_policy()
@@ -2917,6 +3007,110 @@ class PushBridgeSyncTests(unittest.TestCase):
             [],
         )
         self.assertLessEqual(result["step_count"], 5)
+        self.assertEqual(state.errors, [])
+
+    def test_prevalidation_recovery_loop_accepts_current_completed_handoff(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            self._post_stage_commit_pipeline_handoff(
+                repo_root=repo_root,
+                token="session-token-1",
+            )
+            state = push.PushRunState(
+                branch="feature/demo",
+                remote="origin",
+                pre_validation_recovery_loop_repair_required=True,
+            )
+            state.pre_validation_recovery_loop_repair_startup = (
+                self._runtime_missing_recovery_record()
+            )
+            policy = make_policy()
+            calls: list[str] = []
+
+            def _runner(name, cmd, cwd=None, env=None):
+                del cmd, cwd, env
+                calls.append(name)
+                return {
+                    "name": name,
+                    "cmd": [],
+                    "cwd": str(repo_root),
+                    "returncode": 0,
+                    "duration_s": 0.1,
+                    "skipped": False,
+                }
+
+            result = (
+                push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
+                    state,
+                    policy,
+                    repo_root=repo_root,
+                    command_runner=_runner,
+                )
+            )
+
+        self.assertEqual(calls, [])
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["reason"], "agent_session_completed_handoff")
+        self.assertEqual(result["time_budget_seconds"], 180)
+        self.assertEqual(
+            result["agent_session_outcome"]["outcome"],
+            "completed_handoff",
+        )
+        self.assertEqual(state.errors, [])
+
+    def test_prevalidation_recovery_loop_rejects_stale_completed_handoff(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            artifact_paths = self._post_stage_commit_pipeline_handoff(
+                repo_root=repo_root,
+                token="old-session-token",
+            )
+            self._write_codex_session_metadata(
+                repo_root=repo_root,
+                artifact_paths=artifact_paths,
+                token="new-session-token",
+            )
+            state = push.PushRunState(
+                branch="feature/demo",
+                remote="origin",
+                pre_validation_recovery_loop_repair_required=True,
+            )
+            state.pre_validation_recovery_loop_repair_startup = (
+                self._runtime_missing_recovery_record()
+            )
+            policy = make_policy()
+            calls: list[str] = []
+
+            def _runner(name, cmd, cwd=None, env=None):
+                del cmd, cwd, env
+                calls.append(name)
+                return {
+                    "name": name,
+                    "cmd": [],
+                    "cwd": str(repo_root),
+                    "returncode": 0,
+                    "duration_s": 0.1,
+                    "skipped": False,
+                }
+
+            result = (
+                push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
+                    state,
+                    policy,
+                    repo_root=repo_root,
+                    command_runner=_runner,
+                )
+            )
+
+        self.assertEqual(calls, ["push-recovery-startup-context-1"])
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["reason"], "startup_context_ready")
+        self.assertNotIn("agent_session_outcome", result)
         self.assertEqual(state.errors, [])
 
     def test_sync_bridge_projection_before_preflight_reprojects_active_bridge(

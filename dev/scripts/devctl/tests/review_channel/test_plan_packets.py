@@ -888,8 +888,25 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
             review_channel_path.parent.mkdir(parents=True, exist_ok=True)
             review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
             artifact_paths = resolve_artifact_paths(repo_root=root)
+            session_dir = Path(artifact_paths.projections_root) / "sessions"
+            session_dir.mkdir(parents=True, exist_ok=True)
+            (session_dir / "codex-conductor.json").write_text(
+                json.dumps(
+                    {
+                        "provider": "codex",
+                        "role": "review_agent",
+                        "session_name": "codex-conductor",
+                        "prepared_at": "2026-04-27T20:00:00Z",
+                        "prepared_session_token": "session-token-1",
+                        "prepared_head_sha": "abc123",
+                        "prepared_instruction_revision": "rev-1",
+                        "workspace_root": str(root),
+                    }
+                ),
+                encoding="utf-8",
+            )
 
-            bundle, _ = post_packet(
+            bundle, event = post_packet(
                 repo_root=root,
                 review_channel_path=review_channel_path,
                 artifact_paths=artifact_paths,
@@ -913,9 +930,37 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                 ),
             )
 
-        posted_packet = bundle.review_state["packets"][0]
-        self.assertEqual(posted_packet["requested_action"], "stage_commit_pipeline")
-        self.assertEqual(posted_packet["full_guard_bundle_evidence"], "--profile ci")
+            posted_packet = bundle.review_state["packets"][0]
+            outcome_events = [
+                json.loads(line)
+                for line in Path(artifact_paths.event_log_path)
+                .read_text(encoding="utf-8")
+                .splitlines()
+                if '"event_type": "agent_session_outcome"' in line
+            ]
+            session_outcomes = bundle.review_state["collaboration"][
+                "session_outcomes"
+            ]
+
+            self.assertEqual(
+                posted_packet["requested_action"],
+                "stage_commit_pipeline",
+            )
+            self.assertEqual(
+                posted_packet["full_guard_bundle_evidence"],
+                "--profile ci",
+            )
+            self.assertEqual(outcome_events[0]["outcome"], "completed_handoff")
+            self.assertEqual(
+                outcome_events[0]["handoff_packet_id"],
+                event["packet_id"],
+            )
+            self.assertEqual(
+                outcome_events[0]["prepared_session_token"],
+                "session-token-1",
+            )
+            self.assertEqual(session_outcomes[0]["outcome"], "completed_handoff")
+            self.assertEqual(session_outcomes[0]["provider"], "codex")
 
     def test_commit_action_request_packets_preserve_runtime_binding(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

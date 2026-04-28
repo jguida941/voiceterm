@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-27 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-28 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -134,6 +134,23 @@ Current 2026-04-27 governed-commit self-resolution note:
   those gates require fresh dashboard-probe evidence on Codex handoff packets,
   the dashboard rotation remains a required live discipline rather than a
   fully enforced typed gate.
+
+Current 2026-04-28 agent-session-outcome note:
+- Clean handoff is now typed runtime state, not a side effect inferred from a
+  missing process. The review-channel `stage_commit_pipeline` packet path
+  emits `AgentSessionOutcome(outcome=completed_handoff)` when full guard
+  evidence is present, `CollaborationSession.session_outcomes` carries those
+  receipts, and governed push may waive `repair_reviewer_loop` only when the
+  current prepared-session token proves the missing live agent is the same
+  session that completed handoff. Process liveness, expired liveness events,
+  and conductor rows remain evidence for `process_died` / `unresolved` cases;
+  they are no longer sufficient to collapse completed handoff into dead-agent
+  recovery.
+- The operator's `rev_pkt_2066` multi-axis directive is plan state here:
+  generated instruction surfaces, command-capability evidence, portability
+  proof, no-parallel-system guards, and agent proof-of-navigation are tracked
+  as `MP377-P0-T13` through `MP377-P0-T21` instead of being left as packet
+  memory for the next bootstrap.
 
 Current 2026-04-25 SYSTEM_MAP connectivity authority note:
 - `ConnectivityRegistrySnapshot` is now the shared typed source for contract,
@@ -3447,6 +3464,28 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       depends_on: `MP377-P0-T13`, `MP377-P0-T16`
       scope: Add frozen typed-state fixtures and deterministic navigation prompts/tests for push blockers, `PlatformFindingIngest` discovery, and actor-authority command refusal across both agents.
       acceptance_criteria: `test_claude_can_answer_what_blocks_push_via_typed_state_only.py`, `test_codex_can_locate_canonical_finding_seam_via_typed_state_only.py`, and `test_both_agents_refuse_out_of_role_actions_via_actor_authority.py` pass without consulting `bridge.md`, `AGENTS.md`, or chat-memory hints; manual Claude dogfood scans remain required until this suite is green.
+- [ ] `MP377-P0-T19` Generated agent-instruction projection wedge: move one high-value generated section in each bootstrap surface behind typed render authority, then guard hand-edits to those generated blocks.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T13`, `MP377-P0-T15`
+      scope: Extend `render-surfaces` and existing generated-surface guards for one `AGENTS.md` quick-map section and one `CLAUDE.md` key-command section using typed command/catalog inputs. Do not migrate the full files in one slice.
+      acceptance_criteria: The selected generated sections are reproducible from typed inputs, hand-edits fail the owning guard, and product docs remain untouched unless shipped VoiceTerm behavior changes.
+- [ ] `MP377-P0-T20` Agent session outcome and stall/flip-mode closure: separate completed handoff, process death, and unresolved liveness in typed runtime state, then use that authority to unblock publication without hiding real runtime failures.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `in_progress`
+      depends_on: `MP377-P0-T12A`, `MP377-P0-T14`, `MP377-P0-T16`
+      scope: Extend the existing review-channel session lifecycle, `CollaborationSession`, startup/push recovery, and stall diagnostics so process exit after a guarded handoff is not treated like mid-slice death. Keep `bridge.md` and conductor liveness as compatibility evidence only.
+      acceptance_criteria: `stage_commit_pipeline` with full guard evidence emits `AgentSessionOutcome(outcome=completed_handoff)`; governed push bypasses `repair_reviewer_loop` only when that receipt matches the current prepared session; stale or mismatched receipts keep the existing recovery loop; `process_died` / `unresolved` classifications remain explicit follow-up states.
+      progress: 2026-04-28 landed the completed-handoff receipt, review-state projection, governed-push bypass, and 180-second recovery-loop budget. Remaining T20 scope is broader Codex-stall / flip-mode classification and producer coverage for `process_died` / `unresolved`.
+- [ ] `MP377-P0-T21` Command capability evidence index over the existing command catalog: map task classes to required command sequences and drift detectors without adding a parallel command registry.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T14`, `MP377-P0-T15`
+      scope: Extend the existing `governance.system_catalog`, dogfood ledger, packet validator, and guard-bundle evidence path so task classes such as publication, runtime repair, docs, and platform contracts name required sequences plus architectural drift detectors.
+      acceptance_criteria: `stage_commit_pipeline` packet validation can cite typed capability evidence beyond the current full-bundle marker, dogfood/governance-review report missing required sequence rows, and no standalone `command_capability_index` runtime owner duplicates the system catalog.
 
 ### Phase P1 - Typed Plan Ingestion And Registry Projection
 
@@ -5840,7 +5879,7 @@ working on `MP-377`.
   `pre_validation_recovery_loop_repair` phase before validation. The phase
   emits `vcs.recovery_loop_repair`, executes only allowlisted headless
   review-channel repair/status/launch commands, caps the loop at five steps
-  and thirty seconds, and fails closed on non-bounded operator scope. The same
+  and 180 seconds, and fails closed on non-bounded operator scope. The same
   closeout makes reviewer-mode proof-tick parity defer bridge, coordination,
   and registry projections to `startup_context.reviewer_gate.reviewer_mode`.
 - 2026-04-26 Plan 4.1 Slice 0 governed-push closeout:

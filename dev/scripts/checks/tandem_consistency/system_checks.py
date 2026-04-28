@@ -14,7 +14,10 @@ from dev.scripts.devctl.review_channel.peer_liveness import (
     CODEX_POLL_STALE_AFTER_SECONDS,
     reviewer_mode_is_active,
 )
-from dev.scripts.devctl.runtime.review_state_semantics import is_missing_instruction
+from dev.scripts.devctl.runtime.review_state_semantics import (
+    is_missing_instruction,
+    is_pending_placeholder,
+)
 
 from .support import skip_live_freshness
 
@@ -36,6 +39,9 @@ def check_launch_truth(
     bridge_block = (typed_state or {}).get("bridge") or {}
     typed_overall = str(bridge_block.get("overall_state") or "").strip()
     typed_launch_truth = str(bridge_block.get("launch_truth") or "").strip()
+    snapshot = extract_bridge_snapshot(bridge_text)
+    bridge_claude_status = snapshot.sections.get("Claude Status", "")
+    bridge_claude_ack = snapshot.sections.get("Claude Ack", "")
 
     if typed_overall:
         overall_state = typed_overall
@@ -46,11 +52,13 @@ def check_launch_truth(
             or bridge_block.get("current_instruction")
             or ""
         ).strip()
-        claude_status_present = bool(
-            str(bridge_block.get("claude_status") or "").strip()
+        claude_status_present = _section_visible(
+            str(bridge_block.get("claude_status") or "").strip(),
+            bridge_claude_status,
         )
-        claude_ack_present = bool(
-            str(bridge_block.get("claude_ack") or "").strip()
+        claude_ack_present = _section_visible(
+            str(bridge_block.get("claude_ack") or "").strip(),
+            bridge_claude_ack,
         )
         age = bridge_block.get("last_codex_poll_age_seconds")
         launch_truth = typed_launch_truth or classify_launch_truth(
@@ -68,7 +76,6 @@ def check_launch_truth(
             }
         ).value
     else:
-        snapshot = extract_bridge_snapshot(bridge_text)
         liveness = summarize_bridge_liveness(snapshot)
         overall_state = liveness.overall_state
         reviewer_mode = liveness.reviewer_mode
@@ -134,3 +141,12 @@ def check_launch_truth(
             else f"Launch truth issues: {'; '.join(issues)}"
         ),
     }
+
+
+def _section_visible(typed_value: str, bridge_value: str) -> bool:
+    """Return True when typed or live bridge text proves section visibility."""
+    if typed_value.strip():
+        return True
+    if is_pending_placeholder(bridge_value):
+        return True
+    return bool(bridge_value.strip())

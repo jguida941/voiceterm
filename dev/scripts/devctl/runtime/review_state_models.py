@@ -76,6 +76,7 @@ class ReviewCurrentSessionState:
 
 from .review_state_collaboration_models import (  # noqa: E402,F401
     ActorAuthorityState,
+    AgentSessionOutcomeState,
     CapabilityGrantState,
     CollaborationArbitrationState,
     CollaborationParticipantState,

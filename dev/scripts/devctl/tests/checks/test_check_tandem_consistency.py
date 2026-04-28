@@ -363,6 +363,32 @@ class TestLaunchTruth:
         assert not any("Implementer status" in issue for issue in result["issues"])
         assert not any("Implementer ACK" in issue for issue in result["issues"])
 
+    def test_bridge_pending_reset_counts_as_visible_with_stale_typed_projection(self):
+        text = _bridge(ack="- pending", status="- pending")
+        result = check_launch_truth(
+            text,
+            typed_state={
+                "bridge": {
+                    "overall_state": "waiting_on_peer",
+                    "reviewer_mode": "active_dual_agent",
+                    "codex_poll_state": "fresh",
+                    "claude_status": "",
+                    "claude_ack": "",
+                    "publisher_running": False,
+                    "reviewer_supervisor_running": False,
+                    "codex_conductor_active": True,
+                    "claude_conductor_active": False,
+                },
+                "current_session": {
+                    "current_instruction": "Fix the tandem guard.",
+                },
+            },
+        )
+
+        assert result["ok"] is True
+        assert not any("Implementer status" in issue for issue in result["issues"])
+        assert not any("Implementer ACK" in issue for issue in result["issues"])
+
 
 def _mock_hash_matching():
     """Mock the worktree hash computation to return the default test hash."""
@@ -607,6 +633,21 @@ class TestTypedPathImplementerAck:
                 implementer_ack_state="pending",
             ),
         )
+        assert result["ok"] is True
+        assert result["ack_state"] == "pending"
+
+    def test_bridge_pending_reset_overrides_stale_typed_missing_ack(self):
+        text = _bridge(ack="- pending", status="- pending")
+        result = check_implementer_ack_freshness(
+            text,
+            typed_state=_typed_state(
+                claude_ack_current=False,
+                implementer_ack="",
+                implementer_status="waiting_for_ack",
+                implementer_ack_state="missing",
+            ),
+        )
+
         assert result["ok"] is True
         assert result["ack_state"] == "pending"
 

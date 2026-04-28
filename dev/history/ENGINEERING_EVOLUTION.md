@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-27
+**Last Updated:** 2026-04-28
 
 ## At a Glance
 
@@ -36,6 +36,43 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-04-28 - Governed push now treats completed handoff as typed session outcome
+
+Fact: the Plan 4.1 publication path still collapsed two different states into
+one blocker. After Codex posted a guarded `stage_commit_pipeline` handoff and
+exited cleanly, startup-context observed no live agent and reported
+`repair_reviewer_loop`, which made governed push spend its bounded recovery
+budget relaunching a loop that had already handed off.
+
+Change: `stage_commit_pipeline` packets with full guard-bundle evidence now
+emit an event-backed `AgentSessionOutcome(outcome=completed_handoff)` receipt.
+`CollaborationSession.session_outcomes` projects that receipt, and governed
+push may waive `pre_validation_recovery_loop_repair` only when the latest
+completed-handoff receipt matches the current prepared-session token and the
+startup blocker is `runtime_missing` / `no_live_agents`. Stale receipts or
+different startup blockers still run the existing recovery loop. The recovery
+loop budget is now 180 seconds so a real `review-channel ensure --follow`
+repair has time to complete and re-check startup-context instead of expiring
+mid-repair. Tandem consistency also treats a fresh reviewer-owned bridge
+`- pending` reset as visible implementer state when event-backed projection
+rows lag behind the repo-owned bridge projection, so a stale typed
+`missing` / `waiting_for_ack` row cannot override an explicit live reset.
+
+Evidence:
+- `dev/scripts/devctl/runtime/agent_session_outcome.py`
+- `dev/scripts/devctl/review_channel/agent_session_outcome_events.py`
+- `dev/scripts/devctl/review_channel/events.py`
+- `dev/scripts/devctl/review_channel/collaboration_session.py`
+- `dev/scripts/devctl/commands/vcs/push_recovery_loop_repair.py`
+- `dev/scripts/devctl/commands/vcs/push_recovery_loop_handoff.py`
+- `dev/scripts/devctl/commands/vcs/push_recovery_loop_result.py`
+- `dev/scripts/devctl/commands/vcs/push_recovery_loop_state.py`
+- `dev/scripts/devctl/commands/vcs/push_recovery_loop_types.py`
+- `dev/scripts/checks/tandem_consistency/implementer_checks.py`
+- `dev/scripts/checks/tandem_consistency/system_checks.py`
+- `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
 
 ### 2026-04-27 - Governed commit now self-resolves host cleanup age-out and transient index locks
 
@@ -106,7 +143,7 @@ terminal push failure. `devctl push` then runs
 `TypedAction(action_id="vcs.recovery_loop_repair")`, executes only
 allowlisted headless review-channel `status` / `doctor` / `ensure` /
 `launch` / `recover` commands derived from startup-context `next=`, stops
-after five steps or thirty seconds, and fails closed when the cascade reaches
+after five steps or 180 seconds, and fails closed when the cascade reaches
 operator-scope work such as commit/checkpoint commands.
 
 The same closeout narrows reviewer-mode proof-tick authority: bridge-compat,

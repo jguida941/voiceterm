@@ -10,6 +10,7 @@ from .collaboration_wake_contract import (
     wake_continuity_contract,
 )
 from .control_state import _int, _mapping, _string
+from .agent_session_outcome import agent_session_outcomes_from_value
 from .review_state_collaboration_fields import (
     _arbitration_state_from_mapping,
     _delegated_work_from_value,
@@ -49,34 +50,23 @@ def collaboration_state_from_payload(
         mutation_owner = _string(collaboration.get("mutation_owner"))
         verification_owner = _string(collaboration.get("verification_owner"))
         watcher_owner = _string(collaboration.get("watcher_owner"))
-        if participants:
-            (
-                derived_mutation_wake_mode,
-                derived_verification_wake_mode,
-                derived_watcher_wake_mode,
-                derived_wake_continuity_ok,
-                derived_wake_gap_summary,
-            ) = wake_continuity_contract(
-                reviewer_mode=reviewer_mode,
-                mutation_owner=mutation_owner,
-                verification_owner=verification_owner,
-                watcher_owner=watcher_owner,
-                participants=participants,
-            )
-            derived_loop_autonomy = loop_autonomy_contract(
-                reviewer_mode=reviewer_mode,
-                mutation_owner=mutation_owner,
-                verification_owner=verification_owner,
-                watcher_owner=watcher_owner,
-                participants=participants,
-            )
-        else:
-            derived_mutation_wake_mode = "unknown"
-            derived_verification_wake_mode = "unknown"
-            derived_watcher_wake_mode = "unknown"
-            derived_wake_continuity_ok = True
-            derived_wake_gap_summary = ""
-            derived_loop_autonomy = LoopAutonomyState()
+        session_outcomes = agent_session_outcomes_from_value(
+            collaboration.get("session_outcomes")
+        )
+        (
+            derived_mutation_wake_mode,
+            derived_verification_wake_mode,
+            derived_watcher_wake_mode,
+            derived_wake_continuity_ok,
+            derived_wake_gap_summary,
+            derived_loop_autonomy,
+        ) = _derived_collaboration_runtime(
+            reviewer_mode=reviewer_mode,
+            mutation_owner=mutation_owner,
+            verification_owner=verification_owner,
+            watcher_owner=watcher_owner,
+            participants=participants,
+        )
         return CollaborationSessionState(
             schema_version=_int(collaboration.get("schema_version")) or 1,
             contract_id=_string(collaboration.get("contract_id"))
@@ -172,6 +162,7 @@ def collaboration_state_from_payload(
             actor_authorities=actor_authorities_from_value(
                 collaboration.get("actor_authorities")
             ),
+            session_outcomes=session_outcomes,
         )
     return _legacy_collaboration_state(
         review=review,
@@ -179,4 +170,45 @@ def collaboration_state_from_payload(
         bridge=bridge,
         registry=registry,
         string_fn=_string,
+    )
+
+
+def _derived_collaboration_runtime(
+    *,
+    reviewer_mode: str,
+    mutation_owner: str,
+    verification_owner: str,
+    watcher_owner: str,
+    participants: object,
+) -> tuple[str, str, str, bool, str, LoopAutonomyState]:
+    if not participants:
+        return "unknown", "unknown", "unknown", True, "", LoopAutonomyState()
+
+    (
+        mutation_wake_mode,
+        verification_wake_mode,
+        watcher_wake_mode,
+        wake_continuity_ok,
+        wake_gap_summary,
+    ) = wake_continuity_contract(
+        reviewer_mode=reviewer_mode,
+        mutation_owner=mutation_owner,
+        verification_owner=verification_owner,
+        watcher_owner=watcher_owner,
+        participants=participants,
+    )
+    loop_autonomy = loop_autonomy_contract(
+        reviewer_mode=reviewer_mode,
+        mutation_owner=mutation_owner,
+        verification_owner=verification_owner,
+        watcher_owner=watcher_owner,
+        participants=participants,
+    )
+    return (
+        mutation_wake_mode,
+        verification_wake_mode,
+        watcher_wake_mode,
+        wake_continuity_ok,
+        wake_gap_summary,
+        loop_autonomy,
     )

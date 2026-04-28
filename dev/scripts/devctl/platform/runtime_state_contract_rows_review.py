@@ -92,6 +92,108 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         startup_surface_tokens=("candidate_id", "artifact_kind", "valid"),
     ),
     ContractSpec(
+        contract_id="AgentSessionOutcome",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed receipt for an agent-owned session end state, separating "
+            "completed handoff from process death or unresolved liveness."
+        ),
+        required_fields=(
+            ContractField("outcome", "str", "completed_handoff, process_died, or unresolved."),
+            ContractField(
+                "reason",
+                "str",
+                "Machine-readable reason for the recorded session outcome.",
+            ),
+            ContractField("provider", "str", "Provider or agent family that owns the session."),
+            ContractField(
+                "session_actor_id",
+                "str",
+                "Portable actor identifier for the session owner.",
+            ),
+            ContractField(
+                "session_actor_role",
+                "str",
+                "Runtime role carried by session metadata.",
+            ),
+            ContractField("session_id", "str", "Review-channel session id for the outcome."),
+            ContractField("session_name", "str", "Repo-owned conductor session name."),
+            ContractField("observed_at_utc", "str", "UTC timestamp when the outcome was observed."),
+            ContractField("finished_at_utc", "str", "UTC timestamp bound to session completion."),
+            ContractField("source", "str", "Typed source that emitted the outcome receipt."),
+            ContractField(
+                "source_event_id",
+                "str",
+                "Event id of the lifecycle event that emitted this outcome.",
+            ),
+            ContractField(
+                "handoff_packet_id",
+                "str",
+                "Review packet id when the outcome comes from a handoff packet.",
+            ),
+            ContractField(
+                "handoff_requested_action",
+                "str",
+                "Requested action carried by the packet-backed handoff.",
+            ),
+            ContractField(
+                "target_kind",
+                "str",
+                "Target kind copied from the packet-backed handoff scope.",
+            ),
+            ContractField(
+                "target_ref",
+                "str",
+                "Target reference copied from the packet-backed handoff scope.",
+            ),
+            ContractField(
+                "target_revision",
+                "str",
+                "Target revision copied from the packet-backed handoff scope.",
+            ),
+            ContractField(
+                "metadata_path",
+                "str",
+                "Provider session metadata path used to bind current-session state.",
+            ),
+            ContractField(
+                "log_path",
+                "str",
+                "Provider session log path when known.",
+            ),
+            ContractField(
+                "workspace_root",
+                "str",
+                "Workspace root recorded by the provider session metadata.",
+            ),
+            ContractField(
+                "prepared_at_utc",
+                "str",
+                "Prepared-launch timestamp used for current-session validation.",
+            ),
+            ContractField(
+                "prepared_session_token",
+                "str",
+                "Prepared-launch token used to bind the outcome to current session metadata.",
+            ),
+            ContractField(
+                "prepared_head_sha",
+                "str",
+                "Prepared-launch HEAD SHA used for current-session validation.",
+            ),
+            ContractField(
+                "prepared_instruction_revision",
+                "str",
+                "Prepared-launch instruction revision used for current-session validation.",
+            ),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.agent_session_outcome:"
+            "AgentSessionOutcomeState"
+        ),
+        startup_surface_tokens=("outcome", "provider", "session_name"),
+    ),
+    ContractSpec(
         contract_id="PushAuthorizationRecord",
         owner_layer="governance_runtime",
         purpose=(

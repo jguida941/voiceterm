@@ -89,6 +89,7 @@ def compact_startup_payload(payload: dict[str, object]) -> dict[str, object]:
         "advisory_reason",
         "attention_status",
         "implementation_permission",
+        "observed_control_topology",
         "recovery_action",
         "recovery_basis",
         "next_command",

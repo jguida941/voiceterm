@@ -111,10 +111,21 @@
   failures are no longer a manual AI/operator checklist: the phase emits
   `TypedAction(action_id="vcs.recovery_loop_repair")`, follows only
   allowlisted headless review-channel `next=` commands, stops after five steps
-  or thirty seconds, and fails closed when the cascade reaches operator scope.
+  or 180 seconds, and fails closed when the cascade reaches operator scope.
   `check_review_surface_consistency.py` also treats
   `startup_context.reviewer_gate.reviewer_mode` as the reviewer-mode authority
   and projects bridge/coordination/registry values through that source.
+- 2026-04-28 completed-handoff session-outcome closure (MP-377):
+  `stage_commit_pipeline` packets with full guard-bundle evidence now emit
+  `AgentSessionOutcome(outcome=completed_handoff)` through the existing
+  review-channel event log, and `CollaborationSession.session_outcomes`
+  projects the receipt for status/startup/push readers. Governed push may
+  skip `pre_validation_recovery_loop_repair` only when that receipt matches
+  the current prepared-session token and startup-context reports
+  `runtime_missing` / `no_live_agents`; stale or mismatched receipts still run
+  the existing bounded recovery loop. The remaining T20 scope is
+  `process_died` / `unresolved` producer coverage plus Codex-stall /
+  flip-mode convergence.
 - 2026-04-27 governed-push execution-truth invariant (MP-377):
   the `rev_pkt_2027` / `rev_pkt_2029` regression proved a Class-A trust
   break: a push report could claim `published_remote` with a fixture branch
@@ -128,14 +139,16 @@
 - 2026-04-27 Plan 4.1 rev_pkt_2035 architectural bundle placement (MP-377):
   the consolidated Claude/Explore bundle is now durable plan scope, not chat
   memory. `ai_governance_platform.md` tracks `MP377-P0-T13` through
-  `MP377-P0-T18` for SYSTEM_MAP-as-typed-state, Codex self-dogfood
+  `MP377-P0-T21` for SYSTEM_MAP-as-typed-state, Codex self-dogfood
   verification before `stage_commit_pipeline`, semantic/canonical-seam guard
   coverage, Slice E role command-gating and `DEFAULT_PROVIDER_ROLE_MAP`
   retirement, ReviewState/ActionResult/parser parallel-system retirement, and
-  agent-proof-of-navigation tests. The slice order is warning-first guards plus
-  the bounded push-finding seam now, Slice E before broad Slice D refactors, and
-  typed `system-spine` work folded into the existing context-graph/system-map
-  projection chain rather than a parallel system.
+  agent-proof-of-navigation tests, plus the 2026-04-28 additions for generated
+  instruction-surface wedges, agent-session outcomes, and command capability
+  evidence over the existing system catalog. The slice order is warning-first
+  guards plus the bounded push-finding seam now, Slice E before broad Slice D
+  refactors, and typed `system-spine` work folded into the existing
+  context-graph/system-map projection chain rather than a parallel system.
 - 2026-04-27 governed-commit self-resolution and structured errors (MP-377):
   `devctl commit` now extends the existing commit pipeline instead of asking an
   agent/operator to retry mechanical blockers. Guard replay auto-runs one

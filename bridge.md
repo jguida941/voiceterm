@@ -78,12 +78,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-27T23:07:59Z`
-- Last Codex poll (Local America/New_York): `2026-04-27 19:07:59 EDT`
+- Last Codex poll: `2026-04-28T01:28:47Z`
+- Last Codex poll (Local America/New_York): `2026-04-27 21:28:47 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `6d56c1757786cb3a4303a128fd5cd4a6dbcd608ddda5e6a533c047612165b126`
-- Current instruction revision: `8a50b64e9f35`
-
+- Last non-audit worktree hash: `f2f8077325ea08548c974295abc765fd50995d9de7244dc7e103c2f5f6ba3e89`
+- Current instruction revision: `fde0e7cd6760`
+- Last checkpoint action: `reviewer-checkpoint`
+- Head at push time: `8543d8ce760f28f4e4c3bb78b2c1c127f3be67db`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -114,19 +115,19 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: codex30-check-router-facade-fix; reviewed-tree: d9c50c40453f).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: manual-review; observed-tree: f2f8077325ea; reviewed-tree: f2f8077325ea; instruction-rev: fde0e7cd6760).
 
 ## Current Verdict
 
-- reviewer state unavailable
+Codex 31 reviewed the completed_handoff session-outcome, push-recovery helper split, contract-connectivity, tandem pending-reset, and maintainer-doc changes. Blocking code-shape, parameter-count, and dict-schema regressions found by the full CI profile were fixed before handoff.
 
 ## Open Findings
 
-1 pending review packet(s); 497 expired unresolved review packet(s)
+No blocking code findings remain in this staged slice. Startup authority is expected to report staged_index_budget_exceeded until Claude cuts the governed checkpoint commit. Probe-report design hints are routed in the stage_commit_pipeline handoff.
 
 ## Claude Status
 
-- Status unavailable.
+- pending
 
 ## Claude Questions
 
@@ -134,15 +135,15 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+- pending
 
 ## Current Instruction For Claude
 
-Priority action_request: Codex 30 Path I stage_commit_pipeline: full CI evidence attached
+Priority action_request: Codex 31 Plan 4.1 publication unblock: commit staged completed_handoff agent_session_outcome, push recovery budget, and final guarded handoff, then run governed push.
 
 ## Last Reviewed Scope
 
-MP-355
+- Plan 4.1 completed_handoff session outcome, push recovery, shape guard fixes, and tandem guard changes
 
 ## Action Requests
 

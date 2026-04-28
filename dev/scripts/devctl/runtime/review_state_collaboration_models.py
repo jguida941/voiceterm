@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
+from .agent_session_outcome import AgentSessionOutcomeState
 from .work_intake_models import WorkIntakeOwnershipState
 
 
@@ -181,6 +182,7 @@ class CollaborationSessionState:
     loop_autonomy_ok: bool = False
     loop_gap_summary: str = ""
     actor_authorities: tuple[ActorAuthorityState, ...] = ()
+    session_outcomes: tuple[AgentSessionOutcomeState, ...] = ()
 
 
 def actor_authorities_from_value(value: object) -> tuple[ActorAuthorityState, ...]:

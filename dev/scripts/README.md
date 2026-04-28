@@ -99,7 +99,9 @@ sandbox cannot create
 posts a typed `action_request` with `requested_action=stage_commit_pipeline`
 to the active remote-control attachment provider and binds it to
 `devctl_commit:<head_sha>` instead of asking the local operator to click
-through a hidden prompt.
+through a hidden prompt. That packet must carry full guard evidence and now
+emits `AgentSessionOutcome(outcome=completed_handoff)` so publication repair
+can distinguish a clean handoff from a dead session.
 Transient `.git/index.lock` contention is handled separately: shared git helpers
 back off and retry index-writing commands when git reports a temporary
 "File exists" / "Another git process" lock, while `Operation not permitted`
@@ -475,8 +477,12 @@ Portability note:
   `--target-ref`, and `--target-revision`; `stage_commit_pipeline` also
   requires `--full-guard-bundle-evidence` naming the routed full-bundle proof
   (`bundle.runtime`, `bundle.tooling`, `bundle.docs`, `bundle.release`, or
-  `--profile ci`). Use `--requested-action commit` or `push` only with
-  `--target-ref remote_commit_pipeline:<pipeline_id>` plus
+  `--profile ci`). A valid `stage_commit_pipeline` post also emits an
+  `AgentSessionOutcome(outcome=completed_handoff)` receipt; governed push may
+  use that receipt only when it matches the current prepared session and the
+  startup blocker is `runtime_missing` / `no_live_agents`, otherwise the
+  existing recovery loop still runs. Use `--requested-action commit` or
+  `push` only with `--target-ref remote_commit_pipeline:<pipeline_id>` plus
   `--pipeline-generation`, `--staged-snapshot-hash`, and
   `--guard-results-summary`. Targeted `review-channel --action inbox|watch`
   polls now stamp `delivery_observed_at_utc` / `delivery_observed_by` only

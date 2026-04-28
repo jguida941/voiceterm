@@ -42,6 +42,7 @@ from .collaboration_session_status import (
     _collaboration_status,
     _operator_mode,
 )
+from .agent_session_outcome_events import load_agent_session_outcomes
 from .remote_control_attachment_artifact import load_remote_control_attachments
 from .session_probe import load_conductor_sessions
 
@@ -77,6 +78,7 @@ def build_collaboration_session(
         if session_output_root is not None
         else ()
     )
+    session_outcomes = _load_session_outcomes(repo_root=repo_root)
     reviewer_mode = _text(bridge_liveness.get("reviewer_mode")) or "tools_only"
     effective_mode = (
         _text(bridge_liveness.get("effective_reviewer_mode")) or reviewer_mode
@@ -192,7 +194,25 @@ def build_collaboration_session(
         watcher_owner=watcher_owner,
         watcher_status=watcher_status,
         actor_authorities=authority_rows,
+        session_outcomes=session_outcomes,
     )
+
+
+def _load_session_outcomes(
+    *,
+    repo_root: Path | None,
+) -> tuple[object, ...]:
+    if repo_root is None:
+        return ()
+    try:
+        from .event_store import resolve_artifact_paths
+
+        artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+        return load_agent_session_outcomes(
+            events_path=Path(artifact_paths.event_log_path)
+        )
+    except (OSError, ValueError):
+        return ()
 
 
 def _collaboration_owner_fields(

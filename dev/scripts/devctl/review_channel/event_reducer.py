@@ -51,6 +51,7 @@ from .daemon_reducer import (
     build_runtime_state,
     reduce_daemon_event,
 )
+from .agent_session_outcome_events import AGENT_SESSION_OUTCOME_EVENT_TYPES
 from .session_liveness_events import SESSION_LIVENESS_EVENT_TYPES
 from .topology import build_runtime_agent_registry
 from ..time_utils import utc_timestamp
@@ -272,6 +273,10 @@ def reduce_events(
 
         if event_type in SESSION_LIVENESS_EVENT_TYPES:
             _record_expired_liveness_session(expired_liveness_sessions, event)
+            latest_timestamp = _event_timestamp(event, latest_timestamp)
+            continue
+
+        if event_type in AGENT_SESSION_OUTCOME_EVENT_TYPES:
             latest_timestamp = _event_timestamp(event, latest_timestamp)
             continue
 

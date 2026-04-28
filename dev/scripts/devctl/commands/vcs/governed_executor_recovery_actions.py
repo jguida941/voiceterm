@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from ...runtime import TypedAction
 
 RECOVERY_LOOP_REPAIR_ACTION_ID = "vcs.recovery_loop_repair"
+DEFAULT_RECOVERY_LOOP_REPAIR_TIME_BUDGET_SECONDS = 180
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,7 +18,7 @@ class RecoveryLoopRepairActionInputs:
     branch: str
     remote: str
     max_steps: int = 5
-    time_budget_seconds: int = 30
+    time_budget_seconds: int = DEFAULT_RECOVERY_LOOP_REPAIR_TIME_BUDGET_SECONDS
     requested_by: str = "devctl.push"
 
 
@@ -28,11 +29,13 @@ def build_recovery_loop_repair_action(
 ) -> TypedAction:
     """Build the canonical typed action for push recovery-loop repair."""
     resolved = inputs if inputs is not None else _inputs_from_kwargs(kwargs)
+
     parameters: dict[str, object] = {}
     parameters["branch"] = resolved.branch
     parameters["remote"] = resolved.remote
     parameters["max_steps"] = resolved.max_steps
     parameters["time_budget_seconds"] = resolved.time_budget_seconds
+
     return TypedAction(
         schema_version=1,
         contract_id="TypedAction",
@@ -54,22 +57,31 @@ def _inputs_from_kwargs(kwargs: dict[str, object]) -> RecoveryLoopRepairActionIn
         "requested_by",
     }
     unexpected = sorted(kwargs.keys() - expected)
+
     if unexpected:
         raise TypeError(
             "Unexpected recovery-loop repair action inputs: " + ", ".join(unexpected)
         )
+
     return RecoveryLoopRepairActionInputs(
         repo_pack_id=str(kwargs["repo_pack_id"]),
         branch=str(kwargs["branch"]),
         remote=str(kwargs["remote"]),
         max_steps=int(kwargs.get("max_steps", 5) or 5),
-        time_budget_seconds=int(kwargs.get("time_budget_seconds", 30) or 30),
+        time_budget_seconds=int(
+            kwargs.get(
+                "time_budget_seconds",
+                DEFAULT_RECOVERY_LOOP_REPAIR_TIME_BUDGET_SECONDS,
+            )
+            or DEFAULT_RECOVERY_LOOP_REPAIR_TIME_BUDGET_SECONDS
+        ),
         requested_by=str(kwargs.get("requested_by", "devctl.push")),
     )
 
 
 __all__ = [
     "RECOVERY_LOOP_REPAIR_ACTION_ID",
+    "DEFAULT_RECOVERY_LOOP_REPAIR_TIME_BUDGET_SECONDS",
     "RecoveryLoopRepairActionInputs",
     "build_recovery_loop_repair_action",
 ]
