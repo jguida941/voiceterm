@@ -3418,6 +3418,13 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/remote_commit_pipeline.md`
       status: `done`
       depends_on: `MP377-P0-T05`
+      2026-04-28 Layer H follow-up: the approved-target identity finding path
+      now consumes the same managed receipt-chain decision emitted by
+      `publication_authorization_decision`, so generated-surface / bridge /
+      ReviewSnapshot receipt commits created by push preflight do not
+      self-invalidate current authorization. Non-managed HEAD movement,
+      expired approval, stale fixtures, and wrong-worktree authorization still
+      fail closed.
 - [ ] `MP377-P0-T08` Extend `PlatformFindingIngest` for finding durability without distraction: every review-channel finding and ad-hoc capture must mirror into `FindingBacklog` / `governance-review` with severity, plan anchor, evidence ref, lifecycle outcome, stale-pending visibility, dashboard counts, startup `quality_signals.open_findings_summary`, and findings-priority ordering. This extends the existing finding spine only.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `in_progress`

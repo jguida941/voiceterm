@@ -55,6 +55,9 @@ from dev.scripts.devctl.review_channel.remote_commit_pipeline_artifact import (
 from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
     RemoteCommitPipelineContract,
 )
+from dev.scripts.devctl.runtime.push_authorization import (
+    PublicationAuthorizationDecision,
+)
 from dev.scripts.devctl.runtime.remote_commit_pipeline_state import (
     PUSH_FAILURE_CLASSIFICATION_DESTRUCTIVE,
     PUSH_FAILURE_CLASSIFICATION_NON_DESTRUCTIVE,
@@ -1377,6 +1380,84 @@ class PushCommandTests(unittest.TestCase):
             },
         )
         self.assertEqual(payload["typed_action"]["action_id"], "vcs.push")
+
+    @patch("dev.scripts.devctl.commands.vcs.push.write_output")
+    @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.branch_divergence",
+        return_value={"behind": 0, "ahead": 2, "error": None},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True
+    )
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.publication_authorization_decision")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_findings_identity_validation.current_head_commit_sha",
+        return_value="receipt-head",
+    )
+    def test_push_accepts_authorization_when_head_moved_by_managed_receipt_chain(
+        self,
+        _identity_current_head_mock,
+        publication_authorization_mock,
+        collect_git_status_mock,
+        load_policy_mock,
+        _remote_exists_mock,
+        _remote_branch_exists_mock,
+        _branch_divergence_mock,
+        run_cmd_mock,
+        write_output_mock,
+    ) -> None:
+        self.head_commit_mock.return_value = "receipt-head"
+        collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
+        load_policy_mock.return_value = make_policy()
+        authorization = _publication_authorization().push_authorization
+        authorization.authorized_head_sha = "content-head"
+        publication_authorization_mock.return_value = PublicationAuthorizationDecision(
+            authorization_required=True,
+            authorized=True,
+            reason="push_authorization_snapshot_receipt_current",
+            summary="Publication is authorized by a managed receipt chain.",
+            push_authorization=authorization,
+            authorized_via_managed_receipt_chain=True,
+        )
+        run_cmd_mock.side_effect = [
+            {
+                "name": "git-fetch",
+                "cmd": ["git", "fetch", "origin"],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+            {
+                "name": "push-preflight",
+                "cmd": [
+                    "bash",
+                    "-lc",
+                    "python3 dev/scripts/devctl.py check-router --since-ref origin/feature/demo --execute",
+                ],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+        ]
+
+        rc = push.run(make_args())
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(payload["status"], "validation_ready")
+        self.assertEqual(payload["head_commit"], "receipt-head")
+        self.assertEqual(payload["errors"], [])
+        self.assertEqual(payload["findings"], [])
+        self.assertEqual(
+            payload["approved_target_identity"],
+            "tree-receipt-20260403T010000Z:tree-123",
+        )
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")

@@ -37,6 +37,28 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-28 - Governed push identity checks now consume managed receipt-chain authority
+
+Fact: push preflight can legitimately move `HEAD` by committing policy-owned
+generated surfaces, `bridge.md`, and ReviewSnapshot receipt artifacts before
+publication. `publication_authorization_decision` already accepted that
+contiguous managed receipt chain as authorization-current, but the later push
+identity finding check compared the original authorized content commit directly
+to live `HEAD` and raised `ApprovedTargetIdentityViolation`.
+
+Change: `PublicationAuthorizationDecision` now exposes whether authorization is
+current through a managed receipt chain, and the duplicate approved-target
+identity finding consumes that typed proof. Stale, fixture, unmanaged, or
+wrong-worktree authorizations still fail closed; only a chain already accepted
+by the publication authorization gate bypasses the raw `authorized_head == HEAD`
+comparison.
+
+Evidence:
+- `dev/scripts/devctl/runtime/push_authorization.py`
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/commands/vcs/push_findings_identity_validation.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
 ### 2026-04-28 - Codex task_complete now has typed handoff backup and liveness uses SessionLivenessSignal
 
 Fact: multiple Codex slices ended with TASK_COMPLETE prose but no typed

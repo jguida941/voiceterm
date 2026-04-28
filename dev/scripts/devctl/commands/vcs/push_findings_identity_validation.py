@@ -17,6 +17,7 @@ def append_approved_identity_errors(
     *,
     authorization: object,
     repo_root,
+    authorized_via_managed_receipt_chain: bool = False,
 ) -> None:
     current_head = current_head_commit_sha(repo_root=repo_root)
     authorized_head = str(
@@ -27,6 +28,7 @@ def append_approved_identity_errors(
         state,
         authorized_head=authorized_head,
         current_head=current_head,
+        authorized_via_managed_receipt_chain=authorized_via_managed_receipt_chain,
     )
 
     approved_worktree = str(
@@ -57,8 +59,11 @@ def append_head_identity_error(
     *,
     authorized_head: str,
     current_head: str,
+    authorized_via_managed_receipt_chain: bool = False,
 ) -> None:
     if not authorized_head or not current_head or authorized_head == current_head:
+        return
+    if authorized_via_managed_receipt_chain:
         return
 
     append_finding(

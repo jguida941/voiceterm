@@ -35,6 +35,7 @@ class PublicationAuthorizationDecision:
     reason: str
     summary: str
     push_authorization: PushAuthorizationRecord | None = None
+    authorized_via_managed_receipt_chain: bool = False
 
 
 def publication_authorization_decision(
@@ -123,6 +124,7 @@ def publication_authorization_decision(
         reason=reason,
         summary=summary,
         push_authorization=authorization,
+        authorized_via_managed_receipt_chain=authorized_via_snapshot_receipt,
     )
 
 

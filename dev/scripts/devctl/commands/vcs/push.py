@@ -226,6 +226,13 @@ def _append_publication_authorization_errors(
                 state,
                 authorization=authorization,
                 repo_root=repo_root,
+                authorized_via_managed_receipt_chain=bool(
+                    getattr(
+                        decision,
+                        "authorized_via_managed_receipt_chain",
+                        False,
+                    )
+                ),
             )
         return
     summary = str(decision.summary or decision.reason or "").strip()

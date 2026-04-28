@@ -388,6 +388,12 @@
   `AUTOMATION_DEBT_REGISTER.md` carries ADR-024 through ADR-027 for the
   warning-first guard family. This keeps the work in existing typed authority
   surfaces and leaves compatibility projections as projections.
+- 2026-04-28 Plan 4.1 Layer H governed-push receipt-chain follow-up
+  (MP-377): the approved-target identity finding path now consumes the same
+  managed receipt-chain decision emitted by `publication_authorization_decision`.
+  Preflight-created generated-surface / bridge / ReviewSnapshot receipt commits
+  no longer self-invalidate an otherwise current authorization, while stale,
+  fixture, unmanaged, or wrong-worktree authorization still fails closed.
 - 2026-04-27 Plan 4.1 N1 governed-push heartbeat automation (MP-377):
   `devctl push` now extends the existing pre-validation projection sync rather
   than adding another recovery surface. When the bridge liveness projection

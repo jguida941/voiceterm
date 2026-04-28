@@ -95,6 +95,13 @@ Documentation-boundary rule:
   tooling/process/governance change triggers maintainer-doc updates, do not
   satisfy that requirement by editing product docs unless shipped end-user
   VoiceTerm behavior changed too.
+- Operator-side memory files are short-term continuity only. They may carry
+  recent packet ids, current HEADs, cadence preferences, or session notes, but
+  they are not load-bearing architectural authority. If an AI/process rule,
+  runtime invariant, or governance pattern needs to persist, encode it in the
+  codebase through `AGENTS.md`, maintainer docs, active `MP-377` owner docs,
+  repo-pack policy, typed contracts, or guards. Do not create or update memory
+  markdown as the durable home for architecture rules.
 
 Shared-backlog rule:
 - `backlog.md` is the repo-visible shared backlog surface for humans and AI.
