@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `5adc6ebd2753` — Plan 4.1 / MP-377 Codex 41 slice — events.py NameError fix + Layer F handoff packet auto-emit (α + β) + Layer G typed liveness producer
-- Tree hash: `5e8e7a199d2a`
-- Generation stamp: `snap-22e666e8f2d7`
-- Generated at (UTC): 2026-04-28T20:05:53Z
-- Push decision: `await_review` — review_pending_before_push
+- HEAD: `06f6d2b24db2` — Refresh external review snapshot for 5adc6ebd
+- Tree hash: `b3025b878dfa`
+- Generation stamp: `snap-22f68d85b3fa`
+- Generated at (UTC): 2026-04-28T20:08:15Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 77 files, +5381/-1760
+- Delta since last snapshot: 24 commits, 77 files, +5416/-1771
 - Governance findings: 126 open / 88 fixed / 228 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,30 +54,34 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `5adc6ebd27539203608e18967397a2fce901c352`
+- HEAD SHA: `06f6d2b24db2b904dfb08cd15df37752ef5da27d`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-28T16:05:31-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_review`
-- reason: review_pending_before_push
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
 - push_eligible_now: False
 - worktree_clean: True
 - staged_path_count: 0
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - latest_push_report: `dev/reports/push/latest.json`
-- latest_push_report_state: `blocked` (validation_failed)
+- latest_push_report_state: `blocked` (push_preflight_running)
+- current_push_authorization: `push-auth-20260428T200414510902Z` (valid=True)
+- authorized_head_commit: `06f6d2b24db2b904dfb08cd15df37752ef5da27d`
+- approved_target_identity: `tree-receipt-20260428T200414510902Z:5e8e7a199d2af4d440dd418c4dd203591ed13a5b`
 - publication_backlog: urgent
-- publication_guidance: 73 local commit(s) waiting for governed push once review is accepted.
+- publication_guidance: 74 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `active_dual_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: False
 - interaction_mode: `remote_control`
+- implementation_blocked: yes — runtime_missing
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -87,16 +91,16 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `await_review` — review_pending_before_push
+- advisory: `repair_reviewer_loop` — runtime_missing
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `5adc6ebd2753`
+Range: last 24 commits ending at `06f6d2b24db2`
 
 - commits: 24
 - files changed: 77
-- insertions: +5381
-- deletions: -1760
+- insertions: +5416
+- deletions: -1771
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 5 file(s)
 
@@ -104,30 +108,30 @@ Range: last 24 commits ending at `5adc6ebd2753`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `5adc6ebd` | Plan 4.1 / MP-377 Codex 41 slice — events.py NameError fix… | 56 | +2716/-386 | tooling |  |
-| 2 | `acf4ae3d` | Refresh external review snapshot for f971174a | 2 | +61/-67 | docs |  |
-| 3 | `f971174a` | Refresh external review snapshot for b5e92596 | 2 | +48/-48 | docs |  |
-| 4 | `b5e92596` | Refresh external review snapshot for f06b2658 | 1 | +47/-44 | tooling |  |
-| 5 | `f06b2658` | Refresh external review snapshot for b113e951 | 2 | +60/-63 | docs |  |
-| 6 | `b113e951` | Managed projection receipt: SYSTEM_MAP.md auto-refresh from… | 2 | +50/-51 | tooling |  |
-| 7 | `125bd6ea` | Refresh external review snapshot for a946ba66 | 1 | +53/-50 | tooling |  |
-| 8 | `a946ba66` | Refresh external review snapshot for d5f2c214 | 2 | +71/-61 | docs |  |
-| 9 | `d5f2c214` | Plan 4.1 final layer — completed-handoff outcome → current_… | 10 | +814/-119 | tooling |  |
-| 10 | `951ba609` | Refresh external review snapshot for 2df8a969 | 2 | +54/-57 | docs |  |
-| 11 | `2df8a969` | Refresh external review snapshot for 8f412975 | 1 | +40/-40 | tooling |  |
-| 12 | `8f412975` | Refresh external review snapshot for 10ab0bce | 2 | +42/-42 | docs |  |
-| 13 | `10ab0bce` | Refresh external review snapshot for 22fcd435 | 1 | +62/-78 | tooling |  |
-| 14 | `22fcd435` | Refresh external review snapshot for 00b8340f | 2 | +55/-58 | docs |  |
-| 15 | `00b8340f` | Plan 4.1 live-runtime completed-handoff matcher fix (Codex… | 4 | +187/-72 | tooling |  |
-| 16 | `20f1e4b6` | Refresh external review snapshot for cd3a1fb0 | 2 | +44/-44 | docs |  |
-| 17 | `cd3a1fb0` | Refresh external review snapshot for 7a5b14a5 | 1 | +68/-85 | tooling |  |
-| 18 | `7a5b14a5` | Refresh external review snapshot for ce90a950 | 2 | +43/-43 | docs |  |
-| 19 | `ce90a950` | Refresh external review snapshot for ddf7bfe1 | 1 | +49/-46 | tooling |  |
-| 20 | `ddf7bfe1` | Refresh external review snapshot for 8a2579eb | 2 | +67/-71 | docs |  |
-| 21 | `8a2579eb` | Plan 4.1 5-layer completed-handoff bypass propagation (Code… | 17 | +605/-90 | tooling |  |
-| 22 | `38ca87ad` | Refresh external review snapshot for 49a2c8ce | 2 | +42/-42 | docs |  |
-| 23 | `49a2c8ce` | Refresh external review snapshot for 63542766 | 1 | +47/-44 | tooling |  |
-| 24 | `63542766` | Refresh external review snapshot for 92f5c504 | 2 | +56/-59 | docs |  |
+| 1 | `06f6d2b2` | Refresh external review snapshot for 5adc6ebd | 2 | +91/-70 | docs |  |
+| 2 | `5adc6ebd` | Plan 4.1 / MP-377 Codex 41 slice — events.py NameError fix… | 56 | +2716/-386 | tooling |  |
+| 3 | `acf4ae3d` | Refresh external review snapshot for f971174a | 2 | +61/-67 | docs |  |
+| 4 | `f971174a` | Refresh external review snapshot for b5e92596 | 2 | +48/-48 | docs |  |
+| 5 | `b5e92596` | Refresh external review snapshot for f06b2658 | 1 | +47/-44 | tooling |  |
+| 6 | `f06b2658` | Refresh external review snapshot for b113e951 | 2 | +60/-63 | docs |  |
+| 7 | `b113e951` | Managed projection receipt: SYSTEM_MAP.md auto-refresh from… | 2 | +50/-51 | tooling |  |
+| 8 | `125bd6ea` | Refresh external review snapshot for a946ba66 | 1 | +53/-50 | tooling |  |
+| 9 | `a946ba66` | Refresh external review snapshot for d5f2c214 | 2 | +71/-61 | docs |  |
+| 10 | `d5f2c214` | Plan 4.1 final layer — completed-handoff outcome → current_… | 10 | +814/-119 | tooling |  |
+| 11 | `951ba609` | Refresh external review snapshot for 2df8a969 | 2 | +54/-57 | docs |  |
+| 12 | `2df8a969` | Refresh external review snapshot for 8f412975 | 1 | +40/-40 | tooling |  |
+| 13 | `8f412975` | Refresh external review snapshot for 10ab0bce | 2 | +42/-42 | docs |  |
+| 14 | `10ab0bce` | Refresh external review snapshot for 22fcd435 | 1 | +62/-78 | tooling |  |
+| 15 | `22fcd435` | Refresh external review snapshot for 00b8340f | 2 | +55/-58 | docs |  |
+| 16 | `00b8340f` | Plan 4.1 live-runtime completed-handoff matcher fix (Codex… | 4 | +187/-72 | tooling |  |
+| 17 | `20f1e4b6` | Refresh external review snapshot for cd3a1fb0 | 2 | +44/-44 | docs |  |
+| 18 | `cd3a1fb0` | Refresh external review snapshot for 7a5b14a5 | 1 | +68/-85 | tooling |  |
+| 19 | `7a5b14a5` | Refresh external review snapshot for ce90a950 | 2 | +43/-43 | docs |  |
+| 20 | `ce90a950` | Refresh external review snapshot for ddf7bfe1 | 1 | +49/-46 | tooling |  |
+| 21 | `ddf7bfe1` | Refresh external review snapshot for 8a2579eb | 2 | +67/-71 | docs |  |
+| 22 | `8a2579eb` | Plan 4.1 5-layer completed-handoff bypass propagation (Code… | 17 | +605/-90 | tooling |  |
+| 23 | `38ca87ad` | Refresh external review snapshot for 49a2c8ce | 2 | +42/-42 | docs |  |
+| 24 | `49a2c8ce` | Refresh external review snapshot for 63542766 | 1 | +47/-44 | tooling |  |
 
 ### Files
 
@@ -137,10 +141,10 @@ Range: last 24 commits ending at `5adc6ebd2753`
 | `app/operator_console/state/core/models.py` | tooling | +1/-0 |
 | `app/operator_console/state/snapshots/dashboard_snapshot.py` | tooling | +28/-0 |
 | `app/operator_console/state/snapshots/snapshot_builder.py` | tooling | +3/-1 |
-| `bridge.md` | docs | +59/-59 |
+| `bridge.md` | docs | +58/-58 |
 | `dev/active/MASTER_PLAN.md` | tooling | +29/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +36/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1228/-1262 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1264/-1274 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +4/-0 |
 | `dev/config/templates/portable_governance_pre_commit_hook.sh` | tooling | +4/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +7/-1 |
@@ -242,6 +246,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`06f6d2b2`** — Refresh external review snapshot for 5adc6ebd
+  - evolution: Fact: multiple Codex slices ended with TASK_COMPLETE prose but no typed `stage_commit_pipeline` packet, which left the review-channel dashboard and commit pipeline guessing from prose. The liveness path had the same sha…
 - **`5adc6ebd` | MPs: MP-377** — Plan 4.1 / MP-377 Codex 41 slice — events.py NameError fix + Layer F handoff packet auto-emit (α + β) + Layer G typed liveness producer
   - This slice closes the typed-handoff-before-task-complete meta-pattern that all prior Codex sessions (33/35/37/39/40) skipped:
   -   - Layer F-α (in-Codex): bootstrap promotes typed stage_commit_pipeline action_request emission to PRIMARY contract; Codex 41 itself proved this works by posting rev_pkt_2116 from=codex to=claude as the LAST tool action before TASK_COMPLETE, target_ref=devctl_commit:acf4ae3d, full_guard_bundle_evidence=--profile ci.
@@ -294,8 +300,6 @@ Recent findings:
   - evolution: Fact: multiple Codex slices ended with TASK_COMPLETE prose but no typed `stage_commit_pipeline` packet, which left the review-channel dashboard and commit pipeline guessing from prose. The liveness path had the same sha…
 - **`49a2c8ce`** — Refresh external review snapshot for 63542766
   - evolution: Fact: multiple Codex slices ended with TASK_COMPLETE prose but no typed `stage_commit_pipeline` packet, which left the review-channel dashboard and commit pipeline guessing from prose. The liveness path had the same sha…
-- **`63542766`** — Refresh external review snapshot for 92f5c504
-  - evolution: Fact: multiple Codex slices ended with TASK_COMPLETE prose but no typed `stage_commit_pipeline` packet, which left the review-channel dashboard and commit pipeline guessing from prose. The liveness path had the same sha…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -314,11 +318,10 @@ Recent findings:
 - open governance findings: 126
 
 ### Startup advisories
-- await_review: review_pending_before_push
+- repair_reviewer_loop: runtime_missing
 
 ### Stale warnings
-- Keep editing the current slice.
-- Move straight to the governed push path.
+- Cut a checkpoint before doing anything else.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/review_channel/projections`): bridge_content_loss_on_rollover: Rollover convergence re-projects bridge from typed current_session authority, overwriting reviewer-checkpoint content. System warning names it explicitly. Every rollover loses prior reviewer decision. Recover-from-event-store fix proposed rev_pkt_1715.
@@ -336,4 +339,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-22e666e8f2d7` binds this file to HEAD `5adc6ebd2753`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-22f68d85b3fa` binds this file to HEAD `06f6d2b24db2`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
