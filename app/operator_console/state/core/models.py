@@ -123,6 +123,7 @@ class OperatorConsoleSnapshot:
     quality_backlog: QualityBacklogSnapshot | None = None
     quality_feedback: QualityFeedbackOCSnapshot | None = None
     watchdog_snapshot: WatchdogSummaryArtifact | None = None
+    dashboard_snapshot: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)

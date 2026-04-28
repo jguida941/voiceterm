@@ -19,6 +19,7 @@ from ..bridge.lane_builder import (
 from ..core.models import OperatorConsoleSnapshot
 from .quality_feedback_snapshot import load_quality_feedback_snapshot
 from .quality_snapshot import collect_quality_backlog_snapshot
+from .dashboard_snapshot import load_dashboard_snapshot
 from ..review.review_state import (
     find_review_full_path,
     find_review_state_path,
@@ -97,6 +98,7 @@ def build_operator_console_snapshot(
     quality_backlog = collect_quality_backlog_snapshot(repo_root)
     quality_feedback = load_quality_feedback_snapshot(repo_root)
     watchdog_snapshot = load_watchdog_analytics_snapshot(repo_root)
+    dashboard_snapshot = load_dashboard_snapshot(warnings, repo_root)
 
     return OperatorConsoleSnapshot(
         codex_panel_text=panel_texts["codex"],
@@ -128,8 +130,8 @@ def build_operator_console_snapshot(
         quality_backlog=quality_backlog,
         quality_feedback=quality_feedback,
         watchdog_snapshot=watchdog_snapshot,
+        dashboard_snapshot=dashboard_snapshot,
     )
-
 
 def _load_review_contract_with_fallback(
     warnings: list[str],

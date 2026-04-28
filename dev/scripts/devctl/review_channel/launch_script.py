@@ -149,6 +149,8 @@ def _header_lines(header: _SessionScriptHeader) -> list[str]:
         'REVIEW_CHANNEL_WATCHDOG_POLL_SECONDS="${REVIEW_CHANNEL_WATCHDOG_POLL_SECONDS:-30}"',
         'REVIEW_CHANNEL_WATCHDOG_DISABLED="${REVIEW_CHANNEL_WATCHDOG_DISABLED:-0}"',
         'REVIEW_CHANNEL_CODEX_SESSIONS_ROOT="${REVIEW_CHANNEL_CODEX_SESSIONS_ROOT:-$HOME/.codex/sessions}"',
+        'REVIEW_CHANNEL_AGENT_MIND_LAST_PROJECTED_MTIME="${REVIEW_CHANNEL_AGENT_MIND_LAST_PROJECTED_MTIME:-0}"',
+        'REVIEW_CHANNEL_HANDOFF_GUARD_EVIDENCE="${REVIEW_CHANNEL_HANDOFF_GUARD_EVIDENCE:---profile ci}"',
         f'REVIEW_CHANNEL_HEADLESS_MODE="${{REVIEW_CHANNEL_HEADLESS_MODE:-{"1" if header.headless else "0"}}}"',
         f'REVIEW_CHANNEL_NON_RESTARTABLE_EXIT_CODES="${{REVIEW_CHANNEL_NON_RESTARTABLE_EXIT_CODES:-{NON_RESTARTABLE_LAUNCH_AUTHORITY_EXIT_CODE}}}"',
         f"REVIEW_CHANNEL_PREPARED_HEAD_SHA={shlex.quote(header.prepared_head_sha)}",
@@ -195,6 +197,15 @@ def _log_wrapper_lines(log_path: Path, inner_script_command: str) -> list[str]:
 
 def _supervision_loop_lines(provider: str) -> list[str]:
     return [
+        "review_channel_task_complete_handoff_guard() {",
+        '  local conductor_exit_code="${1:-}"',
+        f'  [[ {shlex.quote(provider)} != "codex" ]] && return 0',
+        '  (cd "$REVIEW_CHANNEL_CONTROL_ROOT" && '
+        "python3 -m dev.scripts.devctl.review_channel.task_complete_handoff_guard "
+        f"--provider {shlex.quote(provider)} "
+        '"--conductor-exit-code" "$conductor_exit_code") || true',
+        "}",
+        "",
         "restart_count=0",
         "while true; do",
         "  if run_review_channel_once; then",
@@ -202,6 +213,7 @@ def _supervision_loop_lines(provider: str) -> list[str]:
         "  else",
         "    exit_code=$?",
         "  fi",
+        '  review_channel_task_complete_handoff_guard "$exit_code"',
         '  if [[ "$exit_code" == "0" ]]; then',
         '    if [[ "$REVIEW_CHANNEL_EXIT_ON_SUCCESS" == "1" ]]; then',
         "      exit 0",

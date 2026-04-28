@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from .ack_contract import ack_revision_requirement_message
+from .ack_freshness_authority import is_implementer_ack_current
+from ..runtime.review_state_models import ReviewCurrentSessionState
 from ..runtime.review_state_semantics import is_pending_implementer_state
 from .bridge_validation_acceptance import review_acceptance_projection
 from .bridge_validation_poll_status import (
@@ -37,12 +39,23 @@ _WAITING_INSTRUCTION_MARKERS = (
 )
 
 
-def validate_live_bridge_contract(snapshot) -> list[str]:
+def validate_live_bridge_contract(
+    snapshot,
+    *,
+    typed_current_session: ReviewCurrentSessionState | None = None,
+) -> list[str]:
     """Return contract errors for the minimum live bridge state."""
     from .handoff import summarize_bridge_liveness as _summarize
 
     errors: list[str] = []
     liveness = _summarize(snapshot)
+    typed_ack_known = typed_current_session is not None
+    typed_ack_current = (
+        is_implementer_ack_current(typed_current_session)
+        if typed_current_session is not None
+        else False
+    )
+    ack_current = typed_ack_current if typed_ack_known else liveness.claude_ack_current
     reviewer_mode = liveness.reviewer_mode
     poll_status = snapshot.sections.get("Poll Status", "").strip()
     last_reviewed_scope = snapshot.sections.get("Last Reviewed Scope", "").strip()
@@ -82,7 +95,7 @@ def validate_live_bridge_contract(snapshot) -> list[str]:
     if (
         reviewer_mode_is_active(reviewer_mode)
         and not _is_substantive_text(poll_status)
-        and not liveness.claude_ack_current
+        and not ack_current
     ):
         errors.append(
             "Active `active_dual_agent` bridge requires a substantive `Poll Status` "
@@ -94,10 +107,25 @@ def validate_live_bridge_contract(snapshot) -> list[str]:
     explicit_revision = (snapshot.metadata.get("current_instruction_revision") or "").strip()
     if (
         reviewer_mode_is_active(reviewer_mode)
-        and liveness.claude_ack_present
         and not _waiting_instruction_placeholder(current_instruction)
     ):
-        if not explicit_revision:
+        if typed_ack_known:
+            typed_revision = str(
+                getattr(typed_current_session, "current_instruction_revision", "") or ""
+            ).strip()
+            if not typed_revision:
+                errors.append(
+                    "Active bridge mode requires typed current-session instruction "
+                    "revision so implementer ACK freshness can be checked."
+                )
+            elif not typed_ack_current:
+                errors.append(
+                    "Typed implementer ACK revision does not match the current "
+                    "reviewer instruction revision."
+                )
+        elif not liveness.claude_ack_present:
+            pass
+        elif not explicit_revision:
             errors.append(
                 "Active bridge mode requires `Current instruction revision` metadata "
                 "so Claude ACK freshness can be checked."
@@ -149,6 +177,8 @@ def validate_live_bridge_contract(snapshot) -> list[str]:
 def _waiting_instruction_placeholder(current_instruction: str) -> bool:
     normalized = current_instruction.strip().lower()
     return any(marker in normalized for marker in _WAITING_INSTRUCTION_MARKERS)
+
+
 def validate_launch_bridge_state(
     snapshot,
     *,

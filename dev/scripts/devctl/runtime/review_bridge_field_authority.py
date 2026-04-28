@@ -36,6 +36,7 @@ EVENT_BRIDGE_COMPATIBILITY_DERIVED_FIELDS = frozenset(
         "reviewer_capability",
         "implementer_capability",
         "pending_total",
+        "session_liveness_signals",
     }
 )
 

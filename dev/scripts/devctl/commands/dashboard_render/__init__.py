@@ -21,12 +21,13 @@ import os
 import re
 from typing import Any
 
-from ..dashboard import _VIEW_SECTIONS
+from ..reporting.dashboard_views import VIEW_SECTIONS
 from . import attention as _attn
 from . import control_plane as _control
 from . import terminal as _term
 from . import markdown as _md
 from . import mobile as _mobile
+from . import typed_state as _typed_state
 from .helpers import (
     _BOLD,
     _CYAN,
@@ -73,11 +74,11 @@ def _view_includes(snapshot: dict[str, Any], section: str) -> bool:
     """Return True when the snapshot's view includes the given section.
 
     Overview (the default) includes everything.  Other views only render
-    sections listed in ``_VIEW_SECTIONS``.  The ``summary`` and ``repo``
+    sections listed in ``VIEW_SECTIONS``.  The ``summary`` and ``repo``
     sections are always included.
     """
     view = snapshot.get("view", "overview")
-    allowed = _VIEW_SECTIONS.get(view, frozenset())
+    allowed = VIEW_SECTIONS.get(view, frozenset())
     if not allowed:
         return True  # overview -- render everything
     return section in allowed
@@ -103,6 +104,17 @@ def render_terminal(snapshot: dict[str, Any], *, no_color: bool = False) -> str:
     if _view_includes(snapshot, "health"):
         _term._render_health_terminal(snapshot, lines)
     _attn.render_typed_attention_terminal(snapshot, lines)
+    if any(
+        _view_includes(snapshot, section)
+        for section in (
+            "agent_mind",
+            "session_outcomes",
+            "ack_freshness",
+            "active_codex_sessions",
+            "system_topology",
+        )
+    ):
+        _typed_state.render_typed_state_terminal(snapshot, lines)
     if _view_includes(snapshot, "workers"):
         _term._render_workers_terminal(snapshot, lines)
     if _view_includes(snapshot, "plan"):
@@ -142,6 +154,17 @@ def render_markdown(snapshot: dict[str, Any]) -> str:
     if _view_includes(snapshot, "health"):
         _md._render_health_markdown(snapshot, lines)
     _attn.render_typed_attention_markdown(snapshot, lines)
+    if any(
+        _view_includes(snapshot, section)
+        for section in (
+            "agent_mind",
+            "session_outcomes",
+            "ack_freshness",
+            "active_codex_sessions",
+            "system_topology",
+        )
+    ):
+        _typed_state.render_typed_state_markdown(snapshot, lines)
     if _view_includes(snapshot, "workers"):
         _md._render_workers_markdown(snapshot, lines)
     if _view_includes(snapshot, "plan"):

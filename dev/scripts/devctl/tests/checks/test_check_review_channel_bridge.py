@@ -7,6 +7,7 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -145,11 +146,43 @@ def _inactive_review_channel_text() -> str:
     )
 
 
+def _typed_review_state(
+    *,
+    reviewer_mode: str = "active_dual_agent",
+    poll_age_seconds: int = 60,
+    ack_state: str = "current",
+    ack_revision: str = "56bcd5d01510",
+    instruction_revision: str = "56bcd5d01510",
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        bridge=SimpleNamespace(
+            reviewer_mode=reviewer_mode,
+            last_codex_poll_utc="2026-03-08T04:58:19Z",
+            last_codex_poll_age_seconds=poll_age_seconds,
+        ),
+        current_session=SimpleNamespace(
+            implementer_ack_state=ack_state,
+            implementer_ack_revision=ack_revision,
+            current_instruction_revision=instruction_revision,
+        ),
+    )
+
+
 class CheckReviewChannelBridgeTests(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.script = _load_script_module()
         cls.fixed_now = datetime(2026, 3, 8, 5, 0, 0, tzinfo=timezone.utc)
+
+    def setUp(self) -> None:
+        typed_state = _typed_review_state()
+        patcher = patch.object(
+            self.script._typed_bridge_state,
+            "load_typed_review_state",
+            return_value=typed_state,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def _temp_path(self, name: str, text: str) -> Path:
         tmp_dir = tempfile.TemporaryDirectory(dir=REPO_ROOT)
@@ -271,6 +304,11 @@ class CheckReviewChannelBridgeTests(TestCase):
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=True),
             patch.object(self.script, "_current_utc", return_value=self.fixed_now),
+            patch.object(
+                self.script._typed_bridge_state,
+                "load_typed_review_state",
+                return_value=_typed_review_state(reviewer_mode="developer"),
+            ),
         ):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
@@ -465,6 +503,11 @@ class CheckReviewChannelBridgeTests(TestCase):
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=True),
             patch.object(self.script, "_current_utc", return_value=self.fixed_now),
+            patch.object(
+                self.script._typed_bridge_state,
+                "load_typed_review_state",
+                return_value=_typed_review_state(reviewer_mode="developer"),
+            ),
         ):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
@@ -482,13 +525,16 @@ class CheckReviewChannelBridgeTests(TestCase):
             "dev/active/review_channel.md",
             _valid_review_channel_text(self.script),
         )
-        stale_now = datetime(2026, 3, 8, 6, 0, 0, tzinfo=timezone.utc)
         with (
             patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=True),
-            patch.object(self.script, "_current_utc", return_value=stale_now),
             patch.object(self.script, "_enforce_live_poll_freshness", return_value=True),
+            patch.object(
+                self.script._typed_bridge_state,
+                "load_typed_review_state",
+                return_value=_typed_review_state(poll_age_seconds=3600),
+            ),
         ):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
@@ -504,13 +550,16 @@ class CheckReviewChannelBridgeTests(TestCase):
             "dev/active/review_channel.md",
             _valid_review_channel_text(self.script),
         )
-        stale_now = datetime(2026, 3, 8, 6, 0, 0, tzinfo=timezone.utc)
         with (
             patch.object(self.script, "BRIDGE_PATH", bridge),
             patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
             patch.object(self.script, "_is_tracked_by_git", return_value=True),
-            patch.object(self.script, "_current_utc", return_value=stale_now),
             patch.object(self.script, "_enforce_live_poll_freshness", return_value=False),
+            patch.object(
+                self.script._typed_bridge_state,
+                "load_typed_review_state",
+                return_value=_typed_review_state(poll_age_seconds=3600),
+            ),
         ):
             report = self.script.build_report()
         self.assertTrue(report["ok"])

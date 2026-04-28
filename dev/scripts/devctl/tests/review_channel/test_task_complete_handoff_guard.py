@@ -1,0 +1,104 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from dev.scripts.devctl.review_channel.event_store import (
+    load_events,
+    resolve_artifact_paths,
+)
+from dev.scripts.devctl.review_channel.task_complete_handoff_guard import (
+    TaskCompleteHandoffRequest,
+    emit_handoff_for_latest_task_complete,
+)
+from dev.scripts.devctl.tests.test_review_channel_context_refs import (
+    _review_channel_text,
+)
+
+
+def test_task_complete_guard_posts_missing_stage_handoff(tmp_path: Path) -> None:
+    review_channel_path = tmp_path / "dev/active/review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+    sessions_root = tmp_path / "sessions"
+    rollout_path = sessions_root / "2026/04/28/rollout-20260428-codex.jsonl"
+    rollout_path.parent.mkdir(parents=True, exist_ok=True)
+    rollout_path.write_text(
+        json.dumps(
+            {
+                "timestamp": "2026-04-28T19:20:00Z",
+                "type": "event_msg",
+                "payload": {
+                    "type": "task_complete",
+                    "last_agent_message": "Slice complete with guard evidence.",
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    target_revision = "a" * 40
+
+    result = emit_handoff_for_latest_task_complete(
+        TaskCompleteHandoffRequest(
+            repo_root=tmp_path,
+            sessions_root=sessions_root,
+            target_revision=target_revision,
+            guard_evidence="--profile ci",
+            conductor_exit_code="0",
+        )
+    )
+    artifact_paths = resolve_artifact_paths(repo_root=tmp_path)
+    events = load_events(Path(artifact_paths.event_log_path))
+    handoff = next(event for event in events if event.get("packet_id") == result.packet_id)
+
+    assert result.status == "posted"
+    assert result.target_ref == f"devctl_commit:{target_revision}"
+    assert handoff["kind"] == "action_request"
+    assert handoff["from_agent"] == "codex"
+    assert handoff["to_agent"] == "claude"
+    assert handoff["requested_action"] == "stage_commit_pipeline"
+    assert handoff["target_revision"] == target_revision
+    assert handoff["full_guard_bundle_evidence"] == "--profile ci"
+    assert "Slice complete with guard evidence." in str(handoff["body"])
+
+
+def test_task_complete_guard_dedupes_existing_stage_handoff(tmp_path: Path) -> None:
+    review_channel_path = tmp_path / "dev/active/review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+    sessions_root = tmp_path / "sessions"
+    rollout_path = sessions_root / "2026/04/28/rollout-20260428-codex.jsonl"
+    rollout_path.parent.mkdir(parents=True, exist_ok=True)
+    rollout_path.write_text(
+        json.dumps(
+            {
+                "timestamp": "2026-04-28T19:25:00Z",
+                "type": "event_msg",
+                "payload": {"type": "task_complete"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    request = TaskCompleteHandoffRequest(
+        repo_root=tmp_path,
+        sessions_root=sessions_root,
+        target_revision="b" * 40,
+    )
+
+    posted = emit_handoff_for_latest_task_complete(request)
+    skipped = emit_handoff_for_latest_task_complete(request)
+    artifact_paths = resolve_artifact_paths(repo_root=tmp_path)
+    stage_posts = [
+        event
+        for event in load_events(Path(artifact_paths.event_log_path))
+        if event.get("event_type") == "packet_posted"
+        and event.get("requested_action") == "stage_commit_pipeline"
+    ]
+
+    assert posted.status == "posted"
+    assert skipped.status == "skipped"
+    assert skipped.reason == "matching_stage_handoff_exists"
+    assert len(stage_posts) == 1
+

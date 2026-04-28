@@ -95,7 +95,7 @@ from ..commands.governance import (
     simple_lanes,
     startup_context as governance_startup_context,
 )
-from ..commands.reporting import dogfood, findings_priority
+from ..commands.reporting import claude_loop, dogfood, findings_priority
 from ..commands.vcs import commit as vcs_commit, push
 from ..config import (
     DEFAULT_CI_LIMIT,
@@ -106,6 +106,7 @@ from ..config import (
 from ..context_graph.command import run as context_graph_run
 from ..context_graph.parser import add_context_graph_parser
 from ..controller_action_parser import add_controller_action_parser
+from .claude_loop import add_claude_loop_parser
 from ..data_science.metrics import maybe_auto_refresh_data_science
 from ..failure_cleanup_parser import add_failure_cleanup_parser
 from ..governance.parser import (
@@ -162,6 +163,7 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset({
     "system-map",
     "mcp",
     "dashboard",
+    "claude-loop",
     "discover",
     "findings-priority",
     "view",
@@ -250,6 +252,7 @@ def build_parser() -> argparse.ArgumentParser:
     governance_orphan_inventory.add_parser(sub)
     governance_install_git_hooks.add_parser(sub)
     _add_dashboard_parser(sub)
+    add_claude_loop_parser(sub)
     dogfood.add_parser(sub)
     monitor.add_parser(sub)
     auto_mode_status.add_parser(sub)
@@ -287,7 +290,18 @@ def _add_dashboard_parser(sub: argparse._SubParsersAction) -> None:
         "--follow",
         action="store_true",
         default=False,
-        help="Enable polling mode (reserved for future use)",
+        help="Poll and re-render dashboard snapshots until interrupted.",
+    )
+    dash.add_argument(
+        "--interval",
+        default="5",
+        help="Polling interval for --follow, for example 1, 500ms, or 5s.",
+    )
+    dash.add_argument(
+        "--max-follow-snapshots",
+        type=int,
+        default=None,
+        help="Stop --follow after this many snapshots; useful for probes.",
     )
     dash.add_argument(
         "--no-color",
@@ -301,6 +315,7 @@ COMMAND_HANDLERS = {
     "auto-mode": auto_mode_status.run,
     "check": check.run,
     "check-router": check_router.run,
+    "claude-loop": claude_loop.run,
     "dashboard": dashboard.run,
     "dogfood": dogfood.run,
     "monitor": monitor.run,

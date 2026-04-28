@@ -37,6 +37,39 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-28 - Codex task_complete now has typed handoff backup and liveness uses SessionLivenessSignal
+
+Fact: multiple Codex slices ended with TASK_COMPLETE prose but no typed
+`stage_commit_pipeline` packet, which left the review-channel dashboard and
+commit pipeline guessing from prose. The liveness path had the same shape:
+some consumers read typed session rows, while others still treated bridge
+conductor booleans as direct authority.
+
+Change: Codex launcher scripts now run a session-end task-complete handoff
+guard. If the latest Codex rollout emitted `task_complete` and no matching
+`stage_commit_pipeline` action_request exists for the current
+`devctl_commit:<head>`, the guard posts the typed packet to Claude with full
+guard-bundle evidence before the supervised relaunch loop continues. The live
+agent instruction surface also says a slice is not complete until that typed
+handoff packet is in the target inbox.
+
+Change: `SessionLivenessSignal` now owns the portable provider liveness family
+in `devctl.runtime`: `alive`, `degraded`, `detached_runtime_only`, and `dead`.
+Review-channel status emits `session_liveness_signals` and keeps
+`participant_liveness` as a compatibility projection. Dashboard/mobile receive
+the same rows through `DashboardSnapshot.session_liveness`, startup runtime
+counts prefer the typed signal, and the control-plane read model no longer
+treats direct bridge conductor booleans as sufficient liveness proof.
+
+Evidence:
+- `dev/scripts/devctl/review_channel/task_complete_handoff_guard.py`
+- `dev/scripts/devctl/review_channel/launch_script.py`
+- `dev/scripts/devctl/review_channel/prompt_contract.py`
+- `dev/scripts/devctl/runtime/session_liveness_signal.py`
+- `dev/scripts/devctl/runtime/control_plane_daemons.py`
+- `dev/scripts/devctl/runtime/control_topology_bridge_counts.py`
+- `dev/scripts/devctl/runtime/dashboard_snapshot_authority.py`
+
 ### 2026-04-28 - Completed-handoff publication authority now reaches hook-time generated receipts
 
 Fact: push v6 proved the completed-handoff waiver was present in the push
@@ -12747,3 +12780,49 @@ Evidence:
 - `AGENTS.md`
 - `dev/guides/DEVELOPMENT.md`
 - `dev/scripts/README.md`
+
+### 2026-04-28 — DashboardSnapshot v3 and typed bridge freshness unblock push-v14 gates
+
+Plan 4.1 exposed the same prose-vs-typed-state split in several runtime
+readers: the bridge checker still parsed `Last Codex poll` / `Claude Ack`
+from `bridge.md`, commit-stage handoff packets were safe hints without a
+typed auto-apply lifecycle, and dashboard/mobile/operator surfaces each kept
+separate snapshot assembly paths.
+
+The bridge checker now consumes typed `ReviewState.bridge.last_codex_poll_*`
+freshness and the shared `ack_freshness_authority.is_implementer_ack_current`
+predicate for implementer ACK authority. The markdown bridge remains a
+compatibility projection for section hygiene and worktree hash display, not
+the freshness source.
+
+Pre-pipeline `stage_commit_pipeline` action requests now remain
+system-to-Claude allowlisted, require `safe_auto_apply`, runtime target
+binding, and full guard-bundle evidence, and can auto-ACK/apply through typed
+packet events. The governed commit handoff emitter also reuses existing live
+stage handoff packets for the same target agent and `devctl_commit:<HEAD>` so
+repeat sandbox retries do not flood the queue.
+
+Dashboard consumers now share `DashboardSnapshot` v3 through
+`dashboard_snapshot_authority`: CLI dashboard output normalizes to the v3
+contract, `dashboard --follow` emits repeated snapshots, `claude-loop`
+provides a read-only Claude loop view over the same payload, `mobile-status`
+exposes the shared snapshot, and the PyQt Operator Console attaches the same
+contract while keeping its lane-specific panels. Codex launch watchdog scripts
+also refresh `agent-mind --agent codex --project` when they observe new Codex
+rollout activity, keeping dashboard state tied to typed session traces.
+
+Evidence:
+
+- `dev/scripts/checks/review_channel_bridge/report.py`
+- `dev/scripts/devctl/review_channel/bridge_validation.py`
+- `dev/scripts/devctl/review_channel/events.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_packets.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_runtime.py`
+- `dev/scripts/devctl/runtime/dashboard_snapshot_authority.py`
+- `dev/scripts/devctl/commands/dashboard.py`
+- `dev/scripts/devctl/commands/reporting/claude_loop.py`
+- `dev/scripts/devctl/commands/mobile_status.py`
+- `app/operator_console/state/snapshots/snapshot_builder.py`
+- `dev/scripts/devctl/tests/checks/test_check_review_channel_bridge.py`
+- `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`

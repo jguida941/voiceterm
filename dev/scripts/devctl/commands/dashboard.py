@@ -20,6 +20,7 @@ from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.startup_blocker_decision import derive_blocker_decision
 from ..runtime.review_state_locator import load_current_review_state
 from ..runtime.review_state_parser import review_state_from_payload
+from ..runtime.dashboard_snapshot_authority import normalize_dashboard_snapshot
 from ..time_utils import utc_timestamp
 from .dashboard_health import (
     _pid_is_alive,
@@ -29,6 +30,8 @@ from .dashboard_health import (
     build_health_section as _build_health_section,
 )
 from .dashboard_header import project_dashboard_header_fields
+from .reporting.dashboard_follow import run_follow
+from .reporting.dashboard_views import VIEW_SECTIONS
 
 # Shared utilities extracted to break circular import with dashboard_builders.
 from .dashboard_utils import (
@@ -206,39 +209,6 @@ def _build_timeline_section(
     return events
 
 
-# Sections each view loads.  ``overview`` loads everything (no filtering).
-_VIEW_SECTIONS: dict[str, frozenset[str]] = {
-    "overview": frozenset(),  # empty means "load all"
-    "dev": frozenset({
-        "repo", "now", "review", "workers", "plan", "findings",
-        "reviewer_activity", "quality", "flow", "timeline", "summary",
-        "coordination", "control_plane",
-    }),
-    "analytics": frozenset({
-        "repo", "analytics", "timeline", "summary",
-    }),
-    "quality": frozenset({
-        "repo", "quality", "audit", "summary",
-    }),
-    "audit": frozenset({
-        "repo", "audit", "summary",
-    }),
-    "publication": frozenset({
-        "repo", "publication", "flow", "coordination", "control_plane", "summary",
-    }),
-    "health": frozenset({
-        "repo", "health", "review", "coordination", "control_plane",
-        "reviewer_activity", "summary",
-    }),
-}
-
-
-def _view_needs(view: str, section: str) -> bool:
-    """Return True when *view* should include *section*."""
-    allowed = _VIEW_SECTIONS.get(view, frozenset())
-    return not allowed or section in allowed
-
-
 def build_snapshot(
     *, repo_root: Path = REPO_ROOT, view: str = "overview", role: str = "dashboard",
 ) -> dict[str, Any]:
@@ -249,7 +219,7 @@ def build_snapshot(
     doctor, attention, and packet queue when available.
     """
     git = _git_short()
-    needs = _VIEW_SECTIONS.get(view, frozenset())
+    needs = VIEW_SECTIONS.get(view, frozenset())
     load_all = not needs  # overview
     p = _paths()
     governance = scan_repo_governance_safely(repo_root)
@@ -611,25 +581,30 @@ def _assemble(
             control_plane=control_plane,
         )
     )
-    return snapshot
+    return normalize_dashboard_snapshot(
+        snapshot,
+        repo_root=repo_root,
+        review_state=review_state,
+    )
 
 
 def run(args) -> int:
     """Build and render the governance dashboard."""
-    from .dashboard_render import render_json, render_markdown, render_terminal
+    if bool(getattr(args, "follow", False)):
+        return run_follow(
+            args,
+            snapshot_builder=lambda: build_snapshot(
+                view=getattr(args, "view", "overview"),
+                role=getattr(args, "role", "dashboard"),
+            ),
+            snapshot_renderer=lambda snapshot: _render_dashboard_snapshot(args, snapshot),
+        )
 
     view = getattr(args, "view", "overview")
     role = getattr(args, "role", "dashboard")
     snapshot = build_snapshot(view=view, role=role)
 
-    no_color = getattr(args, "no_color", False)
-    fmt = getattr(args, "format", "terminal")
-    if fmt == "json":
-        output = render_json(snapshot)
-    elif fmt == "md":
-        output = render_markdown(snapshot)
-    else:
-        output = render_terminal(snapshot, no_color=no_color)
+    output = _render_dashboard_snapshot(args, snapshot)
 
     emit_output(
         output,
@@ -639,3 +614,16 @@ def run(args) -> int:
         writer=write_output,
     )
     return 0
+
+
+def _render_dashboard_snapshot(args, snapshot: dict[str, Any]) -> str:
+    """Render one dashboard snapshot using the requested dashboard format."""
+    from .dashboard_render import render_json, render_markdown, render_terminal
+
+    no_color = getattr(args, "no_color", False)
+    fmt = getattr(args, "format", "terminal")
+    if fmt == "json":
+        return render_json(snapshot)
+    if fmt == "md":
+        return render_markdown(snapshot)
+    return render_terminal(snapshot, no_color=no_color)

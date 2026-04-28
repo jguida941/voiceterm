@@ -149,6 +149,48 @@ def build_commit_stage_request(fields: CommitStageRequestFields) -> PacketPostRe
     )
 
 
+def matching_commit_stage_request_packet(
+    packets: Sequence[ReviewPacketState],
+    *,
+    to_agent: str,
+    head_sha: str,
+) -> ReviewPacketState | None:
+    """Return an existing live stage handoff for the same agent and HEAD."""
+    target_ref = commit_stage_target_ref(head_sha)
+    target_revision = str(head_sha or "").strip()
+    matches: list[ReviewPacketState] = []
+    for packet in packets:
+        if _packet_field(packet, "kind") != "action_request":
+            continue
+        if _packet_field(packet, "from_agent") != "system":
+            continue
+        if _packet_field(packet, "to_agent") != str(to_agent or "").strip():
+            continue
+        if _packet_field(packet, "requested_action") != "stage_commit_pipeline":
+            continue
+        if _packet_field(packet, "policy_hint") != "safe_auto_apply":
+            continue
+        if _packet_field(packet, "target_ref") != target_ref:
+            continue
+        if _packet_field(packet, "target_revision") != target_revision:
+            continue
+        if _packet_field(packet, "status") not in {"pending", "acked", "applied"}:
+            continue
+        matches.append(packet)
+    if not matches:
+        return None
+    matches.sort(
+        key=lambda packet: (
+            _packet_field(packet, "applied_at_utc"),
+            _packet_field(packet, "acked_at_utc"),
+            _packet_field(packet, "posted_at"),
+            _packet_field(packet, "latest_event_id"),
+            _packet_field(packet, "packet_id"),
+        )
+    )
+    return matches[-1]
+
+
 def build_commit_approval_decision(
     pipeline: RemoteCommitPipelineContract,
     *,
@@ -234,6 +276,12 @@ def latest_matching_packet(
         )
     )
     return matches[-1]
+
+
+def _packet_field(packet: object, field: str) -> str:
+    if isinstance(packet, dict):
+        return str(packet.get(field) or "").strip()
+    return str(getattr(packet, field, "") or "").strip()
 
 
 def approval_decision_packet(

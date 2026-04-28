@@ -9,6 +9,7 @@ COMMANDS = [
     "check",
     "commit",
     "check-router",
+    "claude-loop",
     "dashboard",
     "dogfood",
     "monitor",

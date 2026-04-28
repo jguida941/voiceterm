@@ -15,6 +15,7 @@ from .reviewer_runtime_models import (
     has_active_remote_control_attachment,
     remote_control_attachment_from_mapping,
 )
+from .session_liveness_counts import provider_has_live_session
 
 
 def resolve_daemon_state(sources: dict[str, Any]) -> dict[str, Any]:
@@ -22,6 +23,7 @@ def resolve_daemon_state(sources: dict[str, Any]) -> dict[str, Any]:
     authority = _typed_authority_payload(sources)
     doctor = _typed_doctor(authority)
     bridge = _typed_bridge(authority)
+    liveness_signals = _typed_liveness_signals(authority)
 
     pub_running = _resolve_daemon_running(
         sources.get("publisher_hb"),
@@ -43,7 +45,7 @@ def resolve_daemon_state(sources: dict[str, Any]) -> dict[str, Any]:
             sources=sources,
             target_provider="codex",
         ),
-        _bool_or_none(bridge.get("codex_conductor_active")),
+        provider_has_live_session(liveness_signals, "codex"),
         _is_conductor_alive(sources.get("codex_conductor")),
     )
     claude_alive = _coalesce_bool(
@@ -56,7 +58,7 @@ def resolve_daemon_state(sources: dict[str, Any]) -> dict[str, Any]:
             sources=sources,
             target_provider="claude",
         ),
-        _bool_or_none(bridge.get("claude_conductor_active")),
+        provider_has_live_session(liveness_signals, "claude"),
         _is_conductor_alive(sources.get("claude_conductor")),
     )
     return {
@@ -121,6 +123,20 @@ def _typed_bridge(authority: dict[str, Any]) -> dict[str, Any]:
     """Extract the typed bridge surface from a review-state-like payload."""
     bridge = authority.get("bridge")
     return bridge if isinstance(bridge, dict) else {}
+
+
+def _typed_liveness_signals(authority: dict[str, Any]) -> object:
+    """Extract runtime-owned session liveness rows from typed state."""
+    bridge_liveness = authority.get("bridge_liveness")
+    if isinstance(bridge_liveness, dict):
+        rows = bridge_liveness.get("session_liveness_signals")
+        if rows is not None:
+            return rows
+        rows = bridge_liveness.get("participant_liveness")
+        if rows is not None:
+            return rows
+    bridge = _typed_bridge(authority)
+    return bridge.get("session_liveness_signals") or bridge.get("participant_liveness")
 
 
 def _single_agent_local_reviewer_activity(

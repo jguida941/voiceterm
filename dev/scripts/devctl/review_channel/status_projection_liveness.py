@@ -9,7 +9,10 @@ from ..runtime.role_profile import (
     TandemRole,
     default_provider_for_role,
     normalize_tandem_role,
-    role_for_provider,
+)
+from ..runtime.session_liveness_builder import (
+    build_session_liveness_signals,
+    session_liveness_rows,
 )
 from .collaboration_session_local_reviewer import local_reviewer_activity_is_fresh
 from .launch_truth import (
@@ -249,40 +252,10 @@ def _build_participant_liveness(
     bridge_liveness: dict[str, object],
     active_providers: list[str],
 ) -> list[dict[str, object]]:
-    """Emit typed ParticipantLivenessSignal for each active provider.
-
-    Uses ``role_for_provider`` for role resolution and attaches
-    reviewer-runtime daemon state only to the provider whose resolved
-    role is ``reviewer``, so non-default topologies (Claude-as-reviewer,
-    Cursor attachments, etc.) get correct liveness signals.
-    """
-    from .participant_liveness_signal import classify_participant_liveness
-
-    publisher_running = bool(bridge_liveness.get("publisher_running"))
-    supervisor_running = bool(bridge_liveness.get("reviewer_supervisor_running"))
-    signals: list[dict[str, object]] = []
-    seen: set[str] = set()
-    for provider in active_providers:
-        normalized = provider.strip().lower()
-        if not normalized or normalized in seen:
-            continue
-        seen.add(normalized)
-        role = role_for_provider(normalized).value
-        is_reviewer = role == TandemRole.REVIEWER.value
-        # Reviewer-runtime daemons (publisher, supervisor) belong to
-        # whichever provider fills the reviewer role, not to "codex".
-        poll_age: object = None
-        if is_reviewer:
-            poll_age = bridge_liveness.get(
-                "last_reviewer_poll_age_seconds"
-            ) or bridge_liveness.get(f"last_{normalized}_poll_age_seconds")
-        signal = classify_participant_liveness(
-            provider=normalized,
-            role=role,
-            publisher_running=publisher_running if is_reviewer else False,
-            reviewer_supervisor_running=supervisor_running if is_reviewer else False,
-            conductor_active=normalized in active_providers,
-            poll_age_seconds=int(poll_age) if poll_age is not None else None,
+    """Emit runtime-owned SessionLivenessSignal rows for each provider."""
+    return session_liveness_rows(
+        build_session_liveness_signals(
+            bridge_liveness=bridge_liveness,
+            active_providers=active_providers,
         )
-        signals.append(signal.to_dict())
-    return signals
+    )

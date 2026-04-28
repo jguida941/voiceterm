@@ -20,6 +20,9 @@ DEFAULT_POST_EDIT_VERIFICATION_STEPS = (
     "If you changed repo-pack templates, repo policy, or generated instruction "
     "surfaces, run `python3 dev/scripts/devctl.py render-surfaces --write --format md` "
     "and `python3 dev/scripts/checks/check_instruction_surface_sync.py`.",
+    "Your slice is not complete until a typed `stage_commit_pipeline` "
+    "action_request packet with full guard-bundle evidence is in the target "
+    "agent's inbox; do this before any TASK_COMPLETE/final-completion prose.",
     "`python3 dev/scripts/devctl.py check --profile quick` is only a fast local "
     "iteration step; it does not replace the required bundle or handoff verification.",
 )

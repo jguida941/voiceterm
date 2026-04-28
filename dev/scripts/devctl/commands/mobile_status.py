@@ -24,6 +24,7 @@ from ..runtime.control_plane_read_model import (
     ControlPlaneReadModelOptions,
     build_control_plane_read_model,
 )
+from ..runtime.dashboard_snapshot_authority import build_dashboard_snapshot
 
 
 def _iso_z(value: datetime) -> str:
@@ -122,6 +123,7 @@ def run(args) -> int:
             ),
         )
         cp_section = _control_plane_section(cp_model)
+        dashboard_snapshot = _load_dashboard_snapshot(warnings, repo_root)
         merged_payload = {
             "schema_version": 1,
             "command": "mobile-status",
@@ -132,6 +134,7 @@ def run(args) -> int:
             "review_payload": review_payload,
             "control_state": control_state.to_dict(),
             "control_plane": cp_section,
+            "dashboard_snapshot": dashboard_snapshot,
         }
 
     selected_view = view_payload(merged_payload, str(args.view)) if not errors else {}
@@ -156,6 +159,9 @@ def run(args) -> int:
         "view": str(args.view),
         "view_payload": selected_view,
         "control_plane": cp_section if not errors else {},
+        "dashboard_snapshot": (
+            merged_payload.get("dashboard_snapshot", {}) if not errors else {}
+        ),
         "projection_dir": projection_dir,
         "projection_files": projection_files,
         "warnings": warnings,
@@ -176,3 +182,19 @@ def run(args) -> int:
     if pipe_code != 0:
         return pipe_code
     return 0 if report["ok"] else 1
+
+
+def _load_dashboard_snapshot(
+    warnings: list[str],
+    repo_root: Path,
+) -> dict[str, Any]:
+    """Return the shared DashboardSnapshot v3 for mobile consumers."""
+    try:
+        return build_dashboard_snapshot(
+            repo_root=repo_root,
+            view="overview",
+            role="dashboard",
+        )
+    except (OSError, ValueError) as exc:
+        warnings.append(f"DashboardSnapshot v3 unavailable: {exc}")
+        return {}

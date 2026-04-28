@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from .session_liveness_counts import (
+    live_session_provider_count,
+    live_session_role_counts,
+)
+
 
 def active_conductor_count(
     *,
@@ -11,6 +16,11 @@ def active_conductor_count(
     live_participants: list[Mapping[str, object]],
 ) -> int:
     """Return live conductor count from bridge evidence, falling back to participants."""
+    signal_count = live_session_provider_count(
+        bridge.get("session_liveness_signals") or bridge.get("participant_liveness")
+    )
+    if signal_count is not None:
+        return signal_count
     providers = bridge.get("active_conductor_providers")
     if isinstance(providers, (list, tuple)):
         normalized = {
@@ -29,6 +39,11 @@ def active_conductor_count(
 
 def bridge_role_counts(bridge: Mapping[str, object]) -> dict[str, int]:
     """Return live reviewer/implementer counts from bridge liveness."""
+    signal_counts = live_session_role_counts(
+        bridge.get("session_liveness_signals") or bridge.get("participant_liveness")
+    )
+    if signal_counts is not None:
+        return signal_counts
     codex_live = bool_or_none(bridge.get("codex_conductor_active"))
     claude_live = bool_or_none(bridge.get("claude_conductor_active"))
     if codex_live is not None or claude_live is not None:

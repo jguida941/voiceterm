@@ -962,6 +962,54 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
             self.assertEqual(session_outcomes[0]["outcome"], "completed_handoff")
             self.assertEqual(session_outcomes[0]["provider"], "codex")
 
+    def test_system_stage_commit_pipeline_safe_auto_applies(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+
+            bundle, event = post_packet(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+                request=PacketPostRequest(
+                    from_agent="system",
+                    to_agent="claude",
+                    kind="action_request",
+                    summary="Stage verified commit pipeline",
+                    body="Full guard profile passed.",
+                    requested_action="stage_commit_pipeline",
+                    policy_hint="safe_auto_apply",
+                    approval_required=False,
+                    target=PacketTargetFields.from_values(
+                        target_kind="runtime",
+                        target_ref="devctl_commit:abc123",
+                        target_revision="abc123",
+                    ),
+                    guard_bundle_evidence=PacketGuardBundleEvidenceFields.from_values(
+                        full_guard_bundle_evidence="--profile ci",
+                    ),
+                ),
+            )
+
+            packet = bundle.review_state["packets"][0]
+            events = [
+                json.loads(line)
+                for line in Path(artifact_paths.event_log_path)
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        self.assertEqual(packet["status"], "applied")
+        self.assertEqual(packet["acked_by"], "system")
+        self.assertEqual(packet["execution_started_by"], "system")
+        self.assertEqual(packet["full_guard_bundle_evidence"], "--profile ci")
+        self.assertEqual(len(event["safe_auto_apply_event_ids"]), 2)
+        self.assertIn("packet_acked", {row["event_type"] for row in events})
+        self.assertIn("packet_applied", {row["event_type"] for row in events})
+
     def test_commit_action_request_packets_preserve_runtime_binding(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

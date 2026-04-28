@@ -6,7 +6,7 @@ import importlib
 import os
 import re
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 CHECKS_DIR = Path(__file__).resolve().parent.parent
@@ -26,12 +26,13 @@ _bridge_projection = importlib.import_module("dev.scripts.devctl.review_channel.
 _bridge_heading_aliases = importlib.import_module(
     "dev.scripts.devctl.review_channel.bridge_heading_aliases"
 )
-_peer_liveness = importlib.import_module("dev.scripts.devctl.review_channel.peer_liveness")
+_typed_bridge_state = importlib.import_module(
+    "dev.scripts.checks.review_channel_bridge.typed_state"
+)
 
 DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS = _review_channel_handoff.DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS
 extract_bridge_snapshot = _review_channel_handoff.extract_bridge_snapshot
 validate_live_bridge_contract = _bridge_validation.validate_live_bridge_contract
-reviewer_mode_is_active = _peer_liveness.reviewer_mode_is_active
 bridge_hygiene_errors = _bridge_projection.bridge_hygiene_errors
 canonical_bridge_heading = _bridge_heading_aliases.canonical_bridge_heading
 
@@ -94,10 +95,6 @@ REQUIRED_REVIEW_CHANNEL_MARKERS = [
     "Completion stall",
 ]
 
-UTC_TIMESTAMP_PATTERN = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
-LOCAL_POLL_PATTERN = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} [A-Z]{3,4}$")
-WORKTREE_HASH_PATTERN = re.compile(r"^[0-9a-f]{64}$")
-MAX_POLL_AGE_MINUTES = DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS // 60
 ROLE_ASSIGNMENT_PATTERN = re.compile(
     r"(?m)^(?:\d+\.\s+)?(?P<reviewer>[A-Za-z0-9_-]+) is the reviewer\. "
     r"(?P<implementer>[A-Za-z0-9_-]+) is the coder\.$"
@@ -122,10 +119,6 @@ def _missing_markers(text: str, required_markers: list[str]) -> list[str]:
         for marker in required_markers
         if _normalize_marker_text(marker) not in normalized_text
     ]
-
-
-def _strip_backticks(text: str) -> str:
-    return text.strip().strip("`").strip()
 
 
 def _bridge_role_names(text: str) -> tuple[str, str]:
@@ -199,87 +192,14 @@ def _required_bridge_markers(text: str) -> list[str]:
     )
 
 
-def _extract_bridge_metadata(text: str) -> dict[str, str]:
-    metadata: dict[str, str] = {}
-    for line in text.splitlines():
-        trimmed = line.strip().lstrip("-").strip()
-        if trimmed.startswith("Last Codex poll (Local"):
-            metadata["last_codex_poll_local"] = _strip_backticks(
-                trimmed.split("):", 1)[1] if "):" in trimmed else ""
-            )
-        elif trimmed.startswith("Last Codex poll:"):
-            metadata["last_codex_poll"] = _strip_backticks(trimmed.split(":", 1)[1])
-        elif trimmed.startswith("Reviewer mode:"):
-            metadata["reviewer_mode"] = _strip_backticks(trimmed.split(":", 1)[1])
-        elif trimmed.startswith("Last non-audit worktree hash:"):
-            metadata["last_worktree_hash"] = _strip_backticks(trimmed.split(":", 1)[1])
-    return metadata
-
-
-def _current_utc() -> datetime:
-    return datetime.now(timezone.utc)
-
-
 def _enforce_live_poll_freshness() -> bool:
     """GitHub-hosted CI cannot act as the live Codex reviewer heartbeat owner."""
     return os.getenv("GITHUB_ACTIONS", "").strip().lower() != "true"
 
 
-def _validate_bridge_metadata(text: str) -> list[str]:
-    metadata = _extract_bridge_metadata(text)
-    errors: list[str] = []
-    reviewer_mode = metadata.get("reviewer_mode", "")
-    valid_reviewer_modes = {
-        mode.value for mode in getattr(_peer_liveness, "ReviewerMode")
-    }
-
-    if not reviewer_mode:
-        errors.append(
-            "Missing `Reviewer mode`; expected one of: "
-            + ", ".join(sorted(valid_reviewer_modes))
-            + "."
-        )
-    elif reviewer_mode not in valid_reviewer_modes:
-        errors.append(
-            "Invalid `Reviewer mode`; expected one of: "
-            + ", ".join(sorted(valid_reviewer_modes))
-            + f". Got `{reviewer_mode}`."
-        )
-
-    last_codex_poll = metadata.get("last_codex_poll", "")
-    if not UTC_TIMESTAMP_PATTERN.fullmatch(last_codex_poll):
-        errors.append("Invalid `Last Codex poll` timestamp; expected ISO-8601 UTC like " "`2026-03-08T19:08:45Z`.")
-    else:
-        poll_time = datetime.strptime(
-            last_codex_poll,
-            "%Y-%m-%dT%H:%M:%SZ",
-        ).replace(tzinfo=timezone.utc)
-        max_age = timedelta(minutes=MAX_POLL_AGE_MINUTES)
-        poll_age = _current_utc() - poll_time
-        if poll_age < timedelta(0):
-            errors.append("`Last Codex poll` is in the future.")
-        elif (
-            poll_age > max_age
-            and _enforce_live_poll_freshness()
-            and reviewer_mode_is_active(reviewer_mode)
-        ):
-            errors.append(
-                "`Last Codex poll` is stale; bridge-active reviews must refresh "
-                f"within {MAX_POLL_AGE_MINUTES} minutes."
-            )
-
-    if not LOCAL_POLL_PATTERN.fullmatch(metadata.get("last_codex_poll_local", "")):
-        errors.append(
-            "Invalid `Last Codex poll (Local ...)` value; expected "
-            "local timestamp text like `2026-03-08 15:08:45 EDT`."
-        )
-
-    if not WORKTREE_HASH_PATTERN.fullmatch(metadata.get("last_worktree_hash", "")):
-        errors.append(
-            "Invalid `Last non-audit worktree hash`; expected a 64-character " "lowercase SHA-256 hex digest."
-        )
-
-    return errors
+def _current_utc() -> datetime:
+    """Compatibility clock hook retained for older unit tests."""
+    return datetime.now(timezone.utc)
 
 
 def _is_tracked_by_git(path: Path) -> bool:
@@ -353,8 +273,20 @@ def _build_path_report(
 
 
 def build_report() -> dict:
-    review_channel_text = REVIEW_CHANNEL_PATH.read_text(encoding="utf-8") if REVIEW_CHANNEL_PATH.exists() else ""
-    review_bridge_active = "## Transitional Markdown Bridge (Current Operating Mode)" in review_channel_text
+    review_channel_text = (
+        REVIEW_CHANNEL_PATH.read_text(encoding="utf-8")
+        if REVIEW_CHANNEL_PATH.exists()
+        else ""
+    )
+    review_bridge_active = (
+        "## Transitional Markdown Bridge (Current Operating Mode)"
+        in review_channel_text
+    )
+    typed_review_state = (
+        _typed_bridge_state.load_typed_review_state(REPO_ROOT)
+        if review_bridge_active
+        else None
+    )
     bridge = _build_path_report(
         path=BRIDGE_PATH,
         required_h2=REQUIRED_BRIDGE_H2,
@@ -364,19 +296,30 @@ def build_report() -> dict:
     )
     if review_bridge_active and bridge.get("ok", False):
         bridge_text = BRIDGE_PATH.read_text(encoding="utf-8")
-        metadata_errors = _validate_bridge_metadata(bridge_text)
+        metadata_errors = _typed_bridge_state.validate_bridge_metadata(
+            bridge_text,
+            typed_review_state,
+            enforce_live_poll_freshness=_enforce_live_poll_freshness(),
+        )
         if metadata_errors:
             bridge["ok"] = False
             bridge["metadata_errors"] = metadata_errors
         state_errors = validate_live_bridge_contract(
-            extract_bridge_snapshot(bridge_text)
+            extract_bridge_snapshot(bridge_text),
+            typed_current_session=(
+                getattr(typed_review_state, "current_session", None)
+                if typed_review_state is not None
+                else None
+            ),
         )
         if state_errors:
             bridge["ok"] = False
             bridge["state_errors"] = state_errors
     review_channel = _build_path_report(
         path=REVIEW_CHANNEL_PATH,
-        required_markers=(REQUIRED_REVIEW_CHANNEL_MARKERS if review_bridge_active else []),
+        required_markers=(
+            REQUIRED_REVIEW_CHANNEL_MARKERS if review_bridge_active else []
+        ),
         require_tracked=review_bridge_active,
     )
     return {
@@ -406,16 +349,30 @@ def render_md(report: dict) -> str:
             if section.get("untracked"):
                 continue
         missing_h2 = section.get("missing_h2", [])
-        lines.append(f"- {key}_missing_h2: {', '.join(missing_h2) if missing_h2 else 'none'}")
+        lines.append(
+            f"- {key}_missing_h2: {', '.join(missing_h2) if missing_h2 else 'none'}"
+        )
         missing_markers = section.get("missing_markers", [])
-        lines.append("- " f"{key}_missing_markers: " f"{', '.join(missing_markers) if missing_markers else 'none'}")
+        lines.append(
+            "- "
+            f"{key}_missing_markers: "
+            f"{', '.join(missing_markers) if missing_markers else 'none'}"
+        )
         hygiene_errors = section.get("hygiene_errors", [])
         if hygiene_errors:
             lines.append("- " f"{key}_hygiene_errors: " f"{', '.join(hygiene_errors)}")
         metadata_errors = section.get("metadata_errors", [])
         if metadata_errors:
-            lines.append("- " f"{key}_metadata_errors: " f"{', '.join(metadata_errors) if metadata_errors else 'none'}")
+            lines.append(
+                "- "
+                f"{key}_metadata_errors: "
+                f"{', '.join(metadata_errors) if metadata_errors else 'none'}"
+            )
         state_errors = section.get("state_errors", [])
         if state_errors:
-            lines.append("- " f"{key}_state_errors: " f"{', '.join(state_errors) if state_errors else 'none'}")
+            lines.append(
+                "- "
+                f"{key}_state_errors: "
+                f"{', '.join(state_errors) if state_errors else 'none'}"
+            )
     return "\n".join(lines)

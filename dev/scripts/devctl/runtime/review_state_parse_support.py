@@ -176,8 +176,20 @@ def review_bridge_state_from_payload(
             bridge.get("implementer_capability")
             or bridge_liveness.get("implementer_capability")
         ),
+        session_liveness_signals=_session_liveness_rows(
+            bridge_liveness.get("session_liveness_signals")
+            or bridge_liveness.get("participant_liveness")
+            or bridge.get("session_liveness_signals")
+            or bridge.get("participant_liveness")
+        ),
         pending_total=_int(bridge.get("pending_total")),
     )
+
+
+def _session_liveness_rows(value: object) -> tuple[dict[str, object], ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(dict(row) for row in value if isinstance(row, Mapping))
 
 
 def attention_state_from_mapping(

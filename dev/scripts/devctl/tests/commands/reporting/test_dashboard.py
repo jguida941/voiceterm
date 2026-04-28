@@ -415,10 +415,11 @@ class TestDashboardSnapshotSections(unittest.TestCase):
                 "repo", "now", "health", "review", "workers", "plan",
                 "publication", "quality", "audit", "analytics",
                 "coordination", "reviewer_activity", "flow", "timeline",
-                "summary",
+                "summary", "agent_mind", "session_outcomes", "ack_freshness",
+                "active_codex_sessions", "system_topology",
             }
             self.assertTrue(required.issubset(snapshot.keys()), f"Missing: {required - snapshot.keys()}")
-            self.assertEqual(snapshot["schema_version"], 2)
+            self.assertEqual(snapshot["schema_version"], 3)
             self.assertEqual(snapshot["contract_id"], "DashboardSnapshot")
 
     def test_now_section_populated(self) -> None:
@@ -1157,7 +1158,15 @@ class TestCliParserWiring(unittest.TestCase):
 
     def test_dashboard_follow_flag(self) -> None:
         parser = _build_dashboard_parser()
-        args = parser.parse_args(["dashboard", "--follow"])
+        args = parser.parse_args(["dashboard", "--follow", "--interval", "1"])
+        self.assertTrue(args.follow)
+        self.assertEqual(args.interval, "1")
+
+    def test_claude_loop_parser_exists(self) -> None:
+        parser = _build_dashboard_parser()
+        args = parser.parse_args(["claude-loop", "--format", "json", "--follow"])
+        self.assertEqual(args.command, "claude-loop")
+        self.assertEqual(args.format, "json")
         self.assertTrue(args.follow)
 
     def test_dashboard_default_format_is_terminal(self) -> None:

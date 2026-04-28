@@ -499,6 +499,19 @@ Portability note:
   prove a remote lane actually saw and started the request instead of only
   inferring from queue length. Prose-only runtime requests stay in packet
   history but are not projected into the bridge execution queue.
+- Codex launcher scripts run a session-end `task_complete` handoff guard. When
+  the latest Codex rollout contains `task_complete` and no matching
+  `stage_commit_pipeline` packet exists for the current `devctl_commit:<head>`,
+  the guard posts the typed action_request to Claude before the supervised
+  relaunch loop continues. The live Codex path should still post the packet
+  before TASK_COMPLETE; the launcher guard is the crash/idle backup.
+- Runtime liveness is projected through `SessionLivenessSignal` in
+  `devctl.runtime` with the states `alive`, `degraded`,
+  `detached_runtime_only`, and `dead`. Review-channel status emits
+  `session_liveness_signals` and keeps `participant_liveness` as a
+  compatibility projection; DashboardSnapshot, mobile status, startup counts,
+  and control-plane readers consume the typed signal instead of direct bridge
+  conductor booleans when it is present.
 - Packet `ack` / `apply` / `dismiss` is only packet transport lifecycle. It
   does not write the implementer `Claude Ack` compatibility section and does
   not satisfy `current_session.implementer_ack_state=current`; that ACK still
@@ -1913,7 +1926,8 @@ Machine-first output note:
 - `mutation-loop`: bounded mutation remediation loop with report-only default, threshold controls, hotspot/freshness reporting, optional policy-gated fix execution, optional summary comment updates, and bundle/playbook outputs
 - `autonomy-loop`: bounded autonomy controller wrapper around `triage-loop` + `loop-packet` with hard caps (`--max-rounds`, `--max-hours`, `--max-tasks`), run-scoped packet artifacts, queue inbox outputs, phone-ready status snapshots (`dev/reports/autonomy/queue/phone/latest.{json,md}`), canonical probe-guidance injection from `review_targets.json` into the loop draft when the triage report carries a bounded structured backlog slice, explicit `guidance_adoption_required` packet metadata when that guidance is attached, live `decision_mode` gating that blocks auto-send for approval-required guidance, and strict policy gating for write modes (`AUTONOMY_MODE=operate` required for non-dry-run fix modes; dry-run still downgrades to `report-only`)
 - `phone-status`: iPhone/SSH-safe read surface for autonomy controller snapshots; renders one selected projection view (`full|compact|trace|actions`) from `dev/reports/autonomy/queue/phone/latest.json` and can emit controller-state files (`full.json`, `compact.json`, `trace.ndjson`, `actions.json`, `latest.md`)
-- `mobile-status`: merged iPhone/SSH-safe read surface for the future phone app; refreshes the latest review-channel projections through the governed review-channel plan/bridge/status roots (in VoiceTerm today: `dev/active/review_channel.md`, `bridge.md`, and `dev/reports/review_channel/latest/`), combines them with autonomy `phone-status` when present, falls back to review-only live data when the phone artifact is missing, renders one selected mobile view (`full|compact|alert|actions`), and can emit merged projection files (`full.json`, `compact.json`, `alert.json`, `actions.json`, `latest.md`) for downstream clients/notifiers
+- `claude-loop`: read-only Claude loop view backed by `DashboardSnapshot` v3; supports single-shot JSON/markdown output plus `--follow --interval` polling for typed pending packets, ACK freshness, active Codex sessions, agent-mind, and system-topology state
+- `mobile-status`: merged iPhone/SSH-safe read surface for the future phone app; refreshes the latest review-channel projections through the governed review-channel plan/bridge/status roots (in VoiceTerm today: `dev/active/review_channel.md`, `bridge.md`, and `dev/reports/review_channel/latest/`), combines them with autonomy `phone-status` when present, falls back to review-only live data when the phone artifact is missing, exposes the shared `DashboardSnapshot` v3 payload, renders one selected mobile view (`full|compact|alert|actions`), and can emit merged projection files (`full.json`, `compact.json`, `alert.json`, `actions.json`, `latest.md`) for downstream clients/notifiers
 - `mobile-app`: wrapper over the first-party iPhone/iPad app flow; can run the real simulator demo against the live repo bundle, optionally refresh live Ralph/review state first (`--live-review`), list available simulator/physical devices, open an honest physical-device install wizard, and attempt a real signed physical-device install/launch when an Apple Development Team is provided
 - `ralph-status`: Ralph guardrail analytics surface; reads `ralph-report*.json` artifacts, aggregates fix/open counts plus architecture breakdowns, now also surfaces probe-guidance attachment/adoption/waiver counts from Ralph runs, and can emit SVG charts for CLI/reporting/mobile consumers
 - `controller-action`: policy-gated control surface for `refresh-status`, `dispatch-report-only`, `pause-loop`, and `resume-loop`; dispatch/mode actions enforce allowlisted workflows/branches, respect `AUTONOMY_MODE=off` kill-switch behavior, and emit auditable action reports plus a stable `typed_action` runtime contract and optional local controller-mode state artifact

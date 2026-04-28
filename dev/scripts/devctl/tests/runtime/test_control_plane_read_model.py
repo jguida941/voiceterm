@@ -668,10 +668,15 @@ class ResolverUnitTests(unittest.TestCase):
                     "reviewer_supervisor_running": False,
                 },
             },
-            "bridge": {
-                "publisher_running": False,
-                "codex_conductor_active": True,
-                "claude_conductor_active": True,
+            "bridge_liveness": {
+                "session_liveness_signals": [
+                    {"provider": "codex", "role": "reviewer", "state": "degraded"},
+                    {
+                        "provider": "claude",
+                        "role": "implementer",
+                        "state": "degraded",
+                    },
+                ],
             },
         }
         sources["publisher_hb"] = {"pid": 999999999}
@@ -681,6 +686,20 @@ class ResolverUnitTests(unittest.TestCase):
         self.assertFalse(d["supervisor_running"])
         self.assertTrue(d["codex_conductor_alive"])
         self.assertTrue(d["claude_conductor_alive"])
+
+    def test_resolve_daemon_does_not_trust_bridge_conductor_booleans(self) -> None:
+        sources = _empty_sources()
+        sources["review_state"] = {
+            "bridge": {
+                "codex_conductor_active": True,
+                "claude_conductor_active": True,
+            },
+        }
+
+        d = resolve_daemon_state(sources)
+
+        self.assertFalse(d["codex_conductor_alive"])
+        self.assertFalse(d["claude_conductor_alive"])
 
     def test_resolve_daemon_heartbeat_overrides_stale_bridge_running(self) -> None:
         sources = _empty_sources()

@@ -141,6 +141,7 @@ class ReviewBridgeState:
     claude_conductor_active: bool = False
     reviewer_capability: ConductorCapabilityState | None = None
     implementer_capability: ConductorCapabilityState | None = None
+    session_liveness_signals: tuple[dict[str, object], ...] = ()
     pending_total: int = 0
 
 

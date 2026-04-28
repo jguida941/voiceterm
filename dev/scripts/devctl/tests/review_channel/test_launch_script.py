@@ -582,6 +582,23 @@ class TestInactivityWatchdog(unittest.TestCase):
         )
         self.assertIn("rollout-*.jsonl", script)
 
+    def test_codex_script_invokes_task_complete_handoff_guard(self) -> None:
+        """Codex session-end must backstop task_complete with a typed packet."""
+        script = self._build_script("codex")
+        self.assertIn("review_channel_task_complete_handoff_guard()", script)
+        self.assertIn(
+            "python3 -m dev.scripts.devctl.review_channel.task_complete_handoff_guard",
+            script,
+        )
+        self.assertIn(
+            'review_channel_task_complete_handoff_guard "$exit_code"',
+            script,
+        )
+        self.assertIn(
+            'REVIEW_CHANNEL_HANDOFF_GUARD_EVIDENCE="${REVIEW_CHANNEL_HANDOFF_GUARD_EVIDENCE:---profile ci}"',
+            script,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

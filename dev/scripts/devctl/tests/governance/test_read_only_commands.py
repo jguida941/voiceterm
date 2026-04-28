@@ -36,6 +36,7 @@ class ReadOnlyCommandSetTests(unittest.TestCase):
             "system-map",
             "mcp",
             "dashboard",
+            "claude-loop",
             "discover",
             "findings-priority",
             "view",

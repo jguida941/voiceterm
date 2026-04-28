@@ -27,6 +27,7 @@ from .governed_executor_packets import (
     CommitStageRequestFields,
     build_commit_execution_request,
     build_commit_stage_request,
+    matching_commit_stage_request_packet,
 )
 from .startup_context_refresh import startup_context_advisory_from_step
 
@@ -266,6 +267,19 @@ def post_commit_stage_handoff(
         return "", "", "commit_stage_request_review_channel_missing"
     if not target_agent:
         return "", "", "commit_stage_target_unavailable"
+    head_sha = head_commit(repo_root)
+    existing_packet = matching_commit_stage_request_packet(
+        getattr(review_state, "packets", ()),
+        to_agent=target_agent,
+        head_sha=head_sha,
+    )
+    if existing_packet is not None:
+        packet_id = (
+            existing_packet.get("packet_id")
+            if isinstance(existing_packet, dict)
+            else getattr(existing_packet, "packet_id", "")
+        )
+        return target_agent, str(packet_id or "").strip(), ""
     artifact_paths = resolve_artifact_paths(repo_root=repo_root)
     try:
         _, event = post_packet(
@@ -275,7 +289,7 @@ def post_commit_stage_handoff(
             request=build_commit_stage_request(
                 CommitStageRequestFields(
                     to_agent=target_agent,
-                    head_sha=head_commit(repo_root),
+                    head_sha=head_sha,
                     commit_message_draft=commit_message_draft,
                     stage_reason=stage_reason,
                     stage_warnings=tuple(stage_warnings),

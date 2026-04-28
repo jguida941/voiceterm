@@ -137,6 +137,27 @@
   through the full managed receipt/source chain back to the packet's
   `devctl_commit:<head>` parent; source commits, stale handoff targets, and
   mismatched providers still fail closed through `commit_permission`.
+- 2026-04-28 DashboardSnapshot v3 / typed-next / bridge-freshness slice
+  (MP-377 Plan 4.1): CLI dashboard, `claude-loop`, `mobile-status`, and the
+  Operator Console now share `DashboardSnapshot` v3 sections for agent-mind,
+  session outcomes, ACK freshness, active Codex sessions, and system topology.
+  `dashboard --follow` is live, Codex watchdog launches refresh the
+  `agent-mind` projection on new rollout activity, bridge freshness checks use
+  typed `ReviewState.bridge.last_codex_poll_*`, and implementer ACK checks use
+  `ack_freshness_authority.is_implementer_ack_current` rather than
+  compatibility prose. System-authored `stage_commit_pipeline` packets now
+  auto-ACK/apply only under the safe runtime allowlist with full guard-bundle
+  evidence, and repeat stage handoffs dedupe by target agent plus
+  `devctl_commit:<HEAD>`.
+- 2026-04-28 typed handoff/liveness closure (MP-377 Plan 4.1): Codex
+  launcher scripts now run a session-end `task_complete` guard that emits the
+  missing `stage_commit_pipeline` action_request to Claude when a completed
+  Codex session forgot the typed handoff packet. `SessionLivenessSignal` now
+  owns the portable `alive` / `degraded` / `detached_runtime_only` / `dead`
+  provider signal in `devctl.runtime`; status projects it as
+  `session_liveness_signals`, dashboard/mobile receive it through
+  `DashboardSnapshot.session_liveness`, and startup/control-plane counts prefer
+  the typed signal over bridge conductor booleans.
 - 2026-04-27 governed-push execution-truth invariant (MP-377):
   the `rev_pkt_2027` / `rev_pkt_2029` regression proved a Class-A trust
   break: a push report could claim `published_remote` with a fixture branch

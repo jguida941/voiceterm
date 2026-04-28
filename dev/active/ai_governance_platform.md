@@ -3513,7 +3513,7 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       depends_on: `MP377-P0-T12A`, `MP377-P0-T14`, `MP377-P0-T16`
       scope: Extend the existing review-channel session lifecycle, `CollaborationSession`, startup/push recovery, and stall diagnostics so process exit after a guarded handoff is not treated like mid-slice death. Keep `bridge.md` and conductor liveness as compatibility evidence only.
       acceptance_criteria: `stage_commit_pipeline` with full guard evidence emits `AgentSessionOutcome(outcome=completed_handoff)`; governed push bypasses `repair_reviewer_loop` only when that receipt matches the current prepared session or, for metadata-free codex-exec handoffs, the current `devctl_commit:<head>` / managed-receipt source chain; stale or mismatched receipts keep the existing recovery loop; `process_died` / `unresolved` classifications remain explicit follow-up states.
-      progress: 2026-04-28 landed the completed-handoff receipt, review-state projection, governed-push bypass, metadata-free same-head fallback, and 180-second recovery-loop budget. Remaining T20 scope is broader Codex-stall / flip-mode classification and producer coverage for `process_died` / `unresolved`.
+      progress: 2026-04-28 landed the completed-handoff receipt, review-state projection, governed-push bypass, metadata-free same-head fallback, and 180-second recovery-loop budget. Later 2026-04-28 work added safe system-to-Claude auto-ACK/apply for full-evidence `stage_commit_pipeline` packets plus target-agent/HEAD dedupe at the governed commit-stage handoff emitter. Codex session-end scripts now also run a `task_complete` handoff guard that posts the missing `stage_commit_pipeline` action_request for the current `devctl_commit:<head>` when Codex emits TASK_COMPLETE without the typed packet. Remaining T20 scope is broader Codex-stall / flip-mode classification and producer coverage for `process_died` / `unresolved`.
 - [ ] `MP377-P0-T21` Command capability evidence index over the existing command catalog: map task classes to required command sequences and drift detectors without adding a parallel command registry.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`
@@ -3550,6 +3550,7 @@ Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/remote_control_runtime.md`
       status: `blocked`
       depends_on: `MP377-P1-T03`, `MP393-P0`
+      progress: 2026-04-28 added `DashboardSnapshot` v3 as the shared CLI/mobile/desktop dashboard read contract and moved bridge-contract freshness checks to typed `ReviewState.bridge.last_codex_poll_*` plus the shared `ack_freshness_authority.is_implementer_ack_current` predicate. Remaining T06 scope is still the full producer-tick collapse across status/startup/session/push artifacts.
 - [ ] `MP377-P1-T07` Make governed mutation self-healing against stale projections: commit/push/phone/operator actions must refresh and consume the canonical review-state + commit-pipeline artifacts before consistency checks, treat compatibility-surface drift as a reducer bug to fix rather than a reason to require manual `review-channel --action status`, and keep raw `git` mutation outside the remote-control path.
       owner_doc: `dev/active/remote_commit_pipeline.md`
       status: `blocked`
@@ -3558,6 +3559,7 @@ Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/remote_control_runtime.md`
       status: `blocked`
       depends_on: `MP377-P1-T06`, `MP397-P0`
+      progress: 2026-04-28 `dashboard --follow`, `claude-loop`, `mobile-status`, and Operator Console now surface active Codex sessions, session outcomes, ACK freshness, and agent-mind from `DashboardSnapshot` v3; Codex launch watchdogs refresh the agent-mind projection when rollout traces advance. Later 2026-04-28 work moved the `alive` / `degraded` / `detached_runtime_only` / `dead` provider signal into `runtime.session_liveness_signal`, has status emit it as `session_liveness_signals` with `participant_liveness` as compatibility projection, adds a DashboardSnapshot `session_liveness` section, and makes startup/control-plane counts prefer the typed signal instead of direct bridge conductor booleans. Remaining T08 scope is broader wake/death producer parity after the P1-T06 producer-tick collapse lands.
 - [x] `MP377-P1-T09` Land slice-one worktree-orphan typed contracts and platform registration for orphan snapshots, checkout inventory, publication ledgers, session leases, baselines, reconciliation decisions, and accept-all receipts.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `done`

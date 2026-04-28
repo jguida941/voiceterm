@@ -107,6 +107,7 @@ def build_event_bridge_liveness_projection(
     bridge_liveness["effective_reviewer_mode"] = effective_reviewer_mode(
         bridge_liveness
     )
+    bridge_liveness["session_liveness_signals"] = ()
     return bridge_liveness
 
 
@@ -238,6 +239,11 @@ def build_event_bridge_state_projection(
     )
     bridge_state["pending_total"] = int(
         _mapping(review_state.get("queue")).get("pending_total") or 0
+    )
+    bridge_state["session_liveness_signals"] = tuple(
+        row
+        for row in bridge_liveness.get("session_liveness_signals") or ()
+        if isinstance(row, Mapping)
     )
     bridge_state["reviewer_capability"] = asdict(
         build_conductor_capability_state(

@@ -1347,6 +1347,12 @@ Release note:
   `python3 dev/scripts/checks/check_mobile_relay_protocol.py` covered before
   release so the Rust emitters, Python projections, and iOS consumer contract
   do not drift.
+- Dashboard/control-plane read-surface changes must keep CLI dashboard,
+  `claude-loop`, `mobile-status`, and Operator Console consumers on the shared
+  `DashboardSnapshot` v3 contract. Bridge freshness and implementer ACK gates
+  should consume typed `ReviewState` fields plus
+  `ack_freshness_authority.is_implementer_ack_current`, leaving `bridge.md`
+  prose as compatibility projection evidence only.
 
 ### Runtime and UI changes
 

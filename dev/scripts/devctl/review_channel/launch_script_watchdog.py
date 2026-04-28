@@ -29,7 +29,7 @@ def inactivity_watchdog_lines(provider: str) -> list[str]:
     non-zero exit and relaunches per the existing restart policy.
     """
     label = f"[review-channel] {provider} inactivity-watchdog"
-    return [
+    lines = [
         "review_channel_latest_rollout_mtime() {",
         '  local sessions_root="$REVIEW_CHANNEL_CODEX_SESSIONS_ROOT"',
         '  local today yesterday',
@@ -49,6 +49,35 @@ def inactivity_watchdog_lines(provider: str) -> list[str]:
         '  printf "%s\\n" "$latest"',
         "}",
         "",
+    ]
+    if provider == "codex":
+        lines.extend(
+            [
+                "review_channel_project_codex_agent_mind() {",
+                '  local latest_mtime="$1"',
+                '  [[ -z "$latest_mtime" || "$latest_mtime" == "0" ]] && return 0',
+                '  if (( latest_mtime <= REVIEW_CHANNEL_AGENT_MIND_LAST_PROJECTED_MTIME )); then',
+                "    return 0",
+                "  fi",
+                '  REVIEW_CHANNEL_AGENT_MIND_LAST_PROJECTED_MTIME="$latest_mtime"',
+                '  (cd "$REVIEW_CHANNEL_CONTROL_ROOT" && '
+                "python3 dev/scripts/devctl.py agent-mind --agent codex "
+                "--project --format json >/dev/null 2>&1) || true",
+                "}",
+                "",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "review_channel_project_codex_agent_mind() {",
+                "  return 0",
+                "}",
+                "",
+            ]
+        )
+    lines.extend(
+        [
         "review_channel_inactivity_watchdog() {",
         '  local target_pid="$1"',
         '  local timeout_seconds="$2"',
@@ -67,6 +96,7 @@ def inactivity_watchdog_lines(provider: str) -> list[str]:
         '    if (( last_seen == 0 )); then',
         '      last_seen=$started_at',
         '    fi',
+        '    review_channel_project_codex_agent_mind "$last_seen"',
         '    age=$(( now - last_seen ))',
         '    if (( age > timeout_seconds )); then',
         f'      printf "%s\\n" "{label}: idle ${{age}}s > ${{timeout_seconds}}s; sending SIGINT to PID $target_pid (latest rollout mtime $last_seen, now $now)" >&2',
@@ -78,4 +108,6 @@ def inactivity_watchdog_lines(provider: str) -> list[str]:
         '  done',
         "}",
         "",
-    ]
+        ]
+    )
+    return lines

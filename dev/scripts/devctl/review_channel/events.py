@@ -15,13 +15,6 @@ from .event_reducer import (
     reduce_events,
     refresh_event_bundle,
 )
-from .action_request_delivery import (
-    record_action_request_execution_start,
-    seed_action_request_delivery_receipt,
-)
-from .agent_session_outcome_events import (
-    append_agent_session_outcome_for_packet,
-)
 from .context_refs import normalize_context_pack_refs
 from .event_store import (
     DEFAULT_PACKET_TTL_MINUTES,
@@ -52,6 +45,8 @@ from .packet_agents import (
     packet_agent_ids_from_review_state,
     packet_agent_ids_from_session_output,
 )
+from .action_request_delivery import record_action_request_execution_start
+from .post_packet_runtime import finalize_post_packet
 from .remote_control_attachment_artifact import heartbeat_repo_remote_control_attachment
 TRANSITION_EVENT_TYPES = {
     "ack": "packet_acked",
@@ -135,29 +130,17 @@ def post_packet(
         event,
         existing_events=existing_events,
     )
-    outcome_event = append_agent_session_outcome_for_packet(
+    written_event = finalize_post_packet(
         repo_root=repo_root,
         artifact_paths=artifact_paths,
-        packet_event=written_event,
-        existing_events=[*existing_events, written_event],
-    )
-    heartbeat_repo_remote_control_attachment(
-        repo_root=repo_root,
-        provider=str(written_event.get("from_agent") or "").strip(),
-        seen_at_utc=str(written_event.get("timestamp_utc") or "").strip(),
-    )
-    seed_action_request_delivery_receipt(
-        artifact_root=Path(artifact_paths.artifact_root),
-        packet=written_event,
+        written_event=written_event,
+        existing_events=existing_events,
     )
     bundle = refresh_event_bundle(
         repo_root=repo_root,
         review_channel_path=review_channel_path,
         artifact_paths=artifact_paths,
     )
-    if outcome_event is not None:
-        written_event = dict(written_event)
-        written_event["agent_session_outcome_event_id"] = outcome_event.get("event_id")
     return bundle, written_event
 
 
