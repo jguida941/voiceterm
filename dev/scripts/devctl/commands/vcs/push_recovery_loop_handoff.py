@@ -5,20 +5,18 @@ from __future__ import annotations
 from pathlib import Path
 
 from ...governance.push_state import current_head_commit_sha
-from ...review_channel.event_store import resolve_artifact_paths
-from ...runtime.agent_session_outcome import AgentSessionOutcomeState
-from ...runtime.review_snapshot_refresh import receipt_commit_parent_sha
-from ...runtime.vcs import run_git_capture
-from ...review_channel.remote_commit_pipeline_artifact import (
-    load_remote_commit_pipeline_contract,
-)
 from ...review_channel.agent_session_outcome_events import (
     latest_current_completed_handoff_outcome,
 )
-from .push_recovery_loop_payload import (
-    field_value,
-    payload_allows_bounded_recovery,
+from ...review_channel.event_store import resolve_artifact_paths
+from ...review_channel.remote_commit_pipeline_artifact import (
+    load_remote_commit_pipeline_contract,
 )
+from ...runtime.agent_session_outcome import AgentSessionOutcomeState
+from ...runtime.governance_scan import scan_repo_governance_safely
+from ...runtime.review_snapshot_refresh import receipt_commit_ancestor_shas
+from ...runtime.vcs import run_git_capture
+from .push_recovery_loop_payload import field_value, payload_allows_bounded_recovery
 
 _BLOCKED_IMPLEMENTATION_PERMISSIONS = frozenset({"blocked", "suspended"})
 
@@ -68,17 +66,48 @@ def _handoff_target_revisions(repo_root: Path) -> tuple[str, ...]:
     if not current_head:
         return ()
 
-    revisions: list[str] = [current_head]
-    content_head = receipt_commit_parent_sha(
+    governance = scan_repo_governance_safely(repo_root)
+    revisions: list[str] = []
+    content_head = _append_receipt_chain_revisions(
+        revisions,
         repo_root=repo_root,
         current_head=current_head,
-    ) or current_head
-    _append_unique(revisions, content_head)
+        governance=governance,
+    )
 
     pipeline_commit = _current_pipeline_commit_sha(repo_root)
-    if pipeline_commit and pipeline_commit == content_head:
+    pipeline_content_head = ""
+    if pipeline_commit:
+        pipeline_content_head = _append_receipt_chain_revisions(
+            revisions,
+            repo_root=repo_root,
+            current_head=pipeline_commit,
+            governance=governance,
+        )
+    if pipeline_content_head and pipeline_content_head == content_head:
         _append_unique(revisions, _commit_parent_sha(repo_root, content_head))
     return tuple(revisions)
+
+
+def _append_receipt_chain_revisions(
+    revisions: list[str],
+    *,
+    repo_root: Path,
+    current_head: str,
+    governance,
+) -> str:
+    target = str(current_head or "").strip()
+    if not target:
+        return ""
+    _append_unique(revisions, target)
+    receipt_ancestors = receipt_commit_ancestor_shas(
+        repo_root=repo_root,
+        current_head=target,
+        governance=governance,
+    )
+    for ancestor in receipt_ancestors:
+        _append_unique(revisions, ancestor)
+    return receipt_ancestors[-1] if receipt_ancestors else target
 
 
 def _current_pipeline_commit_sha(repo_root: Path) -> str:

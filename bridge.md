@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-28T03:47:58Z`
-- Last Codex poll (Local America/New_York): `2026-04-27 23:47:58 EDT`
+- Last Codex poll: `2026-04-28T04:38:33Z`
+- Last Codex poll (Local America/New_York): `2026-04-28 00:38:33 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `746b0796df7a9505ca35c1a74a6db9b2c02cc0638c9af003ca00834a3e77d663`
-- Current instruction revision: `5f244c3da31b`
+- Last non-audit worktree hash: `eaa501ae98273c4e5d981c8305b2d5f2a6765eb1b2f938dab1a0a48f50ac5e15`
+- Current instruction revision: `0c053d2cfc88`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-28T03:04:59.915561Z.
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: codex33-final-guard-refresh; reviewed-tree: eaa501ae9827).
 
 ## Current Verdict
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-2 pending review packet(s); 501 expired unresolved review packet(s)
+2 pending review packet(s); 504 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -134,11 +134,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-Priority action_request: Codex 29 Path I: automate governed commit recovery blockers
+Priority action_request: Codex 33 receipt-chain completed-handoff bypass fix staged for governed commit/push
 
 ## Last Reviewed Scope
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- No pending action requests.
+- [rev_pkt_2081] stage_commit_pipeline: target=runtime:devctl_commit:32d84ab0c46977fb289cf757597c8d821a9a26fd@32d84ab0c46977fb289cf757597c8d821a9a26fd; Codex 33 receipt-chain completed-handoff bypass fix staged for governed commit/push (status: pending)

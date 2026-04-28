@@ -481,8 +481,12 @@ Portability note:
 	  `AgentSessionOutcome(outcome=completed_handoff)` receipt; governed push may
 	  use that receipt only when it matches the current prepared session, or when
 	  no provider-matching conductor metadata exists and the receipt is bound to
-	  the current `devctl_commit:<head>` / managed-receipt source chain. The
-	  startup blocker must still be `runtime_missing` / `no_live_agents`,
+	  the current `devctl_commit:<head>` / managed-receipt source chain. That
+	  source-chain match uses the shared managed-receipt classifier, includes
+	  every contiguous receipt ancestor above the current content commit, and
+	  accepts the content commit's handoff parent only when the commit-pipeline
+	  receipt resolves back to that same content commit. The startup blocker
+	  must still be `runtime_missing` / `no_live_agents`,
 	  otherwise the existing recovery loop still runs. Use `--requested-action commit` or
   `push` only with `--target-ref remote_commit_pipeline:<pipeline_id>` plus
   `--pipeline-generation`, `--staged-snapshot-hash`, and

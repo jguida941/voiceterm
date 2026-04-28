@@ -49,9 +49,6 @@ from dev.scripts.devctl.review_channel.remote_commit_pipeline_artifact import (
     load_remote_commit_pipeline_contract,
     persist_remote_commit_pipeline_contract,
 )
-from dev.scripts.devctl.tests.test_review_channel_context_refs import (
-    _review_channel_text,
-)
 from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
     RemoteCommitPipelineContract,
 )
@@ -59,6 +56,9 @@ from dev.scripts.devctl.runtime.remote_commit_pipeline_state import (
     PUSH_FAILURE_CLASSIFICATION_DESTRUCTIVE,
     PUSH_FAILURE_CLASSIFICATION_NON_DESTRUCTIVE,
     STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
+)
+from dev.scripts.devctl.tests.test_review_channel_context_refs import (
+    _review_channel_text,
 )
 from dev.scripts.devctl.tests.vcs._git_helpers import _run_git
 
@@ -121,8 +121,7 @@ def _bridge_text_for_push_heartbeat(
     return "\n".join(
         [
             "- Last Codex poll: `" + last_codex_poll + "`",
-            "- Last Codex poll (Local America/New_York): "
-            "`2026-04-27 14:00:00 EDT`",
+            "- Last Codex poll (Local America/New_York): " "`2026-04-27 14:00:00 EDT`",
             "- Last non-audit worktree hash: `reviewed-hash`",
             "- Reviewer mode: `" + reviewer_mode + "`",
             "- Current instruction revision: `rev-1`",
@@ -2406,9 +2405,7 @@ class PushBridgeSyncTests(unittest.TestCase):
             repo_root = Path(tmp_dir)
             bridge_path = repo_root / "bridge.md"
             bridge_path.write_text(
-                _bridge_text_for_push_heartbeat(
-                    last_codex_poll="2000-01-01T00:00:00Z"
-                ),
+                _bridge_text_for_push_heartbeat(last_codex_poll="2000-01-01T00:00:00Z"),
                 encoding="utf-8",
             )
 
@@ -2440,13 +2437,11 @@ class PushBridgeSyncTests(unittest.TestCase):
                 refresh = (
                     push_preflight_projection.refresh_managed_projections_before_preflight
                 )
-                result = (
-                    refresh(
-                        state,
-                        policy,
-                        repo_root=repo_root,
-                        command_runner=_runner,
-                    )
+                result = refresh(
+                    state,
+                    policy,
+                    repo_root=repo_root,
+                    command_runner=_runner,
                 )
 
         self.assertEqual(
@@ -3110,13 +3105,11 @@ class PushBridgeSyncTests(unittest.TestCase):
                 "_handoff_target_revisions",
                 return_value=("abc123",),
             ):
-                result = (
-                    push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
-                        state,
-                        policy,
-                        repo_root=repo_root,
-                        command_runner=_runner,
-                    )
+                result = push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
+                    state,
+                    policy,
+                    repo_root=repo_root,
+                    command_runner=_runner,
                 )
 
         self.assertEqual(calls, [])
@@ -3167,13 +3160,11 @@ class PushBridgeSyncTests(unittest.TestCase):
                 "_handoff_target_revisions",
                 return_value=("abc123",),
             ):
-                result = (
-                    push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
-                        state,
-                        policy,
-                        repo_root=repo_root,
-                        command_runner=_runner,
-                    )
+                result = push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
+                    state,
+                    policy,
+                    repo_root=repo_root,
+                    command_runner=_runner,
                 )
 
         self.assertEqual(calls, ["push-recovery-startup-context-1"])
@@ -3214,7 +3205,9 @@ class PushBridgeSyncTests(unittest.TestCase):
             receipt_head = _run_git(repo_root, "rev-parse", "HEAD")
 
             artifact_paths = resolve_artifact_paths(repo_root=repo_root)
-            pipeline_path = Path(artifact_paths.projections_root) / "commit_pipeline.json"
+            pipeline_path = (
+                Path(artifact_paths.projections_root) / "commit_pipeline.json"
+            )
             pipeline_path.parent.mkdir(parents=True, exist_ok=True)
             pipeline_path.write_text(
                 json.dumps(
@@ -3239,6 +3232,110 @@ class PushBridgeSyncTests(unittest.TestCase):
             revisions = push_recovery_loop_handoff._handoff_target_revisions(repo_root)
 
         self.assertEqual(revisions, (receipt_head, source_head, base_head))
+
+    def test_prevalidation_recovery_loop_accepts_completed_handoff_at_five_receipt_chain_root(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            _run_git(repo_root, "init")
+            _run_git(repo_root, "config", "user.email", "test@example.com")
+            _run_git(repo_root, "config", "user.name", "Test User")
+
+            (repo_root / "source.txt").write_text("handoff root\n", encoding="utf-8")
+            _run_git(repo_root, "add", "source.txt")
+            _run_git(repo_root, "commit", "-m", "handoff root")
+            handoff_root = _run_git(repo_root, "rev-parse", "HEAD")
+            artifact_paths = self._post_stage_commit_pipeline_handoff(
+                repo_root=repo_root,
+                token="",
+                write_metadata=False,
+                target_revision=handoff_root,
+            )
+
+            (repo_root / "source.txt").write_text("content\n", encoding="utf-8")
+            _run_git(repo_root, "add", "source.txt")
+            _run_git(repo_root, "commit", "-m", "content")
+
+            snapshot_path = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+            snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+            receipt_commits: list[str] = []
+            for index in range(5):
+                parent = _run_git(repo_root, "rev-parse", "HEAD")
+                snapshot_path.write_text(f"receipt {index}\n", encoding="utf-8")
+                _run_git(repo_root, "add", "dev/audits/REVIEW_SNAPSHOT.md")
+                _run_git(
+                    repo_root,
+                    "commit",
+                    "-m",
+                    f"Refresh external review snapshot for {parent[:8]}",
+                )
+                receipt_commits.append(_run_git(repo_root, "rev-parse", "HEAD"))
+
+            pipeline_path = (
+                Path(artifact_paths.projections_root) / "commit_pipeline.json"
+            )
+            pipeline_path.parent.mkdir(parents=True, exist_ok=True)
+            pipeline_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "contract_id": "RemoteCommitPipelineContract",
+                        "pipeline_id": "pipeline-test",
+                        "commit_sha": receipt_commits[2],
+                        "commit_result": {
+                            "schema_version": 1,
+                            "contract_id": "ActionResult",
+                            "action_id": "vcs.commit",
+                            "ok": True,
+                            "status": "pass",
+                            "reason": "commit_recorded",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            state = push.PushRunState(
+                branch="feature/demo",
+                remote="origin",
+                pre_validation_recovery_loop_repair_required=True,
+            )
+            state.pre_validation_recovery_loop_repair_startup = (
+                self._runtime_missing_recovery_record()
+            )
+            policy = make_policy()
+            calls: list[str] = []
+
+            def _runner(name, cmd, cwd=None, env=None):
+                del cmd, cwd, env
+                calls.append(name)
+                return {
+                    "name": name,
+                    "cmd": [],
+                    "cwd": str(repo_root),
+                    "returncode": 0,
+                    "duration_s": 0.1,
+                    "skipped": False,
+                }
+
+            result = (
+                push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
+                    state,
+                    policy,
+                    repo_root=repo_root,
+                    command_runner=_runner,
+                )
+            )
+
+        self.assertEqual(calls, [])
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["reason"], "agent_session_completed_handoff")
+        self.assertEqual(
+            result["agent_session_outcome"]["target_revision"],
+            handoff_root,
+        )
+        self.assertEqual(state.errors, [])
 
     def test_prevalidation_recovery_loop_rejects_stale_completed_handoff(
         self,

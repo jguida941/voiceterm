@@ -67,6 +67,11 @@ completed-handoff receipt only if the packet target is bound to the current
 `devctl_commit:<head>` or the managed-receipt source commit chain. Outcomes
 that carried prepared-session metadata, wrong target refs, wrong revisions, or
 unrelated startup blockers still fail closed into the bounded recovery loop.
+The source-chain matcher walks the shared managed-receipt ancestry rather than
+collapsing the chain to one terminal parent, and it includes the content
+commit's handoff parent when the current commit-pipeline receipt resolves to
+that same content commit. This covers stacked projection receipts created by
+push preflight without accepting arbitrary older history.
 
 Evidence:
 - `dev/scripts/devctl/runtime/agent_session_outcome.py`
