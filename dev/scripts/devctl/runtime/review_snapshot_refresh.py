@@ -23,7 +23,6 @@ Callers fold the warnings into their existing ``ActionResult.warnings``.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
@@ -250,8 +249,7 @@ def _single_receipt_commit_parent_sha(
     if code != 0 or not str(subject or "").startswith(_RECEIPT_SUBJECT_PREFIXES):
         return ""
 
-    allowlist = set(receipt_artifact_relpaths(governance))
-    allowlist.update(_tracked_render_surface_relpaths(repo_root=repo_root))
+    allowlist = set(managed_receipt_relpaths(repo_root=repo_root, governance=governance))
     code, output, _ = run_git_capture(
         ["diff-tree", "--no-commit-id", "--name-only", "-r", target],
         repo_root=repo_root,
@@ -301,30 +299,30 @@ def receipt_artifact_relpaths(
     return tuple(paths)
 
 
+def managed_receipt_relpaths(
+    *,
+    repo_root: Path = REPO_ROOT,
+    governance: _GovernanceWithArtifactRoots | None = None,
+) -> tuple[str, ...]:
+    """Return all pathscoped generated/receipt artifacts accepted as managed."""
+    return tuple(
+        dict.fromkeys(
+            (
+                *receipt_artifact_relpaths(governance),
+                *_tracked_render_surface_relpaths(repo_root=repo_root),
+            )
+        )
+    )
+
+
 def _tracked_render_surface_relpaths(*, repo_root: Path) -> tuple[str, ...]:
     """Return tracked repo-pack render targets accepted as managed receipts."""
-    policy_path = repo_root / "dev/config/devctl_repo_policy.json"
     try:
-        payload = json.loads(policy_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        from .managed_receipt_paths import tracked_render_surface_relpaths
+
+        return tracked_render_surface_relpaths(repo_root=repo_root)
+    except (OSError, ValueError):
         return ()
-    governance = payload.get("repo_governance")
-    if not isinstance(governance, dict):
-        return ()
-    surface_generation = governance.get("surface_generation")
-    if not isinstance(surface_generation, dict):
-        return ()
-    surfaces = surface_generation.get("surfaces")
-    if not isinstance(surfaces, list):
-        return ()
-    paths = [
-        str(entry.get("output_path") or "").strip()
-        for entry in surfaces
-        if isinstance(entry, dict)
-        and bool(entry.get("tracked", False))
-        and not bool(entry.get("local_only", False))
-    ]
-    return tuple(dict.fromkeys(path for path in paths if path))
 
 
 def _resolve_receipt_snapshot_target(
@@ -342,6 +340,7 @@ def _resolve_receipt_snapshot_target(
 __all__ = [
     "GENERATED_SURFACE_RECEIPT_SUBJECT_PREFIX",
     "is_managed_receipt_commit",
+    "managed_receipt_relpaths",
     "receipt_commit_ancestor_shas",
     "receipt_artifact_relpaths",
     "receipt_commit_parent_sha",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from ..governance.push_state import current_head_commit_sha
@@ -14,7 +15,9 @@ from ..review_channel.remote_commit_pipeline_artifact import (
 )
 from .agent_session_outcome import AgentSessionOutcomeState
 from .governance_scan import scan_repo_governance_safely
-from .review_snapshot_refresh import receipt_commit_ancestor_shas
+from .review_snapshot_refresh import (
+    receipt_commit_ancestor_shas,
+)
 from .vcs import run_git_capture
 
 _DEFAULT_COMPLETED_HANDOFF_PROVIDER = "codex"
@@ -81,7 +84,12 @@ def handoff_target_revisions(repo_root: Path) -> tuple[str, ...]:
             governance=governance,
         )
     if pipeline_content_head and pipeline_content_head == content_head:
-        _append_unique(revisions, _commit_parent_sha(repo_root, content_head))
+        _append_handoff_parent_revisions(
+            revisions,
+            repo_root=repo_root,
+            content_head=content_head,
+            governance=governance,
+        )
     return tuple(revisions)
 
 
@@ -104,6 +112,26 @@ def _append_receipt_chain_revisions(
     for ancestor in receipt_ancestors:
         _append_unique(revisions, ancestor)
     return receipt_ancestors[-1] if receipt_ancestors else target
+
+
+def _append_handoff_parent_revisions(
+    revisions: list[str],
+    *,
+    repo_root: Path,
+    content_head: str,
+    governance,
+) -> None:
+    parent = _commit_parent_sha(repo_root, content_head)
+    if not parent:
+        return
+    parent_content_head = _append_receipt_chain_revisions(
+        revisions,
+        repo_root=repo_root,
+        current_head=parent,
+        governance=governance,
+    )
+    if parent_content_head and parent_content_head != parent:
+        _append_unique(revisions, _commit_parent_sha(repo_root, parent_content_head))
 
 
 def _current_pipeline_commit_sha(repo_root: Path) -> str:

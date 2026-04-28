@@ -20,6 +20,39 @@ The current `P0` subordinate execution spec for startup authority, repo-pack
 activation, typed plan routing, runtime/evidence/context closure, and first
 cross-repo proof is `dev/active/platform_authority_loop.md`.
 
+## Product Thesis
+
+Operator-confirmed durable framing, 2026-04-28:
+
+"You started with a deterministic CI/CD onboarding platform: if this happens → run this check, if this fails → block, if this passes → continue. That works well for predictable workflows. But the weakness is obvious: deterministic systems are bad at open-ended judgment.
+
+They can say: this check passed, this check failed, this file exists, this config is missing. But they are weaker at: why is this architecture drifting? what pattern keeps repeating? what should be fixed first? is this code smell actually dangerous here? what is the next reasonable step?
+
+That is where AI becomes useful. Not as the authority. As the flexible worker sitting inside the deterministic box."
+
+The stack:
+- Rules at the bottom (deterministic guards / probes / typed contracts)
+- Facts/state in the middle (typed runtime state, ProjectGovernance,
+  FindingRecord, ReviewState)
+- AI as the flexible worker (Codex / Claude inside the cage)
+- Guards around it (the 37+ active guards, 26+ probes, 86+ commands)
+- Receipts after it (governance-review log, action-result chain, run-records)
+- Operator above it (human authority, mode-flips, scoped authorizations)
+
+One-sentence product framing:
+"You built a deterministic CI/CD control system, then realized AI could become the worker inside that system instead of the thing replacing the system."
+
+Why this matters for every architectural decision:
+- AI is NOT the product. The governed loop is the product.
+- AI is NOT the authority. The deterministic gates + typed contracts are authority.
+- AI is NOT free. Every action AI takes is gated by typed capability, proof
+  level, and receipt.
+- This is fundamentally different from "AI coding tools" that give AI repo
+  access and hope tests catch it.
+- This is why every bypass / capability / receipt / proof-level architectural
+  choice composes with the same pattern: the cage is real; AI is the worker
+  inside; the cage permits scoped action with mandatory evidence.
+
 Current 2026-04-05 role/bootstrap closure note:
 - Launch/bootstrap ownership in the shared governance runtime must stay
   role-first (`reviewer`, `implementer`, `operator`), not provider-first.

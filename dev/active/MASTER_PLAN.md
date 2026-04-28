@@ -129,6 +129,14 @@
   the existing bounded recovery loop. The remaining T20 scope is
   `process_died` / `unresolved` producer coverage plus Codex-stall /
   flip-mode convergence.
+- 2026-04-28 hook-time generated-surface receipt extension (MP-377):
+  the same completed-handoff publication authority now reaches the raw-git
+  pre-commit boundary for push-owned generated-surface receipts. The hook only
+  accepts `DEVCTL_MANAGED_PROJECTION_RECEIPT_COMMIT=1` when the staged paths
+  are managed projection artifacts and the completed-handoff target resolves
+  through the full managed receipt/source chain back to the packet's
+  `devctl_commit:<head>` parent; source commits, stale handoff targets, and
+  mismatched providers still fail closed through `commit_permission`.
 - 2026-04-27 governed-push execution-truth invariant (MP-377):
   the `rev_pkt_2027` / `rev_pkt_2029` regression proved a Class-A trust
   break: a push report could claim `published_remote` with a fixture branch

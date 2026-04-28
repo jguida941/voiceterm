@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ...collect import collect_git_status
 from ...config import REPO_ROOT
+from ...runtime.commit_permission_hook import MANAGED_PROJECTION_RECEIPT_COMMIT_ENV
 from ...runtime.review_snapshot_refresh import GENERATED_SURFACE_RECEIPT_SUBJECT_PREFIX
 from ...runtime.vcs import run_git_capture
 from .push_projection_receipt import managed_projection_receipt_paths
@@ -112,6 +113,11 @@ def auto_commit_selected_preflight_generated_changes(
         commit_message=f"{commit_subject_prefix}{head_short.strip()}",
         repo_root=repo_root,
         lookup_commit=True,
+        extra_env={
+            MANAGED_PROJECTION_RECEIPT_COMMIT_ENV: "1",
+            "DEVCTL_NO_ARTIFACT_WRITES": "1",
+            "DEVCTL_NO_REVIEW_SNAPSHOT_REFRESH": "1",
+        },
     )
     return {
         "ok": not bool(getattr(state, "errors", ())),
@@ -128,6 +134,7 @@ def _commit_preflight_paths(
     commit_message: str,
     repo_root: Path,
     lookup_commit: bool,
+    extra_env: dict[str, str] | None = None,
 ) -> dict[str, object]:
     add_code, _, add_error = run_git_capture(
         ["add", "--", *dirty],
@@ -146,6 +153,7 @@ def _commit_preflight_paths(
     commit_code, _, commit_error = run_git_capture(
         ["commit", "-m", commit_message, "--", *dirty],
         repo_root=repo_root,
+        extra_env=extra_env,
     )
     if commit_code != 0:
         state.errors.append(

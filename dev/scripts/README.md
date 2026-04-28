@@ -974,8 +974,11 @@ Portability note:
   refreshes the event-backed review-channel projection bundle plus
   startup/context-graph surfaces after managed receipt movement, and then runs
   the routed guard bundle against the committed freshness state. Selected
-  generated-surface receipts use pathspec commits so staged-only next-commit
-  intent stays out of the machine receipt. Push
+  generated-surface receipts use pathspec commits plus
+  `DEVCTL_MANAGED_PROJECTION_RECEIPT_COMMIT=1` so the pre-commit hook can
+  consume completed-handoff authority only after staged managed-projection
+  paths are proven; staged-only next-commit intent stays out of the machine
+  receipt. Push
   reporting, authorization, and pipeline-state
   sync then operate on the receipt HEAD while preserving the approved content
   commit as the parent target. `check_system_picture_freshness.py` is the

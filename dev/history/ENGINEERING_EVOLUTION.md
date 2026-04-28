@@ -37,6 +37,35 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-28 - Completed-handoff publication authority now reaches hook-time generated receipts
+
+Fact: push v6 proved the completed-handoff waiver was present in the push
+recovery caller, but the target matcher still stopped short of the actual
+handoff packet. A publication-only generated-surface recovery commit sat above a
+managed receipt chain, so the shared target list appended only that commit's
+immediate parent and missed the older `devctl_commit:<head>` handoff parent.
+Push v5 also showed the same authority predicate was absent from hook-time
+generated-surface receipt commits, where the raw pre-commit hook saw
+`implementation_permission_blocked` and `review_authority_stale` and failed
+before the repo-owned receipt could be recorded.
+
+Change: `completed_handoff_authority` now extends the shared handoff target list
+through a managed receipt chain behind the commit-pipeline content parent, then
+adds the source handoff parent. The raw-git pre-commit gate consumes that same
+authority only for repo-owned generated-surface receipt intent marked by
+`DEVCTL_MANAGED_PROJECTION_RECEIPT_COMMIT=1`, and only when the staged paths are
+all managed projection artifacts. Source commits, missing/stale handoff
+evidence, and wrong-provider outcomes still fail closed through the existing
+commit-permission blockers.
+
+Evidence:
+- `dev/scripts/devctl/runtime/completed_handoff_authority.py`
+- `dev/scripts/devctl/runtime/commit_permission_hook.py`
+- `dev/scripts/devctl/commands/vcs/push_preflight_commit.py`
+- `dev/scripts/devctl/runtime/review_snapshot_refresh.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/scripts/devctl/tests/vcs/test_commit_gate.py`
+
 ### 2026-04-28 - Governed push now treats completed handoff as typed session outcome
 
 Fact: the Plan 4.1 publication path still collapsed two different states into

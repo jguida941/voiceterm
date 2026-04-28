@@ -18,6 +18,10 @@
 #                                           skip the bridge/status refresh only
 #   DEVCTL_REVIEW_SNAPSHOT_RECEIPT_COMMIT=1 skip the gate/refresh on the
 #                                           snapshot-only receipt commit
+#   DEVCTL_MANAGED_PROJECTION_RECEIPT_COMMIT=1
+#                                           allow a repo-owned generated-surface
+#                                           receipt only when completed-handoff
+#                                           authority and staged-path checks pass
 #   DEVCTL_NO_ARTIFACT_WRITES=1             skip the bridge/status + snapshot
 #                                           refreshes
 #

@@ -9,6 +9,10 @@
 # Or use the governed path:
 #   python3 dev/scripts/devctl.py commit --message "..."
 #
+# Repo-owned generated-surface receipt commits may set
+# DEVCTL_MANAGED_PROJECTION_RECEIPT_COMMIT=1; the Python gate still requires
+# completed-handoff authority and a staged managed-projection path allowlist.
+#
 # Skip (emergency only):
 #   git commit --no-verify ...
 

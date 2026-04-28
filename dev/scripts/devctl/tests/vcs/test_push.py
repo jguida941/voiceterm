@@ -3342,6 +3342,134 @@ class PushBridgeSyncTests(unittest.TestCase):
         )
         self.assertEqual(state.errors, [])
 
+    def test_prevalidation_recovery_loop_accepts_handoff_behind_parent_receipt_chain(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            _run_git(repo_root, "init")
+            _run_git(repo_root, "config", "user.email", "test@example.com")
+            _run_git(repo_root, "config", "user.name", "Test User")
+
+            (repo_root / "source.txt").write_text("handoff root\n", encoding="utf-8")
+            _run_git(repo_root, "add", "source.txt")
+            _run_git(repo_root, "commit", "-m", "handoff root")
+            handoff_root = _run_git(repo_root, "rev-parse", "HEAD")
+            artifact_paths = self._post_stage_commit_pipeline_handoff(
+                repo_root=repo_root,
+                token="",
+                write_metadata=False,
+                target_revision=handoff_root,
+            )
+
+            (repo_root / "source.txt").write_text("content\n", encoding="utf-8")
+            _run_git(repo_root, "add", "source.txt")
+            _run_git(repo_root, "commit", "-m", "content")
+            content_head = _run_git(repo_root, "rev-parse", "HEAD")
+
+            snapshot_path = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+            snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+            snapshot_path.write_text("receipt behind content\n", encoding="utf-8")
+            _run_git(repo_root, "add", "dev/audits/REVIEW_SNAPSHOT.md")
+            _run_git(
+                repo_root,
+                "commit",
+                "-m",
+                f"Refresh external review snapshot for {content_head[:8]}",
+            )
+            parent_receipt = _run_git(repo_root, "rev-parse", "HEAD")
+
+            snapshot_path.write_text("manual projection recovery\n", encoding="utf-8")
+            _run_git(repo_root, "add", "dev/audits/REVIEW_SNAPSHOT.md")
+            _run_git(repo_root, "commit", "-m", "manual projection recovery")
+            projection_content = _run_git(repo_root, "rev-parse", "HEAD")
+
+            receipt_commits: list[str] = []
+            for index in range(2):
+                parent = _run_git(repo_root, "rev-parse", "HEAD")
+                snapshot_path.write_text(
+                    f"receipt above projection {index}\n",
+                    encoding="utf-8",
+                )
+                _run_git(repo_root, "add", "dev/audits/REVIEW_SNAPSHOT.md")
+                _run_git(
+                    repo_root,
+                    "commit",
+                    "-m",
+                    f"Refresh external review snapshot for {parent[:8]}",
+                )
+                receipt_commits.append(_run_git(repo_root, "rev-parse", "HEAD"))
+
+            pipeline_path = (
+                Path(artifact_paths.projections_root) / "commit_pipeline.json"
+            )
+            pipeline_path.parent.mkdir(parents=True, exist_ok=True)
+            pipeline_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "contract_id": "RemoteCommitPipelineContract",
+                        "pipeline_id": "pipeline-test",
+                        "commit_sha": receipt_commits[-1],
+                        "commit_result": {
+                            "schema_version": 1,
+                            "contract_id": "ActionResult",
+                            "action_id": "vcs.commit",
+                            "ok": True,
+                            "status": "pass",
+                            "reason": "commit_recorded",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            state = push.PushRunState(
+                branch="feature/demo",
+                remote="origin",
+                pre_validation_recovery_loop_repair_required=True,
+            )
+            state.pre_validation_recovery_loop_repair_startup = (
+                self._runtime_missing_recovery_record()
+            )
+            policy = make_policy()
+            calls: list[str] = []
+
+            def _runner(name, cmd, cwd=None, env=None):
+                del cmd, cwd, env
+                calls.append(name)
+                return {
+                    "name": name,
+                    "cmd": [],
+                    "cwd": str(repo_root),
+                    "returncode": 0,
+                    "duration_s": 0.1,
+                    "skipped": False,
+                }
+
+            revisions = push_recovery_loop_handoff._handoff_target_revisions(repo_root)
+            result = (
+                push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
+                    state,
+                    policy,
+                    repo_root=repo_root,
+                    command_runner=_runner,
+                )
+            )
+
+        self.assertIn(projection_content, revisions)
+        self.assertIn(parent_receipt, revisions)
+        self.assertIn(content_head, revisions)
+        self.assertIn(handoff_root, revisions)
+        self.assertEqual(calls, [])
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["reason"], "agent_session_completed_handoff")
+        self.assertEqual(
+            result["agent_session_outcome"]["target_revision"],
+            handoff_root,
+        )
+        self.assertEqual(state.errors, [])
+
     def test_startup_authority_allows_completed_handoff_at_five_receipt_chain_root(
         self,
     ) -> None:
@@ -3765,6 +3893,18 @@ class PushBridgeSyncTests(unittest.TestCase):
                 "--",
                 "dev/guides/SYSTEM_MAP.md",
             ],
+        )
+        self.assertEqual(
+            run_git_capture_mock.call_args_list[2].kwargs["extra_env"][
+                "DEVCTL_MANAGED_PROJECTION_RECEIPT_COMMIT"
+            ],
+            "1",
+        )
+        self.assertEqual(
+            run_git_capture_mock.call_args_list[2].kwargs["extra_env"][
+                "DEVCTL_NO_ARTIFACT_WRITES"
+            ],
+            "1",
         )
         self.assertEqual(state.errors, [])
 
