@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-28T04:46:02Z`
-- Last Codex poll (Local America/New_York): `2026-04-28 00:46:02 EDT`
+- Last Codex poll: `2026-04-28T05:25:45Z`
+- Last Codex poll (Local America/New_York): `2026-04-28 01:25:45 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `eaa501ae98273c4e5d981c8305b2d5f2a6765eb1b2f938dab1a0a48f50ac5e15`
-- Current instruction revision: `0c053d2cfc88`
+- Last non-audit worktree hash: `70b686d8057e7c0e746e3abe27fd5ab4b8356183c39c28c1dc3cfe463955e693`
+- Current instruction revision: `7b4af7446196`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: codex33-final-guard-refresh; reviewed-tree: eaa501ae9827).
+- Reviewer state rebuilt from typed review-state projection at 2026-04-28T05:14:35.016985Z.
 
 ## Current Verdict
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s); 504 expired unresolved review packet(s)
+506 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -138,7 +138,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-Priority action_request: Codex 33 receipt-chain completed-handoff bypass fix staged for governed commit/push
+Priority action_request: Codex 34 completed-handoff startup-authority bypass ready for governed commit/push
 
 ## Last Reviewed Scope
 
