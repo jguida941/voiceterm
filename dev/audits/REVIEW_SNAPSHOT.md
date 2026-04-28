@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `acf4ae3d0df1` — Refresh external review snapshot for f971174a
-- Tree hash: `551d3a4710ec`
-- Generation stamp: `snap-06d6ede4f943`
-- Generated at (UTC): 2026-04-28T20:00:01Z
-- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- HEAD: `5adc6ebd2753` — Plan 4.1 / MP-377 Codex 41 slice — events.py NameError fix + Layer F handoff packet auto-emit (α + β) + Layer G typed liveness producer
+- Tree hash: `5e8e7a199d2a`
+- Generation stamp: `snap-22e666e8f2d7`
+- Generated at (UTC): 2026-04-28T20:05:53Z
+- Push decision: `await_review` — review_pending_before_push
 - Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 29 files, +2718/-1424
+- Delta since last snapshot: 24 commits, 77 files, +5381/-1760
 - Governance findings: 126 open / 88 fixed / 228 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,24 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `acf4ae3d0df16d8b1119e135fecf58df82947fa1`
+- HEAD SHA: `5adc6ebd27539203608e18967397a2fce901c352`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-28T15:01:23-04:00
+- HEAD timestamp (UTC): 2026-04-28T16:05:31-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_budget_exceeded
+- action: `await_review`
+- reason: review_pending_before_push
 - push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 55
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 72 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 73 local commit(s) waiting for governed push once review is accepted.
 
 ### Reviewer runtime
 - reviewer_mode: `active_dual_agent`
@@ -87,82 +87,93 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
-- checkpoint_required: **yes**
+- advisory: `await_review` — review_pending_before_push
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `acf4ae3d0df1`
+Range: last 24 commits ending at `5adc6ebd2753`
 
 - commits: 24
-- files changed: 29
-- insertions: +2718
-- deletions: -1424
+- files changed: 77
+- insertions: +5381
+- deletions: -1760
 - bundle classes touched: docs, tooling
-- authority surfaces touched: 1 file(s)
+- authority surfaces touched: 5 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `acf4ae3d` | Refresh external review snapshot for f971174a | 2 | +61/-67 | docs |  |
-| 2 | `f971174a` | Refresh external review snapshot for b5e92596 | 2 | +48/-48 | docs |  |
-| 3 | `b5e92596` | Refresh external review snapshot for f06b2658 | 1 | +47/-44 | tooling |  |
-| 4 | `f06b2658` | Refresh external review snapshot for b113e951 | 2 | +60/-63 | docs |  |
-| 5 | `b113e951` | Managed projection receipt: SYSTEM_MAP.md auto-refresh from… | 2 | +50/-51 | tooling |  |
-| 6 | `125bd6ea` | Refresh external review snapshot for a946ba66 | 1 | +53/-50 | tooling |  |
-| 7 | `a946ba66` | Refresh external review snapshot for d5f2c214 | 2 | +71/-61 | docs |  |
-| 8 | `d5f2c214` | Plan 4.1 final layer — completed-handoff outcome → current_… | 10 | +814/-119 | tooling |  |
-| 9 | `951ba609` | Refresh external review snapshot for 2df8a969 | 2 | +54/-57 | docs |  |
-| 10 | `2df8a969` | Refresh external review snapshot for 8f412975 | 1 | +40/-40 | tooling |  |
-| 11 | `8f412975` | Refresh external review snapshot for 10ab0bce | 2 | +42/-42 | docs |  |
-| 12 | `10ab0bce` | Refresh external review snapshot for 22fcd435 | 1 | +62/-78 | tooling |  |
-| 13 | `22fcd435` | Refresh external review snapshot for 00b8340f | 2 | +55/-58 | docs |  |
-| 14 | `00b8340f` | Plan 4.1 live-runtime completed-handoff matcher fix (Codex… | 4 | +187/-72 | tooling |  |
-| 15 | `20f1e4b6` | Refresh external review snapshot for cd3a1fb0 | 2 | +44/-44 | docs |  |
-| 16 | `cd3a1fb0` | Refresh external review snapshot for 7a5b14a5 | 1 | +68/-85 | tooling |  |
-| 17 | `7a5b14a5` | Refresh external review snapshot for ce90a950 | 2 | +43/-43 | docs |  |
-| 18 | `ce90a950` | Refresh external review snapshot for ddf7bfe1 | 1 | +49/-46 | tooling |  |
-| 19 | `ddf7bfe1` | Refresh external review snapshot for 8a2579eb | 2 | +67/-71 | docs |  |
-| 20 | `8a2579eb` | Plan 4.1 5-layer completed-handoff bypass propagation (Code… | 17 | +605/-90 | tooling |  |
-| 21 | `38ca87ad` | Refresh external review snapshot for 49a2c8ce | 2 | +42/-42 | docs |  |
-| 22 | `49a2c8ce` | Refresh external review snapshot for 63542766 | 1 | +47/-44 | tooling |  |
-| 23 | `63542766` | Refresh external review snapshot for 92f5c504 | 2 | +56/-59 | docs |  |
-| 24 | `92f5c504` | Plan 4.1 governed projection refresh: regenerated SYSTEM_MA… | 2 | +53/-50 | tooling |  |
+| 1 | `5adc6ebd` | Plan 4.1 / MP-377 Codex 41 slice — events.py NameError fix… | 56 | +2716/-386 | tooling |  |
+| 2 | `acf4ae3d` | Refresh external review snapshot for f971174a | 2 | +61/-67 | docs |  |
+| 3 | `f971174a` | Refresh external review snapshot for b5e92596 | 2 | +48/-48 | docs |  |
+| 4 | `b5e92596` | Refresh external review snapshot for f06b2658 | 1 | +47/-44 | tooling |  |
+| 5 | `f06b2658` | Refresh external review snapshot for b113e951 | 2 | +60/-63 | docs |  |
+| 6 | `b113e951` | Managed projection receipt: SYSTEM_MAP.md auto-refresh from… | 2 | +50/-51 | tooling |  |
+| 7 | `125bd6ea` | Refresh external review snapshot for a946ba66 | 1 | +53/-50 | tooling |  |
+| 8 | `a946ba66` | Refresh external review snapshot for d5f2c214 | 2 | +71/-61 | docs |  |
+| 9 | `d5f2c214` | Plan 4.1 final layer — completed-handoff outcome → current_… | 10 | +814/-119 | tooling |  |
+| 10 | `951ba609` | Refresh external review snapshot for 2df8a969 | 2 | +54/-57 | docs |  |
+| 11 | `2df8a969` | Refresh external review snapshot for 8f412975 | 1 | +40/-40 | tooling |  |
+| 12 | `8f412975` | Refresh external review snapshot for 10ab0bce | 2 | +42/-42 | docs |  |
+| 13 | `10ab0bce` | Refresh external review snapshot for 22fcd435 | 1 | +62/-78 | tooling |  |
+| 14 | `22fcd435` | Refresh external review snapshot for 00b8340f | 2 | +55/-58 | docs |  |
+| 15 | `00b8340f` | Plan 4.1 live-runtime completed-handoff matcher fix (Codex… | 4 | +187/-72 | tooling |  |
+| 16 | `20f1e4b6` | Refresh external review snapshot for cd3a1fb0 | 2 | +44/-44 | docs |  |
+| 17 | `cd3a1fb0` | Refresh external review snapshot for 7a5b14a5 | 1 | +68/-85 | tooling |  |
+| 18 | `7a5b14a5` | Refresh external review snapshot for ce90a950 | 2 | +43/-43 | docs |  |
+| 19 | `ce90a950` | Refresh external review snapshot for ddf7bfe1 | 1 | +49/-46 | tooling |  |
+| 20 | `ddf7bfe1` | Refresh external review snapshot for 8a2579eb | 2 | +67/-71 | docs |  |
+| 21 | `8a2579eb` | Plan 4.1 5-layer completed-handoff bypass propagation (Code… | 17 | +605/-90 | tooling |  |
+| 22 | `38ca87ad` | Refresh external review snapshot for 49a2c8ce | 2 | +42/-42 | docs |  |
+| 23 | `49a2c8ce` | Refresh external review snapshot for 63542766 | 1 | +47/-44 | tooling |  |
+| 24 | `63542766` | Refresh external review snapshot for 92f5c504 | 2 | +56/-59 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `AGENTS.md` | docs | +1/-0 |
+| `AGENTS.md` | docs | +2/-0 |
+| `app/operator_console/state/core/models.py` | tooling | +1/-0 |
+| `app/operator_console/state/snapshots/dashboard_snapshot.py` | tooling | +28/-0 |
+| `app/operator_console/state/snapshots/snapshot_builder.py` | tooling | +3/-1 |
 | `bridge.md` | docs | +59/-59 |
-| `dev/active/MASTER_PLAN.md` | tooling | +8/-0 |
-| `dev/active/ai_governance_platform.md` | tooling | +33/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1215/-1245 |
+| `dev/active/MASTER_PLAN.md` | tooling | +29/-0 |
+| `dev/active/ai_governance_platform.md` | tooling | +36/-1 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1228/-1262 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +4/-0 |
 | `dev/config/templates/portable_governance_pre_commit_hook.sh` | tooling | +4/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +1/-1 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +4/-4 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +29/-0 |
-| `dev/scripts/README.md` | tooling | +5/-2 |
+| `dev/guides/DEVELOPMENT.md` | docs | +7/-1 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +10/-10 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +108/-0 |
+| `dev/scripts/README.md` | tooling | +20/-3 |
+| `dev/scripts/checks/review_channel_bridge/report.py` | tooling | +53/-96 |
+| `dev/scripts/checks/review_channel_bridge/typed_state.py` | tooling | +150/-0 |
 | `dev/scripts/checks/tandem_consistency/implementer_checks.py` | tooling | +7/-9 |
 | `dev/scripts/checks/tandem_consistency/support.py` | tooling | +0/-45 |
+| `dev/scripts/devctl/cli_parser/claude_loop.py` | tooling | +44/-0 |
+| `dev/scripts/devctl/cli_parser/entrypoint.py` | tooling | +17/-2 |
+| `dev/scripts/devctl/commands/dashboard.py` | tooling | +32/-44 |
+| `dev/scripts/devctl/commands/dashboard_render/__init__.py` | tooling | +26/-3 |
+| `dev/scripts/devctl/commands/dashboard_render/typed_state.py` | tooling | +98/-0 |
+| `dev/scripts/devctl/commands/listing.py` | tooling | +1/-0 |
+| `dev/scripts/devctl/commands/mobile_status.py` | tooling | +22/-0 |
+| `dev/scripts/devctl/commands/reporting/claude_loop.py` | tooling | +152/-0 |
+| `dev/scripts/devctl/commands/reporting/dashboard_follow.py` | tooling | +74/-0 |
+| `dev/scripts/devctl/commands/reporting/dashboard_views.py` | tooling | +34/-0 |
+| `dev/scripts/devctl/commands/vcs/governed_executor_commit_runtime.py` | tooling | +15/-1 |
+| `dev/scripts/devctl/commands/vcs/governed_executor_packets.py` | tooling | +48/-0 |
 | `dev/scripts/devctl/commands/vcs/push_preflight_commit.py` | tooling | +8/-0 |
 | `dev/scripts/devctl/commands/vcs/push_recovery_loop_state.py` | tooling | +11/-2 |
 | `dev/scripts/devctl/review_channel/ack_freshness_authority.py` | tooling | +63/-0 |
+| `dev/scripts/devctl/review_channel/bridge_validation.py` | tooling | +34/-4 |
 | `dev/scripts/devctl/review_channel/event_projection_ack_state.py` | tooling | +54/-0 |
 | `dev/scripts/devctl/review_channel/event_projection_assembly.py` | tooling | +5/-1 |
+| `dev/scripts/devctl/review_channel/event_projection_bridge.py` | tooling | +6/-0 |
 | `dev/scripts/devctl/review_channel/event_projection_current_session.py` | tooling | +22/-2 |
 | `dev/scripts/devctl/review_channel/event_reducer_ack_projection.py` | tooling | +304/-0 |
 | `dev/scripts/devctl/review_channel/event_reducer_state.py` | tooling | +7/-1 |
-| `dev/scripts/devctl/runtime/commit_permission_hook.py` | tooling | +62/-0 |
-| `dev/scripts/devctl/runtime/completed_handoff_authority.py` | tooling | +30/-2 |
-| `dev/scripts/devctl/runtime/managed_receipt_paths.py` | tooling | +38/-0 |
-| `dev/scripts/devctl/runtime/review_snapshot_refresh.py` | tooling | +22/-23 |
-| `dev/scripts/devctl/tests/checks/test_check_tandem_consistency.py` | tooling | +83/-11 |
-| `dev/scripts/devctl/tests/review_channel/test_event_reducer_state.py` | tooling | +240/-0 |
-| `dev/scripts/devctl/tests/vcs/test_commit_gate.py` | tooling | +156/-0 |
-| `dev/scripts/devctl/tests/vcs/test_push.py` | tooling | +243/-17 |
+| _37 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -211,7 +222,13 @@ Recent findings:
 
 ### Targeted hints
 
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_commit_runtime.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_packets.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/bridge_validation.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/vcs/test_governed_executor.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_refresh.py`) — Review contract-level invariants for this file
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/review_channel/prompt_contract.py`) — Commit 5adc6ebd changed dev/scripts/devctl/review_channel/prompt_contract.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/review_state_models.py`) — Commit 5adc6ebd changed dev/scripts/devctl/runtime/review_state_models.py
 
 ### Suggested verification commands
 
@@ -225,6 +242,12 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`5adc6ebd` | MPs: MP-377** — Plan 4.1 / MP-377 Codex 41 slice — events.py NameError fix + Layer F handoff packet auto-emit (α + β) + Layer G typed liveness producer
+  - This slice closes the typed-handoff-before-task-complete meta-pattern that all prior Codex sessions (33/35/37/39/40) skipped:
+  -   - Layer F-α (in-Codex): bootstrap promotes typed stage_commit_pipeline action_request emission to PRIMARY contract; Codex 41 itself proved this works by posting rev_pkt_2116 from=codex to=claude as the LAST tool action before TASK_COMPLETE, target_ref=devctl_commit:acf4ae3d, full_guard_bundle_evidence=--profile ci.
+  -   - Layer F-β (launcher backup): launch_script_watchdog session-end guard now auto-emits stage_commit_pipeline if Codex's task_complete event lacks a matching packet — fail-closed against partial-exit deadlocks.
+  - plan: `dev/active/ai_governance_platform.md`
+  - evolution: Fact: multiple Codex slices ended with TASK_COMPLETE prose but no typed `stage_commit_pipeline` packet, which left the review-channel dashboard and commit pipeline guessing from prose. The liveness path had the same sha…
 - **`acf4ae3d`** — Refresh external review snapshot for f971174a
   - evolution: Fact: multiple Codex slices ended with TASK_COMPLETE prose but no typed `stage_commit_pipeline` packet, which left the review-channel dashboard and commit pipeline guessing from prose. The liveness path had the same sha…
 - **`f971174a`** — Refresh external review snapshot for b5e92596
@@ -273,8 +296,6 @@ Recent findings:
   - evolution: Fact: multiple Codex slices ended with TASK_COMPLETE prose but no typed `stage_commit_pipeline` packet, which left the review-channel dashboard and commit pipeline guessing from prose. The liveness path had the same sha…
 - **`63542766`** — Refresh external review snapshot for 92f5c504
   - evolution: Fact: multiple Codex slices ended with TASK_COMPLETE prose but no typed `stage_commit_pipeline` packet, which left the review-channel dashboard and commit pipeline guessing from prose. The liveness path had the same sha…
-- **`92f5c504`** — Plan 4.1 governed projection refresh: regenerated SYSTEM_MAP.md after Codex 33+34 contract changes (rev_pkt_2073 + rev_pkt_2085 ripple); cleared dirty index from push v5 pre_validation_managed_projection_sync that pre-commit hook blocked; intermediate publication-flow recovery commit so push pre-validation no longer needs to auto-regenerate this file
-  - evolution: Fact: multiple Codex slices ended with TASK_COMPLETE prose but no typed `stage_commit_pipeline` packet, which left the review-channel dashboard and commit pipeline guessing from prose. The liveness path had the same sha…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -293,7 +314,7 @@ Recent findings:
 - open governance findings: 126
 
 ### Startup advisories
-- checkpoint_before_continue: staged_index_budget_exceeded
+- await_review: review_pending_before_push
 
 ### Stale warnings
 - Keep editing the current slice.
@@ -315,4 +336,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-06d6ede4f943` binds this file to HEAD `acf4ae3d0df1`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-22e666e8f2d7` binds this file to HEAD `5adc6ebd2753`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
