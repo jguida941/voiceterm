@@ -104,13 +104,14 @@ def _outcome_matches_expected_target_revisions(
         (expected_target_revision, *tuple(expected_target_revisions or ()))
     )
     target_revision = _text(outcome.target_revision)
-    if not target_revision or target_revision not in revisions:
+    if not _revision_matches_any(target_revision, revisions):
         return False
     if outcome.target_kind != "runtime":
         return False
     if outcome.handoff_requested_action != "stage_commit_pipeline":
         return False
-    if outcome.target_ref != f"devctl_commit:{target_revision}":
+    target_ref_revision = _devctl_commit_target_revision(outcome.target_ref)
+    if not _revision_matches_any(target_ref_revision, revisions):
         return False
     if not (_text(outcome.handoff_packet_id) and _text(outcome.source_event_id)):
         return False
@@ -123,6 +124,25 @@ def _outcome_matches_expected_target_revisions(
 
 def _normalized_revisions(values: Sequence[str]) -> frozenset[str]:
     return frozenset(dict.fromkeys(_text(value) for value in values if _text(value)))
+
+
+def _devctl_commit_target_revision(target_ref: str) -> str:
+    prefix = "devctl_commit:"
+    text = _text(target_ref)
+    if not text.startswith(prefix):
+        return ""
+    return text[len(prefix) :].strip()
+
+
+def _revision_matches_any(revision: str, revisions: frozenset[str]) -> bool:
+    text = _text(revision)
+    if not text:
+        return False
+    if text in revisions:
+        return True
+    if len(text) < 7:
+        return False
+    return sum(1 for candidate in revisions if candidate.startswith(text)) == 1
 
 
 def _outcome_has_prepared_session_metadata(

@@ -1839,6 +1839,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         token: str,
         write_metadata: bool = True,
         target_revision: str = "abc123",
+        target_ref_revision: str = "",
         from_agent: str = "codex",
         to_agent: str = "claude",
     ):
@@ -1867,7 +1868,9 @@ class PushBridgeSyncTests(unittest.TestCase):
                 approval_required=False,
                 target=PacketTargetFields.from_values(
                     target_kind="runtime",
-                    target_ref=f"devctl_commit:{target_revision}",
+                    target_ref=(
+                        f"devctl_commit:{target_ref_revision or target_revision}"
+                    ),
                     target_revision=target_revision,
                 ),
                 guard_bundle_evidence=PacketGuardBundleEvidenceFields.from_values(
@@ -3105,16 +3108,18 @@ class PushBridgeSyncTests(unittest.TestCase):
                     "skipped": False,
                 }
 
-            with patch.object(
-                push_recovery_loop_handoff,
-                "_handoff_target_revisions",
+            with patch(
+                "dev.scripts.devctl.runtime.completed_handoff_authority."
+                "handoff_target_revisions",
                 return_value=("abc123",),
             ):
-                result = push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
-                    state,
-                    policy,
-                    repo_root=repo_root,
-                    command_runner=_runner,
+                result = (
+                    push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
+                        state,
+                        policy,
+                        repo_root=repo_root,
+                        command_runner=_runner,
+                    )
                 )
 
         self.assertEqual(calls, [])
@@ -3123,6 +3128,85 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertEqual(
             result["agent_session_outcome"]["target_revision"],
             "abc123",
+        )
+        self.assertEqual(state.errors, [])
+
+    def test_prevalidation_recovery_loop_accepts_receipt_revision_with_content_target_ref(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            receipt_revision = "a" * 40
+            content_revision = "b" * 40
+            artifact_paths = self._post_stage_commit_pipeline_handoff(
+                repo_root=repo_root,
+                token="",
+                write_metadata=False,
+                target_revision=receipt_revision,
+                target_ref_revision=content_revision[:8],
+            )
+            self._write_codex_session_metadata(
+                repo_root=repo_root,
+                artifact_paths=artifact_paths,
+                token="unrelated-provider-token",
+                provider="claude",
+            )
+            state = push.PushRunState(
+                branch="feature/demo",
+                remote="origin",
+                pre_validation_recovery_loop_repair_required=True,
+            )
+            recovery_record = self._runtime_missing_recovery_record()
+            recovery_record["startup_context_step"] = {
+                "name": "push-refresh-startup-context",
+                "returncode": 1,
+                "failure_output": (
+                    "action=repair_reviewer_loop\n"
+                    "reason=runtime_missing\n"
+                    f"next={recovery_record['next_command']}\n"
+                    "attention_status=runtime_missing\n"
+                ),
+            }
+            state.pre_validation_recovery_loop_repair_startup = recovery_record
+            policy = make_policy()
+            calls: list[str] = []
+
+            def _runner(name, cmd, cwd=None, env=None):
+                del cmd, cwd, env
+                calls.append(name)
+                return {
+                    "name": name,
+                    "cmd": [],
+                    "cwd": str(repo_root),
+                    "returncode": 0,
+                    "duration_s": 0.1,
+                    "skipped": False,
+                }
+
+            with patch(
+                "dev.scripts.devctl.runtime.completed_handoff_authority."
+                "handoff_target_revisions",
+                return_value=("c" * 40, receipt_revision, content_revision),
+            ):
+                result = (
+                    push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
+                        state,
+                        policy,
+                        repo_root=repo_root,
+                        command_runner=_runner,
+                    )
+                )
+
+        self.assertEqual(calls, [])
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["reason"], "agent_session_completed_handoff")
+        self.assertEqual(
+            result["agent_session_outcome"]["target_revision"],
+            receipt_revision,
+        )
+        self.assertEqual(
+            result["agent_session_outcome"]["target_ref"],
+            f"devctl_commit:{content_revision[:8]}",
         )
         self.assertEqual(state.errors, [])
 
@@ -3160,16 +3244,18 @@ class PushBridgeSyncTests(unittest.TestCase):
                     "skipped": False,
                 }
 
-            with patch.object(
-                push_recovery_loop_handoff,
-                "_handoff_target_revisions",
+            with patch(
+                "dev.scripts.devctl.runtime.completed_handoff_authority."
+                "handoff_target_revisions",
                 return_value=("abc123",),
             ):
-                result = push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
-                    state,
-                    policy,
-                    repo_root=repo_root,
-                    command_runner=_runner,
+                result = (
+                    push_recovery_loop_repair.run_pre_validation_recovery_loop_repair_phase(
+                        state,
+                        policy,
+                        repo_root=repo_root,
+                        command_runner=_runner,
+                    )
                 )
 
         self.assertEqual(calls, ["push-recovery-startup-context-1"])

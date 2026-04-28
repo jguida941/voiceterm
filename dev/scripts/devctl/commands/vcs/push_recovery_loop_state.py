@@ -59,11 +59,20 @@ def startup_payload_from_state(state: object) -> dict[str, object]:
     if not isinstance(record, dict):
         return {}
 
+    fallback = _startup_payload_from_record(record)
     startup_step = record.get("startup_context_step")
     payload = startup_context_payload_from_step(startup_step)
-    if payload:
-        return payload
+    if not payload:
+        return fallback
 
+    merged = dict(fallback)
+    for key, value in payload.items():
+        if field_value({key: value}, key) or key not in merged:
+            merged[key] = value
+    return merged
+
+
+def _startup_payload_from_record(record: dict[str, object]) -> dict[str, object]:
     fallback: dict[str, object] = {}
     fallback["action"] = "repair_reviewer_loop" if bool(record.get("required")) else ""
     fallback["reason"] = field_value(record, "reason")
