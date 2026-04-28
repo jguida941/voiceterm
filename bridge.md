@@ -78,8 +78,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-28T21:07:59Z`
-- Last Codex poll (Local America/New_York): `2026-04-28 17:07:59 EDT`
+- Last Codex poll: `2026-04-28T21:11:21Z`
+- Last Codex poll (Local America/New_York): `2026-04-28 17:11:21 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `172a344def7efc391d75a08f36499d185f88e319b95bf15a53ea3e038fb08f50`
 - Current instruction revision: `5f244c3da31b`
@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-- Status unavailable.
+stage_commit_pipeline_applied
 
 ## Claude Questions
 
@@ -134,7 +134,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+- stage_commit_pipeline handoff applied; packet: `rev_pkt_2122`; target-revision: `00eb5fd7ab4d2f210ea0dabaf0a04d2c3df14010`; applied-at: `2026-04-28T21:00:50.677687Z`
 
 ## Current Instruction For Claude
 
