@@ -78,8 +78,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-28T04:38:33Z`
-- Last Codex poll (Local America/New_York): `2026-04-28 00:38:33 EDT`
+- Last Codex poll: `2026-04-28T04:43:53Z`
+- Last Codex poll (Local America/New_York): `2026-04-28 00:43:53 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `eaa501ae98273c4e5d981c8305b2d5f2a6765eb1b2f938dab1a0a48f50ac5e15`
 - Current instruction revision: `0c053d2cfc88`
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-2 pending review packet(s); 504 expired unresolved review packet(s)
+1 pending review packet(s); 504 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -134,7 +134,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- [rev_pkt_2081] stage_commit_pipeline: target=runtime:devctl_commit:32d84ab0c46977fb289cf757597c8d821a9a26fd@32d84ab0c46977fb289cf757597c8d821a9a26fd; Codex 33 receipt-chain completed-handoff bypass fix staged for governed commit/push (status: pending)
+- No pending action requests.
