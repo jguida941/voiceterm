@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-29T08:47:54Z`
-- Last Codex poll (Local America/New_York): `2026-04-29 04:47:54 EDT`
+- Last Codex poll: `2026-04-29T08:51:58Z`
+- Last Codex poll (Local America/New_York): `2026-04-29 04:51:58 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `f4918d50fd2fb9ae26765bdfc3832298495d2c7c8c90ac770eba55f948308201`
-- Current instruction revision: `2b2348d36540`
+- Current instruction revision: `5ec53599f4b7`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-2 pending review packet(s); 533 expired unresolved review packet(s)
+1 pending review packet(s); 533 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -138,7 +138,7 @@ stage_commit_pipeline_applied
 
 ## Current Instruction For Claude
 
-Priority action_request: Retry remote-control publication after suppression-debt fix
+Priority action_request: Run governed push for approved pipeline-f40ad2be5818
 
 ## Last Reviewed Scope
 
@@ -147,4 +147,3 @@ MP-355
 ## Action Requests
 
 - [rev_pkt_2185] push: target=runtime:remote_commit_pipeline:pipeline-f40ad2be5818@gen-e7a51818c259; Run governed push for approved pipeline-f40ad2be5818 (status: pending)
-- [rev_pkt_2182] stage_commit_pipeline: target=runtime:devctl_commit:0233390f7f70961db6fda613979e44be8467f347@0233390f7f70961db6fda613979e44be8467f347; Retry remote-control publication after suppression-debt fix (status: pending)
