@@ -1,8 +1,10 @@
-"""Shared fail-closed gate: block commit-capable lanes on pending reviewer packets.
+"""Shared fail-closed gate: block commit-capable lanes on actionable packets.
 
 This gate is intentionally lease-independent. A held attention-revision lease
-does NOT suppress this check. When a reviewer posts finding/instruction packets
-after a lease was acquired, the commit must still block.
+does NOT suppress this check. When a reviewer posts a mutating action request
+or non-review-only instruction after a lease was acquired, the commit must still
+block. Review-only findings remain visible through packet surfaces without
+creating a commit Catch-22.
 
 Both the governed commit path (governed_executor_commit_phase) and the snapshot
 receipt-commit path (review_snapshot) call this gate before any irreversible
@@ -11,14 +13,19 @@ git commit.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 
 from ..review_channel.event_reducer import load_or_refresh_event_bundle
 from ..review_channel.events import resolve_artifact_paths
+from ..review_channel.pending_packets import load_pending_packet_queue
 from .review_state_packet_models import AgentAttentionRecord, PacketInboxState
 from .review_state_parser import review_state_from_payload
 from .review_state_models import ReviewState
+from .review_packet_inbox_liveness import (
+    is_live_control_packet as _canonical_live_control_packet,
+)
 
 
 def pending_reviewer_packets_block_commit(
@@ -26,6 +33,7 @@ def pending_reviewer_packets_block_commit(
     repo_root: Path,
     review_channel_path: Path | None,
     target_agent: str = "",
+    exempt_packet_id: str = "",
 ) -> str | None:
     """Return a blocking summary when actionable reviewer packets exist.
 
@@ -97,7 +105,11 @@ def pending_reviewer_packets_block_commit(
             )
         if normalized_target and agent_name.lower() != normalized_target:
             continue
-        blocking_ids = _blocking_pending_packet_ids(review_state, agent_name)
+        blocking_ids = _blocking_pending_packet_ids(
+            review_state,
+            agent_name,
+            exempt_packet_id=exempt_packet_id,
+        )
         if blocking_ids is None:
             if not _has_actionable_attention(record):
                 continue
@@ -130,6 +142,50 @@ def pending_reviewer_packets_block_commit(
     )
 
 
+def pending_packet_queue_block_commit(
+    *,
+    repo_root: Path,
+    target_agent: str,
+    exempt_packet_id: str = "",
+) -> str | None:
+    """Lightweight event-log gate for packet-authorized commit execution."""
+    normalized_target = target_agent.strip().lower()
+    if not normalized_target:
+        return (
+            "Commit blocked: writable execution target could not be resolved "
+            "from typed action-request authority."
+        )
+    try:
+        queue = load_pending_packet_queue(repo_root, fail_closed=True)
+    except ValueError as exc:
+        return (
+            f"Commit blocked: typed review packet queue load failed ({exc}). "
+            "Cannot verify pending reviewer packets."
+        )
+
+    ids: list[str] = []
+    for packet in (*queue.pending_packets, *queue.control_packets):
+        if not _packet_targets_agent(packet, normalized_target):
+            continue
+        packet_id = _packet_text(packet, "packet_id")
+        if exempt_packet_id and packet_id == exempt_packet_id:
+            continue
+        if not _is_live_control_packet(packet):
+            continue
+        if not _packet_blocks_commit(packet):
+            continue
+        if packet_id:
+            ids.append(packet_id)
+    if not ids:
+        return None
+    return (
+        f"Commit blocked: {len(ids)} pending reviewer packet(s) "
+        f"with actionable attention ({normalized_target}: {', '.join(ids[:3])}). "
+        "Resolve pending packets before committing: "
+        "`devctl review-channel --action inbox --status pending --format json`."
+    )
+
+
 # ── Shared caller policy ───────────────────────────────────────
 
 
@@ -139,6 +195,7 @@ def check_commit_packet_gate(
     review_channel_path: Path | None,
     load_review_state_fn,
     resolve_target_fn,
+    exempt_packet_id: str = "",
 ) -> str | None:
     """Shared caller policy: load → resolve → gate, skip when not applicable.
 
@@ -177,6 +234,7 @@ def check_commit_packet_gate(
         repo_root=repo_root,
         review_channel_path=review_channel_path,
         target_agent=target,
+        exempt_packet_id=exempt_packet_id,
     )
 
 
@@ -193,6 +251,8 @@ def _has_actionable_attention(record: AgentAttentionRecord) -> bool:
 def _blocking_pending_packet_ids(
     review_state: ReviewState,
     agent_name: str,
+    *,
+    exempt_packet_id: str = "",
 ) -> list[str] | None:
     packets = review_state.packets
     if not isinstance(packets, (list, tuple)):
@@ -203,11 +263,13 @@ def _blocking_pending_packet_ids(
     for packet in packets:
         if not _packet_targets_agent(packet, agent_name):
             continue
-        if not _is_live_pending_packet(packet):
+        packet_id = _packet_text(packet, "packet_id")
+        if exempt_packet_id and packet_id == exempt_packet_id:
+            continue
+        if not _is_live_control_packet(packet):
             continue
         if not _packet_blocks_commit(packet):
             continue
-        packet_id = _packet_text(packet, "packet_id")
         if packet_id:
             blocking_ids.append(packet_id)
     return blocking_ids
@@ -217,8 +279,17 @@ def _packet_targets_agent(packet: object, agent_name: str) -> bool:
     return _packet_text(packet, "to_agent").lower() == agent_name.strip().lower()
 
 
-def _is_live_pending_packet(packet: object) -> bool:
-    if _packet_text(packet, "status") != "pending":
+def _is_live_control_packet(packet: object) -> bool:
+    if isinstance(packet, Mapping):
+        return _canonical_live_control_packet(packet)
+    status = _packet_text(packet, "status")
+    if status not in {"pending", "acked"}:
+        return False
+    if status == "acked" and _packet_text(packet, "kind") != "action_request":
+        return False
+    if _packet_text(packet, "execution_failed_at_utc"):
+        return False
+    if _packet_text(packet, "apply_pending_after_execution_at_utc"):
         return False
     expires_at = _parse_packet_utc(packet, "expires_at_utc")
     if expires_at is None:
@@ -228,8 +299,10 @@ def _is_live_pending_packet(packet: object) -> bool:
 
 def _packet_blocks_commit(packet: object) -> bool:
     kind = _packet_text(packet, "kind")
-    if kind in {"action_request", "finding"}:
+    if kind == "action_request":
         return True
+    if kind == "finding":
+        return False
     if kind != "instruction":
         return False
     requested_action = _packet_text(packet, "requested_action")
@@ -238,6 +311,8 @@ def _packet_blocks_commit(packet: object) -> bool:
 
 
 def _packet_text(packet: object, field: str) -> str:
+    if isinstance(packet, Mapping):
+        return str(packet.get(field) or "").strip()
     return str(getattr(packet, field, "") or "").strip()
 
 

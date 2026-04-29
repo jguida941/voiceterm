@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from .conductor_capability import authority_reviewer_mode, resolve_reviewer_mode
-from .control_state import _int, _mapping, _string
+from .control_state import _mapping, _string
 from .review_state_models import ReviewCurrentSessionState
 from .review_state_parse_support import _bool
 from .reviewer_gate_logic import (
@@ -15,12 +15,16 @@ from .reviewer_gate_logic import (
 from .reviewer_runtime_models import (
     RemoteControlAttachmentState,
     ReviewerAcceptanceState,
-    ReviewerLastPollState,
-    ReviewerRolloverState,
     ReviewerRuntimeContract,
-    ReviewerSessionOwnerState,
     remote_control_attachment_from_mapping,
 )
+from .reviewer_runtime_parser_state_rows import (
+    bridge_last_poll_state,
+    rollover_state,
+    session_owner_state,
+    typed_last_poll_state,
+)
+from .session_posture import build_session_posture, session_posture_from_mapping
 
 
 def reviewer_runtime_state_from_payload(
@@ -77,6 +81,9 @@ def _typed_reviewer_runtime_state(
     remote_control_attachment = remote_control_attachment_from_mapping(
         reviewer_runtime.get("remote_control_attachment")
     )
+    session_posture = session_posture_from_mapping(
+        reviewer_runtime.get("session_posture")
+    )
     review_accepted = _bool(review_acceptance.get("review_accepted"))
     reviewer_mode = resolve_reviewer_mode(
         reviewer_runtime.get("reviewer_mode"),
@@ -127,41 +134,13 @@ def _typed_reviewer_runtime_state(
         implementer_ack_current=implementer_ack_current,
         implementation_blocked=implementation_blocked,
         implementation_block_reason=implementation_block_reason,
-        last_poll=ReviewerLastPollState(
-            last_codex_poll_utc=_string(last_poll.get("last_codex_poll_utc"))
-            or _string(bridge.get("last_codex_poll_utc")),
-            last_codex_poll_age_seconds=_int(
-                last_poll.get("last_codex_poll_age_seconds")
-            )
-            or _int(bridge.get("last_codex_poll_age_seconds"))
-            or _int(bridge_liveness.get("last_codex_poll_age_seconds")),
-            last_reviewer_poll_utc=_string(last_poll.get("last_reviewer_poll_utc"))
-            or _string(last_poll.get("last_codex_poll_utc"))
-            or _string(bridge.get("last_reviewer_poll_utc"))
-            or _string(bridge.get("last_codex_poll_utc")),
-            last_reviewer_poll_age_seconds=_int(
-                last_poll.get("last_reviewer_poll_age_seconds")
-            )
-            or _int(last_poll.get("last_codex_poll_age_seconds"))
-            or _int(bridge.get("last_reviewer_poll_age_seconds"))
-            or _int(bridge.get("last_codex_poll_age_seconds"))
-            or _int(bridge_liveness.get("last_reviewer_poll_age_seconds"))
-            or _int(bridge_liveness.get("last_codex_poll_age_seconds")),
+        last_poll=typed_last_poll_state(
+            last_poll=last_poll,
+            bridge=bridge,
+            bridge_liveness=bridge_liveness,
         ),
-        rollover=ReviewerRolloverState(
-            rollover_id=_string(rollover.get("rollover_id")),
-            ack_pending=_bool(rollover.get("ack_pending")),
-            trigger=_string(rollover.get("trigger")),
-        ),
-        session_owner=ReviewerSessionOwnerState(
-            provider=_string(session_owner.get("provider")),
-            session_name=_string(session_owner.get("session_name")),
-            session_pid=_optional_int(session_owner.get("session_pid")),
-            terminal_window_id=_optional_int(session_owner.get("terminal_window_id")),
-            script_path=_string(session_owner.get("script_path")),
-            session_visibility=_string(session_owner.get("session_visibility"))
-            or "unknown",
-        ),
+        rollover=rollover_state(rollover),
+        session_owner=session_owner_state(session_owner),
         recovery_action_allowed=(
             _string(reviewer_runtime.get("recovery_action_allowed")) or recovery_command
         ),
@@ -180,6 +159,12 @@ def _typed_reviewer_runtime_state(
             else review_accepted
         ),
         remote_control_attachment=remote_control_attachment,
+        session_posture=session_posture
+        or build_session_posture(
+            reviewer_mode=reviewer_mode,
+            effective_reviewer_mode=effective_reviewer_mode,
+            remote_control_attachment=remote_control_attachment,
+        ),
     )
 
 
@@ -230,18 +215,9 @@ def _bridge_reviewer_runtime_state(
         implementer_ack_current=implementer_ack_current,
         implementation_blocked=implementation_blocked,
         implementation_block_reason=implementation_block_reason,
-        last_poll=ReviewerLastPollState(
-            last_codex_poll_utc=_string(bridge.get("last_codex_poll_utc")),
-            last_codex_poll_age_seconds=_int(bridge.get("last_codex_poll_age_seconds"))
-            or _int(bridge_liveness.get("last_codex_poll_age_seconds")),
-            last_reviewer_poll_utc=_string(bridge.get("last_reviewer_poll_utc"))
-            or _string(bridge.get("last_codex_poll_utc")),
-            last_reviewer_poll_age_seconds=_int(
-                bridge.get("last_reviewer_poll_age_seconds")
-            )
-            or _int(bridge.get("last_codex_poll_age_seconds"))
-            or _int(bridge_liveness.get("last_reviewer_poll_age_seconds"))
-            or _int(bridge_liveness.get("last_codex_poll_age_seconds")),
+        last_poll=bridge_last_poll_state(
+            bridge=bridge,
+            bridge_liveness=bridge_liveness,
         ),
         recovery_action_allowed=recovery_command
         or _string(attention.get("recommended_command")),
@@ -253,6 +229,10 @@ def _bridge_reviewer_runtime_state(
             reviewer_accepted_implementer_state_hash="",
         ),
         publish_clear=review_accepted,
+        session_posture=build_session_posture(
+            reviewer_mode=reviewer_mode,
+            effective_reviewer_mode=effective_reviewer_mode,
+        ),
     )
 
 
@@ -324,12 +304,6 @@ def _implementation_block_state(
     if not implementation_blocked:
         return False, ""
     return True, implementation_block_reason
-
-
-def _optional_int(value: object) -> int | None:
-    if value in (None, ""):
-        return None
-    return _int(value)
 
 
 def _implementer_ack_current(

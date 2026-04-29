@@ -38,6 +38,8 @@ class ReviewPacketRow(TypedDict):
     guard_results_summary: object
     full_guard_bundle_evidence: object
     plan_proposal: object
+    semantic_zref: object
+    source_identity: dict[str, object]
     status: object
     acked_by: object
     acked_at_utc: object
@@ -47,6 +49,12 @@ class ReviewPacketRow(TypedDict):
     delivery_observed_by: object
     execution_started_at_utc: object
     execution_started_by: object
+    execution_failed_at_utc: object
+    execution_failed_by: object
+    execution_failed_reason: object
+    apply_pending_after_execution_at_utc: object
+    apply_pending_after_execution_by: object
+    apply_pending_after_execution_reason: object
     posted_at: object
     expires_at_utc: object
     acknowledged_events: list[dict[str, object]]

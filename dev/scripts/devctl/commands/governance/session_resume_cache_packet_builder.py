@@ -10,6 +10,7 @@ from ...runtime.agent_session_continuation_models import AgentSessionContinuatio
 from ...runtime.authority_snapshot import AuthoritySnapshot
 from ...runtime.control_plane_read_model import ControlPlaneReadModel
 from ...runtime.review_state_models import PacketInboxState, ReviewCandidateRecord
+from ...runtime.packet_intent_anchor import packet_intent_anchors_from_packets
 from ...runtime.surface_provenance import surface_provenance_from_object
 from ...time_utils import utc_timestamp
 from .session_resume_packet import SessionCachePacket
@@ -105,6 +106,7 @@ def build_session_cache_packet(
         reviewer_observation_status=fields.observation_status,
         review_candidate=build_context.review_candidate,
         remote_control_attachment=getattr(model, "remote_control_attachment", None),
+        session_posture=getattr(model, "session_posture", None),
         coordination=build_context.coordination,
         authority_snapshot=build_context.authority_snapshot,
         attention_status=_str_field(build_context.attention_payload, "status")
@@ -117,6 +119,9 @@ def build_session_cache_packet(
             else ""
         ),
         packet_inbox=build_context.packet_inbox,
+        packet_intent_anchors=packet_intent_anchors_from_packets(
+            getattr(typed_review_state, "packets", ()) if typed_review_state else ()
+        ),
         connectivity_registry=build_context.connectivity_registry,
         key_surfaces=build_context.key_surfaces,
         agent_session_continuation=build_context.agent_session_continuation,

@@ -52,7 +52,7 @@ class ReviewStateTests(unittest.TestCase):
         claude = state.packet_inbox.for_agent("claude")
         self.assertIsNotNone(claude)
         self.assertEqual(claude.current_instruction_packet_id, "rev_pkt_1818")
-        self.assertEqual(claude.pending_actionable_packet_ids, ("rev_pkt_1818",))
+        self.assertEqual(claude.pending_actionable_packet_ids, ())
 
     def test_review_state_from_full_projection_normalizes_packets_and_registry(self) -> None:
         state = review_state_from_payload(

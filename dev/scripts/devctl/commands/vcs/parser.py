@@ -118,6 +118,14 @@ def add_commit_parser(subparsers: argparse._SubParsersAction) -> None:
         ),
     )
     commit_cmd.add_argument(
+        "--action-request",
+        default=None,
+        help=(
+            "Scoped review-channel action_request packet that grants this "
+            "governed commit invocation authority for its declared runtime target."
+        ),
+    )
+    commit_cmd.add_argument(
         "passthrough",
         nargs=argparse.REMAINDER,
         help="Additional arguments passed through to git commit (use -- before option-style flags)",

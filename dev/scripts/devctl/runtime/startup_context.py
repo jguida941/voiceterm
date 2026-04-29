@@ -2,22 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
-from ..platform.coordination_snapshot_models import CoordinationSnapshot
-from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
-from .recovery_authority import RecoveryAuthorityState, derive_recovery_authority
-from .review_state_models import (
-    PacketInboxState,
-    ReviewAttentionState,
-    ReviewCurrentSessionState,
-)
+from .recovery_authority import derive_recovery_authority
 from .reviewer_runtime_models import (
-    RemoteControlAttachmentState,
-    ReviewerRuntimeContract,
     has_active_remote_control_attachment,
 )
 
@@ -30,21 +21,20 @@ from .control_topology import derive_startup_control_truth
 from .governance_scan import scan_repo_governance_safely
 from .key_surfaces import startup_key_surfaces
 from .operator_context import is_resolved, resolve_operator_interaction_mode
+from .packet_intent_anchor import (
+    packet_intent_anchors_from_packets,
+    plan_iteration_session_from_anchors,
+)
 from .project_governance import ProjectGovernance
 from .review_state_locator import load_current_review_state
+from .review_state_semantics import is_missing_instruction
 from .startup_advisory_decision import (
     derive_advisory_decision as _derive_advisory_decision,
 )
-from .startup_blocker_decision import BlockerSnapshot, derive_startup_blocker
+from .startup_blocker_decision import derive_startup_blocker
 from .startup_connectivity_registry import startup_connectivity_registry
-from .startup_context_projections import (
-    bounded_contract_ownership_map,
-    build_contract_ownership_map,
-    startup_coordination_dict,
-    startup_orphan_snapshot_dict,
-)
-from .startup_governance_projection import startup_governance_dict
-from .startup_packet_inbox import startup_packet_inbox_dict
+from .startup_context_models import ReviewerGateState, StartupContext
+from .startup_context_projections import build_contract_ownership_map
 from .startup_push_decision import PushDecisionState
 from .startup_push_decision import derive_push_decision as _derive_push_decision
 from .startup_review_state import (
@@ -52,127 +42,10 @@ from .startup_review_state import (
 )
 from .startup_signals import load_startup_quality_signals
 from .surface_snapshot import build_surface_snapshot_id, build_surface_zref
-from .work_intake import (
-    WorkIntakePacket,
-    WorkIntakeStateInputs,
-    build_work_intake_packet,
-)
+from .work_intake import WorkIntakePacket, WorkIntakeStateInputs, build_work_intake_packet
 from .work_intake_coordination import build_work_intake_coordination_state
 from .work_intake_ownership import build_work_intake_ownership_state
-from .worktree_orphan_snapshot import OrphanSnapshot
 from .worktree_orphan_snapshot_projection import build_orphan_snapshot_projection
-
-
-@dataclass(frozen=True, slots=True)
-class ReviewerGateState:
-    """Current reviewer/ready-gate inputs for safe checkpoint/push decisions."""
-
-    bridge_active: bool = False
-    reviewer_mode: str = "single_agent"
-    effective_reviewer_mode: str = "single_agent"
-    review_accepted: bool = False
-    required_checks_status: str = "unknown"
-    checkpoint_permitted: bool = True
-    review_gate_allows_push: bool = False
-    implementation_blocked: bool = False
-    implementation_block_reason: str = ""
-    recovery_diagnosis_status: str = ""
-    recovery_action_id: str = ""
-    recovery_command: str = ""
-    operator_interaction_mode: str = "unresolved"
-
-
-@dataclass(frozen=True, slots=True)
-class StartupContext:
-    """Typed packet for AI agent session startup."""
-
-    schema_version: int = 1
-    contract_id: str = "StartupContext"
-    governance: ProjectGovernance | None = None
-    reviewer_gate: ReviewerGateState = field(default_factory=ReviewerGateState)
-    push_decision: PushDecisionState = field(default_factory=PushDecisionState)
-    advisory_action: str = "continue_editing"
-    advisory_reason: str = ""
-    observed_control_topology: str = "no_live_agents"
-    implementation_permission: str = "blocked"
-    recovery_authority: RecoveryAuthorityState = field(
-        default_factory=RecoveryAuthorityState
-    )
-    rule_summary: str = ""
-    match_evidence: tuple[RuleMatchEvidenceRecord, ...] = ()
-    rejected_rule_traces: tuple[RejectedRuleTraceRecord, ...] = ()
-    product_thesis: str = ""
-    work_intake: WorkIntakePacket | None = None
-    coordination: CoordinationSnapshot | None = None
-    authority_snapshot: AuthoritySnapshot | None = None
-    reviewer_runtime: ReviewerRuntimeContract | None = None
-    remote_control_attachment: RemoteControlAttachmentState | None = None
-    attention: ReviewAttentionState | None = None
-    current_session: ReviewCurrentSessionState | None = None
-    packet_inbox: PacketInboxState | None = None
-    quality_signals: dict[str, object] = field(default_factory=dict)
-    orphan_snapshot: OrphanSnapshot | None = None
-    blocker: BlockerSnapshot = field(default_factory=BlockerSnapshot)
-    contract_ownership_map: dict[str, dict[str, object]] = field(default_factory=dict)
-    connectivity_registry: dict[str, object] = field(default_factory=dict)
-    key_surfaces: tuple[str, ...] = ()
-    snapshot_id: str = ""
-    zref: str = ""
-
-    def to_dict(self) -> dict[str, Any]:
-        d: dict[str, Any] = {}
-        d["schema_version"] = self.schema_version
-        d["contract_id"] = self.contract_id
-        d["action"] = self.advisory_action
-        d["reason"] = self.advisory_reason
-        d["advisory_action"] = self.advisory_action
-        d["advisory_reason"] = self.advisory_reason
-        d["interaction_mode"] = self.reviewer_gate.operator_interaction_mode
-        d["observed_control_topology"] = self.observed_control_topology
-        d["implementation_permission"] = self.implementation_permission
-        d["recovery_action"] = self.recovery_authority.recovery_action
-        d["recovery_basis"] = self.recovery_authority.recovery_basis
-        d["recovery_scope"] = self.recovery_authority.recovery_scope
-        d["recovery_authority"] = self.recovery_authority.to_dict()
-        d["rule_summary"] = self.rule_summary
-        d["match_evidence"] = [evidence.to_dict() for evidence in self.match_evidence]
-        d["rejected_rule_traces"] = [
-            trace.to_dict() for trace in self.rejected_rule_traces
-        ]
-        d["reviewer_gate"] = asdict(self.reviewer_gate)
-        d["push_decision"] = self.push_decision.to_dict()
-        d["quality_signals"] = dict(self.quality_signals)
-        d["blocker"] = self.blocker.to_dict()
-        d["contract_ownership_map"] = bounded_contract_ownership_map(
-            self.contract_ownership_map
-        )
-        d["connectivity_registry"] = dict(self.connectivity_registry)
-        d["key_surfaces"] = list(self.key_surfaces)
-        d["snapshot_id"] = self.snapshot_id
-        d["zref"] = self.zref
-        if self.product_thesis:
-            d["product_thesis"] = self.product_thesis
-        if self.governance is not None:
-            d["governance"] = startup_governance_dict(self.governance)
-        if self.work_intake is not None:
-            d["work_intake"] = self.work_intake.to_dict()
-        if self.coordination is not None:
-            d["coordination"] = startup_coordination_dict(self.coordination)
-        if self.authority_snapshot is not None:
-            d["authority_snapshot"] = self.authority_snapshot.to_dict()
-        if self.reviewer_runtime is not None:
-            d["reviewer_runtime"] = asdict(self.reviewer_runtime)
-        if self.remote_control_attachment is not None:
-            d["remote_control_attachment"] = asdict(self.remote_control_attachment)
-        if self.attention is not None:
-            d["attention"] = asdict(self.attention)
-        if self.current_session is not None:
-            d["current_session"] = asdict(self.current_session)
-        if self.packet_inbox is not None:
-            d["packet_inbox"] = startup_packet_inbox_dict(self.packet_inbox)
-        if self.orphan_snapshot is not None:
-            d["orphan_snapshot"] = startup_orphan_snapshot_dict(self.orphan_snapshot)
-        return d
 
 
 def _detect_reviewer_gate(
@@ -290,6 +163,17 @@ def _detect_reviewer_gate_from_review_state(
         governance_mode=governance_mode,
         remote_control_attachment=attachment,
     )
+    posture = reviewer_runtime.session_posture
+    posture_has_runtime_truth = bool(
+        posture.actors
+        or posture.interaction_mode != "unresolved"
+        or posture.reviewer_mode != "single_agent"
+    )
+    if posture_has_runtime_truth:
+        mode = posture.reviewer_mode or mode
+        effective_mode = posture.effective_reviewer_mode or effective_mode
+    if posture.interaction_mode != "unresolved":
+        interaction_mode = posture.interaction_mode
     declared_active = normalize_reviewer_mode(mode) == "active_dual_agent"
     effective_active = normalize_reviewer_mode(effective_mode) == "active_dual_agent"
     gate_mode = authority_reviewer_mode(mode, effective_mode)
@@ -479,15 +363,10 @@ def build_startup_context(
     authority projection, letting read-only composite surfaces reuse the same
     startup tick without exposing mutating next commands.
     """
-    if repo_root is None:
-        from ..config import get_repo_root
-
-        repo_root = get_repo_root()
-
-    if governance is None:
-        from ..governance.draft import scan_repo_governance
-
-        governance = scan_repo_governance(repo_root)
+    repo_root, governance = _resolve_startup_repo_and_governance(
+        repo_root=repo_root,
+        governance=governance,
+    )
     review_state = _load_startup_review_state(
         repo_root,
         governance=governance,
@@ -561,6 +440,10 @@ def build_startup_context(
         reviewer_gate=gate,
     )
     recovery_authority = derive_recovery_authority(review_state)
+    current_session = _startup_current_session(review_state)
+    packet_intent_anchors = packet_intent_anchors_from_packets(
+        review_state.packets if review_state is not None else (),
+    )
 
     ctx = StartupContext(
         governance=governance,
@@ -580,12 +463,19 @@ def build_startup_context(
         reviewer_runtime=(
             review_state.reviewer_runtime if review_state is not None else None
         ),
+        session_posture=(
+            review_state.reviewer_runtime.session_posture
+            if review_state is not None
+            else None
+        ),
         remote_control_attachment=_review_state_remote_control_attachment(review_state),
         attention=(review_state.attention if review_state is not None else None),
-        current_session=(
-            review_state.current_session if review_state is not None else None
-        ),
+        current_session=current_session,
         packet_inbox=(review_state.packet_inbox if review_state is not None else None),
+        packet_intent_anchors=packet_intent_anchors,
+        plan_iteration_session=plan_iteration_session_from_anchors(
+            packet_intent_anchors
+        ),
         quality_signals=quality_signals,
         orphan_snapshot=orphan_snapshot,
         blocker=blocker,
@@ -595,12 +485,48 @@ def build_startup_context(
         snapshot_id=snapshot_id,
         zref=zref,
     )
-    snapshot_payload = ctx.to_dict()
+    return _attach_authority_snapshot(ctx, caller_role=caller_role)
+
+
+def _attach_authority_snapshot(
+    ctx: StartupContext,
+    *,
+    caller_role: object,
+) -> StartupContext:
     authority_snapshot = project_authority_snapshot(
-        snapshot_payload,
+        ctx.to_dict(),
         caller_role=caller_role,
     )
     return replace(ctx, authority_snapshot=authority_snapshot)
+
+
+def _startup_current_session(review_state: "ReviewState | None"):
+    if review_state is None:
+        return None
+    current_session = review_state.current_session
+    if not is_missing_instruction(current_session.current_instruction):
+        return current_session
+    return replace(
+        current_session,
+        current_instruction_revision="",
+        implementer_ack_state="missing",
+    )
+
+
+def _resolve_startup_repo_and_governance(
+    *,
+    repo_root: Path | None,
+    governance: ProjectGovernance | None,
+) -> tuple[Path, ProjectGovernance]:
+    if repo_root is None:
+        from ..config import get_repo_root
+
+        repo_root = get_repo_root()
+    if governance is None:
+        from ..governance.draft import scan_repo_governance
+
+        governance = scan_repo_governance(repo_root)
+    return repo_root, governance
 
 
 def blocks_new_implementation(ctx: StartupContext) -> bool:

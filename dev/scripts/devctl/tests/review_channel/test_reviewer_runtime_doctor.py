@@ -9,6 +9,7 @@ from dev.scripts.devctl.commands.review_channel.reviewer_runtime_snapshot import
 )
 from dev.scripts.devctl.commands.review_channel.doctor_support import (
     build_doctor_report,
+    resolve_status_recommended_command,
 )
 from dev.scripts.devctl.review_channel.reviewer_runtime_doctor import (
     build_reviewer_doctor_surface,
@@ -43,6 +44,7 @@ from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     ReviewerRolloverState,
     ReviewerSessionOwnerState,
 )
+from dev.scripts.devctl.runtime.session_posture import SessionPosture
 
 
 def _runtime_contract(*, publish_clear: bool = True) -> ReviewerRuntimeContract:
@@ -178,6 +180,39 @@ def test_attach_reviewer_runtime_snapshot_recovers_publish_truth_from_push_enfor
     assert doctor["push_report_path"] == "dev/reports/push/latest.json"
     assert doctor["publication_source"] == "latest_push_report"
     assert "post-push follow-up is not green yet" in doctor["summary"]
+
+
+def test_attach_reviewer_runtime_snapshot_prefers_session_posture_reviewer_mode() -> None:
+    review_state = SimpleNamespace(
+        authority_snapshot=AuthoritySnapshot(reviewer_mode="tools_only"),
+        reviewer_runtime=ReviewerRuntimeContract(
+            reviewer_mode="active_dual_agent",
+            effective_reviewer_mode="active_dual_agent",
+            session_posture=SessionPosture(
+                interaction_mode="dual_agent",
+                reviewer_mode="active_dual_agent",
+                effective_reviewer_mode="active_dual_agent",
+            ),
+        ),
+        commit_pipeline=RemoteCommitPipelineContract(),
+    )
+    report = {
+        "bridge_liveness": {
+            "reviewer_mode": "tools_only",
+            "effective_reviewer_mode": "tools_only",
+        },
+        "publisher": {"running": False},
+        "reviewer_supervisor": {"running": False},
+    }
+
+    attach_reviewer_runtime_snapshot(
+        report,
+        review_state=review_state,
+        attention={},
+    )
+
+    assert report["reviewer_mode"] == "active_dual_agent"
+    assert report["effective_reviewer_mode"] == "active_dual_agent"
 
 
 def test_attach_reviewer_runtime_snapshot_rejects_stale_approved_target_receipt() -> None:
@@ -634,6 +669,59 @@ def test_build_doctor_report_hoists_push_decision_command_when_doctor_is_blank()
 
     assert report["recommended_command"] == "python3 dev/scripts/devctl.py push --execute"
     assert report["recommended_command_source"] == "push_decision"
+
+
+def test_resolve_status_recommended_command_prefers_blocking_authority_snapshot() -> None:
+    command, source = resolve_status_recommended_command(
+        {
+            "doctor": {"recommended_command": ""},
+            "attention": {"recommended_command": ""},
+            "authority_snapshot": {
+                "safe_to_continue": False,
+                "next_command": (
+                    "python3 dev/scripts/devctl.py review-channel --action status "
+                    "--terminal none --format json"
+                ),
+                "blocked_actions": ["vcs.push"],
+            },
+            "push_decision": {
+                "action": "run_devctl_push",
+                "next_step_command": "python3 dev/scripts/devctl.py push --execute",
+            },
+        }
+    )
+
+    assert source == "authority_snapshot"
+    assert command.endswith("review-channel --action status --terminal none --format json")
+
+
+def test_build_doctor_report_prefers_blocking_authority_snapshot_over_push() -> None:
+    report, _ = build_doctor_report(
+        status_report={
+            "timestamp": "2026-04-09T12:00:00Z",
+            "ok": True,
+            "doctor": {"recommended_command": ""},
+            "attention": {"recommended_command": ""},
+            "authority_snapshot": {
+                "safe_to_continue": False,
+                "next_command": (
+                    "python3 dev/scripts/devctl.py review-channel --action status "
+                    "--terminal none --format json"
+                ),
+                "blocked_actions": ["vcs.push"],
+            },
+            "push_decision": {
+                "action": "run_devctl_push",
+                "next_step_command": "python3 dev/scripts/devctl.py push --execute",
+            },
+        },
+        exit_code=0,
+    )
+
+    assert report["recommended_command_source"] == "authority_snapshot"
+    assert report["recommended_command"].endswith(
+        "review-channel --action status --terminal none --format json"
+    )
 
 
 def test_build_doctor_report_prefers_doctor_command_over_push_decision() -> None:

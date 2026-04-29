@@ -39,9 +39,11 @@ def is_actionable(packet: Mapping[str, object]) -> bool:
 
 def _action_request_priority_key(packet: Mapping[str, object]) -> tuple[object, ...]:
     state_rank = {
-        "execution_pending": 0,
-        "delivery_pending": 1,
-        "in_progress": 2,
+        "apply_pending_after_execution": 0,
+        "execution_pending": 1,
+        "delivery_pending": 2,
+        "in_progress": 3,
+        "failed": 4,
     }
     return (
         state_rank.get(_action_request_state(packet), 9),
@@ -59,6 +61,10 @@ def _latest_sort_key(packet: Mapping[str, object]) -> tuple[object, ...]:
 
 
 def _action_request_state(packet: Mapping[str, object]) -> str:
+    if str(packet.get("apply_pending_after_execution_at_utc") or "").strip():
+        return "apply_pending_after_execution"
+    if str(packet.get("execution_failed_at_utc") or "").strip():
+        return "failed"
     if str(packet.get("execution_started_at_utc") or "").strip():
         return "in_progress"
     if str(packet.get("delivery_observed_at_utc") or "").strip():

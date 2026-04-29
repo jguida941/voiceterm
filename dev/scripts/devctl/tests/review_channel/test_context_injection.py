@@ -298,6 +298,49 @@ class ReviewChannelEventProjectionContextTests(unittest.TestCase):
         )
         self.assertFalse(summary["derived_next_instruction_source"]["wake_required"])
 
+    def test_failed_action_request_does_not_drive_current_instruction(self) -> None:
+        from dev.scripts.devctl.review_channel.event_projection import (
+            build_event_queue_summary,
+        )
+
+        summary = build_event_queue_summary(
+            {"claude": 0},
+            0,
+            packets=[
+                {
+                    "packet_id": "rev_pkt_failed",
+                    "status": "acked",
+                    "summary": "Run governed checkpoint",
+                    "body": "checkpoint the current actor-authority slice",
+                    "plan_id": "MP-377",
+                    "kind": "action_request",
+                    "from_agent": "codex",
+                    "to_agent": "claude",
+                    "requested_action": "stage_commit_pipeline",
+                    "posted_at": "2026-04-25T02:15:17Z",
+                    "expires_at_utc": "2999-01-01T00:00:00Z",
+                    "delivery_observed_at_utc": "2026-04-25T02:22:03Z",
+                    "delivery_observed_by": "claude",
+                    "execution_started_at_utc": "2026-04-25T02:23:03Z",
+                    "execution_started_by": "claude",
+                    "execution_failed_at_utc": "2026-04-25T02:24:03Z",
+                    "execution_failed_by": "claude",
+                    "execution_failed_reason": "pending_reviewer_packets",
+                }
+            ],
+        )
+
+        self.assertEqual(summary["derived_next_instruction"], "")
+        self.assertEqual(summary["derived_next_instruction_source"], {})
+        self.assertEqual(
+            summary["last_failed_action_request"]["packet_id"],
+            "rev_pkt_failed",
+        )
+        self.assertEqual(
+            summary["last_failed_action_request"]["required_recovery"],
+            "fresh_action_request",
+        )
+
     @patch(
         "dev.scripts.devctl.review_channel.event_projection.build_event_context_packet"
     )

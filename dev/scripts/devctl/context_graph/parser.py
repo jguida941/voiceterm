@@ -73,3 +73,42 @@ def add_context_graph_parser(sub: argparse._SubParsersAction) -> None:
         ),
     )
     add_standard_output_arguments(cmd, format_choices=("json", "md", "mermaid", "dot"))
+
+
+def add_graph_walk_parser(sub: argparse._SubParsersAction) -> None:
+    """Register the ``graph-walk`` parser."""
+    cmd = sub.add_parser(
+        "graph-walk",
+        help=(
+            "Walk the generated context graph from one canonical pointer, "
+            "packet, finding, command, contract, plan row, or file to another"
+        ),
+    )
+    cmd.add_argument(
+        "--from",
+        dest="from_node",
+        required=True,
+        help="Start query: node id, canonical ref, packet id, finding id, or label.",
+    )
+    cmd.add_argument(
+        "--to",
+        dest="to_node",
+        required=True,
+        help="Target query or kind, for example command, guard, finding, or PlanRow id.",
+    )
+    cmd.add_argument(
+        "--strategy",
+        choices=("cost-ranked", "bfs", "astar"),
+        default="cost-ranked",
+        help=(
+            "Traversal strategy. cost-ranked is deterministic weighted BFS; "
+            "astar currently uses the same explainable edge weights."
+        ),
+    )
+    cmd.add_argument(
+        "--max-depth",
+        type=int,
+        default=6,
+        help="Maximum graph edge depth to traverse (default: 6).",
+    )
+    add_standard_output_arguments(cmd, format_choices=("json", "md"))

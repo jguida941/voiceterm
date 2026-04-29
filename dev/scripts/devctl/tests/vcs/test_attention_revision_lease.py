@@ -25,7 +25,12 @@ from dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime import (
     attention_revision_stale,
     live_attention_revision,
 )
+from dev.scripts.devctl.commands.vcs.governed_executor_commit_phase import (
+    CommitPipelineContext,
+    _commit_block_result,
+)
 from dev.scripts.devctl.commands.vcs.governed_executor_support import (
+    CommitBlock,
     commit_failed_pipeline,
     commit_recorded_pipeline,
 )
@@ -235,10 +240,11 @@ def test_commit_recorded_releases_held_lease() -> None:
 
 
 def test_commit_failed_releases_held_lease() -> None:
-    """Hard commit failure clears the lease so restage starts clean."""
+    """Hard commit failure clears stale commit authority so restage starts clean."""
     pending = replace(
         _approved_pipeline(lease="rev-held"),
         state="commit_pending",
+        commit_sha="ancestor-sha",
     )
     failed = commit_failed_pipeline(
         pending_pipeline=pending,
@@ -248,7 +254,43 @@ def test_commit_failed_releases_held_lease() -> None:
         result_builder=_result_builder,
     )
     assert failed.state == "push_blocked"
+    assert failed.commit_sha == ""
     assert failed.attention_revision_lease == ""
     # The commit result carries the structured failure reason through the
     # generic commit_failed default.
     assert failed.commit_result.status == ActionOutcome.FAIL
+
+
+def test_pre_commit_block_clears_stale_commit_sha() -> None:
+    """Pre-commit blockers must not report an ancestor commit as newly landed."""
+    persisted: list[RemoteCommitPipelineContract] = []
+    blocked_pipeline = replace(
+        _approved_pipeline(),
+        state="push_blocked",
+        commit_sha="ancestor-sha",
+        blocked_reason="pending_reviewer_packets",
+    )
+    context = CommitPipelineContext(
+        repo_root=Path("/tmp/repo"),
+        review_channel_path=None,
+        load_pipeline=lambda: blocked_pipeline,
+        persist_pipeline=lambda pipeline: [],
+        persist_pipeline_contract_only=lambda pipeline: persisted.append(pipeline) or [],
+        event_packets_loader=lambda: (),
+        pipeline_artifact_relpath="dev/reports/review_channel/latest/commit_pipeline.json",
+        result_builder=_result_builder,
+    )
+
+    result = _commit_block_result(
+        action_id="vcs.commit",
+        context=context,
+        blocked=CommitBlock(
+            pipeline=blocked_pipeline,
+            reason="pending_reviewer_packets",
+            guidance="Resolve packets.",
+        ),
+    )
+
+    assert result.ok is False
+    assert persisted
+    assert persisted[-1].commit_sha == ""

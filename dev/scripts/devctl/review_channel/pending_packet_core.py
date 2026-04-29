@@ -32,6 +32,8 @@ def partition_live_pending_packets(
         status = _packet_value(packet, "status")
         if str(status or "").strip() != "pending":
             continue
+        if _has_terminal_action_request_receipt(packet):
+            continue
         if (
             _is_pending_approval_request(packet)
             and _approval_resolution_key(packet) in resolved_approval_keys
@@ -145,6 +147,17 @@ def _is_applied_approval_decision(packet: object) -> bool:
 
 def _is_commit_approval_kind(packet: object) -> bool:
     return str(_packet_value(packet, "kind") or "").strip() == "commit_approval"
+
+
+def _has_terminal_action_request_receipt(packet: object) -> bool:
+    if str(_packet_value(packet, "kind") or "").strip() != "action_request":
+        return False
+    return bool(
+        str(_packet_value(packet, "execution_failed_at_utc") or "").strip()
+        or str(
+            _packet_value(packet, "apply_pending_after_execution_at_utc") or ""
+        ).strip()
+    )
 
 
 def _approval_resolution_key(packet: object) -> tuple[str, str, str, str]:

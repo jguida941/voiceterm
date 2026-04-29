@@ -165,7 +165,7 @@ def test_commit_stage_request_allows_pre_pipeline_runtime_target() -> None:
     assert request.guard_bundle_evidence.full_guard_bundle_evidence == "--profile ci"
 
 
-def test_commit_stage_handoff_reuses_existing_safe_auto_apply_packet(
+def test_commit_stage_handoff_reuses_existing_pending_packet(
     tmp_path: Path,
 ) -> None:
     repo_root = _init_repo(tmp_path / "repo")
@@ -179,8 +179,8 @@ def test_commit_stage_handoff_reuses_existing_safe_auto_apply_packet(
         policy_hint="safe_auto_apply",
         target_ref=f"devctl_commit:{head_sha}",
         target_revision=head_sha,
-        status="applied",
-        applied_at_utc="2026-04-28T12:00:00Z",
+        status="acked",
+        applied_at_utc="",
         acked_at_utc="2026-04-28T11:59:59Z",
         posted_at="2026-04-28T11:59:58Z",
         latest_event_id="evt_000002",
@@ -210,6 +210,54 @@ def test_commit_stage_handoff_reuses_existing_safe_auto_apply_packet(
     assert packet_id == "rev_pkt_existing_stage"
     assert error == ""
     post_packet_mock.assert_not_called()
+
+
+def test_commit_stage_handoff_does_not_reuse_applied_packet(
+    tmp_path: Path,
+) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    head_sha = _run_git(repo_root, "rev-parse", "HEAD")
+    existing_packet = SimpleNamespace(
+        packet_id="rev_pkt_applied_stage",
+        kind="action_request",
+        from_agent="system",
+        to_agent="claude",
+        requested_action="stage_commit_pipeline",
+        policy_hint="safe_auto_apply",
+        target_ref=f"devctl_commit:{head_sha}",
+        target_revision=head_sha,
+        status="applied",
+        applied_at_utc="2026-04-28T12:00:00Z",
+        acked_at_utc="2026-04-28T11:59:59Z",
+        posted_at="2026-04-28T11:59:58Z",
+        latest_event_id="evt_000002",
+    )
+
+    with (
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime.load_live_review_state",
+            return_value=SimpleNamespace(packets=(existing_packet,)),
+        ),
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime.resolve_commit_stage_target",
+            return_value="claude",
+        ),
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime.post_packet",
+            return_value=(None, {"packet_id": "rev_pkt_new_stage"}),
+        ) as post_packet_mock,
+    ):
+        target_agent, packet_id, error = post_commit_stage_handoff(
+            repo_root=repo_root,
+            review_channel_path=repo_root / "dev/active/review_channel.md",
+            commit_message_draft="feat: dashboard unification",
+            stage_reason="git_index_write_blocked",
+        )
+
+    assert target_agent == "claude"
+    assert packet_id == "rev_pkt_new_stage"
+    assert error == ""
+    post_packet_mock.assert_called_once()
 
 
 def test_stage_replaces_cross_branch_active_pipeline(tmp_path: Path) -> None:

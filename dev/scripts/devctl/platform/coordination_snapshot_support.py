@@ -181,6 +181,7 @@ def actor_records(
     active_participants: tuple[str, ...],
 ) -> tuple[CoordinationActorRecord, ...]:
     """Build a bounded actor roster from registry, participants, and lanes."""
+    occupied_lanes = _session_posture_occupied_lanes(review_state)
     active_actor_ids = {
         text(value).split(":", 1)[0]
         for value in active_participants
@@ -202,6 +203,7 @@ def actor_records(
                 session_name=text(getattr(agent, "lane_title", "")),
                 job_state=text(getattr(agent, "job_state", "")),
                 waiting_on=text(getattr(agent, "waiting_on", "")),
+                occupied_lane=occupied_lanes.get(actor_id, ""),
                 worktree=text(getattr(agent, "worktree", "")),
                 branch=text(getattr(agent, "branch", "")),
                 summary=registry_summary(agent),
@@ -217,6 +219,7 @@ def actor_records(
             provider=value.split(":", 1)[0],
             role=value.split(":", 1)[1] if ":" in value else "",
             presence="live",
+            occupied_lane=occupied_lanes.get(value.split(":", 1)[0], ""),
         )
         for value in active_participants[:_MAX_ACTORS]
     )
@@ -239,6 +242,10 @@ def append_participant_records(*, records: list[CoordinationActorRecord], review
                 role=text(getattr(participant, "role", "")),
                 presence="live" if bool(getattr(participant, "live", False)) else "configured",
                 session_name=text(getattr(participant, "session_name", "")),
+                occupied_lane=_session_posture_occupied_lanes(review_state).get(
+                    actor_id,
+                    "",
+                ),
                 lane=text(getattr(participant, "lane", "")),
                 mp_scope=text(getattr(participant, "mp_scope", "")),
                 worktree=text(getattr(participant, "worktree", ""))
@@ -264,6 +271,10 @@ def append_delegated_records(*, records: list[CoordinationActorRecord], review_s
                 role=text(getattr(receipt, "role", "")),
                 presence="live" if bool(getattr(receipt, "live", False)) else "planned",
                 session_name=text(getattr(receipt, "owner_session", "")),
+                occupied_lane=_session_posture_occupied_lanes(review_state).get(
+                    actor_id,
+                    "",
+                ),
                 lane=text(getattr(receipt, "lane", "")),
                 mp_scope=text(getattr(receipt, "mp_scope", "")),
                 worktree=text(getattr(receipt, "worktree", "")),
@@ -271,6 +282,18 @@ def append_delegated_records(*, records: list[CoordinationActorRecord], review_s
                 summary=text(getattr(receipt, "status", "")),
             )
         )
+
+
+def _session_posture_occupied_lanes(review_state: object | None) -> dict[str, str]:
+    runtime = getattr(review_state, "reviewer_runtime", None)
+    posture = getattr(runtime, "session_posture", None)
+    lanes: dict[str, str] = {}
+    for actor in tuple(getattr(posture, "actors", ()) or ()):
+        actor_id = text(getattr(actor, "actor_id", ""))
+        occupied_lane = text(getattr(actor, "occupied_lane", ""))
+        if actor_id and occupied_lane:
+            lanes[actor_id] = occupied_lane
+    return lanes
 
 
 def registry_summary(agent: object) -> str:

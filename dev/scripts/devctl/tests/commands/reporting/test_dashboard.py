@@ -1169,6 +1169,15 @@ class TestCliParserWiring(unittest.TestCase):
         self.assertEqual(args.format, "json")
         self.assertTrue(args.follow)
 
+    def test_simple_operator_formats_parse(self) -> None:
+        parser = _build_dashboard_parser()
+        dashboard_args = parser.parse_args(["dashboard", "--format", "simple"])
+        claude_args = parser.parse_args(["claude-loop", "--format", "simple"])
+        monitor_args = parser.parse_args(["monitor", "--format", "simple"])
+        self.assertEqual(dashboard_args.format, "simple")
+        self.assertEqual(claude_args.format, "simple")
+        self.assertEqual(monitor_args.format, "simple")
+
     def test_dashboard_default_format_is_terminal(self) -> None:
         parser = _build_dashboard_parser()
         args = parser.parse_args(["dashboard"])
@@ -3508,8 +3517,27 @@ class TestPendingPacketRendering(unittest.TestCase):
     def test_no_packets_no_section(self) -> None:
         snap = _full_snapshot()
         snap["pending_packets"] = []
+        snap["control_packets"] = []
         output = dashboard_render.render_terminal(snap, no_color=True)
         self.assertNotIn("PKT", output)
+
+    def test_markdown_shows_action_request_lifecycle_without_pending_rows(self) -> None:
+        snap = _full_snapshot()
+        snap["pending_packets"] = []
+        snap["control_packets"] = [
+            {
+                "packet_id": "rev_pkt_2205",
+                "to_agent": "claude",
+                "requested_action": "stage_commit_pipeline",
+                "lifecycle_current_state": "failed",
+                "execution_failed_reason": "pending_reviewer_packets",
+                "semantic_zref": "packet:rev_pkt_2205",
+            }
+        ]
+        output = dashboard_render.render_markdown(snap)
+        self.assertIn("Action-request lifecycle", output)
+        self.assertIn("`failed`", output)
+        self.assertIn("packet:rev_pkt_2205", output)
 
 
 class TestTypedDataExtractors(unittest.TestCase):
@@ -3562,6 +3590,56 @@ class TestTypedDataExtractors(unittest.TestCase):
         self.assertEqual(_extract_typed_packets(None), [])
         self.assertEqual(_extract_typed_packets({"packets": "bad"}), [])
         self.assertEqual(_extract_typed_packets({"packets": []}), [])
+
+    def test_extracts_instruction_provenance_from_review_state_tick(self) -> None:
+        from dev.scripts.devctl.commands.dashboard_data import (
+            _extract_typed_instruction_provenance,
+            _extract_typed_priority_decision,
+        )
+        rs = _minimal_review_state()
+        rs["queue"]["derived_next_instruction_source"] = {
+            "provenance": {"source_kind": "ReviewPacketEvent"},
+            "priority_decision": {"rule_id": "action_request_priority"},
+        }
+        self.assertEqual(
+            _extract_typed_instruction_provenance(rs)["source_kind"],
+            "ReviewPacketEvent",
+        )
+        self.assertEqual(
+            _extract_typed_priority_decision(rs)["rule_id"],
+            "action_request_priority",
+        )
+
+    def test_extract_typed_control_packets_keeps_failed_action_request_visible(self) -> None:
+        from dev.scripts.devctl.commands.dashboard_data import (
+            _extract_typed_control_packets,
+        )
+        packets = _extract_typed_control_packets(
+            {
+                "packets": [
+                    {
+                        "packet_id": "rev_pkt_2205",
+                        "kind": "action_request",
+                        "to_agent": "claude",
+                        "status": "pending",
+                        "requested_action": "stage_commit_pipeline",
+                        "execution_failed_at_utc": "2026-04-29T13:00:00Z",
+                        "execution_failed_reason": "pending_reviewer_packets",
+                        "lifecycle_current_state": "failed",
+                        "semantic_zref": "packet:rev_pkt_2205",
+                    },
+                    {
+                        "packet_id": "rev_pkt_note",
+                        "kind": "system_notice",
+                        "to_agent": "claude",
+                        "status": "pending",
+                    },
+                ],
+            }
+        )
+        self.assertEqual([packet["packet_id"] for packet in packets], ["rev_pkt_2205"])
+        self.assertEqual(packets[0]["lifecycle_current_state"], "failed")
+        self.assertEqual(packets[0]["semantic_zref"], "packet:rev_pkt_2205")
 
 
 def _review_state_with_bridge() -> dict:

@@ -182,7 +182,30 @@ def packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
                     mapping.get("execution_started_at_utc")
                 ),
                 execution_started_by=_string(mapping.get("execution_started_by")),
+                execution_failed_at_utc=_string(
+                    mapping.get("execution_failed_at_utc")
+                ),
+                execution_failed_by=_string(mapping.get("execution_failed_by")),
+                execution_failed_reason=_string(
+                    mapping.get("execution_failed_reason")
+                ),
+                apply_pending_after_execution_at_utc=_string(
+                    mapping.get("apply_pending_after_execution_at_utc")
+                ),
+                apply_pending_after_execution_by=_string(
+                    mapping.get("apply_pending_after_execution_by")
+                ),
+                apply_pending_after_execution_reason=_string(
+                    mapping.get("apply_pending_after_execution_reason")
+                ),
                 expires_at_utc=_string(mapping.get("expires_at_utc")),
+                semantic_zref=_string(mapping.get("semantic_zref")),
+                source_identity={
+                    str(key): str(value)
+                    for key, value in _mapping(
+                        mapping.get("source_identity")
+                    ).items()
+                },
                 acknowledged_events=_mapping_rows(mapping.get("acknowledged_events")),
                 acted_on_events=_mapping_rows(mapping.get("acted_on_events")),
                 lifecycle_current_state=_string(

@@ -206,6 +206,14 @@ Use docs like this:
   they must not disagree on runtime diagnosis such as
   `review_loop_relaunch_required` vs `checkpoint_required` just because one
   reader saw `launch_truth` before conductor-state attachment.
+- Keep interaction posture on the typed reviewer-runtime tick. When changing
+  review-channel status, startup-context, dashboard, session-resume, or
+  control-plane readers, consume `SessionPosture.interaction_mode`,
+  `SessionPosture.reviewer_mode`, and `SessionPosture.actors[].occupied_lane`
+  instead of recomputing mode/lane from bridge prose, daemon hints, or
+  capability grants. `agent_lane.lane` remains a compatibility alias; it must
+  not be treated as proof of the currently occupied lane or current mutation
+  authority.
 - Keep read-only advisory next-command projection centralized too:
   observer/dashboard callers must route mutating commit/push/pipeline command
   strings through

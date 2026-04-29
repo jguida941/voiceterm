@@ -16,6 +16,8 @@ def sync_bridge_after_posted_current_instruction(
     paths: dict[str, object],
     packet: dict[str, object],
     review_state_payload: dict[str, object],
+    compute_worktree_hash_fn=compute_non_audit_worktree_hash,
+    render_bridge_projection_fn=render_bridge_projection,
 ) -> dict[str, object] | None:
     """Converge the compatibility bridge when a post becomes the live instruction."""
     if not _posted_packet_drives_current_instruction(packet, review_state_payload):
@@ -34,13 +36,13 @@ def sync_bridge_after_posted_current_instruction(
     except ValueError:
         bridge_rel = DEFAULT_BRIDGE_REL
     try:
-        worktree_hash = compute_non_audit_worktree_hash(
+        worktree_hash = compute_worktree_hash_fn(
             repo_root=repo_root,
             excluded_rel_paths=(bridge_rel,),
         )
 
         def transform(_bridge_text: str) -> str:
-            rendered, _metadata = render_bridge_projection(
+            rendered, _metadata = render_bridge_projection_fn(
                 review_state=review_state_payload,
                 last_worktree_hash=worktree_hash,
             )

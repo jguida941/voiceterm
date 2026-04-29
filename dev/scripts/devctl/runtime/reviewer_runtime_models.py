@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
+from .session_posture import SessionPosture
+
 
 @dataclass(frozen=True, slots=True)
 class ReviewerLastPollState:
@@ -120,3 +122,4 @@ class ReviewerRuntimeContract:
     )
     publish_clear: bool = False
     remote_control_attachment: RemoteControlAttachmentState | None = None
+    session_posture: SessionPosture = field(default_factory=SessionPosture)

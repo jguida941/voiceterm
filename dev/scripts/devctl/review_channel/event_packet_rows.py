@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from .context_refs import normalize_context_pack_refs
 from .event_models import ReviewPacketRow
 from .packet_lifecycle import apply_lifecycle_transition, project_packet_lifecycle
@@ -75,6 +77,8 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         guard_results_summary=event.get("guard_results_summary"),
         full_guard_bundle_evidence=event.get("full_guard_bundle_evidence"),
         plan_proposal=event.get("plan_proposal"),
+        semantic_zref=_semantic_zref(event),
+        source_identity=_source_identity(event),
         status=event.get("status"),
         posted_at=event.get("timestamp_utc"),
         acked_by=None,
@@ -85,6 +89,12 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         delivery_observed_by="",
         execution_started_at_utc="",
         execution_started_by="",
+        execution_failed_at_utc="",
+        execution_failed_by="",
+        execution_failed_reason="",
+        apply_pending_after_execution_at_utc="",
+        apply_pending_after_execution_by="",
+        apply_pending_after_execution_reason="",
         expires_at_utc=event.get("expires_at_utc"),
         _sort_timestamp=event.get("timestamp_utc"),
     ))
@@ -98,7 +108,9 @@ def apply_packet_transition(
     event_type = str(event.get("event_type") or "").strip()
     next_packet["latest_event_id"] = event.get("event_id")
     next_packet["_sort_timestamp"] = event.get("timestamp_utc")
-    next_packet["status"] = event.get("status")
+    next_packet["status"] = event.get("status") or action_request_lifecycle_status(
+        event_type
+    )
     if event.get("guidance_refs") is not None or packet.get("guidance_refs"):
         next_packet["guidance_refs"] = list(
             event.get("guidance_refs") or packet.get("guidance_refs") or []
@@ -133,6 +145,16 @@ def apply_packet_transition(
         next_packet["plan_proposal"] = event.get("plan_proposal") or packet.get(
             "plan_proposal"
         )
+    if event.get("semantic_zref") is not None or packet.get("semantic_zref"):
+        next_packet["semantic_zref"] = (
+            event.get("semantic_zref") or packet.get("semantic_zref")
+        )
+    else:
+        next_packet["semantic_zref"] = _semantic_zref(next_packet)
+    if event.get("source_identity") is not None or packet.get("source_identity"):
+        next_packet["source_identity"] = (
+            _source_identity(event) or _source_identity(packet)
+        )
     actor = str((event.get("metadata") or {}).get("actor") or "").strip()
     if event_type == "packet_acked":
         next_packet["acked_by"] = actor or packet.get("to_agent")
@@ -148,6 +170,18 @@ def apply_packet_transition(
         if event_type == "packet_acked":
             next_packet["execution_started_at_utc"] = event.get("timestamp_utc")
             next_packet["execution_started_by"] = actor or packet.get("to_agent")
+        if event_type == "action_request_execution_failed":
+            next_packet["execution_failed_at_utc"] = event.get("timestamp_utc")
+            next_packet["execution_failed_by"] = actor or packet.get("to_agent")
+            next_packet["execution_failed_reason"] = _event_reason(event)
+        if event_type == "action_request_apply_pending_after_execution":
+            next_packet["apply_pending_after_execution_at_utc"] = event.get(
+                "timestamp_utc"
+            )
+            next_packet["apply_pending_after_execution_by"] = (
+                actor or packet.get("to_agent")
+            )
+            next_packet["apply_pending_after_execution_reason"] = _event_reason(event)
         if (
             event_type == "packet_applied"
             and not str(next_packet.get("execution_started_at_utc") or "").strip()
@@ -155,3 +189,37 @@ def apply_packet_transition(
             next_packet["execution_started_at_utc"] = event.get("timestamp_utc")
             next_packet["execution_started_by"] = actor or packet.get("to_agent")
     return apply_lifecycle_transition(next_packet, event)
+
+
+def action_request_lifecycle_status(event_type: str) -> str:
+    if event_type == "action_request_execution_failed":
+        return "failed"
+    if event_type == "action_request_apply_pending_after_execution":
+        return "apply_pending_after_execution"
+    return ""
+
+
+def _event_reason(event: Mapping[str, object]) -> str:
+    metadata = event.get("metadata")
+    if not isinstance(metadata, Mapping):
+        return ""
+    return str(metadata.get("reason") or "").strip()
+
+
+def _semantic_zref(packet: Mapping[str, object]) -> str:
+    explicit = str(packet.get("semantic_zref") or "").strip()
+    if explicit:
+        return explicit
+    packet_id = str(packet.get("packet_id") or "").strip()
+    return f"packet:{packet_id}" if packet_id else ""
+
+
+def _source_identity(packet: Mapping[str, object]) -> dict[str, object]:
+    raw = packet.get("source_identity")
+    if not isinstance(raw, Mapping):
+        return {}
+    return {
+        str(key).strip(): str(value or "").strip()
+        for key, value in raw.items()
+        if str(key).strip() and str(value or "").strip()
+    }

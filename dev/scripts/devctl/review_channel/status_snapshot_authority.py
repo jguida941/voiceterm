@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from ..runtime.agent_mind_projection_read import read_agent_mind_projection
 from ..runtime.governance_scan import scan_repo_governance_safely
 from .current_session_attention import has_explicit_packet_truth
 from .current_session_packet_normalize import (
@@ -90,15 +91,16 @@ def build_status_authority(
         bridge_liveness=inputs.bridge_liveness,
         current_session=current_session,
     )
+    operator_interaction_mode = _operator_interaction_mode(
+        inputs.repo_root,
+        review_state_payload=authority_review_state,
+        bridge_liveness=inputs.bridge_liveness,
+    )
     recovery_assessment = build_recovery_assessment(
         bridge_liveness=inputs.bridge_liveness,
         current_session=current_session,
         contract_errors=inputs.merged_errors,
-        operator_interaction_mode=_operator_interaction_mode(
-            inputs.repo_root,
-            review_state_payload=authority_review_state,
-            bridge_liveness=inputs.bridge_liveness,
-        ),
+        operator_interaction_mode=operator_interaction_mode,
     )
     attention = recovery_assessment_to_attention_payload(recovery_assessment)
     reviewer_runtime = build_reviewer_runtime_contract(
@@ -112,6 +114,8 @@ def build_status_authority(
             rollover_dir=inputs.output_root.parent / "rollovers",
             bridge_text=inputs.bridge_text,
             prior_review_state=authority_review_state,
+            operator_interaction_mode=operator_interaction_mode,
+            agent_mind=read_agent_mind_projection(inputs.repo_root, provider="codex"),
             reviewer_accepted_implementer_state_hash_override=(
                 inputs.reviewer_accepted_implementer_state_hash_override
             ),

@@ -4,16 +4,23 @@ from __future__ import annotations
 
 import os
 
+from .commit_action_request_authority import CommitActionRequestGrant
 from .governed_executor_actions import _build_report
 
 _CALLER_ROLE_ENV_VARS = ("DEVCTL_CALLER_ROLE", "REVIEW_CHANNEL_CALLER_ROLE")
 _MUTATION_BLOCKED_CALLER_ROLES = frozenset({"dashboard", "observer", "reviewer"})
 
 
-def caller_role_report(args) -> dict[str, object] | None:
+def caller_role_report(
+    args,
+    *,
+    action_request_grant: CommitActionRequestGrant | None = None,
+) -> dict[str, object] | None:
     """Block governed mutation when the current lane is findings-only."""
     caller_role, source = _resolve_caller_role(args)
     if caller_role not in _MUTATION_BLOCKED_CALLER_ROLES:
+        return None
+    if action_request_grant is not None and action_request_grant.authorized:
         return None
 
     guidance = (
@@ -35,6 +42,9 @@ def caller_role_report(args) -> dict[str, object] | None:
         reason="caller_role_blocked",
         caller_role=caller_role,
         caller_role_source=source,
+        action_request_authority=(
+            action_request_grant.to_dict() if action_request_grant is not None else None
+        ),
         blocked_actions=["vcs.stage", "vcs.commit", "vcs.push"],
         allowed_outputs=allowed_outputs,
         operator_guidance=guidance,

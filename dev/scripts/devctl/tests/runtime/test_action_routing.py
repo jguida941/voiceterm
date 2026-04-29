@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from dev.scripts.devctl.runtime.action_routing import build_startup_action_routing
+from dev.scripts.devctl.runtime.action_routing import (
+    build_agent_lane_decision,
+    build_startup_action_routing,
+)
 from dev.scripts.devctl.runtime.advisory_next_action_role_filter import (
     READ_ONLY_NEXT_COMMAND,
 )
@@ -73,6 +76,23 @@ def test_build_startup_action_routing_filters_runtime_control_observer_command()
     )
 
     assert decision.next_command == READ_ONLY_NEXT_COMMAND
+
+
+def test_agent_lane_separates_occupied_lane_from_granted_capabilities() -> None:
+    decision = build_agent_lane_decision(
+        caller_role="dashboard",
+        occupied_lane="observer",
+        granted_capabilities=("repo.commit", "approval.commit"),
+    )
+
+    payload = decision.to_dict()
+    assert decision.lane == "dashboard"
+    assert decision.occupied_lane == "observer"
+    assert "repo.commit" in decision.granted_capabilities
+    assert "vcs.commit" not in decision.permissions
+    assert payload["lane"] == "dashboard"
+    assert payload["occupied_lane"] == "observer"
+    assert payload["granted_capabilities"] == ["repo.commit", "approval.commit"]
 
 
 def test_build_startup_action_routing_blocks_when_work_intake_requires_resync() -> None:

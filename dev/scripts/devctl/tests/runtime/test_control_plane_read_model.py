@@ -89,6 +89,7 @@ class ControlPlaneReadModelDataclassTests(unittest.TestCase):
             "check_details", "loop_wake_mode",
             "loop_wake_interval_seconds", "loop_driver_agent",
             "loop_autonomy_ok", "loop_gap_summary", "coordination",
+            "session_posture",
         }
         actual_fields = set(model.to_dict().keys())
         self.assertEqual(expected_fields, actual_fields)

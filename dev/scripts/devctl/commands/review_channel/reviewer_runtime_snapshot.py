@@ -92,9 +92,18 @@ def _attach_phase_zero_parity_fields(
             next_command = _text(getattr(authority_snapshot, "next_command", ""))
 
     if reviewer_runtime is not None:
-        effective_reviewer_mode = _text(
-            getattr(reviewer_runtime, "effective_reviewer_mode", "")
-        )
+        posture = getattr(reviewer_runtime, "session_posture", None)
+        posture_has_authority = _posture_carries_runtime_truth(posture)
+        reviewer_mode = (
+            _text(getattr(posture, "reviewer_mode", ""))
+            if posture_has_authority
+            else ""
+        ) or _text(getattr(reviewer_runtime, "reviewer_mode", "")) or reviewer_mode
+        effective_reviewer_mode = (
+            _text(getattr(posture, "effective_reviewer_mode", ""))
+            if posture_has_authority
+            else ""
+        ) or _text(getattr(reviewer_runtime, "effective_reviewer_mode", ""))
         report["reviewer_freshness"] = _text(
             getattr(reviewer_runtime, "reviewer_freshness", "")
         )
@@ -140,6 +149,20 @@ def _attach_phase_zero_parity_fields(
         report["zref"] = zref
 
 
+def _posture_carries_runtime_truth(posture: object) -> bool:
+    if posture is None:
+        return False
+    actors = tuple(getattr(posture, "actors", ()) or ())
+    if actors:
+        return True
+    interaction_mode = _text(getattr(posture, "interaction_mode", ""))
+    reviewer_mode = _text(getattr(posture, "reviewer_mode", ""))
+    return interaction_mode not in {"", "unresolved"} or reviewer_mode not in {
+        "",
+        "single_agent",
+    }
+
+
 def attach_reviewer_runtime_snapshot(
     report: dict[str, object],
     *,
@@ -175,6 +198,9 @@ def attach_reviewer_runtime_snapshot(
     collaboration = _collaboration_payload(collaboration_state)
     if collaboration is not None:
         report["collaboration"] = collaboration
+    posture = getattr(review_state.reviewer_runtime, "session_posture", None)
+    if posture is not None:
+        report["session_posture"] = posture.to_dict()
     current_session = getattr(review_state, "current_session", None)
     if current_session is not None:
         report["current_session"] = asdict(current_session)

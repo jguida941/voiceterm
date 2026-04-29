@@ -14,6 +14,7 @@ from ...runtime.instruction_authority import (
     instruction_transition_receipt_from_mapping,
 )
 from ...runtime.dashboard_snapshot_authority import build_dashboard_snapshot
+from ...runtime.session_posture_simple_render import render_simple_posture_snapshot
 
 
 def run(args) -> int:
@@ -39,7 +40,10 @@ def build_claude_loop_snapshot(args) -> dict[str, Any]:
         dashboard=dashboard,
         review_state=review_state,
     )
-    now["priority_decision"] = _current_priority_decision(review_state)
+    now["priority_decision"] = dict(
+        _mapping(now.get("priority_decision"))
+        or _current_priority_decision(review_state)
+    )
     payload: dict[str, Any] = {"schema_version": 1, "command": "claude-loop"}
     payload.update(
         (
@@ -57,12 +61,14 @@ def build_claude_loop_snapshot(args) -> dict[str, Any]:
             ("session_outcomes", dashboard.get("session_outcomes", {})),
             ("instruction_transitions", _recent_instruction_transitions(repo_root)),
             ("pending_packets", _claude_packets(dashboard.get("pending_packets"))),
+            ("control_packets", _claude_packets(dashboard.get("control_packets"))),
         )
     )
     payload.update(
         (
             ("active_codex_sessions", dashboard.get("active_codex_sessions", {})),
             ("agent_mind", dashboard.get("agent_mind", {})),
+            ("session_posture", dashboard.get("session_posture", {})),
             ("system_topology", dashboard.get("system_topology", {})),
         )
     )
@@ -82,13 +88,34 @@ def _claude_packets(raw_packets: object) -> list[dict[str, Any]]:
             dict(
                 (
                     ("packet_id", packet.get("packet_id")),
+                    ("kind", packet.get("kind")),
                     ("from_agent", packet.get("from_agent")),
+                    ("to_agent", packet.get("to_agent")),
                     ("summary", packet.get("summary")),
                     ("status", packet.get("status")),
+                    ("lifecycle_current_state", packet.get("lifecycle_current_state")),
                     ("requested_action", packet.get("requested_action")),
                     ("policy_hint", packet.get("policy_hint")),
                     ("target_ref", packet.get("target_ref")),
+                    ("target_revision", packet.get("target_revision")),
                     ("posted_at", packet.get("posted_at")),
+                    ("acked_at_utc", packet.get("acked_at_utc")),
+                    ("acked_by", packet.get("acked_by")),
+                    ("applied_at_utc", packet.get("applied_at_utc")),
+                    ("delivery_observed_at_utc", packet.get("delivery_observed_at_utc")),
+                    ("execution_started_at_utc", packet.get("execution_started_at_utc")),
+                    ("execution_started_by", packet.get("execution_started_by")),
+                    ("execution_failed_at_utc", packet.get("execution_failed_at_utc")),
+                    ("execution_failed_reason", packet.get("execution_failed_reason")),
+                    (
+                        "apply_pending_after_execution_at_utc",
+                        packet.get("apply_pending_after_execution_at_utc"),
+                    ),
+                    (
+                        "apply_pending_after_execution_reason",
+                        packet.get("apply_pending_after_execution_reason"),
+                    ),
+                    ("semantic_zref", packet.get("semantic_zref")),
                 )
             )
         )
@@ -119,6 +146,11 @@ def _current_instruction_provenance(
     dashboard: dict[str, Any],
     review_state: dict[str, Any],
 ) -> dict[str, Any]:
+    dashboard_now = _mapping(dashboard.get("now"))
+    dashboard_provenance = _mapping(dashboard_now.get("instruction_provenance"))
+    if dashboard_provenance:
+        return dict(dashboard_provenance)
+
     queue = _mapping(review_state.get("queue"))
     source = _mapping(queue.get("derived_next_instruction_source"))
     provenance = _mapping(source.get("provenance"))
@@ -194,6 +226,14 @@ def _render(args, payload: dict[str, Any]) -> str:
     fmt = str(getattr(args, "format", "md") or "md")
     if fmt == "json":
         return json.dumps(payload, indent=2)
+    if fmt == "simple":
+        now = payload.get("now", {})
+        return render_simple_posture_snapshot(
+            title="Claude Loop",
+            next_action=now.get("next_action") if isinstance(now, dict) else "",
+            top_blocker=now.get("top_blocker") if isinstance(now, dict) else "",
+            session_posture=payload.get("session_posture"),
+        )
     return _render_markdown(payload)
 
 
@@ -201,6 +241,7 @@ def _render_markdown(payload: dict[str, Any]) -> str:
     now = payload.get("now", {})
     ack = payload.get("ack_freshness", {})
     packets = payload.get("pending_packets", [])
+    control_packets = payload.get("control_packets", [])
     codex = payload.get("active_codex_sessions", {})
     lines = ["# Claude Loop", ""]
     lines.append(f"- owner: {now.get('owner', 'n/a')}")
@@ -231,12 +272,33 @@ def _render_markdown(payload: dict[str, Any]) -> str:
     if not packets:
         lines.append("")
         lines.append("- none")
+    else:
+        lines.append("")
+        for packet in packets:
+            kind = packet.get("kind") or "packet"
+            lines.append(
+                f"- `{packet.get('packet_id')}` {kind} "
+                f"{packet.get('requested_action')}: {packet.get('summary')}"
+            )
+    lines.append("")
+    lines.append("## Action Requests")
+    if not control_packets:
+        lines.append("")
+        lines.append("- none")
         return "\n".join(lines)
     lines.append("")
-    for packet in packets:
+    for packet in control_packets:
+        state = packet.get("lifecycle_current_state") or packet.get("status") or "unknown"
+        reason = packet.get("execution_failed_reason") or packet.get(
+            "apply_pending_after_execution_reason",
+            "",
+        )
+        reason_suffix = f" ({reason})" if reason else ""
+        zref = packet.get("semantic_zref")
+        zref_suffix = f" `{zref}`" if zref else ""
         lines.append(
             f"- `{packet.get('packet_id')}` {packet.get('requested_action')}: "
-            f"{packet.get('summary')}"
+            f"`{state}`{reason_suffix}{zref_suffix}"
         )
     return "\n".join(lines)
 

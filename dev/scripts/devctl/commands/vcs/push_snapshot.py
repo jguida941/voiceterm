@@ -52,6 +52,7 @@ def build_push_report_payload(
         partial_progress=outcome.partial_progress,
         operator_guidance=outcome.operator_guidance,
         warnings=tuple(state.warnings),
+        errors=_action_result_errors(state.errors),
         findings_count=len(getattr(state, "findings", []) or []),
         artifact_paths=(context.artifact_path,),
     ).to_dict()
@@ -148,6 +149,10 @@ def _enforce_execution_truth(
         stages=PushStageTruth(),
         partial_progress=False,
     )
+
+
+def _action_result_errors(errors: list[str]) -> tuple[dict[str, object], ...]:
+    return tuple({"message": str(error)} for error in errors if str(error).strip())
 
 
 def _requires_post_push_step_evidence(outcome: PushFlowOutcome) -> bool:

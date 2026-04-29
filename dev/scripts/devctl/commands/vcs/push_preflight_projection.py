@@ -15,6 +15,7 @@ from .push_projection_runtime_refresh import (
     refresh_runtime_surfaces_after_projection_receipt,
 )
 from .push_projection_receipt import auto_commit_managed_projection_receipt
+from .push_receipt_failure import review_snapshot_receipt_failure_detail
 from .push_recovery_loop_repair import run_pre_validation_recovery_loop_repair_phase
 from .push_render_surface_sync import (
     POLICY_RENDER_SURFACE_SYNC,
@@ -201,12 +202,19 @@ def auto_commit_review_snapshot_freshness_receipt(
         cwd=repo_root,
     )
     if step.get("returncode", 1) != 0:
-        detail = str(step.get("failure_output") or step.get("error") or "").strip()
-        suffix = f": {detail}" if detail else ""
-        state.errors.append(
-            f"ReviewSnapshot receipt refresh failed before {next_step_label}{suffix}"
-        )
-        return {"ok": False, "committed": False, "step": step}
+        detail = review_snapshot_receipt_failure_detail(step)
+        message = f"ReviewSnapshot receipt refresh failed before {next_step_label}"
+        if detail:
+            message = f"{message}: {detail}"
+        state.errors.append(message)
+        return {
+            "ok": False,
+            "committed": False,
+            "step": step,
+            "returncode": step.get("returncode"),
+            "error": message,
+            "error_detail": detail,
+        }
 
     after_head = _current_head_sha(repo_root=repo_root)
     committed = bool(after_head and after_head != before_head)

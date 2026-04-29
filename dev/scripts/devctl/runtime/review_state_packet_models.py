@@ -200,7 +200,15 @@ class ReviewPacketState:
     delivery_observed_by: str = ""
     execution_started_at_utc: str = ""
     execution_started_by: str = ""
+    execution_failed_at_utc: str = ""
+    execution_failed_by: str = ""
+    execution_failed_reason: str = ""
+    apply_pending_after_execution_at_utc: str = ""
+    apply_pending_after_execution_by: str = ""
+    apply_pending_after_execution_reason: str = ""
     expires_at_utc: str = ""
+    semantic_zref: str = ""
+    source_identity: dict[str, str] = field(default_factory=dict)
     acknowledged_events: tuple[dict[str, object], ...] = ()
     acted_on_events: tuple[dict[str, object], ...] = ()
     lifecycle_current_state: str = ""

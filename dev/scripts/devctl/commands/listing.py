@@ -48,6 +48,7 @@ COMMANDS = [
     "tandem-validate",
     "render-surfaces",
     "context-graph",
+    "graph-walk",
     "startup-context",
     "session-resume",
     "platform-contracts",

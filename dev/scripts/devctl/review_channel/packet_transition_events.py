@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import secrets
+from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 
-from .action_request_delivery import record_action_request_execution_start
 from .context_refs import normalize_context_pack_refs
 from .event_store import ReviewChannelArtifactPaths, idempotency_key
 from .packet_attestation import validate_packet_apply_attestation
@@ -71,6 +71,8 @@ def build_transition_event(
         staged_snapshot_hash=packet.get("staged_snapshot_hash"),
         guard_results_summary=packet.get("guard_results_summary"),
         full_guard_bundle_evidence=packet.get("full_guard_bundle_evidence"),
+        semantic_zref=packet.get("semantic_zref") or _packet_semantic_zref(packet),
+        source_identity=_source_identity(packet),
         status={"ack": "acked", "dismiss": "dismissed", "apply": "applied"}[
             request.action
         ],
@@ -83,6 +85,22 @@ def build_transition_event(
         expires_at_utc=packet.get("expires_at_utc"),
         metadata=metadata,
     )
+
+
+def _packet_semantic_zref(packet: dict[str, object]) -> str:
+    packet_id = str(packet.get("packet_id") or "").strip()
+    return f"packet:{packet_id}" if packet_id else ""
+
+
+def _source_identity(packet: Mapping[str, object]) -> dict[str, object]:
+    raw = packet.get("source_identity")
+    if not isinstance(raw, Mapping):
+        return {}
+    return {
+        str(key).strip(): str(value or "").strip()
+        for key, value in raw.items()
+        if str(key).strip() and str(value or "").strip()
+    }
 
 
 def finish_transition_event(
@@ -98,13 +116,6 @@ def finish_transition_event(
         provider=str(request.actor or "").strip(),
         seen_at_utc=str(written_event.get("timestamp_utc") or "").strip(),
     )
-    if request.action in {"ack", "apply"}:
-        record_action_request_execution_start(
-            artifact_root=Path(artifact_paths.artifact_root),
-            packet=packet,
-            actor=request.actor,
-            started_at_utc=str(written_event.get("timestamp_utc") or ""),
-        )
     if request.action == "apply":
         written_event["plan_integration"] = maybe_append_packet_plan_row(
             repo_root=repo_root,

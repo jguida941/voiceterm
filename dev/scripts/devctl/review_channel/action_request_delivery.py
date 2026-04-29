@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 from ..time_utils import utc_timestamp
+from .packet_lifecycle import project_packet_lifecycle
 
 _RECEIPT_SCHEMA_VERSION = 1
 _RECEIPT_CONTRACT_ID = "ActionRequestDeliveryReceipt"
@@ -17,6 +18,12 @@ _DELIVERY_FIELDS = (
     "delivery_observed_by",
     "execution_started_at_utc",
     "execution_started_by",
+    "execution_failed_at_utc",
+    "execution_failed_by",
+    "execution_failed_reason",
+    "apply_pending_after_execution_at_utc",
+    "apply_pending_after_execution_by",
+    "apply_pending_after_execution_reason",
 )
 
 
@@ -86,6 +93,56 @@ def record_action_request_execution_start(
     _write_receipt(artifact_root=artifact_root, receipt=receipt)
 
 
+def record_action_request_execution_failure(
+    *,
+    artifact_root: Path,
+    packet: Mapping[str, object],
+    actor: str,
+    failed_at_utc: str,
+    reason: str,
+) -> None:
+    """Persist blocked execution evidence for one action_request."""
+    if not _is_action_request(packet):
+        return
+    failed_at = str(failed_at_utc).strip() or utc_timestamp()
+    actor_id = str(actor).strip() or str(packet.get("to_agent") or "").strip()
+    receipt = _load_receipt(_receipt_path(artifact_root, packet_id=_packet_id(packet)))
+    receipt = _merge_receipt_defaults(receipt=receipt, packet=packet)
+    if not str(receipt.get("execution_started_at_utc") or "").strip():
+        receipt["execution_started_at_utc"] = failed_at
+        receipt["execution_started_by"] = actor_id
+    receipt["execution_failed_at_utc"] = failed_at
+    receipt["execution_failed_by"] = actor_id
+    receipt["execution_failed_reason"] = str(reason).strip() or "execution_blocked"
+    _write_receipt(artifact_root=artifact_root, receipt=receipt)
+
+
+def record_action_request_apply_pending_after_execution(
+    *,
+    artifact_root: Path,
+    packet: Mapping[str, object],
+    actor: str,
+    pending_at_utc: str,
+    reason: str,
+) -> None:
+    """Persist commit-landed-but-packet-apply-pending evidence."""
+    if not _is_action_request(packet):
+        return
+    pending_at = str(pending_at_utc).strip() or utc_timestamp()
+    actor_id = str(actor).strip() or str(packet.get("to_agent") or "").strip()
+    receipt = _load_receipt(_receipt_path(artifact_root, packet_id=_packet_id(packet)))
+    receipt = _merge_receipt_defaults(receipt=receipt, packet=packet)
+    if not str(receipt.get("execution_started_at_utc") or "").strip():
+        receipt["execution_started_at_utc"] = pending_at
+        receipt["execution_started_by"] = actor_id
+    receipt["apply_pending_after_execution_at_utc"] = pending_at
+    receipt["apply_pending_after_execution_by"] = actor_id
+    receipt["apply_pending_after_execution_reason"] = (
+        str(reason).strip() or "packet_apply_failed_after_commit"
+    )
+    _write_receipt(artifact_root=artifact_root, receipt=receipt)
+
+
 def attach_action_request_delivery_receipts(
     *,
     packets: Sequence[object],
@@ -117,14 +174,15 @@ def attach_action_request_delivery_receipts(
             if receipt:
                 for field in _DELIVERY_FIELDS:
                     value = str(receipt.get(field) or "").strip()
-                    if value:
+                    if value and not str(packet.get(field) or "").strip():
                         packet[field] = value
+        packet = project_packet_lifecycle(packet)
         hydrated.append(packet)
     return hydrated
 
 
 def _default_execution_started_at(packet: Mapping[str, object]) -> str:
-    for candidate in ("execution_started_at_utc", "acked_at_utc", "applied_at_utc"):
+    for candidate in ("execution_started_at_utc", "applied_at_utc"):
         value = str(packet.get(candidate) or "").strip()
         if value:
             return value
@@ -132,7 +190,7 @@ def _default_execution_started_at(packet: Mapping[str, object]) -> str:
 
 
 def _default_execution_started_by(packet: Mapping[str, object]) -> str:
-    return str(packet.get("execution_started_by") or packet.get("acked_by") or "").strip()
+    return str(packet.get("execution_started_by") or "").strip()
 
 
 def _merge_receipt_defaults(
@@ -165,6 +223,12 @@ def _merge_receipt_defaults(
         "execution_started_by",
         _default_execution_started_by(packet),
     )
+    merged.setdefault("execution_failed_at_utc", "")
+    merged.setdefault("execution_failed_by", "")
+    merged.setdefault("execution_failed_reason", "")
+    merged.setdefault("apply_pending_after_execution_at_utc", "")
+    merged.setdefault("apply_pending_after_execution_by", "")
+    merged.setdefault("apply_pending_after_execution_reason", "")
     return merged
 
 

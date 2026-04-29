@@ -149,7 +149,10 @@ class ReviewChannelContextRefTests(unittest.TestCase):
             context_pack_refs,
         )
         self.assertEqual(packet["context_pack_refs"], context_pack_refs)
+        self.assertEqual(packet["semantic_zref"], f"packet:{event['packet_id']}")
+        self.assertIsInstance(packet["source_identity"], dict)
         self.assertEqual(apply_event["context_pack_refs"], context_pack_refs)
+        self.assertEqual(apply_event["semantic_zref"], f"packet:{event['packet_id']}")
         self.assertEqual(
             actions_payload["actions"][0]["context_pack_refs"],
             context_pack_refs,

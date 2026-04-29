@@ -88,6 +88,29 @@
   now chooses expected proof-tick values through explicit field authority
   priority instead of first-populated surface order, and compares
   `operator_interaction_mode` separately from `reviewer_mode`.
+- 2026-04-29 Plan 4.1 rescue Slice A typed posture / plan-anchor closure
+  (MP-377): `SessionPosture` is the shared runtime producer for
+  `interaction_mode`, `reviewer_mode`, and `actors[].occupied_lane`; status,
+  startup, dashboard, and session-resume consume that posture rather than
+  recomputing mode/lane values. `agent_lane.lane` remains a compatibility alias
+  while `occupied_lane` is the current-seat field, and actor capability grants
+  stay separate from lane occupancy. Startup/session bootstrap renders the
+  remote-control no-GUI/no-kill/no-local-commit boundary only when posture says
+  `interaction_mode=remote_control`. Pending or expired planning packets now
+  project as `PacketIntentAnchor` / `PlanIterationSession` continuity hints;
+  only explicit applied planning packets enter typed MasterPlan authority.
+- 2026-04-29 Plan 4.1 Graph Intelligence safe slice (MP-377):
+  `dev/active/ai_governance_platform.md` now carries `MP377-P0-T13A` as the
+  owner row for widening the existing generated context graph, not a new graph
+  authority. `ContextGraphSnapshot` is the ZGraph-compatible read model over
+  typed truth: plan rows, packets, handoffs, findings, dogfood receipts, tests,
+  workflows, configs, concept-intent anchors, and contract read/write evidence
+  point back to canonical refs, while `devctl graph-walk --from ... --to ...`
+  gives AI and humans a bounded cited traversal surface. Graph evidence may rank, compress, and
+  explain what to read next; it must not remove required deterministic
+  commands, guards, probes, packet lifecycle checks, or typed runtime
+  authority from `ProjectGovernance`, `ReviewState`, `SessionPosture`,
+  `DashboardSnapshot`, `ControlPlaneReadModel`, or the master-plan store.
 - 2026-04-27 Plan 4.1 Slice C/D zref + enum-connectivity repair (MP-377):
   governed push now refreshes `commit_pipeline.json` proof identity from the
   current review-state tick after push-result synchronization, so stale

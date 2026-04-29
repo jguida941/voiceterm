@@ -186,6 +186,16 @@ Current 2026-04-28 agent-session-outcome note:
   proof, no-parallel-system guards, and agent proof-of-navigation are tracked
   as `MP377-P0-T13` through `MP377-P0-T21` instead of being left as packet
   memory for the next bootstrap.
+- The Plan 4.1 Graph Intelligence safe slice keeps that same boundary:
+  ZGraph/context-graph is the generated navigation, ranking, and compression
+  layer over typed truth. The implementation widens `ContextGraphSnapshot`
+  with generated packet, handoff, finding, receipt, plan-row, test, workflow,
+  config, concept-intent, and contract-read/write evidence, and adds
+  `graph-walk` as a cited AI/human navigation surface. It does not create lifecycle, dashboard,
+  review-state, or plan authority outside `ProjectGovernance`, typed runtime
+  contracts, packet lifecycle, `DashboardSnapshot`, `ReviewState`,
+  `SessionPosture`, `ControlPlaneReadModel`, and the existing master-plan
+  authority chain.
 
 Current 2026-04-25 SYSTEM_MAP connectivity authority note:
 - `ConnectivityRegistrySnapshot` is now the shared typed source for contract,
@@ -3433,6 +3443,12 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       to default report-only recording through the existing dogfood ledger plus
       governance-review/FindingBacklog seam. Remaining T08 scope is packet
       finding/ad-hoc capture lifecycle metadata and non-distraction ordering.
+      progress: 2026-04-29 Plan 4.1 rescue Slice A added MVP
+      `PacketIntentAnchor` / `PlanIterationSession` projections for recent
+      planning packets. Pending or expired plan packets surface as
+      `plan_anchor_pending` startup/session continuity, while only explicitly
+      applied plan packets remain eligible to create `MasterPlan` / `PlanRow`
+      execution authority through `PacketPlanIntegration`.
 - [x] `MP377-P0-T08A` Add packet lifecycle/disposition history to the review-channel reducer so packet ACKs and acted-on transitions survive context switches.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `done`
@@ -3507,6 +3523,13 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       depends_on: `MP377-P0-T11`, `MP377-P0-T12`, `MP377-P0-T12A`
       scope: Extend the existing `ConnectivityRegistrySnapshot` / `system_map_renderer` / context-graph chain so SYSTEM_MAP coverage is generated from typed contracts and cross-reference edges instead of prose-maintained lists.
       acceptance_criteria: `SystemMapCompletenessReport` names typed-contract, command, guard, and probe coverage; SYSTEM_MAP generated sections reflect typed writer/reader edges; a warning-first `check_system_map_completeness.py` reports orphan typed surfaces and configurable threshold drift.
+- [x] `MP377-P0-T13A` Plan 4.1 Graph Intelligence safe slice: widen the existing context graph as a generated read model and add deterministic graph-walk navigation without creating duplicate authority.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `done`
+      depends_on: `MP377-P0-T13`
+      scope: Add generated nodes for plan rows, packets, handoffs, findings, dogfood receipts, tests, workflows, configs, concept-intent anchors, and contract read/write evidence, with canonical refs back to typed sources; add `devctl graph-walk --from ... --to ...` for cited traversal over that graph.
+      acceptance_criteria: `ContextGraphSnapshot` includes the new node/edge families with provenance, `context-graph --query MP377-P0-T13A` resolves the typed plan row, `graph-walk --from packet:rev_pkt_2210 --to command` returns a bounded cited path, `graph-walk --from heartbeat --to command` resolves through generated concept-intent anchors, graph evidence remains additive/read-only, and required deterministic guards/check routing cannot be downgraded by graph results.
 - [ ] `MP377-P0-T14` Codex self-dogfood verification gate before stage_commit_pipeline: require Codex handoff slices to run the typed verification probe set before posting a new `stage_commit_pipeline` action_request.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/remote_control_runtime.md`
@@ -3545,6 +3568,11 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       depends_on: `MP377-P0-T10`, `MP377-P0-T12`, `MP377-P1-T06`
       scope: Land the Slice E role-enforcement command gate from `rev_pkt_2030`: governed `assign_role` / `unassign_role` actions, multi-role assignment policy, capability re-granting, and command preflight checks for `repo.commit`, `repo.stage`, `repo.push`, `review.checkpoint`, and `approval.commit`.
       acceptance_criteria: `DEFAULT_PROVIDER_ROLE_MAP` is compatibility-only or removed from runtime decisions; provider names no longer imply reviewer/implementer authority; dashboard/observer callers receive `actor_authority_capability_denied` for mutating commit/push actions without grants; tests cover Codex and Claude in both reviewer and implementer roles.
+      progress: 2026-04-29 Plan 4.1 rescue Slice A introduced
+      `SessionPosture.actors[].occupied_lane` and kept `agent_lane.lane` as a
+      deprecated compatibility alias. Capability grants now project separately
+      from lane occupancy, so `repo.commit` / `repo.stage` evidence no longer
+      implies the actor currently occupies the implementer lane.
 - [ ] `MP377-P0-T17` ReviewState, ActionResult, and parser parallel-implementation retirement sweep: route high-fanout review-state rebuilding, custom result types, and untyped parser payloads through canonical runtime contracts.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`
@@ -3649,6 +3677,12 @@ Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.
       status: `blocked`
       depends_on: `MP377-P1-T03`, `MP393-P0`
       progress: 2026-04-28 added `DashboardSnapshot` v3 as the shared CLI/mobile/desktop dashboard read contract and moved bridge-contract freshness checks to typed `ReviewState.bridge.last_codex_poll_*` plus the shared `ack_freshness_authority.is_implementer_ack_current` predicate. The later dogfood cleanup slice also made bridge reviewer-mode rendering prefer effective typed mode while preserving declared mode separately, narrowed packet inbox pending counts to live actionable rows, kept Action Requests on pending typed packets instead of delivery receipts, and moved packet posting onto semantic idempotency plus a uniform packet-kind schema. Remaining T06 scope is still the full producer-tick collapse across status/startup/session/push artifacts.
+      progress: 2026-04-29 Plan 4.1 rescue Slice A made reviewer-runtime
+      produce `SessionPosture`, and status/startup/dashboard/session-resume now
+      read posture `reviewer_mode` / `effective_reviewer_mode` before bridge or
+      daemon fallbacks. The event bridge prefers typed reviewer-runtime posture
+      over stopped daemon hints, and fresh `agent-mind` rollout activity feeds
+      actor liveness without assigning a lane.
 - [ ] `MP377-P1-T07` Make governed mutation self-healing against stale projections: commit/push/phone/operator actions must refresh and consume the canonical review-state + commit-pipeline artifacts before consistency checks, treat compatibility-surface drift as a reducer bug to fix rather than a reason to require manual `review-channel --action status`, and keep raw `git` mutation outside the remote-control path.
       owner_doc: `dev/active/remote_commit_pipeline.md`
       status: `blocked`

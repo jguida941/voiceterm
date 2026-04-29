@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, replace
 from types import SimpleNamespace
 
+from ..runtime.agent_mind_projection_read import read_agent_mind_projection
 from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.review_packet_inbox import build_packet_inbox_payload
 from ..runtime.review_state_parser import review_state_from_payload
@@ -126,10 +127,11 @@ def _build_projection_runtime(
         bridge_snapshot=base.bridge_snapshot,
     )
     governance = scan_repo_governance_safely(base.repo_root)
+    operator_interaction_mode = deps.operator_interaction_mode(governance)
     recovery_assessment = deps.build_recovery_assessment(
         bridge_liveness=bridge_liveness,
         current_session=current_session,
-        operator_interaction_mode=deps.operator_interaction_mode(governance),
+        operator_interaction_mode=operator_interaction_mode,
     )
     attention = deps.recovery_assessment_to_attention_payload(recovery_assessment)
     collaboration = deps.build_collaboration_session(
@@ -158,6 +160,8 @@ def _build_projection_runtime(
             collaboration=collaboration,
             session_output_root=base.session_output_root,
             rollover_dir=base.projections_root.parent / "rollovers",
+            operator_interaction_mode=operator_interaction_mode,
+            agent_mind=read_agent_mind_projection(base.repo_root, provider="codex"),
         )
     )
     push_decision = deps.build_status_push_decision(
@@ -189,6 +193,13 @@ def _apply_review_state_enrichment(
     identity: EventProjectionIdentityState,
     runtime: EventProjectionRuntimeState,
 ) -> tuple[dict[str, object], dict[str, object]]:
+    runtime = replace(
+        runtime,
+        collaboration=replace(
+            runtime.collaboration,
+            session_posture=runtime.reviewer_runtime.session_posture,
+        ),
+    )
     runtime.typed_bridge_liveness["review_accepted"] = (
         runtime.reviewer_runtime.review_acceptance.review_accepted
     )
@@ -211,6 +222,10 @@ def _apply_review_state_enrichment(
     review_state["source_command"] = STATUS_SOURCE_COMMAND
     review_state["observed_fields"] = list(PROVENANCE_OBSERVED_FIELDS)
     review_state["inferred_fields"] = list(PROVENANCE_INFERRED_FIELDS)
+    review_state["packets"] = _attach_packet_surface_provenance(
+        review_state.get("packets"),
+        source_identity=review_state["source_identity"],
+    )
     review_state["current_session"] = current_session_payload(runtime.current_session)
     review_state["collaboration"] = asdict(runtime.collaboration)
     review_state["reviewer_runtime"] = asdict(runtime.reviewer_runtime)
@@ -286,6 +301,28 @@ def _apply_review_state_enrichment(
         raw_service_identity=identity.raw_service_identity,
         raw_attach_auth_policy=identity.raw_attach_auth_policy,
     )
+
+
+def _attach_packet_surface_provenance(
+    packets: object,
+    *,
+    source_identity: dict[str, str],
+) -> object:
+    if not isinstance(packets, list):
+        return packets
+    enriched: list[object] = []
+    for raw_packet in packets:
+        if not isinstance(raw_packet, dict):
+            enriched.append(raw_packet)
+            continue
+        packet = dict(raw_packet)
+        packet_id = str(packet.get("packet_id") or "").strip()
+        if packet_id and not str(packet.get("semantic_zref") or "").strip():
+            packet["semantic_zref"] = f"packet:{packet_id}"
+        if source_identity and not packet.get("source_identity"):
+            packet["source_identity"] = dict(source_identity)
+        enriched.append(packet)
+    return enriched
 
 
 def _resolve_current_session(

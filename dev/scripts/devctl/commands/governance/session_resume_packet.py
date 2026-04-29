@@ -24,10 +24,15 @@ from ...runtime.review_state_models import (
     packet_inbox_from_mapping,
     review_candidate_from_mapping,
 )
+from ...runtime.packet_intent_anchor import (
+    PacketIntentAnchor,
+    packet_intent_anchors_from_value,
+)
 from ...runtime.reviewer_runtime_models import (
     RemoteControlAttachmentState,
     remote_control_attachment_from_mapping,
 )
+from ...runtime.session_posture import SessionPosture, session_posture_from_mapping
 from ...runtime.work_intake_models import SessionContinuityState
 from ...runtime.surface_provenance import (
     SurfaceProvenance,
@@ -83,12 +88,14 @@ class SessionCachePacket:
     reviewer_observation_status: str = ""
     review_candidate: ReviewCandidateRecord | None = None
     remote_control_attachment: RemoteControlAttachmentState | None = None
+    session_posture: SessionPosture | None = None
     coordination: CoordinationSnapshot | None = None
     authority_snapshot: AuthoritySnapshot | None = None
     attention_status: str = "n/a"
     attention_summary: str = "n/a"
     attention_revision: str = ""
     packet_inbox: PacketInboxState | None = None
+    packet_intent_anchors: tuple[PacketIntentAnchor, ...] = ()
     connectivity_registry: dict[str, object] = field(default_factory=dict)
     key_surfaces: tuple[str, ...] = ()
     agent_session_continuation: AgentSessionContinuationState | None = None
@@ -102,12 +109,18 @@ class SessionCachePacket:
         payload["key_surfaces"] = list(self.key_surfaces)
         if self.coordination is not None:
             payload["coordination"] = self.coordination.to_dict()
+        if self.session_posture is not None:
+            payload["session_posture"] = self.session_posture.to_dict()
         if self.authority_snapshot is not None:
             payload["authority_snapshot"] = self.authority_snapshot.to_dict()
         if self.agent_session_continuation is not None:
             payload["agent_session_continuation"] = (
                 self.agent_session_continuation.to_dict()
             )
+        if self.packet_intent_anchors:
+            payload["packet_intent_anchors"] = [
+                anchor.to_dict() for anchor in self.packet_intent_anchors
+            ]
         result = attach_surface_provenance(payload, provenance=self.provenance)
         result.setdefault("snapshot_id", self.snapshot_id)
         result.setdefault("zref", self.zref)
@@ -196,6 +209,7 @@ def packet_from_mapping(payload: dict[str, object]) -> SessionCachePacket:
         remote_control_attachment=remote_control_attachment_from_mapping(
             payload.get("remote_control_attachment")
         ),
+        session_posture=session_posture_from_mapping(payload.get("session_posture")),
         coordination=coordination_snapshot_from_mapping(payload.get("coordination")),
         authority_snapshot=authority_snapshot_from_mapping(
             payload.get("authority_snapshot")
@@ -204,6 +218,9 @@ def packet_from_mapping(payload: dict[str, object]) -> SessionCachePacket:
         attention_summary=str(payload.get("attention_summary") or "n/a").strip() or "n/a",
         attention_revision=str(payload.get("attention_revision") or "").strip(),
         packet_inbox=packet_inbox_from_mapping(payload.get("packet_inbox")),
+        packet_intent_anchors=packet_intent_anchors_from_value(
+            payload.get("packet_intent_anchors")
+        ),
         connectivity_registry=_dict_field(payload.get("connectivity_registry")),
         key_surfaces=tuple(
             str(surface).strip()

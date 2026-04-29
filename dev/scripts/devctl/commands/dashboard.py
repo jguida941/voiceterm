@@ -81,8 +81,11 @@ from .dashboard_typed_state import (
     _extract_typed_bridge_fields,
     _extract_typed_bridge_findings,
     _extract_typed_coordination,
+    _extract_typed_control_packets,
     _extract_typed_doctor,
+    _extract_typed_instruction_provenance,
     _extract_typed_packets,
+    _extract_typed_priority_decision,
     _extract_typed_runtime_counts,
     _extract_typed_session,
 )
@@ -517,6 +520,7 @@ def _assemble(
         startup_context=startup_context,
         pending_packets_count=len(typed_packets),
     )
+    control_packets = _extract_typed_control_packets(review_state)
     repo_worktree = git["dirty"]
     repo_dirty_files = git.get("dirty_files", 0)
     if (
@@ -570,8 +574,16 @@ def _assemble(
         "timeline": _build_timeline_section(repo_root, count=timeline_count),
         "typed_attention": typed_attention,
         "pending_packets": typed_packets,
+        "control_packets": control_packets,
         "control_plane": control_plane.to_dict() if control_plane else None,
     }
+    if review_state:
+        snapshot["now"]["instruction_provenance"] = _extract_typed_instruction_provenance(
+            review_state
+        )
+        snapshot["now"]["priority_decision"] = _extract_typed_priority_decision(
+            review_state
+        )
     snapshot["summary"] = _compile_summary(snapshot)
     snapshot.update(
         project_dashboard_header_fields(
@@ -619,6 +631,7 @@ def run(args) -> int:
 def _render_dashboard_snapshot(args, snapshot: dict[str, Any]) -> str:
     """Render one dashboard snapshot using the requested dashboard format."""
     from .dashboard_render import render_json, render_markdown, render_terminal
+    from ..runtime.session_posture_simple_render import render_simple_posture_snapshot
 
     no_color = getattr(args, "no_color", False)
     fmt = getattr(args, "format", "terminal")
@@ -626,4 +639,12 @@ def _render_dashboard_snapshot(args, snapshot: dict[str, Any]) -> str:
         return render_json(snapshot)
     if fmt == "md":
         return render_markdown(snapshot)
+    if fmt == "simple":
+        now = snapshot.get("now", {})
+        return render_simple_posture_snapshot(
+            title="Dashboard",
+            next_action=now.get("next_action") if isinstance(now, dict) else "",
+            top_blocker=now.get("top_blocker") if isinstance(now, dict) else "",
+            session_posture=snapshot.get("session_posture"),
+        )
     return render_terminal(snapshot, no_color=no_color)

@@ -162,3 +162,33 @@ def test_packet_inbox_keeps_acked_action_request_active_while_executing() -> Non
     assert claude.current_instruction_packet_id == "rev_pkt_1818"
     assert claude.pending_actionable_packet_ids == ()
     assert claude.delivery_state == "seen"
+
+
+def test_failed_pending_action_request_does_not_drive_inbox() -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_failed",
+                "status": "pending",
+                "summary": "Run governed checkpoint",
+                "body": "Run governed checkpoint",
+                "kind": "action_request",
+                "from_agent": "codex",
+                "to_agent": "claude",
+                "requested_action": "stage_commit_pipeline",
+                "execution_failed_at_utc": "2026-04-29T13:00:00Z",
+                "execution_failed_reason": "pending_reviewer_packets",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ]
+    }
+
+    packet_inbox = packet_inbox_from_review_state(review_state)
+
+    assert packet_inbox is not None
+    claude = packet_inbox.for_agent("claude")
+    assert claude is not None
+    assert claude.current_instruction_packet_id == ""
+    assert claude.pending_actionable_packet_ids == ()
+    assert claude.attention_status == "none"
+    assert claude.delivery_state == "idle"

@@ -94,12 +94,14 @@ def prepare_pipeline(
     repo_root: Path,
     resolved_policy,
     vcs_executor: GovernedVcsExecutor,
+    action_request_grant: object | None = None,
 ):
     return _prepare_pipeline(
         args=args,
         repo_root=repo_root,
         resolved_policy=resolved_policy,
         vcs_executor=vcs_executor,
+        action_request_grant=action_request_grant,
         deps=CommitPreflightDeps(
             pipeline_is_stale_for_current_repo_fn=pipeline_is_stale_for_current_repo,
             build_active_pipeline_block_report_fn=build_active_pipeline_block_report,

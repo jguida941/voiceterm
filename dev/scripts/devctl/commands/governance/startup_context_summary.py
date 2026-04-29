@@ -94,6 +94,11 @@ def render_summary(ctx_dict: dict) -> str:
             str(reviewer_gate.get("operator_interaction_mode") or "").strip()
             or "unresolved"
         )
+    posture = ctx_dict.get("session_posture")
+    if isinstance(posture, dict):
+        posture_mode = str(posture.get("interaction_mode") or "").strip()
+        if posture_mode and posture_mode != "unresolved":
+            interaction_mode = posture_mode
     lines = [
         f"action={action}",
         f"reason={reason}",
@@ -101,6 +106,11 @@ def render_summary(ctx_dict: dict) -> str:
         f"blockers={summary_blockers(ctx_dict)}",
         f"next={summary_next_command(ctx_dict)}",
     ]
+    if interaction_mode == "remote_control":
+        lines.insert(
+            3,
+            "remote_control_routing=typed_action_request_or_bounded_repo_command",
+        )
     lines.extend(managed_projection_summary_lines(ctx_dict))
     observed_control_topology = str(
         ctx_dict.get("observed_control_topology") or ""
@@ -122,6 +132,9 @@ def render_summary(ctx_dict: dict) -> str:
         attention_revision = str(packet_inbox.get("attention_revision") or "").strip()
         if attention_revision:
             lines.append(f"attention_revision={attention_revision}")
+    anchors = ctx_dict.get("packet_intent_anchors")
+    if isinstance(anchors, list):
+        lines.append(f"packet_intent_anchors={len(anchors)}")
     append_recovery_authority_summary_lines(ctx_dict, lines)
     lines.extend(summary_coordination_lines(ctx_dict))
     ahead = publication_backlog_count(ctx_dict)

@@ -37,12 +37,18 @@ class PendingPacketFields(TypedDict):
     summary: str
     status: str
     requested_action: str
+    policy_hint: str
+    target_ref: str
+    target_revision: str
     approval_required: bool
+    posted_at: str
     delivery_emitted_at_utc: str
     delivery_observed_at_utc: str
     delivery_observed_by: str
     execution_started_at_utc: str
     execution_started_by: str
+    lifecycle_current_state: str
+    semantic_zref: str
 
 
 class BridgeFields(TypedDict):
@@ -115,6 +121,41 @@ def _extract_typed_attention(
     }
 
 
+def _extract_typed_instruction_provenance(
+    review_state: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Extract current-instruction provenance from the same ReviewState tick."""
+    if review_state is None:
+        return {}
+    queue = review_state.get("queue")
+    if not isinstance(queue, dict):
+        return {}
+    source = queue.get("derived_next_instruction_source")
+    if not isinstance(source, dict):
+        return {}
+    provenance = source.get("provenance")
+    return dict(provenance) if isinstance(provenance, dict) else {}
+
+
+def _extract_typed_priority_decision(
+    review_state: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Extract packet priority decision from the same ReviewState tick."""
+    if review_state is None:
+        return {}
+    queue = review_state.get("queue")
+    if not isinstance(queue, dict):
+        return {}
+    decision = queue.get("instruction_priority_decision")
+    if isinstance(decision, dict) and decision:
+        return dict(decision)
+    source = queue.get("derived_next_instruction_source")
+    if not isinstance(source, dict):
+        return {}
+    source_decision = source.get("priority_decision")
+    return dict(source_decision) if isinstance(source_decision, dict) else {}
+
+
 def _extract_typed_coordination(
     review_state: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
@@ -149,14 +190,101 @@ def _extract_typed_packets(
             summary=pkt.get("summary", ""),
             status="pending",
             requested_action=pkt.get("requested_action", ""),
+            policy_hint=pkt.get("policy_hint", ""),
+            target_ref=pkt.get("target_ref", ""),
+            target_revision=pkt.get("target_revision", ""),
             approval_required=pkt.get("approval_required", False),
+            posted_at=pkt.get("posted_at", ""),
             delivery_emitted_at_utc=pkt.get("delivery_emitted_at_utc", ""),
             delivery_observed_at_utc=pkt.get("delivery_observed_at_utc", ""),
             delivery_observed_by=pkt.get("delivery_observed_by", ""),
             execution_started_at_utc=pkt.get("execution_started_at_utc", ""),
             execution_started_by=pkt.get("execution_started_by", ""),
+            lifecycle_current_state=pkt.get("lifecycle_current_state", ""),
+            semantic_zref=pkt.get("semantic_zref", ""),
         ))
     return pending
+
+
+def _extract_typed_control_packets(
+    review_state: dict[str, Any] | None,
+    *,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Extract action-request lifecycle rows from typed ReviewState.
+
+    This is deliberately broader than ``pending_packets``: acknowledged,
+    in-progress, failed, apply-pending, and applied action requests must stay
+    visible to operator and agent surfaces even after they leave the live
+    pending queue.
+    """
+    if review_state is None:
+        return []
+    packets = review_state.get("packets", [])
+    if not isinstance(packets, Sequence) or isinstance(packets, (str, bytes)):
+        return []
+    rows = [
+        _control_packet_row(pkt)
+        for pkt in packets
+        if isinstance(pkt, dict) and str(pkt.get("kind") or "").strip() == "action_request"
+    ]
+    rows = [row for row in rows if row]
+    return sorted(rows, key=_control_packet_sort_key, reverse=True)[:limit]
+
+
+def _control_packet_row(packet: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "packet_id": packet.get("packet_id", ""),
+        "kind": packet.get("kind", ""),
+        "from_agent": packet.get("from_agent", ""),
+        "to_agent": packet.get("to_agent", ""),
+        "summary": packet.get("summary", ""),
+        "status": packet.get("status", ""),
+        "requested_action": packet.get("requested_action", ""),
+        "policy_hint": packet.get("policy_hint", ""),
+        "target_ref": packet.get("target_ref", ""),
+        "target_revision": packet.get("target_revision", ""),
+        "posted_at": packet.get("posted_at", ""),
+        "acked_at_utc": packet.get("acked_at_utc", ""),
+        "acked_by": packet.get("acked_by", ""),
+        "applied_at_utc": packet.get("applied_at_utc", ""),
+        "delivery_emitted_at_utc": packet.get("delivery_emitted_at_utc", ""),
+        "delivery_observed_at_utc": packet.get("delivery_observed_at_utc", ""),
+        "delivery_observed_by": packet.get("delivery_observed_by", ""),
+        "execution_started_at_utc": packet.get("execution_started_at_utc", ""),
+        "execution_started_by": packet.get("execution_started_by", ""),
+        "execution_failed_at_utc": packet.get("execution_failed_at_utc", ""),
+        "execution_failed_by": packet.get("execution_failed_by", ""),
+        "execution_failed_reason": packet.get("execution_failed_reason", ""),
+        "apply_pending_after_execution_at_utc": packet.get(
+            "apply_pending_after_execution_at_utc",
+            "",
+        ),
+        "apply_pending_after_execution_by": packet.get(
+            "apply_pending_after_execution_by",
+            "",
+        ),
+        "apply_pending_after_execution_reason": packet.get(
+            "apply_pending_after_execution_reason",
+            "",
+        ),
+        "lifecycle_current_state": packet.get("lifecycle_current_state", ""),
+        "semantic_zref": packet.get("semantic_zref", ""),
+        "source_identity": packet.get("source_identity", {}),
+    }
+
+
+def _control_packet_sort_key(packet: dict[str, Any]) -> str:
+    return str(
+        packet.get("apply_pending_after_execution_at_utc")
+        or packet.get("execution_failed_at_utc")
+        or packet.get("applied_at_utc")
+        or packet.get("execution_started_at_utc")
+        or packet.get("acked_at_utc")
+        or packet.get("delivery_observed_at_utc")
+        or packet.get("posted_at")
+        or ""
+    )
 
 
 def _extract_typed_bridge_fields(

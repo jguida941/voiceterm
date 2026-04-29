@@ -12,6 +12,7 @@ from .event_projection_context import (
 )
 from .packet_control_loop import (
     format_priority_instruction,
+    latest_failed_action_request,
     select_priority_pending_packet,
 )
 from ..runtime.instruction_authority import (
@@ -92,6 +93,7 @@ def build_event_queue_summary(
         "derived_next_instruction": derived_instruction,
         "derived_next_instruction_source": derived_source,
         "instruction_priority_decision": _queue_priority_decision(derived_source),
+        "last_failed_action_request": _failed_action_request_summary(packets),
     }
     for provider, count in pending_counts.items():
         summary[f"pending_{provider}"] = count
@@ -125,6 +127,7 @@ def build_event_queue_state(
         derived_next_instruction=derived_instruction,
         derived_next_instruction_source=derived_source,
         instruction_priority_decision=_queue_priority_decision(derived_source),
+        last_failed_action_request=_failed_action_request_summary(packet_rows),
     )
 
 
@@ -176,6 +179,29 @@ def _queue_priority_decision(
         rejection_reasons=(),
         decided_at_utc=utc_timestamp(),
     ).to_dict()
+
+
+def _failed_action_request_summary(
+    packets: list[dict[str, object]],
+) -> dict[str, object]:
+    packet = latest_failed_action_request(packets)
+    if packet is None:
+        return {}
+    return {
+        "packet_id": str(packet.get("packet_id") or "").strip(),
+        "from_agent": str(packet.get("from_agent") or "").strip(),
+        "to_agent": str(packet.get("to_agent") or "").strip(),
+        "requested_action": str(packet.get("requested_action") or "").strip(),
+        "summary": str(packet.get("summary") or "").strip(),
+        "execution_failed_at_utc": str(
+            packet.get("execution_failed_at_utc") or ""
+        ).strip(),
+        "execution_failed_by": str(packet.get("execution_failed_by") or "").strip(),
+        "execution_failed_reason": str(
+            packet.get("execution_failed_reason") or ""
+        ).strip(),
+        "required_recovery": "fresh_action_request",
+    }
 
 
 def _priority_decision_for_packet(

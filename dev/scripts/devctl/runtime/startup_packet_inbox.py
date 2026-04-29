@@ -42,12 +42,18 @@ def startup_packet_inbox_dict(
         )
         if not has_packet_signal and record.attention_status in {"", "none"}:
             continue
+        command = (
+            record.required_command
+            if record.current_instruction_packet_id
+            or record.pending_actionable_packet_ids
+            else ""
+        )
         agent_rows.append(
             StartupPacketInboxAgentRow(
                 agent=record.agent,
                 attention_status=record.attention_status,
                 wake_reason=record.wake_reason,
-                required_command=record.required_command,
+                required_command=command,
                 delivery_state=record.delivery_state,
                 current_instruction_packet_id=record.current_instruction_packet_id,
                 latest_finding_packet_id=record.latest_finding_packet_id,

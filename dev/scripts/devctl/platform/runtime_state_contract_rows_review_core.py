@@ -2,7 +2,21 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .contracts import ContractField, ContractSpec
+
+if TYPE_CHECKING:
+    from ..runtime.packet_intent_anchor import PlanIterationSession
+    from ..runtime.session_posture import SessionPostureActor
+    from ..runtime.startup_context_models import ReviewerGateState, StartupContext
+
+    _RUNTIME_MODEL_REFS: tuple[
+        type[PlanIterationSession],
+        type[SessionPostureActor],
+        type[ReviewerGateState],
+        type[StartupContext],
+    ]
 
 REVIEW_CORE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     ContractSpec(
@@ -237,6 +251,11 @@ REVIEW_CORE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "RemoteControlAttachmentState | None",
                 "Optional typed attachment for an external phone-steered remote-control session.",
             ),
+            ContractField(
+                "session_posture",
+                "SessionPosture",
+                "Canonical live posture tuple for interaction mode, reviewer mode, and occupied actor lanes.",
+            ),
         ),
         runtime_model="dev.scripts.devctl.runtime.review_state_models:ReviewerRuntimeContract",
         startup_surface_tokens=(
@@ -244,6 +263,83 @@ REVIEW_CORE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             "reviewer_freshness",
             "publish_clear",
             "remote_control_attachment",
+            "session_posture",
         ),
+    ),
+    ContractSpec(
+        contract_id="SessionPosture",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Canonical proof-tick posture for interaction mode, reviewer "
+            "mode, actor liveness, occupied lanes, and separate capability grants."
+        ),
+        required_fields=(
+            ContractField("interaction_mode", "str", "remote_control, dual_agent, single_agent, local_terminal, or unresolved."),
+            ContractField("reviewer_mode", "str", "Canonical reviewer mode for this proof tick."),
+            ContractField(
+                "effective_reviewer_mode",
+                "str",
+                "Effective reviewer mode after runtime demotion or promotion.",
+            ),
+            ContractField(
+                "actors",
+                "tuple[SessionPostureActor, ...]",
+                "Actors with current occupied_lane, liveness, and independent granted capabilities.",
+            ),
+            ContractField("source", "str", "Producer for the posture projection."),
+        ),
+        runtime_model="dev.scripts.devctl.runtime.session_posture:SessionPosture",
+        startup_surface_tokens=(
+            "interaction_mode",
+            "reviewer_mode",
+            "actors",
+        ),
+    ),
+    ContractSpec(
+        contract_id="PacketIntentAnchor",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Non-authoritative continuity pointer from a planning packet to "
+            "plan intent; pending or expired packets stay anchors, not execution authority."
+        ),
+        required_fields=(
+            ContractField("packet_id", "str", "Review packet id that produced the anchor."),
+            ContractField("target_plan", "str", "Plan target referenced by the packet."),
+            ContractField("target_task", "str", "Task, intake, or mutation target referenced by the packet."),
+            ContractField("anchor_refs", "tuple[str, ...]", "Typed plan anchor refs carried by the packet."),
+            ContractField("lifecycle_state", "str", "plan_anchor_pending or applied."),
+            ContractField("source_agent", "str", "Agent that posted the source packet."),
+            ContractField("disposition", "str", "Packet disposition status when available."),
+            ContractField("evidence", "tuple[str, ...]", "Packet and lifecycle evidence refs."),
+            ContractField("packet_kind", "str", "Review packet kind that produced the anchor."),
+            ContractField("summary", "str", "Bounded packet summary for continuity renderers."),
+            ContractField("semantic_zref", "str", "Stable semantic packet pointer for graph/bootstrap surfaces."),
+            ContractField("source_identity", "dict[str, str]", "Source proof-tick identity inherited from ReviewState."),
+            ContractField("context_pack_refs", "tuple[dict[str, object], ...]", "Context pack refs carried by the source packet."),
+        ),
+        runtime_model="dev.scripts.devctl.runtime.packet_intent_anchor:PacketIntentAnchor",
+        startup_surface_tokens=(
+            "packet_id",
+            "target_plan",
+            "lifecycle_state",
+            "packet_kind",
+            "semantic_zref",
+        ),
+    ),
+    ContractSpec(
+        contract_id="PlanIterationSession",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Minimal alias over plan_gap_review, plan_patch_review, and "
+            "plan_ready_gate packet anchors for startup continuity."
+        ),
+        required_fields=(
+            ContractField("status", "str", "empty, plan_anchor_pending, or applied."),
+            ContractField("packet_ids", "tuple[str, ...]", "Planning packet ids in the iteration view."),
+            ContractField("anchor_refs", "tuple[str, ...]", "Union of typed plan anchors."),
+            ContractField("source_packet_kinds", "tuple[str, ...]", "Planning packet kinds represented by the iteration view."),
+        ),
+        runtime_model="dev.scripts.devctl.runtime.packet_intent_anchor:PlanIterationSession",
+        startup_surface_tokens=("status", "packet_ids", "anchor_refs", "source_packet_kinds"),
     ),
 )

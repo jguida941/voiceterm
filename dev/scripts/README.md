@@ -1135,6 +1135,7 @@ python3 dev/scripts/devctl.py context-graph --query '<term>' --format md  # file
 python3 dev/scripts/devctl.py context-graph --query '<term>' --save-snapshot --format md
 python3 dev/scripts/devctl.py context-graph --mode diff --from previous --to latest --format md
 python3 dev/scripts/devctl.py context-graph --format mermaid
+python3 dev/scripts/devctl.py graph-walk --from packet:rev_pkt_2210 --to command --format md
 python3 dev/scripts/checks/check_platform_contract_closure.py
 python3 dev/scripts/devctl.py doc-authority --format json
 python3 dev/scripts/devctl.py governance-bootstrap --target-repo ../ci-cd-hub-copy --format md
@@ -1557,12 +1558,22 @@ repair adapter resolves the governed review-channel `rollover_dir` sibling
 from the managed review root before dispatching repo-owned review-channel
 actions, so startup repair stays coherent as review-channel command packages
 move.
-Current graph routing now includes first-pass `guards` and `scoped_by`
-edges, so targeted file/path queries can surface active guard coverage and
-plan-scope ownership from the generated graph before escalating to fuller
-startup-context reads. Non-guard queries now suppress generic guard-edge
-fan-out, and current `scoped_by` ownership comes from docs-policy rules rather
-than raw substring adjacency alone.
+Current graph routing includes first-pass `guards`, `scoped_by`, plan-row,
+packet/handoff, finding, receipt, test/workflow/config, and contract
+read/write edges. It also seeds generated concept-intent anchors such as
+`heartbeat`, `live-stream`, `post-edit-validation`, `dogfood-record`,
+`packet-handoff`, and `graph-navigation` so agents can traverse from operator
+intent to the typed commands that own the work. Targeted
+file/path/packet/plan/intent queries can surface active guard coverage, plan
+ownership, operational receipts, and typed authority neighbors before
+escalating to fuller startup-context reads. Non-guard queries
+now suppress generic guard-edge fan-out, and query output caps oversized
+node/edge neighborhoods with explicit evidence counts so graph reads stay a
+token reducer. Use `graph-walk --from <node-or-ref> --to <node-or-kind>` when
+an agent or human needs a cited path such as packet -> command, finding ->
+guard, or plan row -> contract. `graph-walk` is read-only and follows
+canonical refs; it does not replace packet lifecycle, check routing, or typed
+runtime authority.
 Bootstrap mode also now writes a typed
 `ContextGraphSnapshot` artifact under `dev/reports/graph_snapshots/` unless
 external `DEVCTL_NO_ARTIFACT_WRITES=1` is set, in which case the automatic
@@ -1855,6 +1866,17 @@ Machine-first output note:
     surfaces as a typed `next_action` divergence. The session-resume
     extractor intentionally omits `reviewer_mode` because `SessionCachePacket`
     has no direct slot for it; the comparator skips absent fields.
+  - As of 2026-04-29, `SessionPosture` is the canonical typed posture surface
+    for `interaction_mode`, `reviewer_mode`, `effective_reviewer_mode`, and
+    `actors[].occupied_lane`. Review-channel status, startup-context,
+    dashboard, and session-resume should read that posture instead of
+    recomputing mode/lane values. `agent_lane.lane` remains a compatibility
+    alias; `occupied_lane` is the current-seat field, and capability grants are
+    reported separately. In `remote_control`, bootstrap renderers include the
+    no-local-GUI, no-ad-hoc-kill, and no-local-commit/push routing boundary.
+    Startup/session projections also expose `PacketIntentAnchor` /
+    `PlanIterationSession` continuity hints for planning packets; pending or
+    expired packets do not become MasterPlan execution authority.
   - As of 2026-04-06 the field-route proof helper
     `_source_contains_any` in
     `dev/scripts/checks/platform_contract_closure/field_routes_surface_state.py`

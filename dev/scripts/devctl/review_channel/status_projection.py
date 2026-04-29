@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 
+from ..runtime.agent_mind_projection_read import read_agent_mind_projection
 from ..runtime.coordination_loader import load_coordination_snapshot
 from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.review_state_models import (
@@ -106,10 +107,18 @@ def build_bridge_review_state(
             rollover_dir=context.output_root.parent / "rollovers",
             bridge_text=context.bridge_text,
             prior_review_state=context.prior_review_state,
+            operator_interaction_mode=str(
+                typed_bridge_liveness.get("operator_interaction_mode") or ""
+            ),
+            agent_mind=read_agent_mind_projection(context.repo_root, provider="codex"),
             reviewer_accepted_implementer_state_hash_override=(
                 context.reviewer_accepted_implementer_state_hash_override
             ),
         )
+    )
+    collaboration = replace(
+        collaboration,
+        session_posture=reviewer_runtime.session_posture,
     )
     bridge_state = build_review_bridge_state(
         snapshot=snapshot,

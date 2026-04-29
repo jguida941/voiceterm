@@ -31,6 +31,12 @@ from .session_resume_render_rehydration import (
     typed_rehydration_lines as _typed_rehydration_lines,
     typed_rehydration_summary as _typed_rehydration_summary,
 )
+from .session_resume_posture_render import (
+    append_packet_intent_anchors as _append_packet_intent_anchors,
+    append_remote_control_boundaries as _append_remote_control_boundaries,
+    interaction_mode as _interaction_mode,
+    remote_control_routing_summary as _remote_control_routing_summary,
+)
 from .session_resume_render_sections import (
     coordination_lines as _coordination_lines,
     packet_inbox_lines as _packet_inbox_lines,
@@ -67,7 +73,7 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
         _sha_line("head", packet.head_sha, default="(unknown)"),
         _sha_line("last_reviewed", packet.last_reviewed_sha, default="(none)"),
         _review_range_line(packet),
-        f"- **mode**: {packet.operator_interaction_mode}",
+        f"- **mode**: {_interaction_mode(packet)}",
         f"- **phase**: {packet.resolved_phase}",
         f"- **blockers**: {packet.blockers}",
         f"- **attention**: {packet.attention_status}",
@@ -75,6 +81,7 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
     if packet.attention_revision:
         lines.append(f"- **attention_revision**: `{packet.attention_revision}`")
     lines.extend(_packet_inbox_lines(packet))
+    _append_packet_intent_anchors(lines, packet)
     if packet.next_guard_bundle:
         lines.append(f"- **guard_bundle**: {packet.next_guard_bundle}")
     if packet.remote_control_attachment is not None:
@@ -84,6 +91,7 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
             lines.append(
                 f"- **remote_control**: {attachment.status} via `{target}`"
             )
+    _append_remote_control_boundaries(lines, packet)
     if display_next:
         lines.append(f"- **next_command**: `{display_next}`")
     lines.extend(_typed_rehydration_lines(packet))
@@ -133,7 +141,7 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
     for surface in packet.key_surfaces:
         lines.append(f"- `{surface}`")
     lines.extend(_connectivity_registry_lines(packet))
-    if packet.operator_interaction_mode == "active_dual_agent":
+    if _interaction_mode(packet) == "active_dual_agent":
         lines.extend(
             [
                 "- `dev/active/review_channel.md`",
@@ -180,7 +188,7 @@ def render_markdown(packet: "SessionCachePacket") -> str:
         _sha_line("head_at_push", packet.head_at_push_time, default="(none)"),
         f"- **advisory**: {packet.advisory_action} / {packet.advisory_reason}",
         f"- **blockers**: {packet.blockers}",
-        f"- **mode**: {packet.operator_interaction_mode}",
+        f"- **mode**: {_interaction_mode(packet)}",
         f"- **phase**: {packet.resolved_phase}",
         f"- **attention**: {packet.attention_status}",
         f"- **ack**: {packet.ack_state}",
@@ -189,6 +197,7 @@ def render_markdown(packet: "SessionCachePacket") -> str:
     if packet.attention_revision:
         lines.append(f"- **attention_revision**: `{packet.attention_revision}`")
     lines.extend(_packet_inbox_lines(packet))
+    _append_packet_intent_anchors(lines, packet)
     if packet.remote_control_attachment is not None:
         attachment = packet.remote_control_attachment
         target = attachment.session_url or attachment.remote_session_id or attachment.session_name
@@ -196,6 +205,7 @@ def render_markdown(packet: "SessionCachePacket") -> str:
             f"- **remote_control**: {attachment.status}"
             + (f" / `{target}`" if target else "")
         )
+    _append_remote_control_boundaries(lines, packet)
     if packet.next_guard_bundle:
         lines.append(f"- **guard_bundle**: {packet.next_guard_bundle}")
     lines.extend(_connectivity_registry_lines(packet))
@@ -240,7 +250,7 @@ def render_summary(packet: "SessionCachePacket") -> str:
         f"action={packet.advisory_action}",
         f"reason={packet.advisory_reason}",
         f"blockers={packet.blockers}",
-        f"mode={packet.operator_interaction_mode}",
+        f"mode={_interaction_mode(packet)}",
         f"phase={packet.resolved_phase}",
         f"attention={packet.attention_status}",
         f"ack={packet.ack_state}",
@@ -281,6 +291,8 @@ def render_summary(packet: "SessionCachePacket") -> str:
             if packet.packet_inbox is not None
             else "pending_inbox=0"
         ),
+        f"packet_intent_anchors={len(packet.packet_intent_anchors)}",
+        _remote_control_routing_summary(packet),
         _typed_rehydration_summary(packet),
         _connectivity_registry_summary_line(packet),
         (

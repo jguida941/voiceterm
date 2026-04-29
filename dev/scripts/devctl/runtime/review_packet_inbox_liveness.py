@@ -10,6 +10,10 @@ def is_live_pending(packet: Mapping[str, object]) -> bool:
     """Return True when a packet is still pending and not expired."""
     if _packet_status(packet) != "pending":
         return False
+    if is_failed_action_request(packet):
+        return False
+    if _normalized_text(packet.get("apply_pending_after_execution_at_utc")):
+        return False
     expires_at = _parse_utc(packet.get("expires_at_utc"))
     if expires_at is None:
         return True
@@ -21,13 +25,23 @@ def is_live_control_packet(packet: Mapping[str, object]) -> bool:
     return is_live_pending(packet) or is_active_acked_action_request(packet)
 
 
+def is_failed_action_request(packet: Mapping[str, object]) -> bool:
+    """Return True when an action_request has terminal execution failure evidence."""
+    return (
+        _packet_kind(packet) == "action_request"
+        and bool(_normalized_text(packet.get("execution_failed_at_utc")))
+    )
+
+
 def is_active_acked_action_request(packet: Mapping[str, object]) -> bool:
-    """Return True for acknowledged action requests that are still executing."""
+    """Return True for acknowledged action requests not yet resolved by apply."""
     if _packet_status(packet) != "acked":
         return False
     if _packet_kind(packet) != "action_request":
         return False
-    if not _normalized_text(packet.get("execution_started_at_utc")):
+    if is_failed_action_request(packet):
+        return False
+    if _normalized_text(packet.get("apply_pending_after_execution_at_utc")):
         return False
     expires_at = _parse_utc(packet.get("expires_at_utc"))
     return expires_at is None or expires_at > datetime.now(timezone.utc)

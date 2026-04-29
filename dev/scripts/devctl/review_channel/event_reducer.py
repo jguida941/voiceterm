@@ -53,11 +53,17 @@ from .daemon_reducer import (
     reduce_daemon_event,
 )
 from .agent_session_outcome_events import AGENT_SESSION_OUTCOME_EVENT_TYPES
+from .packet_lifecycle import ACTION_REQUEST_LIFECYCLE_EVENT_TYPES
 from .session_liveness_events import SESSION_LIVENESS_EVENT_TYPES
 from .topology import build_runtime_agent_registry
 from ..time_utils import utc_timestamp
 
-_PACKET_TRANSITION_EVENT_TYPES = {"packet_acked", "packet_dismissed", "packet_applied"}
+_PACKET_TRANSITION_EVENT_TYPES = {
+    "packet_acked",
+    "packet_dismissed",
+    "packet_applied",
+    *ACTION_REQUEST_LIFECYCLE_EVENT_TYPES,
+}
 
 
 def _projection_context(

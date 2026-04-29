@@ -8,6 +8,11 @@ from pathlib import Path
 
 from ..repo_packs import active_path_config
 from ..runtime.review_packet_inbox_liveness import is_live_control_packet
+from .action_request_delivery import attach_action_request_delivery_receipts
+from .packet_lifecycle import (
+    ACTION_REQUEST_LIFECYCLE_EVENT_TYPES,
+    apply_lifecycle_transition,
+)
 from .pending_packet_core import partition_live_pending_packets
 from .pending_packet_models import PendingPacketQueueSnapshot
 
@@ -59,6 +64,7 @@ def load_pending_packet_queue(
             "packet_dismissed",
             "packet_expired",
             "packet_applied",
+            *ACTION_REQUEST_LIFECYCLE_EVENT_TYPES,
         ):
             existing = packets.get(packet_id)
             if existing is None:
@@ -69,11 +75,15 @@ def load_pending_packet_queue(
                 event_type=event_type,
             )
 
-    pending_packets, stale_packets = partition_live_pending_packets(packets.values())
+    hydrated_packets = attach_action_request_delivery_receipts(
+        packets=tuple(packets.values()),
+        artifact_root=repo_root / config.review_artifact_root_rel,
+    )
+    pending_packets, stale_packets = partition_live_pending_packets(hydrated_packets)
     control_packets = [
         dict(packet)
-        for packet in packets.values()
-        if is_live_control_packet(packet)
+        for packet in hydrated_packets
+        if is_live_control_packet(packet) or _is_recovery_control_packet(packet)
     ]
     return PendingPacketQueueSnapshot(
         pending_packets=tuple(pending_packets),
@@ -91,7 +101,10 @@ def _apply_packet_transition_snapshot(
     updated = dict(packet)
     updated.update(event)
     updated["latest_event_id"] = event.get("event_id") or packet.get("latest_event_id")
-    updated["status"] = event_type.replace("packet_", "")
+    updated["status"] = (
+        _action_request_lifecycle_status(event_type)
+        or event_type.replace("packet_", "")
+    )
     actor = str((event.get("metadata") or {}).get("actor") or "").strip()
     transition_time = (
         event.get("timestamp_utc")
@@ -114,13 +127,44 @@ def _apply_packet_transition_snapshot(
         if event_type == "packet_acked":
             updated["execution_started_at_utc"] = transition_time
             updated["execution_started_by"] = actor or packet.get("to_agent")
+        if event_type == "action_request_execution_failed":
+            updated["execution_failed_at_utc"] = transition_time
+            updated["execution_failed_by"] = actor or packet.get("to_agent")
+            updated["execution_failed_reason"] = _event_reason(event)
+        if event_type == "action_request_apply_pending_after_execution":
+            updated["apply_pending_after_execution_at_utc"] = transition_time
+            updated["apply_pending_after_execution_by"] = actor or packet.get("to_agent")
+            updated["apply_pending_after_execution_reason"] = _event_reason(event)
         if (
             event_type == "packet_applied"
             and not str(updated.get("execution_started_at_utc") or "").strip()
         ):
             updated["execution_started_at_utc"] = transition_time
             updated["execution_started_by"] = actor or packet.get("to_agent")
-    return updated
+    return apply_lifecycle_transition(updated, event)
+
+
+def _is_recovery_control_packet(packet: Mapping[str, object]) -> bool:
+    return (
+        str(packet.get("kind") or "").strip() == "action_request"
+        and str(packet.get("lifecycle_current_state") or "").strip()
+        in {"failed", "apply_pending_after_execution"}
+    )
+
+
+def _event_reason(event: Mapping[str, object]) -> str:
+    metadata = event.get("metadata")
+    if not isinstance(metadata, Mapping):
+        return ""
+    return str(metadata.get("reason") or "").strip()
+
+
+def _action_request_lifecycle_status(event_type: str) -> str:
+    if event_type == "action_request_execution_failed":
+        return "failed"
+    if event_type == "action_request_apply_pending_after_execution":
+        return "apply_pending_after_execution"
+    return ""
 
 
 def assert_no_pending_instruction_rewrite(

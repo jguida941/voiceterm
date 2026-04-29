@@ -31,6 +31,7 @@ def commit_failed_pipeline(
     return replace(
         pending_pipeline,
         state="push_blocked",
+        commit_sha="",
         commit_result=result_builder(
             action_id=action_id,
             ok=False,

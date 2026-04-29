@@ -64,6 +64,16 @@ Portable-platform rule:
   `CollaborationSession.actor_authorities` / `AuthoritySnapshot.actor_authorities`
   grants such as `repo.commit` and `repo.stage` over reviewer-mode labels, and
   keep `approval.commit` separate from repo mutation authority.
+  `SessionPosture` is the canonical proof-tick producer for
+  `interaction_mode`, `reviewer_mode`, and `actors[].occupied_lane`.
+  Status, startup, dashboard, and bootstrap renderers must consume that
+  posture instead of recomputing contradictory mode/role/lane values; capability
+  grants such as `repo.commit` may appear on an actor without changing the
+  current occupied lane. When `SessionPosture.interaction_mode` is
+  `remote_control`, fresh bootstrap/routing text must state that local
+  GUI/process intervention, ad hoc kill commands, and local commit/push
+  authority are unavailable; privileged, commit, and push work routes through
+  typed `action_request` packets or bounded repo commands.
 - Worktree-orphan prevention is part of the same portable runtime contract.
   Dirty/unpublished work must not be proven only for the current checkout.
   The durable model is a report-first `OrphanInventoryReport` feeding a typed

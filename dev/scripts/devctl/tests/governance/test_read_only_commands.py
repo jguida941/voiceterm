@@ -39,6 +39,7 @@ class ReadOnlyCommandSetTests(unittest.TestCase):
             "claude-loop",
             "discover",
             "findings-priority",
+            "graph-walk",
             "view",
             "list",
             "rollout-tail",

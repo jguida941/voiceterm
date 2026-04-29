@@ -45,6 +45,7 @@ from dev.scripts.devctl.runtime.review_state_packet_models import (
 from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     RemoteControlAttachmentState,
 )
+from dev.scripts.devctl.runtime.session_posture import SessionPosture
 
 _STATUS_COMMAND = (
     "python3 dev/scripts/devctl.py review-channel --action status "
@@ -2177,6 +2178,30 @@ class TestLastReviewedSha(unittest.TestCase):
         )
         self.assertIn('python3 dev/scripts/devctl.py commit -m "checkpoint"', md)
         self.assertIn("must not take implementation ownership", md)
+
+    def test_render_bootstrap_gates_remote_control_boundaries_on_posture(self) -> None:
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_bootstrap,
+        )
+
+        local_packet = SessionCachePacket(
+            role="implementer",
+            operator_interaction_mode="local_terminal",
+        )
+        remote_packet = SessionCachePacket(
+            role="implementer",
+            operator_interaction_mode="local_terminal",
+            session_posture=SessionPosture(interaction_mode="remote_control"),
+        )
+
+        local_md = render_bootstrap(local_packet)
+        remote_md = render_bootstrap(remote_packet)
+
+        self.assertNotIn("no local commit/push authority", local_md)
+        self.assertIn("no local GUI/process intervention", remote_md)
+        self.assertIn("no ad hoc kill commands", remote_md)
+        self.assertIn("no local commit/push authority", remote_md)
+        self.assertIn("typed `action_request` packets", remote_md)
 
     def test_render_bootstrap_reviewer_prefers_review_candidate(self) -> None:
         """Reviewer bootstrap should prefer a typed review candidate over raw diff range."""

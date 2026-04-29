@@ -8,7 +8,10 @@ from .finding_contracts import (
     RejectedRuleTraceRecord,
     RuleMatchEvidenceRecord,
 )
+from .session_posture import SessionPosture
 from .work_intake_plan_routing import PlanRoutingState
+
+SESSION_POSTURE_CONTRACT_REF = SessionPosture
 
 
 @dataclass(frozen=True, slots=True)

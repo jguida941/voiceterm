@@ -13,7 +13,7 @@ def add_claude_loop_parser(sub: argparse._SubParsersAction) -> None:
     )
     cmd.add_argument(
         "--format",
-        choices=("md", "json"),
+        choices=("md", "json", "simple"),
         default="md",
         help="Output format.",
     )

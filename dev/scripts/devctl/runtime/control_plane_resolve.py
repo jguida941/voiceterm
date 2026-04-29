@@ -108,8 +108,15 @@ def resolve_reviewer_state(
         authority = review_state["authority_snapshot"]
     if review_state and isinstance(review_state.get("reviewer_runtime"), dict):
         reviewer_runtime = review_state["reviewer_runtime"]
+    session_posture = (
+        reviewer_runtime.get("session_posture")
+        if isinstance(reviewer_runtime.get("session_posture"), dict)
+        else {}
+    )
     reviewer_mode = (
-        coerce_string(reviewer_runtime.get("effective_reviewer_mode"))
+        coerce_string(session_posture.get("reviewer_mode"))
+        or coerce_string(session_posture.get("effective_reviewer_mode"))
+        or coerce_string(reviewer_runtime.get("effective_reviewer_mode"))
         or coerce_string(bridge.get("effective_reviewer_mode"))
         or coerce_string(bridge.get("reviewer_mode"))
         or "single_agent"

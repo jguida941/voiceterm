@@ -74,6 +74,8 @@ class CommitActionInputs:
     amend: bool = False
     allow_empty: bool = False
     no_edit: bool = False
+    action_request_packet_id: str = ""
+    action_request_target_agent: str = ""
     requested_by: str = "remote_commit_pipeline"
 
 
@@ -160,7 +162,7 @@ def build_commit_action(
         unexpected = _unexpected_kwargs(
             kwargs,
             "repo_pack_id pipeline_id commit_message_draft amend allow_empty no_edit "
-            "requested_by",
+            "action_request_packet_id action_request_target_agent requested_by",
         )
         if unexpected:
             raise TypeError(f"Unexpected commit action inputs: {', '.join(unexpected)}")
@@ -171,6 +173,8 @@ def build_commit_action(
             amend=bool(kwargs.get("amend", False)),
             allow_empty=bool(kwargs.get("allow_empty", False)),
             no_edit=bool(kwargs.get("no_edit", False)),
+            action_request_packet_id=str(kwargs.get("action_request_packet_id", "")),
+            action_request_target_agent=str(kwargs.get("action_request_target_agent", "")),
             requested_by=str(kwargs.get("requested_by", "remote_commit_pipeline")),
         )
     else:
@@ -180,6 +184,8 @@ def build_commit_action(
     parameters["amend"] = bool(resolved.amend)
     parameters["allow_empty"] = bool(resolved.allow_empty)
     parameters["no_edit"] = bool(resolved.no_edit)
+    parameters["action_request_packet_id"] = resolved.action_request_packet_id
+    parameters["action_request_target_agent"] = resolved.action_request_target_agent
     return TypedAction(
         schema_version=1,
         contract_id="TypedAction",

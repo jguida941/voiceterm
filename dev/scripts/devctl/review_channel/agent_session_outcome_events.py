@@ -134,7 +134,7 @@ def agent_session_outcomes_from_events(
         if _text(event.get("event_type")) not in AGENT_SESSION_OUTCOME_EVENT_TYPES:
             continue
         outcome = agent_session_outcome_from_mapping(event)
-        if outcome is not None:
+        if outcome is not None and outcome.provider.lower() != "system":
             rows.append(outcome)
     return tuple(rows)
 
@@ -183,6 +183,7 @@ def _packet_emits_completed_handoff(packet_event: Mapping[str, object]) -> bool:
     return (
         _text(packet_event.get("event_type")) == "packet_posted"
         and _text(packet_event.get("kind")) == ACTION_REQUEST_PACKET_KIND
+        and _text(packet_event.get("from_agent")).lower() != "system"
         and _text(packet_event.get("requested_action"))
         in STAGE_PIPELINE_ACTION_REQUEST_ACTIONS
         and bool(_text(packet_event.get("full_guard_bundle_evidence")))

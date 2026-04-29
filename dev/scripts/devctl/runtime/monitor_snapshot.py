@@ -150,6 +150,12 @@ def _build_runtime_state(*, startup, model) -> dict[str, object]:
             ("last_guard_ok", _field(model, "last_guard_ok", cast=bool, default=True)),
             ("implementation_permission", _field(startup, "implementation_permission")),
             ("observed_control_topology", _field(startup, "observed_control_topology")),
+            (
+                "session_posture",
+                model.session_posture.to_dict()
+                if getattr(model, "session_posture", None) is not None
+                else {},
+            ),
             ("recovery_action", _field(recovery, "recovery_action")),
             ("recovery_basis", _field(recovery, "recovery_basis")),
             ("recovery_scope", _field(recovery, "recovery_scope")),

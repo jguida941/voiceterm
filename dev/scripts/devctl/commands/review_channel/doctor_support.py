@@ -48,6 +48,17 @@ def resolve_status_recommended_command(
         if command:
             return command, "attention"
 
+    authority = status_report.get("authority_snapshot")
+    if isinstance(authority, dict):
+        command = str(authority.get("next_command") or "").strip()
+        safe_to_continue = authority.get("safe_to_continue")
+        blocked_actions = {
+            str(action or "").strip()
+            for action in authority.get("blocked_actions") or []
+        }
+        if command and (safe_to_continue is False or "vcs.push" in blocked_actions):
+            return command, "authority_snapshot"
+
     push_decision = status_report.get("push_decision")
     if isinstance(push_decision, dict):
         command = str(push_decision.get("next_step_command") or "").strip()

@@ -1,5 +1,7 @@
 """Focused tests for reviewer runtime contract projection."""
 
+from datetime import datetime, timezone
+
 from dev.scripts.devctl.review_channel.handoff import extract_bridge_snapshot
 from dev.scripts.devctl.review_channel.reviewer_runtime_contract import (
     ReviewerRuntimeInputs,
@@ -78,6 +80,36 @@ def test_checkpoint_override_uses_fresh_bridge_acceptance_over_stale_prior() -> 
         acceptance.reviewer_accepted_implementer_state_hash
         == "fresh-checkpoint-hash"
     )
+
+
+def test_reviewer_runtime_contract_folds_agent_mind_liveness_into_posture() -> None:
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    contract = build_reviewer_runtime_contract(
+        ReviewerRuntimeInputs(
+            snapshot=None,
+            bridge_liveness={
+                "reviewer_mode": "tools_only",
+                "effective_reviewer_mode": "tools_only",
+            },
+            current_session=ReviewCurrentSessionState(
+                current_instruction="",
+                current_instruction_revision="",
+                implementer_status="",
+                implementer_ack="",
+                implementer_ack_revision="",
+                implementer_ack_state="missing",
+            ),
+            agent_mind={
+                "agent_provider": "codex",
+                "events": [{"timestamp": now, "event_type": "file_change"}],
+            },
+        )
+    )
+
+    actor = contract.session_posture.actors[0]
+    assert actor.actor_id == "codex"
+    assert actor.live is True
+    assert actor.occupied_lane == ""
 
 
 def test_fresh_checkpoint_bridge_acceptance_overrides_stale_prior_without_hash() -> None:

@@ -13,7 +13,10 @@ from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContrac
 from ...runtime.vcs import run_git_capture
 from .governed_executor_actions import APPROVAL_PACKET_KIND
 from .governed_executor_authorization import build_push_authorization
-from ...runtime.commit_packet_gate import check_commit_packet_gate
+from ...runtime.commit_packet_gate import (
+    check_commit_packet_gate,
+    pending_packet_queue_block_commit,
+)
 from .governed_executor_commit_runtime import (
     attention_revision_stale as runtime_attention_revision_stale,
     live_attention_revision as runtime_live_attention_revision,
@@ -98,15 +101,28 @@ def execute_commit(
     )
     if attention_block is not None:
         return attention_block
-    pending_block = check_commit_packet_gate(
-        repo_root=context.repo_root,
-        review_channel_path=context.review_channel_path,
-        load_review_state_fn=lambda: runtime_load_live_review_state(
+    action_request_packet_id = string_value(
+        action.parameters.get("action_request_packet_id")
+    )
+    action_request_target_agent = string_value(
+        action.parameters.get("action_request_target_agent")
+    )
+    if action_request_packet_id and action_request_target_agent:
+        pending_block = pending_packet_queue_block_commit(
+            repo_root=context.repo_root,
+            target_agent=action_request_target_agent,
+            exempt_packet_id=action_request_packet_id,
+        )
+    else:
+        pending_block = check_commit_packet_gate(
             repo_root=context.repo_root,
             review_channel_path=context.review_channel_path,
-        ),
-        resolve_target_fn=runtime_resolve_commit_execution_target,
-    )
+            load_review_state_fn=lambda: runtime_load_live_review_state(
+                repo_root=context.repo_root,
+                review_channel_path=context.review_channel_path,
+            ),
+            resolve_target_fn=runtime_resolve_commit_execution_target,
+        )
     if pending_block is not None:
         return _commit_block_result(
             action_id=action.action_id,
@@ -275,6 +291,7 @@ def _attention_revision_stale_result(
         pipeline,
         state="push_blocked",
         blocked_reason="attention_revision_stale",
+        commit_sha="",
     )
     warnings = context.persist_pipeline_contract_only(blocked)
     return context.result_builder(
@@ -298,7 +315,8 @@ def _commit_block_result(
     context: CommitPipelineContext,
     blocked: CommitBlock,
 ) -> ActionResult:
-    blocked_warnings = context.persist_pipeline_contract_only(blocked.pipeline)
+    blocked_pipeline = replace(blocked.pipeline, commit_sha="")
+    blocked_warnings = context.persist_pipeline_contract_only(blocked_pipeline)
     return context.result_builder(
         action_id=action_id,
         ok=False,

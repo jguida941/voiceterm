@@ -999,6 +999,83 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
             )
         )
 
+    def test_action_request_priority_prefers_fresh_recovery_over_failed_packet(
+        self,
+    ) -> None:
+        from dev.scripts.devctl.review_channel.packet_control_loop_action_request import (
+            action_request_priority_key,
+        )
+
+        failed_packet = {
+            "packet_id": "rev_pkt_failed",
+            "posted_at": "2026-04-29T16:46:24Z",
+            "expires_at_utc": "2026-04-29T17:16:24Z",
+            "execution_failed_at_utc": "2026-04-29T16:47:57Z",
+        }
+        recovery_packet = {
+            "packet_id": "rev_pkt_recovery",
+            "posted_at": "2026-04-29T16:47:58Z",
+            "expires_at_utc": "2026-04-29T17:17:58Z",
+        }
+
+        self.assertLess(
+            action_request_priority_key(recovery_packet),
+            action_request_priority_key(failed_packet),
+        )
+
+    def test_actionable_inbox_prefers_fresh_recovery_over_failed_packet(
+        self,
+    ) -> None:
+        from dev.scripts.devctl.runtime.review_packet_inbox_actionable import (
+            select_actionable_packet,
+        )
+
+        failed_packet = {
+            "packet_id": "rev_pkt_failed",
+            "kind": "action_request",
+            "posted_at": "2026-04-29T16:46:24Z",
+            "expires_at_utc": "2026-04-29T17:16:24Z",
+            "execution_failed_at_utc": "2026-04-29T16:47:57Z",
+        }
+        recovery_packet = {
+            "packet_id": "rev_pkt_recovery",
+            "kind": "action_request",
+            "posted_at": "2026-04-29T16:47:58Z",
+            "expires_at_utc": "2026-04-29T17:17:58Z",
+        }
+
+        selected = select_actionable_packet((failed_packet, recovery_packet))
+
+        self.assertIsNotNone(selected)
+        self.assertEqual(selected["packet_id"], "rev_pkt_recovery")
+
+    def test_system_completed_handoff_outcome_rows_are_ignored(self) -> None:
+        from dev.scripts.devctl.review_channel.agent_session_outcome_events import (
+            agent_session_outcomes_from_events,
+        )
+
+        rows = agent_session_outcomes_from_events(
+            (
+                {
+                    "event_type": "agent_session_outcome",
+                    "outcome": "completed_handoff",
+                    "provider": "system",
+                    "session_actor_id": "system",
+                    "session_id": "local-review",
+                    "session_name": "system-conductor",
+                    "timestamp_utc": "2026-04-29T16:56:27Z",
+                    "source": "review_channel",
+                    "handoff_packet_id": "rev_pkt_2205",
+                    "handoff_requested_action": "stage_commit_pipeline",
+                    "target_kind": "runtime",
+                    "target_ref": "devctl_commit:abc123",
+                    "target_revision": "abc123",
+                },
+            )
+        )
+
+        self.assertEqual(rows, ())
+
     def test_runtime_action_request_packets_require_typed_runtime_binding(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -1096,6 +1173,7 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                     kind="action_request",
                     summary="Stage verified commit pipeline",
                     body="Full guard profile passed.",
+                    evidence_refs=("completed_handoff:session-token-1",),
                     requested_action="stage_commit_pipeline",
                     policy_hint="safe_auto_apply",
                     approval_required=False,
@@ -1160,6 +1238,7 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                     kind="action_request",
                     summary="Stage verified commit pipeline",
                     body="Full guard profile passed.",
+                    evidence_refs=("completed_handoff:session-token-1",),
                     requested_action="stage_commit_pipeline",
                     policy_hint="safe_auto_apply",
                     approval_required=False,
@@ -1187,8 +1266,58 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
         self.assertEqual(packet["execution_started_by"], "system")
         self.assertEqual(packet["full_guard_bundle_evidence"], "--profile ci")
         self.assertEqual(len(event["safe_auto_apply_event_ids"]), 2)
+        self.assertNotIn("agent_session_outcome_event_id", event)
         self.assertIn("packet_acked", {row["event_type"] for row in events})
         self.assertIn("packet_applied", {row["event_type"] for row in events})
+        self.assertNotIn("agent_session_outcome", {row["event_type"] for row in events})
+
+    def test_system_stage_commit_pipeline_without_handoff_evidence_stays_pending(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+
+            bundle, event = post_packet(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+                request=PacketPostRequest(
+                    from_agent="system",
+                    to_agent="claude",
+                    kind="action_request",
+                    summary="Run governed commit staging from remote-control lane",
+                    body="Sandbox index lock denied; Claude must execute this.",
+                    requested_action="stage_commit_pipeline",
+                    policy_hint="safe_auto_apply",
+                    approval_required=False,
+                    target=PacketTargetFields.from_values(
+                        target_kind="runtime",
+                        target_ref="devctl_commit:abc123",
+                        target_revision="abc123",
+                    ),
+                    guard_bundle_evidence=PacketGuardBundleEvidenceFields.from_values(
+                        full_guard_bundle_evidence="--profile ci",
+                    ),
+                ),
+            )
+
+            packet = bundle.review_state["packets"][0]
+            events = [
+                json.loads(line)
+                for line in Path(artifact_paths.event_log_path)
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        self.assertEqual(packet["status"], "pending")
+        self.assertNotIn("safe_auto_apply_event_ids", event)
+        self.assertNotIn("agent_session_outcome_event_id", event)
+        self.assertNotIn("packet_applied", {row["event_type"] for row in events})
+        self.assertNotIn("agent_session_outcome", {row["event_type"] for row in events})
 
     def test_commit_action_request_packets_preserve_runtime_binding(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

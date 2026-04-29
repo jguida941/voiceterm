@@ -68,6 +68,9 @@ class AgentLaneDecision:
     schema_version: int = 1
     contract_id: str = "AgentLane"
     lane: str = "implementer"
+    occupied_lane: str = "implementer"
+    eligible_lanes: tuple[str, ...] = ()
+    granted_capabilities: tuple[str, ...] = ()
     permissions: tuple[str, ...] = ()
     blocked_permissions: tuple[str, ...] = ()
     source: str = "startup-context"
@@ -75,6 +78,8 @@ class AgentLaneDecision:
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
+        payload["eligible_lanes"] = list(self.eligible_lanes)
+        payload["granted_capabilities"] = list(self.granted_capabilities)
         payload["permissions"] = list(self.permissions)
         payload["blocked_permissions"] = list(self.blocked_permissions)
         payload["edit_gate"] = self.edit_gate.to_dict()
@@ -122,13 +127,19 @@ def build_agent_lane_decision(
     caller_role: object = "",
     reviewer_override: bool = False,
     active_implementation_owner: object = "",
+    occupied_lane: object = "",
+    granted_capabilities: tuple[str, ...] = (),
 ) -> AgentLaneDecision:
     """Return lane permissions from typed caller role, not chat prose."""
     lane = normalize_agent_lane(caller_role)
+    current_lane = normalize_agent_lane(occupied_lane or lane)
     owner = str(active_implementation_owner or "").strip()
     if lane in {"dashboard", "observer"}:
         return AgentLaneDecision(
             lane=lane,
+            occupied_lane=current_lane,
+            eligible_lanes=(lane,),
+            granted_capabilities=granted_capabilities,
             permissions=(*_READ_ACTIONS, *_FINDING_ACTIONS),
             blocked_permissions=_MUTATING_ACTIONS,
             edit_gate=LaneEditGateDecision(
@@ -146,6 +157,9 @@ def build_agent_lane_decision(
     if lane == "reviewer" and not reviewer_override:
         return AgentLaneDecision(
             lane=lane,
+            occupied_lane=current_lane,
+            eligible_lanes=(lane,),
+            granted_capabilities=granted_capabilities,
             permissions=(*_READ_ACTIONS, *_FINDING_ACTIONS, "review.checkpoint"),
             blocked_permissions=_IMPLEMENTATION_ACTIONS,
             edit_gate=LaneEditGateDecision(
@@ -158,6 +172,9 @@ def build_agent_lane_decision(
         )
     return AgentLaneDecision(
         lane=lane,
+        occupied_lane=current_lane,
+        eligible_lanes=(lane,),
+        granted_capabilities=granted_capabilities,
         permissions=(*_READ_ACTIONS, *_FINDING_ACTIONS, *_IMPLEMENTATION_ACTIONS),
         blocked_permissions=(),
         edit_gate=LaneEditGateDecision(

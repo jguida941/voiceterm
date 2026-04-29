@@ -124,6 +124,8 @@ def post_packet(
         "plan_proposal": (
             plan_proposal.to_dict() if plan_proposal.has_values() else None
         ),
+        "semantic_zref": "",
+        "source_identity": {},
         "status": "pending",
         "idempotency_key": "",
         "nonce": secrets.token_hex(12),

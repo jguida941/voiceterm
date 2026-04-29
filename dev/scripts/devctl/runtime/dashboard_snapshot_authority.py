@@ -8,6 +8,11 @@ from pathlib import Path
 from typing import Any, ClassVar, Mapping
 
 from ..config import REPO_ROOT
+from .agent_mind_projection_read import (
+    agent_mind_projection_path,
+    read_agent_mind_projection,
+)
+from .dashboard_codex_sessions import active_codex_sessions_section
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,15 +68,19 @@ def normalize_dashboard_snapshot(
     payload["agent_mind"] = _agent_mind_section(repo_root)
     payload["session_outcomes"] = _session_outcomes_section(repo_root, state)
     payload["ack_freshness"] = _ack_freshness_section(state)
+    payload["session_posture"] = _session_posture_section(payload, state)
     payload["session_liveness"] = _session_liveness_section(state)
-    payload["active_codex_sessions"] = _active_codex_sessions_section(repo_root)
+    payload["active_codex_sessions"] = active_codex_sessions_section(
+        repo_root=repo_root,
+        session_posture=payload.get("session_posture"),
+    )
     payload["system_topology"] = _system_topology_section(repo_root)
     return payload
 
 
 def _agent_mind_section(repo_root: Path) -> dict[str, Any]:
-    path = repo_root / "dev/reports/agent_minds/codex_latest.json"
-    payload = _read_json(path)
+    path = agent_mind_projection_path(repo_root, provider="codex")
+    payload = read_agent_mind_projection(repo_root, provider="codex")
     if not payload:
         return dict(available=False, path=_rel(path, repo_root), events=[])
     events = payload.get("events")
@@ -155,6 +164,21 @@ def _ack_freshness_section(review_state: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _session_posture_section(
+    payload: Mapping[str, Any],
+    review_state: Mapping[str, Any],
+) -> dict[str, Any]:
+    control_plane = _mapping(payload.get("control_plane"))
+    posture = _mapping(control_plane.get("session_posture"))
+    if not posture:
+        posture = _mapping(_mapping(review_state.get("reviewer_runtime")).get("session_posture"))
+    if not posture:
+        return {"available": False}
+    result = dict(posture)
+    result["available"] = True
+    return result
+
+
 def _session_liveness_section(review_state: Mapping[str, Any]) -> dict[str, Any]:
     bridge_liveness = _mapping(review_state.get("bridge_liveness"))
     bridge = _mapping(review_state.get("bridge"))
@@ -171,40 +195,6 @@ def _session_liveness_section(review_state: Mapping[str, Any]) -> dict[str, Any]
     return {
         "available": bool(signals),
         "signals": signals,
-    }
-
-
-def _active_codex_sessions_section(repo_root: Path) -> dict[str, Any]:
-    try:
-        from ..review_channel.event_store import resolve_artifact_paths
-        from ..review_channel.session_probe import load_conductor_sessions
-
-        artifact_paths = resolve_artifact_paths(repo_root=repo_root)
-        sessions = load_conductor_sessions(
-            session_output_root=Path(artifact_paths.projections_root)
-        )
-    except (OSError, ValueError):
-        sessions = ()
-    codex_sessions = [
-        dict(
-            provider=session.provider,
-            role=session.role,
-            session_name=session.session_name,
-            live=session.live,
-            age_seconds=session.age_seconds,
-            live_reason=session.live_reason,
-            metadata_path=session.metadata_path,
-            workspace_root=session.workspace_root,
-            prepared_head_sha=session.prepared_head_sha,
-            prepared_instruction_revision=session.prepared_instruction_revision,
-        )
-        for session in sessions
-        if session.provider == "codex"
-    ]
-    return {
-        "count": len(codex_sessions),
-        "live_count": sum(1 for session in codex_sessions if session.get("live")),
-        "sessions": codex_sessions,
     }
 
 

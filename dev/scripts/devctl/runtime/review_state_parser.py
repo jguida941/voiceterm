@@ -236,6 +236,9 @@ def _review_queue_state(queue: Mapping[str, object]) -> ReviewQueueState:
         instruction_priority_decision=dict(
             _mapping(queue.get("instruction_priority_decision"))
         ),
+        last_failed_action_request=dict(
+            _mapping(queue.get("last_failed_action_request"))
+        ),
     )
 
 

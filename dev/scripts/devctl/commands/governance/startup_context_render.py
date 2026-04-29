@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from ...context_graph.render import append_quality_signal_lines
-from ...runtime.work_intake_models import session_pacing_markdown_lines
-from ...runtime.work_intake_plan_routing import plan_routing_markdown_lines
 from ...review_channel.ack_contract import packet_ack_is_transport_lifecycle_line
 from .startup_context_connectivity_render import (
     append_connectivity_registry as _append_connectivity_registry,
 )
-from .startup_context_render_format import join_paths as _join_paths
+from .startup_context_posture_render import (
+    append_packet_intent_anchors as _append_packet_intent_anchors,
+    append_remote_control_boundaries as _append_remote_control_boundaries,
+    interaction_mode as _interaction_mode,
+)
 from .startup_context_push_render import (
     append_push_decision as _append_push_decision,
     append_push_state as _append_push_state,
@@ -17,6 +19,10 @@ from .startup_context_push_render import (
     publication_backlog_guidance,
 )
 from .startup_context_blocker_render import append_blocker_table
+from .startup_context_work_render import (
+    append_coordination_snapshot as _append_coordination_snapshot,
+    append_work_intake as _append_work_intake,
+)
 
 
 def _append_rule_explanation(
@@ -69,189 +75,6 @@ def _append_startup_gate(lines: list[str], ctx_dict: dict) -> None:
     if receipt_path:
         lines.append(f"- startup_receipt: `{receipt_path}`")
     lines.append("")
-def _append_work_intake(lines: list[str], ctx_dict: dict) -> None:
-    intake = ctx_dict.get("work_intake", {})
-    if not isinstance(intake, dict) or not intake:
-        return
-    target = intake.get("active_target", {})
-    continuity = intake.get("continuity", {})
-    routing = intake.get("routing", {})
-    coordination = intake.get("coordination", {})
-    lines.append("## Work Intake")
-    if isinstance(target, dict) and target:
-        lines.append(
-            f"- active_target: `{target.get('plan_path', '?')}` "
-            f"[{target.get('target_kind', '?')}]"
-        )
-    lines.append(
-        f"- confidence: `{intake.get('confidence', 'low')}`"
-        + (
-            f" ({intake.get('fallback_reason')})"
-            if intake.get("fallback_reason")
-            else ""
-        )
-    )
-    if isinstance(continuity, dict) and continuity:
-        lines.append(
-            f"- continuity: `{continuity.get('alignment_status', 'missing')}` "
-            f"({continuity.get('alignment_reason', '')})"
-        )
-        summary = str(continuity.get("summary") or "").strip()
-        if summary:
-            lines.append(f"- continuity_summary: {summary}")
-    ownership = intake.get("ownership", {})
-    if isinstance(ownership, dict) and ownership:
-        lines.append(
-            f"- ownership: `{ownership.get('status', 'clear')}`"
-            + (
-                f" ({ownership.get('scope_source')})"
-                if ownership.get("scope_source")
-                else ""
-            )
-        )
-        ownership_summary = str(ownership.get("summary") or "").strip()
-        if ownership_summary:
-            lines.append(f"- ownership_summary: {ownership_summary}")
-        outside_scope = ownership.get("outside_scope_dirty_paths")
-        if isinstance(outside_scope, list) and outside_scope:
-            lines.append(
-                f"- outside_scope_dirty_paths: {_join_paths(outside_scope)}"
-            )
-        live_agents = ownership.get("live_agents")
-        if isinstance(live_agents, list) and live_agents:
-            lines.append(f"- live_agents: {_join_paths(live_agents)}")
-    if isinstance(coordination, dict) and coordination:
-        lines.append(
-            "- collaboration_topology: "
-            f"`{coordination.get('collaboration_topology', 'single_agent')}`"
-        )
-        lines.append(
-            f"- authority_mode: `{coordination.get('authority_mode', 'self_directed')}`"
-        )
-        lines.append(
-            "- work_ownership_mode: "
-            f"`{coordination.get('work_ownership_mode', 'exclusive_slice')}`"
-        )
-        lines.append(
-            f"- sync_cadence_mode: `{coordination.get('sync_cadence_mode', 'continuous')}`"
-        )
-        coordination_summary = str(coordination.get("summary") or "").strip()
-        if coordination_summary:
-            lines.append(f"- coordination_summary: {coordination_summary}")
-        active_roles = coordination.get("active_roles")
-        if isinstance(active_roles, list) and active_roles:
-            lines.append(f"- active_roles: {_join_paths(active_roles)}")
-        active_participants = coordination.get("active_participants")
-        if isinstance(active_participants, list) and active_participants:
-            lines.append(
-                f"- active_participants: {_join_paths(active_participants)}"
-            )
-        delegated_agents = coordination.get("delegated_agents")
-        if isinstance(delegated_agents, list) and delegated_agents:
-            lines.append(f"- delegated_agents: {_join_paths(delegated_agents)}")
-        delegated_worktrees = coordination.get("delegated_worktrees")
-        if isinstance(delegated_worktrees, list) and delegated_worktrees:
-            lines.append(
-                f"- delegated_worktrees: {_join_paths(delegated_worktrees)}"
-            )
-        duplicate_worktrees = coordination.get("duplicate_delegated_worktrees")
-        if isinstance(duplicate_worktrees, list) and duplicate_worktrees:
-            lines.append(
-                "- duplicate_delegated_worktrees: "
-                f"{_join_paths(duplicate_worktrees)}"
-            )
-    if isinstance(routing, dict) and routing:
-        profile = str(routing.get("selected_workflow_profile") or "").strip()
-        if profile:
-            lines.append(f"- selected_workflow_profile: `{profile}`")
-        preflight = str(routing.get("preflight_command") or "").strip()
-        if preflight:
-            lines.append(f"- preflight_command: `{preflight}`")
-        _append_rule_explanation(
-            lines,
-            routing,
-            summary_label="workflow_profile_rule_summary",
-        )
-    lines.extend(plan_routing_markdown_lines(intake.get("plan_routing")))
-    lines.extend(session_pacing_markdown_lines(intake.get("session_pacing")))
-    warm_refs = intake.get("warm_refs")
-    if isinstance(warm_refs, list) and warm_refs:
-        lines.append(f"- warm_refs: {_join_paths(warm_refs)}")
-    writeback_sinks = intake.get("writeback_sinks")
-    if isinstance(writeback_sinks, list) and writeback_sinks:
-        lines.append(f"- writeback_sinks: {_join_paths(writeback_sinks)}")
-    lines.append("")
-
-
-def _append_coordination_snapshot(lines: list[str], ctx_dict: dict) -> None:
-    coordination = ctx_dict.get("coordination", {})
-    if not isinstance(coordination, dict) or not coordination:
-        return
-    lines.append("## Coordination Snapshot")
-    target = coordination.get("active_target", {})
-    if isinstance(target, dict) and target:
-        lines.append(
-            f"- active_target: `{target.get('plan_path', '?')}` "
-            f"[{target.get('target_kind', '?')}]"
-        )
-    current_slice = str(coordination.get("current_slice") or "").strip()
-    if current_slice:
-        lines.append(f"- current_slice: {current_slice}")
-    scope_paths = coordination.get("scope_paths")
-    if isinstance(scope_paths, list) and scope_paths:
-        lines.append(f"- scope_paths: {_join_paths(scope_paths)}")
-    lines.append(
-        "- topology: "
-        f"`{coordination.get('declared_topology', 'single_agent')}` / "
-        f"`{coordination.get('observed_topology', 'single_agent')}` -> "
-        f"`{coordination.get('recommended_topology', 'single_agent')}`"
-    )
-    lines.append(f"- fanout_posture: `{coordination.get('fanout_posture', 'single_agent_only')}`")
-    lines.append(f"- safe_to_fanout: {coordination.get('safe_to_fanout', False)}")
-    lines.append(
-        f"- worktree_strategy: `{coordination.get('worktree_strategy', 'shared_primary_worktree')}`"
-    )
-    lines.append(f"- resync_required: {coordination.get('resync_required', False)}")
-    resync_reasons = coordination.get("resync_reasons")
-    if isinstance(resync_reasons, list) and resync_reasons:
-        lines.append(f"- resync_reasons: {_join_paths(resync_reasons)}")
-    duplicate_worktrees = coordination.get("duplicate_worktrees")
-    if isinstance(duplicate_worktrees, list) and duplicate_worktrees:
-        lines.append(f"- duplicate_worktrees: {_join_paths(duplicate_worktrees)}")
-    actors = coordination.get("actors")
-    if isinstance(actors, list) and actors:
-        actor_labels = []
-        for row in actors:
-            if not isinstance(row, dict):
-                continue
-            actor_id = str(row.get("actor_id") or "").strip()
-            if not actor_id:
-                continue
-            detail = f"{actor_id}:{str(row.get('presence') or '').strip()}"
-            provider = str(row.get("provider") or "").strip()
-            role = str(row.get("role") or "").strip()
-            lane = str(row.get("lane") or "").strip()
-            worktree = str(row.get("worktree") or "").strip()
-            branch = str(row.get("branch") or "").strip()
-            mp_scope = str(row.get("mp_scope") or "").strip()
-            if provider:
-                detail += f"|provider={provider}"
-            if role:
-                detail += f"|role={role}"
-            if lane:
-                detail += f"|lane={lane}"
-            if worktree:
-                detail += f"|worktree={worktree}"
-            if branch:
-                detail += f"|branch={branch}"
-            if mp_scope:
-                detail += f"|scope={mp_scope}"
-            actor_labels.append(detail)
-        if actor_labels:
-            lines.append(f"- actors: {_join_paths(actor_labels)}")
-    lines.append("")
-
-
 def _append_continuity_roots(lines: list[str], gov: dict) -> None:
     memory_roots = gov.get("memory_roots", {})
     if not isinstance(memory_roots, dict):
@@ -371,6 +194,7 @@ def render_markdown(ctx_dict: dict) -> str:
     ).strip()
     if implementation_permission:
         lines.append(f"- implementation_permission: `{implementation_permission}`")
+    lines.append(f"- interaction_mode: `{_interaction_mode(ctx_dict)}`")
     recovery_action = str(ctx_dict.get("recovery_action") or "").strip()
     if recovery_action:
         lines.append(f"- recovery_action: `{recovery_action}`")
@@ -381,6 +205,7 @@ def render_markdown(ctx_dict: dict) -> str:
     if recovery_scope:
         lines.append(f"- recovery_scope: `{recovery_scope}`")
     lines.append("")
+    _append_remote_control_boundaries(lines, ctx_dict)
     _append_push_state(lines, ctx_dict)
     push_decision = ctx_dict.get("push_decision", {})
     if isinstance(push_decision, dict):
@@ -391,7 +216,12 @@ def render_markdown(ctx_dict: dict) -> str:
         )
     _append_startup_gate(lines, ctx_dict)
     _append_pending_inbox(lines, ctx_dict)
-    _append_work_intake(lines, ctx_dict)
+    _append_packet_intent_anchors(lines, ctx_dict)
+    _append_work_intake(
+        lines,
+        ctx_dict,
+        append_rule_explanation_fn=_append_rule_explanation,
+    )
     _append_coordination_snapshot(lines, ctx_dict)
     _append_connectivity_registry(lines, ctx_dict)
     _append_continuity_roots(lines, gov)

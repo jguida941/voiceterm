@@ -25,6 +25,7 @@ from .query_matching import (
 )
 from .models import (
     EDGE_KIND_GUARDS,
+    EDGE_KIND_SCOPED_BY,
     NODE_KIND_GUARD,
     NODE_KIND_PLAN,
     NODE_KIND_PROBE,
@@ -45,6 +46,8 @@ _USAGE = (
     "the canonical docs. Use `context-graph --query <term>` for targeted "
     "subgraphs on specific files, MPs, guards, or subsystems."
 )
+_MAX_MATCHED_EDGES = 200
+_MAX_RESULT_NODES = 120
 
 
 def query_context_graph(
@@ -137,16 +140,24 @@ def query_context_graph(
         if edge.edge_kind == EDGE_KIND_GUARDS and not matched_has_guard:
             continue
         if edge.source_id in matched_ids or edge.target_id in matched_ids:
-            neighbor_ids.add(edge.source_id)
-            neighbor_ids.add(edge.target_id)
             matched_edges.append(edge)
+
+    total_matched_edge_count = len(matched_edges)
+    if len(matched_edges) > _MAX_MATCHED_EDGES:
+        matched_edges = sorted(
+            matched_edges,
+            key=lambda item: _query_edge_sort_key(item),
+        )[:_MAX_MATCHED_EDGES]
+    for edge in matched_edges:
+        neighbor_ids.add(edge.source_id)
+        neighbor_ids.add(edge.target_id)
 
     result_ids = matched_ids | neighbor_ids
     edge_count_by_node: dict[str, int] = {}
     for edge in matched_edges:
         edge_count_by_node[edge.source_id] = edge_count_by_node.get(edge.source_id, 0) + 1
         edge_count_by_node[edge.target_id] = edge_count_by_node.get(edge.target_id, 0) + 1
-    result_nodes = [
+    all_result_nodes = [
         enrich_query_node(
             node,
             match_summary=query_match_summary(
@@ -170,6 +181,8 @@ def query_context_graph(
             key=lambda n: (-n.temperature, n.node_id),
         )
     ]
+    total_result_node_count = len(all_result_nodes)
+    result_nodes = all_result_nodes[:_MAX_RESULT_NODES]
 
     if not matched_ids:
         confidence = "no_match"
@@ -189,11 +202,49 @@ def query_context_graph(
         confidence=confidence,
         evidence=[
             f"matched {len(matched_ids)} direct node(s)",
-            f"expanded to {len(neighbor_ids)} neighbor(s)",
-            f"{len(matched_edges)} connecting edge(s)",
+            _node_count_evidence(len(result_nodes), total_result_node_count, len(neighbor_ids)),
+            _edge_count_evidence(len(matched_edges), total_matched_edge_count),
             f"confidence: {confidence}",
         ],
     )
+
+
+def _node_count_evidence(
+    visible_count: int,
+    total_count: int,
+    neighbor_count: int,
+) -> str:
+    if visible_count == total_count:
+        return f"expanded to {neighbor_count} neighbor(s)"
+    return (
+        f"expanded to {neighbor_count} neighbor(s); "
+        f"{visible_count} of {total_count} node(s) shown"
+    )
+
+
+def _edge_count_evidence(visible_count: int, total_count: int) -> str:
+    if visible_count == total_count:
+        return f"{visible_count} connecting edge(s)"
+    return f"{visible_count} of {total_count} connecting edge(s) shown"
+
+
+def _query_edge_sort_key(edge: GraphEdge) -> tuple[int, str, str, str]:
+    priority = {
+        EDGE_KIND_SCOPED_BY: 0,
+        "routes_to": 1,
+        "packet_handoff": 2,
+        "receipt_proves": 3,
+        "probe_finds": 4,
+        "guard_catches": 5,
+        "finding_blocks": 6,
+        "contract_reads": 7,
+        "contract_writes": 8,
+        "contains": 9,
+        "command_invokes": 10,
+        "test_covers": 11,
+        "workflow_runs": 12,
+    }.get(edge.edge_kind, 20)
+    return (priority, edge.edge_kind, edge.source_id, edge.target_id)
 
 
 def _current_branch(repo_root) -> str:

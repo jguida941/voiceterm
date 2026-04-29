@@ -33,6 +33,8 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "ControlState" in contract_ids
     assert "ReviewState" in contract_ids
     assert "ReviewerRuntimeContract" in contract_ids
+    assert "SessionPosture" in contract_ids
+    assert "PacketIntentAnchor" in contract_ids
     assert "RemoteCommitPipelineContract" in contract_ids
     assert "PushAuthorizationRecord" in contract_ids
     assert "CheckResult" in contract_ids
@@ -66,8 +68,13 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "authority_snapshot" in contract_map["ReviewState"]
     assert "snapshot_id" in contract_map["ReviewState"]
     assert "authority_snapshot" in contract_map["SessionCachePacket"]
+    assert "session_posture" in contract_map["SessionCachePacket"]
+    assert "packet_intent_anchors" in contract_map["SessionCachePacket"]
     assert "conductor_visibility" in contract_map["ReviewerRuntimeContract"]
     assert "publish_clear" in contract_map["ReviewerRuntimeContract"]
+    assert "session_posture" in contract_map["ReviewerRuntimeContract"]
+    assert "actors" in contract_map["SessionPosture"]
+    assert "lifecycle_state" in contract_map["PacketIntentAnchor"]
     assert "approval_expires_at_utc" in contract_map["RemoteCommitPipelineContract"]
     assert "approved_target_identity" in contract_map["RemoteCommitPipelineContract"]
     assert "push_authorization" in contract_map["RemoteCommitPipelineContract"]

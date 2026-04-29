@@ -6,6 +6,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from .agent_session_outcome import AgentSessionOutcomeState
+from .session_posture import SessionPosture, session_posture_from_mapping
 from .work_intake_models import WorkIntakeOwnershipState
 
 
@@ -183,6 +184,7 @@ class CollaborationSessionState:
     loop_gap_summary: str = ""
     actor_authorities: tuple[ActorAuthorityState, ...] = ()
     session_outcomes: tuple[AgentSessionOutcomeState, ...] = ()
+    session_posture: SessionPosture = field(default_factory=SessionPosture)
 
 
 def actor_authorities_from_value(value: object) -> tuple[ActorAuthorityState, ...]:
@@ -218,6 +220,10 @@ def actor_authorities_from_value(value: object) -> tuple[ActorAuthorityState, ..
             )
         )
     return tuple(rows)
+
+
+def session_posture_from_value(value: object) -> SessionPosture:
+    return session_posture_from_mapping(value) or SessionPosture()
 
 
 def capability_grants_from_value(value: object) -> tuple[CapabilityGrantState, ...]:

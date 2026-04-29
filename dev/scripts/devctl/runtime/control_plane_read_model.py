@@ -30,6 +30,7 @@ from .control_plane_read_model_support import (
     _extract_coordination,
     resolve_control_plane_context,
 )
+from .control_plane_read_model_defaults import default_read_model_kwargs
 from .control_plane_resolve import (
     load_git_state,
     utc_now_iso,
@@ -43,6 +44,7 @@ from .reviewer_runtime_models import (
     RemoteControlAttachmentState,
     remote_control_attachment_from_mapping,
 )
+from .session_posture import SessionPosture, session_posture_from_mapping
 from .surface_snapshot import build_surface_zref
 from .surface_provenance import (
     SurfaceProvenance,
@@ -108,6 +110,7 @@ class ControlPlaneReadModel:
     # Typed reviewer observation (derived from bridge state)
     reviewer_observation: ReviewerObservation | None = None
     remote_control_attachment: RemoteControlAttachmentState | None = None
+    session_posture: SessionPosture | None = None
     coordination: CoordinationSnapshot | None = None
     snapshot_id: str = ""
     zref: str = ""
@@ -240,6 +243,7 @@ def build_control_plane_read_model(
         loop_autonomy_ok=context.loop_wake.loop_autonomy_ok,
         loop_gap_summary=context.loop_wake.loop_gap_summary,
         remote_control_attachment=context.remote_control_attachment,
+        session_posture=context.session_posture,
         coordination=context.coordination,
         provenance=surface_provenance_from_mapping(review_state_payload),
     )
@@ -294,6 +298,7 @@ def control_plane_read_model_from_mapping(
         remote_control_attachment=remote_control_attachment_from_mapping(
             value.get("remote_control_attachment")
         ),
+        session_posture=session_posture_from_mapping(value.get("session_posture")),
         publisher_running=coerce_bool(value.get("publisher_running", False)),
         supervisor_running=coerce_bool(value.get("supervisor_running", False)),
         codex_conductor_alive=coerce_bool(value.get("codex_conductor_alive", False)),
@@ -312,39 +317,4 @@ def control_plane_read_model_from_mapping(
 
 def _default_read_model() -> ControlPlaneReadModel:
     """Return a default read model when deserialization input is invalid."""
-    return ControlPlaneReadModel(
-        timestamp="",
-        branch="unknown",
-        head_sha="unknown",
-        snapshot_id="",
-        zref="",
-        worktree_clean=True,
-        ahead_of_upstream=0,
-        resolved_phase=AutoModePhase.IDLE.value,
-        push_eligible=False,
-        implementation_blocked=False,
-        top_blocker="none",
-        next_action="n/a",
-        next_command="",
-        reviewer_mode="single_agent",
-        operator_interaction_mode="unresolved",
-        reviewer_freshness="--",
-        review_accepted=False,
-        last_reviewed_sha="",
-        attention_status="n/a",
-        attention_summary="n/a",
-        publisher_running=False,
-        supervisor_running=False,
-        codex_conductor_alive=False,
-        claude_conductor_alive=False,
-        pending_action_requests=0,
-        last_guard_ok=True,
-        check_details=(),
-        loop_wake_mode="unknown",
-        loop_wake_interval_seconds=0,
-        loop_driver_agent="",
-        loop_autonomy_ok=False,
-        loop_gap_summary="",
-        remote_control_attachment=None,
-        coordination=None,
-    )
+    return ControlPlaneReadModel(**default_read_model_kwargs())

@@ -8,18 +8,15 @@ from pathlib import Path
 
 from ..runtime.conductor_capability import authority_reviewer_mode
 from ..runtime.review_state_models import (
-    CollaborationSessionState,
-    RecoveryAssessmentState,
-    ReviewCurrentSessionState,
+    CollaborationSessionState, RecoveryAssessmentState, ReviewCurrentSessionState,
 )
 from ..runtime.reviewer_gate_logic import (
     ReviewerRuntimeBlockInputs,
     reviewer_runtime_block_state,
 )
+from ..runtime.session_posture import build_session_posture
 from ..runtime.reviewer_runtime_models import (
-    ReviewerAcceptanceState,
-    ReviewerLastPollState,
-    ReviewerRuntimeContract,
+    ReviewerAcceptanceState, ReviewerLastPollState, ReviewerRuntimeContract,
 )
 from .bridge_validation_acceptance import review_acceptance_projection
 from .handoff import BridgeSnapshot
@@ -50,6 +47,8 @@ class ReviewerRuntimeInputs:
     rollover_state_override: Mapping[str, object] | None = None
     recovery_action_override: str | None = None
     prior_review_state: Mapping[str, object] | None = None
+    operator_interaction_mode: str = ""
+    agent_mind: Mapping[str, object] | None = None
     reviewer_accepted_implementer_state_hash_override: str | None = None
 
 
@@ -86,9 +85,7 @@ def build_reviewer_runtime_contract(
         bridge_liveness=bridge_liveness,
         current_session=inputs.current_session,
         prior_review_state=inputs.prior_review_state,
-        reviewer_accepted_implementer_state_hash_override=(
-            inputs.reviewer_accepted_implementer_state_hash_override
-        ),
+        reviewer_accepted_implementer_state_hash_override=inputs.reviewer_accepted_implementer_state_hash_override,
     )
     implementer_ack_current = inputs.current_session.implementer_ack_state == "current"
     implementation_blocked, implementation_block_reason = reviewer_runtime_block_state(
@@ -108,6 +105,9 @@ def build_reviewer_runtime_contract(
         bridge_text=inputs.bridge_text,
         attention=inputs.attention,
         override=inputs.rollover_state_override,
+    )
+    remote_control_attachment = resolve_remote_control_attachment(
+        session_output_root=inputs.session_output_root
     )
     return ReviewerRuntimeContract(
         reviewer_mode=reviewer_mode,
@@ -139,8 +139,7 @@ def build_reviewer_runtime_contract(
         ),
         rollover=rollover,
         session_owner=resolve_reviewer_session_owner(
-            collaboration=inputs.collaboration,
-            session_output_root=inputs.session_output_root,
+            collaboration=inputs.collaboration, session_output_root=inputs.session_output_root
         ),
         recovery_action_allowed=_recovery_action_allowed(
             recovery_assessment=inputs.recovery_assessment,
@@ -156,8 +155,14 @@ def build_reviewer_runtime_contract(
             rollover=rollover,
             review_accepted=review_acceptance.review_accepted,
         ),
-        remote_control_attachment=resolve_remote_control_attachment(
-            session_output_root=inputs.session_output_root,
+        remote_control_attachment=remote_control_attachment,
+        session_posture=build_session_posture(
+            interaction_mode=inputs.operator_interaction_mode,
+            reviewer_mode=reviewer_mode,
+            effective_reviewer_mode=effective_mode,
+            collaboration=inputs.collaboration,
+            remote_control_attachment=remote_control_attachment,
+            agent_mind=inputs.agent_mind,
         ),
     )
 

@@ -21,14 +21,20 @@ from dev.scripts.devctl.context_graph.models import (
     EDGE_KIND_RELATED_TO,
     EDGE_KIND_ROUTES_TO,
     EDGE_KIND_SCOPED_BY,
+    EDGE_KIND_CONTRACT_READS,
+    EDGE_KIND_CONTRACT_WRITES,
     NODE_KIND_CAPABILITY,
     NODE_KIND_COMMAND,
+    NODE_KIND_CONFIG,
     NODE_KIND_CONCEPT,
     NODE_KIND_DATACLASS_FIELD,
     NODE_KIND_GUARD,
+    NODE_KIND_INTENT,
     NODE_KIND_PLAN,
+    NODE_KIND_PLAN_ROW,
     NODE_KIND_PROBE,
     NODE_KIND_SOURCE,
+    NODE_KIND_TEST,
     NODE_KIND_TYPED_CONTRACT,
     HotIndexSummary,
     GraphEdge,
@@ -87,6 +93,16 @@ class TestContextGraphBuild(unittest.TestCase):
         kinds = {n.node_kind for n in nodes}
         for expected in (NODE_KIND_SOURCE, NODE_KIND_PLAN, NODE_KIND_GUARD, NODE_KIND_PROBE):
             self.assertIn(expected, kinds, f"missing node kind: {expected}")
+
+    def test_contains_operational_node_kinds(self) -> None:
+        nodes, _ = build_context_graph()
+        kinds = {n.node_kind for n in nodes}
+        for expected in (
+            NODE_KIND_PLAN_ROW,
+            NODE_KIND_TEST,
+            NODE_KIND_CONFIG,
+        ):
+            self.assertIn(expected, kinds, f"missing operational node kind: {expected}")
 
     def test_every_node_has_required_fields(self) -> None:
         nodes, _ = build_context_graph()
@@ -338,6 +354,19 @@ class TestContextGraphQuery(unittest.TestCase):
                 for node in self.nodes
             ),
             "contract nodes should be annotated from ConnectivityRegistrySnapshot",
+        )
+
+    def test_operational_graph_projects_contract_read_write_edges(self) -> None:
+        edge_kinds = {edge.edge_kind for edge in self.edges}
+        self.assertIn(EDGE_KIND_CONTRACT_READS, edge_kinds)
+        self.assertIn(EDGE_KIND_CONTRACT_WRITES, edge_kinds)
+
+    def test_plan_task_query_returns_plan_row(self) -> None:
+        result = query_context_graph("MP377-P0-T13", self.nodes, self.edges)
+        self.assertNotEqual(result.confidence, "no_match")
+        self.assertTrue(
+            any(node.node_kind == NODE_KIND_PLAN_ROW for node in result.matched_nodes),
+            "task-id query should return the generated plan_row node",
         )
 
     def test_contract_alias_query_resolves_snake_case(self) -> None:
@@ -597,6 +626,23 @@ class TestConceptLayer(unittest.TestCase):
         concept_nodes = [n for n in result.matched_nodes if n.node_kind == NODE_KIND_CONCEPT]
         self.assertGreater(len(concept_nodes), 0, "query should return concept nodes alongside source files")
 
+    def test_intent_concept_routes_to_commands(self) -> None:
+        intent_node = next(
+            (n for n in self.nodes if n.node_id == "concept:intent:heartbeat"),
+            None,
+        )
+        self.assertIsNotNone(intent_node, "heartbeat intent concept should exist")
+        self.assertEqual(intent_node.node_kind, NODE_KIND_INTENT)
+        self.assertTrue(
+            any(
+                edge.source_id == "concept:intent:heartbeat"
+                and edge.target_id == "cmd:review-channel"
+                and edge.edge_kind == EDGE_KIND_ROUTES_TO
+                for edge in self.edges
+            ),
+            "heartbeat intent should route to the typed review-channel command",
+        )
+
 
 class TestCapabilityNodes(unittest.TestCase):
     """Verify SystemCatalog surfaces appear as capability nodes."""
@@ -756,6 +802,10 @@ class TestModeFormatDispatch(unittest.TestCase):
     def test_context_graph_in_devctl_list(self) -> None:
         from dev.scripts.devctl.commands.listing import COMMANDS
         self.assertIn("context-graph", COMMANDS)
+
+    def test_graph_walk_in_devctl_list(self) -> None:
+        from dev.scripts.devctl.commands.listing import COMMANDS
+        self.assertIn("graph-walk", COMMANDS)
 
 
 class TestCommandOwnership(unittest.TestCase):

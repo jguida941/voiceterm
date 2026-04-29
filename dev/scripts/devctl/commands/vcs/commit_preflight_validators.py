@@ -68,6 +68,7 @@ def prepare_pipeline(
     repo_root: Path,
     resolved_policy,
     vcs_executor: GovernedVcsExecutor,
+    action_request_grant: object | None = None,
     deps: CommitPreflightDeps | None = None,
 ):
     """Load or restage the governed pipeline before guard replay."""
@@ -116,7 +117,10 @@ def prepare_pipeline(
                 push_requested=False,
                 guard_profile=GUARD_PROFILE,
                 work_intake_ref="devctl.commit",
-                reuse_staged_index=not bool(selected_paths),
+                reuse_staged_index=_reuse_staged_index(
+                    selected_paths=selected_paths,
+                    action_request_grant=action_request_grant,
+                ),
                 allow_empty=bool(
                     getattr(args, "passthrough", ())
                     and "--allow-empty" in getattr(args, "passthrough", ())
@@ -168,6 +172,27 @@ def _selected_stage_paths(args) -> tuple[str, ...]:
             selected.append(text)
             seen.add(text)
     return tuple(selected)
+
+
+def _reuse_staged_index(
+    *,
+    selected_paths: tuple[str, ...],
+    action_request_grant: object | None,
+) -> bool:
+    """Return whether stage should preserve an already-staged user index."""
+    if selected_paths:
+        return False
+    if _grant_has_capability(action_request_grant, "repo.stage"):
+        return False
+    if _grant_has_capability(action_request_grant, "repo.stage_handoff"):
+        return False
+    return True
+
+
+def _grant_has_capability(grant: object | None, capability: str) -> bool:
+    if grant is None or not bool(getattr(grant, "authorized", False)):
+        return False
+    return capability in tuple(getattr(grant, "granted_capabilities", ()) or ())
 
 
 def _reload_after_auto_push_failure_transition(

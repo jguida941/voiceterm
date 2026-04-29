@@ -46,6 +46,7 @@ from .models import (
     GraphEdge,
     GraphNode,
 )
+from .operational_nodes import collect_operational_nodes
 from .plan_scope_edges import (
     _matches_repo_prefix,
     collect_plan_scope_edges,
@@ -302,6 +303,10 @@ def build_context_graph(
     concept_nodes, concept_edges = build_concept_nodes(nodes, edges)
     nodes.extend(concept_nodes)
     edges.extend(concept_edges)
+
+    operational_nodes, operational_edges = collect_operational_nodes(repo_root, nodes, edges)
+    nodes.extend(operational_nodes)
+    edges.extend(operational_edges)
 
     edges.extend(materialize_documented_by_edges(nodes, _deferred_doc_edges))
 

@@ -22,7 +22,10 @@ from .review_state_collaboration_fields import (
     ownership_state_from_mapping,
 )
 from .review_state_collaboration_legacy import _legacy_collaboration_state
-from .review_state_collaboration_models import actor_authorities_from_value
+from .review_state_collaboration_models import (
+    actor_authorities_from_value,
+    session_posture_from_value,
+)
 from .review_state_models import (
     AgentRegistryState,
     CollaborationSessionState,
@@ -163,6 +166,9 @@ def collaboration_state_from_payload(
                 collaboration.get("actor_authorities")
             ),
             session_outcomes=session_outcomes,
+            session_posture=session_posture_from_value(
+                collaboration.get("session_posture")
+            ),
         )
     return _legacy_collaboration_state(
         review=review,

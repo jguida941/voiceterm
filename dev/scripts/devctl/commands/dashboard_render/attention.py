@@ -79,6 +79,7 @@ def render_pending_packets_terminal(
     """Inline pending packets under COORDINATION when present."""
     packets = snapshot.get("pending_packets", [])
     if not packets:
+        render_control_packets_terminal(snapshot, lines)
         return
     for pkt in packets[:5]:
         kind = pkt.get("kind", "?")
@@ -87,6 +88,30 @@ def render_pending_packets_terminal(
         approval = f" {_RED}[approval]{_RESET}" if pkt.get("approval_required") else ""
         lines.append(
             f"  {_YELLOW}PKT{_RESET}  {kind} -> {to_agent}: {summary}{approval}"
+        )
+    render_control_packets_terminal(snapshot, lines)
+
+
+def render_control_packets_terminal(
+    snapshot: dict[str, Any], lines: list[str],
+) -> None:
+    """Inline action-request lifecycle rows under COORDINATION."""
+    packets = snapshot.get("control_packets", [])
+    if not packets:
+        return
+    for pkt in packets[:4]:
+        packet_id = pkt.get("packet_id", "?")
+        state = pkt.get("lifecycle_current_state") or pkt.get("status") or "unknown"
+        action = pkt.get("requested_action", "")
+        to_agent = pkt.get("to_agent", "?")
+        reason = pkt.get("execution_failed_reason") or pkt.get(
+            "apply_pending_after_execution_reason",
+            "",
+        )
+        detail = f" {reason[:34]}" if reason else ""
+        lines.append(
+            f"  {_CYAN}CTRL{_RESET} {packet_id} -> {to_agent}: "
+            f"{state} {action}{detail}"
         )
 
 
@@ -132,6 +157,7 @@ def render_pending_packets_markdown(
     """
     packets = snapshot.get("pending_packets", [])
     if not packets:
+        render_control_packets_markdown(snapshot, lines)
         return
     lines.append("")
     lines.append("**Pending packets**:")
@@ -142,6 +168,35 @@ def render_pending_packets_markdown(
         to_agent = pkt.get("to_agent", "?")
         approval = " *[approval required]*" if pkt.get("approval_required") else ""
         lines.append(f"- `{kind}` -> {to_agent}: {summary}{approval}")
+    render_control_packets_markdown(snapshot, lines)
+
+
+def render_control_packets_markdown(
+    snapshot: dict[str, Any], lines: list[str],
+) -> None:
+    """Markdown action-request lifecycle rows."""
+    packets = snapshot.get("control_packets", [])
+    if not packets:
+        return
+    lines.append("")
+    lines.append("**Action-request lifecycle**:")
+    lines.append("")
+    for pkt in packets[:5]:
+        packet_id = pkt.get("packet_id", "?")
+        state = pkt.get("lifecycle_current_state") or pkt.get("status") or "unknown"
+        action = pkt.get("requested_action", "")
+        to_agent = pkt.get("to_agent", "?")
+        semantic_zref = pkt.get("semantic_zref", "")
+        zref_suffix = f" `{semantic_zref}`" if semantic_zref else ""
+        reason = pkt.get("execution_failed_reason") or pkt.get(
+            "apply_pending_after_execution_reason",
+            "",
+        )
+        reason_suffix = f" ({reason})" if reason else ""
+        lines.append(
+            f"- `{packet_id}` -> {to_agent}: `{state}` {action}"
+            f"{reason_suffix}{zref_suffix}"
+        )
 
 
 # ---------------------------------------------------------------------------

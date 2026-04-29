@@ -58,6 +58,7 @@ class ReviewQueueState:
     derived_next_instruction: str
     derived_next_instruction_source: dict[str, object]
     instruction_priority_decision: dict[str, object] = field(default_factory=dict)
+    last_failed_action_request: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)

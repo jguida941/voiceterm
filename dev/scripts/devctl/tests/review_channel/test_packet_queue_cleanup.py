@@ -77,6 +77,29 @@ def test_live_pending_packets_excludes_expired_history() -> None:
     assert [packet["packet_id"] for packet in live_packets] == ["live"]
 
 
+def test_live_pending_packets_excludes_failed_action_request() -> None:
+    packets = [
+        _packet(
+            packet_id="failed",
+            expires_at_utc="2999-01-01T00:00:00Z",
+        )
+        | {"execution_failed_at_utc": "2026-04-29T13:00:00Z"},
+        _packet(
+            packet_id="apply-pending",
+            expires_at_utc="2999-01-01T00:00:00Z",
+        )
+        | {"apply_pending_after_execution_at_utc": "2026-04-29T13:01:00Z"},
+        _packet(
+            packet_id="live",
+            expires_at_utc="2999-01-01T00:00:00Z",
+        ),
+    ]
+
+    live_packets = live_pending_packets(packets)
+
+    assert [packet["packet_id"] for packet in live_packets] == ["live"]
+
+
 def test_live_pending_packets_preserves_typed_packets() -> None:
     packet = ReviewPacketState(
         packet_id="typed-live",

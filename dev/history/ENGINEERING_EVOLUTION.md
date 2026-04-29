@@ -13035,3 +13035,36 @@ Evidence:
 - `dev/scripts/devctl/tests/governance/test_master_plan_ingestion.py`
 - `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
 - `dev/scripts/devctl/tests/review_channel/test_packet_lifecycle.py`
+
+### 2026-04-29 - SessionPosture becomes the Plan 4.1 runtime posture seam
+
+Plan 4.1 rescue Slice A collapsed the mode/role/lane vocabulary split onto a
+typed `SessionPosture` contract. Reviewer runtime now produces the posture,
+status/startup/dashboard/session-resume consume it, and event bridge projection
+prefers typed reviewer-runtime posture over bridge prose or stopped daemon
+fallbacks. `actors[].occupied_lane` is the current-seat field; `agent_lane.lane`
+remains a compatibility alias, and capability grants stay separate from lane
+occupancy. Fresh `agent-mind` rollout projection can mark an actor live without
+assigning a lane.
+
+The same slice adds remote-control bootstrap routing text gated by
+`SessionPosture.interaction_mode=remote_control`: no local GUI/process
+intervention, no ad hoc kill commands, no local commit/push authority, and
+privileged/commit/push work routes through typed `action_request` packets or
+bounded repo commands. Planning packets now also project MVP
+`PacketIntentAnchor` / `PlanIterationSession` continuity so pending or expired
+plan intent survives startup without becoming MasterPlan authority unless the
+planning packet is explicitly applied.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/session_posture.py`
+- `dev/scripts/devctl/runtime/packet_intent_anchor.py`
+- `dev/scripts/devctl/review_channel/reviewer_runtime_contract.py`
+- `dev/scripts/devctl/review_channel/event_projection_bridge.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/commands/governance/session_resume_render.py`
+- `dev/scripts/devctl/commands/governance/startup_context_render.py`
+- `dev/scripts/devctl/commands/vcs/push_receipt_failure.py`
+- `dev/scripts/devctl/tests/runtime/test_session_posture.py`
+- `dev/scripts/devctl/tests/runtime/test_packet_intent_anchor.py`

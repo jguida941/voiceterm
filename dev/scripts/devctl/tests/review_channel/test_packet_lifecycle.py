@@ -8,6 +8,7 @@ from dev.scripts.devctl.review_channel.event_reducer import reduce_events
 from dev.scripts.devctl.review_channel.packet_plan_integration import (
     maybe_append_packet_plan_row,
 )
+from dev.scripts.devctl.review_channel.packet_lifecycle import project_packet_lifecycle
 from dev.scripts.devctl.runtime.review_state_parser_rows import packet_states_from_value
 
 
@@ -173,6 +174,159 @@ def test_review_packet_state_parser_preserves_lifecycle_fields(
     assert states[0].lifecycle_current_state == "acknowledged"
     assert states[0].acknowledged_events[0]["by_agent"] == "claude"
     assert states[0].disposition["sink"] == "queued"
+
+
+def test_action_request_execution_start_reduces_through_lifecycle_history(
+    tmp_path: Path,
+) -> None:
+    posted = _posted_packet(
+        packet_id="rev_pkt_action_start",
+        kind="action_request",
+        requested_action="stage_commit_pipeline",
+    )
+    acked = {
+        **posted,
+        "event_id": "rev_evt_006",
+        "event_type": "packet_acked",
+        "timestamp_utc": "2026-04-29T13:00:00Z",
+        "status": "acked",
+        "metadata": {"actor": "claude"},
+    }
+
+    review_state, _ = reduce_events(
+        events=[posted, acked],
+        repo_root=tmp_path,
+        review_channel_path=_review_channel_path(tmp_path),
+    )
+
+    packet = review_state["packets"][0]
+
+    assert packet["lifecycle_current_state"] == "in_progress"
+    assert packet["execution_started_at_utc"] == "2026-04-29T13:00:00Z"
+    assert packet["execution_started_by"] == "claude"
+    assert packet["acknowledged_events"][0]["event_kind"] == "ack"
+    assert packet["acknowledged_events"][1]["event_kind"] == "execution_started"
+    assert (
+        packet["lifecycle_history"]["acknowledged_events"][1]["action"]
+        == "execution_started"
+    )
+
+
+def test_action_request_failure_event_reduces_through_lifecycle_history(
+    tmp_path: Path,
+) -> None:
+    posted = _posted_packet(
+        packet_id="rev_pkt_action_failed",
+        kind="action_request",
+        requested_action="stage_commit_pipeline",
+    )
+    failed = {
+        **posted,
+        "event_id": "rev_evt_007",
+        "event_type": "action_request_execution_failed",
+        "timestamp_utc": "2026-04-29T13:01:00Z",
+        "status": "failed",
+        "metadata": {
+            "actor": "claude",
+            "reason": "pending_reviewer_packets",
+        },
+    }
+
+    review_state, _ = reduce_events(
+        events=[posted, failed],
+        repo_root=tmp_path,
+        review_channel_path=_review_channel_path(tmp_path),
+    )
+
+    packet = review_state["packets"][0]
+
+    assert packet["lifecycle_current_state"] == "failed"
+    assert packet["execution_failed_at_utc"] == "2026-04-29T13:01:00Z"
+    assert packet["execution_failed_by"] == "claude"
+    assert packet["execution_failed_reason"] == "pending_reviewer_packets"
+    assert packet["acted_on_events"][0]["event_kind"] == "failed"
+    assert packet["disposition"]["sink"] == "recovery_required"
+    assert packet["disposition"]["next_slice_target"] == "fresh_action_request"
+
+
+def test_action_request_apply_pending_event_reduces_through_lifecycle_history(
+    tmp_path: Path,
+) -> None:
+    posted = _posted_packet(
+        packet_id="rev_pkt_action_apply_pending",
+        kind="action_request",
+        requested_action="stage_commit_pipeline",
+    )
+    apply_pending = {
+        **posted,
+        "event_id": "rev_evt_008",
+        "event_type": "action_request_apply_pending_after_execution",
+        "timestamp_utc": "2026-04-29T13:02:00Z",
+        "status": "apply_pending_after_execution",
+        "metadata": {
+            "actor": "claude",
+            "reason": "packet_apply_failed_after_commit",
+        },
+    }
+
+    review_state, _ = reduce_events(
+        events=[posted, apply_pending],
+        repo_root=tmp_path,
+        review_channel_path=_review_channel_path(tmp_path),
+    )
+
+    packet = review_state["packets"][0]
+
+    assert packet["lifecycle_current_state"] == "apply_pending_after_execution"
+    assert packet["apply_pending_after_execution_at_utc"] == "2026-04-29T13:02:00Z"
+    assert packet["apply_pending_after_execution_by"] == "claude"
+    assert (
+        packet["apply_pending_after_execution_reason"]
+        == "packet_apply_failed_after_commit"
+    )
+    assert packet["acted_on_events"][0]["event_kind"] == (
+        "apply_pending_after_execution"
+    )
+    assert packet["disposition"]["sink"] == "recovery_required"
+    assert (
+        packet["disposition"]["next_slice_target"]
+        == "fresh_action_request_or_explicit_recovery"
+    )
+
+
+def test_action_request_failure_receipt_is_terminal_lifecycle_state() -> None:
+    packet = project_packet_lifecycle(
+        _posted_packet(
+            kind="action_request",
+            requested_action="stage_commit_pipeline",
+            execution_failed_at_utc="2026-04-29T13:00:00Z",
+            execution_failed_by="claude",
+            execution_failed_reason="pending_reviewer_packets",
+        )
+    )
+
+    assert packet["lifecycle_current_state"] == "failed"
+    assert packet["disposition"]["sink"] == "recovery_required"
+    assert packet["disposition"]["next_slice_target"] == "fresh_action_request"
+
+
+def test_action_request_apply_pending_receipt_is_terminal_lifecycle_state() -> None:
+    packet = project_packet_lifecycle(
+        _posted_packet(
+            kind="action_request",
+            requested_action="stage_commit_pipeline",
+            apply_pending_after_execution_at_utc="2026-04-29T13:02:00Z",
+            apply_pending_after_execution_by="claude",
+            apply_pending_after_execution_reason="packet_apply_failed_after_commit",
+        )
+    )
+
+    assert packet["lifecycle_current_state"] == "apply_pending_after_execution"
+    assert packet["disposition"]["sink"] == "recovery_required"
+    assert (
+        packet["disposition"]["next_slice_target"]
+        == "fresh_action_request_or_explicit_recovery"
+    )
 
 
 def test_plan_target_apply_appends_idempotent_master_plan_row(

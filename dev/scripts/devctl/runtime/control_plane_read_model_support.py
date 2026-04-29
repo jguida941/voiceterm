@@ -29,6 +29,7 @@ from .reviewer_runtime_models import (
     RemoteControlAttachmentState,
     remote_control_attachment_from_mapping,
 )
+from .session_posture import SessionPosture, session_posture_from_mapping
 from .value_coercion import coerce_string
 
 if TYPE_CHECKING:
@@ -58,6 +59,7 @@ class ResolvedControlPlaneContext(NamedTuple):
     reviewer_observation: ReviewerObservation | None
     coordination: CoordinationSnapshot | None
     remote_control_attachment: RemoteControlAttachmentState | None
+    session_posture: SessionPosture | None
     snapshot_id: str
     loop_wake: ControlPlaneLoopWakeState
 
@@ -146,6 +148,14 @@ def resolve_control_plane_context(
             "remote_control_attachment",
         )
     )
+    session_posture = session_posture_from_mapping(
+        _nested_get(inputs.review_state_payload, "reviewer_runtime", "session_posture")
+    )
+    if (
+        session_posture is not None
+        and session_posture.interaction_mode != "unresolved"
+    ):
+        operator_interaction_mode = session_posture.interaction_mode
     snapshot_id = coerce_string(
         _nested_get(inputs.review_state_payload, "snapshot_id")
     )
@@ -168,6 +178,7 @@ def resolve_control_plane_context(
         reviewer_observation=reviewer_observation,
         coordination=coordination,
         remote_control_attachment=remote_control_attachment,
+        session_posture=session_posture,
         snapshot_id=snapshot_id,
         loop_wake=loop_wake,
     )

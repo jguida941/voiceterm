@@ -104,7 +104,8 @@ from ..config import (
     DEFAULT_MUTATION_THRESHOLD,
 )
 from ..context_graph.command import run as context_graph_run
-from ..context_graph.parser import add_context_graph_parser
+from ..context_graph.graph_walk_command import run as graph_walk_run
+from ..context_graph.parser import add_context_graph_parser, add_graph_walk_parser
 from ..controller_action_parser import add_controller_action_parser
 from .claude_loop import add_claude_loop_parser
 from ..data_science.metrics import maybe_auto_refresh_data_science
@@ -166,6 +167,7 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset({
     "claude-loop",
     "discover",
     "findings-priority",
+    "graph-walk",
     "view",
     "list",
     "rollout-tail",
@@ -245,6 +247,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_integrations_sync_parser(sub)
     add_integrations_import_parser(sub)
     add_context_graph_parser(sub)
+    add_graph_walk_parser(sub)
     governance_startup_context.add_parser(sub)
     governance_session.add_parser(sub)
     governance_session_resume.add_parser(sub)
@@ -271,7 +274,7 @@ def _add_dashboard_parser(sub: argparse._SubParsersAction) -> None:
     )
     add_standard_output_arguments(
         dash,
-        format_choices=("terminal", "md", "json"),
+        format_choices=("terminal", "md", "json", "simple"),
         default_format="terminal",
     )
     dash.add_argument(
@@ -392,6 +395,7 @@ COMMAND_HANDLERS = {
     "reports-cleanup": reports_cleanup.run,
     "audit-scaffold": audit_scaffold.run,
     "context-graph": context_graph_run,
+    "graph-walk": graph_walk_run,
     "startup-context": governance_startup_context.run,
     "session": governance_session.run,
     "session-resume": governance_session_resume.run,

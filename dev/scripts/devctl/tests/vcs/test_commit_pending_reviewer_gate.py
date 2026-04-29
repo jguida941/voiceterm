@@ -14,7 +14,11 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.runtime.commit_packet_gate import (
     _has_actionable_attention,
+    pending_packet_queue_block_commit,
     pending_reviewer_packets_block_commit,
+)
+from dev.scripts.devctl.review_channel.pending_packet_models import (
+    PendingPacketQueueSnapshot,
 )
 
 
@@ -113,6 +117,103 @@ class TestPendingReviewerPacketsBlockCommit(unittest.TestCase):
     def test_allows_when_no_review_channel_path(self):
         result = pending_reviewer_packets_block_commit(
             repo_root=None, review_channel_path=None,
+        )
+        self.assertIsNone(result)
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate.load_pending_packet_queue"
+    )
+    def test_queue_gate_exempts_authorized_action_request(self, mock_load):
+        mock_load.return_value = PendingPacketQueueSnapshot(
+            pending_packets=(
+                {
+                    "packet_id": "rev_pkt_exec",
+                    "kind": "action_request",
+                    "to_agent": "claude",
+                    "status": "pending",
+                    "requested_action": "stage_commit_pipeline",
+                    "policy_hint": "safe_auto_apply",
+                },
+            ),
+        )
+        result = pending_packet_queue_block_commit(
+            repo_root=Path("/fake/repo"),
+            target_agent="claude",
+            exempt_packet_id="rev_pkt_exec",
+        )
+        self.assertIsNone(result)
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate.load_pending_packet_queue"
+    )
+    def test_queue_gate_blocks_other_action_requests(self, mock_load):
+        mock_load.return_value = PendingPacketQueueSnapshot(
+            pending_packets=(
+                {
+                    "packet_id": "rev_pkt_other",
+                    "kind": "action_request",
+                    "to_agent": "claude",
+                    "status": "pending",
+                    "requested_action": "stage_commit_pipeline",
+                    "policy_hint": "safe_auto_apply",
+                },
+            ),
+        )
+        result = pending_packet_queue_block_commit(
+            repo_root=Path("/fake/repo"),
+            target_agent="claude",
+            exempt_packet_id="rev_pkt_exec",
+        )
+        self.assertIsNotNone(result)
+        self.assertIn("rev_pkt_other", result)
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate.load_pending_packet_queue"
+    )
+    def test_queue_gate_blocks_other_acked_action_requests(self, mock_load):
+        mock_load.return_value = PendingPacketQueueSnapshot(
+            pending_packets=(),
+            control_packets=(
+                {
+                    "packet_id": "rev_pkt_other",
+                    "kind": "action_request",
+                    "to_agent": "claude",
+                    "status": "acked",
+                    "requested_action": "stage_commit_pipeline",
+                    "policy_hint": "safe_auto_apply",
+                    "execution_started_at_utc": "2026-04-29T16:00:00Z",
+                    "expires_at_utc": "2999-01-01T00:00:00Z",
+                },
+            ),
+        )
+        result = pending_packet_queue_block_commit(
+            repo_root=Path("/fake/repo"),
+            target_agent="claude",
+            exempt_packet_id="rev_pkt_exec",
+        )
+        self.assertIsNotNone(result)
+        self.assertIn("rev_pkt_other", result)
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate.load_pending_packet_queue"
+    )
+    def test_queue_gate_ignores_failed_action_requests(self, mock_load):
+        mock_load.return_value = PendingPacketQueueSnapshot(
+            pending_packets=(
+                {
+                    "packet_id": "rev_pkt_failed",
+                    "kind": "action_request",
+                    "to_agent": "claude",
+                    "status": "pending",
+                    "requested_action": "stage_commit_pipeline",
+                    "policy_hint": "safe_auto_apply",
+                    "execution_failed_at_utc": "2026-04-29T16:00:00Z",
+                },
+            ),
+        )
+        result = pending_packet_queue_block_commit(
+            repo_root=Path("/fake/repo"),
+            target_agent="claude",
         )
         self.assertIsNone(result)
 
@@ -223,6 +324,66 @@ class TestPendingReviewerPacketsBlockCommit(unittest.TestCase):
         )
 
         self.assertIsNone(result)
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"
+    )
+    def test_review_only_finding_packets_do_not_block_commit(self, mock_load):
+        mock_load.return_value = _make_review_state(
+            agents=[
+                _make_inbox_record(
+                    agent="codex",
+                    pending_ids=("rev_pkt_finding",),
+                    wake_reason="finding_pending",
+                ),
+            ],
+            packets=[
+                _make_packet(
+                    packet_id="rev_pkt_finding",
+                    kind="finding",
+                    to_agent="codex",
+                ),
+            ],
+        )
+
+        result = pending_reviewer_packets_block_commit(
+            repo_root=None,
+            review_channel_path=Path("/fake/exists"),
+            target_agent="codex",
+        )
+
+        self.assertIsNone(result)
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"
+    )
+    def test_action_request_packets_still_block_commit(self, mock_load):
+        mock_load.return_value = _make_review_state(
+            agents=[
+                _make_inbox_record(
+                    agent="codex",
+                    pending_ids=("rev_pkt_action",),
+                ),
+            ],
+            packets=[
+                _make_packet(
+                    packet_id="rev_pkt_action",
+                    kind="action_request",
+                    to_agent="codex",
+                    requested_action="stage_commit_pipeline",
+                    policy_hint="safe_auto_apply",
+                ),
+            ],
+        )
+
+        result = pending_reviewer_packets_block_commit(
+            repo_root=None,
+            review_channel_path=Path("/fake/exists"),
+            target_agent="codex",
+        )
+
+        self.assertIsNotNone(result)
+        self.assertIn("rev_pkt_action", result)
 
     @patch(
         "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"

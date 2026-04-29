@@ -1258,6 +1258,7 @@ class PushCommandTests(unittest.TestCase):
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "blocked")
         self.assertIn("protected branch", payload["errors"][0])
+        self.assertIn("protected branch", payload["action_result"]["errors"][0]["message"])
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
@@ -1851,6 +1852,10 @@ class PushCommandTests(unittest.TestCase):
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "blocked")
         self.assertIn("Publication authorization blocks", payload["errors"][0])
+        self.assertIn(
+            "Publication authorization blocks",
+            payload["action_result"]["errors"][0]["message"],
+        )
 
 
 class PushBridgeSyncTests(unittest.TestCase):
@@ -2620,6 +2625,74 @@ class PushBridgeSyncTests(unittest.TestCase):
             "Committed ReviewSnapshot freshness receipt snapshot-rec before push preflight.",
             state.warnings,
         )
+
+    def test_review_snapshot_receipt_failure_reports_stderr_before_raw_output(
+        self,
+    ) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        raw_json = '{"ok": false, "detail": "' + ("x" * 1000) + '"}'
+
+        def _runner(name, cmd, cwd=None, env=None):
+            del name, cmd, cwd, env
+            return {
+                "returncode": 17,
+                "stderr": "receipt chain overflow\nextra ignored",
+                "failure_output": raw_json,
+            }
+
+        with patch.object(
+            push_preflight_projection,
+            "_current_head_sha",
+            return_value="before-head",
+        ):
+            result = (
+                push_preflight_projection.auto_commit_review_snapshot_freshness_receipt(
+                    state,
+                    command_runner=_runner,
+                    repo_root=Path("/tmp/repo"),
+                    next_step_label="push preflight",
+                )
+            )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["returncode"], 17)
+        self.assertEqual(result["error"], state.errors[0])
+        self.assertIn("returncode=17", state.errors[0])
+        self.assertIn("stderr=receipt chain overflow", state.errors[0])
+        self.assertNotIn("x" * 80, state.errors[0])
+
+    def test_review_snapshot_receipt_failure_truncates_raw_output(
+        self,
+    ) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        raw_json = '{"ok": false, "detail": "' + ("x" * 1000) + '"}'
+
+        def _runner(name, cmd, cwd=None, env=None):
+            del name, cmd, cwd, env
+            return {
+                "returncode": 3,
+                "failure_output": raw_json,
+            }
+
+        with patch.object(
+            push_preflight_projection,
+            "_current_head_sha",
+            return_value="before-head",
+        ):
+            result = (
+                push_preflight_projection.auto_commit_review_snapshot_freshness_receipt(
+                    state,
+                    command_runner=_runner,
+                    repo_root=Path("/tmp/repo"),
+                    next_step_label="push preflight",
+                )
+            )
+
+        self.assertFalse(result["ok"])
+        self.assertIn("returncode=3", state.errors[0])
+        self.assertIn("output=", state.errors[0])
+        self.assertIn("truncated; see dev/reports/push/latest.json", state.errors[0])
+        self.assertLess(len(result["error_detail"]), 450)
 
     def test_generated_preflight_commit_gets_snapshot_receipt_before_authorization(
         self,

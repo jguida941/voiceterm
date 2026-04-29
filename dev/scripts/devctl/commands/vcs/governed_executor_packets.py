@@ -174,7 +174,7 @@ def matching_commit_stage_request_packet(
             continue
         if _packet_field(packet, "target_revision") != target_revision:
             continue
-        if _packet_field(packet, "status") not in {"pending", "acked", "applied"}:
+        if _packet_field(packet, "status") not in {"pending", "acked"}:
             continue
         matches.append(packet)
     if not matches:

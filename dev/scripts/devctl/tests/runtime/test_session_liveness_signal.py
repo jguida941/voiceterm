@@ -80,3 +80,31 @@ def test_dashboard_snapshot_projects_session_liveness_section() -> None:
 
     assert snapshot["session_liveness"]["available"] is True
     assert snapshot["session_liveness"]["signals"][0]["provider"] == "codex"
+
+
+def test_dashboard_codex_sessions_prefer_session_posture_liveness() -> None:
+    snapshot = normalize_dashboard_snapshot(
+        {
+            "control_plane": {
+                "session_posture": {
+                    "interaction_mode": "remote_control",
+                    "reviewer_mode": "single_agent",
+                    "actors": [
+                        {
+                            "actor_id": "codex",
+                            "provider": "codex",
+                            "live": True,
+                            "current_activity": "running_tests",
+                            "current_target": "focused guard batch",
+                        }
+                    ],
+                }
+            }
+        },
+        review_state={},
+    )
+
+    codex = snapshot["active_codex_sessions"]
+    assert codex["live_count"] == 1
+    assert codex["sessions"][0]["source"] == "session_posture"
+    assert codex["sessions"][0]["current_activity"] == "running_tests"

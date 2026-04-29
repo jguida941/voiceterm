@@ -179,6 +179,8 @@ def _finalize_packet_posted_identity(
         raise ValueError(
             f"Duplicate review-channel packet_id rejected: {packet_id}"
         )
+    if not str(event.get("semantic_zref") or "").strip():
+        event["semantic_zref"] = f"packet:{packet_id}"
 
     trace_id = str(event.get("trace_id") or "").strip()
     if not trace_id:

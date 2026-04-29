@@ -26,6 +26,7 @@ class CoordinationActorRecord:
     session_name: str = ""
     job_state: str = ""
     waiting_on: str = ""
+    occupied_lane: str = ""
     lane: str = ""
     mp_scope: str = ""
     worktree: str = ""
@@ -112,6 +113,9 @@ def coordination_actor_from_mapping(value: object) -> CoordinationActorRecord | 
         session_name=str(value.get("session_name") or "").strip(),
         job_state=str(value.get("job_state") or "").strip(),
         waiting_on=str(value.get("waiting_on") or "").strip(),
+        occupied_lane=str(
+            value.get("occupied_lane") or value.get("lane") or ""
+        ).strip(),
         lane=str(value.get("lane") or "").strip(),
         mp_scope=str(value.get("mp_scope") or "").strip(),
         worktree=str(value.get("worktree") or "").strip(),

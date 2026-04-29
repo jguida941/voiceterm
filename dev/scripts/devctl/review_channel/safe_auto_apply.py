@@ -6,7 +6,6 @@ import secrets
 from pathlib import Path
 
 from ..time_utils import utc_timestamp
-from .action_request_delivery import record_action_request_execution_start
 from .context_refs import normalize_context_pack_refs
 from .event_store import (
     ReviewChannelArtifactPaths,
@@ -19,6 +18,10 @@ from .remote_control_attachment_artifact import heartbeat_repo_remote_control_at
 
 SAFE_AUTO_APPLY_ACTION_REQUESTS = frozenset({"stage_commit_pipeline"})
 _TRANSITION_EVENT_TYPES = {"ack": "packet_acked", "apply": "packet_applied"}
+_COMPLETED_HANDOFF_EVIDENCE_PREFIXES = (
+    "agent_session_outcome:",
+    "completed_handoff:",
+)
 
 
 def append_safe_auto_apply_events(
@@ -47,12 +50,6 @@ def append_safe_auto_apply_events(
         )
         events.append(written_event)
         written.append(written_event)
-        record_action_request_execution_start(
-            artifact_root=Path(artifact_paths.artifact_root),
-            packet=packet_event,
-            actor="system",
-            started_at_utc=str(written_event.get("timestamp_utc") or ""),
-        )
     heartbeat_repo_remote_control_attachment(
         repo_root=repo_root,
         provider="system",
@@ -74,7 +71,16 @@ def _packet_allows_safe_auto_apply(packet: dict[str, object]) -> bool:
         and str(packet.get("target_kind") or "").strip() == "runtime"
         and str(packet.get("target_ref") or "").strip().startswith("devctl_commit:")
         and bool(str(packet.get("full_guard_bundle_evidence") or "").strip())
+        and _has_completed_handoff_evidence(packet)
     )
+
+
+def _has_completed_handoff_evidence(packet: dict[str, object]) -> bool:
+    for ref in packet.get("evidence_refs") or ():
+        text = str(ref or "").strip()
+        if text.startswith(_COMPLETED_HANDOFF_EVIDENCE_PREFIXES):
+            return True
+    return False
 
 
 def _build_auto_transition_event(

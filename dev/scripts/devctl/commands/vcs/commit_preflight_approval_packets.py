@@ -2,9 +2,25 @@
 
 from __future__ import annotations
 
+import secrets
+from pathlib import Path
+
+from ...review_channel.context_refs import normalize_context_pack_refs
+from ...review_channel.event_store import (
+    append_event,
+    future_utc_timestamp,
+    load_events,
+    next_event_id,
+)
 from ...review_channel.events import post_packet, resolve_artifact_paths, transition_packet
 from ...review_channel.packet_attestation import PacketGuardAttestation
 from ...review_channel.packet_contract import PacketTransitionRequest
+from ...review_channel.packet_transition_events import (
+    build_transition_event,
+    finish_transition_event,
+)
+from ...review_channel.state import project_id_for_repo
+from ...time_utils import utc_timestamp
 from .governed_executor import GovernedVcsExecutor
 from .governed_executor_actions import APPROVAL_PACKET_KIND
 from .governed_executor_packets import (
@@ -82,6 +98,15 @@ def record_operator_approval(
     approval_actor: str = "operator",
 ) -> None:
     """Post and apply one typed operator approval for the current pipeline."""
+    if not bool(getattr(executor, "refresh_projections", True)):
+        _record_operator_approval_without_refresh(
+            executor,
+            pipeline,
+            summary=summary,
+            body=body,
+            approval_actor=approval_actor,
+        )
+        return
     artifact_paths = resolve_artifact_paths(repo_root=executor.repo_root)
     actor = str(approval_actor or "operator").strip() or "operator"
     request_packet_id = ensure_approval_request(
@@ -216,6 +241,133 @@ def build_commit_approval_attestation(
         ),
         operator_signature=str(operator_signature or attested_by or "operator"),
         attested_by=str(attested_by or "operator"),
+    )
+
+
+def _record_operator_approval_without_refresh(
+    executor: GovernedVcsExecutor,
+    pipeline,
+    *,
+    summary: str,
+    body: str,
+    approval_actor: str,
+) -> None:
+    """Append approval evidence without rebuilding full review projections."""
+    artifact_paths = resolve_artifact_paths(repo_root=executor.repo_root)
+    actor = str(approval_actor or "operator").strip() or "operator"
+    _append_post_packet_without_refresh(
+        repo_root=executor.repo_root,
+        artifact_paths=artifact_paths,
+        request=build_commit_approval_request(
+            pipeline,
+            to_agent=actor,
+        ),
+    )
+    request = build_commit_approval_decision(
+        pipeline,
+        approved_by=actor,
+        summary=summary,
+        body=body,
+    )
+    decision_event = _append_post_packet_without_refresh(
+        repo_root=executor.repo_root,
+        artifact_paths=artifact_paths,
+        request=request,
+    )
+    packet_id = str(decision_event.get("packet_id") or "").strip()
+    apply_request = PacketTransitionRequest(
+        action="apply",
+        packet_id=packet_id,
+        actor="operator",
+        guard_attestation=build_commit_approval_attestation(
+            packet_id,
+            pipeline,
+            attested_by="operator",
+            operator_signature=actor,
+        ),
+    )
+    _append_transition_without_refresh(
+        repo_root=executor.repo_root,
+        artifact_paths=artifact_paths,
+        packet=dict(decision_event),
+        request=apply_request,
+    )
+
+
+def _append_post_packet_without_refresh(
+    *,
+    repo_root: Path,
+    artifact_paths,
+    request,
+) -> dict[str, object]:
+    events_path = Path(artifact_paths.event_log_path)
+    existing_events = load_events(events_path)
+    event = {
+        "schema_version": 1,
+        "event_id": next_event_id(existing_events),
+        "session_id": request.session_id,
+        "project_id": project_id_for_repo(repo_root),
+        "packet_id": request.packet_id,
+        "trace_id": request.trace_id,
+        "timestamp_utc": utc_timestamp(),
+        "source": "review_channel",
+        "plan_id": request.plan_id,
+        "controller_run_id": request.controller_run_id,
+        "event_type": "packet_posted",
+        "from_agent": request.from_agent,
+        "to_agent": request.to_agent,
+        "kind": request.kind,
+        "summary": request.summary.strip(),
+        "body": request.body.strip(),
+        "evidence_refs": list(request.evidence_refs),
+        "guidance_refs": list(request.guidance_refs),
+        "context_pack_refs": normalize_context_pack_refs(
+            list(request.context_pack_refs)
+        ),
+        "confidence": request.confidence,
+        "requested_action": request.requested_action.strip() or "review_only",
+        "policy_hint": request.policy_hint,
+        "approval_required": request.approval_required,
+        **request.target.to_event_fields(),
+        **request.runtime_approval.to_event_fields(),
+        **request.guard_bundle_evidence.to_event_fields(),
+        "plan_proposal": None,
+        "status": "pending",
+        "idempotency_key": "",
+        "nonce": secrets.token_hex(12),
+        "expires_at_utc": future_utc_timestamp(minutes=request.expires_in_minutes),
+        "metadata": {},
+    }
+    return append_event(events_path, event, existing_events=existing_events)
+
+
+def _append_transition_without_refresh(
+    *,
+    repo_root: Path,
+    artifact_paths,
+    packet: dict[str, object],
+    request: PacketTransitionRequest,
+) -> dict[str, object]:
+    events_path = Path(artifact_paths.event_log_path)
+    existing_events = load_events(events_path)
+    event = build_transition_event(
+        packet=packet,
+        request=request,
+        event_id=next_event_id(existing_events),
+        timestamp_utc=utc_timestamp(),
+        project_id=project_id_for_repo(repo_root),
+    )
+    written_event = append_event(
+        events_path,
+        event,
+        existing_events=existing_events,
+    )
+    return finish_transition_event(
+        repo_root=repo_root,
+        artifact_paths=artifact_paths,
+        packet=packet,
+        request=request,
+        written_event=written_event,
     )
 
 

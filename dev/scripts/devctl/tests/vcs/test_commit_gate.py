@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import os
 import stat
 import tempfile
@@ -67,6 +68,15 @@ from dev.scripts.devctl.review_channel.events import (
     transition_packet,
 )
 from dev.scripts.devctl.review_channel.packet_contract import PacketTransitionRequest
+from dev.scripts.devctl.review_channel.packet_contract import (
+    PacketPostRequest,
+    PacketRuntimeApprovalFields,
+    PacketTargetFields,
+)
+from dev.scripts.devctl.review_channel.pending_packet_models import (
+    PacketGuardBundleEvidenceFields,
+)
+from dev.scripts.devctl.review_channel.pending_packets import load_pending_packet_queue
 from dev.scripts.devctl.review_channel.remote_control_attachment_artifact import (
     persist_remote_control_attachment,
 )
@@ -97,6 +107,7 @@ def _make_args(**overrides) -> SimpleNamespace:
         "amend": False,
         "approve_pending": False,
         "role": None,
+        "action_request": None,
         "paths": (),
         "passthrough": [],
         "format": "json",
@@ -143,7 +154,11 @@ def _push_policy():
     return build_test_push_policy()
 
 
-def _executor(repo_root: Path) -> GovernedVcsExecutor:
+def _executor(
+    repo_root: Path,
+    *,
+    refresh_projections: bool = True,
+) -> GovernedVcsExecutor:
     def _startup_context_fn(*, repo_root: Path):
         del repo_root
         return SimpleNamespace(
@@ -167,7 +182,7 @@ def _executor(repo_root: Path) -> GovernedVcsExecutor:
         review_channel_path=repo_root / "dev/active/review_channel.md",
         push_policy=_push_policy(),
         startup_context_fn=_startup_context_fn,
-        refresh_projections=True,
+        refresh_projections=refresh_projections,
     )
 
 
@@ -190,6 +205,110 @@ def _persist_remote_operator_attachment(
         ),
         output_root=repo_root / active_path_config().review_status_dir_rel,
     )
+
+
+def _persist_action_request_actor_authority(
+    repo_root: Path,
+    *,
+    actor: str = "claude",
+    capabilities: tuple[str, ...] = ("repo.stage_handoff",),
+) -> None:
+    output_root = repo_root / active_path_config().review_status_dir_rel
+    output_root.mkdir(parents=True, exist_ok=True)
+    grants = [
+        {
+            "capability": capability,
+            "granted": True,
+            "source": "test_authority",
+            "reason": "Test actor may execute packet-scoped stage handoffs.",
+        }
+        for capability in capabilities
+    ]
+    payload = {
+        "collaboration": {
+            "actor_authorities": [
+                {
+                    "actor_id": actor,
+                    "provider": actor,
+                    "role": "reviewer",
+                    "live": True,
+                    "status": "live",
+                    "source": "test",
+                    "grants": grants,
+                }
+            ]
+        }
+    }
+    (output_root / "review_state.json").write_text(
+        json.dumps(payload),
+        encoding="utf-8",
+    )
+
+
+def _stage_pipeline_for_action_request(
+    repo_root: Path,
+    *,
+    message: str = "feat: packet-scoped checkpoint",
+) -> tuple[GovernedVcsExecutor, RemoteCommitPipelineContract]:
+    executor = _executor(repo_root, refresh_projections=False)
+    result = executor.execute(
+        build_stage_action(
+            repo_pack_id=_push_policy().repo_pack_id,
+            commit_message_draft=message,
+            push_requested=False,
+            guard_profile="--profile ci",
+            work_intake_ref="test.action_request",
+            reuse_staged_index=False,
+            requested_by="test.action_request",
+        )
+    )
+    if not result.ok:
+        raise AssertionError(result.to_dict())
+    return executor, executor.load_pipeline()
+
+
+def _post_stage_commit_action_request(
+    repo_root: Path,
+    *,
+    to_agent: str = "claude",
+    requested_action: str = "stage_commit_pipeline",
+    policy_hint: str = "safe_auto_apply",
+    target_revision: str | None = None,
+    target_ref: str | None = None,
+    full_guard_bundle_evidence: str = "bundle.tooling",
+    pipeline_generation: str | None = None,
+    staged_snapshot_hash: str | None = None,
+) -> str:
+    artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+    head = target_revision or _run_git(repo_root, "rev-parse", "HEAD")
+    _, event = post_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=PacketPostRequest(
+            from_agent="codex",
+            to_agent=to_agent,
+            kind="action_request",
+            summary="Run governed checkpoint",
+            body="Run the packet-scoped governed stage_commit_pipeline.",
+            requested_action=requested_action,
+            policy_hint=policy_hint,
+            approval_required=False,
+            target=PacketTargetFields.from_values(
+                target_kind="runtime",
+                target_ref=target_ref or f"devctl_commit:{head}",
+                target_revision=head,
+            ),
+            runtime_approval=PacketRuntimeApprovalFields.from_values(
+                pipeline_generation=pipeline_generation,
+                staged_snapshot_hash=staged_snapshot_hash,
+            ),
+            guard_bundle_evidence=PacketGuardBundleEvidenceFields.from_values(
+                full_guard_bundle_evidence=full_guard_bundle_evidence,
+            ),
+        ),
+    )
+    return str(event["packet_id"])
 
 
 def _capture_startup_context_payload(
@@ -1273,7 +1392,7 @@ class TestGovernedCommitPipeline(unittest.TestCase):
     def test_commit_paths_stage_selected_dirty_paths_through_pipeline(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")
-            executor = _executor(repo_root)
+            executor = _executor(repo_root, refresh_projections=False)
             (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
             guard_runner = MagicMock(return_value=_mock_subprocess_result(0))
 
@@ -1298,7 +1417,7 @@ class TestGovernedCommitPipeline(unittest.TestCase):
     def test_commit_paths_fail_closed_when_dirty_work_is_outside_scope(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")
-            executor = _executor(repo_root)
+            executor = _executor(repo_root, refresh_projections=False)
             (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
             (repo_root / "outside.txt").write_text("outside\n", encoding="utf-8")
             guard_runner = MagicMock(return_value=_mock_subprocess_result(0))
@@ -1330,7 +1449,7 @@ class TestGovernedCommitPipeline(unittest.TestCase):
     def test_commit_paths_are_not_allowed_with_approve_pending(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")
-            executor = _executor(repo_root)
+            executor = _executor(repo_root, refresh_projections=False)
             captured: dict[str, object] = {}
 
             with patch(
@@ -1355,7 +1474,7 @@ class TestGovernedCommitPipeline(unittest.TestCase):
     def test_stage_reuse_index_blocks_snapshot_only_scope_with_dirty_work(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")
-            executor = _executor(repo_root)
+            executor = _executor(repo_root, refresh_projections=False)
             snapshot_path = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
             snapshot_path.parent.mkdir(parents=True, exist_ok=True)
             snapshot_path.write_text("stale snapshot\n", encoding="utf-8")
@@ -1413,6 +1532,498 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             self.assertEqual(captured["caller_role_source"], "arg:role")
             self.assertFalse(pipeline.pipeline_id)
             guard_runner.assert_not_called()
+
+    def test_commit_allows_dashboard_role_with_matching_action_request(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            executor = _executor(repo_root, refresh_projections=False)
+            packet_id = _post_stage_commit_action_request(repo_root)
+            _persist_action_request_actor_authority(
+                repo_root,
+                capabilities=("repo.stage", "repo.commit"),
+            )
+            _persist_remote_operator_attachment(repo_root)
+            guard_runner = MagicMock(return_value=_mock_subprocess_result(0))
+            captured: dict[str, object] = {}
+
+            with (
+                patch.dict(os.environ, {"DEVCTL_CALLER_AGENT": "claude"}),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.commit._emit_report",
+                    side_effect=lambda _args, report: captured.update(report),
+                ),
+            ):
+                rc = run_commit(
+                    _make_args(
+                        message="feat: packet-scoped checkpoint",
+                        role="dashboard",
+                        action_request=packet_id,
+                    ),
+                    repo_root=repo_root,
+                    policy=_push_policy(),
+                    executor=executor,
+                    interaction_mode="remote_control",
+                    guard_runner=guard_runner,
+                )
+
+            pipeline = executor.load_pipeline()
+            self.assertEqual(rc, 0)
+            self.assertEqual(captured["status"], "committed")
+            authority = captured["action_request_authority"]
+            self.assertEqual(authority["packet_id"], packet_id)
+            self.assertEqual(authority["lifecycle_state"], "applied")
+            self.assertTrue(authority["apply_event_id"])
+            self.assertEqual(pipeline.state, "commit_recorded")
+            events = load_events(Path(resolve_artifact_paths(repo_root=repo_root).event_log_path))
+            apply_event = next(
+                event
+                for event in events
+                if event.get("event_type") == "packet_applied"
+                and event.get("packet_id") == packet_id
+            )
+            self.assertEqual(apply_event["from_agent"], "codex")
+            self.assertEqual(apply_event["summary"], "Run governed checkpoint")
+            self.assertIn(
+                "packet-scoped governed stage_commit_pipeline",
+                apply_event["body"],
+            )
+            self.assertEqual(apply_event["semantic_zref"], f"packet:{packet_id}")
+
+    def test_action_request_grant_satisfies_commit_permission_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            packet_id = _post_stage_commit_action_request(repo_root)
+            _persist_action_request_actor_authority(
+                repo_root,
+                capabilities=("repo.stage", "repo.commit"),
+            )
+            _persist_remote_operator_attachment(repo_root)
+            guard_runner = MagicMock(return_value=_mock_subprocess_result(0))
+            captured: dict[str, object] = {}
+
+            def _blocked_startup_context(*, repo_root: Path):
+                del repo_root
+                return SimpleNamespace(
+                    implementation_permission="blocked",
+                    observed_control_topology="single_agent",
+                    reviewer_gate=SimpleNamespace(
+                        implementation_blocked=False,
+                        implementation_block_reason="",
+                        review_gate_allows_push=True,
+                    ),
+                    governance=SimpleNamespace(
+                        push_enforcement=SimpleNamespace(
+                            checkpoint_required=True,
+                            safe_to_continue_editing=False,
+                        )
+                    ),
+                )
+
+            executor = GovernedVcsExecutor(
+                repo_root=repo_root,
+                review_channel_path=repo_root / "dev/active/review_channel.md",
+                push_policy=_push_policy(),
+                startup_context_fn=_blocked_startup_context,
+                refresh_projections=False,
+            )
+
+            with (
+                patch.dict(os.environ, {"DEVCTL_CALLER_AGENT": "claude"}),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.commit._emit_report",
+                    side_effect=lambda _args, report: captured.update(report),
+                ),
+            ):
+                rc = run_commit(
+                    _make_args(
+                        message="feat: packet-authorized checkpoint",
+                        role="dashboard",
+                        action_request=packet_id,
+                    ),
+                    repo_root=repo_root,
+                    policy=_push_policy(),
+                    executor=executor,
+                    interaction_mode="remote_control",
+                    guard_runner=guard_runner,
+                )
+
+            pipeline = executor.load_pipeline()
+            self.assertEqual(rc, 0)
+            self.assertEqual(captured["status"], "committed")
+            self.assertEqual(pipeline.state, "commit_recorded")
+            self.assertEqual(
+                captured["action_request_authority"]["granted_capabilities"],
+                ["repo.stage", "repo.commit"],
+            )
+
+    def test_commit_action_request_stages_current_dirty_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated by packet\n", encoding="utf-8")
+            executor = _executor(repo_root, refresh_projections=False)
+            packet_id = _post_stage_commit_action_request(repo_root)
+            _persist_action_request_actor_authority(repo_root)
+            _persist_remote_operator_attachment(repo_root)
+            transition_packet(
+                repo_root=repo_root,
+                review_channel_path=repo_root / "dev/active/review_channel.md",
+                artifact_paths=resolve_artifact_paths(repo_root=repo_root),
+                request=PacketTransitionRequest(
+                    action="ack",
+                    packet_id=packet_id,
+                    actor="claude",
+                ),
+            )
+            guard_runner = MagicMock(return_value=_mock_subprocess_result(0))
+            captured: dict[str, object] = {}
+
+            with (
+                patch.dict(os.environ, {"DEVCTL_CALLER_AGENT": "claude"}),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.commit._emit_report",
+                    side_effect=lambda _args, report: captured.update(report),
+                ),
+            ):
+                rc = run_commit(
+                    _make_args(
+                        message="feat: packet-staged checkpoint",
+                        role="dashboard",
+                        action_request=packet_id,
+                    ),
+                    repo_root=repo_root,
+                    policy=_push_policy(),
+                    executor=executor,
+                    interaction_mode="remote_control",
+                    guard_runner=guard_runner,
+                )
+
+            pipeline = executor.load_pipeline()
+            self.assertEqual(rc, 0)
+            self.assertEqual(captured["status"], "committed")
+            authority = captured["action_request_authority"]
+            self.assertEqual(authority["packet_id"], packet_id)
+            self.assertEqual(authority["granted_capabilities"], ["repo.stage_handoff"])
+            self.assertTrue(authority["execution_receipt_event_id"])
+            self.assertEqual(authority["lifecycle_state"], "applied")
+            self.assertEqual(pipeline.intent.staged_paths, ("tracked.txt",))
+
+    def test_commit_blocks_dashboard_action_request_wrong_target(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            packet_id = _post_stage_commit_action_request(
+                repo_root,
+                to_agent="codex",
+            )
+            _persist_action_request_actor_authority(repo_root)
+            captured: dict[str, object] = {}
+
+            with (
+                patch.dict(os.environ, {"DEVCTL_CALLER_AGENT": "claude"}),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.commit._emit_report",
+                    side_effect=lambda _args, report: captured.update(report),
+                ),
+            ):
+                rc = run_commit(
+                    _make_args(
+                        message="feat: wrong target",
+                        role="dashboard",
+                        action_request=packet_id,
+                    ),
+                    repo_root=repo_root,
+                    policy=_push_policy(),
+                    executor=_executor(repo_root),
+                    interaction_mode="remote_control",
+                    guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
+                )
+
+            self.assertEqual(rc, 1)
+            self.assertEqual(captured["reason"], "action_request_authority_blocked")
+            self.assertEqual(
+                captured["action_request_reason"],
+                "action_request_target_mismatch",
+            )
+
+    def test_commit_blocks_action_request_without_actor_authority(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            packet_id = _post_stage_commit_action_request(repo_root)
+            captured: dict[str, object] = {}
+
+            with (
+                patch.dict(os.environ, {"DEVCTL_CALLER_AGENT": "claude"}),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.commit._emit_report",
+                    side_effect=lambda _args, report: captured.update(report),
+                ),
+            ):
+                rc = run_commit(
+                    _make_args(
+                        message="feat: missing actor authority",
+                        role="dashboard",
+                        action_request=packet_id,
+                    ),
+                    repo_root=repo_root,
+                    policy=_push_policy(),
+                    executor=_executor(repo_root),
+                    interaction_mode="remote_control",
+                    guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
+                )
+
+            self.assertEqual(rc, 1)
+            self.assertEqual(
+                captured["action_request_reason"],
+                "action_request_actor_authority_missing",
+            )
+
+    def test_commit_blocks_local_terminal_action_request_spoof(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            packet_id = _post_stage_commit_action_request(repo_root)
+            _persist_action_request_actor_authority(repo_root)
+            captured: dict[str, object] = {}
+
+            with (
+                patch.dict(os.environ, {"DEVCTL_CALLER_AGENT": "claude"}),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.commit._emit_report",
+                    side_effect=lambda _args, report: captured.update(report),
+                ),
+            ):
+                rc = run_commit(
+                    _make_args(
+                        message="feat: spoofed local packet",
+                        role="dashboard",
+                        action_request=packet_id,
+                    ),
+                    repo_root=repo_root,
+                    policy=_push_policy(),
+                    executor=_executor(repo_root),
+                    interaction_mode="local_terminal",
+                    guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
+                )
+
+            self.assertEqual(rc, 1)
+            self.assertEqual(
+                captured["action_request_reason"],
+                "action_request_interaction_mode_not_remote",
+            )
+
+    def test_commit_blocks_action_request_missing_pipeline_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _stage_pipeline_for_action_request(repo_root)
+            packet_id = _post_stage_commit_action_request(repo_root)
+            _persist_action_request_actor_authority(repo_root)
+            captured: dict[str, object] = {}
+
+            with (
+                patch.dict(os.environ, {"DEVCTL_CALLER_AGENT": "claude"}),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.commit._emit_report",
+                    side_effect=lambda _args, report: captured.update(report),
+                ),
+            ):
+                rc = run_commit(
+                    _make_args(
+                        message="feat: missing pipeline binding",
+                        role="dashboard",
+                        action_request=packet_id,
+                    ),
+                    repo_root=repo_root,
+                    policy=_push_policy(),
+                    executor=_executor(repo_root),
+                    interaction_mode="remote_control",
+                    guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
+                )
+
+            self.assertEqual(rc, 1)
+            self.assertEqual(
+                captured["action_request_reason"],
+                "action_request_pipeline_generation_missing",
+            )
+
+    def test_commit_blocks_invalid_action_request_variants(self) -> None:
+        cases = (
+            (
+                "wrong_action",
+                {
+                    "requested_action": "run_check",
+                    "full_guard_bundle_evidence": "",
+                },
+                "action_request_unsupported_requested_action",
+            ),
+            (
+                "unsafe_policy",
+                {"policy_hint": "stage_draft"},
+                "action_request_policy_not_safe",
+            ),
+            (
+                "stale_revision",
+                {"target_revision": "deadbeef"},
+                "action_request_target_revision_stale",
+            ),
+        )
+        for label, packet_kwargs, expected_reason in cases:
+            with self.subTest(label=label):
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    repo_root = _init_repo(Path(tmpdir) / "repo")
+                    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+                    packet_id = _post_stage_commit_action_request(
+                        repo_root,
+                        **packet_kwargs,
+                    )
+                    _persist_action_request_actor_authority(repo_root)
+                    captured: dict[str, object] = {}
+
+                    with (
+                        patch.dict(os.environ, {"DEVCTL_CALLER_AGENT": "claude"}),
+                        patch(
+                            "dev.scripts.devctl.commands.vcs.commit._emit_report",
+                            side_effect=lambda _args, report: captured.update(report),
+                        ),
+                    ):
+                        rc = run_commit(
+                            _make_args(
+                                message=f"feat: blocked {label}",
+                                role="dashboard",
+                                action_request=packet_id,
+                            ),
+                            repo_root=repo_root,
+                            policy=_push_policy(),
+                            executor=_executor(repo_root),
+                            interaction_mode="remote_control",
+                            guard_runner=MagicMock(
+                                return_value=_mock_subprocess_result(0)
+                            ),
+                        )
+
+                    self.assertEqual(rc, 1)
+                    self.assertEqual(
+                        captured["reason"],
+                        "action_request_authority_blocked",
+                    )
+                    self.assertEqual(
+                        captured["action_request_reason"],
+                        expected_reason,
+                    )
+
+    def test_stage_commit_action_request_post_requires_guard_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+
+            with self.assertRaisesRegex(ValueError, "full-guard-bundle-evidence"):
+                _post_stage_commit_action_request(
+                    repo_root,
+                    full_guard_bundle_evidence="",
+                )
+
+    def test_commit_apply_failure_surfaces_apply_pending_after_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            executor = _executor(repo_root, refresh_projections=False)
+            packet_id = _post_stage_commit_action_request(repo_root)
+            _persist_action_request_actor_authority(repo_root)
+            _persist_remote_operator_attachment(repo_root)
+            captured: dict[str, object] = {}
+
+            with (
+                patch.dict(os.environ, {"DEVCTL_CALLER_AGENT": "claude"}),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.commit_action_request_runtime.apply_commit_action_request_packet",
+                    side_effect=ValueError("apply write failed"),
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.commit._emit_report",
+                    side_effect=lambda _args, report: captured.update(report),
+                ),
+            ):
+                rc = run_commit(
+                    _make_args(
+                        message="feat: apply pending checkpoint",
+                        role="dashboard",
+                        action_request=packet_id,
+                    ),
+                    repo_root=repo_root,
+                    policy=_push_policy(),
+                    executor=executor,
+                    interaction_mode="remote_control",
+                    guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
+                )
+
+            pipeline = executor.load_pipeline()
+            queue = load_pending_packet_queue(repo_root, fail_closed=True)
+            packet = next(
+                row
+                for row in queue.control_packets
+                if row.get("packet_id") == packet_id
+            )
+            self.assertEqual(rc, 1)
+            self.assertEqual(
+                captured["reason"],
+                "action_request_apply_pending_after_execution",
+            )
+            authority = captured["action_request_authority"]
+            self.assertEqual(
+                authority["lifecycle_state"],
+                "apply_pending_after_execution",
+            )
+            self.assertEqual(pipeline.state, "commit_recorded")
+            self.assertTrue(pipeline.commit_sha)
+            self.assertTrue(packet["apply_pending_after_execution_at_utc"])
+            self.assertEqual(
+                packet["apply_pending_after_execution_reason"],
+                "apply write failed",
+            )
+            self.assertEqual(
+                packet["acted_on_events"][-1]["action"],
+                "apply_pending_after_execution",
+            )
+            events = load_events(
+                Path(resolve_artifact_paths(repo_root=repo_root).event_log_path)
+            )
+            self.assertIn(
+                "action_request_apply_pending_after_execution",
+                {str(event.get("event_type") or "") for event in events},
+            )
+
+            replay_capture: dict[str, object] = {}
+            with (
+                patch.dict(os.environ, {"DEVCTL_CALLER_AGENT": "claude"}),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.commit._emit_report",
+                    side_effect=lambda _args, report: replay_capture.update(report),
+                ),
+            ):
+                replay_rc = run_commit(
+                    _make_args(
+                        message="feat: replay blocked checkpoint",
+                        role="dashboard",
+                        action_request=packet_id,
+                    ),
+                    repo_root=repo_root,
+                    policy=_push_policy(),
+                    executor=executor,
+                    interaction_mode="remote_control",
+                    guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
+                )
+
+            self.assertEqual(replay_rc, 1)
+            self.assertEqual(
+                replay_capture["reason"],
+                "action_request_authority_blocked",
+            )
+            self.assertEqual(
+                replay_capture["action_request_reason"],
+                "action_request_apply_pending_after_execution",
+            )
 
     def test_commit_blocks_env_backed_reviewer_lane_before_staging(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -2486,6 +3097,19 @@ class TestCommitParserEndToEnd(unittest.TestCase):
         add_commit_parser(sub)
         args = parser.parse_args(["commit", "--role", "dashboard", "-m", "test"])
         self.assertEqual(args.role, "dashboard")
+
+    def test_parser_accepts_action_request(self) -> None:
+        import argparse
+
+        from dev.scripts.devctl.sync_parser import add_commit_parser
+
+        parser = argparse.ArgumentParser()
+        sub = parser.add_subparsers()
+        add_commit_parser(sub)
+        args = parser.parse_args(
+            ["commit", "--role", "dashboard", "--action-request", "rev_pkt_2199"]
+        )
+        self.assertEqual(args.action_request, "rev_pkt_2199")
 
     def test_parser_accepts_option_passthrough_with_separator(self) -> None:
         import argparse

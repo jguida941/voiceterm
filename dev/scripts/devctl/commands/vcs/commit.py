@@ -6,70 +6,48 @@ from pathlib import Path
 
 from ...config import REPO_ROOT
 from ...governance.push_policy import load_push_policy
-from ...runtime.governance_scan import scan_repo_governance_safely
-from ...runtime.review_snapshot_refresh import receipt_commit_parent_sha
 from ...runtime.commit_permission import build_commit_permission_decision_for_executor
+from .commit_action_request_authority import (
+    action_request_authority_block_report,
+    action_request_execution_receipt_report,
+    mark_commit_action_request_execution_started,
+    resolve_commit_action_request_grant,
+)
 from .commit_caller_role import caller_role_report
-from .commit_action_result_report import action_result_report_fields
 from .commit_guard_bundle import (
     _pipeline_has_validation_plan,
     guard_result,
     pipeline_has_checkpoint_snapshot as _pipeline_has_checkpoint_snapshot,
     run_guard_bundle,
 )
-from .commit_guard_replay import (
-    pipeline_needs_guard_replay,
-    replay_pipeline_guards,
-)
-from .commit_preflight import (
-    apply_explicit_operator_approval,
-    ensure_pipeline_approval,
-    load_pipeline_for_explicit_approval,
-    prepare_pipeline,
-    resolve_commit_approval_authority,
-    resolve_interaction_mode,
-)
-from .commit_visibility import commit_visibility_payload
+from .commit_preflight import resolve_interaction_mode
 from .commit_passthrough import (
     CommitPassthrough,
     build_git_commit_cmd as _build_git_commit_cmd,
     parse_passthrough as _parse_passthrough,
 )
+from .commit_runtime_flow import (
+    report_commit_shas as _report_commit_shas,
+    run_commit_pipeline_flow,
+)
 from .governed_executor import GovernedVcsExecutor
-from .governed_executor_actions import _build_report, _emit_report, build_commit_action
+from .governed_executor_actions import _build_report, _emit_report
 
 # Compatibility re-export while commit guard helpers live in their own module.
 _run_guard_bundle = run_guard_bundle
 _resolve_interaction_mode = resolve_interaction_mode
 
 
-def _report_commit_shas(
+def _commit_permission_report(
+    vcs_executor: GovernedVcsExecutor,
     *,
-    repo_root: Path,
-    commit_sha: str,
-) -> tuple[str, str]:
-    """Return ``(content_commit_sha, receipt_commit_sha)`` for reporting."""
-    head_sha = str(commit_sha or "").strip()
-    if not head_sha:
-        return "", ""
-    try:
-        governance = scan_repo_governance_safely(repo_root)
-    except (OSError, ValueError):
-        governance = None
-    content_sha = receipt_commit_parent_sha(
-        repo_root=repo_root,
-        current_head=head_sha,
-        governance=governance,
-    )
-    if content_sha and content_sha != head_sha:
-        return content_sha, head_sha
-    return head_sha, ""
-
-
-def _commit_permission_report(vcs_executor: GovernedVcsExecutor) -> dict[str, object] | None:
+    action_request_grant=None,
+) -> dict[str, object] | None:
     """Return a blocking report if startup authority denies governed commit."""
     decision, load_error = build_commit_permission_decision_for_executor(vcs_executor)
     if decision.commit_permission != "blocked":
+        return None
+    if not load_error and _action_request_grants_commit_permission(action_request_grant):
         return None
     next_command = str(decision.next_command or "").strip()
     guidance = "Run the reported next_command before staging or committing."
@@ -94,6 +72,14 @@ def _commit_permission_report(vcs_executor: GovernedVcsExecutor) -> dict[str, ob
     )
 
 
+def _action_request_grants_commit_permission(grant) -> bool:
+    """Return True when a packet grant satisfies governed commit authority."""
+    if grant is None or not bool(getattr(grant, "authorized", False)):
+        return False
+    capabilities = tuple(getattr(grant, "granted_capabilities", ()) or ())
+    return "repo.stage" in capabilities and "repo.commit" in capabilities
+
+
 def run_commit(
     args,
     *,
@@ -114,125 +100,62 @@ def run_commit(
         repo_root=repo_root,
         push_policy=resolved_policy,
     )
-    role_report = caller_role_report(args)
+    action_request_interaction_mode = (
+        str(interaction_mode or "").strip()
+        if getattr(args, "action_request", None)
+        else ""
+    )
+    if getattr(args, "action_request", None) and not action_request_interaction_mode:
+        action_request_interaction_mode = resolve_interaction_mode(repo_root)
+    action_request_grant = resolve_commit_action_request_grant(
+        args=args,
+        repo_root=repo_root,
+        pipeline=vcs_executor.load_pipeline(),
+        interaction_mode=action_request_interaction_mode,
+    )
+    if action_request_grant is not None and not action_request_grant.authorized:
+        _emit_report(args, action_request_authority_block_report(action_request_grant))
+        return 1
+    role_report = caller_role_report(
+        args,
+        action_request_grant=action_request_grant,
+    )
     if role_report is not None:
         _emit_report(args, role_report)
         return 1
-    permission_report = _commit_permission_report(vcs_executor)
+    permission_report = _commit_permission_report(
+        vcs_executor,
+        action_request_grant=action_request_grant,
+    )
     if permission_report is not None:
         _emit_report(args, permission_report)
         return 1
-    approve_pending = bool(getattr(args, "approve_pending", False))
-    if approve_pending and tuple(getattr(args, "paths", ()) or ()):
-        _emit_report(args, _paths_with_approve_pending_report())
-        return 1
-    stage_warnings: list[str] = []
-    if approve_pending:
-        pipeline, preflight_report = load_pipeline_for_explicit_approval(
-            repo_root=repo_root,
-            vcs_executor=vcs_executor,
-        )
-    else:
-        pipeline, stage_warnings, preflight_report = prepare_pipeline(
-            args=args,
-            repo_root=repo_root,
-            resolved_policy=resolved_policy,
-            vcs_executor=vcs_executor,
-        )
-    if preflight_report is not None:
-        _emit_report(args, preflight_report)
-        return 1
-
-    if pipeline_needs_guard_replay(pipeline):
-        guard_rc, pipeline = replay_pipeline_guards(
-            vcs_executor=vcs_executor,
-            repo_root=repo_root,
-            guard_runner=guard_runner,
-            pipeline=pipeline,
-        )
-        if guard_rc != 0:
-            guard_action_result = pipeline.guard_result
-            report = _build_report(
-                status="blocked",
-                reason="guard_bundle_failed",
-                guard_exit_code=guard_rc,
-                pipeline_id=pipeline.pipeline_id,
-                pipeline_state=pipeline.state,
-                approval_state=pipeline.approval_state,
-                **commit_visibility_payload(pipeline),
-                **(
-                    action_result_report_fields(guard_action_result)
-                    if guard_action_result is not None
-                    else _empty_action_result_report()
+    if action_request_grant is not None:
+        try:
+            action_request_grant = mark_commit_action_request_execution_started(
+                repo_root=repo_root,
+                grant=action_request_grant,
+            )
+        except (OSError, ValueError) as exc:
+            _emit_report(
+                args,
+                action_request_execution_receipt_report(
+                    grant=action_request_grant,
+                    error=exc,
                 ),
-                warnings=stage_warnings,
             )
-            _emit_report(args, report)
             return 1
-
-    approval_authority = resolve_commit_approval_authority(
-        repo_root,
-        interaction_mode_override=interaction_mode,
-    )
-    resolved_mode = approval_authority.interaction_mode
-    if approve_pending:
-        pipeline, approval_report = apply_explicit_operator_approval(
-            vcs_executor=vcs_executor,
-            pipeline=pipeline,
-            approval_authority=approval_authority,
-            stage_warnings=stage_warnings,
-        )
-    else:
-        pipeline, approval_report = ensure_pipeline_approval(
-            vcs_executor=vcs_executor,
-            pipeline=pipeline,
-            approval_authority=approval_authority,
-            stage_warnings=stage_warnings,
-        )
-    if approval_report is not None:
-        _emit_report(args, approval_report)
-        return 1
-
-    commit_result = vcs_executor.execute(
-        build_commit_action(
-            repo_pack_id=resolved_policy.repo_pack_id,
-            pipeline_id=vcs_executor.load_pipeline().pipeline_id,
-            commit_message_draft=str(getattr(args, "message", "") or ""),
-            amend=bool(getattr(args, "amend", False)),
-            allow_empty=passthrough.allow_empty,
-            no_edit=passthrough.no_edit,
-            requested_by="devctl.commit",
-        )
-    )
-    pipeline = vcs_executor.load_pipeline()
-    commit_sha, receipt_commit_sha = _report_commit_shas(
+    return run_commit_pipeline_flow(
+        args=args,
         repo_root=repo_root,
-        commit_sha=pipeline.commit_sha,
+        resolved_policy=resolved_policy,
+        vcs_executor=vcs_executor,
+        guard_runner=guard_runner,
+        passthrough=passthrough,
+        action_request_grant=action_request_grant,
+        interaction_mode=interaction_mode,
+        emit_report=_emit_report,
     )
-    report = _build_report(
-        status="committed" if commit_result.ok else "blocked",
-        reason=commit_result.reason,
-        pipeline_id=pipeline.pipeline_id,
-        pipeline_state=pipeline.state,
-        approval_state=pipeline.approval_state,
-        **commit_visibility_payload(pipeline),
-        commit_sha=commit_sha,
-        receipt_commit_sha=receipt_commit_sha or None,
-        receipt_projection_state=(
-            "receipt_commit_recorded"
-            if receipt_commit_sha
-            else _receipt_projection_state(
-                commit_ok=commit_result.ok,
-                commit_sha=commit_sha,
-            )
-        ),
-        action_result=commit_result.to_dict(),
-        operator_guidance=commit_result.operator_guidance,
-        interaction_mode=resolved_mode,
-        warnings=[*stage_warnings, *commit_result.warnings],
-    )
-    _emit_report(args, report)
-    return 0 if commit_result.ok else 1
 
 
 def _unsupported_passthrough_report(passthrough: CommitPassthrough) -> dict[str, object]:
@@ -247,37 +170,6 @@ def _unsupported_passthrough_report(passthrough: CommitPassthrough) -> dict[str,
             "`--no-edit`, and `--amend`."
         ),
     )
-
-
-def _paths_with_approve_pending_report() -> dict[str, object]:
-    return _build_report(
-        status="blocked",
-        reason="paths_not_allowed_with_approve_pending",
-        operator_guidance=(
-            "`--approve-pending` resumes the existing governed staged "
-            "snapshot. Rerun without `--paths`, or recover and restage "
-            "a fresh pipeline with the intended path scope."
-        ),
-    )
-
-
-def _receipt_projection_state(*, commit_ok: bool, commit_sha: str) -> str:
-    """Return the report-only post-commit receipt/projection state."""
-    if not commit_ok:
-        return "not_started"
-    if commit_sha:
-        return "receipt_projection_pending_or_not_required"
-    return "commit_not_recorded"
-
-
-def _empty_action_result_report() -> dict[str, object]:
-    return {
-        "action_result": None,
-        "reason_chain": [],
-        "remediation": "",
-        "auto_executable": False,
-        "errors": [],
-    }
 
 
 def run(args) -> int:

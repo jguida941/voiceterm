@@ -190,10 +190,16 @@ def _validate_action_request_target_fields(
                 "`devctl_commit:<head_sha>`."
             )
         if runtime_approval.has_values():
-            raise ValueError(
-                "Stage-commit action_request packets do not carry runtime "
-                "approval fields until a commit pipeline exists."
-            )
+            if not runtime_approval.pipeline_generation:
+                raise ValueError(
+                    "Stage-commit action_request packets with pipeline evidence "
+                    "require --pipeline-generation."
+                )
+            if not runtime_approval.staged_snapshot_hash:
+                raise ValueError(
+                    "Stage-commit action_request packets with pipeline evidence "
+                    "require --staged-snapshot-hash."
+                )
         validate_full_guard_bundle_evidence(guard_bundle_evidence, required=True)
         return
 

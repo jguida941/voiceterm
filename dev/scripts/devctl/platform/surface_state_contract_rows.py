@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from .contracts import ContractField, ContractSpec
 
-
 SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     ContractSpec(
         contract_id="CoordinationSnapshot",
@@ -189,6 +188,11 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Typed external remote-control attachment surfaced through the read model.",
             ),
             ContractField(
+                "session_posture",
+                "SessionPosture | None",
+                "Canonical posture projected from reviewer runtime for dashboard and bootstrap parity.",
+            ),
+            ContractField(
                 "coordination",
                 "CoordinationSnapshot | None",
                 "Shared bounded coordination authority for dashboard/bootstrap parity.",
@@ -283,6 +287,16 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Typed external remote-control attachment carried into session bootstrap.",
             ),
             ContractField(
+                "session_posture",
+                "SessionPosture | None",
+                "Canonical posture that gates remote-control bootstrap routing text.",
+            ),
+            ContractField(
+                "packet_intent_anchors",
+                "tuple[PacketIntentAnchor, ...]",
+                "Recent packet-derived plan anchors that preserve intent without granting execution authority.",
+            ),
+            ContractField(
                 "coordination",
                 "CoordinationSnapshot | None",
                 "Shared bounded coordination authority for remote-control bootstrap and dashboard parity.",
@@ -333,5 +347,4 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
 
 
 def surface_state_contracts() -> tuple[ContractSpec, ...]:
-    """Return surface-projection state contract rows."""
     return SURFACE_STATE_CONTRACTS

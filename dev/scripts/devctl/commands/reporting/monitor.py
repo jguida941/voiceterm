@@ -30,7 +30,7 @@ def add_parser(sub) -> None:
     )
     add_standard_output_arguments(
         cmd,
-        format_choices=("json", "md", "terminal"),
+        format_choices=("json", "md", "terminal", "simple"),
         default_format="md",
     )
     cmd.add_argument(
@@ -159,6 +159,18 @@ def _render_snapshot(snapshot, output_format: str) -> str:
         return json.dumps(snapshot.to_dict(), indent=2)
     if output_format == "terminal":
         return render_monitor_snapshot_terminal(snapshot)
+    if output_format == "simple":
+        from ...runtime.session_posture_simple_render import (
+            render_simple_posture_snapshot,
+        )
+
+        runtime_state = snapshot.canonical_runtime_state
+        return render_simple_posture_snapshot(
+            title="Monitor",
+            next_action=runtime_state.get("next_action"),
+            top_blocker=runtime_state.get("top_blocker"),
+            session_posture=runtime_state.get("session_posture"),
+        )
     return render_monitor_snapshot_markdown(snapshot)
 
 

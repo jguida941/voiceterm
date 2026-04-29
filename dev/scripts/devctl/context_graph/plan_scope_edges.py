@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from ..commands.docs.policy_runtime import resolve_docs_check_policy
 from .models import EDGE_KIND_SCOPED_BY, GraphEdge, GraphNode
 
 
@@ -38,6 +37,8 @@ def collect_plan_scope_edges(
 
 def _plan_scope_rule_prefixes() -> dict[str, tuple[str, ...]]:
     """Return docs-policy trigger prefixes keyed by required active-plan doc."""
+    from ..commands.docs.policy_runtime import resolve_docs_check_policy
+
     policy = resolve_docs_check_policy()
     prefixes_by_doc: dict[str, list[str]] = defaultdict(list)
     for rule in policy.tooling_doc_requirement_rules:

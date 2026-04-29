@@ -3,14 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import asdict
 from hashlib import sha256
 
-from ..runtime.conductor_capability import (
-    authority_reviewer_mode,
-    build_conductor_capability_state,
-)
-from ..runtime.review_state_models import ReviewerRuntimeContract
 from .current_session_projection import (
     current_session_mapping,
     event_agent_status,
@@ -18,6 +12,7 @@ from .current_session_projection import (
     event_current_instruction,
     event_open_findings,
 )
+from .event_projection_bridge_state import build_event_bridge_state_projection
 from .launch_truth import classify_launch_truth, effective_reviewer_mode
 from .peer_liveness import (
     IMPLEMENTER_STALL_MARKERS,
@@ -42,7 +37,11 @@ def build_event_bridge_liveness_projection(
     claude_status = event_agent_status(review_state, "claude")
     claude_ack = event_claude_ack(queue)
     open_findings = event_open_findings(review_state)
-    reviewer_mode = _event_reviewer_mode(runtime, bridge_snapshot=bridge_snapshot)
+    reviewer_mode = _event_reviewer_mode(
+        runtime,
+        bridge_snapshot=bridge_snapshot,
+        reviewer_runtime=_mapping(review_state.get("reviewer_runtime")),
+    )
     bridge_liveness: dict[str, object] = {}
     bridge_liveness["overall_state"] = (
         "stale" if review_state.get("errors") else "fresh"
@@ -111,179 +110,15 @@ def build_event_bridge_liveness_projection(
     return bridge_liveness
 
 
-def build_event_bridge_state_projection(
-    *,
-    review_state: Mapping[str, object],
-    bridge_liveness: Mapping[str, object],
-    reviewer_runtime: ReviewerRuntimeContract | None = None,
-) -> dict[str, object]:
-    """Build the compatibility bridge-state projection for event-backed flows."""
-    current_session = current_session_mapping(review_state)
-    collaboration = _mapping(review_state.get("collaboration"))
-    effective_mode = str(
-        bridge_liveness.get("effective_reviewer_mode")
-        or bridge_liveness.get("reviewer_mode")
-        or "tools_only"
-    )
-    reviewer_mode = authority_reviewer_mode(
-        str(bridge_liveness.get("reviewer_mode") or ""),
-        effective_mode,
-    )
-    reviewer_poll_state = str(
-        bridge_liveness.get("reviewer_poll_state")
-        or bridge_liveness.get("codex_poll_state")
-        or "missing"
-    )
-    reviewer_poll_utc = str(
-        bridge_liveness.get("last_reviewer_poll_utc")
-        or review_state.get("timestamp")
-        or ""
-    )
-    reviewer_poll_age = int(
-        bridge_liveness.get("last_reviewer_poll_age_seconds")
-        or bridge_liveness.get("last_codex_poll_age_seconds")
-        or 0
-    )
-    implementer_status = str(
-        current_session.get("implementer_status")
-        or bridge_liveness.get("implementer_status")
-        or ""
-    )
-    implementer_ack = str(
-        current_session.get("implementer_ack")
-        or bridge_liveness.get("implementer_ack")
-        or ""
-    )
-    implementer_ack_revision = str(
-        current_session.get("implementer_ack_revision")
-        or bridge_liveness.get("implementer_ack_revision")
-        or ""
-    )
-    implementer_ack_current = (
-        str(current_session.get("implementer_ack_state") or "").strip() == "current"
-        or bool(bridge_liveness.get("implementer_ack_current"))
-        or bool(bridge_liveness.get("claude_ack_current"))
-    )
-    reviewer_provider = _collaboration_provider(
-        collaboration,
-        role_id="review_agent",
-        default="codex",
-    )
-    implementer_provider = _collaboration_provider(
-        collaboration,
-        role_id="coding_agent",
-        default="claude",
-    )
-    bridge_state: dict[str, object] = {}
-    bridge_state["overall_state"] = str(
-        bridge_liveness.get("overall_state") or "unknown"
-    )
-    bridge_state["codex_poll_state"] = str(
-        bridge_liveness.get("codex_poll_state") or "missing"
-    )
-    bridge_state["reviewer_freshness"] = str(
-        bridge_liveness.get("reviewer_freshness") or "missing"
-    )
-    bridge_state["reviewer_mode"] = reviewer_mode
-    bridge_state["last_codex_poll_utc"] = str(review_state.get("timestamp") or "")
-    bridge_state["last_codex_poll_age_seconds"] = int(
-        bridge_liveness.get("last_codex_poll_age_seconds") or 0
-    )
-    # Event-backed projections cannot observe reviewer-owned worktree truth yet.
-    bridge_state["last_worktree_hash"] = ""
-    bridge_state["implementer_completion_stall"] = bool(
-        bridge_liveness.get("implementer_completion_stall")
-    )
-    bridge_state["publisher_running"] = bool(bridge_liveness.get("publisher_running"))
-    bridge_state["open_findings"] = str(current_session.get("open_findings") or "")
-    bridge_state["current_instruction"] = str(
-        current_session.get("current_instruction") or ""
-    )
-    bridge_state["claude_status"] = implementer_status
-    bridge_state["claude_ack"] = implementer_ack
-    bridge_state["claude_ack_current"] = implementer_ack_current
-    bridge_state["current_instruction_revision"] = str(
-        current_session.get("current_instruction_revision") or ""
-    )
-    bridge_state["claude_ack_revision"] = implementer_ack_revision
-    bridge_state["last_reviewed_scope"] = str(
-        current_session.get("last_reviewed_scope") or ""
-    )
-    bridge_state["reviewer_poll_state"] = reviewer_poll_state
-    bridge_state["last_reviewer_poll_utc"] = reviewer_poll_utc
-    bridge_state["last_reviewer_poll_age_seconds"] = reviewer_poll_age
-    bridge_state["implementer_status"] = implementer_status
-    bridge_state["implementer_ack"] = implementer_ack
-    bridge_state["implementer_ack_current"] = implementer_ack_current
-    bridge_state["implementer_ack_revision"] = implementer_ack_revision
-    bridge_state["launch_truth"] = str(bridge_liveness.get("launch_truth") or "")
-    bridge_state["effective_reviewer_mode"] = effective_mode
-    bridge_state["implementer_state_hash"] = str(
-        current_session.get("implementer_state_hash") or ""
-    )
-    bridge_state["reviewed_hash_current"] = bridge_liveness.get("reviewed_hash_current")
-    bridge_state["review_needed"] = bridge_liveness.get("review_needed")
-    bridge_state["head_at_push_time"] = str(
-        bridge_liveness.get("head_at_push_time") or ""
-    )
-    bridge_state["review_accepted"] = bool(
-        reviewer_runtime.review_acceptance.review_accepted
-        if reviewer_runtime is not None
-        else False
-    )
-    bridge_state["codex_conductor_active"] = bool(
-        bridge_liveness.get("codex_conductor_active")
-    )
-    bridge_state["claude_conductor_active"] = bool(
-        bridge_liveness.get("claude_conductor_active")
-    )
-    bridge_state["pending_total"] = int(
-        _mapping(review_state.get("queue")).get("pending_total") or 0
-    )
-    bridge_state["session_liveness_signals"] = tuple(
-        row
-        for row in bridge_liveness.get("session_liveness_signals") or ()
-        if isinstance(row, Mapping)
-    )
-    bridge_state["reviewer_capability"] = asdict(
-        build_conductor_capability_state(
-            provider=reviewer_provider,
-            reviewer_mode=effective_mode,
-        )
-    )
-    bridge_state["implementer_capability"] = asdict(
-        build_conductor_capability_state(
-            provider=implementer_provider,
-            reviewer_mode=effective_mode,
-        )
-    )
-    return bridge_state
-
-
-def _collaboration_provider(
-    collaboration: Mapping[str, object],
-    *,
-    role_id: str,
-    default: str,
-) -> str:
-    assignments = collaboration.get("role_assignments")
-    if not isinstance(assignments, list):
-        return default
-    for row in assignments:
-        assignment = _mapping(row)
-        if str(assignment.get("role_id") or "").strip() != role_id:
-            continue
-        provider = str(assignment.get("provider") or "").strip()
-        if provider:
-            return provider
-    return default
-
-
 def _event_reviewer_mode(
     runtime: Mapping[str, object],
     *,
     bridge_snapshot: object | None = None,
+    reviewer_runtime: Mapping[str, object] | None = None,
 ) -> str:
+    runtime_mode = _runtime_reviewer_mode(reviewer_runtime)
+    if runtime_mode:
+        return runtime_mode
     bridge_mode = _bridge_snapshot_reviewer_mode(bridge_snapshot)
     if bridge_mode:
         return bridge_mode
@@ -297,6 +132,19 @@ def _event_reviewer_mode(
         if reviewer_mode:
             return normalize_reviewer_mode(reviewer_mode).value
     return "tools_only"
+
+
+def _runtime_reviewer_mode(reviewer_runtime: Mapping[str, object] | None) -> str:
+    runtime = reviewer_runtime if isinstance(reviewer_runtime, Mapping) else {}
+    posture = _mapping(runtime.get("session_posture"))
+    mode = str(
+        posture.get("reviewer_mode")
+        or posture.get("effective_reviewer_mode")
+        or runtime.get("reviewer_mode")
+        or runtime.get("effective_reviewer_mode")
+        or ""
+    ).strip()
+    return normalize_reviewer_mode(mode).value if mode else ""
 
 
 def _bridge_snapshot_reviewer_mode(bridge_snapshot: object | None) -> str:

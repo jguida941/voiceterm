@@ -20,6 +20,8 @@ from ...review_channel.events import (
     load_or_refresh_event_bundle,
     refresh_event_bundle,
 )
+from ...review_channel.bridge_projection import render_bridge_projection
+from ...review_channel.heartbeat import compute_non_audit_worktree_hash
 from ...review_channel.event_render import render_event_md
 from ...review_channel.follow_stream import (
     build_follow_completion_report,
@@ -157,6 +159,8 @@ def _run_event_action(
                 paths=paths,
                 packet=packet,
                 review_state_payload=review_state_payload,
+                compute_worktree_hash_fn=compute_non_audit_worktree_hash,
+                render_bridge_projection_fn=render_bridge_projection,
             )
             if bridge_sync is not None:
                 report["post_bridge_sync"] = bridge_sync

@@ -108,6 +108,8 @@ def _run_bridge_status(
 
     _attach_status_context(report, repo_root=repo_root, paths=runtime_paths)
     _refresh_report_runtime_snapshot(report)
+    if not isinstance(report.get("authority_snapshot"), dict):
+        project_authority_snapshot(report, caller_role="observer")
     recommended_command, command_source = resolve_status_recommended_command(report)
     report["recommended_command"] = recommended_command
     report["recommended_command_source"] = command_source
@@ -196,11 +198,11 @@ def _refresh_bridge_status_report(
     report["projection_paths"] = projection_paths_to_dict(snapshot.projection_paths)
     report["_typed_review_state"] = snapshot.review_state
     attach_status_runtime_snapshot(report)
+    if not isinstance(report.get("authority_snapshot"), dict):
+        project_authority_snapshot(report, caller_role="observer")
     recommended_command, command_source = resolve_status_recommended_command(report)
     report["recommended_command"] = recommended_command
     report["recommended_command_source"] = command_source
-    if not isinstance(report.get("authority_snapshot"), dict):
-        project_authority_snapshot(report, caller_role="observer")
     existing_warnings = report.get("warnings")
     if bridge_synced:
         existing_warnings = _without_bridge_current_session_drift(existing_warnings)
@@ -215,10 +217,20 @@ def _refresh_bridge_status_report(
         report.get("errors"),
         snapshot.errors,
     )
+    _normalize_read_only_status_ok(report)
     if isinstance(snapshot.reviewer_worker, dict):
         report["review_needed"] = bool(snapshot.reviewer_worker.get("review_needed"))
     if report.get("errors"):
         report["ok"] = False
+
+
+def _normalize_read_only_status_ok(report: dict[str, object]) -> None:
+    """Keep read-only status command health separate from runtime attention."""
+    if str(report.get("action") or "").strip() != "status":
+        return
+    if report.get("errors"):
+        return
+    report["ok"] = True
 def _auto_mode_prefers_markdown_bridge(paths: RuntimePaths) -> bool:
     """Prefer bridge-backed status when the transitional bridge is active."""
     bridge_path = paths.bridge_path
