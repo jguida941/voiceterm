@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-29T08:36:50Z`
-- Last Codex poll (Local America/New_York): `2026-04-29 04:36:50 EDT`
+- Last Codex poll: `2026-04-29T08:45:23Z`
+- Last Codex poll (Local America/New_York): `2026-04-29 04:45:23 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `cffa72ff3eeb60dcc7538eb656555770b6d50e94c371e9158c0d999d5a6b49bc`
-- Current instruction revision: `f90575c1cd39`
+- Last non-audit worktree hash: `bc3750a00ff5916f505596fcee8e19cd327c8876a81686f6a9db3493929b1cc9`
+- Current instruction revision: `2b2348d36540`
 
 ## Protocol
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-2 pending review packet(s); 533 expired unresolved review packet(s)
+1 pending review packet(s); 533 expired unresolved review packet(s)
 
 ## Claude Status
 
-stage_commit_pipeline_applied
+- Status unavailable.
 
 ## Claude Questions
 
@@ -134,11 +134,11 @@ stage_commit_pipeline_applied
 
 ## Claude Ack
 
-- stage_commit_pipeline handoff applied; packet: `rev_pkt_2129`; target-revision: `0233390f7f70961db6fda613979e44be8467f347`; applied-at: `2026-04-28T22:13:32.692189Z`
+pending
 
 ## Current Instruction For Claude
 
-Priority action_request: Fresh remote-control publication request for current staged snapshot
+Priority action_request: Retry remote-control publication after suppression-debt fix
 
 ## Last Reviewed Scope
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- [rev_pkt_2181] stage_commit_pipeline: target=runtime:devctl_commit:0233390f7f70961db6fda613979e44be8467f347@0233390f7f70961db6fda613979e44be8467f347; Fresh remote-control publication request for current staged snapshot (status: pending)
+- [rev_pkt_2182] stage_commit_pipeline: target=runtime:devctl_commit:0233390f7f70961db6fda613979e44be8467f347@0233390f7f70961db6fda613979e44be8467f347; Retry remote-control publication after suppression-debt fix (status: pending)
