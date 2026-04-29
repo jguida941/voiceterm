@@ -36,6 +36,9 @@ from dev.scripts.devctl.review_channel.packet_contract import (
     PacketTargetFields,
     PacketTransitionRequest,
 )
+from dev.scripts.devctl.review_channel.packet_attestation import (
+    PacketGuardAttestation,
+)
 from dev.scripts.devctl.tests.test_review_channel_context_refs import (
     _review_channel_text,
 )
@@ -427,6 +430,12 @@ def test_transition_packet_refreshes_remote_attachment_and_action_receipt(
             action="apply",
             packet_id=str(event["packet_id"]),
             actor="claude",
+            guard_attestation=PacketGuardAttestation(
+                packet_id=str(event["packet_id"]),
+                attestation_kind="run_check_result",
+                action_result_ids=("action-result-bridge-check",),
+                attested_by="claude",
+            ),
         ),
     )
     attachment = load_remote_control_attachment(output_root=status_dir, provider="claude")

@@ -20,6 +20,8 @@ def make_args(**overrides) -> SimpleNamespace:
         "branch": "develop",
         "workflow": ".github/workflows/coderabbit_ralph_loop.yml",
         "max_attempts": 3,
+        "pid": 0,
+        "grace_seconds": 2.0,
         "phone_json": "dev/reports/autonomy/queue/phone/latest.json",
         "view": "compact",
         "mode_file": "dev/reports/autonomy/queue/phone/controller_mode.json",
@@ -61,6 +63,25 @@ class ControllerActionParserTests(unittest.TestCase):
         self.assertEqual(args.action, "dispatch-report-only")
         self.assertEqual(args.max_attempts, 4)
         self.assertTrue(args.dry_run)
+
+    def test_cli_accepts_retire_stale_conductor_flags(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "controller-action",
+                "--action",
+                "retire-stale-conductor",
+                "--pid",
+                "35358",
+                "--dry-run",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(args.command, "controller-action")
+        self.assertEqual(args.action, "retire-stale-conductor")
+        self.assertEqual(args.pid, 35358)
 
 
 class ControllerActionCommandTests(unittest.TestCase):
@@ -210,6 +231,104 @@ class ControllerActionCommandTests(unittest.TestCase):
                 str(mode_file),
             )
             self.assertFalse(payload["typed_action"]["parameters"]["remote"])
+
+    @patch(
+        "dev.scripts.devctl.commands.controller_action.resolve_repo",
+        return_value="owner/repo",
+    )
+    @patch("dev.scripts.devctl.commands.process.cleanup.kill_processes")
+    @patch("dev.scripts.devctl.commands.process.cleanup.collect_process_audit_state")
+    @patch("dev.scripts.devctl.commands.controller_action.write_output")
+    def test_retire_stale_conductor_dry_run_validates_pid_without_killing(
+        self,
+        write_output_mock,
+        collect_mock,
+        kill_mock,
+        _resolve_repo_mock,
+    ) -> None:
+        conductor = {
+            "pid": 35358,
+            "ppid": 1,
+            "etime": "04:10:00",
+            "elapsed_seconds": 15000,
+            "command": (
+                "script -q -F -t 0 /tmp/codex.log "
+                "/tmp/review-channel-launch/codex-conductor.sh "
+                "__review_channel_inner"
+            ),
+            "match_scope": "review_channel_conductor",
+            "match_source": "direct",
+            "lineage_depth": 0,
+        }
+        child = {
+            "pid": 35361,
+            "ppid": 35358,
+            "etime": "04:09:59",
+            "elapsed_seconds": 14999,
+            "command": "/bin/zsh -lc codex-conductor.sh __review_channel_inner",
+            "match_scope": "review_channel_conductor",
+            "match_source": "descendant",
+            "lineage_depth": 1,
+        }
+        collect_mock.return_value = {
+            "rows": [conductor, child],
+            "scan_warnings": [],
+        }
+        args = make_args(
+            action="retire-stale-conductor",
+            pid=35358,
+            dry_run=True,
+        )
+
+        rc = controller_action.run(args)
+
+        self.assertEqual(rc, 0)
+        kill_mock.assert_not_called()
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["reason"], "retire_stale_conductor_dry_run")
+        self.assertEqual(
+            payload["typed_action"]["action_id"],
+            "controller-action.retire-stale-conductor",
+        )
+        self.assertEqual(payload["typed_action"]["parameters"]["pid"], 35358)
+        self.assertEqual(payload["result"]["target_pids"], [35361, 35358])
+
+    @patch(
+        "dev.scripts.devctl.commands.controller_action.resolve_repo",
+        return_value="owner/repo",
+    )
+    @patch("dev.scripts.devctl.commands.process.cleanup.kill_processes")
+    @patch("dev.scripts.devctl.commands.process.cleanup.collect_process_audit_state")
+    @patch("dev.scripts.devctl.commands.controller_action.write_output")
+    def test_retire_stale_conductor_rejects_non_conductor_pid(
+        self,
+        write_output_mock,
+        collect_mock,
+        kill_mock,
+        _resolve_repo_mock,
+    ) -> None:
+        collect_mock.return_value = {
+            "rows": [
+                {
+                    "pid": 42,
+                    "ppid": 1,
+                    "elapsed_seconds": 900,
+                    "command": "python3 dev/scripts/devctl.py check",
+                    "match_scope": "repo_tooling",
+                }
+            ],
+            "scan_warnings": [],
+        }
+        args = make_args(action="retire-stale-conductor", pid=42)
+
+        rc = controller_action.run(args)
+
+        self.assertEqual(rc, 1)
+        kill_mock.assert_not_called()
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["reason"], "target_not_review_channel_conductor")
 
 
 if __name__ == "__main__":

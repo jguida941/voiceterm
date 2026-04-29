@@ -42,6 +42,7 @@ from .event_store import (
     load_events,
     write_legacy_projection_mirror,
 )
+from .instruction_transitions import maybe_record_instruction_transition
 from .state import (
     write_projection_bundle,
 )
@@ -129,7 +130,7 @@ def _apply_packet_event(
         expired_packet = dict(packet)
         expired_packet["latest_event_id"] = event.get("event_id")
         expired_packet["status"] = "expired"
-        packets_by_id[packet_id] = expired_packet
+        packets_by_id[packet_id] = apply_packet_transition(expired_packet, event)
 
 
 def load_or_refresh_event_bundle(
@@ -215,6 +216,11 @@ def refresh_event_bundle(
             artifact_paths=artifact_paths,
             prior_review_state=prior_review_state,
         ),
+    )
+    maybe_record_instruction_transition(
+        repo_root=repo_root,
+        prior_review_state=prior_review_state,
+        review_state=review_state,
     )
     state_path = Path(artifact_paths.state_path)
     state_path.parent.mkdir(parents=True, exist_ok=True)

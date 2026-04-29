@@ -72,6 +72,7 @@ def prepare_pipeline(
 ):
     """Load or restage the governed pipeline before guard replay."""
     resolved_deps = deps or CommitPreflightDeps()
+    selected_paths = _selected_stage_paths(args)
     stage_warnings: list[str] = []
     pipeline = vcs_executor.load_pipeline()
     stale_pipeline = resolved_deps.pipeline_is_stale_for_current_repo_fn(
@@ -110,11 +111,12 @@ def prepare_pipeline(
         stage_result = vcs_executor.execute(
             build_stage_action(
                 repo_pack_id=resolved_policy.repo_pack_id,
+                paths=selected_paths,
                 commit_message_draft=str(getattr(args, "message", "") or ""),
                 push_requested=False,
                 guard_profile=GUARD_PROFILE,
                 work_intake_ref="devctl.commit",
-                reuse_staged_index=True,
+                reuse_staged_index=not bool(selected_paths),
                 allow_empty=bool(
                     getattr(args, "passthrough", ())
                     and "--allow-empty" in getattr(args, "passthrough", ())
@@ -153,6 +155,19 @@ def prepare_pipeline(
         scan_trigger="commit_preflight",
     )
     return pipeline, stage_warnings, None
+
+
+def _selected_stage_paths(args) -> tuple[str, ...]:
+    """Return explicit governed stage paths requested by ``devctl commit``."""
+    paths = getattr(args, "paths", ()) or ()
+    selected: list[str] = []
+    seen: set[str] = set()
+    for path in paths:
+        text = str(path or "").strip()
+        if text and text not in seen:
+            selected.append(text)
+            seen.add(text)
+    return tuple(selected)
 
 
 def _reload_after_auto_push_failure_transition(

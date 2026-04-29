@@ -14,6 +14,7 @@ from .event_store import (
     idempotency_key,
     next_event_id,
 )
+from .packet_attestation import PacketGuardAttestation
 from .remote_control_attachment_artifact import heartbeat_repo_remote_control_attachment
 
 SAFE_AUTO_APPLY_ACTION_REQUESTS = frozenset({"stage_commit_pipeline"})
@@ -83,6 +84,24 @@ def _build_auto_transition_event(
     event_id: str,
 ) -> dict[str, object]:
     event_type = _TRANSITION_EVENT_TYPES[action]
+    timestamp_utc = utc_timestamp()
+    metadata: dict[str, object] = {
+        "actor": "system",
+        "auto_apply_reason": "safe_auto_apply",
+    }
+    if action == "apply":
+        metadata["guard_attestation"] = PacketGuardAttestation(
+            packet_id=str(packet.get("packet_id") or ""),
+            attestation_kind="safe_auto_apply_stage_commit_pipeline",
+            run_record_ids=(str(packet.get("full_guard_bundle_evidence") or ""),),
+            action_result_ids=(f"safe_auto_apply:{event_id}",),
+            commit_sha=str(packet.get("target_revision") or ""),
+            evidence_artifact_paths=(
+                "dev/reports/review_channel/events/trace.ndjson",
+            ),
+            attested_at_utc=timestamp_utc,
+            attested_by="system",
+        ).to_dict()
     return dict(
         schema_version=1,
         event_id=event_id,
@@ -90,7 +109,7 @@ def _build_auto_transition_event(
         project_id=packet.get("project_id"),
         packet_id=packet.get("packet_id"),
         trace_id=packet.get("trace_id"),
-        timestamp_utc=utc_timestamp(),
+        timestamp_utc=timestamp_utc,
         source="review_channel",
         plan_id=packet.get("plan_id"),
         controller_run_id=packet.get("controller_run_id"),
@@ -127,7 +146,7 @@ def _build_auto_transition_event(
         ),
         nonce=secrets.token_hex(12),
         expires_at_utc=packet.get("expires_at_utc"),
-        metadata={"actor": "system", "auto_apply_reason": "safe_auto_apply"},
+        metadata=metadata,
     )
 
 

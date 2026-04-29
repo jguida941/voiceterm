@@ -35,6 +35,9 @@ from dev.scripts.devctl.commands.vcs.commit_preflight import (
     load_pipeline_for_explicit_approval,
     prepare_pipeline,
 )
+from dev.scripts.devctl.commands.vcs.commit_preflight_approval_packets import (
+    build_commit_approval_attestation,
+)
 from dev.scripts.devctl.commands.vcs.commit_preflight_validators import (
     CommitPreflightDeps,
     prepare_pipeline as prepare_pipeline_with_deps,
@@ -58,6 +61,7 @@ from dev.scripts.devctl.platform.coordination_snapshot_models import (
 )
 from dev.scripts.devctl.repo_packs import active_path_config
 from dev.scripts.devctl.review_channel.events import (
+    load_events,
     post_packet,
     resolve_artifact_paths,
     transition_packet,
@@ -93,6 +97,7 @@ def _make_args(**overrides) -> SimpleNamespace:
         "amend": False,
         "approve_pending": False,
         "role": None,
+        "paths": (),
         "passthrough": [],
         "format": "json",
         "output": None,
@@ -1250,6 +1255,103 @@ class TestInteractionModeResolution(unittest.TestCase):
 
 
 class TestGovernedCommitPipeline(unittest.TestCase):
+    def test_commit_parser_accepts_governed_path_selection(self) -> None:
+        args = build_parser().parse_args(
+            [
+                "commit",
+                "--paths",
+                "tracked.txt",
+                "dev/scripts/devctl.py",
+                "-m",
+                "feat: selected paths",
+            ]
+        )
+
+        self.assertEqual(args.paths, ["tracked.txt", "dev/scripts/devctl.py"])
+        self.assertEqual(args.message, "feat: selected paths")
+
+    def test_commit_paths_stage_selected_dirty_paths_through_pipeline(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            executor = _executor(repo_root)
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            guard_runner = MagicMock(return_value=_mock_subprocess_result(0))
+
+            rc = run_commit(
+                _make_args(
+                    message="feat: selected governed path",
+                    paths=("tracked.txt",),
+                ),
+                repo_root=repo_root,
+                policy=_push_policy(),
+                executor=executor,
+                interaction_mode="local_terminal",
+                guard_runner=guard_runner,
+            )
+
+            pipeline = executor.load_pipeline()
+            self.assertEqual(rc, 0)
+            self.assertEqual(pipeline.state, "commit_recorded")
+            self.assertIn("tracked.txt", pipeline.intent.staged_paths)
+            self.assertTrue(pipeline.commit_sha)
+
+    def test_commit_paths_fail_closed_when_dirty_work_is_outside_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            executor = _executor(repo_root)
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            (repo_root / "outside.txt").write_text("outside\n", encoding="utf-8")
+            guard_runner = MagicMock(return_value=_mock_subprocess_result(0))
+            captured: dict[str, object] = {}
+
+            with patch(
+                "dev.scripts.devctl.commands.vcs.commit._emit_report",
+                side_effect=lambda _args, report: captured.update(report),
+            ):
+                rc = run_commit(
+                    _make_args(
+                        message="feat: selected governed path",
+                        paths=("tracked.txt",),
+                    ),
+                    repo_root=repo_root,
+                    policy=_push_policy(),
+                    executor=executor,
+                    interaction_mode="local_terminal",
+                    guard_runner=guard_runner,
+                )
+
+            pipeline = executor.load_pipeline()
+            self.assertEqual(rc, 1)
+            self.assertEqual(captured["reason"], "dirty_paths_outside_scope")
+            self.assertIn("outside.txt", captured["warnings"])
+            self.assertFalse(pipeline.pipeline_id)
+            guard_runner.assert_not_called()
+
+    def test_commit_paths_are_not_allowed_with_approve_pending(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            executor = _executor(repo_root)
+            captured: dict[str, object] = {}
+
+            with patch(
+                "dev.scripts.devctl.commands.vcs.commit._emit_report",
+                side_effect=lambda _args, report: captured.update(report),
+            ):
+                rc = run_commit(
+                    _make_args(approve_pending=True, paths=("tracked.txt",)),
+                    repo_root=repo_root,
+                    policy=_push_policy(),
+                    executor=executor,
+                    interaction_mode="local_terminal",
+                    guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
+                )
+
+            self.assertEqual(rc, 1)
+            self.assertEqual(
+                captured["reason"],
+                "paths_not_allowed_with_approve_pending",
+            )
+
     def test_stage_reuse_index_blocks_snapshot_only_scope_with_dirty_work(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")
@@ -1791,6 +1893,10 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                     action="apply",
                     packet_id=str(decision_event["packet_id"]),
                     actor="operator",
+                    guard_attestation=build_commit_approval_attestation(
+                        decision_event["packet_id"],
+                        pipeline,
+                    ),
                 ),
             )
 
@@ -1955,6 +2061,10 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                     action="apply",
                     packet_id=str(decision_event["packet_id"]),
                     actor="operator",
+                    guard_attestation=build_commit_approval_attestation(
+                        decision_event["packet_id"],
+                        pipeline,
+                    ),
                 ),
             )
 
@@ -1972,6 +2082,133 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             persisted = executor.load_pipeline()
             self.assertEqual(persisted.approval_state, "approved")
             self.assertEqual(persisted.decision_packet_id, decision_event["packet_id"])
+
+    def test_explicit_operator_approval_records_guard_attestation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            executor = _executor(repo_root)
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _run_git(repo_root, "add", "tracked.txt")
+
+            first_rc = run_commit(
+                _make_args(message="feat: explicit operator approval"),
+                repo_root=repo_root,
+                policy=_push_policy(),
+                executor=executor,
+                interaction_mode="remote_control",
+                guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
+            )
+            self.assertEqual(first_rc, 1)
+
+            pipeline = executor.load_pipeline()
+            approved_pipeline, report = apply_explicit_operator_approval(
+                vcs_executor=executor,
+                pipeline=pipeline,
+                approval_authority=build_commit_approval_authority(
+                    interaction_mode="remote_control",
+                ),
+                stage_warnings=[],
+            )
+
+            self.assertIsNone(report)
+            self.assertEqual(approved_pipeline.approval_state, "approved")
+            persisted = executor.load_pipeline()
+            self.assertEqual(persisted.approval_state, "approved")
+            self.assertTrue(persisted.decision_packet_id)
+
+            artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+            events = load_events(Path(artifact_paths.event_log_path))
+            apply_events = [
+                event
+                for event in events
+                if event.get("event_type") == "packet_applied"
+                and event.get("kind") == APPROVAL_PACKET_KIND
+                and event.get("trace_id") == pipeline.pipeline_id
+            ]
+            self.assertEqual(len(apply_events), 2)
+            for event in apply_events:
+                metadata = event.get("metadata")
+                if not isinstance(metadata, dict):
+                    self.fail("packet_applied metadata must be a dict")
+                attestation = metadata.get("guard_attestation")
+                self.assertIsInstance(attestation, dict)
+                self.assertEqual(attestation["contract_id"], "PacketGuardAttestation")
+                self.assertEqual(attestation["packet_id"], event["packet_id"])
+                self.assertEqual(
+                    attestation["pipeline_generation"],
+                    pipeline.generation_id,
+                )
+                self.assertEqual(
+                    attestation["staged_snapshot_hash"],
+                    pipeline.intent.staged_tree_hash,
+                )
+                self.assertEqual(attestation["attested_by"], metadata["actor"])
+                self.assertTrue(attestation["run_record_ids"])
+                self.assertTrue(attestation["operator_signature"])
+
+    def test_explicit_operator_approval_reuses_existing_decision_packet(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            executor = _executor(repo_root)
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _run_git(repo_root, "add", "tracked.txt")
+
+            first_rc = run_commit(
+                _make_args(message="feat: explicit operator approval"),
+                repo_root=repo_root,
+                policy=_push_policy(),
+                executor=executor,
+                interaction_mode="remote_control",
+                guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
+            )
+            self.assertEqual(first_rc, 1)
+
+            pipeline = executor.load_pipeline()
+            artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+            _, decision_event = post_packet(
+                repo_root=repo_root,
+                review_channel_path=repo_root / "dev/active/review_channel.md",
+                artifact_paths=artifact_paths,
+                request=build_commit_approval_decision(
+                    pipeline,
+                    summary=(
+                        "Remote-control operator approved governed commit "
+                        f"pipeline `{pipeline.pipeline_id}`"
+                    ),
+                    body=(
+                        "The remote-control operator explicitly approved the "
+                        "current guarded staged snapshot for governed commit "
+                        "execution."
+                    ),
+                ),
+            )
+
+            approved_pipeline, report = apply_explicit_operator_approval(
+                vcs_executor=executor,
+                pipeline=pipeline,
+                approval_authority=build_commit_approval_authority(
+                    interaction_mode="remote_control",
+                ),
+                stage_warnings=[],
+            )
+
+            self.assertIsNone(report)
+            self.assertEqual(approved_pipeline.approval_state, "approved")
+            persisted = executor.load_pipeline()
+            self.assertEqual(persisted.decision_packet_id, decision_event["packet_id"])
+
+            events = load_events(Path(artifact_paths.event_log_path))
+            decision_posts = [
+                event
+                for event in events
+                if event.get("event_type") == "packet_posted"
+                and event.get("kind") == APPROVAL_PACKET_KIND
+                and event.get("trace_id") == pipeline.pipeline_id
+                and not event.get("approval_required")
+            ]
+            self.assertEqual(len(decision_posts), 1)
 
     def test_commit_approve_pending_is_idempotent_for_commit_pending_pipeline(
         self,
@@ -2011,6 +2248,10 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                     action="apply",
                     packet_id=str(decision_event["packet_id"]),
                     actor="operator",
+                    guard_attestation=build_commit_approval_attestation(
+                        decision_event["packet_id"],
+                        pipeline,
+                    ),
                 ),
             )
             executor._persist_pipeline(
@@ -2212,6 +2453,10 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                     action="apply",
                     packet_id=str(decision_event["packet_id"]),
                     actor="operator",
+                    guard_attestation=build_commit_approval_attestation(
+                        decision_event["packet_id"],
+                        pipeline,
+                    ),
                 ),
             )
 

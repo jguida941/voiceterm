@@ -24,6 +24,9 @@ from dev.scripts.devctl.review_channel.packet_contract import (
     PacketTargetFields,
     PacketTransitionRequest,
 )
+from dev.scripts.devctl.review_channel.packet_attestation import (
+    PacketGuardAttestation,
+)
 from dev.scripts.devctl.review_channel.state import refresh_status_snapshot
 from dev.scripts.devctl.runtime.review_state_parser import review_state_from_payload
 from dev.scripts.devctl.runtime.startup_context import build_startup_context
@@ -311,6 +314,15 @@ def _approve_pipeline(
             action="apply",
             packet_id=str(decision_event["packet_id"]),
             actor="operator",
+            guard_attestation=PacketGuardAttestation(
+                packet_id=str(decision_event["packet_id"]),
+                attestation_kind="commit_approval_guard",
+                run_record_ids=("quality.guard_bundle",),
+                pipeline_generation=pipeline.generation_id,
+                staged_snapshot_hash=pipeline.intent.staged_tree_hash,
+                operator_signature="operator",
+                attested_by="operator",
+            ),
         ),
     )
     return decision_event

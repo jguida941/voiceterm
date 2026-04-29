@@ -11,7 +11,7 @@ from .bridge_projection_instruction import (
     is_placeholder_instruction as _is_placeholder_instruction,
     typed_instruction_explicitly_cleared as _typed_instruction_explicitly_cleared,
 )
-from .peer_liveness import resolve_reported_reviewer_mode, reviewer_mode_is_active
+from .peer_liveness import resolve_reported_reviewer_mode
 from ..runtime.review_state_semantics import is_missing_instruction
 
 _LOCAL_TIME_FORMAT = "%Y-%m-%d %H:%M:%S %Z"
@@ -121,21 +121,18 @@ def projection_metadata(
             )
         }
     )
-    if reviewer_mode_is_active(declared_reviewer_mode) and not reviewer_mode_is_active(
-        effective_reviewer_mode
-    ):
-        reviewer_mode = declared_reviewer_mode
-    else:
-        reviewer_mode = effective_reviewer_mode or declared_reviewer_mode
-    return {
-        "last_codex_poll_utc": last_codex_poll_utc,
-        "last_codex_poll_local": last_codex_poll_local,
-        "reviewer_mode": reviewer_mode,
-        "current_instruction_revision": current_revision,
-        "current_instruction_explicitly_cleared": (
-            "true" if typed_instruction_cleared else ""
-        ),
-    }
+    reviewer_mode = effective_reviewer_mode or declared_reviewer_mode
+    metadata: dict[str, str] = {}
+    metadata["last_codex_poll_utc"] = last_codex_poll_utc
+    metadata["last_codex_poll_local"] = last_codex_poll_local
+    metadata["reviewer_mode"] = reviewer_mode
+    metadata["declared_reviewer_mode"] = declared_reviewer_mode
+    metadata["effective_reviewer_mode"] = effective_reviewer_mode
+    metadata["current_instruction_revision"] = current_revision
+    metadata["current_instruction_explicitly_cleared"] = (
+        "true" if typed_instruction_cleared else ""
+    )
+    return metadata
 
 def _first_text(*candidates: object) -> str:
     for candidate in candidates:

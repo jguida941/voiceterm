@@ -317,6 +317,23 @@ class TestActionRequestsFromPackets:
         assert len(result) == 1
         assert result[0].action == "run_check"
 
+    def test_excludes_action_request_delivery_receipts(self) -> None:
+        packets: list[dict[str, object]] = [
+            {
+                "packet_id": "rev_receipt_0001",
+                "kind": "delivery_receipt",
+                "status": "pending",
+                "requested_action": "stage_commit_pipeline",
+                "action_request_packet_id": "rev_pkt_0001",
+                "target_kind": "runtime",
+                "target_ref": "devctl_commit:abc123",
+                "target_revision": "abc123",
+                "full_guard_bundle_evidence": "--profile ci",
+            },
+        ]
+
+        assert action_requests_from_packets(packets) == []
+
     def test_excludes_unbound_runtime_action_packets(self) -> None:
         packets: list[dict[str, object]] = [
             {

@@ -84,9 +84,9 @@ def _append_queue_reconciliation(lines: list[str], reconciliation: object) -> No
     )
     if reconciliation.get("stale_pending_hidden_from_inbox_total"):
         lines.append(
-            "- note: expired pending packets are unresolved packets whose TTL "
-            "elapsed; they stay in history and are intentionally excluded from "
-            "the live inbox until they are reissued or resolved"
+            "- note: expired pending packets are archived audit rows whose TTL "
+            "elapsed; they stay in history with disposition evidence and are "
+            "intentionally excluded from the live inbox until they are reissued"
         )
     if reconciliation.get("history_truncated"):
         lines.append(
@@ -123,6 +123,14 @@ def _format_packet_line(
             summary += f" | outcome: {outcome_name}"
             if evidence_ref:
                 summary += f" ({evidence_ref})"
+    disposition = packet_row.get("disposition")
+    if isinstance(disposition, dict):
+        sink = str(disposition.get("sink") or "").strip()
+        anchor = str(disposition.get("resolution_anchor") or "").strip()
+        if sink:
+            summary += f" | disposition: {sink}"
+            if anchor:
+                summary += f" ({anchor})"
     return summary
 
 
@@ -133,7 +141,18 @@ def _append_packet_section(lines: list[str], packet: dict) -> None:
     lines.append(f"- trace_id: {packet.get('trace_id')}")
     lines.append(f"- route: {packet.get('from_agent')} -> {packet.get('to_agent')}")
     lines.append(f"- status: {packet.get('status')}")
+    if packet.get("lifecycle_current_state"):
+        lines.append(f"- lifecycle_current_state: {packet.get('lifecycle_current_state')}")
+    if packet.get("resolution_anchor"):
+        lines.append(f"- resolution_anchor: {packet.get('resolution_anchor')}")
     lines.append(f"- summary: {packet.get('summary')}")
+    disposition = packet.get("disposition")
+    if isinstance(disposition, dict):
+        lines.append(
+            "- disposition: "
+            f"{disposition.get('sink') or 'n/a'} | "
+            f"{disposition.get('resolution_anchor') or 'n/a'}"
+        )
     if packet.get("target_kind"):
         lines.append(
             "- target: "

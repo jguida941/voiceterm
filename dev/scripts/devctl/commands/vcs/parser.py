@@ -100,6 +100,15 @@ def add_commit_parser(subparsers: argparse._SubParsersAction) -> None:
         ),
     )
     commit_cmd.add_argument(
+        "--paths",
+        nargs="+",
+        default=(),
+        help=(
+            "Repo-relative paths to stage through the governed vcs.stage action "
+            "before guard and approval checks."
+        ),
+    )
+    commit_cmd.add_argument(
         "--role",
         choices=("dashboard", "implementer", "observer", "reviewer"),
         default=None,

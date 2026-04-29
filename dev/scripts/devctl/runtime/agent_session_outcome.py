@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import Protocol
 
 AGENT_SESSION_OUTCOME_CONTRACT_ID = "AgentSessionOutcome"
 AGENT_SESSION_OUTCOME_SCHEMA_VERSION = 1
@@ -53,6 +54,24 @@ class AgentSessionOutcomeState:
 
     def is_completed_handoff(self) -> bool:
         return self.outcome == AGENT_SESSION_OUTCOME_COMPLETED_HANDOFF
+
+
+class SessionOutcomeSource(Protocol):
+    """Fixed-shape session row consumed by unresolved-outcome projection."""
+
+    provider: str
+    role: str
+    session_name: str
+    live: bool
+    launch_authority_reason: str
+    live_reason: str
+    metadata_path: str
+    log_path: str
+    workspace_root: str
+    prepared_at: str
+    prepared_session_token: str
+    prepared_head_sha: str
+    prepared_instruction_revision: str
 
 
 def agent_session_outcome_from_mapping(
@@ -139,6 +158,72 @@ def latest_agent_session_outcome(
     return max(candidates, key=_outcome_sort_key, default=None)
 
 
+def projected_unresolved_session_outcomes(
+    sessions: Sequence[SessionOutcomeSource],
+    existing_outcomes: Sequence[AgentSessionOutcomeState],
+    *,
+    observed_at_utc: str,
+) -> tuple[AgentSessionOutcomeState, ...]:
+    """Project dead/unresolved conductor sessions that lack an end receipt."""
+    existing_keys = {_session_outcome_key(outcome) for outcome in existing_outcomes}
+    projected: list[AgentSessionOutcomeState] = []
+    for session in sessions:
+        if session.live:
+            continue
+        key = _session_key(session)
+        if key in existing_keys:
+            continue
+        provider, session_name, prepared_token = key
+        if not provider:
+            continue
+        reason = (
+            _text(session.launch_authority_reason)
+            or _text(session.live_reason)
+            or "session ended without typed handoff packet"
+        )
+        projected.append(
+            AgentSessionOutcomeState(
+                schema_version=AGENT_SESSION_OUTCOME_SCHEMA_VERSION,
+                contract_id=AGENT_SESSION_OUTCOME_CONTRACT_ID,
+                outcome=AGENT_SESSION_OUTCOME_UNRESOLVED,
+                reason=f"unresolved_session_outcome: {reason}",
+                provider=provider,
+                session_actor_id=provider,
+                session_actor_role=_text(session.role),
+                session_id="",
+                session_name=session_name,
+                observed_at_utc=observed_at_utc,
+                finished_at_utc=observed_at_utc,
+                source="collaboration_session_projection",
+                metadata_path=_text(session.metadata_path),
+                log_path=_text(session.log_path),
+                workspace_root=_text(session.workspace_root),
+                prepared_at_utc=_text(session.prepared_at),
+                prepared_session_token=prepared_token,
+                prepared_head_sha=_text(session.prepared_head_sha),
+                prepared_instruction_revision=_text(session.prepared_instruction_revision),
+            )
+        )
+    return tuple(projected)
+
+
+def _session_outcome_key(
+    outcome: AgentSessionOutcomeState,
+) -> tuple[str, str, str]:
+    return (
+        outcome.provider.lower(),
+        outcome.session_name,
+        outcome.prepared_session_token,
+    )
+
+
+def _session_key(session: SessionOutcomeSource) -> tuple[str, str, str]:
+    provider = _text(session.provider).lower()
+    session_name = _text(session.session_name)
+    prepared_token = _text(session.prepared_session_token)
+    return (provider, session_name, prepared_token)
+
+
 def _outcome_sort_key(row: AgentSessionOutcomeState) -> tuple[str, str]:
     return (
         row.finished_at_utc or row.observed_at_utc,
@@ -167,7 +252,9 @@ __all__ = [
     "AGENT_SESSION_OUTCOME_UNRESOLVED",
     "AGENT_SESSION_OUTCOMES",
     "AgentSessionOutcomeState",
+    "SessionOutcomeSource",
     "agent_session_outcome_from_mapping",
     "agent_session_outcomes_from_value",
     "latest_agent_session_outcome",
+    "projected_unresolved_session_outcomes",
 ]

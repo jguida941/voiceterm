@@ -112,7 +112,9 @@ from .project_governance import (
     DocRegistry,
     DocRegistryEntry,
     EnabledChecks,
+    IngestionPolicy,
     MemoryRoots,
+    MasterPlan,
     PathRoots,
     PlanRegistry,
     PlanRegistryEntry,
@@ -182,7 +184,6 @@ from .role_profile import (
     role_for_provider,
     role_profile_from_mapping,
 )
-
 __all__ = [
     "ACTION_RESULT_CONTRACT_ID",
     "ACTION_RESULT_SCHEMA_VERSION",
@@ -238,6 +239,7 @@ __all__ = [
     "DecisionPacketPolicy",
     "DecisionPacketRecord",
     "EnabledChecks",
+    "IngestionPolicy",
     "FAILURE_PACKET_CONTRACT_ID",
     "FAILURE_PACKET_SCHEMA_VERSION",
     "FINDING_CONTRACT_ID",
@@ -251,6 +253,7 @@ __all__ = [
     "OperatorContext",
     "OperatorInteractionMode",
     "MemoryRoots",
+    "MasterPlan",
     "PROBE_ALLOWLIST_CONTRACT_ID",
     "PROBE_ALLOWLIST_SCHEMA_VERSION",
     "PROBE_REPORT_CONTRACT_ID",

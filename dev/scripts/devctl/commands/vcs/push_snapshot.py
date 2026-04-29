@@ -112,7 +112,9 @@ def _enforce_execution_truth(
     for field_name in ("fetch_step", "preflight_step", "push_step"):
         if getattr(state, field_name, None) is None:
             missing.append(field_name)
-    if not list(getattr(state, "post_push_steps", []) or []):
+    if _requires_post_push_step_evidence(outcome) and not list(
+        getattr(state, "post_push_steps", []) or []
+    ):
         missing.append("post_push_steps")
     push_step = getattr(state, "push_step", None)
     if isinstance(push_step, dict) and _returncode(push_step.get("returncode")) != 0:
@@ -146,6 +148,17 @@ def _enforce_execution_truth(
         stages=PushStageTruth(),
         partial_progress=False,
     )
+
+
+def _requires_post_push_step_evidence(outcome: PushFlowOutcome) -> bool:
+    """Return whether this outcome claims a terminal post-push state."""
+    if outcome.stages.post_push_green:
+        return True
+    return outcome.reason in {
+        "post_push_bundle_failed",
+        "post_push_skipped_by_policy",
+    }
+
 
 def _returncode(value: object) -> int:
     try:

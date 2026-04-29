@@ -447,6 +447,8 @@ class TestBootstrapContext(unittest.TestCase):
             self.assertIn("file", h)
             self.assertIn("temperature", h)
             self.assertIn("ranking_summary", h)
+            self.assertNotIn("visible edge(s)", h["ranking_summary"])
+            self.assertIn("Edge details suppressed", h["ranking_summary"])
 
     def test_bootstrap_token_budget(self) -> None:
         """Bootstrap packet should stay under 5K tokens."""

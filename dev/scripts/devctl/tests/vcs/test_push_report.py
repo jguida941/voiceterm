@@ -102,6 +102,8 @@ def test_push_report_marks_remote_published_post_push_pending() -> None:
         )
     )
 
+    assert report["published_remote"] is True
+    assert report["post_push_green"] is False
     assert report["push_diagnostic"]["summary"] == "remote_published_post_push_pending"
     assert report["push_diagnostic"]["git_push_state"] == "landed"
     assert report["push_diagnostic"]["post_push_state"] == "failed"

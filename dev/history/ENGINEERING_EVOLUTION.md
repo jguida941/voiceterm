@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-28
+**Last Updated:** 2026-04-29
 
 ## At a Glance
 
@@ -36,6 +36,110 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-04-29 - Review packets gained lifecycle and disposition state
+
+Fact: live Plan 4.1 dogfood still had a packet-loss shaped failure mode:
+expired pending packets could fall out of the actionable inbox without a
+per-packet audit trail proving whether an actor acknowledged, acted on,
+integrated, queued, or archived the work. `PacketOutcomeLedger` was useful as a
+bounded history report, but it still left clock-expired rows looking like lost
+intent.
+
+Change: the event reducer now enriches every packet row with
+`PacketLifecycleHistory` and `PacketDisposition`. ACK transitions append
+`acknowledged_events`; apply, dismiss, and expire transitions append
+`acted_on_events`; each row exposes `lifecycle_current_state` plus
+`resolution_anchor`. TTL-elapsed pending packets are archived with
+`archive_classification:clock_expired_without_disposition` instead of becoming
+silent lost-work candidates. Plan-targeted `apply` transitions append an
+idempotent `PacketPlanIntegration` row to `dev/active/MASTER_PLAN.md`, and the
+`rev_pkt_2145` deferred queue is routed into concrete `MP377-P0` / `MP394-A`
+plan rows or archived when prior code already resolved it.
+
+Evidence:
+- `dev/scripts/devctl/review_channel/packet_lifecycle.py`
+- `dev/scripts/devctl/review_channel/packet_plan_integration.py`
+- `dev/scripts/devctl/review_channel/event_packet_rows.py`
+- `dev/scripts/devctl/review_channel/packet_outcomes.py`
+- `dev/scripts/devctl/runtime/review_state_packet_models.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_lifecycle.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_outcomes.py`
+
+### 2026-04-28 - Plan 4.1 dogfood cleanup collapses review surfaces onto typed authority
+
+Fact: live Codex/Claude dogfood found several small but compounding surface
+lies: bridge/status reviewer mode could disagree, packet counters counted
+different queues, Action Requests risked reading receipt-like rows, context
+graph bootstrap said "0 visible edge(s)" while suppressing edges, dry-run
+tandem validation printed command noise before its report, `triage` could trip
+over a package-relative mutation shim, and `check --profile quick` mixed
+process cleanup into the default code-shape signal.
+
+Change: the reviewed surfaces now prefer typed authority and keep compatibility
+state explicit. Bridge metadata renders effective reviewer mode while preserving
+the declared mode as a separate row, packet inbox counts only live pending
+work, Action Requests project only pending `kind="action_request"` packets,
+packet posts receive stable semantic idempotency keys, and packet-kind
+validation uses a single schema table. Context-graph bootstrap names that edge
+details are suppressed, tandem dry-run output starts at the markdown report,
+the mutation outcome shim works in package and direct-script modes, and the
+process-sweep cleanup around `check` is opt-in with
+`--with-process-sweep-cleanup`.
+
+Change: `CollaborationSession.session_outcomes` now also projects
+`AgentSessionOutcome(outcome=unresolved)` rows for dead sessions that never
+emitted a terminal outcome. This does not replace the completed-handoff proof;
+it makes the failure path typed so Codex-style apply/guard exits cannot
+disappear as prose-only session endings.
+
+Evidence:
+- `dev/scripts/devctl/review_channel/bridge_projection_metadata.py`
+- `dev/scripts/devctl/review_channel/bridge_projection_state.py`
+- `dev/scripts/devctl/runtime/review_packet_inbox.py`
+- `dev/scripts/devctl/review_channel/action_request.py`
+- `dev/scripts/devctl/review_channel/event_store.py`
+- `dev/scripts/devctl/review_channel/packet_post_idempotency.py`
+- `dev/scripts/devctl/review_channel/packet_contract.py`
+- `dev/scripts/devctl/context_graph/query.py`
+- `dev/scripts/devctl/commands/governance/simple_lanes.py`
+- `dev/scripts/checks/mutation_outcome_parse.py`
+- `dev/scripts/devctl/commands/check/__init__.py`
+- `dev/scripts/devctl/runtime/agent_session_outcome.py`
+- `dev/scripts/devctl/review_channel/collaboration_session.py`
+
+### 2026-04-28 - Governed commit now accepts explicit path-scoped staging
+
+Fact: the governed commit lane already had a typed `vcs.stage` action capable of
+selected-path staging, ReviewSnapshot refresh, and dirty-outside-scope
+enforcement. The user-facing `devctl commit` command could not pass paths into
+that action, so a remote-control lane with real unstaged work could only follow
+guidance that said "stage the intended paths first" by running raw `git add`.
+
+Change: `devctl commit --paths <path>...` now feeds selected repo-relative paths
+into the existing typed stage action before guard, approval, and commit
+execution. `--approve-pending` remains a pure resume path and rejects new path
+selection, while the selected-path staging path still refreshes the managed
+ReviewSnapshot artifact and blocks when other non-artifact dirty paths remain
+outside the selected scope.
+
+### 2026-04-28 - Governed push execution-truth now distinguishes in-flight publication from terminal post-push evidence
+
+Fact: `devctl push --execute` writes a managed latest-push snapshot immediately
+after the remote ref advances and before the configured post-push bundle runs.
+That in-flight snapshot truthfully proves remote publication, but it cannot yet
+carry `post_push_steps`. The execution-truth meta-guard treated that pending
+snapshot as a terminal report, appended a false `SilentPushFailure`, and the
+final `post_push_green` report inherited the stale error even after all
+post-push commands passed.
+
+Change: the `SilentPushFailure` guard is now stage-aware. Publication claims
+still require fetch/preflight/push subprocess evidence plus remote-ref equality
+with current `HEAD`, while terminal post-push states (`post_push_green`,
+`post_push_bundle_failed`, `post_push_skipped_by_policy`) additionally require
+`post_push_steps`. The push report also mirrors `published_remote` and
+`post_push_green` from `push_stages` onto root fields so direct typed consumers
+do not need a second schema path to read publication truth.
 
 ### 2026-04-28 - Governed push identity checks now consume managed receipt-chain authority
 
@@ -573,17 +677,18 @@ Fact: live dogfood showed expired-pending review packets accumulating even
 when Codex had addressed the substance in code or follow-up packets. The queue
 already hid expired pending rows from actionable inbox counts, but history had
 no typed terminal outcome that could distinguish delivered, superseded,
-withdrawn, unrecoverable, or truly lost work.
+withdrawn, unrecoverable, or unclassified expired work.
 
 Change: `review-channel --action history --include-outcomes` now attaches a
 bounded read-side `PacketOutcomeLedger` for the history rows being shown. The
 ledger classifies expired-pending packets into
 `delivered_via_commit`, `superseded_by`, `promoted_to_finding`,
-`withdrawn_by_reviewer`, `expired_unrecoverable`, or `lost` from later typed
+`withdrawn_by_reviewer`, or `expired_unrecoverable` from later typed
 review-channel event evidence, then renders the outcome in markdown packet
-history without mutating packet transport state. This is the S2 first slice:
-the full stale-packet migration and blocking closure guard over all expired
-packets remain tracked under `rev_pkt_1822`.
+history without mutating packet transport state. A later 2026-04-29 lifecycle
+slice replaced the unresolved `lost` fallback with archived disposition rows.
+This is the S2 first slice: the full stale-packet migration and blocking
+closure guard over all expired packets remain tracked under `rev_pkt_1822`.
 
 Evidence:
 - `dev/scripts/devctl/review_channel/packet_outcomes.py`
@@ -12848,3 +12953,85 @@ Evidence:
 - `dev/scripts/devctl/tests/checks/test_check_review_channel_bridge.py`
 - `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
 - `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+
+### 2026-04-29 - Stale conductor retirement is a typed controller action
+
+Plan 4.1 push recovery exposed a host-process hygiene loop where a stale
+review-channel conductor could keep spawning fresh detached helper rows. The
+generic cleanup path correctly skipped recent detached rows, but the commit
+guard then had no typed way to retire the older spawner, so auto-retry could
+repeat without convergence.
+
+`controller-action` now includes `retire-stale-conductor`, a local typed action
+that requires a PID, validates that PID against the repo process-audit snapshot
+as a review-channel conductor, refuses too-recent targets, terminates the
+validated conductor tree with a structured report, and points operators back to
+`process-cleanup --verify` for proof. `process-cleanup` also emits bounded
+retirement commands when recent detached rows coexist with stale supervised
+conductor rows, so guard failures can route through typed recovery instead of
+manual process killing.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/controller_action.py`
+- `dev/scripts/devctl/control_plane/action_support.py`
+- `dev/scripts/devctl/cli_parser/controller_action.py`
+- `dev/scripts/devctl/commands/process/cleanup.py`
+- `dev/scripts/devctl/tests/test_controller_action.py`
+- `dev/scripts/devctl/tests/commands/process/test_process_cleanup.py`
+
+The same slice seeds the architecture-aware probe family with
+`probe_architecture_connectivity.py`. The probe consumes
+`ConnectivityRegistrySnapshot` and the registry reader-verification pass,
+then emits architecture-lens hints for typed contract-reader gaps or registry
+writer warnings. `probe-report` now runs that probe through the normal quality
+policy and script catalog path, making the connectivity registry load-bearing
+for code-smell review instead of only a system-map render source.
+
+Additional evidence:
+
+- `dev/scripts/checks/probe_architecture_connectivity.py`
+- `dev/scripts/devctl/governance/script_catalog_registry.py`
+- `dev/scripts/devctl/quality_policy/defaults.py`
+- `dev/scripts/devctl/tests/checks/test_probe_architecture_connectivity.py`
+
+### 2026-04-29 - Packet applies now require guard evidence and portable plan authority
+
+Finding LL exposed that packet lifecycle state alone still let an ACK or apply
+look like completed work without proving the guard/run/action evidence behind
+it. `packet_applied` transitions now validate a `PacketGuardAttestation`
+against the applied packet: runtime stage/commit/push requests require commit
+SHA, run records, action results, and evidence artifacts; commit approvals
+must match the pipeline generation and staged snapshot hash; plan patches must
+name before/after plan revisions plus the mutation op; findings and approvals
+carry their own action/operator evidence. Low-risk communication packets only
+get a minimal actor/timestamp attestation.
+
+The same slice makes the master plan portable typed state. `MasterPlan`,
+`PlanRow`, `LinkedDoc`, `PlanProposal`, `IngestionPolicy`, and
+`ExplainBackReceipt` live under `devctl.runtime`; `MarkdownChecklistAdapter`
+can ingest VoiceTerm's existing checklist projection without changing the
+human-facing file; and `PacketPlanIntegration` writes applied plan rows to the
+JSONL store resolved from `ProjectGovernance.master_plan` before optionally
+projecting the row back into markdown. Plan-review packets are proposal-class
+packets with live target/mutation contradiction detection; runtime action
+requests and other communication packets stay carrier-class and keep their
+typed runtime bindings.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/master_plan_contract.py`
+- `dev/scripts/devctl/runtime/master_plan_parse.py`
+- `dev/scripts/devctl/runtime/master_plan_store.py`
+- `dev/scripts/devctl/governance/master_plan_config.py`
+- `dev/scripts/devctl/governance/master_plan_ingestion.py`
+- `dev/scripts/devctl/review_channel/packet_attestation.py`
+- `dev/scripts/devctl/review_channel/contradiction_detector.py`
+- `dev/scripts/devctl/review_channel/packet_contract.py`
+- `dev/scripts/devctl/review_channel/packet_plan_proposal.py`
+- `dev/scripts/devctl/review_channel/packet_plan_integration.py`
+- `dev/scripts/devctl/review_channel/packet_target_validation.py`
+- `dev/scripts/devctl/review_channel/packet_transition_events.py`
+- `dev/scripts/devctl/tests/governance/test_master_plan_ingestion.py`
+- `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_lifecycle.py`

@@ -6,6 +6,8 @@ import json
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from dev.scripts.devctl.review_channel.event_store import (
     append_event,
     next_event_id,
@@ -268,6 +270,29 @@ def test_append_event_returns_written_packet_id_for_auto_packet_posts() -> None:
 
         assert written["packet_id"] == "rev_pkt_0002"
         assert written["trace_id"]
+
+
+def test_append_event_deduplicates_semantic_packet_posts() -> None:
+    """Packet-post dedup must not include the allocated packet id."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        events_path = Path(tmpdir) / "trace.ndjson"
+        event = {
+            "event_type": "packet_posted",
+            "packet_id": "",
+            "trace_id": "",
+            "from_agent": "codex",
+            "to_agent": "claude",
+            "kind": "finding",
+            "summary": "Duplicate finding",
+            "body": "Same body",
+            "requested_action": "review_only",
+            "policy_hint": "review_only",
+            "idempotency_key": "",
+        }
+        written = append_event(events_path, event, existing_events=[])
+
+        with pytest.raises(ValueError, match="Duplicate review-channel idempotency_key"):
+            append_event(events_path, event, existing_events=[written])
 
 
 def test_append_event_rejects_malformed_trace() -> None:

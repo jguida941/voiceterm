@@ -337,7 +337,7 @@ def test_projection_metadata_prefers_effective_mode_over_declared_mode() -> None
     assert metadata["reviewer_mode"] == "tools_only"
 
 
-def test_projection_metadata_keeps_checkpoint_instruction_revision() -> None:
+def test_projection_metadata_treats_checkpoint_placeholder_as_cleared_instruction() -> None:
     metadata = projection_metadata(
         snapshot=BridgeSnapshot(metadata={}, sections={}),
         bridge_liveness={},
@@ -350,8 +350,8 @@ def test_projection_metadata_keeps_checkpoint_instruction_revision() -> None:
         bridge_state={},
     )
 
-    assert metadata["current_instruction_revision"]
-    assert metadata["current_instruction_explicitly_cleared"] == ""
+    assert metadata["current_instruction_revision"] == ""
+    assert metadata["current_instruction_explicitly_cleared"] == "true"
 
 
 def test_bridge_projection_metadata_lines_fail_closed_to_tools_only() -> None:

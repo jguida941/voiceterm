@@ -11,7 +11,8 @@ def add_controller_action_parser(sub) -> None:
         "controller-action",
         help=(
             "Run one policy-gated controller action "
-            "(refresh-status|dispatch-report-only|pause-loop|resume-loop)"
+            "(refresh-status|dispatch-report-only|pause-loop|resume-loop|"
+            "retire-stale-conductor)"
         ),
     )
     controller_cmd.add_argument(
@@ -21,9 +22,22 @@ def add_controller_action_parser(sub) -> None:
             "dispatch-report-only",
             "pause-loop",
             "resume-loop",
+            "retire-stale-conductor",
         ],
         required=True,
         help="Controller action to execute",
+    )
+    controller_cmd.add_argument(
+        "--pid",
+        type=int,
+        default=0,
+        help="Target PID for retire-stale-conductor.",
+    )
+    controller_cmd.add_argument(
+        "--grace-seconds",
+        type=float,
+        default=2.0,
+        help="Grace period recorded for local retire-stale-conductor attempts.",
     )
     controller_cmd.add_argument(
         "--repo",

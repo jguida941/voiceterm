@@ -133,6 +133,16 @@ Use docs like this:
   `current_session.implementer_ack_state=current`. The implementer ACK still
   requires a machine-readable current-instruction revision in typed
   current-session/bridge state.
+- `packet_applied` is now an evidence-bound work claim. Any apply transition
+  that asserts real work must carry a `PacketGuardAttestation` with the
+  required run records, action results, commit SHA, operator signature, or plan
+  revision fields for that packet kind; low-risk communication packets may only
+  use the minimal actor/timestamp attestation. Plan-targeted applies write
+  `PlanRow` records to the typed JSONL master-plan store from
+  `ProjectGovernance.master_plan`, then optionally project a generated markdown
+  row for humans. In VoiceTerm that projection is `dev/active/MASTER_PLAN.md`
+  and the default typed store is `dev/state/plan_index.jsonl`, but portable
+  runtime code must resolve both paths through governance/repo-pack state.
 - Headless `review-channel --action launch` (and `--action recover`) now
   auto-elevate `--approval-mode` to `trusted` when typed
   `interaction_mode == "remote_control"` and the operator did not pass an
@@ -273,6 +283,11 @@ user paths or if the refresh leaves only receipt artifacts staged while real
 dirty work remains outside the index. Governed commit reports may surface both
 the approved content SHA and a trailing ReviewSnapshot `receipt_commit_sha`
 when the hook adds a receipt commit after the main code commit.
+When the intended work is still unstaged, use
+`python3 dev/scripts/devctl.py commit --paths <path>... -m "<message>"`; that
+routes selected repo-relative paths through the existing typed `vcs.stage`
+action and still fails closed if other non-artifact dirty paths remain outside
+the selected scope.
 Treat `allowed_actions` as the effective post-gate set, not the raw lane
 capability list: `intrinsic_allowed_actions` preserves lane capability when
 checkpoint budget, resync, or implementation authority temporarily blocks
@@ -1027,10 +1042,15 @@ Three quality layers matter in practice:
     should agree with inbox on pending vs stale after packet expiry.
   - Packet-history work now has a bounded typed outcome surface:
     `review-channel --action history --include-outcomes` emits a
-    `PacketOutcomeLedger` for the shown history rows. Use it for S2-style
-    dogfood and stale-graveyard analysis, but do not treat it as a transport
-    transition or implementer ACK; the full closure guard over all expired
-    packets remains a follow-on slice.
+    `PacketOutcomeLedger` for the shown history rows. The reduced packet rows
+    also carry `PacketLifecycleHistory` / `PacketDisposition` fields, so
+    `acknowledged_events`, `acted_on_events`, `lifecycle_current_state`, and
+    `resolution_anchor` must be preserved when adding packet read surfaces.
+    Plan-targeted `apply` transitions may append generated
+    `PacketPlanIntegration` rows to `dev/active/MASTER_PLAN.md`. Use them for
+    S2-style dogfood and stale-graveyard analysis, but do not treat them as
+    implementer ACK; the fail-closed disposition guard remains a follow-on
+    slice.
   - If `tandem-validate` is red only because a release-lane external status
     check cannot reach GitHub or another off-repo dependency, treat that as an
     environment blocker and call it out separately from code-quality failures.
@@ -1557,9 +1577,13 @@ Workflow permissions note:
    live execution truth: the `vcs.push` branch parameter is forced from
    `git rev-parse --abbrev-ref HEAD`, approved target identity must come from
    live publication authorization bound to the current worktree and `HEAD`,
-   and execute=true reports need fetch/preflight/push/post-push subprocess
-   evidence plus remote-ref equality with current `HEAD`. Missing proof emits
-   a typed `BranchIdentityViolation`, `ApprovedTargetIdentityViolation`, or
+   and execute=true publication claims need fetch/preflight/push subprocess
+   evidence plus remote-ref equality with current `HEAD`. Terminal post-push
+   claims such as `post_push_green`, `post_push_bundle_failed`, or
+   `post_push_skipped_by_policy` additionally require `post_push_steps`; the
+   in-flight `post_push_bundle_pending` snapshot is allowed to be published
+   before those steps exist. Missing proof emits a typed
+   `BranchIdentityViolation`, `ApprovedTargetIdentityViolation`, or
    `SilentPushFailure` and the report stays blocked.
    That no-op receipt is
    not allowed to reconstruct a stale `push_blocked` commit-pipeline artifact
@@ -1701,9 +1725,9 @@ cd rust && cargo test --bin voiceterm
 # Preferred AI path for raw Rust tests/test binaries:
 python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm
 
-# Required after any direct/raw cargo test invocation:
-# includes host-side `process-cleanup --verify` by default
-python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel
+# Required after any direct/raw cargo test invocation when orphan sweep is needed:
+# includes opt-in process sweep plus host-side `process-cleanup --verify`
+python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel --with-process-sweep-cleanup
 # Required after manual tooling bundles or before handoff when host process access is available:
 python3 dev/scripts/devctl.py process-cleanup --verify --format md
 # Read-only host diagnosis when cleanup must be skipped:
@@ -1796,7 +1820,7 @@ Mutation runs can be long; plan to run them overnight and use Ctrl+C to stop if 
 - See `AGENTS.md` for which bundle to run (`bundle.runtime`, `bundle.docs`, `bundle.tooling`, `bundle.release`).
 - See this section for exact command syntax.
 - See `dev/guides/DEVCTL_AUTOGUIDE.md` for automation-first loop orchestration (`triage-loop`, Ralph mode controls, and proposal artifacts).
-- `devctl check` automatically sweeps orphaned and stale test processes before and after each run (stale active threshold: `>=600s`).
+- `devctl check --with-process-sweep-cleanup` sweeps orphaned and stale test processes before and after a run (stale active threshold: `>=600s`); the sweep is opt-in so normal check output does not hide code-shape failures behind host cleanup noise.
 - `devctl check` runs independent setup gates (`fmt`, `clippy`, AI guard scripts) and test/build phases in parallel batches by default.
 
 ```bash
@@ -1808,8 +1832,8 @@ python3 dev/scripts/devctl.py check --profile ci
 # Optional: tune or disable parallel check batches
 python3 dev/scripts/devctl.py check --profile ci --parallel-workers 2
 python3 dev/scripts/devctl.py check --profile ci --no-parallel
-# Optional: disable automatic orphaned/stale test-process cleanup sweep
-python3 dev/scripts/devctl.py check --profile ci --no-process-sweep-cleanup
+# Optional: add the orphaned/stale test-process cleanup sweep
+python3 dev/scripts/devctl.py check --profile ci --with-process-sweep-cleanup
 
 # Pre-push scope (CI + perf + mem loop)
 python3 dev/scripts/devctl.py check --profile prepush
@@ -1834,11 +1858,11 @@ python3 dev/scripts/devctl.py check --profile fast
 # Quick scope (fmt-check + clippy + AI guard scripts; keep test/build/perf-heavy checks in prepush/release lanes)
 python3 dev/scripts/devctl.py check --profile quick
 
-# Preferred AI path for raw Rust tests/test binaries; auto-runs the required post-run sweep
+# Preferred AI path for raw Rust tests/test binaries; auto-runs the required post-run hygiene
 python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm banner::tests -- --nocapture
 
-# Post-test process sweep + host cleanup (required after raw cargo/test-binary runs)
-python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel
+# Post-test process sweep + host cleanup (required after raw cargo/test-binary runs when orphan sweep is needed)
+python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel --with-process-sweep-cleanup
 # Host-side cleanup + verify (required after manual tooling bundles or before handoff when host access is available)
 python3 dev/scripts/devctl.py process-cleanup --verify --format md
 # Read-only host-side Activity Monitor equivalent
@@ -2037,7 +2061,7 @@ For substantive sessions, include this in the PR description or handoff summary:
 - `python3 dev/scripts/devctl.py check --profile ci`
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling`
 - `python3 dev/scripts/devctl.py hygiene` audits archive/ADR/scripts governance, flags orphaned/stale repo-related host process trees (matched `cargo test --bin voiceterm`, `voiceterm-*`, stress sessions, repo-runtime cargo/target trees, orphaned repo-tooling wrappers that execute `dev/scripts/**`, and repo-cwd background helpers such as `python3 -m unittest`, direct `bash dev/scripts/...` wrappers, or `qemu/node/make` descendants that outlive their repo-owned parent; `stale` = active for `>=600s`), warns when managed `dev/reports/**` artifacts become stale/heavy, and surfaces tracked external-publication drift when watched repo paths outpace synced papers/sites; `--strict-warnings` promotes warnings to failures, `--strict-release-warnings` keeps release-branch strictness while auto-ignoring release-maintenance warning families on non-release branches, `--ignore-warning-source mutation_badge` keeps stale mutation-badge freshness visible without failing non-release tooling lanes, and `--fix` removes detected `dev/scripts/**/__pycache__` directories.
-- `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test ...` is the preferred AI path for raw Rust tests/test binaries. It rejects shell `-c` wrappers, runs the command directly, then automatically executes the required post-test hygiene follow-up (`check --profile quick --skip-fmt --skip-clippy --no-parallel` for runtime/test commands, `process-cleanup --verify` for lower-risk repo tooling commands).
+- `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test ...` is the preferred AI path for raw Rust tests/test binaries. It rejects shell `-c` wrappers, runs the command directly, then automatically executes the required post-test hygiene follow-up (`check --profile quick --skip-fmt --skip-clippy --no-parallel` for runtime/test commands, `process-cleanup --verify` for lower-risk repo tooling commands). Add `--with-process-sweep-cleanup` to direct `check` follow-ups when a raw/manual run specifically needs the pre/post process sweep.
 - `python3 dev/scripts/devctl.py process-cleanup --verify --format md` is the default host-side cleanup path for repo-related work. `check --profile quick|fast` already runs it by default after raw cargo/test-binary follow-ups; run it directly after manual tooling bundles and before handoff when host process access is available. It kills orphaned/stale repo-related process trees including descendant PTY children, repo-cwd background helpers, and orphaned tooling descendants, skips recent active processes, preserves registry-backed running review-channel conductor PIDs even when prepared authority has gone stale, reruns a strict host audit afterward, and should be rerun once any intentional local work finishes.
 - `python3 dev/scripts/devctl.py process-audit --strict --format md` is the read-only host-side Activity Monitor equivalent for repo-related work. Use it when cleanup must be skipped or when you need diagnosis without killing processes; unlike sandboxed sweeps, it fails hard if `ps` access is unavailable or if any blocking/stale repo-related process tree is still alive, including generic repo-cwd helpers that no longer mention `voiceterm` or `dev/scripts` in their command line. Registered review-channel conductors stay supervised even when headless launch wrappers detach to PID 1; unregistered detached helpers still fail strict audit.
 - `python3 dev/scripts/devctl.py process-watch --cleanup --strict --stop-on-clean --iterations 6 --interval-seconds 15 --format md` is the bounded periodic monitor for long-running leak reproduction or repeated local host work. It reruns the same host audit/cleanup logic on a cadence and should be the default when one final cleanup pass is not enough.

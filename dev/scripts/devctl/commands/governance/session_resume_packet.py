@@ -14,6 +14,10 @@ from ...runtime.authority_snapshot import (
     AuthoritySnapshot,
     authority_snapshot_from_mapping,
 )
+from ...runtime.agent_session_continuation_models import AgentSessionContinuationState
+from ...runtime.agent_session_continuation_parse import (
+    agent_session_continuation_from_mapping,
+)
 from ...runtime.review_state_models import (
     PacketInboxState,
     ReviewCandidateRecord,
@@ -33,6 +37,7 @@ from ...runtime.surface_provenance import (
 
 SESSION_CACHE_RELATIVE_DIR = Path("dev/reports/session_cache/latest")
 SESSION_CACHE_FILENAME = "cache.json"
+SESSION_CACHE_PACKET_SCHEMA_VERSION = 4
 
 # Typed continuity states that invalidate a cached session packet even when
 # head/role/mtime all match. `alignment_status` values outside this set
@@ -48,7 +53,7 @@ _STALE_CONTINUITY_STATUSES: frozenset[str] = frozenset(
 class SessionCachePacket:
     """Compact session state replacing full bootstrap output."""
 
-    schema_version: int = 3
+    schema_version: int = SESSION_CACHE_PACKET_SCHEMA_VERSION
     contract_id: str = "SessionCachePacket"
     generated_at_utc: str = ""
     role: str = "implementer"
@@ -86,6 +91,7 @@ class SessionCachePacket:
     packet_inbox: PacketInboxState | None = None
     connectivity_registry: dict[str, object] = field(default_factory=dict)
     key_surfaces: tuple[str, ...] = ()
+    agent_session_continuation: AgentSessionContinuationState | None = None
     provenance: SurfaceProvenance | None = None
 
     def to_dict(self) -> dict[str, object]:
@@ -98,6 +104,10 @@ class SessionCachePacket:
             payload["coordination"] = self.coordination.to_dict()
         if self.authority_snapshot is not None:
             payload["authority_snapshot"] = self.authority_snapshot.to_dict()
+        if self.agent_session_continuation is not None:
+            payload["agent_session_continuation"] = (
+                self.agent_session_continuation.to_dict()
+            )
         result = attach_surface_provenance(payload, provenance=self.provenance)
         result.setdefault("snapshot_id", self.snapshot_id)
         result.setdefault("zref", self.zref)
@@ -126,6 +136,8 @@ def try_cache_hit(
         return None
     if str(payload.get("role") or "").strip() != role:
         return None
+    if int(payload.get("schema_version") or 0) != SESSION_CACHE_PACKET_SCHEMA_VERSION:
+        return None
     cached_mtime = float(payload.get("review_state_mtime") or 0.0)
     if review_state_mtime != cached_mtime:
         return None
@@ -146,7 +158,9 @@ def write_cache(repo_root: Path, packet: SessionCachePacket) -> None:
 
 def packet_from_mapping(payload: dict[str, object]) -> SessionCachePacket:
     return SessionCachePacket(
-        schema_version=int(payload.get("schema_version") or 3),
+        schema_version=int(
+            payload.get("schema_version") or SESSION_CACHE_PACKET_SCHEMA_VERSION
+        ),
         contract_id=str(payload.get("contract_id") or "SessionCachePacket").strip(),
         generated_at_utc=str(payload.get("generated_at_utc") or "").strip(),
         role=str(payload.get("role") or "implementer").strip(),
@@ -195,6 +209,9 @@ def packet_from_mapping(payload: dict[str, object]) -> SessionCachePacket:
             str(surface).strip()
             for surface in payload.get("key_surfaces", ())
             if str(surface).strip()
+        ),
+        agent_session_continuation=agent_session_continuation_from_mapping(
+            payload.get("agent_session_continuation")
         ),
         provenance=surface_provenance_from_mapping(payload),
     )

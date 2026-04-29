@@ -3433,6 +3433,53 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       to default report-only recording through the existing dogfood ledger plus
       governance-review/FindingBacklog seam. Remaining T08 scope is packet
       finding/ad-hoc capture lifecycle metadata and non-distraction ordering.
+- [x] `MP377-P0-T08A` Add packet lifecycle/disposition history to the review-channel reducer so packet ACKs and acted-on transitions survive context switches.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `done`
+      depends_on: `MP377-P0-T08`
+      disposition_sources: `rev_pkt_2140`, `rev_pkt_2145`
+      2026-04-29 closure: `PacketLifecycleHistory` now records per-packet
+      `acknowledged_events`, `acted_on_events`, `lifecycle_current_state`, and
+      `resolution_anchor`; `PacketDisposition` routes live rows to queued,
+      plan-target applies to plan-integrated, and expired unresolved rows to an
+      archived `clock_expired_without_disposition` audit classification.
+      Plan-targeted `packet_applied` transitions also invoke
+      `PacketPlanIntegration` to upsert idempotent generated rows into the
+      typed master-plan JSONL store and then mirror the row to the configured
+      markdown projection when one exists.
+      2026-04-29 LL closure: `packet_applied` work claims now require
+      `PacketGuardAttestation` evidence, with per-kind requirements for
+      runtime action requests, commit approvals, plan patches, findings, and
+      operator approvals. `MasterPlan`, `PlanRow`, `LinkedDoc`,
+      `PlanProposal`, and `ExplainBackReceipt` define the portable typed
+      master-plan contract; `MarkdownChecklistAdapter` ingests VoiceTerm's
+      markdown checklist projection into the default JSONL authority store
+      `dev/state/plan_index.jsonl`; and `PacketPlanIntegration` resolves that
+      store plus the markdown projection through `ProjectGovernance.master_plan`
+      instead of a hardcoded VoiceTerm path. Plan-review packets are the
+      proposal class and now reject live duplicate target/mutation proposals,
+      while runtime/action packets remain communication carriers with their own
+      typed runtime binding.
+- [ ] `MP377-P0-T08B` Normalize read-only command `ok` / `status` semantics so informational surfaces stop looking red when they only carry advisory packet backlog or stale-data evidence.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T08A`
+      disposition_sources: `rev_pkt_R`, `rev_pkt_S`
+- [ ] `MP377-P0-T08C` Give security / audit renderer output a typed report contract and truth-preserving markdown path instead of one-off command prose.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T08A`, `MP377-P0-T15`
+      disposition_sources: `rev_pkt_T`
+- [ ] `MP377-P0-T08D` Add stale-command freshness metadata to packet/read-only surfaces so operators can tell old command data from current runtime state.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T08A`
+      disposition_sources: `rev_pkt_AA`
+- [ ] `MP377-P0-T08E` Surface guard-error details through packet lifecycle/disposition reports so hidden failures cannot resolve as generic stale backlog.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T08A`
+      disposition_sources: `rev_pkt_HH`
 - [ ] `MP377-P0-T09` Add `CodexAgentPollLoop` as the consumer loop for Codex-targeted packets: poll `review-channel inbox --target codex --status pending` on cadence, handle findings at slice-boundary/non-critical cadence, route action_requests through typed preconditions, emit dogfood rows per tick, and write superseded outcomes for satisfied asks through the Slice B reducer.
       owner_doc: `dev/active/remote_control_runtime.md`
       status: `queued`
@@ -3472,6 +3519,18 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       not enforcement. The next T14 implementation must make the
       `stage_commit_pipeline` post path require fresh typed evidence for the
       same probes rather than relying on AGENTS.md memory.
+- [ ] `MP377-P0-T14A` Promote the baseline dogfood pass from operator packet guidance into a typed `BaselineDogfoodChecklist` required before Codex posts `stage_commit_pipeline`.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `queued`
+      depends_on: `MP377-P0-T14`
+      disposition_sources: `rev_pkt_2143`
+- [ ] `MP377-P0-T14B` Add path-scoped probe-report capability evidence so narrow slices can prove the dogfood probe set against touched surfaces without rerunning unrelated high-cost probes.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T13`, `MP377-P0-T14`
+      disposition_sources: `rev_pkt_GG`
 - [ ] `MP377-P0-T15` Parallel-system and canonical-seam guard family: add warning-first guards for semantic contract parallels, canonical seam bypasses, TypedAction runtime-origin drift, and SYSTEM_MAP completeness, then retire baselines before fail-closed promotion.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`
@@ -3513,6 +3572,12 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       depends_on: `MP377-P0-T13`, `MP377-P0-T15`
       scope: Extend `render-surfaces` and existing generated-surface guards for one `AGENTS.md` quick-map section and one `CLAUDE.md` key-command section using typed command/catalog inputs. Do not migrate the full files in one slice.
       acceptance_criteria: The selected generated sections are reproducible from typed inputs, hand-edits fail the owning guard, and product docs remain untouched unless shipped VoiceTerm behavior changes.
+- [ ] `MP377-P0-T19A` Move bootstrap command execution through stdin/script-file rendering so generated agent instructions do not leak long prompts or operational packets through argv/process listings.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T19`
+      disposition_sources: `rev_pkt_X`
 - [ ] `MP377-P0-T20` Agent session outcome and stall/flip-mode closure: separate completed handoff, process death, and unresolved liveness in typed runtime state, then use that authority to unblock publication without hiding real runtime failures.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/remote_control_runtime.md`
@@ -3520,7 +3585,7 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       depends_on: `MP377-P0-T12A`, `MP377-P0-T14`, `MP377-P0-T16`
       scope: Extend the existing review-channel session lifecycle, `CollaborationSession`, startup/push recovery, and stall diagnostics so process exit after a guarded handoff is not treated like mid-slice death. Keep `bridge.md` and conductor liveness as compatibility evidence only.
       acceptance_criteria: `stage_commit_pipeline` with full guard evidence emits `AgentSessionOutcome(outcome=completed_handoff)`; governed push bypasses `repair_reviewer_loop` only when that receipt matches the current prepared session or, for metadata-free codex-exec handoffs, the current `devctl_commit:<head>` / managed-receipt source chain; stale or mismatched receipts keep the existing recovery loop; `process_died` / `unresolved` classifications remain explicit follow-up states.
-      progress: 2026-04-28 landed the completed-handoff receipt, review-state projection, governed-push bypass, metadata-free same-head fallback, and 180-second recovery-loop budget. Later 2026-04-28 work added safe system-to-Claude auto-ACK/apply for full-evidence `stage_commit_pipeline` packets plus target-agent/HEAD dedupe at the governed commit-stage handoff emitter. Codex session-end scripts now also run a `task_complete` handoff guard that posts the missing `stage_commit_pipeline` action_request for the current `devctl_commit:<head>` when Codex emits TASK_COMPLETE without the typed packet. Remaining T20 scope is broader Codex-stall / flip-mode classification and producer coverage for `process_died` / `unresolved`.
+      progress: 2026-04-28 landed the completed-handoff receipt, review-state projection, governed-push bypass, metadata-free same-head fallback, and 180-second recovery-loop budget. Later 2026-04-28 work added safe system-to-Claude auto-ACK/apply for full-evidence `stage_commit_pipeline` packets plus target-agent/HEAD dedupe at the governed commit-stage handoff emitter. Codex session-end scripts now also run a `task_complete` handoff guard that posts the missing `stage_commit_pipeline` action_request for the current `devctl_commit:<head>` when Codex emits TASK_COMPLETE without the typed packet. The dogfood cleanup slice now projects `AgentSessionOutcome(outcome=unresolved)` for dead sessions without a terminal outcome so failure exits become typed evidence instead of disappearing as prose-only endings. Remaining T20 scope is broader Codex-stall / flip-mode classification and producer coverage for `process_died`.
 - [ ] `MP377-P0-T21` Command capability evidence index over the existing command catalog: map task classes to required command sequences and drift detectors without adding a parallel command registry.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`
@@ -3528,6 +3593,32 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       depends_on: `MP377-P0-T14`, `MP377-P0-T15`
       scope: Extend the existing `governance.system_catalog`, dogfood ledger, packet validator, and guard-bundle evidence path so task classes such as publication, runtime repair, docs, and platform contracts name required sequences plus architectural drift detectors.
       acceptance_criteria: `stage_commit_pipeline` packet validation can cite typed capability evidence beyond the current full-bundle marker, dogfood/governance-review report missing required sequence rows, and no standalone `command_capability_index` runtime owner duplicates the system catalog.
+- [ ] `MP377-P0-T21A` Retire terminal-interface command leftovers from publication/control-plane capability maps so command ownership stays on typed runtime surfaces.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T21`
+      disposition_sources: `rev_pkt_V`, `rev_pkt_W`
+
+2026-04-29 `rev_pkt_2145` deferred-packet disposition ledger:
+
+| Packet/finding | Disposition sink | Plan/archive anchor |
+|---|---|---|
+| CC / `rev_pkt_2140` | plan-integrated | `MP377-P0-T08A` |
+| II / `rev_pkt_2143` | queued | `MP377-P0-T14A` |
+| R/S | queued | `MP377-P0-T08B` |
+| T | queued | `MP377-P0-T08C` |
+| V/W | queued | `MP377-P0-T21A` |
+| X | queued | `MP377-P0-T19A` |
+| Y | queued | existing `MP394-A-T01..T04` |
+| Z | archived | resolved by Codex 44 context-graph bootstrap wording |
+| AA | queued | `MP377-P0-T08D` |
+| BB | archived | superseded by `rev_pkt_2145` / `MP377-P0-T08A` |
+| DD | archived | resolved by Codex 45 `probe_architecture_connectivity` scaffold |
+| EE | archived | resolved by Codex 45 `retire-stale-conductor` controller action |
+| FF | archived | resolved by publication-sync registry cleanup removing terminal-as-interface |
+| GG | queued | `MP377-P0-T14B` |
+| HH | queued | `MP377-P0-T08E` |
 
 ### Phase P1 - Typed Plan Ingestion And Registry Projection
 
@@ -3557,11 +3648,12 @@ Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/remote_control_runtime.md`
       status: `blocked`
       depends_on: `MP377-P1-T03`, `MP393-P0`
-      progress: 2026-04-28 added `DashboardSnapshot` v3 as the shared CLI/mobile/desktop dashboard read contract and moved bridge-contract freshness checks to typed `ReviewState.bridge.last_codex_poll_*` plus the shared `ack_freshness_authority.is_implementer_ack_current` predicate. Remaining T06 scope is still the full producer-tick collapse across status/startup/session/push artifacts.
+      progress: 2026-04-28 added `DashboardSnapshot` v3 as the shared CLI/mobile/desktop dashboard read contract and moved bridge-contract freshness checks to typed `ReviewState.bridge.last_codex_poll_*` plus the shared `ack_freshness_authority.is_implementer_ack_current` predicate. The later dogfood cleanup slice also made bridge reviewer-mode rendering prefer effective typed mode while preserving declared mode separately, narrowed packet inbox pending counts to live actionable rows, kept Action Requests on pending typed packets instead of delivery receipts, and moved packet posting onto semantic idempotency plus a uniform packet-kind schema. Remaining T06 scope is still the full producer-tick collapse across status/startup/session/push artifacts.
 - [ ] `MP377-P1-T07` Make governed mutation self-healing against stale projections: commit/push/phone/operator actions must refresh and consume the canonical review-state + commit-pipeline artifacts before consistency checks, treat compatibility-surface drift as a reducer bug to fix rather than a reason to require manual `review-channel --action status`, and keep raw `git` mutation outside the remote-control path.
       owner_doc: `dev/active/remote_commit_pipeline.md`
       status: `blocked`
       depends_on: `MP377-P1-T06`, `MP394-P0`
+      progress: 2026-04-28 `devctl commit --paths <path>...` now reuses the existing typed `vcs.stage` selected-path action so remote-control lanes can stage real work without raw `git add`, while still preserving ReviewSnapshot refresh and dirty-outside-scope gates. Full T07 remains blocked on the P1-T06 producer-tick collapse.
 - [ ] `MP377-P1-T08` Emit one typed liveness/wake/death signal family for reviewer, implementer, publisher, and observer consumers so dashboard/mobile/startup/status can distinguish `alive`, `degraded`, `detached_runtime_only`, and `dead` from one producer instead of mixing heartbeat prose, PID guesses, and bridge hints. Compatibility projections like `Claude Ack` and bridge heartbeat sections may mirror that state, but they must not remain independent wake/repair gates once typed runtime evidence exists.
       owner_doc: `dev/active/remote_control_runtime.md`
       status: `blocked`

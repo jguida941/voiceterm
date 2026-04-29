@@ -57,6 +57,7 @@ class ReviewQueueState:
     stale_packet_count: int
     derived_next_instruction: str
     derived_next_instruction_source: dict[str, object]
+    instruction_priority_decision: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)

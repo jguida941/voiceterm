@@ -162,11 +162,16 @@ def bridge_projection_metadata_lines(
     from ..repo_packs import active_path_config
 
     tz_label = active_path_config().display_timezone
-    return [
+    reviewer_mode = metadata.get("reviewer_mode", "tools_only")
+    lines = [
         f"- Last Codex poll: `{last_codex_poll_utc}`",
         f"- Last Codex poll (Local {tz_label}): "
         f"`{last_codex_poll_local}`",
-        f"- Reviewer mode: `{metadata.get('reviewer_mode', 'tools_only')}`",
+        f"- Reviewer mode: `{reviewer_mode}`",
         f"- Last non-audit worktree hash: `{last_worktree_hash}`",
         f"- Current instruction revision: `{current_revision}`",
     ]
+    declared_mode = metadata.get("declared_reviewer_mode", "").strip()
+    if declared_mode and declared_mode != reviewer_mode:
+        lines.insert(3, f"- Declared reviewer mode: `{declared_mode}`")
+    return lines

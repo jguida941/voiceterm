@@ -51,12 +51,15 @@ def run_tandem_validate(args) -> int:
     if ok:
         for index, row in enumerate(plan["planned_commands"], start=1):
             command = str(row["command"])
-            result = run_cmd(
-                f"tandem-{index:02d}",
-                ["bash", "-lc", command],
-                cwd=REPO_ROOT,
-                dry_run=bool(getattr(args, "dry_run", False)),
-            )
+            name = f"tandem-{index:02d}"
+            if getattr(args, "dry_run", False):
+                result = _tandem_dry_run_result(name, command)
+            else:
+                result = run_cmd(
+                    name,
+                    ["bash", "-lc", command],
+                    cwd=REPO_ROOT,
+                )
             step = dict(result)
             step["command"] = command
             step["source"] = row["source"]
@@ -92,6 +95,17 @@ def run_tandem_validate(args) -> int:
     if pipe_rc != 0:
         return pipe_rc
     return 0 if ok else 1
+
+
+def _tandem_dry_run_result(name: str, command: str) -> dict[str, object]:
+    result: dict[str, object] = {}
+    result["name"] = name
+    result["cmd"] = ["bash", "-lc", command]
+    result["cwd"] = str(REPO_ROOT)
+    result["returncode"] = 0
+    result["duration_s"] = 0.0
+    result["skipped"] = True
+    return result
 
 
 def run_launcher_check(args) -> int:

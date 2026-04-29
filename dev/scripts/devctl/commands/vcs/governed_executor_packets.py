@@ -256,6 +256,11 @@ def latest_matching_packet(
             continue
         if request_kind == "request" and not packet.approval_required:
             continue
+        if (
+            request_kind in {"decision", "override_decision"}
+            and packet.approval_required
+        ):
+            continue
         if request_kind == "decision" and packet.requested_action not in {
             "approve_commit_pipeline",
             "reject_commit_pipeline",

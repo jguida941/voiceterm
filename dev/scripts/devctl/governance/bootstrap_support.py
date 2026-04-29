@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..quality_policy import RepoCapabilities, detect_repo_capabilities
@@ -13,6 +13,25 @@ from .bootstrap_policy import (
     STARTER_POLICY_RELATIVE_PATH,
     write_starter_repo_policy,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class AdopterPortabilityValidation:
+    """Typed proof that bootstrap output is repo-agnostic."""
+
+    target_repo: str = ""
+    repo_name: str = ""
+    case_id: str = ""
+    validated_contracts: tuple[str, ...] = (
+        "ProjectGovernance",
+        "MasterPlan",
+        "PlanRow",
+    )
+    existing_plan_files: tuple[str, ...] = ()
+    voice_term_assumptions_detected: bool = False
+    checked_paths: tuple[str, ...] = ()
+    schema_version: int = 1
+    contract_id: str = "AdopterPortabilityValidation"
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +51,9 @@ class GovernanceBootstrapResult:
     starter_setup_guide_written: bool
     next_steps: tuple[str, ...]
     created_at_utc: str
+    portability_validation: AdopterPortabilityValidation = field(
+        default_factory=AdopterPortabilityValidation
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,6 +189,11 @@ def bootstrap_governance_pilot_repo(
             repo_root,
             starter_policy_path=starter_policy_path,
         )
+        portability_validation = _build_portability_validation(
+            repo_root,
+            starter_policy_path=starter_policy_path,
+            starter_setup_guide_path=starter_setup_guide_path,
+        )
         return GovernanceBootstrapResult(
             target_repo=str(repo_root),
             git_state="valid",
@@ -181,6 +208,7 @@ def bootstrap_governance_pilot_repo(
             starter_setup_guide_written=starter_setup_guide_written,
             next_steps=next_steps,
             created_at_utc=created_at,
+            portability_validation=portability_validation,
         )
 
     if git_file.is_file():
@@ -207,6 +235,11 @@ def bootstrap_governance_pilot_repo(
         repo_root,
         starter_policy_path=starter_policy_path,
     )
+    portability_validation = _build_portability_validation(
+        repo_root,
+        starter_policy_path=starter_policy_path,
+        starter_setup_guide_path=starter_setup_guide_path,
+    )
     return GovernanceBootstrapResult(
         target_repo=str(repo_root),
         git_state="reinitialized",
@@ -221,7 +254,72 @@ def bootstrap_governance_pilot_repo(
         starter_setup_guide_written=starter_setup_guide_written,
         next_steps=next_steps,
         created_at_utc=created_at,
+        portability_validation=portability_validation,
     )
+
+
+def _build_portability_validation(
+    repo_root: Path,
+    *,
+    starter_policy_path: str | None,
+    starter_setup_guide_path: str | None,
+) -> AdopterPortabilityValidation:
+    existing_plan_files = _existing_plan_files(repo_root)
+    checked_paths = tuple(
+        path
+        for path in (
+            _relative_to_repo(repo_root, starter_policy_path),
+            _relative_to_repo(repo_root, starter_setup_guide_path),
+        )
+        if path
+    )
+    return AdopterPortabilityValidation(
+        target_repo=str(repo_root),
+        repo_name=repo_root.name,
+        case_id="existing_plan" if existing_plan_files else "greenfield",
+        existing_plan_files=existing_plan_files,
+        voice_term_assumptions_detected=_contains_voiceterm_literal(
+            repo_root,
+            checked_paths=checked_paths,
+        ),
+        checked_paths=checked_paths,
+    )
+
+
+def _existing_plan_files(repo_root: Path) -> tuple[str, ...]:
+    candidates = (
+        "PROJECT_PLAN.md",
+        "MASTER_PLAN.md",
+        "docs/PROJECT_PLAN.md",
+        "docs/plans/MASTER_PLAN.md",
+        "plans/PROJECT_PLAN.md",
+    )
+    return tuple(relative for relative in candidates if (repo_root / relative).exists())
+
+
+def _contains_voiceterm_literal(
+    repo_root: Path,
+    *,
+    checked_paths: tuple[str, ...],
+) -> bool:
+    for relative in checked_paths:
+        try:
+            text = (repo_root / relative).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if "voiceterm" in text.lower():
+            return True
+    return False
+
+
+def _relative_to_repo(repo_root: Path, raw_path: str | None) -> str:
+    if not raw_path:
+        return ""
+    path = Path(raw_path)
+    try:
+        return path.relative_to(repo_root).as_posix()
+    except ValueError:
+        return raw_path
 
 
 def _git_context_is_valid(repo_root: Path) -> bool:

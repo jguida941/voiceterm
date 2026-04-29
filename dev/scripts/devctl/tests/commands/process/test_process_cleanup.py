@@ -41,6 +41,7 @@ def _state(
     stale_active_rows: list[dict] | None = None,
     active_recent_rows: list[dict] | None = None,
     recent_detached_rows: list[dict] | None = None,
+    active_supervised_conductor_rows: list[dict] | None = None,
     scan_warnings: list[str] | None = None,
 ) -> dict:
     rows = rows or []
@@ -54,6 +55,7 @@ def _state(
         "stale_active_rows": stale_active_rows,
         "active_recent_rows": active_recent_rows,
         "recent_detached_rows": recent_detached_rows or [],
+        "active_supervised_conductor_rows": active_supervised_conductor_rows or [],
         "direct_matches": len(rows),
         "descendant_matches": 0,
     }
@@ -386,6 +388,58 @@ class ProcessCleanupCommandTests(TestCase):
         self.assertEqual(payload["recent_detached_count_pre"], 1)
         self.assertEqual(payload["cleanup_target_count"], 0)
         self.assertIn("Recent detached repo-related processes were not killed yet", payload["warnings"][0])
+
+    @mock.patch("dev.scripts.devctl.commands.process_cleanup.kill_processes")
+    @mock.patch("dev.scripts.devctl.commands.process_cleanup.write_output")
+    @mock.patch(
+        "dev.scripts.devctl.commands.process_cleanup.collect_process_audit_state"
+    )
+    def test_recent_detached_with_stale_conductor_reports_typed_retirement(
+        self,
+        collect_mock,
+        write_output_mock,
+        kill_mock,
+    ) -> None:
+        recent_detached = _proc(
+            410,
+            ppid=1,
+            etime="00:10",
+            elapsed_seconds=10,
+            command="sleep 30",
+            match_scope="repo_tooling",
+        )
+        stale_conductor = _proc(
+            35358,
+            ppid=1,
+            etime="04:10:00",
+            elapsed_seconds=15000,
+            command="/tmp/review-channel-launch/codex-conductor.sh __review_channel_inner",
+            match_scope="review_channel_conductor",
+        )
+        collect_mock.return_value = _state(
+            rows=[recent_detached, stale_conductor],
+            active_recent_rows=[recent_detached],
+            recent_detached_rows=[recent_detached],
+            active_supervised_conductor_rows=[stale_conductor],
+        )
+        kill_mock.return_value = ([], [])
+        args = build_parser().parse_args(["process-cleanup", "--format", "json"])
+
+        rc = process_cleanup.run(args)
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(
+            payload["stale_conductor_retirement_commands"],
+            [
+                "python3 dev/scripts/devctl.py controller-action "
+                "--action retire-stale-conductor --pid 35358 --format md"
+            ],
+        )
+        self.assertIn(
+            "retire the conductor through the typed controller-action",
+            payload["warnings"][0],
+        )
 
     @mock.patch("dev.scripts.devctl.commands.process_cleanup.kill_processes")
     @mock.patch("dev.scripts.devctl.commands.process_cleanup.write_output")

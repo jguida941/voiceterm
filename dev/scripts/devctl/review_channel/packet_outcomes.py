@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from enum import Enum
 import re
 
+from .packet_lifecycle import project_packet_lifecycle
+
 
 class PacketOutcome(str, Enum):
     """Terminal outcome assigned to packet-history rows."""
@@ -17,6 +19,7 @@ class PacketOutcome(str, Enum):
     PROMOTED_TO_FINDING = "promoted_to_finding"
     WITHDRAWN_BY_REVIEWER = "withdrawn_by_reviewer"
     EXPIRED_UNRECOVERABLE = "expired_unrecoverable"
+    ARCHIVED = "archived"
     LOST = "lost"
 
 
@@ -103,6 +106,8 @@ def attach_packet_outcomes(
         outcome = by_packet_id.get(str(row.get("packet_id") or "").strip())
         if outcome is not None:
             row["packet_outcome"] = outcome
+            if outcome.get("outcome") == PacketOutcome.ARCHIVED.value:
+                row = project_packet_lifecycle(row, stale_pending=True)
         enriched.append(row)
     return enriched
 
@@ -123,20 +128,20 @@ def _record_for_packet(
     if explicit_expiry is not None:
         return PacketOutcomeRecord(
             packet_id=packet_id,
-            outcome=PacketOutcome.EXPIRED_UNRECOVERABLE,
+            outcome=PacketOutcome.ARCHIVED,
             evidence_ref=f"event:{_text(explicit_expiry.get('event_id'))}",
             recorded_at_utc=generated_at_utc,
-            reason="explicit packet_expired event recorded without later resolution evidence",
+            reason="explicit packet_expired event archived the packet without later resolution evidence",
             status=status,
             expires_at_utc=expires_at,
             source_event_id=_text(explicit_expiry.get("event_id")),
         )
     return PacketOutcomeRecord(
         packet_id=packet_id,
-        outcome=PacketOutcome.LOST,
-        evidence_ref=f"expiry:{expires_at}" if expires_at else "expiry:unknown",
+        outcome=PacketOutcome.ARCHIVED,
+        evidence_ref="archive_classification:clock_expired_without_disposition",
         recorded_at_utc=generated_at_utc,
-        reason="pending packet TTL elapsed with no later typed resolution evidence",
+        reason="pending packet TTL elapsed and the lifecycle reducer archived it for audit",
         status=status,
         expires_at_utc=expires_at,
     )
@@ -233,6 +238,9 @@ def _evidence_ref(
     event: Mapping[str, object],
     outcome: PacketOutcome,
 ) -> str:
+    attestation_ref = _attestation_evidence_ref(event)
+    if attestation_ref:
+        return attestation_ref
     event_id = _text(event.get("event_id"))
     if outcome == PacketOutcome.SUPERSEDED_BY:
         superseding_packet_id = _text(event.get("packet_id"))
@@ -243,6 +251,22 @@ def _evidence_ref(
         if sha is not None:
             return f"commit:{sha.group(0)}"
     return f"event:{event_id}" if event_id else "event:unknown"
+
+
+def _attestation_evidence_ref(event: Mapping[str, object]) -> str:
+    metadata = event.get("metadata")
+    if not isinstance(metadata, Mapping):
+        return ""
+    attestation = metadata.get("guard_attestation")
+    if not isinstance(attestation, Mapping):
+        return ""
+    packet_id = _text(attestation.get("packet_id"))
+    event_id = _text(event.get("event_id"))
+    if packet_id and event_id:
+        return f"packet_attestation:{packet_id}@{event_id}"
+    if packet_id:
+        return f"packet_attestation:{packet_id}"
+    return ""
 
 
 def _outcome_reason(outcome: PacketOutcome) -> str:
@@ -256,6 +280,8 @@ def _outcome_reason(outcome: PacketOutcome) -> str:
         return "later reviewer evidence names this packet as withdrawn or dismissed"
     if outcome == PacketOutcome.EXPIRED_UNRECOVERABLE:
         return "later evidence names the packet but does not prove a stronger terminal state"
+    if outcome == PacketOutcome.ARCHIVED:
+        return "packet was archived with a typed disposition instead of remaining unresolved"
     return "no later typed evidence resolves the expired packet"
 
 

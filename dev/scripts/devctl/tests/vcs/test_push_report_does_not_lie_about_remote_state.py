@@ -64,6 +64,53 @@ class PushRemoteTruthTests(unittest.TestCase):
             self.assertNotEqual(before, after)
             self.assertEqual(after, run_git(repo_root, "rev-parse", "HEAD"))
 
+    def test_post_push_green_does_not_inherit_pending_snapshot_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root, remote_root = create_repo_with_ahead_commit(
+                Path(tmp_dir),
+                "feature/post-push-green",
+            )
+            before = run_git(
+                remote_root,
+                "rev-parse",
+                "refs/heads/feature/post-push-green",
+            )
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                    return_value="git status --short",
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.push.refresh_managed_projections_before_preflight",
+                ),
+            ):
+                rc, report = push.run_push_action(
+                    make_args(execute=True),
+                    repo_root=repo_root,
+                    policy=make_policy(),
+                    emit_output_report=False,
+                    run_cmd_fn=push.run_cmd,
+                    build_post_push_commands_fn=lambda _policy, **_kwargs: [
+                        "git status --short"
+                    ],
+                    publication_authorization_fn=lambda **_kwargs: authorization_for_current_repo(
+                        repo_root
+                    ),
+                )
+
+            after = run_git(
+                remote_root,
+                "rev-parse",
+                "refs/heads/feature/post-push-green",
+            )
+            self.assertEqual(rc, 0)
+            self.assertNotEqual(before, after)
+            self.assertEqual(report["status"], "post_push_green")
+            self.assertTrue(report["published_remote"])
+            self.assertTrue(report["post_push_green"])
+            self.assertEqual(report["errors"], [])
+            self.assertEqual(report["findings"], [])
+
     def test_successful_push_step_without_remote_update_is_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_root, remote_root = create_repo_with_ahead_commit(

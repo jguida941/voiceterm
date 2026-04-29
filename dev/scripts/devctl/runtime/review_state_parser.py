@@ -15,7 +15,6 @@ from .review_state_parser_rows import (
     current_session_state_from_payload as _current_session_state_from_payload,
     instruction_revision as _instruction_revision,
     packet_states_from_value as _packet_states_from_value,
-    registry_agents_from_value as _registry_agents_from_value,
 )
 from .review_state_parse_support import (
     _bool,
@@ -25,16 +24,15 @@ from .review_state_parse_support import (
     review_bridge_state_from_payload,
 )
 from .review_state_models import (
-    AgentRegistryState,
-    packet_inbox_from_mapping,
     ReviewQueueState,
     ReviewSessionState,
     ReviewState,
     review_candidate_from_mapping,
 )
-from .review_packet_inbox import packet_inbox_from_review_state
 from .review_state_commit_pipeline_parse import commit_pipeline_from_review_payload
+from .review_state_packet_inbox_parse import review_state_packet_inbox
 from .reviewer_runtime_parser import reviewer_runtime_state_from_payload
+from .review_state_registry_parse import registry_state_from_payload, source_identity
 
 _REVIEW_STATE_SHAPE_KEYS = (
     "review",
@@ -98,7 +96,7 @@ def _build_review_state(
         review_payload=review_payload,
     )
     current_session = _mapping(review_payload.get("current_session"))
-    packet_inbox = _review_state_packet_inbox(
+    packet_inbox = review_state_packet_inbox(
         payload=payload,
         review_payload=review_payload,
         attention=attention,
@@ -112,7 +110,7 @@ def _build_review_state(
         bridge=bridge,
         bridge_liveness=bridge_liveness,
     )
-    registry_state = _registry_state(registry_payload)
+    registry_state = registry_state_from_payload(registry_payload)
     collaboration_state = collaboration_state_from_payload(
         collaboration=collaboration,
         review=review,
@@ -196,7 +194,7 @@ def _build_review_state(
         ),
         warnings=tuple(warnings),
         errors=errors,
-        source_identity=_source_identity(review_payload.get("source_identity")),
+        source_identity=source_identity(review_payload.get("source_identity")),
         source_contract=_string(review_payload.get("source_contract")),
         source_command=_string(review_payload.get("source_command")),
         observed_fields=_string_rows(review_payload.get("observed_fields")),
@@ -208,63 +206,6 @@ def _build_review_state(
         or _string(review_payload.get("zref"))
         or _string(_mapping(review_payload.get("commit_pipeline")).get("zref")),
     )
-
-
-def _registry_state(registry_payload: Mapping[str, object]) -> AgentRegistryState:
-    return AgentRegistryState(
-        timestamp=_string(registry_payload.get("timestamp"))
-        or _string(registry_payload.get("updated_at")),
-        agents=_registry_agents_from_value(registry_payload.get("agents")),
-        snapshot_id=_string(registry_payload.get("snapshot_id")),
-        zref=_string(registry_payload.get("zref")),
-        source_identity=_source_identity(registry_payload.get("source_identity")),
-        source_contract=_string(registry_payload.get("source_contract")),
-        source_command=_string(registry_payload.get("source_command")),
-        observed_fields=_string_rows(registry_payload.get("observed_fields")),
-        inferred_fields=_string_rows(registry_payload.get("inferred_fields")),
-    )
-
-
-def _source_identity(value: object) -> dict[str, str]:
-    return {
-        str(key).strip(): _string(raw_value)
-        for key, raw_value in _mapping(value).items()
-        if str(key).strip() and _string(raw_value)
-    }
-
-
-def _review_state_packet_inbox(
-    *,
-    payload: Mapping[str, object],
-    review_payload: Mapping[str, object],
-    attention: Mapping[str, object],
-):
-    return (
-        packet_inbox_from_review_state(
-            _packet_inbox_review_payload(
-                payload=payload,
-                review_payload=review_payload,
-                attention=attention,
-            )
-        )
-        or packet_inbox_from_mapping({"attention_revision": "", "agents": []})
-    )
-
-
-def _packet_inbox_review_payload(
-    *,
-    payload: Mapping[str, object],
-    review_payload: Mapping[str, object],
-    attention: Mapping[str, object],
-) -> dict[str, object]:
-    packet_payload = dict(review_payload)
-    if "packet_inbox" not in packet_payload and isinstance(
-        payload.get("packet_inbox"), Mapping
-    ):
-        packet_payload["packet_inbox"] = payload.get("packet_inbox")
-    if "attention" not in packet_payload and attention:
-        packet_payload["attention"] = attention
-    return packet_payload
 
 
 def _review_session_state(review: Mapping[str, object]) -> ReviewSessionState:
@@ -291,6 +232,9 @@ def _review_queue_state(queue: Mapping[str, object]) -> ReviewQueueState:
         derived_next_instruction=_string(queue.get("derived_next_instruction")),
         derived_next_instruction_source=dict(
             _mapping(queue.get("derived_next_instruction_source"))
+        ),
+        instruction_priority_decision=dict(
+            _mapping(queue.get("instruction_priority_decision"))
         ),
     )
 

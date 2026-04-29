@@ -106,17 +106,7 @@ def run_commit(
     """Run governed commit through the typed remote/local pipeline."""
     passthrough = _parse_passthrough(args)
     if passthrough.unsupported:
-        report = _build_report(
-            status="blocked",
-            reason="unsupported_passthrough",
-            unsupported_passthrough=list(passthrough.unsupported),
-            guidance=(
-                "Stage the exact paths first, then rerun `devctl commit`. "
-                "The governed commit path only supports `--allow-empty`, "
-                "`--no-edit`, and `--amend`."
-            ),
-        )
-        _emit_report(args, report)
+        _emit_report(args, _unsupported_passthrough_report(passthrough))
         return 1
 
     resolved_policy = policy or load_push_policy(repo_root=repo_root)
@@ -133,6 +123,9 @@ def run_commit(
         _emit_report(args, permission_report)
         return 1
     approve_pending = bool(getattr(args, "approve_pending", False))
+    if approve_pending and tuple(getattr(args, "paths", ()) or ()):
+        _emit_report(args, _paths_with_approve_pending_report())
+        return 1
     stage_warnings: list[str] = []
     if approve_pending:
         pipeline, preflight_report = load_pipeline_for_explicit_approval(
@@ -240,6 +233,32 @@ def run_commit(
     )
     _emit_report(args, report)
     return 0 if commit_result.ok else 1
+
+
+def _unsupported_passthrough_report(passthrough: CommitPassthrough) -> dict[str, object]:
+    return _build_report(
+        status="blocked",
+        reason="unsupported_passthrough",
+        unsupported_passthrough=list(passthrough.unsupported),
+        guidance=(
+            "Use `devctl commit --paths <path>...` to stage exact paths "
+            "through the governed pipeline, then rerun as needed. "
+            "The governed commit path only supports `--allow-empty`, "
+            "`--no-edit`, and `--amend`."
+        ),
+    )
+
+
+def _paths_with_approve_pending_report() -> dict[str, object]:
+    return _build_report(
+        status="blocked",
+        reason="paths_not_allowed_with_approve_pending",
+        operator_guidance=(
+            "`--approve-pending` resumes the existing governed staged "
+            "snapshot. Rerun without `--paths`, or recover and restage "
+            "a fresh pipeline with the intended path scope."
+        ),
+    )
 
 
 def _receipt_projection_state(*, commit_ok: bool, commit_sha: str) -> str:

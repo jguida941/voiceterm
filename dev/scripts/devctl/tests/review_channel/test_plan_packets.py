@@ -24,10 +24,47 @@ from dev.scripts.devctl.review_channel.packet_contract import (
     PacketRuntimeApprovalFields,
     PacketTargetFields,
     PacketTransitionRequest,
+    packet_kind_schema,
+    validate_post_request,
 )
+from dev.scripts.devctl.review_channel.packet_attestation import (
+    PacketGuardAttestation,
+)
+from dev.scripts.devctl.runtime.master_plan_contract import PlanProposal
 
 
 class ReviewChannelPlanPacketTests(unittest.TestCase):
+    def test_packet_kind_schema_requires_body_uniformly(self) -> None:
+        self.assertTrue(packet_kind_schema("finding").body_required)
+        with self.assertRaisesRegex(ValueError, "body is required"):
+            validate_post_request(
+                PacketPostRequest(
+                    from_agent="codex",
+                    to_agent="claude",
+                    kind="finding",
+                    summary="Finding body is required",
+                    body="",
+                ),
+                valid_agent_ids=("codex", "claude"),
+            )
+
+    def test_carrier_packet_rejects_plan_proposal(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Carrier packet kinds"):
+            validate_post_request(
+                PacketPostRequest(
+                    from_agent="codex",
+                    to_agent="claude",
+                    kind="system_notice",
+                    summary="Carrier cannot mutate plan",
+                    body="This notice must remain communication-only.",
+                    plan_proposal=PlanProposal(
+                        target_ref="plan://MP-377/platform_authority_loop",
+                        mutation_op="update_status",
+                    ),
+                ),
+                valid_agent_ids=("codex", "claude"),
+            )
+
     def test_cli_accepts_plan_gap_review_target_fields(self) -> None:
         parser = build_parser()
 
@@ -190,6 +227,14 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                     action="apply",
                     packet_id=str(event["packet_id"]),
                     actor="operator",
+                    guard_attestation=PacketGuardAttestation(
+                        packet_id=str(event["packet_id"]),
+                        attestation_kind="plan_patch_guard",
+                        plan_revision_before="sha256:before",
+                        plan_revision_after="sha256:after",
+                        mutation_op="append_progress_log",
+                        attested_by="operator",
+                    ),
                 ),
             )
 
@@ -231,6 +276,117 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
             ["probe_design_smells@dev/active/platform_authority_loop.md:412"],
         )
         self.assertEqual(apply_event["mutation_op"], "append_progress_log")
+        self.assertEqual(
+            apply_event["metadata"]["guard_attestation"]["contract_id"],
+            "PacketGuardAttestation",
+        )
+
+    def test_plan_target_proposal_collision_rejects_live_duplicate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+            request = PacketPostRequest(
+                from_agent="codex",
+                to_agent="operator",
+                kind="plan_patch_review",
+                summary="Patch one plan row",
+                body="Patch the same plan row once.",
+                target=PacketTargetFields.from_values(
+                    target_kind="plan",
+                    target_ref="plan://MP-377/platform_authority_loop",
+                    target_revision="sha256:abc123",
+                    anchor_refs=["progress:proof_pass"],
+                    intake_ref="intake://session-2026-03-19",
+                    mutation_op="append_progress_log",
+                ),
+            )
+            post_packet(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+                request=request,
+            )
+
+            with self.assertRaisesRegex(ValueError, "PlanProposalConflict"):
+                post_packet(
+                    repo_root=root,
+                    review_channel_path=review_channel_path,
+                    artifact_paths=artifact_paths,
+                    request=request,
+                )
+
+    def test_runtime_action_request_target_is_not_plan_proposal(self) -> None:
+        request = PacketPostRequest(
+            from_agent="codex",
+            to_agent="claude",
+            kind="action_request",
+            summary="Run the same runtime check",
+            body="Run the check; this is communication, not plan mutation.",
+            requested_action="run_check",
+            target=PacketTargetFields.from_values(
+                target_kind="runtime",
+                target_ref="devctl_check:bundle.runtime",
+                target_revision="0233390f",
+            ),
+        )
+
+        validate_post_request(
+            request,
+            valid_agent_ids=("codex", "claude"),
+            existing_packets=(
+                {
+                    "packet_id": "rev_pkt_runtime_existing",
+                    "kind": "action_request",
+                    "target_kind": "runtime",
+                    "target_ref": "devctl_check:bundle.runtime",
+                    "target_revision": "0233390f",
+                    "requested_action": "run_check",
+                    "status": "pending",
+                },
+            ),
+        )
+
+    def test_packet_apply_requires_guard_attestation_for_work_claim(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+            _, event = post_packet(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+                request=PacketPostRequest(
+                    from_agent="codex",
+                    to_agent="claude",
+                    kind="action_request",
+                    summary="Run guarded check",
+                    body="Run a check and report the ActionResult.",
+                    requested_action="run_check",
+                    policy_hint="safe_auto_apply",
+                    target=PacketTargetFields.from_values(
+                        target_kind="runtime",
+                        target_ref="guard:check_review_channel_bridge",
+                        target_revision="tree-123",
+                    ),
+                ),
+            )
+
+            with self.assertRaisesRegex(ValueError, "PacketGuardAttestation"):
+                transition_packet(
+                    repo_root=root,
+                    review_channel_path=review_channel_path,
+                    artifact_paths=artifact_paths,
+                    request=PacketTransitionRequest(
+                        action="apply",
+                        packet_id=str(event["packet_id"]),
+                        actor="claude",
+                    ),
+                )
 
     def test_commit_approval_packets_preserve_runtime_fields_through_apply(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -278,6 +434,15 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                     action="apply",
                     packet_id=str(event["packet_id"]),
                     actor="operator",
+                    guard_attestation=PacketGuardAttestation(
+                        packet_id=str(event["packet_id"]),
+                        attestation_kind="commit_approval_guard",
+                        run_record_ids=("run-guard",),
+                        pipeline_generation="gen-9",
+                        staged_snapshot_hash="tree-123",
+                        operator_signature="operator",
+                        attested_by="operator",
+                    ),
                 ),
             )
             packet = next(
@@ -407,6 +572,15 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                     action="apply",
                     packet_id=str(event["packet_id"]),
                     actor="operator",
+                    guard_attestation=PacketGuardAttestation(
+                        packet_id=str(event["packet_id"]),
+                        attestation_kind="commit_approval_guard",
+                        run_record_ids=("run-guard",),
+                        pipeline_generation="gen-9",
+                        staged_snapshot_hash="tree-123",
+                        operator_signature="operator",
+                        attested_by="operator",
+                    ),
                 ),
             )
 
@@ -550,6 +724,12 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                     action="apply",
                     packet_id=str(event["packet_id"]),
                     actor="claude",
+                    guard_attestation=PacketGuardAttestation(
+                        packet_id=str(event["packet_id"]),
+                        attestation_kind="run_check_result",
+                        action_result_ids=("action-result-bridge-check",),
+                        attested_by="claude",
+                    ),
                 ),
             )
             applied_packet = next(

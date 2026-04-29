@@ -257,9 +257,9 @@ def _append_packet_queue_reconciliation(
     lines.append(f"- history_truncated: {reconciliation.history_truncated}")
     if reconciliation.stale_pending_hidden_from_inbox_total:
         lines.append(
-            "- note: expired pending packets are unresolved packets whose TTL "
-            "elapsed; they stay in history and are intentionally excluded from "
-            "the live inbox until they are reissued or resolved"
+            "- note: expired pending packets are archived audit rows whose TTL "
+            "elapsed; they stay in history with disposition evidence and are "
+            "intentionally excluded from the live inbox until they are reissued"
         )
 
 

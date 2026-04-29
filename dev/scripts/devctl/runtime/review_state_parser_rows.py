@@ -183,9 +183,23 @@ def packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
                 ),
                 execution_started_by=_string(mapping.get("execution_started_by")),
                 expires_at_utc=_string(mapping.get("expires_at_utc")),
+                acknowledged_events=_mapping_rows(mapping.get("acknowledged_events")),
+                acted_on_events=_mapping_rows(mapping.get("acted_on_events")),
+                lifecycle_current_state=_string(
+                    mapping.get("lifecycle_current_state")
+                ),
+                resolution_anchor=_string(mapping.get("resolution_anchor")),
+                disposition=dict(_mapping(mapping.get("disposition"))),
+                lifecycle_history=dict(_mapping(mapping.get("lifecycle_history"))),
             )
         )
     return tuple(packets)
+
+
+def _mapping_rows(value: object) -> tuple[dict[str, object], ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return ()
+    return tuple(dict(row) for row in value if isinstance(row, Mapping))
 
 
 def context_pack_refs_from_value(value: object) -> tuple[ContextPackRefState, ...]:

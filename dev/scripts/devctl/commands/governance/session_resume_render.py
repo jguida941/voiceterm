@@ -27,6 +27,10 @@ from .session_resume_render_role_sections import (
     observer_bootstrap_section as _observer_bootstrap_section,
     reviewer_bootstrap_section as _reviewer_bootstrap_section,
 )
+from .session_resume_render_rehydration import (
+    typed_rehydration_lines as _typed_rehydration_lines,
+    typed_rehydration_summary as _typed_rehydration_summary,
+)
 from .session_resume_render_sections import (
     coordination_lines as _coordination_lines,
     packet_inbox_lines as _packet_inbox_lines,
@@ -82,6 +86,7 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
             )
     if display_next:
         lines.append(f"- **next_command**: `{display_next}`")
+    lines.extend(_typed_rehydration_lines(packet))
 
     if role == "reviewer":
         lines.extend(
@@ -211,6 +216,10 @@ def render_markdown(packet: "SessionCachePacket") -> str:
     if display_next:
         lines.append(f"**Next**: `{display_next}`")
         lines.append("")
+    rehydration_lines = _typed_rehydration_lines(packet)
+    if rehydration_lines:
+        lines.extend(rehydration_lines)
+        lines.append("")
     if packet.key_rules:
         lines.append("### Key rules")
         for rule in packet.key_rules:
@@ -272,6 +281,7 @@ def render_summary(packet: "SessionCachePacket") -> str:
             if packet.packet_inbox is not None
             else "pending_inbox=0"
         ),
+        _typed_rehydration_summary(packet),
         _connectivity_registry_summary_line(packet),
         (
             f"resync_required={packet.coordination.resync_required}"

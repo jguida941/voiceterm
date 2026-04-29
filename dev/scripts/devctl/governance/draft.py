@@ -13,6 +13,10 @@ from .draft_governed_docs import (
 from .draft_policy_surface import scan_repo_pack_ref
 from .draft_policy_scan import scan_governed_doc_discovery
 from .draft_push import scan_command_routing_defaults, scan_push_enforcement
+from .master_plan_config import (
+    ingestion_policy_from_roots,
+    master_plan_from_registry,
+)
 from ..runtime.project_governance import (
     PROJECT_GOVERNANCE_CONTRACT_ID,
     PROJECT_GOVERNANCE_SCHEMA_VERSION,
@@ -206,10 +210,11 @@ def scan_repo_governance(
         repo_root,
         _governed_markdown_inputs(discovery),
     )
+    repo_identity = _scan_repo_identity(repo_root, resolved_policy)
     return ProjectGovernance(
         schema_version=PROJECT_GOVERNANCE_SCHEMA_VERSION,
         contract_id=PROJECT_GOVERNANCE_CONTRACT_ID,
-        repo_identity=_scan_repo_identity(repo_root, resolved_policy),
+        repo_identity=repo_identity,
         repo_pack=scan_repo_pack_ref(resolved_policy),
         path_roots=discovery.path_roots,
         plan_registry=plan_registry,
@@ -234,6 +239,12 @@ def scan_repo_governance(
             resolved_policy_path=resolved_policy_path,
         ),
         product_thesis=_load_product_thesis(repo_root),
+        master_plan=master_plan_from_registry(
+            repo_root,
+            repo_id=repo_identity.repo_name,
+            plan_registry=plan_registry,
+        ),
+        ingestion_policy=ingestion_policy_from_roots(discovery.governed_doc_roots),
     )
 
 

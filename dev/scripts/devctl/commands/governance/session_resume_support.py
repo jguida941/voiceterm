@@ -42,17 +42,13 @@ from ...runtime.surface_provenance import (
 from ...runtime.value_coercion import coerce_bool, coerce_string
 from . import session_resume_git as _session_resume_git
 from .session_resume_authority_payload import build_session_resume_review_state_context
-from .session_resume_cache_packet_builder import (
-    SessionCachePacketBuildContext,
-    SessionCachePacketFields,
-    build_session_cache_packet,
-)
 from .session_resume_packet import (
     SessionCachePacket,
     packet_from_mapping,
     try_cache_hit,
     write_cache,
 )
+from .session_resume_packet_context import build_packet_from_resolved_context
 from .session_resume_paths import (
     get_review_state_mtime,
     governance_interaction_mode,
@@ -247,22 +243,15 @@ def build_from_sources(
         authority_payload,
         caller_role=role,
     )
-    packet_fields = _packet_fields_from_context(locals())
-    return build_session_cache_packet(
+    return build_packet_from_resolved_context(
+        repo_root=repo_root,
+        role=role,
         model=model,
-        build_context=SessionCachePacketBuildContext(
-            role=role,
-            head_sha=head_sha,
-            typed_review_state=typed_review_state,
-            coordination=coordination,
-            authority_snapshot=authority_snapshot,
-            review_candidate=review_candidate,
-            attention_payload=attention_payload,
-            packet_inbox=packet_inbox,
-            connectivity_registry=connectivity_registry,
-            key_surfaces=key_surfaces,
-            fields=packet_fields,
-        ),
+        head_sha=head_sha,
+        typed_review_state=typed_review_state,
+        authority_snapshot=authority_snapshot,
+        packet_inbox=packet_inbox,
+        resolved_context=locals(),
     )
 
 
@@ -296,25 +285,6 @@ def _session_connectivity_registry(repo_root: Path) -> dict[str, object]:
         contract.contract_id for contract in registry.connected_contracts
     )
     return payload
-
-
-def _packet_fields_from_context(context: dict[str, Any]) -> SessionCachePacketFields:
-    return SessionCachePacketFields(
-        ack_state=str(context["ack_state"]),
-        blockers=str(context["blockers"]),
-        current_instruction=str(context["current_instruction"]),
-        guard_bundle=str(context["guard_bundle"]),
-        head_at_push_time=str(context["head_at_push_time"]),
-        instruction_revision=str(context["instruction_revision"]),
-        key_rules=tuple(context["key_rules"]),
-        last_reviewed_sha=str(context["last_reviewed_sha"]),
-        next_cmd=str(context["next_cmd"]),
-        observation_status=str(context["obs_status"]),
-        open_findings=str(context["open_findings"]),
-        review_state_mtime=float(context["rs_mtime"]),
-        top_blocker=str(context["top_blocker"]),
-        visible_next_cmd=str(context["visible_next_cmd"]),
-    )
 
 
 def _collaboration_payload_from_review_state(

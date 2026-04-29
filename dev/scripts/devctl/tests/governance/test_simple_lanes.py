@@ -238,6 +238,35 @@ class SimpleLaneCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.governance.simple_lanes.run_cmd")
     @patch("dev.scripts.devctl.commands.governance.simple_lanes_support._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.governance.simple_lanes_support.collect_git_status")
+    def test_tandem_validate_dry_run_uses_report_renderer_only(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        run_cmd_mock,
+        write_output_mock,
+    ) -> None:
+        args = cli.build_parser().parse_args(
+            ["tandem-validate", "--dry-run", "--format", "md"]
+        )
+        collect_git_status_mock.return_value = _mock_changes("dev/scripts/README.md")
+        extract_bundle_mock.return_value = _mock_bundle(
+            "python3 dev/scripts/devctl.py docs-check --strict-tooling"
+        )
+
+        rc = simple_lanes.run_tandem_validate(args)
+
+        self.assertEqual(rc, 0)
+        run_cmd_mock.assert_not_called()
+        rendered = write_output_mock.call_args.args[0]
+        self.assertTrue(rendered.startswith("# devctl tandem-validate\n"))
+        self.assertNotIn("[dry-run]", rendered)
+        self.assertIn("## Steps", rendered)
+        self.assertIn("`tandem-01`: ok (0.0s)", rendered)
+
+    @patch("dev.scripts.devctl.commands.governance.simple_lanes.write_output")
+    @patch("dev.scripts.devctl.commands.governance.simple_lanes.run_cmd")
+    @patch("dev.scripts.devctl.commands.governance.simple_lanes_support._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.governance.simple_lanes_support.collect_git_status")
     def test_tandem_validate_injects_policy_into_policy_aware_devctl_commands(
         self,
         collect_git_status_mock,

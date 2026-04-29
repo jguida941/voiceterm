@@ -127,6 +127,50 @@ def test_build_collaboration_session_marks_concurrent_writer_conflict(
     assert session.ownership.live_agents == ("codex", "claude")
 
 
+def test_build_collaboration_session_projects_unresolved_dead_session_outcome(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (_session_record("codex", "reviewer", live=False),)
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only: (),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "_load_session_outcomes",
+        lambda *, repo_root: (),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-08T00:00:00Z",
+        plan_id="MP-377",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
+        },
+        current_session=_current_session(
+            instruction="Review the current slice.",
+            last_reviewed_scope="dev/scripts/devctl/review_channel/session_probe.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    assert len(session.session_outcomes) == 1
+    outcome = session.session_outcomes[0]
+    assert outcome.outcome == "unresolved"
+    assert "unresolved_session_outcome" in outcome.reason
+    assert outcome.provider == "codex"
+
+
 def test_build_collaboration_session_keeps_planned_lanes_out_of_runtime_topology(
     monkeypatch,
     tmp_path: Path,

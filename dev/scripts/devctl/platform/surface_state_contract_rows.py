@@ -308,6 +308,11 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Startup-visible generated/navigation surfaces such as the connectivity index.",
             ),
             ContractField(
+                "agent_session_continuation",
+                "AgentSessionContinuationState | None",
+                "Typed rehydration state a fresh provider session must prove it loaded.",
+            ),
+            ContractField(
                 "provenance",
                 "SurfaceProvenance | None",
                 "Shared proof-tick source provenance copied from the review-state producer.",

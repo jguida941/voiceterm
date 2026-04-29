@@ -160,5 +160,5 @@ def test_packet_inbox_keeps_acked_action_request_active_while_executing() -> Non
     claude = packet_inbox.for_agent("claude")
     assert claude is not None
     assert claude.current_instruction_packet_id == "rev_pkt_1818"
-    assert claude.pending_actionable_packet_ids == ("rev_pkt_1818",)
+    assert claude.pending_actionable_packet_ids == ()
     assert claude.delivery_state == "seen"

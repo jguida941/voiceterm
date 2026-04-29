@@ -14,6 +14,7 @@ LAYER_ROOTS = {
 }
 META_FIELDS = {"schema_version", "contract_id"}
 GENERIC_FIELDS = {
+    "agent_id",
     "authority",
     "category",
     "command",
@@ -21,6 +22,7 @@ GENERIC_FIELDS = {
     "label",
     "name",
     "path",
+    "role",
     "status",
     "summary",
 }

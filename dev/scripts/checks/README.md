@@ -28,6 +28,12 @@ Family map:
 - Rust-analysis helpers: `rust_analysis/`
 - Compatibility-matrix helpers: `compat_matrix/`
 - Probe-report helpers: `probe_report/`
+- Architecture-aware probes: root `probe_architecture_*.py` entrypoints that
+  consume typed platform registry snapshots before emitting advisory hints.
+- Typed-authority provenance probe:
+  `probe_typed_authority_provenance.py` consumes PlanRow and queue projection
+  state and flags any active instruction authority that lacks provenance or an
+  `InstructionPriorityDecision`.
 - Review-probe helpers: `review_probes/`
 - Workflow/loop helpers: `coderabbit_*`, `mutation_ralph_loop_core.py`,
   `workflow_loop_utils.py`

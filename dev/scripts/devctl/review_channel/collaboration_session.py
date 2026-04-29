@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
+from ..runtime.agent_session_outcome import projected_unresolved_session_outcomes
 from ..runtime.review_state_models import (
     CollaborationPeerReviewState,
     CollaborationSessionState,
@@ -65,20 +66,14 @@ def build_collaboration_session(
     session_output_root: Path | None = None,
 ) -> CollaborationSessionState:
     """Build the typed collaboration/session state for review-channel runtime."""
-    session_records = (
-        load_conductor_sessions(session_output_root=session_output_root)
-        if session_output_root is not None
-        else ()
+    session_records, remote_attachments = _load_runtime_session_rows(
+        session_output_root=session_output_root,
     )
-    remote_attachments = (
-        load_remote_control_attachments(
-            output_root=session_output_root,
-            active_only=True,
-        )
-        if session_output_root is not None
-        else ()
+    session_outcomes = _build_session_outcomes(
+        repo_root=repo_root,
+        session_records=session_records,
+        observed_at_utc=timestamp,
     )
-    session_outcomes = _load_session_outcomes(repo_root=repo_root)
     reviewer_mode = _text(bridge_liveness.get("reviewer_mode")) or "tools_only"
     effective_mode = (
         _text(bridge_liveness.get("effective_reviewer_mode")) or reviewer_mode
@@ -195,6 +190,38 @@ def build_collaboration_session(
         watcher_status=watcher_status,
         actor_authorities=authority_rows,
         session_outcomes=session_outcomes,
+    )
+
+
+def _load_runtime_session_rows(
+    *,
+    session_output_root: Path | None,
+) -> tuple[tuple[object, ...], tuple[object, ...]]:
+    if session_output_root is None:
+        return (), ()
+    return (
+        load_conductor_sessions(session_output_root=session_output_root),
+        load_remote_control_attachments(
+            output_root=session_output_root,
+            active_only=True,
+        ),
+    )
+
+
+def _build_session_outcomes(
+    *,
+    repo_root: Path | None,
+    session_records: tuple[object, ...],
+    observed_at_utc: str,
+) -> tuple[object, ...]:
+    loaded_session_outcomes = _load_session_outcomes(repo_root=repo_root)
+    return (
+        *loaded_session_outcomes,
+        *projected_unresolved_session_outcomes(
+            session_records,
+            loaded_session_outcomes,
+            observed_at_utc=observed_at_utc,
+        ),
     )
 
 

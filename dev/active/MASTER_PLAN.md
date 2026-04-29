@@ -158,6 +158,28 @@
   `session_liveness_signals`, dashboard/mobile receive it through
   `DashboardSnapshot.session_liveness`, and startup/control-plane counts prefer
   the typed signal over bridge conductor booleans.
+- 2026-04-28 Plan 4.1 dogfood cleanup (MP-377): the Finding F/G/H/J/K/L/M/N/O/P/Q
+  bundle now collapses reviewer-mode, packet queue, Action Requests,
+  packet-post, context-graph, tandem-validate, triage, and `check` quick
+  surfaces back onto typed authority. Effective reviewer mode renders as the
+  compatibility bridge authority while declared mode stays visible, packet
+  inbox counts only live pending work, Action Requests ignore delivery
+  receipts, packet posting has semantic idempotency plus uniform kind schema,
+  bootstrap graph summaries no longer claim false zero-edge evidence,
+  tandem dry-run starts at its markdown report header, mutation outcome shims
+  work in package/direct modes, process-sweep cleanup is opt-in, and dead
+  sessions without terminal outcomes project typed
+  `AgentSessionOutcome(outcome=unresolved)` rows.
+- 2026-04-29 Plan 4.1 packet lifecycle/disposition hook (MP-377): review
+  packets now reduce per-packet `acknowledged_events`, `acted_on_events`,
+  `PacketLifecycleHistory`, and `PacketDisposition` state. Clock-expired
+  pending packets are archived with
+  `archive_classification:clock_expired_without_disposition` instead of
+  remaining invisible lost-work candidates, plan-targeted `apply` transitions
+  can append idempotent generated `PacketPlanIntegration` rows, and the
+  deferred Finding CC/II/R/S/T/V/W/X/Y/Z/AA/BB/FF/GG/HH queue is now routed into
+  `MP377-P0-T08A..T08E`, `MP377-P0-T14A..T14B`, `MP377-P0-T19A`,
+  `MP377-P0-T21A`, and existing `MP394-A` plan rows for follow-up execution.
 - 2026-04-27 governed-push execution-truth invariant (MP-377):
   the `rev_pkt_2027` / `rev_pkt_2029` regression proved a Class-A trust
   break: a push report could claim `published_remote` with a fixture branch
@@ -166,8 +188,10 @@
   `git rev-parse --abbrev-ref HEAD`, binds approved target identity to live
   publication authorization plus current worktree and HEAD, fails stale
   authorization proof older than one hour, and downgrades any execute=true
-  publication claim without fetch/preflight/push/post-push subprocess evidence
-  or matching remote-ref proof to `SilentPushFailure`.
+  publication claim without fetch/preflight/push subprocess evidence or matching
+  remote-ref proof to `SilentPushFailure`. Terminal post-push states add the
+  separate `post_push_steps` evidence requirement so an in-flight
+  `post_push_bundle_pending` snapshot does not masquerade as post-push green.
 - 2026-04-27 Plan 4.1 rev_pkt_2035 architectural bundle placement (MP-377):
   the consolidated Claude/Explore bundle is now durable plan scope, not chat
   memory. `ai_governance_platform.md` tracks `MP377-P0-T13` through
@@ -373,9 +397,10 @@
   `devctl push` now fails closed at action-build/report time when the configured
   branch or templated approved target identity diverges from live git and
   publication authorization. `published_remote` requires a successful
-  `git push` subprocess, populated fetch/preflight/post-push evidence, and
-  remote ref equality with current `HEAD`; missing proof emits
-  `SilentPushFailure` instead of a green push report. Plan 4.1 resumes after
+  `git push` subprocess, populated fetch/preflight/push evidence, and remote ref
+  equality with current `HEAD`; terminal post-push states separately require
+  `post_push_steps`. Missing proof emits `SilentPushFailure` instead of a green
+  push report. Plan 4.1 resumes after
   this repair with Slice B packet lifecycle reduction, Slice D projection-spine
   consolidation over existing typed surfaces, and Slice E role reassignment on
   the existing capability contracts.
@@ -475,6 +500,11 @@
   preexisting staged user paths, and make governed commit reporting explicit
   about the staged/content commit versus any trailing snapshot-only receipt
   commit so operators stop mistaking the receipt for lost staged work.
+- 2026-04-28 Plan 4.1 Finding I governed commit path selection in `MP-377`
+  scope: `devctl commit --paths <path>...` now feeds selected repo-relative
+  paths into the existing typed `vcs.stage` action, preserving the
+  ReviewSnapshot refresh and dirty-outside-scope gates without requiring raw
+  `git add` as a remote-control workaround.
 - 2026-04-18 `MP-410` devctl root package-layout relief in `MP-377` scope:
   relocate crowded `dev/scripts/devctl/` root modules into topical
   subpackages, retire extracted root shims that no longer carry authority,
@@ -4750,10 +4780,11 @@ become the main product surface.
   `PacketOutcomeLedger` to `review-channel --action history --include-outcomes`
   so expired-pending packet rows can carry typed outcomes
   (`delivered_via_commit`, `superseded_by`, `promoted_to_finding`,
-  `withdrawn_by_reviewer`, `expired_unrecoverable`, `lost`) from later event
-  evidence instead of staying invisible graveyard rows. The full migration and
-  blocking closure guard over every expired packet remain open under
-  `rev_pkt_1822`; this slice only proves the typed model and narrow report
+  `withdrawn_by_reviewer`, `expired_unrecoverable`; later
+  `archived` disposition rows replaced the unresolved `lost` fallback) from
+  later event evidence instead of staying invisible graveyard rows. The full
+  blocking disposition guard over every pending packet remains open under
+  `MP377-P0-T08E`; this slice only proves the typed model and narrow report
   surface. A
   2026-03-13 follow-up also closed the next live-launch honesty gap: the
   Terminal-app launch path now waits for `Last Codex poll` to advance and fails

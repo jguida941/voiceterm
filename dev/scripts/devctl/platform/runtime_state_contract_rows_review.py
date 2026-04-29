@@ -5,6 +5,9 @@ from __future__ import annotations
 from .contracts import ContractField, ContractSpec
 from .runtime_state_contract_rows_actor_authority import ACTOR_AUTHORITY_CONTRACTS
 from .runtime_state_contract_rows_review_core import REVIEW_CORE_STATE_CONTRACTS
+from .runtime_state_contract_rows_session_continuation import (
+    AGENT_SESSION_CONTINUATION_CONTRACTS,
+)
 
 REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     *ACTOR_AUTHORITY_CONTRACTS,
@@ -198,6 +201,7 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         ),
         startup_surface_tokens=("outcome", "provider", "session_name"),
     ),
+    *AGENT_SESSION_CONTINUATION_CONTRACTS,
     ContractSpec(
         contract_id="PushAuthorizationRecord",
         owner_layer="governance_runtime",

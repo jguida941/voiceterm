@@ -1125,8 +1125,8 @@ def test_status_bridge_sync_does_not_demote_active_bridge_mode_from_effective_st
     rewritten = bridge_path.read_text(encoding="utf-8")
     assert synced is True
     assert warning == ""
-    assert "- Reviewer mode: `active_dual_agent`" in rewritten
-    assert "- Reviewer mode: `tools_only`" not in rewritten
+    assert "- Reviewer mode: `tools_only`" in rewritten
+    assert "- Declared reviewer mode: `active_dual_agent`" in rewritten
 
 
 def test_status_bridge_sync_projects_effective_live_mode_over_stale_tools_only(

@@ -19,6 +19,9 @@ from dev.scripts.devctl.review_channel.packet_contract import (
     PacketPostRequest,
     PacketTransitionRequest,
 )
+from dev.scripts.devctl.review_channel.packet_attestation import (
+    PacketGuardAttestation,
+)
 
 
 def _review_channel_text() -> str:
@@ -123,6 +126,12 @@ class ReviewChannelContextRefTests(unittest.TestCase):
                     action="apply",
                     packet_id=str(event["packet_id"]),
                     actor="operator",
+                    guard_attestation=PacketGuardAttestation(
+                        packet_id=str(event["packet_id"]),
+                        attestation_kind="approval_request_signature",
+                        operator_signature="operator",
+                        attested_by="operator",
+                    ),
                 ),
             )
 

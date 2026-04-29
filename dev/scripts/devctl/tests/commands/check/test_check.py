@@ -157,6 +157,14 @@ class CheckProfileTests(TestCase):
         args = parser.parse_args(["check", "--no-process-sweep-cleanup"])
         self.assertTrue(args.no_process_sweep_cleanup)
 
+    def test_cli_process_sweep_cleanup_is_opt_in(self) -> None:
+        parser = build_parser()
+        default_args = parser.parse_args(["check"])
+        opted_in_args = parser.parse_args(["check", "--with-process-sweep-cleanup"])
+
+        self.assertFalse(default_args.with_process_sweep_cleanup)
+        self.assertTrue(opted_in_args.with_process_sweep_cleanup)
+
     def test_cli_accepts_no_host_process_cleanup_flag(self) -> None:
         parser = build_parser()
         args = parser.parse_args(["check", "--no-host-process-cleanup"])

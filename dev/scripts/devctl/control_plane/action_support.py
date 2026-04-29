@@ -35,6 +35,7 @@ class ControllerActionName(StrEnum):
     DISPATCH_REPORT_ONLY = "dispatch-report-only"
     PAUSE_LOOP = "pause-loop"
     RESUME_LOOP = "resume-loop"
+    RETIRE_STALE_CONDUCTOR = "retire-stale-conductor"
 
 
 def iso_z(value: datetime) -> str:
@@ -129,6 +130,9 @@ def build_controller_typed_action(
         parameters["remote"] = bool(args.remote)
         if requested_mode:
             parameters["requested_mode"] = requested_mode
+    elif action is ControllerActionName.RETIRE_STALE_CONDUCTOR:
+        parameters["pid"] = int(args.pid or 0)
+        parameters["grace_seconds"] = float(args.grace_seconds)
     return TypedAction(
         schema_version=1,
         contract_id="TypedAction",

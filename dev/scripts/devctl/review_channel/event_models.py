@@ -37,6 +37,7 @@ class ReviewPacketRow(TypedDict):
     staged_snapshot_hash: object
     guard_results_summary: object
     full_guard_bundle_evidence: object
+    plan_proposal: object
     status: object
     acked_by: object
     acked_at_utc: object
@@ -48,6 +49,12 @@ class ReviewPacketRow(TypedDict):
     execution_started_by: object
     posted_at: object
     expires_at_utc: object
+    acknowledged_events: list[dict[str, object]]
+    acted_on_events: list[dict[str, object]]
+    lifecycle_current_state: object
+    resolution_anchor: object
+    disposition: dict[str, object]
+    lifecycle_history: dict[str, object]
     _sort_timestamp: object
 
 

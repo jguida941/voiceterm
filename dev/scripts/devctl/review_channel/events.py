@@ -29,7 +29,6 @@ from .event_store import (
     artifact_paths_to_dict,
     event_state_exists,
     future_utc_timestamp,
-    idempotency_key,
     load_events,
     next_event_id,
     resolve_artifact_paths,
@@ -39,20 +38,19 @@ from ..time_utils import utc_timestamp
 from .packet_contract import (
     PacketPostRequest,
     PacketTransitionRequest,
+    plan_proposal_for_request,
     validate_post_request,
+)
+from .packet_transition_events import (
+    TRANSITION_EVENT_TYPES,
+    build_transition_event,
+    finish_transition_event,
 )
 from .packet_agents import (
     packet_agent_ids_from_review_state,
     packet_agent_ids_from_session_output,
 )
-from .action_request_delivery import record_action_request_execution_start
 from .post_packet_runtime import finalize_post_packet
-from .remote_control_attachment_artifact import heartbeat_repo_remote_control_attachment
-TRANSITION_EVENT_TYPES = {
-    "ack": "packet_acked",
-    "dismiss": "packet_dismissed",
-    "apply": "packet_applied",
-}
 
 
 def post_packet(
@@ -86,7 +84,13 @@ def post_packet(
                 Path(artifact_paths.projections_root)
             )
         ),
+        existing_packets=(
+            existing_bundle.review_state.get("packets", [])
+            if existing_bundle is not None
+            else []
+        ),
     )
+    plan_proposal = plan_proposal_for_request(request)
 
     event = {
         "schema_version": 1,
@@ -117,6 +121,9 @@ def post_packet(
         **request.target.to_event_fields(),
         **request.runtime_approval.to_event_fields(),
         **request.guard_bundle_evidence.to_event_fields(),
+        "plan_proposal": (
+            plan_proposal.to_dict() if plan_proposal.has_values() else None
+        ),
         "status": "pending",
         "idempotency_key": "",
         "nonce": secrets.token_hex(12),
@@ -176,58 +183,14 @@ def transition_packet(
 
     # Enforce transition rules before building the event
     _validate_transition(packet=packet, action=request.action, actor=request.actor)
-    event_type = TRANSITION_EVENT_TYPES[request.action]
-
-    event = {
-        "schema_version": 1,
-        "event_id": next_event_id(bundle.events),
-        "session_id": request.session_id,
-        "project_id": project_id_for_repo(repo_root),
-        "packet_id": request.packet_id,
-        "trace_id": packet.get("trace_id"),
-        "timestamp_utc": utc_timestamp(),
-        "source": "review_channel",
-        "plan_id": request.plan_id,
-        "controller_run_id": request.controller_run_id,
-        "event_type": event_type,
-        "from_agent": packet.get("from_agent"),
-        "to_agent": packet.get("to_agent"),
-        "kind": packet.get("kind"),
-        "summary": packet.get("summary"),
-        "body": packet.get("body"),
-        "evidence_refs": list(packet.get("evidence_refs") or []),
-        "guidance_refs": list(packet.get("guidance_refs") or []),
-        "context_pack_refs": normalize_context_pack_refs(
-            packet.get("context_pack_refs")
-        ),
-        "confidence": float(packet.get("confidence") or 0.0),
-        "requested_action": packet.get("requested_action"),
-        "policy_hint": packet.get("policy_hint"),
-        "approval_required": bool(packet.get("approval_required")),
-        "target_kind": packet.get("target_kind"),
-        "target_ref": packet.get("target_ref"),
-        "target_revision": packet.get("target_revision"),
-        "anchor_refs": list(packet.get("anchor_refs") or []),
-        "intake_ref": packet.get("intake_ref"),
-        "mutation_op": packet.get("mutation_op"),
-        "pipeline_generation": packet.get("pipeline_generation"),
-        "staged_snapshot_hash": packet.get("staged_snapshot_hash"),
-        "guard_results_summary": packet.get("guard_results_summary"),
-        "full_guard_bundle_evidence": packet.get("full_guard_bundle_evidence"),
-        "status": {
-            "ack": "acked",
-            "dismiss": "dismissed",
-            "apply": "applied",
-        }[request.action],
-        "idempotency_key": idempotency_key(
-            event_type,
-            request.packet_id,
-            request.actor,
-        ),
-        "nonce": secrets.token_hex(12),
-        "expires_at_utc": packet.get("expires_at_utc"),
-        "metadata": {"actor": request.actor},
-    }
+    timestamp_utc = utc_timestamp()
+    event = build_transition_event(
+        packet=packet,
+        request=request,
+        event_id=next_event_id(bundle.events),
+        timestamp_utc=timestamp_utc,
+        project_id=project_id_for_repo(repo_root),
+    )
 
     # Persist event and refresh reduced state
     written_event = append_event(
@@ -235,18 +198,13 @@ def transition_packet(
         event,
         existing_events=bundle.events,
     )
-    heartbeat_repo_remote_control_attachment(
+    written_event = finish_transition_event(
         repo_root=repo_root,
-        provider=str(request.actor or "").strip(),
-        seen_at_utc=str(written_event.get("timestamp_utc") or "").strip(),
+        artifact_paths=artifact_paths,
+        packet=packet,
+        request=request,
+        written_event=written_event,
     )
-    if request.action in {"ack", "apply"}:
-        record_action_request_execution_start(
-            artifact_root=Path(artifact_paths.artifact_root),
-            packet=packet,
-            actor=request.actor,
-            started_at_utc=str(written_event.get("timestamp_utc") or ""),
-        )
     refreshed = refresh_event_bundle(
         repo_root=repo_root,
         review_channel_path=review_channel_path,

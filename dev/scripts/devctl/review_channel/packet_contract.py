@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
+from ..runtime.master_plan_contract import PlanProposal
 from .event_store import (
     DEFAULT_PACKET_TTL_MINUTES,
     DEFAULT_REVIEW_CHANNEL_PLAN_ID,
@@ -15,7 +15,21 @@ from .packet_agents import default_packet_agent_ids
 from .pending_packet_models import (
     PacketGuardBundleEvidenceFields,
     PacketRuntimeApprovalFields,
-    validate_full_guard_bundle_evidence,
+)
+from .packet_attestation import PacketGuardAttestation
+from .packet_plan_proposal import (
+    PLANNING_PACKET_KINDS,
+    PROPOSAL_PACKET_KINDS,
+    PlanProposalPacketFields,
+    carrier_packet_kinds,
+    plan_proposal_for_fields,
+    validate_plan_proposal_contract,
+)
+from .packet_target_validation import (
+    STAGE_PIPELINE_ACTION_REQUEST_ACTIONS,
+    VALID_PLAN_MUTATION_OPS,
+    VALID_TARGET_KINDS,
+    validate_target_fields,
 )
 
 VALID_AGENT_IDS = frozenset(default_packet_agent_ids())
@@ -35,45 +49,28 @@ VALID_PACKET_KINDS = {
     "plan_ready_gate",
     COMMIT_APPROVAL_PACKET_KIND,
 }
-PLANNING_PACKET_KINDS = {
-    "plan_gap_review",
-    "plan_patch_review",
-    "plan_ready_gate",
-}
-RUNTIME_TARGET_PACKET_KINDS = {COMMIT_APPROVAL_PACKET_KIND}
-RUNTIME_ACTION_REQUEST_ACTIONS = {
-    "commit",
-    "kill_process",
-    "push",
-    "run_check",
-    "stage_commit_pipeline",
-}
-PIPELINE_ACTION_REQUEST_ACTIONS = {"commit", "push"}
-STAGE_PIPELINE_ACTION_REQUEST_ACTIONS = {"stage_commit_pipeline"}
+CARRIER_PACKET_KINDS = carrier_packet_kinds(VALID_PACKET_KINDS)
 VALID_POLICY_HINTS = {
     "review_only",
     "stage_draft",
     "operator_approval_required",
     "safe_auto_apply",
 }
-VALID_TARGET_KINDS = {
-    "artifact",
-    "code",
-    "plan",
-    "policy",
-    "runbook",
-    "runtime",
+
+
+@dataclass(frozen=True, slots=True)
+class PacketKindSchema:
+    """Per-kind packet validation contract used by CLI and runtime callers."""
+
+    kind: str
+    summary_required: bool = True
+    body_required: bool = True
+
+
+PACKET_KIND_SCHEMAS = {
+    kind: PacketKindSchema(kind=kind)
+    for kind in VALID_PACKET_KINDS
 }
-VALID_PLAN_MUTATION_OPS = {
-    "append_audit_evidence",
-    "append_progress_log",
-    "rewrite_section_note",
-    "rewrite_session_resume",
-    "set_checklist_state",
-}
-ANCHOR_REF_RE = re.compile(
-    r"^(checklist|section|session_resume|progress|audit):[A-Za-z0-9][A-Za-z0-9._-]*$"
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,6 +156,7 @@ class PacketPostRequest:
     guard_bundle_evidence: PacketGuardBundleEvidenceFields = field(
         default_factory=PacketGuardBundleEvidenceFields
     )
+    plan_proposal: PlanProposal = field(default_factory=PlanProposal)
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,12 +169,14 @@ class PacketTransitionRequest:
     session_id: str = DEFAULT_REVIEW_CHANNEL_SESSION_ID
     plan_id: str = DEFAULT_REVIEW_CHANNEL_PLAN_ID
     controller_run_id: str | None = None
+    guard_attestation: PacketGuardAttestation | None = None
 
 
 def validate_post_request(
     request: PacketPostRequest,
     *,
     valid_agent_ids: Iterable[str] | None = None,
+    existing_packets: Iterable[Mapping[str, object]] | None = None,
 ) -> None:
     """Fail closed when one packet post request violates the contract."""
     allowed_agent_ids = _resolve_valid_agent_ids(valid_agent_ids)
@@ -188,9 +188,10 @@ def validate_post_request(
         raise ValueError(f"Unsupported review-channel to-agent: {request.to_agent}")
     if request.kind not in VALID_PACKET_KINDS:
         raise ValueError(f"Unsupported review-channel packet kind: {request.kind}")
-    if not request.summary.strip():
+    schema = packet_kind_schema(request.kind)
+    if schema.summary_required and not request.summary.strip():
         raise ValueError("--summary is required for review-channel post.")
-    if not request.body.strip():
+    if schema.body_required and not request.body.strip():
         raise ValueError("Review-channel post body is required.")
     if not 0.0 <= request.confidence <= 1.0:
         raise ValueError("--confidence must be between 0.0 and 1.0.")
@@ -200,211 +201,52 @@ def validate_post_request(
         )
     if request.expires_in_minutes <= 0:
         raise ValueError("--expires-in-minutes must be greater than zero.")
-    _validate_target_fields(
+    validate_target_fields(
         kind=request.kind,
         requested_action=request.requested_action,
         target=request.target,
         runtime_approval=request.runtime_approval,
         guard_bundle_evidence=request.guard_bundle_evidence,
     )
+    _validate_plan_proposal_fields(
+        request=request,
+        existing_packets=existing_packets,
+    )
 
 
-def _validate_target_fields(
+def packet_kind_schema(kind: str) -> PacketKindSchema:
+    """Return the typed validation schema for one packet kind."""
+    return PACKET_KIND_SCHEMAS[kind]
+
+
+def plan_proposal_for_request(request: PacketPostRequest) -> PlanProposal:
+    """Return explicit or compatibility-derived plan proposal metadata."""
+    return plan_proposal_for_fields(
+        PlanProposalPacketFields(
+            kind=request.kind,
+            requested_action=request.requested_action,
+            target_kind=request.target.target_kind,
+            target_ref=request.target.target_ref,
+            target_revision=request.target.target_revision,
+            anchor_refs=request.target.anchor_refs,
+            mutation_op=request.target.mutation_op,
+            explicit_proposal=request.plan_proposal,
+        )
+    )
+
+
+def _validate_plan_proposal_fields(
     *,
-    kind: str,
-    requested_action: str,
-    target: PacketTargetFields,
-    runtime_approval: PacketRuntimeApprovalFields,
-    guard_bundle_evidence: PacketGuardBundleEvidenceFields,
+    request: PacketPostRequest,
+    existing_packets: Iterable[Mapping[str, object]] | None,
 ) -> None:
-    if target.target_kind and target.target_kind not in VALID_TARGET_KINDS:
-        raise ValueError(
-            f"Unsupported review-channel target kind: {target.target_kind}"
-        )
-
-    planning_kind = kind in PLANNING_PACKET_KINDS
-    runtime_target_kind = kind in RUNTIME_TARGET_PACKET_KINDS
-
-    if planning_kind:
-        _validate_plan_target_fields(kind=kind, target=target)
-        if runtime_approval.has_values() or guard_bundle_evidence.has_values():
-            raise ValueError(
-                "Runtime guard fields are only allowed on runtime packet kinds."
-            )
-        return
-
-    if runtime_target_kind:
-        _validate_runtime_approval_target_fields(
-            target=target,
-            runtime_approval=runtime_approval,
-            guard_bundle_evidence=guard_bundle_evidence,
-        )
-        return
-
-    if kind == ACTION_REQUEST_PACKET_KIND:
-        _validate_action_request_target_fields(
-            requested_action=requested_action,
-            target=target,
-            runtime_approval=runtime_approval,
-            guard_bundle_evidence=guard_bundle_evidence,
-        )
-        return
-
-    if (
-        target.has_values()
-        or runtime_approval.has_values()
-        or guard_bundle_evidence.has_values()
-    ):
-        raise ValueError(
-            "Target fields are only allowed on plan review packets or `commit_approval` packets."
-        )
-
-
-def _validate_plan_target_fields(*, kind: str, target: PacketTargetFields) -> None:
-    if target.target_kind != "plan":
-        raise ValueError("Plan review packets must set --target-kind plan.")
-    if not target.target_ref:
-        raise ValueError("Plan review packets require --target-ref.")
-    if not target.target_revision:
-        raise ValueError("Plan review packets require --target-revision.")
-    if not target.anchor_refs:
-        raise ValueError("Plan review packets require at least one --anchor-ref.")
-
-    invalid_anchor_refs = [
-        anchor_ref
-        for anchor_ref in target.anchor_refs
-        if ANCHOR_REF_RE.fullmatch(anchor_ref) is None
-    ]
-    if invalid_anchor_refs:
-        raise ValueError(
-            "Invalid --anchor-ref value(s): " + ", ".join(invalid_anchor_refs)
-        )
-    if not target.intake_ref:
-        raise ValueError("Plan review packets require --intake-ref.")
-
-    if kind == "plan_patch_review":
-        if target.mutation_op not in VALID_PLAN_MUTATION_OPS:
-            raise ValueError(
-                "Plan patch review packets require a valid --mutation-op."
-            )
-        return
-
-    if target.mutation_op:
-        raise ValueError(
-            "--mutation-op is only valid on `plan_patch_review` packets."
-        )
-
-
-def _validate_runtime_approval_target_fields(
-    *,
-    target: PacketTargetFields,
-    runtime_approval: PacketRuntimeApprovalFields,
-    guard_bundle_evidence: PacketGuardBundleEvidenceFields,
-) -> None:
-    if target.target_kind != "runtime":
-        raise ValueError("Commit approval packets must set --target-kind runtime.")
-    if not target.target_ref:
-        raise ValueError("Commit approval packets require --target-ref.")
-    if not target.target_revision:
-        raise ValueError("Commit approval packets require --target-revision.")
-    if not target.target_ref.startswith("remote_commit_pipeline:"):
-        raise ValueError(
-            "Commit approval packets must target `remote_commit_pipeline:<pipeline_id>`."
-        )
-    if target.anchor_refs or target.intake_ref or target.mutation_op:
-        raise ValueError(
-            "Plan mutation fields are not valid on `commit_approval` packets."
-        )
-    if not runtime_approval.pipeline_generation:
-        raise ValueError("Commit approval packets require --pipeline-generation.")
-    if not runtime_approval.staged_snapshot_hash:
-        raise ValueError("Commit approval packets require --staged-snapshot-hash.")
-    if not runtime_approval.guard_results_summary:
-        raise ValueError("Commit approval packets require --guard-results-summary.")
-    if guard_bundle_evidence.has_values():
-        validate_full_guard_bundle_evidence(guard_bundle_evidence)
-
-
-def _validate_action_request_target_fields(
-    *,
-    requested_action: str,
-    target: PacketTargetFields,
-    runtime_approval: PacketRuntimeApprovalFields,
-    guard_bundle_evidence: PacketGuardBundleEvidenceFields,
-) -> None:
-    action = (requested_action or "").strip()
-    if action not in RUNTIME_ACTION_REQUEST_ACTIONS:
-        if (
-            target.has_values()
-            or runtime_approval.has_values()
-            or guard_bundle_evidence.has_values()
-        ):
-            raise ValueError(
-                "Target fields on `action_request` packets are only allowed "
-                "for runtime actions: "
-                + ", ".join(sorted(RUNTIME_ACTION_REQUEST_ACTIONS))
-                + "."
-            )
-        return
-
-    if target.target_kind != "runtime":
-        raise ValueError(
-            "Runtime action_request packets must set --target-kind runtime."
-        )
-    if not target.target_ref:
-        raise ValueError("Runtime action_request packets require --target-ref.")
-    if not target.target_revision:
-        raise ValueError("Runtime action_request packets require --target-revision.")
-    if target.anchor_refs or target.intake_ref or target.mutation_op:
-        raise ValueError(
-            "Plan mutation fields are not valid on runtime action_request packets."
-        )
-
-    if action in STAGE_PIPELINE_ACTION_REQUEST_ACTIONS:
-        if not target.target_ref.startswith("devctl_commit:"):
-            raise ValueError(
-                "Stage-commit action_request packets must target "
-                "`devctl_commit:<head_sha>`."
-            )
-        if runtime_approval.has_values():
-            raise ValueError(
-                "Stage-commit action_request packets do not carry runtime "
-                "approval fields until a commit pipeline exists."
-            )
-        validate_full_guard_bundle_evidence(
-            guard_bundle_evidence,
-            required=True,
-        )
-        return
-
-    if action in PIPELINE_ACTION_REQUEST_ACTIONS:
-        if not target.target_ref.startswith("remote_commit_pipeline:"):
-            raise ValueError(
-                "Commit/push action_request packets must target "
-                "`remote_commit_pipeline:<pipeline_id>`."
-            )
-        if not runtime_approval.pipeline_generation:
-            raise ValueError(
-                "Commit/push action_request packets require --pipeline-generation."
-            )
-        if not runtime_approval.staged_snapshot_hash:
-            raise ValueError(
-                "Commit/push action_request packets require --staged-snapshot-hash."
-            )
-        if not runtime_approval.guard_results_summary:
-            raise ValueError(
-                "Commit/push action_request packets require --guard-results-summary."
-            )
-        if guard_bundle_evidence.has_values():
-            validate_full_guard_bundle_evidence(guard_bundle_evidence)
-        return
-
-    if runtime_approval.has_values() or guard_bundle_evidence.has_values():
-        raise ValueError(
-            "Runtime guard fields are only allowed on commit/push "
-            "action_request packets, stage-commit action_request packets, or "
-            "`commit_approval` packets."
-        )
+    proposal = plan_proposal_for_request(request)
+    validate_plan_proposal_contract(
+        kind=request.kind,
+        proposal=proposal,
+        carrier_kinds=CARRIER_PACKET_KINDS,
+        existing_packets=existing_packets,
+    )
 
 
 def _clean_optional_text(value: object) -> str | None:

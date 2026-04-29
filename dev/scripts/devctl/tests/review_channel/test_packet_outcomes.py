@@ -70,7 +70,7 @@ def test_packet_outcome_ledger_classifies_superseding_packet() -> None:
     assert ledger.records[0].superseding_packet_id == "rev_pkt_102"
 
 
-def test_packet_outcome_ledger_marks_unresolved_expired_packet_lost() -> None:
+def test_packet_outcome_ledger_archives_unresolved_expired_packet() -> None:
     ledger = build_packet_outcome_ledger(
         packets=[_expired_packet("rev_pkt_100")],
         events=[],
@@ -78,8 +78,11 @@ def test_packet_outcome_ledger_marks_unresolved_expired_packet_lost() -> None:
         source="test",
     )
 
-    assert ledger.records[0].outcome == PacketOutcome.LOST
-    assert ledger.records[0].evidence_ref == "expiry:2026-04-25T00:30:00Z"
+    assert ledger.records[0].outcome == PacketOutcome.ARCHIVED
+    assert (
+        ledger.records[0].evidence_ref
+        == "archive_classification:clock_expired_without_disposition"
+    )
 
 
 def test_attach_packet_outcomes_keeps_source_packets_immutable() -> None:
@@ -94,4 +97,6 @@ def test_attach_packet_outcomes_keeps_source_packets_immutable() -> None:
     enriched = attach_packet_outcomes([packet], ledger)
 
     assert "packet_outcome" not in packet
-    assert enriched[0]["packet_outcome"]["outcome"] == "lost"
+    assert enriched[0]["packet_outcome"]["outcome"] == "archived"
+    assert enriched[0]["lifecycle_current_state"] == "archived"
+    assert enriched[0]["disposition"]["sink"] == "archived"

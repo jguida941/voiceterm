@@ -120,12 +120,13 @@ def _build_agent_attention_payload(
     targeted = _targeted_packets(packet_rows, agent)
     live_pending = [packet for packet in targeted if _is_live_pending(packet)]
     live_control = [packet for packet in targeted if _is_live_control_packet(packet)]
-    actionable = _actionable_packets(live_control)
-    selected_actionable = _select_actionable_packet(actionable)
+    active_actionable = _actionable_packets(live_control)
+    pending_actionable = _actionable_packets(live_pending)
+    selected_actionable = _select_actionable_packet(active_actionable)
     current_instruction_packet_id = _packet_id(selected_actionable)
     latest_finding_packet_id = _packet_id(_latest_packet(_finding_packets(targeted)))
     pending_actionable_packet_ids = _packet_ids(
-        _ordered_actionable_packets(actionable)
+        _ordered_actionable_packets(pending_actionable)
     )
     expired_unresolved_packet_ids = _packet_ids(
         _expired_unresolved_packets(targeted)

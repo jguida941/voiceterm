@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from ...platform.coordination_snapshot_models import CoordinationSnapshot
+from ...runtime.agent_session_continuation_models import AgentSessionContinuationState
 from ...runtime.authority_snapshot import AuthoritySnapshot
 from ...runtime.control_plane_read_model import ControlPlaneReadModel
 from ...runtime.review_state_models import PacketInboxState, ReviewCandidateRecord
@@ -47,6 +48,7 @@ class SessionCachePacketBuildContext:
     packet_inbox: PacketInboxState | None
     connectivity_registry: dict[str, object]
     key_surfaces: tuple[str, ...]
+    agent_session_continuation: AgentSessionContinuationState | None
     fields: SessionCachePacketFields
 
 
@@ -117,6 +119,7 @@ def build_session_cache_packet(
         packet_inbox=build_context.packet_inbox,
         connectivity_registry=build_context.connectivity_registry,
         key_surfaces=build_context.key_surfaces,
+        agent_session_continuation=build_context.agent_session_continuation,
         provenance=provenance,
     )
 

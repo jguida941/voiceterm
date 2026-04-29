@@ -27,6 +27,7 @@ from ..controller_action_support import (
 from ..mobile.phone_views import view_payload
 
 from ..repo_packs.process_helpers import resolve_repo, run_capture
+from .process.cleanup import retire_stale_conductor
 
 
 def _timestamp() -> str:
@@ -187,22 +188,37 @@ def refresh_status_report(report: ControllerActionReport, args) -> None:
     report.reason = "status_refreshed"
 
 
+def _action_requires_gh(action: ControllerActionName, args) -> bool:
+    if action is ControllerActionName.DISPATCH_REPORT_ONLY:
+        return True
+    if action in {
+        ControllerActionName.PAUSE_LOOP,
+        ControllerActionName.RESUME_LOOP,
+    }:
+        return bool(args.remote)
+    return False
+
+
+def _action_requires_repo(action: ControllerActionName) -> bool:
+    return action in {
+        ControllerActionName.DISPATCH_REPORT_ONLY,
+        ControllerActionName.PAUSE_LOOP,
+        ControllerActionName.RESUME_LOOP,
+    }
+
+
 def run(args) -> int:
     """Execute one policy-gated controller action."""
     action = ControllerActionName(str(args.action))
     if int(args.max_attempts) < 1:
         print("Error: --max-attempts must be >= 1")
         return 2
-    if (
-        not args.dry_run
-        and action is not ControllerActionName.REFRESH_STATUS
-        and not shutil.which("gh")
-    ):
+    if not args.dry_run and _action_requires_gh(action, args) and not shutil.which("gh"):
         print("Error: gh CLI is required for controller actions that call GitHub.")
         return 2
 
     repo = resolve_repo(args.repo)
-    if not repo and action is not ControllerActionName.REFRESH_STATUS:
+    if not repo and _action_requires_repo(action):
         print(
             "Error: unable to resolve repository (pass --repo or set GITHUB_REPOSITORY)."
         )
@@ -233,6 +249,8 @@ def run(args) -> int:
         ControllerActionName.RESUME_LOOP,
     }:
         apply_mode_change(report, args, requested_mode=requested_mode)
+    elif action is ControllerActionName.RETIRE_STALE_CONDUCTOR:
+        retire_stale_conductor(report, args)
     else:
         report.reason = "unsupported_action"
         report.errors.append(f"unsupported action: {action.value}")

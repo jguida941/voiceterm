@@ -4,8 +4,30 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from ...governance_bootstrap_support import bootstrap_governance_pilot_repo
+from ...governance.bootstrap_support import (
+    AdopterPortabilityValidation,
+    bootstrap_governance_pilot_repo,
+)
 from .common import emit_governance_command_output, render_governance_value_error
+
+
+def _validation_lines(validation: AdopterPortabilityValidation) -> list[str]:
+    lines = [f"- portability_contract: {validation.contract_id}"]
+    lines.append(f"- portability_case: {validation.case_id or '(unknown)'}")
+    lines.append(
+        "- portability_contracts: "
+        + ", ".join(validation.validated_contracts)
+    )
+    lines.append(
+        "- voiceterm_assumptions_detected: "
+        f"{validation.voice_term_assumptions_detected}"
+    )
+    if validation.existing_plan_files:
+        lines.append(
+            "- existing_plan_files: "
+            + ", ".join(validation.existing_plan_files)
+        )
+    return lines
 
 
 def _render_markdown(result) -> str:
@@ -24,6 +46,7 @@ def _render_markdown(result) -> str:
     lines.append(
         f"- starter_setup_guide_written: {result.starter_setup_guide_written}"
     )
+    lines.extend(_validation_lines(result.portability_validation))
     if result.starter_policy_warnings:
         lines.append(
             "- starter_policy_warnings: "

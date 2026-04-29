@@ -301,11 +301,7 @@ def _hotspot_summaries(hotspots: list[GraphNode]) -> list[dict[str, object]]:
             "temperature": n.temperature,
             "fan_in": n.metadata.get("fan_in", 0),
             "fan_out": n.metadata.get("fan_out", 0),
-            "ranking_summary": query_ranking_summary(
-                n,
-                direct_match=False,
-                connected_edge_count=0,
-            ),
+            "ranking_summary": _bootstrap_hotspot_ranking_summary(n),
         }
         for n in hotspots
     ]
@@ -327,4 +323,16 @@ def _hot_index_summary(
         total_edges=len(edges),
         nodes_by_kind=by_kind,
         edges_by_kind=edge_kinds,
+    )
+
+
+def _bootstrap_hotspot_ranking_summary(node: GraphNode) -> str:
+    fan_in = int(node.metadata.get("fan_in", 0) or 0)
+    fan_out = int(node.metadata.get("fan_out", 0) or 0)
+    changed = bool(node.metadata.get("changed"))
+    suffix = " while the file is currently changed" if changed else ""
+    return (
+        f"Ranked as a connected neighbor with temperature {node.temperature:.3f}, "
+        f"fan-in {fan_in}, fan-out {fan_out}{suffix}. "
+        "Edge details suppressed."
     )

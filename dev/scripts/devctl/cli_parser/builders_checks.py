@@ -133,9 +133,20 @@ def add_check_parser(
     check_cmd.add_argument("--cargo-home")
     check_cmd.add_argument("--cargo-target-dir")
     check_cmd.add_argument(
+        "--with-process-sweep-cleanup",
+        action="store_true",
+        help=(
+            "Run orphaned/stale repo-related process cleanup before/after "
+            "checks. This is mutating and therefore opt-in."
+        ),
+    )
+    check_cmd.add_argument(
         "--no-process-sweep-cleanup",
         action="store_true",
-        help="Disable automatic orphaned/stale repo-related process cleanup before/after checks",
+        help=(
+            "Compatibility flag: keep process-sweep cleanup disabled when "
+            "older scripts pass it explicitly."
+        ),
     )
     check_cmd.add_argument(
         "--no-host-process-cleanup",

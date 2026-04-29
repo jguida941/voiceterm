@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 
+from .master_plan_contract import IngestionPolicy, MasterPlan
 from .project_governance_push import PushEnforcement
 from .session_resume import SessionResumeEntry, SessionResumeState
 
@@ -250,9 +251,13 @@ class ProjectGovernance:
     workflow_profiles: tuple[str, ...] = ()
     command_routing_defaults: dict[str, object] | None = None
     product_thesis: str = ""
+    master_plan: MasterPlan = field(default_factory=MasterPlan)
+    ingestion_policy: IngestionPolicy = field(default_factory=IngestionPolicy)
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
+        payload["master_plan"] = self.master_plan.to_dict()
+        payload["ingestion_policy"] = self.ingestion_policy.to_dict()
         payload["plan_registry"] = self.plan_registry.to_dict()
         if self.memory_roots.configured():
             payload["memory_roots"] = self.memory_roots.to_dict()
@@ -282,7 +287,9 @@ __all__ = [
     "DocRegistry",
     "DocRegistryEntry",
     "EnabledChecks",
+    "IngestionPolicy",
     "MemoryRoots",
+    "MasterPlan",
     "PathRoots",
     "PlanRegistry",
     "PlanRegistryEntry",

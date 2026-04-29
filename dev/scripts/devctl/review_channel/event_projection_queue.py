@@ -14,11 +14,16 @@ from .packet_control_loop import (
     format_priority_instruction,
     select_priority_pending_packet,
 )
+from ..runtime.instruction_authority import (
+    InstructionPriorityDecision,
+    packet_instruction_provenance,
+)
 from ..runtime.review_state_models import ReviewQueueState
+from ..time_utils import utc_timestamp
 from .action_request_delivery import attach_action_request_delivery_receipts
-from .pending_packets import live_pending_packets
 
 _PENDING_QUEUE_PROVIDERS = ("codex", "claude", "cursor", "operator")
+_EVENT_LOG_REL = "dev/reports/review_channel/events/trace.ndjson"
 
 
 def derive_event_next_instruction(packets: list[dict[str, object]]) -> str:
@@ -45,6 +50,16 @@ def derive_event_next_instruction_bundle(
             instruction = append_event_instruction_context_fn(summary, context_packet)
             source = build_instruction_source_fn(packet, context_packet)
             source.update(control_metadata)
+            provenance = packet_instruction_provenance(
+                packet,
+                event_log_rel=_EVENT_LOG_REL,
+            )
+            source["provenance"] = provenance.to_dict()
+            source["priority_decision"] = _priority_decision_for_packet(
+                packet,
+                packets,
+                rule_id=str(control_metadata.get("selection_policy") or ""),
+            ).to_dict()
             return instruction, source
     return "", {}
 
@@ -76,6 +91,7 @@ def build_event_queue_summary(
         "pending_total": sum(pending_counts.values()),
         "derived_next_instruction": derived_instruction,
         "derived_next_instruction_source": derived_source,
+        "instruction_priority_decision": _queue_priority_decision(derived_source),
     }
     for provider, count in pending_counts.items():
         summary[f"pending_{provider}"] = count
@@ -108,6 +124,7 @@ def build_event_queue_state(
         stale_packet_count=stale_packet_count,
         derived_next_instruction=derived_instruction,
         derived_next_instruction_source=derived_source,
+        instruction_priority_decision=_queue_priority_decision(derived_source),
     )
 
 
@@ -143,3 +160,51 @@ def _pending_counts_from_queue(queue: Mapping[str, object]) -> dict[str, int]:
 
 def _mapping(value: object) -> Mapping[str, object]:
     return value if isinstance(value, Mapping) else {}
+
+
+def _queue_priority_decision(
+    derived_source: Mapping[str, object],
+) -> dict[str, object]:
+    decision = derived_source.get("priority_decision")
+    if isinstance(decision, Mapping):
+        return dict(decision)
+    return InstructionPriorityDecision(
+        selected_instruction_id="",
+        selected_source_kind="none",
+        rule_id="no_live_instruction_authority",
+        rejected_alternatives=(),
+        rejection_reasons=(),
+        decided_at_utc=utc_timestamp(),
+    ).to_dict()
+
+
+def _priority_decision_for_packet(
+    selected: Mapping[str, object],
+    packets: list[dict[str, object]],
+    *,
+    rule_id: str,
+) -> InstructionPriorityDecision:
+    selected_id = str(selected.get("packet_id") or "").strip()
+    rejected: list[str] = []
+    reasons: list[str] = []
+    for packet in packets:
+        packet_id = str(packet.get("packet_id") or "").strip()
+        if not packet_id or packet_id == selected_id:
+            continue
+        if not _is_instruction_candidate(packet):
+            continue
+        rejected.append(packet_id)
+        reasons.append(f"{packet_id}:lower_priority_than_{rule_id or 'selected_rule'}")
+    return InstructionPriorityDecision(
+        selected_instruction_id=selected_id,
+        selected_source_kind="packet",
+        rule_id=rule_id or "packet_priority",
+        rejected_alternatives=tuple(rejected),
+        rejection_reasons=tuple(reasons),
+        decided_at_utc=utc_timestamp(),
+    )
+
+
+def _is_instruction_candidate(packet: Mapping[str, object]) -> bool:
+    kind = str(packet.get("kind") or "").strip()
+    return kind in {"action_request", "instruction"}

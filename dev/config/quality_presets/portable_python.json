@@ -21,6 +21,7 @@
     "facade_wrappers"
   ],
   "enabled_review_probe_ids": [
+    "probe_architecture_connectivity",
     "probe_design_smells",
     "probe_boolean_params",
     "probe_stringly_typed",

@@ -14,6 +14,7 @@ from ...review_channel.packet_contract import (
     PacketTargetFields,
     PacketTransitionRequest,
 )
+from ...review_channel.packet_attestation import PacketGuardAttestation
 from .event_watch_support import EventWatchContext, load_target_packets
 
 
@@ -121,6 +122,7 @@ def run_packet_transition_action(
             session_id=context.args.session_id,
             plan_id=context.args.plan_id,
             controller_run_id=getattr(context.args, "controller_run_id", None),
+            guard_attestation=_guard_attestation_from_args(context.args),
         ),
     )
     packet = next(
@@ -137,6 +139,63 @@ def run_packet_transition_action(
         bundle=bundle,
         packet=packet,
         event=event,
+    )
+
+
+def _guard_attestation_from_args(args) -> PacketGuardAttestation | None:
+    if getattr(args, "action", "") != "apply":
+        return None
+    packet_id = str(getattr(args, "packet_id", "") or "").strip()
+    attestation_kind = str(getattr(args, "attestation_kind", "") or "").strip()
+    run_record_ids = tuple(getattr(args, "run_record_id", []) or [])
+    action_result_ids = tuple(getattr(args, "action_result_id", []) or [])
+    commit_sha = str(getattr(args, "commit_sha", "") or "").strip()
+    plan_revision_before = str(
+        getattr(args, "plan_revision_before", "") or ""
+    ).strip()
+    plan_revision_after = str(
+        getattr(args, "plan_revision_after", "") or ""
+    ).strip()
+    evidence_artifact_paths = tuple(
+        getattr(args, "evidence_artifact_path", []) or []
+    )
+    operator_signature = str(getattr(args, "operator_signature", "") or "").strip()
+    pipeline_generation = str(getattr(args, "pipeline_generation", "") or "").strip()
+    staged_snapshot_hash = str(
+        getattr(args, "staged_snapshot_hash", "") or ""
+    ).strip()
+    mutation_op = str(getattr(args, "mutation_op", "") or "").strip()
+    if not any(
+        (
+            attestation_kind,
+            run_record_ids,
+            action_result_ids,
+            commit_sha,
+            plan_revision_before,
+            plan_revision_after,
+            evidence_artifact_paths,
+            operator_signature,
+            pipeline_generation,
+            staged_snapshot_hash,
+            mutation_op,
+        )
+    ):
+        return None
+    return PacketGuardAttestation(
+        packet_id=packet_id,
+        attestation_kind=attestation_kind or "manual_apply",
+        run_record_ids=run_record_ids,
+        action_result_ids=action_result_ids,
+        commit_sha=commit_sha,
+        plan_revision_before=plan_revision_before,
+        plan_revision_after=plan_revision_after,
+        evidence_artifact_paths=evidence_artifact_paths,
+        attested_at_utc="",
+        attested_by=str(getattr(args, "actor", "") or "").strip(),
+        operator_signature=operator_signature,
+        pipeline_generation=pipeline_generation,
+        staged_snapshot_hash=staged_snapshot_hash,
+        mutation_op=mutation_op,
     )
 
 

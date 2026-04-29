@@ -101,6 +101,8 @@ CHECK_SCRIPT_PATHS = {
 
 _PROBE_SCRIPT_ENTRIES = (
     ("probe_concurrency", "probe_concurrency.py"),
+    ("probe_architecture_connectivity", "probe_architecture_connectivity.py"),
+    ("probe_typed_authority_provenance", "probe_typed_authority_provenance.py"),
     ("probe_design_smells", "probe_design_smells.py"),
     ("probe_boolean_params", "probe_boolean_params.py"),
     ("probe_stringly_typed", "probe_stringly_typed.py"),

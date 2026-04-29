@@ -17,6 +17,10 @@ from .project_governance_contract import (
     RepoIdentity,
     RepoPackRef,
 )
+from .master_plan_parse import (
+    ingestion_policy_from_mapping,
+    master_plan_from_mapping,
+)
 from .project_governance_doc_parse import (
     doc_budget_from_mapping,
     doc_policy_from_mapping,
@@ -203,6 +207,12 @@ def project_governance_from_mapping(
             coerce_mapping(payload.get("command_routing_defaults"))
         )
         or None,
+        master_plan=master_plan_from_mapping(
+            coerce_mapping(payload.get("master_plan"))
+        ),
+        ingestion_policy=ingestion_policy_from_mapping(
+            coerce_mapping(payload.get("ingestion_policy"))
+        ),
     )
 
 

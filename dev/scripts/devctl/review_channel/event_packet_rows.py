@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .context_refs import normalize_context_pack_refs
 from .event_models import ReviewPacketRow
+from .packet_lifecycle import apply_lifecycle_transition, project_packet_lifecycle
 from .pending_packets import partition_live_pending_packets
 
 
@@ -26,12 +27,18 @@ def summarize_packets(
         for packet in live_packets
         if isinstance(packet, dict)
     }
+    stale_packet_ids = {
+        str(packet.get("packet_id") or "").strip()
+        for packet in stale_packets
+        if isinstance(packet, dict)
+    }
     for packet in ordered_packets:
+        stale_pending = str(packet.get("packet_id") or "").strip() in stale_packet_ids
         if str(packet.get("packet_id") or "").strip() in live_packet_ids:
             target = str(packet.get("to_agent") or "").strip()
             if target in pending_counts:
                 pending_counts[target] += 1
-        clean_packet = dict(packet)
+        clean_packet = project_packet_lifecycle(packet, stale_pending=stale_pending)
         clean_packet.pop("_sort_timestamp", None)
         packet_rows.append(clean_packet)
     return packet_rows, pending_counts, len(stale_packets)
@@ -39,7 +46,7 @@ def summarize_packets(
 
 def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
     is_action_request = str(event.get("kind") or "").strip() == "action_request"
-    return ReviewPacketRow(
+    return project_packet_lifecycle(ReviewPacketRow(
         packet_id=event.get("packet_id"),
         trace_id=event.get("trace_id"),
         latest_event_id=event.get("event_id"),
@@ -67,6 +74,7 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         staged_snapshot_hash=event.get("staged_snapshot_hash"),
         guard_results_summary=event.get("guard_results_summary"),
         full_guard_bundle_evidence=event.get("full_guard_bundle_evidence"),
+        plan_proposal=event.get("plan_proposal"),
         status=event.get("status"),
         posted_at=event.get("timestamp_utc"),
         acked_by=None,
@@ -79,7 +87,7 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         execution_started_by="",
         expires_at_utc=event.get("expires_at_utc"),
         _sort_timestamp=event.get("timestamp_utc"),
-    )
+    ))
 
 
 def apply_packet_transition(
@@ -121,6 +129,10 @@ def apply_packet_transition(
             event.get("full_guard_bundle_evidence")
             or packet.get("full_guard_bundle_evidence")
         )
+    if event.get("plan_proposal") is not None or packet.get("plan_proposal"):
+        next_packet["plan_proposal"] = event.get("plan_proposal") or packet.get(
+            "plan_proposal"
+        )
     actor = str((event.get("metadata") or {}).get("actor") or "").strip()
     if event_type == "packet_acked":
         next_packet["acked_by"] = actor or packet.get("to_agent")
@@ -142,4 +154,4 @@ def apply_packet_transition(
         ):
             next_packet["execution_started_at_utc"] = event.get("timestamp_utc")
             next_packet["execution_started_by"] = actor or packet.get("to_agent")
-    return next_packet
+    return apply_lifecycle_transition(next_packet, event)

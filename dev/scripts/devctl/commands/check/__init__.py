@@ -217,7 +217,17 @@ def _build_check_context(args, quality_policy, scan_mode) -> CheckContext:
 
 
 def _resolve_cleanup_flags(args, repo_path) -> tuple[bool, bool]:
-    process_sweep_cleanup = not getattr(args, "no_process_sweep_cleanup", False)
+    if hasattr(args, "with_process_sweep_cleanup"):
+        process_sweep_cleanup = bool(
+            getattr(args, "with_process_sweep_cleanup", False)
+        )
+    else:
+        process_sweep_cleanup = not getattr(args, "no_process_sweep_cleanup", False)
+    process_sweep_cleanup = process_sweep_cleanup and not getattr(
+        args,
+        "no_process_sweep_cleanup",
+        False,
+    )
     host_process_cleanup = getattr(args, "profile", None) in {"quick", "fast"} and not getattr(
         args, "no_host_process_cleanup", False
     )

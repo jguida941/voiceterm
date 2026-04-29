@@ -113,8 +113,10 @@ continues down the typed remote-control handoff path.
 publication: `vcs.push` branch parameters are forced from
 `git rev-parse --abbrev-ref HEAD`, approved target identity comes from live
 publication authorization bound to current worktree and `HEAD`, stale proof is
-rejected, and `published_remote` requires populated fetch/preflight/push/
-post-push evidence plus remote-ref equality with current `HEAD`.
+rejected, and `published_remote` requires populated fetch/preflight/push
+evidence plus remote-ref equality with current `HEAD`. Terminal post-push
+states require `post_push_steps`; the in-flight `post_push_bundle_pending`
+snapshot is publication proof only, not a post-push-green claim.
 Commit
 authority is separate from implementation evidence now too: before staging or
 running guards, `devctl commit` reads the typed `CommitPermissionDecision` and
@@ -131,6 +133,11 @@ auto-commit repair path. Governed staging also fails closed if the managed
 ReviewSnapshot refresh drops already-staged user paths, and governed commit
 also blocks `staged_scope_missing_dirty_work` when that refresh leaves only
 receipt artifacts staged while real dirty work remains outside the index.
+When the intended files are not already staged, pass
+`--paths <repo-relative-path>...` to `devctl commit`; the command feeds those
+paths into the same typed `vcs.stage` action used by remote-control pipelines
+and refuses to proceed if other non-artifact dirty paths are still outside the
+selected scope.
 Governed commit reports may expose the approved content SHA separately from a
 trailing ReviewSnapshot `receipt_commit_sha`. Repo-owned
 review-channel conductors now also export their typed lane as
@@ -155,7 +162,13 @@ starter packet for a fresh Codex or Claude conversation is
 `python3 dev/scripts/devctl.py session-resume --role reviewer|implementer|observer --format bootstrap`;
 `dashboard` is accepted as the user-facing alias for the same read-only
 observer lane. Use that repo-owned packet instead of hand-written mode prompts
-or operator memory. The Step-0 summary now also carries bounded coordination
+or operator memory. A fresh provider session can prove typed rehydration with
+`python3 dev/scripts/devctl.py session-resume --role <role> --format json --provider <provider> --write-resume-receipt`.
+That command records `AgentResumeReceipt`; its exit code only proves the
+resume command ran. Consumers must read `agent_resume_receipt.authority_result`
+before acting because `load_result=loaded` can still pair with
+`authority_result=blocked` when the typed state carries blockers such as
+unknown dirty paths. The Step-0 summary now also carries bounded coordination
 truth
 (`coordination`, `safe_to_fanout`, `resync_required`, `current_slice`,
 `active_target`) and may direct the operator or launcher back to
@@ -502,6 +515,14 @@ Portability note:
   prove a remote lane actually saw and started the request instead of only
   inferring from queue length. Prose-only runtime requests stay in packet
   history but are not projected into the bridge execution queue.
+- `review-channel --action apply` is evidence-bound when it claims work was
+  completed. The apply event must carry `PacketGuardAttestation` through
+  `--attestation-kind` plus the relevant `--run-record-id`,
+  `--action-result-id`, `--commit-sha`, `--plan-revision-before`,
+  `--plan-revision-after`, `--evidence-artifact-path`, or
+  `--operator-signature` flags for the packet kind. Safe auto-apply paths fill
+  that attestation from the run/check evidence they already validated. `ack`
+  still means "seen/started"; only an attested apply can close a work claim.
 - Codex launcher scripts run a session-end `task_complete` handoff guard. When
   the latest Codex rollout contains `task_complete` and no matching
   `stage_commit_pipeline` packet exists for the current `devctl_commit:<head>`,
@@ -528,13 +549,18 @@ Portability note:
   view without mutating delivery receipts; keep `inbox|watch --target <agent>`
   for the active lane watchers that are supposed to acknowledge observation.
 - `review-channel --action history --include-outcomes` attaches a bounded
-  read-side `PacketOutcomeLedger` to the shown history rows. The first ledger
-  slice classifies expired-pending packets as `delivered_via_commit`,
-  `superseded_by`, `promoted_to_finding`, `withdrawn_by_reviewer`,
-  `expired_unrecoverable`, or `lost` from later typed review-channel event
-  evidence. It is a report surface only: it does not rewrite packet transport
-  state, does not satisfy implementer ACK, and does not migrate the full stale
-  packet graveyard until the follow-on closure guard lands.
+  read-side `PacketOutcomeLedger` to the shown history rows. Packet rows also
+  carry `PacketLifecycleHistory` and `PacketDisposition`: ack events stay in
+  `acknowledged_events`, apply/dismiss/expire transitions stay in
+  `acted_on_events`, and unresolved TTL-elapsed packets are classified as
+  `archived` with
+  `archive_classification:clock_expired_without_disposition` instead of
+  disappearing as lost work. It is a report surface only: it does not satisfy
+  implementer ACK. Plan-targeted `apply` transitions also append an idempotent
+  `PlanRow` to the typed master-plan JSONL store resolved from
+  `ProjectGovernance.master_plan` via `PacketPlanIntegration`; the markdown
+  master plan is only the VoiceTerm human projection of that JSONL authority.
+  The pending-packet disposition guard remains a follow-on enforcement slice.
 - The same event-backed queue now prioritizes live `action_request` packets
   over later commentary when it derives `queue.derived_next_instruction` for
   status/current-session projections. `derived_next_instruction_source` now
@@ -1129,8 +1155,8 @@ python3 dev/scripts/devctl.py check --profile fast
 # `release` adds strict remote gates: `status --ci --require-ci` + CI-mode CodeRabbit/Ralph checks.
 # Optional: force sequential check execution (parallel phases are default)
 python3 dev/scripts/devctl.py check --profile ci --no-parallel
-# Optional: disable automatic orphaned/stale test-process cleanup sweep
-python3 dev/scripts/devctl.py check --profile ci --no-process-sweep-cleanup
+# Optional: add the orphaned/stale test-process cleanup sweep around checks
+python3 dev/scripts/devctl.py check --profile ci --with-process-sweep-cleanup
 # Optional: path-aware pre-push routing from changed files
 python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute
 python3 dev/scripts/devctl.py check-router --since-ref origin/develop --quality-policy /tmp/pilot-policy.json
@@ -1283,11 +1309,12 @@ python3 dev/scripts/devctl.py mobile-app --action simulator-demo --format md --o
 python3 dev/scripts/devctl.py mobile-app --action simulator-demo --live-review --format md --output /tmp/mobile-app-live-review.md
 python3 dev/scripts/devctl.py mobile-app --action device-wizard --format md --output /tmp/mobile-app-device.md
 python3 dev/scripts/devctl.py mobile-app --action device-install --development-team TEAMID123 --format md --output /tmp/mobile-app-install.md
-# Policy-gated controller actions (safe subset: refresh, report-only dispatch, pause/resume)
+# Policy-gated controller actions (safe subset: refresh, report-only dispatch, pause/resume, typed conductor retirement)
 python3 dev/scripts/devctl.py controller-action --action refresh-status --view compact --format md --output /tmp/controller-action-refresh.md
 python3 dev/scripts/devctl.py controller-action --action dispatch-report-only --repo owner/repo --branch develop --dry-run --format md --output /tmp/controller-action-dispatch.md
 python3 dev/scripts/devctl.py controller-action --action pause-loop --repo owner/repo --mode-file dev/reports/autonomy/queue/phone/controller_mode.json --dry-run --format md --output /tmp/controller-action-pause.md
 python3 dev/scripts/devctl.py controller-action --action resume-loop --repo owner/repo --mode-file dev/reports/autonomy/queue/phone/controller_mode.json --dry-run --format md --output /tmp/controller-action-resume.md
+python3 dev/scripts/devctl.py controller-action --action retire-stale-conductor --pid 35358 --dry-run --format md --output /tmp/controller-action-retire-conductor.md
 # Bridge-gated review swarm bootstrap (dry-run first, then live conductor launch)
 python3 dev/scripts/devctl.py review-channel --action launch --terminal none --dry-run --format md --output /tmp/review-channel-launch.md
 python3 dev/scripts/devctl.py review-channel --action launch --approval-mode balanced --terminal none --dry-run --format md --output /tmp/review-channel-launch-balanced.md
@@ -1668,8 +1695,8 @@ Machine-first output note:
 - `check`: fmt/clippy/tests/build profiles (`ci`, `prepush`, `release`, `maintainer-lint`, `pedantic`, `quick`, `fast`, `ai-guard`)
   - Runs setup gates (`fmt`, `clippy`, AI guard scripts) and test/build phases in parallel batches by default.
   - Tune parallelism with `--parallel-workers <n>` or force sequential execution with `--no-parallel`.
-  - Runs an automatic orphaned/stale repo-related process sweep before/after checks (VoiceTerm PTY/test trees, repo-runtime cargo/target trees, repo-tooling wrappers, detached `PPID=1`, plus stale active runners aged `>=600s`).
-  - Disable only when needed with `--no-process-sweep-cleanup`.
+  - The orphaned/stale repo-related process sweep is opt-in with `--with-process-sweep-cleanup` (VoiceTerm PTY/test trees, repo-runtime cargo/target trees, repo-tooling wrappers, detached `PPID=1`, plus stale active runners aged `>=600s`).
+  - `--no-process-sweep-cleanup` remains as an explicit compatibility spelling for preserving the default no-sweep behavior.
   - `quick` / `fast` also run host-side `process-cleanup --verify --format md` by default; use `--no-host-process-cleanup` only when a live process tree must be preserved and the exception is recorded.
   - Active AI guards now resolve from `dev/config/devctl_repo_policy.json`, so
     repo-local enablement/default arguments are policy-driven rather than
@@ -1758,7 +1785,7 @@ Machine-first output note:
   separately. The same packet family now also carries bounded watchdog-episode
   digests, command-reliability lines from `data_science summary.json`, and
   decision constraints derived from matched `DecisionPacket` metadata.
-- `probe-report`: aggregated review-probe surface that runs every registered `probe_*.py` script, renders markdown/terminal/json summaries, writes stable `dev/reports/probes/review_targets.json`, and refreshes `dev/reports/probes/latest/summary.{md,json}` plus `file_topology.json`, `review_packet.{json,md}`, and hotspot `hotspots.{mmd,dot}` artifacts for agent coaching, AI/human design review, and audit. The probe catalog now includes cohesion-heavy mixed-concern detection via `probe_mixed_concerns`, hotspot-aware split recommendations via `probe_split_advisor`, and naming cleanup hints via `probe_term_consistency`, so both split-brain structure and legacy public vocabulary show up in the same packet.
+- `probe-report`: aggregated review-probe surface that runs every registered `probe_*.py` script, renders markdown/terminal/json summaries, writes stable `dev/reports/probes/review_targets.json`, and refreshes `dev/reports/probes/latest/summary.{md,json}` plus `file_topology.json`, `review_packet.{json,md}`, and hotspot `hotspots.{mmd,dot}` artifacts for agent coaching, AI/human design review, and audit. The probe catalog now includes architecture-aware connectivity checks via `probe_architecture_connectivity`, cohesion-heavy mixed-concern detection via `probe_mixed_concerns`, hotspot-aware split recommendations via `probe_split_advisor`, and naming cleanup hints via `probe_term_consistency`, so typed contract-reader gaps, split-brain structure, and legacy public vocabulary show up in the same packet.
   - Use `--adoption-scan` for first-run/full-surface repo onboarding when there
     is no trustworthy baseline ref yet.
   - Repo-root `.probe-allowlist.json` entries shape this canonical path too:
@@ -1935,7 +1962,7 @@ Machine-first output note:
 - `mobile-status`: merged iPhone/SSH-safe read surface for the future phone app; refreshes the latest review-channel projections through the governed review-channel plan/bridge/status roots (in VoiceTerm today: `dev/active/review_channel.md`, `bridge.md`, and `dev/reports/review_channel/latest/`), combines them with autonomy `phone-status` when present, falls back to review-only live data when the phone artifact is missing, exposes the shared `DashboardSnapshot` v3 payload, renders one selected mobile view (`full|compact|alert|actions`), and can emit merged projection files (`full.json`, `compact.json`, `alert.json`, `actions.json`, `latest.md`) for downstream clients/notifiers
 - `mobile-app`: wrapper over the first-party iPhone/iPad app flow; can run the real simulator demo against the live repo bundle, optionally refresh live Ralph/review state first (`--live-review`), list available simulator/physical devices, open an honest physical-device install wizard, and attempt a real signed physical-device install/launch when an Apple Development Team is provided
 - `ralph-status`: Ralph guardrail analytics surface; reads `ralph-report*.json` artifacts, aggregates fix/open counts plus architecture breakdowns, now also surfaces probe-guidance attachment/adoption/waiver counts from Ralph runs, and can emit SVG charts for CLI/reporting/mobile consumers
-- `controller-action`: policy-gated control surface for `refresh-status`, `dispatch-report-only`, `pause-loop`, and `resume-loop`; dispatch/mode actions enforce allowlisted workflows/branches, respect `AUTONOMY_MODE=off` kill-switch behavior, and emit auditable action reports plus a stable `typed_action` runtime contract and optional local controller-mode state artifact
+- `controller-action`: policy-gated control surface for `refresh-status`, `dispatch-report-only`, `pause-loop`, `resume-loop`, and local `retire-stale-conductor`; dispatch/mode actions enforce allowlisted workflows/branches, respect `AUTONOMY_MODE=off` kill-switch behavior, local conductor retirement validates the target PID against the repo process-audit snapshot before terminating a stale review-channel conductor tree, and all actions emit auditable reports plus a stable `typed_action` runtime contract and optional local controller-mode state artifact
 - `startup-context`: typed startup packet for AI agent sessions; composes compact repo governance, reviewer gate, push/checkpoint state, and a bounded `WorkIntakePacket` carrying the selected `PlanTargetRef`, typed continuity reconciliation, startup-order warm refs, live routing defaults, and the active typed `plan_routing` phase/task projection from `dev/active/ai_governance_platform.md`; reads reviewer acceptance from typed `review_state.json`, treats `bridge.md` as a compatibility projection instead of a startup-authority fallback, resolves typed `review_state.json` through repo-pack/governance candidate-path authority instead of one fixed `dev/reports/.../latest` literal, loads probe startup signals from the managed `dev/reports/probes/latest/summary.json` artifact under that same governed root, reads the managed latest-push artifact at `dev/reports/push/latest.json` so recovered sessions can distinguish `published_remote=true` plus `post_push_green=false` from an unresolved push, now keys that recovery/rendering truth to the current branch, HEAD, approved target, and tracked upstream/default remote instead of stale raw artifact booleans, surfaces ahead-of-upstream publication backlog, source-vs-managed-receipt ahead counts, typed phase/task routing, and push timing guidance directly in the human-facing startup summary/markdown output, renders continuity roots only when the canonical memory/context directories actually exist, persists a managed startup receipt under the repo-owned reports root, returns non-zero when the typed checkpoint budget says another implementation slice must stop and checkpoint first, and is guarded by `check_startup_authority_contract.py` so over-budget continuation or worktree-only module splits fail closed instead of slipping through as local-only state
 - `startup-context`: typed startup packet for AI agent sessions; composes compact repo governance, reviewer gate, push/checkpoint state, and a bounded `WorkIntakePacket` carrying the selected `PlanTargetRef`, typed continuity reconciliation, startup-order warm refs, live routing defaults, and a bounded ownership projection for the current dirty slice. The ownership projection classifies dirty paths as `clear`, `in_scope_dirty_paths`, `scope_unknown_dirty_paths`, `outside_scope_dirty_paths`, or `concurrent_writer_activity`; startup authority and the summary surface use that same typed state so outside-scope dirt with active peer activity fails closed as a concurrent-writer condition instead of surfacing as a generic dirty-budget warning. The same packet now also projects deterministic action routing (`next_command`, `allowed_actions`, `blocked_actions`, `control_recovery_action`, `escalation_action`), destructive recovery authority (`recovery_action`, `recovery_basis`, `recovery_scope`), and typed `agent_lane` / `lane_edit_gate` permissions for `dashboard`, `implementer`, `observer`, and `reviewer` callers. The rest of the startup contract is unchanged: it reads reviewer acceptance from typed `review_state.json`, treats `bridge.md` as a compatibility projection instead of a startup-authority fallback, resolves typed `review_state.json` through repo-pack/governance candidate-path authority instead of one fixed `dev/reports/.../latest` literal, loads probe startup signals from the managed `dev/reports/probes/latest/summary.json` artifact under that same governed root, reads the managed latest-push artifact at `dev/reports/push/latest.json` so recovered sessions can distinguish `published_remote=true` plus `post_push_green=false` from an unresolved push, keys recovery/rendering truth to the current branch, HEAD, approved target, and tracked upstream/default remote instead of stale raw artifact booleans, surfaces ahead-of-upstream publication backlog and push timing guidance directly in the human-facing startup summary/markdown output, renders continuity roots only when the canonical memory/context directories actually exist, persists a managed startup receipt under the repo-owned reports root, returns non-zero when the typed checkpoint budget says another implementation slice must stop and checkpoint first, and is guarded by `check_startup_authority_contract.py` so over-budget continuation or worktree-only module splits fail closed instead of slipping through as local-only state.
   - When repo policy advertises a shared backlog doc (for this repo:
@@ -2118,7 +2145,7 @@ Machine-first output note:
 | `check --profile pedantic` | you want a broader optional lint sweep after a large refactor or as explicit pre-release cleanup | runs advisory `clippy::pedantic`, writes structured artifacts under `dev/reports/check/`, and stays out of required bundle/release flow |
 | `check --profile quick` | you need a fast local sanity pass while iterating | runs fmt/clippy plus the AI-guard script pack for structural/code-quality feedback without full test/build |
 | `guard-run --cwd rust -- cargo test --bin voiceterm ...` | an AI/dev session needs to run raw Rust tests or test binaries directly | runs the command without a shell `-c` wrapper, then automatically executes the required post-run hygiene follow-up (`quick` for runtime/test commands, `process-cleanup --verify` for lower-risk repo tooling commands), and appends a repo-visible `guarded_coding_episode.jsonl` artifact for watchdog analytics; optional flags now carry typed provider/session/retry/verdict metadata for later controller/watchdog callers |
-| `check --profile quick --skip-fmt --skip-clippy --no-parallel` | you ran raw `cargo test` / manual test binaries and need orphan cleanup immediately after | runs the AI-guard script pack plus process-sweep pre/post and host-side `process-cleanup --verify`, so stale repo processes and structural regressions are caught before later runs |
+| `check --profile quick --skip-fmt --skip-clippy --no-parallel --with-process-sweep-cleanup` | you ran raw `cargo test` / manual test binaries and need orphan cleanup immediately after | runs the AI-guard script pack plus opt-in process-sweep pre/post and host-side `process-cleanup --verify`, so stale repo processes and structural regressions are caught before later runs |
 | `process-cleanup --verify --format md` | after PTY/runtime tests, manual tooling bundles, or before handoff when host process access is available | safely kills orphaned/stale repo-related host process trees, including descendant PTY children, repo-cwd background helpers, and orphaned tooling descendants, then reruns strict host audit; freshly detached repo-related helpers now keep verify red immediately instead of slipping through as advisory-only noise |
 | `process-audit --strict --format md` | when you need read-only host diagnosis or cleanup was intentionally skipped | audits the real host process table for repo leftovers, including descendant PTY children and repo-cwd runtime/tooling helpers that would otherwise look generic in Activity Monitor; registered review-channel conductors stay supervised even when headless launch wrappers detach to PID 1, while unregistered detached helpers still fail strict audit |
 | `data-science --format md` | you want a fresh productivity/agent-sizing snapshot from current telemetry | builds `summary.{md,json}` + charts from devctl events, swarm/benchmark history, watchdog episodes, and governance-review adjudication metrics |
@@ -2132,8 +2159,9 @@ Machine-first output note:
 | `docs-check --user-facing` | you changed user docs or user behavior | keeps docs and behavior aligned |
 | `docs-check --strict-tooling` | you changed tooling, workflows, or process docs | enforces governance, active-plan sync, and durable guide coverage contracts |
 | `docs-check --strict-tooling --quality-policy /tmp/pilot-policy.json` | you want the same docs-governance contract in another repo without patching devctl | resolves canonical doc paths and deprecated-command policy from the supplied repo policy file |
+| `commit --paths <path>... -m "message"` | real work is dirty but not staged and raw `git add` would bypass the governed lane | stages the selected repo-relative paths through the typed `vcs.stage` action, refreshes/stages the managed ReviewSnapshot artifact, blocks when other non-artifact dirty paths remain outside the selected scope, then runs the normal guard, approval, and `vcs.commit` pipeline |
 | `push` | you want the canonical repo-owned short-lived branch push validator without mutating git state yet | resolves `repo_governance.push`, checks branch/remote policy, runs the configured preflight, emits typed push stages (`validation_ready`, `published_remote`, `post_push_green`) without mutating git state, persists the latest typed push result at `dev/reports/push/latest.json` for later recovery, and short-circuits to the existing already-published receipt when fetch/divergence proves the tracked branch is already at `ahead == 0` |
-| `push --execute` | validation passed and you want the repo-owned push path instead of ad-hoc `git push` | runs the same policy-driven validation, writes phase-aware latest-push snapshots as the governed run starts (`push_preflight_running`) and becomes ready to publish (`push_pending`), runs `render-surfaces --write` before routed preflight, auto-commits managed generated-surface/projection receipts when preflight leaves only governed receipt/projection artifacts dirty, refreshes typed projection bundles after receipt movement, treats contiguous managed receipt commits above the authorized content commit as managed movement instead of stale HEAD drift, shares that managed-chain proof with approved-target identity findings so receipt HEADs do not self-invalidate current publication authorization, performs the branch push, writes a `published_remote` artifact snapshot as soon as `git push` succeeds, executes the configured post-push bundle, matches the persisted branch/HEAD/approved-target record against the current tracked upstream or default remote during startup recovery so stale local upstream counts do not trigger duplicate pushes, binds the staged pipeline plus persisted authorization to the exact `worktree_identity` that requested publication so a worker-lane approval cannot be replayed from the primary control lane, emits stderr progress notices when publication is recorded and before each post-push step so long audit bundles stay visibly in the "published, still auditing" phase, writes `push_pipeline_phases` for pre-validation managed projection sync vs post-validation repair, auto-transitions non-destructive push failures to `delivered_locally_pending_publish` so the landed local commit no longer blocks new governed commits, and no-ops to the same already-published receipt when a rerun fetch proves `ahead == 0` without reconstructing a stale `push_blocked` commit-pipeline artifact into `push_completed`; destructive remote rejection/conflict evidence remains `push_blocked` for explicit operator reconciliation, `--skip-preflight` / `--skip-post-push` only work when repo policy explicitly allows those bypasses, and the repo-owned default keeps `allow_skip_preflight` closed unless a tracked temporary override is deliberately in force |
+| `push --execute` | validation passed and you want the repo-owned push path instead of ad-hoc `git push` | runs the same policy-driven validation, writes phase-aware latest-push snapshots as the governed run starts (`push_preflight_running`) and becomes ready to publish (`push_pending`), runs `render-surfaces --write` before routed preflight, auto-commits managed generated-surface/projection receipts when preflight leaves only governed receipt/projection artifacts dirty, refreshes typed projection bundles after receipt movement, treats contiguous managed receipt commits above the authorized content commit as managed movement instead of stale HEAD drift, shares that managed-chain proof with approved-target identity findings so receipt HEADs do not self-invalidate current publication authorization, performs the branch push, writes a `published_remote` artifact snapshot as soon as `git push` succeeds, mirrors `published_remote` and `post_push_green` from `push_stages` onto the report root, executes the configured post-push bundle, matches the persisted branch/HEAD/approved-target record against the current tracked upstream or default remote during startup recovery so stale local upstream counts do not trigger duplicate pushes, binds the staged pipeline plus persisted authorization to the exact `worktree_identity` that requested publication so a worker-lane approval cannot be replayed from the primary control lane, emits stderr progress notices when publication is recorded and before each post-push step so long audit bundles stay visibly in the "published, still auditing" phase, writes `push_pipeline_phases` for pre-validation managed projection sync vs post-validation repair, auto-transitions non-destructive push failures to `delivered_locally_pending_publish` so the landed local commit no longer blocks new governed commits, and no-ops to the same already-published receipt when a rerun fetch proves `ahead == 0` without reconstructing a stale `push_blocked` commit-pipeline artifact into `push_completed`; destructive remote rejection/conflict evidence remains `push_blocked` for explicit operator reconciliation, `--skip-preflight` / `--skip-post-push` only work when repo policy explicitly allows those bypasses, and the repo-owned default keeps `allow_skip_preflight` closed unless a tracked temporary override is deliberately in force |
 | `render-surfaces --format md` | you need to inspect repo-pack instruction/starter surfaces or validate drift without writing files | resolves `repo_governance.surface_generation`, reports current sync state for each governed surface, and includes the bounded connectivity-registry summary used by SYSTEM_MAP |
 | `render-surfaces --write --format md` | you changed a repo-pack template, starter stub, or surface-generation policy context | regenerates governed outputs in place so `docs-check --strict-tooling` and the standalone guard stay green, including tracked non-local outputs such as `AGENTS.md`, `SYSTEM_MAP.md`, slash templates, and portable hook/workflow stubs plus local-only outputs such as `CLAUDE.md` |
 | `system-map --format md` | you need the generated connectivity snapshot that feeds the managed SYSTEM_MAP block | renders the bounded `SystemMapSnapshot` over tracked architecture roots, governed surfaces, and the shared `ConnectivityRegistrySnapshot` consumed by context-graph, startup-context, session-resume, render-surfaces, and the platform closure guard |
@@ -2163,6 +2191,7 @@ Machine-first output note:
 | `mobile-app --action device-install --development-team <TEAM_ID> --format md` | you have a plugged-in iPhone/iPad and want devctl to attempt the real install instead of only opening Xcode | builds the signed `VoiceTermMobileApp` for `iphoneos`, installs it with `xcrun devicectl`, launches it on-device, and fails with explicit prerequisite errors when device trust or signing is not ready |
 | `ralph-status --report-dir dev/reports/ralph --with-charts --format md` | you want one current view of Ralph guardrail progress before wiring phone or PyQt controls on top | aggregates `ralph-report*.json` artifacts, prints fix/open counts plus architecture breakdowns, and writes SVG charts when `--with-charts` is enabled |
 | `controller-action --action dispatch-report-only --repo owner/repo --branch develop --dry-run --format md` | you want one guarded operator action without ad-hoc shell scripting | validates policy + mode gates and executes (or previews) bounded dispatch/pause/resume/status actions with structured output and a stable `typed_action` contract |
+| `controller-action --action retire-stale-conductor --pid <pid> --format md` | a stale review-channel conductor is keeping host-process cleanup dirty by spawning fresh detached helper rows | validates the PID through `process-audit`, refuses non-conductor or too-recent targets, terminates the stale conductor tree through the typed controller-action surface, and points back to `process-cleanup --verify` for proof |
 | `review-channel --action status --terminal none --format md` | you need the current bridge-backed review snapshot without relaunching anything | reads the governed review-channel plan plus compatibility bridge, refreshes the governed review-channel status root (in VoiceTerm today: `dev/reports/review_channel/latest/`), emits the typed runtime participant registry plus planned-topology compatibility projection, typed `current_session` live-status state, typed `reviewer_runtime.review_acceptance` verdict/findings truth, provider-neutral reviewer/implementer aliases (`reviewer_poll_state`, `last_reviewer_poll_*`, `implementer_ack*`) alongside the legacy bridge-shaped `codex_*` / `claude_*` compatibility fields, frozen `review_candidate` truth for dirty-tree review handoff, typed conductor visibility (`reviewer_runtime.conductor_visibility` plus reviewer `session_visibility`) for operator or tooling consumers, the reduced `authority_snapshot` contract for one-step recovery/next-action reads, keeps an attached remote-control provider live in `single_agent` remote-control lanes even after the typed packet recency window ages out, follows typed reviewer capability/provider assignment for local `single_agent` reviewer presence instead of silently assuming Codex, preserves explicit reviewer-owned bridge mode ahead of daemon lifecycle hints and prevents stale current-session drift warnings from reverse-overwriting a newer reviewer bridge heartbeat/checkpoint, auto-reprojects `bridge.md` from typed state during status refresh even when pending reviewer-targeted packets still exist, canonicalizes recovered `Last Codex poll` metadata to the whole-second UTC/local bridge format when typed state carries blanks or fractional seconds, and fails closed when `active_dual_agent` no longer has the repo-owned conductor pair behind it or implementer-complete state has no valid review candidate |
 | `review-channel --action reviewer-heartbeat --reviewer-mode single_agent --terminal none --format md` | a dual-agent reviewer session was interrupted and you need to resume locally without trusting stale dual-agent metadata | records sanctioned local reviewer takeover, refreshes `Last Codex poll` / reviewer mode through the repo-owned bridge path, retires detached publisher/reviewer-supervisor daemons so they cannot reassert stale `active_dual_agent` metadata, and gives local review/repair work one consistent authority source before more code changes land |
 | `review-channel --action implementer-wait --terminal none --format json` | Claude is under an explicit reviewer-owned wait state and needs to wait safely for the next Codex review/update without leaving a raw shell poller behind | polls the bridge on the normal cadence, exits immediately when reviewer-owned bridge content changes or a new instruction is already waiting, fails closed when the reviewer loop is unhealthy, times out after one hour by default, and is not a substitute for substantive `Claude Status` / `Claude Ack` updates while active work is still assigned |
@@ -2242,6 +2271,11 @@ Use this profile for fast guard-focused iteration; run your target full profile
   long-lived public seam, declare it in repo policy
   `probe_compatibility_shims.allowed_public_shims`; otherwise the probe will
   continue treating it as temporary migration debt.
+- `probe_architecture_connectivity.py` is the architecture-aware probe family
+  seed. It consumes `ConnectivityRegistrySnapshot` plus the registry reader
+  verification pass and emits architecture-lens hints when a declared typed
+  contract reader lacks evidence or the registry itself reports source-writer
+  warnings.
 - The promoted code-shape probe family now includes:
   `probe_blank_line_frequency.py`, `probe_identifier_density.py`,
   `probe_term_consistency.py`,

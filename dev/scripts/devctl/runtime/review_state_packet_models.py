@@ -201,6 +201,12 @@ class ReviewPacketState:
     execution_started_at_utc: str = ""
     execution_started_by: str = ""
     expires_at_utc: str = ""
+    acknowledged_events: tuple[dict[str, object], ...] = ()
+    acted_on_events: tuple[dict[str, object], ...] = ()
+    lifecycle_current_state: str = ""
+    resolution_anchor: str = ""
+    disposition: dict[str, object] = field(default_factory=dict)
+    lifecycle_history: dict[str, object] = field(default_factory=dict)
 
     def requires_operator_approval(self) -> bool:
         return self.approval_required and self.status == "pending"

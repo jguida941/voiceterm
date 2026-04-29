@@ -53,6 +53,9 @@ from dev.scripts.devctl.review_channel.packet_contract import (
     PacketTransitionRequest,
     validate_post_request,
 )
+from dev.scripts.devctl.review_channel.packet_attestation import (
+    PacketGuardAttestation,
+)
 from dev.scripts.devctl.runtime import ActionResult
 from dev.scripts.devctl.runtime.action_contracts import (
     ACTION_RESULT_CONTRACT_ID,
@@ -2093,6 +2096,10 @@ def test_full_pipeline_commits_and_pushes_to_local_remote(tmp_path: Path) -> Non
             action="apply",
             packet_id=str(decision_event["packet_id"]),
             actor="operator",
+            guard_attestation=_approval_attestation(
+                decision_event["packet_id"],
+                pipeline,
+            ),
         ),
     )
 
@@ -2197,6 +2204,10 @@ def test_push_override_reissues_publication_authorization_through_pipeline(
             action="apply",
             packet_id=str(decision_event["packet_id"]),
             actor="operator",
+            guard_attestation=_approval_attestation(
+                decision_event["packet_id"],
+                pipeline,
+            ),
         ),
     )
 
@@ -2252,6 +2263,10 @@ def test_push_override_reissues_publication_authorization_through_pipeline(
             action="apply",
             packet_id=str(override_event["packet_id"]),
             actor="operator",
+            guard_attestation=_approval_attestation(
+                override_event["packet_id"],
+                committed_pipeline,
+            ),
         ),
     )
 
@@ -2349,6 +2364,10 @@ def test_commit_does_not_reread_startup_publish_gate_after_approval(
             action="apply",
             packet_id=str(decision_event["packet_id"]),
             actor="operator",
+            guard_attestation=_approval_attestation(
+                decision_event["packet_id"],
+                pipeline,
+            ),
         ),
     )
 
@@ -2423,6 +2442,10 @@ def test_commit_does_not_refresh_review_projections_after_approval(
             action="apply",
             packet_id=str(decision_event["packet_id"]),
             actor="operator",
+            guard_attestation=_approval_attestation(
+                decision_event["packet_id"],
+                pipeline,
+            ),
         ),
     )
 
@@ -2504,6 +2527,10 @@ def test_commit_marks_git_invocation_as_governed(tmp_path: Path) -> None:
             action="apply",
             packet_id=str(decision_event["packet_id"]),
             actor="operator",
+            guard_attestation=_approval_attestation(
+                decision_event["packet_id"],
+                pipeline,
+            ),
         ),
     )
 
@@ -2677,6 +2704,18 @@ def _passing_guard_result() -> ActionResult:
     )
 
 
+def _approval_attestation(packet_id: object, pipeline) -> PacketGuardAttestation:
+    return PacketGuardAttestation(
+        packet_id=str(packet_id),
+        attestation_kind="commit_approval_guard",
+        run_record_ids=("quality.guard_bundle",),
+        pipeline_generation=pipeline.generation_id,
+        staged_snapshot_hash=pipeline.intent.staged_tree_hash,
+        operator_signature="operator",
+        attested_by="operator",
+    )
+
+
 def _approve_pipeline(
     *,
     repo_root: Path,
@@ -2723,5 +2762,9 @@ def _approve_pipeline(
             action="apply",
             packet_id=str(decision_event["packet_id"]),
             actor="operator",
+            guard_attestation=_approval_attestation(
+                decision_event["packet_id"],
+                pipeline,
+            ),
         ),
     )

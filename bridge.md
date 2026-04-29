@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-28T21:11:21Z`
-- Last Codex poll (Local America/New_York): `2026-04-28 17:11:21 EDT`
+- Last Codex poll: `2026-04-29T08:36:50Z`
+- Last Codex poll (Local America/New_York): `2026-04-29 04:36:50 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `172a344def7efc391d75a08f36499d185f88e319b95bf15a53ea3e038fb08f50`
-- Current instruction revision: `5f244c3da31b`
+- Last non-audit worktree hash: `cffa72ff3eeb60dcc7538eb656555770b6d50e94c371e9158c0d999d5a6b49bc`
+- Current instruction revision: `f90575c1cd39`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-516 expired unresolved review packet(s)
+2 pending review packet(s); 533 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -134,11 +134,11 @@ stage_commit_pipeline_applied
 
 ## Claude Ack
 
-- stage_commit_pipeline handoff applied; packet: `rev_pkt_2122`; target-revision: `00eb5fd7ab4d2f210ea0dabaf0a04d2c3df14010`; applied-at: `2026-04-28T21:00:50.677687Z`
+- stage_commit_pipeline handoff applied; packet: `rev_pkt_2129`; target-revision: `0233390f7f70961db6fda613979e44be8467f347`; applied-at: `2026-04-28T22:13:32.692189Z`
 
 ## Current Instruction For Claude
 
-Priority action_request: Codex 29 Path I: automate governed commit recovery blockers
+Priority action_request: Fresh remote-control publication request for current staged snapshot
 
 ## Last Reviewed Scope
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- No pending action requests.
+- [rev_pkt_2181] stage_commit_pipeline: target=runtime:devctl_commit:0233390f7f70961db6fda613979e44be8467f347@0233390f7f70961db6fda613979e44be8467f347; Fresh remote-control publication request for current staged snapshot (status: pending)

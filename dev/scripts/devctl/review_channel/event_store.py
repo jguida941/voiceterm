@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from ..repo_packs import active_path_config
+from .packet_post_idempotency import packet_posted_idempotency_key
 from .state import DEFAULT_REVIEW_STATUS_DIR_REL, write_projection_bundle
 
 DEFAULT_REVIEW_ARTIFACT_ROOT_REL = active_path_config().review_artifact_root_rel
@@ -186,13 +187,9 @@ def _finalize_packet_posted_identity(
             from_agent=str(event.get("from_agent") or "").strip(),
         )
 
-    event["idempotency_key"] = idempotency_key(
-        "packet_posted",
-        packet_id,
-        event.get("from_agent"),
-        event.get("to_agent"),
-        event.get("summary"),
-        event.get("body"),
+    event["idempotency_key"] = packet_posted_idempotency_key(
+        event,
+        idempotency_key,
     )
 
 

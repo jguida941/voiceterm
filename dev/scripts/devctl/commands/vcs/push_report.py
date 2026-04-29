@@ -88,6 +88,8 @@ def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
     report["push_step"] = inputs.push_step
     report["post_push_steps"] = inputs.post_push_steps
     report["push_stages"] = asdict(inputs.push_stages)
+    report["published_remote"] = inputs.push_stages.published_remote
+    report["post_push_green"] = inputs.push_stages.post_push_green
     report["push_pipeline_phases"] = build_push_pipeline_phases(
         pre_validation_managed_projection_sync=(
             inputs.pre_validation_managed_projection_sync

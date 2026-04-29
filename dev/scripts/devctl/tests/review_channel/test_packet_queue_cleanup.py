@@ -289,19 +289,19 @@ def test_event_markdown_separates_live_packets_from_history() -> None:
             "packet_outcome_ledger": {
                 "contract_id": "PacketOutcomeLedger",
                 "record_count": 1,
-                "outcome_counts": {"lost": 1},
+                "outcome_counts": {"archived": 1},
             },
         }
 
         markdown = render_event_md(report)
 
         assert "## Packet Queue Reconciliation" in markdown
-        assert "expired pending packets are unresolved packets whose TTL elapsed" in markdown
+        assert "expired pending packets are archived audit rows whose TTL elapsed" in markdown
         assert "## Live Packets" in markdown
         assert "## Packet History" in markdown
         assert "stale: pending (expired)" in markdown
         assert "## Packet Outcome Ledger" in markdown
-        assert "outcome_counts: lost=1" in markdown
+        assert "outcome_counts: archived=1" in markdown
     finally:
         if previous_stub is None:
             sys.modules.pop(stub_name, None)

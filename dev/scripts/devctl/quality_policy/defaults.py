@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .voice_term_defaults import VOICETERM_ONLY_AI_GUARD_IDS
+
 
 @dataclass(frozen=True, slots=True)
 class QualityStepSpec:
@@ -176,6 +178,12 @@ DEFAULT_AI_GUARD_SPECS = (
 
 DEFAULT_REVIEW_PROBE_SPECS = (
     QualityStepSpec("probe-concurrency", "probe_concurrency", languages=("rust",)),
+    QualityStepSpec("probe-architecture-connectivity", "probe_architecture_connectivity", languages=("python",)),
+    QualityStepSpec(
+        "probe-typed-authority-provenance",
+        "probe_typed_authority_provenance",
+        languages=("python",),
+    ),
     QualityStepSpec(
         "probe-design-smells",
         "probe_design_smells",
@@ -305,17 +313,6 @@ DEFAULT_REVIEW_PROBE_SPECS = (
 
 AI_GUARD_REGISTRY = {spec.script_id: spec for spec in DEFAULT_AI_GUARD_SPECS}
 REVIEW_PROBE_REGISTRY = {spec.script_id: spec for spec in DEFAULT_REVIEW_PROBE_SPECS}
-VOICETERM_ONLY_AI_GUARD_IDS = (
-    "ide_provider_isolation",
-    "compat_matrix",
-    "compat_matrix_smoke",
-    "naming_consistency",
-    "platform_layer_boundaries",
-    "python_typed_seams",
-    "tandem_consistency",
-)
-
-
 def _build_default_checks(
     enabled_ids: tuple[str, ...],
     registry: dict[str, QualityStepSpec],

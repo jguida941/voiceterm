@@ -41,6 +41,14 @@ class GovernanceBootstrapTests(unittest.TestCase):
                     repo_root / "dev" / "guides" / "PORTABLE_GOVERNANCE_SETUP.md"
                 ).exists()
             )
+            self.assertEqual(
+                result.portability_validation.contract_id,
+                "AdopterPortabilityValidation",
+            )
+            self.assertEqual(result.portability_validation.case_id, "greenfield")
+            self.assertFalse(
+                result.portability_validation.voice_term_assumptions_detected
+            )
 
     def test_bootstrap_keeps_valid_git_repo_unchanged(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -64,6 +72,10 @@ class GovernanceBootstrapTests(unittest.TestCase):
                 result.starter_setup_guide_path.endswith("PORTABLE_GOVERNANCE_SETUP.md")
             )
             self.assertTrue(result.next_steps)
+            self.assertEqual(
+                result.portability_validation.validated_contracts,
+                ("ProjectGovernance", "MasterPlan", "PlanRow"),
+            )
 
     def test_bootstrap_preserves_existing_policy_without_force(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -199,6 +211,27 @@ class GovernanceBootstrapTests(unittest.TestCase):
                 payload["quality_scopes"]["python_probe_roots"],
                 ["cihub"],
             )
+
+    def test_bootstrap_classifies_existing_plan_adopter_case(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir) / "existing-plan-python"
+            repo_root.mkdir()
+            (repo_root / "README.md").write_text("pilot\n", encoding="utf-8")
+            (repo_root / "PROJECT_PLAN.md").write_text(
+                "# Project Plan\n\n- [ ] `MP-ADOPT-T01` Normalize bootstrap\n",
+                encoding="utf-8",
+            )
+            governance_bootstrap_support._run_git(repo_root, ["git", "init"])
+
+            result = governance_bootstrap_support.bootstrap_governance_pilot_repo(
+                repo_root
+            )
+
+            validation = result.portability_validation
+            self.assertEqual(validation.contract_id, "AdopterPortabilityValidation")
+            self.assertEqual(validation.case_id, "existing_plan")
+            self.assertEqual(validation.existing_plan_files, ("PROJECT_PLAN.md",))
+            self.assertFalse(validation.voice_term_assumptions_detected)
 
 
 class GovernanceBootstrapParserTests(unittest.TestCase):

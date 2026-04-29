@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from contextlib import redirect_stdout
+import io
 import json
 import tempfile
 import unittest
@@ -32,6 +34,10 @@ from dev.scripts.devctl.commands.governance.session_resume_support import (
     write_cache,
 )
 from dev.scripts.devctl.runtime.authority_snapshot import AuthoritySnapshot
+from dev.scripts.devctl.runtime.agent_session_continuation import (
+    AgentSessionContinuationState,
+    build_agent_session_continuation,
+)
 from dev.scripts.devctl.runtime.review_state_packet_models import (
     AgentAttentionRecord,
     PacketInboxState,
@@ -211,7 +217,7 @@ class TestSessionCachePacket(unittest.TestCase):
 
     def test_defaults(self) -> None:
         pkt = SessionCachePacket()
-        self.assertEqual(pkt.schema_version, 3)
+        self.assertEqual(pkt.schema_version, 4)
         self.assertEqual(pkt.contract_id, "SessionCachePacket")
         self.assertEqual(pkt.role, "implementer")
         self.assertEqual(pkt.blockers, "none")
@@ -260,6 +266,34 @@ class TestSessionCachePacket(unittest.TestCase):
         assert restored.remote_control_attachment is not None
         self.assertEqual(restored.remote_control_attachment.provider, "claude")
 
+    def test_roundtrip_with_agent_session_continuation(self) -> None:
+        original = SessionCachePacket(
+            agent_session_continuation=AgentSessionContinuationState(
+                continuation_id="agent_continuation:abc123",
+                agent_id="claude",
+                provider="claude",
+                role="implementer",
+                working_tree="/repo",
+                branch="feature/resume",
+                last_seen_packet_id="rev_pkt_2162",
+                current_assignment="Continue NN receipts after ack fix.",
+                dirty_paths_count=105,
+                continuation_hash="a" * 64,
+                continuation_mode="typed_rehydration",
+            )
+        )
+
+        restored = packet_from_mapping(original.to_dict())
+
+        self.assertIsNotNone(restored.agent_session_continuation)
+        assert restored.agent_session_continuation is not None
+        self.assertEqual(
+            restored.agent_session_continuation.continuation_id,
+            "agent_continuation:abc123",
+        )
+        self.assertEqual(restored.agent_session_continuation.agent_id, "claude")
+        self.assertEqual(restored.agent_session_continuation.dirty_paths_count, 105)
+
     def test_roundtrip_with_authority_snapshot(self) -> None:
         original = SessionCachePacket(
             authority_snapshot=AuthoritySnapshot(
@@ -286,6 +320,189 @@ class TestSessionCachePacket(unittest.TestCase):
         )
         self.assertEqual(restored.authority_snapshot.actor_role, "reviewer")
         self.assertEqual(restored.authority_snapshot.actor_identity, "codex")
+
+
+class TestSessionResumeReceiptCli(unittest.TestCase):
+    """CLI-facing resume receipt proof for typed rehydration."""
+
+    def test_session_resume_write_receipt_emits_json_and_appends_event(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            continuation = build_agent_session_continuation(
+                agent_id="portable-agent",
+                provider="portable-agent",
+                role="implementer",
+                working_tree=str(root),
+                branch="feature/typed-resume",
+                last_seen_packet_id="rev_pkt_2162",
+                current_assignment="Continue from the typed rehydration state.",
+                current_blockers="none",
+                resume_command=(
+                    "python3 dev/scripts/devctl.py session-resume --role "
+                    "implementer --format json --provider portable-agent "
+                    "--write-resume-receipt"
+                ),
+                generated_at_utc="2026-04-29T04:00:00Z",
+            )
+            packet = SessionCachePacket(
+                role="implementer",
+                branch="feature/typed-resume",
+                head_sha="abc123",
+                blockers="none",
+                agent_session_continuation=continuation,
+            )
+            args = SimpleNamespace(
+                role="implementer",
+                format="json",
+                output=None,
+                pipe_command=None,
+                pipe_args=None,
+                write_resume_receipt=True,
+                provider="portable-agent",
+                session_id_or_transcript_path="transcripts/session.jsonl",
+                resume_result="loaded",
+                authority_result="",
+            )
+            stdout = io.StringIO()
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.governance.session_resume.get_repo_root",
+                    return_value=root,
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.governance.session_resume.current_head",
+                    return_value="abc123",
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.governance.session_resume.resolve_governance",
+                    return_value=None,
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.governance.session_resume.get_review_state_mtime",
+                    return_value=0.0,
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.governance.session_resume.try_cache_hit",
+                    return_value=packet,
+                ),
+                redirect_stdout(stdout),
+            ):
+                rc = run(args)
+
+            payload = json.loads(stdout.getvalue())
+            embedded = payload["agent_session_continuation"]
+            receipt = payload["agent_resume_receipt"]
+            event = payload["agent_resume_receipt_event"]
+            self.assertEqual(rc, 0)
+            self.assertEqual(receipt["continuation_id"], embedded["continuation_id"])
+            self.assertEqual(
+                receipt["continuation_hash"],
+                embedded["continuation_hash"],
+            )
+            self.assertEqual(receipt["load_result"], "loaded")
+            self.assertEqual(receipt["authority_result"], "allowed")
+            self.assertEqual(event["event_type"], "agent_resume_receipt")
+
+            from dev.scripts.devctl.review_channel.events import resolve_artifact_paths
+
+            paths = resolve_artifact_paths(repo_root=root)
+            event_rows = [
+                json.loads(line)
+                for line in Path(paths.event_log_path).read_text().splitlines()
+                if line.strip()
+            ]
+            self.assertEqual(event_rows[-1]["event_type"], "agent_resume_receipt")
+            self.assertEqual(
+                event_rows[-1]["continuation_id"],
+                embedded["continuation_id"],
+            )
+
+    def test_resume_receipt_can_load_state_while_authority_stays_blocked(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            continuation = build_agent_session_continuation(
+                agent_id="portable-agent",
+                provider="portable-agent",
+                role="implementer",
+                working_tree=str(root),
+                branch="feature/typed-resume",
+                current_assignment="Continue only after dirty state is known.",
+                dirty_paths_count=-1,
+                dirty_paths_status="unknown",
+                current_blockers="dirty_paths_unknown",
+                resume_command=(
+                    "python3 dev/scripts/devctl.py session-resume --role "
+                    "implementer --format json --provider portable-agent "
+                    "--write-resume-receipt"
+                ),
+                generated_at_utc="2026-04-29T04:00:00Z",
+            )
+            packet = SessionCachePacket(
+                role="implementer",
+                branch="feature/typed-resume",
+                head_sha="abc123",
+                blockers="none",
+                next_action="python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+                agent_session_continuation=continuation,
+            )
+            args = SimpleNamespace(
+                role="implementer",
+                format="json",
+                output=None,
+                pipe_command=None,
+                pipe_args=None,
+                write_resume_receipt=True,
+                provider="portable-agent",
+                session_id_or_transcript_path="",
+                resume_result="loaded",
+                authority_result="",
+            )
+            stdout = io.StringIO()
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.governance.session_resume.get_repo_root",
+                    return_value=root,
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.governance.session_resume.current_head",
+                    return_value="abc123",
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.governance.session_resume.resolve_governance",
+                    return_value=None,
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.governance.session_resume.get_review_state_mtime",
+                    return_value=0.0,
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.governance.session_resume.try_cache_hit",
+                    return_value=packet,
+                ),
+                redirect_stdout(stdout),
+            ):
+                rc = run(args)
+
+            payload = json.loads(stdout.getvalue())
+            receipt = payload["agent_resume_receipt"]
+            continuation_payload = payload["agent_session_continuation"]
+            self.assertEqual(rc, 0)
+            self.assertEqual(receipt["load_result"], "loaded")
+            self.assertEqual(receipt["authority_result"], "blocked")
+            self.assertEqual(
+                continuation_payload["authority_result"],
+                "blocked",
+            )
+            self.assertEqual(
+                continuation_payload["dirty_paths_status"],
+                "unknown",
+            )
+            self.assertEqual(
+                continuation_payload["current_blockers"],
+                "dirty_paths_unknown",
+            )
 
 
 class TestFieldDerivation(unittest.TestCase):
@@ -570,6 +787,17 @@ class TestBuildFromSources(unittest.TestCase):
                 packet.authority_snapshot.current_instruction_revision, "rev123"
             )
             self.assertEqual(packet.authority_snapshot.implementer_ack_state, "current")
+            self.assertIsNotNone(packet.agent_session_continuation)
+            assert packet.agent_session_continuation is not None
+            self.assertEqual(packet.agent_session_continuation.agent_id, "claude")
+            self.assertEqual(
+                packet.agent_session_continuation.continuation_mode,
+                "typed_rehydration",
+            )
+            self.assertIn(
+                "--write-resume-receipt",
+                packet.agent_session_continuation.resume_command,
+            )
 
     def test_build_no_artifacts(self) -> None:
         sources = self._make_sources()
@@ -943,7 +1171,7 @@ class TestBuildFromSources(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
                 Path(td),
-                role="observer",
+                role="implementer",
                 head_sha="head123",
                 read_model_override=model,
                 sources_override=sources,
@@ -2896,7 +3124,7 @@ class TestV2Fields(unittest.TestCase):
         self.assertIn("guard_bundle=bundle.tooling", summary)
         self.assertIn("mode=active_dual_agent", summary)
 
-    def test_to_dict_includes_v3_fields(self) -> None:
+    def test_to_dict_includes_v4_fields(self) -> None:
         """to_dict() includes the extended session packet fields in the output."""
         pkt = SessionCachePacket(
             head_at_push_time="push_sha",
@@ -2904,6 +3132,14 @@ class TestV2Fields(unittest.TestCase):
             resolved_phase="committing",
             next_guard_bundle="bundle.runtime",
             next_recommended_command="push --execute",
+            agent_session_continuation=AgentSessionContinuationState(
+                continuation_id="agent_continuation:abc123",
+                agent_id="claude",
+                provider="claude",
+                role="implementer",
+                continuation_hash="b" * 64,
+                continuation_mode="typed_rehydration",
+            ),
         )
         d = pkt.to_dict()
         self.assertEqual(d["head_at_push_time"], "push_sha")
@@ -2911,7 +3147,11 @@ class TestV2Fields(unittest.TestCase):
         self.assertEqual(d["resolved_phase"], "committing")
         self.assertEqual(d["next_guard_bundle"], "bundle.runtime")
         self.assertEqual(d["next_recommended_command"], "push --execute")
-        self.assertEqual(d["schema_version"], 3)
+        self.assertEqual(
+            d["agent_session_continuation"]["continuation_id"],
+            "agent_continuation:abc123",
+        )
+        self.assertEqual(d["schema_version"], 4)
 
 
 class TestGuardBundleFromReviewScope(unittest.TestCase):
