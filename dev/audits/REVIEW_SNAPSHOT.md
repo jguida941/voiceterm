@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `afb62cdf4047` — Refresh external review snapshot for c2fcb696
-- Tree hash: `78c40cf9cd8b`
-- Generation stamp: `snap-d0136f3ae62e`
-- Generated at (UTC): 2026-04-29T10:25:32Z
+- HEAD: `ee2ee1b1666e` — Refresh external review snapshot for afb62cdf
+- Tree hash: `f51d420878fc`
+- Generation stamp: `snap-9b838f69b8c0`
+- Generated at (UTC): 2026-04-29T10:26:26Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 199 files, +14200/-2479
+- Delta since last snapshot: 24 commits, 190 files, +13363/-2341
 - Governance findings: 132 open / 88 fixed / 234 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,9 +54,9 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `afb62cdf40472770e80b1d6171946248a70a3fd6`
+- HEAD SHA: `ee2ee1b1666ec9413453c8bbd1ad955fd4a38181`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-29T06:24:13-04:00
+- HEAD timestamp (UTC): 2026-04-29T06:25:33-04:00
 
 ## 2. Governance state
 
@@ -74,7 +74,7 @@ adopters arrive.
 - authorized_head_commit: `afb62cdf40472770e80b1d6171946248a70a3fd6`
 - approved_target_identity: `tree-receipt-20260429T102330298808Z:d6023541398e274909b40e012508e74e9e89153b`
 - publication_backlog: urgent
-- publication_guidance: 9 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 10 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `active_dual_agent`
@@ -94,13 +94,13 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `afb62cdf4047`
+Range: last 24 commits ending at `ee2ee1b1666e`
 
-- commits: 25
-- files changed: 199
-- insertions: +14200
-- deletions: -2479
-- bundle classes touched: docs, tooling
+- commits: 24
+- files changed: 190
+- insertions: +13363
+- deletions: -2341
+- bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary, Dependency / security
 - authority surfaces touched: 10 file(s)
 
@@ -108,31 +108,30 @@ Range: last 25 commits ending at `afb62cdf4047`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `afb62cdf` | Refresh external review snapshot for c2fcb696 | 2 | +61/-63 | docs |  |
-| 2 | `c2fcb696` | Enforce typed authority provenance probe | 2 | +52/-52 | tooling |  |
-| 3 | `b6cb7332` | Refresh external review snapshot for 3a874752 | 2 | +50/-51 | docs |  |
-| 4 | `3a874752` | Refresh external review snapshot for cd57207f | 1 | +46/-46 | tooling |  |
-| 5 | `cd57207f` | Refresh external review snapshot for ee7635ed | 2 | +52/-51 | docs |  |
-| 6 | `ee7635ed` | Refresh external review snapshot for 0da0bfe1 | 1 | +58/-55 | tooling |  |
-| 7 | `0da0bfe1` | Refresh policy-owned generated surfaces for eff73aad | 1 | +1/-1 | docs |  |
-| 8 | `eff73aad` | Refresh external review snapshot for 8d31f774 | 2 | +106/-90 | docs |  |
-| 9 | `8d31f774` | Implement typed governance continuation | 146 | +9271/-770 | tooling | Parser / ANSI boundary, Dependency / security |
-| 10 | `0233390f` | Refresh external review snapshot for 39083dc8 | 2 | +48/-48 | docs |  |
-| 11 | `39083dc8` | Refresh external review snapshot for 5af77734 | 1 | +50/-47 | tooling |  |
-| 12 | `5af77734` | Refresh external review snapshot for f259c8eb | 2 | +69/-70 | docs |  |
-| 13 | `f259c8eb` | Plan 4.1 / MP-377 Codex 42 slice — Layer H push-identity du… | 11 | +227/-81 | tooling |  |
-| 14 | `00eb5fd7` | Refresh external review snapshot for cce19014 | 2 | +48/-48 | docs |  |
-| 15 | `cce19014` | Refresh external review snapshot for 06f6d2b2 | 1 | +50/-47 | tooling |  |
-| 16 | `06f6d2b2` | Refresh external review snapshot for 5adc6ebd | 2 | +91/-70 | docs |  |
-| 17 | `5adc6ebd` | Plan 4.1 / MP-377 Codex 41 slice — events.py NameError fix… | 56 | +2716/-386 | tooling |  |
-| 18 | `acf4ae3d` | Refresh external review snapshot for f971174a | 2 | +61/-67 | docs |  |
-| 19 | `f971174a` | Refresh external review snapshot for b5e92596 | 2 | +48/-48 | docs |  |
-| 20 | `b5e92596` | Refresh external review snapshot for f06b2658 | 1 | +47/-44 | tooling |  |
-| 21 | `f06b2658` | Refresh external review snapshot for b113e951 | 2 | +60/-63 | docs |  |
-| 22 | `b113e951` | Managed projection receipt: SYSTEM_MAP.md auto-refresh from… | 2 | +50/-51 | tooling |  |
-| 23 | `125bd6ea` | Refresh external review snapshot for a946ba66 | 1 | +53/-50 | tooling |  |
-| 24 | `a946ba66` | Refresh external review snapshot for d5f2c214 | 2 | +71/-61 | docs |  |
-| 25 | `d5f2c214` | Plan 4.1 final layer — completed-handoff outcome → current_… | 10 | +814/-119 | tooling |  |
+| 1 | `ee2ee1b1` | Refresh external review snapshot for afb62cdf | 1 | +48/-42 | tooling |  |
+| 2 | `afb62cdf` | Refresh external review snapshot for c2fcb696 | 2 | +61/-63 | docs |  |
+| 3 | `c2fcb696` | Enforce typed authority provenance probe | 2 | +52/-52 | tooling |  |
+| 4 | `b6cb7332` | Refresh external review snapshot for 3a874752 | 2 | +50/-51 | docs |  |
+| 5 | `3a874752` | Refresh external review snapshot for cd57207f | 1 | +46/-46 | tooling |  |
+| 6 | `cd57207f` | Refresh external review snapshot for ee7635ed | 2 | +52/-51 | docs |  |
+| 7 | `ee7635ed` | Refresh external review snapshot for 0da0bfe1 | 1 | +58/-55 | tooling |  |
+| 8 | `0da0bfe1` | Refresh policy-owned generated surfaces for eff73aad | 1 | +1/-1 | docs |  |
+| 9 | `eff73aad` | Refresh external review snapshot for 8d31f774 | 2 | +106/-90 | docs |  |
+| 10 | `8d31f774` | Implement typed governance continuation | 146 | +9271/-770 | tooling | Parser / ANSI boundary, Dependency / security |
+| 11 | `0233390f` | Refresh external review snapshot for 39083dc8 | 2 | +48/-48 | docs |  |
+| 12 | `39083dc8` | Refresh external review snapshot for 5af77734 | 1 | +50/-47 | tooling |  |
+| 13 | `5af77734` | Refresh external review snapshot for f259c8eb | 2 | +69/-70 | docs |  |
+| 14 | `f259c8eb` | Plan 4.1 / MP-377 Codex 42 slice — Layer H push-identity du… | 11 | +227/-81 | tooling |  |
+| 15 | `00eb5fd7` | Refresh external review snapshot for cce19014 | 2 | +48/-48 | docs |  |
+| 16 | `cce19014` | Refresh external review snapshot for 06f6d2b2 | 1 | +50/-47 | tooling |  |
+| 17 | `06f6d2b2` | Refresh external review snapshot for 5adc6ebd | 2 | +91/-70 | docs |  |
+| 18 | `5adc6ebd` | Plan 4.1 / MP-377 Codex 41 slice — events.py NameError fix… | 56 | +2716/-386 | tooling |  |
+| 19 | `acf4ae3d` | Refresh external review snapshot for f971174a | 2 | +61/-67 | docs |  |
+| 20 | `f971174a` | Refresh external review snapshot for b5e92596 | 2 | +48/-48 | docs |  |
+| 21 | `b5e92596` | Refresh external review snapshot for f06b2658 | 1 | +47/-44 | tooling |  |
+| 22 | `f06b2658` | Refresh external review snapshot for b113e951 | 2 | +60/-63 | docs |  |
+| 23 | `b113e951` | Managed projection receipt: SYSTEM_MAP.md auto-refresh from… | 2 | +50/-51 | tooling |  |
+| 24 | `125bd6ea` | Refresh external review snapshot for a946ba66 | 1 | +53/-50 | tooling |  |
 
 ### Files
 
@@ -144,10 +143,10 @@ Range: last 25 commits ending at `afb62cdf4047`
 | `app/operator_console/state/core/models.py` | tooling | +1/-0 |
 | `app/operator_console/state/snapshots/dashboard_snapshot.py` | tooling | +28/-0 |
 | `app/operator_console/state/snapshots/snapshot_builder.py` | tooling | +3/-1 |
-| `bridge.md` | docs | +90/-90 |
+| `bridge.md` | docs | +79/-81 |
 | `dev/active/MASTER_PLAN.md` | tooling | +67/-9 |
 | `dev/active/ai_governance_platform.md` | tooling | +104/-3 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1369/-1323 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1306/-1261 |
 | `dev/config/publication_sync_registry.json` | tooling | +1/-27 |
 | `dev/config/quality_presets/portable_python.json` | tooling | +2/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +55/-20 |
@@ -164,8 +163,6 @@ Range: last 25 commits ending at `afb62cdf4047`
 | `dev/scripts/checks/probe_typed_authority_provenance.py` | tooling | +12/-0 |
 | `dev/scripts/checks/review_channel_bridge/report.py` | tooling | +53/-96 |
 | `dev/scripts/checks/review_channel_bridge/typed_state.py` | tooling | +150/-0 |
-| `dev/scripts/checks/tandem_consistency/implementer_checks.py` | tooling | +7/-9 |
-| `dev/scripts/checks/tandem_consistency/support.py` | tooling | +0/-45 |
 | `dev/scripts/devctl/cli_parser/builders_checks.py` | tooling | +12/-1 |
 | `dev/scripts/devctl/cli_parser/claude_loop.py` | tooling | +44/-0 |
 | `dev/scripts/devctl/cli_parser/controller_action.py` | tooling | +15/-1 |
@@ -178,7 +175,9 @@ Range: last 25 commits ending at `afb62cdf4047`
 | `dev/scripts/devctl/commands/governance/bootstrap.py` | tooling | +24/-1 |
 | `dev/scripts/devctl/commands/governance/session_resume.py` | tooling | +124/-10 |
 | `dev/scripts/devctl/commands/governance/session_resume_cache_packet_builder.py` | tooling | +3/-0 |
-| _159 more files trimmed_ | | |
+| `dev/scripts/devctl/commands/governance/session_resume_context_values.py` | tooling | +31/-0 |
+| `dev/scripts/devctl/commands/governance/session_resume_continuation.py` | tooling | +162/-0 |
+| _150 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -261,6 +260,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`ee2ee1b1`** — Refresh external review snapshot for afb62cdf
+  - evolution: Fact: live Plan 4.1 dogfood still had a packet-loss shaped failure mode: expired pending packets could fall out of the actionable inbox without a per-packet audit trail proving whether an actor acknowledged, acted on, i…
 - **`afb62cdf`** — Refresh external review snapshot for c2fcb696
   - evolution: Fact: live Plan 4.1 dogfood still had a packet-loss shaped failure mode: expired pending packets could fall out of the actionable inbox without a per-packet audit trail proving whether an actor acknowledged, acted on, i…
 - **`c2fcb696`** — Enforce typed authority provenance probe
@@ -314,11 +315,6 @@ Recent findings:
   - evolution: Fact: live Codex/Claude dogfood found several small but compounding surface lies: bridge/status reviewer mode could disagree, packet counters counted different queues, Action Requests risked reading receipt-like rows, c…
 - **`125bd6ea`** — Refresh external review snapshot for a946ba66
   - evolution: Fact: live Codex/Claude dogfood found several small but compounding surface lies: bridge/status reviewer mode could disagree, packet counters counted different queues, Action Requests risked reading receipt-like rows, c…
-- **`a946ba66`** — Refresh external review snapshot for d5f2c214
-  - evolution: Fact: live Codex/Claude dogfood found several small but compounding surface lies: bridge/status reviewer mode could disagree, packet counters counted different queues, Action Requests risked reading receipt-like rows, c…
-- **`d5f2c214`** — Plan 4.1 final layer — completed-handoff outcome → current_session.implementer_ack_* projection (Codex 39):
-  - Layer 1 (projection gap close): new event_reducer_ack_projection.py (+304) wired from event_reducer_state.py:142 — packet_applied for stage_commit_pipeline now translates the typed AgentSessionOutcomeState into current_session.implementer_ack_revision/implementer_ack/implementer_ack_state="current" via the proper event_projection_assembly.py boundary. Idempotent replay; fail-closed when outcome cannot be matched (provider mismatch, off-chain revision, temporal violation).
-  - evolution: Fact: live Codex/Claude dogfood found several small but compounding surface lies: bridge/status reviewer mode could disagree, packet counters counted different queues, Action Requests risked reading receipt-like rows, c…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -363,4 +359,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-d0136f3ae62e` binds this file to HEAD `afb62cdf4047`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-9b838f69b8c0` binds this file to HEAD `ee2ee1b1666e`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
