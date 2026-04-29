@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-29T21:20:08Z`
-- Last Codex poll (Local America/New_York): `2026-04-29 17:20:08 EDT`
+- Last Codex poll: `2026-04-29T23:04:23Z`
+- Last Codex poll (Local America/New_York): `2026-04-29 19:04:23 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `3ee895809094d309645e277d8910d297929247f0f61f0d1a8ebb00d3adbfccb7`
-- Current instruction revision: ``
+- Last non-audit worktree hash: `9052957c639082e821e5ad4534029f54bacb99122ed1e638ccca14d6a9949005`
+- Current instruction revision: `4e6fdcd4a64f`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-548 expired unresolved review packet(s)
+551 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -138,7 +138,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+Priority action_request: Checkpoint GuardIR V2.1 plan-ingestion slice through packet authority
 
 ## Last Reviewed Scope
 

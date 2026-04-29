@@ -203,6 +203,70 @@
   deferred Finding CC/II/R/S/T/V/W/X/Y/Z/AA/BB/FF/GG/HH queue is now routed into
   `MP377-P0-T08A..T08E`, `MP377-P0-T14A..T14B`, `MP377-P0-T19A`,
   `MP377-P0-T21A`, and existing `MP394-A` plan rows for follow-up execution.
+- 2026-04-29 dashboard/control-plane read-model parity follow-up (MP-377):
+  dashboard now threads repo governance plus the current typed review state
+  into `build_control_plane_read_model` through the shared builder API instead
+  of constructing a separate bridge-derived view. `ControlPlaneReadModel`
+  treats typed bridge conductor-active rows as liveness hints only when
+  reviewer mode and fresh poll/session evidence bound them, keeping dashboard,
+  startup, and control-plane daemon rows aligned during remote-control
+  sessions.
+- 2026-04-29 GuardIR Plan 4.1+ V2.1 ingestion and priority lock (MP-377):
+  `dev/active/ai_governance_platform.md` now preserves the V2.1 superset as
+  the scope-preserving ingestion source, while `dev/state/plan_index.jsonl`
+  carries typed `PlanRow` rows for the live priority gates. Execution remains
+  bounded to A.5 checkpoint through packet authority, then ADR-013
+  `RuntimeAgreementReport`, then `PortabilityLeakInventory`, then typed
+  swarm-readiness/worker-packet planning. GuardIR extraction, push, and mutable
+  fanout remain blocked until those gates are green; Claude stays watcher /
+  verification owner through typed review-channel authority.
+- 2026-04-29 GuardIR invariant-review intake (MP-377): queued follow-up rows
+  now lock the accepted hardening deltas without widening the active A.5 slice:
+  governance event-log timebase, predictive transition simulation/dead-end
+  guards, graph constraint explanations, bounded AI query plans with
+  action-grade explain-back, exact-one packet terminal outcomes, resource-aware
+  swarm scheduling, semantic portability golden replay, and authority-leak /
+  temporal multi-writer drift detection. These remain blocked behind
+  checkpoint/runtime agreement/readiness gates.
+- 2026-04-29 GuardIR intelligence-delta refinement (MP-377): concrete queued
+  row targets now name the first implementation seams for that evidence spine:
+  `check_packet_lifecycle_single_authority.py`, `GuardSpec`,
+  `check_contract_value_domains.py`, `check_authority_source_integrity.py`,
+  `GraphAuthorityRole`, `GraphContradictionIndex`,
+  `GuardFailureRemediationPacket`, `GuardEffectivenessReport`,
+  `GraphScopeProof`, and `RuntimeAgreementReport.quorum_fingerprint`.
+- 2026-04-29 GuardIR Rust shadow contract oracle intake (MP-377): queued
+  `MP377-P0-T22X` adds a post-A.5 read-only Rust oracle that deserializes
+  Python-emitted governance JSON into strict Rust contract models for
+  `ActionResult`, packet lifecycle, packet disposition, and oracle reports.
+  Rust may block as guard evidence through a Python wrapper, but it may not
+  write packets, apply packets, mutate plan rows, commit, push, fanout, or
+  replace Python lifecycle authority.
+- 2026-04-29 GuardIR automation-opportunity catalog (MP-377): Claude's
+  checkpoint retry evidence is now queued as `MP377-P0-T22Y-A..T22Y-J`.
+  The top priority is auto-deriving safe action-request role/identity/pipeline
+  capability evidence from typed state and emitting remediation packets when
+  evidence is missing. Follow-ups cover retry idempotency, managed projection
+  pre-push handling, stale-process evidence-cycle exemptions, mutation-badge
+  refresh scheduling, finding target metadata, dogfood CLI discoverability,
+  dogfood-to-remediation packet conversion, plan-index freshness, and
+  `/remote-control` typed attach identity.
+- 2026-04-29 GuardIR Rust closed-domain/oracle catalog (MP-377): Claude's
+  two-agent Rust survey is queued as `MP377-P0-T22Z-A..T22Z-J`. The rule is:
+  closed-domain values get enums, open-domain values stay strings/JSON with
+  explicit exemption evidence. Rows cover Python-governance oracle expansion,
+  daemon provider and memory artifact enums, a shadow daemon-event validator,
+  persistent-config mode deserializers, banner fallback cleanup, Rust tooling
+  hardening, open-domain skip records, and a final Claude/Codex beta proof
+  gate before any done/extraction/fanout claim.
+- 2026-04-29 GuardIR graph-oracle + bilateral contract parity catalog
+  (MP-377): graph snapshots and Rust/Python shared contracts are queued as
+  `MP377-P0-T22AA-A..T22AA-H`. Rows cover strict Rust graph models, a
+  shadow graph oracle, shared `contract_registry.jsonl`, canonical schema
+  fixtures, bilateral Rust/Python schema parity, schema-version monotonicity,
+  contract-parity bundle wiring, and a Claude/Codex beta proof gate. The
+  target is two languages, one registry, one fixture set, and preflight Rust
+  oracle evidence before extraction, push, fanout, or graph-backed routing.
 - 2026-04-27 governed-push execution-truth invariant (MP-377):
   the `rev_pkt_2027` / `rev_pkt_2029` regression proved a Class-A trust
   break: a push report could claim `published_remote` with a fixture branch

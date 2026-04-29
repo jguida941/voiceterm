@@ -54,9 +54,7 @@ from .surface_provenance import (
 from .value_coercion import coerce_bool, coerce_int, coerce_string, coerce_string_items
 
 if TYPE_CHECKING:
-    from .project_governance import ProjectGovernance
     from .reviewer_observation import ReviewerObservation
-    from .review_state_models import ReviewState
 
 
 CONTROL_PLANE_READ_MODEL_CONTRACT_ID = "ControlPlaneReadModel"

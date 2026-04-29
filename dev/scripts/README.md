@@ -2015,6 +2015,12 @@ Machine-first output note:
   from the shared control-plane read model, and governance/review-state inputs
   threaded through `ControlPlaneReadModelOptions` rather than legacy direct
   builder kwargs.
+  Dashboard/control-plane callers must pass those same typed inputs through
+  `ControlPlaneReadModelOptions` so the builder keeps one compact typed input
+  contract and one resolved `ControlPlaneReadModel`.
+  Conductor liveness in that model may promote typed bridge
+  `*_conductor_active` evidence only when reviewer mode plus fresh poll/session
+  evidence prove the row is current.
   (`coordination_state`, `root_cause`, `required_action`, `next_command`,
   `safe_to_continue`), and next guard bundle from repo-owned state instead of
   operator memory or stale bridge prose. Reviewer bootstrap prefers that typed

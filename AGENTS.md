@@ -74,6 +74,11 @@ Portable-platform rule:
   GUI/process intervention, ad hoc kill commands, and local commit/push
   authority are unavailable; privileged, commit, and push work routes through
   typed `action_request` packets or bounded repo commands.
+  Dashboard and control-plane readers must thread repo governance plus the
+  current typed `ReviewState` through `ControlPlaneReadModel` rather than
+  reloading an independent bridge snapshot, and conductor liveness may only be
+  promoted from typed bridge/posture evidence bounded by fresh poll/session
+  state.
 - Worktree-orphan prevention is part of the same portable runtime contract.
   Dirty/unpublished work must not be proven only for the current checkout.
   The durable model is a report-first `OrphanInventoryReport` feeding a typed
@@ -2405,6 +2410,10 @@ Core commands:
   follow-up records and include the candidate id/path in the refreshed JSON
   summary for that recorded row)
 - `findings-priority` (ranks canonical backlog findings from `FindingBacklog` / `governance-review` state by shared triage severity ordering plus context-graph import fan-out; `LIVE_RUN.md` is compatibility evidence only, not the ranking authority. Use `--format md --top-n <n>` for a bounded priority list)
+- `graph-walk` (read-only cited traversal over the generated context graph; it
+  helps humans and AI navigate typed plan, packet, finding, receipt, test,
+  workflow, and contract evidence, but it never replaces deterministic guards,
+  packet lifecycle checks, or typed runtime authority)
 - `triage` (human/AI triage output with optional CIHub artifact ingestion/bundle emission for owner/risk routing; report timestamps are UTC)
 - `triage-loop` (bounded CodeRabbit medium/high loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; fix execution is policy-gated via `AUTONOMY_MODE`, branch allowlist, and command-prefix allowlist; emits md/json bundles plus a bounded structured backlog slice for downstream autonomy consumers, optional MASTER_PLAN proposal artifacts, and review-escalation comment upserts when attempts exhaust unresolved backlog)
 - `loop-packet` (builds a guarded terminal feedback packet from triage/loop JSON sources for dev-mode draft injection with freshness/risk/auto-send-eligibility gates; `triage-loop` sources now also carry a bounded structured backlog slice so autonomy drafts can inject canonical `review_targets.json` probe guidance, mark when guidance adoption is required, and keep that contract in packet JSON instead of hidden prompt-only text; the active implementation now lives under `dev/scripts/devctl/commands/packets/loop_packet.py`, while the flat `dev/scripts/devctl/commands/loop_packet.py` path remains the compatibility shim that package-layout and import/patch smoke tests must still prove)

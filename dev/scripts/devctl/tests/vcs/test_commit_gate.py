@@ -27,6 +27,9 @@ from dev.scripts.devctl.commands.vcs.commit import (
     _run_guard_bundle,
     run_commit,
 )
+from dev.scripts.devctl.commands.vcs.commit_action_request_authority import (
+    resolve_commit_action_request_grant,
+)
 from dev.scripts.devctl.commands.vcs.commit_guard_bundle import guard_result
 from dev.scripts.devctl.commands.vcs.commit_pipeline_blocking import (
     build_active_pipeline_block_report,
@@ -212,6 +215,7 @@ def _persist_action_request_actor_authority(
     *,
     actor: str = "claude",
     capabilities: tuple[str, ...] = ("repo.stage_handoff",),
+    posture_lane: str | None = None,
 ) -> None:
     output_root = repo_root / active_path_config().review_status_dir_rel
     output_root.mkdir(parents=True, exist_ok=True)
@@ -224,22 +228,54 @@ def _persist_action_request_actor_authority(
         }
         for capability in capabilities
     ]
-    payload = {
-        "collaboration": {
-            "actor_authorities": [
+    collaboration: dict[str, object] = {
+        "actor_authorities": [
+            {
+                "actor_id": actor,
+                "provider": actor,
+                "role": "reviewer",
+                "live": True,
+                "status": "live",
+                "source": "test",
+                "grants": grants,
+            }
+        ]
+    }
+    if posture_lane:
+        collaboration["session_posture"] = {
+            "schema_version": 1,
+            "contract_id": "SessionPosture",
+            "interaction_mode": "remote_control",
+            "reviewer_mode": "single_agent",
+            "actors": [
                 {
                     "actor_id": actor,
                     "provider": actor,
                     "role": "reviewer",
+                    "occupied_lane": posture_lane,
+                    "presence": "live",
                     "live": True,
-                    "status": "live",
                     "source": "test",
-                    "grants": grants,
+                    "granted_capabilities": list(capabilities),
                 }
-            ]
+            ],
         }
-    }
-    (output_root / "review_state.json").write_text(
+    review_state_path = output_root / "review_state.json"
+    payload: dict[str, object] = {}
+    if review_state_path.is_file():
+        try:
+            loaded = json.loads(review_state_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            loaded = {}
+        if isinstance(loaded, dict):
+            payload.update(loaded)
+    existing_collaboration = payload.get("collaboration")
+    merged_collaboration = (
+        dict(existing_collaboration) if isinstance(existing_collaboration, dict) else {}
+    )
+    merged_collaboration.update(collaboration)
+    payload["collaboration"] = merged_collaboration
+    review_state_path.write_text(
         json.dumps(payload),
         encoding="utf-8",
     )
@@ -278,6 +314,7 @@ def _post_stage_commit_action_request(
     full_guard_bundle_evidence: str = "bundle.tooling",
     pipeline_generation: str | None = None,
     staged_snapshot_hash: str | None = None,
+    approval_required: bool = False,
 ) -> str:
     artifact_paths = resolve_artifact_paths(repo_root=repo_root)
     head = target_revision or _run_git(repo_root, "rev-parse", "HEAD")
@@ -293,7 +330,7 @@ def _post_stage_commit_action_request(
             body="Run the packet-scoped governed stage_commit_pipeline.",
             requested_action=requested_action,
             policy_hint=policy_hint,
-            approval_required=False,
+            approval_required=approval_required,
             target=PacketTargetFields.from_values(
                 target_kind="runtime",
                 target_ref=target_ref or f"devctl_commit:{head}",
@@ -1779,6 +1816,10 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 captured["action_request_reason"],
                 "action_request_actor_authority_missing",
             )
+            self.assertIn(
+                "CollaborationSession.actor_authorities",
+                captured["action_request_authority"]["missing_evidence_fields"],
+            )
 
     def test_commit_blocks_local_terminal_action_request_spoof(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1814,40 +1855,98 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 "action_request_interaction_mode_not_remote",
             )
 
-    def test_commit_blocks_action_request_missing_pipeline_binding(self) -> None:
+    def test_commit_action_request_derives_missing_pipeline_binding(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")
             (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
-            _stage_pipeline_for_action_request(repo_root)
+            _, pipeline = _stage_pipeline_for_action_request(repo_root)
             packet_id = _post_stage_commit_action_request(repo_root)
             _persist_action_request_actor_authority(repo_root)
-            captured: dict[str, object] = {}
 
-            with (
-                patch.dict(os.environ, {"DEVCTL_CALLER_AGENT": "claude"}),
-                patch(
-                    "dev.scripts.devctl.commands.vcs.commit._emit_report",
-                    side_effect=lambda _args, report: captured.update(report),
-                ),
-            ):
-                rc = run_commit(
-                    _make_args(
-                        message="feat: missing pipeline binding",
+            with patch.dict(os.environ, {"DEVCTL_CALLER_AGENT": "claude"}):
+                grant = resolve_commit_action_request_grant(
+                    args=_make_args(
                         role="dashboard",
                         action_request=packet_id,
                     ),
                     repo_root=repo_root,
-                    policy=_push_policy(),
-                    executor=_executor(repo_root),
+                    pipeline=pipeline,
                     interaction_mode="remote_control",
-                    guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
+            )
+
+            assert grant is not None
+            self.assertTrue(grant.authorized, grant.to_dict())
+            self.assertEqual(grant.pipeline_generation, pipeline.generation_id)
+            self.assertEqual(
+                grant.staged_snapshot_hash,
+                pipeline.intent.staged_tree_hash,
+            )
+            self.assertEqual(
+                grant.derived_fields,
+                ("pipeline_generation", "staged_snapshot_hash"),
+            )
+
+    def test_commit_action_request_derives_target_actor_and_ignores_stale_pipeline(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _, pipeline = _stage_pipeline_for_action_request(repo_root)
+            stale_pipeline = replace(
+                pipeline,
+                state="push_blocked",
+                commit_sha="deadbeef",
+            )
+            packet_id = _post_stage_commit_action_request(
+                repo_root,
+                policy_hint="operator_approval_required",
+                approval_required=True,
+            )
+            transition_packet(
+                repo_root=repo_root,
+                review_channel_path=repo_root / "dev/active/review_channel.md",
+                artifact_paths=resolve_artifact_paths(repo_root=repo_root),
+                request=PacketTransitionRequest(
+                    action="ack",
+                    packet_id=packet_id,
+                    actor="claude",
+                ),
+            )
+            _persist_action_request_actor_authority(
+                repo_root,
+                capabilities=("repo.stage_handoff", "approval.commit"),
+                posture_lane="dashboard",
+            )
+
+            with patch.dict(
+                os.environ,
+                {
+                    "DEVCTL_CALLER_AGENT": "",
+                    "REVIEW_CHANNEL_CALLER_AGENT": "",
+                    "DEVCTL_CALLER_ROLE": "",
+                    "REVIEW_CHANNEL_CALLER_ROLE": "",
+                },
+            ):
+                grant = resolve_commit_action_request_grant(
+                    args=_make_args(action_request=packet_id),
+                    repo_root=repo_root,
+                    pipeline=stale_pipeline,
+                    interaction_mode="remote_control",
                 )
 
-            self.assertEqual(rc, 1)
+            assert grant is not None
+            self.assertTrue(grant.authorized, grant.to_dict())
+            self.assertEqual(grant.caller_agent, "claude")
             self.assertEqual(
-                captured["action_request_reason"],
-                "action_request_pipeline_generation_missing",
+                grant.caller_agent_source,
+                "review_state:target_actor_authority",
             )
+            self.assertEqual(grant.caller_role, "dashboard")
+            self.assertEqual(grant.caller_role_source, "review_state:session_posture")
+            self.assertEqual(grant.pipeline_generation, "")
+            self.assertEqual(grant.staged_snapshot_hash, "")
+            self.assertEqual(grant.warnings, ("stale_pipeline_binding_ignored",))
 
     def test_commit_blocks_invalid_action_request_variants(self) -> None:
         cases = (

@@ -46,6 +46,10 @@ def resolve_daemon_state(sources: dict[str, Any]) -> dict[str, Any]:
             target_provider="codex",
         ),
         provider_has_live_session(liveness_signals, "codex"),
+        _typed_bridge_conductor_activity(
+            authority=authority,
+            target_provider="codex",
+        ),
         _is_conductor_alive(sources.get("codex_conductor")),
     )
     claude_alive = _coalesce_bool(
@@ -59,6 +63,10 @@ def resolve_daemon_state(sources: dict[str, Any]) -> dict[str, Any]:
             target_provider="claude",
         ),
         provider_has_live_session(liveness_signals, "claude"),
+        _typed_bridge_conductor_activity(
+            authority=authority,
+            target_provider="claude",
+        ),
         _is_conductor_alive(sources.get("claude_conductor")),
     )
     return {
@@ -191,6 +199,30 @@ def _single_agent_remote_attachment_activity(
     if provider != target_provider:
         return None
     return True
+
+
+def _typed_bridge_conductor_activity(
+    *,
+    authority: dict[str, Any],
+    target_provider: str,
+) -> bool | None:
+    """Promote explicit typed bridge liveness when bounded by session evidence."""
+    bridge = _typed_bridge(authority)
+    reviewer_mode = str(bridge.get("reviewer_mode") or "").strip()
+    if reviewer_mode not in {"single_agent", "active_dual_agent"}:
+        return None
+    poll_evidence = (
+        bridge.get("last_reviewer_poll_utc")
+        or bridge.get("last_codex_poll_utc")
+        or bridge.get("last_implementer_poll_utc")
+        or bridge.get("last_claude_poll_utc")
+    )
+    if not poll_evidence:
+        return None
+    value = bridge.get(f"{target_provider}_conductor_active")
+    if value is True:
+        return True
+    return None
 
 
 def _reviewer_provider(authority: dict[str, Any]) -> str:

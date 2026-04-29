@@ -117,18 +117,31 @@ class ViewPhonePayloadTests(unittest.TestCase):
 
     def test_infra_label_counts_running_daemons(self) -> None:
         payload = phone_payload_from_read_model(
-            _build_model(publisher_hb={"pid": 1}, supervisor_hb={"pid": 2}),
+            _build_model(review_state={
+                "reviewer_runtime": {
+                    "doctor": {
+                        "publisher_running": True,
+                        "reviewer_supervisor_running": True,
+                    },
+                },
+            }),
         )
         self.assertIn("2 daemons running", payload["infra_label"])
 
     def test_infra_label_singular(self) -> None:
-        payload = phone_payload_from_read_model(_build_model(publisher_hb={"pid": 1}))
+        payload = phone_payload_from_read_model(
+            _build_model(review_state={
+                "reviewer_runtime": {
+                    "doctor": {"publisher_running": True},
+                },
+            })
+        )
         self.assertIn("1 daemon running", payload["infra_label"])
 
     def test_pending_actions_from_model(self) -> None:
         model = _build_model(review_state={"packets": [
-            {"status": "pending", "packet_id": "p1"},
-            {"status": "pending", "packet_id": "p2"},
+            {"kind": "action_request", "status": "pending", "packet_id": "p1"},
+            {"kind": "action_request", "status": "pending", "packet_id": "p2"},
         ]})
         self.assertEqual(phone_payload_from_read_model(model)["pending_actions"], 2)
 
@@ -276,8 +289,9 @@ class MobileStatusControlPlaneTests(unittest.TestCase):
                 rc = mobile_status.run(args)
 
             self.assertEqual(rc, 0)
+            options = build_control_plane_read_model_mock.call_args.kwargs["options"]
             self.assertEqual(
-                build_control_plane_read_model_mock.call_args.kwargs["review_status_dir"],
+                options.review_status_dir,
                 root / "review-status",
             )
 
@@ -343,4 +357,3 @@ class AutoModeImplementerLivenessWiringTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

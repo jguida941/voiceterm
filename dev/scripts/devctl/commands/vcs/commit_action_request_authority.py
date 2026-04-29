@@ -22,11 +22,20 @@ from ...review_channel.pending_packets import load_pending_packet_queue
 from ...review_channel.state import project_id_for_repo
 from ...runtime.review_state_locator import load_current_review_state_payload
 from ...time_utils import utc_timestamp
+from .commit_action_request_evidence import (
+    capabilities_grant_action,
+    derive_caller_role,
+    derive_pipeline_evidence,
+    invalid_evidence_fields,
+    missing_evidence_fields,
+    pipeline_binding_required,
+    policy_denial,
+    target_actor_has_action_authority,
+)
 
 _CALLER_AGENT_ENV_VARS = ("DEVCTL_CALLER_AGENT", "REVIEW_CHANNEL_CALLER_AGENT")
 _CALLER_ROLE_ENV_VARS = ("DEVCTL_CALLER_ROLE", "REVIEW_CHANNEL_CALLER_ROLE")
 _SUPPORTED_REQUEST_ACTION = "stage_commit_pipeline"
-_SAFE_POLICY_HINT = "safe_auto_apply"
 _STAGE_HANDOFF_CAPABILITIES = ("repo.stage_handoff",)
 _COMMIT_CAPABILITIES = ("repo.stage", "repo.commit")
 _ACTIONABLE_PACKET_STATUSES = frozenset({"pending", "acked"})
@@ -60,6 +69,10 @@ class CommitActionRequestGrant:
     apply_pending_reason: str = ""
     identity_authority_source: str = ""
     identity_authority_capabilities: tuple[str, ...] = ()
+    derived_fields: tuple[str, ...] = ()
+    derivation_sources: tuple[str, ...] = ()
+    missing_evidence_fields: tuple[str, ...] = ()
+    invalid_evidence_fields: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
@@ -68,6 +81,10 @@ class CommitActionRequestGrant:
         payload["identity_authority_capabilities"] = list(
             self.identity_authority_capabilities
         )
+        payload["derived_fields"] = list(self.derived_fields)
+        payload["derivation_sources"] = list(self.derivation_sources)
+        payload["missing_evidence_fields"] = list(self.missing_evidence_fields)
+        payload["invalid_evidence_fields"] = list(self.invalid_evidence_fields)
         payload["warnings"] = list(self.warnings)
         return payload
 
@@ -89,7 +106,13 @@ def resolve_commit_action_request_grant(
     caller_agent, caller_agent_source = _resolve_caller_agent(
         repo_root=repo_root,
         caller_role=caller_role,
+        packet=packet,
     )
+    if caller_agent and not caller_role:
+        caller_role, caller_role_source = derive_caller_role(
+            caller_agent=caller_agent,
+            payloads=_review_state_payloads(repo_root),
+        )
     base = CommitActionRequestGrant(
         packet_id=packet_id,
         authorized=False,
@@ -112,6 +135,23 @@ def resolve_commit_action_request_grant(
     if packet is None:
         return replace(base, reason="action_request_not_found")
 
+    base = derive_pipeline_evidence(
+        repo_root=repo_root,
+        packet=packet,
+        grant=base,
+        pipeline=pipeline,
+    )
+    identity_source, identity_capabilities = _identity_authority(
+        repo_root=repo_root,
+        grant=base,
+    )
+    granted_capabilities = _granted_action_capabilities(identity_capabilities)
+    base = replace(
+        base,
+        granted_capabilities=granted_capabilities,
+        identity_authority_source=identity_source,
+        identity_authority_capabilities=identity_capabilities,
+    )
     denial = _deny_reason(
         repo_root=repo_root,
         packet=packet,
@@ -119,20 +159,28 @@ def resolve_commit_action_request_grant(
         pipeline=pipeline,
     )
     if denial:
-        return replace(base, reason=denial)
+        return replace(
+            base,
+            reason=denial,
+            missing_evidence_fields=missing_evidence_fields(
+                repo_root=repo_root,
+                packet=packet,
+                grant=base,
+                pipeline=pipeline,
+            ),
+            invalid_evidence_fields=invalid_evidence_fields(
+                repo_root=repo_root,
+                packet=packet,
+                grant=base,
+                pipeline=pipeline,
+                denial=denial,
+            ),
+        )
 
-    identity_source, identity_capabilities = _identity_authority(
-        repo_root=repo_root,
-        grant=base,
-    )
-    granted_capabilities = _granted_action_capabilities(identity_capabilities)
     return replace(
         base,
         authorized=True,
         reason="action_request_authorized",
-        granted_capabilities=granted_capabilities,
-        identity_authority_source=identity_source,
-        identity_authority_capabilities=identity_capabilities,
     )
 
 
@@ -270,12 +318,13 @@ def _deny_reason(
         return "action_request_caller_identity_missing"
     if grant.interaction_mode not in _ACTION_REQUEST_INTERACTION_MODES:
         return "action_request_interaction_mode_not_remote"
-    if not _identity_authority(repo_root=repo_root, grant=grant)[0]:
+    if not grant.identity_authority_source:
         return "action_request_actor_authority_missing"
     if grant.requested_action != _SUPPORTED_REQUEST_ACTION:
         return "action_request_unsupported_requested_action"
-    if _text(packet.get("policy_hint")) != _SAFE_POLICY_HINT:
-        return "action_request_policy_not_safe"
+    policy_block = policy_denial(packet=packet, grant=grant)
+    if policy_block:
+        return policy_block
     if _text(packet.get("target_kind")) != "runtime":
         return "action_request_target_kind_mismatch"
     if not grant.target_ref.startswith("devctl_commit:"):
@@ -290,6 +339,8 @@ def _deny_reason(
     if target_ref_revision and target_ref_revision != head:
         return "action_request_target_ref_stale"
 
+    if not pipeline_binding_required(repo_root=repo_root, pipeline=pipeline):
+        return ""
     pipeline_generation = _pipeline_generation(pipeline)
     pipeline_hash = _pipeline_hash(pipeline)
     if pipeline_generation or pipeline_hash:
@@ -329,8 +380,6 @@ def _identity_authority_from_payload(
     actor_rows = _rows(collaboration.get("actor_authorities"))
     if not actor_rows:
         return "", ()
-    required_any = {"repo.stage_handoff"}
-    required_all = {"repo.stage", "repo.commit"}
     for row in actor_rows:
         actor_id = _text(row.get("actor_id") or row.get("provider")).lower()
         provider = _text(row.get("provider") or row.get("actor_id")).lower()
@@ -339,7 +388,7 @@ def _identity_authority_from_payload(
         if not _is_live(row):
             continue
         capabilities = _granted_capabilities(row)
-        if required_any & set(capabilities) or required_all.issubset(capabilities):
+        if capabilities_grant_action(capabilities):
             return _text(row.get("source")) or "CollaborationSession", capabilities
     return "", ()
 
@@ -416,7 +465,12 @@ def _resolve_caller_role(args: object) -> tuple[str, str]:
     return "", ""
 
 
-def _resolve_caller_agent(*, repo_root: Path, caller_role: str) -> tuple[str, str]:
+def _resolve_caller_agent(
+    *,
+    repo_root: Path,
+    caller_role: str,
+    packet: Mapping[str, object] | None,
+) -> tuple[str, str]:
     for env_name in _CALLER_AGENT_ENV_VARS:
         env_agent = _text(os.environ.get(env_name)).lower()
         if env_agent:
@@ -424,6 +478,13 @@ def _resolve_caller_agent(*, repo_root: Path, caller_role: str) -> tuple[str, st
     inferred = _caller_agent_from_review_state(repo_root=repo_root, role=caller_role)
     if inferred:
         return inferred, "review_state:collaboration"
+    packet_target = _text(_mapping(packet).get("to_agent")).lower()
+    if packet_target and target_actor_has_action_authority(
+        actor=packet_target,
+        payloads=_review_state_payloads(repo_root),
+        granted_capabilities=_granted_capabilities,
+    ):
+        return packet_target, "review_state:target_actor_authority"
     return "", ""
 
 
@@ -440,6 +501,13 @@ def _caller_agent_from_review_state(*, repo_root: Path, role: str) -> str:
         if _text(row.get("role_id")) in role_ids and _is_live(row):
             return _text(row.get("agent_id") or row.get("provider")).lower()
     return ""
+
+
+def _review_state_payloads(repo_root: Path) -> tuple[Mapping[str, object], ...]:
+    return (
+        _load_review_state(repo_root),
+        _load_review_state_from_path_config(repo_root),
+    )
 
 
 def _load_review_state(repo_root: Path) -> dict[str, object]:

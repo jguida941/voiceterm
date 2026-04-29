@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+from collections.abc import Mapping
 from pathlib import Path
 
 from .event_models import ReviewChannelEventBundle
@@ -73,6 +74,12 @@ def post_packet(
         if existing_bundle is not None
         else load_events(Path(artifact_paths.event_log_path))
     )
+    authority_evidence = _runtime_authority_evidence_for_request(
+        request=request,
+        review_state=(
+            existing_bundle.review_state if existing_bundle is not None else {}
+        ),
+    )
 
     # Validate the post request against known agent IDs
     validate_post_request(
@@ -130,7 +137,11 @@ def post_packet(
         "idempotency_key": "",
         "nonce": secrets.token_hex(12),
         "expires_at_utc": future_utc_timestamp(minutes=request.expires_in_minutes),
-        "metadata": {},
+        "metadata": (
+            {"runtime_authority_evidence": authority_evidence}
+            if authority_evidence
+            else {}
+        ),
     }
 
     # Persist event and refresh reduced state
@@ -269,6 +280,89 @@ def _format_allowed_actors(actors: frozenset[str]) -> str:
     if len(ordered) == 1:
         return ordered[0]
     return ", ".join(ordered[:-1]) + f", or {ordered[-1]}"
+
+
+def _runtime_authority_evidence_for_request(
+    *,
+    request: PacketPostRequest,
+    review_state: Mapping[str, object],
+) -> dict[str, object]:
+    """Attach typed actor capability evidence to executable action requests."""
+    if request.kind != "action_request":
+        return {}
+    if request.requested_action not in {"commit", "push", "stage_commit_pipeline"}:
+        return {}
+    actor_row = _authority_row_for_actor(
+        review_state=review_state,
+        actor=request.to_agent,
+    )
+    if not actor_row:
+        return {}
+    capabilities = _granted_capabilities(actor_row)
+    if not _capabilities_grant_action(capabilities):
+        return {}
+    return {
+        "contract_id": "ActionRequestRuntimeAuthorityEvidence",
+        "source_contract": _text(actor_row.get("source_contract"))
+        or "CollaborationSession",
+        "identity_authority_source": _text(actor_row.get("source"))
+        or "CollaborationSession",
+        "actor_id": _text(actor_row.get("actor_id")),
+        "provider": _text(actor_row.get("provider") or actor_row.get("actor_id")),
+        "granted_capabilities": list(capabilities),
+    }
+
+
+def _authority_row_for_actor(
+    *,
+    review_state: Mapping[str, object],
+    actor: str,
+) -> Mapping[str, object]:
+    target = _text(actor).lower()
+    if not target:
+        return {}
+    collaboration = review_state.get("collaboration")
+    if not isinstance(collaboration, Mapping):
+        return {}
+    for row in _mapping_rows(collaboration.get("actor_authorities")):
+        actor_id = _text(row.get("actor_id") or row.get("provider")).lower()
+        provider = _text(row.get("provider") or row.get("actor_id")).lower()
+        if target in {actor_id, provider} and _is_live(row):
+            return row
+    return {}
+
+
+def _granted_capabilities(row: Mapping[str, object]) -> tuple[str, ...]:
+    capabilities: list[str] = []
+    for grant in _mapping_rows(row.get("grants")):
+        if not bool(grant.get("granted")):
+            continue
+        capability = _text(grant.get("capability"))
+        if capability:
+            capabilities.append(capability)
+    return tuple(capabilities)
+
+
+def _capabilities_grant_action(capabilities: tuple[str, ...]) -> bool:
+    granted = set(capabilities)
+    return bool(
+        {"repo.stage_handoff"} & granted
+        or {"repo.stage", "repo.commit"}.issubset(granted)
+    )
+
+
+def _mapping_rows(value: object) -> tuple[Mapping[str, object], ...]:
+    if not isinstance(value, list | tuple):
+        return ()
+    return tuple(item for item in value if isinstance(item, Mapping))
+
+
+def _is_live(row: Mapping[str, object]) -> bool:
+    return bool(row.get("live")) or _text(row.get("status")).lower() == "live"
+
+
+def _text(value: object) -> str:
+    return str(value or "").strip()
 
 
 def _load_existing_bundle(

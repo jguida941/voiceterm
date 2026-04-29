@@ -12,9 +12,9 @@ from ..common import emit_output, write_output
 from ..config import REPO_ROOT
 from ..runtime.control_plane_read_model import (
     ControlPlaneReadModel,
-    ControlPlaneReadModelOptions,
     build_control_plane_read_model,
 )
+from ..runtime.control_plane_read_model_support import ControlPlaneReadModelOptions
 from ..runtime.control_plane_sources import load_sources
 from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.startup_blocker_decision import derive_blocker_decision
@@ -525,8 +525,8 @@ def _assemble(
     repo_dirty_files = git.get("dirty_files", 0)
     if (
         control_plane is not None
-        and control_plane.worktree_clean
-        and control_plane.managed_projection_drift
+        and bool(getattr(control_plane, "worktree_clean", False))
+        and bool(getattr(control_plane, "managed_projection_drift", False))
     ):
         repo_worktree = "MANAGED_PROJECTION_DRIFT"
         repo_dirty_files = 0

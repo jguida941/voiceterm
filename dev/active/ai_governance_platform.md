@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-28 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-29 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -19,6 +19,334 @@ interpreting it as a second main lane.
 The current `P0` subordinate execution spec for startup authority, repo-pack
 activation, typed plan routing, runtime/evidence/context closure, and first
 cross-repo proof is `dev/active/platform_authority_loop.md`.
+
+## GuardIR Plan 4.1+ V2.1 Ingestion Record
+
+Ratified from the 2026-04-29 operator handoff. GuardIR is the portable,
+GitHub-backed AI-governance platform: a compiler/control layer for AI coding
+agents. VoiceTerm remains the first adopter, fallback source, and product
+integration layer.
+
+This is one `MP-377` campaign, not a new active plan. V2.1 is the
+scope-preserving ingestion source for this handoff; after ingestion, durable
+execution authority lives in typed `PlanRow` rows, packets, findings, ADRs,
+typed decisions, automation-debt rows, and explicit retirements. Markdown
+surfaces are owner-doc/projection surfaces only.
+
+Execution starts only at Immediate Slice A.5. Later slices are queued scope and
+are not permission to widen the edit. No extraction, push, unmanaged fanout, or
+worker launch is allowed until Slice A.5 is checkpointed through packet
+authority, `RuntimeAgreementReport` is green, and `PortabilityLeakInventory`
+is complete.
+
+The pasted handoff preamble named prior local HEAD
+`07ac1bd3a85cc7208b6f41f1f1b1ad8082302ef3`; ingestion observed local HEAD
+`105c6b6a71ee6c84fb6176e0b6331aefffc09e7e`. Local checkout truth wins when
+remote/GitHub state differs from this active slice.
+
+Current ingestion status:
+- A.5 lifecycle unification has been physically tested in this checkout:
+  action-request execution start, failure, apply, and
+  apply-pending-after-execution reduce through `PacketLifecycleHistory`
+  `acknowledged_events` / `acted_on_events`; `action_request_delivery` remains
+  compatibility hydration and has no current execution writer callers.
+- The regression case is covered: commit succeeds but packet apply fails
+  surfaces `apply_pending_after_execution`, blocks replay, and requires
+  explicit recovery.
+- Required focused checks already passed before this ingestion row:
+  targeted VCS/action-request pytest, packet lifecycle/wake pytest, broad
+  session-posture/control-plane/dashboard parity pytest, `docs-check
+  --strict-tooling`, review surface consistency, tandem consistency, contract
+  connectivity, and routed `check-router --execute`.
+- The live review-channel authority at ingestion reports
+  `watcher_owner=claude`, `watcher_status=live`, and `safe_to_fanout=false`;
+  Claude stays watcher/verification owner, while mutable fanout remains
+  blocked.
+
+2026-04-29 invariant review intake:
+- Verdict: accepted with caveats. Review-channel packets already append and
+  reduce events, `PacketLifecycleHistory` already projects lifecycle state, and
+  `graph-walk` already uses bounded cost-ranked traversal. The remaining
+  weakness is broader system ambiguity: event time, predictive validation,
+  graph explanations, AI evidence plans, packet terminal cleanup, swarm
+  scheduling, semantic portability, and drift detection are not yet one
+  enforced cross-surface contract.
+- Add a queued governance event-log timebase so packet lifecycle, startup,
+  dashboard/control-plane, graph, pipeline/commit state, and push preflight
+  advance from append-only typed events and projection reducers rather than
+  parallel field mutation.
+- Add `TypedTransitionSimulation` and predictive/dead-end guards so a valid
+  action can be blocked when simulation shows it will create an unrecoverable
+  or policy-dead state such as commit success plus packet apply failure without
+  explicit recovery.
+- Promote graph from navigation-only evidence to a constraint explanation
+  query surface with derived predicates such as stuck packets, stale findings,
+  plan-packet contradictions, dead-end states, and authority leaks. Graph
+  explains deterministic decisions; it remains non-authoritative.
+- Tighten AI action authority around bounded query plans and
+  `ExplainBackReceipt` evidence: action-producing AI work must declare the
+  typed queries it used, guards evaluated, and decision path before mutation.
+- Enforce packet intent/lifecycle separation and exact-one terminal outcome:
+  packets carry intent and constraints, while lifecycle and terminal
+  disposition derive from events. Expired or unresolved packets must become
+  explicit terminal/audit outcomes rather than invisible live backlog.
+- Gate swarm execution behind a resource-aware `SwarmScheduler` that consumes
+  guard cost tiers, task complexity, system load, worker packet TTL/scope, and
+  `safe_to_fanout`.
+- Add `GoldenReplayTest` for semantic portability: the same event log plus repo
+  snapshot must produce identical packet outcomes and guard decisions in
+  VoiceTerm and fake non-VoiceTerm repos before extraction can proceed.
+- Add explicit authority-leak and temporal multi-writer drift detectors so any
+  action without typed action, guard evidence, and receipt is blocked, and any
+  field historically advanced by more than one authority is reported.
+
+2026-04-29 intelligence delta refinement:
+- Add `check_packet_lifecycle_single_authority.py` as an A.5+ guard so no code
+  path can reintroduce action-request lifecycle authority outside
+  `PacketLifecycleHistory.acknowledged_events` /
+  `PacketLifecycleHistory.acted_on_events`.
+- Add `GuardSpec` for guard/probe registry rows, plus
+  `GuardFailureRemediationPacket` and `GuardEffectivenessReport`, so guards
+  are cost-aware typed assets that produce AI-actionable packets and measurable
+  true-positive/misfire evidence instead of free-form terminal text.
+- Add `check_contract_value_domains.py` for producer-side enum/domain truth and
+  `check_authority_source_integrity.py` for AST-level advisory-source to
+  authority-sink taint checks before moving to CodeQL/Joern-style dataflow.
+- Add `GraphAuthorityRole` metadata and `GraphContradictionIndex` nodes so the
+  graph can explain authority inversions, orphan projections,
+  multi-writer contracts, plan/packet/runtime contradictions, and graph-only
+  enforcement attempts without authorizing mutation.
+- Add `GraphScopeProof` to `WorkerPacket` before mutable swarm dispatch, and
+  add `RuntimeAgreementReport.quorum_fingerprint` so startup, status, doctor,
+  history, dashboard, and push preflight render the same agreed fact set.
+- Add Slice A.5R Rust shadow contract oracle after the Python A.5 lifecycle
+  authority checkpoint. Rust validates stable Python-emitted governance JSON
+  through strict `serde` enums/structs and returns an `ActionResult`-shaped
+  report. It is read-only guard evidence, not lifecycle authority, not packet
+  application, and not a replacement runtime.
+
+2026-04-29 automation-opportunity catalog from `rev_pkt_2223` checkpoint
+retry:
+- Observation 1-3 root gap: `devctl commit --action-request` and
+  `review-channel post --kind action_request` do not yet auto-derive typed
+  role, identity, pipeline generation, staged snapshot hash, and granted
+  capability evidence from current typed state when the packet omits it. This
+  correctly caused `action_request_policy_not_safe`, but the remediation should
+  be machine-addressable through `T22T` / `T22W` instead of prose.
+- Observation 4: idempotency keys can be consumed by failed validation, causing
+  corrected retry attempts to look like duplicates.
+- Observation 5: pre-push dirty-worktree checks do not yet consume managed
+  projection drift state when only regenerated bridge/system-map projections
+  are dirty.
+- Observation 6: stale-process gates do not distinguish legitimate long-running
+  evidence cycles from unattended stale work.
+- Observation 7: mutation-badge refresh cadence is threshold-only rather than a
+  typed scheduled refresh with guard cost-tier evidence.
+- Observation 8: finding packets cannot carry advisory `target_kind` /
+  `target_ref` metadata, or the validator error does not explain the
+  restriction clearly.
+- Observation 9: `devctl dogfood --record` discovery is brittle because
+  `--action` is rejected instead of aliasing or pointing to `--source-command`.
+- Observation 10: dogfood ledger rows from failed governed-push attempts are
+  not automatically converted into typed remediation packets for the right
+  agent target. Current evidence ids include
+  `docs-check:76392fc532e782a7`, `hygiene:0f3136406c17dfa4`,
+  `check-router:5e73bd46bcab4e53`, and `push:7adb74bedaf5d2df`.
+- Observation 11: `dev/state/plan_index.jsonl` has typed rows but no dedicated
+  health/freshness probe comparing row count, mtime, and contradiction count.
+- Observation 12: `/remote-control` slash command setup does not yet wire into
+  typed `attach-remote-control` runtime identity; keep aligned with
+  `rev_pkt_2222`.
+
+2026-04-29 Rust closed-domain/oracle cross-survey catalog:
+- Architecture rule: closed-domain values get enums; open-domain values stay
+  strings or JSON with explicit exemption evidence. The Rust oracle and Rust
+  runtime enforce the same rule on opposite sides of the JSON seam.
+- Python-governance oracle expansion targets: `PacketGuardAttestation`,
+  `CheckResult` / `ViolationRecord`, `SessionPosture` /
+  `SessionPostureActor`, `PlanRow`, and `RemoteControlAttachmentState`.
+  These are stable enough to deserialize through strict Rust models after the
+  initial `guardir_contract_oracle` lands.
+- Rust-runtime enum tightening targets: `DaemonCommand::SpawnAgent.provider`
+  and `DaemonEvent::AgentSpawned.provider` become `AgentProvider`;
+  `ArtifactRef.kind` becomes `ArtifactKind`; persistent config
+  `memory_mode` / `voice_send_mode` become typed serde deserializers; the
+  banner-logo finder `unwrap()` gets a graceful fallback.
+- Daemon protocol oracle target: add a shadow-only
+  `daemon_event_validator` binary that reads daemon JSON lines, round-trips
+  through typed Rust structs, SHA256-compares the output, and fails on
+  mismatch without mutating daemon state.
+- Rust tooling hardening targets: retire or time-box stale `RUSTSEC-2024-0436`
+  ignore, fix license-deny confidence/exception handling, promote
+  high-signal clippy lints, add oracle proptests, and pin MSRV reproducibly.
+- Explicit open-domain / no-action decisions: `terminal.rs`
+  `install_sigwinch_handler` keeps the current signal-safety FFI shape;
+  `theme_file.rs` keeps `HashMap<String, String>` for user-defined palettes;
+  dev-panel operation snapshots keep `serde_json::Value` for third-party JSON;
+  `PacketPostRequest` / `PacketTransitionRequest` wait until Slice A.5 stops
+  churning; `WorkIntakeOwnershipState` waits until its status domain is frozen.
+- End proof requirement: enum/oracle changes need a checklist-backed beta proof
+  with Codex implementation evidence, Claude watcher verification evidence,
+  targeted Rust/Python tests, guard reports, and review-channel packet/receipt
+  closure before the rows can be marked done.
+
+2026-04-29 graph-oracle and bilateral contract-parity catalog:
+- Graph is the densest next Rust contract target. `ContextGraph` currently has
+  22 closed-domain node kinds and 19 closed-domain edge kinds, plus
+  `GraphNode`, `GraphEdge`, `GraphSize`, `HotIndexSummary`, and query-result
+  confidence fields that are serialized into graph snapshot/report artifacts.
+- Add a shadow-only graph oracle that validates graph JSON before graph-derived
+  explanations or routing evidence can be trusted. It should reject unknown
+  node/edge kinds, temperature outside `[0.0, 1.0]`, dangling edges, declared
+  size/count mismatches, impossible confidence values, stale authority metadata
+  once `GraphAuthorityRole` lands, and any graph-only enforcement claim without
+  deterministic guard/receipt proof.
+- Add a shared Rust/Python contract registry. One row per shared contract lists
+  `contract_id`, Python owner path, Rust owner path, fixture path,
+  `schema_version`, ownership mode, and parity command. Missing registry rows
+  for shared contracts fail closed.
+- Add a canonical schema-fixture handshake under a durable repo-policy-owned
+  fixture root, preferably `dev/test_data/schema_fixtures/...`. A reports root
+  may mirror outputs, but it must not be the only canonical fixture home unless
+  repo policy explicitly protects it from cleanup. Valid and intentionally
+  invalid fixtures become the typed handshake between Python
+  dataclasses/validators and Rust serde models.
+- Add bilateral parity checks: Python and Rust both deserialize the same
+  fixtures, reject the same invalid fixtures, round-trip compatible JSON, and
+  fail CI when either side changes `schema_version` without matching fixtures.
+- Wire this as preflight evidence before extraction, push, fanout, graph-backed
+  routing, or Rust-primary migration. Rust can run the cheap contract/oracle
+  checks early, but the oracles remain read-only and cannot replace Python
+  lifecycle authority until an explicit per-contract ownership migration lands.
+
+Non-loss rules:
+- Every idea becomes exactly one of: `PlanRow`, packet, finding,
+  automation-debt row, typed decision, or explicit retirement.
+- `AUTOMATION_DEBT_REGISTER.md` is the no-loss ledger for repeated manual
+  repairs that do not fit a slice yet.
+- Each slice needs a review packet, dogfood/governance row, and durable
+  plan/decision/debt update.
+- Raw `git add`, raw commit, raw push, unmanaged fanout, and chat-only roadmap
+  state remain out of policy for this campaign.
+
+Priority order:
+1. A.5 Commit Seam: finish `devctl commit --action-request <packet_id>` by
+   validating packet kind/target/action/expiry/revision/safe policy/guard
+   evidence/pipeline generation/staged hash/dirty scope, feeding the grant
+   into caller-role authorization and commit-permission authority, and applying
+   the packet after successful commit with `PacketGuardAttestation`.
+2. A Checkpoint: consume `rev_pkt_2201` as the accepted authorizer-gap finding;
+   use live `rev_pkt_2199` if valid or post a scoped replacement; Claude
+   executes checkpoint through packet authority. If Claude cannot wake, surface
+   `wake_unavailable`; do not fall back to Codex/raw git. Stop at checkpoint.
+3. Slice 0 Runtime Agreement: add `ADR-013 RuntimeAgreementReport` comparing
+   startup-context, review-channel status/doctor, packet history, dashboard,
+   and push preflight. These must agree before extraction, push, or fanout.
+4. Slice X GuardIR Extraction + GitHub: create
+   `/Users/jguida941/testing_upgrade/guardir` and private
+   `github.com/jguida941/guardir` only after the gates above are green; seed
+   platform/governance code, `guardir` package/CLI, temporary `devctl` shim,
+   `ExtractionManifest`, provenance receipt, and fresh-clone smoke.
+5. Slice X.1 Plan Reorganization: GuardIR owns `MASTER_PLAN.md`,
+   `dev/active/specs/*.md`, and `plan_index.jsonl`; VoiceTerm retains
+   product-specific plans such as theme, memory, autonomous control plane,
+   Operator Console, reporting, continuous swarm, loop/chat bridge, and
+   remote-control phases. Retire stale docs only through
+   `ContractRetirementRecord`.
+6. Slice 1 Finding Ingest + Dogfood: extend `PlatformFindingIngest` for dogfood
+   failures, guard violations, packet outcomes, coordination failures, and
+   architecture smells; add finding-to-guard map and misfire fixtures; preserve
+   ADR-010 and finish ADR-011/015/016.
+7. Slice 2 Packet Lifecycle: add terminal outcomes `applied`, `dismissed`,
+   `expired_unrecoverable`, `superseded_by`, `promoted_to_finding`,
+   `delivered_via_commit`, and `lost`; add terminal packet retention policy;
+   close ADR-012.
+8. Slice 3 Connectivity + Retirement: close `rev_pkt_2216`, split
+   registry observers from true contract consumers for ADR-019, retire
+   duplicate system-catalog authority for ADR-026, and add semantic-contract,
+   canonical-seam, and typed-action-runtime-origin guards/probes.
+9. Slice 4 Graph Intelligence: extend existing `ContextGraphSnapshot`; do not
+   create a parallel ZGraph authority store. Add packet/finding/plan/receipt/
+   test/workflow/config/command/guard/probe/contract/file families and cited
+   `graph-walk` / pointer round-trip.
+10. Slice 4.1 Graph Health: add stuck-packet, stale-finding,
+    plan-packet-contradiction, and temperature-regression predicates. Use
+    `GraphReasoningTrace` as evidence envelope only; graph cannot skip
+    deterministic checks.
+11. Slice 5 PlatformProjectionSpine + KPIs: one proof-tick spine for startup,
+    dashboard, SYSTEM_MAP, SYSTEM_FLOWCHART, system-picture, review, graph,
+    push, Operator Console, and MCP; KPI artifact covers orphans,
+    observer-only fields, multi-writer contracts, freshness failures,
+    unclassified outcomes, and surface drift; close ADR-027.
+12. Slice 6 Smarter Guards: add `cost_tier`, probe-driven typed suppression,
+    and staged Python AST walks with regex prefilter; required checks stay
+    required.
+13. Slice 7 Swarm Readiness + Worker Packets: add read-only
+    `SwarmReadinessReport` and `WorkerPacket` with lane, write scope, guard
+    requirements, artifacts, TTL, worktree identity, escalation route, and
+    result packet target. Architect/security/automation lanes stay blocked
+    until `safe_to_fanout=true`.
+14. Slice 8 SwarmDispatcher + Dogfood: dispatcher consumes typed state only;
+    sequence is dry-run, one isolated worker, then Codex + Claude + one
+    worker; add `agent-mind --mode=swarm`.
+15. Slice 9 LV2 Auto-Improvement: close `GuardPromotionCandidate` lifecycle and
+    add findings clustering, `PatternObservation`, and prediction-vs-actual
+    misfire log.
+16. Slice 10 Self-Organizing System: add master-plan reconciliation,
+    auto-archive docs, drift auto-repair, packet retention policy, and plan-row
+    exit enforcement.
+17. Slice 11 Operator Console + Phone: route Operator Console review decisions
+    through typed review-channel ack/apply/dismiss, add
+    `ReviewState.current_activity`, and keep PyQt6 as client only.
+18. Slice 12 MCP: tools are `governance_state`, `review_snapshot_current`,
+    `push_eligibility`, `commit_governed`, `install_hooks`, `verify_hooks`,
+    and `graph_walk`; mutating routes go through `TypedAction`, caller
+    authority, approval, guards, and receipts.
+19. Slice 13 Onboarding + Agent Collaboration: add `OnboardingReceipt`, require
+    `ExplainBackReceipt` for junior/senior AI handoff, add GuardIR
+    `agent_collaboration.md`, close `rev_pkt_2218`, and encode memory rules in
+    repo authority rather than memory files.
+20. Slice 14+ Prior-Art Optimizations: Joern/CodeQL, OPA/Rego, CUE, dbt lineage
+    patterns, Sigstore/SLSA-style attestations, LangChain only after typed
+    contracts stabilize, and ML routing only after misfire logs exist.
+
+Packet evidence intake:
+
+| Packet | Slice / row target | Required disposition |
+|---|---|---|
+| `rev_pkt_2197` | Slice 2/13 | Close renderer gap: `claude-loop` and monitor read `SessionPosture.actors[provider=codex].live`. |
+| `rev_pkt_2199` | Slice A | Use live packet for checkpoint or supersede with a fresh replacement. |
+| `rev_pkt_2200` | Slice 13 / plan anchors | Project W1-W7 as `PacketIntentAnchor(plan_anchor_pending)` until applied. |
+| `rev_pkt_2201` | Slice A.5 | Accepted authorizer-gap finding. |
+| `rev_pkt_2204` | Slice A.5/2 | Fix `action_request_not_pending` path. |
+| `rev_pkt_2206` | Slice A.5 | Validate staged/dirty scope from typed pipeline evidence. |
+| `rev_pkt_2208` | Slice 1/13 | Dogfood symmetry and typed evidence discipline. |
+| `rev_pkt_2209` | Slice 2 | TTL/no-auto-renew and handoff lifecycle. |
+| `rev_pkt_2211` | Slice A.5 | Catch-22 and branch identity closure. |
+| `rev_pkt_2214` | Slice A.5/2 | Extend `PacketLifecycleHistory`; no parallel lifecycle records. |
+| `rev_pkt_2216` | Slice 3 | Nine contract rebuilds and continuation pickup. |
+| `rev_pkt_2217` | Slice 1/9 | Dogfood ledger as typed evidence. |
+| `rev_pkt_2218` | Slice 13 | Rollout-tail follow, `claude-loop --follow` docs, tandem-validate contract. |
+| `rev_pkt_2219` | Slice A.5 | Urgent pre-commit validation; block commit until lifecycle regression is fixed. |
+
+ADR mapping:
+- Slice 0: ADR-013.
+- Slice 1: ADR-010 closed baseline, ADR-011, ADR-015, ADR-016.
+- Slice 2: ADR-012.
+- Slice 3/5/6: ADR-019, ADR-024, ADR-025, ADR-026, ADR-027.
+- Slice 8/11/12: ADR-002, ADR-003, ADR-004, ADR-005, ADR-006, ADR-009,
+  ADR-017.
+
+Extraction blockers must be represented in `PortabilityLeakInventory` before
+Slice X moves code. Seed blockers include: missing/partial
+`ServiceLifecycleConfig`, `BuildConfig`, `ProjectGovernance.workflow_adapters`,
+and remaining `MemoryRoots` callers; string-literal `INDEX.md` /
+`MASTER_PLAN.md` fallbacks; direct `VOICETERM_PATH_CONFIG` imports; hardcoded
+timezone/bridge formats; portable-named guards with VoiceTerm-only behavior;
+VoiceTerm daemon/surface names; direct `voiceterm_repo_root()` calls;
+`~/.voiceterm` metric paths; and Cargo/Rust templates in portable review or
+check-router paths. The exact 22 blocking rows must be written into the
+MP-377 extraction row before code is moved.
 
 ## Product Thesis
 
@@ -3627,6 +3955,379 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       status: `queued`
       depends_on: `MP377-P0-T21`
       disposition_sources: `rev_pkt_V`, `rev_pkt_W`
+- [x] `MP377-P0-T22` Ingest GuardIR Plan 4.1+ V2.1 as MP-377 scope-preserving source and lock the immediate priority gates into typed plan authority.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `done`
+      depends_on: `MP377-P0-T08A`, `MP377-P0-T13A`, `MP377-P0-T20`
+      scope: Preserve the V2.1 superset in this owner doc, mirror only a summary in `MASTER_PLAN.md`, and write machine-readable `PlanRow` rows to `dev/state/plan_index.jsonl`. This row does not authorize Slice X extraction or mutable fanout.
+      acceptance_criteria: V2.1 source wording says markdown is ingestion/projection, not durable execution authority; `dev/state/plan_index.jsonl` contains GuardIR rows with `IngestionProvenance`; the immediate next rows are A.5 checkpoint, Runtime Agreement, PortabilityLeakInventory, multi-agent readiness, and extraction; Claude watcher ownership remains typed review-channel state.
+- [ ] `MP377-P0-T22A` Checkpoint the completed A.5 lifecycle/commit-seam work through packet authority, with Claude as the live watcher/verification owner.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `in_progress`
+      depends_on: `MP377-P0-T22`
+      disposition_sources: `rev_pkt_2199`, `rev_pkt_2201`, `rev_pkt_2204`, `rev_pkt_2206`, `rev_pkt_2211`, `rev_pkt_2214`, `rev_pkt_2219`
+      scope: Use live `rev_pkt_2199` if still valid or post a fresh scoped replacement, consume `rev_pkt_2201` as the accepted authorizer-gap finding, and require the checkpoint to execute through packet authority. If Claude cannot wake, surface `wake_unavailable`; do not substitute Codex/raw-git fallback.
+      acceptance_criteria: Current A.5 test evidence is cited, `PacketGuardAttestation` covers the checkpoint packet, replay remains blocked for `apply_pending_after_execution`, and push remains blocked unless separately resolved or waived.
+- [ ] `MP377-P0-T22B` Add ADR-013 `RuntimeAgreementReport` before extraction, push, or fanout.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22A`
+      scope: Compare startup-context, review-channel status/doctor, packet history, dashboard/control-plane read model, and push preflight from one typed evidence envelope.
+      acceptance_criteria: These surfaces agree on reviewer mode, actor authority, dirty/checkpoint state, pending packet/lifecycle state, dashboard liveness, and push eligibility before any Slice X or swarm execution.
+- [ ] `MP377-P0-T22C` Create `PortabilityLeakInventory` with the exact 22 extraction blockers before moving any code into GuardIR.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22B`
+      scope: Turn the V2.1 extraction-blocker list into typed rows covering repo-pack seams, path roots, VoiceTerm-specific imports, daemon/surface names, metric paths, bridge/timezone formats, and portable-path Rust/Cargo defaults.
+      acceptance_criteria: Each blocker has owner, source path, portability failure mode, exit criteria, and guard/probe evidence; Slice X remains blocked until the inventory is complete.
+- [ ] `MP377-P0-T22D` Gate the multi-agent system plan behind typed swarm readiness instead of launching unmanaged workers.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22B`, `MP377-P0-T22C`
+      scope: Add read-only `SwarmReadinessReport` and queued `WorkerPacket` semantics for architect/security/automation lanes, while keeping Claude in watcher/verification lane and requiring `safe_to_fanout=true` before mutation.
+      acceptance_criteria: Worker packets define lane, write scope, guard requirements, expected artifacts, TTL, worktree identity, escalation route, and result packet target; dispatcher remains dry-run/report-only until readiness is green.
+- [ ] `MP377-P0-T22E` Start GuardIR extraction only after checkpoint, Runtime Agreement, PortabilityLeakInventory, and swarm-readiness gates are green.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `blocked`
+      depends_on: `MP377-P0-T22A`, `MP377-P0-T22B`, `MP377-P0-T22C`, `MP377-P0-T22D`
+      scope: Create the local GuardIR repo and private GitHub repo, seed platform/governance code only, add `guardir` package/CLI, temporary `devctl` shim, `ExtractionManifest`, provenance receipt, and fresh-clone smoke.
+      acceptance_criteria: A fresh clone installs/imports and passes CLI/shim smoke; VoiceTerm remains a client/product integration; no hidden VoiceTerm paths or defaults remain in portable layers.
+- [ ] `MP377-P0-T22F` Add a governance event-log timebase and projection-only runtime state contract before broadening lifecycle authority beyond review-channel packets.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22B`
+      scope: Define append-only typed events for packet lifecycle, startup/runtime posture, dashboard/control-plane read model, graph inputs, pipeline/commit state, and push preflight. Keep compatibility fields as projections/hydration only.
+      acceptance_criteria: `PacketLifecycleHistory`, startup-context, dashboard/control-plane, graph snapshot, and push preflight can cite the event/projection source for time-sensitive state; no new writer may mutate lifecycle-equivalent fields without an event reducer.
+- [ ] `MP377-P0-T22G` Add `TypedTransitionSimulation` and predictive/dead-end guards for governed actions.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22B`, `MP377-P0-T22F`
+      scope: Model candidate `TypedAction` transitions, simulated next state, predicted outcomes, guard cost tier, and explicit dead-end classification before commit/action-request/push execution.
+      acceptance_criteria: A guard can block an action that validates locally but predicts an unrecoverable or policy-dead state; commit-success/packet-apply-failure remains recoverable only through explicit recovery evidence.
+- [ ] `MP377-P0-T22H` Promote graph health into a constraint explanation query surface without making graph authoritative.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T13A`, `MP377-P0-T22F`, `MP377-P0-T22G`
+      scope: Add derived graph predicates and bounded query primitives for stuck packets, stale findings, plan-packet contradictions, dead-end states, authority leaks, and lineage traces from packet to commit/receipt/failure/recovery.
+      acceptance_criteria: Startup/check-router/guard explanations can cite `GraphReasoningTrace` output from deterministic graph queries, while graph results cannot waive deterministic guards or mutate authority state.
+- [ ] `MP377-P0-T22I` Require bounded AI query plans plus action-grade `ExplainBackReceipt` before AI-produced mutations.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22B`, `MP377-P0-T22H`
+      scope: Extend explain-back beyond plan ingestion so action-producing AI work declares allowed typed queries, evidence inputs, guards evaluated, and decision path before mutation or packet application.
+      acceptance_criteria: Governed mutating routes can reject AI work without a matching query-plan/explain-back receipt, and receipt fixtures prove the decision path used startup, packet history, graph, and guard evidence rather than chat memory.
+- [ ] `MP377-P0-T22J` Enforce packet intent/lifecycle separation and exact-one terminal packet outcome.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T08A`, `MP377-P0-T22F`
+      scope: Keep packets as immutable intent plus constraints; derive lifecycle/disposition from events; require every packet to reach exactly one terminal outcome or explicit audit terminal after TTL/recovery rules.
+      acceptance_criteria: Pending packets past TTL cannot remain live backlog; terminal outcomes are mutually exclusive; outcome ledger, lifecycle history, dashboard, and history surfaces agree on terminal state.
+- [ ] `MP377-P0-T22K` Add resource-aware `SwarmScheduler` before mutable multi-agent fanout.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22D`, `MP377-P0-T22G`
+      scope: Schedule worker packets by guard cost tier, task complexity, system load, lane/write-scope safety, TTL, escalation route, and result packet target.
+      acceptance_criteria: Read-only scheduler reports execution order and skipped/deferred workers; mutable dispatch remains blocked until `safe_to_fanout=true` and worker packet constraints are satisfied.
+- [ ] `MP377-P0-T22L` Add `GoldenReplayTest` semantic portability proof before GuardIR extraction.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22C`, `MP377-P0-T22F`, `MP377-P0-T22J`
+      scope: Replay the same event log plus repo snapshot against VoiceTerm and a fake non-VoiceTerm repo to compare packet outcomes, guard decisions, projection outputs, and failure reasons.
+      acceptance_criteria: Golden replay fixtures produce identical portable governance decisions across repos, with repo-pack differences isolated to expected policy/config fields.
+- [ ] `MP377-P0-T22M` Add authority-leak and temporal multi-writer drift detectors.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T15`, `MP377-P0-T22F`
+      scope: Detect any action executed without `TypedAction`, guard evidence, and receipt, and use event history to flag fields advanced over time by more than one authority.
+      acceptance_criteria: Drift reports identify the field, writer authority, event/projection source, and remediation row; check-router cannot pass a new authority leak in touched governance/runtime surfaces.
+- [ ] `MP377-P0-T22N` Add A.5+ `check_packet_lifecycle_single_authority.py` so action-request lifecycle authority cannot fork again.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22A`
+      scope: Scan lifecycle producers for forbidden top-level or compatibility-authority writes to `execution_started_at_utc`, `execution_failed_at_utc`, `apply_pending_after_execution_at_utc`, independent `lifecycle_current_state` decisions, and `action_request_delivery` reducer usage outside compatibility hydration.
+      acceptance_criteria: Allowed paths are canonical event append, `PacketLifecycleHistory` reduction, and compatibility projection derived from lifecycle history; forbidden parallel lifecycle authority fails the guard; success, execution failure, apply-pending-after-execution, and replay-block tests cover the guard.
+- [ ] `MP377-P0-T22O` Add `GuardSpec` registry rows for every guard/probe surface.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22G`, `MP377-P0-T22M`
+      scope: Define guard id, cost tier, authority role, read contracts, written artifacts, caught patterns, dirty-path triggers, required evidence, suppression contract, and graph node kind for blocking/advisory/diagnostic guard surfaces.
+      acceptance_criteria: A new guard cannot land without a `GuardSpec`, quality-policy or bundle registration, graph node emission, docs/check-router visibility, and test fixture or automation-debt row.
+- [ ] `MP377-P0-T22P` Add producer-side `check_contract_value_domains.py`.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22O`
+      scope: AST-scan literal producers for declared value domains including `ActionResult.status`, `PacketLifecycleHistory.current_state`, `PacketDisposition.status`, `WorkerPacket.lane`, `ReviewState.current_activity`, and `RuntimeAgreementReport.status`.
+      acceptance_criteria: Literal producer values outside declared domains fail; dynamic values without visible validator/coercer produce a typed warning; the guard complements enum connectivity instead of replacing it.
+- [ ] `MP377-P0-T22Q` Add `check_authority_source_integrity.py` for advisory-source to authority-sink taint checks.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22M`
+      scope: Mark advisory/compatibility sources such as `bridge.md`, markdown lane tables, memory files, dashboard markdown, compatibility hydration fields, raw env vars, and VoiceTerm-only defaults, then fail direct use as authority for commit, push, fanout, extraction, startup routing, `current_session`, or `safe_to_fanout`.
+      acceptance_criteria: Mutating gates cite `ProjectGovernance`, repo-pack state, `RuntimeAgreementReport`, `CollaborationSession`/`SessionPosture`, `PacketLifecycleHistory`, `TypedAction`/`ActionResult`/`RunRecord`, or typed `PlanRow` authority; direct advisory-source authority reaches fail closed.
+- [ ] `MP377-P0-T22R` Add `GraphAuthorityRole` metadata and authority health predicates to every graph node.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22H`
+      scope: Classify graph nodes as `canonical`, `derived`, `advisory`, `compatibility`, or `external`, with `generated_from_receipt`, `freshness_ref`, and `canonical_pointer_ref`.
+      acceptance_criteria: Graph health reports authority inversion, stale authority source, orphan projection, multi-writer contract, and graph-only enforcement attempts; graph remains generated evidence only.
+- [ ] `MP377-P0-T22S` Add `GraphContradictionIndex` over plan, packet, runtime, guard, and portability contradictions.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22R`
+      scope: Emit typed contradiction nodes for plan-packet, plan-runtime, doc-code authority, packet-lifecycle, guard-surface, startup-dashboard-push, and portable VoiceTerm leak contradictions.
+      acceptance_criteria: Each contradiction carries kind, severity, blocking flag, left/right pointers, detection timestamp, and evidence refs; AI routing receives conflict-shaped tasks without graph deciding authority.
+- [ ] `MP377-P0-T22T` Add `GuardFailureRemediationPacket` for blocking guard failures.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22O`, `MP377-P0-T22H`
+      scope: Convert blocking guard failures into typed remediation packets with violation signature, failed contract, proof chain, canonical refs, suggested fix strategy, allowed write scope, required post-checks, graph-walk query, and misfire fixture target.
+      acceptance_criteria: Blocking guard output can be posted as a bounded finding/action-request or explains why no packet can be emitted; AI fix loops consume packet scope instead of prose-only terminal output.
+- [ ] `MP377-P0-T22U` Add `GuardEffectivenessReport` for cost, misfire, and promotion evidence.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22O`, `MP377-P0-T22T`
+      scope: Track guard id/version, cost tier, run count, blocking count, true/false positives, false-negative findings, mean runtime, stale fixtures, last misfire, and promotion state.
+      acceptance_criteria: Smarter-guard routing can prioritize low-cost/high-confidence guards, demote stale or noisy guards, and promote candidates using typed evidence rather than anecdotal memory.
+- [ ] `MP377-P0-T22V` Add `GraphScopeProof` to `WorkerPacket` before mutable fanout.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22K`, `MP377-P0-T22R`
+      scope: Bind each worker packet to owning plan row, allowed graph nodes/files, forbidden nodes, required guards, cross-scope risks, traversal policy, and source graph snapshot.
+      acceptance_criteria: Worker mutation is allowed only when assigned files are reachable from the owning plan row through allowed edge kinds, cross-scope risks are empty or waived, required guards are listed, graph snapshot is fresh, and `RuntimeAgreementReport.safe_to_fanout=true`.
+- [ ] `MP377-P0-T22W` Add `RuntimeAgreementReport.quorum_fingerprint` and shared fact rendering across runtime surfaces.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22B`, `MP377-P0-T22F`
+      scope: Fingerprint agreed facts for repo root, branch, head SHA, dirty scope hash, current plan/slice, `safe_to_fanout`, checkpoint pressure, push blockers, reviewer liveness, pending action requests, packet lifecycle authority source, and runtime participant registry.
+      acceptance_criteria: Startup-context, review-channel status/doctor/history, dashboard, and push preflight render the same quorum fingerprint; mismatch blocks extraction, push, and fanout.
+- [ ] `MP377-P0-T22X` Add Slice A.5R Rust shadow contract oracle for stable GuardIR governance contracts.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22A`, `MP377-P0-T22N`, `MP377-P0-T22P`
+      scope: Add a read-only `guardir_contract_oracle` Rust binary/library under `rust/src/devtools/guardir_contracts/` plus an explicit `[[bin]]` in `rust/Cargo.toml`. The oracle reads Python-emitted governance JSON and deserializes strict Rust models for `ActionResult` / `ActionOutcome`, `PacketLifecycleHistory`, `PacketLifecycleEvent`, `PacketDisposition`, and `RustContractOracleReport`.
+      acceptance_criteria: Python remains lifecycle authority; the Rust oracle may block as guard evidence but may not write packet state, apply packets, mutate plan rows, repair compatibility fields, commit, push, or fanout. Invalid `ActionResult.status`, failed action request without an `acted_on` failure event, `apply_pending_after_execution` compatibility field without matching `acted_on` event, replayable apply-pending state, and malformed unknown packet state fail closed. Valid packet lifecycle JSON deserializes and passes. A Python wrapper `dev/scripts/checks/check_rust_contract_oracle.py` runs cargo tests plus representative oracle fixtures and emits an `ActionResult`-shaped report.
+- [ ] `MP377-P0-T22Y-A` Auto-derive missing action-request role, identity, pipeline, staged snapshot, and capability evidence from typed state.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22T`, `MP377-P0-T22W`, `MP377-P0-T22Q`
+      scope: When an action-request packet or commit retry omits evidence such as `pipeline_generation`, `staged_snapshot_hash`, `granted_capabilities`, `identity_authority_source`, `identity_authority_capabilities`, or caller role, derive it from live typed state only when the quorum facts agree; otherwise emit a remediation packet that names the missing fields and canonical source.
+      acceptance_criteria: `--role` can default from typed `agent_lane.lane` when caller-role source is empty; `review-channel post --kind action_request` can attach safe typed capability evidence from the current session; `devctl commit --action-request` reports the exact missing capability fields and never treats advisory prose as authority.
+- [ ] `MP377-P0-T22Y-B` Fix action-request idempotency retry semantics after validation failure.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22J`
+      scope: Prevent failed validation attempts from permanently consuming idempotency keys, or permit same-key retry when the prior outcome was `validation_failed`.
+      acceptance_criteria: A corrected packet retry after validation failure is accepted or rejected with a precise non-duplicate lifecycle reason; successful validation still preserves duplicate protection.
+- [ ] `MP377-P0-T22Y-C` Teach pre-push gates to consume managed projection drift state.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22W`, `MP377-P0-T22S`
+      scope: Route pre-push dirty-worktree decisions through typed managed-projection state such as `MANAGED_PROJECTION_DRIFT` so regenerated bridge, review snapshot, system-map, or surface projections do not look like source dirt.
+      acceptance_criteria: Pre-push may pass or auto-receipt when only managed projections are dirty; source dirt remains blocked; the decision cites typed projection-spine evidence.
+- [ ] `MP377-P0-T22Y-D` Make stale-process gates aware of live evidence cycles.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22S`, `MP377-P0-T22U`
+      scope: Let stale-process checks consult typed agent/evidence-cycle state, including `agent-mind` where appropriate, before flagging long-running pytest or guard jobs as blockers.
+      acceptance_criteria: Legitimate live evidence-cycle processes are exempted with freshness proof; unattended or orphaned stale processes remain blocking.
+- [ ] `MP377-P0-T22Y-E` Add typed mutation-badge refresh scheduling.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22U`
+      scope: Add a typed `next_refresh_due_at` / auto-repair signal for mutation-badge regeneration and treat the current age threshold as guard cost-tier evidence.
+      acceptance_criteria: Mutation badge drift becomes a scheduled self-organizing repair target with explicit due time, guard cost, and post-refresh evidence.
+- [ ] `MP377-P0-T22Y-F` Allow advisory targets on finding packets or make the validator restriction explicit.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T08A`
+      scope: Support `target_kind` / `target_ref` metadata on finding packets as advisory context, or improve errors to say findings cannot carry typed targets and name the supported packet kinds.
+      acceptance_criteria: `review-channel post --kind finding --target-kind code --target-ref <path>` either records advisory target metadata or fails with a precise contract explanation and recovery hint.
+- [ ] `MP377-P0-T22Y-G` Improve `devctl dogfood --record` flag discovery.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22I`
+      scope: Add `--action` as an alias for `--source-command` or make unknown-flag errors point to the intended `--target-kind`, `--target-id`, and `--source-command` flags.
+      acceptance_criteria: The failed `dogfood --record --action audit-cycle` path becomes discoverable without reading source code.
+- [ ] `MP377-P0-T22Y-H` Convert dogfood governance findings into typed remediation packets.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22T`
+      scope: When the dogfood ledger records governed-push or guard failures, automatically post a finding/remediation packet to the appropriate agent target with the original finding ids and required post-checks.
+      acceptance_criteria: Evidence ids `docs-check:76392fc532e782a7`, `hygiene:0f3136406c17dfa4`, `check-router:5e73bd46bcab4e53`, and `push:7adb74bedaf5d2df` can be traced to remediation packets or explicit retirement records.
+- [ ] `MP377-P0-T22Y-I` Add `check_plan_index_freshness.py` for typed plan-store health.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22H`, `MP377-P0-T22S`
+      scope: Compare `dev/state/plan_index.jsonl` row count, mtime, source/projection sync, and graph contradiction count against expected baselines.
+      acceptance_criteria: Plan index health is visible in check-router/startup evidence and fails closed on stale, missing, malformed, or contradiction-heavy typed plan state.
+- [ ] `MP377-P0-T22Y-J` Wire `/remote-control` slash-command setup to typed attach runtime identity.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22B`
+      disposition_sources: `rev_pkt_2222`
+      scope: Make slash-command remote-control setup call the typed `attach-remote-control` path with current session identity rather than writing no durable runtime state.
+      acceptance_criteria: `/remote-control` produces typed attach evidence visible to review-channel status/doctor and MCP hook verification; failures name the missing runtime identity field.
+- [ ] `MP377-P0-T22Z-A` Establish Rust closed-domain enum discipline with explicit open-domain skips.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22X`
+      scope: Encode the rule that closed-domain Rust and cross-language JSON values use enums/typed models, while genuinely open domains stay strings or `serde_json::Value` only with explicit skip evidence.
+      acceptance_criteria: Future Rust oracle/runtime candidates can be classified as closed-domain tightening, open-domain skip, or deferred unstable contract; skips for signal-handler FFI, user theme palettes, third-party operation JSON, churning packet requests, and unfrozen ownership state are documented.
+- [ ] `MP377-P0-T22Z-B` Expand Rust GuardIR oracle targets for stable Python governance contracts.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22X`, `MP377-P0-T22N`, `MP377-P0-T22P`
+      scope: After the initial `guardir_contract_oracle` lands, add strict Rust models for `PacketGuardAttestation`, `CheckResult` / `ViolationRecord`, `SessionPosture` / `SessionPostureActor`, `PlanRow`, and `RemoteControlAttachmentState`.
+      acceptance_criteria: The oracle rejects unknown attestation kinds, inconsistent check arithmetic, contradictory live session posture, active rows with supersession data, and remote-control attachment states missing required identity fields while staying read-only.
+- [ ] `MP377-P0-T22Z-C` Tighten daemon agent provider protocol values to a Rust enum.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22Z-A`
+      scope: Replace `provider: String` in `rust/src/bin/voiceterm/daemon/types.rs` `DaemonCommand::SpawnAgent` and `DaemonEvent::AgentSpawned` with `AgentProvider { Claude, Codex }` using serde snake_case compatibility and boundary conversion for older callers.
+      acceptance_criteria: Invalid provider strings fail at the daemon protocol boundary; existing `claude` and `codex` JSON round-trip unchanged; compatibility handling is covered by Rust tests.
+- [ ] `MP377-P0-T22Z-D` Tighten memory artifact kind protocol values to a Rust enum.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22Z-A`
+      scope: Replace `ArtifactRef.kind: String` in `rust/src/bin/voiceterm/memory/types.rs` with an `ArtifactKind` enum covering known memory-pack query kinds such as `task_pack` and `handoff_pack`.
+      acceptance_criteria: Known artifact kinds deserialize and serialize compatibly; typos fail closed with a clear error; genuinely open artifact metadata remains open-domain data.
+- [ ] `MP377-P0-T22Z-E` Add a shadow-only daemon event validator oracle.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22Z-C`
+      scope: Add `rust/src/bin/daemon_event_validator.rs` plus a `[[bin]]` row in `rust/Cargo.toml`; the binary reads daemon JSON lines, deserializes typed daemon events/commands, round-trips them, SHA256-compares canonical output, and emits a pass/fail report.
+      acceptance_criteria: The validator is read-only, catches invalid provider/event domains and bit-mismatched round trips, can run in CI after daemon-event factory generation, and never mutates daemon or governance state.
+- [ ] `MP377-P0-T22Z-F` Deserialize persistent config modes through typed Rust enums.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22Z-A`
+      scope: Replace `Option<String>` mode fields in `rust/src/bin/voiceterm/persistent_config.rs` with `Option<MemoryMode>` and `Option<VoiceSendMode>` using serde custom deserializers that preserve the existing accepted string forms.
+      acceptance_criteria: Invalid TOML mode values fail during deserialization; existing config files continue to load; parse helpers move to the boundary or become serde support code with tests.
+- [ ] `MP377-P0-T22Z-G` Remove low-value Rust startup panic risk in banner logo lookup.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22Z-A`
+      scope: Replace the banner-logo finder `unwrap()` with a graceful fallback because startup cosmetics should not panic the runtime.
+      acceptance_criteria: Missing or malformed banner/logo resources fall back without panic; behavior is covered by a narrow Rust test or documented smoke proof.
+- [ ] `MP377-P0-T22Z-H` Harden Rust tooling around oracle safety.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22X`, `MP377-P0-T22Z-E`
+      scope: Drop or time-box the stale `RUSTSEC-2024-0436` ignore, raise/fix cargo-deny license confidence and exceptions, promote high-signal clippy lints such as `unwrap_used`, add oracle proptests, and pin MSRV with `rust/rust-toolchain.toml` matching Cargo metadata.
+      acceptance_criteria: Rust oracle code has reproducible toolchain proof, cargo-deny signal is not stale, proptests cover round-trip/domain invariants, and promoted lints do not create untriaged noisy failures.
+- [ ] `MP377-P0-T22Z-I` Record Rust open-domain exemptions as typed guard evidence.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22Z-A`, `MP377-P0-T22R`
+      scope: Add an explicit exemption pattern for Rust fields that should remain open-domain, including signal-safety FFI, user theme palettes, third-party operation snapshots, and unstable packet/ownership contracts.
+      acceptance_criteria: Closed-domain guards/oracles can cite open-domain exemptions instead of rediscovering the same false positives; exemptions require rationale and expiry or stability trigger where appropriate.
+- [ ] `MP377-P0-T22Z-J` Run final Claude/Codex beta proof for Rust closed-domain/oracle hardening.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22Z-B`, `MP377-P0-T22Z-E`, `MP377-P0-T22Z-H`, `MP377-P0-T22W`
+      scope: Treat the Rust closed-domain/oracle work as incomplete until Codex implementation evidence, Claude watcher verification, targeted Rust/Python tests, cargo checks, guard reports, review packet closure, and runtime agreement evidence all pass.
+      acceptance_criteria: A checklist-backed beta run proves valid JSON/config/daemon events pass, invalid closed-domain values fail closed, open-domain skips stay non-blocking, remediation packets are emitted for failures, and Claude/Codex cross-agent evidence agrees before any extraction, push, or fanout claim.
+- [ ] `MP377-P0-T22AA-A` Model ContextGraph snapshot contracts in Rust.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22R`, `MP377-P0-T22S`, `MP377-P0-T22Z-A`
+      scope: Add strict Rust models for `GraphNode`, `GraphEdge`, `GraphSize`, `HotIndexSummary`, query-result confidence, snapshot/diff/walk report headers, `NodeKind`, `EdgeKind`, graph-walk strategy/direction, trend direction, and bounded graph temperature over the current `dev/scripts/devctl/context_graph/models.py` domain.
+      acceptance_criteria: Rust rejects unknown node/edge kinds, invalid confidence values, invalid graph-walk strategy/direction, invalid trend direction, temperature outside `[0.0, 1.0]`, and graph JSON that cannot represent Python-emitted graph contracts without falling back to untyped maps for closed domains. Open fields such as labels, paths, refs, commands, plan ids, contract names, and heterogeneous `metadata` remain explicit open-domain exemptions.
+- [ ] `MP377-P0-T22AA-B` Add shadow-only GuardIR graph oracle.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AA-A`, `MP377-P0-T22R`, `MP377-P0-T22S`
+      scope: Add a read-only `guardir_graph_oracle` binary or a `--graph-snapshot` mode on `guardir_contract_oracle` that validates graph snapshots plus query, diff, and graph-walk JSON reports when they are emitted to files.
+      acceptance_criteria: The oracle verifies graph contract id/version, node/edge domains, endpoint existence, node/edge uniqueness, declared size/count and temperature-bucket consistency, query confidence invariants, diff sample/count consistency, graph-walk path confidence invariants, authority-role/freshness metadata once available, and absence of graph-only enforcement claims without deterministic guard or receipt evidence; it emits an `ActionResult`-shaped report, never mutates graph/governance state, and does not reimplement Python graph building or query ranking.
+- [ ] `MP377-P0-T22AA-C` Add shared Rust/Python contract registry.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22O`, `MP377-P0-T22Z-B`
+      scope: Add a repo-policy-owned contract registry such as `dev/state/contract_registry.jsonl` with one row per shared contract containing `contract_id`, Python owner path, Rust owner path, fixture path, `schema_version`, ownership mode, and parity command.
+      acceptance_criteria: Shared Rust/Python contracts cannot land or change without a registry row; `python_only`, `rust_only`, `shared`, and future `rust_primary` ownership modes are explicit; missing or stale registry rows fail closed; the registry reconciles with existing `ContractSpec` / `ArtifactSchemaSpec` rows so it does not become a second contract authority.
+- [ ] `MP377-P0-T22AA-D` Add canonical schema fixture handshake.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AA-C`
+      scope: Add a canonical fixture tree such as `dev/test_data/schema_fixtures/<contract>/<schema_version>/{valid,invalid}/*.json` for stable shared contracts, with generated reports allowed to mirror results under `dev/reports` when useful.
+      acceptance_criteria: Every shared contract registry row points to valid and intentionally invalid fixtures; fixtures are generated or curated as typed evidence; invalid examples cover closed-domain drift, missing required fields, impossible boolean/count combinations, and schema-version mismatches; if a reports root is used as canonical storage, repo policy protects it from cleanup.
+- [ ] `MP377-P0-T22AA-E` Add bilateral Rust/Python schema parity check.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AA-C`, `MP377-P0-T22AA-D`, `MP377-P0-T22X`
+      scope: Add `dev/scripts/checks/check_rust_python_schema_parity.py` to run Python validators/deserializers and Rust oracle deserializers over the same registered fixture set.
+      acceptance_criteria: Both languages accept the same valid fixtures, reject the same invalid fixtures, preserve compatible round-trip JSON, and produce a typed report naming the side, contract, schema version, and fixture that drifted.
+- [ ] `MP377-P0-T22AA-F` Add schema-version monotonic guard.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AA-C`, `MP377-P0-T22AA-D`
+      scope: Add `dev/scripts/checks/check_schema_version_monotonic.py` or fold equivalent logic into the parity check so schema-version changes require matching registry and fixture updates on both sides.
+      acceptance_criteria: Python or Rust `schema_version` bumps fail unless new-version fixtures exist, old-version compatibility is either proven or explicitly retired, and ownership migration is recorded in the registry.
+- [ ] `MP377-P0-T22AA-G` Wire contract parity bundle and Rust oracle preflight.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AA-E`, `MP377-P0-T22AA-F`, `MP377-P0-T22W`
+      scope: Add a `bundle.contract_parity` / check-router lane or risk addon that runs Rust oracle checks, Python validators, schema parity, and schema-version guards before extraction, push, fanout, graph routing, or Rust-primary migration. Register the checks through script catalog, quality policy/defaults, maintainer docs, and bundle/workflow parity.
+      acceptance_criteria: Cheap Rust/Python contract checks run before expensive runtime work where applicable; failures emit remediation packets or typed check reports; passing parity is included in `RuntimeAgreementReport` evidence before any cross-language authority claim.
+- [ ] `MP377-P0-T22AA-H` Run Claude/Codex beta proof for graph and bilateral contract parity.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AA-B`, `MP377-P0-T22AA-E`, `MP377-P0-T22AA-G`
+      scope: Treat graph-oracle and bilateral contract-parity work as incomplete until Codex implementation evidence, Claude watcher verification, targeted graph/Rust/Python tests, parity bundle output, and review-channel packet/receipt closure are all present.
+      acceptance_criteria: Valid graph snapshots and shared-contract fixtures pass both languages; invalid graph/fixture examples fail closed; Rust oracle preflight runs before graph-backed routing or extraction; Claude and Codex evidence agrees before rows are marked done.
 
 2026-04-29 `rev_pkt_2145` deferred-packet disposition ledger:
 
@@ -3683,6 +4384,12 @@ Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.
       daemon fallbacks. The event bridge prefers typed reviewer-runtime posture
       over stopped daemon hints, and fresh `agent-mind` rollout activity feeds
       actor liveness without assigning a lane.
+      progress: 2026-04-29 dashboard/control-plane parity now threads repo
+      governance and the current typed review state into one
+      `ControlPlaneReadModel` builder path. Dashboard no longer builds an
+      independent bridge-derived read model for the same snapshot, and typed
+      bridge conductor-active rows are promoted only when reviewer mode plus
+      fresh poll/session evidence bound the liveness claim.
 - [ ] `MP377-P1-T07` Make governed mutation self-healing against stale projections: commit/push/phone/operator actions must refresh and consume the canonical review-state + commit-pipeline artifacts before consistency checks, treat compatibility-surface drift as a reducer bug to fix rather than a reason to require manual `review-channel --action status`, and keep raw `git` mutation outside the remote-control path.
       owner_doc: `dev/active/remote_commit_pipeline.md`
       status: `blocked`

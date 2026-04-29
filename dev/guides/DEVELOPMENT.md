@@ -214,6 +214,14 @@ Use docs like this:
   capability grants. `agent_lane.lane` remains a compatibility alias; it must
   not be treated as proof of the currently occupied lane or current mutation
   authority.
+- Keep dashboard/control-plane read-model inputs on that same typed path.
+  Dashboard callers must thread repo governance and the current typed
+  `ReviewState` into `build_control_plane_read_model` instead of letting
+  dashboard build a second bridge-derived view. Typed bridge conductor-active
+  booleans are liveness hints only when fresh poll/session evidence bounds
+  them. After edits on this seam, rerun `test_session_posture.py`,
+  `test_session_liveness_signal.py`, `test_control_plane_read_model.py`, and
+  `test_dashboard.py`.
 - Keep read-only advisory next-command projection centralized too:
   observer/dashboard callers must route mutating commit/push/pipeline command
   strings through

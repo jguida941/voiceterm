@@ -37,6 +37,32 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-29 - Dashboard and control-plane liveness now share the typed read model
+
+Fact: the dashboard/control-plane read side still had a parity hazard after
+the `SessionPosture` rescue slice. Dashboard could call the shared read-model
+builder with a locally constructed options object while nearby callers used
+direct typed inputs, and daemon rows could drop live conductor state when the
+typed bridge had fresh poll-backed liveness but no PID.
+
+Change: `build_control_plane_read_model` now accepts governance, review-state,
+status-directory, and caller-role inputs through `ControlPlaneReadModelOptions`,
+and dashboard uses that shared API. Daemon resolution may promote typed bridge
+`codex_conductor_active` /
+`claude_conductor_active` only when reviewer mode and fresh poll evidence
+bound the claim. Dashboard rendering also treats managed projection drift from
+the control-plane model defensively so missing fields cannot create a second
+dirty-worktree interpretation.
+
+Evidence:
+- `dev/scripts/devctl/runtime/control_plane_read_model.py`
+- `dev/scripts/devctl/runtime/control_plane_daemons.py`
+- `dev/scripts/devctl/commands/dashboard.py`
+- `dev/scripts/devctl/tests/runtime/test_session_posture.py`
+- `dev/scripts/devctl/tests/runtime/test_session_liveness_signal.py`
+- `dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`
+- `dev/scripts/devctl/tests/commands/reporting/test_dashboard.py`
+
 ### 2026-04-29 - Review packets gained lifecycle and disposition state
 
 Fact: live Plan 4.1 dogfood still had a packet-loss shaped failure mode:

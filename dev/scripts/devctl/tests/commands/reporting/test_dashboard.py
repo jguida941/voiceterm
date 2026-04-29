@@ -3356,11 +3356,11 @@ class TestTypedReviewState(unittest.TestCase):
                 review_state_override=typed_review_state,
             )
             self.assertIs(
-                mock_build.call_args.kwargs["review_state"],
+                mock_build.call_args.kwargs["options"].review_state,
                 typed_review_state,
             )
             self.assertIs(
-                mock_build.call_args.kwargs["governance"],
+                mock_build.call_args.kwargs["options"].governance,
                 governance,
             )
             self.assertEqual(
