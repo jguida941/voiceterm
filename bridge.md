@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-29T08:51:58Z`
-- Last Codex poll (Local America/New_York): `2026-04-29 04:51:58 EDT`
+- Last Codex poll: `2026-04-29T10:23:30Z`
+- Last Codex poll (Local America/New_York): `2026-04-29 06:23:30 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `f4918d50fd2fb9ae26765bdfc3832298495d2c7c8c90ac770eba55f948308201`
-- Current instruction revision: `5ec53599f4b7`
+- Last non-audit worktree hash: `ee61458835de1a6afba3a53c1cc638507face9bb2fc054fc1dc58b007486df7e`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-28T19:04:03.051606Z.
+- Reviewer state rebuilt from typed review-state projection at 2026-04-29T10:21:40.691417Z.
 
 ## Current Verdict
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s); 533 expired unresolved review packet(s)
+533 expired unresolved review packet(s)
 
 ## Claude Status
 
-stage_commit_pipeline_applied
+- Status unavailable.
 
 ## Claude Questions
 
@@ -134,11 +134,11 @@ stage_commit_pipeline_applied
 
 ## Claude Ack
 
-- stage_commit_pipeline handoff applied; packet: `rev_pkt_2129`; target-revision: `0233390f7f70961db6fda613979e44be8467f347`; applied-at: `2026-04-28T22:13:32.692189Z`
+- missing
 
 ## Current Instruction For Claude
 
-Priority action_request: Run governed push for approved pipeline-f40ad2be5818
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- [rev_pkt_2185] push: target=runtime:remote_commit_pipeline:pipeline-f40ad2be5818@gen-e7a51818c259; Run governed push for approved pipeline-f40ad2be5818 (status: pending)
+- No pending action requests.
