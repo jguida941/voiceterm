@@ -19,6 +19,7 @@ from .reviewer_follow_guard import (
     ReviewerWakePaths,
     as_path,
     cleanup_candidate_codex_sessions,
+    cleanup_candidate_provider_sessions,
     cleanup_codex_sessions,
     has_blocking_cleanup_warning,
     launch_waiting_reviewer_conductor,
@@ -266,6 +267,80 @@ def maybe_wake_waiting_reviewer_conductor(
             wake_paths=wake_paths,
             cleanup_warnings=tuple(cleanup_warnings),
             operator_interaction_mode=operator_interaction_mode,
+        ),
+        deps=effective_deps,
+    )
+
+
+def maybe_wake_waiting_agent_conductor(
+    *,
+    args,
+    repo_root: Path,
+    paths: dict[str, object],
+    report: dict[str, object],
+    operator_interaction_mode: str,
+    target_agent: str,
+    packet: dict[str, object],
+    deps: ReviewerWakeDeps | None = None,
+) -> dict[str, object] | None:
+    """Relaunch a provider conductor for a typed packet wake target."""
+
+    provider = str(target_agent or "").strip().lower()
+    if not provider:
+        return None
+    if provider == "codex":
+        return maybe_wake_waiting_reviewer_conductor(
+            args=args,
+            repo_root=repo_root,
+            paths=paths,
+            report=report,
+            operator_interaction_mode=operator_interaction_mode,
+            deps=deps,
+        )
+
+    wake_paths = _resolve_reviewer_wake_paths(paths)
+    if wake_paths is None:
+        return wake_report(
+            packet=packet,
+            attempted=True,
+            woke=False,
+            reason="runtime_paths_missing",
+            target_agent=provider,
+        )
+
+    effective_deps = deps or ReviewerWakeDeps()
+    cleanup_sessions = cleanup_candidate_provider_sessions(
+        session_output_root=wake_paths.status_dir,
+        provider=provider,
+        deps=effective_deps,
+    )
+    cleanup_warnings: list[str] = []
+    if cleanup_sessions:
+        cleanup_warnings = cleanup_codex_sessions(
+            live_codex_sessions=cleanup_sessions,
+            deps=effective_deps,
+        )
+    if has_blocking_cleanup_warning(cleanup_warnings):
+        return wake_report(
+            packet=packet,
+            attempted=True,
+            woke=False,
+            reason="cleanup_failed",
+            warnings=cleanup_warnings,
+            target_agent=provider,
+        )
+
+    return launch_waiting_reviewer_conductor(
+        context=ReviewerWakeLaunchContext(
+            args=args,
+            repo_root=repo_root,
+            paths=paths,
+            report=report,
+            packet=packet,
+            wake_paths=wake_paths,
+            cleanup_warnings=tuple(cleanup_warnings),
+            operator_interaction_mode=operator_interaction_mode,
+            provider=provider,
         ),
         deps=effective_deps,
     )

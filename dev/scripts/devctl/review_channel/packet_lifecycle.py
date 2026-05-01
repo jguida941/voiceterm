@@ -320,6 +320,25 @@ def _acted_on_disposition(
         )
 
     if action == "applied" and _text(packet.get("target_kind")) == "plan":
+        plan_integration = _plan_ingestion_payload(packet)
+        integration_status = _text(plan_integration.get("status"))
+        integration_reason = _text(plan_integration.get("reason"))
+        if not _plan_integration_recorded(plan_integration):
+            return asdict(
+                PacketDisposition(
+                    sink="recovery_required",
+                    status="plan_ingestion_failed",
+                    resolution_anchor=target_anchor
+                    or f"packet:{_text(packet.get('packet_id'))}",
+                    plan_target=target_anchor,
+                    reason=(
+                        integration_reason
+                        or "Applied plan packet lacks durable typed plan ingestion evidence."
+                    ),
+                    next_slice_target="packet_plan_ingestion_repair",
+                    archive_classification=integration_status,
+                )
+            )
         return asdict(
             PacketDisposition(
                 sink="plan_integrated",
@@ -381,6 +400,12 @@ def _current_state(
 ) -> str:
     if acted_on_events:
         action = _text(acted_on_events[-1].get("action"))
+        if (
+            action == "applied"
+            and _text(packet.get("target_kind")) == "plan"
+            and not _plan_integration_recorded(_plan_ingestion_payload(packet))
+        ):
+            return "plan_ingestion_failed"
         if action == "archived":
             return "archived"
         return action or _text(packet.get("status")) or "acted_on"
@@ -482,6 +507,22 @@ def _guard_attestation(event: Mapping[str, object]) -> dict[str, object] | None:
     if not isinstance(attestation, Mapping):
         return None
     return dict(attestation)
+
+
+def _plan_integration_recorded(value: Mapping[str, object]) -> bool:
+    status = _text(value.get("status"))
+    return status in {"inserted", "updated", "already_present"}
+
+
+def _plan_ingestion_payload(packet: Mapping[str, object]) -> Mapping[str, object]:
+    payload = _mapping(packet.get("plan_ingestion"))
+    if payload:
+        return payload
+    return _mapping(packet.get("plan_integration"))
+
+
+def _mapping(value: object) -> Mapping[str, object]:
+    return value if isinstance(value, Mapping) else {}
 
 
 def _derive_action_request_lifecycle_fields(

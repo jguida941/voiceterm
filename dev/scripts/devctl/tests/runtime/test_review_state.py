@@ -6,9 +6,139 @@ from hashlib import sha256
 import unittest
 
 from dev.scripts.devctl.runtime import review_state_from_payload
+from dev.scripts.devctl.runtime.review_state_round_proof import (
+    build_round_proofs_from_review_state,
+)
 
 
 class ReviewStateTests(unittest.TestCase):
+    def test_review_state_round_trips_typed_round_proofs(self) -> None:
+        state = review_state_from_payload(
+            {
+                "schema_version": 1,
+                "contract_id": "ReviewState",
+                "command": "review-channel",
+                "action": "status",
+                "ok": True,
+                "round_proofs": [
+                    {
+                        "proof_id": "round:claude:s1:rev_pkt_done:evt1",
+                        "status": "satisfied",
+                        "proof_state": "satisfied",
+                        "actor_id": "claude",
+                        "role": "implementer",
+                        "session_id": "s1",
+                        "handoff_packet_id": "rev_pkt_done",
+                        "evidence_refs": ["evt1", "quality.guard_bundle"],
+                    }
+                ],
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        self.assertEqual(len(state.round_proofs), 1)
+        self.assertEqual(state.round_proofs[0].contract_id, "RoundProof")
+        self.assertEqual(state.round_proofs[0].proof_state, "satisfied")
+        self.assertEqual(state.to_dict()["round_proofs"][0]["actor_id"], "claude")
+
+    def test_review_state_canonicalizes_legacy_agent_round_proofs(self) -> None:
+        state = review_state_from_payload(
+            {
+                "schema_version": 1,
+                "contract_id": "ReviewState",
+                "command": "review-channel",
+                "action": "status",
+                "ok": True,
+                "agent_round_proofs": [
+                    {
+                        "status": "accepted",
+                        "actor_id": "claude",
+                        "role": "implementer",
+                        "session_id": "s1",
+                        "handoff_packet_id": "rev_pkt_done",
+                    }
+                ],
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        self.assertEqual(len(state.round_proofs), 1)
+        self.assertEqual(state.round_proofs[0].contract_id, "RoundProof")
+
+    def test_build_round_proof_from_review_state_owned_evidence(self) -> None:
+        rows = build_round_proofs_from_review_state(
+            {
+                "snapshot_id": "snap-1",
+                "zref": "zref-1",
+                "packets": [
+                    {
+                        "packet_id": "rev_pkt_done",
+                        "full_guard_bundle_evidence": "quality.guard_bundle",
+                    }
+                ],
+                "reviewer_runtime": {
+                    "duty_proof": {
+                        "semantic_review_claimed": True,
+                        "reviewed_diff_hash": "tree-hash",
+                    }
+                },
+                "collaboration": {
+                    "session_outcomes": [
+                        {
+                            "outcome": "completed_handoff",
+                            "provider": "claude",
+                            "session_actor_id": "claude",
+                            "session_actor_role": "implementer",
+                            "session_id": "s1",
+                            "source_event_id": "evt1",
+                            "handoff_packet_id": "rev_pkt_done",
+                        }
+                    ]
+                },
+            }
+        )
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].proof_state, "satisfied")
+        self.assertEqual(rows[0].missing_proofs, ())
+        self.assertEqual(rows[0].source_contract, "ReviewState")
+
+    def test_round_proof_keeps_agent_mind_semantic_review_auxiliary(self) -> None:
+        rows = build_round_proofs_from_review_state(
+            {
+                "packets": [
+                    {
+                        "packet_id": "rev_pkt_done",
+                        "full_guard_bundle_evidence": "quality.guard_bundle",
+                    }
+                ],
+                "reviewer_runtime": {
+                    "duty_proof": {
+                        "semantic_review_claimed": True,
+                        "semantic_review_source": "agent_mind_auxiliary",
+                        "reviewed_diff_hash": "tree-hash",
+                    }
+                },
+                "collaboration": {
+                    "session_outcomes": [
+                        {
+                            "outcome": "completed_handoff",
+                            "provider": "claude",
+                            "session_actor_id": "claude",
+                            "session_actor_role": "implementer",
+                            "session_id": "s1",
+                            "handoff_packet_id": "rev_pkt_done",
+                        }
+                    ]
+                },
+            }
+        )
+
+        self.assertEqual(rows[0].proof_state, "missing")
+        self.assertIn("reviewer_semantic_review", rows[0].missing_proofs)
+
     def test_review_state_parser_rebuilds_packet_inbox_from_live_control_packets(self) -> None:
         state = review_state_from_payload(
             {

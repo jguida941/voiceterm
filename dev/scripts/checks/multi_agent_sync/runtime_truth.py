@@ -18,6 +18,22 @@ from dev.scripts.devctl.runtime.review_state_locator import (  # pragma: no cove
     load_review_state_payload,
     resolved_review_state_relative_path,
 )
+from dev.scripts.devctl.runtime.agent_dispatch_router import (  # pragma: no cover - import wiring
+    build_agent_dispatch_router,
+)
+
+if __package__:
+    from .runtime_truth_agent_loop import (
+        agent_loop_decision_errors,
+        agent_loop_decision_rows,
+        pending_packet_agents,
+    )
+else:  # pragma: no cover - standalone package fallback
+    from runtime_truth_agent_loop import (
+        agent_loop_decision_errors,
+        agent_loop_decision_rows,
+        pending_packet_agents,
+    )
 
 
 def evaluate_runtime_truth(
@@ -51,7 +67,11 @@ def evaluate_runtime_truth(
     registry_ids = _agent_id_rows(registry.get("agents"))
     planned_receipts = _agent_id_rows(collaboration.get("delegated_work"))
     live_receipts = _live_receipt_ids(collaboration.get("delegated_work"))
+    runtime = _runtime_summary(payload)
     errors: list[str] = []
+    warnings = _runtime_warnings(runtime)
+    errors.extend(agent_loop_decision_errors(payload))
+    errors.extend(_router_governance_debt_errors(payload))
 
     leaked_participants = _planned_overlap(participant_ids, planned_ids)
     if leaked_participants:
@@ -82,8 +102,82 @@ def evaluate_runtime_truth(
     return {
         "checked": True,
         "review_state_path": resolved_review_state_relative_path(repo_root),
+        **runtime,
         "errors": errors,
+        "warnings": warnings,
     }
+
+
+def _runtime_summary(payload: Mapping[str, object]) -> dict[str, object]:
+    coordination = _mapping(payload.get("coordination_state"))
+    observed = _mapping(coordination.get("observed_runtime"))
+    agent_sync = _mapping(payload.get("agent_sync"))
+    agents = _mapping(agent_sync.get("agents"))
+    work_board = _mapping(payload.get("agent_work_board"))
+    rows = work_board.get("rows")
+    work_rows = rows if isinstance(rows, list) else []
+    decision_rows = agent_loop_decision_rows(payload)
+    return {
+        "coordination_topology": str(
+            coordination.get("coordination_topology") or ""
+        ).strip(),
+        "legacy_reviewer_mode": str(
+            coordination.get("legacy_reviewer_mode") or ""
+        ).strip(),
+        "active_runtime_providers": _string_items(
+            observed.get("active_runtime_providers")
+        ),
+        "agent_work_board_row_count": len(work_rows),
+        "agent_loop_decision_row_count": len(decision_rows),
+        "pending_packet_agents": pending_packet_agents(agents),
+    }
+
+
+def _runtime_warnings(runtime: Mapping[str, object]) -> list[str]:
+    topology = str(runtime.get("coordination_topology") or "").strip()
+    legacy_mode = str(runtime.get("legacy_reviewer_mode") or "").strip()
+    if not topology or not legacy_mode or topology == legacy_mode:
+        return []
+    return [
+        "Typed coordination topology differs from legacy reviewer mode: "
+        f"coordination_topology={topology}; legacy_reviewer_mode={legacy_mode}. "
+        "Use coordination_topology for runtime topology."
+    ]
+
+
+def _router_governance_debt_errors(
+    payload: Mapping[str, object],
+) -> list[str]:
+    router = payload.get("agent_dispatch_router")
+    if not isinstance(router, Mapping):
+        router = build_agent_dispatch_router(review_state=payload).to_dict()
+    debts = router.get("governance_debt")
+    if not isinstance(debts, list):
+        return []
+    errors: list[str] = []
+    for debt in debts:
+        if not isinstance(debt, Mapping):
+            continue
+        severity = str(debt.get("severity") or "").strip()
+        debt_kind = str(debt.get("debt_kind") or "").strip()
+        if severity != "critical":
+            continue
+        errors.append(
+            "Agent dispatch router critical governance debt: "
+            f"{debt_kind}; actor={debt.get('actor_id') or ''}; "
+            f"role={debt.get('actor_role') or ''}; "
+            f"session={debt.get('session_id') or ''}; "
+            f"packet={debt.get('packet_id') or ''}; "
+            f"plan={debt.get('plan_target_ref') or ''}; "
+            f"reason={debt.get('reason') or ''}."
+        )
+    return errors
+
+
+def _string_items(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
 
 
 def _agent_id_rows(rows: object) -> set[str]:

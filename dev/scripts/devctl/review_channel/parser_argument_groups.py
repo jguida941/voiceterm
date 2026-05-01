@@ -137,6 +137,26 @@ def build_packet_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             ),
         ),
         arg_builder(
+            "--target-role",
+            help=(
+                "Optional role discriminator for the target agent (e.g. "
+                "`coder`, `dashboard`). Per rev_pkt_2472: when an agent name "
+                "like `claude` is shared by multiple session-roles, this "
+                "narrows the packet to exactly one of them. Consumers fail "
+                "closed on mismatch when the field is set."
+            ),
+        ),
+        arg_builder(
+            "--target-session-id",
+            help=(
+                "Optional session-id discriminator for the target agent. "
+                "Per rev_pkt_2472: pins the packet to one specific Claude "
+                "Code (or other agent) session, so dashboard-claude and "
+                "coder-claude cannot both consume the same packet. "
+                "Consumers fail closed on mismatch when the field is set."
+            ),
+        ),
+        arg_builder(
             "--pipeline-generation",
             help="Runtime pipeline generation for `commit_approval` packets",
         ),
@@ -242,6 +262,20 @@ def build_query_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             type=int,
             default=20,
             help="Limit rows returned by inbox/history/watch",
+        ),
+        arg_builder(
+            "--for",
+            "--for-agent",
+            dest="for_agent",
+            help="Scope agent_sync sync-status output to one agent_id row",
+        ),
+        arg_builder(
+            "--since-event-id",
+            dest="since_event_id",
+            help=(
+                "Diff mode for sync-status: include only rows whose emission "
+                "or consumption cursor advanced past this rev_evt_NNNN id"
+            ),
         ),
         arg_builder(
             "--include-outcomes",

@@ -228,6 +228,10 @@ def run(args) -> int:
     multi_agent_sync_ok = bool(multi_agent_sync_report.get("ok", False))
     errors.extend(_gate_errors("active-plan-sync", active_plan_sync_report))
     errors.extend(_gate_errors("multi-agent-sync", multi_agent_sync_report))
+    for warning in multi_agent_sync_report.get("warnings", []):
+        warning_text = str(warning).strip()
+        if warning_text:
+            warnings.append(f"multi-agent-sync: {warning_text}")
 
     git_info = collect_git_status()
     if "error" in git_info:

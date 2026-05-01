@@ -127,6 +127,33 @@ class StartupReceiptProblemTests(unittest.TestCase):
             problems,
         )
 
+    def test_problem_list_flags_live_startup_authority_drift(self) -> None:
+        receipt = StartupReceipt(
+            checkpoint_required=False,
+            safe_to_continue_editing=True,
+            startup_authority_ok=True,
+            staged_path_count=0,
+            unstaged_path_count=0,
+        )
+
+        with TemporaryDirectory() as tmp_dir:
+            problems = startup_receipt_problems_for_intent(
+                receipt,
+                repo_root=Path(tmp_dir),
+                authority_report={
+                    "ok": False,
+                    "checkpoint_required": True,
+                    "safe_to_continue_editing": False,
+                    "checkpoint_reason": "staged_index_budget_exceeded",
+                    "staged_path_count": 5,
+                    "unstaged_path_count": 1,
+                },
+            )
+
+        self.assertTrue(
+            any("current startup-authority state" in problem for problem in problems)
+        )
+
     @patch(
         "dev.scripts.devctl.runtime.startup_receipt_freshness._quality_scope_changed_paths",
         return_value=(),

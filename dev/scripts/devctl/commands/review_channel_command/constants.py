@@ -93,6 +93,8 @@ class ReviewChannelAction(StrEnum):
     WATCH = "watch"
     INBOX = "inbox"
     OPERATOR_INBOX = "operator-inbox"
+    SYNC_STATUS = "sync-status"
+    EXPIRE_PACKETS = "expire-packets"
     ACK = "ack"
     DISMISS = "dismiss"
     APPLY = "apply"
@@ -108,6 +110,8 @@ EVENT_ACTION_SET = frozenset(
         ReviewChannelAction.WATCH,
         ReviewChannelAction.INBOX,
         ReviewChannelAction.OPERATOR_INBOX,
+        ReviewChannelAction.SYNC_STATUS,
+        ReviewChannelAction.EXPIRE_PACKETS,
         ReviewChannelAction.ACK,
         ReviewChannelAction.DISMISS,
         ReviewChannelAction.APPLY,
@@ -141,5 +145,6 @@ LIMITED_QUERY_ACTIONS = frozenset(
         ReviewChannelAction.OPERATOR_INBOX,
         ReviewChannelAction.WATCH,
         ReviewChannelAction.HISTORY,
+        ReviewChannelAction.EXPIRE_PACKETS,
     }
 )

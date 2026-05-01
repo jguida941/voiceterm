@@ -85,6 +85,38 @@ def test_packet_outcome_ledger_archives_unresolved_expired_packet() -> None:
     )
 
 
+def test_packet_outcome_ledger_prefers_explicit_expiry_over_heuristic_evidence() -> None:
+    packet = _expired_packet("rev_pkt_100")
+    packet["status"] = "expired"
+    events = [
+        {
+            "event_id": "evt_1",
+            "event_type": "packet_posted",
+            "packet_id": "rev_pkt_101",
+            "timestamp_utc": "2026-04-25T01:00:00Z",
+            "kind": "finding",
+            "summary": "Promoted rev_pkt_100 to a finding",
+            "body": "",
+        },
+        {
+            "event_id": "evt_2",
+            "event_type": "packet_expired",
+            "packet_id": "rev_pkt_100",
+            "timestamp_utc": "2026-04-25T01:30:00Z",
+        },
+    ]
+
+    ledger = build_packet_outcome_ledger(
+        packets=[packet],
+        events=events,
+        generated_at_utc="2026-04-25T02:00:00Z",
+        source="test",
+    )
+
+    assert ledger.records[0].outcome == PacketOutcome.ARCHIVED
+    assert ledger.records[0].evidence_ref == "event:evt_2"
+
+
 def test_attach_packet_outcomes_keeps_source_packets_immutable() -> None:
     packet = _expired_packet("rev_pkt_100")
     ledger = build_packet_outcome_ledger(

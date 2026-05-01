@@ -95,6 +95,7 @@ class ReviewerWakeLaunchContext:
     wake_paths: ReviewerWakePaths
     cleanup_warnings: tuple[str, ...]
     operator_interaction_mode: str
+    provider: str = "codex"
 
 
 def cleanup_codex_sessions(
@@ -122,11 +123,25 @@ def cleanup_candidate_codex_sessions(
     session_output_root: Path,
     deps: ReviewerWakeDeps,
 ) -> tuple[object, ...]:
+    return cleanup_candidate_provider_sessions(
+        session_output_root=session_output_root,
+        provider="codex",
+        deps=deps,
+    )
+
+
+def cleanup_candidate_provider_sessions(
+    *,
+    session_output_root: Path,
+    provider: str,
+    deps: ReviewerWakeDeps,
+) -> tuple[object, ...]:
+    target_provider = str(provider or "").strip().lower()
     sessions = deps.load_conductor_sessions_fn(session_output_root=session_output_root)
     return tuple(
         session
         for session in sessions
-        if getattr(session, "provider", "") == "codex"
+        if str(getattr(session, "provider", "")).strip().lower() == target_provider
         and (
             bool(getattr(session, "live", False))
             or bool(int(getattr(session, "session_pid", 0) or 0) > 0)
@@ -145,6 +160,7 @@ def launch_waiting_reviewer_conductor(
     bridge_liveness = context.report.get("bridge_liveness")
     assert isinstance(bridge_liveness, dict)
     artifact_root = _artifact_root(context.paths.get("artifact_paths"))
+    provider = str(context.provider or "codex").strip().lower() or "codex"
 
     try:
         _review_channel_text, lanes = deps.ensure_launcher_prereqs_fn(
@@ -155,14 +171,15 @@ def launch_waiting_reviewer_conductor(
             ),
         )
 
-        codex_lanes = filter_provider_lanes(lanes, provider="codex")
-        if not codex_lanes:
+        provider_lanes = filter_provider_lanes(lanes, provider=provider)
+        if not provider_lanes:
             return wake_report(
                 packet=context.packet,
                 attempted=True,
                 woke=False,
-                reason="codex_lanes_missing",
+                reason=f"{provider}_lanes_missing",
                 warnings=list(context.cleanup_warnings),
+                target_agent=_non_codex_target(provider),
             )
 
         sessions = deps.build_launch_sessions_fn(
@@ -201,9 +218,9 @@ def launch_waiting_reviewer_conductor(
                 handoff_bundle=None,
                 script_dir=as_path(context.paths.get("script_dir")),
                 session_output_root=context.wake_paths.status_dir,
-                provider_lane_map={"codex": codex_lanes},
-                requested_worker_budgets={"codex": 0},
-                providers_to_launch=("codex",),
+                provider_lane_map={provider: provider_lanes},
+                requested_worker_budgets={provider: 0},
+                providers_to_launch=(provider,),
                 interaction_mode=context.operator_interaction_mode,
                 worktree_path=context.repo_root,
             )
@@ -215,6 +232,7 @@ def launch_waiting_reviewer_conductor(
             woke=False,
             reason="launch_build_failed",
             warnings=[*context.cleanup_warnings, str(exc)],
+            target_agent=_non_codex_target(provider),
         )
 
     launch_warnings: list[str] = []
@@ -235,6 +253,7 @@ def launch_waiting_reviewer_conductor(
         woke=woke,
         reason="launched" if woke else "launch_failed",
         warnings=[*context.cleanup_warnings, *launch_warnings],
+        target_agent=_non_codex_target(provider),
     )
 
 
@@ -249,6 +268,7 @@ def wake_report(
     woke: bool,
     reason: str,
     warnings: list[str] | None = None,
+    target_agent: str = "",
 ) -> dict[str, object]:
     report = {
         "attempted": attempted,
@@ -257,6 +277,8 @@ def wake_report(
         "packet_id": str(packet.get("packet_id") or "").strip(),
         "requested_action": str(packet.get("requested_action") or "").strip(),
     }
+    if target_agent:
+        report["target_agent"] = target_agent
     if warnings:
         report["warnings"] = list(warnings)
     return report
@@ -276,6 +298,10 @@ def _artifact_root(value: object) -> Path | None:
         return None
     artifact_root = getattr(value, "artifact_root", None)
     return artifact_root if isinstance(artifact_root, Path) else None
+
+
+def _non_codex_target(provider: str) -> str:
+    return "" if provider == "codex" else provider
 
 
 def _launch_sessions_headless(

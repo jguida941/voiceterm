@@ -39,6 +39,32 @@ class MonitorCommandTests(unittest.TestCase):
         self.assertEqual(args.interval, "3m")
         self.assertEqual(args.max_follow_snapshots, 2)
 
+    def test_parser_accepts_future_agent_provider_ids(self) -> None:
+        args = cli.build_parser().parse_args(
+            [
+                "monitor",
+                "--agent",
+                "cursor",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(args.agent, "cursor")
+
+    def test_run_rejects_invalid_agent_provider_syntax(self) -> None:
+        args = cli.build_parser().parse_args(
+            [
+                "monitor",
+                "--agent",
+                "bad provider!",
+            ]
+        )
+
+        rc = monitor.run(args)
+
+        self.assertEqual(rc, 2)
+
     def test_run_writes_single_pass_json_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_path = Path(tmp_dir) / "monitor.json"

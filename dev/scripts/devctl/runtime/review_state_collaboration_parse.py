@@ -105,7 +105,13 @@ def collaboration_state_from_payload(
             delegated_work=_delegated_work_from_value(
                 collaboration.get("delegated_work")
             ),
-            topology_mode=_string(collaboration.get("topology_mode")) or "single_agent",
+            # Per Codex rev_pkt_2298/2313/2346: do NOT default topology_mode
+            # to "single_agent" — that conflates authority vocabulary with
+            # observed runtime. When the producer has not set topology_mode,
+            # default to "unknown" (fail-closed per rev_pkt_2298).
+            # CoordinationStateProjection separately derives the typed
+            # observed topology from work-board rows.
+            topology_mode=_string(collaboration.get("topology_mode")) or "unknown",
             work_ownership_mode=(
                 _string(collaboration.get("work_ownership_mode")) or "exclusive_slice"
             ),

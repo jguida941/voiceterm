@@ -131,11 +131,21 @@ def write_pipeline_payload(
     paths: PipelinePaths,
     payload: dict[str, Any],
 ) -> None:
-    """Write the pipeline JSON dict to disk, creating parent dirs."""
+    """Write the pipeline JSON dict to disk, creating parent dirs.
+
+    Per Codex rev_pkt_2424/2428: ``commit_pipeline.json`` has three
+    production writers (``projection_bundle.write_projection_bundle``,
+    ``remote_commit_pipeline_artifact.persist_remote_commit_pipeline_contract``,
+    and this one). All three must use the same atomic-replace contract
+    so concurrent readers (``check_review_surface_consistency``) never
+    observe a half-written file.
+    """
+    from ...review_channel.projection_bundle import _atomic_write_text
+
     paths.pipeline_path.parent.mkdir(parents=True, exist_ok=True)
-    paths.pipeline_path.write_text(
+    _atomic_write_text(
+        paths.pipeline_path,
         json.dumps(payload, indent=2) + "\n",
-        encoding="utf-8",
     )
 
 

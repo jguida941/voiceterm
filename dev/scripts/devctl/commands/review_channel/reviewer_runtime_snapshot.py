@@ -13,6 +13,7 @@ from ...review_channel.runtime_counts import build_runtime_counts
 from ...review_channel.status_projection_bridge_state import (
     build_typed_bridge_liveness,
 )
+from .sync_status_agent_loop import agent_loop_decisions_for_work_board
 from ...runtime.authority_snapshot import project_authority_snapshot
 from ...runtime.control_topology import derive_startup_control_truth
 from ...runtime.review_state_models import ReviewState
@@ -213,6 +214,7 @@ def attach_reviewer_runtime_snapshot(
     coordination = getattr(review_state, "coordination", None)
     if coordination is not None:
         report["coordination"] = coordination.to_dict()
+    _attach_agent_runtime_projections(report, review_state=review_state)
     observed_control_topology, implementation_permission = derive_startup_control_truth(
         review_state
     )
@@ -281,3 +283,22 @@ def attach_reviewer_runtime_snapshot(
         current_session=current_session,
         bridge_liveness=bridge_liveness,
     )
+
+
+def _attach_agent_runtime_projections(
+    report: dict[str, object],
+    *,
+    review_state: ReviewState,
+) -> None:
+    """Attach typed multi-agent runtime projections from ReviewState."""
+    if review_state.agent_sync:
+        report["agent_sync"] = dict(review_state.agent_sync)
+    if review_state.agent_work_board:
+        report["agent_work_board"] = dict(review_state.agent_work_board)
+    if review_state.coordination_state:
+        report["coordination_state"] = dict(review_state.coordination_state)
+    if review_state.agent_work_board:
+        report["agent_loop_decisions"] = agent_loop_decisions_for_work_board(
+            review_state=review_state.to_dict(),
+            work_board=review_state.agent_work_board,
+        )

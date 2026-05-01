@@ -219,6 +219,452 @@ retry:
   checks early, but the oracles remain read-only and cannot replace Python
   lifecycle authority until an explicit per-contract ownership migration lands.
 
+2026-04-29 Rust contract-compiler sharpening catalog:
+- Sharpen the Rust direction as a contract compiler, not a replacement
+  runtime. Python stays the writer/reducer/orchestrator for now, but stable
+  shared governance JSON must be accepted by the Rust oracle before it can be
+  used as guard evidence, graph-routing evidence, extraction evidence, push
+  evidence, or fanout evidence.
+- Promote `guardir_contract_oracle` from optional shadow proof to required
+  touched-surface preflight after A.5R lands. The check should run when files
+  touching action results, packet lifecycle/disposition, session posture, plan
+  rows, graph contracts, daemon/memory/config domains, contract registry, or
+  oracle code change.
+- Define contract stability as bilateral evidence, not prose: Python and Rust
+  must accept the same valid fixtures, reject the same invalid fixtures, and
+  preserve compatible round-trip JSON for the registered schema version before
+  a contract can be called stable, shared, rust_primary, or extraction-ready.
+- Make graph-oracle acceptance mandatory before any graph output is cited by
+  startup, check-router, action-request validation, or worker-packet scope
+  proof. The graph can explain/rank evidence only after the deterministic graph
+  contract passes.
+- Keep the hybrid architecture boundary explicit: Rust should first own strict
+  enum domains, JSON/TOML deserialization, graph validation, deterministic
+  hashes/fingerprints, fixture parity, and later replay validation; Python
+  keeps repo-pack glue, review-channel flow, packet application, plan writes,
+  AI prompt/report assembly, and CLI orchestration until per-contract
+  ownership migration proves otherwise.
+- Do not add PyO3, a wholesale `devctl` rewrite, Rust lifecycle writers, or
+  async Rust in this slice. JSON-over-subprocess oracles are intentionally
+  boring, portable, and auditable.
+
+2026-04-30 Rust graph-oracle ADR intake:
+- Decision: accept the Rust direction as a strict read-only GuardIR validation
+  layer, not an executor. The highest-value next move is still
+  `guardir_graph_oracle` plus a shared registry/fixture/fingerprint system
+  that proves Python-emitted graph snapshots, packet state, daemon protocol
+  JSON, plan rows, runtime reports, and config/runtime domains are
+  schema-valid, domain-closed where intended, and explicitly exempted where
+  open.
+- The existing `MP377-P0-T22AA-*` and `MP377-P0-T22AC-*` rows remain the
+  parent rows. This intake adds `MP377-P0-T22AD-A..T22AD-J` as sharper
+  ADR-level refinement rows for the top-ranked work: strict graph invariants,
+  domain manifests/proptest, graph authority-taint and health facts, bilateral
+  fixture parity/fingerprints, packet lifecycle replay, packet attestation,
+  report-contract validation, daemon/config validators, plan-row validation,
+  open-domain exemptions, and Rust tooling preflight.
+- Local path correction: the commit packet gate currently resolves at
+  `dev/scripts/devctl/runtime/commit_packet_gate.py`; the unverified
+  `dev/scripts/devctl/review_channel/commit_packet_gate.py` path is not a
+  current plan anchor.
+- Rust should reject what Python currently tolerates for resilience:
+  unknown registered-contract fields, silent list-item dropping, duplicate
+  node IDs, duplicate edge identities, dangling endpoints, count-map drift,
+  temperature bucket drift, out-of-range or non-finite temperatures, unknown
+  closed-domain graph/query/walk literals, hand-edited lifecycle state, bad
+  packet attestations, bad report counts/statuses, provider/config typos, and
+  stale or undocumented cargo-deny advisory ignores.
+- Keep the hybrid boundary explicit during all T22AD work: Python remains
+  graph builder, graph query/walk owner, check-router, packet/lifecycle/plan
+  writer, approval/apply/commit/push executor, review-channel runtime owner,
+  and agent-routing authority. Rust validates JSON over subprocess and emits
+  `ActionResult`-shaped preflight evidence only.
+
+2026-04-30 agent-sync reducer projection intake:
+- Accept the `agent_sync` direction as Plan 4.1 follow-up work, but treat the
+  transcript review as design intake, not proven repo truth. Implementation
+  must inspect the current event reducer, packet lifecycle schema, event model
+  names, packet evidence fields, review-state JSON shape, ACK/APPLY/DISMISS
+  semantics, and projection write path before adding fields.
+- `agent_sync` must be a reducer-derived projection in `review_state.json`, not
+  chat state, manually written agent status, bridge prose, or a side ledger.
+  V1 must preserve single-writer projection behavior and carry
+  `source_latest_event_id`, `projection_refresh_seq`, `projection_refresh_utc`,
+  and projection staleness metadata.
+- Per-packet sync/evidence rows are the core contract. Agent rollups may render
+  `pending_inbound_count`, `active_packet_ids`, `awaiting_from_agent`, and
+  `awaiting_packet_id`, but the reducer must also answer what happened to one
+  packet, who saw it, who acted on it, and which scoped evidence closed or left
+  it open.
+- Explicit correlation is required. New response/completion/sync events should
+  carry `responds_to_packet_id` and/or `causal_packet_ids` rather than letting
+  the reducer infer causality from whichever packet or ACK is newest.
+- ACK is lower-bound receipt evidence only. APPLY, completion packets, guard
+  attestations, check reports, or explicit sync receipts can be stronger for
+  their own scope, but V1 must not collapse unrelated evidence into one global
+  ordered cursor or treat out-of-order ACKs as "everything before this was
+  consumed."
+- Status must be derived from the actor's own events, heartbeat, activity, and
+  packet lifecycle state. `awaited_by` is a separate fact derived from partner
+  waits; one actor waiting on another does not prove that the other actor is
+  working. Every rendered sync status should include staleness seconds.
+- Operational sequencing remains strict: finish the T22Y-A review, ACK/accept
+  `rev_pkt_2236` only after targeted authority tests and focused file checks
+  are green, issue a fresh current-HEAD `stage_commit_pipeline`
+  `action_request`, and only then open the `agent_sync` implementation slice.
+
+2026-04-30 agent-sync developer command and swarm UX intake:
+- Add the developer UX as a follow-up to the reducer projection, not as a
+  second coordination protocol. The inspected code shape supports this:
+  `refresh_event_bundle()` already reduces the event log into
+  `review_state.json`, `ReviewState` has no `agent_sync` field yet,
+  `PacketLifecycleHistory` owns ACK/APPLY/DISMISS lifecycle truth, and the
+  review-channel action set does not yet expose `sync-status`. Therefore
+  `/agent-sync`, `/review-now`, `/handoff`, `/blocked`, `/negative-control`,
+  and `/swarm` should be adapters over typed reducer state and review-channel
+  packets.
+- Command flags should be composable, but every mix must normalize into typed
+  runtime roles, packet targets, guard profiles, and fanout plans. Examples
+  such as `/agent-sync --reviewer codex --conductor claude --remote`,
+  `agent-sync --reviewer codex`, and
+  `agent-sync --reviewer codex --conductor claude --architect codex
+  --research claude --dogfood` are acceptable only if the parser resolves them
+  through `CollaborationSession`, `AuthoritySnapshot`, and packet evidence
+  rather than treating role labels as authority.
+- Swarm UX belongs here too, but it must stay typed: commands such as
+  `/swarm --max-workers 4 --iterations 5 --reviewer codex --conductor claude`
+  should produce a bounded fanout plan, lane purposes, a single live-tree
+  integrator, and agent-sync-visible progress. Subagents may inspect, draft,
+  research, or run checks in parallel, while mutation stays behind an explicit
+  lease or integrator grant.
+- Development modes should be guard profiles, not raw `--skip`. A refactor or
+  fast-read profile may mark checks as not applicable by policy, defer them to
+  a typed replay target, or emit a `BypassReceipt` / waiver receipt with owner,
+  scope, affected paths, expiry, and required follow-up. Release and governed
+  push profiles remain fail-closed on blocking gates.
+- Add delta reads and workflow commands after `agent_sync` exists:
+  `sync-status --since-event-id` for wake behavior; `/handoff` for typed
+  completion packets; `/review-now` for ACK plus targeted checks plus review
+  packet; `/blocked` for explicit waits; and `/negative-control` for
+  reviewer-flagged test fixes. These commands should reduce the user's need to
+  manually infer which agent is waiting, stale, blocked, or done.
+
+2026-04-30 system-wide command/mode compiler intake:
+- Generalize the `agent_sync` UX idea across the whole governance command
+  surface. Current repo inventory supports this direction: `devctl list`
+  exposes profiles `ci`, `prepush`, `release`, `maintainer-lint`,
+  `pedantic`, `quick`, `fast`, and `ai-guard`; `devctl discover` reports 88
+  commands, 37 guards, 28 probes, 5 surfaces, and 20 bootstrap commands; and
+  `quality-policy` already resolves the guard/probe catalog and quality
+  scopes. Plan 4.1 should turn that inventory into a typed mode compiler rather
+  than adding incompatible flag dialects command-by-command.
+- Add a portable `CommandModeRequest` / `CommandRunPlan` layer that compiles
+  slash commands, CLI aliases, mobile/Operator Console actions, and MCP
+  adapters into the same typed requests: command target, actor role, provider,
+  remote posture, guard profile, probe profile, check-router bundle, packet
+  side effects, fanout plan, mutation lease requirement, and output surface.
+  The existing `discover`, `quality-policy`, `check-router`, `dashboard`,
+  `claude-loop`, `dogfood`, `startup-context`, `session-resume`,
+  `review-channel`, `probe-report`, `context-graph`, `graph-walk`, `commit`,
+  `push`, `swarm_run`, and `autonomy-swarm` surfaces should be inputs or
+  consumers of that shared plan.
+- Define a composable mode grammar once, then let commands opt into it. Roles
+  such as reviewer, conductor, integrator, architect, research, checker,
+  dogfood, remote operator, and release operator are typed modifiers, not
+  authority grants. Modes such as dev, refactor, checkpoint, review, release,
+  security, portability, dogfood, remote-control, and swarm select guard/probe
+  posture, packet requirements, and mutation rules through repo-pack policy.
+- Guard/probe behavior must be first-class. A command may request a guard
+  profile, a probe profile, a check-router lane, or a focused quality-policy
+  scope, but any skipped/deferred guard must emit typed waiver or bypass
+  evidence. Review probes stay advisory unless the selected profile promotes a
+  finding to a guard or packet acceptance requirement.
+- Keep slash commands as UX front doors. The existing standalone slash plan
+  for `/voice` remains a product/runtime lane; governance slash commands such
+  as `/agent-sync`, `/swarm`, `/handoff`, `/review-now`, `/blocked`,
+  `/dogfood`, `/guard-profile`, `/probe`, `/check`, `/commit`, `/push`, and
+  `/startup` should compile to repo-owned `devctl` calls or typed packets, and
+  must not create `.claude`, `.codex`, MCP, mobile, or dashboard-only state
+  that the reducer and typed runtime cannot see.
+
+2026-04-30 typed override receipt intake:
+- Add `OverrideReceipt` as the controlled-deviation counterpart to
+  `BypassReceipt`. Bypass receipts capture raw skipped guard execution after a
+  bypass path; override receipts capture approved deviations before or during
+  normal governance flow for active plan scope, role assignment, priority
+  route, guard profile, mutation lease, or swarm budget.
+- Overrides must be event-log visible and reducer-projected. No side ledger,
+  no chat-only override, no raw `--skip`, and no frontend-private state. Every
+  override must carry `override_id`, `override_type`, reason, scope,
+  requester, reviewer/approver, affected plan rows, packets, agents, guards,
+  paths, expiry, risk level, closure requirements, and docs-debt behavior.
+- Active overrides must render in `agent_sync`, `sync-status`, dashboard,
+  `claude-loop`, runtime agreement, and command-mode status projections.
+  Expired overrides become stale/blocking until a reviewer dismisses them or a
+  correlated completion packet closes them.
+- V1 should be packet-carried, not a separate subsystem: `/override` creates a
+  typed review-channel packet with `override_receipt`; the reducer projects
+  `active_overrides`, `expired_overrides`, and docs debt from packet rows and
+  existing packet lifecycle; completion/review packets must respond to the
+  override packet. Dedicated `override_requested` / `override_granted` /
+  `override_used` / `override_closed` event families are V2 material after the
+  packet-carried projection is proven.
+- Project the override lifecycle as `requested`, `active`, `used`, `closed`,
+  `expired`, and `rejected`. `active` means the override packet is live,
+  unexpired, undisposed, and not closed; `used` requires correlated packet or
+  action evidence; `closed` requires reviewer acceptance or satisfied docs debt;
+  `expired` is stale/blocking after expiry; `rejected` is reviewer dismissal.
+- Closure must be correlated. Completion/dismissal packets need
+  `override_id` plus `responds_to_packet_ids` / `causal_packet_ids`; a newer
+  unrelated packet must not close an override. Plan overrides create docs debt
+  before checkpoint; role overrides do not grant mutation rights unless the
+  mutation lease or integrator grant is explicit; guard overrides record the
+  deferred guard and later evidence required.
+- Add `/override plan`, `/override role`, `/override guard`,
+  `/override priority`, `/override lease`, and `/override swarm` as friendly
+  command adapters over typed packets/events. They compile through
+  `CommandModeRequest`, review-channel packets, and reducer projections rather
+  than writing independent command state.
+- Implementation should inspect and extend the existing seams before adding
+  code: `packet_contract.py` for override post fields, packet row/event models
+ for preserving override data, `review_state_models.py` for projected override
+  and docs-debt state, `event_reducer.py` for lifecycle projection,
+  review-channel command handlers for `/override` / `--action override`, and
+  `sync-status` for active/expired/closed override rendering.
+
+2026-04-30 lane barrier, session handoff, and auto-wake intake:
+- Add a typed lane barrier layer over `agent_sync` so Claude/Codex and future
+  subagents cannot advance different mental timelines. A completion packet is
+  not acceptance, and ACK is not acceptance. A lane advances only when the
+  reducer projects reviewer acceptance, blocker dismissal, a corrected
+  completion accepted by the reviewer, or a bounded `OverrideReceipt` that
+  explicitly allows next-lane work and records checkpoint reconciliation.
+- Project `agent_sync.lane_barriers` with lane id, plan/scope, current phase,
+  blocking packet id, completion packet id, reviewer, conductor, integrator,
+  `may_start_next_lane`, reason, allowed next actions, active override id,
+  and checkpoint reconciliation requirements. `sync-status` and
+  `/agent-sync --can-start-next-lane` should return the same typed answer that
+  `/swarm`, `/review-now`, dashboard, `claude-loop`, mobile, MCP, and Operator
+  Console consume.
+- Make session rollover and handoff proof first-class state. Launch, recover,
+  wake, and rollover flows must prove old session closed or was safely
+  detached, stale provider processes were cleaned up, a new session launched,
+  the prepared token/head/instruction revision match, and the handoff was
+  accepted before automation treats the plan as continuing. Cleanup receipts
+  and liveness receipts must be event-log visible and reducer-projected.
+- Add automatic review wake routing. When an implementer finishes a file,
+  scope, or lane, the system should emit a correlated completion/review packet
+  into the reviewer queue and wake the reviewer through the existing typed
+  packet-inbox/follow path when policy permits. This should be configurable:
+  users can choose immediate review, batched review, lane-end review, or manual
+  review, but the selected mode is typed command state, not chat habit.
+- Add blocker-pivot support without losing single-writer discipline. If the
+  reviewer finds a blocker while the conductor is coding, the conductor should
+  see the blocker in the shared work board, decide from typed state whether to
+  pivot, spawn a bounded non-mutating research/check lane, or request an
+  override, and keep live-tree mutation behind the active integrator lease.
+- Add an agent work-board projection rather than more private agent memory:
+  open packets, lane barriers, active blockers, current declared activity,
+  assigned roles, active files/scopes, wait reasons, wake targets, time budgets,
+  stale agents, and next allowed actions should be queryable in one reducer
+  read. Agents may publish concise working notes and decisions, but the board
+  must not depend on private chain-of-thought or chat-only summaries.
+- Keep timing and task allocation policy typed. The scheduler should use plan
+  priority, packet severity, guard risk, stale durations, lane budgets, swarm
+  budgets, mutation leases, worktree/orphan inventory, and reviewer/conductor
+  load to recommend whether to wait, wake, pivot, split a blocker lane, or
+  stop for operator approval. Heuristics are advisory until backed by contracts
+  and tests.
+- Preserve idempotency semantics while adding wake automation. Pending,
+  acknowledged, apply-pending-after-execution, and applied action requests
+  consume the semantic retry slot; dismissed, expired, and
+  action-request-execution-failed states open retry; non-packet idempotency
+  rows remain strict duplicate rejections. Finish-file pings, blocker pings,
+  handoff packets, and corrected completions must use the same lifecycle-aware
+  idempotency predicate so automation does not duplicate work or hide failures.
+
+2026-04-30 agent-mind auxiliary fallback and final-response guard intake:
+- Stop treating `agent-mind` as synchronization authority. It remains useful
+  as a backup/diagnostic read when an agent is confused, but the authoritative
+  coordination answer must come from the review-channel event log, reducer
+  projection, packet lifecycle, `agent_sync`, session posture, and typed
+  authority state.
+- Add an `AuxiliaryMindEvidence` / `mind_hints` projection that can attach
+  agent-mind observations to `agent_sync` and the agent work board with
+  provider, session id, cursor, generated time, staleness seconds, event count,
+  latest error/escalation/task-complete timestamps, confidence, and conflict
+  notes. These hints may explain likely intent or help choose the next
+  inspection, but they cannot close packets, clear awaits, advance lanes,
+  grant mutation rights, satisfy guard evidence, or override reviewer state.
+- Add a typed uncertainty path for cases where reducer state and agent-mind
+  disagree. The system should emit a `SyncUncertaintyReport` or status block
+  that says what is proven, what is only hinted by agent-mind, which evidence
+  conflicts, and which command or packet would resolve the ambiguity. The
+  safe default is wait, wake, inspect, or request an override; not assume done.
+- Add a final/progress-response preflight guard. Before an agent posts a
+  terminal "done", "ready", or progress-final answer for a governed slice, it
+  must check reducer-derived sync state and block or downgrade the response if
+  there are open inbound packets, active action requests, active lane barriers,
+  unclosed delegated work, stale awaited actors, active/expired overrides,
+  outstanding handoff/launch proof, pending bypass/guard debt, or checkpoint
+  gates. `agent-mind` can be rendered as auxiliary context in the block reason
+  but cannot make the response green.
+- Make backup behavior automatic but bounded: if `agent_sync` is missing,
+  stale, or unable to classify whether Codex/Claude/subagents are waiting,
+  the command layer may consult `agent-mind --since-cursor`, review-channel
+  history, and the packet inbox to produce a diagnostic recommendation. That
+  fallback must be labeled `auxiliary`, show its staleness, and prefer posting
+  a clarifying packet over silently moving forward.
+- Add tests that prove out-of-order ACKs and agent-mind task-complete events
+  do not close packets; final-response guard blocks on open packets and stale
+  awaited actors; ambiguous reducer/mind conflicts render uncertainty instead
+  of success; and `sync-status` can explain Codex waiting on Claude or Claude
+  waiting on Codex from reducer state alone, with mind hints as backup only.
+
+2026-04-30 dashboard/operator typed packet authoring intake:
+- Add two-way dashboard/operator communication as typed packet authoring, not
+  dashboard chat. Dashboard, Operator Console, mobile, MCP, and other thin
+  frontends should be able to create review-channel packets through the same
+  backend contract as CLI and agent writers, while review-channel remains the
+  event-log, packet lifecycle, idempotency, authority, and projection owner.
+- Do not create a dashboard messaging ledger, terminal injection path, direct
+  `review_state.json` mutation path, or direct event-log writer. The frontend
+  adapter must compile an operator action into `CommandModeRequest` /
+  `CommandRunPlan` and then call the repo-owned review-channel post/apply
+  backend or its typed in-process equivalent.
+- The first UX can be simple: an `Author Packet` action with fields for
+  `to_agent`, `kind`, `summary`, `body`, `requested_action`, `policy_hint`,
+  `responds_to_packet_id`, `causal_packet_ids`, evidence refs, target refs,
+  and output format. It should run headless (`terminal=none`) and return
+  typed `ActionResult` / command diagnostics on failure, not private UI state.
+- Every dashboard-authored reply to live work must preserve explicit
+  correlation. `responds_to_packet_id` or `causal_packet_ids` should flow into
+  the event log, packet row, lifecycle/evidence projection, `agent_sync`,
+  history, inbox, dashboard, startup/runtime agreement, and the work board so
+  a newer dashboard packet cannot hide the packet it was meant to answer.
+- Enforce caller authority and packet policy before write. Read-only observer
+  or dashboard roles may author safe finding/question/blocked/handoff packets
+  only when repo-pack policy and typed actor authority allow it; mutating
+  `action_request`, apply, guard override, lease, swarm, or checkpoint packets
+  require the same explicit authority, review, and approval semantics as CLI
+  packet writes.
+- This is the missing symmetric leg of remote control: operators can see typed
+  Codex/Claude state in dashboard surfaces and can answer by writing typed
+  packets without hopping to a terminal, while the underlying event-sourced
+  governance path remains unchanged.
+
+2026-04-30 agentic governance standards crosswalk intake:
+- Add a repo-local control crosswalk for the external agentic-governance
+  frameworks that are now relevant to MP-377: NIST AI RMF, ISO/IEC 42001,
+  FINOS AI Governance Framework v2.0, Singapore IMDA/WEF Model AI Governance
+  Framework for Agentic AI, and OWASP Top 10 for Agentic Applications. This is
+  not a certification claim; it is a practical engineering map from external
+  control objectives to repo-owned contracts, guards, packets, projections,
+  and tests.
+- Model controls as typed `AgenticGovernanceControl` / `AgenticRiskControl`
+  rows with framework id, external control/risk ref, local risk, local control
+  objective, owning MP row, implementation surface, evidence artifact,
+  enforcement status, review cadence, and known gaps. The control map should
+  live under repo-pack/project-governance authority and be readable by
+  `context-graph`, `quality-policy`, `check-router`, startup, dashboard, and
+  future audit reports.
+- Add a first-class action-space boundary catalogue. It should enumerate the
+  tools, filesystem scopes, terminal commands, git operations, network/web
+  access, dashboard/operator packet authoring, MCP/mobile actions, subagent
+  fanout, worktrees, and release/publication surfaces that agents can touch,
+  then bind each to actor identity, role, guard profile, approval checkpoint,
+  mutation lease, and telemetry requirements.
+- Add a HITL checkpoint taxonomy rather than ad hoc "ask the user" behavior.
+  Irreversible or high-impact actions such as destructive file operations,
+  repo mutation outside lease, commit, push, release, guard override, mutation
+  lease escalation, worktree fanout, dashboard-authored mutating packets, and
+  external publication must map to explicit approval packets, operator
+  decisions, or typed override receipts.
+- Add unique-agent identity and privilege traceability as a standards-aligned
+  control. Every Codex, Claude, subagent, dashboard/operator, MCP/mobile, and
+  automation-loop action should be attributable to actor id, provider, session
+  id, role, granted capabilities, worktree identity, packet id, and approval
+  ref; shared "agent" or service-account style authority is not sufficient for
+  governed mutation.
+- Add runtime monitoring and red-team probe coverage against agentic risks:
+  goal hijacking, prompt/memory poisoning, persistent agent compromise,
+  over-privileged tool use, insecure inter-agent communication, supply-chain
+  tampering, chain-of-thought leakage, rogue/stale agents, and cascading
+  multi-agent failure. Existing guard/probe, runtime agreement, `agent_sync`,
+  work-board, action-space, and packet-attestation surfaces should produce the
+  evidence, not a new monitoring silo.
+- Add a framework-interoperability evaluation row for LangGraph, AutoGen,
+  Mastra, and similar agent frameworks. The repo should not adopt them by
+  default, but their useful concepts should map to existing MP-377 contracts:
+  stateful workflow graph, human interrupt/checkpoint, multi-agent role loop,
+  sandboxed execution, tool registry, and run trace. Any future integration
+  must compile into the same command-mode, packet, guard, and projection
+  authority model.
+
+2026-04-30 DevPack session handoff intake:
+- Add a session-end development pack command for Codex/Claude/governance
+  sessions. The low-level command is
+  `python3 dev/scripts/devctl.py review-channel --action dev-pack`, with slash
+  UX `/dev-pack --senior-dev --scope current --strict` layered through the
+  command-mode compiler. The command should generate both a senior-dev-readable
+  Markdown report and a machine-readable `DevSessionPack` JSON artifact.
+- Keep the source of truth aligned with existing architecture: event log,
+  reducer bundle, packet lifecycle, `review_state`, `agent_sync`,
+  check/guard reports, override receipts, docs debt, git status/diff summary,
+  and optional auxiliary `agent-mind` evidence. Do not scrape chat as
+  authority, do not create a side ledger, and do not export private
+  chain-of-thought. If an action lacks recorded rationale, mark it as an
+  unexplained decision.
+- The pack should answer what happened, why it happened, what evidence supports
+  it, what changed, what checks ran, what is still risky, and which
+  architecture lessons should carry forward. Senior-dev mode should emphasize
+  branch/HEAD/dirty state, event range, roles, packet timeline, decisions,
+  review findings, changed files, checks, blockers, overrides, guard deferrals,
+  docs debt, reproduction commands, review questions, and next actions.
+- Add a decision graph rather than a flat transcript. The graph should connect
+  packets, findings, completion claims, blocker packets, check evidence,
+  override receipts, accepted/rejected proposals, and plan rows so reviewers
+  can see chains such as "completion claim -> reviewer blocker -> architecture
+  lesson -> new 4.1 row" without reconstructing the session by hand.
+- Add strict-mode governance gap detection. Strict mode should warn or fail on
+  completion without reviewer acceptance, lane advancement before acceptance or
+  override, missing `responds_to_packet_id` / `causal_packet_ids`, check
+  claims without command evidence, architecture decisions recorded only in
+  prose, dirty files not mapped to packets, docs drift without debt, expired
+  override receipts, and guard skips without deferred-guard evidence.
+- Support audience profiles without changing authority: `senior-dev`,
+  `maintainer`, `agent`, and `operator`. Senior-dev gets architecture deltas,
+  risk tables, code-review hotspots, and reproduction commands; agent mode gets
+  cursors, active packets, blockers, and allowed next actions; operator mode
+  gets a concise explanation of what changed, what went wrong, and what to do
+  next.
+- Optional packet posting is allowed only as a summary/evidence pointer. The
+  generated pack path can be posted back to review-channel as a typed packet
+  with `responds_to_packet_id` / `causal_packet_ids`, but the artifact itself
+  remains a read-only report over the event-backed state.
+
+2026-04-29 raw-bypass receipt catalog:
+- Bypass remains an operator escape hatch, but bypass without typed evidence is
+  not acceptable governance state. Add `BypassReceipt` as the inverse of
+  `PacketGuardAttestation`: attestation says a gate ran and proved the claim;
+  bypass receipt says a gate did not run, who authorized that skip, what would
+  have run, which commits/files are affected, and what must be revalidated.
+- Capture raw `--no-verify` commit/push deliveries through an intentional
+  wrapper path first, with passive detection/advisory follow-up where feasible.
+  The typed path should be lower friction than naked raw git so honest history
+  becomes the default.
+- Store receipts under a durable governance report path such as
+  `dev/reports/governance/bypass_receipts.jsonl`, carrying `commit_shas`,
+  `pre_bypass_head`, `post_bypass_head`, `gates_skipped`,
+  `authorization_scope`, `caller_agent`, `revalidation_targets`,
+  `expected_followup`, `expires_at_utc`, and `adjudication_status`.
+- Surface unadjudicated bypass receipts through startup/runtime agreement so
+  future sessions know which commits skipped pre-commit/pre-push validation
+  and which bundles need replay or CI adjudication.
+- Governed push, extraction, and fanout must treat unadjudicated bypass
+  receipts as blocking unless an explicit typed override or successful CI
+  adjudication moves the receipt to a terminal status.
+
 Non-loss rules:
 - Every idea becomes exactly one of: `PlanRow`, packet, finding,
   automation-debt row, typed decision, or explicit retirement.
@@ -4328,6 +4774,648 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       depends_on: `MP377-P0-T22AA-B`, `MP377-P0-T22AA-E`, `MP377-P0-T22AA-G`
       scope: Treat graph-oracle and bilateral contract-parity work as incomplete until Codex implementation evidence, Claude watcher verification, targeted graph/Rust/Python tests, parity bundle output, and review-channel packet/receipt closure are all present.
       acceptance_criteria: Valid graph snapshots and shared-contract fixtures pass both languages; invalid graph/fixture examples fail closed; Rust oracle preflight runs before graph-backed routing or extraction; Claude and Codex evidence agrees before rows are marked done.
+- [ ] `MP377-P0-T22AC-A` Treat Rust oracles as contract compilers, not alternate runtimes.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22X`, `MP377-P0-T22AA-G`, `MP377-P0-T22W`
+      scope: Encode the rule that Python remains operational authority for writers/reducers/orchestration, while stable shared governance JSON must be accepted by the read-only Rust oracle before downstream surfaces may treat it as guard, graph-routing, push, extraction, or fanout evidence.
+      acceptance_criteria: Rust oracle output is ActionResult-shaped, read-only, and cited as preflight evidence; invalid shared-contract JSON cannot be promoted into runtime agreement or graph-backed routing; no Rust oracle path writes packets, lifecycle, plan rows, graph state, commits, pushes, or repairs compatibility fields.
+- [ ] `MP377-P0-T22AC-B` Promote Rust oracle checks to touched-surface preflight evidence.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22X`, `MP377-P0-T22Z-B`, `MP377-P0-T22AA-G`
+      scope: Route `check_rust_contract_oracle.py` / contract-parity checks through check-router and governed preflight only when touched files affect shared contracts, packet lifecycle/disposition, action-result status, session posture, plan rows, graph models, daemon protocol, memory/config domains, contract registry, schema fixtures, or oracle code.
+      acceptance_criteria: Cheap slices stay cheap; contract-affecting slices fail before commit, push, extraction, fanout, or graph-backed routing when enum values drift, lifecycle events are missing, apply-pending state is replayable, contract ids/schema versions are malformed, or Python/Rust fixture parity disagrees.
+- [ ] `MP377-P0-T22AC-C` Make graph oracle mandatory before graph-backed routing.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AA-B`, `MP377-P0-T22R`, `MP377-P0-T22S`
+      scope: Require the graph oracle report before `ContextGraph` output can be cited by startup, check-router, action-request validation, remediation packets, or `WorkerPacket` / `GraphScopeProof` partitioning.
+      acceptance_criteria: Unknown node or edge kinds, dangling endpoints, size/count mismatches, confidence/temperature range violations, missing authority-role metadata after T22R lands, stale freshness refs, and graph-only enforcement claims all fail closed before the graph can influence routing.
+- [ ] `MP377-P0-T22AC-D` Define shared-contract stability and migration evidence.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AA-C`, `MP377-P0-T22AA-D`, `MP377-P0-T22AA-E`, `MP377-P0-T22AA-F`
+      scope: Add the contract-stability rule to the registry: a contract is not stable/shared/rust_primary until both languages accept the same valid fixtures, reject the same invalid fixtures, preserve compatible round-trip JSON for the registered schema version, and record migration state plus unsupported draft fields explicitly.
+      acceptance_criteria: Field additions, renames, removals, missing-vs-null semantics, `Option<T>` / `T | None` behavior, and proposed-but-not-active fields have fixture coverage or an explicit draft/retirement record; unilateral schema-version bumps fail closed.
+- [ ] `MP377-P0-T22AC-E` Preserve the hybrid Rust/Python authority boundary during migration.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AC-A`, `MP377-P0-T22AC-D`
+      scope: Record the migration order and non-goals: Rust first owns strict deserialization, closed-domain enums, graph validation, deterministic hashes/fingerprints, fixture parity, and later replay validation; Python keeps repo-pack policy glue, review-channel flow, packet application, plan writes, AI prompt/report assembly, and CLI orchestration until per-contract evidence says otherwise.
+      acceptance_criteria: No PyO3, no wholesale `devctl` rewrite, no Rust lifecycle writer, no graph-authorized mutation, and no async Rust lane land in this slice without a new typed decision; every ownership move is per-contract and backed by registry, fixture, parity, runtime-agreement, and beta-proof evidence.
+- [ ] `MP377-P0-T22AD-A` Freeze strict graph snapshot oracle invariants and error classes.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AA-A`, `MP377-P0-T22AA-B`
+      scope: Make `guardir_graph_oracle` validate `ContextGraphSnapshot` with `serde(deny_unknown_fields)`, unique node ids, unique `(source_id,target_id,edge_kind)` identities, same-snapshot endpoint resolution, exact `node_count` / `edge_count` / kind-count reconciliation, exact temperature-distribution reconciliation, finite temperatures in `[0.0, 1.0]`, and normalized error classes.
+      acceptance_criteria: Valid Python-emitted snapshots pass; fixtures with one dangling edge, duplicate node id, duplicate edge identity, count mismatch, bad bucket total, unknown closed-domain literal, or out-of-range/non-finite temperature fail with stable classes such as `dangling_edge`, `duplicate_id`, `count_mismatch`, `invalid_enum`, or `out_of_range`.
+- [ ] `MP377-P0-T22AD-B` Add graph domain manifests and proptest invariant fuzzing.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AA-A`, `MP377-P0-T22AA-H`
+      scope: Generate a Rust-emitted graph domain manifest for `NodeKind`, `EdgeKind`, confidence, graph-walk strategy/direction, temperature direction, and bounded numeric newtypes; compare it with Python constants, then use `proptest` to generate small valid snapshots and inject one invariant violation at a time.
+      acceptance_criteria: Python and Rust graph domain manifests match exactly; every generated valid snapshot passes; injected count, endpoint, duplicate, bucket, enum, and temperature violations shrink to clear minimal failures in normal Rust tests.
+- [ ] `MP377-P0-T22AD-C` Add graph authority-taint and graph-health fact oracles.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22R`, `MP377-P0-T22S`, `MP377-P0-T22AA-B`
+      scope: Validate graph reasoning traces as evidence-only envelopes and derive read-only graph-health facts for stuck packets, stale findings, plan/packet contradictions, dead-end states, temperature regressions, and graph-only enforcement attempts.
+      acceptance_criteria: Graph traces may cite canonical refs and derived facts, but fixtures claiming `skip_check`, mutation, routing authority, packet/plan authority, or `authorized_by=context_graph` fail as `authority_leak`; each health predicate has positive, negative, and invalid-input fixtures and never mutates snapshot JSON.
+- [ ] `MP377-P0-T22AD-D` Add schema fingerprints and bilateral fixture parity policy.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AA-C`, `MP377-P0-T22AA-D`, `MP377-P0-T22AA-E`, `MP377-P0-T22AA-F`
+      scope: Extend the shared registry with schema fingerprints, fixture manifest checksums, ownership/migration state, draft-field metadata, normalized error classes, and invalid fixture layout `invalid/<error_class>/<case>.json`.
+      acceptance_criteria: A registry row without valid and invalid fixtures fails; one-sided Rust/Python accept or reject fails; field rename/delete/required-addition or enum change without schema-version/fingerprint/fixture updates fails; exact diagnostic prose may differ, but normalized error class and JSON-pointer class must agree.
+- [ ] `MP377-P0-T22AD-E` Add event-derived packet lifecycle replay oracle.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22X`, `MP377-P0-T22J`
+      scope: Add a Rust read-only replay validator for `PacketLifecycleHistory`, event kinds, actions, current state, terminal disposition, and action-request lifecycle fields.
+      acceptance_criteria: `current_state`, terminal disposition, and apply-pending fields must derive exactly from acknowledged and acted-on events; hand-edited inconsistent state, duplicate terminal disposition, missing required guard attestation on applied events, or replayable apply-pending state fails before packet apply, commit, push, extraction, or fanout.
+- [ ] `MP377-P0-T22AD-F` Add PacketGuardAttestation Rust validator.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22Z-B`, `MP377-P0-T22AA-C`
+      scope: Model packet kind/action/mutation domains that are closed today, keep evidence paths and actor identity fields open only by registry exemption, and validate guarded packet apply/commit/push/stage-commit evidence before irreversible operations.
+      acceptance_criteria: Missing guard attestation for guarded apply actions, unsupported packet kind/action, bad mutation operation, missing staged hash, missing pipeline evidence, or missing required evidence paths fails with normalized errors while explicitly exempted open fields remain accepted.
+- [ ] `MP377-P0-T22AD-G` Add ActionResult and CheckResult report-contract validators.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22X`, `MP377-P0-T22Z-B`
+      scope: Add strict Rust validators for `ActionResult`, `ActionOutcome`, `CheckResult`, `ViolationRecord`, report statuses/severities, top-level contract/schema ids, and count reconciliation between check steps and declared totals.
+      acceptance_criteria: Rust or Python report JSON with `status=passed`, unknown top-level fields, invalid severity without exemption, or mismatched total/passed/failed/skipped counts fails; every Rust oracle self-validates its `ActionResult` before printing.
+- [ ] `MP377-P0-T22AD-H` Add daemon protocol and config contract validators.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22Z-C`, `MP377-P0-T22Z-E`, `MP377-P0-T22Z-F`
+      scope: Validate daemon command/event JSONL and Rust app config through closed built-in provider/mode/status domains, bounded numeric parsers, and an explicit `CustomProvider` / custom-backend exemption path for intentionally open commands.
+      acceptance_criteria: Built-in provider/config typos such as `claud` fail; valid built-ins round-trip compatibly; unknown daemon commands remain runtime-forward-compatible but fail governance preflight unless a registry experimental flag exists; custom backend/provider cases pass only through explicit open-domain fixture and exemption records.
+- [ ] `MP377-P0-T22AD-I` Add PlanRow and plan-index JSONL oracle.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22Z-B`, `MP377-P0-T22Y-I`
+      scope: Add a Rust read-only validator for typed `PlanRow` and `dev/state/plan_index.jsonl` rows before graph extraction, startup work-intake, or agent task selection consumes them.
+      acceptance_criteria: Duplicate row ids, unknown status/domain fields, incoherent dependencies, bad source path/line references, duplicate aliases, malformed schema version, or active rows with supersession data fail; narrative fields stay open and exempted.
+- [ ] `MP377-P0-T22AD-J` Add open-domain exemption ledger and Rust tooling preflight.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22Z-H`, `MP377-P0-T22Z-I`, `MP377-P0-T22AA-C`
+      scope: Require registered exemptions for every intentional `dict[str, Any]`, `dict[str, object]`, `serde_json::Value`, raw protocol payload, graph metadata map, action parameter/error map, check-step map, custom backend command, or other open-domain field; include Rust tooling health in contract parity.
+      acceptance_criteria: New open fields in registered contracts fail without owner/reason/path/scope and optional expiry; cargo test, oracle fixture tests, cargo-deny policy, and advisory-ignore metadata with owner/reason/review date are required before Rust oracle evidence can be trusted by `bundle.contract_parity`.
+- [ ] `MP377-P0-T22AE-A` Inspect reducer and packet schemas before implementing `agent_sync`.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22Y-A`, `MP377-P0-T22J`, `MP377-P0-T22W`
+      scope: Treat the transcript guidance as design intake until implementation inspects `event_reducer`, event models, packet lifecycle rows, review-state projection shape, packet evidence/correlation fields, ACK/APPLY/DISMISS semantics, and projection write/refresh behavior.
+      acceptance_criteria: The implementation kickoff records the actual current reducer/schema seams and rejects any V1 field whose writer, reducer source, or lifecycle meaning is inferred only from chat prose.
+- [ ] `MP377-P0-T22AE-B` Add reducer-owned `AgentSyncProjection` metadata and agent rollups.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-A`, `MP377-P0-T22W`
+      scope: Add an `agent_sync` projection under reducer-owned review state with `source_latest_event_id`, `projection_refresh_seq`, `projection_refresh_utc`, projection staleness, and per-agent rollups for last emitted/ack/apply/dismiss packet, pending inbound count, active packet ids, awaited agent/packet, and derived status.
+      acceptance_criteria: No agent writes its own status; no bridge/chat/manual side ledger is authoritative; every rendered agent rollup cites reducer source event ids and staleness seconds.
+- [ ] `MP377-P0-T22AE-C` Add per-packet sync evidence rows with explicit correlation.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-B`, `MP377-P0-T22N`, `MP377-P0-T22AD-E`
+      scope: Model packet sync/evidence rows with `packet_id`, actor, evidence kind, scope, proves list, source event id, `responds_to_packet_id` and/or `causal_packet_ids`, and terminal/open state derived from lifecycle events.
+      acceptance_criteria: A query for one packet can show who observed it, who acted on it, which response/completion/check evidence is correlated, and why it remains pending or closed without reading agent chat.
+- [ ] `MP377-P0-T22AE-D` Keep ACK as lower-bound receipt evidence, not a consumed cursor.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-C`, `MP377-P0-T22J`
+      scope: Define ACK, APPLY, Dismiss, completion, guard attestation, check result, and explicit sync receipt semantics by scope instead of one global evidence enum; prevent out-of-order ACKs from proving all older packets were consumed.
+      acceptance_criteria: Tests cover out-of-order ACKs, ACK-without-work, unrelated check-pass evidence, scoped sync receipts, and lifecycle terminal rows; no global high-watermark marks packets consumed without per-packet evidence.
+- [ ] `MP377-P0-T22AE-E` Derive honest sync status and expose `sync-status`.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-B`, `MP377-P0-T22AE-D`
+      scope: Add a CLI/status surface that renders each agent's reducer-derived status, staleness seconds, awaited-by facts, awaiting packet ids, pending delta, active packet ids, and latest event seen; integrate the same facts into dashboard and `claude-loop` without recomputing from bridge prose.
+      acceptance_criteria: The surface can report cases such as "codex reviewing rev_pkt_2236" and "claude awaiting codex response" from reducer projection evidence; stale actors render as stale/awaited, not working solely because another actor is waiting on them.
+- [ ] `MP377-P0-T22AE-F` Encode fallback-proof and sync-projection tests.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22Y-A`, `MP377-P0-T22AE-D`
+      scope: Permanently test the T22Y-A fallback proof with a positive case where tier 1 is authority-empty, tier 2 returns `None`, and tier 3 supplies valid grants, plus a negative case where the tier-3 grants are invalid; add sync projection tests for correlation, staleness, active packets, awaiting relationships, and scoped evidence.
+      acceptance_criteria: The fallback test fails when tier 3 is not the only satisfying authority source; sync tests fail when ACK alone closes work, unrelated checks satisfy packet evidence, or partner wait state is rendered as actor activity.
+- [ ] `MP377-P0-T22AE-G` Gate swarm and Rust-oracle use on stable `agent_sync` projection evidence.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-E`, `MP377-P0-T22AA-C`, `MP377-P0-T22K`
+      scope: Treat `agent_sync` as the future coordination layer for bounded swarm lanes, multi-agent fanout, reviewer/implementer separation, Rust oracle/contract runners, dashboard rendering, `claude-loop`, wake-on-partner-move behavior, and blocked-vs-waiting decisions.
+      acceptance_criteria: Fanout or Rust-oracle routing may cite `agent_sync` only after the projection is registry-backed, fixture-tested, queryable in O(1), visible in runtime agreement/dashboard surfaces, and proven by a Claude/Codex beta run.
+- [ ] `MP377-P0-T22AF-A` Add repo-owned `agent-sync` command and slash-command adapters.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-E`, `MP377-P0-T22W`
+      scope: Add user-friendly `/agent-sync` and `devctl agent-sync` style adapters over `review-channel --action sync-status`, including JSON/markdown output and aliases for reviewer/conductor pairs, without adding side state or a parallel chat protocol.
+      acceptance_criteria: Examples such as `/agent-sync --reviewer codex --conductor claude --remote`, `agent-sync --reviewer codex`, and `agent-sync --reviewer codex --conductor claude` resolve to the same reducer-derived `AgentSyncProjection` query plan and fail closed when typed runtime evidence is stale or missing.
+- [ ] `MP377-P0-T22AF-B` Add composable role grammar for reviewer, conductor, architect, research, dogfood, and remote modes.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AF-A`, `MP377-P0-T22W`
+      scope: Define a typed parser for mixable role flags such as `--reviewer codex`, `--conductor claude`, `--architect codex`, `--research claude`, `--dogfood`, and `--remote`, then bind those roles to `CollaborationSession`, `AuthoritySnapshot`, packet targets, and repo-pack policy.
+      acceptance_criteria: Role labels never grant authority by themselves; invalid or conflicting mixes produce a clear typed error; accepted mixes render the resolved actor, provider, lane, authority grants, packet target, and remote-control posture.
+- [ ] `MP377-P0-T22AF-C` Add `sync-status --since-event-id` delta reads for wake behavior.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-E`
+      scope: Extend the sync-status surface with `--since-event-id` so agents and developer commands can ask for compact deltas such as new packets for an actor, partner acted-on packets, awaits cleared, stale actors, and the latest reducer event without rescanning inbox prose.
+      acceptance_criteria: A stale or unchanged projection reports `changed=false` with freshness metadata; a changed projection returns bounded delta arrays and `source_latest_event_id`; callers do not need to combine inbox, agent-mind, and claude-loop reads to decide whether to wake or wait.
+- [ ] `MP377-P0-T22AF-D` Add typed swarm command planning over `agent_sync`.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-G`, `MP377-P0-T22K`, `MP377-P0-T22V`
+      scope: Add `/swarm` / `devctl swarm` command grammar for bounded development fanout, including `--max-workers`, `--iterations`, reviewer/conductor/architect/research roles, lane purposes, expected outputs, and integration with existing `CoordinationSnapshot.safe_to_fanout`.
+      acceptance_criteria: A command such as `/swarm --max-workers 4 --iterations 5 --reviewer codex --conductor claude --research claude` produces typed fanout-plan evidence, caps work to the requested budget, exposes progress through `agent_sync`, and defaults delegated lanes to non-mutating unless an explicit integrator grant exists.
+- [ ] `MP377-P0-T22AF-E` Add mutation lease and typed fanout-plan contracts for one live-tree integrator.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AF-D`, `MP377-P0-T22W`
+      scope: Model a reducer/projected mutation lease with holder agent, lease id, scope, path set, granting packet, expiry, and status, plus a fanout plan with budget, owner, integrator, lane ids, lane purposes, mutation allowance, and expected outputs.
+      acceptance_criteria: Codex can review without a mutation lease; Claude or a promoted integrator may mutate only inside an active lease; overlapping path scopes warn or fail closed; subagents can inspect, draft, research, or test in parallel while only the lease holder writes the live tree.
+- [ ] `MP377-P0-T22AF-F` Add typed guard profiles and waiver receipts for development modes.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AB-A`, `MP377-P0-T22AF-A`, `MP377-P0-T22W`
+      scope: Replace raw `--skip` UX with named guard profiles such as `fast-read`, `refactor`, `full-review`, and `release`; every skipped or deferred guard must be marked not-applicable by typed policy or backed by a `BypassReceipt` / waiver receipt carrying reason, affected paths, expiry, and replay target.
+      acceptance_criteria: Development commands can request lighter profiles without hiding risk; release and governed-push profiles fail closed on blocking gates; startup, runtime agreement, dashboard, and sync-status surfaces show outstanding waivers until replayed, adjudicated, or expired.
+- [ ] `MP377-P0-T22AF-G` Add workflow slash commands for handoff, review-now, blocked, and negative-control evidence.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AF-A`, `MP377-P0-T22AE-C`, `MP377-P0-T22AE-F`
+      scope: Add developer-facing workflow commands that emit typed packets: `/handoff` for completion packets with files/checks/risks and `responds_to` links, `/review-now` for ACK plus targeted checks plus review packet, `/blocked` for explicit wait reasons, and `/negative-control` for reviewer-flagged test-proof fixes.
+      acceptance_criteria: Each command writes or requests the same review-channel packet contracts a manual agent would use; no command clears an await without explicit packet correlation; negative-control evidence becomes queryable per packet rather than remaining a chat ritual.
+- [ ] `MP377-P0-T22AF-H` Add correlation-aware work-router suppression and packet contract templates.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-C`, `MP377-P0-T22AE-D`, `MP377-P0-T22AF-G`
+      scope: Teach work routing to suppress stale completed or superseded control packets only when correlated satisfaction evidence exists, and add packet templates for implementation requests, reviewer findings, sync receipts, guard evidence, completion packets, research consolidation, and negative-control evidence.
+      acceptance_criteria: A stale in-progress action request cannot hide a newer explicit route after correlated response/apply/dismiss evidence satisfies it; recurring workflows validate required fields instead of relying on prose; templates remain registry-backed and portable across repos.
+- [ ] `MP377-P0-T22AG-A` Add system-wide `CommandModeRequest` and `CommandRunPlan` contracts.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AF-B`, `MP377-P0-T22W`
+      scope: Define portable contracts that normalize slash commands, CLI aliases, mobile/Operator Console actions, and MCP adapters into typed command target, actor role, provider, remote posture, guard profile, probe profile, check-router bundle, packet side effects, fanout plan, mutation lease requirement, and output surface.
+      acceptance_criteria: The contract can represent `agent-sync`, `swarm`, `dogfood`, `startup-context`, `review-channel`, `probe-report`, `check-router`, `commit`, and `push` requests without command-specific hidden fields; invalid mixes fail before execution with typed diagnostics.
+- [ ] `MP377-P0-T22AG-B` Make `discover`, `quality-policy`, and `check-router` feed the command-mode compiler.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AG-A`, `MP377-P0-T22AD-I`
+      scope: Use the existing command inventory, guard/probe catalog, quality scopes, check profiles, bundle routing, risk add-ons, bootstrap command registry, and surface catalog as the authoritative option set for command-mode resolution.
+      acceptance_criteria: The compiler rejects unknown commands, roles, profiles, guards, probes, surfaces, and bundles; `devctl discover` and `devctl quality-policy` can explain why a mode selected a given guard/probe/check-router plan; no command carries a divergent private list of roles or profiles.
+- [ ] `MP377-P0-T22AG-C` Add command grammar and flag parity checks for composable modes.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AG-A`, `MP377-P0-T22AF-B`
+      scope: Register a shared grammar for roles, providers, remote posture, dogfood mode, swarm limits, guard profiles, probe profiles, output formats, `--since-event`, and defer/waiver flags, then extend CLI/slash documentation and parity checks so frontends stay aligned.
+      acceptance_criteria: `check_cli_flags_parity.py` or a successor fails when `/agent-sync`, `/swarm`, devctl CLI, MCP/mobile adapters, and docs expose incompatible spelling or semantics for the same typed option; duplicated ad hoc parser choices are rejected.
+- [ ] `MP377-P0-T22AG-D` Add guard/probe profile resolver with typed defer and waiver evidence.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AF-F`, `MP377-P0-T22AG-B`
+      scope: Resolve modes such as `dev`, `refactor`, `checkpoint`, `review`, `release`, `security`, `portability`, `dogfood`, `remote-control`, and `swarm` into guard bundles, probe bundles, check-router lanes, promoted probe requirements, and typed defer/waiver receipts.
+      acceptance_criteria: Raw `--skip` remains unavailable as authority; deferred guards include reason, scope, affected paths, expiry, replay target, and owner; release/governed-push profiles fail closed on outstanding waivers; advisory probes can become packet acceptance requirements only through typed policy.
+- [ ] `MP377-P0-T22AG-E` Add unified command status projection for dashboard, claude-loop, mobile, MCP, and Operator Console.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-E`, `MP377-P0-T22AG-A`
+      scope: Project active command runs, selected modes, outstanding packets, guard/probe requirements, stale waits, waivers, fanout lanes, and mutation leases into one typed read model consumed by dashboard, `claude-loop`, mobile status, monitor, MCP, and future Operator Console surfaces.
+      acceptance_criteria: Thin clients render the same status from the shared projection and do not reload bridge prose, chat memory, or private command state; a stale, blocked, waiting, or guard-deferred command shows the same reason across all surfaces.
+- [ ] `MP377-P0-T22AG-F` Integrate dogfood coverage with command modes, roles, guards, probes, and packets.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AG-A`, `MP377-P0-T22AF-G`
+      scope: Extend dogfood recording so command-mode runs can automatically attach target command, role mix, provider mix, guard/probe profile, packet ids, check evidence, governance findings, and live run refs.
+      acceptance_criteria: A `/dogfood --scope agent-sync --swarm ...` run records coverage over commands, guards, probes, roles, packet outcomes, and waiver usage; failed dogfood rows can promote governance findings or guard-promotion candidates without manual transcription.
+- [ ] `MP377-P0-T22AG-G` Add mode-aware context-graph and graph-walk explanations.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AG-B`, `MP377-P0-T22AD-A`
+      scope: Teach context-graph and graph-walk to explain how a command mode connects commands, contracts, plan rows, guard/probe ids, packet ids, surfaces, and files, so agents can inspect why one mixed command is valid before running it.
+      acceptance_criteria: A graph walk from a slash command or `CommandRunPlan` reaches its backing `devctl` command, contract ids, guards/probes, plan rows, and output surfaces; missing edges become review-probe findings or contract-connectivity failures.
+- [ ] `MP377-P0-T22AG-H` Add portable frontend adapter rules for slash, CLI, MCP, mobile, dashboard, and Operator Console.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AG-C`, `MP377-P0-T22AG-E`
+      scope: Specify how each frontend compiles user-friendly commands into `CommandModeRequest` without becoming authority: CLI remains canonical execution surface, slash templates are ergonomic launchers, MCP stays adapter-bound, mobile/Operator Console/dashboard are thin typed clients, and VoiceTerm `/voice` remains in its product/runtime slash lane.
+      acceptance_criteria: No frontend writes private orchestration state; command invocation from any frontend yields the same `CommandRunPlan` for equivalent flags; portable repo-pack policy controls which commands and modes are available in a given repo.
+- [ ] `MP377-P0-T22AH-A` Add typed `OverrideReceipt` contract and event lifecycle.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AB-A`, `MP377-P0-T22AG-A`, `MP377-P0-T22W`
+      scope: Define an event-log-visible `OverrideReceipt` for controlled deviations from active plan scope, role assignment, priority route, guard profile, mutation lease, swarm budget, or docs timing, carrying `override_id`, `override_type`, reason, scope, requester, approver, affected plan/packet/agent/guard/path refs, expiry, risk level, closure requirements, and docs-debt behavior.
+      acceptance_criteria: Override creation fails without reason, expiry, requester, approver/reviewer route, scope, affected refs, and closure requirements; no override is authoritative from chat, bridge prose, command-local JSON, or a side ledger; V1 records overrides as review-channel packet-carried receipts before any dedicated override event family is added.
+- [ ] `MP377-P0-T22AH-B` Add `/override` command adapters over typed packets and command modes.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AH-A`, `MP377-P0-T22AG-C`, `MP377-P0-T22AF-A`
+      scope: Add friendly `/override plan`, `/override role`, `/override guard`, `/override priority`, `/override lease`, and `/override swarm` adapters that compile into `CommandModeRequest`, review-channel packets, and override events.
+      acceptance_criteria: Each override command renders the typed request before write, rejects raw `--skip` without reason/expiry, and emits the same event/packet shape whether invoked from slash, devctl CLI, MCP/mobile adapter, or dashboard action.
+- [ ] `MP377-P0-T22AH-C` Project active and expired overrides into `agent_sync` and status surfaces.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-E`, `MP377-P0-T22AG-E`, `MP377-P0-T22AH-A`
+      scope: Extend reducer projection so requested, active, used, closed, rejected, and expired overrides appear in `ReviewState.agent_sync`, `sync-status`, dashboard, `claude-loop`, runtime agreement, command-mode status, and startup context.
+      acceptance_criteria: Active overrides show requester, approver, scope, risk, expiry, affected refs, and closure requirements; expired overrides render as stale/blocking until dismissed or closed by reviewer evidence; used overrides require correlated packet/action evidence; no surface recomputes override state from prose.
+- [ ] `MP377-P0-T22AH-D` Add correlated override closure and dismissal semantics.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-C`, `MP377-P0-T22AH-A`
+      scope: Require override completion/dismissal packets to carry `override_id` plus `responds_to_packet_ids` and/or `causal_packet_ids`, then reduce lifecycle state from correlated evidence only.
+      acceptance_criteria: A completion packet correlated to the override closes it; an uncorrelated newer packet does not; reviewer dismissal records reason and terminal status; out-of-order ACK or unrelated check evidence cannot close an override.
+- [ ] `MP377-P0-T22AH-E` Enforce guard override and deferred-guard evidence semantics.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AG-D`, `MP377-P0-T22AH-A`
+      scope: Model guard overrides as typed deferrals with guard id, selected guard profile, reason, affected paths, replay target, later evidence requirement, expiry, and risk level, integrated with `BypassReceipt` only when execution was actually skipped.
+      acceptance_criteria: Raw guard skip without reason fails; guard override records the deferred guard and required later evidence; release/governed-push profiles fail closed on outstanding blocking guard overrides; successful replay or matching CI evidence closes the override by id.
+- [ ] `MP377-P0-T22AH-F` Enforce plan, role, priority, lease, and swarm override boundaries.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AF-E`, `MP377-P0-T22AF-H`, `MP377-P0-T22AH-A`
+      scope: Define override rules for plan deviations, role swaps, priority reroutes, mutation lease changes, and swarm budget changes without conflating role labels with mutation authority.
+      acceptance_criteria: Plan override creates docs debt before checkpoint; docs override records temporary docs lag and required surfaces; role override does not grant mutation rights unless an explicit mutation lease/integrator grant exists; priority override cannot hide newer routed work without correlated satisfaction evidence; lease and swarm overrides preserve single-writer and bounded-fanout constraints.
+- [ ] `MP377-P0-T22AH-G` Add override receipt tests across creation, projection, expiry, and closure.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AH-B`, `MP377-P0-T22AH-C`, `MP377-P0-T22AH-D`, `MP377-P0-T22AH-E`, `MP377-P0-T22AH-F`
+      scope: Add fixture and reducer tests for required fields, guard-skip rejection, projection surfacing, expiry, correlation, docs debt, role authority boundaries, and deferred guard evidence.
+      acceptance_criteria: Tests prove override requires reason and expiry; raw guard skip without reason fails; active override appears in `sync-status`; expired override appears stale/blocking; correlated completion closes it; uncorrelated newer packet does not; plan override creates docs debt; role override does not grant mutation rights; guard override records deferred guard and later evidence requirements.
+- [ ] `MP377-P0-T22AI-A` Add reducer-projected lane barriers and next-lane gates.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-E`, `MP377-P0-T22AH-C`, `MP377-P0-T22Y-B`
+      scope: Add `agent_sync.lane_barriers` / `NextLaneGate` state derived from packet lifecycle, `CollaborationSession`, `SessionPosture`, and override projection, carrying lane id, plan scope, current phase, blocking packet id, completion packet id, reviewer, conductor, integrator, `may_start_next_lane`, reason, allowed next actions, and checkpoint reconciliation requirements.
+      acceptance_criteria: Completion packets and ACKs do not advance a lane by themselves; a reviewer blocker supersedes claimed completion until accepted, dismissed, fixed and accepted, or explicitly overridden; capability grants do not imply occupied lane or next-lane authority.
+- [ ] `MP377-P0-T22AI-B` Add lane barrier surfaces to `sync-status`, `/agent-sync`, and swarm gating.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AI-A`, `MP377-P0-T22AF-A`, `MP377-P0-T22AF-C`, `MP377-P0-T22AF-D`
+      scope: Expose `may_start_next_lane`, active blocker packet ids, completion packets awaiting review, valid override ids, and allowed next actions through `review-channel --action sync-status`, `/agent-sync --can-start-next-lane`, dashboard, `claude-loop`, mobile, MCP, and Operator Console status.
+      acceptance_criteria: `/swarm` and next-lane command modes fail closed when an unresolved reviewer blocker exists and no valid override is projected; equivalent frontend commands render the same gate result from reducer state without inbox/prose scanning.
+- [ ] `MP377-P0-T22AI-C` Add session rollover, launch proof, and old-session cleanup receipts.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T20`, `MP377-P0-T22AG-E`, `MP377-P0-T22AI-A`
+      scope: Extend session lifecycle evidence so launch/recover/wake/rollover automation proves old session closed or safely detached, stale provider processes were cleaned up, a new session launched, the prepared session token/head/instruction revision match, and handoff was accepted before plan automation continues.
+      acceptance_criteria: Startup, dashboard, and `sync-status` show linked old-session-closed, cleanup, new-session-launched, and handoff-accepted receipts; automation fails closed on missing or contradictory rollover proof; stale local process hints cannot override fresh typed session evidence.
+- [ ] `MP377-P0-T22AI-D` Add automatic reviewer wake and finish-scope ping routing.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AF-C`, `MP377-P0-T22AF-G`, `MP377-P0-T22AI-A`
+      scope: Add provider-agnostic finish-file, finish-scope, and finish-lane packet emission that targets the configured reviewer through typed packet inbox/follow wake paths, with modes for immediate review, batched review, lane-end review, and manual review.
+      acceptance_criteria: When Claude or another implementer finishes a configured file/scope, Codex or the configured reviewer receives a correlated review packet and wake target without a side watcher; duplicate pings are suppressed by lifecycle-aware idempotency; user-selected manual or batched modes prevent unwanted instant wakes.
+- [ ] `MP377-P0-T22AI-E` Add blocker-pivot and adaptive task allocation policy.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AF-D`, `MP377-P0-T22AF-E`, `MP377-P0-T22AI-A`, `MP377-P0-T22AI-D`
+      scope: Let the conductor read typed blockers, plan priority, packet severity, stale duration, guard risk, lane budget, swarm budget, mutation lease, reviewer/conductor load, and worktree/orphan inventory to decide whether to wait, pivot, split a bounded non-mutating blocker lane, request override, or stop for operator approval.
+      acceptance_criteria: A reviewer finding during implementation can trigger a typed blocker lane or pivot recommendation without granting mutation authority to subagents; the live-tree integrator remains single-writer; recommendations are visible in `agent_sync` and never silently bypass lane barriers or guard profiles.
+- [ ] `MP377-P0-T22AI-F` Add agent work-board projection over packets, roles, waits, and activity.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-C`, `MP377-P0-T22AG-E`, `MP377-P0-T22AI-A`
+      scope: Project a Jira-like work board from reducer state with open packets, lane barriers, active blockers, declared current activity, roles, active files/scopes, wait reasons, wake targets, stale agents, time budgets, next allowed actions, and concise public working notes.
+      acceptance_criteria: Codex, Claude, subagents, dashboard, and Operator Console can query the same board by agent id, packet id, lane id, file/scope, or plan row; the board does not depend on private chain-of-thought, agent-local memory, bridge prose, or chat-only summaries.
+- [ ] `MP377-P0-T22AI-G` Lock lifecycle-aware idempotency into wake, handoff, blocker, and retry automation.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AD-E`, `MP377-P0-T22Y-B`, `MP377-P0-T22AI-D`
+      scope: Ensure finish-scope pings, blocker pings, handoff packets, corrected completions, and action-request retries use the packet lifecycle predicate: pending, acknowledged, apply-pending-after-execution, and applied consume the semantic retry slot; dismissed, expired, and action-request-execution-failed open retry; non-packet rows stay strict duplicates.
+      acceptance_criteria: Tests append real lifecycle events and prove `action_request_execution_failed` permits same-semantic retry, `action_request_apply_pending_after_execution` rejects blind retry, unrelated newer packets do not clear blockers, and duplicate reviewer pings are not emitted while an equivalent packet is pending/acked/applied.
+- [ ] `MP377-P0-T22AI-H` Add optional worktree-backed lanes behind typed leases and orphan inventory.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AF-E`, `MP377-P0-T22AI-E`
+      scope: Allow advanced swarm/blocker lanes to request separate worktrees only through typed mutation leases, `OrphanSnapshot` / `CheckoutInventory` evidence, path scopes, publication ledgers, and reconciliation decisions, keeping worktree fanout optional rather than required for normal review pings.
+      acceptance_criteria: Worktree-backed lanes cannot start when orphan inventory is stale, publication ownership is ambiguous, or path scopes overlap without an override; created lanes appear in `agent_sync`, the work board, and cleanup receipts; abandoned worktrees become blocking reconciliation debt before checkpoint.
+- [ ] `MP377-P0-T22AI-I` Add integration tests for lane barriers, session rollover, wake routing, and work-board state.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AI-A`, `MP377-P0-T22AI-B`, `MP377-P0-T22AI-C`, `MP377-P0-T22AI-D`, `MP377-P0-T22AI-E`, `MP377-P0-T22AI-F`, `MP377-P0-T22AI-G`
+      scope: Add reducer, command-mode, and fixture tests that cover completion plus later blocker, ACKed completion without acceptance, reviewer acceptance, override-enabled advancement, expired overrides, session cleanup/launch/handoff receipts, finish-scope reviewer pings, blocker pivots, and work-board rendering.
+      acceptance_criteria: Tests prove `may_start_next_lane=false` until reviewer acceptance or valid override; expired override returns blocking; correlated corrected completion clears blocker only after reviewer acceptance; stale or missing session rollover proof blocks automation; reviewer wake pings route through typed inbox; work-board views match packet lifecycle and command status across surfaces.
+- [ ] `MP377-P0-T22AJ-A` Add auxiliary agent-mind evidence projection.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-E`, `MP377-P0-T22AI-F`
+      scope: Add `AuxiliaryMindEvidence` / `mind_hints` rows derived from `agent-mind` projections with provider, session id, cursor, generated time, staleness seconds, event count, latest error/escalation/task-complete timestamps, confidence, and conflict notes.
+      acceptance_criteria: Mind hints appear in `agent_sync`, work-board, dashboard, and diagnostic views as auxiliary-only evidence; they cannot close packets, clear awaits, advance lanes, grant mutation rights, satisfy guard evidence, or override reviewer state.
+- [ ] `MP377-P0-T22AJ-B` Add final/progress-response preflight guard.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-E`, `MP377-P0-T22AI-A`, `MP377-P0-T22AI-C`, `MP377-P0-T22AH-C`
+      scope: Before terminal "done", "ready", or progress-final responses for governed work, check reducer-derived sync state for open inbound packets, active action requests, lane barriers, delegated work, stale awaited actors, active/expired overrides, handoff/launch proof, guard debt, bypass debt, and checkpoint gates.
+      acceptance_criteria: Final responses are blocked or downgraded when reducer state shows unclosed work; `agent-mind` may explain context but cannot make the guard green; the block reason names the exact packet, lane, actor, override, guard, or checkpoint evidence required.
+- [ ] `MP377-P0-T22AJ-C` Add sync uncertainty reports for reducer/mind conflicts.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AJ-A`, `MP377-P0-T22AJ-B`
+      scope: Add `SyncUncertaintyReport` output for cases where reducer state is stale/missing or conflicts with agent-mind hints, spelling out proven facts, auxiliary hints, conflicting evidence, and the safe resolving action.
+      acceptance_criteria: Ambiguous or conflicting state returns `uncertain` rather than success; recommended actions are wait, wake, inspect, post clarifying packet, or request typed override; no command silently advances based on mind hints alone.
+- [ ] `MP377-P0-T22AJ-D` Add bounded auxiliary fallback reads for command modes.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AF-C`, `MP377-P0-T22AG-E`, `MP377-P0-T22AJ-A`
+      scope: Let `sync-status`, `/agent-sync`, `/swarm`, `/review-now`, and final-response guards consult `agent-mind --since-cursor`, review-channel history, and packet inbox only when reducer state is stale, missing, or unable to classify a wait.
+      acceptance_criteria: Fallback reads are bounded, labeled auxiliary, include cursor/staleness metadata, and prefer writing a clarifying packet over moving forward; normal green paths use reducer state only.
+- [ ] `MP377-P0-T22AJ-E` Add completion, ACK, and mind-hint closure tests.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-C`, `MP377-P0-T22AE-D`, `MP377-P0-T22AJ-A`, `MP377-P0-T22AJ-B`
+      scope: Add tests proving out-of-order ACKs, ACK without correlated action, uncorrelated completion packets, and agent-mind task-complete hints do not close work or clear awaits.
+      acceptance_criteria: Completion closes only its `responds_to_packet_id` / `causal_packet_ids`; stale actor waiting is rendered stale, not working; `sync-status` explains Codex waiting on Claude and Claude waiting on Codex from reducer state alone, with mind hints displayed separately.
+- [ ] `MP377-P0-T22AJ-F` Integrate auxiliary mind evidence with docs and operator UX.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AJ-A`, `MP377-P0-T22AJ-C`, `MP377-P0-T22AG-H`
+      scope: Document the authority hierarchy and UX copy: reducer/event log first, packet lifecycle and session posture next, `agent-mind` as backup diagnostics only, and operator-visible uncertainty when the system cannot prove what happened.
+      acceptance_criteria: Maintainer docs, command help, dashboard, and Operator Console text do not describe `agent-mind` as authority; backup reads show source, age, confidence, and limits; users get a clear resolving command or packet path.
+- [ ] `MP377-P0-T22AK-A` Add dashboard/operator packet-authoring adapter contract.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AG-A`, `MP377-P0-T22AG-H`, `MP377-P0-T22AF-G`
+      scope: Define the frontend adapter contract that lets dashboard, Operator Console, mobile, and MCP author typed review-channel packets by compiling user actions into `CommandModeRequest` / `CommandRunPlan` and the existing review-channel post backend.
+      acceptance_criteria: The adapter is specified as a frontend over packet authoring, not chat; equivalent dashboard, CLI, mobile, and MCP invocations produce the same packet request; no frontend becomes event-log or review-state authority.
+- [ ] `MP377-P0-T22AK-B` Add `Author Packet` UX shape over review-channel post.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AK-A`, `MP377-P0-T22AF-A`
+      scope: Add a minimal operator-facing packet authoring action with `to_agent`, `kind`, `summary`, `body`, `requested_action`, `policy_hint`, `responds_to_packet_id`, `causal_packet_ids`, evidence refs, target refs, `terminal=none`, and JSON/markdown diagnostics.
+      acceptance_criteria: Operator-authored packets do not require a terminal hop; failures return typed `ActionResult` / command diagnostics; the UX can pre-render the exact review-channel packet request before writing.
+- [ ] `MP377-P0-T22AK-C` Enforce dashboard packet-authoring guardrails and authority.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AK-A`, `MP377-P0-T22AG-D`, `MP377-P0-T22AH-F`
+      scope: Route every dashboard-authored packet through typed caller authority, repo-pack policy, guard profile, approval semantics, and mutation/lease/swarm boundaries before write.
+      acceptance_criteria: Dashboard cannot write direct event-log rows, mutate `review_state.json`, inject terminal text, create a side message ledger, or author mutating packets without the same authority required by CLI packet writes.
+- [ ] `MP377-P0-T22AK-D` Preserve correlation, idempotency, lifecycle, and sync projection for dashboard-authored packets.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-C`, `MP377-P0-T22AI-G`, `MP377-P0-T22AK-B`
+      scope: Ensure `responds_to_packet_id` / `causal_packet_ids`, idempotency keys, event ids, packet ids, lifecycle transitions, and per-packet evidence rows are preserved for packets authored from dashboard/operator surfaces.
+      acceptance_criteria: A dashboard-authored reply appears in review-channel inbox/history, `ReviewState.agent_sync`, dashboard, startup/runtime agreement, and the work board; a dashboard completion closes only the correlated packet and cannot hide unrelated active work.
+- [ ] `MP377-P0-T22AK-E` Add operator packet-authoring status and diagnostics surfaces.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AG-E`, `MP377-P0-T22AK-B`, `MP377-P0-T22AK-C`
+      scope: Render authored-packet attempts, validation failures, created packet ids, lifecycle state, target inbox delivery, and required follow-up in dashboard, Operator Console, mobile, MCP, `sync-status`, and command-mode status.
+      acceptance_criteria: Users can tell whether a packet was created, rejected, delivered, pending, acked, applied, dismissed, or blocked by authority; UI state is never the only record of the attempted authoring action.
+- [ ] `MP377-P0-T22AK-F` Add dashboard/operator packet-authoring tests.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AK-A`, `MP377-P0-T22AK-B`, `MP377-P0-T22AK-C`, `MP377-P0-T22AK-D`, `MP377-P0-T22AK-E`
+      scope: Add command-mode, adapter, reducer, and Operator Console/dashboard tests for packet authoring, authority rejection, direct-write prevention, correlation preservation, inbox/history visibility, `agent_sync` projection, and typed diagnostics.
+      acceptance_criteria: Tests prove the adapter creates packets only through review-channel post; packets appear in inbox/history/`agent_sync`; correlation is preserved; uncorrelated newer packets do not close active work; direct event-log/review-state writes are unavailable; mutating packets fail without caller authority; no terminal hop is required.
+- [ ] `MP377-P0-T22AL-A` Add external agentic-governance control crosswalk contracts.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AG-A`, `MP377-P0-T22AD-I`, `MP377-P0-T22W`
+      scope: Define `AgenticGovernanceControl` / `AgenticRiskControl` rows that map NIST AI RMF, ISO/IEC 42001, FINOS AIGF v2.0, Singapore IMDA/WEF Agentic AI MGF, and OWASP Agentic Applications risks to local MP rows, contracts, guard/probe ids, packet evidence, projections, and known gaps.
+      acceptance_criteria: The repo can render a standards crosswalk without claiming certification; every mapped control has framework id, external ref, local risk, local objective, owner row, implementation surface, evidence artifact, enforcement status, review cadence, and gap note.
+- [ ] `MP377-P0-T22AL-B` Add action-space boundary catalogue and enforcement map.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AG-D`, `MP377-P0-T22AF-E`, `MP377-P0-T22AK-C`
+      scope: Catalogue tools, filesystem scopes, terminal commands, git operations, network/web access, dashboard packet authoring, MCP/mobile actions, subagent fanout, worktrees, and release/publication surfaces, then bind each to actor identity, role, guard profile, approval checkpoint, mutation lease, and telemetry.
+      acceptance_criteria: `CommandRunPlan`, startup, dashboard, and guard reports can explain which action-space boundary allowed or blocked a requested action; unknown or unmapped actions fail closed.
+- [ ] `MP377-P0-T22AL-C` Add HITL checkpoint taxonomy for high-impact agent actions.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AH-A`, `MP377-P0-T22AK-C`, `MP377-P0-T22AG-D`
+      scope: Normalize human-in-the-loop checkpoints for destructive file operations, repo mutation outside lease, commit, push, release, guard override, mutation lease escalation, worktree fanout, dashboard-authored mutating packets, external publication, and other irreversible/high-impact actions.
+      acceptance_criteria: Each high-impact action maps to an approval packet, operator decision, or typed override receipt with reason, approver, expiry, affected refs, and closure requirements; raw prompts or chat approval do not satisfy the checkpoint.
+- [ ] `MP377-P0-T22AL-D` Add unique-agent identity and privilege traceability controls.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AI-F`, `MP377-P0-T22AG-E`, `MP377-P0-T22W`
+      scope: Require Codex, Claude, subagents, dashboard/operator, MCP/mobile, and automation-loop actions to carry actor id, provider, session id, role, granted capabilities, worktree identity, packet id, approval ref, and source projection evidence.
+      acceptance_criteria: Reports can distinguish which actor performed or requested each governed action; shared service-account-style authority is not accepted for mutation; stale identity or missing authority blocks writes.
+- [ ] `MP377-P0-T22AL-E` Add OWASP/FINOS-aligned runtime monitoring and red-team probes.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AD-F`, `MP377-P0-T22AE-G`, `MP377-P0-T22AI-F`
+      scope: Add guard/probe coverage for goal hijacking, prompt or memory poisoning, persistent agent compromise, over-privileged tool use, insecure inter-agent communication, supply-chain tampering, chain-of-thought leakage, rogue/stale agents, and cascading multi-agent failure.
+      acceptance_criteria: Each risk has a local probe/guard or explicit gap row; runtime agreement, `agent_sync`, work-board, packet attestation, and dashboard surfaces expose findings without creating a separate monitoring silo.
+- [ ] `MP377-P0-T22AL-F` Add standards-aware audit, graph, and dashboard reporting.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AL-A`, `MP377-P0-T22AG-E`, `MP377-P0-T22AG-G`
+      scope: Teach `context-graph`, `quality-policy`, `check-router`, startup, dashboard, Operator Console, and future audit reports to render the standards/control crosswalk and identify implemented controls, advisory controls, gaps, waivers, and evidence artifacts.
+      acceptance_criteria: A standards report can answer which MP-377 controls correspond to each external framework category, which evidence proves them, which gaps remain, and which plan rows own closure.
+- [ ] `MP377-P0-T22AL-G` Add agent-framework interoperability evaluation.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AG-A`, `MP377-P0-T22AG-H`, `MP377-P0-T22AL-A`
+      scope: Evaluate LangGraph, AutoGen, Mastra, and similar agent frameworks only as concept/interoperability references, mapping stateful workflow graphs, human interrupts, multi-agent role loops, sandboxed execution, tool registries, and run traces into MP-377 command-mode, packet, guard, and projection contracts.
+      acceptance_criteria: The repo does not adopt a framework by default; any future integration must compile into existing review-channel/event-log authority, preserve action-space boundaries, and pass packet/guard/projection parity tests.
+- [ ] `MP377-P0-T22AL-H` Add standards crosswalk tests and gap fixtures.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AL-A`, `MP377-P0-T22AL-B`, `MP377-P0-T22AL-C`, `MP377-P0-T22AL-D`, `MP377-P0-T22AL-E`, `MP377-P0-T22AL-F`
+      scope: Add fixtures and checks that validate required crosswalk fields, no-certification wording, action-space mapping, HITL mapping, identity traceability, runtime-monitoring gap rows, and dashboard/audit report rendering.
+      acceptance_criteria: Tests fail when a mapped external control lacks a local owner/evidence/gap status, when an action-space entry lacks an enforcement rule, when a high-impact action has no HITL checkpoint, or when reports imply certification without explicit evidence.
+- [ ] `MP377-P0-T22AM-A` Add `DevSessionPack` contract and evidence model.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AE-A`, `MP377-P0-T22AE-D`, `MP377-P0-T22AI-C`
+      scope: Define the machine-readable `DevSessionPack` contract with pack id, scope, branch, HEAD, event range, roles, packet lifecycle summaries, changed files, checks, decision graph, architecture improvements, risks, docs debt, override receipts, and senior-dev questions.
+      acceptance_criteria: The JSON contract is schema-versioned, report-path-addressable, contains only recorded rationale/evidence, marks missing rationale as unexplained, and explicitly excludes private chain-of-thought export.
+- [ ] `MP377-P0-T22AM-B` Add read-only `review-channel --action dev-pack`.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AM-A`, `MP377-P0-T22AE-B`, `MP377-P0-T22AG-A`
+      scope: Add `devctl review-channel --action dev-pack --scope PLAN_OR_PACKET --from-event-id EVENT_ID --to-event-id EVENT_ID|latest --audience senior-dev|maintainer|agent|operator --format md|json` as a read-only report over the reducer bundle and projection state.
+      acceptance_criteria: The command writes Markdown and JSON under `dev/reports/review_channel/dev_packs/`, never mutates review state directly, supports bounded event ranges, and produces typed diagnostics on missing scope, event, or evidence inputs.
+- [ ] `MP377-P0-T22AM-C` Add session decision graph and rationale extraction.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AM-A`, `MP377-P0-T22AE-C`, `MP377-P0-T22AI-A`
+      scope: Build a decision graph from packets, findings, completion claims, blockers, lifecycle transitions, check evidence, override receipts, docs debt, accepted/rejected proposals, and plan rows.
+      acceptance_criteria: A reviewer can trace major outcomes from cause to evidence to resulting action; uncorrelated packets do not imply causality; unexplained decisions are called out instead of silently summarized.
+- [ ] `MP377-P0-T22AM-D` Add strict-mode governance gap detection.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AM-C`, `MP377-P0-T22AH-A`, `MP377-P0-T22AI-A`
+      scope: Add `--strict` warnings or failures for completion without reviewer acceptance, lane advancement before acceptance/override, missing packet correlation, check claims without command evidence, prose-only architecture decisions, dirty files not mapped to packets, guard skips without deferred-guard evidence, and expired overrides.
+      acceptance_criteria: Strict mode detects weak coordination as report findings with severity, affected packet/file/plan refs, recommended closure action, and whether the pack remains usable for handoff.
+- [ ] `MP377-P0-T22AM-E` Add audience-specific Markdown renderers.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AM-A`, `MP377-P0-T22AM-B`
+      scope: Render `senior-dev`, `maintainer`, `agent`, and `operator` profiles over the same `DevSessionPack` data, changing presentation but not source authority.
+      acceptance_criteria: Senior-dev output emphasizes architecture deltas, risk table, review hotspots, reproduction commands, and open questions; agent output emphasizes cursors, packets, blockers, and allowed next actions; operator output gives a concise plain-language summary.
+- [ ] `MP377-P0-T22AM-F` Add architecture-lesson and plan-row carry-forward section.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AM-C`, `MP377-P0-T22AL-F`, `MP377-P0-T22AG-G`
+      scope: Extract architecture improvements discovered during the session, including accepted/proposed/rejected status, evidence packets, related plan rows, and senior-dev review questions.
+      acceptance_criteria: DevPack can list improvements such as `agent_sync`, packet correlation, lane barriers, override receipts, guard profiles, negative controls, mutation leases, bounded swarm, and dashboard packet authoring with evidence and current plan status.
+- [ ] `MP377-P0-T22AM-G` Add optional DevPack summary packet.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AM-B`, `MP377-P0-T22AK-D`, `MP377-P0-T22AE-C`
+      scope: Allow a generated pack to be posted back to review-channel as a typed summary/evidence packet carrying report paths, event range, scope, summary findings, and `responds_to_packet_id` / `causal_packet_ids` when it closes or answers live work.
+      acceptance_criteria: Summary packets preserve idempotency and correlation, appear in inbox/history/`agent_sync`, and cannot close unrelated packets merely because the pack is newer.
+- [ ] `MP377-P0-T22AM-H` Add DevPack tests and fixtures.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AM-A`, `MP377-P0-T22AM-B`, `MP377-P0-T22AM-C`, `MP377-P0-T22AM-D`, `MP377-P0-T22AM-E`, `MP377-P0-T22AM-G`
+      scope: Add reducer/report fixtures and tests for event-range timelines, lifecycle evidence, unresolved completion claims, lane-barrier warnings, architecture lessons, check evidence, strict-mode failures, report output paths, chain-of-thought exclusion, and summary-packet correlation.
+      acceptance_criteria: Tests prove DevPack includes packet timelines and lifecycle state; flags completion without acceptance and lane advancement without override; includes check evidence only when recorded; writes Markdown and JSON outputs; excludes private chain-of-thought fields; and posts correlated summary packets only through review-channel.
+- [ ] `MP377-P0-T22AN-A` Stabilize the live Plan 4.1 tandem session before widening.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `in_progress`
+      depends_on: `MP377-P0-T08A`, `MP377-P0-T22AE-E`, `MP377-P0-T22AJ-B`
+      scope: Drain and classify `rev_pkt_2604..2620`, include `rev_pkt_2618` bridge-overwrite evidence, backfill or supersede scope-poor packets, and checkpoint the current dirty Plan 4.1 work before starting broader feature work.
+      acceptance_criteria: Each packet has a lifecycle outcome or linked follow-up row; bridge-overwrite evidence is represented as typed status/ACK write-path work; stale or duplicate findings do not remain as unowned pending work.
+- [ ] `MP377-P0-T22AN-B` Canonicalize packet plan context and operator vocabulary.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `in_progress`
+      depends_on: `MP377-P0-T08`, `MP377-P0-T22AE-C`, `MP377-P0-T22AF-H`
+      scope: Split resource targets from non-authoritative plan context for packet posts, accept operator shorthand such as `MP-377`, `MP377-P0-T08`, and `rev_pkt_2611`, and store canonical typed anchors such as `section:MP-377`, `checklist:MP377-P0-T08`, and `packet:rev_pkt_2611`.
+      acceptance_criteria: All non-runtime packet kinds can carry plan context without becoming plan authority; runtime resource target validation remains strict; a guard/test proves accepted operator vocabulary normalizes to typed refs instead of being dropped or stored raw.
+- [ ] `MP377-P0-T22AN-C` Collapse Codex/Claude visible state onto reducer-owned sync truth.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `in_progress`
+      depends_on: `MP377-P0-T22AE-E`, `MP377-P0-T22AJ-A`, `MP377-P0-T22AI-F`
+      scope: Make `AgentSyncProjection` the shared truth for active packets, waits, ACK/apply/dismiss state, Claude status/ACK, dashboard, claude-loop, startup/status, and work-board rows; keep `agent-mind` as auxiliary diagnostics only.
+      acceptance_criteria: Dashboard, claude-loop, sync-status, startup, and compact JSON agree on active packet and actor state; publisher refreshes cannot clobber Claude status/ACK because those fields have a typed writer; auxiliary mind hints cannot close work or grant authority.
+      progress: 2026-05-01 projection-parity guard now treats `active_packet_id` as current-instruction authority and leaves `attention_packet_id` to the attention-specific checks, so blocked Claude sessions with pending packet attention no longer produce false queue/inbox current-instruction drift in `check_multi_agent_sync`.
+- [ ] `MP377-P0-T22AN-D` Add flow-level probes and sweep automation for Plan 4.1 failures.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `in_progress`
+      depends_on: `MP377-P0-T14`, `MP377-P0-T15`, `MP377-P0-T22AG-D`
+      scope: Add probes/guards for packet plan-context flow, operator-vocabulary acceptance, event-id uniqueness (`rev_pkt_2620`), read-only command purity, command-result contract shape, provider registry parity, projection parity, lifecycle correlation, shim import mode, and tandem dogfood. Wire packet expiry/F-Root sweep into an explicit write cadence such as `review-channel --action expire-packets` or a scheduled workflow, while `status`/`sync-status` remain read-only and only surface stale-expiry debt.
+      acceptance_criteria: `probe-report` includes event-id uniqueness; packet expiry debt is surfaced or repaired on a bounded cadence without hidden read-side writes; each recurring class has a guard/probe or a recorded `GuardPromotionCandidate` explaining why not.
+      progress: 2026-05-01 first slice added `probe_event_id_uniqueness`, kept read-only status/sync/dashboard paths from hiding expiry writes, accepted operator anchor vocabulary as canonical typed refs, removed the `agent-mind` Codex/Claude parser whitelist so `cursor`, `operator`, `system`, and future provider ids reach runtime discovery, closed NC2 by requiring explicit route scope on non-runtime `action_request` posts, added `probe_command_result_contract` so command JSON envelope drift is visible through the normal probe-report lane, added a projection-parity regression for current-instruction vs packet-attention semantics, normalized source-identity observed fields when no pipeline generation exists, started Claude's `rev_pkt_2633` Phase A by adding `check_registry_path_integrity` plus registering `probe_event_field_naming_consistency`, added `check_provider_list_parity_graph` plus a shared provider registry so `agent-mind`, `monitor`, and future provider-aware commands cannot silently diverge, added `probe_inter_agent_communication_lag`, and changed `AgentLoopDecision` so read-only peer-packet triage preempts startup blockers without granting mutation authority.
+      progress: 2026-05-01 follow-up closed Claude beta finding F8 by making bare `agent-mind --since-cursor` resume from the persisted typed agent-mind projection cursor when available, so cross-agent polling documentation and CLI behavior no longer diverge.
+- [ ] `MP377-P0-T22AN-E` Require live Codex/Claude tandem dogfood before Plan 4.1 handoff.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AN-B`, `MP377-P0-T22AN-C`, `MP377-P0-T22AN-D`
+      scope: Add a `plan41-tandem` dogfood scenario where Codex posts a scoped packet, Claude observes/ACKs/responds through typed surfaces, Codex observes and applies/dismisses/responds, and every involved projection agrees before `stage_commit_pipeline` or Plan 4.1 handoff.
+      acceptance_criteria: The scenario records `devctl dogfood` / `governance-review` evidence; negative controls prove unscoped packets normalize or fail, stale bridge data cannot override reducer state, read-only commands do not write tracked files, and every packet reaches exactly one terminal outcome.
+- [ ] `MP377-P0-T22AN-F` Promote packet carry-forward and runtime-spine closure into typed attention state.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `in_progress`
+      depends_on: `MP377-P0-T22AN-C`, `MP377-P0-T22AN-D`, `MP377-P0-T22AM-F`
+      scope: Add a reducer-owned `PacketContinuityState` / attention ledger that keeps ACKed-but-unresolved packets, apply-pending packets, and compacted-session carry-forward debt visible until terminal disposition or durable ownership in typed plan/intake/finding state. Operationalize the `SYSTEM_MAP.md` runtime-spine closure rule with `check_runtime_spine_closure.py`, and keep `CandidateInvariant` as the explicit missing finding-to-rule promotion contract so guard/probe lessons cannot stay prose-only.
+      acceptance_criteria: ACKed packets cannot disappear from startup, sync-status, graph/plan prioritization, or handoff context merely because they left the pending queue; `probe_packet_carry_forward_debt` and the lifecycle-attention guard name unresolved packet ids and required next actions; `check_runtime_spine_closure.py` fails when any section 0.6 ❌/⚠️ object lacks the machine-checked closure matrix fields for active owner, typed contract, producer, consumer, regression proof, graph/context visibility, carry-forward path, and system priority; compacted or resumed sessions receive a bounded ContextPack/DevSessionPack summary of unresolved packets, runtime-spine gaps, active plan rows, and Claude/Codex watcher state.
+      progress: 2026-05-01 `SYSTEM_MAP.md` section 0.6 now carries a machine-checked Runtime Spine Closure Matrix, and `check_runtime_spine_closure.py` rejects placeholder or missing owner/proof/visibility/carry-forward fields instead of accepting vague prose mentions.
+      progress: 2026-05-01 `rev_pkt_2705` plus expired source packets `rev_pkt_2691`, `rev_pkt_2696`, `rev_pkt_2697`, `rev_pkt_2701`, `rev_pkt_2702`, and `rev_pkt_2704` were promoted from packet-only transport into durable MP-377 intake. The surviving packet is treated as a carrier and provenance anchor, not source-of-truth state. Durable follow-up rows now cover transition ack/apply/dismiss session disambiguation, clock-expired packet ingestion loss, agent-sync ambiguity projection, packet carry-forward debt, command hangs under fanout, and work-board row duplication.
+- [ ] `MP377-P0-T22AB-A` Add typed `BypassReceipt` schema and write path.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22T`, `MP377-P0-T22W`
+      scope: Add a typed `BypassReceipt` contract plus append-only governance receipt store such as `dev/reports/governance/bypass_receipts.jsonl`. The preferred write path is a low-friction `devctl` wrapper for operator-authorized raw `--no-verify` commit/push, with passive detection/advisory capture where feasible.
+      acceptance_criteria: A bypass receipt captures `pre_bypass_head`, `post_bypass_head`, delivered `commit_shas`, `gates_skipped`, operator `authorization_scope`, `caller_agent`, `revalidation_targets`, `expected_followup`, `expires_at_utc`, and `adjudication_status=pending`. The receipt is append-only, ActionResult/report shaped, and explicit that it is not a successful guard attestation.
+- [ ] `MP377-P0-T22AB-B` Surface unadjudicated bypass receipts in startup and runtime agreement.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AB-A`, `MP377-P0-T22W`
+      scope: Teach startup-context, review-channel status/doctor, and `RuntimeAgreementReport` to expose pending bypass receipts, including unadjudicated count, affected commits, affected paths, expiry, and the exact replay or CI-adjudication command.
+      acceptance_criteria: A session after a raw bypass shows `unadjudicated_bypass_count > 0`, names the bypass receipt id and commit range, and recommends rerunning the relevant bundle or marking `validated_via_ci` only when matching CI evidence exists. `RuntimeAgreementReport` includes "no outstanding bypass receipts" as a quorum fact.
+- [ ] `MP377-P0-T22AB-C` Gate governed push, extraction, and fanout on pending bypass adjudication.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AB-B`, `MP377-P0-T22G`, `MP377-P0-T22W`
+      scope: Route governed push, extraction, and fanout preflights through pending-bypass state so raw skipped gates cannot disappear from the next session's safety model.
+      acceptance_criteria: Governed push blocks while `unadjudicated_bypass_count > 0` unless an explicit typed override is present; successful rerun or matching CI evidence transitions receipts to `validated_via_ci`; expired receipts become `rerun_required` / `aged_out` with remediation packet evidence; missing receipt for known raw-bypass evidence is itself a governance finding.
 
 2026-04-29 `rev_pkt_2145` deferred-packet disposition ledger:
 

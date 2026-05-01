@@ -1,5 +1,6 @@
 """Tests for devctl path-audit command."""
 
+import json
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
@@ -33,7 +34,7 @@ class PathAuditCommandTests(TestCase):
             "violations": [],
         }
         args = SimpleNamespace(
-            format="md",
+            format="json",
             output=None,
             pipe_command=None,
             pipe_args=None,
@@ -42,6 +43,11 @@ class PathAuditCommandTests(TestCase):
         code = path_audit.run(args)
 
         self.assertEqual(code, 0)
+        report = json.loads(_write_output_mock.call_args.args[0])
+        self.assertEqual(report["status"], "ok")
+        self.assertTrue(report["exit_ok"])
+        self.assertEqual(report["exit_code"], 0)
+        self.assertEqual(report["errors"], [])
 
     @patch("dev.scripts.devctl.commands.path_audit.write_output")
     @patch("dev.scripts.devctl.commands.path_audit.scan_path_audit_references")
@@ -80,6 +86,11 @@ class PathAuditCommandTests(TestCase):
         code = path_audit.run(args)
 
         self.assertEqual(code, 1)
+        report = json.loads(_write_output_mock.call_args.args[0])
+        self.assertEqual(report["status"], "blocked")
+        self.assertFalse(report["exit_ok"])
+        self.assertEqual(report["exit_code"], 1)
+        self.assertEqual(report["errors"], ["path_audit_violations=1"])
 
     def test_workspace_contract_scanner_detects_stale_tokens(self) -> None:
         stale_text = "\n".join(

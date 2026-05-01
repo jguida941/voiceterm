@@ -82,6 +82,12 @@ def field_value(payload: dict[str, object], key: str) -> str:
 
 
 def compact_startup_payload(payload: dict[str, object]) -> dict[str, object]:
+    # Per Codex rev_pkt_2313/2326/2337: recovery surfaces must consume
+    # typed coordination_state fields (coordination_topology /
+    # authority_mode / recovery_eligibility / observed_runtime) NOT just
+    # legacy observed_control_topology. The legacy key remains for
+    # back-compat but typed fields are added so recovery decisions
+    # consume the same source as work-board / claude-loop / dashboard.
     keys = (
         "action",
         "advisory_action",
@@ -89,7 +95,10 @@ def compact_startup_payload(payload: dict[str, object]) -> dict[str, object]:
         "advisory_reason",
         "attention_status",
         "implementation_permission",
-        "observed_control_topology",
+        "observed_control_topology",  # legacy (compat)
+        "coordination_topology",       # rev_pkt_2326 typed observed
+        "authority_mode",              # rev_pkt_2326 typed authority
+        "recovery_eligibility",        # rev_pkt_2326 typed recovery posture
         "recovery_action",
         "recovery_basis",
         "next_command",

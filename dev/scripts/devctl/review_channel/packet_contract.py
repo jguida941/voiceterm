@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
@@ -31,6 +32,11 @@ from .packet_target_validation import (
     VALID_TARGET_KINDS,
     validate_target_fields,
 )
+
+_MP_ID_RE = re.compile(r"^MP-\d+$", re.IGNORECASE)
+_PLAN_TASK_RE = re.compile(r"^MP\d+-P\d+(?:-T\d+[A-Z]*(?:-[A-Z])?)?$", re.IGNORECASE)
+_PACKET_ID_RE = re.compile(r"^rev_pkt_\d+$", re.IGNORECASE)
+_ANCHOR_PREFIX_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*:")
 
 VALID_AGENT_IDS = frozenset(default_packet_agent_ids())
 COMMIT_APPROVAL_PACKET_KIND = "commit_approval"
@@ -75,7 +81,15 @@ PACKET_KIND_SCHEMAS = {
 
 @dataclass(frozen=True, slots=True)
 class PacketTargetFields:
-    """Typed plan/runtime target metadata carried by review packets."""
+    """Typed plan/runtime target metadata carried by review packets.
+
+    Per rev_pkt_2472 actor/session discriminator: ``target_role`` and
+    ``target_session_id`` let routers distinguish dashboard-claude vs
+    coder-claude (and future role-suffixed agent variants) when the legacy
+    ``to_agent`` field alone is ambiguous. Both default to empty so existing
+    packets without the discriminator remain valid; consumers fail closed
+    when they are present and don't match the current session.
+    """
 
     target_kind: str = ""
     target_ref: str = ""
@@ -83,6 +97,8 @@ class PacketTargetFields:
     anchor_refs: tuple[str, ...] = ()
     intake_ref: str = ""
     mutation_op: str = ""
+    target_role: str = ""
+    target_session_id: str = ""
 
     @classmethod
     def from_values(
@@ -94,14 +110,18 @@ class PacketTargetFields:
         anchor_refs: object = None,
         intake_ref: object = None,
         mutation_op: object = None,
+        target_role: object = None,
+        target_session_id: object = None,
     ) -> "PacketTargetFields":
         return cls(
             target_kind=_clean_optional_text(target_kind) or "",
             target_ref=_clean_optional_text(target_ref) or "",
             target_revision=_clean_optional_text(target_revision) or "",
-            anchor_refs=tuple(_normalize_string_rows(anchor_refs)),
+            anchor_refs=tuple(_normalize_anchor_ref_rows(anchor_refs)),
             intake_ref=_clean_optional_text(intake_ref) or "",
             mutation_op=_clean_optional_text(mutation_op) or "",
+            target_role=_clean_optional_text(target_role) or "",
+            target_session_id=_clean_optional_text(target_session_id) or "",
         )
 
     def to_event_fields(self) -> dict[str, object]:
@@ -112,6 +132,8 @@ class PacketTargetFields:
         fields["anchor_refs"] = list(self.anchor_refs)
         fields["intake_ref"] = self.intake_ref or None
         fields["mutation_op"] = self.mutation_op or None
+        fields["target_role"] = self.target_role or None
+        fields["target_session_id"] = self.target_session_id or None
         return fields
 
     def has_values(self) -> bool:
@@ -123,8 +145,61 @@ class PacketTargetFields:
                 self.anchor_refs,
                 self.intake_ref,
                 self.mutation_op,
+                self.target_role,
+                self.target_session_id,
             )
         )
+
+
+_ROLE_ALIASES = {
+    "coder": "implementer",
+    "coding": "implementer",
+    "implementation": "implementer",
+    "implementer": "implementer",
+    "review": "reviewer",
+    "reviewer": "reviewer",
+    "dashboard": "dashboard",
+    "observer": "dashboard",
+    "watcher": "dashboard",
+    "operator": "operator",
+    "remote_operator": "operator",
+    "subagent": "subagent",
+}
+
+
+def normalize_packet_route_role(value: object) -> str:
+    """Normalize packet route roles for target-role comparisons."""
+    role = _clean_optional_text(value) or ""
+    if not role:
+        return ""
+    key = role.lower().replace("-", "_").replace(" ", "_")
+    return _ROLE_ALIASES.get(key, key)
+
+
+def packet_route_matches_scope(
+    packet: Mapping[str, object],
+    *,
+    target_role: object = "",
+    target_session_id: object = "",
+) -> bool:
+    """Return whether ``packet`` is visible to the scoped actor/session.
+
+    Legacy packets without target discriminators stay visible to existing
+    agent-level readers. Packets that do carry ``target_role`` or
+    ``target_session_id`` fail closed unless the caller provides a matching
+    scoped identity.
+    """
+    packet_role = normalize_packet_route_role(packet.get("target_role"))
+    scope_role = normalize_packet_route_role(target_role)
+    if packet_role and packet_role != scope_role:
+        return False
+
+    packet_session = _clean_optional_text(packet.get("target_session_id")) or ""
+    scope_session = _clean_optional_text(target_session_id) or ""
+    if packet_session and packet_session != scope_session:
+        return False
+
+    return True
 
 
 @dataclass(frozen=True, slots=True)
@@ -265,6 +340,27 @@ def _normalize_string_rows(value: object) -> list[str]:
         if text:
             rows.append(text)
     return rows
+
+
+def _normalize_anchor_ref_rows(value: object) -> list[str]:
+    rows: list[str] = []
+    for text in _normalize_string_rows(value):
+        rows.append(_canonical_anchor_ref(text))
+    return rows
+
+
+def _canonical_anchor_ref(value: str) -> str:
+    """Accept operator vocabulary and store canonical typed anchor refs."""
+    text = value.strip()
+    if _ANCHOR_PREFIX_RE.match(text):
+        return text
+    if _PACKET_ID_RE.fullmatch(text):
+        return f"packet:{text.lower()}"
+    if _PLAN_TASK_RE.fullmatch(text):
+        return f"checklist:{text.upper()}"
+    if _MP_ID_RE.fullmatch(text):
+        return f"section:{text.upper()}"
+    return text
 
 
 def _resolve_valid_agent_ids(

@@ -133,15 +133,69 @@ def test_maybe_wake_posted_reviewer_packet_uses_typed_status_refresh() -> None:
     }
 
 
-def test_maybe_wake_posted_reviewer_packet_skips_non_codex_packets() -> None:
+def test_maybe_wake_posted_reviewer_packet_routes_non_codex_adapter() -> None:
+    observed: dict[str, object] = {}
+
+    def fake_refresh_status_snapshot(**_kwargs):
+        return SimpleNamespace(
+            bridge_liveness={"reviewer_mode": "single_agent"},
+            review_state=SimpleNamespace(
+                to_dict=lambda: {
+                    "packet_inbox": {"agents": []},
+                    "packets": [],
+                    "coordination": {"resync_required": False},
+                }
+            ),
+        )
+
+    def fake_agent_wake(**kwargs):
+        observed.update(kwargs)
+        return {
+            "attempted": True,
+            "woke": True,
+            "reason": "launched",
+            "packet_id": "pkt-claude",
+            "requested_action": "probe",
+            "target_agent": "claude",
+        }
+
     result = maybe_wake_posted_reviewer_packet(
         args=SimpleNamespace(execution_mode="event-backed"),
         repo_root=Path("/tmp/repo"),
-        paths={},
-        packet={"packet_id": "pkt-claude", "to_agent": "claude", "kind": "finding"},
+        paths={
+            "bridge_path": Path("/tmp/repo/bridge.md"),
+            "review_channel_path": Path("/tmp/repo/dev/active/review_channel.md"),
+            "status_dir": Path("/tmp/repo/dev/reports/review_channel/latest"),
+        },
+        packet={
+            "packet_id": "pkt-claude",
+            "to_agent": "claude",
+            "kind": "finding",
+            "requested_action": "probe",
+        },
+        deps=EventPostWakeDeps(
+            refresh_status_snapshot_fn=fake_refresh_status_snapshot,
+            scan_repo_governance_fn=lambda _repo_root: SimpleNamespace(),
+            derive_operator_interaction_mode_fn=lambda **_kwargs: "remote_control",
+            maybe_wake_waiting_reviewer_conductor_fn=lambda **_kwargs: None,
+            maybe_wake_waiting_agent_conductor_fn=fake_agent_wake,
+            load_or_refresh_event_bundle_fn=lambda **_kwargs: SimpleNamespace(
+                review_state={}
+            ),
+        ),
     )
 
-    assert result is None
+    assert result == {
+        "attempted": True,
+        "woke": True,
+        "reason": "launched",
+        "packet_id": "pkt-claude",
+        "requested_action": "probe",
+        "target_agent": "claude",
+    }
+    assert observed["target_agent"] == "claude"
+    assert observed["packet"]["packet_id"] == "pkt-claude"
+    assert observed["operator_interaction_mode"] == "remote_control"
 
 
 def test_maybe_wake_posted_reviewer_packet_reports_missing_runtime_paths() -> None:
@@ -337,6 +391,24 @@ def test_maybe_wake_posted_reviewer_packet_prefers_event_review_state_payload() 
                         }
                     ],
                     "coordination": {"resync_required": True},
+                    "agent_loop_decisions": [
+                        {
+                            "actor_id": "codex",
+                            "active_packet_id": "pkt-event",
+                        }
+                    ],
+                    "agent_work_board": {
+                        "rows": [
+                            {
+                                "actor_id": "codex",
+                                "active_packet_id": "pkt-event",
+                            }
+                        ]
+                    },
+                    "agent_sync": {"agents": {"codex": {}}},
+                    "coordination_state": {
+                        "coordination_topology": "multi_agent_active",
+                    },
                     "authority_snapshot": {
                         "mutation_owner": "claude",
                         "verification_owner": "codex",
@@ -358,6 +430,12 @@ def test_maybe_wake_posted_reviewer_packet_prefers_event_review_state_payload() 
     }
     assert observed["operator_interaction_mode"] == "local_terminal"
     assert observed["report"]["packet_inbox"]["attention_revision"] == "fresh"
+    assert observed["report"]["agent_loop_decisions"][0]["active_packet_id"] == "pkt-event"
+    assert observed["report"]["agent_work_board"]["rows"][0]["active_packet_id"] == "pkt-event"
+    assert observed["report"]["agent_sync"] == {"agents": {"codex": {}}}
+    assert observed["report"]["coordination_state"] == {
+        "coordination_topology": "multi_agent_active"
+    }
     assert observed["report"]["authority_snapshot"]["watcher_owner"] == "claude"
     assert observed["report"]["coordination"] == {"resync_required": True}
 

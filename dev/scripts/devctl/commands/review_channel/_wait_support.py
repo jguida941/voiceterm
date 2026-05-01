@@ -38,6 +38,8 @@ def load_pending_target_packets(
     paths: RuntimePaths,
     *,
     target: str,
+    target_role: str = "",
+    target_session_id: str = "",
 ) -> list[dict[str, object]]:
     """Return the newest pending packets targeted at one agent, if available."""
     if paths.review_channel_path is None or paths.artifact_paths is None:
@@ -53,6 +55,8 @@ def load_pending_target_packets(
     return filter_inbox_packets(
         bundle.review_state,
         target=target,
+        target_role=target_role,
+        target_session_id=target_session_id,
         status="pending",
         limit=1,
     )

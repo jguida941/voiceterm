@@ -60,7 +60,13 @@ class RecoveryAuthorityState:
 
 
 def derive_recovery_authority(review_state: object | None) -> RecoveryAuthorityState:
-    """Derive destructive recovery authority from typed review-state evidence."""
+    """Derive destructive recovery authority from typed review-state evidence.
+
+    Per Codex rev_pkt_2326/2361: when typed CoordinationStateProjection
+    reports ``recovery_eligibility=remote_only``, local destructive
+    commands like ``devctl commit`` must NOT be advised. The legacy
+    decision.command field is suppressed in that case.
+    """
     assessment = getattr(review_state, "recovery_assessment", None)
     if assessment is None:
         return RecoveryAuthorityState(reason="no_recovery_assessment")
@@ -69,9 +75,26 @@ def derive_recovery_authority(review_state: object | None) -> RecoveryAuthorityS
     decision = getattr(assessment, "decision", None)
     action_id = _text(getattr(decision, "action_id", ""))
     diagnosis_status = _text(getattr(diagnosis, "status", ""))
-    command = _text(getattr(decision, "command", ""))
+    raw_command = _text(getattr(decision, "command", ""))
     basis = _recovery_basis(diagnosis=diagnosis, decision=decision)
     scope = _recovery_scope(action_id)
+
+    # Per rev_pkt_2326/2361: typed recovery_eligibility supersedes legacy
+    # decision.command. When typed says remote_only or blocked, the
+    # legacy command is suppressed to "" so consumers don't render
+    # contradictory local-commit advice.
+    typed_recovery_eligibility = ""
+    if isinstance(review_state, object):
+        coord = getattr(review_state, "coordination_state", None)
+        if isinstance(coord, dict):
+            typed_recovery_eligibility = str(
+                coord.get("recovery_eligibility") or ""
+            ).strip()
+    command = (
+        ""
+        if typed_recovery_eligibility in {"remote_only", "blocked"}
+        else raw_command
+    )
 
     if action_id in _HEALTHY_ACTION_IDS:
         return RecoveryAuthorityState(

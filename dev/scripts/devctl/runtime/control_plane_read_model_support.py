@@ -22,6 +22,9 @@ from .control_plane_resolve import (
     resolve_reviewer_state,
     utc_now_iso,
 )
+from .control_plane_startup_authority import (
+    startup_authority_from_live_governance_or_receipt,
+)
 from .control_plane_worktree_projection import control_plane_worktree_clean
 from .operator_context import derive_operator_interaction_mode
 from .reviewer_observation import ReviewerObservation, resolve_reviewer_observation
@@ -95,6 +98,10 @@ def resolve_control_plane_context(
         inputs.review_state_payload,
         quality,
         pending_count=pending,
+        startup_authority=startup_authority_from_live_governance_or_receipt(
+            governance=inputs.governance,
+            receipt=inputs.receipt if isinstance(inputs.receipt, Mapping) else None,
+        ),
     )
     implementation_blocked = resolve_implementation_blocked(
         inputs.receipt,

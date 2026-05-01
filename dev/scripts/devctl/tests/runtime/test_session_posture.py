@@ -13,6 +13,12 @@ from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     RemoteControlAttachmentState,
 )
 from dev.scripts.devctl.runtime.session_posture import build_session_posture
+from dev.scripts.devctl.runtime.session_posture_simple_render import (
+    render_simple_posture_snapshot,
+)
+from dev.scripts.devctl.review_channel.agent_work_board_posture import (
+    apply_work_board_session_posture,
+)
 
 
 def test_capability_grants_do_not_imply_current_occupied_lane() -> None:
@@ -118,3 +124,69 @@ def test_agent_mind_activity_projects_operator_friendly_state() -> None:
     actor = posture.actors[0]
     assert actor.current_activity == "running_tests"
     assert actor.current_target == "running focused tests"
+
+
+def test_simple_render_accepts_typed_posture_actor_tuple() -> None:
+    posture = build_session_posture(
+        interaction_mode="remote_control",
+        remote_control_attachment=RemoteControlAttachmentState(
+            provider="claude",
+            role="operator",
+            status="attached",
+            remote_session_id="remote-1",
+        ),
+    )
+
+    text = render_simple_posture_snapshot(
+        title="Agent Loop",
+        next_action="wait",
+        top_blocker="none",
+        session_posture=posture.to_dict()
+        | {"actors": posture.actors},
+    )
+
+    assert "no live actor posture available" not in text
+    assert "- claude: live" in text
+
+
+def test_work_board_posture_updates_configured_live_state() -> None:
+    review_state = {
+        "reviewer_runtime": {
+            "session_posture": {
+                "actors": [
+                    {
+                        "actor_id": "claude",
+                        "provider": "claude",
+                        "role": "implementer",
+                        "live": False,
+                        "presence": "configured",
+                        "source": "collaboration_participant",
+                        "current_activity": "writing_code",
+                    }
+                ]
+            }
+        },
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "claude",
+                    "role": "implementer",
+                    "status": "working",
+                    "idle_seconds": 12,
+                    "stale_after_seconds": 600,
+                    "confidence_class": "direct_typed_event",
+                    "attention_packet_id": "rev_pkt_2592",
+                    "lane_id": "claude_session_s1",
+                }
+            ]
+        },
+    }
+
+    updated = apply_work_board_session_posture(review_state)
+
+    actor = updated["reviewer_runtime"]["session_posture"]["actors"][0]
+    assert actor["live"] is True
+    assert actor["presence"] == "live"
+    assert actor["source"] == "agent_work_board"
+    assert actor["activity_age_seconds"] == 12
+    assert actor["current_target"] == "rev_pkt_2592"

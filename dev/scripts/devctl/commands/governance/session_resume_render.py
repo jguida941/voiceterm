@@ -16,6 +16,10 @@ from ...runtime.conductor_capability import (
     session_resume_command_for_role,
     startup_context_command_for_role,
 )
+from ...runtime.startup_continuity_render import (
+    append_continuity_attention_lines as _append_continuity_attention_lines,
+    continuity_attention_summary as _continuity_attention_summary,
+)
 from ...runtime.devctl_interpreter import devctl_interpreter
 from .session_resume_connectivity_render import (
     connectivity_registry_lines as _connectivity_registry_lines,
@@ -94,6 +98,14 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
     _append_remote_control_boundaries(lines, packet)
     if display_next:
         lines.append(f"- **next_command**: `{display_next}`")
+    _append_continuity_attention_lines(
+        lines,
+        packet.continuity_attention,
+        startup_command=startup_context_command_for_role(role),
+        session_resume_command=session_resume_command_for_role(role),
+        status_command=_STATUS_COMMAND,
+        context_graph_command=context_graph_bootstrap_command(),
+    )
     lines.extend(_typed_rehydration_lines(packet))
 
     if role == "reviewer":
@@ -209,6 +221,14 @@ def render_markdown(packet: "SessionCachePacket") -> str:
     if packet.next_guard_bundle:
         lines.append(f"- **guard_bundle**: {packet.next_guard_bundle}")
     lines.extend(_connectivity_registry_lines(packet))
+    _append_continuity_attention_lines(
+        lines,
+        packet.continuity_attention,
+        startup_command=startup_context_command_for_role(role),
+        session_resume_command=session_resume_command_for_role(role),
+        status_command=_STATUS_COMMAND,
+        context_graph_command=context_graph_bootstrap_command(),
+    )
     lines.append("")
     if packet.current_instruction:
         lines.append("### Current instruction")
@@ -294,6 +314,7 @@ def render_summary(packet: "SessionCachePacket") -> str:
         f"packet_intent_anchors={len(packet.packet_intent_anchors)}",
         _remote_control_routing_summary(packet),
         _typed_rehydration_summary(packet),
+        _continuity_attention_summary(packet.continuity_attention),
         _connectivity_registry_summary_line(packet),
         (
             f"resync_required={packet.coordination.resync_required}"

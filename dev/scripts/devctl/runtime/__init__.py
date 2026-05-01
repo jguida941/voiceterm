@@ -174,6 +174,7 @@ from .review_state import (
     ReviewQueueState,
     ReviewSessionState,
     ReviewState,
+    RoundProofState,
     review_state_from_payload,
 )
 from .role_profile import (
@@ -286,6 +287,7 @@ __all__ = [
     "ReviewCurrentSessionState",
     "ReviewPacketState",
     "ReviewQueueState",
+    "RoundProofState",
     "ReviewSessionState",
     "ReviewState",
     "RoleProfile",

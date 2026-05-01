@@ -24,6 +24,10 @@ def coerce_string(value: object) -> str:
     return str(value).strip() if value is not None else ""
 
 
+def coerce_text(value: object) -> str:
+    return coerce_string(value)
+
+
 def coerce_int(value: object) -> int:
     try:
         return int(value)
@@ -35,7 +39,8 @@ def coerce_bool(value: object) -> bool:
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "yes", "on"}
+        true_values = frozenset(("1", "true", "yes", "y", "on"))
+        return value.strip().lower() in true_values
     return bool(value)
 
 

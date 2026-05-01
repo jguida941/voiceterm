@@ -25,6 +25,7 @@ drift. Q99 applies the same shape to top_blocker/next_action.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 import re
 from typing import TYPE_CHECKING, Any, Literal
@@ -35,7 +36,14 @@ if TYPE_CHECKING:
 
 # Acceptable blocker sources. Ordered by severity so that the first
 # source that fires wins when multiple conditions are true at once.
-BlockerSource = Literal["quality", "doctor", "recovery", "session", "none"]
+BlockerSource = Literal[
+    "startup_authority",
+    "quality",
+    "doctor",
+    "recovery",
+    "session",
+    "none",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +119,83 @@ def _normalize_pending_review_packet_blocker(
     return f"{pending_count} pending review packet(s)"
 
 
+def startup_authority_blocker_kind(startup_authority: object) -> str:
+    """Return the strongest typed startup-authority blocker kind.
+
+    The continuation gate reports structured checkpoint fields, while older
+    receipts only carry human-readable startup-authority error strings. Keep
+    this classifier centralized so dashboard, control-plane, and startup
+    receipts do not each parse those strings differently.
+    """
+    authority = _mapping(startup_authority)
+    if not authority:
+        return ""
+    governance = _mapping(authority.get("governance"))
+    push_enforcement = _mapping(governance.get("push_enforcement"))
+    if push_enforcement:
+        merged = dict(push_enforcement)
+        merged.update(authority)
+        authority = merged
+    errors = _string_items(authority.get("errors")) or _string_items(
+        authority.get("startup_authority_errors")
+    )
+    if _int_value(authority.get("import_index_atomicity_violations")) > 0 or any(
+        _is_import_index_atomicity_error(error) for error in errors
+    ):
+        return "import_index_atomicity"
+    if bool(authority.get("checkpoint_required")) or (
+        "safe_to_continue_editing" in authority
+        and not bool(authority.get("safe_to_continue_editing"))
+    ):
+        reason = str(
+            authority.get("checkpoint_reason")
+            or authority.get("push_reason")
+            or authority.get("advisory_reason")
+            or authority.get("recommended_action")
+            or ""
+        ).strip()
+        return reason or "checkpoint_required"
+    if not bool(authority.get("ok", authority.get("startup_authority_ok", True))):
+        if errors:
+            return "startup_authority_failed"
+    return ""
+
+
+def _mapping(value: object) -> Mapping[str, Any]:
+    if isinstance(value, Mapping):
+        return value
+    to_dict = getattr(value, "to_dict", None)
+    if callable(to_dict):
+        try:
+            payload = to_dict()
+        except (TypeError, ValueError):
+            return {}
+        return payload if isinstance(payload, Mapping) else {}
+    return {}
+
+
+def _string_items(value: object) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(str(item).strip() for item in value if str(item).strip())
+
+
+def _int_value(value: object) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _is_import_index_atomicity_error(error: str) -> bool:
+    lowered = error.lower()
+    return (
+        "import_index_atomicity" in lowered
+        or "import-index atomicity" in lowered
+        or "missing from git index" in lowered
+    )
+
+
 def derive_blocker_decision(
     *,
     quality: dict[str, Any] | None,
@@ -118,6 +203,7 @@ def derive_blocker_decision(
     session: dict[str, Any] | None,
     push_action: str = "",
     pending_count: int | None = None,
+    startup_authority: object = None,
 ) -> BlockerSnapshot:
     """Canonical reducer for top_blocker + next_action.
 
@@ -151,6 +237,16 @@ def derive_blocker_decision(
     session = session or {}
 
     evidence: list[str] = []
+
+    startup_kind = startup_authority_blocker_kind(startup_authority)
+    if startup_kind:
+        evidence.append(f"startup_authority.blocker_kind={startup_kind}")
+        return BlockerSnapshot(
+            top_blocker=f"startup authority: {startup_kind}",
+            next_action=f"checkpoint_blocked_by_startup_authority:{startup_kind}",
+            blocker_source="startup_authority",
+            derivation_evidence=tuple(evidence),
+        )
 
     failing = quality.get("failing", [])
     if isinstance(failing, list) and failing:

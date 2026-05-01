@@ -34,6 +34,7 @@ from .review_state_models import (
     ReviewSessionState,
     ReviewState,
 )
+from .review_state_round_proof import RoundProofState
 from .review_state_parser import review_state_from_payload
 
 __all__ = [
@@ -65,6 +66,7 @@ __all__ = [
     "ReviewCurrentSessionState",
     "ReviewPacketState",
     "ReviewQueueState",
+    "RoundProofState",
     "ReviewSessionState",
     "ReviewState",
     "review_state_from_payload",

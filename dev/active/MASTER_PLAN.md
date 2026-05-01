@@ -111,6 +111,32 @@
   commands, guards, probes, packet lifecycle checks, or typed runtime
   authority from `ProjectGovernance`, `ReviewState`, `SessionPosture`,
   `DashboardSnapshot`, `ControlPlaneReadModel`, or the master-plan store.
+- 2026-05-01 Typed `/develop` topology and knowledge-flow intake (MP-377):
+  `dev/active/autonomous_governance_loop_v2.md` now owns the durable execution
+  spec for `DevelopmentModeTopology`. `/develop` is a typed composition layer
+  over startup, planning, review-channel, graph, guard, and governed mutation
+  state, not a provider-default team roster or Plan 4.1 dogfood loop. Any
+  provider/human can occupy Coordinator, Builder, Reviewer, Plan Intake
+  Steward, Researcher, Knowledge Synthesizer, Architect, Quality Engineer,
+  Dogfood Tester, Runtime Watcher, or Operator workstreams when typed
+  authority grants the required capabilities. Plan Intake Steward owns the
+  promotion of packet-carried plan, finding, guard, probe, and architecture
+  intent into durable MasterPlan/PlanRow, FindingReview, GuardPromotionQueue,
+  and knowledge artifacts with packet ids retained as provenance before TTL
+  expiry, so packets stay a communication lane instead of becoming the source
+  of truth. Approved external research routes through cited
+  `ResearchEvidenceBundle` / `ExternalSourceEvidence`, then synthesis promotes
+  durable `KnowledgeSynthesisRecord`, `ContextGraphSeed`,
+  `PointerRefIndexEntry`, plan, and guard-candidate artifacts back into
+  canonical sinks. `context-graph`, ConceptIndex/ZGraph-compatible views,
+  pointer refs, system-map, ContextPack, and startup-context consume those
+  artifacts as generated projections, never as runtime authority.
+  Current Claude packet findings from `rev_pkt_2705` and expired source
+  packets `rev_pkt_2691`, `rev_pkt_2696`, `rev_pkt_2697`, `rev_pkt_2701`,
+  `rev_pkt_2702`, and `rev_pkt_2704` are durable MP-377 intake, not queue-only
+  work: transition disambiguation, expiry/apply-gap, ambiguity projection,
+  carry-forward debt, command hangs, and work-board duplication remain linked
+  under `MP377-P0-T22AN-D/F` until guard/probe or implementation closure.
 - 2026-04-27 Plan 4.1 Slice C/D zref + enum-connectivity repair (MP-377):
   governed push now refreshes `commit_pipeline.json` proof identity from the
   current review-state tick after push-result synchronization, so stale
@@ -267,6 +293,143 @@
   contract-parity bundle wiring, and a Claude/Codex beta proof gate. The
   target is two languages, one registry, one fixture set, and preflight Rust
   oracle evidence before extraction, push, fanout, or graph-backed routing.
+- 2026-04-29 GuardIR Rust contract-compiler sharpening (MP-377): the
+  `MP377-P0-T22AC-A..T22AC-E` rows sharpen the Rust plan so oracles act as
+  read-only contract compilers, not alternate runtimes. Stable shared
+  governance JSON must pass Rust oracle/parity proof before it can be trusted
+  as guard, graph-routing, push, extraction, or fanout evidence. The rows also
+  make touched-surface preflight mandatory for shared-contract edits, require
+  graph-oracle proof before graph-backed routing, define bilateral
+  contract-stability/migration evidence, and preserve the hybrid boundary:
+  Rust validates deterministic contracts while Python remains the operational
+  writer/orchestrator until per-contract migration is proven.
+- 2026-04-30 GuardIR Rust graph-oracle ADR intake (MP-377): the
+  `MP377-P0-T22AD-A..T22AD-J` rows add the detailed read-only Rust validation
+  plan behind Slice 4.1. Rows sharpen strict graph snapshot invariants,
+  graph-domain manifests/proptest, graph authority-taint and health facts,
+  bilateral schema fingerprints/fixture parity, packet lifecycle replay,
+  packet attestation, `ActionResult` / `CheckResult` validation, daemon/config
+  validators, plan-index validation, open-domain exemption records, and Rust
+  tooling preflight. Python remains the operational writer/orchestrator; Rust
+  supplies strict JSON-over-subprocess preflight evidence only.
+- 2026-04-30 Plan 4.1 agent-sync reducer projection intake (MP-377): queued
+  `MP377-P0-T22AE-A..T22AE-G` accepts the `agent_sync` direction as design
+  intake while requiring implementation to inspect the actual reducer, packet
+  lifecycle, event model, evidence, and projection-write seams first. The
+  target is reducer-derived `review_state.agent_sync` with projection
+  freshness metadata, per-packet scoped evidence rows, explicit
+  `responds_to_packet_id` / `causal_packet_ids` correlation, ACK as
+  lower-bound receipt evidence only, status derived from actor activity rather
+  than partner wait state, a `sync-status` surface for dashboard/`claude-loop`,
+  T22Y-A positive/negative fallback-proof tests, and swarm/Rust-oracle gating
+  only after stable queryable projection evidence exists.
+- 2026-04-30 Plan 4.1 agent-sync developer command and swarm UX intake
+  (MP-377): queued `MP377-P0-T22AF-A..T22AF-H` so the chat-only command ideas
+  do not get lost. The slice keeps UX narrow and typed: `/agent-sync` and
+  `devctl agent-sync` are adapters over reducer-derived `sync-status`;
+  reviewer/conductor/architect/research/dogfood/remote flags normalize through
+  `CollaborationSession`, `AuthoritySnapshot`, packet targets, and repo-pack
+  policy; `/swarm --max-workers ... --iterations ...` produces a bounded
+  fanout plan with one live-tree integrator; development mode flags become
+  named guard profiles plus waiver or `BypassReceipt` evidence rather than raw
+  `--skip`; and workflow commands such as `/handoff`, `/review-now`,
+  `/blocked`, and `/negative-control` emit typed review-channel packets with
+  explicit correlation.
+- 2026-04-30 Plan 4.1 system-wide command/mode compiler intake (MP-377):
+  queued `MP377-P0-T22AG-A..T22AG-H` to broaden the same idea across the
+  whole governance stack. Current inventory shows the need: `devctl list`
+  exposes check profiles such as `ci`, `quick`, `fast`, and `ai-guard`, while
+  `devctl discover` reports 88 commands, 37 guards, 28 probes, 5 surfaces,
+  and 20 bootstrap commands. The new slice defines `CommandModeRequest` /
+  `CommandRunPlan` as the shared compiler target for slash, CLI, MCP, mobile,
+  dashboard, and Operator Console frontends; feeds it from `discover`,
+  `quality-policy`, `check-router`, packet lifecycle, and repo-pack policy;
+  adds shared role/profile grammar and flag parity checks; makes guard/probe
+  profiles typed with waiver/defer evidence; projects command status to
+  dashboard/`claude-loop`/mobile/MCP; wires dogfood coverage into command
+  modes; and lets context-graph explain command-to-contract-to-guard edges.
+- 2026-04-30 Plan 4.1 typed override receipt intake (MP-377): queued
+  `MP377-P0-T22AH-A..T22AH-G` as the controlled-deviation layer for active
+  plan scope, role assignment, priority route, guard profile, mutation lease,
+  and swarm budget. Overrides must be event-log visible, reducer-projected,
+  command-mode compatible, and surfaced in `agent_sync` / `sync-status`.
+  Required fields include override type, reason, scope, requester, reviewer or
+  approver, affected plan/packet/agent/guard/path refs, expiry, risk level,
+  closure requirements, and docs-debt behavior. Expired overrides render as
+  stale/blocking; closure requires `override_id` plus packet correlation; role
+  overrides never imply mutation authority without an explicit lease or
+  integrator grant; guard overrides record deferred guard evidence instead of
+  permitting raw `--skip`. V1 is intentionally packet-carried through
+  review-channel override packets and existing packet lifecycle; dedicated
+  override event families are deferred until the projection is proven.
+- 2026-04-30 Plan 4.1 lane barrier, session handoff, and auto-wake intake
+  (MP-377): queued `MP377-P0-T22AI-A..T22AI-I` as the typed automation layer
+  that keeps Claude, Codex, subagents, and future frontends on the same
+  timeline. Lane advancement becomes reducer-projected: completion packets and
+  ACKs do not advance a lane without reviewer acceptance, blocker dismissal,
+  accepted corrected completion, or an explicit `OverrideReceipt`. The slice
+  also adds `sync-status` / `/agent-sync --can-start-next-lane` barrier
+  surfaces, session rollover proof for old-session cleanup, new-session launch,
+  and accepted handoff, configurable finish-file/scope/lane reviewer wake
+  pings, blocker-pivot task allocation, a typed agent work-board projection,
+  lifecycle-aware idempotency for pings and retries, and optional
+  worktree-backed lanes behind leases plus orphan-inventory evidence.
+- 2026-04-30 Plan 4.1 agent-mind auxiliary fallback and final-response guard
+  intake (MP-377): queued `MP377-P0-T22AJ-A..T22AJ-F` so `agent-mind` becomes
+  backup diagnostics rather than hidden sync authority. The slice adds
+  auxiliary mind hints to `agent_sync` / the work board with cursor,
+  staleness, confidence, and conflict metadata; final/progress-response
+  preflights that block "done" answers while reducer state shows open packets,
+  lane barriers, stale awaited actors, unclosed delegated work, overrides,
+  handoff/launch proof gaps, guard debt, bypass debt, or checkpoint gates;
+  uncertainty reports when reducer state and mind hints disagree; bounded
+  fallback reads for command modes; and tests proving ACKs, uncorrelated
+  completions, and agent-mind task-complete hints cannot close work.
+- 2026-04-30 Plan 4.1 dashboard/operator typed packet authoring intake
+  (MP-377): queued `MP377-P0-T22AK-A..T22AK-F` to close the two-way dashboard
+  comms gap without adding dashboard chat or a second control plane.
+  Dashboard, Operator Console, mobile, and MCP become frontends that compile
+  operator actions into `CommandModeRequest` / `CommandRunPlan` and the
+  existing review-channel packet authoring backend. The slice adds an
+  `Author Packet` UX over `review-channel --action post`, preserves
+  `responds_to_packet_id` / `causal_packet_ids`, idempotency, lifecycle, and
+  `agent_sync` projection, enforces the same caller authority and mutation
+  guardrails as CLI writes, returns typed diagnostics, and tests inbox,
+  history, `agent_sync`, correlation, authority rejection, and no-terminal-hop
+  behavior.
+- 2026-04-30 Plan 4.1 agentic governance standards crosswalk intake
+  (MP-377): queued `MP377-P0-T22AL-A..T22AL-H` to map current external
+  agentic-governance references into repo-owned controls without claiming
+  certification. The slice adds `AgenticGovernanceControl` /
+  `AgenticRiskControl` rows for NIST AI RMF, ISO/IEC 42001, FINOS AIGF v2.0,
+  Singapore IMDA/WEF Agentic AI MGF, and OWASP Agentic Applications; an
+  action-space boundary catalogue for tools, files, terminal, git, network,
+  dashboard, MCP/mobile, subagents, worktrees, and release surfaces; a HITL
+  checkpoint taxonomy for high-impact actions; unique agent identity and
+  privilege traceability; OWASP/FINOS-aligned monitoring and red-team probes;
+  standards-aware graph/dashboard/audit reports; framework-interoperability
+  evaluation for LangGraph/AutoGen/Mastra concepts; and tests that prevent
+  unmapped controls, missing evidence, or implied certification claims.
+- 2026-04-30 Plan 4.1 DevPack session handoff intake (MP-377): queued
+  `MP377-P0-T22AM-A..T22AM-H` so a Codex/Claude session can be turned into a
+  senior-dev-readable and machine-readable development pack. The slice keeps
+  event log / reducer / `review_state` authority as the source of truth,
+  excludes private chain-of-thought, and exports recorded rationale from
+  packets, findings, decisions, evidence refs, checks, overrides, guard
+  deferrals, agent-mind auxiliary events, and git diff summaries. It adds
+  `/dev-pack` and `review-channel --action dev-pack`, decision-graph and
+  architecture-lesson sections, strict-mode governance gap detection,
+  audience-specific render modes, optional summary packet posting, and tests
+  that catch unaccepted completions, lane advancement without acceptance or
+  override, missing packet correlation, unevidenced checks, prose-only
+  architecture decisions, and dirty files not mapped to packets.
+- 2026-04-29 GuardIR raw-bypass receipt catalog (MP-377): raw `--no-verify`
+  commit/push paths are queued as `MP377-P0-T22AB-A..T22AB-C`. The rule is:
+  bypass may be operator-authorized, but bypass without typed receipt is not
+  acceptable governance state. Rows cover `BypassReceipt` schema/write path,
+  startup/runtime-agreement surfacing of unadjudicated receipts, and governed
+  push/extraction/fanout gates that block until skipped gates are replayed,
+  adjudicated by matching CI, or explicitly overridden with typed evidence.
 - 2026-04-27 governed-push execution-truth invariant (MP-377):
   the `rev_pkt_2027` / `rev_pkt_2029` regression proved a Class-A trust
   break: a push report could claim `published_remote` with a fixture branch

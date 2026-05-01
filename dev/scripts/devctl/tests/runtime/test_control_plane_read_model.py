@@ -257,6 +257,71 @@ class BuildWithReceiptTests(unittest.TestCase):
         self.assertFalse(model.push_eligible)
         self.assertEqual(model.next_action, "await_checkpoint")
 
+    def test_startup_authority_import_atomicity_blocks_checkpoint_action(self) -> None:
+        sources = _empty_sources()
+        sources["receipt"] = {
+            "push_action": "await_checkpoint",
+            "startup_authority_ok": False,
+            "startup_authority_errors": [
+                "runtime.py: imported module missing from git index (staged)."
+            ],
+            "checkpoint_required": True,
+            "safe_to_continue_editing": False,
+            "push_reason": "staged_index_budget_exceeded",
+        }
+        model = build_control_plane_read_model(
+            Path("/tmp/nonexistent"),
+            sources_override=sources,
+            git_override=_base_git(),
+        )
+
+        self.assertFalse(model.push_eligible)
+        self.assertEqual(
+            model.next_action,
+            "checkpoint_blocked_by_startup_authority:import_index_atomicity",
+        )
+        self.assertIn("stage missing imported file", model.next_command)
+
+    def test_live_governance_budget_overrides_stale_receipt_import_error(self) -> None:
+        sources = _empty_sources()
+        sources["receipt"] = {
+            "push_action": "await_checkpoint",
+            "startup_authority_ok": False,
+            "startup_authority_errors": [
+                "runtime.py: imported module missing from git index (staged)."
+            ],
+            "checkpoint_required": True,
+            "safe_to_continue_editing": False,
+            "staged_path_count": 2,
+            "unstaged_path_count": 3,
+            "push_reason": "staged_index_budget_exceeded",
+        }
+        governance = SimpleNamespace(
+            push_enforcement=SimpleNamespace(
+                checkpoint_required=True,
+                safe_to_continue_editing=False,
+                checkpoint_reason="staged_index_budget_exceeded",
+                recommended_action="checkpoint_before_continue",
+                staged_path_count=50,
+                unstaged_path_count=95,
+                worktree_clean=False,
+                managed_projection_dirty_paths=(),
+            )
+        )
+        model = build_control_plane_read_model(
+            Path("/tmp/nonexistent"),
+            sources_override=sources,
+            git_override=_base_git(),
+            options=ControlPlaneReadModelOptions(governance=governance),
+        )
+
+        self.assertFalse(model.push_eligible)
+        self.assertEqual(
+            model.next_action,
+            "checkpoint_blocked_by_startup_authority:staged_index_budget_exceeded",
+        )
+        self.assertNotIn("stage missing imported file", model.next_command)
+
     def test_implementation_blocked_from_receipt(self) -> None:
         sources = _empty_sources()
         sources["receipt"] = {"implementation_blocked": True}

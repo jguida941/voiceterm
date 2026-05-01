@@ -122,9 +122,68 @@ REVIEW_CORE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Shared bounded coordination authority mirrored into review-state projections for status, doctor, and dashboard parity.",
             ),
             ContractField(
+                "agent_sync",
+                "dict[str, object]",
+                (
+                    "Typed AgentSyncProjection (v1) — per-agent active-action-"
+                    "request snapshot with source_event_id provenance and "
+                    "projection refresh_seq. Consumed by sync-status, "
+                    "claude-loop, dashboard, and the canonical-active-packet "
+                    "predicate. Per Codex rev_pkt_2271/2326/2368."
+                ),
+            ),
+            ContractField(
+                "agent_work_board",
+                "dict[str, object]",
+                (
+                    "Typed AgentWorkBoardProjection (v1.1) — observed-runtime "
+                    "session/subagent rows with active_packet_id, "
+                    "mutation_mode, branch/worktree identity, current "
+                    "command/check/file, idle_seconds, blocker, "
+                    "source_event_id, and confidence_class. Consumed by "
+                    "sync-status MD/JSON, dashboard active_codex_sessions, "
+                    "claude-loop, and bridge-poll typed-convergence. "
+                    "Per Codex rev_pkt_2279/2287/2293/2374."
+                ),
+            ),
+            ContractField(
+                "coordination_state",
+                "dict[str, object]",
+                (
+                    "Typed CoordinationStateProjection — 4-field topology/"
+                    "authority split (coordination_topology, authority_mode, "
+                    "recovery_eligibility, observed_runtime). Authoritative "
+                    "for the multi-agent vs single-agent distinction; "
+                    "supersedes legacy reviewer_mode for topology decisions. "
+                    "Recovery-command surfaces gate on recovery_eligibility "
+                    "to suppress local devctl-commit advice when remote_only "
+                    "or blocked. Per Codex rev_pkt_2273/2278/2281/2298/2326/"
+                    "2361/2367/2368."
+                ),
+            ),
+            ContractField(
                 "authority_snapshot",
                 "AuthoritySnapshot | None",
                 "Reduced next-turn authority contract mirrored into review-state projections.",
+            ),
+            ContractField(
+                "round_proofs",
+                "tuple[RoundProofState, ...]",
+                "Typed proof ticks observed during review-channel rounds.",
+            ),
+            ContractField(
+                "agent_loop_decisions",
+                "list[dict[str, object]]",
+                "Per-agent loop decisions derived from typed runtime and packet attention.",
+            ),
+            ContractField(
+                "agent_dispatch_router",
+                "dict[str, object]",
+                (
+                    "Typed task-to-agent router projection that selects or "
+                    "blocks route ownership before AgentLoopDecision executes "
+                    "a session turn."
+                ),
             ),
             ContractField(
                 "attention",
@@ -169,6 +228,77 @@ REVIEW_CORE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             "current_session",
             "reviewer_runtime",
             "commit_pipeline",
+            "agent_loop_decisions",
+            "agent_dispatch_router",
+        ),
+    ),
+    ContractSpec(
+        contract_id="AgentDispatchRouter",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Read-only task-to-agent dispatch authority that composes "
+            "WorkIntakePacket, review packets, agent work-board identity, "
+            "task-router lanes, and guard/bundle dispatch metadata into one "
+            "route-selection state."
+        ),
+        required_fields=(
+            ContractField("snapshot_id", "str", "Source review-state snapshot id."),
+            ContractField("source_identity", "dict[str, str]", "Source provenance."),
+            ContractField(
+                "source_contract",
+                "str",
+                "Source authority contract consumed by the router.",
+            ),
+            ContractField(
+                "source_command",
+                "str",
+                "Repo-owned command that produced the source router input.",
+            ),
+            ContractField("repo_id", "str", "Repo-pack/governance identity."),
+            ContractField("input_refs", "dict[str, str]", "Packet, plan, and instruction refs consumed by the router."),
+            ContractField(
+                "session_nodes",
+                "tuple[AgentDispatchSessionNode, ...]",
+                "Addressable live or recent actor/session nodes available for routing.",
+            ),
+            ContractField(
+                "work_focus",
+                "tuple[AgentDispatchWorkFocus, ...]",
+                "Current typed packet/plan focus for each session node.",
+            ),
+            ContractField(
+                "peer_links",
+                "tuple[AgentDispatchPeerLink, ...]",
+                "Typed coordination edges between agent sessions.",
+            ),
+            ContractField(
+                "ambiguous_session_groups",
+                "tuple[AgentDispatchAmbiguousGroup, ...]",
+                "Fail-closed groups when multiple sessions claim the same packet or actor route.",
+            ),
+            ContractField(
+                "governance_debt",
+                "tuple[AgentDispatchGovernanceDebt, ...]",
+                "Plan/session/packet binding debt that must be remediated before autonomous dispatch.",
+            ),
+            ContractField("routes", "tuple[AgentDispatchRoute, ...]", "Candidate actor/session routes."),
+            ContractField("rejected_routes", "tuple[AgentDispatchRejection, ...]", "Rejected candidate routes with reasons."),
+            ContractField("selected_route_id", "str", "Selected route id when unambiguous."),
+            ContractField("selected_route_ids", "tuple[str, ...]", "Selected route ids, one per independent dispatchable work group."),
+            ContractField("selection_reason", "str", "Reason for selected route or block."),
+            ContractField("router_state", "str", "ready, partial, blocked, ambiguous, or no_dispatchable_work."),
+        ),
+        runtime_model="dev.scripts.devctl.runtime.agent_dispatch_router_models:AgentDispatchRouter",
+        startup_surface_tokens=(
+            "router_state",
+            "selected_route_id",
+            "selected_route_ids",
+            "session_nodes",
+            "work_focus",
+            "ambiguous_session_groups",
+            "governance_debt",
+            "routes",
+            "rejected_routes",
         ),
     ),
     ContractSpec(
@@ -255,6 +385,26 @@ REVIEW_CORE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "session_posture",
                 "SessionPosture",
                 "Canonical live posture tuple for interaction mode, reviewer mode, and occupied actor lanes.",
+            ),
+            ContractField(
+                "duty_proof",
+                "ReviewerDutyProof",
+                "Typed proof that the reviewer (or implementer) has performed the live observation duty for the current packet cycle.",
+            ),
+            ContractField(
+                "inbox_observation",
+                "InboxObservationState",
+                "Typed projection of the actor-scoped inbox observation cursor that anchors wake-evidence and stale-attention detection.",
+            ),
+            ContractField(
+                "agent_runtime_clock",
+                "AgentRuntimeClock",
+                "Shared monotonic cursor that lets both agents reason over the same runtime tick when proving freshness.",
+            ),
+            ContractField(
+                "packet_attention",
+                "PacketAttentionState",
+                "Typed packet-attention projection used by the commit gate and reviewer-runtime doctor to decide whether the current actor has observed the canonical active packet.",
             ),
         ),
         runtime_model="dev.scripts.devctl.runtime.review_state_models:ReviewerRuntimeContract",

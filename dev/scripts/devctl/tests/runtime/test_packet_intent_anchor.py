@@ -60,3 +60,25 @@ def test_applied_plan_packet_is_the_only_applied_anchor_state() -> None:
 
     assert anchors[0].lifecycle_state == "applied"
     assert plan_iteration_session_from_anchors(anchors).status == "applied"
+
+
+def test_carrier_packet_with_plan_context_projects_intent_anchor() -> None:
+    anchors = packet_intent_anchors_from_packets(
+        (
+            {
+                "packet_id": "rev_pkt_instruction",
+                "kind": "instruction",
+                "status": "pending",
+                "from_agent": "codex",
+                "plan_id": "MP-377",
+                "anchor_refs": ["section:MP-377"],
+                "intake_ref": "work_intake://plan_target/abc123",
+                "summary": "read-only plan-scoped retest",
+            },
+        )
+    )
+
+    assert len(anchors) == 1
+    assert anchors[0].target_plan == "MP-377"
+    assert anchors[0].target_task == "work_intake://plan_target/abc123"
+    assert anchors[0].packet_kind == "instruction"

@@ -7,6 +7,13 @@ from ..review_channel.context_refs import (
     context_pack_ref_summary,
     normalize_context_pack_refs,
 )
+from ..review_channel.event_render_packet_expiry import (
+    append_packet_expiry_materialization,
+)
+from ..review_channel.event_render_typed_sections import (
+    append_coordination_state_section,
+    append_work_board_section,
+)
 from ..review_channel.pending_packets import partition_live_packet_queue
 
 from ..commands.review_channel_bridge_render import append_common_report_sections
@@ -30,12 +37,33 @@ def render_event_md(report: dict) -> str:
         lines.append(f"- status_filter: {report.get('status_filter')}")
     if report.get("limit") is not None:
         lines.append(f"- limit: {report.get('limit')}")
+
+    # Per Codex rev_pkt_2326/2336/2337: surface canonical-active-packet
+    # answers from typed predicate alongside legacy queue. Only renders
+    # when the report carries them (sync-status action).
+    canonical = report.get("canonical_active_packets")
+    if isinstance(canonical, dict) and canonical:
+        lines.append("")
+        lines.append("## Canonical Active Packets (typed predicate)")
+        for agent_id, packet_id in canonical.items():
+            display = packet_id if packet_id else "(none)"
+            lines.append(f"- {agent_id}: {display}")
+    # Per Codex rev_pkt_2374: sync-status JSON has work_board.rows and
+    # coordination_state, but the markdown surface used to hide them.
+    # Operators reading --format md saw only canonical packets and live
+    # packets, never row-level session/subagent authority.
+    append_coordination_state_section(lines, report.get("coordination_state"))
+    append_work_board_section(lines, report.get("work_board"))
     _append_queue_reconciliation(lines, report.get("queue_reconciliation"))
     append_common_report_sections(lines, report)
     append_doctor_markdown(lines, report.get("doctor"))
     packet = report.get("packet")
     if isinstance(packet, dict):
         _append_packet_section(lines, packet)
+    append_packet_expiry_materialization(
+        lines,
+        report.get("packet_expiry_materialization"),
+    )
     _append_packet_outcome_ledger(lines, report.get("packet_outcome_ledger"))
     packets = report.get("packets")
     if isinstance(packets, list) and packets:

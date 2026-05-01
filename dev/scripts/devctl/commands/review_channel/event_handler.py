@@ -20,6 +20,7 @@ from ...review_channel.events import (
     load_or_refresh_event_bundle,
     refresh_event_bundle,
 )
+from ...review_channel.event_projection_queue import build_event_queue_summary
 from ...review_channel.bridge_projection import render_bridge_projection
 from ...review_channel.heartbeat import compute_non_audit_worktree_hash
 from ...review_channel.event_render import render_event_md
@@ -48,8 +49,10 @@ from .event_action_support import (
     run_post_action,
 )
 from .event_history_outcomes import attach_history_outcomes_if_requested
+from .event_expire_packets_action import run_expire_packets_action
 from .event_post_bridge_sync import sync_bridge_after_posted_current_instruction
 from .event_post_wake import maybe_wake_posted_reviewer_packet
+from .sync_status_action import run_sync_status_action
 from .event_watch_support import load_target_packets, watch_snapshot_signature
 from .watch_follow import WatchFollowDeps, run_watch_follow
 
@@ -66,6 +69,7 @@ def _build_event_report(
     packets: list[dict[str, object]] | None = None,
     history: list[dict[str, object]] | None = None,
     packet_outcome_ledger: dict[str, object] | None = None,
+    packet_expiry_materialization: dict[str, object] | None = None,
     warnings: list[str] | None = None,
 ) -> tuple[dict, int]:
     """Assemble the event-backed action report dict."""
@@ -82,6 +86,7 @@ def _build_event_report(
             bundle.review_state,
             history_limit=history_limit,
         ).to_dict()
+    queue = _queue_for_event_report(args=args, bundle=bundle, packets=packets)
     report = {
         "command": "review-channel",
         "timestamp": utc_timestamp(),
@@ -90,6 +95,7 @@ def _build_event_report(
         "ok": not report_errors,
         "exit_ok": not report_errors,
         "exit_code": 0 if not report_errors else 1,
+        "status": "ok" if not report_errors else "blocked",
         "execution_mode": "event-backed",
         "terminal": "none",
         "terminal_profile_requested": getattr(args, "terminal_profile", None),
@@ -105,7 +111,7 @@ def _build_event_report(
         "bridge_liveness": None,
         "projection_paths": projection_paths_to_dict(bundle.projection_paths),
         "artifact_paths": artifact_paths_to_dict(bundle.artifact_paths),
-        "queue": bundle.review_state.get("queue", {}),
+        "queue": queue,
         "queue_reconciliation": queue_reconciliation,
         "packet": packet,
         "packets": packets or [],
@@ -119,12 +125,44 @@ def _build_event_report(
         ],
         "history": history or [],
         "packet_outcome_ledger": packet_outcome_ledger,
+        "packet_expiry_materialization": packet_expiry_materialization,
         "event": event,
         "target": getattr(args, "target", None),
         "status_filter": getattr(args, "status", None),
         "limit": getattr(args, "limit", None),
     }
     return report, report["exit_code"]
+
+
+def _queue_for_event_report(*, args, bundle, packets: list[dict[str, object]] | None):
+    queue = bundle.review_state.get("queue", {})
+    target = str(getattr(args, "target", "") or "").strip()
+    status_filter = str(getattr(args, "status", "") or "").strip()
+    if (
+        args.action not in {"inbox", "watch", "operator-inbox"}
+        or not target
+        or packets is None
+        or status_filter not in {"", "pending"}
+    ):
+        return queue
+    pending_counts = {
+        "codex": 0,
+        "claude": 0,
+        "cursor": 0,
+        "operator": 0,
+    }
+    if target in pending_counts:
+        pending_counts[target] = len(packets)
+    else:
+        pending_counts[target] = len(packets)
+    stale_count = 0
+    if isinstance(queue, dict):
+        stale_count = int(queue.get("stale_packet_count") or 0)
+    return build_event_queue_summary(
+        pending_counts,
+        stale_count,
+        packets=packets,
+    )
 
 def _run_event_action(
     *,
@@ -205,6 +243,15 @@ def _run_event_action(
             status_override="pending",
             observe_action_requests=False,
         )
+    if args.action == "sync-status":
+        bundle = refresh_event_bundle(
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            artifact_paths=artifact_paths,
+        )
+        return run_sync_status_action(args=args, bundle=bundle)
+    if args.action == "expire-packets":
+        return run_expire_packets_action(context=context)
     if args.action == "watch":
         return run_inbox_like_action(
             context=context,

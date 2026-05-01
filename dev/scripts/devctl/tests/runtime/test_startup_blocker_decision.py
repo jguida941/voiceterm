@@ -7,6 +7,7 @@ import unittest
 from dev.scripts.devctl.runtime.startup_blocker_decision import (
     BlockerSnapshot,
     derive_blocker_decision,
+    startup_authority_blocker_kind,
 )
 
 
@@ -32,6 +33,44 @@ class DeriveBlockerDecisionTests(unittest.TestCase):
         self.assertTrue(
             any("quality.failing" in line for line in snapshot.derivation_evidence)
         )
+
+    def test_startup_authority_import_atomicity_wins_before_quality(self) -> None:
+        snapshot = derive_blocker_decision(
+            quality={"last_guard_ok": False, "check_details": [{"check": "push"}]},
+            doctor={"blocked_reason": "pipeline_down"},
+            session={"open_findings": "- F1: something else"},
+            push_action="await_checkpoint",
+            startup_authority={
+                "ok": False,
+                "errors": [
+                    "runtime.py: imported module missing from git index (staged)."
+                ],
+                "checkpoint_required": True,
+                "safe_to_continue_editing": False,
+            },
+        )
+
+        self.assertEqual(snapshot.blocker_source, "startup_authority")
+        self.assertEqual(snapshot.top_blocker, "startup authority: import_index_atomicity")
+        self.assertEqual(
+            snapshot.next_action,
+            "checkpoint_blocked_by_startup_authority:import_index_atomicity",
+        )
+
+    def test_startup_authority_classifier_reads_nested_push_enforcement(self) -> None:
+        kind = startup_authority_blocker_kind(
+            {
+                "governance": {
+                    "push_enforcement": {
+                        "checkpoint_required": True,
+                        "safe_to_continue_editing": False,
+                        "checkpoint_reason": "staged_index_budget_exceeded",
+                    }
+                }
+            }
+        )
+
+        self.assertEqual(kind, "staged_index_budget_exceeded")
 
     def test_last_guard_ok_false_with_check_details(self) -> None:
         snapshot = derive_blocker_decision(

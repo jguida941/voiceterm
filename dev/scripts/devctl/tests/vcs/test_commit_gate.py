@@ -28,7 +28,11 @@ from dev.scripts.devctl.commands.vcs.commit import (
     run_commit,
 )
 from dev.scripts.devctl.commands.vcs.commit_action_request_authority import (
+    CommitActionRequestGrant,
     resolve_commit_action_request_grant,
+)
+from dev.scripts.devctl.commands.vcs.commit_action_request_evidence import (
+    derive_pipeline_evidence,
 )
 from dev.scripts.devctl.commands.vcs.commit_guard_bundle import guard_result
 from dev.scripts.devctl.commands.vcs.commit_pipeline_blocking import (
@@ -1886,6 +1890,170 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 ("pipeline_generation", "staged_snapshot_hash"),
             )
 
+    def test_derive_pipeline_evidence_accepts_stale_source_generation_when_head_pin_matches(
+        self,
+    ) -> None:
+        """Per rev_pkt_2479: source_identity.generation_id drift is tolerated when
+        target_revision and source_identity.head_sha both match current HEAD.
+        Live pipeline_generation + staged_snapshot_hash should still be derived,
+        with stale_source_generation_metadata_drift surfacing the drift signal.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _, pipeline = _stage_pipeline_for_action_request(repo_root)
+            head_sha = _run_git(repo_root, "rev-parse", "HEAD")
+            packet = {
+                "kind": "action_request",
+                "target_revision": head_sha,
+                "source_identity": {
+                    "head_sha": head_sha,
+                    "generation_id": "gen-stale-from-prior-tick",
+                },
+            }
+            grant = CommitActionRequestGrant(
+                packet_id="rev_pkt_test_2479_accept",
+                authorized=False,
+                reason="action_request_not_validated",
+            )
+
+            result = derive_pipeline_evidence(
+                repo_root=repo_root,
+                packet=packet,
+                grant=grant,
+                pipeline=pipeline,
+            )
+
+            self.assertNotEqual(result.pipeline_generation, "")
+            self.assertEqual(result.pipeline_generation, pipeline.generation_id)
+            self.assertEqual(
+                result.staged_snapshot_hash,
+                pipeline.intent.staged_tree_hash,
+            )
+            self.assertIn(
+                "stale_source_generation_metadata_drift",
+                result.warnings,
+            )
+            self.assertIn("pipeline_generation", result.derived_fields)
+            self.assertIn("staged_snapshot_hash", result.derived_fields)
+
+    def test_derive_pipeline_evidence_blocks_stale_source_generation_when_head_pin_diverges(
+        self,
+    ) -> None:
+        """Per rev_pkt_2479: if target_revision OR source_identity.head_sha differs
+        from current HEAD, the packet was composed against a different repo state.
+        Existing strict-bail behavior must still fire — no derivation, no warning.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _, pipeline = _stage_pipeline_for_action_request(repo_root)
+            packet = {
+                "kind": "action_request",
+                "target_revision": "deadbeef" * 5,
+                "source_identity": {
+                    "head_sha": "deadbeef" * 5,
+                    "generation_id": "gen-stale-from-prior-tick",
+                },
+            }
+            grant = CommitActionRequestGrant(
+                packet_id="rev_pkt_test_2479_reject",
+                authorized=False,
+                reason="action_request_not_validated",
+            )
+
+            result = derive_pipeline_evidence(
+                repo_root=repo_root,
+                packet=packet,
+                grant=grant,
+                pipeline=pipeline,
+            )
+
+            self.assertEqual(result.pipeline_generation, "")
+            self.assertEqual(result.staged_snapshot_hash, "")
+            self.assertEqual(result.derived_fields, ())
+            self.assertNotIn(
+                "stale_source_generation_metadata_drift",
+                result.warnings,
+            )
+
+    def test_derive_pipeline_evidence_blocks_when_only_target_revision_diverges(
+        self,
+    ) -> None:
+        """Per rev_pkt_2485 fix #5: rev_pkt_2479's safety property is
+        'target_revision OR source_identity.head_sha divergence blocks'.
+        Single-pin mismatch on target_revision alone (with source_identity.head_sha
+        matching HEAD) MUST still block derivation — the OR semantics requires
+        BOTH pins to agree with HEAD before generation drift is tolerated.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _, pipeline = _stage_pipeline_for_action_request(repo_root)
+            head_sha = _run_git(repo_root, "rev-parse", "HEAD")
+            packet = {
+                "kind": "action_request",
+                "target_revision": "deadbeef" * 5,  # diverges
+                "source_identity": {
+                    "head_sha": head_sha,  # matches
+                    "generation_id": "gen-stale-from-prior-tick",
+                },
+            }
+            grant = CommitActionRequestGrant(
+                packet_id="rev_pkt_test_2485_5_target_only",
+                authorized=False,
+                reason="action_request_not_validated",
+            )
+
+            result = derive_pipeline_evidence(
+                repo_root=repo_root,
+                packet=packet,
+                grant=grant,
+                pipeline=pipeline,
+            )
+
+            self.assertEqual(result.pipeline_generation, "")
+            self.assertEqual(result.staged_snapshot_hash, "")
+            self.assertEqual(result.derived_fields, ())
+
+    def test_derive_pipeline_evidence_blocks_when_only_source_head_sha_diverges(
+        self,
+    ) -> None:
+        """Per rev_pkt_2485 fix #5 (mirror): single-pin mismatch on
+        source_identity.head_sha alone (with target_revision matching HEAD)
+        MUST still block derivation. This is the second half of the OR
+        semantics: both pins must agree before generation drift is tolerated.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _, pipeline = _stage_pipeline_for_action_request(repo_root)
+            head_sha = _run_git(repo_root, "rev-parse", "HEAD")
+            packet = {
+                "kind": "action_request",
+                "target_revision": head_sha,  # matches
+                "source_identity": {
+                    "head_sha": "deadbeef" * 5,  # diverges
+                    "generation_id": "gen-stale-from-prior-tick",
+                },
+            }
+            grant = CommitActionRequestGrant(
+                packet_id="rev_pkt_test_2485_5_head_only",
+                authorized=False,
+                reason="action_request_not_validated",
+            )
+
+            result = derive_pipeline_evidence(
+                repo_root=repo_root,
+                packet=packet,
+                grant=grant,
+                pipeline=pipeline,
+            )
+
+            self.assertEqual(result.pipeline_generation, "")
+            self.assertEqual(result.staged_snapshot_hash, "")
+            self.assertEqual(result.derived_fields, ())
+
     def test_commit_action_request_derives_target_actor_and_ignores_stale_pipeline(
         self,
     ) -> None:
@@ -2011,6 +2179,88 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                     self.assertEqual(
                         captured["action_request_reason"],
                         expected_reason,
+                    )
+
+    def test_commit_blocks_when_inbox_pivot_required_env_set(self) -> None:
+        """Per rev_pkt_2486 Scope 2: pre-mutation staleness gate.
+        DEVCTL_PIVOT_REQUIRED env var (set by runtime when inbox_observation
+        flagged pivot) MUST block commit even when other action_request
+        evidence is valid. Mutation while behind on inbox = stale review state.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            packet_id = _post_stage_commit_action_request(repo_root)
+            _persist_action_request_actor_authority(repo_root)
+            captured: dict[str, object] = {}
+
+            with (
+                patch.dict(
+                    os.environ,
+                    {
+                        "DEVCTL_CALLER_AGENT": "claude",
+                        "DEVCTL_PIVOT_REQUIRED": "1",
+                    },
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.commit._emit_report",
+                    side_effect=lambda _args, report: captured.update(report),
+                ),
+            ):
+                rc = run_commit(
+                    _make_args(
+                        message="feat: blocked by pivot gate",
+                        role="dashboard",
+                        action_request=packet_id,
+                    ),
+                    repo_root=repo_root,
+                    policy=_push_policy(),
+                    executor=_executor(repo_root),
+                    interaction_mode="remote_control",
+                    guard_runner=MagicMock(
+                        return_value=_mock_subprocess_result(0)
+                    ),
+                )
+
+            self.assertEqual(rc, 1)
+            self.assertEqual(
+                captured["action_request_reason"],
+                "action_request_inbox_pivot_required",
+            )
+
+    def test_commit_pivot_gate_off_when_env_unset_or_false(self) -> None:
+        """Per rev_pkt_2486 Scope 2 affirmative case: when DEVCTL_PIVOT_REQUIRED
+        is unset (or set to a falsy value), the pivot gate MUST NOT fire. The
+        gate is the explicit signal — its absence means inbox is current.
+        """
+        for falsy in ("", "0", "false", "no"):
+            with self.subTest(value=falsy):
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    repo_root = _init_repo(Path(tmpdir) / "repo")
+                    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+                    _, pipeline = _stage_pipeline_for_action_request(repo_root)
+                    packet_id = _post_stage_commit_action_request(repo_root)
+                    _persist_action_request_actor_authority(repo_root)
+
+                    env_overrides = {"DEVCTL_CALLER_AGENT": "claude"}
+                    if falsy:
+                        env_overrides["DEVCTL_PIVOT_REQUIRED"] = falsy
+
+                    with patch.dict(os.environ, env_overrides):
+                        grant = resolve_commit_action_request_grant(
+                            args=_make_args(
+                                role="dashboard",
+                                action_request=packet_id,
+                            ),
+                            repo_root=repo_root,
+                            pipeline=pipeline,
+                            interaction_mode="remote_control",
+                        )
+
+                    assert grant is not None
+                    self.assertNotEqual(
+                        grant.reason,
+                        "action_request_inbox_pivot_required",
                     )
 
     def test_stage_commit_action_request_post_requires_guard_evidence(self) -> None:

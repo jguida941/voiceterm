@@ -32,6 +32,9 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "TypedAction" in contract_ids
     assert "ControlState" in contract_ids
     assert "ReviewState" in contract_ids
+    assert "AgentDispatchRouter" in contract_ids
+    assert "DevelopmentModeTopology" in contract_ids
+    assert "DevelopmentLoopReport" in contract_ids
     assert "ReviewerRuntimeContract" in contract_ids
     assert "SessionPosture" in contract_ids
     assert "PacketIntentAnchor" in contract_ids
@@ -66,10 +69,32 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "commit_pipeline" in contract_map["ReviewState"]
     assert "push_authorization" in contract_map["ReviewState"]
     assert "authority_snapshot" in contract_map["ReviewState"]
+    assert "round_proofs" in contract_map["ReviewState"]
+    assert "agent_loop_decisions" in contract_map["ReviewState"]
+    assert "agent_dispatch_router" in contract_map["ReviewState"]
     assert "snapshot_id" in contract_map["ReviewState"]
+    assert "routes" in contract_map["AgentDispatchRouter"]
+    assert "rejected_routes" in contract_map["AgentDispatchRouter"]
+    assert "session_nodes" in contract_map["AgentDispatchRouter"]
+    assert "work_focus" in contract_map["AgentDispatchRouter"]
+    assert "peer_links" in contract_map["AgentDispatchRouter"]
+    assert "ambiguous_session_groups" in contract_map["AgentDispatchRouter"]
+    assert "governance_debt" in contract_map["AgentDispatchRouter"]
+    assert "selected_route_id" in contract_map["AgentDispatchRouter"]
+    assert "selected_route_ids" in contract_map["AgentDispatchRouter"]
+    assert "router_state" in contract_map["AgentDispatchRouter"]
+    assert "workstreams" in contract_map["DevelopmentModeTopology"]
+    assert "external_research" in contract_map["DevelopmentModeTopology"]
+    assert "knowledge_flow" in contract_map["DevelopmentModeTopology"]
+    assert "topology" in contract_map["DevelopmentLoopReport"]
+    assert "next_slice" in contract_map["DevelopmentLoopReport"]
     assert "authority_snapshot" in contract_map["SessionCachePacket"]
     assert "session_posture" in contract_map["SessionCachePacket"]
     assert "packet_intent_anchors" in contract_map["SessionCachePacket"]
+    assert "runtime_spine_closure" in contract_map["SessionCachePacket"]
+    assert "packet_continuity_index" in contract_map["SessionCachePacket"]
+    assert "packet_carry_forward_debt" in contract_map["SessionCachePacket"]
+    assert "continuity_attention" in contract_map["SessionCachePacket"]
     assert "conductor_visibility" in contract_map["ReviewerRuntimeContract"]
     assert "publish_clear" in contract_map["ReviewerRuntimeContract"]
     assert "session_posture" in contract_map["ReviewerRuntimeContract"]

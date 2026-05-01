@@ -121,9 +121,6 @@ def _record_for_packet(
     status = _text(packet.get("status"))
     expires_at = _text(packet.get("expires_at_utc"))
     posted_at = _parse_utc(_text(packet.get("posted_at")))
-    evidence = _find_later_evidence(packet_id, posted_at, events)
-    if evidence is not None:
-        return _record_from_evidence(packet, evidence, generated_at_utc)
     explicit_expiry = _find_expiry_event(packet_id, events)
     if explicit_expiry is not None:
         return PacketOutcomeRecord(
@@ -136,6 +133,9 @@ def _record_for_packet(
             expires_at_utc=expires_at,
             source_event_id=_text(explicit_expiry.get("event_id")),
         )
+    evidence = _find_later_evidence(packet_id, posted_at, events)
+    if evidence is not None:
+        return _record_from_evidence(packet, evidence, generated_at_utc)
     return PacketOutcomeRecord(
         packet_id=packet_id,
         outcome=PacketOutcome.ARCHIVED,

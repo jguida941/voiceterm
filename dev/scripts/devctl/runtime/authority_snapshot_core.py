@@ -271,6 +271,15 @@ def summary_next_command(ctx_dict: Mapping[str, object]) -> str:
     if "post_checkpoint_dirty_worktree" in blockers:
         return COMMIT_CHECKPOINT_COMMAND
 
+    push_decision = _mapping(ctx_dict.get("push_decision"))
+    next_step_command = str(push_decision.get("next_step_command") or "").strip()
+    if (
+        "checkpoint_required" in blockers
+        or "continuation_blocked" in blockers
+        or str(push_decision.get("action") or "").strip() == "await_checkpoint"
+    ):
+        return next_step_command or COMMIT_CHECKPOINT_COMMAND
+
     reviewer_command = reviewer_recovery_command(ctx_dict)
     if reviewer_command:
         return reviewer_command
@@ -281,12 +290,8 @@ def summary_next_command(ctx_dict: Mapping[str, object]) -> str:
     if any(blocker.startswith("implementation_permission_") for blocker in blockers):
         return _REVIEW_STATUS_COMMAND
 
-    push_decision = _mapping(ctx_dict.get("push_decision"))
-    next_step_command = str(push_decision.get("next_step_command") or "").strip()
     if next_step_command:
         return next_step_command
-    if str(push_decision.get("action") or "").strip() == "await_checkpoint":
-        return f"checkpoint current slice, then rerun {_SUMMARY_RERUN_COMMAND}"
     return f"resolve blockers, then rerun {_SUMMARY_RERUN_COMMAND}"
 
 

@@ -121,6 +121,7 @@ def build_report(
         planned_agent_ids=_sorted_agents(agents.required_agents | agents.runbook_agents),
     )
     _extend_runtime_truth_errors(runtime_truth=runtime_truth, errors=errors)
+    warnings.extend(_string_items(runtime_truth.get("warnings")))
     cycle_complete_for_signoff = _cycle_complete_for_signoff(
         master_by_agent=agents.master_by_agent,
         required_agents=agents.required_agents,
@@ -137,6 +138,30 @@ def build_report(
         "coordination_agents": _sorted_agents(agents.runbook_agents),
         "runtime_truth_checked": bool(runtime_truth.get("checked")),
         "runtime_review_state_path": runtime_truth.get("review_state_path", ""),
+        "runtime_coordination_topology": runtime_truth.get(
+            "coordination_topology",
+            "",
+        ),
+        "runtime_legacy_reviewer_mode": runtime_truth.get(
+            "legacy_reviewer_mode",
+            "",
+        ),
+        "runtime_active_runtime_providers": runtime_truth.get(
+            "active_runtime_providers",
+            [],
+        ),
+        "runtime_agent_work_board_rows": runtime_truth.get(
+            "agent_work_board_row_count",
+            0,
+        ),
+        "runtime_agent_loop_decisions": runtime_truth.get(
+            "agent_loop_decision_row_count",
+            0,
+        ),
+        "runtime_pending_packet_agents": runtime_truth.get(
+            "pending_packet_agents",
+            [],
+        ),
         "instruction_entries": len(tables.instruction_rows),
         "ledger_entries": len(tables.ledger_rows),
         "signoff_signers": _sorted_signers(agents.signoff_signers),
@@ -161,6 +186,36 @@ def render_md(report: dict) -> str:
     lines.append(
         "- coordination_agents: "
         + (", ".join(report.get("coordination_agents", [])) or "none")
+    )
+    lines.append(
+        f"- runtime_truth_checked: {report.get('runtime_truth_checked', False)}"
+    )
+    if report.get("runtime_review_state_path"):
+        lines.append(
+            f"- runtime_review_state: {report.get('runtime_review_state_path')}"
+        )
+    lines.append(
+        "- runtime_coordination_topology: "
+        + (str(report.get("runtime_coordination_topology") or "unavailable"))
+    )
+    lines.append(
+        "- runtime_legacy_reviewer_mode: "
+        + (str(report.get("runtime_legacy_reviewer_mode") or "unavailable"))
+    )
+    work_board_rows = report.get("runtime_agent_work_board_rows", 0)
+    lines.append(f"- runtime_agent_work_board_rows: {work_board_rows}")
+    decision_rows = report.get("runtime_agent_loop_decisions", 0)
+    lines.append(f"- runtime_agent_loop_decisions: {decision_rows}")
+    lines.append(
+        "- runtime_active_runtime_providers: "
+        + (
+            ", ".join(report.get("runtime_active_runtime_providers", []))
+            or "none"
+        )
+    )
+    lines.append(
+        "- runtime_pending_packet_agents: "
+        + (", ".join(report.get("runtime_pending_packet_agents", [])) or "none")
     )
     lines.append(f"- instruction_entries: {report.get('instruction_entries', 0)}")
     lines.append(f"- ledger_entries: {report.get('ledger_entries', 0)}")
@@ -248,3 +303,9 @@ def _build_agent_bundle(
         signoff_signers=signoff_signers,
         expected_signers=required_agents | {"ORCHESTRATOR"},
     )
+
+
+def _string_items(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]

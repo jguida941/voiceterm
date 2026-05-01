@@ -4,6 +4,14 @@ from __future__ import annotations
 
 from ...context_graph.render import append_quality_signal_lines
 from ...review_channel.ack_contract import packet_ack_is_transport_lifecycle_line
+from ...runtime.conductor_capability import (
+    context_graph_bootstrap_command,
+    session_resume_command_for_role,
+    startup_context_command_for_role,
+)
+from ...runtime.startup_continuity_render import (
+    append_continuity_attention_lines as _append_continuity_attention_lines,
+)
 from .startup_context_connectivity_render import (
     append_connectivity_registry as _append_connectivity_registry,
 )
@@ -217,6 +225,20 @@ def render_markdown(ctx_dict: dict) -> str:
     _append_startup_gate(lines, ctx_dict)
     _append_pending_inbox(lines, ctx_dict)
     _append_packet_intent_anchors(lines, ctx_dict)
+    role = str(ctx_dict.get("agent_lane") or ctx_dict.get("role") or "").strip()
+    if role not in {"dashboard", "implementer", "observer", "reviewer"}:
+        role = "implementer"
+    _append_continuity_attention_lines(
+        lines,
+        ctx_dict.get("continuity_attention"),
+        startup_command=startup_context_command_for_role(role),
+        session_resume_command=session_resume_command_for_role(role),
+        status_command=(
+            "python3 dev/scripts/devctl.py review-channel --action status "
+            "--terminal none --format json"
+        ),
+        context_graph_command=context_graph_bootstrap_command(),
+    )
     _append_work_intake(
         lines,
         ctx_dict,

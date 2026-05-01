@@ -33,6 +33,12 @@ from .startup_advisory_decision import (
 )
 from .startup_blocker_decision import derive_startup_blocker
 from .startup_connectivity_registry import startup_connectivity_registry
+from .startup_continuity import (
+    startup_continuity_attention,
+    startup_packet_continuity_index,
+    startup_packet_carry_forward_debt,
+    startup_runtime_spine_closure,
+)
 from .startup_context_models import ReviewerGateState, StartupContext
 from .startup_context_projections import build_contract_ownership_map
 from .startup_push_decision import PushDecisionState
@@ -40,7 +46,10 @@ from .startup_push_decision import derive_push_decision as _derive_push_decision
 from .startup_review_state import (
     load_startup_review_state as _load_startup_review_state,
 )
-from .startup_signals import load_startup_quality_signals
+from .startup_signals import (
+    compact_startup_quality_signals,
+    load_startup_quality_signals,
+)
 from .surface_snapshot import build_surface_snapshot_id, build_surface_zref
 from .work_intake import WorkIntakePacket, WorkIntakeStateInputs, build_work_intake_packet
 from .work_intake_coordination import build_work_intake_coordination_state
@@ -425,7 +434,9 @@ def build_startup_context(
         review_state=review_state,
         scan_trigger="startup_context",
     )
-    quality_signals = load_startup_quality_signals(repo_root)
+    quality_signals = compact_startup_quality_signals(
+        load_startup_quality_signals(repo_root)
+    )
     blocker = derive_startup_blocker(
         review_state=review_state,
         push_decision=push_decision,
@@ -445,6 +456,28 @@ def build_startup_context(
         review_state.packets if review_state is not None else (),
     )
 
+    # Per Codex rev_pkt_2313/2326/2337: pull typed CoordinationStateProjection
+    # from review_state into StartupContext so recovery / push surfaces
+    # consume the typed 4-field split alongside legacy
+    # observed_control_topology.
+    coordination_state_projection: dict[str, object] = {}
+    if review_state is not None:
+        cs = getattr(review_state, "coordination_state", None)
+        if isinstance(cs, dict):
+            coordination_state_projection = dict(cs)
+
+    runtime_spine_closure = startup_runtime_spine_closure(repo_root)
+    packet_carry_forward_debt = startup_packet_carry_forward_debt(
+        repo_root=repo_root,
+        review_state=review_state,
+    )
+    packet_continuity_index = startup_packet_continuity_index(review_state)
+    continuity_attention = startup_continuity_attention(
+        runtime_spine_closure=runtime_spine_closure,
+        packet_carry_forward_debt=packet_carry_forward_debt,
+        packet_continuity_index=packet_continuity_index,
+    )
+
     ctx = StartupContext(
         governance=governance,
         reviewer_gate=gate,
@@ -460,6 +493,7 @@ def build_startup_context(
         product_thesis=governance.product_thesis if governance else "",
         work_intake=work_intake,
         coordination=coordination_snapshot,
+        coordination_state_projection=coordination_state_projection,
         reviewer_runtime=(
             review_state.reviewer_runtime if review_state is not None else None
         ),
@@ -481,6 +515,10 @@ def build_startup_context(
         blocker=blocker,
         contract_ownership_map=build_contract_ownership_map(),
         connectivity_registry=startup_connectivity_registry(repo_root),
+        runtime_spine_closure=runtime_spine_closure,
+        packet_continuity_index=packet_continuity_index,
+        packet_carry_forward_debt=packet_carry_forward_debt,
+        continuity_attention=continuity_attention,
         key_surfaces=_startup_key_surfaces(governance),
         snapshot_id=snapshot_id,
         zref=zref,

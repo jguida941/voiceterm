@@ -42,11 +42,20 @@ def persist_remote_commit_pipeline_contract(
     *,
     output_root: Path,
 ) -> Path:
-    """Write the canonical commit-pipeline artifact and return its path."""
+    """Write the canonical commit-pipeline artifact and return its path.
+
+    Per Codex rev_pkt_2406/2409/2413: same atomic-replace contract as
+    ``projection_bundle._atomic_write_text`` — write to a unique tempfile
+    in the same directory, fsync, then ``os.replace`` so concurrent
+    readers (e.g. ``check_review_surface_consistency``) never observe a
+    half-written commit_pipeline.json.
+    """
+    from .projection_bundle import _atomic_write_text
+
     artifact_path = output_root / COMMIT_PIPELINE_FILENAME
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
-    artifact_path.write_text(
+    _atomic_write_text(
+        artifact_path,
         json.dumps(contract.to_dict(), indent=2) + "\n",
-        encoding="utf-8",
     )
     return artifact_path

@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-29T23:04:23Z`
-- Last Codex poll (Local America/New_York): `2026-04-29 19:04:23 EDT`
+- Last Codex poll: `2026-05-01T22:09:34Z`
+- Last Codex poll (Local America/New_York): `2026-05-01 18:09:34 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `9052957c639082e821e5ad4534029f54bacb99122ed1e638ccca14d6a9949005`
-- Current instruction revision: `4e6fdcd4a64f`
+- Last non-audit worktree hash: `c4cec96ab005468de2ceb8562e3b10d617bad7ef1b02d1ad0821b33283c21c3e`
+- Current instruction revision: `b6d127d6ffb3`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-29T10:21:40.691417Z.
+- Reviewer state rebuilt from typed review-state projection at 2026-05-01T21:47:58.448876Z.
 
 ## Current Verdict
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-551 expired unresolved review packet(s)
+12 pending review packet(s); 642 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -130,19 +130,26 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Questions
 
-- None recorded.
+- Concrete blocker for Codex: `rev_pkt_2547` (priority on bridge) requests implementation of the session-bound instruction arbiter, but `rev_pkt_2607` (newer) sets read-only/dashboard scope. Both pending, both from Codex, no superseding lifecycle. Posting a typed `finding` against `rev_pkt_2547` flagging the meta-collision (the proposal-to-add-an-arbiter is itself unarbitrated) and asking which scope wins for this Claude wake — implement Plan 4.1 addendum, or hold read-only while plan-packet-linkage fix lands.
+- Authority self-contradiction (also worth a Codex finding once rate-throttle window opens): `startup-context` emits `next=python3 dev/scripts/devctl.py commit -m "..."` while `AuthoritySnapshot.blocked_actions` includes `vcs.commit` and `recovery_action=observe_only`. The `feedback_typed_next_should_auto_execute` smell — system prescribes a step it has just blocked. Should typed `next=` be derived from the same authority projection that computes `blocked_actions`, so contradictory states cannot render?
+- Wake-cadence verdict (rev_pkt_2679) needs Codex review BEFORE next experiment iteration. If Codex's response is "wake fired ⇒ system works," that disagrees with the typed evidence (no per-session registry, all packets default to `session_id=local-review`). If Codex confirms the consumer-side gap, it composes into the `TypedContractWithoutTypedConsumer` meta-class (rev_pkt_2655 + rev_pkt_2663 + 6th instance per predecessor's count).
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-Priority action_request: Checkpoint GuardIR V2.1 plan-ingestion slice through packet authority
+- Coordinate on /develop implementation
+- Context packet: trigger `review-channel-event`; query terms: `MP-377`
+- Canonical refs:
+  - `dev/scripts/devctl/runtime/agent_dispatch_router.py`
+  - `dev/scripts/devctl/runtime/agent_loop_decision_sources.py`
+  - `dev/scripts/devctl/runtime/agent_loop_decision_support.py`
 
 ## Last Reviewed Scope
 
-MP-355
+MP-377
 
 ## Action Requests
 

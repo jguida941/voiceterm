@@ -10,7 +10,10 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from ..repo_packs import active_path_config
-from .packet_post_idempotency import packet_posted_idempotency_key
+from .packet_post_idempotency import (
+    is_idempotency_consumed_by,
+    packet_posted_idempotency_key,
+)
 from .state import DEFAULT_REVIEW_STATUS_DIR_REL, write_projection_bundle
 
 DEFAULT_REVIEW_ARTIFACT_ROOT_REL = active_path_config().review_artifact_root_rel
@@ -134,11 +137,14 @@ def append_event(
             event["event_id"] = next_event_id(fresh_events)
             _finalize_packet_posted_identity(event, fresh_events)
 
-            # Recheck idempotency_key against fresh state.
+            # Recheck idempotency_key against fresh state. Lifecycle-aware
+            # for packet_posted retries; symmetric-strict for non-packet
+            # events (the current event_type matters per rev_pkt_2255).
             idempotency_key = str(event.get("idempotency_key") or "").strip()
-            if idempotency_key and any(
-                str(e.get("idempotency_key") or "").strip() == idempotency_key
-                for e in fresh_events
+            if idempotency_key and is_idempotency_consumed_by(
+                fresh_events,
+                idempotency_key,
+                current_event_type=str(event.get("event_type") or ""),
             ):
                 raise ValueError(
                     "Duplicate review-channel idempotency_key rejected: "

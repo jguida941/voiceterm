@@ -20,6 +20,9 @@ from dev.scripts.devctl.commands import (
 from dev.scripts.devctl.runtime.advisory_next_action_role_filter import (
     READ_ONLY_NEXT_COMMAND,
 )
+from dev.scripts.devctl.runtime.dashboard_snapshot_authority import (
+    normalize_dashboard_snapshot,
+)
 
 
 def _make_args(**overrides) -> SimpleNamespace:
@@ -416,11 +419,72 @@ class TestDashboardSnapshotSections(unittest.TestCase):
                 "publication", "quality", "audit", "analytics",
                 "coordination", "reviewer_activity", "flow", "timeline",
                 "summary", "agent_mind", "session_outcomes", "ack_freshness",
-                "active_codex_sessions", "system_topology",
+                "active_codex_sessions", "system_topology", "agent_minds",
+                "packet_continuity_index", "continuity_attention",
             }
             self.assertTrue(required.issubset(snapshot.keys()), f"Missing: {required - snapshot.keys()}")
             self.assertEqual(snapshot["schema_version"], 3)
             self.assertEqual(snapshot["contract_id"], "DashboardSnapshot")
+
+    def test_dashboard_snapshot_has_provider_agent_minds(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(
+                root,
+                "dev/reports/agent_minds/codex_latest.json",
+                {
+                    "agent_provider": "codex",
+                    "generated_at_utc": "2026-05-01T15:20:10Z",
+                    "session_id": "codex-session",
+                    "event_count": 1,
+                    "events": [{"timestamp": "t1", "summary": "codex event"}],
+                },
+            )
+            _write_artifact(
+                root,
+                "dev/reports/agent_minds/claude_latest.json",
+                {
+                    "agent_provider": "claude",
+                    "generated_at_utc": "2026-05-01T15:20:11Z",
+                    "session_id": "claude-session",
+                    "event_count": 1,
+                    "events": [{"timestamp": "t2", "summary": "claude event"}],
+                },
+            )
+
+            snapshot = normalize_dashboard_snapshot(
+                {"review_state": {}},
+                repo_root=root,
+                review_state={},
+            )
+
+            self.assertEqual(snapshot["agent_mind"]["agent_provider"], "codex")
+            self.assertEqual(
+                snapshot["agent_minds"]["claude"]["agent_provider"],
+                "claude",
+            )
+            self.assertEqual(
+                snapshot["agent_minds"]["claude"]["latest_events"][0]["summary"],
+                "claude event",
+            )
+
+    def test_normalized_snapshot_exposes_packet_continuity(self) -> None:
+        review_state = _minimal_review_state()
+        review_state["packets"] = review_state["packets"][:2]
+
+        snapshot = normalize_dashboard_snapshot(
+            {"review_state": review_state},
+            review_state=review_state,
+        )
+
+        self.assertEqual(
+            snapshot["packet_continuity_index"]["contract_id"],
+            "PacketContinuityIndex",
+        )
+        self.assertEqual(
+            snapshot["packet_continuity_index"]["sink_counts"]["live_queue"],
+            2,
+        )
 
     def test_now_section_populated(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1168,6 +1232,31 @@ class TestCliParserWiring(unittest.TestCase):
         self.assertEqual(args.command, "claude-loop")
         self.assertEqual(args.format, "json")
         self.assertTrue(args.follow)
+        self.assertEqual(args.interval, "typed")
+        self.assertEqual(args.mode, "auto")
+
+    def test_agent_loop_parser_accepts_typed_mode_target(self) -> None:
+        parser = _build_dashboard_parser()
+        args = parser.parse_args(
+            [
+                "agent-loop",
+                "--actor",
+                "codex",
+                "--role",
+                "reviewer",
+                "--mode",
+                "packet",
+                "--packet",
+                "rev_pkt_2571",
+                "--format",
+                "json",
+            ]
+        )
+        self.assertEqual(args.command, "agent-loop")
+        self.assertEqual(args.actor, "codex")
+        self.assertEqual(args.role, "reviewer")
+        self.assertEqual(args.mode, "packet")
+        self.assertEqual(args.packet, "rev_pkt_2571")
 
     def test_simple_operator_formats_parse(self) -> None:
         parser = _build_dashboard_parser()
@@ -2577,6 +2666,8 @@ def _minimal_review_state() -> dict:
                 "status": "pending",
                 "policy_hint": "",
                 "requested_action": "implement",
+                "target_role": "implementer",
+                "target_session_id": "session-claude",
                 "approval_required": False,
                 "posted_at": "2026-04-04T02:55:00Z",
             },
@@ -2700,6 +2791,8 @@ class TestTypedReviewState(unittest.TestCase):
             packets = snapshot["pending_packets"]
             self.assertEqual(len(packets), 2)
             self.assertEqual(packets[0]["packet_id"], "pkt_001")
+            self.assertEqual(packets[0]["target_role"], "implementer")
+            self.assertEqual(packets[0]["target_session_id"], "session-claude")
             self.assertEqual(packets[1]["packet_id"], "pkt_002")
             self.assertTrue(packets[1]["approval_required"])
             self.assertEqual(packets[1]["delivery_emitted_at_utc"], "")

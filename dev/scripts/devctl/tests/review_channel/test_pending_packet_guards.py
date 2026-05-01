@@ -288,6 +288,69 @@ class PendingPacketInstructionRewriteGuardTests(unittest.TestCase):
             "in_progress",
         )
 
+    def test_control_queue_preserves_post_event_clock_for_priority(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            now = datetime.now(timezone.utc)
+            _write_packet_events(
+                root,
+                packets=[
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_2546",
+                        "packet_id": "rev_pkt_2546",
+                        "trace_id": "trace_2546",
+                        "event_type": "packet_posted",
+                        "status": "pending",
+                        "from_agent": "codex",
+                        "to_agent": "claude",
+                        "kind": "action_request",
+                        "summary": "Older request",
+                        "timestamp_utc": now.isoformat().replace("+00:00", "Z"),
+                        "expires_at_utc": (
+                            now + timedelta(minutes=30)
+                        ).isoformat().replace("+00:00", "Z"),
+                    },
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_2547",
+                        "packet_id": "rev_pkt_2547",
+                        "trace_id": "trace_2547",
+                        "event_type": "packet_posted",
+                        "status": "pending",
+                        "from_agent": "codex",
+                        "to_agent": "claude",
+                        "kind": "action_request",
+                        "summary": "Newer addendum",
+                        "timestamp_utc": (
+                            now + timedelta(seconds=1)
+                        ).isoformat().replace("+00:00", "Z"),
+                        "expires_at_utc": (
+                            now + timedelta(minutes=31)
+                        ).isoformat().replace("+00:00", "Z"),
+                    },
+                ],
+            )
+
+            queue = load_pending_packet_queue(root)
+
+        packets_by_id = {
+            str(packet["packet_id"]): packet for packet in queue.control_packets
+        }
+        self.assertEqual(
+            packets_by_id["rev_pkt_2546"]["latest_event_id"],
+            "rev_evt_2546",
+        )
+        self.assertEqual(
+            packets_by_id["rev_pkt_2547"]["latest_event_id"],
+            "rev_evt_2547",
+        )
+        projected = build_queue_state(None, pending_packets=queue.control_packets)
+        self.assertEqual(
+            projected.derived_next_instruction_source["packet_id"],
+            "rev_pkt_2547",
+        )
+
     def test_reviewer_guard_ignores_packets_for_other_agents(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

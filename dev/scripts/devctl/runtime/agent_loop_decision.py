@@ -1,0 +1,92 @@
+"""Typed per-agent loop decision over shared runtime state."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+
+from .agent_loop_decision_models import AgentLoopDecision
+from .agent_loop_decision_support import (
+    active_packet_decision,
+    actor_identity_decision,
+    attention_decision,
+    blocker_decision,
+    communication_attention_decision,
+    completed_decision,
+    executing_decision,
+    observer_decision,
+    session_identity_decision,
+    unresolved_decision,
+    wait_decision,
+)
+from .agent_loop_decision_sources import (
+    attention_requires_pivot,
+    blocker_active,
+    build_agent_loop_context,
+    latest_session_outcome,
+    resolve_packet_state,
+    role_is_observer,
+    session_identity_required,
+)
+
+
+def build_agent_loop_decision(
+    *,
+    review_state: Mapping[str, object],
+    dashboard: Mapping[str, object],
+    actor_id: object,
+    actor_role: object = "",
+    session_id: object = "",
+    loop_intent: object = "",
+    requested_plan_ref: object = "",
+    requested_packet_id: object = "",
+    master_plan: object = None,
+    operator_override_requested: object = False,
+    operator_override_reason: object = "",
+    operator_override_scope: object = "edit-only",
+    operator_override_by: object = "operator",
+) -> AgentLoopDecision:
+    """Resolve what one agent session should do from typed state."""
+    ctx = build_agent_loop_context(
+        review_state=review_state,
+        dashboard=dashboard,
+        actor_id=actor_id,
+        actor_role=actor_role,
+        session_id=session_id,
+        loop_intent=loop_intent,
+        requested_plan_ref=requested_plan_ref,
+        requested_packet_id=requested_packet_id,
+        master_plan=master_plan,
+        operator_override_requested=operator_override_requested,
+        operator_override_reason=operator_override_reason,
+        operator_override_scope=operator_override_scope,
+        operator_override_by=operator_override_by,
+    )
+    if not ctx.actor:
+        return actor_identity_decision(ctx)
+    if session_identity_required(ctx):
+        return session_identity_decision(ctx)
+
+    packets = resolve_packet_state(ctx)
+    if blocker_active(ctx) and attention_requires_pivot(ctx, packets):
+        return communication_attention_decision(ctx, packets)
+    if blocker_active(ctx):
+        return blocker_decision(ctx, packets)
+    if attention_requires_pivot(ctx, packets):
+        return attention_decision(ctx, packets)
+
+    outcome = latest_session_outcome(ctx)
+    outcome_kind = str(outcome.get("outcome") or "").strip()
+    if outcome_kind == "completed_handoff" and not packets.active_packet_id:
+        return completed_decision(ctx, outcome)
+    if outcome_kind in {"unresolved", "process_died"} and not packets.active_packet_id:
+        return unresolved_decision(ctx, outcome)
+    if packets.executing_packet_id:
+        return executing_decision(ctx, packets)
+    if packets.active_packet_id:
+        return active_packet_decision(ctx, packets)
+    if role_is_observer(ctx.role):
+        return observer_decision(ctx, packets)
+    return wait_decision(ctx)
+
+
+__all__ = ["AgentLoopDecision", "build_agent_loop_decision"]

@@ -18,6 +18,7 @@ from ..runtime.control_plane_read_model_support import ControlPlaneReadModelOpti
 from ..runtime.control_plane_sources import load_sources
 from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.startup_blocker_decision import derive_blocker_decision
+from ..runtime.startup_blocker_decision import startup_authority_blocker_kind
 from ..runtime.review_state_locator import load_current_review_state
 from ..runtime.review_state_parser import review_state_from_payload
 from ..runtime.dashboard_snapshot_authority import normalize_dashboard_snapshot
@@ -213,7 +214,11 @@ def _build_timeline_section(
 
 
 def build_snapshot(
-    *, repo_root: Path = REPO_ROOT, view: str = "overview", role: str = "dashboard",
+    *,
+    repo_root: Path = REPO_ROOT,
+    view: str = "overview",
+    role: str = "dashboard",
+    include_review_state: bool = False,
 ) -> dict[str, Any]:
     """Build a DashboardSnapshot dict from existing artifacts and git state.
 
@@ -321,6 +326,8 @@ def build_snapshot(
         control_plane=cp_model,
         startup_context=startup_context_payload,
     )
+    if include_review_state and isinstance(dashboard_review_state, dict):
+        snapshot["_review_state"] = dict(dashboard_review_state)
     return snapshot
 
 def _empty_bridge() -> dict[str, str]:
@@ -330,6 +337,85 @@ def _empty_bridge() -> dict[str, str]:
         "instruction": "n/a", "verdict": "n/a", "findings_raw": "",
         "reviewed_scope_raw": "", "instruction_full": "n/a",
     }
+
+
+def _pending_review_blocker_count(review_state: dict[str, Any] | None) -> int:
+    """Count unacked review packets that block the implementer turn.
+
+    Per Codex rev_pkt_2388: pending plan_gap_review/decision/instruction
+    packets addressed to claude must dominate await_checkpoint. Once the
+    implementer ACKs them, they fall out of pending_claude. So
+    queue.pending_claude is the canonical signal.
+    """
+    if not isinstance(review_state, dict):
+        return 0
+    queue = review_state.get("queue")
+    if not isinstance(queue, dict):
+        return 0
+    try:
+        return int(queue.get("pending_claude") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _startup_authority_blocker_kind(
+    review_state: dict[str, Any] | None,
+    *,
+    startup_context: dict[str, Any] | None = None,
+    receipt: dict[str, Any] | None = None,
+) -> str:
+    """Return a typed blocker kind when startup authority is over budget.
+
+    Per Codex rev_pkt_2388: import-index atomicity violations or staged-
+    index budget exceeded must dominate await_checkpoint. The blocker
+    snapshot in review_state may name them, but review_state does not own
+    startup authority. Prefer the same startup-context/receipt fields that
+    the control-plane model consumes so dashboard.now and claude-loop render
+    ``checkpoint_blocked_by_startup_authority:<kind>`` instead of
+    ``await_checkpoint``.
+    """
+    if isinstance(startup_context, dict):
+        kind = startup_authority_blocker_kind(startup_context)
+        if kind:
+            return kind
+        startup_authority = startup_context.get("startup_authority")
+        kind = startup_authority_blocker_kind(startup_authority)
+        if kind:
+            return kind
+    if isinstance(receipt, dict):
+        kind = startup_authority_blocker_kind(
+            {
+                "ok": receipt.get("startup_authority_ok", True),
+                "startup_authority_ok": receipt.get("startup_authority_ok", True),
+                "startup_authority_errors": receipt.get(
+                    "startup_authority_errors", ()
+                ),
+                "checkpoint_required": receipt.get("checkpoint_required", False),
+                "safe_to_continue_editing": receipt.get(
+                    "safe_to_continue_editing", True
+                ),
+                "checkpoint_reason": receipt.get("push_reason")
+                or receipt.get("advisory_reason"),
+                "push_reason": receipt.get("push_reason"),
+                "advisory_reason": receipt.get("advisory_reason"),
+                "recommended_action": receipt.get("recommended_action"),
+            }
+        )
+        if kind:
+            return kind
+    if not isinstance(review_state, dict):
+        return ""
+    blocker = review_state.get("blocker") or review_state.get("blocker_snapshot")
+    if not isinstance(blocker, dict):
+        return ""
+    kind = str(
+        blocker.get("blocker_kind")
+        or blocker.get("startup_authority_blocker_kind")
+        or ""
+    ).strip()
+    if kind in {"import_index_atomicity", "staged_index_budget_exceeded"}:
+        return kind
+    return ""
 
 
 def _prepare_runtime_sections(
@@ -557,10 +643,31 @@ def _assemble(
             last_change_age=last_change_age,
             coordination=typed_coordination,
             runtime_counts=typed_runtime_counts,
+            review_state=review_state,
             next_action_override=control_plane.next_action if control_plane else "",
+            # Per Codex rev_pkt_2388: typed pending-review-packet count
+            # and startup-authority blocker kind dominate next_action.
+            # Without this, claude-loop renders await_checkpoint even
+            # while a hard blocker is open.
+            pending_review_blocker_count=_pending_review_blocker_count(review_state),
+            startup_authority_blocker_kind=_startup_authority_blocker_kind(
+                review_state,
+                startup_context=startup_context,
+                receipt=receipt,
+            ),
         )),
         "health": health,
-        "review": _build_review_section(bridge, reviewer_agent, implementer_agent, session, instruction_text, control_plane.reviewer_mode if control_plane and review_state else ""),
+        "review": _build_review_section(
+            bridge,
+            reviewer_agent,
+            implementer_agent,
+            session,
+            instruction_text,
+            control_plane.reviewer_mode if control_plane and review_state else "",
+            (review_state or {}).get("coordination_state")
+            if isinstance(review_state, dict)
+            else None,
+        ),
         "workers": _build_workers_section(agents),
         "plan": plan_section,
         "findings": bridge_findings or [],
@@ -575,6 +682,18 @@ def _assemble(
         "typed_attention": typed_attention,
         "pending_packets": typed_packets,
         "control_packets": control_packets,
+        "packet_continuity_index": (startup_context or {}).get(
+            "packet_continuity_index",
+            {},
+        ),
+        "packet_carry_forward_debt": (startup_context or {}).get(
+            "packet_carry_forward_debt",
+            (),
+        ),
+        "continuity_attention": (startup_context or {}).get(
+            "continuity_attention",
+            {},
+        ),
         "control_plane": control_plane.to_dict() if control_plane else None,
     }
     if review_state:

@@ -78,6 +78,7 @@ def startup_receipt_problems_for_intent(
         problems.append(
             "Latest startup receipt still requires a checkpoint before another implementation or launcher step."
         )
+    problems.extend(_live_startup_authority_drift(receipt, authority_report))
     if not receipt.startup_authority_ok:
         problems.append(
             "Latest startup receipt recorded startup-authority failures."
@@ -112,6 +113,47 @@ def _reviewer_bootstrap_head_problem(
         "touches guarded quality-scope files"
         f" (`{previous_head[:12]}` -> `{current_head[:12]}`; {sample})."
     )
+
+
+def _live_startup_authority_drift(
+    receipt: "StartupReceipt",
+    authority_report: dict[str, Any] | None,
+) -> list[str]:
+    """Return receipt-staleness problems from the live authority report."""
+    if not isinstance(authority_report, dict) or not authority_report:
+        return []
+    live_checkpoint = bool(authority_report.get("checkpoint_required", False))
+    live_safe = bool(authority_report.get("safe_to_continue_editing", True))
+    live_ok = bool(authority_report.get("ok", False))
+    live_staged = _int_value(authority_report.get("staged_path_count"))
+    live_unstaged = _int_value(authority_report.get("unstaged_path_count"))
+    if (
+        live_checkpoint == bool(receipt.checkpoint_required)
+        and live_safe == bool(receipt.safe_to_continue_editing)
+        and live_ok == bool(receipt.startup_authority_ok)
+        and live_staged == int(getattr(receipt, "staged_path_count", 0) or 0)
+        and live_unstaged == int(getattr(receipt, "unstaged_path_count", 0) or 0)
+    ):
+        return []
+    reason = str(authority_report.get("checkpoint_reason") or "").strip()
+    detail = (
+        "Startup receipt is stale for the current startup-authority state "
+        f"(checkpoint_required {receipt.checkpoint_required}->{live_checkpoint}, "
+        f"safe_to_continue_editing {receipt.safe_to_continue_editing}->{live_safe}, "
+        f"startup_authority_ok {receipt.startup_authority_ok}->{live_ok}, "
+        f"staged_path_count {receipt.staged_path_count}->{live_staged}, "
+        f"unstaged_path_count {receipt.unstaged_path_count}->{live_unstaged}"
+    )
+    if reason:
+        detail += f", reason={reason}"
+    return [detail + ")."]
+
+
+def _int_value(value: object) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _changed_paths_since(

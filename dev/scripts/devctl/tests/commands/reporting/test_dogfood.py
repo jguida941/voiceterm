@@ -133,6 +133,31 @@ class DogfoodParserTests(unittest.TestCase):
             "dev/scripts/devctl/commands/vcs/push.py",
         )
 
+    def test_parser_accepts_scenario_flags(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "dogfood",
+                "--run-scenario",
+                "plan41-tandem",
+                "--fix-mode",
+                "isolated-worker",
+                "--loop",
+                "--max-cycles",
+                "2",
+                "--cadence-seconds",
+                "330",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(args.run_scenario, "plan41-tandem")
+        self.assertEqual(args.fix_mode, "isolated-worker")
+        self.assertTrue(args.loop)
+        self.assertEqual(args.max_cycles, 2)
+        self.assertEqual(args.cadence_seconds, 330)
+
 
 class DogfoodCommandTests(unittest.TestCase):
     def test_record_requires_explicit_dev_mode(self) -> None:
@@ -563,6 +588,133 @@ class DogfoodCommandTests(unittest.TestCase):
             self.assertIn("## Coverage", rendered)
             self.assertIn("`role` uncovered", rendered)
 
+    def test_run_scenario_reports_router_and_tester_gates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            output_path = root / "scenario.json"
+            parser = build_parser()
+            args = parser.parse_args(
+                [
+                    "dogfood",
+                    "--run-scenario",
+                    "plan41-tandem",
+                    "--log-path",
+                    str(root / "dogfood.jsonl"),
+                    "--summary-root",
+                    str(root / "summary"),
+                    "--output",
+                    str(output_path),
+                    "--format",
+                    "json",
+                ]
+            )
+
+            with patch.object(
+                command,
+                "build_dashboard_snapshot",
+                return_value=_scenario_dashboard(),
+            ):
+                self.assertEqual(command.run(args), 0)
+
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            scenario = payload["scenario"]
+            self.assertEqual(scenario["scenario_id"], "plan41-tandem")
+            self.assertEqual(scenario["scenario_state"], "ready_observe_only")
+            self.assertEqual(scenario["dogfood_status"], "passed")
+            self.assertEqual(scenario["router"]["router_state"], "ready")
+            self.assertEqual(scenario["router"]["route_count"], 1)
+            self.assertIn(
+                "claude-tester",
+                {lane["lane_id"] for lane in scenario["lanes"]},
+            )
+            self.assertIn(
+                "packet_queue",
+                {gate["gate_id"] for gate in scenario["gates"]},
+            )
+
+    def test_run_scenario_record_defaults_to_scenario_target(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            log_path = root / "dogfood.jsonl"
+            output_path = root / "scenario.json"
+            parser = build_parser()
+            args = parser.parse_args(
+                [
+                    "dogfood",
+                    "--record",
+                    "--dev-mode",
+                    "--run-scenario",
+                    "plan41-tandem",
+                    "--log-path",
+                    str(log_path),
+                    "--summary-root",
+                    str(root / "summary"),
+                    "--output",
+                    str(output_path),
+                    "--format",
+                    "json",
+                ]
+            )
+
+            with patch.object(
+                command,
+                "build_dashboard_snapshot",
+                return_value=_scenario_dashboard(checkpoint_blocked=True),
+            ):
+                self.assertEqual(command.run(args), 0)
+
+            row = json.loads(log_path.read_text(encoding="utf-8").splitlines()[0])
+            self.assertEqual(row["target_kind"], "scenario")
+            self.assertEqual(row["target_id"], "plan41-tandem")
+            self.assertEqual(row["status"], "blocked")
+            self.assertEqual(row["scenario_id"], "plan41-tandem")
+            self.assertIn("blocked_by_startup_authority", row["notes"])
+
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload["recorded"]["target_kind"], "scenario")
+            self.assertEqual(
+                payload["scenario"]["scenario_state"],
+                "blocked_by_startup_authority",
+            )
+
+    def test_run_scenario_blocks_worker_modes_without_fanout_readiness(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            output_path = root / "scenario.json"
+            parser = build_parser()
+            args = parser.parse_args(
+                [
+                    "dogfood",
+                    "--run-scenario",
+                    "plan41-tandem",
+                    "--fix-mode",
+                    "isolated-worker",
+                    "--log-path",
+                    str(root / "dogfood.jsonl"),
+                    "--summary-root",
+                    str(root / "summary"),
+                    "--output",
+                    str(output_path),
+                    "--format",
+                    "json",
+                ]
+            )
+
+            with patch.object(
+                command,
+                "build_dashboard_snapshot",
+                return_value=_scenario_dashboard(),
+            ):
+                self.assertEqual(command.run(args), 0)
+
+            scenario = json.loads(output_path.read_text(encoding="utf-8"))["scenario"]
+            self.assertEqual(scenario["scenario_state"], "blocked_by_fanout")
+            fanout_gate = next(
+                gate for gate in scenario["gates"] if gate["gate_id"] == "fanout_readiness"
+            )
+            self.assertTrue(fanout_gate["blocking"])
+            self.assertEqual(fanout_gate["status"], "blocked")
+
 
 class DogfoodPathResolutionTests(unittest.TestCase):
     def test_resolve_dogfood_log_path_uses_runtime_repo_root(self) -> None:
@@ -580,3 +732,59 @@ class DogfoodPathResolutionTests(unittest.TestCase):
             (repo_root / "dev" / "reports" / "dogfood" / "runs.jsonl").resolve(),
         )
         self.assertEqual(get_repo_root(), REPO_ROOT)
+
+
+def _scenario_dashboard(*, checkpoint_blocked: bool = False) -> dict[str, object]:
+    next_action = (
+        "checkpoint_blocked_by_startup_authority:staged_index_budget_exceeded"
+        if checkpoint_blocked
+        else "run_next_tandem_packet"
+    )
+    top_blocker = "startup authority: staged_index_budget_exceeded" if checkpoint_blocked else ""
+    attention = "checkpoint_required" if checkpoint_blocked else "healthy"
+    return {
+        "control_plane": {
+            "next_action": next_action,
+            "top_blocker": top_blocker,
+            "attention_status": attention,
+            "coordination": {
+                "safe_to_fanout": False,
+                "resync_required": False,
+            },
+            "session_posture": {
+                "actors": [
+                    {
+                        "actor_id": "codex",
+                        "provider": "codex",
+                        "role": "reviewer",
+                        "granted_capabilities": ["repo.commit"],
+                    }
+                ]
+            },
+        },
+        "_review_state": {
+            "queue": {"pending_total": 1},
+            "agent_dispatch_router": {
+                "contract_id": "AgentDispatchRouter",
+                "schema_version": 1,
+                "router_state": "ready",
+                "selected_route_id": "route:codex|reviewer|s1|rev_pkt_1",
+                "selected_route_ids": ["route:codex|reviewer|s1|rev_pkt_1"],
+                "selection_reason": "single scoped route",
+                "routes": [{"route_id": "route:codex|reviewer|s1|rev_pkt_1"}],
+                "rejected_routes": [],
+                "ambiguous_session_groups": [],
+                "governance_debt": [],
+            },
+        },
+        "agent_minds": {
+            "codex": {
+                "available": True,
+                "generated_at_utc": "2026-05-01T21:21:00Z",
+            },
+            "claude": {
+                "available": True,
+                "generated_at_utc": "2026-05-01T21:21:00Z",
+            },
+        },
+    }

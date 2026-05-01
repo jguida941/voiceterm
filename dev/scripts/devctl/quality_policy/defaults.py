@@ -40,6 +40,12 @@ DEFAULT_AI_GUARD_SPECS = (
         supports_commit_range=False,
     ),
     QualityStepSpec(
+        "runtime-spine-closure-guard",
+        "runtime_spine_closure",
+        languages=("python",),
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
         "python-broad-except-guard",
         "python_broad_except",
         languages=("python",),
@@ -73,6 +79,17 @@ DEFAULT_AI_GUARD_SPECS = (
     QualityStepSpec(
         "naming-consistency-guard",
         "naming_consistency",
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
+        "registry-path-integrity-guard",
+        "registry_path_integrity",
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
+        "provider-list-parity-graph-guard",
+        "provider_list_parity_graph",
+        languages=("python",),
         supports_commit_range=False,
     ),
     QualityStepSpec(
@@ -183,6 +200,31 @@ DEFAULT_REVIEW_PROBE_SPECS = (
         "probe-typed-authority-provenance",
         "probe_typed_authority_provenance",
         languages=("python",),
+    ),
+    QualityStepSpec(
+        "probe-event-id-uniqueness",
+        "probe_event_id_uniqueness",
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
+        "probe-command-result-contract",
+        "probe_command_result_contract",
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
+        "probe-inter-agent-communication-lag",
+        "probe_inter_agent_communication_lag",
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
+        "probe-packet-carry-forward-debt",
+        "probe_packet_carry_forward_debt",
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
+        "probe-event-field-naming-consistency",
+        "probe_event_field_naming_consistency",
+        supports_commit_range=False,
     ),
     QualityStepSpec(
         "probe-design-smells",

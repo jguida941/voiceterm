@@ -38,6 +38,7 @@ def is_actionable(packet: Mapping[str, object]) -> bool:
 
 
 def _action_request_priority_key(packet: Mapping[str, object]) -> tuple[object, ...]:
+    """Mirror review-channel active-packet priority for inbox instruction focus."""
     state_rank = {
         "apply_pending_after_execution": 0,
         "execution_pending": 1,
@@ -47,6 +48,7 @@ def _action_request_priority_key(packet: Mapping[str, object]) -> tuple[object, 
     }
     return (
         state_rank.get(_action_request_state(packet), 9),
+        -_event_id_rank(str(packet.get("latest_event_id") or "")),
         _parse_utc(packet.get("expires_at_utc")),
         _parse_utc(packet.get("posted_at")),
         _packet_id(packet),
@@ -74,6 +76,12 @@ def _action_request_state(packet: Mapping[str, object]) -> str:
 
 def _packet_kind(packet: Mapping[str, object]) -> str:
     return _normalized_text(packet.get("kind"))
+
+
+def _event_id_rank(event_id: str) -> int:
+    from ..review_channel.event_models import event_id_rank
+
+    return event_id_rank(event_id)
 
 
 def _normalized_text(value: object) -> str:

@@ -13,8 +13,12 @@ from .reviewer_gate_logic import (
     reviewer_runtime_block_state,
 )
 from .reviewer_runtime_models import (
+    AgentRuntimeClock,
+    InboxObservationState,
+    PacketAttentionState,
     RemoteControlAttachmentState,
     ReviewerAcceptanceState,
+    ReviewerDutyProof,
     ReviewerRuntimeContract,
     remote_control_attachment_from_mapping,
 )
@@ -165,6 +169,107 @@ def _typed_reviewer_runtime_state(
             effective_reviewer_mode=effective_reviewer_mode,
             remote_control_attachment=remote_control_attachment,
         ),
+        duty_proof=_duty_proof_from_mapping(reviewer_runtime.get("duty_proof")),
+        inbox_observation=_inbox_observation_from_mapping(
+            reviewer_runtime.get("inbox_observation")
+        ),
+        agent_runtime_clock=_agent_runtime_clock_from_mapping(
+            reviewer_runtime.get("agent_runtime_clock")
+        ),
+        packet_attention=_packet_attention_from_mapping(
+            reviewer_runtime.get("packet_attention")
+        ),
+    )
+
+
+def _duty_proof_from_mapping(value: object) -> ReviewerDutyProof:
+    """Per rev_pkt_2475 + rev_pkt_2498: deserialize typed reviewer-duty proof
+    from disk projection so the contract round-trips faithfully through
+    the projection-rebuild path. Empty/missing → safe default."""
+    payload = _mapping(value)
+    if not payload:
+        return ReviewerDutyProof()
+    return ReviewerDutyProof(
+        reviewer_actor_id=_string(payload.get("reviewer_actor_id")),
+        reviewer_session_id=_string(payload.get("reviewer_session_id")),
+        last_packet_event_id=_string(payload.get("last_packet_event_id")),
+        last_packet_observed_at_utc=_string(payload.get("last_packet_observed_at_utc")),
+        pending_packet_count=int(payload.get("pending_packet_count") or 0),
+        current_head_sha=_string(payload.get("current_head_sha")),
+        staged_tree_hash=_string(payload.get("staged_tree_hash")),
+        worktree_hash=_string(payload.get("worktree_hash")),
+        changed_path_count=int(payload.get("changed_path_count") or 0),
+        reviewed_diff_hash=_string(payload.get("reviewed_diff_hash")),
+        reviewed_diff_base=_string(payload.get("reviewed_diff_base")),
+        reviewed_path_count=int(payload.get("reviewed_path_count") or 0),
+        last_diff_review_at_utc=_string(payload.get("last_diff_review_at_utc")),
+        semantic_review_source=_string(payload.get("semantic_review_source")),
+        semantic_review_claimed=_bool(payload.get("semantic_review_claimed")),
+        state=_string(payload.get("state")) or "unknown",
+        stale_reasons=tuple(_string(row) for row in (payload.get("stale_reasons") or ()) if _string(row)),
+    )
+
+
+def _inbox_observation_from_mapping(value: object) -> InboxObservationState:
+    """Per rev_pkt_2486 projection-rebuild gap fix: deserialize typed inbox
+    observation from disk so reviewer_mode renderers don't see default-empty
+    after every refresh. Empty/missing → safe default."""
+    payload = _mapping(value)
+    if not payload:
+        return InboxObservationState()
+    return InboxObservationState(
+        actor_id=_string(payload.get("actor_id")),
+        session_id=_string(payload.get("session_id")),
+        last_inbox_event_id=_string(payload.get("last_inbox_event_id")),
+        last_inbox_event_at_utc=_string(payload.get("last_inbox_event_at_utc")),
+        last_inbox_observed_event_id=_string(payload.get("last_inbox_observed_event_id")),
+        last_inbox_observed_at_utc=_string(payload.get("last_inbox_observed_at_utc")),
+        pending_packet_count=int(payload.get("pending_packet_count") or 0),
+        superseded_packet_id=_string(payload.get("superseded_packet_id")),
+        pivot_required=_bool(payload.get("pivot_required")),
+        pivot_reasons=tuple(_string(row) for row in (payload.get("pivot_reasons") or ()) if _string(row)),
+    )
+
+
+def _agent_runtime_clock_from_mapping(value: object) -> AgentRuntimeClock:
+    """Per rev_pkt_2498 (1) projection round-trip: deserialize typed shared
+    runtime clock from disk so all agents continue to read the same
+    source_latest_event_id after a projection rebuild."""
+    payload = _mapping(value)
+    if not payload:
+        return AgentRuntimeClock()
+    return AgentRuntimeClock(
+        source_latest_event_id=_string(payload.get("source_latest_event_id")),
+        source_latest_event_at_utc=_string(payload.get("source_latest_event_at_utc")),
+        cadence_seconds=int(payload.get("cadence_seconds") or 0),
+        last_published_at_utc=_string(payload.get("last_published_at_utc")),
+        snapshot_id=_string(payload.get("snapshot_id")),
+    )
+
+
+def _packet_attention_from_mapping(value: object) -> PacketAttentionState:
+    """Per rev_pkt_2498 (2,4) projection-rebuild gap fix: deserialize typed
+    per-actor_session attention contract from disk so the commit gate's
+    typed-state path can read populated wake_required / pivot_required
+    fields after a projection rebuild instead of seeing all-defaults that
+    silently let the env-fallback fire."""
+    payload = _mapping(value)
+    if not payload:
+        return PacketAttentionState()
+    return PacketAttentionState(
+        observation_actor_id=_string(payload.get("observation_actor_id")),
+        observation_session_id=_string(payload.get("observation_session_id")),
+        latest_inbox_event_id=_string(payload.get("latest_inbox_event_id")),
+        latest_attention_packet_id=_string(payload.get("latest_attention_packet_id")),
+        latest_attention_changed_at_utc=_string(payload.get("latest_attention_changed_at_utc")),
+        last_observed_event_id=_string(payload.get("last_observed_event_id")),
+        last_observed_at_utc=_string(payload.get("last_observed_at_utc")),
+        pending_packet_count=int(payload.get("pending_packet_count") or 0),
+        superseded_packet_id=_string(payload.get("superseded_packet_id")),
+        pivot_required=_bool(payload.get("pivot_required")),
+        wake_required=_bool(payload.get("wake_required")),
+        stale_reason=_string(payload.get("stale_reason")),
+        pivot_reasons=tuple(_string(row) for row in (payload.get("pivot_reasons") or ()) if _string(row)),
     )
 
 

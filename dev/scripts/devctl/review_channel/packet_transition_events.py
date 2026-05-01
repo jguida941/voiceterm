@@ -8,7 +8,13 @@ from dataclasses import replace
 from pathlib import Path
 
 from .context_refs import normalize_context_pack_refs
-from .event_store import ReviewChannelArtifactPaths, idempotency_key
+from .event_store import (
+    DEFAULT_REVIEW_CHANNEL_PLAN_ID,
+    ReviewChannelArtifactPaths,
+    append_event,
+    idempotency_key,
+    load_events,
+)
 from .packet_attestation import validate_packet_apply_attestation
 from .packet_contract import PacketTransitionRequest
 from .packet_plan_integration import maybe_append_packet_plan_row
@@ -44,7 +50,7 @@ def build_transition_event(
         trace_id=packet.get("trace_id"),
         timestamp_utc=timestamp_utc,
         source="review_channel",
-        plan_id=request.plan_id,
+        plan_id=_transition_plan_id(packet=packet, request=request),
         controller_run_id=request.controller_run_id,
         event_type=event_type,
         from_agent=packet.get("from_agent"),
@@ -64,6 +70,8 @@ def build_transition_event(
         target_kind=packet.get("target_kind"),
         target_ref=packet.get("target_ref"),
         target_revision=packet.get("target_revision"),
+        target_role=packet.get("target_role"),
+        target_session_id=packet.get("target_session_id"),
         anchor_refs=list(packet.get("anchor_refs") or []),
         intake_ref=packet.get("intake_ref"),
         mutation_op=packet.get("mutation_op"),
@@ -92,6 +100,18 @@ def _packet_semantic_zref(packet: dict[str, object]) -> str:
     return f"packet:{packet_id}" if packet_id else ""
 
 
+def _transition_plan_id(
+    *,
+    packet: Mapping[str, object],
+    request: PacketTransitionRequest,
+) -> str:
+    packet_plan_id = str(packet.get("plan_id") or "").strip()
+    request_plan_id = str(request.plan_id or "").strip()
+    if request_plan_id and request_plan_id != DEFAULT_REVIEW_CHANNEL_PLAN_ID:
+        return request_plan_id
+    return packet_plan_id or request_plan_id
+
+
 def _source_identity(packet: Mapping[str, object]) -> dict[str, object]:
     raw = packet.get("source_identity")
     if not isinstance(raw, Mapping):
@@ -117,12 +137,97 @@ def finish_transition_event(
         seen_at_utc=str(written_event.get("timestamp_utc") or "").strip(),
     )
     if request.action == "apply":
-        written_event["plan_integration"] = maybe_append_packet_plan_row(
+        plan_integration = maybe_append_packet_plan_row(
             repo_root=repo_root,
             packet=packet,
             event=written_event,
         )
+        written_event["plan_ingestion"] = plan_integration
+        written_event["plan_integration"] = plan_integration
+        if _should_record_plan_integration_event(packet, plan_integration):
+            integration_event = _plan_integration_event(
+                packet=packet,
+                request=request,
+                written_event=written_event,
+                plan_integration=plan_integration,
+            )
+            written_integration_event = append_event(
+                Path(artifact_paths.event_log_path),
+                integration_event,
+                existing_events=load_events(Path(artifact_paths.event_log_path)),
+            )
+            written_event["plan_integration_event_id"] = written_integration_event.get(
+                "event_id"
+            )
     return written_event
+
+
+def _should_record_plan_integration_event(
+    packet: Mapping[str, object],
+    plan_integration: Mapping[str, object],
+) -> bool:
+    if str(packet.get("target_kind") or "").strip() != "plan":
+        return False
+    reason = str(plan_integration.get("reason") or "").strip()
+    return reason != "target_kind_not_plan"
+
+
+def _plan_integration_event(
+    *,
+    packet: Mapping[str, object],
+    request: PacketTransitionRequest,
+    written_event: Mapping[str, object],
+    plan_integration: Mapping[str, object],
+) -> dict[str, object]:
+    packet_id = str(packet.get("packet_id") or request.packet_id or "").strip()
+    event_type = (
+        "packet_plan_ingestion_recorded"
+        if _plan_integration_recorded(plan_integration)
+        else "packet_plan_ingestion_failed"
+    )
+    actor = str(request.actor or "").strip()
+    return {
+        "schema_version": 1,
+        "event_id": "",
+        "session_id": request.session_id,
+        "project_id": written_event.get("project_id"),
+        "packet_id": packet_id,
+        "trace_id": packet.get("trace_id"),
+        "timestamp_utc": written_event.get("timestamp_utc"),
+        "source": "review_channel",
+        "plan_id": written_event.get("plan_id") or packet.get("plan_id"),
+        "controller_run_id": request.controller_run_id,
+        "event_type": event_type,
+        "from_agent": packet.get("from_agent"),
+        "to_agent": packet.get("to_agent"),
+        "kind": packet.get("kind"),
+        "summary": packet.get("summary"),
+        "body": packet.get("body"),
+        "target_kind": packet.get("target_kind"),
+        "target_ref": packet.get("target_ref"),
+        "target_revision": packet.get("target_revision"),
+        "status": (
+            "applied" if event_type == "packet_plan_ingestion_recorded"
+            else "plan_ingestion_failed"
+        ),
+        "idempotency_key": idempotency_key(event_type, packet_id, actor),
+        "nonce": secrets.token_hex(12),
+        "plan_ingestion": dict(plan_integration),
+        "plan_integration": dict(plan_integration),
+        "metadata": {
+            "actor": actor,
+            "plan_ingestion": dict(plan_integration),
+            "plan_integration": dict(plan_integration),
+        },
+    }
+
+
+def _plan_integration_recorded(plan_integration: Mapping[str, object]) -> bool:
+    return str(plan_integration.get("status") or "").strip() in {
+        "inserted",
+        "updated",
+        "already_present",
+    }
 
 
 def _transition_metadata(

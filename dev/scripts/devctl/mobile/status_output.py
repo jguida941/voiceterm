@@ -168,13 +168,19 @@ def write_projection_bundle(
     alert_payload = alert_view(payload)
     actions_payload = actions_view(payload)
 
-    full_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    compact_path.write_text(json.dumps(compact_payload, indent=2), encoding="utf-8")
-    alert_path.write_text(json.dumps(alert_payload, indent=2), encoding="utf-8")
-    actions_path.write_text(json.dumps(actions_payload, indent=2), encoding="utf-8")
-    latest_md_path.write_text(
+    # Per Codex rev_pkt_2406/2409/2413/2427: every projection-bundle writer
+    # must use atomic-replace semantics so concurrent readers never see a
+    # half-written file. Mobile may share projection_dir with the canonical
+    # review-channel projection root, so racing with sync-status is real.
+    from ..review_channel.projection_bundle import _atomic_write_text
+
+    _atomic_write_text(full_path, json.dumps(payload, indent=2))
+    _atomic_write_text(compact_path, json.dumps(compact_payload, indent=2))
+    _atomic_write_text(alert_path, json.dumps(alert_payload, indent=2))
+    _atomic_write_text(actions_path, json.dumps(actions_payload, indent=2))
+    _atomic_write_text(
+        latest_md_path,
         _render_view_markdown(compact_payload, MobileStatusView.COMPACT),
-        encoding="utf-8",
     )
     return {
         "full_json": str(full_path),

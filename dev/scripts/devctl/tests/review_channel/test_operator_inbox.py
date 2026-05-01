@@ -100,6 +100,9 @@ class OperatorInboxTests(unittest.TestCase):
             )
 
         self.assertEqual(exit_code, 0)
+        self.assertEqual(report["status"], "ok")
+        self.assertTrue(report["exit_ok"])
+        self.assertEqual(report["exit_code"], 0)
         self.assertEqual(report["target"], "operator")
         self.assertEqual(report["status_filter"], "pending")
         packet = report["packets"][0]

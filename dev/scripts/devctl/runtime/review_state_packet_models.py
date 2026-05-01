@@ -176,6 +176,7 @@ class ReviewPacketState:
     requested_action: str
     approval_required: bool
     posted_at: str
+    plan_id: str = ""
     evidence_refs: tuple[str, ...] = ()
     context_pack_refs: tuple[ContextPackRefState, ...] = ()
     trace_id: str = ""
@@ -185,6 +186,8 @@ class ReviewPacketState:
     target_kind: str = ""
     target_ref: str = ""
     target_revision: str = ""
+    target_role: str = ""
+    target_session_id: str = ""
     anchor_refs: tuple[str, ...] = ()
     intake_ref: str = ""
     mutation_op: str = ""

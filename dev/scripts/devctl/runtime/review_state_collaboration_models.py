@@ -294,6 +294,27 @@ def actor_authority_grants(
     return False
 
 
+def granted_capabilities_from_row(row: Mapping[str, object]) -> tuple[str, ...]:
+    # Per rev_pkt_2540: public seam for extracting granted capability names
+    # from a serialized actor/grant row (Mapping[str, object] with a `grants`
+    # list of dicts). Both review-channel event projection and the commit
+    # gate consume this; consolidating here keeps VCS authority gating off
+    # private review-channel module helpers.
+    capabilities: list[str] = []
+    grants_value = row.get("grants")
+    if not isinstance(grants_value, list | tuple):
+        return ()
+    for grant in grants_value:
+        if not isinstance(grant, Mapping):
+            continue
+        if not bool(grant.get("granted")):
+            continue
+        capability = str(grant.get("capability") or "").strip()
+        if capability:
+            capabilities.append(capability)
+    return tuple(capabilities)
+
+
 def granted_capabilities_for_actor(
     authorities: tuple[ActorAuthorityState, ...],
     actor_id: str,

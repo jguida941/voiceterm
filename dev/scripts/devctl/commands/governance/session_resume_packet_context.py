@@ -73,6 +73,18 @@ def build_packet_from_resolved_context(
             attention_payload=resolved_context["attention_payload"],
             packet_inbox=context.packet_inbox,
             connectivity_registry=resolved_context["connectivity_registry"],
+            runtime_spine_closure=dict(
+                resolved_context.get("runtime_spine_closure") or {}
+            ),
+            packet_continuity_index=dict(
+                resolved_context.get("packet_continuity_index") or {}
+            ),
+            packet_carry_forward_debt=tuple(
+                resolved_context.get("packet_carry_forward_debt") or ()
+            ),
+            continuity_attention=dict(
+                resolved_context.get("continuity_attention") or {}
+            ),
             key_surfaces=resolved_context["key_surfaces"],
             agent_session_continuation=continuation,
             fields=packet_fields_from_context(resolved_context),

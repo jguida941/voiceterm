@@ -6,12 +6,13 @@ from collections.abc import Mapping
 
 from ..runtime.surface_provenance import build_surface_source_identity
 
+_PROVENANCE_REQUIRED_OBSERVED_FIELDS = ("head_sha", "worktree_hash")
 STATUS_SOURCE_COMMAND = (
     "python3 dev/scripts/devctl.py review-channel --action status "
     "--terminal none --format json"
 )
 REVIEW_STATE_SOURCE_CONTRACT = "ReviewState"
-PROVENANCE_OBSERVED_FIELDS = ("head_sha", "worktree_hash", "generation_id")
+PROVENANCE_OBSERVED_FIELDS = (*_PROVENANCE_REQUIRED_OBSERVED_FIELDS, "generation_id")
 PROVENANCE_INFERRED_FIELDS = ("snapshot_id", "zref")
 
 
@@ -33,3 +34,14 @@ def projection_source_identity(
             or ""
         ),
     )
+
+
+def projection_observed_fields(
+    *,
+    source_identity: Mapping[str, object],
+) -> tuple[str, ...]:
+    """Return the provenance fields this projection can prove in source identity."""
+    observed = list(_PROVENANCE_REQUIRED_OBSERVED_FIELDS)
+    if str(source_identity.get("generation_id") or "").strip():
+        observed.append("generation_id")
+    return tuple(observed)

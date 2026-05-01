@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import json
 import secrets
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 
+from ..runtime.review_state_collaboration_models import (
+    granted_capabilities_from_row as _granted_capabilities,
+)
+from ..runtime.review_state_locator import load_current_review_state_payload
 from .event_models import ReviewChannelEventBundle
 from .event_reducer import (
     filter_history_packets,
@@ -42,6 +47,8 @@ from .packet_contract import (
     plan_proposal_for_request,
     validate_post_request,
 )
+from .packet_plan_context import enrich_packet_request_plan_context
+from .packet_route_resolution import resolve_packet_post_route_scope
 from .packet_transition_events import (
     TRANSITION_EVENT_TYPES,
     build_transition_event,
@@ -74,11 +81,25 @@ def post_packet(
         if existing_bundle is not None
         else load_events(Path(artifact_paths.event_log_path))
     )
-    authority_evidence = _runtime_authority_evidence_for_request(
-        request=request,
-        review_state=(
-            existing_bundle.review_state if existing_bundle is not None else {}
+    request = enrich_packet_request_plan_context(
+        repo_root=repo_root,
+        review_state_payload=(
+            existing_bundle.review_state if existing_bundle is not None else None
         ),
+        request=request,
+    )
+    authority_payloads = _action_request_authority_payloads(
+        repo_root=repo_root,
+        existing_bundle=existing_bundle,
+        artifact_paths=artifact_paths,
+    )
+    request = resolve_packet_post_route_scope(
+        request,
+        review_state=_first_payload_with_session_state(authority_payloads),
+    )
+    authority_evidence = _runtime_authority_evidence_from_payloads(
+        request=request,
+        payloads=authority_payloads,
     )
 
     # Validate the post request against known agent IDs
@@ -313,6 +334,76 @@ def _runtime_authority_evidence_for_request(
     }
 
 
+def _action_request_authority_payloads(
+    *,
+    repo_root: Path,
+    existing_bundle: ReviewChannelEventBundle | None,
+    artifact_paths: ReviewChannelArtifactPaths,
+) -> tuple[Mapping[str, object], ...]:
+    """Return typed review-state payloads in priority order for authority lookup.
+
+    Order: in-memory bundle → governed live locator → reduced state file.
+    The locator step closes the gap where actor authority exists only in the
+    configured raw review-state candidate before event projection has caught up.
+    """
+    payloads: list[Mapping[str, object]] = []
+    if existing_bundle is not None and isinstance(
+        existing_bundle.review_state, Mapping
+    ):
+        payloads.append(existing_bundle.review_state)
+    locator_payload = load_current_review_state_payload(
+        repo_root,
+        prefer_cached_projection=True,
+        allow_live_refresh=False,
+    )
+    if isinstance(locator_payload, Mapping):
+        payloads.append(locator_payload)
+    state_payload = _load_state_path_payload(artifact_paths)
+    if state_payload:
+        payloads.append(state_payload)
+    return tuple(payloads)
+
+
+def _runtime_authority_evidence_from_payloads(
+    *,
+    request: PacketPostRequest,
+    payloads: Iterable[Mapping[str, object]],
+) -> dict[str, object]:
+    """Return the first non-empty authority evidence across ordered payloads."""
+    for payload in payloads:
+        evidence = _runtime_authority_evidence_for_request(
+            request=request,
+            review_state=payload,
+        )
+        if evidence:
+            return evidence
+    return {}
+
+
+def _first_payload_with_session_state(
+    payloads: Iterable[Mapping[str, object]],
+) -> Mapping[str, object]:
+    for payload in payloads:
+        if not isinstance(payload, Mapping):
+            continue
+        agent_work_board = payload.get("agent_work_board")
+        work_board = payload.get("work_board")
+        if isinstance(agent_work_board, Mapping) or isinstance(work_board, Mapping):
+            return payload
+    return {}
+
+
+def _load_state_path_payload(
+    artifact_paths: ReviewChannelArtifactPaths,
+) -> dict[str, object]:
+    path = Path(artifact_paths.state_path)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
 def _authority_row_for_actor(
     *,
     review_state: Mapping[str, object],
@@ -332,15 +423,6 @@ def _authority_row_for_actor(
     return {}
 
 
-def _granted_capabilities(row: Mapping[str, object]) -> tuple[str, ...]:
-    capabilities: list[str] = []
-    for grant in _mapping_rows(row.get("grants")):
-        if not bool(grant.get("granted")):
-            continue
-        capability = _text(grant.get("capability"))
-        if capability:
-            capabilities.append(capability)
-    return tuple(capabilities)
 
 
 def _capabilities_grant_action(capabilities: tuple[str, ...]) -> bool:

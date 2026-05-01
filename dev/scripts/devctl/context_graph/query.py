@@ -7,7 +7,15 @@ from typing import Any
 
 from ..config import get_repo_root
 from ..governance.push_policy import detect_push_enforcement_state, load_push_policy
+from ..runtime.control_plane_sources import artifact_paths, read_json_artifact
 from ..runtime.key_surfaces import load_startup_key_surfaces
+from ..runtime.review_state_parser import review_state_from_payload
+from ..runtime.startup_continuity import (
+    startup_continuity_attention,
+    startup_packet_continuity_index,
+    startup_packet_carry_forward_debt,
+    startup_runtime_spine_closure,
+)
 from ..probe_topology.packet import (
     enrich_query_node,
     query_hot_index_ranking_summary,
@@ -38,6 +46,7 @@ from .models import (
     QueryResult,
 )
 from .bootstrap_catalog import load_bootstrap_catalog_context
+from ..runtime.startup_signals import compact_startup_quality_signals
 from .startup_signals import load_bootstrap_quality_signals
 
 _USAGE = (
@@ -297,18 +306,42 @@ def build_bootstrap_context(
     top_hotspots = sorted(
         [n for n in nodes if n.node_kind == NODE_KIND_SOURCE and n.temperature >= 0.3],
         key=lambda n: -n.temperature,
-    )[:10]
+    )[:6]
 
     policy_commands, bootstrap_commands, policy_links = load_bootstrap_catalog_context(
         repo_root
     )
+    bootstrap_commands = bootstrap_commands[:8]
+    if bootstrap_commands:
+        command_ids = {
+            str(entry.get("command_id") or "").strip()
+            for entry in bootstrap_commands
+        }
+        policy_commands = {
+            key: value for key, value in policy_commands.items()
+            if key in command_ids
+        }
     policy_links["bridge"] = "bridge.md" if bridge_active else None
     push_enforcement = detect_push_enforcement_state(
         load_push_policy(repo_root=repo_root),
         repo_root=repo_root,
     )
-    quality_signals = load_bootstrap_quality_signals(repo_root)
+    quality_signals = compact_startup_quality_signals(
+        load_bootstrap_quality_signals(repo_root)
+    )
     key_surfaces = load_startup_key_surfaces(repo_root)
+    review_state = _load_context_graph_review_state(repo_root)
+    runtime_spine_closure = startup_runtime_spine_closure(repo_root)
+    packet_carry_forward_debt = startup_packet_carry_forward_debt(
+        repo_root=repo_root,
+        review_state=review_state,
+    )
+    packet_continuity_index = startup_packet_continuity_index(review_state, limit=4)
+    continuity_attention = startup_continuity_attention(
+        runtime_spine_closure=runtime_spine_closure,
+        packet_carry_forward_debt=packet_carry_forward_debt,
+        packet_continuity_index=packet_continuity_index,
+    )
 
     return BootstrapContext(
         repo=repo_root.name,
@@ -330,7 +363,26 @@ def build_bootstrap_context(
         bootstrap_commands=bootstrap_commands,
         quality_signals=quality_signals,
         key_surfaces=key_surfaces,
+        runtime_spine_closure=runtime_spine_closure,
+        packet_continuity_index=packet_continuity_index,
+        packet_carry_forward_debt=packet_carry_forward_debt,
+        continuity_attention=continuity_attention,
     )
+
+
+def _load_context_graph_review_state(repo_root):
+    """Load typed review state for graph bootstrap without refreshing/writing it."""
+    try:
+        paths = artifact_paths(repo_root)
+        payload = read_json_artifact(paths["review_state"])
+    except (OSError, KeyError, TypeError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    try:
+        return review_state_from_payload(payload)
+    except (TypeError, ValueError):
+        return None
 
 
 def _plan_summaries(plan_nodes: list[GraphNode]) -> list[dict[str, object]]:

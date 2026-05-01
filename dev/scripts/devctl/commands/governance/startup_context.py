@@ -32,6 +32,8 @@ from ...runtime.machine_output import (
 )
 from ...runtime.action_routing import project_startup_action_routing
 from ...runtime.authority_snapshot import project_authority_snapshot
+from ...runtime.packet_continuity import PacketContinuityIndex, PacketContinuityRow
+from ...runtime.packet_plan_context import PacketPlanContext
 from ...runtime.conductor_capability import (
     reviewer_local_implementation_allowed,
     session_resume_command_for_role,
@@ -43,6 +45,12 @@ from ...runtime.startup_receipt import (
 )
 from ...runtime.startup_authority import build_startup_authority_report
 from ...runtime.startup_context import build_startup_context, blocks_new_implementation
+
+PACKET_CONTINUITY_SURFACE_CONTRACTS = (
+    PacketContinuityIndex,
+    PacketContinuityRow,
+)
+PACKET_SCOPE_HINT_SURFACE_CONTRACTS = (PacketPlanContext,)
 
 _IMPLEMENTATION_STRICT_INTENT = "implementation_strict"
 _REVIEWER_BOOTSTRAP_INTENT = "reviewer_bootstrap"
@@ -249,6 +257,11 @@ def _machine_summary(
     summary["push_eligible_now"] = bool(ctx.push_decision.push_eligible_now)
     summary["push_action"] = ctx.push_decision.action
     summary["push_next_step_command"] = ctx.push_decision.next_step_command
+    summary["push_decision"] = {
+        "action": ctx.push_decision.action,
+        "reason": ctx.push_decision.reason,
+        "next_step_command": ctx.push_decision.next_step_command,
+    }
     summary["publication_backlog_state"] = (
         ctx.push_decision.publication_backlog.backlog_state
     )
@@ -260,12 +273,35 @@ def _machine_summary(
     )
     summary["publication_guidance"] = ctx.push_decision.publication_guidance
     summary["startup_authority_ok"] = bool(authority_report.get("ok", False))
+    if push is not None:
+        summary["governance"] = {
+            "push_enforcement": {
+                "checkpoint_required": bool(push.checkpoint_required),
+                "safe_to_continue_editing": bool(push.safe_to_continue_editing),
+                "checkpoint_reason": str(push.checkpoint_reason or "").strip(),
+                "worktree_dirty": bool(getattr(push, "worktree_dirty", False)),
+                "ahead_of_upstream_commits": int(
+                    getattr(push, "ahead_of_upstream_commits", 0) or 0
+                ),
+                "recommended_action": str(
+                    getattr(push, "recommended_action", "") or ""
+                ).strip(),
+            }
+        }
     summary["startup_receipt_path"] = startup_receipt_path
     attention_payload = _maybe_asdict(getattr(ctx, "attention", None))
     if attention_payload is not None:
         summary["attention"] = attention_payload
     if getattr(ctx, "packet_inbox", None) is not None:
         summary["packet_inbox"] = _machine_summary_packet_inbox(ctx.packet_inbox)
+    summary["runtime_spine_closure"] = dict(ctx.runtime_spine_closure)
+    summary["packet_continuity_index"] = dict(
+        getattr(ctx, "packet_continuity_index", {}) or {}
+    )
+    summary["packet_carry_forward_debt"] = [
+        dict(row) for row in ctx.packet_carry_forward_debt
+    ]
+    summary["continuity_attention"] = dict(ctx.continuity_attention)
     if ctx.work_intake is not None:
         summary["work_intake"] = {
             "coordination": ctx.work_intake.coordination.to_dict(),

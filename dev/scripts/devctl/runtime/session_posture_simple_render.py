@@ -42,9 +42,19 @@ def render_simple_posture_snapshot(
 
 def _actor_rows(posture: Mapping[str, object]) -> list[Mapping[str, object]]:
     rows = posture.get("actors")
-    if not isinstance(rows, list):
+    if not isinstance(rows, (list, tuple)):
         return []
-    return [row for row in rows if isinstance(row, Mapping)]
+    actors: list[Mapping[str, object]] = []
+    for row in rows:
+        if isinstance(row, Mapping):
+            actors.append(row)
+            continue
+        to_dict = getattr(row, "to_dict", None)
+        if callable(to_dict):
+            mapped = to_dict()
+            if isinstance(mapped, Mapping):
+                actors.append(mapped)
+    return actors
 
 
 def _mapping(value: object) -> Mapping[str, object]:

@@ -4,6 +4,9 @@ import unittest
 from unittest.mock import patch
 
 from dev.scripts.checks.multi_agent_sync import api as check_multi_agent_sync
+from dev.scripts.checks.multi_agent_sync.runtime_truth_agent_loop_instruction import (
+    instruction_authority_mismatch_errors,
+)
 
 
 def _master_row(agent: str, branch: str, status: str) -> dict:
@@ -201,7 +204,68 @@ class CheckMultiAgentSyncTests(unittest.TestCase):
             )
         )
 
+    def test_attention_packet_is_not_treated_as_current_instruction(self) -> None:
+        payload = {
+            "queue": {
+                "derived_next_instruction_source": {
+                    "to_agent": "claude",
+                    "packet_id": "rev_pkt_2546",
+                }
+            },
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "claude",
+                        "current_instruction_packet_id": "rev_pkt_2546",
+                    }
+                ]
+            },
+        }
+        decisions = [
+            {
+                "actor_id": "claude",
+                "active_packet_id": "",
+                "attention_packet_id": "rev_pkt_2563",
+            }
+        ]
+
+        self.assertEqual(instruction_authority_mismatch_errors(payload, decisions), [])
+
+    def test_active_packet_still_must_match_current_instruction(self) -> None:
+        payload = {
+            "queue": {
+                "derived_next_instruction_source": {
+                    "to_agent": "claude",
+                    "packet_id": "rev_pkt_2546",
+                }
+            },
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "claude",
+                        "current_instruction_packet_id": "rev_pkt_2546",
+                    }
+                ]
+            },
+        }
+        decisions = [
+            {
+                "actor_id": "claude",
+                "active_packet_id": "rev_pkt_2563",
+                "attention_packet_id": "rev_pkt_2563",
+            }
+        ]
+
+        errors = instruction_authority_mismatch_errors(payload, decisions)
+
+        self.assertEqual(len(errors), 2)
+        self.assertTrue(
+            any("Queue-derived current instruction disagrees" in err for err in errors)
+        )
+        self.assertTrue(
+            any("Packet inbox current instruction disagrees" in err for err in errors)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
-

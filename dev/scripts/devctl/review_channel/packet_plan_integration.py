@@ -15,6 +15,7 @@ from ..runtime.master_plan_contract import (
     SDLCStage,
 )
 from ..runtime.master_plan_store import upsert_plan_row_jsonl
+from ..runtime.plan_ref import canonical_plan_ref
 
 PLAN_INTEGRATION_SECTION = "## Generated Review Packet Plan Integrations"
 PLAN_INTEGRATION_CONTRACT_ID = "PacketPlanIntegration"
@@ -33,18 +34,25 @@ def maybe_append_packet_plan_row(
         return _result("skipped", "target_kind_not_plan")
 
     packet_id = _text(packet.get("packet_id"))
-    target_ref = _text(packet.get("target_ref"))
+    target_ref = _canonical_target_ref(packet.get("target_ref"))
     if not packet_id or not target_ref:
         return _result("skipped", "missing_packet_or_target")
 
     master_plan = _resolve_master_plan(repo_root)
+    if master_plan is None:
+        return _result(
+            "failed",
+            "master_plan_authority_unresolved",
+            packet_id=packet_id,
+            target_ref=target_ref,
+        )
     typed_store_path = repo_root / master_plan.typed_store_path
     row = _typed_plan_row(packet=packet, event=event, master_plan=master_plan)
     try:
         store_status, _stored = upsert_plan_row_jsonl(typed_store_path, row)
     except (OSError, ValueError) as exc:
         return _result(
-            "skipped",
+            "failed",
             f"master_plan_store_write_failed:{exc.__class__.__name__}",
             packet_id=packet_id,
             target_ref=target_ref,
@@ -76,7 +84,7 @@ def maybe_append_packet_plan_row(
         existing = master_plan_path.read_text(encoding="utf-8")
     except OSError as exc:
         return _result(
-            "skipped",
+            store_status,
             f"master_plan_read_failed:{exc.__class__.__name__}",
             packet_id=packet_id,
             path=str(typed_store_path),
@@ -111,7 +119,7 @@ def maybe_append_packet_plan_row(
         master_plan_path.write_text(next_text, encoding="utf-8")
     except OSError as exc:
         return _result(
-            "skipped",
+            store_status,
             f"master_plan_write_failed:{exc.__class__.__name__}",
             packet_id=packet_id,
             path=str(typed_store_path),
@@ -127,11 +135,27 @@ def maybe_append_packet_plan_row(
     )
 
 
-def _resolve_master_plan(repo_root: Path) -> MasterPlan:
+def _resolve_master_plan(repo_root: Path) -> MasterPlan | None:
     try:
-        return scan_repo_governance(repo_root).master_plan
+        master_plan = scan_repo_governance(repo_root).master_plan
     except (ImportError, OSError, RuntimeError, ValueError):
-        return MasterPlan()
+        return None
+    if not _master_plan_authority_available(repo_root, master_plan):
+        return None
+    return master_plan
+
+
+def _master_plan_authority_available(
+    repo_root: Path,
+    master_plan: MasterPlan,
+) -> bool:
+    typed_store_path = str(master_plan.typed_store_path or "").strip()
+    projection_path = str(
+        master_plan.projection_path or master_plan.source_path or ""
+    ).strip()
+    if not typed_store_path or not projection_path:
+        return False
+    return (repo_root / projection_path).is_file()
 
 
 def _typed_plan_row(
@@ -142,7 +166,7 @@ def _typed_plan_row(
 ) -> PlanRow:
     packet_id = _text(packet.get("packet_id"))
     summary = _single_line(_text(packet.get("summary"))) or "Review packet plan row"
-    target_ref = _text(packet.get("target_ref"))
+    target_ref = _canonical_target_ref(packet.get("target_ref"))
     target_revision = _text(packet.get("target_revision"))
     event_id = _text(event.get("event_id"))
     attestation = _guard_attestation(event)
@@ -183,7 +207,7 @@ def _plan_row(
 ) -> str:
     packet_id = _text(packet.get("packet_id"))
     summary = _single_line(_text(packet.get("summary"))) or "Review packet plan row"
-    target_ref = _text(packet.get("target_ref"))
+    target_ref = _canonical_target_ref(packet.get("target_ref"))
     target_revision = _text(packet.get("target_revision"))
     actor = _actor(event) or "system"
     applied_at = _text(event.get("timestamp_utc")) or "unknown"
@@ -253,6 +277,10 @@ def _result(
     }
     payload.update(extra)
     return payload
+
+
+def _canonical_target_ref(value: object) -> str:
+    return canonical_plan_ref(value) or _text(value)
 
 
 def _text(value: object) -> str:

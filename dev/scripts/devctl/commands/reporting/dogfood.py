@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from pathlib import Path
 
 from . import dogfood_governance as dogfood_governance_support
@@ -27,10 +28,20 @@ from ...runtime.dogfood_models import (
     DogfoodRecord,
     DogfoodRecordInput,
     DogfoodReport,
+    VALID_DOGFOOD_TARGET_KINDS,
 )
 from ...runtime.dogfood_render import (
     render_dogfood_markdown,
     write_dogfood_summary,
+)
+from ...runtime.dashboard_snapshot_authority import build_dashboard_snapshot
+from ...runtime.dogfood_scenarios import (
+    DEFAULT_TESTER_CADENCE_SECONDS,
+    VALID_DOGFOOD_FIX_MODES,
+    VALID_DOGFOOD_SCENARIOS,
+    DogfoodScenarioReport,
+    build_plan41_tandem_scenario,
+    render_dogfood_scenario_markdown,
 )
 
 
@@ -50,6 +61,45 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
         "--report",
         action="store_true",
         help="Render the current dogfood coverage report (default behavior when --record is absent)",
+    )
+    cmd.add_argument(
+        "--run-scenario",
+        choices=VALID_DOGFOOD_SCENARIOS,
+        help=(
+            "Run a typed dogfood scenario report over existing runtime surfaces. "
+            "The initial scenario is report-only and does not dispatch mutation."
+        ),
+    )
+    cmd.add_argument(
+        "--fix-mode",
+        choices=VALID_DOGFOOD_FIX_MODES,
+        default="observe",
+        help=(
+            "Scenario remediation posture: observe is read-only, authorized is "
+            "single-writer, isolated-worker requires typed fanout readiness, and "
+            "conflict-drill tests shared-checkout arbitration gates."
+        ),
+    )
+    cmd.add_argument(
+        "--loop",
+        action="store_true",
+        help=(
+            "Repeat the scenario for --max-cycles using the configured cadence. "
+            "Still report-only unless normal typed mutation authority is used by "
+            "separate commands."
+        ),
+    )
+    cmd.add_argument(
+        "--max-cycles",
+        type=int,
+        default=1,
+        help="Maximum scenario cycles when --loop is set.",
+    )
+    cmd.add_argument(
+        "--cadence-seconds",
+        type=int,
+        default=DEFAULT_TESTER_CADENCE_SECONDS,
+        help="Minimum tester/router cadence for scenario loop reports.",
     )
     cmd.add_argument(
         "--dev-mode",
@@ -72,7 +122,7 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
     )
     cmd.add_argument(
         "--target-kind",
-        choices=("command", "guard", "probe", "role"),
+        choices=VALID_DOGFOOD_TARGET_KINDS,
         help="Catalog family exercised by this dogfood row",
     )
     cmd.add_argument("--target-id", help="Catalog id exercised by this dogfood row")
@@ -176,6 +226,17 @@ def run(args) -> int:
         governance_row: dict[str, object] | None = None
         governance_paths: dict[str, str] | None = None
         promotion_candidate: dict[str, object] | None = None
+        scenario_reports: list[DogfoodScenarioReport] = []
+        if getattr(args, "run_scenario", None):
+            scenario_base_report = build_dogfood_report(
+                log_path=log_path,
+                summary_root=summary_root,
+                max_rows=int(getattr(args, "max_rows", DEFAULT_MAX_DOGFOOD_ROWS)),
+                recent_limit=max(1, int(getattr(args, "recent_limit", 10))),
+            )
+            scenario_reports = _run_scenario_reports(args, scenario_base_report)
+            if bool(getattr(args, "record", False)):
+                _apply_scenario_record_defaults(args, scenario_reports[-1])
         if bool(getattr(args, "record", False)):
             error = _record_validation_error(args)
             if error is not None:
@@ -225,10 +286,21 @@ def run(args) -> int:
             promotion_candidate=promotion_candidate,
             summary_root=summary_root,
         )
+        if scenario_reports:
+            payload["scenario"] = scenario_reports[-1].to_dict()
+            payload["scenario_cycles"] = [
+                scenario.to_dict() for scenario in scenario_reports
+            ]
     except ValueError as exc:
         return _emit_error(args, str(exc))
 
     rendered = render_dogfood_markdown(report)
+    if scenario_reports:
+        rendered = (
+            rendered
+            + "\n\n"
+            + render_dogfood_scenario_markdown(scenario_reports[-1])
+        )
     return emit_output(
         json.dumps(payload, indent=2) if args.format == "json" else rendered,
         output_path=getattr(args, "output", None),
@@ -237,6 +309,66 @@ def run(args) -> int:
         writer=write_output,
         piper=pipe_output,
     )
+
+
+def _run_scenario_reports(
+    args,
+    dogfood_report: DogfoodReport,
+) -> list[DogfoodScenarioReport]:
+    scenario_id = str(getattr(args, "run_scenario", "") or "").strip()
+    cycles = max(1, int(getattr(args, "max_cycles", 1) or 1))
+    if not bool(getattr(args, "loop", False)):
+        cycles = 1
+    cadence_seconds = max(
+        DEFAULT_TESTER_CADENCE_SECONDS,
+        int(getattr(args, "cadence_seconds", DEFAULT_TESTER_CADENCE_SECONDS) or 0),
+    )
+    reports: list[DogfoodScenarioReport] = []
+    for index in range(cycles):
+        dashboard = build_dashboard_snapshot(
+            view="overview",
+            role="dashboard",
+            include_review_state=True,
+        )
+        if scenario_id == "plan41-tandem":
+            reports.append(
+                build_plan41_tandem_scenario(
+                    dashboard=dashboard,
+                    dogfood_report=dogfood_report,
+                    fix_mode=str(getattr(args, "fix_mode", "observe") or "observe"),
+                    cadence_seconds=cadence_seconds,
+                    max_cycles=cycles,
+                    loop_requested=bool(getattr(args, "loop", False)),
+                )
+            )
+        else:
+            raise ValueError(f"unsupported dogfood scenario: {scenario_id}")
+        if index + 1 < cycles:
+            time.sleep(cadence_seconds)
+    return reports
+
+
+def _apply_scenario_record_defaults(
+    args,
+    scenario: DogfoodScenarioReport,
+) -> None:
+    if not str(getattr(args, "target_kind", "") or "").strip():
+        setattr(args, "target_kind", "scenario")
+    if not str(getattr(args, "target_id", "") or "").strip():
+        setattr(args, "target_id", scenario.scenario_id)
+    if not str(getattr(args, "status", "") or "").strip():
+        setattr(args, "status", scenario.dogfood_status)
+    if not str(getattr(args, "scenario_id", "") or "").strip():
+        setattr(args, "scenario_id", scenario.scenario_id)
+    if not str(getattr(args, "source_command", "") or "").strip():
+        setattr(
+            args,
+            "source_command",
+            "python3 dev/scripts/devctl.py dogfood --run-scenario "
+            f"{scenario.scenario_id} --fix-mode {scenario.fix_mode}",
+        )
+    if not str(getattr(args, "notes", "") or "").strip():
+        setattr(args, "notes", scenario.summary)
 
 
 def _record_validation_error(args) -> str | None:

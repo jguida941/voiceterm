@@ -6,6 +6,7 @@ from collections.abc import Iterable, Mapping
 
 from ..runtime.master_plan_contract import PlanProposal
 from ..runtime.master_plan_parse import normalize_plan_proposal
+from ..runtime.plan_ref import canonical_plan_ref, is_plan_ref
 
 _TERMINAL_PACKET_STATES = {"applied", "dismissed", "expired", "archived"}
 
@@ -18,7 +19,7 @@ def find_plan_proposal_conflict(
     """Return the first live packet with the same plan mutation key."""
     if not _proposal_is_plan_scoped(proposal):
         return None
-    key = proposal.collision_key()
+    key = _collision_key(proposal)
     if not key[0] or not key[2]:
         return None
     for packet in existing_packets:
@@ -29,7 +30,7 @@ def find_plan_proposal_conflict(
         existing_proposal = _proposal_from_packet(packet)
         if not _proposal_is_plan_scoped(existing_proposal):
             continue
-        if existing_proposal.collision_key() == key:
+        if _collision_key(existing_proposal) == key:
             return packet
     return None
 
@@ -54,8 +55,14 @@ def _proposal_from_packet(packet: Mapping[str, object]) -> PlanProposal:
 
 
 def _proposal_is_plan_scoped(proposal: PlanProposal) -> bool:
-    return proposal.target_ref.startswith("plan:") or proposal.target_ref.startswith(
-        "plan://"
+    return is_plan_ref(proposal.target_ref)
+
+
+def _collision_key(proposal: PlanProposal) -> tuple[str, tuple[str, ...], str]:
+    return (
+        canonical_plan_ref(proposal.target_ref),
+        tuple(sorted(ref for ref in proposal.anchor_refs if ref)),
+        proposal.mutation_op,
     )
 
 

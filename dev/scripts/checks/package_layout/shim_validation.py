@@ -54,11 +54,45 @@ def _is_if_main_guard(stmt: ast.stmt) -> bool:
     return len(exc.keywords) == 0 and len(exc.args) == 1
 
 
+def _import_from_target(stmt: ast.ImportFrom) -> str:
+    return f"{'.' * stmt.level}{stmt.module or ''}"
+
+
+def _imported_aliases_match(left: ast.ImportFrom, right: ast.ImportFrom) -> bool:
+    return tuple(alias.name for alias in left.names) == tuple(alias.name for alias in right.names)
+
+
+def _is_package_import_fallback(stmt: ast.stmt) -> bool:
+    """Return whether stmt is a package/direct-script import fallback only."""
+    if not isinstance(stmt, ast.If) or len(stmt.body) != 1 or len(stmt.orelse) != 1:
+        return False
+    if not isinstance(stmt.test, ast.Name) or stmt.test.id != "__package__":
+        return False
+    package_import = stmt.body[0]
+    script_import = stmt.orelse[0]
+    if not isinstance(package_import, ast.ImportFrom) or not isinstance(
+        script_import, ast.ImportFrom
+    ):
+        return False
+    if package_import.level < 1 or script_import.level != 0:
+        return False
+    if package_import.module != script_import.module:
+        return False
+    return _imported_aliases_match(package_import, script_import)
+
+
 def _import_targets(module: ast.Module) -> tuple[str, ...]:
     targets: list[str] = []
     for stmt in _trim_module_docstring(module.body):
         if isinstance(stmt, ast.ImportFrom) and stmt.module is not None:
-            targets.append(f"{'.' * stmt.level}{stmt.module}")
+            targets.append(_import_from_target(stmt))
+        elif _is_package_import_fallback(stmt):
+            package_import = stmt.body[0]
+            script_import = stmt.orelse[0]
+            if isinstance(package_import, ast.ImportFrom):
+                targets.append(_import_from_target(package_import))
+            if isinstance(script_import, ast.ImportFrom):
+                targets.append(_import_from_target(script_import))
     return tuple(targets)
 
 
@@ -111,6 +145,9 @@ def _has_supported_shim_shape(module: ast.Module) -> bool:
     saw_import = False
     for stmt in body:
         if isinstance(stmt, ast.ImportFrom) and stmt.module is not None:
+            saw_import = True
+            continue
+        if _is_package_import_fallback(stmt):
             saw_import = True
             continue
         if _is_sys_import(stmt):

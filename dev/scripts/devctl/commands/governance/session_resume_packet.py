@@ -42,7 +42,7 @@ from ...runtime.surface_provenance import (
 
 SESSION_CACHE_RELATIVE_DIR = Path("dev/reports/session_cache/latest")
 SESSION_CACHE_FILENAME = "cache.json"
-SESSION_CACHE_PACKET_SCHEMA_VERSION = 4
+SESSION_CACHE_PACKET_SCHEMA_VERSION = 7
 
 # Typed continuity states that invalidate a cached session packet even when
 # head/role/mtime all match. `alignment_status` values outside this set
@@ -97,6 +97,10 @@ class SessionCachePacket:
     packet_inbox: PacketInboxState | None = None
     packet_intent_anchors: tuple[PacketIntentAnchor, ...] = ()
     connectivity_registry: dict[str, object] = field(default_factory=dict)
+    runtime_spine_closure: dict[str, object] = field(default_factory=dict)
+    packet_continuity_index: dict[str, object] = field(default_factory=dict)
+    packet_carry_forward_debt: tuple[dict[str, object], ...] = ()
+    continuity_attention: dict[str, object] = field(default_factory=dict)
     key_surfaces: tuple[str, ...] = ()
     agent_session_continuation: AgentSessionContinuationState | None = None
     provenance: SurfaceProvenance | None = None
@@ -106,6 +110,12 @@ class SessionCachePacket:
         payload.pop("provenance", None)
         payload["key_rules"] = list(self.key_rules)
         payload["connectivity_registry"] = dict(self.connectivity_registry)
+        payload["runtime_spine_closure"] = dict(self.runtime_spine_closure)
+        payload["packet_continuity_index"] = dict(self.packet_continuity_index)
+        payload["packet_carry_forward_debt"] = [
+            dict(row) for row in self.packet_carry_forward_debt
+        ]
+        payload["continuity_attention"] = dict(self.continuity_attention)
         payload["key_surfaces"] = list(self.key_surfaces)
         if self.coordination is not None:
             payload["coordination"] = self.coordination.to_dict()
@@ -222,6 +232,12 @@ def packet_from_mapping(payload: dict[str, object]) -> SessionCachePacket:
             payload.get("packet_intent_anchors")
         ),
         connectivity_registry=_dict_field(payload.get("connectivity_registry")),
+        runtime_spine_closure=_dict_field(payload.get("runtime_spine_closure")),
+        packet_continuity_index=_dict_field(payload.get("packet_continuity_index")),
+        packet_carry_forward_debt=tuple(
+            _dict_rows(payload.get("packet_carry_forward_debt"))
+        ),
+        continuity_attention=_dict_field(payload.get("continuity_attention")),
         key_surfaces=tuple(
             str(surface).strip()
             for surface in payload.get("key_surfaces", ())
@@ -238,3 +254,9 @@ def _dict_field(value: object) -> dict[str, object]:
     if isinstance(value, dict):
         return dict(value)
     return {}
+
+
+def _dict_rows(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    return [dict(row) for row in value if isinstance(row, dict)]

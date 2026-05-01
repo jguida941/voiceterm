@@ -241,6 +241,29 @@ class CompatibilityShimRuleTests(unittest.TestCase):
 
         self.assertTrue(result.is_valid)
 
+    def test_detect_compatibility_shim_allows_package_import_fallback(self) -> None:
+        path = self._write(
+            "check_guard.py",
+            (
+                '"""Backward-compat shim -- use `package_layout.command`."""\n'
+                f"{_shim_metadata()}"
+                "if __package__: from .package_layout.command import main\n"
+                "else: from package_layout.command import main\n"
+                "\n"
+                'if __name__ == "__main__":\n'
+                "    raise SystemExit(main())\n"
+            ),
+        )
+
+        result = detect_compatibility_shim(
+            path,
+            namespace_subdir="package_layout",
+            shim_max_nonblank_lines=6,
+            shim_required_metadata_fields=STANDARD_SHIM_METADATA_FIELDS,
+        )
+
+        self.assertTrue(result.is_valid)
+
 
 if __name__ == "__main__":
     unittest.main()

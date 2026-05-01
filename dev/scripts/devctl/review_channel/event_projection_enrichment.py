@@ -21,6 +21,11 @@ class EventProjectionContext:
     artifact_root: Path | None = None
     push_enforcement: dict[str, object] | None = None
     prior_review_state: Mapping[str, object] | None = None
+    # Per rev_pkt_2546/2550 (Plan 4.1 Scope 1): the reduced event log must be
+    # threaded into projection passes so reviewer-runtime / packet-attention /
+    # runtime-clock derivations can consume the typed event source instead of
+    # rebuilding from bridge-markdown projections.
+    events: tuple[dict[str, object], ...] = ()
 
 
 def resolve_current_session(

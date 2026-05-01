@@ -1,0 +1,182 @@
+"""Typed operator override for scoped agent-loop edits."""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+
+from .value_coercion import coerce_bool, coerce_text
+
+_READ_ACTIONS = (
+    "startup-context.summary",
+    "review-channel.status",
+    "review-channel.post_finding",
+)
+_EDIT_ACTIONS = ("implementation.edit",)
+_BLOCKED_AFTER_EDIT_OVERRIDE = ("vcs.stage", "vcs.commit", "vcs.push")
+
+
+@dataclass(frozen=True, slots=True)
+class AgentLoopOperatorOverride:
+    """Operator-scoped exception that can allow edits without publication."""
+
+    schema_version: int = 1
+    contract_id: str = "AgentLoopOperatorOverride"
+    requested: bool = False
+    active: bool = False
+    state: str = "not_requested"
+    source: str = ""
+    requested_by: str = ""
+    scope: str = ""
+    reason: str = ""
+    target_kind: str = ""
+    target_ref: str = ""
+    allowed_actions: tuple[str, ...] = ()
+    blocked_actions: tuple[str, ...] = ()
+    expires_after_turn: bool = True
+    requires_guard_replay: bool = True
+
+    @property
+    def edit_allowed(self) -> bool:
+        return self.active and "implementation.edit" in self.allowed_actions
+
+    def to_dict(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["allowed_actions"] = list(self.allowed_actions)
+        payload["blocked_actions"] = list(self.blocked_actions)
+        return payload
+
+
+def operator_override_from_request(
+    *,
+    requested: object = False,
+    reason: object = "",
+    scope: object = "edit-only",
+    requested_by: object = "operator",
+    requested_plan_ref: object = "",
+    requested_packet_id: object = "",
+) -> AgentLoopOperatorOverride:
+    """Build a typed, edit-only override from explicit loop input."""
+    if not coerce_bool(requested):
+        return AgentLoopOperatorOverride()
+    normalized_scope = coerce_text(scope).lower().replace("_", "-") or "edit-only"
+    target_kind, target_ref = _target(
+        requested_plan_ref=requested_plan_ref,
+        requested_packet_id=requested_packet_id,
+    )
+    if normalized_scope != "edit-only":
+        return _invalid(
+            "unsupported_scope",
+            scope=normalized_scope,
+            reason=reason,
+            requested_by=requested_by,
+            target_kind=target_kind,
+            target_ref=target_ref,
+        )
+    if not coerce_text(reason):
+        return _invalid(
+            "reason_required",
+            scope=normalized_scope,
+            reason=reason,
+            requested_by=requested_by,
+            target_kind=target_kind,
+            target_ref=target_ref,
+        )
+    if not target_ref:
+        return _invalid(
+            "target_required",
+            scope=normalized_scope,
+            reason=reason,
+            requested_by=requested_by,
+            target_kind=target_kind,
+            target_ref=target_ref,
+        )
+    return AgentLoopOperatorOverride(
+        requested=True,
+        active=True,
+        state="active",
+        source="agent_loop_cli",
+        requested_by=coerce_text(requested_by) or "operator",
+        scope=normalized_scope,
+        reason=coerce_text(reason),
+        target_kind=target_kind,
+        target_ref=target_ref,
+        allowed_actions=(*_READ_ACTIONS, *_EDIT_ACTIONS),
+        blocked_actions=_BLOCKED_AFTER_EDIT_OVERRIDE,
+    )
+
+
+def apply_operator_override_actions(
+    *,
+    allowed_actions: tuple[str, ...],
+    blocked_actions: tuple[str, ...],
+    operator_override: AgentLoopOperatorOverride,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Return effective action sets after a valid edit-only override."""
+    if not operator_override.edit_allowed:
+        return allowed_actions, blocked_actions
+    allowed = [*allowed_actions]
+    for action in operator_override.allowed_actions:
+        if action not in allowed:
+            allowed.append(action)
+    blocked = [
+        action
+        for action in blocked_actions
+        if action not in operator_override.allowed_actions
+    ]
+    for action in operator_override.blocked_actions:
+        if action not in blocked:
+            blocked.append(action)
+    return tuple(allowed), tuple(blocked)
+
+
+def operator_override_next_command(
+    operator_override: AgentLoopOperatorOverride,
+) -> str:
+    if not operator_override.edit_allowed:
+        return ""
+    target = f"{operator_override.target_kind} {operator_override.target_ref}".strip()
+    return (
+        "operator override active: continue scoped implementation edits"
+        + (f" for {target}" if target else "")
+        + "; do not stage, commit, or push until startup/checkpoint guards pass"
+    )
+
+
+def _target(*, requested_plan_ref: object, requested_packet_id: object) -> tuple[str, str]:
+    packet_id = coerce_text(requested_packet_id)
+    if packet_id:
+        return "packet", packet_id
+    plan_ref = coerce_text(requested_plan_ref)
+    if plan_ref:
+        return "plan", plan_ref
+    return "", ""
+
+
+def _invalid(
+    state: str,
+    *,
+    scope: str,
+    reason: object,
+    requested_by: object,
+    target_kind: str,
+    target_ref: str,
+) -> AgentLoopOperatorOverride:
+    return AgentLoopOperatorOverride(
+        requested=True,
+        active=False,
+        state=state,
+        source="agent_loop_cli",
+        requested_by=coerce_text(requested_by) or "operator",
+        scope=scope,
+        reason=coerce_text(reason),
+        target_kind=target_kind,
+        target_ref=target_ref,
+    )
+
+
+__all__ = [
+    "AgentLoopOperatorOverride",
+    "apply_operator_override_actions",
+    "operator_override_from_request",
+    "operator_override_next_command",
+]

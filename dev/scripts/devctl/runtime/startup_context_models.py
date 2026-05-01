@@ -91,9 +91,20 @@ class StartupContext:
     blocker: BlockerSnapshot = field(default_factory=BlockerSnapshot)
     contract_ownership_map: dict[str, dict[str, object]] = field(default_factory=dict)
     connectivity_registry: dict[str, object] = field(default_factory=dict)
+    runtime_spine_closure: dict[str, object] = field(default_factory=dict)
+    packet_continuity_index: dict[str, object] = field(default_factory=dict)
+    packet_carry_forward_debt: tuple[dict[str, object], ...] = ()
+    continuity_attention: dict[str, object] = field(default_factory=dict)
     key_surfaces: tuple[str, ...] = ()
     snapshot_id: str = ""
     zref: str = ""
+    # Per Codex rev_pkt_2313/2326/2337: typed CoordinationStateProjection
+    # passed through from review_state.coordination_state. The builder
+    # populates this so recovery / startup / push consumers see the typed
+    # 4-field split (coordination_topology / authority_mode /
+    # recovery_eligibility / observed_runtime) alongside the legacy
+    # observed_control_topology field.
+    coordination_state_projection: dict[str, object] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {}
@@ -115,6 +126,26 @@ class StartupContext:
         )
         d["observed_control_topology"] = self.observed_control_topology
         d["implementation_permission"] = self.implementation_permission
+        # Per Codex rev_pkt_2313/2326/2337/2352: surface typed
+        # coordination_state fields and demote legacy observed_control_topology
+        # / reviewer_mode by attaching authority markers. Operators reading
+        # startup-context JSON get explicit "this is the typed answer" vs
+        # "this is the legacy compat field" provenance.
+        coord = getattr(self, "coordination_state_projection", None) or {}
+        for key in (
+            "coordination_topology",
+            "authority_mode",
+            "recovery_eligibility",
+        ):
+            value = (coord or {}).get(key) if isinstance(coord, dict) else None
+            if value:
+                d[key] = value
+        # Per rev_pkt_2352 demotion: when typed coordination_topology is
+        # populated, tag legacy observed_control_topology as the legacy
+        # compat surface so consumers don't trust it as primary.
+        if isinstance(coord, dict) and coord.get("coordination_topology"):
+            d["observed_control_topology_authority"] = "legacy"
+            d["coordination_topology_authority"] = "primary"
         d["recovery_action"] = self.recovery_authority.recovery_action
         d["recovery_basis"] = self.recovery_authority.recovery_basis
         d["recovery_scope"] = self.recovery_authority.recovery_scope
@@ -132,11 +163,17 @@ class StartupContext:
             self.contract_ownership_map
         )
         d["connectivity_registry"] = dict(self.connectivity_registry)
+        d["runtime_spine_closure"] = dict(self.runtime_spine_closure)
+        d["packet_continuity_index"] = dict(self.packet_continuity_index)
+        d["packet_carry_forward_debt"] = [
+            dict(row) for row in self.packet_carry_forward_debt
+        ]
+        d["continuity_attention"] = dict(self.continuity_attention)
         d["key_surfaces"] = list(self.key_surfaces)
         d["snapshot_id"] = self.snapshot_id
         d["zref"] = self.zref
         if self.product_thesis:
-            d["product_thesis"] = self.product_thesis
+            d["product_thesis"] = _compact_product_thesis(self.product_thesis)
         if self.governance is not None:
             d["governance"] = startup_governance_dict(self.governance)
         if self.work_intake is not None:
@@ -178,6 +215,13 @@ def startup_packet_intent_anchor_dict(anchor: object) -> dict[str, object]:
         "anchor_refs": list(getattr(anchor, "anchor_refs", ()) or ()),
         "lifecycle_state": getattr(anchor, "lifecycle_state", ""),
     }
+
+
+def _compact_product_thesis(value: str, limit: int = 480) -> str:
+    text = str(value or "").strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3].rstrip() + "..."
 
 
 __all__ = [

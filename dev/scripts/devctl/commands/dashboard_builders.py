@@ -32,6 +32,12 @@ class NowSectionContext:
     authority strings locally. The legacy implementer-status text stays
     available via ``session`` for display-only fallback when the typed
     producer did not supply a decision.
+
+    ``pending_review_blocker_count`` and ``startup_authority_blocker_kind``
+    let the priority model dominate ``next_action_override`` when typed
+    review packets remain unacked or when startup authority preconditions
+    fail (per Codex rev_pkt_2388). Without those, claude-loop can render
+    ``await_checkpoint`` while a hard blocker is still open.
     """
 
     bridge: dict[str, str]
@@ -43,7 +49,10 @@ class NowSectionContext:
     last_change_age: int | None
     coordination: dict[str, Any] | None = None
     runtime_counts: dict[str, int] | None = None
+    review_state: dict[str, Any] | None = None
     next_action_override: str = ""
+    pending_review_blocker_count: int = 0
+    startup_authority_blocker_kind: str = ""
 
 
 from .dashboard_summary import (
@@ -106,7 +115,25 @@ def _build_now_section(ctx: NowSectionContext) -> dict[str, Any]:
         owner_provider = impl_provider if owner == "Implementer" else reviewer_provider
 
     override = (ctx.next_action_override or "").strip()
-    if override and override != "n/a":
+    # Per Codex rev_pkt_2388: typed pending-review-packet count and
+    # startup-authority blocker kind dominate next_action when present.
+    # Without this, dashboard.now and claude-loop render
+    # ``await_checkpoint`` even though checkpoint is explicitly blocked
+    # by unacked reviewer packets and/or atomicity/budget violations.
+    next_action_reason = ""
+    if ctx.startup_authority_blocker_kind:
+        next_action = (
+            f"checkpoint_blocked_by_startup_authority:"
+            f"{ctx.startup_authority_blocker_kind}"
+        )
+        next_action_reason = "startup_authority_blocker"
+    elif ctx.pending_review_blocker_count > 0:
+        next_action = (
+            f"checkpoint_blocked_by_pending_review_packets:"
+            f"{ctx.pending_review_blocker_count}_pending"
+        )
+        next_action_reason = "pending_review_blockers"
+    elif override and override != "n/a":
         first_line = override.splitlines()[0].lstrip("- ").strip()
         next_action = first_line[:60] + ("..." if len(first_line) > 60 else "")
     else:
@@ -143,14 +170,46 @@ def _build_now_section(ctx: NowSectionContext) -> dict[str, Any]:
     else:
         instr_text = "n/a"
 
+    # Per Codex rev_pkt_2326/2337/2346: surface canonical predicate answer
+    # for the owner alongside legacy instruction_text so dashboard `now`
+    # block doesn't anchor on legacy queue priority. owner_provider names
+    # the actor (e.g. "claude"); canonical predicate returns their typed
+    # current active packet via the cached review_state projection.
+    canonical_active_packet = ""
+    if owner_provider:
+        try:
+            from ..review_channel.active_packet_authority import (
+                current_active_packet_for_agent,
+            )
+            payload = ctx.review_state if isinstance(ctx.review_state, dict) else {}
+            if isinstance(payload, dict):
+                owner_role = owner.lower() if owner else ""
+                canonical_active_packet = current_active_packet_for_agent(
+                    payload,
+                    owner_provider,
+                    target_role=owner_role,
+                )
+        except (ImportError, OSError):
+            canonical_active_packet = ""
+
+    # Per Codex rev_pkt_2352: when typed canonical is present, demote
+    # legacy instruction_text by tagging it explicitly. Operators reading
+    # dashboard.now should see canonical_active_packet as primary truth.
+    legacy_marker = ""
+    if canonical_active_packet and instr_text != "n/a":
+        legacy_marker = "(legacy)"
+
     return {
         "owner": owner,
         "owner_provider": owner_provider,
         "next_action": next_action,
+        "next_action_reason": next_action_reason,
         "top_blocker": ctx.top_blocker,
         "last_change_age_s": ctx.last_change_age,
         "last_change_label": _format_age(ctx.last_change_age),
         "instruction_text": instr_text,
+        "instruction_text_authority": legacy_marker or "primary",
+        "canonical_active_packet": canonical_active_packet,
     }
 
 

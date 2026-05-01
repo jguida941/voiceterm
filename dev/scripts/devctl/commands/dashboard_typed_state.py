@@ -40,6 +40,8 @@ class PendingPacketFields(TypedDict):
     policy_hint: str
     target_ref: str
     target_revision: str
+    target_role: str
+    target_session_id: str
     approval_required: bool
     posted_at: str
     delivery_emitted_at_utc: str
@@ -193,6 +195,8 @@ def _extract_typed_packets(
             policy_hint=pkt.get("policy_hint", ""),
             target_ref=pkt.get("target_ref", ""),
             target_revision=pkt.get("target_revision", ""),
+            target_role=pkt.get("target_role", ""),
+            target_session_id=pkt.get("target_session_id", ""),
             approval_required=pkt.get("approval_required", False),
             posted_at=pkt.get("posted_at", ""),
             delivery_emitted_at_utc=pkt.get("delivery_emitted_at_utc", ""),
@@ -244,6 +248,8 @@ def _control_packet_row(packet: dict[str, Any]) -> dict[str, Any]:
         "policy_hint": packet.get("policy_hint", ""),
         "target_ref": packet.get("target_ref", ""),
         "target_revision": packet.get("target_revision", ""),
+        "target_role": packet.get("target_role", ""),
+        "target_session_id": packet.get("target_session_id", ""),
         "posted_at": packet.get("posted_at", ""),
         "acked_at_utc": packet.get("acked_at_utc", ""),
         "acked_by": packet.get("acked_by", ""),

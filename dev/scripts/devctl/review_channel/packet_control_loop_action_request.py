@@ -20,7 +20,12 @@ def action_request_control_state(packet: Mapping[str, object]) -> str:
 
 
 def action_request_priority_key(packet: Mapping[str, object]) -> tuple[object, ...]:
-    """Return stable action-request ordering by lifecycle urgency."""
+    """Return stable action-request ordering by lifecycle urgency.
+
+    Ties follow the canonical active-packet predicate: a newer typed event for
+    the same lifecycle supersedes older backlog so addenda and direct wake
+    packets cannot be starved behind stale action requests.
+    """
     state_rank = {
         "apply_pending_after_execution": 0,
         "execution_pending": 1,
@@ -30,6 +35,7 @@ def action_request_priority_key(packet: Mapping[str, object]) -> tuple[object, .
     }
     return (
         state_rank.get(action_request_control_state(packet), 9),
+        -_event_id_rank(str(packet.get("latest_event_id") or "")),
         parse_utc(packet.get("expires_at_utc")),
         parse_utc(packet.get("posted_at")),
         str(packet.get("packet_id") or "").strip(),
@@ -48,3 +54,9 @@ def parse_utc(value: object) -> datetime:
     if observed.tzinfo is None:
         return observed.replace(tzinfo=timezone.utc)
     return observed.astimezone(timezone.utc)
+
+
+def _event_id_rank(event_id: str) -> int:
+    from .event_models import event_id_rank
+
+    return event_id_rank(event_id)

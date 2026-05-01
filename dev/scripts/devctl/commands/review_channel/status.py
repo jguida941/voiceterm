@@ -43,6 +43,7 @@ from .doctor_support import (
 from .status_runtime_projection import (
     refresh_report_runtime_snapshot as _refresh_report_runtime_snapshot,
 )
+from .status_readiness import attach_runtime_readiness
 from ..review_channel_command import (
     RuntimePaths,
     _coerce_runtime_paths,
@@ -230,7 +231,8 @@ def _normalize_read_only_status_ok(report: dict[str, object]) -> None:
         return
     if report.get("errors"):
         return
-    report["ok"] = True
+    report["exit_ok"] = True
+    attach_runtime_readiness(report)
 def _auto_mode_prefers_markdown_bridge(paths: RuntimePaths) -> bool:
     """Prefer bridge-backed status when the transitional bridge is active."""
     bridge_path = paths.bridge_path

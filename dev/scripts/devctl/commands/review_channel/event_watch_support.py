@@ -59,6 +59,8 @@ def load_target_packets(
     packets = filter_inbox_packets(
         context.bundle.review_state,
         target=effective_target,
+        target_role=_target_role(context.args),
+        target_session_id=_target_session_id(context.args),
         status=effective_status_filter,
         limit=context.args.limit,
     )
@@ -78,6 +80,8 @@ def load_target_packets(
         packets = filter_inbox_packets(
             refreshed_bundle.review_state,
             target=effective_target,
+            target_role=_target_role(context.args),
+            target_session_id=_target_session_id(context.args),
             status=effective_status_filter,
             limit=context.args.limit,
         )
@@ -229,3 +233,11 @@ def _action_request_observer(*, args: object, target: str) -> str:
     if actor.lower() != target.lower():
         return ""
     return actor
+
+
+def _target_role(args: object) -> str:
+    return str(getattr(args, "target_role", "") or "").strip()
+
+
+def _target_session_id(args: object) -> str:
+    return str(getattr(args, "target_session_id", "") or "").strip()

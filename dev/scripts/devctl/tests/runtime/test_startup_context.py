@@ -234,6 +234,49 @@ class TestStartupContextBuild(unittest.TestCase):
             payload["connectivity_registry"]["reader_ids"],
         )
 
+    def test_to_dict_exposes_runtime_spine_and_packet_carry_forward(self) -> None:
+        ctx = StartupContext(
+            runtime_spine_closure={
+                "contract_id": "RuntimeSpineClosureState",
+                "ok": False,
+                "risky_item_count": 8,
+            },
+            packet_continuity_index={
+                "contract_id": "PacketContinuityIndex",
+                "sink_counts": {"live_queue": 1},
+            },
+            packet_carry_forward_debt=(
+                {
+                    "contract_id": "PacketCarryForwardDebt",
+                    "packet_id": "rev_pkt_2649",
+                    "reason": "acked_without_terminal_or_durable_owner",
+                },
+            ),
+            continuity_attention={
+                "contract_id": "StartupContinuityAttention",
+                "requires_attention": True,
+                "packet_debt_count": 1,
+            },
+        )
+        payload = ctx.to_dict()
+
+        self.assertEqual(
+            payload["runtime_spine_closure"]["contract_id"],
+            "RuntimeSpineClosureState",
+        )
+        self.assertEqual(
+            payload["packet_carry_forward_debt"][0]["packet_id"],
+            "rev_pkt_2649",
+        )
+        self.assertEqual(
+            payload["packet_continuity_index"]["contract_id"],
+            "PacketContinuityIndex",
+        )
+        self.assertEqual(
+            payload["continuity_attention"]["contract_id"],
+            "StartupContinuityAttention",
+        )
+
     def test_startup_connectivity_registry_projects_contract_ids(self) -> None:
         from dev.scripts.devctl.config import REPO_ROOT
         from dev.scripts.devctl.runtime.startup_connectivity_registry import (
@@ -289,6 +332,47 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertEqual(
             snapshot.next_command,
             'python3 dev/scripts/devctl.py commit -m "checkpoint"',
+        )
+
+    def test_authority_snapshot_checkpoint_preempts_runtime_relaunch(self) -> None:
+        snapshot = build_authority_snapshot(
+            {
+                "next_command": (
+                    'python3 dev/scripts/devctl.py commit -m "<descriptive message>"'
+                ),
+                "advisory_action": "checkpoint_before_continue",
+                "advisory_reason": "staged_index_budget_exceeded",
+                "governance": {
+                    "push_enforcement": {
+                        "checkpoint_required": True,
+                        "safe_to_continue_editing": False,
+                        "checkpoint_reason": "staged_index_budget_exceeded",
+                    }
+                },
+                "push_decision": {"action": "await_checkpoint"},
+                "coordination": {"resync_required": True},
+                "current_session": {
+                    "current_instruction_revision": "rev123",
+                    "implementer_ack_state": "missing",
+                },
+                "reviewer_gate": {"reviewer_mode": "active_dual_agent"},
+                "attention": {
+                    "status": "reviewer_heartbeat_stale",
+                    "summary": "Reviewer heartbeat is stale.",
+                },
+                "recovery_authority": {
+                    "decision_action_id": "relaunch_review_loop",
+                    "command": (
+                        "python3 dev/scripts/devctl.py review-channel --action launch"
+                    ),
+                },
+            }
+        )
+
+        self.assertEqual(snapshot.required_action, "cut_checkpoint")
+        self.assertEqual(
+            snapshot.next_command,
+            'python3 dev/scripts/devctl.py commit -m "<descriptive message>"',
         )
 
     def test_authority_snapshot_ignores_shared_instruction_without_codex_packet(
@@ -473,6 +557,29 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertEqual(
             summary_next_command(payload),
             'python3 dev/scripts/devctl.py commit -m "checkpoint"',
+        )
+
+    def test_summary_next_command_checkpoint_beats_coordination_resync(self) -> None:
+        payload = {
+            "startup_authority": {"ok": False},
+            "governance": {
+                "push_enforcement": {
+                    "checkpoint_required": True,
+                    "safe_to_continue_editing": False,
+                }
+            },
+            "coordination": {"resync_required": True},
+            "push_decision": {"action": "await_checkpoint"},
+            "implementation_permission": "active",
+            "current_session": {
+                "current_instruction_revision": "rev123",
+                "implementer_ack_state": "missing",
+            },
+        }
+
+        self.assertEqual(
+            summary_next_command(payload),
+            'python3 dev/scripts/devctl.py commit -m "<descriptive message>"',
         )
 
     def test_summary_next_command_prefers_governed_push_when_push_ready(self) -> None:
@@ -1116,6 +1223,36 @@ class TestCLIRegistration(unittest.TestCase):
         self.assertIn("## Quality Signals", rendered)
         self.assertIn("**probe-report**", rendered)
         self.assertIn("**governance-review**", rendered)
+
+    def test_markdown_renders_continuity_attention(self) -> None:
+        rendered = _render_markdown(
+            {
+                "advisory_action": "continue_editing",
+                "advisory_reason": "clean_worktree",
+                "agent_lane": "implementer",
+                "reviewer_gate": {},
+                "governance": {
+                    "repo_identity": {
+                        "repo_name": "test",
+                        "current_branch": "feature/x",
+                    },
+                },
+                "continuity_attention": {
+                    "contract_id": "StartupContinuityAttention",
+                    "message": "After compaction, read typed state before acting.",
+                    "requires_attention": True,
+                    "runtime_spine_ok": False,
+                    "runtime_spine_risky_item_count": 2,
+                    "runtime_spine_violation_count": 1,
+                    "packet_debt_count": 1,
+                    "packet_debt_ids": ["rev_pkt_2649"],
+                },
+            }
+        )
+
+        self.assertIn("### Continuity Attention", rendered)
+        self.assertIn("rev_pkt_2649", rendered)
+        self.assertIn("session-resume --role implementer --format bootstrap", rendered)
 
     def test_markdown_renders_work_intake(self) -> None:
         rendered = _render_markdown(

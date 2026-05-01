@@ -30,6 +30,7 @@ from .dogfood_models import (
     DOGFOOD_REPORT_CONTRACT_ID,
     DOGFOOD_REPORT_SCHEMA_VERSION,
     DOGFOOD_ROLE_TARGET_IDS,
+    DOGFOOD_SCENARIO_TARGET_IDS,
     DogfoodCoverageBucket,
     DogfoodGovernanceSummary,
     DogfoodRecord,
@@ -184,6 +185,7 @@ def dogfood_catalog(
         "guard": guard_ids,
         "probe": probe_ids,
         "role": DOGFOOD_ROLE_TARGET_IDS,
+        "scenario": DOGFOOD_SCENARIO_TARGET_IDS,
     }
 
 

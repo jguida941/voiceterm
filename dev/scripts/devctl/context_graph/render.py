@@ -12,6 +12,14 @@ from typing import Any
 from .concept_render import render_concept_dot, render_concept_mermaid
 from .models import QueryResult
 from .quality_signal_render import append_quality_signal_lines
+from ..runtime.conductor_capability import (
+    context_graph_bootstrap_command,
+    session_resume_command_for_role,
+    startup_context_command_for_role,
+)
+from ..runtime.startup_continuity_render import (
+    append_continuity_attention_lines,
+)
 
 
 def _append_managed_projection_state(
@@ -164,6 +172,17 @@ def render_bootstrap_markdown(ctx: dict[str, Any]) -> str:
         lines.append("")
 
     _append_key_surface_lines(lines, ctx.get("key_surfaces", []))
+    append_continuity_attention_lines(
+        lines,
+        ctx.get("continuity_attention"),
+        startup_command=startup_context_command_for_role("implementer"),
+        session_resume_command=session_resume_command_for_role("implementer"),
+        status_command=(
+            "python3 dev/scripts/devctl.py review-channel --action status "
+            "--terminal none --format json"
+        ),
+        context_graph_command=context_graph_bootstrap_command(),
+    )
 
     bootstrap_commands = ctx.get("bootstrap_commands", [])
     cmds = ctx.get("key_commands", {})

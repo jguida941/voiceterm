@@ -107,7 +107,7 @@ from ..context_graph.command import run as context_graph_run
 from ..context_graph.graph_walk_command import run as graph_walk_run
 from ..context_graph.parser import add_context_graph_parser, add_graph_walk_parser
 from ..controller_action_parser import add_controller_action_parser
-from .claude_loop import add_claude_loop_parser
+from .claude_loop import add_agent_loop_parser, add_claude_loop_parser
 from ..data_science.metrics import maybe_auto_refresh_data_science
 from ..failure_cleanup_parser import add_failure_cleanup_parser
 from ..governance.parser import (
@@ -165,6 +165,7 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset({
     "mcp",
     "dashboard",
     "claude-loop",
+    "agent-loop",
     "discover",
     "findings-priority",
     "graph-walk",
@@ -192,6 +193,18 @@ def _read_only_command_suppresses_artifact_writes(args) -> bool:
         return False
     if args.command == "context-graph" and getattr(args, "mode", "") == "bootstrap":
         return False
+    if args.command == "review-channel":
+        return str(getattr(args, "action", "") or "") in {
+            "status",
+            "doctor",
+            "watch",
+            "inbox",
+            "operator-inbox",
+            "sync-status",
+            "history",
+            "bridge-poll",
+            "render-bridge",
+        }
     return True
 
 
@@ -255,6 +268,7 @@ def build_parser() -> argparse.ArgumentParser:
     governance_orphan_inventory.add_parser(sub)
     governance_install_git_hooks.add_parser(sub)
     _add_dashboard_parser(sub)
+    add_agent_loop_parser(sub)
     add_claude_loop_parser(sub)
     dogfood.add_parser(sub)
     monitor.add_parser(sub)
@@ -318,6 +332,7 @@ COMMAND_HANDLERS = {
     "auto-mode": auto_mode_status.run,
     "check": check.run,
     "check-router": check_router.run,
+    "agent-loop": claude_loop.run,
     "claude-loop": claude_loop.run,
     "dashboard": dashboard.run,
     "dogfood": dogfood.run,

@@ -49,6 +49,11 @@ def authority_modes(
 
 
 def authority_actions(inputs: AuthorityActionInputs) -> tuple[str, str]:
+    if checkpoint_action_required(inputs.payload):
+        return (
+            _checkpoint_root_cause(inputs.payload, inputs.attention),
+            "cut_checkpoint",
+        )
     root_cause = (
         str(inputs.doctor.get("root_cause") or "").strip()
         or str(inputs.diagnosis.get("root_cause") or "").strip()
@@ -67,6 +72,42 @@ def authority_actions(inputs: AuthorityActionInputs) -> tuple[str, str]:
         or str(inputs.attention.get("recommended_action") or "").strip()
     )
     return root_cause, required_action
+
+
+def checkpoint_action_required(payload: Mapping[str, object]) -> bool:
+    """Return whether startup checkpoint authority preempts runtime recovery."""
+    push = _mapping(_mapping(payload.get("governance")).get("push_enforcement"))
+    if push:
+        if bool(push.get("checkpoint_required", False)):
+            return True
+        if not bool(push.get("safe_to_continue_editing", True)):
+            return True
+    push_decision = _mapping(payload.get("push_decision"))
+    if str(push_decision.get("action") or "").strip() == "await_checkpoint":
+        return True
+    advisory_action = str(payload.get("advisory_action") or "").strip()
+    return advisory_action == "checkpoint_before_continue"
+
+
+def _checkpoint_root_cause(
+    payload: Mapping[str, object],
+    attention: Mapping[str, object],
+) -> str:
+    push = _mapping(_mapping(payload.get("governance")).get("push_enforcement"))
+    reason = str(
+        push.get("checkpoint_reason")
+        or _mapping(payload.get("push_decision")).get("reason")
+        or payload.get("advisory_reason")
+        or ""
+    ).strip()
+    if reason:
+        return (
+            "The current worktree has exceeded the checkpoint budget; "
+            f"reason={reason}."
+        )
+    return str(attention.get("summary") or "").strip() or (
+        "The current worktree requires a checkpoint before more implementation."
+    )
 
 
 def reviewer_provider_from_payload(payload: Mapping[str, object]) -> str:

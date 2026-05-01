@@ -37,6 +37,7 @@ class ReadOnlyCommandSetTests(unittest.TestCase):
             "mcp",
             "dashboard",
             "claude-loop",
+            "agent-loop",
             "discover",
             "findings-priority",
             "graph-walk",

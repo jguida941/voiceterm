@@ -35,8 +35,13 @@ def resolve_reviewer_wake_target(
     if not isinstance(bridge_liveness, dict):
         return None, None
 
-    # Prefer typed packet_inbox for packet selection when present.
-    packet = _selected_codex_wake_packet_typed(report)
+    # Prefer the typed loop decision when sync-status provides it. It already
+    # combines packet focus, actor/session routing, lifecycle, and blocker
+    # policy, so the follow loop does not have to rediscover that state from
+    # packet prose.
+    packet = _selected_codex_wake_packet_from_agent_loop_decision(report)
+    if packet is None:
+        packet = _selected_codex_wake_packet_typed(report)
     if packet is None:
         packet = _selected_codex_wake_packet(report)
     if packet is None:
@@ -49,6 +54,64 @@ def resolve_reviewer_wake_target(
     if str(packet.get("delivery_observed_at_utc") or "").strip():
         return None, None
     return packet, None
+
+
+def _selected_codex_wake_packet_from_agent_loop_decision(
+    report: dict[str, object],
+) -> dict[str, object] | None:
+    decisions = report.get("agent_loop_decisions")
+    packets = report.get("packets")
+    if not isinstance(decisions, list) or not isinstance(packets, list):
+        return None
+    packets_by_id = {
+        str(packet.get("packet_id") or "").strip(): packet
+        for packet in packets
+        if isinstance(packet, dict)
+    }
+    for decision in decisions:
+        if not isinstance(decision, dict):
+            continue
+        if str(decision.get("actor_id") or "").strip() != "codex":
+            continue
+        if str(decision.get("actor_role") or "").strip() != "reviewer":
+            continue
+        if not _agent_loop_decision_wants_reviewer_wake(decision):
+            continue
+        packet_id = _agent_loop_decision_packet_id(decision)
+        if not packet_id:
+            continue
+        packet = packets_by_id.get(packet_id)
+        if not isinstance(packet, dict):
+            continue
+        if str(packet.get("to_agent") or "").strip() != "codex":
+            continue
+        if str(packet.get("status") or "").strip() != "pending":
+            continue
+        return packet
+    return None
+
+
+def _agent_loop_decision_wants_reviewer_wake(
+    decision: dict[str, object],
+) -> bool:
+    loop_mode = str(decision.get("loop_mode") or "").strip()
+    if loop_mode not in {
+        "pivot_to_packet",
+        "continue_current_execution",
+        "recover_or_relaunch",
+    }:
+        return False
+    if bool(decision.get("wake_required")) or bool(decision.get("pivot_required")):
+        return True
+    return bool(_agent_loop_decision_packet_id(decision))
+
+
+def _agent_loop_decision_packet_id(decision: dict[str, object]) -> str:
+    for key in ("attention_packet_id", "active_packet_id", "executing_packet_id"):
+        value = str(decision.get(key) or "").strip()
+        if value:
+            return value
+    return ""
 
 
 def resolve_reviewer_wake_paths(

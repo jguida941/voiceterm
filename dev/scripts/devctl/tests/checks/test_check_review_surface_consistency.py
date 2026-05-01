@@ -751,6 +751,44 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
         self.assertTrue(report["ok"])
         self.assertEqual(report["errors"], [])
 
+    def test_build_report_accepts_absent_generation_when_not_observed(self) -> None:
+        payloads = self._phase_zero_payloads()
+        review_state = payloads["review_state_payload"]
+        compact = payloads["compact_payload"]
+        commit_pipeline = payloads["commit_pipeline_payload"]
+        assert isinstance(review_state, dict)
+        assert isinstance(compact, dict)
+        assert isinstance(commit_pipeline, dict)
+
+        for surface in (
+            review_state,
+            review_state["registry"],
+            review_state["_compat"]["bridge_projection"]["metadata"],
+        ):
+            assert isinstance(surface, dict)
+            identity = dict(surface["source_identity"])
+            identity.pop("generation_id", None)
+            surface["source_identity"] = identity
+            surface["observed_fields"] = ["head_sha", "worktree_hash"]
+        for pipeline in (
+            review_state["commit_pipeline"],
+            compact["commit_pipeline"],
+            commit_pipeline,
+        ):
+            assert isinstance(pipeline, dict)
+            pipeline["generation_id"] = ""
+        for doctor in (
+            review_state["_compat"]["doctor"],
+            compact["doctor"],
+        ):
+            assert isinstance(doctor, dict)
+            doctor["generation_id"] = ""
+
+        report = self.script.build_report(**payloads, disk_review_state_payload=None)
+
+        self.assertTrue(report["ok"], report["errors"])
+        self.assertEqual(report["errors"], [])
+
     def _phase_zero_payloads(self) -> dict[str, object]:
         snapshot_id = "snap-phase0"
         zref = "zref_phase0_head"

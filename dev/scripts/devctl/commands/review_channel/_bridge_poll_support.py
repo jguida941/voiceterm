@@ -8,6 +8,8 @@ from dataclasses import asdict, dataclass
 from hashlib import sha256
 from pathlib import Path
 
+from ...review_channel.event_reducer import load_or_refresh_event_bundle
+from ...review_channel.event_store import resolve_artifact_paths
 from ...review_channel.handoff import (
     BridgeLiveness,
     BridgeSnapshot,
@@ -55,6 +57,14 @@ class BridgePollResult:
     decision_requires_approval: bool = False
     decision_can_auto_fix: bool = False
     zref: str = ""
+    # Per Codex rev_pkt_2326/2361/2367/2368: typed coordination_state fields
+    # surfaced on bridge-poll alongside legacy reviewer_mode so consumers
+    # see typed authority vs. compat surface side-by-side.
+    coordination_topology: str = ""
+    authority_mode: str = ""
+    recovery_eligibility: str = ""
+    canonical_active_packet_for_claude: str = ""
+    canonical_active_packet_for_codex: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -117,6 +127,15 @@ def build_bridge_poll_result(
         decision_requires_approval=authority.decision_requires_approval,
         decision_can_auto_fix=authority.decision_can_auto_fix,
         zref=authority.zref,
+        coordination_topology=authority.coordination_topology,
+        authority_mode=authority.authority_mode,
+        recovery_eligibility=authority.recovery_eligibility,
+        canonical_active_packet_for_claude=(
+            authority.canonical_active_packet_for_claude
+        ),
+        canonical_active_packet_for_codex=(
+            authority.canonical_active_packet_for_codex
+        ),
     )
 
 
@@ -127,14 +146,17 @@ def load_typed_poll_authority(
 ) -> dict[str, object] | None:
     """Load the typed review-state authority for bridge-poll turn decisions.
 
-    Primary path: call ``refresh_status_snapshot()`` (the same function that
-    ``status``/``doctor``/``startup-context`` use) and read the freshly
-    written ``review_state.json``.
+    Per Codex rev_pkt_2326/2361/2367/2368: bridge-poll must observe the
+    SAME typed surface as sync-status, dashboard, and claude-loop. Earlier
+    revisions called ``refresh_status_snapshot()`` which writes a leaner
+    bridge-shaped projection that drops ``coordination_state``,
+    ``agent_sync``, and ``agent_work_board`` — so bridge-poll silently
+    disagreed with every other consumer of the same review_state.json.
 
-    Fallback: if the refresh fails, read the last-known-good
-    ``review_state.json`` from disk.  This gives bridge-poll stale but
-    typed authority — much better than falling through to empty-string
-    heuristics that silently disagree with the rest of the stack.
+    Primary path: ``load_or_refresh_event_bundle()`` (event-sourced) so
+    bridge-poll observes the full typed shape including coordination_state.
+    Fallback: ``refresh_status_snapshot`` for compat when the event log is
+    not materialized. Final fallback: last-known-good review_state.json.
     """
     bridge_path = paths.bridge_path if isinstance(paths.bridge_path, Path) else None
     review_channel_path = (
@@ -145,6 +167,18 @@ def load_typed_poll_authority(
     status_dir = paths.status_dir if isinstance(paths.status_dir, Path) else None
     if bridge_path is None or review_channel_path is None or status_dir is None:
         return _read_last_known_review_state(status_dir)
+    try:
+        artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+        bundle = load_or_refresh_event_bundle(
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            artifact_paths=artifact_paths,
+        )
+        payload = bundle.review_state
+        if isinstance(payload, dict):
+            return payload
+    except (OSError, TypeError, ValueError):
+        pass
     try:
         snapshot = refresh_status_snapshot(
             repo_root=repo_root,

@@ -11,6 +11,7 @@ from .authority_snapshot_actions import (
     AuthorityActionInputs,
     authority_actions,
     authority_modes,
+    checkpoint_action_required,
     reviewer_provider_from_payload,
 )
 from .authority_snapshot_actor import authority_actor_identity, authority_actor_role
@@ -93,6 +94,14 @@ def _resolved_next_command(
     decision: Mapping[str, object],
     next_command: str,
 ) -> str:
+    if checkpoint_action_required(payload):
+        checkpoint_command = (
+            next_command
+            or str(payload.get("next_command") or "").strip()
+            or str(decision.get("command") or "").strip()
+            or str(payload.get("recommended_command") or "").strip()
+        )
+        return checkpoint_command or summary_next_command(payload)
     command = (
         next_command
         or str(recovery_authority.get("command") or "").strip()

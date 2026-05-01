@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass
 from ..runtime.review_state_models import ReviewBridgeState
 from ..runtime.review_state_parser import review_state_from_payload
 from ..runtime.role_profile import TandemRole
+from .active_packet_authority import current_active_packet_for_agent
 from .current_session_projection import (
     bridge_implementer_state_hash,
     build_bridge_current_session,
@@ -60,6 +61,15 @@ class ReviewerTurnAuthority:
     decision_requires_approval: bool = False
     decision_can_auto_fix: bool = False
     zref: str = ""
+    # Per Codex rev_pkt_2326/2361/2367/2368: typed coordination_state fields
+    # surfaced alongside legacy reviewer_mode so bridge-poll, dashboard,
+    # claude-loop, and startup-context can render the SAME typed answer
+    # instead of a single_agent / multi_agent_active contradiction.
+    coordination_topology: str = ""
+    authority_mode: str = ""
+    recovery_eligibility: str = ""
+    canonical_active_packet_for_claude: str = ""
+    canonical_active_packet_for_codex: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -88,6 +98,28 @@ def build_reviewer_turn_authority(
     attention = review_state.attention if review_state is not None else None
     recovery_assessment = (
         review_state.recovery_assessment if review_state is not None else None
+    )
+    # Per rev_pkt_2326/2361/2367/2368: typed coordination_state is the
+    # primary authority for topology / authority_mode / recovery_eligibility.
+    # Bridge-poll legacy reviewer_mode remains as a compatibility surface,
+    # but the COMMAND fields below get gated on typed recovery_eligibility.
+    coordination_state = (
+        review_state.coordination_state if review_state is not None else {}
+    )
+    coordination_topology = str(
+        (coordination_state or {}).get("coordination_topology") or ""
+    ).strip()
+    authority_mode = str(
+        (coordination_state or {}).get("authority_mode") or ""
+    ).strip()
+    recovery_eligibility = str(
+        (coordination_state or {}).get("recovery_eligibility") or ""
+    ).strip()
+    canonical_active_packet_for_claude = current_active_packet_for_agent(
+        typed_review_state or {}, "claude"
+    )
+    canonical_active_packet_for_codex = current_active_packet_for_agent(
+        typed_review_state or {}, "codex"
     )
 
     typed_authority_complete = bool(
@@ -127,6 +159,7 @@ def build_reviewer_turn_authority(
         typed_authority_complete,
         fallback_assessment,
         attention_status,
+        recovery_eligibility=recovery_eligibility,
     )
     implementation_blocked, implementation_block_reason = resolve_implementation_block(
         reviewer_runtime,
@@ -204,6 +237,11 @@ def build_reviewer_turn_authority(
         next_turn_required=next_turn_required,
         next_turn_role=next_turn_role,
         next_turn_reason=next_turn_reason,
+        coordination_topology=coordination_topology,
+        authority_mode=authority_mode,
+        recovery_eligibility=recovery_eligibility,
+        canonical_active_packet_for_claude=canonical_active_packet_for_claude,
+        canonical_active_packet_for_codex=canonical_active_packet_for_codex,
     )
 
 
@@ -267,6 +305,11 @@ def _build_authority_result(
     next_turn_required,
     next_turn_role,
     next_turn_reason,
+    coordination_topology: str = "",
+    authority_mode: str = "",
+    recovery_eligibility: str = "",
+    canonical_active_packet_for_claude: str = "",
+    canonical_active_packet_for_codex: str = "",
 ):
     return ReviewerTurnAuthority(
         snapshot_id=review_state.snapshot_id if review_state is not None else "",
@@ -332,4 +375,9 @@ def _build_authority_result(
             )
         ),
         zref=review_state.zref if review_state is not None else "",
+        coordination_topology=coordination_topology,
+        authority_mode=authority_mode,
+        recovery_eligibility=recovery_eligibility,
+        canonical_active_packet_for_claude=canonical_active_packet_for_claude,
+        canonical_active_packet_for_codex=canonical_active_packet_for_codex,
     )

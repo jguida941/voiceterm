@@ -131,6 +131,8 @@ def build_instruction_source(
         "packet_id": packet_id,
         "from_agent": packet.get("from_agent"),
         "to_agent": packet.get("to_agent"),
+        "target_role": packet.get("target_role"),
+        "target_session_id": packet.get("target_session_id"),
     }
     if context_packet is not None:
         source["context_packet"] = asdict(context_packet)

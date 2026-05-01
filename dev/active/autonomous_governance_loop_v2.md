@@ -1,6 +1,6 @@
 # Autonomous Governance Loop V2 Plan
 
-**Status**: active  |  **Last updated**: 2026-04-10 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-05-01 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is a bounded convergence plan for closing the autonomous
@@ -12,7 +12,7 @@ second product plan.
 Use this file when the work is specifically about turning the existing
 governed surfaces into one closed loop:
 
-`StartupContext / WorkIntakePacket -> PlanningIRSnapshot / findings-priority -> ControlPlaneReadModel / AutoModeState / MonitorSnapshot -> governed commit/push/review actions -> FindingReview / GuardPromotionCandidate -> next-session prompt`
+`StartupContext / WorkIntakePacket -> PlanningIRSnapshot / findings-priority -> ControlPlaneReadModel / AutoModeState / MonitorSnapshot -> governed commit/push/review actions -> FindingReview / GuardPromotionCandidate / KnowledgeSynthesisRecord -> generated graph/pointer/startup projections -> next-session prompt`
 
 This plan covers:
 
@@ -29,6 +29,10 @@ This plan covers:
 5. Guard-promotion-by-default closure so repeated or adjudicated issues flow
    into `governance-review` and `GuardPromotionCandidate` instead of ending as
    patch-only work.
+6. Research and synthesis closure so local code research, approved external
+   research, dogfood evidence, recurring findings, and architecture patterns
+   become typed knowledge artifacts that feed plan, guard, `context-graph`,
+   system-map, pointer, and startup surfaces with provenance.
 
 Out of scope for this plan:
 
@@ -37,6 +41,8 @@ Out of scope for this plan:
 2. A provider-specific verdict-file controller.
 3. New shadow state stores, loop-local markdown truth, or dashboard-local
    authority.
+4. A separate semantic authority store. ZGraph-compatible and pointer surfaces
+   remain generated navigation/compression outputs over typed canonical sinks.
 
 ## Locked Decisions
 
@@ -65,6 +71,20 @@ Out of scope for this plan:
 7. Guard-promotion and finding disposition are part of the main loop. Repeated
    issues do not count as closed until they route into a prevention surface or
    receive an explicit waiver.
+8. `/develop` uses the typed `DevelopmentModeTopology`, not provider defaults
+   or a fixed team roster. Any provider or human may occupy any workstream when
+   typed authority grants the required capabilities. Research may include
+   approved web/vendor/library sources only through a route grant, cited
+   provenance, and a synthesis path back into canonical plan/guard/contract
+   sinks. `context-graph`, ConceptIndex/ZGraph-compatible outputs, pointer
+   refs, and system-map consume the promoted artifacts as generated projections,
+   never as runtime authority.
+9. Packet-carried work ingestion is a first-class `/develop` concern. A
+   dedicated Plan Intake Steward workstream classifies packets for plan,
+   finding, guard, probe, or architecture intent and promotes that content into
+   durable MasterPlan/PlanRow, FindingReview, GuardPromotionQueue, or knowledge
+   artifacts with packet ids retained as provenance before TTL expiry. Packets
+   are communication and provenance; they are not the source of truth.
 
 ## Data Contracts
 
@@ -87,6 +107,12 @@ Loop v2 must compose these existing contract families directly:
    `FindingReview`, `QualityFeedbackSnapshot`, and `GuardPromotionCandidate`.
 6. Graph evidence:
    `ContextGraphSnapshot` and `ContextGraphDelta`.
+7. Development topology and knowledge flow:
+   `DevelopmentModeTopology`, `DevelopmentExternalResearchContract`,
+   `DevelopmentKnowledgeFlowContract`, `ResearchEvidenceBundle`,
+   `ExternalSourceEvidence`, `KnowledgeSynthesisRecord`, `ContextGraphSeed`,
+   `PointerRefIndexEntry`, `PacketLifecycleHistory`, `PacketOutcomeLedger`,
+   `PacketDurableIngestionReceipt`, and `PacketContinuityIndex`.
 
 Current design-relevant gaps observed in this session:
 
@@ -147,6 +173,11 @@ closure. The correct order is:
       "idle" from message silence.
 - [ ] Make graph freshness and coverage visible in the same startup-facing
       packet the loop consumes, not only in a sidecar report.
+- [ ] Wire knowledge artifacts into generated graph/pointer surfaces:
+      promoted `KnowledgeSynthesisRecord`, `ContextGraphSeed`, and
+      `PointerRefIndexEntry` rows must rebuild `ContextGraphSnapshot`,
+      system-map connectivity, ConceptIndex/ZGraph-compatible views, ContextPack,
+      and startup-context from canonical sinks rather than from chat notes.
 
 ### Phase 1 - Next Slice Selection
 
@@ -179,6 +210,17 @@ closure. The correct order is:
       `findings-priority`, packet lifecycle, and governed commit/push over the
       existing deterministic runtime layer rather than creating a new
       controller root.
+- [ ] Load `DevelopmentModeTopology` at controller start and route work through
+      user-facing workstreams: Coordinator, Builder, Reviewer, Plan Intake
+      Steward, Researcher, Knowledge Synthesizer, Architect, Quality Engineer,
+      Dogfood Tester, Runtime Watcher, and Operator. These names are UX labels
+      only; runtime authority still comes from `AuthoritySnapshot`,
+      `AgentDispatchRouter`, packet scope, and mutation leases.
+- [ ] Make packet intent ingestion part of the controller loop: packets near
+      expiry, packets archived as `clock_expired_without_disposition`, outcome
+      rows claiming `promoted_to_finding`, and ambiguous actor/session packet
+      ownership must route to Plan Intake Steward for durable plan/finding/
+      guard/knowledge ownership before the packet leaves the live queue.
 - [ ] Make the controller state-driven and event-woken: valid next actions
       come from typed state plus ownership posture, and polling survives only
       as a degraded fallback when the event stream is unavailable.
@@ -201,6 +243,12 @@ closure. The correct order is:
       next-slice prompt so the loop learns from typed evidence, not memory.
 - [ ] Keep guard/probe promotion approval-bound; loop v2 may recommend and
       queue promotions, but not silently harden the blocking guard set.
+- [ ] Route approved external research and recurring architecture patterns
+      through `ResearchEvidenceBundle` -> `KnowledgeSynthesisRecord` ->
+      `GuardPromotionCandidate` / `PlanRow` / `ContextGraphSeed` /
+      `PointerRefIndexEntry`, with source URL or repo ref, retrieval time,
+      confidence, claim summary, and affected contract/plan ref recorded before
+      promotion.
 
 ### Phase 4 - Governed Proof
 
@@ -214,6 +262,16 @@ closure. The correct order is:
 
 ## Progress Log
 
+- 2026-05-01: Added the typed `/develop` topology contract in
+  `dev/scripts/devctl/runtime/development_team.py`. The default topology is
+  provider-neutral and names the user-facing workstreams above, including a
+  Plan Intake Steward for durable packet-to-plan/state ingestion. It adds
+  explicit external-research and knowledge-flow contracts so web/vendor/library
+  research is route-granted and cited, while packet-carried and synthesized
+  knowledge feeds canonical plan/finding/guard/contract sinks and then
+  generated context-graph/system-map/ConceptIndex/ZGraph-compatible/pointer/
+  startup projections. Graph and pointer outputs remain navigation/projection
+  surfaces, not authority stores.
 - 2026-04-10: Bootstrapped the repo with `startup-context --format summary`
   and `context-graph --mode bootstrap --format md`, then verified live repo
   state with `git status --short`. The worktree is currently clean, so older

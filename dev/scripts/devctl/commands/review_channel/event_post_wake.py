@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from ...review_channel.follow_controller import (
+    maybe_wake_waiting_agent_conductor,
     maybe_wake_waiting_reviewer_conductor,
 )
 from ...review_channel.events import load_or_refresh_event_bundle
@@ -30,6 +31,9 @@ class EventPostWakeDeps:
     )
     maybe_wake_waiting_reviewer_conductor_fn: Callable[..., dict[str, object] | None] = (
         maybe_wake_waiting_reviewer_conductor
+    )
+    maybe_wake_waiting_agent_conductor_fn: Callable[..., dict[str, object] | None] = (
+        maybe_wake_waiting_agent_conductor
     )
     load_or_refresh_event_bundle_fn: Callable[..., object] = load_or_refresh_event_bundle
 
@@ -54,8 +58,7 @@ def maybe_wake_posted_reviewer_packet(
     restore the waiting reviewer turn immediately.
     """
 
-    if str(packet.get("to_agent") or "").strip() != "codex":
-        return None
+    target_agent = str(packet.get("to_agent") or "").strip()
     resolved_deps = deps or _DEFAULT_EVENT_POST_WAKE_DEPS
 
     bridge_path = _as_path(paths.get("bridge_path"))
@@ -109,20 +112,36 @@ def maybe_wake_posted_reviewer_packet(
         "packet_inbox": dict(review_state_payload.get("packet_inbox") or {}),
         "packets": list(review_state_payload.get("packets") or []),
         "coordination": review_state_payload.get("coordination"),
+        "coordination_state": review_state_payload.get("coordination_state"),
+        "agent_sync": review_state_payload.get("agent_sync"),
+        "agent_work_board": review_state_payload.get("agent_work_board"),
+        "agent_loop_decisions": review_state_payload.get("agent_loop_decisions"),
+        "reviewer_runtime": review_state_payload.get("reviewer_runtime"),
         "authority_snapshot": review_state_payload.get("authority_snapshot"),
     }
-    return resolved_deps.maybe_wake_waiting_reviewer_conductor_fn(
+    wake_paths = _wake_paths_mapping(
+        bridge_path=bridge_path,
+        review_channel_path=review_channel_path,
+        status_dir=status_dir,
+        promotion_plan_path=_as_path(paths.get("promotion_plan_path")),
+        artifact_paths=paths.get("artifact_paths"),
+    )
+    if target_agent == "codex":
+        return resolved_deps.maybe_wake_waiting_reviewer_conductor_fn(
+            args=args,
+            repo_root=repo_root,
+            paths=wake_paths,
+            report=report,
+            operator_interaction_mode=operator_interaction_mode,
+        )
+    return resolved_deps.maybe_wake_waiting_agent_conductor_fn(
         args=args,
         repo_root=repo_root,
-        paths=_wake_paths_mapping(
-            bridge_path=bridge_path,
-            review_channel_path=review_channel_path,
-            status_dir=status_dir,
-            promotion_plan_path=_as_path(paths.get("promotion_plan_path")),
-            artifact_paths=paths.get("artifact_paths"),
-        ),
+        paths=wake_paths,
         report=report,
         operator_interaction_mode=operator_interaction_mode,
+        target_agent=target_agent,
+        packet=dict(packet),
     )
 
 
@@ -172,6 +191,11 @@ def _merge_review_state_payloads(
         "packet_inbox",
         "packets",
         "coordination",
+        "coordination_state",
+        "agent_sync",
+        "agent_work_board",
+        "agent_loop_decisions",
+        "reviewer_runtime",
         "authority_snapshot",
     ):
         for payload in payloads:
@@ -188,6 +212,7 @@ def _wake_error(
     packet: Mapping[str, object],
     reason: str,
     detail: str,
+    target_agent: str = "",
 ) -> dict[str, object]:
     report = {
         "attempted": True,
@@ -196,6 +221,8 @@ def _wake_error(
         "packet_id": str(packet.get("packet_id") or "").strip(),
         "requested_action": str(packet.get("requested_action") or "").strip(),
     }
+    if target_agent:
+        report["target_agent"] = target_agent
     if detail:
         report["warnings"] = [detail]
     return report

@@ -23,6 +23,7 @@ from .review_state_packet_models import (
     packet_inbox_from_mapping,
     review_candidate_from_mapping,
 )
+from .review_state_round_proof import RoundProofState
 from .review_state_packet_models import (
     packet_requires_operator_approval as _packet_requires_operator_approval,
 )
@@ -221,6 +222,21 @@ class ReviewState:
     )
     coordination: CoordinationSnapshot | None = None
     authority_snapshot: AuthoritySnapshot | None = None
+    round_proofs: tuple[RoundProofState, ...] = ()
+    # Per Codex rev_pkt_2271 #3 + rev_pkt_2279 audit Track A: typed
+    # ReviewState must round-trip the agent_sync (v1) and agent_work_board
+    # (v1.1) projections so consumers parsing review_state.json through
+    # ``review_state_from_payload`` retain them. Empty mapping sentinel
+    # mirrors the convention used for other typed addenda above.
+    agent_sync: dict[str, object] = field(default_factory=dict)
+    agent_work_board: dict[str, object] = field(default_factory=dict)
+    agent_loop_decisions: list[dict[str, object]] = field(default_factory=list)
+    agent_dispatch_router: dict[str, object] = field(default_factory=dict)
+    # Per Codex rev_pkt_2273/2278/2281/2298: 4-field topology/authority split
+    # ('coordination_topology', 'authority_mode', 'recovery_eligibility',
+    # 'observed_runtime') so consumers stop treating ``single_agent`` as
+    # observed runtime when typed evidence shows multi-agent activity.
+    coordination_state: dict[str, object] = field(default_factory=dict)
     warnings: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
     source_identity: dict[str, str] = field(default_factory=dict)

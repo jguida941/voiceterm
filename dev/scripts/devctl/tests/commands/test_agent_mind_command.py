@@ -21,6 +21,7 @@ from dev.scripts.devctl.commands.agent_mind import (
     write_projection,
 )
 from dev.scripts.devctl.commands.rollout_tail import (
+    PROVIDER_CLAUDE,
     PROVIDER_CODEX,
     parse_rollout_file,
 )
@@ -95,6 +96,55 @@ def _assistant_message_line(timestamp: str, text: str) -> str:
     )
 
 
+def _claude_tool_use_line(timestamp: str, command: str) -> str:
+    return json.dumps(
+        {
+            "timestamp": timestamp,
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": f"toolu_{timestamp}",
+                        "name": "Bash",
+                        "input": {
+                            "command": command,
+                            "description": "Watch codex",
+                        },
+                    }
+                ],
+            },
+        }
+    )
+
+
+def _claude_text_line(timestamp: str, text: str) -> str:
+    return json.dumps(
+        {
+            "timestamp": timestamp,
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": text}],
+            },
+        }
+    )
+
+
+def _write_claude_session(
+    root: Path,
+    *,
+    lines: list[str],
+    session_id: str = "abcdef01-2345-6789-abcd-ef0123456789",
+) -> Path:
+    project_dir = root / "-Users-test-project"
+    project_dir.mkdir(parents=True, exist_ok=True)
+    path = project_dir / f"{session_id}.jsonl"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
 def _task_complete_line(timestamp: str, last_message: str) -> str:
     return json.dumps(
         {
@@ -166,12 +216,25 @@ def _write_codex_session(
     return path
 
 
+def _write_generic_session(
+    root: Path,
+    *,
+    lines: list[str],
+    session_id: str = "generic-session",
+) -> Path:
+    path = root / f"{session_id}.jsonl"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
 def _make_args(**overrides) -> SimpleNamespace:
     defaults = {
         "agent": "codex",
         "since_cursor": None,
         "limit": 20,
         "project": False,
+        "session_id": None,
+        "exclude_session_id": None,
         "sessions_root": None,
         "format": "json",
         "output": None,
@@ -192,6 +255,39 @@ class SliceBuilderFilterTests(unittest.TestCase):
         session_path = _write_codex_session(root, lines=lines)
         events = parse_rollout_file(session_path, provider=PROVIDER_CODEX, limit=100)
         return session_path, events
+
+    def test_slice_from_claude_fixture_keeps_tool_use_and_text(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            lines = [
+                _claude_tool_use_line(
+                    "2026-05-01T15:14:45.439Z",
+                    "python3 dev/scripts/devctl.py agent-mind --agent codex",
+                ),
+                _claude_text_line(
+                    "2026-05-01T15:15:21.687Z",
+                    "Found the gap precisely.",
+                ),
+            ]
+            session_path = _write_claude_session(root, lines=lines)
+            events = parse_rollout_file(
+                session_path,
+                provider=PROVIDER_CLAUDE,
+                limit=100,
+            )
+            slice_ = build_slice(
+                events,
+                agent_provider="claude",
+                session_id="sess-claude",
+                session_path=session_path,
+                since_cursor=None,
+                limit=20,
+            )
+            self.assertEqual(slice_.event_count, 2)
+            kinds = [event.event_type for event in slice_.events]
+            self.assertIn("response_item:function_call", kinds)
+            self.assertIn("response_item:message", kinds)
+            self.assertEqual(slice_.events[0].tool_name, "Bash")
 
     def test_slice_from_codex_fixture_filters_reasoning_and_tool_calls(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -582,13 +678,232 @@ class AgentMindCommandTests(unittest.TestCase):
             self.assertEqual(payload["agent_provider"], "codex")
             self.assertGreaterEqual(payload["event_count"], 2)
 
-    def test_unknown_provider_returns_error_exit_code(self) -> None:
-        args = _make_args(agent="bogus")
+    def test_command_autodiscovers_claude_and_emits_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            lines = [
+                _claude_tool_use_line(
+                    "2026-05-01T15:14:45.439Z",
+                    "python3 dev/scripts/devctl.py agent-mind --agent codex",
+                ),
+                _claude_text_line(
+                    "2026-05-01T15:15:21.687Z",
+                    "Found the gap precisely.",
+                ),
+            ]
+            _write_claude_session(root, lines=lines)
+            args = _make_args(
+                agent="claude",
+                sessions_root=str(root),
+                format="json",
+                limit=10,
+            )
+            captured = StringIO()
+            with patch("sys.stdout", captured):
+                exit_code = agent_mind.run(args)
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload["contract_id"], AGENT_MIND_CONTRACT_ID)
+            self.assertEqual(payload["agent_provider"], "claude")
+            self.assertEqual(payload["event_count"], 2)
+            self.assertEqual(payload["events"][0]["tool_name"], "Bash")
+
+    def test_command_can_select_claude_peer_by_excluding_current_session(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            current_id = "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa"
+            peer_id = "bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb"
+            current_path = _write_claude_session(
+                root,
+                session_id=current_id,
+                lines=[
+                    _claude_text_line(
+                        "2026-05-01T15:00:00.000Z",
+                        "current caller session",
+                    )
+                ],
+            )
+            peer_path = _write_claude_session(
+                root,
+                session_id=peer_id,
+                lines=[
+                    _claude_text_line(
+                        "2026-05-01T15:01:00.000Z",
+                        "peer implementer session",
+                    )
+                ],
+            )
+            os.utime(current_path, (2_000_000_000, 2_000_000_000))
+            os.utime(peer_path, (1_999_999_900, 1_999_999_900))
+
+            selected = StringIO()
+            with patch("sys.stdout", selected):
+                exit_code = agent_mind.run(
+                    _make_args(
+                        agent="claude",
+                        sessions_root=str(root),
+                        session_id=peer_id,
+                        format="json",
+                    )
+                )
+            self.assertEqual(exit_code, 0)
+            selected_payload = json.loads(selected.getvalue())
+            self.assertEqual(selected_payload["session_id"], peer_id)
+            self.assertEqual(
+                selected_payload["events"][0]["summary"],
+                "assistant: peer implementer session",
+            )
+
+            excluded = StringIO()
+            with patch("sys.stdout", excluded):
+                exit_code = agent_mind.run(
+                    _make_args(
+                        agent="claude",
+                        sessions_root=str(root),
+                        exclude_session_id=[current_id],
+                        format="json",
+                    )
+                )
+            self.assertEqual(exit_code, 0)
+            excluded_payload = json.loads(excluded.getvalue())
+            self.assertEqual(excluded_payload["session_id"], peer_id)
+            self.assertEqual(
+                excluded_payload["events"][0]["summary"],
+                "assistant: peer implementer session",
+            )
+
+    def test_command_auto_excludes_same_provider_caller_session_from_env(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            current_id = "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa"
+            peer_id = "bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb"
+            current_path = _write_claude_session(
+                root,
+                session_id=current_id,
+                lines=[
+                    _claude_text_line(
+                        "2026-05-01T15:00:00.000Z",
+                        "current caller session",
+                    )
+                ],
+            )
+            peer_path = _write_claude_session(
+                root,
+                session_id=peer_id,
+                lines=[
+                    _claude_text_line(
+                        "2026-05-01T15:01:00.000Z",
+                        "peer implementer session",
+                    )
+                ],
+            )
+            os.utime(current_path, (2_000_000_000, 2_000_000_000))
+            os.utime(peer_path, (1_999_999_900, 1_999_999_900))
+
+            captured = StringIO()
+            with (
+                patch.dict(
+                    os.environ,
+                    {
+                        "DEVCTL_CALLER_AGENT": "claude",
+                        "DEVCTL_CALLER_SESSION_ID": current_id,
+                    },
+                    clear=False,
+                ),
+                patch("sys.stdout", captured),
+            ):
+                exit_code = agent_mind.run(
+                    _make_args(
+                        agent="claude",
+                        sessions_root=str(root),
+                        format="json",
+                    )
+                )
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload["session_id"], peer_id)
+            self.assertEqual(
+                payload["events"][0]["summary"],
+                "assistant: peer implementer session",
+            )
+
+    def test_command_fails_closed_when_explicit_session_is_same_provider_caller(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            current_id = "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa"
+            _write_claude_session(
+                root,
+                session_id=current_id,
+                lines=[
+                    _claude_text_line(
+                        "2026-05-01T15:00:00.000Z",
+                        "current caller session",
+                    )
+                ],
+            )
+
+            stderr = StringIO()
+            with (
+                patch.dict(
+                    os.environ,
+                    {
+                        "DEVCTL_CALLER_AGENT": "claude",
+                        "DEVCTL_CALLER_SESSION_ID": current_id,
+                    },
+                    clear=False,
+                ),
+                patch("sys.stderr", stderr),
+            ):
+                exit_code = agent_mind.run(
+                    _make_args(
+                        agent="claude",
+                        sessions_root=str(root),
+                        session_id=current_id,
+                        format="json",
+                    )
+                )
+
+            self.assertEqual(exit_code, 1)
+            self.assertIn("error: no claude session JSONL found", stderr.getvalue())
+
+    def test_command_accepts_generic_provider_with_sessions_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_generic_session(
+                root,
+                lines=[
+                    json.dumps(
+                        {
+                            "timestamp": "2026-05-01T16:00:00.000Z",
+                            "type": "response_item:message",
+                            "text": "cursor checked the plan",
+                        }
+                    )
+                ],
+            )
+            args = _make_args(
+                agent="cursor",
+                sessions_root=str(root),
+                format="json",
+                limit=10,
+            )
+            captured = StringIO()
+            with patch("sys.stdout", captured):
+                exit_code = agent_mind.run(args)
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload["agent_provider"], "cursor")
+            self.assertEqual(payload["event_count"], 1)
+            self.assertEqual(payload["events"][0]["summary"], "cursor checked the plan")
+
+    def test_invalid_provider_id_returns_error_exit_code(self) -> None:
+        args = _make_args(agent="bad provider!")
         stderr = StringIO()
         with patch("sys.stderr", stderr):
             exit_code = agent_mind.run(args)
         self.assertEqual(exit_code, 2)
-        self.assertIn("--agent must be one of", stderr.getvalue())
+        self.assertIn("--agent must be a provider id", stderr.getvalue())
 
     def test_missing_session_file_returns_none_gracefully(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -638,6 +953,43 @@ class AgentMindCommandTests(unittest.TestCase):
                 "decision survives",
             )
 
+    def test_bare_since_cursor_reads_latest_projection_cursor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            projection_path = root / "codex_latest.json"
+            projection_path.write_text(
+                json.dumps({"last_cursor": "2026-04-09T20:00:10.000Z"}),
+                encoding="utf-8",
+            )
+            _write_codex_session(
+                root,
+                lines=[
+                    _reasoning_line("2026-04-09T20:00:00.000Z", "old"),
+                    _reasoning_line("2026-04-09T20:00:10.000Z", "mid"),
+                    _reasoning_line("2026-04-09T20:00:20.000Z", "new"),
+                ],
+            )
+            args = _make_args(
+                sessions_root=str(root),
+                format="json",
+                since_cursor="last_projection",
+            )
+            captured = StringIO()
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.agent_mind.command."
+                    "resolve_projection_path",
+                    return_value=projection_path,
+                ),
+                patch("sys.stdout", captured),
+            ):
+                exit_code = agent_mind.run(args)
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload["event_count"], 1)
+            self.assertEqual(payload["events"][0]["summary"], "new")
+
     def test_cli_parser_accepts_agent_mind_flags(self) -> None:
         parser = build_parser()
         args = parser.parse_args(
@@ -650,6 +1002,10 @@ class AgentMindCommandTests(unittest.TestCase):
                 "--limit",
                 "5",
                 "--project",
+                "--session-id",
+                "abcd-1234",
+                "--exclude-session-id",
+                "caller-1",
                 "--format",
                 "json",
             ]
@@ -659,7 +1015,40 @@ class AgentMindCommandTests(unittest.TestCase):
         self.assertEqual(args.since_cursor, "2026-04-09T20:00:00.000Z")
         self.assertEqual(args.limit, 5)
         self.assertTrue(args.project)
+        self.assertEqual(args.session_id, "abcd-1234")
+        self.assertEqual(args.exclude_session_id, ["caller-1"])
         self.assertEqual(args.format, "json")
+
+    def test_cli_parser_accepts_bare_since_cursor(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "agent-mind",
+                "--agent",
+                "codex",
+                "--since-cursor",
+                "--format",
+                "json",
+            ]
+        )
+        self.assertEqual(args.command, "agent-mind")
+        self.assertEqual(args.since_cursor, "last_projection")
+
+    def test_cli_parser_accepts_non_codex_claude_provider_ids(self) -> None:
+        parser = build_parser()
+        for provider in ("cursor", "operator", "system"):
+            with self.subTest(provider=provider):
+                args = parser.parse_args(
+                    [
+                        "agent-mind",
+                        "--agent",
+                        provider,
+                        "--format",
+                        "json",
+                    ]
+                )
+                self.assertEqual(args.command, "agent-mind")
+                self.assertEqual(args.agent, provider)
 
     def test_cli_dispatch_maps_agent_mind_handler(self) -> None:
         self.assertIs(COMMAND_HANDLERS["agent-mind"], agent_mind.run)

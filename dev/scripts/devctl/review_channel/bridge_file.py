@@ -11,6 +11,7 @@ def rewrite_bridge_markdown(
     bridge_path: Path,
     *,
     transform: Callable[[str], str],
+    before_write: Callable[[str], None] | None = None,
 ) -> str:
     """Rewrite the bridge file under an exclusive file lock.
 
@@ -22,6 +23,8 @@ def rewrite_bridge_markdown(
         try:
             original = handle.read()
             updated = transform(original)
+            if before_write is not None:
+                before_write(updated)
             handle.seek(0)
             handle.write(updated)
             handle.truncate()

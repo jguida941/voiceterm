@@ -32,6 +32,7 @@ from .review_state_models import (
 from .review_state_commit_pipeline_parse import commit_pipeline_from_review_payload
 from .review_state_packet_inbox_parse import review_state_packet_inbox
 from .reviewer_runtime_parser import reviewer_runtime_state_from_payload
+from .review_state_round_proof import round_proofs_from_value
 from .review_state_registry_parse import registry_state_from_payload, source_identity
 
 _REVIEW_STATE_SHAPE_KEYS = (
@@ -50,6 +51,15 @@ _REVIEW_STATE_SHAPE_KEYS = (
     "authority_snapshot",
     "packet_inbox",
     "recovery_assessment",
+    "round_proofs",
+    "agent_round_proofs",
+    # Per Codex rev_pkt_2271 #3 + rev_pkt_2279 Track A: agent_sync (v1) and
+    # agent_work_board (v1.1) projections must round-trip through the typed
+    # parser so consumers reading review_state.json see them on ReviewState.
+    "agent_sync",
+    "agent_work_board",
+    "agent_loop_decisions",
+    "coordination_state",
 )
 
 
@@ -192,6 +202,20 @@ def _build_review_state(
                 review_payload.get("authority_snapshot")
             )
         ),
+        round_proofs=round_proofs_from_value(
+            review_payload.get("round_proofs")
+            or review_payload.get("agent_round_proofs")
+        ),
+        # Per Codex rev_pkt_2271 #3: round-trip the projection-only addenda
+        # so typed consumers see them on ReviewState. _mapping returns an
+        # empty mapping when missing so the dataclass default applies.
+        agent_sync=dict(_mapping(review_payload.get("agent_sync"))),
+        agent_work_board=dict(_mapping(review_payload.get("agent_work_board"))),
+        agent_loop_decisions=_mapping_rows(
+            review_payload.get("agent_loop_decisions")
+        ),
+        agent_dispatch_router=dict(_mapping(review_payload.get("agent_dispatch_router"))),
+        coordination_state=dict(_mapping(review_payload.get("coordination_state"))),
         warnings=tuple(warnings),
         errors=errors,
         source_identity=source_identity(review_payload.get("source_identity")),
@@ -206,6 +230,12 @@ def _build_review_state(
         or _string(review_payload.get("zref"))
         or _string(_mapping(review_payload.get("commit_pipeline")).get("zref")),
     )
+
+
+def _mapping_rows(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    return [dict(row) for row in value if isinstance(row, Mapping)]
 
 
 def _review_session_state(review: Mapping[str, object]) -> ReviewSessionState:

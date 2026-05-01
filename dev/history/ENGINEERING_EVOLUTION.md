@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-29
+**Last Updated:** 2026-05-01
 
 ## At a Glance
 
@@ -36,6 +36,87 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-05-01 - Plan 4.1 tandem dogfood hardening becomes typed work
+
+Fact: the live Codex/Claude Plan 4.1 run exposed a broader class of
+flow-level failures than the existing shape-oriented guard set could catch.
+Recent packets showed plan anchors missing from normal findings, operator
+scope vocabulary such as `MP-377` and `rev_pkt_2611` rejected or stored
+inconsistently, duplicate review-channel `event_id` rows, stale dashboard
+active-packet projection, and Claude status/ACK bridge edits being overwritten
+because they lacked a typed writer.
+
+Change: `MP377-P0-T22AN-*` now tracks the tandem dogfood/self-hardening lane
+as explicit owner-plan work. Packet anchor inputs accept operator shorthand and
+store canonical refs such as `section:MP-377`, `checklist:MP377-P0-T08`, and
+`packet:rev_pkt_2611`; normal non-runtime carrier packets can retain plan
+context without becoming plan authority. The review-probe catalog now includes
+`probe_event_id_uniqueness`, an advisory event-log integrity probe that flags
+duplicate review-channel event ids before reducer/session projections can
+silently collapse lifecycle evidence. `agent-mind` provider ids are now
+syntax-validated instead of limited to Codex/Claude at argparse time, letting
+`cursor`, `operator`, `system`, and future provider ids reach runtime session
+discovery and fail with typed availability evidence rather than a parser
+whitelist. Non-runtime `action_request` posts now also require an explicit
+route discriminator (`target_role` or `target_session_id`); plan-context
+auto-enrichment no longer lets an unscoped action request become the active
+instruction lane. The review-probe catalog also includes
+`probe_command_result_contract`, which runs a bounded read-only command sample
+and flags commands whose JSON output does not expose the common
+`command`/`ok`/`exit_ok`/`exit_code`/`status`/`errors` envelope that tandem
+agents need for command-independent parsing. Provider-list parity now has a
+registered guard and shared provider registry, inter-agent packet lag has a
+probe-report-visible probe, and `AgentLoopDecision` pivots to read-only peer
+packet triage before startup blockers without granting mutation authority.
+Bare `agent-mind --since-cursor` now resumes from the persisted
+`agent_minds/<provider>_latest.json` cursor when available, closing the
+documented dogfood polling mismatch that could make agents miss peer findings.
+
+Evidence:
+- `dev/active/ai_governance_platform.md`
+- `dev/scripts/devctl/review_channel/packet_contract.py`
+- `dev/scripts/devctl/review_channel/packet_target_validation.py`
+- `dev/scripts/checks/probe_event_id_uniqueness.py`
+- `dev/scripts/checks/review_probes/probe_event_id_uniqueness.py`
+- `dev/scripts/checks/probe_command_result_contract.py`
+- `dev/scripts/checks/review_probes/probe_command_result_contract.py`
+- `dev/scripts/checks/check_provider_list_parity_graph.py`
+- `dev/scripts/checks/probe_inter_agent_communication_lag.py`
+- `dev/scripts/devctl/runtime/agent_loop_decision.py`
+- `dev/scripts/devctl/commands/agent_mind/command.py`
+- `dev/scripts/devctl/cli_parser/agent_mind.py`
+- `dev/scripts/devctl/tests/checks/test_probe_event_id_uniqueness.py`
+- `dev/scripts/devctl/tests/commands/test_agent_mind_command.py`
+- `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
+
+### 2026-04-29 - Action-request checkpoint authority now derives missing evidence from typed state
+
+Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the
+remote-control handoff path. The packet carried a valid
+`stage_commit_pipeline` target and full guard-bundle evidence, and Claude had
+acked it, but the governed commit grant still failed closed because caller
+identity, lane, capability, and pipeline/snapshot fields had to be repeated on
+the command line or packet row even though typed runtime state already carried
+the evidence.
+
+Change: executable action-request posts now attach
+`ActionRequestRuntimeAuthorityEvidence` from typed `ReviewState`
+collaboration authority, falling back to the configured raw state path before
+the projection refresh catches up. Governed commit action-request authority now
+derives the missing caller agent from the packet target only when live actor
+authority grants the action, derives caller role from `SessionPosture`, accepts
+`operator_approval_required` only with an ack plus `approval.commit`, and fills
+live pipeline generation / staged snapshot hash from a non-stale
+`RemoteCommitPipelineContract`. Stale pipeline contracts are ignored for fresh
+pre-pipeline handoffs, and prose body text still grants no mutation authority.
+
+Evidence:
+- `dev/scripts/devctl/review_channel/events.py`
+- `dev/scripts/devctl/commands/vcs/commit_action_request_authority.py`
+- `dev/scripts/devctl/commands/vcs/commit_action_request_evidence.py`
+- `dev/scripts/devctl/tests/vcs/test_commit_gate.py`
+- `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
 
 ### 2026-04-29 - Dashboard and control-plane liveness now share the typed read model
 
@@ -13094,3 +13175,74 @@ Evidence:
 - `dev/scripts/devctl/commands/vcs/push_receipt_failure.py`
 - `dev/scripts/devctl/tests/runtime/test_session_posture.py`
 - `dev/scripts/devctl/tests/runtime/test_packet_intent_anchor.py`
+
+### 2026-04-30 - Autonomy swarm mutation now requires typed fanout readiness
+
+`devctl autonomy-swarm` keeps `--plan-only` and `--mode report-only` as the
+safe read-only allocation/review paths, but mutating swarm modes now fail
+closed unless the typed coordination reducer reports
+`CoordinationSnapshot.safe_to_fanout=true`. This prevents an operator or agent
+from launching multi-worker `plan-then-fix` / `fix-only` lanes while the
+runtime still reports single-agent posture, stale review truth, unresolved
+packet debt, or missing future `RuntimeAgreementReport` /
+`WorkerPacket` / `GraphScopeProof` readiness.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/autonomy/swarm.py`
+- `dev/scripts/devctl/tests/test_autonomy_swarm.py`
+
+### 2026-05-01 - Plan 4.1 flow guards now cover command envelopes and attention parity
+
+Plan 4.1 hardening added `probe_command_result_contract` to the normal
+probe-report lane so read-only command JSON surfaces must keep the shared
+`command` / `ok` / `exit_ok` / `exit_code` / `status` / `errors` envelope.
+`sync-status`, `operator-inbox`, and `path-audit` now satisfy that envelope.
+
+The same slice fixed a projection-parity false positive in
+`check_multi_agent_sync`: `active_packet_id` is the current-instruction
+authority, while `attention_packet_id` remains packet-attention state validated
+by the dedicated attention checks. A blocked Claude session can therefore show
+pending attention without making queue/inbox current-instruction readers appear
+out of sync.
+
+Follow-up registry hardening added `check_registry_path_integrity` so script
+catalog entries, quality-policy defaults, and public top-level check/probe
+entrypoints cannot drift silently. `probe_event_field_naming_consistency` is
+now registered in the review-probe lane and its canonical review-probe module
+also supports direct script invocation.
+
+Provider-list hardening moved known provider ids and provider-id syntax into
+`runtime.provider_registry` and added `check_provider_list_parity_graph`.
+Agent-facing parser flags such as `--agent` now must use shared syntax
+validation instead of hardcoded provider `choices=[...]`, closing the live
+`agent-mind` vs `monitor` provider vocabulary split surfaced by Claude packet
+review.
+
+Inter-agent feedback hardening added `probe_inter_agent_communication_lag` and
+changed `AgentLoopDecision` ordering so peer packet attention is no longer
+computed and then hidden behind startup blockers. A blocked actor now reports
+`required_action=triage_pending_packet` with `loop_mode=pivot_to_packet` when
+fresh peer packets need attention, while `safe_to_continue=false` and
+`may_mutate=false` preserve the startup-authority block. This makes delayed
+Codex/Claude findings a visible runtime condition instead of a manual polling
+accident.
+
+Evidence:
+
+- `dev/scripts/checks/review_probes/probe_command_result_contract.py`
+- `dev/scripts/checks/review_probes/probe_inter_agent_communication_lag.py`
+- `dev/scripts/checks/check_registry_path_integrity.py`
+- `dev/scripts/checks/check_provider_list_parity_graph.py`
+- `dev/scripts/checks/review_probes/probe_event_field_naming_consistency.py`
+- `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_instruction.py`
+- `dev/scripts/devctl/runtime/provider_registry.py`
+- `dev/scripts/devctl/runtime/agent_loop_decision.py`
+- `dev/scripts/devctl/commands/review_channel/event_handler.py`
+- `dev/scripts/devctl/commands/review_channel/sync_status_action.py`
+- `dev/scripts/devctl/commands/path_audit.py`
+- `dev/scripts/devctl/tests/checks/test_probe_command_result_contract.py`
+- `dev/scripts/devctl/tests/checks/test_probe_inter_agent_communication_lag.py`
+- `dev/scripts/devctl/tests/checks/test_check_multi_agent_sync.py`
+- `dev/scripts/devctl/tests/checks/test_check_registry_path_integrity.py`
+- `dev/scripts/devctl/tests/checks/test_check_provider_list_parity_graph.py`

@@ -17,6 +17,7 @@ def _build_review_section(
     session: dict[str, Any],
     instruction_text: str,
     reviewer_mode: str = "",
+    coordination_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     reviewer_state = reviewer.get("job_state", "n/a")
     implementer_state = implementer.get("job_state", "n/a")
@@ -35,6 +36,24 @@ def _build_review_section(
     section["instruction"] = instruction_text
     section["last_poll"] = bridge.get("last_poll", "n/a")
     section["mode"] = reviewer_mode or bridge.get("reviewer_mode", "n/a")
+    # Per Codex rev_pkt_2326/2361/2367/2368: surface typed
+    # coordination_topology / authority_mode / recovery_eligibility on the
+    # dashboard "review" section so operators see typed authority next to
+    # the legacy review-gate vocabulary. Demote section["mode"] with an
+    # explicit authority marker when the typed answer is populated, so
+    # consumers don't read "single_agent" as an observed-topology claim.
+    coord = coordination_state or {}
+    coordination_topology = str(coord.get("coordination_topology") or "").strip()
+    authority_mode = str(coord.get("authority_mode") or "").strip()
+    recovery_eligibility = str(coord.get("recovery_eligibility") or "").strip()
+    if coordination_topology:
+        section["coordination_topology"] = coordination_topology
+        section["coordination_topology_authority"] = "primary"
+        section["mode_authority"] = "legacy"
+    if authority_mode:
+        section["authority_mode"] = authority_mode
+    if recovery_eligibility:
+        section["recovery_eligibility"] = recovery_eligibility
     return section
 
 

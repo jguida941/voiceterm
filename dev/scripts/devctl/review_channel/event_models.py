@@ -14,6 +14,7 @@ class ReviewPacketRow(TypedDict):
 
     packet_id: object
     trace_id: object
+    plan_id: object
     latest_event_id: object
     from_agent: object
     to_agent: object
@@ -33,6 +34,8 @@ class ReviewPacketRow(TypedDict):
     anchor_refs: list[object]
     intake_ref: object
     mutation_op: object
+    target_role: object
+    target_session_id: object
     pipeline_generation: object
     staged_snapshot_hash: object
     guard_results_summary: object
@@ -93,3 +96,16 @@ class ReviewChannelEventBundle:
     review_state: dict[str, object]
     agent_registry: dict[str, object]
     events: list[dict[str, object]]
+
+
+def event_id_rank(event_id: str) -> int:
+    # Numeric ordering authority for `rev_evt_<int>` ids; non-matching ids
+    # rank as -1 so callers can use `>` comparisons without worrying about
+    # missing or malformed ids dragging the comparison forward.
+    prefix = "rev_evt_"
+    if not event_id.startswith(prefix):
+        return -1
+    try:
+        return int(event_id[len(prefix):])
+    except ValueError:
+        return -1

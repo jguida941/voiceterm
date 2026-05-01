@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 
 from .master_plan_contract import (
-    DEFAULT_MASTER_PLAN_STORE_REL,
     EXPLAIN_BACK_RECEIPT_CONTRACT_ID,
     INGESTED_DOC_CONTRACT_ID,
     INGESTION_DRIFT_CONTRACT_ID,
@@ -106,6 +105,8 @@ def master_plan_from_mapping(payload: Mapping[str, object]) -> MasterPlan:
     schema_version = coerce_int(payload.get("schema_version"))
     contract_id = coerce_string(payload.get("contract_id"))
     source_path = coerce_string(payload.get("source_path"))
+    typed_store_path = coerce_string(payload.get("typed_store_path"))
+    projection_path = coerce_string(payload.get("projection_path"))
     return MasterPlan(
         schema_version=schema_version or MASTER_PLAN_SCHEMA_VERSION,
         contract_id=contract_id or MASTER_PLAN_CONTRACT_ID,
@@ -121,16 +122,9 @@ def master_plan_from_mapping(payload: Mapping[str, object]) -> MasterPlan:
         status=coerce_string(payload.get("status")) or "pending_explainback",
         last_ingested_at_utc=coerce_string(payload.get("last_ingested_at_utc")),
         plan_revision=coerce_string(payload.get("plan_revision")),
-        source_path=source_path or "dev/active/MASTER_PLAN.md",
-        typed_store_path=(
-            coerce_string(payload.get("typed_store_path"))
-            or DEFAULT_MASTER_PLAN_STORE_REL
-        ),
-        projection_path=(
-            coerce_string(payload.get("projection_path"))
-            or source_path
-            or "dev/active/MASTER_PLAN.md"
-        ),
+        source_path=source_path,
+        typed_store_path=typed_store_path,
+        projection_path=projection_path or source_path,
     )
 
 
@@ -173,9 +167,9 @@ def ingestion_policy_from_mapping(payload: Mapping[str, object]) -> IngestionPol
         contract_id=(
             coerce_string(payload.get("contract_id")) or INGESTION_POLICY_CONTRACT_ID
         ),
-        scan_roots=scan_roots or ("dev/active", "docs", "plans"),
+        scan_roots=scan_roots,
         exclude_globs=coerce_string_items(payload.get("exclude_globs")),
-        adapters=adapters or ("markdown_checklist", "prose_seed"),
+        adapters=adapters,
         max_file_bytes=coerce_int(payload.get("max_file_bytes")) or 1_000_000,
         drift_mode=coerce_string(payload.get("drift_mode")) or "surface_finding",
     )

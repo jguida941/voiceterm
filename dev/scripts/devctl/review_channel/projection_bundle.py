@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import secrets
 from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import asdict, dataclass
@@ -49,9 +51,15 @@ _TYPED_REVIEW_STATE_KEYS = (
     "commit_pipeline",
     "coordination",
     "authority_snapshot",
+    "round_proofs",
+    "agent_sync",
+    "agent_work_board",
+    "agent_loop_decisions",
+    "coordination_state",
     "warnings",
     "errors",
     "snapshot_id",
+    "zref",
 )
 
 
@@ -68,6 +76,63 @@ class ReviewChannelProjectionPaths:
     latest_markdown_path: str
     agent_registry_path: str
     commit_pipeline_path: str = ""
+
+
+def artifact_writes_suppressed() -> bool:
+    """Return whether read-side commands should avoid projection writes."""
+    return os.environ.get("DEVCTL_NO_ARTIFACT_WRITES", "") == "1"
+
+
+def projection_paths_for_root(output_root: Path) -> ReviewChannelProjectionPaths:
+    """Return the canonical projection paths without writing any files."""
+    registry_dir = output_root / "registry"
+    return ReviewChannelProjectionPaths(
+        root_dir=str(output_root),
+        review_state_path=str(output_root / "review_state.json"),
+        compact_path=str(output_root / "compact.json"),
+        full_path=str(output_root / "full.json"),
+        actions_path=str(output_root / "actions.json"),
+        trace_path=str(output_root / "trace.ndjson"),
+        latest_markdown_path=str(output_root / "latest.md"),
+        agent_registry_path=str(registry_dir / "agents.json"),
+        commit_pipeline_path=str(output_root / "commit_pipeline.json"),
+    )
+
+
+def _atomic_write_text(path: Path, content: str, *, encoding: str = "utf-8") -> None:
+    """Atomically replace ``path`` with ``content``.
+
+    Per Codex rev_pkt_2406/2409/2413: write to a unique tempfile in the
+    SAME directory, fsync, then ``os.replace`` into the final name.
+    POSIX ``rename(2)`` and Windows ``MoveFileEx(MOVEFILE_REPLACE_EXISTING)``
+    both guarantee atomic same-directory replacement, so concurrent
+    readers either see the old file or the fully-written new file —
+    never a half-written state.
+
+    The tempfile name uses ``<final>.tmp.<pid>.<nonce>`` to keep parallel
+    publications from the same process collision-safe.
+    """
+    parent = path.parent
+    parent.mkdir(parents=True, exist_ok=True)
+    tmp_name = f"{path.name}.tmp.{os.getpid()}.{secrets.token_hex(4)}"
+    tmp_path = parent / tmp_name
+    try:
+        with open(tmp_path, "w", encoding=encoding) as fh:
+            fh.write(content)
+            fh.flush()
+            try:
+                os.fsync(fh.fileno())
+            except OSError:
+                # fsync may not be supported on every fs (e.g. tmpfs).
+                # Atomicity of rename(2) still holds; persistence is best-effort.
+                pass
+        os.replace(tmp_path, path)
+    except Exception:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
 
 
 def projection_paths_to_dict(
@@ -91,6 +156,8 @@ def write_projection_bundle(
 ) -> ReviewChannelProjectionPaths:
     """Write a projection bundle from one reduced review-state snapshot."""
     review_state_payload = canonicalize_projection_review_state(review_state)
+    from .agent_work_board_posture import apply_work_board_session_posture
+    review_state_payload = apply_work_board_session_posture(review_state_payload)
     compact = _build_compact_projection(review_state_payload)
     actions = build_actions_projection(review_state_payload)
     full = build_full_projection(
@@ -105,44 +172,40 @@ def write_projection_bundle(
     registry_dir = output_root / "registry"
     registry_dir.mkdir(parents=True, exist_ok=True)
 
-    review_state_path = output_root / "review_state.json"
-    compact_path = output_root / "compact.json"
-    full_path = output_root / "full.json"
-    actions_path = output_root / "actions.json"
-    trace_path = output_root / "trace.ndjson"
-    latest_markdown_path = output_root / "latest.md"
-    agent_registry_path = registry_dir / "agents.json"
-    commit_pipeline_path = output_root / "commit_pipeline.json"
+    paths = projection_paths_for_root(output_root)
+    review_state_path = Path(paths.review_state_path)
+    compact_path = Path(paths.compact_path)
+    full_path = Path(paths.full_path)
+    actions_path = Path(paths.actions_path)
+    trace_path = Path(paths.trace_path)
+    latest_markdown_path = Path(paths.latest_markdown_path)
+    agent_registry_path = Path(paths.agent_registry_path)
+    commit_pipeline_path = Path(paths.commit_pipeline_path)
 
-    review_state_path.write_text(
+    # Per Codex rev_pkt_2406/2409/2413: publish each bundle file atomically.
+    # The earlier code wrote review_state.json first then compact/full/etc.
+    # sequentially with no atomicity, so any reader entering between writes
+    # observed mismatched snapshot_id/zref between siblings — exactly the
+    # parity flake check_review_surface_consistency caught. Per-file
+    # tempfile + ``os.replace`` in the SAME directory is atomic on POSIX
+    # and Windows. ``commit_pipeline.json`` is written LAST and acts as
+    # the publication-complete marker.
+    _atomic_write_text(
+        review_state_path,
         json.dumps(review_state_payload, indent=2),
-        encoding="utf-8",
     )
-    compact_path.write_text(json.dumps(compact, indent=2), encoding="utf-8")
-    full_path.write_text(json.dumps(full, indent=2), encoding="utf-8")
-    actions_path.write_text(json.dumps(actions, indent=2), encoding="utf-8")
-    trace_path.write_text(_render_trace_projection(trace_events or []), encoding="utf-8")
-    latest_markdown_path.write_text(latest_markdown, encoding="utf-8")
-    agent_registry_path.write_text(
-        json.dumps(agent_registry, indent=2),
-        encoding="utf-8",
-    )
-    commit_pipeline_path.write_text(
+    _atomic_write_text(compact_path, json.dumps(compact, indent=2))
+    _atomic_write_text(full_path, json.dumps(full, indent=2))
+    _atomic_write_text(actions_path, json.dumps(actions, indent=2))
+    _atomic_write_text(trace_path, _render_trace_projection(trace_events or []))
+    _atomic_write_text(latest_markdown_path, latest_markdown)
+    _atomic_write_text(agent_registry_path, json.dumps(agent_registry, indent=2))
+    _atomic_write_text(
+        commit_pipeline_path,
         json.dumps(review_state_payload.get("commit_pipeline", {}), indent=2),
-        encoding="utf-8",
     )
 
-    return ReviewChannelProjectionPaths(
-        root_dir=str(output_root),
-        review_state_path=str(review_state_path),
-        compact_path=str(compact_path),
-        full_path=str(full_path),
-        actions_path=str(actions_path),
-        trace_path=str(trace_path),
-        latest_markdown_path=str(latest_markdown_path),
-        agent_registry_path=str(agent_registry_path),
-        commit_pipeline_path=str(commit_pipeline_path),
-    )
+    return paths
 
 
 def canonicalize_projection_review_state(
@@ -163,6 +226,8 @@ def canonicalize_projection_review_state(
         next_command=_projection_next_command(review_state_payload),
     )
     apply_phase_zero_parity_projection(review_state_payload)
+    from .agent_work_board_posture import apply_work_board_session_posture
+    review_state_payload = apply_work_board_session_posture(review_state_payload)
     return review_state_payload
 
 

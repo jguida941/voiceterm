@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from .packet_contract import packet_route_matches_scope
 from .pending_packets import live_pending_packets, partition_live_packet_queue
 
 
@@ -11,6 +12,8 @@ def filter_inbox_packets(
     review_state: dict[str, object],
     *,
     target: str | None = None,
+    target_role: str | None = None,
+    target_session_id: str | None = None,
     status: str | None = None,
     limit: int | None = None,
 ) -> list[dict[str, object]]:
@@ -29,6 +32,15 @@ def filter_inbox_packets(
     for packet in packet_iter:
         if target and packet.get("to_agent") != target:
             continue
+        if target_role or target_session_id:
+            if not _packet_has_route_scope(packet):
+                continue
+            if not packet_route_matches_scope(
+                packet,
+                target_role=target_role,
+                target_session_id=target_session_id,
+            ):
+                continue
         if status and not _packet_matches_inbox_status(packet, status):
             continue
         filtered.append(packet)
@@ -97,6 +109,10 @@ def _packet_matches_inbox_status(packet: dict[str, object], status: str) -> bool
     if status == "expired":
         return _is_expired_unresolved_packet(packet)
     return packet.get("status") == status
+
+
+def _packet_has_route_scope(packet: dict[str, object]) -> bool:
+    return bool(packet.get("target_role") or packet.get("target_session_id"))
 
 
 def _is_expired_unresolved_packet(packet: dict[str, object]) -> bool:

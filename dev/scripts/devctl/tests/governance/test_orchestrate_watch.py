@@ -122,6 +122,64 @@ class OrchestrateWatchCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.governance.orchestrate_watch.collect_git_status")
     @patch(
         "dev.scripts.devctl.commands.governance.orchestrate_watch._run_multi_agent_sync_gate",
+        return_value={
+            "ok": True,
+            "errors": [],
+            "warnings": ["Typed coordination topology differs from legacy reviewer mode"],
+        },
+    )
+    @patch(
+        "dev.scripts.devctl.commands.governance.orchestrate_watch._run_active_plan_sync_gate",
+        return_value={"ok": True, "errors": []},
+    )
+    @patch(
+        "dev.scripts.devctl.commands.governance.orchestrate_watch.check_multi_agent_sync._extract_table_rows"
+    )
+    @patch(
+        "dev.scripts.devctl.commands.governance.orchestrate_watch.check_multi_agent_sync.MASTER_PLAN_PATH"
+    )
+    @patch(
+        "dev.scripts.devctl.commands.governance.orchestrate_watch.check_multi_agent_sync.RUNBOOK_PATH"
+    )
+    def test_watch_surfaces_multi_agent_sync_warnings(
+        self,
+        runbook_path_mock,
+        master_plan_path_mock,
+        extract_table_rows_mock,
+        _active_sync_mock,
+        _multi_sync_mock,
+        collect_git_status_mock,
+        write_output_mock,
+    ) -> None:
+        now = datetime.now(timezone.utc)
+        master_plan_path_mock.read_text.return_value = "master"
+        runbook_path_mock.read_text.return_value = "runbook"
+        extract_table_rows_mock.side_effect = [
+            ([_master_row("AGENT-1", "planned", _utc(now))], None),
+            ([], None),
+        ]
+        collect_git_status_mock.return_value = {"branch": "develop", "changes": []}
+        args = SimpleNamespace(
+            stale_minutes=30,
+            format="md",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+        )
+
+        code = orchestrate_watch.run(args)
+
+        self.assertEqual(code, 0)
+        output = write_output_mock.call_args.args[0]
+        self.assertIn(
+            "multi-agent-sync: Typed coordination topology differs",
+            output,
+        )
+
+    @patch("dev.scripts.devctl.commands.governance.orchestrate_watch.write_output")
+    @patch("dev.scripts.devctl.commands.governance.orchestrate_watch.collect_git_status")
+    @patch(
+        "dev.scripts.devctl.commands.governance.orchestrate_watch._run_multi_agent_sync_gate",
         return_value={"ok": True, "errors": [], "warnings": []},
     )
     @patch(

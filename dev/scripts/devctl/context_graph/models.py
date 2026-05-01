@@ -90,6 +90,10 @@ class BootstrapContext:
     bootstrap_commands: list[dict[str, object]] = field(default_factory=list)
     quality_signals: dict[str, object] = field(default_factory=dict)
     key_surfaces: tuple[str, ...] = ()
+    runtime_spine_closure: dict[str, object] = field(default_factory=dict)
+    packet_continuity_index: dict[str, object] = field(default_factory=dict)
+    packet_carry_forward_debt: tuple[dict[str, object], ...] = ()
+    continuity_attention: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

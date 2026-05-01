@@ -455,6 +455,18 @@ class TestBootstrapContext(unittest.TestCase):
         self.assertIsNotNone(ctx.bootstrap_links)
         self.assertIsNotNone(ctx.quality_signals)
         self.assertTrue(ctx.usage)
+        self.assertEqual(
+            ctx.runtime_spine_closure.get("contract_id"),
+            "RuntimeSpineClosureState",
+        )
+        self.assertEqual(
+            ctx.packet_continuity_index.get("contract_id"),
+            "PacketContinuityIndex",
+        )
+        self.assertEqual(
+            ctx.continuity_attention.get("contract_id"),
+            "StartupContinuityAttention",
+        )
 
     @patch(
         "dev.scripts.devctl.context_graph.query.load_startup_key_surfaces",
@@ -522,6 +534,16 @@ class TestBootstrapContext(unittest.TestCase):
                 "bootstrap_links": {},
                 "push_enforcement": {},
                 "key_surfaces": ("dev/guides/SYSTEM_MAP.md",),
+                "continuity_attention": {
+                    "contract_id": "StartupContinuityAttention",
+                    "message": "After compaction, read typed state before acting.",
+                    "requires_attention": True,
+                    "runtime_spine_ok": False,
+                    "runtime_spine_risky_item_count": 1,
+                    "runtime_spine_violation_count": 0,
+                    "packet_debt_count": 1,
+                    "packet_debt_ids": ["rev_pkt_2649"],
+                },
                 "quality_signals": {
                     "probe_report": {
                         "generated_at": "2026-03-23T00:00:00Z",
@@ -579,6 +601,8 @@ class TestBootstrapContext(unittest.TestCase):
         )
         self.assertIn("## Key Surfaces", md)
         self.assertIn("dev/guides/SYSTEM_MAP.md", md)
+        self.assertIn("### Continuity Attention", md)
+        self.assertIn("rev_pkt_2649", md)
         self.assertIn("## Quality Signals", md)
         self.assertIn("**probe-report**", md)
         self.assertIn("guidance hotspot", md)

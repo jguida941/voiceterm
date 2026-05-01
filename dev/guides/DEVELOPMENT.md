@@ -115,6 +115,14 @@ Use docs like this:
   `--pipeline-generation`, `--staged-snapshot-hash`, and
   `--guard-results-summary`. A `stage_commit_pipeline` packet with full guard
   evidence also emits `AgentSessionOutcome(outcome=completed_handoff)`;
+  executable action-request posts attach
+  `ActionRequestRuntimeAuthorityEvidence` from typed `ReviewState` actor
+  authority when available, falling back to the configured raw state path
+  before event projection refresh. Governed commit may derive a missing
+  caller agent, caller role, capability proof, live pipeline generation, and
+  staged snapshot hash from typed collaboration/session-posture/pipeline
+  state, but stale pipeline bindings are ignored and packet body prose never
+  grants mutation authority.
   governed push may skip reviewer-loop repair only when that receipt matches
   the current prepared session, or when no provider-matching conductor
   metadata exists and the packet target is bound to the current
@@ -1062,6 +1070,10 @@ Three quality layers matter in practice:
     also carry `PacketLifecycleHistory` / `PacketDisposition` fields, so
     `acknowledged_events`, `acted_on_events`, `lifecycle_current_state`, and
     `resolution_anchor` must be preserved when adding packet read surfaces.
+    Use `review-channel --action expire-packets --limit <n>` when stale
+    pending packets need durable lifecycle closure: the action writes explicit
+    `packet_expired` events and keeps read-only inbox/history/sync-status
+    projections from silently converting clock expiry into unbacked state.
     Plan-targeted `apply` transitions may append generated
     `PacketPlanIntegration` rows to `dev/active/MASTER_PLAN.md`. Use them for
     S2-style dogfood and stale-graveyard analysis, but do not treat them as
@@ -1430,7 +1442,7 @@ Latency guard note:
 | Guarded plan-scoped swarm pipeline (scope checks + swarm + reviewer + governance + plan evidence append) | `python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --mode report-only --run-label ops-guarded --format md` | `tooling_control_plane.yml` (governance/docs checks) |
 | Human-readable autonomy digest bundle (dated md/json + charts) | `python3 dev/scripts/devctl.py autonomy-report --source-root dev/reports/autonomy --library-root dev/reports/autonomy/library --run-label daily-ops --format md` | `tooling_control_plane.yml` |
 | Adaptive multi-agent autonomy planner/executor (Claude/Codex worker sizing up to 20 lanes) | `python3 dev/scripts/devctl.py autonomy-swarm --question-file dev/active/autonomous_control_plane.md --adaptive --min-agents 4 --max-agents 20 --plan-only --format md` | `tooling_control_plane.yml` (governance/docs checks) |
-| Live swarm execution with reserved reviewer lane + automatic audit digest | `python3 dev/scripts/devctl.py autonomy-swarm --agents 10 --question-file dev/active/autonomous_control_plane.md --mode report-only --run-label ops-live --format md` | `tooling_control_plane.yml` (governance/docs checks) |
+| Live swarm execution with reserved reviewer lane + automatic audit digest | `python3 dev/scripts/devctl.py autonomy-swarm --agents 10 --question-file dev/active/autonomous_control_plane.md --mode report-only --run-label ops-live --format md` | `tooling_control_plane.yml` (governance/docs checks); non-report modes additionally require `CoordinationSnapshot.safe_to_fanout=true` |
 | Continuous data-science telemetry snapshots (command productivity + lane-size recommendation) | `python3 dev/scripts/devctl.py data-science --format md` (auto-refresh also runs after every devctl command unless disabled) | `tooling_control_plane.yml` (tooling/docs governance checks) |
 | Loop output to chat suggestion handoff | `python3 dev/scripts/devctl.py triage-loop --repo owner/repo --branch develop --mode report-only --source-event workflow_dispatch --notify summary-only --emit-bundle --format md` + update `dev/active/loop_chat_bridge.md` | `tooling_control_plane.yml` (docs/governance contract checks) |
 | Federated repo links/import workflow (your other repos) | `python3 dev/scripts/devctl.py integrations-sync --status-only --format md` and `python3 dev/scripts/devctl.py integrations-import --list-profiles --format md` | `tooling_control_plane.yml` |

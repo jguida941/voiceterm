@@ -48,6 +48,10 @@ class SessionCachePacketBuildContext:
     attention_payload: dict[str, Any]
     packet_inbox: PacketInboxState | None
     connectivity_registry: dict[str, object]
+    runtime_spine_closure: dict[str, object]
+    packet_continuity_index: dict[str, object]
+    packet_carry_forward_debt: tuple[dict[str, object], ...]
+    continuity_attention: dict[str, object]
     key_surfaces: tuple[str, ...]
     agent_session_continuation: AgentSessionContinuationState | None
     fields: SessionCachePacketFields
@@ -123,6 +127,10 @@ def build_session_cache_packet(
             getattr(typed_review_state, "packets", ()) if typed_review_state else ()
         ),
         connectivity_registry=build_context.connectivity_registry,
+        runtime_spine_closure=build_context.runtime_spine_closure,
+        packet_continuity_index=build_context.packet_continuity_index,
+        packet_carry_forward_debt=build_context.packet_carry_forward_debt,
+        continuity_attention=build_context.continuity_attention,
         key_surfaces=build_context.key_surfaces,
         agent_session_continuation=build_context.agent_session_continuation,
         provenance=provenance,

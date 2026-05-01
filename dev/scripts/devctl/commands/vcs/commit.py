@@ -7,6 +7,8 @@ from pathlib import Path
 from ...config import REPO_ROOT
 from ...governance.push_policy import load_push_policy
 from ...runtime.commit_permission import build_commit_permission_decision_for_executor
+from ...runtime.governance_scan import scan_repo_governance_safely
+from ...runtime.review_snapshot_refresh import receipt_commit_parent_sha
 from .commit_action_request_authority import (
     action_request_authority_block_report,
     action_request_execution_receipt_report,
@@ -27,15 +29,43 @@ from .commit_passthrough import (
     parse_passthrough as _parse_passthrough,
 )
 from .commit_runtime_flow import (
-    report_commit_shas as _report_commit_shas,
     run_commit_pipeline_flow,
 )
 from .governed_executor import GovernedVcsExecutor
-from .governed_executor_actions import _build_report, _emit_report
+# Per rev_pkt_2487 issue 2: re-export build_commit_action from this module
+# so the test patch seam `dev.scripts.devctl.commands.vcs.commit.build_commit_action`
+# stays valid without forcing the test to track the actual production import.
+# This is the canonical commit entry-point module; it should expose the
+# action-builder name even though the implementation lives in
+# governed_executor_actions.
+from .governed_executor_actions import (
+    _build_report,
+    _emit_report,
+    build_commit_action,
+)
 
 # Compatibility re-export while commit guard helpers live in their own module.
 _run_guard_bundle = run_guard_bundle
 _resolve_interaction_mode = resolve_interaction_mode
+
+
+def _report_commit_shas(*, repo_root: Path, commit_sha: str) -> tuple[str, str]:
+    """Compatibility wrapper for tests and older commit.py callers."""
+    head_sha = str(commit_sha or "").strip()
+    if not head_sha:
+        return "", ""
+    try:
+        governance = scan_repo_governance_safely(repo_root)
+    except (OSError, ValueError):
+        governance = None
+    content_sha = receipt_commit_parent_sha(
+        repo_root=repo_root,
+        current_head=head_sha,
+        governance=governance,
+    )
+    if content_sha and content_sha != head_sha:
+        return content_sha, head_sha
+    return head_sha, ""
 
 
 def _commit_permission_report(

@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 
-from .governed_executor_git import pipeline_is_stale_for_current_repo
+from .governed_executor_git import head_commit, pipeline_is_stale_for_current_repo
 
 SUPPORTED_REQUEST_ACTION = "stage_commit_pipeline"
 SAFE_POLICY_HINT = "safe_auto_apply"
@@ -38,7 +38,19 @@ def derive_pipeline_evidence(
             _mapping(packet.get("source_identity")).get("generation_id")
         )
         if source_generation and source_generation != pipeline_generation:
-            return grant
+            # pipeline_binding_required above already verified freshness via
+            # pipeline_is_stale_for_current_repo (branch + commit_sha). When that
+            # passes but generation_id drifts, the work hasn't moved — only
+            # metadata advanced (typically because a prior commit attempt or
+            # publisher refresh advanced the typed pipeline). Bail only when the
+            # packet's HEAD pin no longer matches current HEAD; that is the real
+            # "packet composed against a different state" signal. Otherwise
+            # surface the drift via a warning and proceed with derivation so
+            # legitimate operator-confirmed packets are not blocked by metadata
+            # churn between compose and validate.
+            if not _packet_head_pin_matches(packet=packet, repo_root=repo_root):
+                return grant
+            grant = append_warning(grant, "stale_source_generation_metadata_drift")
         updates["pipeline_generation"] = pipeline_generation
         derived_fields.append("pipeline_generation")
         derivation_sources.append("RemoteCommitPipelineContract.generation_id")
@@ -243,6 +255,25 @@ def _pipeline_generation(pipeline: object | None) -> str:
 def _pipeline_hash(pipeline: object | None) -> str:
     intent = getattr(pipeline, "intent", None)
     return _text(getattr(intent, "staged_tree_hash", ""))
+
+
+def _packet_head_pin_matches(*, packet: Mapping[str, object], repo_root: Path) -> bool:
+    """Return True when packet's target_revision and source HEAD both match current HEAD.
+
+    This is the real "packet still authorizes this state" check that lets
+    derive_pipeline_evidence proceed past metadata-only generation drift while
+    still bailing on packets composed against a different repo HEAD.
+    """
+    current_head = head_commit(repo_root)
+    if not current_head:
+        return False
+    target_revision = _text(packet.get("target_revision"))
+    source_head_sha = _text(_mapping(packet.get("source_identity")).get("head_sha"))
+    if target_revision and target_revision != current_head:
+        return False
+    if source_head_sha and source_head_sha != current_head:
+        return False
+    return bool(target_revision or source_head_sha)
 
 
 def _rows(value: object) -> tuple[Mapping[str, object], ...]:

@@ -245,12 +245,18 @@ def write_projection_bundle(
     trace_payload = trace_view(payload)
     actions_payload = actions_view(payload)
 
-    full_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    compact_path.write_text(json.dumps(compact_payload, indent=2), encoding="utf-8")
-    actions_path.write_text(json.dumps(actions_payload, indent=2), encoding="utf-8")
-    latest_md_path.write_text(
+    # Per Codex rev_pkt_2406/2409/2413/2427: atomic-replace semantics for
+    # every projection writer. phone_views may share projection_dir with
+    # canonical review-channel projections; racing with sync-status would
+    # otherwise produce mismatched snapshot_id/zref between siblings.
+    from ..review_channel.projection_bundle import _atomic_write_text
+
+    _atomic_write_text(full_path, json.dumps(payload, indent=2))
+    _atomic_write_text(compact_path, json.dumps(compact_payload, indent=2))
+    _atomic_write_text(actions_path, json.dumps(actions_payload, indent=2))
+    _atomic_write_text(
+        latest_md_path,
         _render_view_markdown(compact_payload, PhoneStatusView.COMPACT.value),
-        encoding="utf-8",
     )
 
     trace_lines = trace_payload.get("trace")

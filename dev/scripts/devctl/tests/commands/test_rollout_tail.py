@@ -84,6 +84,43 @@ def _normal_message_line(timestamp: str = "2026-04-09T15:23:40.000Z") -> str:
     )
 
 
+def _claude_tool_use_event(timestamp: str = "2026-05-01T15:14:45.439Z") -> dict:
+    return {
+        "type": "assistant",
+        "timestamp": timestamp,
+        "message": {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "toolu_test",
+                    "name": "Bash",
+                    "input": {
+                        "command": "python3 dev/scripts/devctl.py agent-mind --agent codex",
+                        "description": "Watch codex",
+                    },
+                }
+            ],
+        },
+    }
+
+
+def _claude_text_event(timestamp: str = "2026-05-01T15:15:21.687Z") -> dict:
+    return {
+        "type": "assistant",
+        "timestamp": timestamp,
+        "message": {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "Found the gap precisely.",
+                }
+            ],
+        },
+    }
+
+
 def _write_codex_session(
     root: Path,
     session_id: str = "019d-test-0000-0000-000000000001",
@@ -209,6 +246,25 @@ class RolloutEventClassificationTests(unittest.TestCase):
         event = classify_event(raw, provider=PROVIDER_CLAUDE, session_id="s1")
         self.assertTrue(event.is_error)
         self.assertFalse(event.is_escalation_request)
+
+    def test_claude_tool_use_normalizes_to_function_call(self) -> None:
+        event = classify_event(
+            _claude_tool_use_event(),
+            provider=PROVIDER_CLAUDE,
+            session_id="s1",
+        )
+        self.assertEqual(event.event_type, "response_item:function_call")
+        self.assertEqual(event.raw_payload["payload"]["name"], "Bash")
+        self.assertIn("agent-mind --agent codex", event.summary)
+
+    def test_claude_text_normalizes_to_message(self) -> None:
+        event = classify_event(
+            _claude_text_event(),
+            provider=PROVIDER_CLAUDE,
+            session_id="s1",
+        )
+        self.assertEqual(event.event_type, "response_item:message")
+        self.assertIn("Found the gap", event.summary)
 
 
 # ---------------------------------------------------------------------------

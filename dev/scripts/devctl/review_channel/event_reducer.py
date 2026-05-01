@@ -33,6 +33,8 @@ from .event_reducer_lanes import (
     load_lane_assignments,
     load_prior_projection_review_state,
 )
+from .agent_sync_projection import build_agent_sync_projection
+from .agent_work_board_projection import build_agent_work_board_projection
 from .event_reducer_state import ReducedReviewStateInputs, build_reduced_review_state
 from .event_store import (
     DEFAULT_REVIEW_CHANNEL_PLAN_ID,
@@ -46,6 +48,7 @@ from .instruction_transitions import maybe_record_instruction_transition
 from .state import (
     write_projection_bundle,
 )
+from .projection_bundle import artifact_writes_suppressed, projection_paths_for_root
 from .daemon_reducer import (
     DAEMON_EVENT_TYPES,
     DaemonSnapshot,
@@ -53,6 +56,7 @@ from .daemon_reducer import (
     reduce_daemon_event,
 )
 from .agent_session_outcome_events import AGENT_SESSION_OUTCOME_EVENT_TYPES
+from .reviewer_authority_events import REVIEWER_AUTHORITY_EVENT_TYPES
 from .packet_lifecycle import ACTION_REQUEST_LIFECYCLE_EVENT_TYPES
 from .session_liveness_events import SESSION_LIVENESS_EVENT_TYPES
 from .topology import build_runtime_agent_registry
@@ -62,6 +66,10 @@ _PACKET_TRANSITION_EVENT_TYPES = {
     "packet_acked",
     "packet_dismissed",
     "packet_applied",
+    "packet_plan_ingestion_recorded",
+    "packet_plan_ingestion_failed",
+    "packet_plan_integration_recorded",
+    "packet_plan_integration_failed",
     *ACTION_REQUEST_LIFECYCLE_EVENT_TYPES,
 }
 
@@ -72,6 +80,7 @@ def _projection_context(
     review_channel_path: Path,
     artifact_paths: ReviewChannelArtifactPaths,
     prior_review_state: dict[str, object] | None,
+    events: tuple[dict[str, object], ...] = (),
 ) -> EventProjectionContext:
     return EventProjectionContext(
         repo_root=repo_root,
@@ -79,6 +88,7 @@ def _projection_context(
         projections_root=Path(artifact_paths.projections_root),
         artifact_root=Path(artifact_paths.artifact_root),
         prior_review_state=prior_review_state,
+        events=events,
     )
 
 
@@ -181,14 +191,18 @@ def load_or_refresh_event_bundle(
         ),
     )
     agent_registry = load_agent_registry(Path(artifact_paths.projections_root))
-    projection_paths = write_projection_bundle(
-        output_root=Path(artifact_paths.projections_root),
-        review_state=review_state,
-        agent_registry=agent_registry,
-        action="status",
-        trace_events=[],
-        full_extras=full_extras,
-    )
+    projections_root = Path(artifact_paths.projections_root)
+    if artifact_writes_suppressed():
+        projection_paths = projection_paths_for_root(projections_root)
+    else:
+        projection_paths = write_projection_bundle(
+            output_root=projections_root,
+            review_state=review_state,
+            agent_registry=agent_registry,
+            action="status",
+            trace_events=[],
+            full_extras=full_extras,
+        )
     return ReviewChannelEventBundle(
         artifact_paths=artifact_paths,
         projection_paths=projection_paths,
@@ -221,6 +235,7 @@ def refresh_event_bundle(
             review_channel_path=review_channel_path,
             artifact_paths=artifact_paths,
             prior_review_state=prior_review_state,
+            events=tuple(events),
         ),
     )
     maybe_record_instruction_transition(
@@ -228,24 +243,34 @@ def refresh_event_bundle(
         prior_review_state=prior_review_state,
         review_state=review_state,
     )
-    state_path = Path(artifact_paths.state_path)
-    state_path.parent.mkdir(parents=True, exist_ok=True)
-    state_path.write_text(json.dumps(review_state, indent=2), encoding="utf-8")
-    projection_paths = write_projection_bundle(
-        output_root=Path(artifact_paths.projections_root),
-        review_state=review_state,
-        agent_registry=agent_registry,
-        action="status",
-        trace_events=events,
-        full_extras=full_extras,
-    )
-    write_legacy_projection_mirror(
-        repo_root=repo_root,
-        canonical_projections_root=Path(artifact_paths.projections_root),
-        review_state=review_state,
-        agent_registry=agent_registry,
-        trace_events=events,
-    )
+    projections_root = Path(artifact_paths.projections_root)
+    if artifact_writes_suppressed():
+        projection_paths = projection_paths_for_root(projections_root)
+    else:
+        # Per Codex rev_pkt_2406/2409/2413/2424/2437/2446 atomic-publication series:
+        # state.json is read by check_review_surface_consistency alongside the
+        # write_projection_bundle outputs below. Plain Path.write_text races those
+        # bundle writes and produces snapshot/zref drift in the cross-surface check.
+        # Multi-file bundle transactionality (rev_pkt_2417 Tier 2) is the broader fix.
+        from .projection_bundle import _atomic_write_text
+
+        state_path = Path(artifact_paths.state_path)
+        _atomic_write_text(state_path, json.dumps(review_state, indent=2))
+        projection_paths = write_projection_bundle(
+            output_root=projections_root,
+            review_state=review_state,
+            agent_registry=agent_registry,
+            action="status",
+            trace_events=events,
+            full_extras=full_extras,
+        )
+        write_legacy_projection_mirror(
+            repo_root=repo_root,
+            canonical_projections_root=projections_root,
+            review_state=review_state,
+            agent_registry=agent_registry,
+            trace_events=events,
+        )
     return ReviewChannelEventBundle(
         artifact_paths=artifact_paths,
         projection_paths=projection_paths,
@@ -292,6 +317,14 @@ def reduce_events(
             latest_timestamp = _event_timestamp(event, latest_timestamp)
             continue
 
+        if event_type in REVIEWER_AUTHORITY_EVENT_TYPES:
+            # Per rev_pkt_2546 (Plan 4.1 Scope 1): reviewer heartbeat /
+            # reviewer checkpoint events do not carry packet_id; they
+            # populate typed current_session/liveness via downstream
+            # projection helpers consuming the event stream directly.
+            latest_timestamp = _event_timestamp(event, latest_timestamp)
+            continue
+
         if _is_legacy_manual_packet_snapshot(event, event_type):
             latest_timestamp = _event_timestamp(event, latest_timestamp)
             continue
@@ -332,6 +365,19 @@ def reduce_events(
     )
     runtime = build_runtime_state(daemon_snapshots, last_daemon_event_utc)
 
+    agent_sync_projection = build_agent_sync_projection(
+        events=events,
+        packet_rows=packet_rows,
+        registered_agent_ids=_registered_agent_ids_from_registry(registry_state),
+        refresh_seq=len(events),
+        refreshed_at_utc=latest_timestamp,
+    )
+
+    # Build review_state first WITHOUT work-board so the typed `collaboration`
+    # block exists; then enrich with work-board which reads typed
+    # CollaborationParticipantState. Per Codex rev_pkt_2271 #2: "v1.1 should
+    # build/enrich the work-board after that runtime state exists, using
+    # bundle.review_state rather than rescanning broad packet history."
     review_state = build_reduced_review_state(
         ReducedReviewStateInputs(
             repo_root=repo_root,
@@ -350,6 +396,51 @@ def reduce_events(
             registry_state=registry_state,
             runtime=runtime,
             expired_liveness_sessions=expired_liveness_sessions,
+            agent_sync=dict(agent_sync_projection),
+            agent_work_board=None,
         )
     )
+
+    collaboration_block = review_state.get("collaboration")
+    if not isinstance(collaboration_block, dict):
+        collaboration_block = None
+    agent_work_board_projection = build_agent_work_board_projection(
+        events=events,
+        packet_rows=packet_rows,
+        agent_sync_payload=dict(agent_sync_projection),
+        collaboration=collaboration_block,
+        refresh_seq=len(events),
+        refreshed_at_utc=latest_timestamp,
+    )
+    review_state["agent_work_board"] = dict(agent_work_board_projection)
+
     return review_state, review_state.get("registry", {})
+
+
+def _registered_agent_ids_from_registry(registry_state: object) -> list[str]:
+    """Iterate registered participant ids from the runtime agent registry.
+
+    Per Codex rev_pkt_2247: never hardcode {codex, claude}; pull from typed
+    registry state so bounded swarm lanes auto-extend agent_sync coverage.
+
+    Accepts either the typed ``AgentRegistryState`` dataclass (with an
+    ``agents`` tuple of ``AgentRegistryEntryState`` rows) or the post-asdict
+    dict-of-dicts shape some callers may provide.
+    """
+    agents = (
+        registry_state.get("agents")
+        if isinstance(registry_state, dict)
+        else getattr(registry_state, "agents", None)
+    )
+    if not agents:
+        return []
+    ids: list[str] = []
+    for row in agents:
+        agent_id = (
+            row.get("agent_id") if isinstance(row, dict)
+            else getattr(row, "agent_id", "")
+        )
+        agent_id_str = str(agent_id or "")
+        if agent_id_str:
+            ids.append(agent_id_str)
+    return ids

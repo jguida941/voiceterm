@@ -57,7 +57,16 @@ def resolve_recovery_action(
     typed_complete,
     fallback_assessment,
     attention_status,
+    recovery_eligibility: str = "",
 ):
+    # Per Codex rev_pkt_2326/2361/2367/2368: typed recovery_eligibility
+    # supersedes legacy command. When typed authority says remote_only or
+    # blocked, suppress the local devctl-commit / devctl-push advice so
+    # bridge-poll, dashboard, claude-loop, and startup-context render the
+    # same answer instead of contradicting each other.
+    if recovery_eligibility in {"remote_only", "blocked"}:
+        return ""
+
     if (
         typed_complete
         and recovery_assessment is not None

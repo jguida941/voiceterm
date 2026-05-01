@@ -73,6 +73,8 @@ def run_post_action(
                 anchor_refs=getattr(context.args, "anchor_ref", []),
                 intake_ref=getattr(context.args, "intake_ref", None),
                 mutation_op=getattr(context.args, "mutation_op", None),
+                target_role=getattr(context.args, "target_role", None),
+                target_session_id=getattr(context.args, "target_session_id", None),
             ),
             runtime_approval=PacketRuntimeApprovalFields.from_values(
                 pipeline_generation=getattr(context.args, "pipeline_generation", None),

@@ -20,12 +20,12 @@ from ...autonomy.swarm_post_audit import build_post_audit_payload as _post_audit
 from ...autonomy.swarm_post_audit import run_post_audit_digest as _run_post_audit_digest
 from ...common import emit_output, pipe_output, write_output
 from ...numeric import to_int
+from ...platform.coordination_snapshot import build_coordination_snapshot
+from ...repo_packs.process_helpers import resolve_repo
 from .swarm_core import AgentTask as _AgentTask
 from .swarm_core import fallback_repo_from_origin as _fallback_repo_from_origin
 from .swarm_core import run_one_agent as _run_one_agent
 from .swarm_core import validate_args as _validate_args
-
-from ...repo_packs.process_helpers import resolve_repo
 
 
 def _resolve_swarm_repo(args) -> str | None:
@@ -77,6 +77,41 @@ def _run_worker_agents(
 def _render_swarm_output(args, report: dict[str, Any]) -> str:
     json_payload = json.dumps(report, indent=2)
     return json_payload if args.format == "json" else render_swarm_markdown(report)
+
+
+def _mutable_worker_execution_requested(args) -> bool:
+    """Return whether this swarm would execute mutating worker loops."""
+    if bool(args.plan_only) or bool(args.dry_run):
+        return False
+    return str(args.mode) in {"plan-then-fix", "fix-only"}
+
+
+def _fanout_gate_error(args) -> str | None:
+    """Block mutating swarm fanout unless typed coordination says it is safe."""
+    if not _mutable_worker_execution_requested(args):
+        return None
+    try:
+        coordination = build_coordination_snapshot()
+    except Exception as exc:  # pragma: no cover - defensive fail-closed guard
+        return (
+            "Error: mutable autonomy-swarm requires typed fanout proof, but "
+            f"CoordinationSnapshot could not be built: {exc}. Use --plan-only "
+            "or --mode report-only for read-only review."
+        )
+    if bool(getattr(coordination, "safe_to_fanout", False)):
+        return None
+
+    posture = str(getattr(coordination, "fanout_posture", "") or "unknown")
+    resync_reasons = tuple(getattr(coordination, "resync_reasons", ()) or ())
+    reason_text = ", ".join(str(reason) for reason in resync_reasons) or "none"
+    return (
+        "Error: mutable autonomy-swarm requires typed "
+        "CoordinationSnapshot.safe_to_fanout=true. "
+        f"Current fanout_posture={posture}; resync_reasons={reason_text}. "
+        "Use --plan-only or --mode report-only for read-only review until "
+        "RuntimeAgreementReport, WorkerPacket/GraphScopeProof, and typed "
+        "fanout readiness are green."
+    )
 
 
 def _build_swarm_report(
@@ -143,6 +178,10 @@ def run(args) -> int:
     arg_error = _validate_args(args)
     if arg_error:
         print(arg_error)
+        return 2
+    fanout_error = _fanout_gate_error(args)
+    if fanout_error:
+        print(fanout_error)
         return 2
 
     repo = _resolve_swarm_repo(args)

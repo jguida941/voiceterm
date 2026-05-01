@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest import mock
 
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.tests.test_review_channel_context_refs import (
@@ -31,6 +32,50 @@ from dev.scripts.devctl.review_channel.packet_attestation import (
     PacketGuardAttestation,
 )
 from dev.scripts.devctl.runtime.master_plan_contract import PlanProposal
+
+
+def _first_fresh_agent_session(
+    *,
+    repo_root: Path,
+    review_channel_path: Path,
+    artifact_paths,
+    actor_id: str,
+) -> tuple[str, str]:
+    bundle = refresh_event_bundle(
+        repo_root=repo_root,
+        review_channel_path=review_channel_path,
+        artifact_paths=artifact_paths,
+    )
+    rows = bundle.review_state.get("agent_work_board", {}).get("rows", [])
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("actor_id") or "") != actor_id:
+            continue
+        session_id = str(row.get("session_id") or "").strip()
+        role = str(row.get("role") or "").strip()
+        if session_id and role and _row_is_fresh(row):
+            return role, session_id
+    return "", ""
+
+
+def _row_is_fresh(row: dict[str, object]) -> bool:
+    if str(row.get("confidence_class") or "").strip() == "stale":
+        return False
+    try:
+        idle_seconds = int(row.get("idle_seconds") or 0)
+        stale_after_seconds = int(row.get("stale_after_seconds") or 0)
+    except (TypeError, ValueError):
+        idle_seconds = 0
+        stale_after_seconds = 0
+    if stale_after_seconds > 0 and idle_seconds > stale_after_seconds:
+        return False
+    return str(row.get("status") or "").strip() in {
+        "working",
+        "polling",
+        "blocked",
+        "checkpointed",
+    }
 
 
 class ReviewChannelPlanPacketTests(unittest.TestCase):
@@ -64,6 +109,221 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                 ),
                 valid_agent_ids=("codex", "claude"),
             )
+
+    def test_instruction_packets_allow_route_discriminators(self) -> None:
+        validate_post_request(
+            PacketPostRequest(
+                from_agent="codex",
+                to_agent="claude",
+                kind="instruction",
+                summary="Scoped wake probe",
+                body="Read-only ping.",
+                target=PacketTargetFields.from_values(
+                    target_role="implementer",
+                    target_session_id="session-claude",
+                ),
+            ),
+            valid_agent_ids=("codex", "claude"),
+        )
+
+    def test_non_runtime_action_request_allows_route_discriminators(self) -> None:
+        validate_post_request(
+            PacketPostRequest(
+                from_agent="codex",
+                to_agent="claude",
+                kind="action_request",
+                summary="Scoped read-only task",
+                body="Inspect typed state.",
+                requested_action="review_only",
+                target=PacketTargetFields.from_values(
+                    target_role="implementer",
+                    target_session_id="session-claude",
+                ),
+            ),
+            valid_agent_ids=("codex", "claude"),
+        )
+
+    def test_non_runtime_action_request_rejects_unscoped_posts(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "Non-runtime action_request packets require route scope",
+        ):
+            validate_post_request(
+                PacketPostRequest(
+                    from_agent="codex",
+                    to_agent="claude",
+                    kind="action_request",
+                    summary="Ambiguous task",
+                    body="Inspect this without a scoped route.",
+                    requested_action="review_only",
+                ),
+                valid_agent_ids=("codex", "claude"),
+            )
+
+    def test_non_runtime_action_request_rejects_plan_context_without_route_scope(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "Non-runtime action_request packets require route scope",
+        ):
+            validate_post_request(
+                PacketPostRequest(
+                    from_agent="codex",
+                    to_agent="claude",
+                    kind="action_request",
+                    summary="Plan-scoped but route-ambiguous task",
+                    body="Inspect this plan-scoped item.",
+                    requested_action="review_only",
+                    target=PacketTargetFields.from_values(
+                        anchor_refs=["MP-377"],
+                        intake_ref="plan://MP-377",
+                    ),
+                ),
+                valid_agent_ids=("codex", "claude"),
+            )
+
+    def test_instruction_packets_allow_context_only_plan_intent(self) -> None:
+        validate_post_request(
+            PacketPostRequest(
+                from_agent="codex",
+                to_agent="claude",
+                kind="instruction",
+                summary="Plan-scoped read-only retest",
+                body="Inspect the live typed plan linkage.",
+                target=PacketTargetFields.from_values(
+                    anchor_refs=["section:MP-377"],
+                    intake_ref="work_intake://plan_target/abc123",
+                ),
+            ),
+            valid_agent_ids=("codex", "claude"),
+        )
+
+    def test_operator_anchor_vocabulary_is_canonicalized(self) -> None:
+        target = PacketTargetFields.from_values(
+            anchor_refs=["MP-377", "MP377-P0-T08", "rev_pkt_2611"],
+        )
+
+        self.assertEqual(
+            target.anchor_refs,
+            (
+                "section:MP-377",
+                "checklist:MP377-P0-T08",
+                "packet:rev_pkt_2611",
+            ),
+        )
+        validate_post_request(
+            PacketPostRequest(
+                from_agent="codex",
+                to_agent="claude",
+                kind="instruction",
+                summary="Operator shorthand stays scoped",
+                body="Check packet scope normalization.",
+                target=target,
+            ),
+            valid_agent_ids=("codex", "claude"),
+        )
+
+    def test_plan_review_packets_allow_packet_anchor_refs(self) -> None:
+        validate_post_request(
+            PacketPostRequest(
+                from_agent="claude",
+                to_agent="codex",
+                kind="plan_gap_review",
+                summary="Packet-rooted plan gap",
+                body="rev_pkt_2611 exposed the scope-loss root cause.",
+                target=PacketTargetFields.from_values(
+                    target_kind="plan",
+                    target_ref="MP-377",
+                    target_revision="924ba57",
+                    anchor_refs=["rev_pkt_2611"],
+                    intake_ref="audit:claude-dashboard-2026-05-01",
+                ),
+            ),
+            valid_agent_ids=("codex", "claude"),
+        )
+
+    def test_instruction_packets_still_reject_resource_targets(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Target fields are only allowed"):
+            validate_post_request(
+                PacketPostRequest(
+                    from_agent="codex",
+                    to_agent="claude",
+                    kind="instruction",
+                    summary="Invalid resource target",
+                    body="Plain instructions cannot target plan resources.",
+                    target=PacketTargetFields.from_values(
+                        target_kind="plan",
+                        target_ref="plan://MP-377",
+                    ),
+                ),
+                valid_agent_ids=("codex", "claude"),
+            )
+
+    def test_finding_packets_allow_non_authoritative_target_metadata(self) -> None:
+        validate_post_request(
+            PacketPostRequest(
+                from_agent="system",
+                to_agent="codex",
+                kind="finding",
+                summary="Runtime routing finding",
+                body="This is finding metadata, not execution authority.",
+                target=PacketTargetFields.from_values(
+                    target_kind="runtime",
+                    target_ref="runtime://review-channel/session-scope",
+                    target_role="reviewer",
+                    target_session_id="session-codex",
+                ),
+            ),
+            valid_agent_ids=("system", "codex"),
+        )
+
+    def test_finding_packets_reject_mutating_target_metadata(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Plan mutation fields"):
+            validate_post_request(
+                PacketPostRequest(
+                    from_agent="system",
+                    to_agent="codex",
+                    kind="finding",
+                    summary="Invalid mutating finding",
+                    body="Findings cannot mutate plan state.",
+                    target=PacketTargetFields.from_values(
+                        target_kind="runtime",
+                        target_ref="runtime://review-channel/session-scope",
+                        mutation_op="append_progress_log",
+                        target_role="reviewer",
+                        target_session_id="session-codex",
+                    ),
+                ),
+                valid_agent_ids=("system", "codex"),
+            )
+
+    def test_normal_post_derives_plan_intent_context(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+
+            bundle, event = post_packet(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+                request=PacketPostRequest(
+                    from_agent="codex",
+                    to_agent="claude",
+                    kind="instruction",
+                    summary="Read-only plan linkage retest",
+                    body="Check the live plan and packet linkage surfaces.",
+                    plan_id="MP-377",
+                ),
+            )
+
+            packet = bundle.review_state["packets"][0]
+
+        self.assertEqual(event["plan_id"], "MP-377")
+        self.assertEqual(packet["plan_id"], "MP-377")
+        self.assertEqual(packet["anchor_refs"], ["section:MP-377"])
+        self.assertEqual(packet["intake_ref"], "plan://MP-377")
 
     def test_cli_accepts_plan_gap_review_target_fields(self) -> None:
         parser = build_parser()
@@ -316,6 +576,29 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                     review_channel_path=review_channel_path,
                     artifact_paths=artifact_paths,
                     request=request,
+                )
+
+            raw_ref_request = PacketPostRequest(
+                from_agent="codex",
+                to_agent="operator",
+                kind="plan_patch_review",
+                summary="Patch one plan row with raw ref",
+                body="Patch the same plan row with a raw MP ref.",
+                target=PacketTargetFields.from_values(
+                    target_kind="plan",
+                    target_ref="MP-377",
+                    target_revision="sha256:def456",
+                    anchor_refs=["progress:proof_pass"],
+                    intake_ref="intake://session-2026-03-19",
+                    mutation_op="append_progress_log",
+                ),
+            )
+            with self.assertRaisesRegex(ValueError, "PlanProposalConflict"):
+                post_packet(
+                    repo_root=root,
+                    review_channel_path=review_channel_path,
+                    artifact_paths=artifact_paths,
+                    request=raw_ref_request,
                 )
 
     def test_runtime_action_request_target_is_not_plan_proposal(self) -> None:
@@ -960,6 +1243,12 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                     "artifact_paths": artifact_paths,
                 },
             )
+            target_role, target_session_id = _first_fresh_agent_session(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+                actor_id="codex",
+            )
             post_packet(
                 repo_root=root,
                 review_channel_path=review_channel_path,
@@ -976,6 +1265,10 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                     requested_action="review_only",
                     policy_hint="review_only",
                     approval_required=False,
+                    target=PacketTargetFields.from_values(
+                        target_role=target_role,
+                        target_session_id=target_session_id,
+                    ),
                 ),
             )
 
@@ -1023,6 +1316,33 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
             action_request_priority_key(failed_packet),
         )
 
+    def test_action_request_priority_prefers_newer_same_state_packet(
+        self,
+    ) -> None:
+        from dev.scripts.devctl.review_channel.packet_control_loop_action_request import (
+            action_request_priority_key,
+        )
+
+        older_packet = {
+            "packet_id": "rev_pkt_2546",
+            "posted_at": "2026-04-30T21:03:35Z",
+            "expires_at_utc": "2026-05-01T21:03:35Z",
+            "latest_event_id": "rev_evt_47684",
+            "delivery_observed_at_utc": "2026-04-30T23:54:55Z",
+        }
+        newer_packet = {
+            "packet_id": "rev_pkt_2547",
+            "posted_at": "2026-04-30T21:04:09Z",
+            "expires_at_utc": "2026-05-01T21:04:09Z",
+            "latest_event_id": "rev_evt_47688",
+            "delivery_observed_at_utc": "2026-04-30T23:54:55Z",
+        }
+
+        self.assertLess(
+            action_request_priority_key(newer_packet),
+            action_request_priority_key(older_packet),
+        )
+
     def test_actionable_inbox_prefers_fresh_recovery_over_failed_packet(
         self,
     ) -> None:
@@ -1048,6 +1368,33 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
 
         self.assertIsNotNone(selected)
         self.assertEqual(selected["packet_id"], "rev_pkt_recovery")
+
+    def test_actionable_inbox_prefers_newer_same_state_packet(self) -> None:
+        from dev.scripts.devctl.runtime.review_packet_inbox_actionable import (
+            select_actionable_packet,
+        )
+
+        older_packet = {
+            "packet_id": "rev_pkt_2546",
+            "kind": "action_request",
+            "posted_at": "2026-04-30T21:03:35Z",
+            "expires_at_utc": "2026-05-01T21:03:35Z",
+            "latest_event_id": "rev_evt_47684",
+            "delivery_observed_at_utc": "2026-04-30T23:54:55Z",
+        }
+        newer_packet = {
+            "packet_id": "rev_pkt_2547",
+            "kind": "action_request",
+            "posted_at": "2026-04-30T21:04:09Z",
+            "expires_at_utc": "2026-05-01T21:04:09Z",
+            "latest_event_id": "rev_evt_47688",
+            "delivery_observed_at_utc": "2026-04-30T23:54:55Z",
+        }
+
+        selected = select_actionable_packet((older_packet, newer_packet))
+
+        self.assertIsNotNone(selected)
+        self.assertEqual(selected["packet_id"], "rev_pkt_2547")
 
     def test_system_completed_handoff_outcome_rows_are_ignored(self) -> None:
         from dev.scripts.devctl.review_channel.agent_session_outcome_events import (
@@ -1219,6 +1566,320 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
             )
             self.assertEqual(session_outcomes[0]["outcome"], "completed_handoff")
             self.assertEqual(session_outcomes[0]["provider"], "codex")
+
+    def test_action_request_post_uses_locator_payload_when_state_file_lacks_authority(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+            state_path = Path(artifact_paths.state_path)
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state_path.write_text(
+                json.dumps({"packets": []}),
+                encoding="utf-8",
+            )
+
+            locator_payload = {
+                "packets": [],
+                "collaboration": {
+                    "actor_authorities": [
+                        {
+                            "actor_id": "claude",
+                            "provider": "claude",
+                            "role": "reviewer",
+                            "live": True,
+                            "status": "live",
+                            "source": "remote-control",
+                            "grants": [
+                                {
+                                    "capability": "repo.stage_handoff",
+                                    "granted": True,
+                                    "source": "test",
+                                },
+                                {
+                                    "capability": "approval.commit",
+                                    "granted": True,
+                                    "source": "test",
+                                },
+                            ],
+                        }
+                    ]
+                },
+            }
+
+            with mock.patch(
+                "dev.scripts.devctl.review_channel.events.load_current_review_state_payload",
+                return_value=locator_payload,
+            ) as locator_mock:
+                _, event = post_packet(
+                    repo_root=root,
+                    review_channel_path=review_channel_path,
+                    artifact_paths=artifact_paths,
+                    request=PacketPostRequest(
+                        from_agent="codex",
+                        to_agent="claude",
+                        kind="action_request",
+                        summary="Stage verified commit pipeline",
+                        body="Full guard profile passed.",
+                        requested_action="stage_commit_pipeline",
+                        policy_hint="safe_auto_apply",
+                        approval_required=False,
+                        target=PacketTargetFields.from_values(
+                            target_kind="runtime",
+                            target_ref="devctl_commit:abc123",
+                            target_revision="abc123",
+                        ),
+                        guard_bundle_evidence=PacketGuardBundleEvidenceFields.from_values(
+                            full_guard_bundle_evidence="--profile ci",
+                        ),
+                    ),
+                )
+
+            self.assertTrue(locator_mock.called)
+            evidence = event["metadata"]["runtime_authority_evidence"]
+            self.assertEqual(evidence["actor_id"], "claude")
+            self.assertEqual(
+                evidence["granted_capabilities"],
+                ["repo.stage_handoff", "approval.commit"],
+            )
+
+    def test_action_request_post_prefers_existing_bundle_over_locator_fallback(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+            state_path = Path(artifact_paths.state_path)
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state_path.write_text(
+                json.dumps({"packets": []}),
+                encoding="utf-8",
+            )
+
+            bundle_review_state = {
+                "packets": [],
+                "collaboration": {
+                    "actor_authorities": [
+                        {
+                            "actor_id": "claude",
+                            "provider": "claude",
+                            "role": "reviewer",
+                            "live": True,
+                            "status": "live",
+                            "source": "remote-control",
+                            "grants": [
+                                {
+                                    "capability": "repo.stage_handoff",
+                                    "granted": True,
+                                    "source": "test",
+                                },
+                                {
+                                    "capability": "approval.commit",
+                                    "granted": True,
+                                    "source": "test",
+                                },
+                            ],
+                        }
+                    ]
+                },
+            }
+
+            locator_payload = {
+                "packets": [],
+                "collaboration": {
+                    "actor_authorities": [
+                        {
+                            "actor_id": "operator",
+                            "provider": "operator",
+                            "role": "operator",
+                            "live": True,
+                            "status": "live",
+                            "source": "console",
+                            "grants": [
+                                {
+                                    "capability": "approval.push",
+                                    "granted": True,
+                                    "source": "test",
+                                },
+                            ],
+                        }
+                    ]
+                },
+            }
+
+            fake_bundle = mock.MagicMock()
+            fake_bundle.review_state = bundle_review_state
+            fake_bundle.events = []
+
+            with mock.patch(
+                "dev.scripts.devctl.review_channel.events._load_existing_bundle",
+                return_value=fake_bundle,
+            ), mock.patch(
+                "dev.scripts.devctl.review_channel.events.load_current_review_state_payload",
+                return_value=locator_payload,
+            ):
+                _, event = post_packet(
+                    repo_root=root,
+                    review_channel_path=review_channel_path,
+                    artifact_paths=artifact_paths,
+                    request=PacketPostRequest(
+                        from_agent="codex",
+                        to_agent="claude",
+                        kind="action_request",
+                        summary="Stage verified commit pipeline",
+                        body="Full guard profile passed.",
+                        requested_action="stage_commit_pipeline",
+                        policy_hint="safe_auto_apply",
+                        approval_required=False,
+                        target=PacketTargetFields.from_values(
+                            target_kind="runtime",
+                            target_ref="devctl_commit:abc123",
+                            target_revision="abc123",
+                        ),
+                        guard_bundle_evidence=PacketGuardBundleEvidenceFields.from_values(
+                            full_guard_bundle_evidence="--profile ci",
+                        ),
+                    ),
+                )
+
+            evidence = event["metadata"]["runtime_authority_evidence"]
+            self.assertEqual(evidence["actor_id"], "claude")
+            self.assertEqual(
+                evidence["granted_capabilities"],
+                ["repo.stage_handoff", "approval.commit"],
+            )
+
+    def test_action_request_post_falls_back_to_state_path_when_bundle_and_locator_empty(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+            state_path = Path(artifact_paths.state_path)
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "packets": [],
+                        "collaboration": {
+                            "actor_authorities": [
+                                {
+                                    "actor_id": "claude",
+                                    "provider": "claude",
+                                    "role": "reviewer",
+                                    "live": True,
+                                    "status": "live",
+                                    "source": "remote-control",
+                                    "grants": [
+                                        {
+                                            "capability": "repo.stage_handoff",
+                                            "granted": True,
+                                            "source": "test",
+                                        },
+                                        {
+                                            "capability": "approval.commit",
+                                            "granted": True,
+                                            "source": "test",
+                                        },
+                                    ],
+                                }
+                            ]
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            # Force tier 3 by neutralizing tier 1 (bundle row with grants
+            # flipped off → no granted capabilities → tier 1 empty) and tier 2
+            # (locator returns None). Only artifact_paths.state_path carries
+            # an authority row whose grants pass _capabilities_grant_action.
+            empty_grants_bundle_state = {
+                "packets": [],
+                "collaboration": {
+                    "actor_authorities": [
+                        {
+                            "actor_id": "claude",
+                            "provider": "claude",
+                            "role": "reviewer",
+                            "live": True,
+                            "status": "live",
+                            "source": "remote-control",
+                            "grants": [
+                                {
+                                    "capability": "repo.stage_handoff",
+                                    "granted": False,
+                                    "source": "test",
+                                },
+                                {
+                                    "capability": "approval.commit",
+                                    "granted": False,
+                                    "source": "test",
+                                },
+                            ],
+                        }
+                    ]
+                },
+            }
+            fake_bundle = mock.MagicMock()
+            fake_bundle.review_state = empty_grants_bundle_state
+            fake_bundle.events = []
+
+            with mock.patch(
+                "dev.scripts.devctl.review_channel.events._load_existing_bundle",
+                return_value=fake_bundle,
+            ), mock.patch(
+                "dev.scripts.devctl.review_channel.events.load_current_review_state_payload",
+                return_value=None,
+            ) as locator_mock:
+                _, event = post_packet(
+                    repo_root=root,
+                    review_channel_path=review_channel_path,
+                    artifact_paths=artifact_paths,
+                    request=PacketPostRequest(
+                        from_agent="codex",
+                        to_agent="claude",
+                        kind="action_request",
+                        summary="Stage verified commit pipeline",
+                        body="Full guard profile passed.",
+                        requested_action="stage_commit_pipeline",
+                        policy_hint="safe_auto_apply",
+                        approval_required=False,
+                        target=PacketTargetFields.from_values(
+                            target_kind="runtime",
+                            target_ref="devctl_commit:abc123",
+                            target_revision="abc123",
+                        ),
+                        guard_bundle_evidence=PacketGuardBundleEvidenceFields.from_values(
+                            full_guard_bundle_evidence="--profile ci",
+                        ),
+                    ),
+                )
+
+            self.assertTrue(locator_mock.called)
+            # Tier 1 produced empty evidence (grants flipped off), tier 2 was
+            # patched to None — so seeing truthy granted_capabilities in the
+            # event metadata proves tier 3 (state_path payload) was the source.
+            evidence = event["metadata"]["runtime_authority_evidence"]
+            self.assertEqual(
+                evidence["contract_id"],
+                "ActionRequestRuntimeAuthorityEvidence",
+            )
+            self.assertEqual(evidence["actor_id"], "claude")
+            self.assertEqual(
+                evidence["granted_capabilities"],
+                ["repo.stage_handoff", "approval.commit"],
+            )
 
     def test_action_request_post_attaches_typed_runtime_authority_evidence(
         self,

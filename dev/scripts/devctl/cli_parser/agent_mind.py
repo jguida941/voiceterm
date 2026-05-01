@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import argparse
 
-from ..commands.agent_mind import SUPPORTED_AGENTS
 from ..common_io import add_standard_output_arguments
+from ..runtime.provider_registry import known_provider_help
 
 
 def add_agent_mind_parser(sub: argparse._SubParsersAction) -> None:
@@ -32,16 +32,43 @@ def add_agent_mind_parser(sub: argparse._SubParsersAction) -> None:
     cmd.add_argument(
         "--agent",
         required=True,
-        choices=list(SUPPORTED_AGENTS),
-        help="Which agent provider's mind stream to read (codex or claude)",
+        metavar="PROVIDER",
+        help=(
+            "Agent provider id whose mind stream should be read. Known "
+            f"providers include {known_provider_help()}, and future "
+            "provider ids are accepted when --sessions-root points at their "
+            "JSONL traces."
+        ),
     )
     cmd.add_argument(
         "--since-cursor",
+        nargs="?",
+        const="last_projection",
         default=None,
         help=(
             "Optional ISO-8601 timestamp. Only events strictly newer than "
-            "this cursor are returned. Omit to return the last --limit "
-            "events regardless of age."
+            "this cursor are returned. Use the flag without a value to "
+            "resume from the last persisted agent-mind projection cursor. "
+            "Omit the flag to return the last --limit events regardless of age."
+        ),
+    )
+    cmd.add_argument(
+        "--session-id",
+        default=None,
+        help=(
+            "Session id substring to match; omit to auto-detect the newest "
+            "session JSONL by mtime."
+        ),
+    )
+    cmd.add_argument(
+        "--exclude-session-id",
+        action="append",
+        default=None,
+        help=(
+            "Session id substring to exclude from selection. Repeat the "
+            "flag to exclude multiple caller/current sessions. When "
+            "DEVCTL_CALLER_AGENT and DEVCTL_CALLER_SESSION_ID identify a "
+            "same-provider caller, that session is excluded automatically."
         ),
     )
     cmd.add_argument(

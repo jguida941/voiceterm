@@ -317,6 +317,26 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Bounded ConnectivityRegistrySnapshot summary shared with startup and render surfaces.",
             ),
             ContractField(
+                "runtime_spine_closure",
+                "dict[str, object]",
+                "Bounded RuntimeSpineClosureState summary carried across compaction and resume.",
+            ),
+            ContractField(
+                "packet_continuity_index",
+                "dict[str, object]",
+                "Bounded PacketContinuityIndex digest proving every reduced packet has one continuity sink.",
+            ),
+            ContractField(
+                "packet_carry_forward_debt",
+                "tuple[dict[str, object], ...]",
+                "ACKed packet debt that still lacks terminal disposition or durable ownership.",
+            ),
+            ContractField(
+                "continuity_attention",
+                "dict[str, object]",
+                "AI-facing compact message that names continuity fields to read after compaction.",
+            ),
+            ContractField(
                 "key_surfaces",
                 "tuple[str, ...]",
                 "Startup-visible generated/navigation surfaces such as the connectivity index.",
@@ -341,6 +361,7 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             "advisory_action",
             "key_surfaces",
             "blockers",
+            "continuity_attention",
         ),
     ),
 )

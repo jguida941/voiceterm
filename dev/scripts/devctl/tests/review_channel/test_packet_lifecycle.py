@@ -9,6 +9,10 @@ from dev.scripts.devctl.review_channel.packet_plan_integration import (
     maybe_append_packet_plan_row,
 )
 from dev.scripts.devctl.review_channel.packet_lifecycle import project_packet_lifecycle
+from dev.scripts.devctl.runtime.packet_continuity import (
+    build_packet_continuity_index,
+    compact_packet_continuity_index,
+)
 from dev.scripts.devctl.runtime.review_state_parser_rows import packet_states_from_value
 
 
@@ -74,9 +78,24 @@ def test_packet_lifecycle_tracks_ack_and_apply_events(tmp_path: Path) -> None:
         "status": "applied",
         "metadata": {"actor": "claude"},
     }
+    integration = {
+        **posted,
+        "event_id": "rev_evt_004",
+        "event_type": "packet_plan_ingestion_recorded",
+        "timestamp_utc": "2026-04-29T01:10:01Z",
+        "status": "applied",
+        "plan_ingestion": {
+            "contract_id": "PacketPlanIntegration",
+            "status": "inserted",
+            "reason": "plan_target_packet_applied",
+            "packet_id": "rev_pkt_lifecycle",
+            "target_ref": "dev/active/ai_governance_platform.md#MP377-P0-T08A",
+        },
+        "metadata": {"actor": "claude"},
+    }
 
     review_state, _ = reduce_events(
-        events=[posted, acked, applied],
+        events=[posted, acked, applied, integration],
         repo_root=tmp_path,
         review_channel_path=_review_channel_path(tmp_path),
     )
@@ -96,6 +115,114 @@ def test_packet_lifecycle_tracks_ack_and_apply_events(tmp_path: Path) -> None:
         packet["lifecycle_history"]["contract_id"]
         == "PacketLifecycleHistory"
     )
+    assert review_state["packet_continuity"]["packet_count"] == 1
+    assert review_state["packet_continuity"]["sink_counts"]["applied_to_plan"] == 1
+
+
+def test_plan_target_apply_without_ingestion_record_requires_recovery(
+    tmp_path: Path,
+) -> None:
+    posted = _posted_packet(
+        packet_id="rev_pkt_plan_unrecorded",
+        target_kind="plan",
+        target_ref="dev/active/ai_governance_platform.md#MP377-P0-T08A",
+    )
+    applied = {
+        **posted,
+        "event_id": "rev_evt_009",
+        "event_type": "packet_applied",
+        "timestamp_utc": "2026-04-29T01:10:00Z",
+        "status": "applied",
+        "metadata": {"actor": "claude"},
+    }
+
+    review_state, _ = reduce_events(
+        events=[posted, applied],
+        repo_root=tmp_path,
+        review_channel_path=_review_channel_path(tmp_path),
+    )
+
+    packet = review_state["packets"][0]
+
+    assert packet["lifecycle_current_state"] == "plan_ingestion_failed"
+    assert packet["disposition"]["sink"] == "recovery_required"
+    assert (
+        packet["disposition"]["next_slice_target"]
+        == "packet_plan_ingestion_repair"
+    )
+    assert review_state["packet_continuity"]["sink_counts"]["failed_ingestion"] == 1
+
+
+def test_legacy_plan_integration_event_replays_as_ingestion(
+    tmp_path: Path,
+) -> None:
+    posted = _posted_packet(
+        packet_id="rev_pkt_legacy_ingestion",
+        target_kind="plan",
+        target_ref="dev/active/ai_governance_platform.md#MP377-P0-T08A",
+    )
+    applied = {
+        **posted,
+        "event_id": "rev_evt_010",
+        "event_type": "packet_applied",
+        "timestamp_utc": "2026-04-29T01:10:00Z",
+        "status": "applied",
+        "metadata": {"actor": "claude"},
+    }
+    legacy_integration = {
+        **posted,
+        "event_id": "rev_evt_011",
+        "event_type": "packet_plan_integration_recorded",
+        "timestamp_utc": "2026-04-29T01:10:01Z",
+        "status": "applied",
+        "plan_integration": {
+            "contract_id": "PacketPlanIntegration",
+            "status": "inserted",
+            "reason": "plan_target_packet_applied",
+            "packet_id": "rev_pkt_legacy_ingestion",
+        },
+        "metadata": {"actor": "claude"},
+    }
+
+    review_state, _ = reduce_events(
+        events=[posted, applied, legacy_integration],
+        repo_root=tmp_path,
+        review_channel_path=_review_channel_path(tmp_path),
+    )
+
+    packet = review_state["packets"][0]
+
+    assert packet["lifecycle_current_state"] == "applied"
+    assert packet["plan_ingestion"]["status"] == "inserted"
+    assert review_state["packet_continuity"]["sink_counts"]["applied_to_plan"] == 1
+
+
+def test_compact_packet_continuity_prioritizes_latest_live_packets() -> None:
+    index = build_packet_continuity_index(
+        [
+            {
+                "packet_id": "rev_pkt_0001",
+                "status": "dismissed",
+                "disposition": {"sink": "archived"},
+            },
+            {
+                "packet_id": "rev_pkt_2670",
+                "status": "pending",
+                "disposition": {"sink": "queued"},
+            },
+            {
+                "packet_id": "rev_pkt_2671",
+                "status": "pending",
+                "disposition": {"sink": "queued"},
+            },
+        ]
+    ).to_dict()
+
+    compact = compact_packet_continuity_index(index, limit=1)
+
+    assert compact["sink_counts"]["live_queue"] == 2
+    assert compact["rows"][0]["packet_id"] == "rev_pkt_2671"
+    assert compact["rows"][0]["sink"] == "live_queue"
 
 
 def test_stale_pending_packet_gets_archived_disposition(tmp_path: Path) -> None:
@@ -367,3 +494,29 @@ def test_plan_target_apply_appends_idempotent_master_plan_row(
     assert text.count("source `rev_pkt_plan`") == 1
     assert "Generated Review Packet Plan Integrations" in text
     assert "`PKT-REV-PKT-PLAN`" in text
+
+
+def test_plan_target_apply_fails_without_master_plan_authority(
+    tmp_path: Path,
+) -> None:
+    packet = _posted_packet(
+        packet_id="rev_pkt_plan",
+        target_kind="plan",
+        target_ref="plan://MP-377",
+        summary="Integrate lifecycle packet into plan",
+    )
+    event = {
+        "event_type": "packet_applied",
+        "timestamp_utc": "2026-04-29T01:10:00Z",
+        "metadata": {"actor": "claude"},
+    }
+
+    result = maybe_append_packet_plan_row(
+        repo_root=tmp_path,
+        packet=packet,
+        event=event,
+    )
+
+    assert result["status"] == "failed"
+    assert result["reason"] == "master_plan_authority_unresolved"
+    assert not (tmp_path / "dev/state/plan_index.jsonl").exists()

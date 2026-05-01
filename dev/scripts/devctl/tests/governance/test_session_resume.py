@@ -218,7 +218,7 @@ class TestSessionCachePacket(unittest.TestCase):
 
     def test_defaults(self) -> None:
         pkt = SessionCachePacket()
-        self.assertEqual(pkt.schema_version, 4)
+        self.assertEqual(pkt.schema_version, 7)
         self.assertEqual(pkt.contract_id, "SessionCachePacket")
         self.assertEqual(pkt.role, "implementer")
         self.assertEqual(pkt.blockers, "none")
@@ -294,6 +294,49 @@ class TestSessionCachePacket(unittest.TestCase):
         )
         self.assertEqual(restored.agent_session_continuation.agent_id, "claude")
         self.assertEqual(restored.agent_session_continuation.dirty_paths_count, 105)
+
+    def test_roundtrip_with_runtime_spine_and_packet_debt(self) -> None:
+        original = SessionCachePacket(
+            runtime_spine_closure={
+                "contract_id": "RuntimeSpineClosureState",
+                "ok": True,
+            },
+            packet_continuity_index={
+                "contract_id": "PacketContinuityIndex",
+                "packet_count": 1,
+                "sink_counts": {"carry_forward_debt": 1},
+            },
+            packet_carry_forward_debt=(
+                {
+                    "contract_id": "PacketCarryForwardDebt",
+                    "packet_id": "rev_pkt_2649",
+                },
+            ),
+            continuity_attention={
+                "contract_id": "StartupContinuityAttention",
+                "requires_attention": True,
+                "packet_debt_count": 1,
+            },
+        )
+
+        restored = packet_from_mapping(original.to_dict())
+
+        self.assertEqual(
+            restored.runtime_spine_closure["contract_id"],
+            "RuntimeSpineClosureState",
+        )
+        self.assertEqual(
+            restored.packet_continuity_index["contract_id"],
+            "PacketContinuityIndex",
+        )
+        self.assertEqual(
+            restored.packet_carry_forward_debt[0]["packet_id"],
+            "rev_pkt_2649",
+        )
+        self.assertEqual(
+            restored.continuity_attention["contract_id"],
+            "StartupContinuityAttention",
+        )
 
     def test_roundtrip_with_authority_snapshot(self) -> None:
         original = SessionCachePacket(
@@ -2271,6 +2314,39 @@ class TestLastReviewedSha(unittest.TestCase):
 
         self.assertIn("`dev/guides/SYSTEM_MAP.md`", md)
 
+    def test_render_bootstrap_includes_continuity_attention(self) -> None:
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_bootstrap,
+        )
+
+        packet = SessionCachePacket(
+            role="implementer",
+            continuity_attention={
+                "contract_id": "StartupContinuityAttention",
+                "message": "After compaction, read typed state before acting.",
+                "requires_attention": True,
+                "runtime_spine_ok": False,
+                "runtime_spine_risky_item_count": 2,
+                "runtime_spine_violation_count": 1,
+                "packet_debt_count": 1,
+                "packet_debt_ids": ["rev_pkt_2649"],
+                "runtime_spine_attention_items": [
+                    {
+                        "name": "PacketContinuityState",
+                        "status": "partial",
+                        "owner_refs": ["MP377-P0-T08"],
+                    }
+                ],
+            },
+        )
+
+        md = render_bootstrap(packet)
+
+        self.assertIn("### Continuity Attention", md)
+        self.assertIn("rev_pkt_2649", md)
+        self.assertIn("PacketContinuityState", md)
+        self.assertIn("session-resume --role implementer --format bootstrap", md)
+
     def test_render_bootstrap_includes_connectivity_registry_summary(self) -> None:
         from dev.scripts.devctl.commands.governance.session_resume_packet import (
             SessionCachePacket,
@@ -3176,7 +3252,7 @@ class TestV2Fields(unittest.TestCase):
             d["agent_session_continuation"]["continuation_id"],
             "agent_continuation:abc123",
         )
-        self.assertEqual(d["schema_version"], 4)
+        self.assertEqual(d["schema_version"], 7)
 
 
 class TestGuardBundleFromReviewScope(unittest.TestCase):

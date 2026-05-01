@@ -74,14 +74,33 @@ def build_event_bridge_liveness_projection(
     )
     bridge_liveness["publisher_stop_reason"] = str(publisher.get("stop_reason") or "")
     instruction_text = event_current_instruction(review_state)
-    instruction_rev = (
-        sha256(instruction_text.strip().encode("utf-8")).hexdigest()[:12]
-        if instruction_text.strip()
-        else ""
-    )
-    # Compatibility projection only: the event-backed reducer does not observe
-    # reviewer-owned ACK/worktree truth, so these fields stay synthetic or
-    # fail-closed instead of pretending to be authoritative runtime facts.
+    # Per rev_pkt_2546/2552 (Plan 4.1 Scope 1): the typed reviewer_checkpoint
+    # event carries the reviewer-owned revision directly. Prefer that revision
+    # over an SHA-of-text synthesis so ``bridge_validation.py`` reads the same
+    # revision Codex wrote at checkpoint time. The bridge_snapshot is now a
+    # second-tier fallback for legacy projections; the SHA-of-text path is
+    # the last fallback for sessions that have neither typed event nor live
+    # bridge snapshot. Compatibility projection only -- ACK/worktree truth
+    # still stays fail-closed below.
+    instruction_rev = ""
+    typed_checkpoint = review_state.get("latest_reviewer_checkpoint") or {}
+    if isinstance(typed_checkpoint, Mapping):
+        instruction_rev = str(
+            typed_checkpoint.get("current_instruction_revision") or ""
+        ).strip()
+    if not instruction_rev and bridge_snapshot is not None:
+        snapshot_rev = str(
+            getattr(bridge_snapshot, "metadata", {}).get(
+                "current_instruction_revision"
+            )
+            or ""
+        ).strip()
+        if snapshot_rev:
+            instruction_rev = snapshot_rev
+    if not instruction_rev and instruction_text.strip():
+        instruction_rev = sha256(
+            instruction_text.strip().encode("utf-8")
+        ).hexdigest()[:12]
     bridge_liveness["current_instruction_revision"] = instruction_rev
     bridge_liveness["claude_ack_revision"] = ""
     bridge_liveness["claude_ack_current"] = False
@@ -107,6 +126,15 @@ def build_event_bridge_liveness_projection(
         bridge_liveness
     )
     bridge_liveness["session_liveness_signals"] = ()
+    # NOTE per Codex rev_pkt_2326/2337: bridge-poll consumers must NOT rely
+    # on bridge_liveness for canonical active-packet authority. The typed
+    # ReviewBridgeState schema does not round-trip new fields (per
+    # rev_pkt_2271 #3). Consumers should read
+    # ``review_state["coordination_state"]`` and
+    # ``review_state["agent_work_board"]`` directly, OR call
+    # ``review_channel.active_packet_authority.current_active_packet_for_agent``.
+    # Bridge prose remains compatibility projection per CLAUDE.md Platform
+    # Boundary doctrine; it is not authority for active-packet truth.
     return bridge_liveness
 
 

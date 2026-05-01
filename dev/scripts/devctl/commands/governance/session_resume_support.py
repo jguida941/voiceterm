@@ -30,10 +30,17 @@ from ...runtime.control_plane_resolve import (
     read_json_artifact,
 )
 from ...runtime.control_topology import derive_startup_control_truth
+from ...runtime.review_state_locator import load_current_review_state
 from ...runtime.review_state_parser import review_state_from_payload
 from ...runtime.reviewer_runtime_models import (
     has_active_remote_control_attachment,
     remote_control_attachment_from_mapping,
+)
+from ...runtime.startup_continuity import (
+    startup_continuity_attention,
+    startup_packet_continuity_index,
+    startup_packet_carry_forward_debt,
+    startup_runtime_spine_closure,
 )
 from ...runtime.surface_provenance import (
     attach_surface_provenance,
@@ -171,6 +178,19 @@ def build_from_sources(
         else {}
     )
     typed_review_state = review_state or review_state_from_payload(review_state_payload)
+    if review_state is None and not _review_state_has_packets(typed_review_state):
+        loaded_review_state = load_current_review_state(
+            repo_root,
+            governance=governance,
+            prefer_cached_projection=True,
+        )
+        if _review_state_has_packets(loaded_review_state):
+            typed_review_state = loaded_review_state
+            to_dict = getattr(typed_review_state, "to_dict", None)
+            if callable(to_dict):
+                payload = to_dict()
+                if isinstance(payload, dict):
+                    review_state_payload = payload
     attention_payload = _extract_attention_payload(
         sources,
         default_status=model.attention_status,
@@ -189,6 +209,17 @@ def build_from_sources(
     )
     packet_inbox = review_state_context.packet_inbox
     connectivity_registry = _session_connectivity_registry(repo_root)
+    runtime_spine_closure = startup_runtime_spine_closure(repo_root)
+    packet_carry_forward_debt = startup_packet_carry_forward_debt(
+        repo_root=repo_root,
+        review_state=typed_review_state,
+    )
+    packet_continuity_index = startup_packet_continuity_index(typed_review_state)
+    continuity_attention = startup_continuity_attention(
+        runtime_spine_closure=runtime_spine_closure,
+        packet_carry_forward_debt=packet_carry_forward_debt,
+        packet_continuity_index=packet_continuity_index,
+    )
     key_surfaces = _session_key_surfaces(governance)
     open_findings = _resolve_open_findings(
         repo_root=repo_root,
@@ -305,6 +336,20 @@ def _collaboration_payload_from_review_state(
         if isinstance(payload, dict) and isinstance(payload.get("collaboration"), dict):
             return dict(payload["collaboration"])
     return {}
+
+
+def _review_state_has_packets(review_state: object | None) -> bool:
+    if review_state is None:
+        return False
+    packets = getattr(review_state, "packets", None)
+    if packets:
+        return True
+    to_dict = getattr(review_state, "to_dict", None)
+    if callable(to_dict):
+        payload = to_dict()
+        if isinstance(payload, dict):
+            return bool(payload.get("packets"))
+    return False
 
 
 def _attach_review_state_provenance(

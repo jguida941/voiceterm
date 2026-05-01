@@ -58,7 +58,7 @@ def load_pending_packet_queue(
         if not packet_id:
             continue
         if event_type == "packet_posted":
-            packets[packet_id] = dict(event)
+            packets[packet_id] = _packet_post_snapshot(event)
         elif event_type in (
             "packet_acked",
             "packet_dismissed",
@@ -90,6 +90,18 @@ def load_pending_packet_queue(
         stale_packet_count=len(stale_packets),
         control_packets=tuple(control_packets),
     )
+
+
+def _packet_post_snapshot(event: Mapping[str, object]) -> dict[str, object]:
+    """Normalize post rows so fast queue readers keep the event clock."""
+    packet = dict(event)
+    event_id = str(event.get("event_id") or "").strip()
+    if event_id and not str(packet.get("latest_event_id") or "").strip():
+        packet["latest_event_id"] = event_id
+    timestamp = str(event.get("timestamp_utc") or "").strip()
+    if timestamp and not str(packet.get("posted_at") or "").strip():
+        packet["posted_at"] = timestamp
+    return packet
 
 
 def _apply_packet_transition_snapshot(

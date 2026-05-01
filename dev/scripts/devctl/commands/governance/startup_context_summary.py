@@ -7,6 +7,7 @@ from ...runtime.authority_snapshot import (
     summary_blockers_csv as _summary_blockers_csv,
     summary_next_command as _summary_next_command,
 )
+from ...runtime.startup_continuity_render import continuity_attention_summary
 from .startup_context_render import publication_backlog_count, publication_backlog_guidance
 from .startup_context_recovery import append_recovery_authority_summary_lines
 
@@ -136,6 +137,17 @@ def render_summary(ctx_dict: dict) -> str:
     if isinstance(anchors, list):
         lines.append(f"packet_intent_anchors={len(anchors)}")
     append_recovery_authority_summary_lines(ctx_dict, lines)
+    packet_continuity = ctx_dict.get("packet_continuity_index")
+    if isinstance(packet_continuity, dict):
+        counts = packet_continuity.get("sink_counts")
+        if isinstance(counts, dict) and counts:
+            count_text = ",".join(
+                f"{key}:{counts[key]}" for key in sorted(counts)
+            )
+            digest = str(packet_continuity.get("digest") or "").strip()
+            digest_text = f" digest={digest[:19]}" if digest else ""
+            lines.append(f"packet_continuity={count_text}{digest_text}")
+    lines.append(continuity_attention_summary(ctx_dict.get("continuity_attention")))
     lines.extend(summary_coordination_lines(ctx_dict))
     ahead = publication_backlog_count(ctx_dict)
     if ahead is not None and ahead > 0:

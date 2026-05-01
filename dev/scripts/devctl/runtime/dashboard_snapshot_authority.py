@@ -13,6 +13,12 @@ from .agent_mind_projection_read import (
     read_agent_mind_projection,
 )
 from .dashboard_codex_sessions import active_codex_sessions_section
+from .packet_continuity import (
+    compact_packet_continuity_index,
+    packet_continuity_index_from_payload,
+)
+
+_AGENT_MIND_PROVIDERS = ("codex", "claude")
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,11 +42,17 @@ def build_dashboard_snapshot(
     repo_root: Path = REPO_ROOT,
     view: str = "overview",
     role: str = "dashboard",
+    include_review_state: bool = False,
 ) -> dict[str, Any]:
     """Build the shared DashboardSnapshot through the CLI builder adapter."""
     from ..commands.dashboard import build_snapshot
 
-    snapshot = build_snapshot(repo_root=repo_root, view=view, role=role)
+    snapshot = build_snapshot(
+        repo_root=repo_root,
+        view=view,
+        role=role,
+        include_review_state=include_review_state,
+    )
     if (
         snapshot.get("contract_id") == DashboardSnapshot.contract_id
         and snapshot.get("schema_version") == DashboardSnapshot.schema_version
@@ -65,22 +77,86 @@ def normalize_dashboard_snapshot(
     state = review_state if review_state is not None else _mapping(payload.get("review_state"))
     if not state:
         state = _mapping(payload.get("_review_state"))
-    payload["agent_mind"] = _agent_mind_section(repo_root)
+    payload["agent_minds"] = _agent_minds_section(repo_root)
+    payload["agent_mind"] = payload["agent_minds"].get(
+        "codex",
+        _agent_mind_section(repo_root, provider="codex"),
+    )
     payload["session_outcomes"] = _session_outcomes_section(repo_root, state)
     payload["ack_freshness"] = _ack_freshness_section(state)
     payload["session_posture"] = _session_posture_section(payload, state)
     payload["session_liveness"] = _session_liveness_section(state)
+    payload["packet_continuity_index"] = _packet_continuity_section(payload, state)
+    if "continuity_attention" not in payload:
+        payload["continuity_attention"] = {}
     payload["active_codex_sessions"] = active_codex_sessions_section(
         repo_root=repo_root,
         session_posture=payload.get("session_posture"),
+        review_state=state,
     )
     payload["system_topology"] = _system_topology_section(repo_root)
+    # Per Codex rev_pkt_2326/2337: dashboard typed-state must consume the
+    # canonical predicate so operators see typed observed-runtime answer
+    # rather than legacy queue priority. Surface alongside legacy
+    # active_codex_sessions; consumers (operator console) trust this over
+    # legacy when they diverge.
+    payload["canonical_active_packets"] = _canonical_active_packets_section(state)
+    payload["coordination_state"] = dict(state.get("coordination_state") or {})
+    # Per rev_pkt_2498 (6): expose typed wake/attention surfaces at top of
+    # dashboard payload so operator console + dashboard renderers can read
+    # pivot_required + wake_required + source_latest_event_id as
+    # machine-readable fields, not prose.
+    reviewer_runtime = state.get("reviewer_runtime") if isinstance(state, Mapping) else None
+    rr = reviewer_runtime if isinstance(reviewer_runtime, Mapping) else {}
+    payload["packet_attention"] = dict(rr.get("packet_attention") or {})
+    payload["agent_runtime_clock"] = dict(rr.get("agent_runtime_clock") or {})
+    payload["inbox_observation"] = dict(rr.get("inbox_observation") or {})
     return payload
 
 
-def _agent_mind_section(repo_root: Path) -> dict[str, Any]:
-    path = agent_mind_projection_path(repo_root, provider="codex")
-    payload = read_agent_mind_projection(repo_root, provider="codex")
+def _canonical_active_packets_section(
+    state: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Return ``{agent_id: canonical_active_packet_id}`` per typed predicate."""
+    from ..review_channel.active_packet_authority import (
+        current_active_packet_for_agent,
+    )
+
+    agent_sync = state.get("agent_sync") if isinstance(state, Mapping) else None
+    agents: dict[str, Any] = {}
+    if isinstance(agent_sync, Mapping):
+        agents_block = agent_sync.get("agents")
+        if isinstance(agents_block, Mapping):
+            for agent_id in agents_block:
+                agents[str(agent_id)] = current_active_packet_for_agent(
+                    state, str(agent_id),
+                )
+    return agents
+
+
+def _packet_continuity_section(
+    payload: Mapping[str, Any],
+    review_state: Mapping[str, Any],
+) -> dict[str, Any]:
+    existing = _mapping(payload.get("packet_continuity_index"))
+    if existing:
+        return existing
+    index = packet_continuity_index_from_payload(review_state)
+    if not index:
+        return {}
+    return compact_packet_continuity_index(index)
+
+
+def _agent_minds_section(repo_root: Path) -> dict[str, Any]:
+    return {
+        provider: _agent_mind_section(repo_root, provider=provider)
+        for provider in _AGENT_MIND_PROVIDERS
+    }
+
+
+def _agent_mind_section(repo_root: Path, *, provider: str) -> dict[str, Any]:
+    path = agent_mind_projection_path(repo_root, provider=provider)
+    payload = read_agent_mind_projection(repo_root, provider=provider)
     if not payload:
         return dict(available=False, path=_rel(path, repo_root), events=[])
     events = payload.get("events")

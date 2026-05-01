@@ -43,9 +43,9 @@ from .status_projection_commit_bundle import (
 )
 from .projection_provenance import (
     PROVENANCE_INFERRED_FIELDS,
-    PROVENANCE_OBSERVED_FIELDS,
     REVIEW_STATE_SOURCE_CONTRACT,
     STATUS_SOURCE_COMMAND,
+    projection_observed_fields,
     projection_source_identity,
 )
 from .registry_context import AgentRegistryContext
@@ -153,19 +153,20 @@ def build_bridge_review_state(
         or ""
     ).strip()
 
+    source_identity = projection_source_identity(
+        typed_bridge_liveness=typed_bridge_liveness,
+        generation_id=commit_bundle.commit_pipeline.generation_id,
+        head_sha=head_sha,
+    )
     registry_context = AgentRegistryContext(
         timestamp=context.timestamp,
         plan_id=context.plan_id,
         snapshot_id=commit_bundle.snapshot_id,
         zref=commit_bundle.zref,
-        source_identity=projection_source_identity(
-            typed_bridge_liveness=typed_bridge_liveness,
-            generation_id=commit_bundle.commit_pipeline.generation_id,
-            head_sha=head_sha,
-        ),
+        source_identity=source_identity,
         source_contract=REVIEW_STATE_SOURCE_CONTRACT,
         source_command=STATUS_SOURCE_COMMAND,
-        observed_fields=PROVENANCE_OBSERVED_FIELDS,
+        observed_fields=projection_observed_fields(source_identity=source_identity),
         inferred_fields=PROVENANCE_INFERRED_FIELDS,
     )
     review_state = build_review_state_payload(

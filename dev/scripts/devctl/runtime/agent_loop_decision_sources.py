@@ -1,0 +1,336 @@
+"""Source readers for AgentLoopDecision."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass
+
+from ..review_channel.agent_packet_attention import packet_attention_for_agent
+from ..review_channel.agent_packet_focus import (
+    AgentPacketFocus,
+    packet_focus_for_agent,
+)
+from ..review_channel.packet_contract import normalize_packet_route_role
+from .agent_loop_decision_grants import (
+    action_routing_decision,
+    authority_snapshot,
+    granted_capabilities_for_actor,
+    lane_edit_allowed,
+    may_actor_mutate,
+    merged_actions,
+    scoped_session_mutation_mode_allows,
+)
+from .agent_loop_operator_override import (
+    AgentLoopOperatorOverride,
+    apply_operator_override_actions,
+    operator_override_from_request,
+)
+from .value_coercion import (
+    coerce_bool,
+    coerce_int,
+    coerce_mapping as _mapping,
+    coerce_text as _text,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class AgentLoopContext:
+    review_state: Mapping[str, object]
+    dashboard: Mapping[str, object]
+    actor: str
+    role: str
+    session: str
+    master_plan: Mapping[str, object]
+    clock: Mapping[str, object]
+    attention: Mapping[str, object]
+    authority: Mapping[str, object]
+    action_routing: Mapping[str, object]
+    allowed_actions: tuple[str, ...]
+    blocked_actions: tuple[str, ...]
+    granted_capabilities: tuple[str, ...]
+    operator_override: AgentLoopOperatorOverride
+    may_mutate: bool
+    top_blocker: str
+    next_action: str
+    next_command: str
+    current_instruction_revision: str
+    loop_intent: str
+    requested_plan_ref: str
+    requested_packet_id: str
+
+
+PacketState = AgentPacketFocus
+
+
+def build_agent_loop_context(
+    *,
+    review_state: Mapping[str, object],
+    dashboard: Mapping[str, object],
+    actor_id: object,
+    actor_role: object = "",
+    session_id: object = "",
+    loop_intent: object = "",
+    requested_plan_ref: object = "",
+    requested_packet_id: object = "",
+    master_plan: object = None,
+    operator_override_requested: object = False,
+    operator_override_reason: object = "",
+    operator_override_scope: object = "edit-only",
+    operator_override_by: object = "operator",
+) -> AgentLoopContext:
+    actor = _text(actor_id)
+    role = normalize_packet_route_role(actor_role)
+    session = _text(session_id)
+    control_plane = _mapping(dashboard.get("control_plane"))
+    now = _mapping(dashboard.get("now"))
+    authority = authority_snapshot(review_state=review_state, dashboard=dashboard)
+    action_routing = action_routing_decision(
+        review_state=review_state,
+        dashboard=dashboard,
+    )
+    grants = granted_capabilities_for_actor(
+        review_state=review_state,
+        dashboard=dashboard,
+        actor=actor,
+        role=role,
+        session=session,
+    )
+    edit_allowed = lane_edit_allowed(
+        review_state=review_state,
+        dashboard=dashboard,
+    ) and scoped_session_mutation_mode_allows(
+        review_state=review_state,
+        dashboard=dashboard,
+        actor=actor,
+        role=role,
+        session=session,
+    )
+    allowed_actions = merged_actions(authority, action_routing, key="allowed_actions")
+    blocked_actions = merged_actions(authority, action_routing, key="blocked_actions")
+    override = operator_override_from_request(
+        requested=operator_override_requested,
+        reason=operator_override_reason,
+        scope=operator_override_scope,
+        requested_by=operator_override_by,
+        requested_plan_ref=requested_plan_ref,
+        requested_packet_id=requested_packet_id,
+    )
+    allowed_actions, blocked_actions = apply_operator_override_actions(
+        allowed_actions=allowed_actions,
+        blocked_actions=blocked_actions,
+        operator_override=override,
+    )
+    reviewer_runtime = _mapping(review_state.get("reviewer_runtime"))
+    return AgentLoopContext(
+        review_state=review_state,
+        dashboard=dashboard,
+        actor=actor,
+        role=role,
+        session=session,
+        master_plan=_mapping(master_plan) or _mapping(review_state.get("master_plan")),
+        clock=_mapping(reviewer_runtime.get("agent_runtime_clock"))
+        or _mapping(dashboard.get("agent_runtime_clock")),
+        attention=asdict(
+            packet_attention_for_agent(
+                review_state,
+                actor=actor,
+                role=role,
+                session=session,
+                fallback_attention=scoped_packet_attention(
+                    review_state=review_state,
+                    dashboard=dashboard,
+                    actor=actor,
+                    session=session,
+                ),
+            )
+        ),
+        authority=authority,
+        action_routing=action_routing,
+        allowed_actions=allowed_actions,
+        blocked_actions=blocked_actions,
+        granted_capabilities=grants,
+        operator_override=override,
+        may_mutate=override.edit_allowed or may_actor_mutate(
+            granted_capabilities=grants,
+            allowed_actions=allowed_actions,
+            blocked_actions=blocked_actions,
+            edit_allowed=edit_allowed,
+        ),
+        top_blocker=_text(control_plane.get("top_blocker"))
+        or _text(now.get("top_blocker")),
+        next_action=_text(control_plane.get("next_action"))
+        or _text(now.get("next_action")),
+        next_command=_text(control_plane.get("next_command"))
+        or _text(dashboard.get("next_command")),
+        current_instruction_revision=current_instruction_revision(
+            review_state=review_state,
+            dashboard=dashboard,
+        ),
+        loop_intent=normalize_loop_intent(loop_intent),
+        requested_plan_ref=_text(requested_plan_ref),
+        requested_packet_id=_text(requested_packet_id),
+    )
+
+
+def resolve_packet_state(ctx: AgentLoopContext) -> PacketState:
+    return packet_focus_for_agent(
+        ctx.review_state,
+        actor=ctx.actor,
+        role=ctx.role,
+        session=ctx.session,
+        attention=ctx.attention,
+    )
+
+
+def blocker_active(ctx: AgentLoopContext) -> bool:
+    return bool(ctx.top_blocker and ctx.top_blocker not in {"n/a", "none"})
+
+
+def attention_requires_pivot(ctx: AgentLoopContext, packets: PacketState) -> bool:
+    if not ctx.attention:
+        return False
+    if (
+        packets.active_packet_id
+        and packets.active_packet_id == packets.attention_packet_id
+        and _text(latest_session_outcome(ctx).get("outcome")) != "completed_handoff"
+    ):
+        return False
+    has_attention = bool(
+        packets.attention_packet_id
+        or _text(ctx.attention.get("latest_attention_packet_id"))
+    )
+    return has_attention and (
+        coerce_bool(ctx.attention.get("wake_required"))
+        or coerce_bool(ctx.attention.get("pivot_required"))
+        or coerce_int(ctx.attention.get("pending_packet_count")) > 0
+    )
+
+
+def latest_session_outcome(ctx: AgentLoopContext) -> Mapping[str, object]:
+    candidates = [
+        row for row in session_outcome_rows(ctx)
+        if outcome_matches_scope(
+            row,
+            actor=ctx.actor,
+            role=ctx.role,
+            session=ctx.session,
+        )
+    ]
+    return candidates[-1] if candidates else {}
+
+
+def session_identity_required(ctx: AgentLoopContext) -> bool:
+    if ctx.session or ctx.role not in {"implementer", "coder"}:
+        return False
+    rows = _mapping(ctx.review_state.get("agent_work_board")).get("rows")
+    if not isinstance(rows, list):
+        return False
+    matching = [
+        row for row in rows
+        if isinstance(row, Mapping)
+        and _text(row.get("actor_id")) == ctx.actor
+        and normalize_packet_route_role(row.get("role")) in {"implementer", "coder"}
+    ]
+    return len(matching) > 1
+
+
+def required_action_for_blocker(top_blocker: str) -> str:
+    blocker = top_blocker.lower()
+    if "startup authority" in blocker or "import_index_atomicity" in blocker:
+        return "repair_startup_authority"
+    if "checkpoint" in blocker:
+        return "cut_checkpoint"
+    if "review" in blocker:
+        return "wait_for_review"
+    return "resolve_blocker"
+
+
+def role_is_observer(role: str) -> bool:
+    return role in {"dashboard", "observer", "operator"}
+
+
+def normalize_loop_intent(value: object) -> str:
+    text = _text(value).lower().replace("_", "-")
+    if text in {"", "auto"}:
+        return "auto"
+    if text in {"wake", "wake-once"}:
+        return "wake"
+    if text in {"iterate", "iteration", "loop"}:
+        return "iterate"
+    if text in {"plan", "plan-target"}:
+        return "plan"
+    if text in {"packet", "packet-target"}:
+        return "packet"
+    if text in {"full-plan", "full_plan", "autonomous-plan"}:
+        return "full-plan"
+    return "auto"
+
+
+def current_instruction_revision(
+    *,
+    review_state: Mapping[str, object],
+    dashboard: Mapping[str, object],
+) -> str:
+    return (
+        _text(_mapping(review_state.get("current_session")).get(
+            "current_instruction_revision"
+        ))
+        or _text(_mapping(dashboard.get("ack_freshness")).get(
+            "current_instruction_revision"
+        ))
+    )
+
+
+def scoped_packet_attention(
+    *,
+    review_state: Mapping[str, object],
+    dashboard: Mapping[str, object],
+    actor: str,
+    session: str,
+) -> Mapping[str, object]:
+    attention = _mapping(_mapping(review_state.get("reviewer_runtime")).get(
+        "packet_attention"
+    )) or _mapping(dashboard.get("packet_attention"))
+    observed_actor = _text(attention.get("observation_actor_id"))
+    observed_session = _text(attention.get("observation_session_id"))
+    if observed_actor and actor and observed_actor != actor:
+        return {}
+    if observed_session and session and observed_session != session:
+        return {}
+    return attention
+
+
+def session_outcome_rows(ctx: AgentLoopContext) -> tuple[Mapping[str, object], ...]:
+    rows: list[Mapping[str, object]] = []
+    raw_collab = _mapping(ctx.review_state.get("collaboration")).get("session_outcomes")
+    raw_latest = _mapping(ctx.dashboard.get("session_outcomes")).get("latest")
+    if isinstance(raw_collab, list):
+        rows.extend(row for row in raw_collab if isinstance(row, Mapping))
+    if isinstance(raw_latest, list):
+        rows.extend(row for row in raw_latest if isinstance(row, Mapping))
+    return tuple(rows)
+
+
+def outcome_matches_scope(
+    row: Mapping[str, object],
+    *,
+    actor: str,
+    role: str,
+    session: str,
+) -> bool:
+    actor_key = actor.lower()
+    if actor_key not in {
+        _text(row.get("session_actor_id")).lower(),
+        _text(row.get("provider")).lower(),
+    }:
+        return False
+    row_role = normalize_packet_route_role(row.get("session_actor_role"))
+    if role and row_role and row_role != role:
+        return False
+    if session:
+        return session in {
+            _text(row.get("session_id")),
+            _text(row.get("session_name")),
+            _text(row.get("prepared_session_token")),
+        }
+    return True

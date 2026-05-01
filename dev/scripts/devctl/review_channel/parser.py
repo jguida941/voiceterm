@@ -59,6 +59,8 @@ REVIEW_ACTION_CHOICES = (
     "watch",
     "inbox",
     "operator-inbox",
+    "sync-status",
+    "expire-packets",
     "ack",
     "dismiss",
     "apply",

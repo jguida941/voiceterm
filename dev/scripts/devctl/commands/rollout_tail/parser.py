@@ -7,8 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from ...runtime.rollout_event import RolloutEvent
+from .claude_events import classify_claude_event
 from .constants import PROVIDER_CLAUDE, PROVIDER_CODEX
 from .discovery import session_id_from_path
+from .message_text import extract_message_text
 
 
 def parse_rollout_file(
@@ -50,7 +52,7 @@ def classify_event(
     if provider == PROVIDER_CODEX:
         return _classify_codex(raw, session_id=session_id)
     if provider == PROVIDER_CLAUDE:
-        return _classify_claude(raw, session_id=session_id)
+        return classify_claude_event(raw, session_id=session_id)
     return RolloutEvent(
         timestamp=str(raw.get("timestamp", "")),
         provider=provider,
@@ -155,53 +157,6 @@ def _decode_arguments(args: Any) -> Any:
         except json.JSONDecodeError:
             return None
     return None
-
-
-def extract_message_text(payload: dict[str, Any]) -> str:
-    """Flatten a message payload's content array into a single string."""
-    content = payload.get("content")
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        parts: list[str] = []
-        for entry in content:
-            if isinstance(entry, dict):
-                text = entry.get("text") or entry.get("content") or ""
-                if isinstance(text, str) and text:
-                    parts.append(text)
-        return " ".join(parts)
-    return ""
-
-
-def _classify_claude(raw: dict[str, Any], *, session_id: str) -> RolloutEvent:
-    event_type = str(raw.get("type", "unknown"))
-    is_error = event_type == "error" or bool(raw.get("isError"))
-    summary = _claude_summary(raw)
-    return RolloutEvent(
-        timestamp=str(raw.get("timestamp", "")),
-        provider=PROVIDER_CLAUDE,
-        session_id=session_id,
-        event_type=event_type,
-        raw_payload=raw,
-        is_escalation_request=False,
-        is_error=is_error,
-        summary=summary,
-    )
-
-
-def _claude_summary(raw: dict[str, Any]) -> str:
-    event_type = str(raw.get("type", "unknown"))
-    if event_type in {"user", "assistant"}:
-        message = raw.get("message") or {}
-        if isinstance(message, dict):
-            text = extract_message_text(message)
-            if text:
-                return f"{event_type}: {text[:160]}"
-        return event_type
-    if event_type == "system":
-        subtype = raw.get("subtype") or raw.get("name") or ""
-        return f"system[{subtype}]" if subtype else "system"
-    return event_type
 
 
 def _first_nonempty(raw: dict[str, Any]) -> str:

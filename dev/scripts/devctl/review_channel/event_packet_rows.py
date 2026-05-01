@@ -51,6 +51,7 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
     return project_packet_lifecycle(ReviewPacketRow(
         packet_id=event.get("packet_id"),
         trace_id=event.get("trace_id"),
+        plan_id=event.get("plan_id"),
         latest_event_id=event.get("event_id"),
         from_agent=event.get("from_agent"),
         to_agent=event.get("to_agent"),
@@ -72,6 +73,8 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         anchor_refs=list(event.get("anchor_refs") or []),
         intake_ref=event.get("intake_ref"),
         mutation_op=event.get("mutation_op"),
+        target_role=event.get("target_role"),
+        target_session_id=event.get("target_session_id"),
         pipeline_generation=event.get("pipeline_generation"),
         staged_snapshot_hash=event.get("staged_snapshot_hash"),
         guard_results_summary=event.get("guard_results_summary"),
@@ -108,6 +111,16 @@ def apply_packet_transition(
     event_type = str(event.get("event_type") or "").strip()
     next_packet["latest_event_id"] = event.get("event_id")
     next_packet["_sort_timestamp"] = event.get("timestamp_utc")
+    if event_type in {
+        "packet_plan_ingestion_recorded",
+        "packet_plan_ingestion_failed",
+        "packet_plan_integration_recorded",
+        "packet_plan_integration_failed",
+    }:
+        plan_payload = _plan_integration_payload(event)
+        next_packet["plan_ingestion"] = plan_payload
+        next_packet["plan_integration"] = plan_payload
+        return project_packet_lifecycle(next_packet)
     next_packet["status"] = event.get("status") or action_request_lifecycle_status(
         event_type
     )
@@ -189,6 +202,27 @@ def apply_packet_transition(
             next_packet["execution_started_at_utc"] = event.get("timestamp_utc")
             next_packet["execution_started_by"] = actor or packet.get("to_agent")
     return apply_lifecycle_transition(next_packet, event)
+
+
+def _plan_integration_payload(event: Mapping[str, object]) -> dict[str, object]:
+    payload = event.get("plan_ingestion")
+    if not isinstance(payload, Mapping):
+        payload = event.get("plan_integration")
+    if not isinstance(payload, Mapping):
+        payload = event.get("metadata")
+    if not isinstance(payload, Mapping):
+        payload = {}
+    result = {str(key): value for key, value in payload.items() if str(key)}
+    result.setdefault(
+        "contract_id",
+        "PacketPlanIntegration",
+    )
+    result.setdefault("event_id", str(event.get("event_id") or "").strip())
+    result.setdefault(
+        "recorded_at_utc",
+        str(event.get("timestamp_utc") or "").strip(),
+    )
+    return result
 
 
 def action_request_lifecycle_status(event_type: str) -> str:

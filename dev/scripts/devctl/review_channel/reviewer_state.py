@@ -228,7 +228,26 @@ def write_reviewer_checkpoint(
             next_instruction_revision=effective_instruction_revision or "",
         )
 
-    rewrite_bridge_markdown(bridge_path, transform=transform)
+    def emit_typed_checkpoint(_: str) -> None:
+        assert write is not None
+        _append_typed_reviewer_checkpoint_event(
+            repo_root=repo_root,
+            reviewer_mode=normalized_mode,
+            reason=reason,
+            reviewer_actor=normalized_actor,
+            current_instruction=checkpoint.current_instruction.strip(),
+            current_instruction_revision=str(
+                getattr(write, "current_instruction_revision", "") or ""
+            ),
+            open_findings=checkpoint.open_findings.strip(),
+            worktree_hash=str(getattr(write, "worktree_hash", "") or ""),
+        )
+
+    rewrite_bridge_markdown(
+        bridge_path,
+        transform=transform,
+        before_write=emit_typed_checkpoint,
+    )
     assert write is not None
     write = dataclasses.replace(
         write,
@@ -241,6 +260,116 @@ def write_reviewer_checkpoint(
         bridge_path=bridge_path,
     )
     return write
+
+
+def _append_typed_reviewer_checkpoint_event(
+    *,
+    repo_root: Path,
+    reviewer_mode: str,
+    reason: str,
+    reviewer_actor: str,
+    current_instruction: str,
+    current_instruction_revision: str,
+    open_findings: str,
+    worktree_hash: str,
+) -> None:
+    """Append a typed reviewer_checkpoint event before bridge markdown advances."""
+    import secrets
+    from hashlib import sha256
+
+    from ..repo_packs import active_path_config
+    from ..time_utils import utc_timestamp
+    from .event_store import (
+        DEFAULT_REVIEW_CHANNEL_PLAN_ID as _DEFAULT_PLAN_ID,
+        DEFAULT_REVIEW_CHANNEL_SESSION_ID as _DEFAULT_SESSION_ID,
+        append_event as _append,
+        load_events as _load,
+        resolve_artifact_paths as _resolve,
+    )
+    from .reviewer_authority_events import (
+        REVIEWER_CHECKPOINT_EVENT_TYPE as _CHECKPOINT_TYPE,
+    )
+    from .state import project_id_for_repo
+
+    config = active_path_config()
+    artifact_paths = _resolve(
+        repo_root=repo_root,
+        artifact_root_rel=getattr(config, "review_artifact_root_rel", None),
+        state_json_rel=getattr(config, "review_state_json_rel", None),
+        projections_dir_rel=getattr(config, "review_projections_dir_rel", None),
+    )
+    events_path = Path(artifact_paths.event_log_path)
+    existing_events = _load(events_path) if events_path.exists() else []
+    timestamp = utc_timestamp()
+    project_id = project_id_for_repo(repo_root)
+    session_id, plan_id = _reviewer_checkpoint_identifiers(
+        repo_root,
+        default_session_id=_DEFAULT_SESSION_ID,
+        default_plan_id=_DEFAULT_PLAN_ID,
+    )
+    # Idempotency key prevents duplicate reviewer_checkpoint events from
+    # repeated checkpoint writes within the same revision/actor/instruction.
+    key_material = "|".join(
+        [
+            _CHECKPOINT_TYPE,
+            current_instruction_revision,
+            reviewer_actor,
+            reviewer_mode,
+            sha256(current_instruction.encode("utf-8")).hexdigest()[:16],
+        ]
+    )
+    idempotency_key = sha256(key_material.encode("utf-8")).hexdigest()[:24]
+    event = {
+        "event_type": _CHECKPOINT_TYPE,
+        "schema_version": 1,
+        "source": "review_channel",
+        "session_id": session_id,
+        "plan_id": plan_id,
+        "project_id": project_id,
+        "timestamp_utc": timestamp,
+        "idempotency_key": idempotency_key,
+        "nonce": secrets.token_hex(12),
+        "actor": reviewer_actor,
+        "reviewer_actor": reviewer_actor,
+        "payload": {
+            "current_instruction": current_instruction,
+            "current_instruction_revision": current_instruction_revision,
+            "open_findings": open_findings,
+            "reviewer_mode": reviewer_mode,
+            "worktree_hash": worktree_hash,
+            "reviewer_actor": reviewer_actor,
+            "reason": reason,
+        },
+    }
+    _append(events_path, event, existing_events=existing_events)
+
+
+def _reviewer_checkpoint_identifiers(
+    repo_root: Path,
+    *,
+    default_session_id: str,
+    default_plan_id: str,
+) -> tuple[str, str]:
+    try:
+        from ..runtime.review_state_locator import load_current_review_state_payload
+
+        payload = load_current_review_state_payload(
+            repo_root,
+            prefer_cached_projection=True,
+            allow_live_refresh=False,
+        )
+        review = payload.get("review") if isinstance(payload, dict) else None
+        if isinstance(review, dict):
+            session_id = str(review.get("session_id") or "").strip()
+            plan_id = str(review.get("plan_id") or "").strip()
+            if session_id or plan_id:
+                return (
+                    session_id or default_session_id,
+                    plan_id or default_plan_id,
+                )
+    except (ImportError, OSError, RuntimeError, ValueError):
+        pass
+    return default_session_id, default_plan_id
 
 
 def _refresh_projections_after_checkpoint(

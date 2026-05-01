@@ -5,15 +5,15 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `105c6b6a71ee` — Refresh external review snapshot for 7404cc42
-- Tree hash: `8e1101f1fef2`
-- Generation stamp: `snap-97d3d28a3b0e`
-- Generated at (UTC): 2026-04-29T23:52:17Z
+- HEAD: `924ba57d5439` — Snapshot for ChatGPT Pro Slice 4.1 deep-dive context
+- Tree hash: `7511186e16e3`
+- Generation stamp: `snap-0a0bd05a9c0a`
+- Generated at (UTC): 2026-05-01T21:46:49Z
 - Push decision: `await_checkpoint` — staged_index_budget_exceeded
-- Reviewer mode: `single_agent` (interaction: `remote_control`)
+- Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 275 files, +22228/-3418
-- Governance findings: 132 open / 88 fixed / 234 total
+- Delta since last snapshot: 24 commits, 278 files, +23836/-3483
+- Governance findings: 146 open / 88 fixed / 248 total
 - Probe hints: 0 total across 0 files scanned
 
 ## 1. Identity
@@ -26,37 +26,13 @@ or plan detail — they explain why the process exists.
 This repo builds a portable AI governance platform proven through one
 production client (VoiceTerm, a Rust voice-first terminal overlay for AI
 CLIs). The product thesis is that executable local control — guards,
-probes, typed actions, deterministic policy resolution — is what makes
-AI-assisted engineering reliable, not prompt instructions alone.
-
-**Mission**: Ship a reusable governance stack that any repo can adopt by
-installing the platform and selecting a repo pack, without forking
-VoiceTerm-specific code.
-
-**Proof obligation**: Every claim about quality, safety, or process
-compliance must be backed by a repo-owned executable artifact (guard
-script, probe, typed action, CI workflow) that produces the same result
-regardless of which AI model or operator runs it. Prompt-only governance
-is not accepted as proof.
-
-**Platform boundaries**: VoiceTerm is one client of the platform; portable
-governance layers must not hardcode repo names, bridge paths, plan doc
-locations, or product-specific defaults. Repo-local assumptions belong in
-the repo pack, not in the platform core. MCP servers, operator consoles,
-mobile surfaces, and overlay/TUI adapters are clients, not authority.
-
-**Current priority**: Harden the governance stack for multi-repo adoption —
-remove VoiceTerm-local assumptions from portable layers, stabilize the
-typed contract surface (ProjectGovernance, StartupContext, ReviewState,
-TypedAction → ActionResult → RunRecord), and close the remaining probe
-and guard gaps so the platform proves its own thesis before external
-adopters arrive.
+probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `105c6b6a71ee6c84fb6176e0b6331aefffc09e7e`
+- HEAD SHA: `924ba57d543975f71128fb506af5d93997898d55`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-29T17:28:05-04:00
+- HEAD timestamp (UTC): 2026-04-29T19:52:01-04:00
 
 ## 2. Governance state
 
@@ -65,21 +41,18 @@ adopters arrive.
 - reason: staged_index_budget_exceeded
 - push_eligible_now: False
 - worktree_clean: False
-- staged_path_count: 18
-- unstaged_path_count: 1
+- staged_path_count: 104
+- unstaged_path_count: 189
 - next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
-- current_push_authorization: `push-auth-20260429T102330298808Z` (valid=False)
-- authorized_head_commit: `afb62cdf40472770e80b1d6171946248a70a3fd6`
-- approved_target_identity: `tree-receipt-20260429T102330298808Z:d6023541398e274909b40e012508e74e9e89153b`
 - publication_backlog: none
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `remote_control`
+- interaction_mode: `local_terminal`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -94,13 +67,13 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `105c6b6a71ee`
+Range: last 24 commits ending at `924ba57d5439`
 
 - commits: 24
-- files changed: 275
-- insertions: +22228
-- deletions: -3418
-- bundle classes touched: tooling, docs
+- files changed: 278
+- insertions: +23836
+- deletions: -3483
+- bundle classes touched: docs, tooling
 - risk add-ons triggered: Parser / ANSI boundary, Dependency / security
 - authority surfaces touched: 21 file(s)
 
@@ -108,30 +81,30 @@ Range: last 24 commits ending at `105c6b6a71ee`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `105c6b6a` | Refresh external review snapshot for 7404cc42 | 1 | +54/-51 | tooling |  |
-| 2 | `7404cc42` | Refresh projections after 9f492c39 | 3 | +97/-83 | docs |  |
-| 3 | `9f492c39` | WIP snapshot: Slice A.5 lifecycle unification + connectivit… | 140 | +8870/-1093 | tooling | Parser / ANSI boundary |
-| 4 | `07ac1bd3` | Refresh external review snapshot for 6902e3c8 | 1 | +52/-52 | tooling |  |
-| 5 | `6902e3c8` | Refresh external review snapshot for ee2ee1b1 | 2 | +50/-54 | docs |  |
-| 6 | `ee2ee1b1` | Refresh external review snapshot for afb62cdf | 1 | +48/-42 | tooling |  |
-| 7 | `afb62cdf` | Refresh external review snapshot for c2fcb696 | 2 | +61/-63 | docs |  |
-| 8 | `c2fcb696` | Enforce typed authority provenance probe | 2 | +52/-52 | tooling |  |
-| 9 | `b6cb7332` | Refresh external review snapshot for 3a874752 | 2 | +50/-51 | docs |  |
-| 10 | `3a874752` | Refresh external review snapshot for cd57207f | 1 | +46/-46 | tooling |  |
-| 11 | `cd57207f` | Refresh external review snapshot for ee7635ed | 2 | +52/-51 | docs |  |
-| 12 | `ee7635ed` | Refresh external review snapshot for 0da0bfe1 | 1 | +58/-55 | tooling |  |
-| 13 | `0da0bfe1` | Refresh policy-owned generated surfaces for eff73aad | 1 | +1/-1 | docs |  |
-| 14 | `eff73aad` | Refresh external review snapshot for 8d31f774 | 2 | +106/-90 | docs |  |
-| 15 | `8d31f774` | Implement typed governance continuation | 146 | +9271/-770 | tooling | Parser / ANSI boundary, Dependency / security |
-| 16 | `0233390f` | Refresh external review snapshot for 39083dc8 | 2 | +48/-48 | docs |  |
-| 17 | `39083dc8` | Refresh external review snapshot for 5af77734 | 1 | +50/-47 | tooling |  |
-| 18 | `5af77734` | Refresh external review snapshot for f259c8eb | 2 | +69/-70 | docs |  |
-| 19 | `f259c8eb` | Plan 4.1 / MP-377 Codex 42 slice — Layer H push-identity du… | 11 | +227/-81 | tooling |  |
-| 20 | `00eb5fd7` | Refresh external review snapshot for cce19014 | 2 | +48/-48 | docs |  |
-| 21 | `cce19014` | Refresh external review snapshot for 06f6d2b2 | 1 | +50/-47 | tooling |  |
-| 22 | `06f6d2b2` | Refresh external review snapshot for 5adc6ebd | 2 | +91/-70 | docs |  |
-| 23 | `5adc6ebd` | Plan 4.1 / MP-377 Codex 41 slice — events.py NameError fix… | 56 | +2716/-386 | tooling |  |
-| 24 | `acf4ae3d` | Refresh external review snapshot for f971174a | 2 | +61/-67 | docs |  |
+| 1 | `924ba57d` | Snapshot for ChatGPT Pro Slice 4.1 deep-dive context | 20 | +1669/-132 | tooling |  |
+| 2 | `105c6b6a` | Refresh external review snapshot for 7404cc42 | 1 | +54/-51 | tooling |  |
+| 3 | `7404cc42` | Refresh projections after 9f492c39 | 3 | +97/-83 | docs |  |
+| 4 | `9f492c39` | WIP snapshot: Slice A.5 lifecycle unification + connectivit… | 140 | +8870/-1093 | tooling | Parser / ANSI boundary |
+| 5 | `07ac1bd3` | Refresh external review snapshot for 6902e3c8 | 1 | +52/-52 | tooling |  |
+| 6 | `6902e3c8` | Refresh external review snapshot for ee2ee1b1 | 2 | +50/-54 | docs |  |
+| 7 | `ee2ee1b1` | Refresh external review snapshot for afb62cdf | 1 | +48/-42 | tooling |  |
+| 8 | `afb62cdf` | Refresh external review snapshot for c2fcb696 | 2 | +61/-63 | docs |  |
+| 9 | `c2fcb696` | Enforce typed authority provenance probe | 2 | +52/-52 | tooling |  |
+| 10 | `b6cb7332` | Refresh external review snapshot for 3a874752 | 2 | +50/-51 | docs |  |
+| 11 | `3a874752` | Refresh external review snapshot for cd57207f | 1 | +46/-46 | tooling |  |
+| 12 | `cd57207f` | Refresh external review snapshot for ee7635ed | 2 | +52/-51 | docs |  |
+| 13 | `ee7635ed` | Refresh external review snapshot for 0da0bfe1 | 1 | +58/-55 | tooling |  |
+| 14 | `0da0bfe1` | Refresh policy-owned generated surfaces for eff73aad | 1 | +1/-1 | docs |  |
+| 15 | `eff73aad` | Refresh external review snapshot for 8d31f774 | 2 | +106/-90 | docs |  |
+| 16 | `8d31f774` | Implement typed governance continuation | 146 | +9271/-770 | tooling | Parser / ANSI boundary, Dependency / security |
+| 17 | `0233390f` | Refresh external review snapshot for 39083dc8 | 2 | +48/-48 | docs |  |
+| 18 | `39083dc8` | Refresh external review snapshot for 5af77734 | 1 | +50/-47 | tooling |  |
+| 19 | `5af77734` | Refresh external review snapshot for f259c8eb | 2 | +69/-70 | docs |  |
+| 20 | `f259c8eb` | Plan 4.1 / MP-377 Codex 42 slice — Layer H push-identity du… | 11 | +227/-81 | tooling |  |
+| 21 | `00eb5fd7` | Refresh external review snapshot for cce19014 | 2 | +48/-48 | docs |  |
+| 22 | `cce19014` | Refresh external review snapshot for 06f6d2b2 | 1 | +50/-47 | tooling |  |
+| 23 | `06f6d2b2` | Refresh external review snapshot for 5adc6ebd | 2 | +91/-70 | docs |  |
+| 24 | `5adc6ebd` | Plan 4.1 / MP-377 Codex 41 slice — events.py NameError fix… | 56 | +2716/-386 | tooling |  |
 
 ### Files
 
@@ -139,21 +112,21 @@ Range: last 24 commits ending at `105c6b6a71ee`
 |---|---|---|
 | `.github/workflows/README.md` | tooling | +1/-0 |
 | `.github/workflows/adopter_portability.yml` | tooling | +74/-0 |
-| `AGENTS.md` | docs | +34/-12 |
+| `AGENTS.md` | docs | +43/-12 |
 | `app/operator_console/state/core/models.py` | tooling | +1/-0 |
 | `app/operator_console/state/snapshots/dashboard_snapshot.py` | tooling | +28/-0 |
 | `app/operator_console/state/snapshots/snapshot_builder.py` | tooling | +3/-1 |
-| `bridge.md` | docs | +96/-96 |
-| `dev/active/MASTER_PLAN.md` | tooling | +90/-9 |
-| `dev/active/ai_governance_platform.md` | tooling | +138/-3 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1363/-1304 |
+| `bridge.md` | docs | +95/-95 |
+| `dev/active/MASTER_PLAN.md` | tooling | +154/-9 |
+| `dev/active/ai_governance_platform.md` | tooling | +846/-4 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1376/-1310 |
 | `dev/config/publication_sync_registry.json` | tooling | +1/-27 |
 | `dev/config/quality_presets/portable_python.json` | tooling | +2/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +63/-20 |
+| `dev/guides/DEVELOPMENT.md` | docs | +71/-20 |
 | `dev/guides/PORTABLE_GOVERNANCE_SETUP.md` | docs | +39/-0 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +17/-17 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +327/-6 |
-| `dev/scripts/README.md` | tooling | +104/-29 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +18/-18 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +353/-6 |
+| `dev/scripts/README.md` | tooling | +110/-29 |
 | `dev/scripts/checks/README.md` | tooling | +6/-0 |
 | `dev/scripts/checks/architecture_probes/README.md` | tooling | +10/-0 |
 | `dev/scripts/checks/architecture_probes/probe_architecture_connectivity.py` | tooling | +161/-0 |
@@ -169,7 +142,7 @@ Range: last 24 commits ending at `105c6b6a71ee`
 | `dev/scripts/devctl/cli_parser/entrypoint.py` | tooling | +23/-4 |
 | `dev/scripts/devctl/commands/check/__init__.py` | tooling | +11/-1 |
 | `dev/scripts/devctl/commands/controller_action.py` | tooling | +24/-6 |
-| `dev/scripts/devctl/commands/dashboard.py` | tooling | +53/-44 |
+| `dev/scripts/devctl/commands/dashboard.py` | tooling | +56/-47 |
 | `dev/scripts/devctl/commands/dashboard_data.py` | tooling | +6/-2 |
 | `dev/scripts/devctl/commands/dashboard_render/__init__.py` | tooling | +26/-3 |
 | `dev/scripts/devctl/commands/dashboard_render/attention.py` | tooling | +55/-0 |
@@ -177,27 +150,27 @@ Range: last 24 commits ending at `105c6b6a71ee`
 | `dev/scripts/devctl/commands/dashboard_typed_state.py` | tooling | +128/-0 |
 | `dev/scripts/devctl/commands/governance/bootstrap.py` | tooling | +24/-1 |
 | `dev/scripts/devctl/commands/governance/session_resume.py` | tooling | +124/-10 |
-| _235 more files trimmed_ | | |
+| _238 more files trimmed_ | | |
 
 ## 4. Quality signals
 
 ### Governance review
-- total findings: 234
-- open: 132
+- total findings: 248
+- open: 146
 - fixed: 88
 - false positives: 0
 
 Recent findings:
-- `dogfood.command.docs-check` — `dev/scripts/devctl/commands/docs/check.py` (n/a, verdict=`confirmed_issue`)
-- `dogfood.command.check-router` — `dev/scripts/devctl/commands/check/router.py` (n/a, verdict=`confirmed_issue`)
-- `dogfood.command.push` — `dev/scripts/devctl/commands/vcs/push.py` (n/a, verdict=`confirmed_issue`)
-- `dogfood.command.commit` — `dev/scripts/devctl/commands/vcs/commit.py` (n/a, verdict=`confirmed_issue`)
-- `dogfood.command.security` — `dev/scripts/devctl/commands/security.py` (n/a, verdict=`confirmed_issue`)
-- `dogfood.command.probe-report` — `dev/scripts/devctl/commands/probe_report.py` (n/a, verdict=`confirmed_issue`)
-- `dogfood.command.tandem-validate` — `dev/scripts/devctl/commands/governance/simple_lanes.py` (n/a, verdict=`confirmed_issue`)
-- `dogfood.command.process-audit` — `dev/scripts/devctl/commands/process/audit.py` (n/a, verdict=`confirmed_issue`)
-- `dogfood.command.hygiene` — `dev/scripts/devctl/commands/governance/hygiene.py` (n/a, verdict=`confirmed_issue`)
-- `dogfood.command.launcher-check` — `dev/scripts/devctl/commands/governance/simple_lanes.py` (n/a, verdict=`confirmed_issue`)
+- `dogfood.command.pipeline` — `dev/scripts/devctl/commands/pipeline/command.py` (n/a, verdict=`confirmed_issue`)
+- `dogfood.command.autonomy-swarm` — `dev/scripts/devctl/commands/autonomy/swarm.py` (n/a, verdict=`confirmed_issue`)
+- `dogfood.command.autonomy-benchmark` — `dev/scripts/devctl/commands/autonomy/benchmark.py` (n/a, verdict=`confirmed_issue`)
+- `dogfood.command.guard-run` — `dev/scripts/devctl/commands/guard_run.py` (n/a, verdict=`confirmed_issue`)
+- `dogfood.command.install-git-hooks` — `dev/scripts/devctl/commands/governance/install_git_hooks.py` (n/a, verdict=`confirmed_issue`)
+- `dogfood.command.mutation-score` — `dev/scripts/devctl/commands/mutation_score.py` (n/a, verdict=`confirmed_issue`)
+- `dogfood.command.status` — `dev/scripts/devctl/commands/reporting/status.py` (n/a, verdict=`confirmed_issue`)
+- `dogfood.command.render-surfaces` — `dev/scripts/devctl/commands/governance/render_surfaces.py` (n/a, verdict=`confirmed_issue`)
+- `dogfood.command.agent-loop` — `dev/scripts/devctl/commands/reporting/claude_loop.py` (n/a, verdict=`confirmed_issue`)
+- `dogfood.command.agent-mind` — `dev/scripts/devctl/commands/agent_mind/command.py` (n/a, verdict=`confirmed_issue`)
 
 ### Probe report
 - run_state: `missing`
@@ -279,41 +252,46 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`924ba57d`** — Snapshot for ChatGPT Pro Slice 4.1 deep-dive context
+  - Push so external review (ChatGPT Pro deep-dive on Rust strengthening for
+  - Slice 4.1 Graph Health) sees full local context, not the stale GitHub HEAD.
+  - This is in-flight Codex slice-close work — NOT a clean checkpoint.
+  - evolution: Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the remote-control handoff path. The packet carried a valid `stage_commit_pipeline` target and full guard-bundle evidence, and Claude had acked it, …
 - **`105c6b6a`** — Refresh external review snapshot for 7404cc42
-  - evolution: Fact: the dashboard/control-plane read side still had a parity hazard after the `SessionPosture` rescue slice. Dashboard could call the shared read-model builder with a locally constructed options object while nearby ca…
+  - evolution: Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the remote-control handoff path. The packet carried a valid `stage_commit_pipeline` target and full guard-bundle evidence, and Claude had acked it, …
 - **`7404cc42`** — Refresh projections after 9f492c39
   - Auto-regenerated projection receipts captured by post-commit hooks after
   - the Slice A.5 WIP snapshot:
   - - bridge.md: Codex poll timestamp + worktree hash rotation,
-  - evolution: Fact: the dashboard/control-plane read side still had a parity hazard after the `SessionPosture` rescue slice. Dashboard could call the shared read-model builder with a locally constructed options object while nearby ca…
+  - evolution: Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the remote-control handoff path. The packet carried a valid `stage_commit_pipeline` target and full guard-bundle evidence, and Claude had acked it, …
 - **`9f492c39`** — WIP snapshot: Slice A.5 lifecycle unification + connectivity progress
   - Save in-flight work-in-progress before continuing GuardIR plan 4.1+ V2.1
   - Slice A.5 / runtime-agreement / connectivity sweep. Includes:
-  - evolution: Fact: the dashboard/control-plane read side still had a parity hazard after the `SessionPosture` rescue slice. Dashboard could call the shared read-model builder with a locally constructed options object while nearby ca…
+  - evolution: Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the remote-control handoff path. The packet carried a valid `stage_commit_pipeline` target and full guard-bundle evidence, and Claude had acked it, …
 - **`07ac1bd3`** — Refresh external review snapshot for 6902e3c8
-  - evolution: Fact: the dashboard/control-plane read side still had a parity hazard after the `SessionPosture` rescue slice. Dashboard could call the shared read-model builder with a locally constructed options object while nearby ca…
+  - evolution: Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the remote-control handoff path. The packet carried a valid `stage_commit_pipeline` target and full guard-bundle evidence, and Claude had acked it, …
 - **`6902e3c8`** — Refresh external review snapshot for ee2ee1b1
-  - evolution: Fact: the dashboard/control-plane read side still had a parity hazard after the `SessionPosture` rescue slice. Dashboard could call the shared read-model builder with a locally constructed options object while nearby ca…
+  - evolution: Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the remote-control handoff path. The packet carried a valid `stage_commit_pipeline` target and full guard-bundle evidence, and Claude had acked it, …
 - **`ee2ee1b1`** — Refresh external review snapshot for afb62cdf
-  - evolution: Fact: the dashboard/control-plane read side still had a parity hazard after the `SessionPosture` rescue slice. Dashboard could call the shared read-model builder with a locally constructed options object while nearby ca…
+  - evolution: Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the remote-control handoff path. The packet carried a valid `stage_commit_pipeline` target and full guard-bundle evidence, and Claude had acked it, …
 - **`afb62cdf`** — Refresh external review snapshot for c2fcb696
-  - evolution: Fact: the dashboard/control-plane read side still had a parity hazard after the `SessionPosture` rescue slice. Dashboard could call the shared read-model builder with a locally constructed options object while nearby ca…
+  - evolution: Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the remote-control handoff path. The packet carried a valid `stage_commit_pipeline` target and full guard-bundle evidence, and Claude had acked it, …
 - **`c2fcb696`** — Enforce typed authority provenance probe
-  - evolution: Fact: the dashboard/control-plane read side still had a parity hazard after the `SessionPosture` rescue slice. Dashboard could call the shared read-model builder with a locally constructed options object while nearby ca…
+  - evolution: Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the remote-control handoff path. The packet carried a valid `stage_commit_pipeline` target and full guard-bundle evidence, and Claude had acked it, …
 - **`b6cb7332`** — Refresh external review snapshot for 3a874752
-  - evolution: Fact: the dashboard/control-plane read side still had a parity hazard after the `SessionPosture` rescue slice. Dashboard could call the shared read-model builder with a locally constructed options object while nearby ca…
+  - evolution: Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the remote-control handoff path. The packet carried a valid `stage_commit_pipeline` target and full guard-bundle evidence, and Claude had acked it, …
 - **`3a874752`** — Refresh external review snapshot for cd57207f
-  - evolution: Fact: the dashboard/control-plane read side still had a parity hazard after the `SessionPosture` rescue slice. Dashboard could call the shared read-model builder with a locally constructed options object while nearby ca…
+  - evolution: Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the remote-control handoff path. The packet carried a valid `stage_commit_pipeline` target and full guard-bundle evidence, and Claude had acked it, …
 - **`cd57207f`** — Refresh external review snapshot for ee7635ed
-  - evolution: Fact: the dashboard/control-plane read side still had a parity hazard after the `SessionPosture` rescue slice. Dashboard could call the shared read-model builder with a locally constructed options object while nearby ca…
+  - evolution: Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the remote-control handoff path. The packet carried a valid `stage_commit_pipeline` target and full guard-bundle evidence, and Claude had acked it, …
 - **`ee7635ed`** — Refresh external review snapshot for 0da0bfe1
-  - evolution: Fact: the dashboard/control-plane read side still had a parity hazard after the `SessionPosture` rescue slice. Dashboard could call the shared read-model builder with a locally constructed options object while nearby ca…
+  - evolution: Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the remote-control handoff path. The packet carried a valid `stage_commit_pipeline` target and full guard-bundle evidence, and Claude had acked it, …
 - **`0da0bfe1`** — Refresh policy-owned generated surfaces for eff73aad
-  - evolution: Fact: the dashboard/control-plane read side still had a parity hazard after the `SessionPosture` rescue slice. Dashboard could call the shared read-model builder with a locally constructed options object while nearby ca…
+  - evolution: Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the remote-control handoff path. The packet carried a valid `stage_commit_pipeline` target and full guard-bundle evidence, and Claude had acked it, …
 - **`eff73aad`** — Refresh external review snapshot for 8d31f774
-  - evolution: Fact: the dashboard/control-plane read side still had a parity hazard after the `SessionPosture` rescue slice. Dashboard could call the shared read-model builder with a locally constructed options object while nearby ca…
+  - evolution: Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the remote-control handoff path. The packet carried a valid `stage_commit_pipeline` target and full guard-bundle evidence, and Claude had acked it, …
 - **`8d31f774`** — Implement typed governance continuation
-  - evolution: Fact: the dashboard/control-plane read side still had a parity hazard after the `SessionPosture` rescue slice. Dashboard could call the shared read-model builder with a locally constructed options object while nearby ca…
+  - evolution: Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the remote-control handoff path. The packet carried a valid `stage_commit_pipeline` target and full guard-bundle evidence, and Claude had acked it, …
 - **`0233390f`** — Refresh external review snapshot for 39083dc8
   - evolution: Fact: live Codex/Claude dogfood found several small but compounding surface lies: bridge/status reviewer mode could disagree, packet counters counted different queues, Action Requests risked reading receipt-like rows, c…
 - **`39083dc8`** — Refresh external review snapshot for 5af77734
@@ -336,8 +314,6 @@ Recent findings:
   -   - Layer F-β (launcher backup): launch_script_watchdog session-end guard now auto-emits stage_commit_pipeline if Codex's task_complete event lacks a matching packet — fail-closed against partial-exit deadlocks.
   - plan: `dev/active/ai_governance_platform.md`
   - evolution: Fact: live Codex/Claude dogfood found several small but compounding surface lies: bridge/status reviewer mode could disagree, packet counters counted different queues, Action Requests risked reading receipt-like rows, c…
-- **`acf4ae3d`** — Refresh external review snapshot for f971174a
-  - evolution: Fact: live Codex/Claude dogfood found several small but compounding surface lies: bridge/status reviewer mode could disagree, packet counters counted different queues, Action Requests risked reading receipt-like rows, c…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -353,7 +329,7 @@ Recent findings:
 
 ## 8. Known gaps and open items
 
-- open governance findings: 132
+- open governance findings: 146
 
 ### Startup advisories
 - checkpoint_before_continue: staged_index_budget_exceeded
@@ -363,23 +339,23 @@ Recent findings:
 - Move straight to the governed push path.
 
 ### Open gap rows
-- **governance_open** (`dev/scripts/devctl/commands/docs/check.py`): dogfood.command.docs-check: Auto-ingested devctl finalization failure rc=1.
+- **governance_open** (`dev/scripts/devctl/commands/pipeline/command.py`): dogfood.command.pipeline: Auto-ingested devctl finalization failure rc=1.
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
-- **governance_open** (`dev/scripts/devctl/commands/check/router.py`): dogfood.command.check-router: Auto-ingested devctl finalization failure rc=1.
+- **governance_open** (`dev/scripts/devctl/commands/autonomy/swarm.py`): dogfood.command.autonomy-swarm: Auto-ingested devctl finalization failure rc=1.
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
-- **governance_open** (`dev/scripts/devctl/commands/vcs/push.py`): dogfood.command.push: Auto-ingested devctl finalization failure rc=1.
+- **governance_open** (`dev/scripts/devctl/commands/autonomy/benchmark.py`): dogfood.command.autonomy-benchmark: Auto-ingested devctl finalization failure rc=1.
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
-- **governance_open** (`dev/scripts/devctl/commands/vcs/commit.py`): dogfood.command.commit: Auto-ingested devctl finalization failure rc=1.
+- **governance_open** (`dev/scripts/devctl/commands/guard_run.py`): dogfood.command.guard-run: Auto-ingested devctl finalization failure rc=1.
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
-- **governance_open** (`dev/scripts/devctl/commands/security.py`): dogfood.command.security: Auto-ingested devctl finalization failure rc=1.
+- **governance_open** (`dev/scripts/devctl/commands/governance/install_git_hooks.py`): dogfood.command.install-git-hooks: Auto-ingested devctl finalization failure rc=1.
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
-- **governance_open** (`dev/scripts/devctl/commands/probe_report.py`): dogfood.command.probe-report: Auto-ingested devctl finalization failure rc=1.
+- **governance_open** (`dev/scripts/devctl/commands/mutation_score.py`): dogfood.command.mutation-score: Auto-ingested devctl finalization failure rc=2.
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
-- **governance_open** (`dev/scripts/devctl/commands/governance/simple_lanes.py`): dogfood.command.tandem-validate: Auto-ingested devctl finalization failure rc=1.
+- **governance_open** (`dev/scripts/devctl/commands/reporting/status.py`): dogfood.command.status: Auto-ingested devctl finalization failure rc=1.
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
-- **governance_open** (`dev/scripts/devctl/commands/process/audit.py`): dogfood.command.process-audit: Auto-ingested devctl finalization failure rc=1.
+- **governance_open** (`dev/scripts/devctl/commands/governance/render_surfaces.py`): dogfood.command.render-surfaces: Auto-ingested devctl finalization failure rc=1.
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-97d3d28a3b0e` binds this file to HEAD `105c6b6a71ee`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-0a0bd05a9c0a` binds this file to HEAD `924ba57d5439`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

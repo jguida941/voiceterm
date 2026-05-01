@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from ..runtime.agent_mind_projection_read import read_agent_mind_projection
 from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.review_packet_inbox import build_packet_inbox_payload
+from ..runtime.review_state_round_proof import build_round_proofs_from_review_state
 from ..runtime.review_state_parser import review_state_from_payload
 from ..runtime.surface_snapshot import (
     build_surface_snapshot_id,
@@ -33,9 +34,9 @@ from .event_projection_support import (
 from .handoff import extract_bridge_snapshot
 from .projection_provenance import (
     PROVENANCE_INFERRED_FIELDS,
-    PROVENANCE_OBSERVED_FIELDS,
     REVIEW_STATE_SOURCE_CONTRACT,
     STATUS_SOURCE_COMMAND,
+    projection_observed_fields,
     projection_source_identity,
 )
 from .reviewer_runtime_contract import ReviewerRuntimeInputs
@@ -55,6 +56,11 @@ class EventProjectionRuntimeState:
     commit_pipeline: object
     snapshot_id: str = ""
     zref: str = ""
+    # Per rev_pkt_2550 (Plan 4.1 Scope 1): the runtime state now carries the
+    # reduced event list so downstream enrichment passes (work-board, runtime
+    # clock, packet-attention) can derive from the typed event source instead
+    # of falling back to ``getattr(runtime, "events", [])`` returning empty.
+    events: tuple[dict[str, object], ...] = ()
 
 
 def enrich_event_review_state_impl(
@@ -162,6 +168,7 @@ def _build_projection_runtime(
             rollover_dir=base.projections_root.parent / "rollovers",
             operator_interaction_mode=operator_interaction_mode,
             agent_mind=read_agent_mind_projection(base.repo_root, provider="codex"),
+            events=tuple(getattr(context, "events", ()) or ()),
         )
     )
     push_decision = deps.build_status_push_decision(
@@ -182,6 +189,7 @@ def _build_projection_runtime(
         reviewer_runtime=reviewer_runtime,
         push_decision=push_decision,
         commit_pipeline=commit_pipeline,
+        events=tuple(getattr(context, "events", ()) or ()),
     )
 
 
@@ -207,7 +215,7 @@ def _apply_review_state_enrichment(
 
     review_state["snapshot_id"] = runtime.snapshot_id
     review_state["zref"] = runtime.zref
-    review_state["source_identity"] = projection_source_identity(
+    source_identity = projection_source_identity(
         typed_bridge_liveness=runtime.typed_bridge_liveness,
         generation_id=runtime.commit_pipeline.generation_id,
         head_sha=str(
@@ -218,9 +226,11 @@ def _apply_review_state_enrichment(
             or ""
         ).strip(),
     )
+    observed_fields = projection_observed_fields(source_identity=source_identity)
+    review_state["source_identity"] = source_identity
     review_state["source_contract"] = REVIEW_STATE_SOURCE_CONTRACT
     review_state["source_command"] = STATUS_SOURCE_COMMAND
-    review_state["observed_fields"] = list(PROVENANCE_OBSERVED_FIELDS)
+    review_state["observed_fields"] = list(observed_fields)
     review_state["inferred_fields"] = list(PROVENANCE_INFERRED_FIELDS)
     review_state["packets"] = _attach_packet_surface_provenance(
         review_state.get("packets"),
@@ -229,17 +239,75 @@ def _apply_review_state_enrichment(
     review_state["current_session"] = current_session_payload(runtime.current_session)
     review_state["collaboration"] = asdict(runtime.collaboration)
     review_state["reviewer_runtime"] = asdict(runtime.reviewer_runtime)
+    review_state["round_proofs"] = [
+        row.to_dict() for row in build_round_proofs_from_review_state(review_state)
+    ]
+
+    # Per Codex rev_pkt_2271 #2: rebuild work-board AFTER collaboration is
+    # populated so AgentWorkBoardRow.worktree_identity / branch / path_scope
+    # read from typed CollaborationParticipantState rather than fallbacks.
+    # The reducer's earlier build sees only _PLACEHOLDER_COLLABORATION.
+    from .agent_work_board_projection import build_agent_work_board_projection
+    from .agent_work_board_posture import apply_work_board_session_posture
+    review_state["agent_work_board"] = dict(
+        build_agent_work_board_projection(
+            events=list(getattr(runtime, "events", []) or []),
+            packet_rows=list(review_state.get("packets") or []),
+            agent_sync_payload=dict(review_state.get("agent_sync") or {}),
+            collaboration=review_state["collaboration"],
+            refresh_seq=int(
+                (review_state.get("agent_sync") or {}).get("projection_refresh_seq") or 0
+            ),
+            refreshed_at_utc=str(review_state.get("timestamp") or ""),
+        )
+    )
+    review_state = apply_work_board_session_posture(review_state)
+
+    # Per rev_pkt_2273/2278/2281/2298: 4-field topology/authority split.
+    # Computed AFTER agent_work_board so the projection sees observed runtime.
+    from .coordination_state_projection import build_coordination_state_projection
+    review_state["coordination_state"] = dict(
+        build_coordination_state_projection(
+            agent_work_board_payload=review_state["agent_work_board"],
+            agent_sync_payload=review_state.get("agent_sync"),
+            collaboration=review_state["collaboration"],
+            reviewer_runtime=review_state.get("reviewer_runtime"),
+        )
+    )
+    from .agent_loop_decision_projection import (
+        agent_loop_decisions_for_work_board,
+        apply_agent_sync_session_attention_disambiguation,
+        apply_scoped_attention_to_ambiguous_packet_attention,
+    )
+    review_state["agent_loop_decisions"] = agent_loop_decisions_for_work_board(
+        review_state=review_state,
+        work_board=review_state["agent_work_board"],
+    )
+    review_state = apply_agent_sync_session_attention_disambiguation(review_state)
+    review_state = apply_scoped_attention_to_ambiguous_packet_attention(review_state)
+    from ..runtime.agent_dispatch_router import build_agent_dispatch_router
+    review_state["agent_dispatch_router"] = build_agent_dispatch_router(
+        review_state=review_state,
+    ).to_dict()
     review_state["commit_pipeline"] = runtime.commit_pipeline.to_dict()
     review_state["push_authorization"] = push_authorization_payload(
         runtime.commit_pipeline
     )
     review_state["recovery_assessment"] = asdict(runtime.recovery_assessment)
+    review_state["attention"] = runtime.attention
+    # Per Codex rev_pkt_2326/2361/2367/2386: typed coordination_state
+    # supersedes legacy recovery commands. When recovery_eligibility is
+    # remote_only or blocked, suppress decision.command and
+    # attention.recommended_command at the PRODUCER so the disk artifact
+    # agrees with bridge-poll/turn-authority/dashboard, which already
+    # gate on the same field. Otherwise check_review_surface_consistency
+    # flags disk-vs-authority parity drift on decision_command.
+    _suppress_legacy_recovery_command_when_remote_only(review_state)
     review_state["bridge"] = build_event_bridge_state_projection(
         review_state=review_state,
         bridge_liveness=runtime.typed_bridge_liveness,
         reviewer_runtime=runtime.reviewer_runtime,
     )
-    review_state["attention"] = runtime.attention
     review_state["packet_inbox"] = build_packet_inbox_payload(
         review_state.get("packets", ()),
         attention=runtime.attention,
@@ -252,7 +320,7 @@ def _apply_review_state_enrichment(
         updated_registry["source_identity"] = review_state["source_identity"]
         updated_registry["source_contract"] = REVIEW_STATE_SOURCE_CONTRACT
         updated_registry["source_command"] = STATUS_SOURCE_COMMAND
-        updated_registry["observed_fields"] = list(PROVENANCE_OBSERVED_FIELDS)
+        updated_registry["observed_fields"] = list(observed_fields)
         updated_registry["inferred_fields"] = list(PROVENANCE_INFERRED_FIELDS)
         review_state["registry"] = updated_registry
 
@@ -290,7 +358,7 @@ def _apply_review_state_enrichment(
             source_identity=review_state["source_identity"],
             source_contract=REVIEW_STATE_SOURCE_CONTRACT,
             source_command=STATUS_SOURCE_COMMAND,
-            observed_fields=PROVENANCE_OBSERVED_FIELDS,
+            observed_fields=observed_fields,
             inferred_fields=PROVENANCE_INFERRED_FIELDS,
         ),
     )
@@ -301,6 +369,36 @@ def _apply_review_state_enrichment(
         raw_service_identity=identity.raw_service_identity,
         raw_attach_auth_policy=identity.raw_attach_auth_policy,
     )
+
+
+def _suppress_legacy_recovery_command_when_remote_only(
+    review_state: dict[str, object],
+) -> None:
+    """Mute legacy local-commit recovery command when typed eligibility says no.
+
+    Per Codex rev_pkt_2326/2361/2367/2386: when typed
+    ``coordination_state.recovery_eligibility`` is ``remote_only`` or
+    ``blocked``, the producer must suppress
+    ``recovery_assessment.decision.command`` and
+    ``attention.recommended_command``. Bridge-poll, turn-authority, and
+    dashboard already gate on the same field; suppressing at the
+    producer keeps the on-disk review_state.json artifact in parity with
+    the consumer surfaces.
+    """
+    coord = review_state.get("coordination_state")
+    if not isinstance(coord, dict):
+        return
+    eligibility = str(coord.get("recovery_eligibility") or "").strip()
+    if eligibility not in {"remote_only", "blocked"}:
+        return
+    assessment = review_state.get("recovery_assessment")
+    if isinstance(assessment, dict):
+        decision = assessment.get("decision")
+        if isinstance(decision, dict) and decision.get("command"):
+            decision["command"] = ""
+    attention = review_state.get("attention")
+    if isinstance(attention, dict) and attention.get("recommended_command"):
+        attention["recommended_command"] = ""
 
 
 def _attach_packet_surface_provenance(

@@ -10,18 +10,60 @@ def active_codex_sessions_section(
     *,
     repo_root: Path,
     session_posture: object = None,
+    review_state: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Return active Codex sessions, preferring typed posture liveness."""
+    """Return active Codex sessions, preferring typed posture liveness.
+
+    Per Codex rev_pkt_2346: legacy session-probe reports 0/0 while typed
+    work-board has Codex active in many rows. Surface a typed alias
+    ``typed_live_count`` and ``typed_session_count`` derived from
+    ``review_state.agent_work_board.rows`` so consumers can JOIN
+    legacy + typed and pick the live answer. Legacy fields stay for
+    back-compat; new fields carry the typed authority.
+    """
     codex_sessions = _legacy_codex_sessions(repo_root)
     codex_sessions = _merge_codex_posture_sessions(
         codex_sessions,
         session_posture=session_posture,
     )
+    typed_live_count, typed_session_count = _typed_codex_session_counts(
+        review_state=review_state,
+    )
     return {
         "count": len(codex_sessions),
         "live_count": sum(1 for session in codex_sessions if session.get("live")),
         "sessions": codex_sessions,
+        # Per Codex rev_pkt_2346: typed alias from work-board.
+        "typed_live_count": typed_live_count,
+        "typed_session_count": typed_session_count,
+        "typed_source": "agent_work_board",
     }
+
+
+def _typed_codex_session_counts(
+    *,
+    review_state: Mapping[str, Any] | None,
+) -> tuple[int, int]:
+    """Return (live_count, total_count) of Codex rows on the typed work-board."""
+    if not isinstance(review_state, Mapping):
+        return 0, 0
+    work_board = review_state.get("agent_work_board")
+    if not isinstance(work_board, Mapping):
+        return 0, 0
+    rows = work_board.get("rows")
+    if not isinstance(rows, list):
+        return 0, 0
+    total = 0
+    live = 0
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        if str(row.get("actor_id") or "") != "codex":
+            continue
+        total += 1
+        if str(row.get("status") or "") in {"working", "polling", "blocked"}:
+            live += 1
+    return live, total
 
 
 def _legacy_codex_sessions(repo_root: Path) -> list[dict[str, Any]]:

@@ -26,6 +26,7 @@ VALID_PLAN_MUTATION_OPS = {
     "set_checklist_state",
 }
 RUNTIME_TARGET_PACKET_KINDS = {"commit_approval"}
+NON_AUTHORITATIVE_TARGET_PACKET_KINDS = {"finding"}
 RUNTIME_ACTION_REQUEST_ACTIONS = {
     "commit",
     "kill_process",
@@ -36,7 +37,7 @@ RUNTIME_ACTION_REQUEST_ACTIONS = {
 PIPELINE_ACTION_REQUEST_ACTIONS = {"commit", "push"}
 STAGE_PIPELINE_ACTION_REQUEST_ACTIONS = {"stage_commit_pipeline"}
 ANCHOR_REF_RE = re.compile(
-    r"^(checklist|section|session_resume|progress|audit):[A-Za-z0-9][A-Za-z0-9._-]*$"
+    r"^(checklist|section|session_resume|progress|audit|packet):[A-Za-z0-9][A-Za-z0-9._-]*$"
 )
 
 
@@ -78,8 +79,17 @@ def validate_target_fields(
         )
         return
 
+    if kind in NON_AUTHORITATIVE_TARGET_PACKET_KINDS:
+        _validate_non_authoritative_target_fields(
+            kind=kind,
+            target=target,
+            runtime_approval=runtime_approval,
+            guard_bundle_evidence=guard_bundle_evidence,
+        )
+        return
+
     if (
-        target.has_values()
+        _resource_target_values_present(target)
         or runtime_approval.has_values()
         or guard_bundle_evidence.has_values()
     ):
@@ -87,6 +97,7 @@ def validate_target_fields(
             "Target fields are only allowed on plan review packets or "
             "`commit_approval` packets."
         )
+    _validate_optional_plan_intent_fields(target)
 
 
 def _validate_plan_target_fields(*, kind: str, target) -> None:
@@ -158,16 +169,23 @@ def _validate_action_request_target_fields(
     action = (requested_action or "").strip()
     if action not in RUNTIME_ACTION_REQUEST_ACTIONS:
         if (
-            target.has_values()
+            _resource_target_values_present(target)
             or runtime_approval.has_values()
             or guard_bundle_evidence.has_values()
         ):
             raise ValueError(
-                "Target fields on `action_request` packets are only allowed "
-                "for runtime actions: "
+                "Resource target fields on `action_request` packets are only "
+                "allowed for runtime actions: "
                 + ", ".join(sorted(RUNTIME_ACTION_REQUEST_ACTIONS))
                 + "."
             )
+        if not (target.target_role or target.target_session_id):
+            raise ValueError(
+                "Non-runtime action_request packets require route scope "
+                "(--target-role or --target-session-id). Use an instruction "
+                "packet for unscoped guidance."
+            )
+        _validate_optional_plan_intent_fields(target)
         return
 
     if target.target_kind != "runtime":
@@ -233,8 +251,46 @@ def _validate_action_request_target_fields(
         )
 
 
+def _validate_non_authoritative_target_fields(
+    *,
+    kind: str,
+    target,
+    runtime_approval: PacketRuntimeApprovalFields,
+    guard_bundle_evidence: PacketGuardBundleEvidenceFields,
+) -> None:
+    if runtime_approval.has_values() or guard_bundle_evidence.has_values():
+        raise ValueError(
+            f"Runtime guard fields are not valid on `{kind}` packets."
+        )
+    if target.mutation_op:
+        raise ValueError(
+            f"Plan mutation fields are not valid on `{kind}` packets."
+        )
+    _validate_optional_plan_intent_fields(target)
+
+
+def _resource_target_values_present(target) -> bool:
+    return any(
+        (
+            target.target_kind,
+            target.target_ref,
+            target.target_revision,
+            target.mutation_op,
+        )
+    )
+
+
+def _validate_optional_plan_intent_fields(target) -> None:
+    invalid = [
+        ref for ref in target.anchor_refs if ANCHOR_REF_RE.fullmatch(ref) is None
+    ]
+    if invalid:
+        raise ValueError("Invalid --anchor-ref value(s): " + ", ".join(invalid))
+
+
 __all__ = [
     "ANCHOR_REF_RE",
+    "NON_AUTHORITATIVE_TARGET_PACKET_KINDS",
     "RUNTIME_ACTION_REQUEST_ACTIONS",
     "VALID_PLAN_MUTATION_OPS",
     "VALID_TARGET_KINDS",

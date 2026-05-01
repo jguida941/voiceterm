@@ -25,12 +25,17 @@ def current_session_state_from_payload(
     bridge: Mapping[str, object],
     collaboration: Mapping[str, object] | None = None,
 ) -> ReviewCurrentSessionState:
+    # Per CLAUDE.md Platform Boundary doctrine + rev_pkt_2301:
+    # bridge is a repo-pack-owned compatibility projection, NOT typed
+    # authority. ``current_session`` (typed) and ``collaboration.peer_review``
+    # (typed) ARE authority. Do not fall back to bridge prose for any field
+    # that has typed sources — empty typed state is meaningfully different
+    # from "stale bridge instruction was here once."
     peer_review = _mapping(_mapping(collaboration).get("peer_review"))
     current_instruction, current_instruction_revision = (
         canonicalize_current_instruction_state(
             _string(current_session.get("current_instruction"))
-            or _string(peer_review.get("current_instruction"))
-            or _string(bridge.get("current_instruction")),
+            or _string(peer_review.get("current_instruction")),
             _string(current_session.get("current_instruction_revision"))
             or _string(peer_review.get("current_instruction_revision")),
         )
@@ -38,23 +43,17 @@ def current_session_state_from_payload(
     implementer_status = (
         _string(current_session.get("implementer_status"))
         or _string(peer_review.get("implementer_status"))
-        or _string(bridge.get("implementer_status"))
-        or _string(bridge.get("claude_status"))
     )
     implementer_ack = (
         _string(current_session.get("implementer_ack"))
         or _string(peer_review.get("implementer_ack"))
-        or _string(bridge.get("implementer_ack"))
-        or _string(bridge.get("claude_ack"))
     )
-    implementer_ack_revision = _string(current_session.get("implementer_ack_revision")) or (
-        _string(bridge.get("implementer_ack_revision"))
-        or _string(bridge.get("claude_ack_revision"))
+    implementer_ack_revision = _string(
+        current_session.get("implementer_ack_revision")
     )
     implementer_ack_state = (
         _string(current_session.get("implementer_ack_state"))
         or _string(peer_review.get("implementer_ack_state"))
-        or bridge_ack_state(bridge=bridge, implementer_ack=implementer_ack)
     )
     if not any(
         (
@@ -75,16 +74,13 @@ def current_session_state_from_payload(
         implementer_ack_revision=implementer_ack_revision,
         implementer_ack_state=implementer_ack_state or "unknown",
         implementer_state_hash=_string(current_session.get("implementer_state_hash"))
-        or _string(peer_review.get("implementer_state_hash"))
-        or _string(bridge.get("implementer_state_hash")),
+        or _string(peer_review.get("implementer_state_hash")),
         implementer_session_state=_string(current_session.get("implementer_session_state")),
         implementer_session_hint=_string(current_session.get("implementer_session_hint")),
         open_findings=_string(current_session.get("open_findings"))
-        or _string(peer_review.get("open_findings"))
-        or _string(bridge.get("open_findings")),
+        or _string(peer_review.get("open_findings")),
         last_reviewed_scope=_string(current_session.get("last_reviewed_scope"))
-        or _string(peer_review.get("last_reviewed_scope"))
-        or _string(bridge.get("last_reviewed_scope")),
+        or _string(peer_review.get("last_reviewed_scope")),
     )
 
 
@@ -148,6 +144,7 @@ def packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
                     or _string(mapping.get("applied_at_utc"))
                     or _string(mapping.get("_sort_timestamp"))
                 ),
+                plan_id=_string(mapping.get("plan_id")),
                 evidence_refs=_string_rows(mapping.get("evidence_refs")),
                 context_pack_refs=context_pack_refs_from_value(
                     mapping.get("context_pack_refs")
@@ -159,6 +156,8 @@ def packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
                 target_kind=_string(mapping.get("target_kind")),
                 target_ref=_string(mapping.get("target_ref")),
                 target_revision=_string(mapping.get("target_revision")),
+                target_role=_string(mapping.get("target_role")),
+                target_session_id=_string(mapping.get("target_session_id")),
                 anchor_refs=_string_rows(mapping.get("anchor_refs")),
                 intake_ref=_string(mapping.get("intake_ref")),
                 mutation_op=_string(mapping.get("mutation_op")),

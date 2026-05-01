@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ...runtime.review_state_parser import review_state_from_payload
 from .reviewer_runtime_snapshot import attach_reviewer_runtime_snapshot
+from .status_readiness import attach_runtime_readiness
 
 
 def attach_status_runtime_snapshot(report: dict[str, object]) -> None:
@@ -98,6 +99,10 @@ def build_doctor_report(
     doctor_report["reviewer_runtime"] = status_report.get("reviewer_runtime")
     doctor_report["commit_pipeline"] = status_report.get("commit_pipeline")
     doctor_report["coordination"] = status_report.get("coordination")
+    doctor_report["coordination_state"] = status_report.get("coordination_state")
+    doctor_report["agent_sync"] = status_report.get("agent_sync")
+    doctor_report["agent_work_board"] = status_report.get("agent_work_board")
+    doctor_report["agent_loop_decisions"] = status_report.get("agent_loop_decisions")
     doctor_report["authority_snapshot"] = status_report.get("authority_snapshot")
     doctor_report["projection_paths"] = status_report.get("projection_paths")
     doctor_report["service_identity"] = status_report.get("service_identity")
@@ -115,10 +120,15 @@ def build_doctor_report(
         "reviewer_supervisor",
         "reviewer_worker",
         "review_needed",
+        "coordination_state",
+        "agent_sync",
+        "agent_work_board",
+        "agent_loop_decisions",
     ):
         if key in status_report:
             doctor_report[key] = status_report.get(key)
 
+    attach_runtime_readiness(doctor_report)
     return doctor_report, exit_code
 
 

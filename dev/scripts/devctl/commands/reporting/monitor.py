@@ -15,6 +15,12 @@ from ...common import (
     write_output,
 )
 from ...config import REPO_ROOT
+from ...runtime.provider_registry import (
+    is_valid_provider_id,
+    known_provider_help,
+    normalize_provider_id,
+    provider_id_error,
+)
 from ...runtime.monitor_snapshot import (
     build_monitor_snapshot,
     render_monitor_snapshot_markdown,
@@ -41,9 +47,13 @@ def add_parser(sub) -> None:
     )
     cmd.add_argument(
         "--agent",
-        choices=["operator", "codex", "claude", "system"],
         default="operator",
-        help="Agent or operator perspective recorded in the snapshot",
+        metavar="PROVIDER",
+        help=(
+            "Provider perspective recorded in the snapshot. Known providers "
+            f"include {known_provider_help()}, and future provider ids are "
+            "accepted when they use provider-id syntax."
+        ),
     )
     cmd.add_argument(
         "--review-status-dir",
@@ -69,6 +79,9 @@ def add_parser(sub) -> None:
 
 def run(args) -> int:
     """Render one monitor snapshot or stream NDJSON follow frames."""
+    agent = _normalize_agent_arg(args)
+    if agent is None:
+        return 2
     interval_seconds, error = _parse_interval_seconds(str(getattr(args, "interval", "30s")))
     if error is not None:
         print(error, file=sys.stderr)
@@ -80,6 +93,7 @@ def run(args) -> int:
             return 1
         return _run_follow(
             args=args,
+            agent=agent,
             interval_seconds=interval_seconds,
             review_status_dir=review_status_dir,
         )
@@ -87,7 +101,7 @@ def run(args) -> int:
     snapshot = build_monitor_snapshot(
         repo_root=REPO_ROOT,
         mode=str(getattr(args, "mode", "remote_phone")),
-        agent=str(getattr(args, "agent", "operator")),
+        agent=agent,
         review_status_dir=review_status_dir,
     )
     return emit_output(
@@ -100,7 +114,21 @@ def run(args) -> int:
     )
 
 
-def _run_follow(*, args, interval_seconds: int, review_status_dir: Path | None) -> int:
+def _normalize_agent_arg(args) -> str | None:
+    agent = normalize_provider_id(getattr(args, "agent", "operator") or "operator")
+    if not is_valid_provider_id(agent):
+        print(provider_id_error("--agent"), file=sys.stderr)
+        return None
+    return agent
+
+
+def _run_follow(
+    *,
+    args,
+    agent: str,
+    interval_seconds: int,
+    review_status_dir: Path | None,
+) -> int:
     output_path = getattr(args, "output", None)
     if output_path:
         path = Path(output_path)
@@ -114,7 +142,7 @@ def _run_follow(*, args, interval_seconds: int, review_status_dir: Path | None) 
             snapshot = build_monitor_snapshot(
                 repo_root=REPO_ROOT,
                 mode=str(getattr(args, "mode", "remote_phone")),
-                agent=str(getattr(args, "agent", "operator")),
+                agent=agent,
                 review_status_dir=review_status_dir,
             )
             frame = snapshot.to_dict()

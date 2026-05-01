@@ -216,7 +216,20 @@ def _bridge_current_session_from_snapshot(
         last_reviewed_scope=_section_text(snapshot, "Last Reviewed Scope"),
     )
 def event_current_instruction(review_state: Mapping[str, object]) -> str:
-    """Derive the event-backed current instruction from the typed queue only."""
+    """Derive the event-backed current instruction from the typed queue only.
+
+    Per rev_pkt_2546 (Plan 4.1 Scope 1): when the reduced review_state carries
+    a typed ``latest_reviewer_checkpoint`` payload (emitted by the
+    ``review_channel.reviewer_checkpoint`` event), prefer it over the
+    queue-derived instruction so reviewer-checkpoint writes are immediately
+    visible in typed current_session without parsing bridge.md as authority.
+    """
+    checkpoint = _mapping(review_state.get("latest_reviewer_checkpoint"))
+    checkpoint_instruction = str(
+        checkpoint.get("current_instruction") or ""
+    ).strip()
+    if checkpoint_instruction:
+        return checkpoint_instruction
     queue = _mapping(review_state.get("queue"))
     source = _mapping(queue.get("derived_next_instruction_source"))
     target = str(source.get("to_agent") or "").strip().lower()

@@ -14,8 +14,10 @@ from typing import Any
 
 from .control_plane_daemons import resolve_daemon_state
 from .control_plane_sources import artifact_paths, load_sources, read_json_artifact
+from .post_checkpoint_dirty_support import COMMIT_CHECKPOINT_COMMAND
 from .review_packet_inbox import summarize_packet_attention_open_findings
 from .startup_blocker_decision import BlockerSnapshot, derive_blocker_decision
+from .control_plane_startup_authority import startup_authority_from_receipt
 from .value_coercion import coerce_bool, coerce_string
 
 
@@ -205,6 +207,7 @@ def resolve_blocker_and_action(
     quality: dict[str, Any],
     *,
     pending_count: int | None = None,
+    startup_authority: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Derive top blocker, next action, and next command.
 
@@ -234,11 +237,14 @@ def resolve_blocker_and_action(
         session=session,
         push_action=next_action,
         pending_count=pending_count,
+        startup_authority=startup_authority
+        if startup_authority is not None
+        else startup_authority_from_receipt(receipt),
     )
-    next_command = _command_for_push_action(next_action)
+    next_command = _command_for_push_action(snapshot.next_action or next_action)
     return {
         "top_blocker": snapshot.top_blocker,
-        "next_action": next_action,
+        "next_action": snapshot.next_action or next_action,
         "next_command": next_command,
         "blocker_snapshot": snapshot,
     }
@@ -273,6 +279,14 @@ def resolve_implementation_blocked(
 
 def _command_for_push_action(action: str) -> str:
     """Map a push-decision action token to its governed devctl command."""
+    if action.startswith("checkpoint_blocked_by_startup_authority:"):
+        kind = action.rsplit(":", 1)[-1]
+        if kind == "import_index_atomicity":
+            return (
+                "stage missing imported file(s), then rerun "
+                "python3 dev/scripts/devctl.py startup-context --format summary"
+            )
+        return COMMIT_CHECKPOINT_COMMAND
     if action == "run_devctl_push":
         return "python3 dev/scripts/devctl.py push --execute"
     if action == "await_checkpoint":

@@ -18,6 +18,7 @@ VALID_DOGFOOD_TARGET_KINDS: tuple[str, ...] = (
     "guard",
     "probe",
     "role",
+    "scenario",
 )
 VALID_DOGFOOD_STATUSES: tuple[str, ...] = (
     "passed",
@@ -29,6 +30,9 @@ DOGFOOD_ROLE_TARGET_IDS: tuple[str, ...] = (
     "reviewer",
     "implementer",
     "dashboard",
+)
+DOGFOOD_SCENARIO_TARGET_IDS: tuple[str, ...] = (
+    "plan41-tandem",
 )
 
 

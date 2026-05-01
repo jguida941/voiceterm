@@ -8,6 +8,9 @@ from dev.scripts.devctl.review_channel.follow_controller import (
     ReviewerWakeDeps,
     maybe_wake_waiting_reviewer_conductor,
 )
+from dev.scripts.devctl.review_channel.follow_controller_wake_target import (
+    resolve_reviewer_wake_target,
+)
 
 
 def _base_report() -> dict[str, object]:
@@ -52,6 +55,79 @@ def test_maybe_wake_waiting_reviewer_conductor_skips_non_remote_control() -> Non
     )
 
     assert result is None
+
+
+def test_reviewer_wake_uses_agent_loop_decision_when_packet_inbox_is_stale() -> None:
+    report = {
+        "bridge_liveness": {
+            "session_state_hints": {
+                "codex": {"state": "waiting_for_user_input"},
+            }
+        },
+        "packet_inbox": {"agents": []},
+        "agent_loop_decisions": [
+            {
+                "actor_id": "codex",
+                "actor_role": "reviewer",
+                "loop_mode": "pivot_to_packet",
+                "wake_required": True,
+                "attention_packet_id": "pkt-loop",
+            }
+        ],
+        "packets": [
+            {
+                "packet_id": "pkt-loop",
+                "to_agent": "codex",
+                "kind": "finding",
+                "status": "pending",
+            }
+        ],
+    }
+
+    packet, command = resolve_reviewer_wake_target(
+        report=report,
+        operator_interaction_mode="remote_control",
+    )
+
+    assert command is None
+    assert packet is not None
+    assert packet["packet_id"] == "pkt-loop"
+
+
+def test_reviewer_wake_skips_stopped_agent_loop_decision() -> None:
+    report = {
+        "bridge_liveness": {
+            "session_state_hints": {
+                "codex": {"state": "waiting_for_user_input"},
+            }
+        },
+        "packet_inbox": {"agents": []},
+        "agent_loop_decisions": [
+            {
+                "actor_id": "codex",
+                "actor_role": "reviewer",
+                "loop_mode": "stopped",
+                "wake_required": True,
+                "attention_packet_id": "pkt-loop",
+            }
+        ],
+        "packets": [
+            {
+                "packet_id": "pkt-loop",
+                "to_agent": "codex",
+                "kind": "finding",
+                "status": "pending",
+            }
+        ],
+    }
+
+    packet, command = resolve_reviewer_wake_target(
+        report=report,
+        operator_interaction_mode="remote_control",
+    )
+
+    assert packet is None
+    assert command is None
 
 
 def test_maybe_wake_waiting_reviewer_conductor_relaunches_unobserved_action_request(

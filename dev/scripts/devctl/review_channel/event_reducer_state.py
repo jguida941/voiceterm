@@ -17,6 +17,7 @@ from ..runtime.review_state_models import (
     ReviewSessionState,
     ReviewState,
 )
+from ..runtime.packet_continuity import build_packet_continuity_index
 from .core import DEFAULT_BRIDGE_REL
 from .event_projection import build_event_queue_state
 from .event_reducer_ack_projection import project_stage_commit_pipeline_ack
@@ -110,6 +111,8 @@ class ReducedReviewStateInputs:
     registry_state: dict[str, object]
     runtime: dict[str, object]
     expired_liveness_sessions: set[tuple[str, str]]
+    agent_sync: dict[str, object] | None = None
+    agent_work_board: dict[str, object] | None = None
 
 
 def build_reduced_review_state(
@@ -159,6 +162,28 @@ def build_reduced_review_state(
     )
     review_state: dict[str, object] = asdict(typed_state)
     review_state["packets"] = inputs.packet_rows
+    review_state["packet_continuity"] = build_packet_continuity_index(
+        inputs.packet_rows
+    ).to_dict()
+    if inputs.agent_sync is not None:
+        review_state["agent_sync"] = inputs.agent_sync
+    if inputs.agent_work_board is not None:
+        review_state["agent_work_board"] = inputs.agent_work_board
+    # Per rev_pkt_2546/2552/2556 (Plan 4.1 Scope 1): surface the latest typed
+    # reviewer_checkpoint event payload so downstream projections (current
+    # session, bridge liveness) can read the rotated instruction/revision
+    # straight from the event log instead of parsing bridge.md as authority.
+    from .reviewer_authority_events import (
+        latest_reviewer_checkpoint_payload,
+        latest_reviewer_heartbeat_payload,
+    )
+
+    checkpoint_payload = latest_reviewer_checkpoint_payload(inputs.events)
+    if checkpoint_payload:
+        review_state["latest_reviewer_checkpoint"] = dict(checkpoint_payload)
+    heartbeat_payload = latest_reviewer_heartbeat_payload(inputs.events)
+    if heartbeat_payload:
+        review_state["latest_reviewer_heartbeat"] = dict(heartbeat_payload)
     review_state["_compat"] = _compat_payload(inputs)
     return review_state
 

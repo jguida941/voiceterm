@@ -13,9 +13,16 @@ from ..runtime.review_state_models import (
 )
 from .core import LaneAssignment, project_id_for_repo
 from .handoff import extract_bridge_snapshot
+from .agent_loop_decision_projection import (
+    agent_loop_decisions_for_work_board,
+    apply_scoped_attention_to_ambiguous_packet_attention,
+)
+from .agent_work_board_posture import apply_work_board_session_posture
 from .projection_bundle import (
     ReviewChannelProjectionPaths,
+    artifact_writes_suppressed,
     canonicalize_projection_review_state,
+    projection_paths_for_root,
     write_projection_bundle,
 )
 from .pending_packets import load_pending_packet_queue
@@ -83,26 +90,15 @@ def write_status_projection_bundle(
         timestamp=timestamp,
     )
     review_state = canonicalize_projection_review_state(review_state)
+    review_state = apply_work_board_session_posture(review_state)
     snapshot_id = str(review_state.get("snapshot_id") or "").strip()
     zref = str(review_state.get("zref") or "").strip()
     agent_registry = _status_agent_registry(review_state)
-    projection_paths = write_projection_bundle(
-        output_root=context.output_root,
-        review_state=review_state,
-        agent_registry=agent_registry,
-        action="status",
-        trace_events=[],
-        full_extras=_status_full_extras(
-            context=context,
-            payload=payload,
-            snapshot_id=snapshot_id,
-            zref=zref,
-        ),
-    )
-    mirror_root = _projection_mirror_root(context.output_root)
-    if mirror_root is not None:
-        write_projection_bundle(
-            output_root=mirror_root,
+    if artifact_writes_suppressed():
+        projection_paths = projection_paths_for_root(context.output_root)
+    else:
+        projection_paths = write_projection_bundle(
+            output_root=context.output_root,
             review_state=review_state,
             agent_registry=agent_registry,
             action="status",
@@ -114,6 +110,21 @@ def write_status_projection_bundle(
                 zref=zref,
             ),
         )
+        mirror_root = _projection_mirror_root(context.output_root)
+        if mirror_root is not None:
+            write_projection_bundle(
+                output_root=mirror_root,
+                review_state=review_state,
+                agent_registry=agent_registry,
+                action="status",
+                trace_events=[],
+                full_extras=_status_full_extras(
+                    context=context,
+                    payload=payload,
+                    snapshot_id=snapshot_id,
+                    zref=zref,
+                ),
+            )
     return StatusProjectionBundleResult(
         projection_paths=projection_paths,
         review_state=review_state,
@@ -166,6 +177,12 @@ def _build_status_review_state(
         push_decision=payload.push_decision,
         reduced_runtime=payload.reduced_runtime,
     )
+    review_state = _preserve_typed_runtime_addenda(
+        review_state,
+        prior_review_state=context.prior_review_state,
+    )
+    review_state = apply_work_board_session_posture(review_state)
+    review_state = _attach_agent_loop_decisions(review_state)
     snapshot_id = str(review_state.get("snapshot_id") or "").strip()
     zref = str(review_state.get("zref") or "").strip()
     compat = review_state.get("_compat")
@@ -189,6 +206,97 @@ def _build_status_review_state(
                 zref,
             )
     return review_state
+
+
+def _attach_agent_loop_decisions(
+    review_state: dict[str, object],
+) -> dict[str, object]:
+    from .agent_loop_decision_projection import (
+        apply_agent_sync_session_attention_disambiguation,
+    )
+
+    work_board = review_state.get("agent_work_board")
+    if not isinstance(work_board, Mapping):
+        return review_state
+    with_decisions = dict(review_state)
+    with_decisions["agent_loop_decisions"] = agent_loop_decisions_for_work_board(
+        review_state=with_decisions,
+        work_board=work_board,
+    )
+    with_decisions = apply_agent_sync_session_attention_disambiguation(with_decisions)
+    with_decisions = apply_scoped_attention_to_ambiguous_packet_attention(
+        with_decisions
+    )
+    from ..runtime.agent_dispatch_router import build_agent_dispatch_router
+    with_decisions["agent_dispatch_router"] = build_agent_dispatch_router(
+        review_state=with_decisions,
+    ).to_dict()
+    return with_decisions
+
+
+def _preserve_typed_runtime_addenda(
+    review_state: dict[str, object],
+    *,
+    prior_review_state: Mapping[str, object] | None,
+) -> dict[str, object]:
+    """Keep event-backed runtime addenda when bridge status refreshes.
+
+    Bridge-backed status owns bridge/session/checkpoint projection fields. It
+    does not own agent_sync, work-board, coordination-state, or round-proof
+    reducers. Dropping those fields during a read-only status refresh makes
+    status/doctor disagree with sync-status and erases the shared agent loop
+    cursor. Preserve the previous event-backed addenda until that reducer
+    publishes a newer snapshot.
+    """
+    prior = _prior_review_state_payload(prior_review_state)
+    if not prior:
+        return review_state
+    merged = dict(review_state)
+    prior_packets = prior.get("packets")
+    if prior_packets and not merged.get("packets"):
+        merged["packets"] = prior_packets
+    for key in (
+        "round_proofs",
+        "agent_sync",
+        "agent_work_board",
+        "coordination_state",
+        "agent_loop_decisions",
+    ):
+        value = prior.get(key)
+        if value:
+            merged[key] = value
+    prior_runtime = prior.get("reviewer_runtime")
+    if isinstance(prior_runtime, Mapping):
+        runtime = dict(merged.get("reviewer_runtime") or {})
+        for key in ("agent_runtime_clock", "packet_attention", "inbox_observation"):
+            prior_value = prior_runtime.get(key)
+            if prior_value and _runtime_field_missing(runtime.get(key), key):
+                runtime[key] = prior_value
+        merged["reviewer_runtime"] = runtime
+    return merged
+
+
+def _prior_review_state_payload(
+    prior_review_state: Mapping[str, object] | None,
+) -> Mapping[str, object]:
+    if not isinstance(prior_review_state, Mapping):
+        return {}
+    nested = prior_review_state.get("review_state")
+    if isinstance(nested, Mapping):
+        return nested
+    return prior_review_state
+
+
+def _runtime_field_missing(value: object, key: str) -> bool:
+    if not isinstance(value, Mapping):
+        return True
+    if key == "agent_runtime_clock":
+        return not str(value.get("source_latest_event_id") or "").strip()
+    if key == "packet_attention":
+        return not str(value.get("latest_inbox_event_id") or "").strip()
+    if key == "inbox_observation":
+        return not str(value.get("last_inbox_event_id") or "").strip()
+    return False
 
 
 def _projection_mirror_root(output_root: Path) -> Path | None:

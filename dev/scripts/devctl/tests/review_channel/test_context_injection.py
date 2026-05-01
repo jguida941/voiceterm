@@ -383,6 +383,39 @@ class ReviewChannelEventProjectionContextTests(unittest.TestCase):
             summary["derived_next_instruction_source"],
         )
 
+    def test_derived_instruction_source_preserves_route_discriminators(self) -> None:
+        from dev.scripts.devctl.review_channel.event_projection import (
+            build_event_queue_summary,
+        )
+
+        summary = build_event_queue_summary(
+            {"claude": 1},
+            0,
+            packets=[
+                {
+                    "packet_id": "rev_pkt_action",
+                    "status": "pending",
+                    "summary": "Wake the scoped Claude session",
+                    "body": "session-specific probe",
+                    "kind": "action_request",
+                    "from_agent": "codex",
+                    "to_agent": "claude",
+                    "target_role": "implementer",
+                    "target_session_id": "session-claude",
+                    "requested_action": "read_only_probe",
+                    "posted_at": "2026-05-01T03:23:00Z",
+                    "expires_at_utc": "2999-01-01T00:00:00Z",
+                    "delivery_observed_at_utc": "2026-05-01T03:24:00Z",
+                    "delivery_observed_by": "claude",
+                }
+            ],
+        )
+
+        source = summary["derived_next_instruction_source"]
+        self.assertEqual(source["packet_id"], "rev_pkt_action")
+        self.assertEqual(source["target_role"], "implementer")
+        self.assertEqual(source["target_session_id"], "session-claude")
+
     def test_finding_packet_does_not_become_derived_next_instruction(self) -> None:
         from dev.scripts.devctl.review_channel.event_projection import (
             build_event_queue_summary,

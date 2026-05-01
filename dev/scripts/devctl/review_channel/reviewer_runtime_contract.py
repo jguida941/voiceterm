@@ -16,7 +16,10 @@ from ..runtime.reviewer_gate_logic import (
 )
 from ..runtime.session_posture import build_session_posture
 from ..runtime.reviewer_runtime_models import (
-    ReviewerAcceptanceState, ReviewerLastPollState, ReviewerRuntimeContract,
+    AgentRuntimeClock, ReviewerAcceptanceState, ReviewerDutyProof,
+    ReviewerLastPollState, ReviewerRuntimeContract,
+    build_agent_runtime_clock, build_inbox_observation_state,
+    build_packet_attention_state, derive_wake_evidence_for_actor,
 )
 from .bridge_validation_acceptance import review_acceptance_projection
 from .handoff import BridgeSnapshot
@@ -50,6 +53,12 @@ class ReviewerRuntimeInputs:
     operator_interaction_mode: str = ""
     agent_mind: Mapping[str, object] | None = None
     reviewer_accepted_implementer_state_hash_override: str | None = None
+    # Per rev_pkt_2498 (3): typed event log enables wake-evidence derivation
+    # via derive_wake_evidence_for_actor. Optional + defaults to None so
+    # callers without events still build a valid contract; when events ARE
+    # passed, _packet_attention_for_caller derives latest_relevant_event_id
+    # from events filtered by actor_id/session_id.
+    events: tuple[Mapping[str, object], ...] = ()
 
 
 def reviewer_runtime_contract_to_dict(
@@ -163,6 +172,27 @@ def build_reviewer_runtime_contract(
             collaboration=inputs.collaboration,
             remote_control_attachment=remote_control_attachment,
             agent_mind=inputs.agent_mind,
+        ),
+        duty_proof=_duty_proof_state(
+            bridge_liveness=bridge_liveness,
+            current_session=inputs.current_session,
+            collaboration=inputs.collaboration,
+            agent_mind=inputs.agent_mind,
+            stale_reason=stale_reason,
+        ),
+        inbox_observation=_inbox_observation_for_caller(
+            bridge_liveness=bridge_liveness,
+            collaboration=inputs.collaboration,
+            agent_mind=inputs.agent_mind,
+        ),
+        agent_runtime_clock=_agent_runtime_clock_for_runtime(
+            bridge_liveness=bridge_liveness,
+            events=inputs.events,
+        ),
+        packet_attention=_packet_attention_for_caller(
+            bridge_liveness=bridge_liveness,
+            agent_mind=inputs.agent_mind,
+            events=inputs.events,
         ),
     )
 
@@ -348,3 +378,363 @@ def _stale_reason(
     if status in {"", "healthy"}:
         return ""
     return status
+
+
+def _duty_proof_state(
+    *,
+    bridge_liveness: Mapping[str, object],
+    current_session: ReviewCurrentSessionState,
+    collaboration: CollaborationSessionState | None,
+    agent_mind: Mapping[str, object] | None,
+    stale_reason: str,
+) -> ReviewerDutyProof:
+    """Build typed reviewer-duty proof from typed inputs available at this layer.
+
+    Per rev_pkt_2475 Scope C: a healthy reviewer_mode requires both
+    packet-inbox-current AND semantic-diff-reviewed proof. This builder
+    composes what's reachable from the existing reviewer-runtime input set;
+    deeper signals (live worktree hash, reviewed_diff_hash) come from the
+    reviewer-loop layer (reviewer-heartbeat, doctor) which has repo_root.
+
+    Per rev_pkt_2475 Scope D: env-declared caller identity
+    (``DEVCTL_CALLER_AGENT`` + ``DEVCTL_CALLER_SESSION_ID``) is checked
+    against the proof's expected reviewer actor/session. A dashboard-claude
+    session that lacks proper caller identity cannot stamp
+    ``semantic_review_claimed=True`` for a coder-claude reviewer_actor_id —
+    the proof is downgraded with ``actor_session_mismatch`` stale_reason.
+    """
+    import os as _os
+    pending_packet_count = int(
+        _mapping(bridge_liveness.get("pending_packet_count")).get("total")  # type: ignore[arg-type]
+        or bridge_liveness.get("pending_packet_count")
+        or 0
+    )
+    last_packet_event_id = str(
+        bridge_liveness.get("last_packet_event_id")
+        or bridge_liveness.get("last_packet_id")
+        or ""
+    )
+    last_packet_observed_at_utc = str(
+        bridge_liveness.get("last_packet_observed_at_utc")
+        or bridge_liveness.get("last_codex_poll_utc")
+        or ""
+    )
+    current_head_sha = str(
+        bridge_liveness.get("head_at_push_time")
+        or bridge_liveness.get("current_head_commit")
+        or ""
+    )
+    # Per rev_pkt_2485 fix #1: bridge_liveness.reviewed_hash_current is a
+    # BOOLEAN, not a tree hash. Do not fall back to it. Leave empty when no
+    # typed staged_tree_hash exists; deeper layers (reviewer-heartbeat with
+    # repo_root) will populate it.
+    staged_tree_hash = str(bridge_liveness.get("staged_tree_hash") or "")
+    # Per rev_pkt_2485 fix #3: a claim bit alone cannot satisfy semantic
+    # review. Require concrete reviewed_diff_hash + last_diff_review_at_utc
+    # signals before honoring semantic_review_claimed for the healthy state.
+    reviewed_diff_hash = str((agent_mind or {}).get("reviewed_diff_hash") or "")
+    reviewed_diff_base = str((agent_mind or {}).get("reviewed_diff_base") or "")
+    reviewed_path_count = int((agent_mind or {}).get("reviewed_path_count") or 0)
+    last_diff_review_at_utc = str(
+        (agent_mind or {}).get("last_diff_review_at_utc") or ""
+    )
+    semantic_review_claimed = bool((agent_mind or {}).get("semantic_review_claimed"))
+    has_concrete_diff_review_evidence = bool(
+        reviewed_diff_hash and last_diff_review_at_utc and reviewed_path_count > 0
+    )
+    semantic_review_source = _semantic_review_source(
+        reviewed_diff_hash=reviewed_diff_hash,
+        reviewed_diff_base=reviewed_diff_base,
+        reviewed_path_count=reviewed_path_count,
+        last_diff_review_at_utc=last_diff_review_at_utc,
+        semantic_review_claimed=semantic_review_claimed,
+    )
+    # Per rev_pkt_2485 fix #4: reviewer_actor_id MUST come from typed
+    # collaboration.actor_authorities (or session_posture / authority_snapshot).
+    # implementer_ack is not reviewer identity. Leave absent and fail closed
+    # when no typed authority record names a reviewer.
+    reviewer_actor_id = ""
+    reviewer_session_id = ""
+    if collaboration is not None:
+        for authority in collaboration.actor_authorities or ():
+            if str(authority.role or "").lower() == "reviewer":
+                reviewer_actor_id = str(authority.actor_id or authority.provider or "")
+                reviewer_session_id = str(getattr(authority, "session_id", "") or "")
+                break
+    stale_reasons: list[str] = []
+    if pending_packet_count > 0:
+        stale_reasons.append("pending_packet_inbox_not_consumed")
+    if not semantic_review_claimed:
+        stale_reasons.append("semantic_review_not_claimed")
+    elif not has_concrete_diff_review_evidence:
+        # Per rev_pkt_2485 fix #3: claim bit alone is not sufficient.
+        stale_reasons.append("semantic_review_evidence_missing")
+    elif semantic_review_source == "agent_mind_auxiliary":
+        stale_reasons.append("semantic_review_source_auxiliary")
+    if stale_reason:
+        stale_reasons.append(f"stale_reason:{stale_reason}")
+    # Per rev_pkt_2475 Scope D: env-declared caller must match the proof's
+    # expected reviewer actor/session before semantic_review_claimed is
+    # accepted. Dashboard-claude posing as coder-claude (or vice versa)
+    # cannot cross this fence.
+    caller_agent = str(_os.environ.get("DEVCTL_CALLER_AGENT", "")).strip()
+    caller_session = str(_os.environ.get("DEVCTL_CALLER_SESSION_ID", "")).strip()
+    actor_session_mismatch = False
+    if reviewer_actor_id and caller_agent and caller_agent != reviewer_actor_id:
+        actor_session_mismatch = True
+    if reviewer_session_id and caller_session and caller_session != reviewer_session_id:
+        actor_session_mismatch = True
+    if actor_session_mismatch:
+        stale_reasons.append("actor_session_mismatch")
+        # Refuse to honor the semantic_review claim from a non-matching caller.
+        semantic_review_claimed = False
+    state = "healthy"
+    if actor_session_mismatch:
+        state = "actor_session_mismatch"
+    elif not semantic_review_claimed:
+        state = "review_incomplete"
+    elif not has_concrete_diff_review_evidence:
+        # Per rev_pkt_2485 fix #3: a claim bit without reviewed_diff_hash +
+        # last_diff_review_at_utc + reviewed_path_count > 0 is incomplete.
+        state = "review_incomplete"
+    elif (
+        staged_tree_hash
+        and reviewed_diff_hash
+        and staged_tree_hash != reviewed_diff_hash
+    ):
+        # Per rev_pkt_2485 fix #2: compare staged_tree_hash to the reviewed
+        # diff's hash (same shape), NOT to current_head_sha (commit SHA).
+        # Live tree advanced past where reviewer claimed semantic review.
+        state = "reviewer_diff_stale"
+    elif pending_packet_count > 0:
+        state = "review_incomplete"
+    elif stale_reasons:
+        state = "review_incomplete"
+    return ReviewerDutyProof(
+        reviewer_actor_id=reviewer_actor_id,
+        reviewer_session_id=reviewer_session_id,
+        last_packet_event_id=last_packet_event_id,
+        last_packet_observed_at_utc=last_packet_observed_at_utc,
+        pending_packet_count=pending_packet_count,
+        current_head_sha=current_head_sha,
+        staged_tree_hash=staged_tree_hash,
+        worktree_hash=str((agent_mind or {}).get("worktree_hash") or ""),
+        changed_path_count=int((agent_mind or {}).get("changed_path_count") or 0),
+        reviewed_diff_hash=reviewed_diff_hash,
+        reviewed_diff_base=reviewed_diff_base,
+        reviewed_path_count=reviewed_path_count,
+        last_diff_review_at_utc=last_diff_review_at_utc,
+        semantic_review_source=semantic_review_source,
+        semantic_review_claimed=semantic_review_claimed,
+        state=state,
+        stale_reasons=tuple(stale_reasons),
+    )
+
+
+def _mapping(value: object) -> Mapping[str, object]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _semantic_review_source(
+    *,
+    reviewed_diff_hash: str,
+    reviewed_diff_base: str,
+    reviewed_path_count: int,
+    last_diff_review_at_utc: str,
+    semantic_review_claimed: bool,
+) -> str:
+    if any(
+        (
+            reviewed_diff_hash,
+            reviewed_diff_base,
+            reviewed_path_count,
+            last_diff_review_at_utc,
+            semantic_review_claimed,
+        )
+    ):
+        return "agent_mind_auxiliary"
+    return ""
+
+
+def _inbox_observation_for_caller(
+    *,
+    bridge_liveness: Mapping[str, object],
+    collaboration: CollaborationSessionState | None,
+    agent_mind: Mapping[str, object] | None,
+):
+    """Build typed inbox observation for the env-declared caller.
+
+    Per rev_pkt_2486 Scope 3 + Scope 5: surface pivot_required as a machine-
+    readable signal threaded through ReviewerRuntimeContract, scoped to the
+    current caller's actor_id/session_id when env declares them. Ambiguous
+    actor_id (no env, no typed authority match) fails closed via
+    actor_identity_ambiguous reason inside the builder.
+    """
+    import os as _os
+
+    actor_id = str(_os.environ.get("DEVCTL_CALLER_AGENT", "")).strip()
+    session_id = str(_os.environ.get("DEVCTL_CALLER_SESSION_ID", "")).strip()
+    last_inbox_event_id = str(
+        bridge_liveness.get("last_inbox_event_id")
+        or bridge_liveness.get("last_packet_event_id")
+        or ""
+    )
+    last_inbox_event_at_utc = str(
+        bridge_liveness.get("last_inbox_event_at_utc")
+        or bridge_liveness.get("last_codex_poll_utc")
+        or ""
+    )
+    last_inbox_observed_event_id = str(
+        (agent_mind or {}).get("last_inbox_observed_event_id") or ""
+    )
+    last_inbox_observed_at_utc = str(
+        (agent_mind or {}).get("last_inbox_observed_at_utc") or ""
+    )
+    pending_packet_count = int(
+        _mapping(bridge_liveness.get("pending_packet_count")).get("total")  # type: ignore[arg-type]
+        or bridge_liveness.get("pending_packet_count")
+        or 0
+    )
+    superseded_packet_id = str(
+        bridge_liveness.get("superseded_packet_id") or ""
+    )
+    return build_inbox_observation_state(
+        actor_id=actor_id,
+        session_id=session_id,
+        last_inbox_event_id=last_inbox_event_id,
+        last_inbox_event_at_utc=last_inbox_event_at_utc,
+        last_inbox_observed_event_id=last_inbox_observed_event_id,
+        last_inbox_observed_at_utc=last_inbox_observed_at_utc,
+        pending_packet_count=pending_packet_count,
+        superseded_packet_id=superseded_packet_id,
+    )
+
+
+def _agent_runtime_clock_for_runtime(
+    *,
+    bridge_liveness: Mapping[str, object],
+    events: "tuple[Mapping[str, object], ...]" = (),
+) -> AgentRuntimeClock:
+    """Per rev_pkt_2498 (1) + rev_pkt_2550 (Plan 4.1 Scope 1): build the typed
+    shared runtime clock from the reduced event log when available, with
+    bridge_liveness signals as compatibility fallback. The event-log path is
+    authoritative because it lets both agents reason over the same monotonic
+    rev_evt_NNNN cursor without depending on bridge.md.
+    """
+    event_id = ""
+    event_at_utc = ""
+    if events:
+        for event in reversed(events):
+            if not isinstance(event, Mapping):
+                continue
+            candidate_id = str(event.get("event_id") or "").strip()
+            if candidate_id:
+                event_id = candidate_id
+                # Events on disk use ``timestamp_utc``; reviewer-authority
+                # events emitted via the inline emit helper use ``timestamp``.
+                # Accept both so the runtime clock works regardless of source.
+                event_at_utc = str(
+                    event.get("timestamp_utc")
+                    or event.get("timestamp")
+                    or ""
+                ).strip()
+                break
+    if not event_id:
+        event_id = str(
+            bridge_liveness.get("last_inbox_event_id")
+            or bridge_liveness.get("last_packet_event_id")
+            or ""
+        )
+        event_at_utc = str(
+            bridge_liveness.get("last_inbox_event_at_utc")
+            or bridge_liveness.get("last_codex_poll_utc")
+            or ""
+        )
+    cadence_seconds = int(bridge_liveness.get("cadence_seconds") or 0)
+    if event_id and not cadence_seconds:
+        cadence_seconds = 30
+    last_published_at_utc = str(
+        bridge_liveness.get("last_published_at_utc") or ""
+    )
+    if event_at_utc and not last_published_at_utc:
+        last_published_at_utc = event_at_utc
+    snapshot_id = str(bridge_liveness.get("snapshot_id") or "")
+    if event_id and not snapshot_id:
+        snapshot_id = f"agent-runtime-clock:{event_id}"
+    return build_agent_runtime_clock(
+        source_latest_event_id=event_id,
+        source_latest_event_at_utc=event_at_utc,
+        cadence_seconds=cadence_seconds,
+        last_published_at_utc=last_published_at_utc,
+        snapshot_id=snapshot_id,
+    )
+
+
+def _packet_attention_for_caller(
+    *,
+    bridge_liveness: Mapping[str, object],
+    agent_mind: Mapping[str, object] | None,
+    events: "tuple[Mapping[str, object], ...]" = (),
+):
+    """Per rev_pkt_2498 (2,4): build typed PacketAttentionState for the
+    env-declared caller. Reads observed-event-id from agent_mind (the
+    actor's own claim of what it has seen) and derives wake_required +
+    pivot_required + stale_reason. Composes with rev_pkt_2470/2476
+    fail-closed semantics on ambiguous actor identity.
+    """
+    import os as _os
+
+    actor_id = str(_os.environ.get("DEVCTL_CALLER_AGENT", "")).strip()
+    session_id = str(_os.environ.get("DEVCTL_CALLER_SESSION_ID", "")).strip()
+    # Per rev_pkt_2498 (3): when events are provided, derive the
+    # latest_inbox_event_id from typed event-log filtered by actor identity.
+    # This produces a per-actor_session view rather than a global cursor —
+    # dashboard-claude and coder-claude see different latest-relevant events
+    # when target_role/target_session_id discriminators are present.
+    wake_evidence = derive_wake_evidence_for_actor(
+        events=list(events),
+        actor_id=actor_id,
+        session_id=session_id,
+    ) if events else None
+    latest_inbox_event_id = str(
+        (wake_evidence.latest_relevant_event_id if wake_evidence else "")
+        or bridge_liveness.get("last_inbox_event_id")
+        or bridge_liveness.get("last_packet_event_id")
+        or ""
+    )
+    latest_attention_packet_id = str(
+        (wake_evidence.latest_relevant_packet_id if wake_evidence else "")
+        or bridge_liveness.get("latest_attention_packet_id")
+        or bridge_liveness.get("canonical_active_packet_id")
+        or ""
+    )
+    latest_attention_changed_at_utc = str(
+        (wake_evidence.latest_relevant_event_at_utc if wake_evidence else "")
+        or bridge_liveness.get("latest_attention_changed_at_utc")
+        or ""
+    )
+    last_observed_event_id = str(
+        (agent_mind or {}).get("last_inbox_observed_event_id") or ""
+    )
+    last_observed_at_utc = str(
+        (agent_mind or {}).get("last_inbox_observed_at_utc") or ""
+    )
+    pending_packet_count = int(
+        _mapping(bridge_liveness.get("pending_packet_count")).get("total")  # type: ignore[arg-type]
+        or bridge_liveness.get("pending_packet_count")
+        or 0
+    )
+    superseded_packet_id = str(
+        bridge_liveness.get("superseded_packet_id") or ""
+    )
+    return build_packet_attention_state(
+        observation_actor_id=actor_id,
+        observation_session_id=session_id,
+        latest_inbox_event_id=latest_inbox_event_id,
+        latest_attention_packet_id=latest_attention_packet_id,
+        latest_attention_changed_at_utc=latest_attention_changed_at_utc,
+        last_observed_event_id=last_observed_event_id,
+        last_observed_at_utc=last_observed_at_utc,
+        pending_packet_count=pending_packet_count,
+        superseded_packet_id=superseded_packet_id,
+    )

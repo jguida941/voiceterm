@@ -73,15 +73,22 @@ def packet_intent_anchors_from_packets(
 
 
 def packet_intent_anchor_from_packet(packet: object) -> PacketIntentAnchor | None:
-    """Return one continuity anchor for planning packets and plan-targeted rows."""
+    """Return one continuity anchor for packets carrying plan intent."""
     kind = _field(packet, "kind")
     target_kind = _field(packet, "target_kind")
-    if kind not in _PLANNING_PACKET_KINDS and target_kind != "plan":
+    anchor_refs = tuple(_rows(_raw(packet, "anchor_refs"))[:3])
+    intake_ref = _field(packet, "intake_ref")
+    plan_id = _field(packet, "plan_id")
+    has_plan_context = bool(anchor_refs or intake_ref or plan_id)
+    if (
+        kind not in _PLANNING_PACKET_KINDS
+        and target_kind != "plan"
+        and not has_plan_context
+    ):
         return None
     packet_id = _field(packet, "packet_id")
     if not packet_id:
         return None
-    anchor_refs = tuple(_rows(_raw(packet, "anchor_refs"))[:3])
     evidence = tuple(
         dict.fromkeys(
             (
@@ -93,8 +100,8 @@ def packet_intent_anchor_from_packet(packet: object) -> PacketIntentAnchor | Non
     )
     return PacketIntentAnchor(
         packet_id=packet_id,
-        target_plan=_field(packet, "target_ref"),
-        target_task=_field(packet, "intake_ref")
+        target_plan=_field(packet, "target_ref") or plan_id,
+        target_task=intake_ref
         or _field(packet, "mutation_op")
         or _field(packet, "requested_action"),
         anchor_refs=anchor_refs,
