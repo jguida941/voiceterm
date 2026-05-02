@@ -58,10 +58,9 @@ def collaboration_topology_mode(
     topology, NOT the legacy authority/review-gate label. When evidence
     is missing, returns ``"unknown"`` (fail-closed per rev_pkt_2298) so
     consumers don't silently get ``single_agent`` as observed runtime.
-    The legacy ``single_agent`` mode value is reserved for legacy
-    authority semantics; the typed CoordinationStateProjection at
-    ``review_state.coordination_state.coordination_topology`` is the
-    canonical observed-runtime answer for current consumers.
+    The explicit ``single_agent`` reviewer mode is preserved as a bounded
+    topology when no live multi-agent evidence is present; missing mode
+    evidence still falls through to ``unknown``.
     """
     requested_budget = sum(
         max(participant.requested_worker_budget or 0, 0)
@@ -83,10 +82,13 @@ def collaboration_topology_mode(
     if reviewer_mode == "active_dual_agent":
         return "dual_agent"
 
-    # Per rev_pkt_2298: no observable evidence → fail-closed to "unknown",
-    # not "single_agent". Producers that previously returned single_agent as
-    # default observed topology were the source of operator-facing
-    # contradictions Codex flagged in rev_pkt_2326/2346.
+    if reviewer_mode == "single_agent":
+        return "single_agent"
+
+    # Per rev_pkt_2298: no observable evidence -> fail-closed to "unknown".
+    # Producers that previously returned single_agent as a bare default were
+    # the source of operator-facing contradictions Codex flagged in
+    # rev_pkt_2326/2346.
     return "unknown"
 
 
