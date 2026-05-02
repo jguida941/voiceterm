@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `2dc272ea1d3a` — Refresh policy-owned generated surfaces for 00e74e7c
-- Tree hash: `9a84cde36a5f`
-- Generation stamp: `snap-55ca6e3f1d0e`
-- Generated at (UTC): 2026-05-02T03:54:25Z
+- HEAD: `05425b97441d` — Refresh external review snapshot for 2dc272ea
+- Tree hash: `6312d0052df2`
+- Generation stamp: `snap-9378a8befe09`
+- Generated at (UTC): 2026-05-02T03:55:25Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `single_agent`)
+- Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 538 files, +66389/-5514
+- Delta since last snapshot: 24 commits, 538 files, +66403/-5530
 - Governance findings: 152 open / 88 fixed / 254 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,9 +30,9 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `2dc272ea1d3ae5c4c6723f2b5a7cee22e222fbef`
+- HEAD SHA: `05425b97441d5b360c8560ff70427a7a12a6f1c5`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-01T23:49:43-04:00
+- HEAD timestamp (UTC): 2026-05-01T23:54:27-04:00
 
 ## 2. Governance state
 
@@ -50,13 +50,13 @@ probes, typed actions, deterministic policy resolution — is what m...
 - authorized_head_commit: `00e74e7cc15f12f0bf79aace647f536906eff51c`
 - approved_target_identity: `tree-receipt-20260502T034357838720Z:b38e49cb3c5660ed1f17e1a8a6491c2145e11f95`
 - publication_backlog: urgent
-- publication_guidance: 5 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 6 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `single_agent`
+- interaction_mode: `local_terminal`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -70,13 +70,13 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `2dc272ea1d3a`
+Range: last 24 commits ending at `05425b97441d`
 
 - commits: 24
 - files changed: 538
-- insertions: +66389
-- deletions: -5514
-- bundle classes touched: docs, tooling
+- insertions: +66403
+- deletions: -5530
+- bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary, Dependency / security
 - authority surfaces touched: 26 file(s)
 
@@ -84,30 +84,30 @@ Range: last 24 commits ending at `2dc272ea1d3a`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `2dc272ea` | Refresh policy-owned generated surfaces for 00e74e7c | 2 | +6/-4 | docs |  |
-| 2 | `00e74e7c` | Refresh external review snapshot for e83a5e75 | 2 | +80/-78 | docs |  |
-| 3 | `e83a5e75` | Add typed develop orchestration controller | 109 | +7827/-787 | tooling | Parser / ANSI boundary |
-| 4 | `e6c5cdf4` | Checkpoint typed projection drift after rev_pkt_2716 binding | 3 | +69/-74 | tooling |  |
-| 5 | `dd4d7897` | Add typed develop controller and packet binding | 45 | +3059/-1059 | tooling | Parser / ANSI boundary |
-| 6 | `4f589933` | WIP checkpoint: multi-agent /develop slice + Claude-tester… | 301 | +34713/-731 | tooling | Parser / ANSI boundary |
-| 7 | `924ba57d` | Snapshot for ChatGPT Pro Slice 4.1 deep-dive context | 20 | +1669/-132 | tooling |  |
-| 8 | `105c6b6a` | Refresh external review snapshot for 7404cc42 | 1 | +54/-51 | tooling |  |
-| 9 | `7404cc42` | Refresh projections after 9f492c39 | 3 | +97/-83 | docs |  |
-| 10 | `9f492c39` | WIP snapshot: Slice A.5 lifecycle unification + connectivit… | 140 | +8870/-1093 | tooling | Parser / ANSI boundary |
-| 11 | `07ac1bd3` | Refresh external review snapshot for 6902e3c8 | 1 | +52/-52 | tooling |  |
-| 12 | `6902e3c8` | Refresh external review snapshot for ee2ee1b1 | 2 | +50/-54 | docs |  |
-| 13 | `ee2ee1b1` | Refresh external review snapshot for afb62cdf | 1 | +48/-42 | tooling |  |
-| 14 | `afb62cdf` | Refresh external review snapshot for c2fcb696 | 2 | +61/-63 | docs |  |
-| 15 | `c2fcb696` | Enforce typed authority provenance probe | 2 | +52/-52 | tooling |  |
-| 16 | `b6cb7332` | Refresh external review snapshot for 3a874752 | 2 | +50/-51 | docs |  |
-| 17 | `3a874752` | Refresh external review snapshot for cd57207f | 1 | +46/-46 | tooling |  |
-| 18 | `cd57207f` | Refresh external review snapshot for ee7635ed | 2 | +52/-51 | docs |  |
-| 19 | `ee7635ed` | Refresh external review snapshot for 0da0bfe1 | 1 | +58/-55 | tooling |  |
-| 20 | `0da0bfe1` | Refresh policy-owned generated surfaces for eff73aad | 1 | +1/-1 | docs |  |
-| 21 | `eff73aad` | Refresh external review snapshot for 8d31f774 | 2 | +106/-90 | docs |  |
-| 22 | `8d31f774` | Implement typed governance continuation | 146 | +9271/-770 | tooling | Parser / ANSI boundary, Dependency / security |
-| 23 | `0233390f` | Refresh external review snapshot for 39083dc8 | 2 | +48/-48 | docs |  |
-| 24 | `39083dc8` | Refresh external review snapshot for 5af77734 | 1 | +50/-47 | tooling |  |
+| 1 | `05425b97` | Refresh external review snapshot for 2dc272ea | 1 | +64/-63 | tooling |  |
+| 2 | `2dc272ea` | Refresh policy-owned generated surfaces for 00e74e7c | 2 | +6/-4 | docs |  |
+| 3 | `00e74e7c` | Refresh external review snapshot for e83a5e75 | 2 | +80/-78 | docs |  |
+| 4 | `e83a5e75` | Add typed develop orchestration controller | 109 | +7827/-787 | tooling | Parser / ANSI boundary |
+| 5 | `e6c5cdf4` | Checkpoint typed projection drift after rev_pkt_2716 binding | 3 | +69/-74 | tooling |  |
+| 6 | `dd4d7897` | Add typed develop controller and packet binding | 45 | +3059/-1059 | tooling | Parser / ANSI boundary |
+| 7 | `4f589933` | WIP checkpoint: multi-agent /develop slice + Claude-tester… | 301 | +34713/-731 | tooling | Parser / ANSI boundary |
+| 8 | `924ba57d` | Snapshot for ChatGPT Pro Slice 4.1 deep-dive context | 20 | +1669/-132 | tooling |  |
+| 9 | `105c6b6a` | Refresh external review snapshot for 7404cc42 | 1 | +54/-51 | tooling |  |
+| 10 | `7404cc42` | Refresh projections after 9f492c39 | 3 | +97/-83 | docs |  |
+| 11 | `9f492c39` | WIP snapshot: Slice A.5 lifecycle unification + connectivit… | 140 | +8870/-1093 | tooling | Parser / ANSI boundary |
+| 12 | `07ac1bd3` | Refresh external review snapshot for 6902e3c8 | 1 | +52/-52 | tooling |  |
+| 13 | `6902e3c8` | Refresh external review snapshot for ee2ee1b1 | 2 | +50/-54 | docs |  |
+| 14 | `ee2ee1b1` | Refresh external review snapshot for afb62cdf | 1 | +48/-42 | tooling |  |
+| 15 | `afb62cdf` | Refresh external review snapshot for c2fcb696 | 2 | +61/-63 | docs |  |
+| 16 | `c2fcb696` | Enforce typed authority provenance probe | 2 | +52/-52 | tooling |  |
+| 17 | `b6cb7332` | Refresh external review snapshot for 3a874752 | 2 | +50/-51 | docs |  |
+| 18 | `3a874752` | Refresh external review snapshot for cd57207f | 1 | +46/-46 | tooling |  |
+| 19 | `cd57207f` | Refresh external review snapshot for ee7635ed | 2 | +52/-51 | docs |  |
+| 20 | `ee7635ed` | Refresh external review snapshot for 0da0bfe1 | 1 | +58/-55 | tooling |  |
+| 21 | `0da0bfe1` | Refresh policy-owned generated surfaces for eff73aad | 1 | +1/-1 | docs |  |
+| 22 | `eff73aad` | Refresh external review snapshot for 8d31f774 | 2 | +106/-90 | docs |  |
+| 23 | `8d31f774` | Implement typed governance continuation | 146 | +9271/-770 | tooling | Parser / ANSI boundary, Dependency / security |
+| 24 | `0233390f` | Refresh external review snapshot for 39083dc8 | 2 | +48/-48 | docs |  |
 
 ### Files
 
@@ -124,7 +124,7 @@ Range: last 24 commits ending at `2dc272ea1d3a`
 | `dev/active/MASTER_PLAN.md` | tooling | +919/-18 |
 | `dev/active/ai_governance_platform.md` | tooling | +1934/-4 |
 | `dev/active/autonomous_governance_loop_v2.md` | tooling | +132/-4 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1411/-1369 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1425/-1385 |
 | `dev/config/publication_sync_registry.json` | tooling | +1/-27 |
 | `dev/config/quality_presets/portable_python.json` | tooling | +10/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +84/-20 |
@@ -274,6 +274,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`05425b97`** — Refresh external review snapshot for 2dc272ea
+  - evolution: Fact: the live Codex/Claude beta pass found that the Plan 4.1 `/develop` design had typed topology contracts but no `devctl develop` CLI entrypoint, so agents could not actually invoke the controller surface they were t…
 - **`2dc272ea`** — Refresh policy-owned generated surfaces for 00e74e7c
   - evolution: Fact: the live Codex/Claude beta pass found that the Plan 4.1 `/develop` design had typed topology contracts but no `devctl develop` CLI entrypoint, so agents could not actually invoke the controller surface they were t…
 - **`00e74e7c`** — Refresh external review snapshot for e83a5e75
@@ -335,8 +337,6 @@ Recent findings:
   - evolution: Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the remote-control handoff path. The packet carried a valid `stage_commit_pipeline` target and full guard-bundle evidence, and Claude had acked it, …
 - **`0233390f`** — Refresh external review snapshot for 39083dc8
   - evolution: Fact: live Codex/Claude dogfood found several small but compounding surface lies: bridge/status reviewer mode could disagree, packet counters counted different queues, Action Requests risked reading receipt-like rows, c…
-- **`39083dc8`** — Refresh external review snapshot for 5af77734
-  - evolution: Fact: live Codex/Claude dogfood found several small but compounding surface lies: bridge/status reviewer mode could disagree, packet counters counted different queues, Action Requests risked reading receipt-like rows, c…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -380,4 +380,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-55ca6e3f1d0e` binds this file to HEAD `2dc272ea1d3a`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-9378a8befe09` binds this file to HEAD `05425b97441d`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
