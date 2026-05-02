@@ -128,6 +128,9 @@ def _build_attention(
         _text(attention_packet.get("latest_event_id")),
         _text(fallback.get("latest_inbox_event_id")),
     )
+    pending_packet_count = len(pending_packets) or _agent_sync_pending_packet_count(
+        agent_sync
+    )
     return build_packet_attention_state(
         observation_actor_id=actor,
         observation_session_id=session,
@@ -140,7 +143,7 @@ def _build_attention(
         ),
         last_observed_event_id=last_observed,
         last_observed_at_utc=_text(fallback.get("last_observed_at_utc")),
-        pending_packet_count=len(pending_packets),
+        pending_packet_count=pending_packet_count,
         superseded_packet_id=_text(fallback.get("superseded_packet_id")),
     )
 
@@ -254,6 +257,13 @@ def _agent_sync_row(
     agents = _mapping(_mapping(review_state.get("agent_sync")).get("agents"))
     row = agents.get(actor)
     return row if isinstance(row, Mapping) else {}
+
+
+def _agent_sync_pending_packet_count(agent_sync: Mapping[str, object]) -> int:
+    packets = agent_sync.get("pending_packets_to_me")
+    if isinstance(packets, list):
+        return len([packet_id for packet_id in packets if _text(packet_id)])
+    return 0
 
 
 def _observer_legacy_action_request(

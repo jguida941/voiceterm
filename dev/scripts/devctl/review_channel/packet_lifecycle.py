@@ -365,6 +365,14 @@ def _acted_on_disposition(
             anchor=target_anchor,
         )
 
+    if action == "archived" and _has_creation_binding(packet):
+        return _archive_disposition(
+            status="archived",
+            classification="expired_after_durable_binding",
+            reason="Packet expired after typed creation binding recorded durable ownership.",
+            anchor=target_anchor,
+        )
+
     return _archive_disposition(
         status="archived",
         classification="clock_expired_without_disposition",
@@ -519,6 +527,13 @@ def _plan_ingestion_payload(packet: Mapping[str, object]) -> Mapping[str, object
     if payload:
         return payload
     return _mapping(packet.get("plan_integration"))
+
+
+def _has_creation_binding(packet: Mapping[str, object]) -> bool:
+    binding = _mapping(packet.get("packet_creation_binding"))
+    status = _text(binding.get("status"))
+    target = _text(binding.get("binding_target"))
+    return bool(target and status in {"inserted", "updated", "already_present"})
 
 
 def _mapping(value: object) -> Mapping[str, object]:

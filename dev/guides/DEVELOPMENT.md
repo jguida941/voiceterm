@@ -1305,7 +1305,7 @@ fallback bug into its fix).
    - `python3 dev/scripts/devctl.py hygiene`
    - `python3 dev/scripts/checks/check_active_plan_sync.py`
    - `python3 dev/scripts/checks/check_multi_agent_sync.py`
-   - `python3 dev/scripts/checks/package_layout/check_instruction_surface_sync.py`
+   - `python3 dev/scripts/checks/check_instruction_surface_sync.py`
    - `python3 dev/scripts/checks/check_cli_flags_parity.py`
    - `python3 dev/scripts/checks/check_code_shape.py`
    - `python3 dev/scripts/checks/check_python_subprocess_policy.py`
@@ -1534,7 +1534,7 @@ Why this model is safe:
 | Check-script enforcement lane drift | `python3 dev/scripts/checks/check_guard_enforcement_inventory.py` | `tooling_control_plane.yml` + `release_preflight.yml` (new shared guards must also land in typed quality-policy + bundle/workflow parity) |
 | AGENTS rendered bundle reference drift | `python3 dev/scripts/checks/check_agents_bundle_render.py` (`--write` to regenerate) | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
 | Durable guide/playbook coverage drift | `python3 dev/scripts/checks/check_guide_contract_sync.py` | `tooling_control_plane.yml` + `release_preflight.yml` + `docs-check --strict-tooling` |
-| Instruction/starter surface drift | `python3 dev/scripts/checks/package_layout/check_instruction_surface_sync.py` (`python3 dev/scripts/devctl.py render-surfaces --write --format md` to regenerate) | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
+| Instruction/starter surface drift | `python3 dev/scripts/checks/check_instruction_surface_sync.py` (`python3 dev/scripts/devctl.py render-surfaces --write --format md` to regenerate) | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
 | Python broad-except drift (new `except Exception` / `BaseException` without rationale) | `python3 dev/scripts/checks/check_python_broad_except.py --since-ref origin/develop --head-ref HEAD` | `tooling_control_plane.yml` + `release_preflight.yml` + `devctl check --profile ci` AI guard |
 | Python subprocess policy drift (`subprocess.run(...)` missing explicit `check=`) | `python3 dev/scripts/checks/check_python_subprocess_policy.py` | `tooling_control_plane.yml` + `release_preflight.yml` + `devctl check --profile ci` AI guard |
 | Launcher command-source drift (`shlex.split(...)` on CLI/env/config input, raw `sys.argv` forwarding, env-controlled command argv without validators) | `DEVCTL_QUALITY_POLICY=dev/config/devctl_policies/launcher.json python3 dev/scripts/checks/check_command_source_validation.py` | `launcher-check` selectable lane (pilot rollout) |
@@ -1876,6 +1876,12 @@ python3 dev/scripts/devctl.py triage --pedantic --no-cihub --emit-bundle --forma
 
 # AI guard lane (shape/isolation/matrix/naming + Rust quality/security guards)
 python3 dev/scripts/devctl.py check --profile ai-guard
+
+# Typed MP-377 development controller report; read-only until typed authority
+# grants explicit leases for any future worker fanout.
+python3 dev/scripts/devctl.py develop --status --format md
+python3 dev/scripts/devctl.py develop next --format md
+python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1 --format md
 
 # Release verification lane (wake guard + non-blocking mutation-score reminders + strict remote CI/CodeRabbit gates; off the configured release branch it resolves the active branch and enables commit fallback instead of hardcoding `master`)
 python3 dev/scripts/devctl.py check --profile release

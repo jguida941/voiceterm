@@ -29,6 +29,7 @@ class ReadOnlyCommandSetTests(unittest.TestCase):
             "session",
             "session-resume",
             "context-graph",
+            "develop",
             "review-channel",
             "quality-policy",
             "orphan-inventory",

@@ -29,6 +29,7 @@ from ..commands import (
     controller_action,
     dashboard,
     data_science,
+    development,
     discover,
     docs_check,
     failure_cleanup,
@@ -157,6 +158,7 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset({
     "session",
     "session-resume",
     "context-graph",
+    "develop",
     "review-channel",
     "quality-policy",
     "orphan-inventory",
@@ -261,6 +263,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_integrations_import_parser(sub)
     add_context_graph_parser(sub)
     add_graph_walk_parser(sub)
+    development.add_parser(sub)
     governance_startup_context.add_parser(sub)
     governance_session.add_parser(sub)
     governance_session_resume.add_parser(sub)
@@ -361,6 +364,7 @@ COMMAND_HANDLERS = {
     "findings-priority": findings_priority.run,
     "triage": triage.run,
     "data-science": data_science.run,
+    "develop": development.run,
     "probe-report": probe_report.run,
     "quality-policy": quality_policy.run,
     "launcher-check": simple_lanes.run_launcher_check,

@@ -41,6 +41,7 @@ COMMANDS = [
     "compat-matrix",
     "mcp",
     "data-science",
+    "develop",
     "quality-policy",
     "launcher-check",
     "launcher-probes",

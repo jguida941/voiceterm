@@ -195,14 +195,16 @@ def attention_requires_pivot(ctx: AgentLoopContext, packets: PacketState) -> boo
         and _text(latest_session_outcome(ctx).get("outcome")) != "completed_handoff"
     ):
         return False
+    pending_packet_count = coerce_int(ctx.attention.get("pending_packet_count"))
     has_attention = bool(
         packets.attention_packet_id
         or _text(ctx.attention.get("latest_attention_packet_id"))
+        or pending_packet_count > 0
     )
     return has_attention and (
         coerce_bool(ctx.attention.get("wake_required"))
         or coerce_bool(ctx.attention.get("pivot_required"))
-        or coerce_int(ctx.attention.get("pending_packet_count")) > 0
+        or pending_packet_count > 0
     )
 
 

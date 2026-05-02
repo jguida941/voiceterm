@@ -137,6 +137,8 @@ def _debt_from_packet(
 
 
 def _carry_forward_reason(packet: Mapping[str, object]) -> str:
+    if _has_creation_binding(packet):
+        return ""
     outcome = packet.get("packet_outcome")
     outcome_text = ""
     if isinstance(outcome, Mapping):
@@ -186,6 +188,17 @@ def _packet_has_durable_intent(packet: Mapping[str, object]) -> bool:
         "ingest",
     )
     return any(token in text for token in intent_tokens)
+
+
+def _has_creation_binding(packet: Mapping[str, object]) -> bool:
+    binding = packet.get("packet_creation_binding")
+    if not isinstance(binding, Mapping):
+        binding = packet.get("durable_binding")
+    if not isinstance(binding, Mapping):
+        return False
+    status = _text(binding.get("status"))
+    target = _text(binding.get("binding_target"))
+    return bool(target and status in {"inserted", "updated", "already_present"})
 
 
 def _source_packet_ids(

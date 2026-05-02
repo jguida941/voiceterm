@@ -6,6 +6,7 @@ from collections.abc import Mapping
 
 from .context_refs import normalize_context_pack_refs
 from .event_models import ReviewPacketRow
+from .packet_creation_binding import PACKET_CREATION_BINDING_EVENT_TYPES
 from .packet_lifecycle import apply_lifecycle_transition, project_packet_lifecycle
 from .pending_packets import partition_live_pending_packets
 
@@ -121,6 +122,11 @@ def apply_packet_transition(
         next_packet["plan_ingestion"] = plan_payload
         next_packet["plan_integration"] = plan_payload
         return project_packet_lifecycle(next_packet)
+    if event_type in PACKET_CREATION_BINDING_EVENT_TYPES:
+        binding_payload = _packet_creation_binding_payload(event)
+        next_packet["packet_creation_binding"] = binding_payload
+        next_packet["durable_binding"] = binding_payload
+        return project_packet_lifecycle(next_packet)
     next_packet["status"] = event.get("status") or action_request_lifecycle_status(
         event_type
     )
@@ -217,6 +223,22 @@ def _plan_integration_payload(event: Mapping[str, object]) -> dict[str, object]:
         "contract_id",
         "PacketPlanIntegration",
     )
+    result.setdefault("event_id", str(event.get("event_id") or "").strip())
+    result.setdefault(
+        "recorded_at_utc",
+        str(event.get("timestamp_utc") or "").strip(),
+    )
+    return result
+
+
+def _packet_creation_binding_payload(event: Mapping[str, object]) -> dict[str, object]:
+    payload = event.get("packet_creation_binding")
+    if not isinstance(payload, Mapping):
+        payload = event.get("metadata")
+    if not isinstance(payload, Mapping):
+        payload = {}
+    result = {str(key): value for key, value in payload.items() if str(key)}
+    result.setdefault("contract_id", "PacketCreationBinding")
     result.setdefault("event_id", str(event.get("event_id") or "").strip())
     result.setdefault(
         "recorded_at_utc",

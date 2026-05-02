@@ -199,6 +199,71 @@ def test_status_bundle_persists_agent_loop_decisions_from_work_board() -> None:
     assert "scoped_agent_attention_pending" in attention["pivot_reasons"]
 
 
+def test_status_bundle_keeps_actor_pending_pressure_without_session_match() -> None:
+    payload = {
+        "current_session": {"current_instruction_revision": "rev-current"},
+        "attention": {
+            "status": "checkpoint_required",
+        },
+        "recovery_assessment": {
+            "diagnosis": {
+                "supporting_causes": ["checkpoint_budget_exhausted"],
+            }
+        },
+        "reviewer_runtime": {
+            "agent_runtime_clock": {
+                "source_latest_event_id": "rev_evt_4",
+                "snapshot_id": "agent-runtime-clock:rev_evt_4",
+            }
+        },
+        "agent_sync": {
+            "agents": {
+                "codex": {
+                    "last_consumed_event_id_lower_bound": "rev_evt_3",
+                    "pending_packets_to_me": ["rev_pkt_reviewer"],
+                }
+            }
+        },
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "codex",
+                    "role": "implementer",
+                    "session_id": "s-codex-current",
+                    "source_event_id": "rev_evt_4",
+                }
+            ]
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_reviewer",
+                "to_agent": "codex",
+                "kind": "finding",
+                "status": "pending",
+                "lifecycle_current_state": "pending",
+                "latest_event_id": "rev_evt_4",
+                "target_role": "reviewer",
+                "target_session_id": "s-codex-old",
+            }
+        ],
+    }
+
+    projected = _attach_agent_loop_decisions(payload)
+
+    decision = projected["agent_loop_decisions"][0]
+    assert decision["actor_id"] == "codex"
+    assert decision["required_action"] == "triage_pending_packet"
+    assert decision["active_packet_id"] == ""
+    assert decision["pending_packet_count"] == 1
+    assert decision["wake_required"] is True
+    assert decision["safe_to_continue"] is False
+
+    attention = projected["reviewer_runtime"]["packet_attention"]
+    assert attention["wake_required"] is True
+    assert attention["pending_packet_count"] == 1
+    assert attention["stale_reason"] == "actor_identity_ambiguous_with_pending_wake"
+
+
 def test_status_bundle_clears_agent_sync_attention_when_sessions_disagree() -> None:
     payload = {
         "current_session": {"current_instruction_revision": "rev-current"},

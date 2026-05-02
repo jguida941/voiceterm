@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+
+from dev.scripts.devctl.commands.development import scaling_summary_from_contract
 from dev.scripts.devctl.runtime.development_team import (
     DEVELOPMENT_MODE_CONTRACT_ID,
     build_default_development_team,
@@ -113,11 +116,68 @@ def test_knowledge_flow_feeds_graph_pointer_plan_and_guard_surfaces() -> None:
     )
 
 
+def test_scaling_contract_uses_honest_architecture_modes() -> None:
+    team = build_default_development_team()
+    mode_ids = {item.mode_id for item in team.scaling.modes}
+    scaling_blob = json.dumps(team.scaling.to_dict(), sort_keys=True)
+
+    assert mode_ids == {
+        "controller_only",
+        "intake_fanout",
+        "review_fanout",
+        "research_fanout",
+        "watcher_fanout",
+        "isolated_builder_fanout",
+        "leased_live_tree_builder",
+    }
+    assert "single_agent" not in scaling_blob
+    assert "PacketBacklogPressure" in team.scaling.pressure_inputs
+    assert "PacketDebtRemediationReport" in team.scaling.pressure_inputs
+    assert "WorkerPacket" in team.scaling.route_outputs
+    assert "PacketCreationBinding" in team.scaling.route_outputs
+    assert "PacketDurableIngestionReceipt" in team.scaling.route_outputs
+    assert "PacketDebtRemediationReport" in team.scaling.route_outputs
+    assert "AgentDispatchRouter.safe_to_fanout" in team.scaling.pressure_inputs
+    assert "responds_to_packet_id or causal_packet_ids" in scaling_blob
+
+
+def test_scaling_keeps_mutation_single_owner_while_fanning_out_intake() -> None:
+    team = build_default_development_team()
+    modes = {item.mode_id: item for item in team.scaling.modes}
+    safety_blob = " ".join(team.scaling.safety_gates)
+
+    assert "live-tree mutation requires exactly one active session-bound MutationLease" in (
+        team.scaling.safety_gates
+    )
+    assert "AgentDispatchRouter.safe_to_fanout=true" in safety_blob
+    assert "OrphanSnapshot" in " ".join(team.scaling.pressure_inputs)
+    assert "OrphanSnapshot clear" in modes["isolated_builder_fanout"].required_gates
+    assert "disjoint path_scope" in modes["isolated_builder_fanout"].required_gates
+    assert "session-bound MutationLease" in modes["leased_live_tree_builder"].required_gates
+    assert "PacketDurableIngestionReceipt" in modes["intake_fanout"].evidence_outputs
+
+
+def test_develop_report_summary_consumes_scaling_contract() -> None:
+    team = build_default_development_team()
+    summary = scaling_summary_from_contract(team.scaling)
+
+    assert "PacketBacklogPressure" in summary["pressure_inputs"]
+    assert "PacketDebtRemediationReport" in summary["pressure_inputs"]
+    assert "WorkerPacket" in summary["route_outputs"]
+    assert "PacketCreationBinding" in summary["route_outputs"]
+    assert "intake_fanout" in summary["mode_ids"]
+    assert "Leased Live-Tree Builder" in summary["mode_names"]
+    assert "live-tree mutation requires exactly one active session-bound MutationLease" in (
+        summary["safety_gates"]
+    )
+
+
 def test_workstream_dict_keeps_authority_and_evidence_separate() -> None:
     team = build_default_development_team()
     payload = team.to_dict()
     first = payload["workstreams"][0]
 
+    assert "scaling" in payload
     assert first["assignment_rule"] == "any_actor_with_matching_authority"
     assert first["display_name"] == "Coordinator"
     assert "authority" in first

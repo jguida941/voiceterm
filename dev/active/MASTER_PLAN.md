@@ -131,12 +131,42 @@
   canonical sinks. `context-graph`, ConceptIndex/ZGraph-compatible views,
   pointer refs, system-map, ContextPack, and startup-context consume those
   artifacts as generated projections, never as runtime authority.
+  The same topology now carries a pressure-based `DevelopmentScalingContract`
+  with user/developer-facing modes: Controller Only, Intake Fanout, Review
+  Fanout, Research Fanout, Watcher Fanout, Isolated Builder Fanout, and Leased
+  Live-Tree Builder. Packet pressure, near-TTL packet intent, review/probe
+  backlog, graph/system-map coverage gaps, independent next slices, stale
+  runtime windows, and `AgentDispatchRouter.safe_to_fanout` decide whether
+  extra read-only/intake/review/research/watcher lanes are useful. Mutable
+  fanout remains gated by disjoint path scopes, registered worktree identity,
+  `OrphanSnapshot`, and explicit `MutationLease`; only the leased live-tree
+  builder may edit the primary checkout. Every spawned lane receives a
+  `WorkerPacket` with mode, owner, scope, evidence, reply target, and TTL, and
+  handoff/progress must flow back through correlated packets plus durable
+  plan/finding/run/ingestion artifacts.
+  Claude beta testing then found the first executable gap: the typed contracts
+  existed, but `devctl develop` itself was not registered as a CLI command.
+  The current slice adds the read-only CLI entrypoint plus `.claude/commands/
+  develop.md` adapter so `/develop` now renders `DevelopmentLoopReport`
+  status/next/pause/resume/audit-guards/launch previews without creating a
+  second scheduler or granting mutation.
   Current Claude packet findings from `rev_pkt_2705` and expired source
-  packets `rev_pkt_2691`, `rev_pkt_2696`, `rev_pkt_2697`, `rev_pkt_2701`,
-  `rev_pkt_2702`, and `rev_pkt_2704` are durable MP-377 intake, not queue-only
-  work: transition disambiguation, expiry/apply-gap, ambiguity projection,
-  carry-forward debt, command hangs, and work-board duplication remain linked
-  under `MP377-P0-T22AN-D/F` until guard/probe or implementation closure.
+  packets `rev_pkt_2691`, `rev_pkt_2696`, `rev_pkt_2697`, `rev_pkt_2699`,
+  `rev_pkt_2700`, `rev_pkt_2701`, `rev_pkt_2702`, and `rev_pkt_2704` are
+  durable MP-377 intake, not queue-only work: transition disambiguation,
+  expiry/apply-gap, ambiguity projection, carry-forward debt, command hangs,
+  and work-board duplication remain linked under `MP377-P0-T22AN-D/F` until
+  guard/probe or implementation closure.
+  Claude dashboard packet `rev_pkt_2708` then proved the missing
+  creation-time binding layer: durable packets should become typed plan,
+  finding, guard, or lifecycle state when posted, not only after manual
+  triage. `PacketCreationBinding` now binds plan-scoped durable packets to
+  `PlanRow` ownership during post finalization, and the live follow-up
+  `rev_pkt_2710` auto-created `PKT-BIND-REV-PKT-2710` in
+  `dev/state/plan_index.jsonl` plus the generated MASTER_PLAN projection.
+  Existing debt still needs the planned `PacketDebtRemediationPipeline` and
+  debt-growth/freshness probe so old carry-forward rows are clustered,
+  merged, dismissed, or escalated with typed receipts.
 - 2026-04-27 Plan 4.1 Slice C/D zref + enum-connectivity repair (MP-377):
   governed push now refreshes `commit_pipeline.json` proof identity from the
   current review-state tick after push-result synchronization, so stale
@@ -6805,3 +6835,12 @@ Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355/360..36
 - `dev/archive/2026-02-02-release-audit-completed.md`
 - `dev/archive/2026-02-17-tooling-control-plane-consolidation.md`
 - `dev/archive/2026-02-20-senior-engineering-audit.md`
+
+## Generated Review Packet Creation Bindings
+
+This generated ledger projects packet creation bindings for humans. The typed row authority is `dev/state/plan_index.jsonl`; packets remain communication and provenance after durable ownership lands.
+
+- [ ] `PKT-BIND-REV-PKT-2710` Packet finding: Bundle DD: ACK rev_pkt_2709 + verified /develop slice landed with Bundle CC primitives + 4 post-CC findings + meta-guard suggestion (source `rev_pkt_2710`; target `plan:MP-377`; posted `2026-05-01T23:10:33.168871Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2708` Packet finding: Beta-test pass CC: ARCHITECTURAL — packets are supposed to merge into PlanRows at CREATION time per operator's contract; 1172 packets in carry_forward_debt prove the auto-bind is broken; full design for (Phase 1) PacketDe... (source `rev_pkt_2708`; target `plan:MP-377`; posted `2026-05-01T22:57:02.469936Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2711` Packet finding: Bundle EE: orphan-inventory exposes 16 phantom AGENT-N lanes + unregistered sibling clone (178/92 dirty/untracked) + 29 stash orphans (~30K cumulative dirty); governance-quality-feedback Grade F (53.2/100) with 3 of 7 sub... (source `rev_pkt_2711`; target `plan:MP-377`; posted `2026-05-01T23:20:11.748015Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2714` Packet finding: Bundle EE: typed-contract closure ring gaps (population/conservation/identity/register/query unguarded) + wake-delivery is contract-only (live evidence rev_pkt_2712 unacked). 5-guard portable proposal + wake-delivery prop... (source `rev_pkt_2714`; target `plan:MP-377`; posted `2026-05-01T23:37:27.834722Z`; binding `plan_row`).

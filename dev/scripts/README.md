@@ -570,6 +570,11 @@ Portability note:
   `PlanRow` to the typed master-plan JSONL store resolved from
   `ProjectGovernance.master_plan` via `PacketPlanIntegration`; the markdown
   master plan is only the VoiceTerm human projection of that JSONL authority.
+  New durable packets also pass through `PacketCreationBinding` during
+  `post_packet` finalization when they carry explicit plan context, so a
+  plan-scoped finding can become a `PlanRow` before TTL expiry instead of
+  waiting for manual apply. Bound packets that later expire are classified as
+  `expired_after_durable_binding` and do not become carry-forward debt.
   The pending-packet disposition guard remains a follow-on enforcement slice.
 - `review-channel --action expire-packets --limit <n>` is the bounded
   write-side maintenance path for TTL-elapsed pending packets. It appends
@@ -1137,6 +1142,9 @@ python3 dev/scripts/devctl.py report --pedantic --format md
 python3 dev/scripts/devctl.py report --rust-audits --with-charts --emit-bundle --format md
 python3 dev/scripts/devctl.py report --python-guard-backlog --python-guard-backlog-top-n 15 --format md
 python3 dev/scripts/devctl.py quality-policy --format md
+python3 dev/scripts/devctl.py develop --status --format md
+python3 dev/scripts/devctl.py develop next --format md
+python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1 --format md
 python3 dev/scripts/devctl.py startup-context --format summary
 python3 dev/scripts/devctl.py push --execute
 python3 dev/scripts/devctl.py tandem-validate --format md
@@ -1820,7 +1828,7 @@ Machine-first output note:
   separately. The same packet family now also carries bounded watchdog-episode
   digests, command-reliability lines from `data_science summary.json`, and
   decision constraints derived from matched `DecisionPacket` metadata.
-- `probe-report`: aggregated review-probe surface that runs every registered `probe_*.py` script, renders markdown/terminal/json summaries, writes stable `dev/reports/probes/review_targets.json`, and refreshes `dev/reports/probes/latest/summary.{md,json}` plus `file_topology.json`, `review_packet.{json,md}`, and hotspot `hotspots.{mmd,dot}` artifacts for agent coaching, AI/human design review, and audit. The probe catalog now includes architecture-aware connectivity checks via `probe_architecture_connectivity`, review-channel event id uniqueness via `probe_event_id_uniqueness`, event-field naming drift via `probe_event_field_naming_consistency`, command-result JSON envelope checks via `probe_command_result_contract`, peer packet lag via `probe_inter_agent_communication_lag`, ACKed packet carry-forward debt via `probe_packet_carry_forward_debt`, cohesion-heavy mixed-concern detection via `probe_mixed_concerns`, hotspot-aware split recommendations via `probe_split_advisor`, and naming cleanup hints via `probe_term_consistency`, so typed contract-reader gaps, event-log integrity drift, command parsing drift, delayed Codex/Claude feedback, lifecycle carry-forward gaps, split-brain structure, and legacy public vocabulary show up in the same packet.
+- `probe-report`: aggregated review-probe surface that runs every registered `probe_*.py` script, renders markdown/terminal/json summaries, writes stable `dev/reports/probes/review_targets.json`, and refreshes `dev/reports/probes/latest/summary.{md,json}` plus `file_topology.json`, `review_packet.{json,md}`, and hotspot `hotspots.{mmd,dot}` artifacts for agent coaching, AI/human design review, and audit. The probe catalog now includes architecture-aware connectivity checks via `probe_architecture_connectivity`, review-channel event id uniqueness via `probe_event_id_uniqueness`, event-field naming drift via `probe_event_field_naming_consistency`, command-result JSON envelope checks via `probe_command_result_contract`, peer packet lag via `probe_inter_agent_communication_lag`, packet carry-forward and durable plan/finding ingestion debt via `probe_packet_carry_forward_debt`, cohesion-heavy mixed-concern detection via `probe_mixed_concerns`, hotspot-aware split recommendations via `probe_split_advisor`, and naming cleanup hints via `probe_term_consistency`, so typed contract-reader gaps, event-log integrity drift, command parsing drift, delayed Codex/Claude feedback, lifecycle carry-forward gaps, split-brain structure, and legacy public vocabulary show up in the same packet.
   - Use `--adoption-scan` for first-run/full-surface repo onboarding when there
     is no trustworthy baseline ref yet.
   - Repo-root `.probe-allowlist.json` entries shape this canonical path too:
@@ -1861,6 +1869,12 @@ Machine-first output note:
     `governance/task_router_contract.py` and derives the guard-limit block from the
     live code-shape policy modules, so repo policy JSON no longer needs to
     carry a second hardcoded copy of those limits.
+- `develop`: read-only typed `/develop` controller report. It composes
+  `DevelopmentModeTopology`, `DevelopmentScalingContract`, typed master-plan
+  rows, guard/probe learning counts, and system discovery into a
+  `DevelopmentLoopReport` for `status`, `next`, `pause`, `resume`,
+  `audit-guards`, and `launch --dry-run --max-cycles 1`. The current launch
+  action is a report-only cycle; it does not spawn workers or grant mutation.
 - `platform-contracts`: read-only reusable-platform blueprint that renders the
   shared layer model, backend contracts, frontend/client expectations,
   repo-local boundaries, adoption flow, and current portability status in one

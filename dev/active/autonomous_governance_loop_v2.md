@@ -85,6 +85,13 @@ Out of scope for this plan:
    durable MasterPlan/PlanRow, FindingReview, GuardPromotionQueue, or knowledge
    artifacts with packet ids retained as provenance before TTL expiry. Packets
    are communication and provenance; they are not the source of truth.
+10. `/develop` scaling is pressure-driven typed topology, not a vague worker
+    count. The named modes are Controller Only, Intake Fanout, Review Fanout,
+    Research Fanout, Watcher Fanout, Isolated Builder Fanout, and Leased
+    Live-Tree Builder. Packet/work pressure may add read-only, intake, review,
+    research, synthesis, and watcher lanes, but mutable fanout requires
+    `safe_to_fanout`, disjoint scopes, worktree/orphan clearance, and explicit
+    leases. The primary checkout still has one leased live-tree builder.
 
 ## Data Contracts
 
@@ -109,10 +116,14 @@ Loop v2 must compose these existing contract families directly:
    `ContextGraphSnapshot` and `ContextGraphDelta`.
 7. Development topology and knowledge flow:
    `DevelopmentModeTopology`, `DevelopmentExternalResearchContract`,
-   `DevelopmentKnowledgeFlowContract`, `ResearchEvidenceBundle`,
+   `DevelopmentKnowledgeFlowContract`, `DevelopmentScalingContract`,
+   `DevelopmentScaleModeSpec`, `ResearchEvidenceBundle`,
    `ExternalSourceEvidence`, `KnowledgeSynthesisRecord`, `ContextGraphSeed`,
    `PointerRefIndexEntry`, `PacketLifecycleHistory`, `PacketOutcomeLedger`,
-   `PacketDurableIngestionReceipt`, and `PacketContinuityIndex`.
+   `PacketDurableIngestionReceipt`, `PacketCreationBinding`,
+   `PacketDebtRemediationReport`, `PacketContinuityIndex`,
+   `PacketBacklogPressure`, `WorkerPacket`, `FanoutPlan`, and
+   `OrphanSnapshot`.
 
 Current design-relevant gaps observed in this session:
 
@@ -199,6 +210,12 @@ closure. The correct order is:
 - [ ] Keep worker fanout gated by the selected plan target, ownership state,
       and coordination posture. No loop tick may infer "parallelize" from
       stale planned topology alone.
+- [ ] Compile packet/work pressure into the named `DevelopmentScalingContract`
+      modes before launching extra lanes. Intake/review/research/watcher
+      fanout is allowed only when each lane has a `WorkerPacket`, owner,
+      scope, evidence contract, reply target, and TTL; mutable fanout also
+      needs `safe_to_fanout`, `OrphanSnapshot` clearance, disjoint path scopes,
+      and a session-bound lease.
 
 ### Phase 2 - Phase Controller Over Existing Runtime
 
@@ -221,6 +238,10 @@ closure. The correct order is:
       rows claiming `promoted_to_finding`, and ambiguous actor/session packet
       ownership must route to Plan Intake Steward for durable plan/finding/
       guard/knowledge ownership before the packet leaves the live queue.
+- [ ] Make pressure scaling observable in controller reports: show the active
+      scaling mode, pressure inputs, lane budget, worker packet ids, safety
+      gates, scale-in reason, and whether live-tree mutation is leased or
+      unavailable.
 - [ ] Make the controller state-driven and event-woken: valid next actions
       come from typed state plus ownership posture, and polling survives only
       as a degraded fallback when the event stream is unavailable.
@@ -272,6 +293,30 @@ closure. The correct order is:
   generated context-graph/system-map/ConceptIndex/ZGraph-compatible/pointer/
   startup projections. Graph and pointer outputs remain navigation/projection
   surfaces, not authority stores.
+- 2026-05-01: Added `DevelopmentScalingContract` to that topology so packet
+  backlog, near-TTL intent, review/probe pressure, graph/system-map gaps,
+  independent next slices, stale runtime windows, and safe-fanout evidence
+  compile into named modes rather than ambiguous worker counts. The modes are
+  Controller Only, Intake Fanout, Review Fanout, Research Fanout, Watcher
+  Fanout, Isolated Builder Fanout, and Leased Live-Tree Builder; every extra
+  lane needs a `WorkerPacket` and durable evidence path, and live-tree writes
+  still require one session-bound `MutationLease`.
+- 2026-05-01: Claude beta testing found the executable `/develop` gap after
+  the typed contracts landed. Added `devctl develop` as a read-only command
+  that renders `DevelopmentLoopReport` for `status`, `next`, `pause`,
+  `resume`, `audit-guards`, and `launch --max-cycles 1` previews, plus the
+  thin `.claude/commands/develop.md` adapter. Launch remains a report-only
+  cycle until the typed controller-state writer and worker spawn path land.
+- 2026-05-01: Added `PacketCreationBinding` as the creation-time durability
+  receipt for plan-scoped packet kinds. `post_packet` finalization now upserts
+  a `PlanRow` before packet TTL can erase durable intent, records a binding
+  event into the review-channel reducer, and suppresses carry-forward debt for
+  packets that later expire after a durable binding. Live Claude dashboard
+  packet `rev_pkt_2710` auto-created `PKT-BIND-REV-PKT-2710`; prior packet
+  `rev_pkt_2708` was backfilled through the same typed helper. The remaining
+  Phase 1 work is a `PacketDebtRemediationReport` pipeline that clusters old
+  carry-forward rows and produces typed merge/dismiss/archive/operator-review
+  receipts.
 - 2026-04-10: Bootstrapped the repo with `startup-context --format summary`
   and `context-graph --mode bootstrap --format md`, then verified live repo
   state with `git status --short`. The worktree is currently clean, so older

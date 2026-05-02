@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-01T22:09:34Z`
-- Last Codex poll (Local America/New_York): `2026-05-01 18:09:34 EDT`
+- Last Codex poll: `2026-05-01T23:43:56Z`
+- Last Codex poll (Local America/New_York): `2026-05-01 19:43:56 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `c4cec96ab005468de2ceb8562e3b10d617bad7ef1b02d1ad0821b33283c21c3e`
-- Current instruction revision: `b6d127d6ffb3`
+- Last non-audit worktree hash: `f423e01cac4778e0f6602981e75b12cfc976997d1ef426bc989f4156b776cdba`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-12 pending review packet(s); 642 expired unresolved review packet(s)
+7 pending review packet(s); 646 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -136,16 +136,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
-- Coordinate on /develop implementation
-- Context packet: trigger `review-channel-event`; query terms: `MP-377`
-- Canonical refs:
-  - `dev/scripts/devctl/runtime/agent_dispatch_router.py`
-  - `dev/scripts/devctl/runtime/agent_loop_decision_sources.py`
-  - `dev/scripts/devctl/runtime/agent_loop_decision_support.py`
+- Cut a checkpoint before continuing to edit.
 
 ## Last Reviewed Scope
 

@@ -37,6 +37,89 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-01 - Typed `/develop` becomes a real read-only MP-377 controller surface
+
+Fact: the live Codex/Claude beta pass found that the Plan 4.1 `/develop`
+design had typed topology contracts but no `devctl develop` CLI entrypoint, so
+agents could not actually invoke the controller surface they were testing.
+
+Change: `devctl develop` is now registered as a read-only command with
+`status`, `next`, `pause`, `resume`, `audit-guards`, and report-only
+`launch --dry-run --max-cycles 1` actions. The command emits a
+`DevelopmentLoopReport` over the existing MP-377 authority surfaces instead of
+creating a new plan, packet, role, finding, or guard source of truth. The
+default topology also carries a typed `DevelopmentScalingContract`: pressure
+from packet backlog, communication lag, planning slices, findings,
+guard-smartness debt, discovery gaps, orphan inventory, and worker topology
+selects named read-only fanout modes while live-tree mutation remains gated by
+exact session-bound leases and actor capabilities.
+
+The Claude slash command is intentionally thin; it translates `/develop`
+arguments to `python3 dev/scripts/devctl.py develop ...` and leaves policy in
+typed Python contracts plus MP-377 plan rows. This keeps packets as
+communication/provenance while durable intent lands in the master plan,
+finding, guard, graph, and pattern ledgers before packet TTL can erase it.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/development_team.py`
+- `dev/scripts/devctl/commands/development/command.py`
+- `dev/scripts/devctl/commands/development/models.py`
+- `dev/scripts/devctl/cli_parser/entrypoint.py`
+- `dev/scripts/devctl/cli.py`
+- `dev/scripts/devctl/commands/listing.py`
+- `.claude/commands/develop.md`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `dev/scripts/devctl/tests/runtime/test_development_team.py`
+- `dev/scripts/devctl/tests/platform/test_platform_contracts.py`
+
+### 2026-05-01 - Packet creation now binds durable packet intent before TTL
+
+Fact: Claude dashboard packet `rev_pkt_2708` proved the old review-packet
+flow only wrote plan rows after manual `apply` and only for
+`target_kind=plan`. Plan-scoped findings could sit in the queue until TTL,
+then become carry-forward debt even though they contained durable architecture
+or guard work.
+
+Change: `post_packet` finalization now runs `PacketCreationBinding` for
+plan-scoped durable packet kinds. The binding upserts a `PlanRow`, appends a
+typed review-channel binding event, projects the binding onto reduced packet
+rows, and keeps later TTL expiry from becoming carry-forward debt when durable
+ownership already exists. System notices remain communication-only. Live
+Claude follow-up `rev_pkt_2710` auto-created `PKT-BIND-REV-PKT-2710`, and
+the earlier `rev_pkt_2708` was backfilled through the same helper as
+`PKT-BIND-REV-PKT-2708`.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/packet_creation_binding.py`
+- `dev/scripts/devctl/review_channel/post_packet_runtime.py`
+- `dev/scripts/devctl/review_channel/event_packet_rows.py`
+- `dev/scripts/devctl/review_channel/event_reducer.py`
+- `dev/scripts/devctl/review_channel/packet_lifecycle.py`
+- `dev/scripts/devctl/runtime/packet_carry_forward.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_creation_binding.py`
+
+### 2026-05-01 - Mutation outcome shim no longer breaks triage reports
+
+Fact: Claude dashboard packet `rev_pkt_2710` proved that
+`devctl triage --probe-report` failed through
+`dev/scripts/checks/mutation_outcome_parse.py` because the public shim used a
+top-level `mutation_ralph_loop` import while callers loaded it as
+`dev.scripts.checks.mutation_outcome_parse`.
+
+Change: the shim now uses the package-relative implementation import with the
+legacy top-level path as a direct-script fallback. Package import, direct
+script execution, the mutation-results CLI path, and the mutation loop tests
+all pass, so triage reports return a mutation-outcome availability note instead
+of a `ModuleNotFoundError`.
+
+Evidence:
+
+- `dev/scripts/checks/mutation_outcome_parse.py`
+- `dev/guides/SYSTEM_MAP.md`
+- `dev/scripts/devctl/tests/test_mutation_ralph_loop_core.py`
+
 ### 2026-05-01 - Plan 4.1 tandem dogfood hardening becomes typed work
 
 Fact: the live Codex/Claude Plan 4.1 run exposed a broader class of

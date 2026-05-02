@@ -86,6 +86,7 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "workstreams" in contract_map["DevelopmentModeTopology"]
     assert "external_research" in contract_map["DevelopmentModeTopology"]
     assert "knowledge_flow" in contract_map["DevelopmentModeTopology"]
+    assert "scaling" in contract_map["DevelopmentModeTopology"]
     assert "topology" in contract_map["DevelopmentLoopReport"]
     assert "next_slice" in contract_map["DevelopmentLoopReport"]
     assert "authority_snapshot" in contract_map["SessionCachePacket"]

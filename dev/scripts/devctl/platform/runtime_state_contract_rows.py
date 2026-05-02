@@ -259,6 +259,11 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Promotion path from evidence to plan/guard/graph/pointer projections.",
             ),
             ContractField(
+                "scaling",
+                "DevelopmentScalingContract",
+                "Typed pressure-to-fanout policy with named modes and safety gates.",
+            ),
+            ContractField(
                 "assignment_policy",
                 "str",
                 "Provider-neutral actor/workstream assignment policy.",
@@ -285,6 +290,7 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             "global_routing",
             "external_research",
             "knowledge_flow",
+            "scaling",
         ),
     ),
     ContractSpec(

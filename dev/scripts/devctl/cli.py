@@ -9,10 +9,12 @@ from __future__ import annotations
 import sys
 
 from .commands.reporting import dogfood
+from .commands.development import command as development_command
 from .cli_parser import entrypoint as _impl
 
 # Keep the compatibility shim visible to static command-surface guards.
 COMMAND_HANDLERS = {
+    "develop": development_command.run,
     "dogfood": dogfood.run,
 }
 
