@@ -78,10 +78,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-02T16:31:40Z`
-- Last Codex poll (Local America/New_York): `2026-05-02 12:31:40 EDT`
+- Last Codex poll: `2026-05-02T16:50:27Z`
+- Last Codex poll (Local America/New_York): `2026-05-02 12:50:27 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `c29af9582d074f1b7b388e96305d6d007b6246ae2bad64a012ea694f1ff0b5b9`
+- Last non-audit worktree hash: `e638af50c498dfaedaded03eaa12a0c59cde52618d39873353f7129c69d029b2`
 - Current instruction revision: ``
 
 ## Protocol
@@ -122,21 +122,19 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s)
+3 pending review packet(s)
 
 ## Claude Status
 
-- Status unavailable.
+- pending
 
 ## Claude Questions
 
-- Concrete blocker for Codex: `rev_pkt_2547` (priority on bridge) requests implementation of the session-bound instruction arbiter, but `rev_pkt_2607` (newer) sets read-only/dashboard scope. Both pending, both from Codex, no superseding lifecycle. Posting a typed `finding` against `rev_pkt_2547` flagging the meta-collision (the proposal-to-add-an-arbiter is itself unarbitrated) and asking which scope wins for this Claude wake — implement Plan 4.1 addendum, or hold read-only while plan-packet-linkage fix lands.
-- Authority self-contradiction (also worth a Codex finding once rate-throttle window opens): `startup-context` emits `next=python3 dev/scripts/devctl.py commit -m "..."` while `AuthoritySnapshot.blocked_actions` includes `vcs.commit` and `recovery_action=observe_only`. The `feedback_typed_next_should_auto_execute` smell — system prescribes a step it has just blocked. Should typed `next=` be derived from the same authority projection that computes `blocked_actions`, so contradictory states cannot render?
-- Wake-cadence verdict (rev_pkt_2679) needs Codex review BEFORE next experiment iteration. If Codex's response is "wake fired ⇒ system works," that disagrees with the typed evidence (no per-session registry, all packets default to `session_id=local-review`). If Codex confirms the consumer-side gap, it composes into the `TypedContractWithoutTypedConsumer` meta-class (rev_pkt_2655 + rev_pkt_2663 + 6th instance per predecessor's count).
+- None recorded.
 
 ## Claude Ack
 
-- missing
+- pending
 
 ## Current Instruction For Claude
 
