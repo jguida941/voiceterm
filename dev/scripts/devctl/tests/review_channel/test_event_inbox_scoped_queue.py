@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
+from dev.scripts.devctl.commands.review_channel.event_watch_support import (
+    EventWatchContext,
+    load_target_packets,
+)
 from dev.scripts.devctl.commands.review_channel.event_handler import (
     _build_event_report,
 )
@@ -111,3 +116,45 @@ def test_inbox_filter_honors_session_scope_when_present() -> None:
     )
 
     assert [packet["packet_id"] for packet in packets] == ["rev_pkt_s1"]
+
+
+def test_targeted_inbox_visibility_does_not_depend_on_actor_flag() -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_scoped",
+                "to_agent": "claude",
+                "from_agent": "codex",
+                "kind": "instruction",
+                "status": "pending",
+                "target_role": "dashboard",
+                "target_session_id": "session-dashboard",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ]
+    }
+
+    def _load_packets_for_args(args):
+        _, packets = load_target_packets(
+            context=EventWatchContext(
+                args=args,
+                bundle=SimpleNamespace(review_state=review_state),
+                repo_root=Path("/tmp/repo"),
+                review_channel_path=Path("/tmp/repo/dev/active/review_channel.md"),
+                artifact_paths=SimpleNamespace(
+                    artifact_root="/tmp/repo/dev/reports/review_channel"
+                ),
+            ),
+            observe_action_requests=False,
+        )
+        return packets
+
+    without_actor = _load_packets_for_args(
+        SimpleNamespace(target="claude", status="pending", limit=20)
+    )
+    with_actor = _load_packets_for_args(
+        SimpleNamespace(target="claude", actor="claude", status="pending", limit=20)
+    )
+
+    assert [packet["packet_id"] for packet in without_actor] == ["rev_pkt_scoped"]
+    assert [packet["packet_id"] for packet in with_actor] == ["rev_pkt_scoped"]

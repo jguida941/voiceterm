@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 from dev.scripts.devctl import cli
 from dev.scripts.devctl.commands import development
@@ -12,6 +13,8 @@ from dev.scripts.devctl.commands.development import (
     orchestration_system_picture as orchestration_system_picture_module,
 )
 from dev.scripts.devctl.commands.development import packet_debt as development_packet_debt
+from dev.scripts.devctl.commands.development import report as development_report
+from dev.scripts.devctl.commands.development.actor_resolution import resolve_actor
 from dev.scripts.devctl.commands.development.models import DevelopmentPacketAttention
 from dev.scripts.devctl.commands.development.next_slice import select_next_slice
 from dev.scripts.devctl.commands.development.orchestration_inputs import (
@@ -580,10 +583,206 @@ def test_packet_attention_includes_latest_finding_as_actionable() -> None:
     assert attention.attention_required is True
     assert attention.latest_finding_packet_id == "rev_pkt_9999"
     assert attention.pending_actionable_packet_ids == ("rev_pkt_9999",)
+    assert attention.pending_delivery_packet_ids == ("rev_pkt_9999",)
+    assert attention.latest_attention_packet_id == "rev_pkt_9999"
     assert attention.required_command == (
         "python3 dev/scripts/devctl.py review-channel --action show "
         "--packet-id rev_pkt_9999 --terminal none --format md"
     )
+
+
+def test_packet_attention_treats_system_notice_as_delivery_wake() -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_2757",
+                "to_agent": "claude",
+                "kind": "system_notice",
+                "status": "pending",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ]
+    }
+
+    attention = packet_attention_from_review_state(
+        review_state,
+        rows=(),
+        agent="claude",
+    )
+
+    assert attention.attention_required is True
+    assert attention.attention_status == "wake_required"
+    assert attention.wake_reason == "system_notice_pending"
+    assert attention.latest_attention_packet_id == "rev_pkt_2757"
+    assert attention.latest_finding_packet_id == ""
+    assert attention.pending_delivery_packet_ids == ("rev_pkt_2757",)
+    assert attention.pending_actionable_packet_ids == ()
+    assert attention.required_command.endswith(
+        "review-channel --action inbox --target claude --actor claude "
+        "--status pending --terminal none --format md"
+    )
+    selected = select_next_slice((), packet_attention=attention)
+    assert selected.slice_id == "packet:rev_pkt_2757"
+
+
+def test_packet_attention_delivery_still_requires_attention_under_checkpoint() -> None:
+    review_state = {
+        "attention": {
+            "status": "checkpoint_required",
+            "recommended_command": (
+                "python3 dev/scripts/devctl.py review-channel --action inbox "
+                "--target claude --actor claude --status pending "
+                "--terminal none --format md"
+            ),
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_2760",
+                "to_agent": "claude",
+                "kind": "system_notice",
+                "status": "pending",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ],
+    }
+
+    attention = packet_attention_from_review_state(
+        review_state,
+        rows=(),
+        agent="claude",
+    )
+
+    assert attention.attention_required is True
+    assert attention.attention_status == "checkpoint_required"
+    assert attention.wake_reason == "checkpoint_required"
+    assert attention.latest_attention_packet_id == "rev_pkt_2760"
+    assert attention.pending_delivery_packet_ids == ("rev_pkt_2760",)
+    assert attention.pending_actionable_packet_ids == ()
+
+
+def test_packet_attention_checkpoint_without_packet_is_not_debt_audit() -> None:
+    review_state = {
+        "attention": {
+            "status": "checkpoint_required",
+            "recommended_command": "python3 dev/scripts/devctl.py startup-context",
+        },
+        "packets": [],
+    }
+
+    attention = packet_attention_from_review_state(
+        review_state,
+        rows=(),
+        agent="claude",
+    )
+    selected = select_next_slice((), packet_attention=attention)
+
+    assert attention.attention_required is True
+    assert attention.attention_status == "checkpoint_required"
+    assert attention.pending_delivery_packet_ids == ()
+    assert attention.summary.startswith("Checkpoint attention requires")
+    assert selected.slice_id == "checkpoint-required"
+
+
+def test_resolve_actor_prefers_single_packet_attention_over_stale_env(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("DEVCTL_CALLER_AGENT", "codex")
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_9999",
+                "to_agent": "claude",
+                "kind": "instruction",
+                "status": "pending",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ]
+    }
+
+    actor, actor_source = resolve_actor(SimpleNamespace(actor="auto"), review_state)
+
+    assert actor == "claude"
+    assert actor_source == "packet_attention"
+
+
+def test_resolve_actor_prefers_single_system_notice_delivery_over_stale_env(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("DEVCTL_CALLER_AGENT", "codex")
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_2757",
+                "to_agent": "claude",
+                "kind": "system_notice",
+                "status": "pending",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ]
+    }
+
+    actor, actor_source = resolve_actor(SimpleNamespace(actor="auto"), review_state)
+
+    assert actor == "claude"
+    assert actor_source == "packet_attention"
+
+
+def test_develop_report_auto_actor_uses_single_packet_attention(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("DEVCTL_CALLER_AGENT", "codex")
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_9999",
+                "to_agent": "claude",
+                "kind": "instruction",
+                "status": "pending",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ]
+    }
+    monkeypatch.setattr(development_report, "read_plan_rows_jsonl", lambda _path: ())
+    monkeypatch.setattr(development_report, "review_state_payload", lambda _repo: review_state)
+    monkeypatch.setattr(development_report, "_orchestration_dashboard", lambda _repo: {})
+    args = cli.build_parser().parse_args(
+        ["develop", "audit-packets", "--max-packets", "20", "--format", "json"]
+    )
+
+    report = development_report.build_report(args)
+
+    assert report.inputs.actor == "claude"
+    assert report.inputs.actor_source == "packet_attention"
+    assert report.packet_attention.pending_actionable_packet_ids == ("rev_pkt_9999",)
+
+
+def test_resolve_actor_keeps_environment_when_packet_attention_is_ambiguous(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("DEVCTL_CALLER_AGENT", "codex")
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_codex",
+                "to_agent": "codex",
+                "kind": "instruction",
+                "status": "pending",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            },
+            {
+                "packet_id": "rev_pkt_claude",
+                "to_agent": "claude",
+                "kind": "instruction",
+                "status": "pending",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            },
+        ]
+    }
+
+    actor, actor_source = resolve_actor(SimpleNamespace(actor="auto"), review_state)
+
+    assert actor == "codex"
+    assert actor_source == "caller_environment"
 
 
 def test_packet_attention_does_not_revive_acked_latest_finding() -> None:

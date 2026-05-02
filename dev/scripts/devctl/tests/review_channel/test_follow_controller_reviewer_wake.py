@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from dev.scripts.devctl.review_channel.core import LaneAssignment
 from dev.scripts.devctl.review_channel.follow_controller import (
     ReviewerWakeDeps,
+    maybe_wake_waiting_agent_conductor,
     maybe_wake_waiting_reviewer_conductor,
 )
 from dev.scripts.devctl.review_channel.follow_controller_wake_target import (
@@ -167,6 +168,7 @@ def test_maybe_wake_waiting_reviewer_conductor_relaunches_unobserved_action_requ
     result = maybe_wake_waiting_reviewer_conductor(
         args=SimpleNamespace(
             execution_mode="markdown-bridge",
+            terminal="none",
             rollover_threshold_pct=20,
             await_ack_seconds=180,
             approval_mode="balanced",
@@ -193,6 +195,7 @@ def test_maybe_wake_waiting_reviewer_conductor_relaunches_unobserved_action_requ
         "reason": "launched",
         "packet_id": "pkt-1",
         "requested_action": "restore_reviewer_turn",
+        "wake_method": "replace",
     }
     assert cleanup_calls == ["codex-conductor"]
     assert observed_calls == ["pkt-1"]
@@ -296,6 +299,7 @@ def test_maybe_wake_waiting_reviewer_conductor_relaunches_unseen_finding() -> No
     result = maybe_wake_waiting_reviewer_conductor(
         args=SimpleNamespace(
             execution_mode="markdown-bridge",
+            terminal="none",
             rollover_threshold_pct=20,
             await_ack_seconds=180,
             approval_mode="balanced",
@@ -322,6 +326,7 @@ def test_maybe_wake_waiting_reviewer_conductor_relaunches_unseen_finding() -> No
         "reason": "launched",
         "packet_id": "pkt-find-1",
         "requested_action": "",
+        "wake_method": "replace",
     }
     assert cleanup_calls == ["codex-conductor"]
     assert observed_calls == []
@@ -379,6 +384,7 @@ def test_maybe_wake_waiting_reviewer_conductor_allows_typed_claude_lane_when_mod
     result = maybe_wake_waiting_reviewer_conductor(
         args=SimpleNamespace(
             execution_mode="markdown-bridge",
+            terminal="none",
             rollover_threshold_pct=20,
             await_ack_seconds=180,
             approval_mode="balanced",
@@ -405,6 +411,7 @@ def test_maybe_wake_waiting_reviewer_conductor_allows_typed_claude_lane_when_mod
         "reason": "launched",
         "packet_id": "pkt-find-2",
         "requested_action": "",
+        "wake_method": "replace",
     }
     assert cleanup_calls == ["codex-conductor"]
 
@@ -489,6 +496,7 @@ def test_maybe_wake_waiting_reviewer_conductor_allows_typed_finding_without_wait
         "reason": "launched",
         "packet_id": "pkt-find-typed",
         "requested_action": "",
+        "wake_method": "replace",
     }
     assert cleanup_calls == ["codex-conductor"]
 
@@ -545,7 +553,146 @@ def test_maybe_wake_waiting_reviewer_conductor_launches_when_no_live_codex_sessi
         "reason": "launched",
         "packet_id": "pkt-1",
         "requested_action": "restore_reviewer_turn",
+        "wake_method": "spawn_fresh",
     }
+
+
+def test_maybe_wake_waiting_agent_conductor_does_not_spawn_mutating_target_session() -> None:
+    def fail_launch(**_kwargs):
+        raise AssertionError("target-session wake must not spawn a replacement")
+
+    deps = ReviewerWakeDeps(
+        ensure_launcher_prereqs_fn=fail_launch,
+        build_launch_sessions_fn=fail_launch,
+        launch_sessions_headless_fn=lambda _sessions, _warnings: False,
+        load_conductor_sessions_fn=lambda **_kwargs: (),
+    )
+
+    result = maybe_wake_waiting_agent_conductor(
+        args=SimpleNamespace(execution_mode="markdown-bridge"),
+        repo_root=Path("/tmp/repo"),
+        paths={
+            "bridge_path": Path("/tmp/repo/bridge.md"),
+            "review_channel_path": Path("/tmp/repo/dev/active/review_channel.md"),
+            "status_dir": Path("/tmp/repo/dev/reports/review_channel/latest"),
+        },
+        report=_base_report(),
+        operator_interaction_mode="remote_control",
+        target_agent="claude",
+        packet={
+            "packet_id": "pkt-claude",
+            "to_agent": "claude",
+            "kind": "action_request",
+            "status": "pending",
+            "requested_action": "stage_commit_pipeline",
+            "target_role": "dashboard",
+            "target_session_id": "session-visible",
+        },
+        deps=deps,
+    )
+
+    assert result == {
+        "attempted": True,
+        "woke": False,
+        "reason": "target_session_unreachable_without_registry",
+        "packet_id": "pkt-claude",
+        "requested_action": "stage_commit_pipeline",
+        "target_agent": "claude",
+        "target_role": "dashboard",
+        "target_session_id": "session-visible",
+        "wake_method": "unreachable_until_operator_prompt",
+    }
+
+
+def test_maybe_wake_waiting_agent_conductor_delegates_read_only_dashboard_packet_headless() -> None:
+    launch_calls: list[list[dict[str, object]]] = []
+    build_requests: list[object] = []
+
+    def fake_build_launch_sessions(**kwargs):
+        build_requests.append(kwargs["request"])
+        return [{"session_name": "claude-headless-delegate"}]
+
+    def fake_launch_sessions_headless(sessions, _warnings):
+        sessions[0]["headless_launch_pid"] = 4242
+        launch_calls.append(sessions)
+        return True
+
+    deps = ReviewerWakeDeps(
+        ensure_launcher_prereqs_fn=lambda **_kw: (
+            "",
+            [
+                LaneAssignment(
+                    agent_id="AGENT-2",
+                    provider="claude",
+                    role="implementer",
+                    lane="Claude coding",
+                    docs="review",
+                    mp_scope="MP-377",
+                    worktree="../codex-voice-wt-a2",
+                    branch="feature/a2",
+                )
+            ],
+        ),
+        build_launch_sessions_fn=fake_build_launch_sessions,
+        launch_sessions_headless_fn=fake_launch_sessions_headless,
+        load_conductor_sessions_fn=lambda **_kwargs: (),
+        cleanup_terminal_session_fn=lambda _session: [
+            "unexpected cleanup for dashboard delegate"
+        ],
+    )
+
+    result = maybe_wake_waiting_agent_conductor(
+        args=SimpleNamespace(
+            execution_mode="markdown-bridge",
+            terminal="none",
+            rollover_threshold_pct=20,
+            await_ack_seconds=180,
+            approval_mode="balanced",
+            dangerous=False,
+        ),
+        repo_root=Path("/tmp/repo"),
+        paths={
+            "bridge_path": Path("/tmp/repo/bridge.md"),
+            "review_channel_path": Path("/tmp/repo/dev/active/review_channel.md"),
+            "status_dir": Path("/tmp/repo/dev/reports/review_channel/latest"),
+            "promotion_plan_path": Path("/tmp/repo/dev/active/ai_governance_platform.md"),
+        },
+        report=_base_report(),
+        operator_interaction_mode="single_agent",
+        target_agent="claude",
+        packet={
+            "packet_id": "pkt-dashboard",
+            "to_agent": "claude",
+            "kind": "system_notice",
+            "status": "pending",
+            "requested_action": "review_only",
+            "target_role": "dashboard",
+            "target_session_id": "session-visible",
+        },
+        deps=deps,
+    )
+
+    assert result == {
+        "attempted": True,
+        "woke": False,
+        "reason": "headless_delegate_launched",
+        "packet_id": "pkt-dashboard",
+        "requested_action": "review_only",
+        "target_agent": "claude",
+        "target_role": "dashboard",
+        "target_session_id": "session-visible",
+        "dashboard_session_id": "session-visible",
+        "wake_method": "headless_delegate",
+        "delegated": True,
+        "visible_session_woke": False,
+        "spawned_pids": [4242],
+        "delivered_to_pids": [4242],
+    }
+    assert launch_calls == [
+        [{"session_name": "claude-headless-delegate", "headless_launch_pid": 4242}]
+    ]
+    assert build_requests[0].headless is True
+    assert build_requests[0].requested_worker_budgets == {"claude": 0}
 
 
 def test_maybe_wake_waiting_reviewer_conductor_cleans_stale_running_codex_session() -> None:
@@ -611,6 +758,8 @@ def test_maybe_wake_waiting_reviewer_conductor_cleans_stale_running_codex_sessio
         "reason": "launched",
         "packet_id": "pkt-1",
         "requested_action": "restore_reviewer_turn",
+        "wake_method": "replace",
+        "replaced_pids": [4242],
     }
     assert cleanup_calls == ["codex-conductor"]
 
@@ -701,6 +850,7 @@ def test_maybe_wake_waiting_reviewer_conductor_allows_finding_wake_during_resync
         "reason": "launched",
         "packet_id": "pkt-find-resync",
         "requested_action": "",
+        "wake_method": "replace",
     }
     assert cleanup_calls == ["codex-conductor"]
 

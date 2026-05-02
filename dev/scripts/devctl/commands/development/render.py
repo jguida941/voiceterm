@@ -72,7 +72,10 @@ def _packet_attention_lines(attention) -> list[str]:
         f"- attention_required: {attention.get('attention_required')}",
         f"- attention_status: {attention.get('attention_status')}",
         f"- wake_reason: {attention.get('wake_reason') or '(none)'}",
+        f"- latest_attention_packet_id: {attention.get('latest_attention_packet_id') or '(none)'}",
         f"- latest_finding_packet_id: {attention.get('latest_finding_packet_id') or '(none)'}",
+        "- pending_delivery_packet_ids: "
+        f"{_list_text(attention.get('pending_delivery_packet_ids'))}",
         "- pending_actionable_packet_ids: "
         f"{_list_text(attention.get('pending_actionable_packet_ids'))}",
         f"- durable_plan_row_id: {attention.get('durable_plan_row_id') or '(none)'}",

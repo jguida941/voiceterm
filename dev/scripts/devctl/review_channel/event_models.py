@@ -66,6 +66,7 @@ class ReviewPacketRow(TypedDict):
     resolution_anchor: object
     disposition: dict[str, object]
     lifecycle_history: dict[str, object]
+    reviewer_wake: dict[str, object]
     _sort_timestamp: object
 
 

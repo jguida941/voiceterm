@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-05-01
+**Last Updated:** 2026-05-02
 
 ## At a Glance
 
@@ -36,6 +36,61 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-05-02 - `/develop` wake pressure now includes passive packet delivery
+
+Fact: Codex/Claude `/develop` dogfooding exposed a bad split between typed
+queue truth and wake truth. A provider-to-provider `system_notice` could sit in
+the pending queue and count in runtime sync state, while `/develop`
+`packet_attention` stayed clear and the event-post wake path skipped it as
+non-actionable. That let a stopped agent have pending typed communication
+without a wake edge.
+
+Change: `/develop` now treats any live pending packet to a conductor-backed
+actor as delivery wake pressure, exposing `latest_attention_packet_id` and
+`pending_delivery_packet_ids` while keeping `pending_actionable_packet_ids`
+reserved for instruction/action-request style work. Auto actor resolution also
+uses single live pending packet delivery before falling back to caller
+environment. The event-backed packet-post wake helper now wakes real provider
+targets for `system_notice` delivery and still refuses synthetic
+`operator`/`system` targets.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/packet_attention.py`
+- `dev/scripts/devctl/commands/development/actor_resolution.py`
+- `dev/scripts/devctl/commands/review_channel/event_post_wake.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_post_wake.py`
+
+Boundary: this proves typed delivery wake and Claude-side packet handling, not
+same visible terminal resume. The `rev_pkt_2760` dogfood produced Claude
+follow-up `rev_pkt_2761`, while the operator-visible terminal could still look
+parked; the remaining wake-binding work must distinguish headless/new-session
+delivery from resuming the exact UI session a human is watching.
+
+Follow-up: Claude finding `rev_pkt_2762` pinned the relaunch root cause in
+`follow_controller.py` / `reviewer_follow_guard.py`. Wake receipts now carry a
+`wake_method`, and packets that explicitly target a non-Codex
+`target_session_id` fail closed as `target_session_unreachable_without_registry`
+instead of launching a different session and calling that a wake. Full
+`ProviderConductorRegistry` / IPC support remains future work; the current
+receipt intentionally avoids claiming `spawned_pid` / `delivered_to_pid`
+evidence until a real registry or launcher PID capture path exists.
+
+Remote-control closure: safe read-only dashboard packets can now delegate work
+without lying about visible wake. A dashboard/observer `system_notice`,
+`finding`, or `question` with empty or `review_only` requested action may use
+`--terminal none` as an explicit `headless_delegate` grant. The receipt reports
+`delegated=true`, `visible_session_woke=false`, and
+`wake_method=headless_delegate`, so a headless Claude lane can inspect and
+report back while the visible dashboard session remains parked. Claude
+verification packets `rev_pkt_2766` / `rev_pkt_2767` found the receipt was
+stdout-only, so the post path now appends a `packet_wake_attempted` event and
+projects `PacketWakeReceipt` back onto the packet row as `reviewer_wake`.
+When the headless launcher has a real process id, the same receipt carries
+`spawned_pids` and `delivered_to_pids`. Mutating target-session packets still
+fail closed until a real provider registry/IPC path exists.
 
 ### 2026-05-01 - Typed `/develop` becomes a real read-only MP-377 controller surface
 

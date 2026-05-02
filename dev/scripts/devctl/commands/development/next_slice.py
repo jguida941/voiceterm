@@ -26,9 +26,20 @@ def select_next_slice(
             ),
         )
     if packet_attention is not None and packet_attention.attention_required:
-        packet_id = packet_attention.latest_finding_packet_id
+        packet_id = (
+            packet_attention.latest_attention_packet_id
+            or packet_attention.latest_finding_packet_id
+        )
+        if packet_id:
+            slice_id = f"packet:{packet_id}"
+        elif packet_attention.wake_reason == "expired_unresolved_packet":
+            slice_id = "packet-debt-audit"
+        elif packet_attention.attention_status == "checkpoint_required":
+            slice_id = "checkpoint-required"
+        else:
+            slice_id = "packet-attention"
         return DevelopmentNextSlice(
-            slice_id=f"packet:{packet_id}" if packet_id else "packet-debt-audit",
+            slice_id=slice_id,
             source="ReviewState.packet_inbox",
             title=packet_attention.summary,
             target_ref=packet_attention.required_command,
@@ -70,7 +81,10 @@ def _packet_attention_row(
     for row in rows:
         if row_id and row.row_id == row_id:
             return row
-    packet_id = packet_attention.latest_finding_packet_id
+    packet_id = (
+        packet_attention.latest_attention_packet_id
+        or packet_attention.latest_finding_packet_id
+    )
     if not packet_id:
         return None
     for row in rows:

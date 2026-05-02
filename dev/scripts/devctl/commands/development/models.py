@@ -67,7 +67,9 @@ class DevelopmentPacketAttention:
     agent: str = "codex"
     attention_status: str = "none"
     wake_reason: str = ""
+    latest_attention_packet_id: str = ""
     latest_finding_packet_id: str = ""
+    pending_delivery_packet_ids: tuple[str, ...] = ()
     pending_actionable_packet_ids: tuple[str, ...] = ()
     expired_unresolved_count: int = 0
     required_command: str = ""

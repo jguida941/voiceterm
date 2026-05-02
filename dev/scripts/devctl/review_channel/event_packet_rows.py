@@ -11,6 +11,8 @@ from .packet_debt_remediation_contracts import PACKET_DURABLE_INGESTION_EVENT_TY
 from .packet_lifecycle import apply_lifecycle_transition, project_packet_lifecycle
 from .pending_packets import partition_live_pending_packets
 
+PACKET_WAKE_EVENT_TYPES = {"packet_wake_attempted"}
+
 
 def summarize_packets(
     packets_by_id: dict[str, ReviewPacketRow],
@@ -100,6 +102,7 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         apply_pending_after_execution_at_utc="",
         apply_pending_after_execution_by="",
         apply_pending_after_execution_reason="",
+        reviewer_wake={},
         expires_at_utc=event.get("expires_at_utc"),
         _sort_timestamp=event.get("timestamp_utc"),
     ))
@@ -132,6 +135,9 @@ def apply_packet_transition(
         receipt = _packet_durable_ingestion_payload(event)
         next_packet["packet_durable_ingestion_receipt"] = receipt
         next_packet["durable_binding"] = receipt
+        return project_packet_lifecycle(next_packet)
+    if event_type in PACKET_WAKE_EVENT_TYPES:
+        next_packet["reviewer_wake"] = _packet_wake_payload(event)
         return project_packet_lifecycle(next_packet)
     next_packet["status"] = event.get("status") or action_request_lifecycle_status(
         event_type
@@ -268,6 +274,23 @@ def _packet_durable_ingestion_payload(event: Mapping[str, object]) -> dict[str, 
         "recorded_at_utc",
         str(event.get("timestamp_utc") or "").strip(),
     )
+    return result
+
+
+def _packet_wake_payload(event: Mapping[str, object]) -> dict[str, object]:
+    payload = event.get("wake_receipt")
+    if not isinstance(payload, Mapping):
+        payload = event.get("metadata")
+    if not isinstance(payload, Mapping):
+        payload = {}
+    result = {str(key): value for key, value in payload.items() if str(key)}
+    result.setdefault("contract_id", "PacketWakeReceipt")
+    result.setdefault("event_id", str(event.get("event_id") or "").strip())
+    result.setdefault(
+        "recorded_at_utc",
+        str(event.get("timestamp_utc") or "").strip(),
+    )
+    result.setdefault("packet_id", str(event.get("packet_id") or "").strip())
     return result
 
 

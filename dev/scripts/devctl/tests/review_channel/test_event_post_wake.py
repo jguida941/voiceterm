@@ -198,9 +198,165 @@ def test_maybe_wake_posted_reviewer_packet_routes_non_codex_adapter() -> None:
     assert observed["operator_interaction_mode"] == "remote_control"
 
 
-def test_maybe_wake_posted_reviewer_packet_skips_plain_system_notice() -> None:
+def test_maybe_wake_posted_reviewer_packet_wakes_system_notice_to_provider() -> None:
+    observed: dict[str, object] = {}
+
+    def fake_refresh_status_snapshot(**_kwargs):
+        return SimpleNamespace(
+            bridge_liveness={"reviewer_mode": "active_dual_agent"},
+            review_state=SimpleNamespace(
+                to_dict=lambda: {
+                    "packet_inbox": {"agents": []},
+                    "packets": [],
+                }
+            ),
+        )
+
+    def fake_agent_wake(**kwargs):
+        observed.update(kwargs)
+        return {
+            "attempted": True,
+            "woke": True,
+            "reason": "launched",
+            "packet_id": "pkt-status",
+            "requested_action": "",
+            "target_agent": "claude",
+        }
+
+    result = maybe_wake_posted_reviewer_packet(
+        args=SimpleNamespace(execution_mode="event-backed"),
+        repo_root=Path("/tmp/repo"),
+        paths={
+            "bridge_path": Path("/tmp/repo/bridge.md"),
+            "review_channel_path": Path("/tmp/repo/dev/active/review_channel.md"),
+            "status_dir": Path("/tmp/repo/dev/reports/review_channel/latest"),
+        },
+        packet={
+            "packet_id": "pkt-status",
+            "to_agent": "claude",
+            "kind": "system_notice",
+            "requested_action": "",
+            "status": "pending",
+        },
+        deps=EventPostWakeDeps(
+            refresh_status_snapshot_fn=fake_refresh_status_snapshot,
+            scan_repo_governance_fn=lambda _repo_root: SimpleNamespace(),
+            derive_operator_interaction_mode_fn=lambda **_kwargs: "remote_control",
+            maybe_wake_waiting_reviewer_conductor_fn=lambda **_kwargs: None,
+            maybe_wake_waiting_agent_conductor_fn=fake_agent_wake,
+            load_or_refresh_event_bundle_fn=lambda **_kwargs: SimpleNamespace(
+                review_state={}
+            ),
+        ),
+    )
+
+    assert result == {
+        "attempted": True,
+        "woke": True,
+        "reason": "launched",
+        "packet_id": "pkt-status",
+        "requested_action": "",
+        "target_agent": "claude",
+    }
+    assert observed["target_agent"] == "claude"
+    assert observed["packet"]["kind"] == "system_notice"
+
+
+def test_maybe_wake_posted_reviewer_packet_records_wake_receipt(tmp_path: Path) -> None:
+    recorded: dict[str, object] = {}
+
+    def fake_refresh_status_snapshot(**_kwargs):
+        return SimpleNamespace(
+            bridge_liveness={"reviewer_mode": "single_agent"},
+            review_state=SimpleNamespace(
+                to_dict=lambda: {
+                    "packet_inbox": {"agents": []},
+                    "packets": [],
+                }
+            ),
+        )
+
+    def fake_agent_wake(**_kwargs):
+        return {
+            "attempted": True,
+            "woke": False,
+            "visible_session_woke": False,
+            "delegated": True,
+            "reason": "headless_delegate_launched",
+            "wake_method": "headless_delegate",
+            "packet_id": "pkt-dashboard",
+            "requested_action": "review_only",
+            "target_agent": "claude",
+            "target_role": "dashboard",
+            "target_session_id": "session-visible",
+            "dashboard_session_id": "session-visible",
+            "spawned_pids": [4242],
+            "delivered_to_pids": [4242],
+        }
+
+    def fake_append_event(events_path, event, *, existing_events):
+        recorded["events_path"] = events_path
+        recorded["event"] = event
+        recorded["existing_events"] = existing_events
+        return event
+
+    artifact_paths = SimpleNamespace(
+        event_log_path=str(tmp_path / "events/trace.ndjson"),
+        state_path=str(tmp_path / "state/latest.json"),
+        projections_root=str(tmp_path / "projections/latest"),
+    )
+
+    result = maybe_wake_posted_reviewer_packet(
+        args=SimpleNamespace(execution_mode="event-backed", terminal="none"),
+        repo_root=tmp_path,
+        paths={
+            "bridge_path": tmp_path / "bridge.md",
+            "review_channel_path": tmp_path / "dev/active/review_channel.md",
+            "status_dir": tmp_path / "dev/reports/review_channel/latest",
+            "artifact_paths": artifact_paths,
+        },
+        packet={
+            "packet_id": "pkt-dashboard",
+            "trace_id": "trace-1",
+            "from_agent": "codex",
+            "to_agent": "claude",
+            "kind": "system_notice",
+            "requested_action": "review_only",
+            "target_role": "dashboard",
+            "target_session_id": "session-visible",
+            "status": "pending",
+        },
+        deps=EventPostWakeDeps(
+            refresh_status_snapshot_fn=fake_refresh_status_snapshot,
+            scan_repo_governance_fn=lambda _repo_root: SimpleNamespace(),
+            derive_operator_interaction_mode_fn=lambda **_kwargs: "single_agent",
+            maybe_wake_waiting_reviewer_conductor_fn=lambda **_kwargs: None,
+            maybe_wake_waiting_agent_conductor_fn=fake_agent_wake,
+            load_or_refresh_event_bundle_fn=lambda **_kwargs: SimpleNamespace(
+                review_state={}
+            ),
+            load_events_fn=lambda _path: [],
+            append_event_fn=fake_append_event,
+            refresh_event_bundle_fn=lambda **_kwargs: SimpleNamespace(),
+        ),
+    )
+
+    assert result["wake_method"] == "headless_delegate"
+    assert result["visible_session_woke"] is False
+    event = recorded["event"]
+    assert event["event_type"] == "packet_wake_attempted"
+    assert event["packet_id"] == "pkt-dashboard"
+    assert event["wake_method"] == "headless_delegate"
+    assert event["delegated"] is True
+    assert event["visible_session_woke"] is False
+    assert event["wake_receipt"]["contract_id"] == "PacketWakeReceipt"
+    assert event["wake_receipt"]["spawned_pids"] == [4242]
+    assert event["wake_receipt"]["delivered_to_pids"] == [4242]
+
+
+def test_maybe_wake_posted_reviewer_packet_skips_synthetic_target() -> None:
     def fail_refresh_status_snapshot(**_kwargs):
-        raise AssertionError("plain system_notice must not refresh wake state")
+        raise AssertionError("synthetic targets must not refresh wake state")
 
     result = maybe_wake_posted_reviewer_packet(
         args=SimpleNamespace(execution_mode="event-backed"),
@@ -208,9 +364,10 @@ def test_maybe_wake_posted_reviewer_packet_skips_plain_system_notice() -> None:
         paths={},
         packet={
             "packet_id": "pkt-status",
-            "to_agent": "claude",
+            "to_agent": "system",
             "kind": "system_notice",
             "requested_action": "",
+            "status": "pending",
         },
         deps=EventPostWakeDeps(
             refresh_status_snapshot_fn=fail_refresh_status_snapshot,
@@ -220,7 +377,7 @@ def test_maybe_wake_posted_reviewer_packet_skips_plain_system_notice() -> None:
     assert result == {
         "attempted": False,
         "woke": False,
-        "reason": "non_actionable_packet",
+        "reason": "non_conductor_target",
         "packet_id": "pkt-status",
         "requested_action": "",
     }

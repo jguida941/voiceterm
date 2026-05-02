@@ -608,6 +608,20 @@ Portability note:
   relaunch one waiting Codex reviewer conductor for the newest unseen
   action-request packet instead of leaving that wake-up dependent on a
   separately started watcher.
+- Event-backed packet posts also distinguish visible-session wake from
+  delegated dashboard execution. A packet targeting a non-Codex
+  `target_session_id` still fails closed by default, but safe dashboard/observer
+  packets (`system_notice`, `finding`, or `question` with no requested action
+  or `review_only`) may use `--terminal none` to launch a headless delegate.
+  The post response and a persisted `packet_wake_attempted` event then report
+  `wake_method=headless_delegate`, `delegated=true`,
+  `visible_session_woke=false`, and
+  `dashboard_session_id=<target_session_id>` so dashboard/remote-control
+  surfaces do not claim the visible terminal resumed. The reduced packet row
+  exposes that event as `reviewer_wake`; when the headless launcher can prove a
+  real process id, the receipt also carries `spawned_pids` and
+  `delivered_to_pids`. Mutating packets remain blocked until a real provider
+  registry or IPC path can address the exact target session.
 - Attention-priority parity is shared across producer paths too: bridge-backed
   `review-channel --action status` and event-backed `startup-context`,
   `session-resume`, and `dashboard` now all attach typed conductor session
@@ -1892,8 +1906,26 @@ Machine-first output note:
   plan/finding/lifecycle ownership instead of living only in packet transport.
   `audit-packets --drain-packets` runs the existing guarded deterministic
   plan-row ingestion writer for eligible rows and emits durable-ingestion
-  receipts; it does not grant repo mutation. The current launch action is a
-  report-only cycle; it does not spawn workers or grant mutation.
+  receipts; it does not grant repo mutation. Live pending packets of any kind
+  to a conductor-backed actor now show up as delivery wake pressure in
+  `packet_attention` (`pending_delivery_packet_ids` and
+  `latest_attention_packet_id`), while actionable instruction/action-request
+  packets remain separately identified in `pending_actionable_packet_ids`.
+  Delivery wake is not the same proof as same visible-terminal resume; wake
+  receipts and `/develop` reports should preserve whether delivery reached a
+  fresh/headless conductor, the targeted UI session, or only typed runtime rows.
+  A packet scoped to a non-Codex `target_session_id` must not be satisfied by
+  launching a different session; until a provider conductor registry/IPC
+  channel exists, mutating target-session packets stay pending with
+  `wake_method=unreachable_until_operator_prompt`. Safe dashboard/observer
+  delivery packets may explicitly delegate to a headless conductor with
+  `--terminal none`; those receipts must render `wake_method=headless_delegate`
+  plus `visible_session_woke=false` so operators can tell headless work from a
+  resumed visible dashboard terminal. The receipt is persisted as
+  `packet_wake_attempted` and projected onto packet rows as `reviewer_wake`;
+  launcher-proven process ids appear as `spawned_pids` / `delivered_to_pids`.
+  The current launch action is a report-only cycle; it does not spawn workers
+  or grant mutation.
 - `view`: typed presentation adapter over catalog/read-model surfaces. For
   agents, `view --surface ai` defaults to the existing AI slim renderer so the
   no-mode command returns the token-efficient command/guard/probe catalog

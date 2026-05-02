@@ -144,3 +144,65 @@ def test_render_event_md_renders_lane_barriers_when_present() -> None:
     assert "target_packet=rev_pkt_2380" in text
     assert "target_actor=codex" in text
     assert "Awaiting reviewer accept" in text
+
+
+def test_render_event_md_renders_packet_wake_receipt() -> None:
+    report = _base_report(None, None)
+    report["action"] = "post"
+    report["reviewer_wake"] = {
+        "attempted": True,
+        "woke": True,
+        "reason": "launched",
+        "target_agent": "claude",
+        "target_role": "dashboard",
+        "target_session_id": "session-visible",
+        "wake_method": "spawn_fresh",
+        "packet_id": "rev_pkt_2760",
+        "requested_action": "review_only",
+        "replaced_pids": [4242],
+    }
+
+    text = render_event_md(report)
+
+    assert "## Packet Wake" in text
+    assert "- attempted: True" in text
+    assert "- woke: True" in text
+    assert "- reason: launched" in text
+    assert "- wake_method: spawn_fresh" in text
+    assert "- target_agent: claude" in text
+    assert "- target_role: dashboard" in text
+    assert "- target_session_id: session-visible" in text
+    assert "- packet_id: rev_pkt_2760" in text
+    assert "- replaced_pids: 4242" in text
+
+
+def test_render_event_md_renders_headless_delegate_wake_receipt() -> None:
+    report = _base_report(None, None)
+    report["action"] = "post"
+    report["reviewer_wake"] = {
+        "attempted": True,
+        "woke": False,
+        "visible_session_woke": False,
+        "delegated": True,
+        "reason": "headless_delegate_launched",
+        "target_agent": "claude",
+        "target_role": "dashboard",
+        "target_session_id": "session-visible",
+        "dashboard_session_id": "session-visible",
+        "wake_method": "headless_delegate",
+        "packet_id": "rev_pkt_2760",
+        "requested_action": "review_only",
+        "spawned_pids": [4242],
+        "delivered_to_pids": [4242],
+    }
+
+    text = render_event_md(report)
+
+    assert "- woke: False" in text
+    assert "- visible_session_woke: False" in text
+    assert "- delegated: True" in text
+    assert "- reason: headless_delegate_launched" in text
+    assert "- wake_method: headless_delegate" in text
+    assert "- dashboard_session_id: session-visible" in text
+    assert "- spawned_pids: 4242" in text
+    assert "- delivered_to_pids: 4242" in text

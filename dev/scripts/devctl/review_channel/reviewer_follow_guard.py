@@ -24,6 +24,30 @@ from .launch import build_launch_sessions
 from .launch_records import LaunchSessionRequest
 from .session_probe import load_conductor_sessions
 from .terminal_app import cleanup_terminal_session
+from .wake_receipt_models import (
+    WakeReceiptExtras,
+    headless_launch_pids,
+    wake_report,
+)
+
+__all__ = (
+    "ReviewerWakeDeps",
+    "ReviewerWakePaths",
+    "ReviewerWakeLaunchContext",
+    "WakeReceiptExtras",
+    "wake_report",
+    "cleanup_codex_sessions",
+    "cleanup_candidate_codex_sessions",
+    "cleanup_candidate_provider_sessions",
+    "has_blocking_cleanup_warning",
+    "launch_waiting_reviewer_conductor",
+    "as_path",
+    "maybe_refresh_automation_reviewer_heartbeat",
+    "ReviewerFollowPacketDeps",
+    "ReviewerFollowPacketRequest",
+    "ReviewerFollowTriggerState",
+    "maybe_queue_reviewer_follow_packet",
+)
 
 
 def _resolved_wake_approval_mode(*, args: object, interaction_mode: str) -> str:
@@ -96,6 +120,12 @@ class ReviewerWakeLaunchContext:
     cleanup_warnings: tuple[str, ...]
     operator_interaction_mode: str
     provider: str = "codex"
+    replaced_session_count: int = 0
+    replaced_pids: tuple[int, ...] = ()
+    wake_method_override: str = ""
+    target_role: str = ""
+    target_session_id: str = ""
+    dashboard_session_id: str = ""
 
 
 def cleanup_codex_sessions(
@@ -178,8 +208,8 @@ def launch_waiting_reviewer_conductor(
                 attempted=True,
                 woke=False,
                 reason=f"{provider}_lanes_missing",
-                warnings=list(context.cleanup_warnings),
                 target_agent=_non_codex_target(provider),
+                extras=WakeReceiptExtras(warnings=tuple(context.cleanup_warnings)),
             )
 
         sessions = deps.build_launch_sessions_fn(
@@ -231,12 +261,15 @@ def launch_waiting_reviewer_conductor(
             attempted=True,
             woke=False,
             reason="launch_build_failed",
-            warnings=[*context.cleanup_warnings, str(exc)],
             target_agent=_non_codex_target(provider),
+            extras=WakeReceiptExtras(
+                warnings=tuple([*context.cleanup_warnings, str(exc)]),
+            ),
         )
 
     launch_warnings: list[str] = []
     woke = deps.launch_sessions_headless_fn(sessions, launch_warnings)
+    spawned_pids = headless_launch_pids(sessions)
     if (
         woke
         and artifact_root is not None
@@ -247,41 +280,38 @@ def launch_waiting_reviewer_conductor(
             packets=[context.packet],
             observer="publisher",
         )
+    wake_method = (
+        context.wake_method_override
+        or ("replace" if context.replaced_session_count else "spawn_fresh")
+    )
+    is_delegate = wake_method == "headless_delegate"
+    if is_delegate:
+        reason = "headless_delegate_launched" if woke else "headless_delegate_failed"
+    else:
+        reason = "launched" if woke else "launch_failed"
     return wake_report(
         packet=context.packet,
         attempted=True,
-        woke=woke,
-        reason="launched" if woke else "launch_failed",
-        warnings=[*context.cleanup_warnings, *launch_warnings],
+        woke=False if is_delegate else woke,
+        reason=reason,
         target_agent=_non_codex_target(provider),
+        extras=WakeReceiptExtras(
+            target_role=context.target_role,
+            target_session_id=context.target_session_id,
+            dashboard_session_id=context.dashboard_session_id,
+            wake_method=wake_method,
+            delegated=(woke and is_delegate) if is_delegate else None,
+            visible_session_woke=False if is_delegate else None,
+            spawned_pids=tuple(spawned_pids),
+            delivered_to_pids=tuple(spawned_pids) if is_delegate else (),
+            replaced_pids=tuple(context.replaced_pids),
+            warnings=tuple([*context.cleanup_warnings, *launch_warnings]),
+        ),
     )
 
 
 def as_path(value: object) -> Path | None:
     return value if isinstance(value, Path) else None
-
-
-def wake_report(
-    *,
-    packet: Mapping[str, object],
-    attempted: bool,
-    woke: bool,
-    reason: str,
-    warnings: list[str] | None = None,
-    target_agent: str = "",
-) -> dict[str, object]:
-    report = {
-        "attempted": attempted,
-        "woke": woke,
-        "reason": reason,
-        "packet_id": str(packet.get("packet_id") or "").strip(),
-        "requested_action": str(packet.get("requested_action") or "").strip(),
-    }
-    if target_agent:
-        report["target_agent"] = target_agent
-    if warnings:
-        report["warnings"] = list(warnings)
-    return report
 
 
 def _promotion_plan_rel(*, repo_root: Path, promotion_plan_path: Path | None) -> str:

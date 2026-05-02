@@ -53,6 +53,7 @@ def launch_sessions_headless(
     results = _launch_and_verify_sessions(sessions)
     any_alive = False
     for result in results:
+        _attach_headless_launch_result(sessions, result)
         if result.status == HeadlessLaunchStatus.ALIVE:
             any_alive = True
         elif result.status == HeadlessLaunchStatus.DEAD_ON_ARRIVAL:
@@ -71,6 +72,19 @@ def launch_sessions_headless(
                 f"{result.script_path}"
             )
     return any_alive
+
+
+def _attach_headless_launch_result(
+    sessions: list[dict[str, object]],
+    result: HeadlessLaunchResult,
+) -> None:
+    for session in sessions:
+        if str(session.get("script_path") or "").strip() != result.script_path:
+            continue
+        session["headless_launch_status"] = str(result.status)
+        if result.pid is not None:
+            session["headless_launch_pid"] = result.pid
+        break
 
 
 def _launch_and_verify_sessions(

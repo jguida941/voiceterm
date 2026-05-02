@@ -11,11 +11,13 @@ from ...review_channel.follow_controller import (
     maybe_wake_waiting_agent_conductor,
     maybe_wake_waiting_reviewer_conductor,
 )
-from ...review_channel.events import load_or_refresh_event_bundle
+from ...review_channel.events import load_or_refresh_event_bundle, refresh_event_bundle
+from ...review_channel.event_store import append_event, load_events
 from ...review_channel.state import refresh_status_snapshot
 from ...runtime.governance_scan import scan_repo_governance_safely
 from ...runtime.operator_context import derive_operator_interaction_mode
 from ..review_channel_command.models import RuntimePaths
+from .wake_receipt_persistence import record_packet_wake_receipt as _record_packet_wake_receipt
 
 
 @dataclass(frozen=True)
@@ -36,10 +38,13 @@ class EventPostWakeDeps:
         maybe_wake_waiting_agent_conductor
     )
     load_or_refresh_event_bundle_fn: Callable[..., object] = load_or_refresh_event_bundle
+    append_event_fn: Callable[..., dict[str, object]] = append_event
+    load_events_fn: Callable[[Path], list[dict[str, object]]] = load_events
+    refresh_event_bundle_fn: Callable[..., object] = refresh_event_bundle
 
 
 _DEFAULT_EVENT_POST_WAKE_DEPS = EventPostWakeDeps()
-NON_ACTIONABLE_WAKE_KINDS = {"system_notice"}
+NON_CONDUCTOR_WAKE_TARGETS = {"", "operator", "system"}
 
 
 def maybe_wake_posted_reviewer_packet(
@@ -60,8 +65,9 @@ def maybe_wake_posted_reviewer_packet(
     """
 
     target_agent = str(packet.get("to_agent") or "").strip()
-    if not _packet_should_trigger_wake(packet):
-        return _wake_skipped(packet=packet, reason="non_actionable_packet")
+    skip_reason = _wake_skip_reason(packet)
+    if skip_reason:
+        return _wake_skipped(packet=packet, reason=skip_reason)
     resolved_deps = deps or _DEFAULT_EVENT_POST_WAKE_DEPS
 
     bridge_path = _as_path(paths.get("bridge_path"))
@@ -130,22 +136,33 @@ def maybe_wake_posted_reviewer_packet(
         artifact_paths=paths.get("artifact_paths"),
     )
     if target_agent == "codex":
-        return resolved_deps.maybe_wake_waiting_reviewer_conductor_fn(
+        wake = resolved_deps.maybe_wake_waiting_reviewer_conductor_fn(
             args=args,
             repo_root=repo_root,
             paths=wake_paths,
             report=report,
             operator_interaction_mode=operator_interaction_mode,
         )
-    return resolved_deps.maybe_wake_waiting_agent_conductor_fn(
-        args=args,
-        repo_root=repo_root,
-        paths=wake_paths,
-        report=report,
-        operator_interaction_mode=operator_interaction_mode,
-        target_agent=target_agent,
-        packet=dict(packet),
-    )
+    else:
+        wake = resolved_deps.maybe_wake_waiting_agent_conductor_fn(
+            args=args,
+            repo_root=repo_root,
+            paths=wake_paths,
+            report=report,
+            operator_interaction_mode=operator_interaction_mode,
+            target_agent=target_agent,
+            packet=dict(packet),
+        )
+    if isinstance(wake, dict):
+        _record_packet_wake_receipt(
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            artifact_paths=paths.get("artifact_paths"),
+            packet=packet,
+            wake=wake,
+            deps=resolved_deps,
+        )
+    return wake
 
 
 def _review_state_payload(status_snapshot: object) -> dict[str, object]:
@@ -245,10 +262,14 @@ def _wake_skipped(
     }
 
 
-def _packet_should_trigger_wake(packet: Mapping[str, object]) -> bool:
-    kind = str(packet.get("kind") or "").strip()
-    requested_action = str(packet.get("requested_action") or "").strip()
-    return bool(requested_action) or kind not in NON_ACTIONABLE_WAKE_KINDS
+def _wake_skip_reason(packet: Mapping[str, object]) -> str:
+    target_agent = str(packet.get("to_agent") or "").strip().lower()
+    if target_agent in NON_CONDUCTOR_WAKE_TARGETS:
+        return "non_conductor_target"
+    status = str(packet.get("status") or "").strip().lower()
+    if status and status != "pending":
+        return "non_pending_packet"
+    return ""
 
 
 def _as_path(value: object) -> Path | None:

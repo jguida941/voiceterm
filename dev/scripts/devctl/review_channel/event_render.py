@@ -55,6 +55,7 @@ def render_event_md(report: dict) -> str:
     append_coordination_state_section(lines, report.get("coordination_state"))
     append_work_board_section(lines, report.get("work_board"))
     _append_queue_reconciliation(lines, report.get("queue_reconciliation"))
+    _append_reviewer_wake(lines, report.get("reviewer_wake"))
     append_common_report_sections(lines, report)
     append_doctor_markdown(lines, report.get("doctor"))
     packet = report.get("packet")
@@ -120,6 +121,56 @@ def _append_queue_reconciliation(lines: list[str], reconciliation: object) -> No
         lines.append(
             "- note: this surface is only showing the newest packet-history rows"
         )
+
+
+def _append_reviewer_wake(lines: list[str], wake: object) -> None:
+    if not isinstance(wake, dict) or not wake:
+        return
+    lines.append("")
+    lines.append("## Packet Wake")
+    lines.append(f"- attempted: {bool(wake.get('attempted'))}")
+    lines.append(f"- woke: {bool(wake.get('woke'))}")
+    if "visible_session_woke" in wake:
+        lines.append(f"- visible_session_woke: {bool(wake.get('visible_session_woke'))}")
+    if "delegated" in wake:
+        lines.append(f"- delegated: {bool(wake.get('delegated'))}")
+    lines.append(f"- reason: {wake.get('reason') or '(none)'}")
+    if wake.get("wake_method"):
+        lines.append(f"- wake_method: {wake.get('wake_method')}")
+    if wake.get("target_agent"):
+        lines.append(f"- target_agent: {wake.get('target_agent')}")
+    if wake.get("target_role"):
+        lines.append(f"- target_role: {wake.get('target_role')}")
+    if wake.get("target_session_id"):
+        lines.append(f"- target_session_id: {wake.get('target_session_id')}")
+    if wake.get("dashboard_session_id"):
+        lines.append(f"- dashboard_session_id: {wake.get('dashboard_session_id')}")
+    if wake.get("packet_id"):
+        lines.append(f"- packet_id: {wake.get('packet_id')}")
+    if wake.get("requested_action"):
+        lines.append(f"- requested_action: {wake.get('requested_action')}")
+    spawned_pids = wake.get("spawned_pids")
+    if isinstance(spawned_pids, list) and spawned_pids:
+        lines.append(
+            "- spawned_pids: "
+            + ", ".join(str(pid) for pid in spawned_pids)
+        )
+    delivered_to_pids = wake.get("delivered_to_pids")
+    if isinstance(delivered_to_pids, list) and delivered_to_pids:
+        lines.append(
+            "- delivered_to_pids: "
+            + ", ".join(str(pid) for pid in delivered_to_pids)
+        )
+    replaced_pids = wake.get("replaced_pids")
+    if isinstance(replaced_pids, list) and replaced_pids:
+        lines.append(
+            "- replaced_pids: "
+            + ", ".join(str(pid) for pid in replaced_pids)
+        )
+    warnings = wake.get("warnings")
+    if isinstance(warnings, list) and warnings:
+        for warning in warnings:
+            lines.append(f"- warning: {warning}")
 
 
 def _format_packet_line(
@@ -199,6 +250,7 @@ def _append_packet_section(lines: list[str], packet: dict) -> None:
             "- full_guard_bundle_evidence: "
             f"{packet.get('full_guard_bundle_evidence')}"
         )
+    _append_reviewer_wake(lines, packet.get("reviewer_wake"))
     append_context_pack_ref_lines(
         lines,
         packet.get("context_pack_refs"),

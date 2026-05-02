@@ -137,6 +137,29 @@ def test_refresh_event_bundle_keeps_projected_ack_in_final_current_session() -> 
     assert current_session["implementer_ack"]
 
 
+def test_packet_wake_attempt_projects_reviewer_wake_without_closing_packet() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo_root = Path(tmpdir)
+        review_state, _ = reduce_events(
+            events=_packet_wake_events(),
+            repo_root=repo_root,
+            review_channel_path=repo_root / "dev/active/review_channel.md",
+            lanes=[],
+        )
+
+    packet = review_state["packets"][0]
+    wake = packet["reviewer_wake"]
+    assert packet["packet_id"] == "rev_pkt_wake"
+    assert packet["status"] == "pending"
+    assert packet["lifecycle_current_state"] == "pending"
+    assert wake["contract_id"] == "PacketWakeReceipt"
+    assert wake["event_id"] == "rev_evt_2"
+    assert wake["wake_method"] == "headless_delegate"
+    assert wake["delegated"] is True
+    assert wake["visible_session_woke"] is False
+    assert wake["spawned_pids"] == [4242]
+
+
 def _stage_commit_events(*, outcome_provider: str = "codex") -> list[dict[str, object]]:
     packet_fields = {
         "packet_id": "rev_pkt_2097",
@@ -220,6 +243,80 @@ def _stage_commit_events(*, outcome_provider: str = "codex") -> list[dict[str, o
         "metadata": {"actor": "codex"},
     }
     return [posted, outcome, acked, applied]
+
+
+def _packet_wake_events() -> list[dict[str, object]]:
+    packet_fields = {
+        "packet_id": "rev_pkt_wake",
+        "trace_id": "trace-wake",
+        "session_id": "local-review",
+        "plan_id": "MP-377",
+        "project_id": "project-1",
+        "from_agent": "codex",
+        "to_agent": "claude",
+        "kind": "system_notice",
+        "summary": "Wake Claude dashboard delegate",
+        "body": "Please report back.",
+        "evidence_refs": [],
+        "guidance_refs": [],
+        "context_pack_refs": [],
+        "confidence": 1.0,
+        "requested_action": "review_only",
+        "policy_hint": "review_only",
+        "approval_required": False,
+        "target_kind": None,
+        "target_ref": None,
+        "target_revision": None,
+        "anchor_refs": [],
+        "intake_ref": None,
+        "mutation_op": None,
+        "target_role": "dashboard",
+        "target_session_id": "session-visible",
+        "pipeline_generation": None,
+        "staged_snapshot_hash": None,
+        "guard_results_summary": None,
+        "full_guard_bundle_evidence": None,
+        "expires_at_utc": "2026-05-02T14:00:00Z",
+    }
+    posted = {
+        **packet_fields,
+        "event_id": "rev_evt_1",
+        "event_type": "packet_posted",
+        "timestamp_utc": "2026-05-02T13:00:00Z",
+        "source": "review_channel",
+        "status": "pending",
+        "metadata": {},
+    }
+    receipt = {
+        "contract_id": "PacketWakeReceipt",
+        "packet_id": "rev_pkt_wake",
+        "attempted": True,
+        "woke": False,
+        "delegated": True,
+        "visible_session_woke": False,
+        "reason": "headless_delegate_launched",
+        "wake_method": "headless_delegate",
+        "target_agent": "claude",
+        "target_role": "dashboard",
+        "target_session_id": "session-visible",
+        "dashboard_session_id": "session-visible",
+        "spawned_pids": [4242],
+        "delivered_to_pids": [4242],
+        "recorded_at_utc": "2026-05-02T13:00:02Z",
+    }
+    wake = {
+        **packet_fields,
+        "event_id": "rev_evt_2",
+        "event_type": "packet_wake_attempted",
+        "timestamp_utc": "2026-05-02T13:00:02Z",
+        "source": "review_channel",
+        "wake_method": "headless_delegate",
+        "delegated": True,
+        "visible_session_woke": False,
+        "wake_receipt": receipt,
+        "metadata": {"wake_receipt": receipt},
+    }
+    return [posted, wake]
 
 
 def _review_channel_text() -> str:
