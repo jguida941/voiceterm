@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-3 pending review packet(s)
+2 pending review packet(s)
 
 ## Claude Status
 
