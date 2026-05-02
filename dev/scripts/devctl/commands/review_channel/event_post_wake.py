@@ -39,6 +39,7 @@ class EventPostWakeDeps:
 
 
 _DEFAULT_EVENT_POST_WAKE_DEPS = EventPostWakeDeps()
+NON_ACTIONABLE_WAKE_KINDS = {"system_notice"}
 
 
 def maybe_wake_posted_reviewer_packet(
@@ -59,6 +60,8 @@ def maybe_wake_posted_reviewer_packet(
     """
 
     target_agent = str(packet.get("to_agent") or "").strip()
+    if not _packet_should_trigger_wake(packet):
+        return _wake_skipped(packet=packet, reason="non_actionable_packet")
     resolved_deps = deps or _DEFAULT_EVENT_POST_WAKE_DEPS
 
     bridge_path = _as_path(paths.get("bridge_path"))
@@ -226,6 +229,26 @@ def _wake_error(
     if detail:
         report["warnings"] = [detail]
     return report
+
+
+def _wake_skipped(
+    *,
+    packet: Mapping[str, object],
+    reason: str,
+) -> dict[str, object]:
+    return {
+        "attempted": False,
+        "woke": False,
+        "reason": reason,
+        "packet_id": str(packet.get("packet_id") or "").strip(),
+        "requested_action": str(packet.get("requested_action") or "").strip(),
+    }
+
+
+def _packet_should_trigger_wake(packet: Mapping[str, object]) -> bool:
+    kind = str(packet.get("kind") or "").strip()
+    requested_action = str(packet.get("requested_action") or "").strip()
+    return bool(requested_action) or kind not in NON_ACTIONABLE_WAKE_KINDS
 
 
 def _as_path(value: object) -> Path | None:

@@ -198,6 +198,34 @@ def test_maybe_wake_posted_reviewer_packet_routes_non_codex_adapter() -> None:
     assert observed["operator_interaction_mode"] == "remote_control"
 
 
+def test_maybe_wake_posted_reviewer_packet_skips_plain_system_notice() -> None:
+    def fail_refresh_status_snapshot(**_kwargs):
+        raise AssertionError("plain system_notice must not refresh wake state")
+
+    result = maybe_wake_posted_reviewer_packet(
+        args=SimpleNamespace(execution_mode="event-backed"),
+        repo_root=Path("/tmp/repo"),
+        paths={},
+        packet={
+            "packet_id": "pkt-status",
+            "to_agent": "claude",
+            "kind": "system_notice",
+            "requested_action": "",
+        },
+        deps=EventPostWakeDeps(
+            refresh_status_snapshot_fn=fail_refresh_status_snapshot,
+        ),
+    )
+
+    assert result == {
+        "attempted": False,
+        "woke": False,
+        "reason": "non_actionable_packet",
+        "packet_id": "pkt-status",
+        "requested_action": "",
+    }
+
+
 def test_maybe_wake_posted_reviewer_packet_reports_missing_runtime_paths() -> None:
     result = maybe_wake_posted_reviewer_packet(
         args=SimpleNamespace(execution_mode="event-backed"),

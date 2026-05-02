@@ -18,6 +18,10 @@ from ...process_sweep.core import (
     split_orphaned_processes,
     split_stale_processes,
 )
+from ...process_sweep.review_channel_monitors import (
+    review_channel_monitor_pids,
+    review_channel_monitor_rows,
+)
 from ...repo_packs import active_path_config
 from ...review_channel.lifecycle_state import read_reviewer_supervisor_state
 from ..check.process_sweep import _protected_registered_conductor_pids
@@ -112,8 +116,13 @@ def _audit_runtime_processes(
         and (row.get("ppid") != 1 or row.get("pid") in protected_conductor_pids)
     ]
     supervised_conductor_pids = {row["pid"] for row in supervised_conductors}
+    protected_monitor_pids = review_channel_monitor_pids(test_processes)
+    review_channel_monitors = review_channel_monitor_rows(test_processes)
     unprotected_rows = [
-        row for row in test_processes if row.get("pid") not in supervised_conductor_pids
+        row
+        for row in test_processes
+        if row.get("pid")
+        not in supervised_conductor_pids | protected_monitor_pids
     ]
     orphaned, active = split_orphaned_processes(
         unprotected_rows,
@@ -176,6 +185,7 @@ def _audit_runtime_processes(
     report: dict[str, object] = {}
     report["total_detected"] = len(test_processes)
     report["active_supervised_conductors"] = supervised_conductors
+    report["active_review_channel_monitors"] = review_channel_monitors
     report["orphaned"] = orphaned
     report["stale_active"] = stale_active
     report["active"] = fresh_active

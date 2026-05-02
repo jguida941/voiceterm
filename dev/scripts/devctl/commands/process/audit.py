@@ -15,6 +15,10 @@ from ...process_sweep.core import (
     split_orphaned_processes,
     split_stale_processes,
 )
+from ...process_sweep.review_channel_monitors import (
+    review_channel_monitor_pids,
+    review_channel_monitor_rows,
+)
 from ...time_utils import utc_timestamp
 from ..check.process_sweep import _protected_registered_conductor_pids
 
@@ -47,8 +51,12 @@ def collect_process_audit_state() -> dict:
         and (row.get("ppid") != 1 or row.get("pid") in protected_conductor_pids)
     ]
     supervised_conductor_pids = {row["pid"] for row in supervised_conductor_rows}
+    protected_monitor_pids = review_channel_monitor_pids(rows)
+    active_review_channel_monitor_rows = review_channel_monitor_rows(rows)
     unprotected_rows = [
-        row for row in rows if row.get("pid") not in supervised_conductor_pids
+        row
+        for row in rows
+        if row.get("pid") not in supervised_conductor_pids | protected_monitor_pids
     ]
     orphaned, active = split_orphaned_processes(
         unprotected_rows,
@@ -81,6 +89,7 @@ def collect_process_audit_state() -> dict:
         "stale_active_rows": stale_active,
         "active_recent_rows": active_recent,
         "active_supervised_conductor_rows": supervised_conductor_rows,
+        "active_review_channel_monitor_rows": active_review_channel_monitor_rows,
         "recent_detached_rows": recent_detached,
         "active_recent_blocking_rows": active_recent_blocking,
         "active_recent_advisory_rows": active_recent_advisory,
@@ -105,6 +114,7 @@ def build_process_audit_report(*, strict: bool) -> dict:
     stale_active = state["stale_active_rows"]
     active_recent = state["active_recent_rows"]
     supervised_conductors = state["active_supervised_conductor_rows"]
+    active_review_channel_monitors = state["active_review_channel_monitor_rows"]
     recent_detached = state["recent_detached_rows"]
     active_recent_blocking = state["active_recent_blocking_rows"]
     active_recent_advisory = state["active_recent_advisory_rows"]
@@ -172,6 +182,7 @@ def build_process_audit_report(*, strict: bool) -> dict:
         "stale_active_rows": stale_active,
         "active_recent_rows": active_recent,
         "active_supervised_conductor_rows": supervised_conductors,
+        "active_review_channel_monitor_rows": active_review_channel_monitors,
         "recent_detached_rows": recent_detached,
         "active_recent_blocking_rows": active_recent_blocking,
         "active_recent_advisory_rows": active_recent_advisory,
@@ -182,6 +193,7 @@ def build_process_audit_report(*, strict: bool) -> dict:
         "stale_active_count": len(stale_active),
         "active_recent_count": len(active_recent),
         "active_supervised_conductor_count": len(supervised_conductors),
+        "active_review_channel_monitor_count": len(active_review_channel_monitors),
         "recent_detached_count": len(recent_detached),
         "active_recent_blocking_count": len(active_recent_blocking),
         "active_recent_advisory_count": len(active_recent_advisory),
@@ -203,6 +215,10 @@ def _render_md(report: dict) -> str:
     lines.append(
         "- active_supervised_conductors: "
         f"{report['active_supervised_conductor_count']}"
+    )
+    lines.append(
+        "- active_review_channel_monitors: "
+        f"{report['active_review_channel_monitor_count']}"
     )
     lines.append(f"- recent_detached: {report['recent_detached_count']}")
     lines.append(f"- active_recent_blocking: {report['active_recent_blocking_count']}")

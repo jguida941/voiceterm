@@ -703,6 +703,81 @@ class HygieneAuditTests(unittest.TestCase):
         self.assertFalse(report["errors"])
         self.assertFalse(report["warnings"])
 
+    def test_review_channel_trace_monitor_tree_is_not_flagged_stale(self) -> None:
+        """Typed trace monitors are collaboration infrastructure, not leaks."""
+        monitor_rows = [
+            {
+                "pid": 99272,
+                "ppid": 32603,
+                "etime": "15:32",
+                "elapsed_seconds": 932,
+                "command": (
+                    "/bin/zsh -c eval 'tail -n 0 -F "
+                    "dev/reports/review_channel/events/trace.ndjson'"
+                ),
+                "match_scope": "repo_tooling",
+            },
+            {
+                "pid": 99275,
+                "ppid": 99272,
+                "etime": "15:32",
+                "elapsed_seconds": 932,
+                "command": "tail -n 0 -F dev/reports/review_channel/events/trace.ndjson",
+                "match_scope": "repo_tooling",
+            },
+            {
+                "pid": 99276,
+                "ppid": 99272,
+                "etime": "15:32",
+                "elapsed_seconds": 932,
+                "command": "/opt/homebrew/bin/python3 -u -c import sys,json",
+                "match_scope": "repo_tooling",
+            },
+        ]
+        fake_scanner = mock.Mock(return_value=(monitor_rows, []))
+
+        report = hygiene_support._audit_runtime_processes(
+            process_scanner=fake_scanner
+        )
+
+        self.assertEqual(report["total_detected"], 3)
+        self.assertEqual(report["active_review_channel_monitors"], monitor_rows)
+        self.assertEqual(report["orphaned"], [])
+        self.assertEqual(report["stale_active"], [])
+        self.assertEqual(report["active"], [])
+        self.assertFalse(report["errors"])
+        self.assertFalse(report["warnings"])
+
+    def test_review_channel_watch_process_is_not_flagged_stale(self) -> None:
+        """Typed packet watchers are collaboration infrastructure, not leaks."""
+        monitor_rows = [
+            {
+                "pid": 88583,
+                "ppid": 46615,
+                "etime": "15:32",
+                "elapsed_seconds": 932,
+                "command": (
+                    "python3 dev/scripts/devctl.py review-channel --action watch "
+                    "--target codex --status pending --follow --terminal none "
+                    "--format json --follow-inactivity-timeout-seconds 300"
+                ),
+                "match_scope": "repo_tooling",
+            },
+        ]
+        fake_scanner = mock.Mock(return_value=(monitor_rows, []))
+
+        report = hygiene_support._audit_runtime_processes(
+            process_scanner=fake_scanner
+        )
+
+        self.assertEqual(report["total_detected"], 1)
+        self.assertEqual(report["active_review_channel_monitors"], monitor_rows)
+        self.assertEqual(report["orphaned"], [])
+        self.assertEqual(report["stale_active"], [])
+        self.assertEqual(report["active"], [])
+        self.assertFalse(report["errors"])
+        self.assertFalse(report["warnings"])
+
     @mock.patch("dev.scripts.devctl.commands.governance.hygiene._scan_voiceterm_test_processes")
     def test_runtime_process_audit_errors_for_stale_active_test_binary(
         self, scan_mock: mock.Mock

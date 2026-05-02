@@ -185,7 +185,39 @@ def _protected_registered_conductor_pids(
                 continue
             protected.add(child_pid)
             frontier.append(child_pid)
-    return protected
+    return _include_registered_conductor_ancestors(rows=rows, protected=protected)
+
+
+def _include_registered_conductor_ancestors(
+    *,
+    rows: list[dict],
+    protected: set[int],
+) -> set[int]:
+    """Protect conductor wrapper ancestors of a typed-live conductor process."""
+    rows_by_pid = {
+        int(row.get("pid", 0) or 0): row
+        for row in rows
+        if int(row.get("pid", 0) or 0) > 0
+    }
+    expanded = set(protected)
+    frontier = list(protected)
+    while frontier:
+        child_pid = frontier.pop()
+        child_row = rows_by_pid.get(child_pid)
+        if not child_row:
+            continue
+        parent_pid = int(child_row.get("ppid", 0) or 0)
+        parent_row = rows_by_pid.get(parent_pid)
+        if (
+            parent_pid <= 0
+            or parent_pid in expanded
+            or not parent_row
+            or parent_row.get("match_scope") != SUPERVISED_CONDUCTOR_SCOPE
+        ):
+            continue
+        expanded.add(parent_pid)
+        frontier.append(parent_pid)
+    return expanded
 
 
 def cleanup_host_processes(

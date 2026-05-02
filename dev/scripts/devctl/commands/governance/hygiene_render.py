@@ -84,6 +84,10 @@ def render_md(report: dict) -> str:
         "- supervised review-channel conductors: "
         f"{len(runtime_processes.get('active_supervised_conductors', []))}"
     )
+    lines.append(
+        "- review-channel monitor processes: "
+        f"{len(runtime_processes.get('active_review_channel_monitors', []))}"
+    )
     lines.extend(f"- error: {message}" for message in runtime_processes["errors"])
     lines.extend(f"- warning: {message}" for message in runtime_processes["warnings"])
     lines.append("")

@@ -1064,6 +1064,49 @@ def test_protected_pids_uses_registry_when_session_pid_is_live() -> None:
     assert 9999 not in protected, "unrelated voiceterm row stays reapable"
 
 
+def test_protected_pids_include_registered_wrapper_ancestor() -> None:
+    """A typed-live child conductor protects its script wrapper parent."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo_root = Path(tmpdir)
+        status_dir = repo_root / "dev" / "reports" / "review_channel" / "latest"
+        status_dir.mkdir(parents=True)
+
+        live_session = SimpleNamespace(live=True, session_pid=98949)
+        rows = [
+            {
+                "pid": 98946,
+                "ppid": 1,
+                "match_scope": "review_channel_conductor",
+                "command": "script -q -F -t 0 claude-conductor.log /bin/zsh -lc conductor.sh",
+            },
+            {
+                "pid": 98949,
+                "ppid": 98946,
+                "match_scope": "review_channel_conductor",
+                "command": "/bin/zsh conductor.sh __review_channel_inner",
+            },
+            {
+                "pid": 99056,
+                "ppid": 98949,
+                "match_scope": "review_channel_conductor",
+                "command": "claude --permission-mode default",
+            },
+        ]
+
+        with patch(
+            "dev.scripts.devctl.review_channel.session_probe.load_conductor_sessions",
+            return_value=(live_session,),
+        ):
+            protected = check_process_sweep._protected_registered_conductor_pids(
+                rows=rows,
+                repo_root=repo_root,
+            )
+
+    assert 98946 in protected, "registered conductor wrapper parent must be protected"
+    assert 98949 in protected, "registry-backed conductor child must be protected"
+    assert 99056 in protected, "descendants of the child inherit protection"
+
+
 def test_protected_pids_preserve_running_stale_authority_session() -> None:
     """A running registered conductor stays protected even when authority drifts.
 

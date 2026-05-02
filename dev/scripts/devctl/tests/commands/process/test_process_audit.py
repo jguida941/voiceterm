@@ -263,6 +263,107 @@ class ProcessAuditCommandTests(TestCase):
     @mock.patch(
         "dev.scripts.devctl.commands.process_audit.scan_repo_hygiene_process_tree"
     )
+    def test_run_strict_allows_review_channel_trace_monitor_tree(
+        self,
+        scan_mock,
+        write_output_mock,
+    ) -> None:
+        scan_mock.return_value = (
+            [
+                {
+                    "pid": 710,
+                    "ppid": 99,
+                    "etime": "15:00",
+                    "elapsed_seconds": 900,
+                    "command": (
+                        "/bin/zsh -c eval 'tail -n 0 -F "
+                        "dev/reports/review_channel/events/trace.ndjson'"
+                    ),
+                    "match_source": "direct",
+                    "match_scope": "repo_tooling",
+                },
+                {
+                    "pid": 711,
+                    "ppid": 710,
+                    "etime": "14:59",
+                    "elapsed_seconds": 899,
+                    "command": "tail -n 0 -F dev/reports/review_channel/events/trace.ndjson",
+                    "match_source": "descendant",
+                    "match_scope": "repo_tooling",
+                },
+                {
+                    "pid": 712,
+                    "ppid": 710,
+                    "etime": "14:59",
+                    "elapsed_seconds": 899,
+                    "command": "python3 -u -c import sys,json",
+                    "match_source": "descendant",
+                    "match_scope": "repo_tooling",
+                },
+            ],
+            [],
+        )
+        args = build_parser().parse_args(
+            ["process-audit", "--strict", "--format", "json"]
+        )
+
+        rc = process_audit.run(args)
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["active_review_channel_monitor_count"], 3)
+        self.assertEqual(payload["stale_active_count"], 0)
+        self.assertEqual(payload["active_recent_count"], 0)
+        self.assertFalse(payload["warnings"])
+        self.assertFalse(payload["errors"])
+
+    @mock.patch("dev.scripts.devctl.commands.process_audit.write_output")
+    @mock.patch(
+        "dev.scripts.devctl.commands.process_audit.scan_repo_hygiene_process_tree"
+    )
+    def test_run_strict_allows_review_channel_watch_process(
+        self,
+        scan_mock,
+        write_output_mock,
+    ) -> None:
+        scan_mock.return_value = (
+            [
+                {
+                    "pid": 720,
+                    "ppid": 99,
+                    "etime": "15:00",
+                    "elapsed_seconds": 900,
+                    "command": (
+                        "python3 dev/scripts/devctl.py review-channel --action watch "
+                        "--target codex --status pending --follow --terminal none "
+                        "--format json --follow-inactivity-timeout-seconds 300"
+                    ),
+                    "match_source": "direct",
+                    "match_scope": "repo_tooling",
+                },
+            ],
+            [],
+        )
+        args = build_parser().parse_args(
+            ["process-audit", "--strict", "--format", "json"]
+        )
+
+        rc = process_audit.run(args)
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["active_review_channel_monitor_count"], 1)
+        self.assertEqual(payload["stale_active_count"], 0)
+        self.assertEqual(payload["active_recent_count"], 0)
+        self.assertFalse(payload["warnings"])
+        self.assertFalse(payload["errors"])
+
+    @mock.patch("dev.scripts.devctl.commands.process_audit.write_output")
+    @mock.patch(
+        "dev.scripts.devctl.commands.process_audit.scan_repo_hygiene_process_tree"
+    )
     def test_run_strict_fails_for_recent_repo_runtime_processes(
         self,
         scan_mock,
