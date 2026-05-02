@@ -37,6 +37,29 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-02 - Governed commit failures now consume the failure packet router
+
+Fact: Plan r3 dogfooding showed that the `ActionResult.auto_executable` and
+`remediation` fields were still mostly write-only in the governed commit
+failure path. Commit failures could name a next command, but `_commit_failure_result`
+returned that evidence as warnings/guidance rather than feeding the existing
+review-channel packet transport.
+
+Change: `_commit_failure_result` now builds the failed `ActionResult` and
+hands it to the VCS failure-router adapter, which delegates to
+`failure_packet_router` and records packet/event warnings when an eligible
+allowlisted remediation writes event-backed `action_request` and
+safe-auto-apply transition events. Routing errors are reported as warnings so
+the original commit failure remains fail-closed.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_failure_router.py`
+- `dev/scripts/devctl/review_channel/failure_packet_router.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+- `dev/scripts/devctl/tests/review_channel/test_failure_packet_router.py`
+
 ### 2026-05-02 - Launcher bypass receipts and failure routing become typed audit evidence
 
 Fact: Codex/Claude MP-377 dogfooding found three control-plane gaps in the

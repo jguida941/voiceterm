@@ -486,6 +486,11 @@ Portability note:
   --strict --stop-on-clean` retry and replays the same guard bundle once. The
   resulting `ActionResult` includes structured `errors`, `reason_chain`,
   `remediation`, and `auto_executable` fields for dashboard/AI readers.
+  During the `vcs.commit` phase, eligible failed `ActionResult` envelopes are
+  also passed through `failure_packet_router`, which emits the same
+  event-backed `action_request` shape consumed by `safe_auto_apply`. The
+  allowlist remains `SAFE_AUTO_APPLY_ACTION_REQUESTS`; commit failures that do
+  not opt in continue to return ordinary fail-closed guidance.
 - `review-channel --action post --kind action_request` is the event-backed
   source for bridge `## Action Requests`, but executable requests are
   fail-closed on typed runtime binding and non-runtime action requests require

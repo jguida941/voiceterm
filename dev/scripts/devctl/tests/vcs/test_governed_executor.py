@@ -41,6 +41,7 @@ from dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime import (
 )
 from dev.scripts.devctl.commands.vcs.push import build_push_action
 from dev.scripts.devctl.review_channel.event_reducer import load_or_refresh_event_bundle
+from dev.scripts.devctl.review_channel.event_store import load_events
 from dev.scripts.devctl.review_channel.events import (
     post_packet,
     resolve_artifact_paths,
@@ -975,6 +976,80 @@ def test_commit_posts_runtime_action_request_when_git_index_write_is_blocked(
     assert action_requests[0]["approval_required"] is False
     assert any(
         warning.startswith("commit_execution_request_packet=rev_pkt_")
+        for warning in result.warnings
+    )
+
+
+def test_commit_auto_executable_failure_routes_through_failure_packet_router(
+    tmp_path: Path,
+) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+    executor = _executor(repo_root)
+
+    executor.execute(
+        build_stage_action(
+            repo_pack_id="test-pack",
+            paths=("tracked.txt",),
+            commit_message_draft="feat: governed remote pipeline",
+            push_requested=True,
+            guard_profile="bundle.tooling",
+            work_intake_ref="MP-377",
+        )
+    )
+    executor.record_guard_result(_passing_guard_result())
+    pipeline = executor.load_pipeline()
+    artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+    _approve_pipeline(repo_root=repo_root, pipeline=pipeline)
+
+    def _routable_failure_kwargs(*, error: str, reason: str, default_reason: str):
+        return {
+            "errors": (
+                {
+                    "reason": reason,
+                    "message": error,
+                    "remediation": "stage_commit_pipeline",
+                    "auto_executable": True,
+                },
+            ),
+            "reason_chain": (default_reason, reason),
+            "remediation": "stage_commit_pipeline",
+            "auto_executable": True,
+        }
+
+    with patch(
+        "dev.scripts.devctl.commands.vcs.governed_executor_commit_phase.run_git_capture",
+        return_value=(1, "", "fatal: simulated auto-remediable commit failure"),
+    ), patch(
+        "dev.scripts.devctl.commands.vcs.governed_executor_commit_phase._git_index_result_kwargs",
+        side_effect=_routable_failure_kwargs,
+    ):
+        result = executor.execute(
+            build_commit_action(
+                repo_pack_id="test-pack", pipeline_id=pipeline.pipeline_id
+            )
+        )
+
+    events = load_events(Path(artifact_paths.event_log_path))
+    routed = [
+        event
+        for event in events
+        if event.get("source") == "failure_packet_router"
+        or event.get("packet_id", "").startswith("auto_pkt:")
+    ]
+
+    assert result.ok is False
+    assert result.reason == "commit_failed"
+    assert result.remediation == "stage_commit_pipeline"
+    assert result.auto_executable is True
+    assert [event["event_type"] for event in routed] == [
+        "packet_posted",
+        "packet_acked",
+        "packet_applied",
+    ]
+    assert routed[0]["requested_action"] == "stage_commit_pipeline"
+    assert any(
+        warning.startswith("failure_packet_router_packet=auto_pkt:")
         for warning in result.warnings
     )
 

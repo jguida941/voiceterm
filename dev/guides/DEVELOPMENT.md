@@ -454,6 +454,11 @@ Three quality layers matter in practice:
   command can name a blocker, include `errors`, `reason_chain`, `remediation`,
   and `auto_executable` instead of only a prose warning, so dashboard, Codex,
   Claude, and automation loops all see the same next-step evidence.
+  Governed `vcs.commit` now consumes that envelope in
+  `_commit_failure_result`: auto-executable failures whose remediation is
+  allowlisted by `safe_auto_apply` are routed through `failure_packet_router`
+  into event-backed `action_request` packets, while non-eligible failures stay
+  as normal fail-closed `ActionResult` reports.
 - Worktree-orphan governance contracts are part of the platform contract
   surface, not disposable parser structs. `devctl orphan-inventory` builds the
   bounded local `OrphanInventoryReport` across the current checkout,

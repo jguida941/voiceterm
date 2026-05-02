@@ -9,14 +9,15 @@ from typing import Any
 
 from ...runtime import ActionResult, TypedAction
 from ...runtime.action_contracts import ActionOutcome
-from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
-from ...runtime.vcs import run_git_capture
-from .governed_executor_actions import APPROVAL_PACKET_KIND
-from .governed_executor_authorization import build_push_authorization
 from ...runtime.commit_packet_gate import (
     check_commit_packet_gate,
     pending_packet_queue_block_commit,
 )
+from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
+from ...runtime.vcs import run_git_capture
+from .governed_executor_actions import APPROVAL_PACKET_KIND
+from .governed_executor_authorization import build_push_authorization
+from .governed_executor_commit_failure_router import route_commit_failure_result
 from .governed_executor_commit_runtime import (
     attention_revision_stale as runtime_attention_revision_stale,
     live_attention_revision as runtime_live_attention_revision,
@@ -384,7 +385,7 @@ def _commit_failure_result(
         warnings.append(handoff_error)
     if commit_error:
         warnings.append(commit_error)
-    return context.result_builder(
+    result = context.result_builder(
         action_id=action_id,
         ok=False,
         status=ActionOutcome.FAIL,
@@ -398,6 +399,28 @@ def _commit_failure_result(
             default_reason="commit_failed",
         ),
     )
+    route_warnings = route_commit_failure_result(
+        result=result,
+        repo_root=context.repo_root,
+        pending_pipeline=pending_pipeline,
+    )
+    if route_warnings:
+        warnings.extend(route_warnings)
+        result = context.result_builder(
+            action_id=action_id,
+            ok=False,
+            status=ActionOutcome.FAIL,
+            reason=failure_reason,
+            operator_guidance=failure_guidance,
+            warnings=tuple(warnings),
+            artifact_paths=(context.pipeline_artifact_relpath,),
+            **_git_index_result_kwargs(
+                error=commit_error,
+                reason=failure_reason,
+                default_reason="commit_failed",
+            ),
+        )
+    return result
 
 
 def _commit_success_result(

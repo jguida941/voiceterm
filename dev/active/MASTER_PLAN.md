@@ -750,6 +750,13 @@
   Preflight-created generated-surface / bridge / ReviewSnapshot receipt commits
   no longer self-invalidate an otherwise current authorization, while stale,
   fixture, unmanaged, or wrong-worktree authorization still fails closed.
+- 2026-05-02 Plan r3 Slice 1 governed-commit failure routing (MP-377):
+  `_commit_failure_result` now passes eligible failed `ActionResult` envelopes
+  through `failure_packet_router`, which writes the same event-backed
+  `action_request` plus safe-auto-apply transitions already used by the review
+  channel. This starts consuming `auto_executable` / `remediation` evidence in
+  the commit failure path instead of leaving the next command as prose-only
+  operator guidance; non-allowlisted failures still return fail-closed.
 - 2026-04-27 Plan 4.1 N1 governed-push heartbeat automation (MP-377):
   `devctl push` now extends the existing pre-validation projection sync rather
   than adding another recovery surface. When the bridge liveness projection
