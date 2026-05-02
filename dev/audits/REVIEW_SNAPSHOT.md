@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `1733d2a833da` — Integrate packet finding stack into MP-377 plan
-- Tree hash: `4b885d49161c`
-- Generation stamp: `snap-aee3dded98fd`
-- Generated at (UTC): 2026-05-02T20:50:54Z
+- HEAD: `34c4ea42da40` — Refresh external review snapshot for 1733d2a8
+- Tree hash: `8ab7ddf93dae`
+- Generation stamp: `snap-b0d0a766e601`
+- Generated at (UTC): 2026-05-02T20:58:30Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `local_terminal`)
+- Reviewer mode: `single_agent` (interaction: `single_agent`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 23 files, +2167/-1289
+- Delta since last snapshot: 24 commits, 23 files, +2163/-1271
 - Governance findings: 152 open / 88 fixed / 254 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,7 +30,7 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `1733d2a833da187d879a013a3d77bd613e2fe609`
+- HEAD SHA: `34c4ea42da400652a6fdeff075b1b0b08ed98ab6`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-05-02T16:50:39-04:00
 
@@ -45,15 +45,18 @@ probes, typed actions, deterministic policy resolution — is what m...
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report: `dev/reports/push/latest.json`
-- latest_push_report_state: `published_remote` (post_push_bundle_failed)
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- latest_push_report_state: `blocked` (push_preflight_running)
+- current_push_authorization: `push-auth-20260502T205001200088Z` (valid=True)
+- authorized_head_commit: `34c4ea42da400652a6fdeff075b1b0b08ed98ab6`
+- approved_target_identity: `tree-receipt-20260502T205001200088Z:4b885d49161c716913823bec5d9758c2f037a692`
+- publication_backlog: recommended
+- publication_guidance: 2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `local_terminal`
+- interaction_mode: `single_agent`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -67,53 +70,53 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `1733d2a833da`
+Range: last 24 commits ending at `34c4ea42da40`
 
 - commits: 24
 - files changed: 23
-- insertions: +2167
-- deletions: -1289
-- bundle classes touched: tooling, docs
+- insertions: +2163
+- deletions: -1271
+- bundle classes touched: docs, tooling
 - authority surfaces touched: 2 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `1733d2a8` | Integrate packet finding stack into MP-377 plan | 2 | +176/-61 | tooling |  |
-| 2 | `82d0bb3a` | Refresh external review snapshot for 48b0e03d | 1 | +42/-39 | tooling |  |
-| 3 | `48b0e03d` | Refresh external review snapshot for f04275a0 | 2 | +57/-62 | docs |  |
-| 4 | `f04275a0` | chore(push): auto-commit preflight-generated changes | 3 | +56/-58 | tooling |  |
-| 5 | `38c938ba` | Refresh external review snapshot for 6ed88467 | 2 | +47/-44 | docs |  |
-| 6 | `6ed88467` | Refresh external review snapshot for 50ac1d8a | 1 | +45/-49 | tooling |  |
-| 7 | `50ac1d8a` | Refresh plan projection for automation findings | 2 | +2/-0 | tooling |  |
-| 8 | `3d02e980` | Refresh review snapshot after system picture update | 1 | +71/-97 | tooling |  |
-| 9 | `93f32b7d` | Refresh managed projection surfaces after publisher stop | 3 | +5/-3 | tooling |  |
-| 10 | `9d05fe6c` | Refresh managed projection surfaces after publisher update | 3 | +7/-5 | tooling |  |
-| 11 | `b8dfb984` | Refresh managed projection surfaces after drift repair | 4 | +67/-55 | tooling |  |
-| 12 | `8a361a42` | Refresh external review snapshot for f510da77 | 2 | +65/-69 | docs |  |
-| 13 | `f510da77` | Fix empty develop packet attention summary | 11 | +160/-83 | tooling |  |
-| 14 | `5908bcd9` | Refresh external review snapshot for a2c85e4a | 2 | +47/-47 | docs |  |
-| 15 | `a2c85e4a` | Refresh external review snapshot for 4baabf40 | 1 | +53/-50 | tooling |  |
-| 16 | `4baabf40` | Refresh policy-owned generated surfaces for 2cc4bd10 | 1 | +1/-1 | docs |  |
-| 17 | `2cc4bd10` | Refresh external review snapshot for 7a3579b1 | 2 | +66/-64 | docs |  |
-| 18 | `7a3579b1` | Persist launcher discipline bypass receipts | 8 | +452/-119 | tooling |  |
-| 19 | `3ff41ec7` | Refresh external review snapshot for 117ea0d3 | 2 | +58/-58 | docs |  |
-| 20 | `117ea0d3` | Preserve single-agent topology mode | 2 | +101/-135 | tooling |  |
-| 21 | `625580af` | Refresh policy-owned generated surfaces for c3adea3a | 1 | +1/-1 | docs |  |
-| 22 | `c3adea3a` | Refresh external review snapshot for ff9988fe | 2 | +57/-54 | docs |  |
-| 23 | `ff9988fe` | Add failure packet router | 3 | +467/-57 | tooling |  |
-| 24 | `11ede1db` | Refresh external review snapshot for 492a2f37 | 2 | +64/-78 | docs |  |
+| 1 | `34c4ea42` | Refresh external review snapshot for 1733d2a8 | 2 | +60/-60 | docs |  |
+| 2 | `1733d2a8` | Integrate packet finding stack into MP-377 plan | 2 | +176/-61 | tooling |  |
+| 3 | `82d0bb3a` | Refresh external review snapshot for 48b0e03d | 1 | +42/-39 | tooling |  |
+| 4 | `48b0e03d` | Refresh external review snapshot for f04275a0 | 2 | +57/-62 | docs |  |
+| 5 | `f04275a0` | chore(push): auto-commit preflight-generated changes | 3 | +56/-58 | tooling |  |
+| 6 | `38c938ba` | Refresh external review snapshot for 6ed88467 | 2 | +47/-44 | docs |  |
+| 7 | `6ed88467` | Refresh external review snapshot for 50ac1d8a | 1 | +45/-49 | tooling |  |
+| 8 | `50ac1d8a` | Refresh plan projection for automation findings | 2 | +2/-0 | tooling |  |
+| 9 | `3d02e980` | Refresh review snapshot after system picture update | 1 | +71/-97 | tooling |  |
+| 10 | `93f32b7d` | Refresh managed projection surfaces after publisher stop | 3 | +5/-3 | tooling |  |
+| 11 | `9d05fe6c` | Refresh managed projection surfaces after publisher update | 3 | +7/-5 | tooling |  |
+| 12 | `b8dfb984` | Refresh managed projection surfaces after drift repair | 4 | +67/-55 | tooling |  |
+| 13 | `8a361a42` | Refresh external review snapshot for f510da77 | 2 | +65/-69 | docs |  |
+| 14 | `f510da77` | Fix empty develop packet attention summary | 11 | +160/-83 | tooling |  |
+| 15 | `5908bcd9` | Refresh external review snapshot for a2c85e4a | 2 | +47/-47 | docs |  |
+| 16 | `a2c85e4a` | Refresh external review snapshot for 4baabf40 | 1 | +53/-50 | tooling |  |
+| 17 | `4baabf40` | Refresh policy-owned generated surfaces for 2cc4bd10 | 1 | +1/-1 | docs |  |
+| 18 | `2cc4bd10` | Refresh external review snapshot for 7a3579b1 | 2 | +66/-64 | docs |  |
+| 19 | `7a3579b1` | Persist launcher discipline bypass receipts | 8 | +452/-119 | tooling |  |
+| 20 | `3ff41ec7` | Refresh external review snapshot for 117ea0d3 | 2 | +58/-58 | docs |  |
+| 21 | `117ea0d3` | Preserve single-agent topology mode | 2 | +101/-135 | tooling |  |
+| 22 | `625580af` | Refresh policy-owned generated surfaces for c3adea3a | 1 | +1/-1 | docs |  |
+| 23 | `c3adea3a` | Refresh external review snapshot for ff9988fe | 2 | +57/-54 | docs |  |
+| 24 | `ff9988fe` | Add failure packet router | 3 | +467/-57 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +1/-0 |
-| `bridge.md` | docs | +46/-46 |
+| `bridge.md` | docs | +47/-47 |
 | `dev/active/MASTER_PLAN.md` | tooling | +11/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +121/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1112/-1215 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1107/-1196 |
 | `dev/guides/DEVELOPMENT.md` | docs | +4/-0 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +2/-2 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +36/-0 |
@@ -195,6 +198,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`34c4ea42`** — Refresh external review snapshot for 1733d2a8
+  - evolution: Fact: Codex/Claude MP-377 dogfooding found three control-plane gaps in the same launch/review handoff lane. Development-mode launcher bypasses could return a typed `LauncherDisciplineBypass` receipt without any durable …
 - **`1733d2a8` | MPs: MP-377** — Integrate packet finding stack into MP-377 plan
   - plan: `dev/active/ai_governance_platform.md`
   - evolution: Fact: the live Codex/Claude beta pass found that the Plan 4.1 `/develop` design had typed topology contracts but no `devctl develop` CLI entrypoint, so agents could not actually invoke the controller surface they were t…
@@ -242,8 +247,6 @@ Recent findings:
   - evolution: Fact: Codex/Claude MP-377 dogfooding found three control-plane gaps in the same launch/review handoff lane. Development-mode launcher bypasses could return a typed `LauncherDisciplineBypass` receipt without any durable …
 - **`ff9988fe`** — Add failure packet router
   - evolution: Fact: Codex/Claude MP-377 dogfooding found three control-plane gaps in the same launch/review handoff lane. Development-mode launcher bypasses could return a typed `LauncherDisciplineBypass` receipt without any durable …
-- **`11ede1db`** — Refresh external review snapshot for 492a2f37
-  - evolution: Fact: Codex/Claude MP-377 dogfooding found three control-plane gaps in the same launch/review handoff lane. Development-mode launcher bypasses could return a typed `LauncherDisciplineBypass` receipt without any durable …
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -287,4 +290,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-aee3dded98fd` binds this file to HEAD `1733d2a833da`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-b0d0a766e601` binds this file to HEAD `34c4ea42da40`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
