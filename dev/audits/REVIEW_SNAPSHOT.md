@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `38c938bad485` — Refresh external review snapshot for 6ed88467
-- Tree hash: `6d5053e4f445`
-- Generation stamp: `snap-10c285e03013`
-- Generated at (UTC): 2026-05-02T20:26:19Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `f04275a046da` — chore(push): auto-commit preflight-generated changes
+- Tree hash: `df4fc380eacc`
+- Generation stamp: `snap-5343ddaeac93`
+- Generated at (UTC): 2026-05-02T20:26:40Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 22 files, +2126/-1344
+- Delta since last snapshot: 24 commits, 22 files, +2063/-1286
 - Governance findings: 152 open / 88 fixed / 254 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,27 +30,27 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `38c938bad485e4081630be72e3530913a5b21b39`
+- HEAD SHA: `f04275a046da1d59f0eabf29688a3a7731b6ab15`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-02T16:08:49-04:00
+- HEAD timestamp (UTC): 2026-05-02T16:25:54-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_present
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 2
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (push_preflight_running)
-- current_push_authorization: `push-auth-20260502T200524954326Z` (valid=True)
+- current_push_authorization: `push-auth-20260502T200524954326Z` (valid=False)
 - authorized_head_commit: `50ac1d8a89982cb49fc5534e710e8dae6e272f47`
 - approved_target_identity: `tree-receipt-20260502T195254207801Z:b912d337c291269169827e1c696eae3b5d215040`
 - publication_backlog: urgent
-- publication_guidance: 31 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 32 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -66,57 +66,56 @@ probes, typed actions, deterministic policy resolution — is what m...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `38c938bad485`
+Range: last 24 commits ending at `f04275a046da`
 
-- commits: 25
+- commits: 24
 - files changed: 22
-- insertions: +2126
-- deletions: -1344
-- bundle classes touched: docs, tooling
+- insertions: +2063
+- deletions: -1286
+- bundle classes touched: tooling, docs
 - authority surfaces touched: 2 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `38c938ba` | Refresh external review snapshot for 6ed88467 | 2 | +47/-44 | docs |  |
-| 2 | `6ed88467` | Refresh external review snapshot for 50ac1d8a | 1 | +45/-49 | tooling |  |
-| 3 | `50ac1d8a` | Refresh plan projection for automation findings | 2 | +2/-0 | tooling |  |
-| 4 | `3d02e980` | Refresh review snapshot after system picture update | 1 | +71/-97 | tooling |  |
-| 5 | `93f32b7d` | Refresh managed projection surfaces after publisher stop | 3 | +5/-3 | tooling |  |
-| 6 | `9d05fe6c` | Refresh managed projection surfaces after publisher update | 3 | +7/-5 | tooling |  |
-| 7 | `b8dfb984` | Refresh managed projection surfaces after drift repair | 4 | +67/-55 | tooling |  |
-| 8 | `8a361a42` | Refresh external review snapshot for f510da77 | 2 | +65/-69 | docs |  |
-| 9 | `f510da77` | Fix empty develop packet attention summary | 11 | +160/-83 | tooling |  |
-| 10 | `5908bcd9` | Refresh external review snapshot for a2c85e4a | 2 | +47/-47 | docs |  |
-| 11 | `a2c85e4a` | Refresh external review snapshot for 4baabf40 | 1 | +53/-50 | tooling |  |
-| 12 | `4baabf40` | Refresh policy-owned generated surfaces for 2cc4bd10 | 1 | +1/-1 | docs |  |
-| 13 | `2cc4bd10` | Refresh external review snapshot for 7a3579b1 | 2 | +66/-64 | docs |  |
-| 14 | `7a3579b1` | Persist launcher discipline bypass receipts | 8 | +452/-119 | tooling |  |
-| 15 | `3ff41ec7` | Refresh external review snapshot for 117ea0d3 | 2 | +58/-58 | docs |  |
-| 16 | `117ea0d3` | Preserve single-agent topology mode | 2 | +101/-135 | tooling |  |
-| 17 | `625580af` | Refresh policy-owned generated surfaces for c3adea3a | 1 | +1/-1 | docs |  |
-| 18 | `c3adea3a` | Refresh external review snapshot for ff9988fe | 2 | +57/-54 | docs |  |
-| 19 | `ff9988fe` | Add failure packet router | 3 | +467/-57 | tooling |  |
-| 20 | `11ede1db` | Refresh external review snapshot for 492a2f37 | 2 | +64/-78 | docs |  |
-| 21 | `492a2f37` | drift before reviewer launch | 4 | +57/-49 | tooling |  |
-| 22 | `be1a3a04` | Refresh external review snapshot for be2c47c0 | 2 | +58/-59 | docs |  |
-| 23 | `be2c47c0` | Refresh managed projection surfaces (terminal-app launch pr… | 4 | +56/-51 | tooling |  |
-| 24 | `dfeb010d` | Refresh external review snapshot for 007b574f | 2 | +59/-60 | docs |  |
-| 25 | `007b574f` | Refresh managed projection surfaces (single_agent launch pr… | 4 | +60/-56 | tooling |  |
+| 1 | `f04275a0` | chore(push): auto-commit preflight-generated changes | 3 | +56/-58 | tooling |  |
+| 2 | `38c938ba` | Refresh external review snapshot for 6ed88467 | 2 | +47/-44 | docs |  |
+| 3 | `6ed88467` | Refresh external review snapshot for 50ac1d8a | 1 | +45/-49 | tooling |  |
+| 4 | `50ac1d8a` | Refresh plan projection for automation findings | 2 | +2/-0 | tooling |  |
+| 5 | `3d02e980` | Refresh review snapshot after system picture update | 1 | +71/-97 | tooling |  |
+| 6 | `93f32b7d` | Refresh managed projection surfaces after publisher stop | 3 | +5/-3 | tooling |  |
+| 7 | `9d05fe6c` | Refresh managed projection surfaces after publisher update | 3 | +7/-5 | tooling |  |
+| 8 | `b8dfb984` | Refresh managed projection surfaces after drift repair | 4 | +67/-55 | tooling |  |
+| 9 | `8a361a42` | Refresh external review snapshot for f510da77 | 2 | +65/-69 | docs |  |
+| 10 | `f510da77` | Fix empty develop packet attention summary | 11 | +160/-83 | tooling |  |
+| 11 | `5908bcd9` | Refresh external review snapshot for a2c85e4a | 2 | +47/-47 | docs |  |
+| 12 | `a2c85e4a` | Refresh external review snapshot for 4baabf40 | 1 | +53/-50 | tooling |  |
+| 13 | `4baabf40` | Refresh policy-owned generated surfaces for 2cc4bd10 | 1 | +1/-1 | docs |  |
+| 14 | `2cc4bd10` | Refresh external review snapshot for 7a3579b1 | 2 | +66/-64 | docs |  |
+| 15 | `7a3579b1` | Persist launcher discipline bypass receipts | 8 | +452/-119 | tooling |  |
+| 16 | `3ff41ec7` | Refresh external review snapshot for 117ea0d3 | 2 | +58/-58 | docs |  |
+| 17 | `117ea0d3` | Preserve single-agent topology mode | 2 | +101/-135 | tooling |  |
+| 18 | `625580af` | Refresh policy-owned generated surfaces for c3adea3a | 1 | +1/-1 | docs |  |
+| 19 | `c3adea3a` | Refresh external review snapshot for ff9988fe | 2 | +57/-54 | docs |  |
+| 20 | `ff9988fe` | Add failure packet router | 3 | +467/-57 | tooling |  |
+| 21 | `11ede1db` | Refresh external review snapshot for 492a2f37 | 2 | +64/-78 | docs |  |
+| 22 | `492a2f37` | drift before reviewer launch | 4 | +57/-49 | tooling |  |
+| 23 | `be1a3a04` | Refresh external review snapshot for be2c47c0 | 2 | +58/-59 | docs |  |
+| 24 | `be2c47c0` | Refresh managed projection surfaces (terminal-app launch pr… | 4 | +56/-51 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +1/-0 |
-| `bridge.md` | docs | +62/-64 |
+| `bridge.md` | docs | +50/-50 |
 | `dev/active/MASTER_PLAN.md` | tooling | +13/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1172/-1252 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1121/-1208 |
 | `dev/guides/DEVELOPMENT.md` | docs | +4/-0 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +2/-2 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +36/-0 |
@@ -198,6 +197,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`f04275a0`** — chore(push): auto-commit preflight-generated changes
+  - evolution: Fact: Codex/Claude MP-377 dogfooding found three control-plane gaps in the same launch/review handoff lane. Development-mode launcher bypasses could return a typed `LauncherDisciplineBypass` receipt without any durable …
 - **`38c938ba`** — Refresh external review snapshot for 6ed88467
   - evolution: Fact: Codex/Claude MP-377 dogfooding found three control-plane gaps in the same launch/review handoff lane. Development-mode launcher bypasses could return a typed `LauncherDisciplineBypass` receipt without any durable …
 - **`6ed88467`** — Refresh external review snapshot for 50ac1d8a
@@ -246,12 +247,6 @@ Recent findings:
   - Anchors: section:MP-377
   - plan: `dev/active/ai_governance_platform.md`
   - evolution: Fact: the live Codex/Claude beta pass found that the Plan 4.1 `/develop` design had typed topology contracts but no `devctl develop` CLI entrypoint, so agents could not actually invoke the controller surface they were t…
-- **`dfeb010d`** — Refresh external review snapshot for 007b574f
-  - evolution: Fact: Codex/Claude MP-377 dogfooding found three control-plane gaps in the same launch/review handoff lane. Development-mode launcher bypasses could return a typed `LauncherDisciplineBypass` receipt without any durable …
-- **`007b574f` | MPs: MP-377** — Refresh managed projection surfaces (single_agent launch prep)
-  - Anchors: section:MP-377
-  - plan: `dev/active/ai_governance_platform.md`
-  - evolution: Fact: the live Codex/Claude beta pass found that the Plan 4.1 `/develop` design had typed topology contracts but no `devctl develop` CLI entrypoint, so agents could not actually invoke the controller surface they were t…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -270,10 +265,10 @@ Recent findings:
 - open governance findings: 152
 
 ### Startup advisories
-- checkpoint_before_continue: dirty_after_local_checkpoint
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Relaunch the reviewer loop immediately.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/reporting/status.py`): dogfood.command.status: Auto-ingested devctl finalization failure rc=1.
@@ -295,4 +290,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-10c285e03013` binds this file to HEAD `38c938bad485`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-5343ddaeac93` binds this file to HEAD `f04275a046da`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
