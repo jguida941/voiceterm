@@ -5408,6 +5408,127 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       progress: 2026-05-02 Claude finding `rev_pkt_2762` narrowed the root cause to the relaunch path: `maybe_wake_waiting_agent_conductor` used cleanup-candidate filesystem rows plus fresh conductor launch, not a registered actor/PID delivery channel. First closure landed: wake receipts carry `wake_method`, `target_role`, `target_session_id`, and replacement PID evidence when known; explicit non-Codex `target_session_id` packets now fail closed with `target_session_unreachable_without_registry` / `unreachable_until_operator_prompt` instead of spawning a different session and masking the failure. The exact `rev_pkt_2760` packet carried `target_session_id=6acbac54-7e3d-4cb8-a1a9-f55a43d48ce4`, so this branch would have prevented the observed ghost-spawn. Remaining work is the durable `ProviderConductorRegistry` / attach-method contract plus any provider-specific IPC or replace-only semantics; `spawned_pid` / `delivered_to_pid` are deliberately not reported until a real registry or launcher PID capture path exists.
       progress: 2026-05-02 Remote-control dogfood then split dashboard visibility from delegated execution. Safe non-mutating packets (`system_notice` / `finding` / `question` with empty or `review_only` requested action) targeting a dashboard/observer session may now use `--terminal none` as an explicit `headless_delegate` grant. The post receipt reports `delegated=true`, `visible_session_woke=false`, `dashboard_session_id=<target>`, and `wake_method=headless_delegate`, so a headless Claude lane can inspect/report back without pretending the parked visible dashboard terminal resumed. Claude verification packets `rev_pkt_2766` / `rev_pkt_2767` then exposed that the receipt was stdout-only; `packet_wake_attempted` now persists a `PacketWakeReceipt` event, projects it onto packet rows as `reviewer_wake`, and carries real `spawned_pids` / `delivered_to_pids` when the headless launcher can prove the PID. Mutating target-session packets still fail closed until a real provider registry/IPC path can address the exact session.
       progress: 2026-05-01 Claude dashboard packet `rev_pkt_2710` also exposed a live `triage --probe-report` import failure in `dev/scripts/checks/mutation_outcome_parse.py`. The public shim now imports `mutation_ralph_loop.outcome_parse` package-relatively with a direct-script fallback, so package import, direct script execution, `dev/scripts/mutation/cli.py --results-only --json`, and the mutation loop tests complete without `ModuleNotFoundError`.
+- [ ] `MP377-P0-T22AN-G` Promote architectural findings into durable plan ownership before packet TTL.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `in_progress`
+      depends_on: `MP377-P0-T22AN-C`, `MP377-P0-T22AN-F`, `MP377-P0-T22AM-F`
+      scope: Convert review-only architectural findings into durable plan, finding, decision, or explicit-retirement rows before packet expiry. The write-capable path should extend `PacketDebtRemediationPipeline` / `OrchestratorDispatchDriver` so finding packets become typed `WorkerPacket` work for a plan-integrator lane instead of relying on manual chat or live inbox memory.
+      acceptance_criteria: No `finding`, `plan_gap_review`, or plan-scoped `decision` packet can expire without either a durable plan/finding owner, a superseding packet id, or an explicit terminal retirement; `/develop` and startup-context name any packet nearing TTL that lacks a durable owner; a guard/probe fails on growth in `expired_after_durable_binding` rows that have no specific owner beyond the generic `PKT-BIND-*` projection.
+      progress: 2026-05-02 urgent integration directive `rev_pkt_2816` promoted the packet stack `rev_pkt_2769`, `rev_pkt_2770`, `rev_pkt_2771`, `rev_pkt_2772`, `rev_pkt_2775`, `rev_pkt_2778`, `rev_pkt_2779`, `rev_pkt_2782`, `rev_pkt_2785`, `rev_pkt_2792`, `rev_pkt_2793`, `rev_pkt_2798`, `rev_pkt_2801`, `rev_pkt_2808`, `rev_pkt_2809`, `rev_pkt_2813`, `rev_pkt_2814`, and `rev_pkt_2815` into `MP377-P0-T22AN-G..R`; `rev_pkt_2815` was already clock-expired but remains integrated here through its archived body and `rev_pkt_2816` supersession.
+- [ ] `MP377-P0-T22AN-H` Route executable commit/task failures through the safe auto-dispatcher.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `in_progress`
+      depends_on: `MP377-P0-T22AN-G`, `MP377-P0-T22AN-D`, `MP377-P0-T22AE-C`
+      scope: Finish Plan r3 Slices 0-3 so `auto_executable`, `remediation`, `next_command`, `task_complete.last_agent_message`, and commit/push failure `ActionResult` envelopes feed `failure_packet_router` and existing `safe_auto_apply` instead of becoming prose-only operator guidance.
+      acceptance_criteria: Deterministic allowlisted failures emit bounded `action_request` packets with runtime authority evidence and safe-auto-apply receipts; non-allowlisted failures remain fail-closed; tests cover commit failure routing, active-pipeline `mark_delivered_local`, task-complete next commands, and full-guard evidence requirements.
+      progress: 2026-05-02 durable home for `rev_pkt_2769` Plan r3 Slice 3, `rev_pkt_2770` Plan r3 Slices 0-2, `rev_pkt_2785` Plan r3 Slices 0-2, `rev_pkt_2808` Plan r3 Slices 0-2, and the executable-remediation parts of `rev_pkt_2814` / `rev_pkt_2815`.
+- [ ] `MP377-P0-T22AN-I` Automate push/projection drift repair and projection-only commit routing.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AN-H`, `MP377-P0-T22AN-D`, `MP377-P0-T22AB-A`
+      scope: Add typed fast paths for managed projection drift: changed-path classification, artifact-shape guard subsets, push validation failure auto-replay, and receipt-chain refresh that avoids full unrelated bundles for generated projection-only commits.
+      acceptance_criteria: A drift-only commit path runs the artifact/projection guard subset rather than the full code bundle, records a bypass-free receipt, and proves that bridge / `MASTER_PLAN.md` / `REVIEW_SNAPSHOT.md` / `plan_index.jsonl` changes cannot race or self-invalidate push validation; full bundles still run when source paths are in scope.
+      progress: 2026-05-02 durable home for `rev_pkt_2778`, `rev_pkt_2779`, `rev_pkt_2813`, `rev_pkt_2815` Gap F, and `rev_pkt_2816` Gap I; slice homes are Plan r3 Slice 1, Slice 2, and T22AN-D flow probes.
+- [ ] `MP377-P0-T22AN-J` Coordinate publisher and governed VCS windows with typed locks.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AN-I`, `MP377-P0-T22AN-C`
+      scope: Prevent publisher daemon refreshes from racing governed commit/push validation by adding a typed read/write coordination contract for projection publishers and VCS pipelines.
+      acceptance_criteria: During governed stage/commit/push windows, publisher refresh either observes a read lock and waits or consumes a typed coordination request to pause; validation reports identify publisher-caused drift separately from source drift; recovery no longer requires manual `review-channel --action stop --daemon-kind publisher`.
+      progress: 2026-05-02 durable home for `rev_pkt_2815` Gap G.
+- [ ] `MP377-P0-T22AN-K` Project live agent current actions instead of shell-based self-introspection.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AN-C`, `MP377-P0-T22AN-F`, `MP377-P0-T22AM-D`
+      scope: Extend runtime projections from provider session JSONL/function-call events into `agent_loop_decisions` / `/develop status` fields such as `current_action`, `current_in_flight_subprocess`, `in_flight_subprocess_pids`, elapsed time, and timeout class.
+      acceptance_criteria: Agents can answer what command they or a peer are currently running from typed runtime state; long-running subprocesses emit bounded hang diagnostics and next actions; manual `ps` / `lsof` / `sample` shell probes are no longer required for routine self-inspection.
+      progress: 2026-05-02 durable home for `rev_pkt_2814` Gap A and `rev_pkt_2815` Gap H.
+- [ ] `MP377-P0-T22AN-L` Close launch/wake topology gaps with provider-session registry authority.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AN-E`, `MP377-P0-T22AN-F`
+      scope: Extend wake and launcher surfaces so typed interaction mode, provider/session registry rows, peer code-progress events, and target-session reachability decide whether to wake, delegate headlessly, or fail closed.
+      acceptance_criteria: Wake bindings are not limited to packet lifecycle events; function calls, file modifications, task-complete messages, and peer progress can trigger bounded typed attention updates; launcher discipline cannot refuse a valid headless remote-control path due to stale bridge-view mode, and it cannot spawn a replacement session when exact-session delivery is required.
+      progress: 2026-05-02 durable home for `rev_pkt_2782` Plan r3 Slice 5 / T22AN-E and `rev_pkt_2792` Plan r5 Slice 16 / T22AN-F.
+- [ ] `MP377-P0-T22AN-M` Make `/develop` the unified governance UX and role-flip router.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AN-C`, `MP377-P0-T22AN-F`, `MP377-P0-T22AN-G`
+      scope: Land Plan r4 and r5 additions: `/develop` pick-mode routing, peer slash-mode dispatch, resume/status/next convergence, role-flip receipts, specialist-agent dispatch lenses, and per-phase acceptance criteria for coder/reviewer/architect/test cycles.
+      acceptance_criteria: `/develop next`, `/develop --status`, startup, dashboard, and packet attention render the same next slice from the same typed state; role flips are typed `RoleFlipReceipt` events; specialist dispatch writes `WorkerPacket` rows; all `/develop` modes are tested without chat-prose role handoff.
+      progress: 2026-05-02 durable home for `rev_pkt_2793` Plan r4 directive, `rev_pkt_2809` Plan r3 Slice 9 / T22AN-D, and Plan r5 Slices 15-18.
+- [ ] `MP377-P0-T22AN-N` Replace bespoke monitor filters with typed closure consumers.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AN-C`, `MP377-P0-T22AN-D`, `MP377-P0-T22AN-M`
+      scope: Move monitor and Claude-loop filtering from bespoke string/pattern checks into typed runtime, packet, decision, and closure-consumer projections.
+      acceptance_criteria: Monitor filters classify events by provider/session ids, packet lifecycle, role, requested action, and typed workstream state; a regression fixture covers the concrete monitor-filter bug and prevents future hardcoded packet/provider filters from hiding actionable events.
+      progress: 2026-05-02 durable home for `rev_pkt_2798` and `rev_pkt_2801`; slice home is Plan r4 Slice 13 plus T22AN-D probes.
+- [ ] `MP377-P0-T22AN-O` Surface valid pipeline and recovery actions from typed state.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AN-H`, `MP377-P0-T22AN-I`
+      scope: Add current-state `valid_next_actions` / `available_recovery_actions` to pipeline status and governed VCS reports so agents do not inspect source files to discover allowed transitions.
+      acceptance_criteria: For each pipeline state, reports list valid actions, blocked actions, reasons, and exact bounded commands; invalid actions fail with the same structured action set; tests cover the `pipeline_state_not_refreshable` path and auto-recovery selection.
+      progress: 2026-05-02 durable home for `rev_pkt_2814` Gap B.
+- [ ] `MP377-P0-T22AN-P` Auto-apply review-only decision packets and preserve decision provenance.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AN-G`, `MP377-P0-T22AN-F`
+      scope: Treat review-only decision packets with plan targets and durable bindings as auto-applicable provenance rows when they do not request mutation or approval, while keeping human/agent decisions visible in plan progress.
+      acceptance_criteria: `decision` packets like `rev_pkt_2804` / `rev_pkt_2805` / `rev_pkt_2806` / `rev_pkt_2807` do not stall peer inboxes for manual ACK when their only effect is plan provenance; applied decision receipts name the plan row/slice they support; Slice 0 refactor-review evidence remains attached to the plan row it validated.
+      progress: 2026-05-02 durable home for `rev_pkt_2775`, the decision-packet auto-apply gap in `rev_pkt_2814` Gap D, and inbound decision provenance `rev_pkt_2804` / `rev_pkt_2805` / `rev_pkt_2806` / `rev_pkt_2807`.
+- [ ] `MP377-P0-T22AN-Q` Add divergence and scoped-guard self-detection to development flows.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AN-D`, `MP377-P0-T22AN-M`
+      scope: Detect when development views, status surfaces, or guard bundles diverge from changed-path risk, and route validation to the smallest policy-complete bundle that still protects the touched surface.
+      acceptance_criteria: `/develop next` vs `--status` divergence emits a structured finding/recovery action; push validation subsets expensive suites such as Operator Console tests by changed-path policy; guard reports explain why a full bundle was required or why a scoped bundle was sufficient.
+      progress: 2026-05-02 durable home for `rev_pkt_2814` Gap E, `rev_pkt_2816` Gap I, and the scoped-test-runner follow-up discovered during the integration sprint.
+- [ ] `MP377-P0-T22AN-R` Preserve plan-revision lineage for superseded packet plans.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AN-G`, `MP377-P0-T22AN-M`
+      scope: Keep superseded plan packets as durable lineage instead of live authority by linking Plan r1/r2/r3/r4/r5 packet ids to the current rows and recording which revision superseded each draft.
+      acceptance_criteria: Superseded plan packets resolve to lineage rows with `superseded_by`, current durable owner, and retained evidence refs; `/develop` does not treat obsolete draft packets as next work while still making their rationale discoverable.
+      progress: 2026-05-02 durable home for `rev_pkt_2771` Plan r1 superseded by Plan r2, `rev_pkt_2772` Plan r2 comprehensive superseded by Plan r3, and the `rev_pkt_2816` instruction to preserve Plan r3/r4/r5 slice-table lineage.
+
+2026-05-02 `rev_pkt_2816` packet-stack durable-home map:
+
+| Packet / gap | Durable T22AN home | Slice / plan home |
+|---|---|---|
+| `rev_pkt_2769` F-HANDOFF missing `stage_commit_pipeline` | `MP377-P0-T22AN-H` | Plan r3 Slice 3 |
+| `rev_pkt_2770` 5-gap auto-dispatcher meta finding | `MP377-P0-T22AN-G`, `MP377-P0-T22AN-H` | Plan r3 Slices 0-2 |
+| `rev_pkt_2771` Plan r1 draft | `MP377-P0-T22AN-R` | superseded lineage under Plan r2 base |
+| `rev_pkt_2772` Plan r2 comprehensive draft | `MP377-P0-T22AN-R` | superseded lineage under Plan r3 base |
+| `rev_pkt_2775` Slice 0 refactor review | `MP377-P0-T22AN-P` | Plan r3 Slice 0 provenance |
+| `rev_pkt_2778` push-gate diagnosis | `MP377-P0-T22AN-I` | Plan r3 Slice 1 + T22AN-D |
+| `rev_pkt_2779` projection-gap handoff with stash | `MP377-P0-T22AN-I` | Plan r3 Slices 1-2 + T22AN-D |
+| `rev_pkt_2782` launch wake asymmetry | `MP377-P0-T22AN-L` | Plan r3 Slice 5 + T22AN-E |
+| `rev_pkt_2785` `mark_delivered_local` auto-dispatch | `MP377-P0-T22AN-H` | Plan r3 Slices 0-2 + T22AN-D |
+| `rev_pkt_2792` typed wake too narrow | `MP377-P0-T22AN-L` | Plan r5 Slice 16 + T22AN-F |
+| `rev_pkt_2793` Plan r4 `/develop` directive | `MP377-P0-T22AN-M` | Plan r4 design task |
+| `rev_pkt_2798` bespoke monitor filters | `MP377-P0-T22AN-N` | Plan r4 Slice 13 + T22AN-D |
+| `rev_pkt_2801` concrete monitor-filter bug | `MP377-P0-T22AN-N` | Plan r4 Slice 13 + T22AN-D |
+| `rev_pkt_2808` task-complete next command not auto-executed | `MP377-P0-T22AN-H` | Plan r3 Slices 0-2 + T22AN-G |
+| `rev_pkt_2809` `/develop next` vs `--status` divergence | `MP377-P0-T22AN-M`, `MP377-P0-T22AN-Q` | Plan r3 Slice 9 + T22AN-D |
+| `rev_pkt_2813` push-drift auto-fix | `MP377-P0-T22AN-I` | Plan r3 Slices 1-2 + T22AN-D |
+| `rev_pkt_2814` audit batch gaps A-E | `MP377-P0-T22AN-K`, `MP377-P0-T22AN-O`, `MP377-P0-T22AN-I`, `MP377-P0-T22AN-P`, `MP377-P0-T22AN-Q` | Plan r3 extensions + T22AN-G |
+| `rev_pkt_2815` audit batch gaps F-H | `MP377-P0-T22AN-I`, `MP377-P0-T22AN-J`, `MP377-P0-T22AN-K` | Plan r3 Slices 1-2 + Plan r5 runtime visibility |
+| `rev_pkt_2804` / `rev_pkt_2805` / `rev_pkt_2806` / `rev_pkt_2807` decision packets | `MP377-P0-T22AN-P` | completed-slice provenance rows |
+| `rev_pkt_2816` Gap I scoped test runner | `MP377-P0-T22AN-Q` | changed-path guard routing / Plan r3 extension |
 - [ ] `MP377-P0-T22AB-A` Add typed `BypassReceipt` schema and write path.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`
