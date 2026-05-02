@@ -24,6 +24,7 @@ from .head_movement import (
     head_has_moved,
     managed_receipt_parent_for_current_head,
 )
+from .refusal import refused_pipeline_result
 from .support import (
     PipelinePaths,
     RECOVERABLE_STATES,
@@ -166,14 +167,13 @@ def _refused(
     recommended: str,
     pipeline_id: str = "",
 ) -> dict[str, Any]:
-    return {
-        "ok": False,
-        "action": "recover",
-        "reason_refused": reason_refused,
-        "recommended_next_action": recommended,
-        "pipeline_id": pipeline_id,
-        "pipeline_artifact_path": str(paths.pipeline_path),
-    }
+    return refused_pipeline_result(
+        action="recover",
+        reason_refused=reason_refused,
+        pipeline_id=pipeline_id,
+        pipeline_artifact_path=paths.pipeline_path,
+        recommended_next_action=recommended,
+    )
 
 
 def _render_markdown(result: dict[str, Any]) -> str:

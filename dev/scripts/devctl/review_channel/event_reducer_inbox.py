@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from ..runtime.review_packet_inbox_liveness import is_expired_unresolved
+
 from .packet_contract import packet_route_matches_scope
 from .pending_packets import live_pending_packets, partition_live_packet_queue
 
@@ -53,12 +55,21 @@ def filter_history_packets(
     review_state: dict[str, object],
     *,
     target: str | None = None,
+    packet_id: str | None = None,
     limit: int | None = None,
 ) -> list[dict[str, object]]:
     """Filter the reduced packet list into one packet-history view."""
     packets = review_state.get("packets")
     if not isinstance(packets, list):
         return []
+    requested_packet_id = str(packet_id or "").strip()
+    if requested_packet_id:
+        packet = packet_by_id(review_state, requested_packet_id)
+        if packet is None:
+            return []
+        if target and packet.get("to_agent") != target:
+            return []
+        return [packet]
     _, history_packets, _ = partition_live_packet_queue(
         packet for packet in packets if isinstance(packet, dict)
     )
@@ -78,13 +89,16 @@ def filter_history_events(
     events: list[dict[str, object]],
     *,
     trace_id: str | None = None,
+    packet_id: str | None = None,
     limit: int | None = None,
 ) -> list[dict[str, object]]:
     """Filter the append-only event log into one history view."""
+    requested_packet_id = str(packet_id or "").strip()
     filtered = [
         event
         for event in events
         if not trace_id or event.get("trace_id") == trace_id
+        if not requested_packet_id or event.get("packet_id") == requested_packet_id
     ]
     if limit is not None and limit >= 0:
         return filtered[-limit:]
@@ -107,22 +121,12 @@ def packet_by_id(
 
 def _packet_matches_inbox_status(packet: dict[str, object], status: str) -> bool:
     if status == "expired":
-        return _is_expired_unresolved_packet(packet)
+        return is_expired_unresolved(packet)
     return packet.get("status") == status
 
 
 def _packet_has_route_scope(packet: dict[str, object]) -> bool:
     return bool(packet.get("target_role") or packet.get("target_session_id"))
-
-
-def _is_expired_unresolved_packet(packet: dict[str, object]) -> bool:
-    packet_status = str(packet.get("status") or "").strip()
-    if packet_status == "expired":
-        return True
-    if packet_status != "pending":
-        return False
-    expires_at = _parse_utc(packet.get("expires_at_utc"))
-    return expires_at is not None and expires_at <= datetime.now(timezone.utc)
 
 
 def _parse_utc(value: object) -> datetime | None:

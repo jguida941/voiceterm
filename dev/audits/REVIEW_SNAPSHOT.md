@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `dd4d78973ef6` — Add typed develop controller and packet binding
-- Tree hash: `c365a0fdd444`
-- Generation stamp: `snap-ba6d89989abc`
-- Generated at (UTC): 2026-05-02T00:07:18Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `e6c5cdf47d7b` — Checkpoint typed projection drift after rev_pkt_2716 binding
+- Tree hash: `3e749f4a737b`
+- Generation stamp: `snap-23aaa24e5033`
+- Generated at (UTC): 2026-05-02T03:41:14Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 475 files, +58801/-4817
+- Delta since last snapshot: 24 commits, 475 files, +58820/-4844
 - Governance findings: 151 open / 88 fixed / 253 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,27 +30,24 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `dd4d78973ef609f7d04dbdd9f1ff55af29fe8788`
+- HEAD SHA: `e6c5cdf47d7b556d6f3feed0b60b6babf133d799`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-01T20:00:00-04:00
+- HEAD timestamp (UTC): 2026-05-01T20:10:59-04:00
 
 ## 2. Governance state
 
 ### Push decision
 - action: `await_checkpoint`
-- reason: staged_index_present
+- reason: staged_index_budget_exceeded
 - push_eligible_now: False
 - worktree_clean: False
-- staged_path_count: 2
+- staged_path_count: 107
 - unstaged_path_count: 0
 - next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
-- current_push_authorization: `push-auth-20260501T235911925143Z` (valid=True)
-- authorized_head_commit: `dd4d78973ef609f7d04dbdd9f1ff55af29fe8788`
-- approved_target_identity: `tree-receipt-20260501T235911925143Z:c365a0fdd444acc45156ff375792daa04838abb6`
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_backlog: recommended
+- publication_guidance: 2 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -66,17 +63,18 @@ probes, typed actions, deterministic policy resolution — is what m...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `dd4d78973ef6`
+Range: last 24 commits ending at `e6c5cdf47d7b`
 
 - commits: 24
 - files changed: 475
-- insertions: +58801
-- deletions: -4817
-- bundle classes touched: docs, tooling
+- insertions: +58820
+- deletions: -4844
+- bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary, Dependency / security
 - authority surfaces touched: 26 file(s)
 
@@ -84,30 +82,30 @@ Range: last 24 commits ending at `dd4d78973ef6`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `dd4d7897` | Add typed develop controller and packet binding | 45 | +3059/-1059 | tooling | Parser / ANSI boundary |
-| 2 | `4f589933` | WIP checkpoint: multi-agent /develop slice + Claude-tester… | 301 | +34713/-731 | tooling | Parser / ANSI boundary |
-| 3 | `924ba57d` | Snapshot for ChatGPT Pro Slice 4.1 deep-dive context | 20 | +1669/-132 | tooling |  |
-| 4 | `105c6b6a` | Refresh external review snapshot for 7404cc42 | 1 | +54/-51 | tooling |  |
-| 5 | `7404cc42` | Refresh projections after 9f492c39 | 3 | +97/-83 | docs |  |
-| 6 | `9f492c39` | WIP snapshot: Slice A.5 lifecycle unification + connectivit… | 140 | +8870/-1093 | tooling | Parser / ANSI boundary |
-| 7 | `07ac1bd3` | Refresh external review snapshot for 6902e3c8 | 1 | +52/-52 | tooling |  |
-| 8 | `6902e3c8` | Refresh external review snapshot for ee2ee1b1 | 2 | +50/-54 | docs |  |
-| 9 | `ee2ee1b1` | Refresh external review snapshot for afb62cdf | 1 | +48/-42 | tooling |  |
-| 10 | `afb62cdf` | Refresh external review snapshot for c2fcb696 | 2 | +61/-63 | docs |  |
-| 11 | `c2fcb696` | Enforce typed authority provenance probe | 2 | +52/-52 | tooling |  |
-| 12 | `b6cb7332` | Refresh external review snapshot for 3a874752 | 2 | +50/-51 | docs |  |
-| 13 | `3a874752` | Refresh external review snapshot for cd57207f | 1 | +46/-46 | tooling |  |
-| 14 | `cd57207f` | Refresh external review snapshot for ee7635ed | 2 | +52/-51 | docs |  |
-| 15 | `ee7635ed` | Refresh external review snapshot for 0da0bfe1 | 1 | +58/-55 | tooling |  |
-| 16 | `0da0bfe1` | Refresh policy-owned generated surfaces for eff73aad | 1 | +1/-1 | docs |  |
-| 17 | `eff73aad` | Refresh external review snapshot for 8d31f774 | 2 | +106/-90 | docs |  |
-| 18 | `8d31f774` | Implement typed governance continuation | 146 | +9271/-770 | tooling | Parser / ANSI boundary, Dependency / security |
-| 19 | `0233390f` | Refresh external review snapshot for 39083dc8 | 2 | +48/-48 | docs |  |
-| 20 | `39083dc8` | Refresh external review snapshot for 5af77734 | 1 | +50/-47 | tooling |  |
-| 21 | `5af77734` | Refresh external review snapshot for f259c8eb | 2 | +69/-70 | docs |  |
-| 22 | `f259c8eb` | Plan 4.1 / MP-377 Codex 42 slice — Layer H push-identity du… | 11 | +227/-81 | tooling |  |
-| 23 | `00eb5fd7` | Refresh external review snapshot for cce19014 | 2 | +48/-48 | docs |  |
-| 24 | `cce19014` | Refresh external review snapshot for 06f6d2b2 | 1 | +50/-47 | tooling |  |
+| 1 | `e6c5cdf4` | Checkpoint typed projection drift after rev_pkt_2716 binding | 3 | +69/-74 | tooling |  |
+| 2 | `dd4d7897` | Add typed develop controller and packet binding | 45 | +3059/-1059 | tooling | Parser / ANSI boundary |
+| 3 | `4f589933` | WIP checkpoint: multi-agent /develop slice + Claude-tester… | 301 | +34713/-731 | tooling | Parser / ANSI boundary |
+| 4 | `924ba57d` | Snapshot for ChatGPT Pro Slice 4.1 deep-dive context | 20 | +1669/-132 | tooling |  |
+| 5 | `105c6b6a` | Refresh external review snapshot for 7404cc42 | 1 | +54/-51 | tooling |  |
+| 6 | `7404cc42` | Refresh projections after 9f492c39 | 3 | +97/-83 | docs |  |
+| 7 | `9f492c39` | WIP snapshot: Slice A.5 lifecycle unification + connectivit… | 140 | +8870/-1093 | tooling | Parser / ANSI boundary |
+| 8 | `07ac1bd3` | Refresh external review snapshot for 6902e3c8 | 1 | +52/-52 | tooling |  |
+| 9 | `6902e3c8` | Refresh external review snapshot for ee2ee1b1 | 2 | +50/-54 | docs |  |
+| 10 | `ee2ee1b1` | Refresh external review snapshot for afb62cdf | 1 | +48/-42 | tooling |  |
+| 11 | `afb62cdf` | Refresh external review snapshot for c2fcb696 | 2 | +61/-63 | docs |  |
+| 12 | `c2fcb696` | Enforce typed authority provenance probe | 2 | +52/-52 | tooling |  |
+| 13 | `b6cb7332` | Refresh external review snapshot for 3a874752 | 2 | +50/-51 | docs |  |
+| 14 | `3a874752` | Refresh external review snapshot for cd57207f | 1 | +46/-46 | tooling |  |
+| 15 | `cd57207f` | Refresh external review snapshot for ee7635ed | 2 | +52/-51 | docs |  |
+| 16 | `ee7635ed` | Refresh external review snapshot for 0da0bfe1 | 1 | +58/-55 | tooling |  |
+| 17 | `0da0bfe1` | Refresh policy-owned generated surfaces for eff73aad | 1 | +1/-1 | docs |  |
+| 18 | `eff73aad` | Refresh external review snapshot for 8d31f774 | 2 | +106/-90 | docs |  |
+| 19 | `8d31f774` | Implement typed governance continuation | 146 | +9271/-770 | tooling | Parser / ANSI boundary, Dependency / security |
+| 20 | `0233390f` | Refresh external review snapshot for 39083dc8 | 2 | +48/-48 | docs |  |
+| 21 | `39083dc8` | Refresh external review snapshot for 5af77734 | 1 | +50/-47 | tooling |  |
+| 22 | `5af77734` | Refresh external review snapshot for f259c8eb | 2 | +69/-70 | docs |  |
+| 23 | `f259c8eb` | Plan 4.1 / MP-377 Codex 42 slice — Layer H push-identity du… | 11 | +227/-81 | tooling |  |
+| 24 | `00eb5fd7` | Refresh external review snapshot for cce19014 | 2 | +48/-48 | docs |  |
 
 ### Files
 
@@ -119,10 +117,10 @@ Range: last 24 commits ending at `dd4d78973ef6`
 | `.gitignore` | tooling | +4/-1 |
 | `AGENTS.md` | docs | +45/-13 |
 | `bridge.md` | docs | +113/-111 |
-| `dev/active/MASTER_PLAN.md` | tooling | +340/-14 |
+| `dev/active/MASTER_PLAN.md` | tooling | +341/-14 |
 | `dev/active/ai_governance_platform.md` | tooling | +1938/-4 |
 | `dev/active/autonomous_governance_loop_v2.md` | tooling | +107/-4 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1449/-1403 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1465/-1429 |
 | `dev/config/publication_sync_registry.json` | tooling | +1/-27 |
 | `dev/config/quality_presets/portable_python.json` | tooling | +10/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +86/-23 |
@@ -270,6 +268,11 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`e6c5cdf4`** — Checkpoint typed projection drift after rev_pkt_2716 binding
+  - Reducer-owned diff:
+  - - bridge.md: poll timestamp + worktree hash + open-findings count (7->8)
+  -   + reviewer-owned instruction now 'Await reviewer instruction refresh'
+  - evolution: Fact: the live Codex/Claude beta pass found that the Plan 4.1 `/develop` design had typed topology contracts but no `devctl develop` CLI entrypoint, so agents could not actually invoke the controller surface they were t…
 - **`dd4d7897`** — Add typed develop controller and packet binding
   - evolution: Fact: the live Codex/Claude beta pass found that the Plan 4.1 `/develop` design had typed topology contracts but no `devctl develop` CLI entrypoint, so agents could not actually invoke the controller surface they were t…
 - **`4f589933` | MPs: MP-377** — WIP checkpoint: multi-agent /develop slice + Claude-tester verification cycle
@@ -330,8 +333,6 @@ Recent findings:
   - evolution: Fact: the live Codex/Claude beta pass found that the Plan 4.1 `/develop` design had typed topology contracts but no `devctl develop` CLI entrypoint, so agents could not actually invoke the controller surface they were t…
 - **`00eb5fd7`** — Refresh external review snapshot for cce19014
   - evolution: Fact: live Codex/Claude dogfood found several small but compounding surface lies: bridge/status reviewer mode could disagree, packet counters counted different queues, Action Requests risked reading receipt-like rows, c…
-- **`cce19014`** — Refresh external review snapshot for 06f6d2b2
-  - evolution: Fact: live Codex/Claude dogfood found several small but compounding surface lies: bridge/status reviewer mode could disagree, packet counters counted different queues, Action Requests risked reading receipt-like rows, c…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -350,10 +351,11 @@ Recent findings:
 - open governance findings: 151
 
 ### Startup advisories
-- checkpoint_before_continue: dirty_after_local_checkpoint
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
-- Relaunch the reviewer loop immediately.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/mutation_score.py`): dogfood.command.mutation-score: Auto-ingested devctl finalization failure rc=2.
@@ -375,4 +377,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-ba6d89989abc` binds this file to HEAD `dd4d78973ef6`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-23aaa24e5033` binds this file to HEAD `e6c5cdf47d7b`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

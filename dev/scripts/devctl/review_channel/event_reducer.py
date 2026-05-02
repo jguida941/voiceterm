@@ -59,6 +59,7 @@ from .agent_session_outcome_events import AGENT_SESSION_OUTCOME_EVENT_TYPES
 from .reviewer_authority_events import REVIEWER_AUTHORITY_EVENT_TYPES
 from .packet_lifecycle import ACTION_REQUEST_LIFECYCLE_EVENT_TYPES
 from .packet_creation_binding import PACKET_CREATION_BINDING_EVENT_TYPES
+from .packet_debt_remediation_contracts import PACKET_DURABLE_INGESTION_EVENT_TYPES
 from .session_liveness_events import SESSION_LIVENESS_EVENT_TYPES
 from .topology import build_runtime_agent_registry
 from ..time_utils import utc_timestamp
@@ -72,6 +73,7 @@ _PACKET_TRANSITION_EVENT_TYPES = {
     "packet_plan_integration_recorded",
     "packet_plan_integration_failed",
     *PACKET_CREATION_BINDING_EVENT_TYPES,
+    *PACKET_DURABLE_INGESTION_EVENT_TYPES,
     *ACTION_REQUEST_LIFECYCLE_EVENT_TYPES,
 }
 

@@ -11,7 +11,9 @@ import json
 import os
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from datetime import datetime, timedelta, timezone
+from io import StringIO
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -59,6 +61,9 @@ from dev.scripts.devctl.runtime.pipeline_auto_recovery_contracts import (
     CLASSIFICATION_NEEDS_MARK_DELIVERED_LOCAL,
     CLASSIFICATION_NEEDS_RECOVER,
     CLASSIFICATION_NEEDS_REFRESH_AUTHORIZATION,
+)
+from dev.scripts.devctl.review_channel.remote_commit_pipeline_artifact import (
+    load_remote_commit_pipeline_contract,
 )
 
 
@@ -155,6 +160,31 @@ class _PipelineFixture:
             pipeline_root_override=self.pipeline_root,
             receipts_root_override=self.receipts_root,
         )
+
+
+def _write_local_delivery_receipt(
+    fixture: _PipelineFixture,
+    *,
+    pipeline_id: str = "pipeline-test-0001",
+    previous_state: str = "commit_recorded",
+    reason: str = "operator selected local delivery",
+) -> Path:
+    receipt = PipelineRecoveryReceipt(
+        action="mark-delivered-local",
+        pipeline_id=pipeline_id,
+        previous_state=previous_state,
+        new_state="delivered_locally_pending_publish",
+        reason=reason,
+        operator_actor="operator",
+        generated_at_utc="2026-05-02T03:01:27.344040Z",
+        artifact_paths=(str(fixture.pipeline_root / PIPELINE_FILENAME),),
+    )
+    receipt_path = fixture.receipts_root / LOCAL_DELIVERY_RECEIPT_FILENAME
+    receipt_path.write_text(
+        json.dumps(receipt.to_dict(), indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return receipt_path
 
 
 class PipelineStatusTests(unittest.TestCase):
@@ -323,6 +353,47 @@ class PipelineStatusTests(unittest.TestCase):
         finally:
             fixture.close()
 
+    def test_status_applies_matching_local_delivery_receipt(self) -> None:
+        fixture = _PipelineFixture(
+            fake_head="deadbeef00000000000000000000000000000000",
+        )
+        try:
+            fixture.write_payload(_with_commit_result(_sample_pipeline_payload()))
+            receipt_path = _write_local_delivery_receipt(fixture)
+
+            view = build_status_view(fixture.paths())
+
+            self.assertEqual(view["state"], "delivered_locally_pending_publish")
+            self.assertEqual(view["recommended_next_action"], "none")
+            self.assertEqual(view["next_command"], "")
+            self.assertEqual(
+                load_pipeline_payload(fixture.paths())["local_delivery_receipt_path"],
+                str(receipt_path),
+            )
+        finally:
+            fixture.close()
+
+    def test_remote_contract_loader_applies_local_delivery_receipt(self) -> None:
+        fixture = _PipelineFixture(
+            fake_head="deadbeef00000000000000000000000000000000",
+        )
+        try:
+            fixture.write_payload(_with_commit_result(_sample_pipeline_payload()))
+            _write_local_delivery_receipt(fixture)
+
+            contract = load_remote_commit_pipeline_contract(
+                output_root=fixture.pipeline_root,
+                receipts_root=fixture.receipts_root,
+            )
+
+            self.assertEqual(contract.state, "delivered_locally_pending_publish")
+            self.assertEqual(
+                contract.local_delivery_reason,
+                "operator selected local delivery",
+            )
+        finally:
+            fixture.close()
+
 
 class PipelineAbandonTests(unittest.TestCase):
     def test_abandon_requires_reason(self) -> None:
@@ -479,6 +550,35 @@ class PipelineRefreshAuthorizationTests(unittest.TestCase):
         finally:
             fixture.close()
 
+    def test_refresh_authorization_json_reports_success_register(self) -> None:
+        fixture = _PipelineFixture(
+            fake_head="deadbeef00000000000000000000000000000000",
+        )
+        try:
+            fixture.write_payload(
+                _sample_pipeline_payload(
+                    expires_at_utc="2000-01-01T00:00:00.000000Z"
+                )
+            )
+            args = fixture.namespace(action="refresh-authorization")
+            output = StringIO()
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.pipeline."
+                    "refresh_authorization_action.refresh_pipeline_projections",
+                    return_value=[],
+                ),
+                redirect_stdout(output),
+            ):
+                rc = run_refresh_authorization(args)
+
+            result = json.loads(output.getvalue())
+            self.assertEqual(rc, 0)
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["action"], "refresh-authorization")
+        finally:
+            fixture.close()
+
     def test_refresh_refuses_when_head_has_moved(self) -> None:
         moved_head = "cafebabe00000000000000000000000000000000"
         fixture = _PipelineFixture(fake_head=moved_head)
@@ -541,6 +641,19 @@ class PipelineRefreshAuthorizationTests(unittest.TestCase):
             args = fixture.namespace(action="refresh-authorization")
             rc = run_refresh_authorization(args)
             self.assertEqual(rc, 1)
+            result = apply_refresh_authorization(
+                paths=fixture.paths(),
+                reason="test",
+                operator_actor="operator",
+            )
+            self.assertEqual(
+                result["reason_refused"],
+                "pipeline_state_not_refreshable:push_completed",
+            )
+            self.assertEqual(
+                result["errors"],
+                ["pipeline_state_not_refreshable:push_completed"],
+            )
         finally:
             fixture.close()
 
@@ -596,6 +709,110 @@ class PipelineLocalDeliveryTests(unittest.TestCase):
                     self.assertTrue(receipt_path.exists())
                 finally:
                     fixture.close()
+
+    def test_mark_delivered_local_json_reports_success_register(self) -> None:
+        fixture = _PipelineFixture(
+            fake_head="deadbeef00000000000000000000000000000000",
+        )
+        try:
+            fixture.write_payload(
+                _with_commit_result(_sample_pipeline_payload())
+            )
+            args = fixture.namespace(
+                action="mark-delivered-local",
+                reason="operator selected local delivery",
+                operator_actor="operator",
+            )
+            output = StringIO()
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.pipeline."
+                    "local_delivery_action.refresh_pipeline_projections",
+                    return_value=[],
+                ),
+                redirect_stdout(output),
+            ):
+                rc = run_mark_delivered_local(args)
+
+            result = json.loads(output.getvalue())
+            self.assertEqual(rc, 0)
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["action"], "mark-delivered-local")
+        finally:
+            fixture.close()
+
+    def test_mark_delivered_local_refusal_reports_errors_register(self) -> None:
+        fixture = _PipelineFixture(
+            fake_head="deadbeef00000000000000000000000000000000",
+        )
+        try:
+            fixture.write_payload(
+                _sample_pipeline_payload(
+                    state="delivered_locally_pending_publish"
+                )
+            )
+            args = fixture.namespace(
+                action="mark-delivered-local",
+                reason="operator selected local delivery",
+                operator_actor="operator",
+            )
+            output = StringIO()
+            with redirect_stdout(output):
+                rc = run_mark_delivered_local(args)
+
+            result = json.loads(output.getvalue())
+            self.assertEqual(rc, 1)
+            self.assertFalse(result["ok"])
+            self.assertEqual(
+                result["reason_refused"],
+                "pipeline_not_eligible_for_local_delivery",
+            )
+            self.assertEqual(
+                result["errors"],
+                ["pipeline_not_eligible_for_local_delivery"],
+            )
+        finally:
+            fixture.close()
+
+    def test_mark_delivered_local_materializes_after_projection_refresh(
+        self,
+    ) -> None:
+        fixture = _PipelineFixture(
+            fake_head="deadbeef00000000000000000000000000000000",
+        )
+        try:
+            payload = _with_commit_result(_sample_pipeline_payload())
+            fixture.write_payload(payload)
+
+            def stale_projection_refresh(_paths) -> list[str]:
+                fixture.write_payload(payload)
+                return []
+
+            with patch(
+                "dev.scripts.devctl.commands.pipeline.local_delivery_action."
+                "refresh_pipeline_projections",
+                side_effect=stale_projection_refresh,
+            ):
+                rc = run_mark_delivered_local(
+                    fixture.namespace(
+                        action="mark-delivered-local",
+                        reason="operator selected local delivery",
+                        operator_actor="operator",
+                    )
+                )
+
+            self.assertEqual(rc, 0)
+            updated = fixture.read_payload()
+            self.assertEqual(
+                updated["state"],
+                "delivered_locally_pending_publish",
+            )
+            self.assertEqual(
+                updated["local_delivery_reason"],
+                "operator selected local delivery",
+            )
+        finally:
+            fixture.close()
 
 
 class PipelineAutoRecoverTests(unittest.TestCase):

@@ -99,6 +99,7 @@ class ReviewChannelAction(StrEnum):
     DISMISS = "dismiss"
     APPLY = "apply"
     HISTORY = "history"
+    SHOW = "show"
     BRIDGE_POLL = "bridge-poll"
     RENDER_BRIDGE = "render-bridge"
     ATTACH_REMOTE_CONTROL = "attach-remote-control"
@@ -116,6 +117,7 @@ EVENT_ACTION_SET = frozenset(
         ReviewChannelAction.DISMISS,
         ReviewChannelAction.APPLY,
         ReviewChannelAction.HISTORY,
+        ReviewChannelAction.SHOW,
     }
 )
 REVIEWER_STATE_ACTION_SET = frozenset(
@@ -145,6 +147,7 @@ LIMITED_QUERY_ACTIONS = frozenset(
         ReviewChannelAction.OPERATOR_INBOX,
         ReviewChannelAction.WATCH,
         ReviewChannelAction.HISTORY,
+        ReviewChannelAction.SHOW,
         ReviewChannelAction.EXPIRE_PACKETS,
     }
 )

@@ -20,11 +20,12 @@ def agent_loop_decisions_for_work_board(
     review_state: Mapping[str, object],
     work_board: Mapping[str, object],
     target_agent: str = "",
+    dashboard: Mapping[str, object] | None = None,
 ) -> list[dict[str, object]]:
     """Resolve one ``AgentLoopDecision`` per typed work-board row."""
     from ..runtime.agent_loop_decision import build_agent_loop_decision
 
-    dashboard = _dashboard_from_review_state(review_state)
+    dashboard_payload = dashboard if dashboard is not None else _dashboard_from_review_state(review_state)
     rows = work_board.get("rows")
     if not isinstance(rows, list):
         return []
@@ -45,7 +46,7 @@ def agent_loop_decisions_for_work_board(
         seen.add(key)
         decision = build_agent_loop_decision(
             review_state=review_state,
-            dashboard=dashboard,
+            dashboard=dashboard_payload,
             actor_id=actor_id,
             actor_role=role,
             session_id=session_id,
@@ -54,7 +55,7 @@ def agent_loop_decisions_for_work_board(
         decisions.append(decision)
     for key, decision in queue_target_decisions(
         review_state=review_state,
-        dashboard=dashboard,
+        dashboard=dashboard_payload,
         target_agent=target_agent,
         seen_keys=seen,
     ):

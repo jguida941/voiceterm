@@ -51,8 +51,6 @@ def maybe_append_packet_creation_binding(
         artifact_paths=artifact_paths,
         packet_event=packet_event,
     )
-    if _text(binding.get("status")) == "skipped":
-        return None
 
     event = _binding_event(
         repo_root=repo_root,
@@ -97,7 +95,13 @@ def bind_packet_at_creation(
             binding_target="",
         )
 
-    return binding_result("skipped", "communication_only_or_no_durable_plan_context")
+    return binding_result(
+        "skipped",
+        "communication_only_or_no_durable_plan_context",
+        packet_id=packet_id,
+        binding_target_kind="communication_only",
+        binding_target="",
+    )
 
 
 def _binding_event(
@@ -127,6 +131,8 @@ def _binding_event(
 
 def _binding_event_type(binding: Mapping[str, object]) -> str:
     status = _text(binding.get("status"))
+    if status == "skipped":
+        return "packet_creation_binding_classified"
     if status == "deferred":
         return "packet_creation_binding_deferred"
     if status == "failed":
@@ -136,12 +142,12 @@ def _binding_event_type(binding: Mapping[str, object]) -> str:
 
 def _should_bind_to_plan_row(packet_event: Mapping[str, object]) -> bool:
     kind = _text(packet_event.get("kind"))
-    if kind == "system_notice":
-        return False
     if _text(packet_event.get("target_kind")) == "plan":
         return True
     if _mapping(packet_event.get("plan_proposal")):
         return True
+    if kind == "system_notice":
+        return False
     if kind in _PLAN_ROW_BINDING_KINDS and _has_explicit_plan_context(packet_event):
         return True
     if kind == "action_request" and _has_explicit_plan_context(packet_event):

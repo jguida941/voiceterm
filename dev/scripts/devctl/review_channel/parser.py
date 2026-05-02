@@ -65,6 +65,7 @@ REVIEW_ACTION_CHOICES = (
     "dismiss",
     "apply",
     "history",
+    "show",
     "bridge-poll",
     "render-bridge",
     "attach-remote-control",

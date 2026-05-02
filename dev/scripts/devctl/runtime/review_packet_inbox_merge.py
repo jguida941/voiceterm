@@ -35,6 +35,7 @@ def merge_packet_inbox_states(
             _merge_agent_attention_records(
                 rebuilt_record=rebuilt_record,
                 persisted_record=persisted_record,
+                rebuilt_packet_refs_authoritative=live_packet_ids is not None,
             )
         )
     return PacketInboxState(
@@ -69,14 +70,14 @@ def sanitize_persisted_record(
             for packet_id in record.pending_actionable_packet_ids
             if packets_missing or packet_id in live_packet_ids
         ),
-        # Expired unresolved packets are not always present in partial live
-        # refreshes, so keep persisted reviewer debt while any live packet rows
-        # still exist. Drop it only when the live reducer is empty and the
-        # persisted snapshot would otherwise revive already-evicted work.
         expired_unresolved_packet_ids=(
             record.expired_unresolved_packet_ids
-            if packets_missing or live_packet_ids
-            else ()
+            if packets_missing
+            else tuple(
+                packet_id
+                for packet_id in record.expired_unresolved_packet_ids
+                if packet_id in live_packet_ids
+            )
         ),
         attention_status=record.attention_status,
         wake_reason=record.wake_reason,
@@ -104,25 +105,46 @@ def _merge_agent_attention_records(
     *,
     rebuilt_record: AgentAttentionRecord,
     persisted_record: AgentAttentionRecord,
+    rebuilt_packet_refs_authoritative: bool,
 ) -> AgentAttentionRecord:
-    driver = _attention_driver(rebuilt_record, persisted_record)
+    driver = (
+        rebuilt_record
+        if rebuilt_packet_refs_authoritative
+        else _attention_driver(rebuilt_record, persisted_record)
+    )
     return AgentAttentionRecord(
         agent=rebuilt_record.agent,
         current_instruction_packet_id=(
             rebuilt_record.current_instruction_packet_id
-            or persisted_record.current_instruction_packet_id
+            if rebuilt_packet_refs_authoritative
+            else (
+                rebuilt_record.current_instruction_packet_id
+                or persisted_record.current_instruction_packet_id
+            )
         ),
         latest_finding_packet_id=(
             rebuilt_record.latest_finding_packet_id
-            or persisted_record.latest_finding_packet_id
+            if rebuilt_packet_refs_authoritative
+            else (
+                rebuilt_record.latest_finding_packet_id
+                or persisted_record.latest_finding_packet_id
+            )
         ),
         pending_actionable_packet_ids=(
             rebuilt_record.pending_actionable_packet_ids
-            or persisted_record.pending_actionable_packet_ids
+            if rebuilt_packet_refs_authoritative
+            else (
+                rebuilt_record.pending_actionable_packet_ids
+                or persisted_record.pending_actionable_packet_ids
+            )
         ),
         expired_unresolved_packet_ids=(
             rebuilt_record.expired_unresolved_packet_ids
-            or persisted_record.expired_unresolved_packet_ids
+            if rebuilt_packet_refs_authoritative
+            else (
+                rebuilt_record.expired_unresolved_packet_ids
+                or persisted_record.expired_unresolved_packet_ids
+            )
         ),
         attention_status=driver.attention_status,
         wake_reason=driver.wake_reason,

@@ -6,6 +6,15 @@ from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass
 import re
 
+from .packet_carry_forward_binding import (
+    creation_binding,
+    has_durable_packet_binding,
+)
+from .packet_carry_forward_sources import (
+    durable_packet_ids_from_finding_rows,
+    durable_packet_ids_from_plan_rows,
+)
+
 
 PACKET_CARRY_FORWARD_CONTRACT_ID = "PacketCarryForwardDebt"
 PACKET_CARRY_FORWARD_SCHEMA_VERSION = 1
@@ -60,58 +69,6 @@ def packet_carry_forward_debts(
     return tuple(debts)
 
 
-def durable_packet_ids_from_plan_rows(
-    plan_rows: Iterable[object],
-) -> tuple[str, ...]:
-    """Return packet ids already promoted into typed plan rows."""
-    return _unique_packet_ids_from_rows(plan_rows, preferred_fields=("sourced_from_packets",))
-
-
-def durable_packet_ids_from_finding_rows(
-    finding_rows: Iterable[object],
-) -> tuple[str, ...]:
-    """Return packet ids already promoted into durable finding-review rows."""
-    return _unique_packet_ids_from_rows(
-        finding_rows,
-        preferred_fields=(
-            "sourced_from_packets",
-            "source_packet_ids",
-            "source_packets",
-            "packet_ids",
-            "causal_packet_ids",
-            "responds_to_packet_ids",
-            "responds_to_packet_id",
-            "source_packet_id",
-            "packet_id",
-        ),
-        fallback_text_fields=(
-            "notes",
-            "source_command",
-            "risk_type",
-            "finding_id",
-            "check_id",
-        ),
-    )
-
-
-def _unique_packet_ids_from_rows(
-    rows: Iterable[object],
-    *,
-    preferred_fields: tuple[str, ...],
-    fallback_text_fields: tuple[str, ...] = (),
-) -> tuple[str, ...]:
-    packet_ids: list[str] = []
-    for row in rows:
-        for packet_id in _source_packet_ids(
-            row,
-            preferred_fields=preferred_fields,
-            fallback_text_fields=fallback_text_fields,
-        ):
-            if packet_id and packet_id not in packet_ids:
-                packet_ids.append(packet_id)
-    return tuple(packet_ids)
-
-
 def _debt_from_packet(
     packet: Mapping[str, object],
     *,
@@ -137,43 +94,107 @@ def _debt_from_packet(
 
 
 def _carry_forward_reason(packet: Mapping[str, object]) -> str:
-    if _has_creation_binding(packet):
+    if has_durable_packet_binding(packet):
         return ""
+    binding = creation_binding(packet)
+    has_durable_intent = _packet_has_durable_intent(packet)
+    binding_reason = _binding_carry_forward_reason(binding, has_durable_intent)
+    if binding_reason:
+        return binding_reason
+    outcome_reason = _outcome_carry_forward_reason(packet, has_durable_intent)
+    if outcome_reason:
+        return outcome_reason
+    disposition_reason = _disposition_carry_forward_reason(packet)
+    if disposition_reason:
+        return disposition_reason
+    return _status_carry_forward_reason(packet, has_durable_intent)
+
+
+def _binding_carry_forward_reason(
+    binding: Mapping[str, object],
+    has_durable_intent: bool,
+) -> str:
+    if not has_durable_intent:
+        return ""
+    return {
+        "failed": "creation_binding_failed_without_durable_owner",
+        "deferred": "creation_binding_deferred_without_durable_owner",
+        "skipped": "durable_intent_classified_communication_only",
+    }.get(_text(binding.get("status")), "")
+
+
+def _outcome_carry_forward_reason(
+    packet: Mapping[str, object],
+    has_durable_intent: bool,
+) -> str:
     outcome = packet.get("packet_outcome")
     outcome_text = ""
     if isinstance(outcome, Mapping):
         outcome_text = _text(outcome.get("outcome"))
     if outcome_text == "promoted_to_finding":
         return "promoted_to_finding_without_durable_owner"
-    if outcome_text in {"archived", "expired_unrecoverable", "lost"}:
-        if _packet_has_durable_intent(packet):
-            return "expired_packet_without_durable_owner"
+    if outcome_text in {"archived", "expired_unrecoverable", "lost"} and has_durable_intent:
+        return "expired_packet_without_durable_owner"
+    return ""
+
+
+def _disposition_carry_forward_reason(packet: Mapping[str, object]) -> str:
     disposition = packet.get("disposition")
     disposition_sink = ""
     if isinstance(disposition, Mapping):
         disposition_sink = _text(disposition.get("sink"))
     if disposition_sink == "recovery_required":
         return _text(packet.get("lifecycle_current_state")) or "recovery_required"
-    if _text(packet.get("status")) != "acked":
+    return ""
+
+
+def _status_carry_forward_reason(
+    packet: Mapping[str, object],
+    has_durable_intent: bool,
+) -> str:
+    status = _text(packet.get("status"))
+    if status == "pending" and has_durable_intent:
+        return "pending_durable_intent_without_creation_binding"
+    if status != "acked":
         return ""
     if _rows(packet.get("acted_on_events")):
+        return ""
+    if not has_durable_intent:
         return ""
     return "acked_without_terminal_or_durable_owner"
 
 
 def _packet_has_durable_intent(packet: Mapping[str, object]) -> bool:
-    text = " ".join(
-        _text(packet.get(key)).lower()
-        for key in (
-            "kind",
-            "summary",
-            "body",
-            "requested_action",
-            "policy_hint",
-            "plan_id",
-            "intake_ref",
+    kind = _text(packet.get("kind"))
+    if _is_review_only_notice(packet, kind=kind):
+        return False
+    if kind in _COMMUNICATION_ONLY_KINDS:
+        if _text(packet.get("target_kind")) == "plan":
+            return True
+        if isinstance(packet.get("plan_proposal"), Mapping):
+            return True
+        text = _packet_intent_text(packet)
+        intent_tokens = (
+            "architecture",
+            "bug",
+            "finding",
+            "fix",
+            "ingest",
+            "issue",
+            "promote",
         )
-    )
+        return any(token in text for token in intent_tokens)
+    if _text(packet.get("target_kind")) == "plan":
+        return True
+    if _text(packet.get("target_ref")) or _text(packet.get("intake_ref")):
+        return True
+    if _rows(packet.get("anchor_refs")):
+        return True
+    if isinstance(packet.get("plan_proposal"), Mapping):
+        return True
+    if kind in {"finding", "plan_gap_review", "plan_patch_review"}:
+        return True
+    text = _packet_intent_text(packet)
     intent_tokens = (
         "finding",
         "plan",
@@ -190,60 +211,48 @@ def _packet_has_durable_intent(packet: Mapping[str, object]) -> bool:
     return any(token in text for token in intent_tokens)
 
 
-def _has_creation_binding(packet: Mapping[str, object]) -> bool:
-    binding = packet.get("packet_creation_binding")
-    if not isinstance(binding, Mapping):
-        binding = packet.get("durable_binding")
-    if not isinstance(binding, Mapping):
+def _is_review_only_notice(packet: Mapping[str, object], *, kind: str) -> bool:
+    if kind != "system_notice":
         return False
-    status = _text(binding.get("status"))
-    target = _text(binding.get("binding_target"))
-    return bool(target and status in {"inserted", "updated", "already_present"})
+    if _text(packet.get("target_kind")) or _text(packet.get("target_ref")):
+        return False
+    if isinstance(packet.get("plan_proposal"), Mapping):
+        return False
+    return _text(packet.get("requested_action")) == "review_only" or (
+        _text(packet.get("policy_hint")) == "review_only"
+    )
 
 
-def _source_packet_ids(
-    row: object,
-    *,
-    preferred_fields: tuple[str, ...],
-    fallback_text_fields: tuple[str, ...],
-) -> tuple[str, ...]:
-    packet_ids: list[str] = []
-    if isinstance(row, Mapping):
-        for field in preferred_fields:
-            packet_ids.extend(_packet_id_values(row.get(field)))
-        for field in fallback_text_fields:
-            packet_ids.extend(_packet_ids_from_text(_text(row.get(field))))
-        return _dedupe(packet_ids)
-    for field in preferred_fields:
-        packet_ids.extend(_packet_id_values(getattr(row, field, ())))
-    for field in fallback_text_fields:
-        packet_ids.extend(_packet_ids_from_text(_text(getattr(row, field, ""))))
-    return _dedupe(packet_ids)
+def _packet_intent_text(packet: Mapping[str, object]) -> str:
+    return " ".join(
+        _text(packet.get(key)).lower()
+        for key in (
+            "kind",
+            "summary",
+            "body",
+            "requested_action",
+            "policy_hint",
+            "plan_id",
+            "intake_ref",
+        )
+    )
+
+
+_COMMUNICATION_ONLY_KINDS = frozenset(
+    {
+        "approval_request",
+        "commit_approval",
+        "instruction",
+        "question",
+        "system_notice",
+    }
+)
 
 
 def _rows(value: object) -> list[str]:
     if not isinstance(value, (list, tuple)):
         return []
     return [str(item).strip() for item in value if str(item).strip()]
-
-
-def _packet_id_values(value: object) -> list[str]:
-    if isinstance(value, str):
-        return _packet_ids_from_text(value)
-    return _rows(value)
-
-
-def _packet_ids_from_text(value: str) -> list[str]:
-    return re.findall(r"\brev_pkt_\d+\b", value)
-
-
-def _dedupe(values: list[str]) -> tuple[str, ...]:
-    seen: list[str] = []
-    for value in values:
-        text = str(value or "").strip()
-        if text and text not in seen:
-            seen.append(text)
-    return tuple(seen)
 
 
 def _packet_number(packet_id: str) -> int:

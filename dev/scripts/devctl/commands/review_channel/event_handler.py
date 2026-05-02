@@ -23,7 +23,6 @@ from ...review_channel.events import (
 from ...review_channel.event_projection_queue import build_event_queue_summary
 from ...review_channel.bridge_projection import render_bridge_projection
 from ...review_channel.heartbeat import compute_non_audit_worktree_hash
-from ...review_channel.event_render import render_event_md
 from ...review_channel.follow_stream import (
     build_follow_completion_report,
     build_follow_output_error_report,
@@ -81,7 +80,11 @@ def _build_event_report(
         args.action in {"status", "history"}
         and getattr(args, "target", None) is None
     ):
-        history_limit = getattr(args, "limit", None) if args.action == "history" else None
+        history_limit = (
+            getattr(args, "limit", None)
+            if args.action in {"history", "show"}
+            else None
+        )
         queue_reconciliation = reconcile_review_state_packet_queue(
             bundle.review_state,
             history_limit=history_limit,
@@ -258,11 +261,12 @@ def _run_event_action(
             bundle=bundle,
             status_override="pending",
         )
-    if args.action == "history":
+    if args.action in {"history", "show"}:
         packets = filter_history_packets(
             bundle.review_state,
             target=getattr(args, "target", None),
-            limit=args.limit,
+            packet_id=getattr(args, "packet_id", None),
+            limit=args.limit if args.action == "history" else 1,
         )
         packets, packet_outcome_ledger = attach_history_outcomes_if_requested(
             args=args,
@@ -271,15 +275,17 @@ def _run_event_action(
             generated_at_utc=utc_timestamp(),
         )
         history = []
-        if getattr(args, "trace_id", None):
+        if getattr(args, "trace_id", None) or getattr(args, "packet_id", None):
             history = filter_history_events(
                 bundle.events,
                 trace_id=getattr(args, "trace_id", None),
+                packet_id=getattr(args, "packet_id", None),
                 limit=args.limit,
             )
         return _build_event_report(
             args=args,
             bundle=bundle,
+            packet=packets[0] if len(packets) == 1 else None,
             packets=packets,
             history=history,
             packet_outcome_ledger=packet_outcome_ledger,
@@ -289,6 +295,8 @@ def _run_event_action(
 
 def _render_event_md(report: dict) -> str:
     """Compatibility wrapper for the moved event-backed markdown renderer."""
+    from ...review_channel.event_render import render_event_md
+
     return render_event_md(report)
 
 

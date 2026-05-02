@@ -4,6 +4,9 @@ import unittest
 from unittest.mock import patch
 
 from dev.scripts.checks.multi_agent_sync import api as check_multi_agent_sync
+from dev.scripts.checks.multi_agent_sync.runtime_truth_agent_loop import (
+    agent_loop_decision_errors,
+)
 from dev.scripts.checks.multi_agent_sync.runtime_truth_agent_loop_instruction import (
     instruction_authority_mismatch_errors,
 )
@@ -230,6 +233,63 @@ class CheckMultiAgentSyncTests(unittest.TestCase):
         ]
 
         self.assertEqual(instruction_authority_mismatch_errors(payload, decisions), [])
+
+    def test_legacy_unscoped_packet_conserves_work_board_focus(self) -> None:
+        payload = {
+            "agent_work_board": {
+                "rows": [
+                    {
+                        "actor_id": "claude",
+                        "role": "dashboard",
+                        "session_id": "s-1",
+                        "active_packet_id": "rev_pkt_2288",
+                        "attention_packet_id": "rev_pkt_2288",
+                    }
+                ]
+            },
+            "agent_loop_decisions": [
+                {
+                    "actor_id": "claude",
+                    "actor_role": "dashboard",
+                    "session_id": "s-1",
+                    "active_packet_id": "",
+                    "attention_packet_id": "",
+                    "legacy_unscoped_packet_id": "rev_pkt_2288",
+                }
+            ],
+        }
+
+        self.assertEqual(agent_loop_decision_errors(payload), [])
+
+    def test_wrong_legacy_unscoped_packet_still_fails_focus_check(self) -> None:
+        payload = {
+            "agent_work_board": {
+                "rows": [
+                    {
+                        "actor_id": "claude",
+                        "role": "dashboard",
+                        "session_id": "s-1",
+                        "active_packet_id": "rev_pkt_2288",
+                        "attention_packet_id": "rev_pkt_2288",
+                    }
+                ]
+            },
+            "agent_loop_decisions": [
+                {
+                    "actor_id": "claude",
+                    "actor_role": "dashboard",
+                    "session_id": "s-1",
+                    "active_packet_id": "",
+                    "attention_packet_id": "",
+                    "legacy_unscoped_packet_id": "rev_pkt_other",
+                }
+            ],
+        }
+
+        errors = agent_loop_decision_errors(payload)
+
+        self.assertEqual(len(errors), 2)
+        self.assertTrue(any("active packet does not match" in err for err in errors))
 
     def test_active_packet_still_must_match_current_instruction(self) -> None:
         payload = {

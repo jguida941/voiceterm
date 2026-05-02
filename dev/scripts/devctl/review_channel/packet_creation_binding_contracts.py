@@ -10,6 +10,7 @@ PACKET_CREATION_BINDING_SCHEMA_VERSION = 1
 PACKET_CREATION_BINDING_SECTION = "## Generated Review Packet Creation Bindings"
 PACKET_CREATION_BINDING_EVENT_TYPES = frozenset(
     {
+        "packet_creation_binding_classified",
         "packet_creation_binding_recorded",
         "packet_creation_binding_deferred",
         "packet_creation_binding_failed",

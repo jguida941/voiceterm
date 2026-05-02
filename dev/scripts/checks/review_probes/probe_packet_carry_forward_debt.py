@@ -147,6 +147,7 @@ def _debt_hint(path: Path, debt) -> RiskHint:
             f"plan_id={debt.plan_id}",
             f"intake_ref={debt.intake_ref}",
             f"latest_event_id={debt.latest_event_id}",
+            f"required_next_action={_required_next_action(debt)}",
         ],
         ai_instruction=(
             "Packets are transport and provenance, not durable work authority. "
@@ -158,6 +159,14 @@ def _debt_hint(path: Path, debt) -> RiskHint:
         ),
         review_lens=REVIEW_LENS,
     )
+
+
+def _required_next_action(debt) -> str:
+    if debt.kind in {"finding", "plan_gap_review", "plan_patch_review"}:
+        return "ingest_packet_into_plan_row_or_finding_review"
+    if debt.kind in {"approval_request", "commit_approval", "question"}:
+        return "link_packet_to_lifecycle_owner_or_terminal_disposition"
+    return "classify_packet_intent_and_record_typed_owner"
 
 
 def _review_state_packets(path: Path) -> tuple[dict[str, object], ...]:

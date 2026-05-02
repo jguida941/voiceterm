@@ -531,6 +531,10 @@ def _plan_ingestion_payload(packet: Mapping[str, object]) -> Mapping[str, object
 
 def _has_creation_binding(packet: Mapping[str, object]) -> bool:
     binding = _mapping(packet.get("packet_creation_binding"))
+    if not binding:
+        binding = _mapping(packet.get("packet_durable_ingestion_receipt"))
+    if not binding:
+        binding = _mapping(packet.get("durable_binding"))
     status = _text(binding.get("status"))
     target = _text(binding.get("binding_target"))
     return bool(target and status in {"inserted", "updated", "already_present"})

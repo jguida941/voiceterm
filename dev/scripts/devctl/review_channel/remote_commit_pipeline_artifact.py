@@ -9,6 +9,9 @@ from ..runtime.remote_commit_pipeline_models import (
     RemoteCommitPipelineContract,
     remote_commit_pipeline_contract_from_mapping,
 )
+from ..runtime.pipeline_local_delivery_receipts import (
+    apply_local_delivery_receipt,
+)
 
 
 COMMIT_PIPELINE_FILENAME = "commit_pipeline.json"
@@ -17,9 +20,11 @@ COMMIT_PIPELINE_FILENAME = "commit_pipeline.json"
 def load_remote_commit_pipeline_contract(
     *,
     output_root: Path,
+    receipts_root: Path | None = None,
 ) -> RemoteCommitPipelineContract:
     """Load the canonical commit-pipeline artifact or fail closed to blocked."""
-    artifact_path = output_root / COMMIT_PIPELINE_FILENAME
+    resolved_output_root = output_root.resolve()
+    artifact_path = resolved_output_root / COMMIT_PIPELINE_FILENAME
     if not artifact_path.exists():
         return RemoteCommitPipelineContract()
 
@@ -34,6 +39,16 @@ def load_remote_commit_pipeline_contract(
         return RemoteCommitPipelineContract(
             blocked_reason="commit_pipeline_artifact_invalid"
         )
+    receipt_root = (
+        receipts_root.resolve()
+        if receipts_root is not None
+        else _default_receipts_root(resolved_output_root)
+    )
+    payload = apply_local_delivery_receipt(
+        payload,
+        receipts_root=receipt_root,
+        pipeline_path=artifact_path,
+    )
     return remote_commit_pipeline_contract_from_mapping(payload)
 
 
@@ -59,3 +74,12 @@ def persist_remote_commit_pipeline_contract(
         json.dumps(contract.to_dict(), indent=2) + "\n",
     )
     return artifact_path
+
+
+def _default_receipts_root(output_root: Path) -> Path:
+    """Resolve the sibling review-channel/latest receipt directory."""
+    try:
+        review_channel_root = output_root.parent.parent
+    except IndexError:
+        return output_root
+    return review_channel_root / "latest"

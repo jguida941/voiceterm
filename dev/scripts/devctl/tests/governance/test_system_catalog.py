@@ -332,6 +332,16 @@ class TestViewCommand(unittest.TestCase):
         rc = run(args)
         self.assertEqual(rc, 0)
 
+    def test_view_ai_default_mode_returns_slim_surface(self) -> None:
+        from dev.scripts.devctl.commands.view import _render_ai_slim, run
+
+        args = _make_args(format="md", surface="ai", mode="summary")
+        rc = run(args)
+        output = _render_ai_slim(args)
+
+        self.assertEqual(rc, 0)
+        self.assertIn("# System View (AI Slim)", output)
+
     def test_view_cli_summary_returns_zero(self) -> None:
         from dev.scripts.devctl.commands.view import run
 

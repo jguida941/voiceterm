@@ -68,6 +68,94 @@ def test_packet_carry_forward_debts_accept_plan_row_owner() -> None:
     assert debts == ()
 
 
+def test_packet_carry_forward_debts_ignore_acked_communication_notice() -> None:
+    debts = packet_carry_forward_debts(
+        (
+            {
+                "packet_id": "rev_pkt_communication",
+                "kind": "system_notice",
+                "status": "acked",
+                "summary": "Plan status only",
+                "body": "Mentions guard and plan progress but carries no work item.",
+                "acted_on_events": [],
+            },
+        ),
+        durable_packet_ids=(),
+    )
+
+    assert debts == ()
+
+
+def test_packet_carry_forward_debts_ignore_bound_review_only_status_notice() -> None:
+    debts = packet_carry_forward_debts(
+        (
+            {
+                "packet_id": "rev_pkt_status",
+                "kind": "system_notice",
+                "status": "acked",
+                "summary": "Codex status: architecture slice landed",
+                "body": "Mentions remaining guard and probe work already owned by plan.",
+                "requested_action": "review_only",
+                "policy_hint": "review_only",
+                "plan_id": "MP-377",
+                "intake_ref": "work_intake://plan_target/example",
+                "anchor_refs": ["section:MP-377"],
+                "acted_on_events": [],
+                "packet_creation_binding": {
+                    "contract_id": "PacketCreationBinding",
+                    "status": "skipped",
+                    "reason": "communication_only_or_no_durable_plan_context",
+                    "binding_target_kind": "communication_only",
+                },
+            },
+        ),
+        durable_packet_ids=(),
+    )
+
+    assert debts == ()
+
+
+def test_packet_carry_forward_debts_flag_pending_unbound_finding() -> None:
+    debts = packet_carry_forward_debts(
+        (
+            {
+                "packet_id": "rev_pkt_pending",
+                "kind": "finding",
+                "status": "pending",
+                "summary": "Fresh architecture finding",
+                "acted_on_events": [],
+            },
+        ),
+        durable_packet_ids=(),
+    )
+
+    assert len(debts) == 1
+    assert debts[0].reason == "pending_durable_intent_without_creation_binding"
+
+
+def test_packet_carry_forward_debts_flag_misclassified_durable_notice() -> None:
+    debts = packet_carry_forward_debts(
+        (
+            {
+                "packet_id": "rev_pkt_notice_bug",
+                "kind": "system_notice",
+                "status": "pending",
+                "summary": "Architecture bug needs plan ingestion",
+                "packet_creation_binding": {
+                    "contract_id": "PacketCreationBinding",
+                    "status": "skipped",
+                    "reason": "communication_only_or_no_durable_plan_context",
+                    "binding_target_kind": "communication_only",
+                },
+            },
+        ),
+        durable_packet_ids=(),
+    )
+
+    assert len(debts) == 1
+    assert debts[0].reason == "durable_intent_classified_communication_only"
+
+
 def test_packet_carry_forward_debts_flag_promoted_finding_without_owner() -> None:
     debts = packet_carry_forward_debts(
         (

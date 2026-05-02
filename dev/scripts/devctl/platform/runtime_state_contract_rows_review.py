@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .contracts import ContractField, ContractSpec
 from .runtime_state_contract_rows_actor_authority import ACTOR_AUTHORITY_CONTRACTS
+from .runtime_state_contract_rows_packet_debt import PACKET_DEBT_CONTRACTS
 from .runtime_state_contract_rows_review_core import REVIEW_CORE_STATE_CONTRACTS
 from .runtime_state_contract_rows_session_continuation import (
     AGENT_SESSION_CONTINUATION_CONTRACTS,
@@ -11,6 +12,7 @@ from .runtime_state_contract_rows_session_continuation import (
 
 REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     *ACTOR_AUTHORITY_CONTRACTS,
+    *PACKET_DEBT_CONTRACTS,
     ContractSpec(
         contract_id="ReviewCandidateRecord",
         owner_layer="governance_runtime",

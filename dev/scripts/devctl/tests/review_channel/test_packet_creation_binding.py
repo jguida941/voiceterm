@@ -117,6 +117,65 @@ def test_system_notice_with_plan_words_does_not_bind_to_plan_row(
     assert not (tmp_path / "dev/state/plan_index.jsonl").exists()
 
 
+def test_post_packet_records_communication_only_classification(
+    tmp_path: Path,
+) -> None:
+    _master_plan(tmp_path)
+    review_channel_path = _review_channel_path(tmp_path)
+    artifact_paths = resolve_artifact_paths(repo_root=tmp_path)
+
+    bundle, event = post_packet(
+        repo_root=tmp_path,
+        review_channel_path=review_channel_path,
+        artifact_paths=artifact_paths,
+        request=PacketPostRequest(
+            from_agent="codex",
+            to_agent="claude",
+            kind="system_notice",
+            plan_id="MP-377",
+            summary="Status only",
+            body="Plan and guard status only; no new durable work item.",
+        ),
+    )
+
+    packet = next(
+        row
+        for row in bundle.review_state["packets"]
+        if row["packet_id"] == event["packet_id"]
+    )
+
+    assert event["packet_creation_binding_event_id"]
+    assert packet["packet_creation_binding"]["status"] == "skipped"
+    assert packet["packet_creation_binding"]["binding_target_kind"] == (
+        "communication_only"
+    )
+    assert not (tmp_path / "dev/state/plan_index.jsonl").exists()
+
+
+def test_system_notice_with_plan_target_binds_to_plan_row(tmp_path: Path) -> None:
+    _master_plan(tmp_path)
+    artifact_paths = resolve_artifact_paths(repo_root=tmp_path)
+
+    binding = bind_packet_at_creation(
+        repo_root=tmp_path,
+        artifact_paths=artifact_paths,
+        packet_event={
+            "event_type": "packet_posted",
+            "event_id": "rev_evt_0001",
+            "packet_id": "rev_pkt_notice_plan",
+            "kind": "system_notice",
+            "plan_id": "MP-377",
+            "target_kind": "plan",
+            "target_ref": "plan:MP-377",
+            "summary": "Architecture follow-up",
+            "body": "This notice intentionally targets the durable plan.",
+        },
+    )
+
+    assert binding["status"] == "inserted"
+    assert binding["binding_target_kind"] == "plan_row"
+
+
 def test_bound_stale_packet_expires_without_carry_forward_debt(
     tmp_path: Path,
 ) -> None:

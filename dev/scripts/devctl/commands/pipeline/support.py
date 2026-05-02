@@ -30,6 +30,9 @@ from ...runtime.pipeline_recovery_receipt import (
     PipelineRecoveryReceipt,
     utc_now_iso,
 )
+from ...runtime.pipeline_local_delivery_receipts import (
+    apply_local_delivery_receipt,
+)
 from ...runtime.remote_commit_pipeline_state import (
     RECOVERABLE_PIPELINE_STATES,
     REFRESHABLE_PIPELINE_STATES,
@@ -124,7 +127,13 @@ def load_pipeline_payload(paths: PipelinePaths) -> dict[str, Any]:
         payload = json.loads(raw)
     except json.JSONDecodeError:
         return {}
-    return payload if isinstance(payload, dict) else {}
+    if not isinstance(payload, dict):
+        return {}
+    return apply_local_delivery_receipt(
+        payload,
+        receipts_root=paths.receipts_root,
+        pipeline_path=paths.pipeline_path,
+    )
 
 
 def write_pipeline_payload(

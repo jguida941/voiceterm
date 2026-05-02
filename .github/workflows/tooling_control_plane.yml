@@ -412,6 +412,9 @@ jobs:
       - name: Run review-channel bridge guard
         run: python3 dev/scripts/checks/check_review_channel_bridge.py
 
+      - name: Run orchestration recommendation-closure guard
+        run: python3 dev/scripts/checks/check_orchestration_recommendation_closure.py
+
       - name: Run startup-authority contract guard
         run: python3 dev/scripts/checks/check_startup_authority_contract.py
 

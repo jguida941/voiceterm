@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from ...runtime.pipeline_recovery_receipt import build_receipt, utc_now_iso
+from .refusal import refused_pipeline_result
 from .support import (
     ABANDONED_RECEIPT_FILENAME,
     PipelinePaths,
@@ -84,22 +85,20 @@ def _apply_abandon(
 ) -> dict[str, Any]:
     payload = load_pipeline_payload(paths)
     if not payload:
-        return {
-            "ok": False,
-            "action": "abandon",
-            "reason_refused": "no_pipeline_artifact",
-            "pipeline_artifact_path": str(paths.pipeline_path),
-        }
+        return refused_pipeline_result(
+            action="abandon",
+            reason_refused="no_pipeline_artifact",
+            pipeline_artifact_path=paths.pipeline_path,
+        )
     state = pipeline_state_of(payload)
     pipeline_id = pipeline_id_of(payload)
     if state in TERMINAL_STATES:
-        return {
-            "ok": False,
-            "action": "abandon",
-            "reason_refused": f"pipeline_state_terminal:{state}",
-            "pipeline_id": pipeline_id,
-            "pipeline_artifact_path": str(paths.pipeline_path),
-        }
+        return refused_pipeline_result(
+            action="abandon",
+            reason_refused=f"pipeline_state_terminal:{state}",
+            pipeline_id=pipeline_id,
+            pipeline_artifact_path=paths.pipeline_path,
+        )
 
     updated = dict(payload)
     updated["state"] = "abandoned"

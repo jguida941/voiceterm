@@ -8,11 +8,15 @@ from pathlib import Path
 from typing import Any
 
 from ...runtime.pipeline_recovery_receipt import build_receipt, utc_now_iso
+from ...runtime.pipeline_local_delivery_receipts import (
+    LOCAL_DELIVERY_RECEIPT_FILENAME,
+)
 from ...runtime.remote_commit_pipeline_state import (
     STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
     eligible_for_local_delivery,
 )
 from .abandon_action import MIN_REASON_LENGTH
+from .refusal import refused_pipeline_result
 from .support import (
     PipelinePaths,
     load_pipeline_payload,
@@ -24,9 +28,6 @@ from .support import (
     write_pipeline_payload,
     write_receipt,
 )
-
-
-LOCAL_DELIVERY_RECEIPT_FILENAME = "pipeline_local_delivery_receipt.json"
 
 
 def run_mark_delivered_local(args) -> int:
@@ -76,25 +77,25 @@ def _apply_mark_delivered_local(
 ) -> dict[str, Any]:
     payload = load_pipeline_payload(paths)
     if not payload:
-        return {
-            "ok": False,
-            "action": "mark-delivered-local",
-            "reason_refused": "no_pipeline_artifact",
-            "pipeline_artifact_path": str(paths.pipeline_path),
-        }
+        return refused_pipeline_result(
+            action="mark-delivered-local",
+            reason_refused="no_pipeline_artifact",
+            pipeline_artifact_path=paths.pipeline_path,
+        )
     current_head = resolve_current_head(repo_root=paths.repo_root)
     state = pipeline_state_of(payload)
     pipeline_id = pipeline_id_of(payload)
     if not eligible_for_local_delivery(payload, current_head=current_head):
-        return {
-            "ok": False,
-            "action": "mark-delivered-local",
-            "reason_refused": "pipeline_not_eligible_for_local_delivery",
-            "pipeline_id": pipeline_id,
-            "pipeline_state": state,
-            "current_head_sha": current_head,
-            "pipeline_artifact_path": str(paths.pipeline_path),
-        }
+        return refused_pipeline_result(
+            action="mark-delivered-local",
+            reason_refused="pipeline_not_eligible_for_local_delivery",
+            pipeline_id=pipeline_id,
+            pipeline_artifact_path=paths.pipeline_path,
+            extra={
+                "pipeline_state": state,
+                "current_head_sha": current_head,
+            },
+        )
 
     receipt = build_receipt(
         action="mark-delivered-local",
@@ -119,8 +120,11 @@ def _apply_mark_delivered_local(
     updated["delivered_at_utc"] = utc_now_iso()
     updated["delivered_by"] = operator_actor
 
-    write_pipeline_payload(paths, updated)
     warnings = refresh_pipeline_projections(paths)
+    # Refreshing projections can regenerate commit_pipeline.json from older
+    # event state. Materialize the receipt-backed state after refresh so the
+    # immediate read model and the written artifact converge.
+    write_pipeline_payload(paths, updated)
     return {
         "ok": True,
         "action": "mark-delivered-local",

@@ -576,6 +576,12 @@ Portability note:
   waiting for manual apply. Bound packets that later expire are classified as
   `expired_after_durable_binding` and do not become carry-forward debt.
   The pending-packet disposition guard remains a follow-on enforcement slice.
+- `review-channel --action show --packet-id <id>` is the exact packet-read
+  surface for agents and operators. It uses the same event-backed reducer as
+  `history`, requires `--packet-id`, renders the packet body plus matching
+  packet events, and must not require raw artifact grep. `history
+  --packet-id <id>` must also return that exact packet row rather than the
+  newest global history page.
 - `review-channel --action expire-packets --limit <n>` is the bounded
   write-side maintenance path for TTL-elapsed pending packets. It appends
   explicit `packet_expired` events through the existing packet lifecycle
@@ -1144,7 +1150,9 @@ python3 dev/scripts/devctl.py report --python-guard-backlog --python-guard-backl
 python3 dev/scripts/devctl.py quality-policy --format md
 python3 dev/scripts/devctl.py develop --status --format md
 python3 dev/scripts/devctl.py develop next --format md
+python3 dev/scripts/devctl.py develop audit-packets --max-packets 10 --format md
 python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1 --format md
+python3 dev/scripts/devctl.py view --surface ai --format md
 python3 dev/scripts/devctl.py startup-context --format summary
 python3 dev/scripts/devctl.py push --execute
 python3 dev/scripts/devctl.py tandem-validate --format md
@@ -1674,6 +1682,7 @@ summary over the selected snapshot window.
 | `dev/scripts/checks/check_registry_path_integrity.py` | Script registry path integrity gate | Fails when the canonical script catalog, quality-policy defaults, or top-level `check_*.py` / `probe_*.py` entrypoints drift apart. This catches missing registered files, quality-policy references to unknown script ids, and public probe/check shims that exist on disk but are invisible to `check` / `probe-report`. |
 | `dev/scripts/checks/check_provider_list_parity_graph.py` | Provider-list parity graph gate | Fails when agent-facing CLI flags such as `--agent` hardcode a provider `choices=[...]` list instead of using the shared provider registry and syntax validation. This keeps `agent-mind`, `monitor`, and future provider-aware commands from splitting their provider vocabularies. |
 | `dev/scripts/checks/check_system_picture_freshness.py` | SystemPicture freshness gate | Fails stale generated `SystemPicture` sections and requires the startup and graph sections to be current before publication; refresh with `startup-context` plus `context-graph --mode bootstrap` when HEAD moves. |
+| `dev/scripts/checks/check_orchestration_recommendation_closure.py` | Orchestration recommendation-closure guard | Fails when `/develop` orchestration signals carry action recommendations without structured `source_surface`, `severity`, `recommended_action`, and `closure_check_command` fields, so agents can verify closure instead of relying on prose. Pilot/manual until orchestration writers graduate. |
 | `dev/scripts/checks/check_governance_closure.py` | Governance self-closure guard | Verifies the governance stack proves itself by requiring registered guards/probes to have tests, requiring default guards to appear in CI workflows, checking CI workflows for timeout coverage, and failing on newly orphaned typed contracts surfaced by `check_contract_connectivity.py`. Supports `--format` and `--output`. |
 | `dev/scripts/checks/check_bundle_workflow_parity.py` | Bundle/workflow parity guard | Verifies registry commands for `bundle.tooling` and `bundle.release` remain present in the owning CI workflows so policy bundles and workflow execution do not silently drift. |
 | `dev/scripts/checks/check_bundle_registry_dry.py` | Bundle-registry DRY guard | Verifies canonical bundle definitions in `bundle_registry.py` use explicit composition layers instead of repeated command lists, validates shim-target authority for the registry entrypoint, and enforces the budget for widely shared commands before composition becomes mandatory. |
@@ -1871,10 +1880,24 @@ Machine-first output note:
     carry a second hardcoded copy of those limits.
 - `develop`: read-only typed `/develop` controller report. It composes
   `DevelopmentModeTopology`, `DevelopmentScalingContract`, typed master-plan
-  rows, guard/probe learning counts, and system discovery into a
-  `DevelopmentLoopReport` for `status`, `next`, `pause`, `resume`,
-  `audit-guards`, and `launch --dry-run --max-cycles 1`. The current launch
-  action is a report-only cycle; it does not spawn workers or grant mutation.
+  rows, packet attention, runtime work-board rows, auxiliary `agent-mind`
+  context, guard/probe learning counts, and system discovery into a
+  `DevelopmentLoopReport` for `status`, `next`, `show`, `start`, `watch`,
+  `verify`, `submit`, `close`, `rollback`, `pause`, `resume`, `audit-guards`,
+  `audit-packets`, and `launch --dry-run --max-cycles 1`. `agent-mind`
+  appears only as `authority_policy=auxiliary_context_only`; typed
+  `AgentWorkBoardProjection` / `AgentSyncProjection` and packet lifecycle rows
+  remain authority. `audit-packets` renders `PacketDebtRemediationReport` so
+  ACKed or expired packets with durable intent are routed toward
+  plan/finding/lifecycle ownership instead of living only in packet transport.
+  `audit-packets --drain-packets` runs the existing guarded deterministic
+  plan-row ingestion writer for eligible rows and emits durable-ingestion
+  receipts; it does not grant repo mutation. The current launch action is a
+  report-only cycle; it does not spawn workers or grant mutation.
+- `view`: typed presentation adapter over catalog/read-model surfaces. For
+  agents, `view --surface ai` defaults to the existing AI slim renderer so the
+  no-mode command returns the token-efficient command/guard/probe catalog
+  instead of an unsupported `ai/summary` placeholder.
 - `platform-contracts`: read-only reusable-platform blueprint that renders the
   shared layer model, backend contracts, frontend/client expectations,
   repo-local boundaries, adoption flow, and current portability status in one

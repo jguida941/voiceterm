@@ -205,6 +205,13 @@ def _append_packet_section(lines: list[str], packet: dict) -> None:
         heading="- context_pack_refs:",
         indent="  ",
     )
+    body = str(packet.get("body") or "").strip()
+    if body:
+        lines.append("")
+        lines.append("### Body")
+        lines.append("```text")
+        lines.append(body)
+        lines.append("```")
 
 
 def _append_packet_outcome_ledger(lines: list[str], ledger: object) -> None:

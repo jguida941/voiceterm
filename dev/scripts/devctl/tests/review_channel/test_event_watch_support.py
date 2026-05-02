@@ -35,7 +35,7 @@ def test_load_target_packets_accepts_legacy_watch_follow_arguments(
 ) -> None:
     monkeypatch.setattr(
         "dev.scripts.devctl.commands.review_channel.event_watch_support.filter_inbox_packets",
-        lambda review_state, *, target, status, limit: list(review_state["packets"]),
+        lambda review_state, **_kwargs: list(review_state["packets"]),
     )
     monkeypatch.setattr(
         "dev.scripts.devctl.commands.review_channel.event_watch_support.mark_action_request_packets_observed",
@@ -62,7 +62,7 @@ def test_load_target_packets_accepts_legacy_watch_follow_arguments(
 def test_load_target_packets_accepts_context_argument(monkeypatch) -> None:
     monkeypatch.setattr(
         "dev.scripts.devctl.commands.review_channel.event_watch_support.filter_inbox_packets",
-        lambda review_state, *, target, status, limit: list(review_state["packets"]),
+        lambda review_state, **_kwargs: list(review_state["packets"]),
     )
     monkeypatch.setattr(
         "dev.scripts.devctl.commands.review_channel.event_watch_support.mark_action_request_packets_observed",
@@ -90,7 +90,7 @@ def test_load_target_packets_does_not_mark_observed_without_matching_actor(
     calls: list[dict[str, object]] = []
     monkeypatch.setattr(
         "dev.scripts.devctl.commands.review_channel.event_watch_support.filter_inbox_packets",
-        lambda review_state, *, target, status, limit: list(review_state["packets"]),
+        lambda review_state, **_kwargs: list(review_state["packets"]),
     )
     monkeypatch.setattr(
         "dev.scripts.devctl.commands.review_channel.event_watch_support.mark_action_request_packets_observed",
@@ -121,7 +121,7 @@ def test_load_target_packets_marks_observed_for_matching_actor(monkeypatch) -> N
     refreshed = _bundle("pkt-refreshed")
     monkeypatch.setattr(
         "dev.scripts.devctl.commands.review_channel.event_watch_support.filter_inbox_packets",
-        lambda review_state, *, target, status, limit: list(review_state["packets"]),
+        lambda review_state, **_kwargs: list(review_state["packets"]),
     )
     monkeypatch.setattr(
         "dev.scripts.devctl.commands.review_channel.event_watch_support.mark_action_request_packets_observed",

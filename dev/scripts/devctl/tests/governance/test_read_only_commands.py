@@ -171,6 +171,26 @@ class ArtifactWriteSuppressionTests(unittest.TestCase):
 
         self.assertEqual(captured_env.get("val"), "")
 
+    def test_develop_drain_packets_does_not_auto_suppress_artifacts(self) -> None:
+        """Packet-drain mode is an explicit managed sink behind /develop."""
+        captured_env: dict[str, str] = {}
+
+        def spy_handler(_args):
+            captured_env["val"] = os.environ.get(ARTIFACT_WRITES_ENV, "")
+            return 0
+
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(ARTIFACT_WRITES_ENV, None)
+            with patch("dev.scripts.devctl.cli.enforce_startup_gate", return_value=None):
+                with patch.dict(cli.COMMAND_HANDLERS, {"develop": spy_handler}):
+                    with patch(
+                        "sys.argv",
+                        ["devctl", "develop", "audit-packets", "--drain-packets"],
+                    ):
+                        cli.main()
+
+        self.assertEqual(captured_env.get("val"), "")
+
     def test_context_graph_bootstrap_respects_external_suppression(self) -> None:
         """Explicit DEVCTL_NO_ARTIFACT_WRITES=1 still suppresses bootstrap writes."""
         captured_env: dict[str, str] = {}

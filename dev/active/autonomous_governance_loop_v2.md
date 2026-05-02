@@ -307,6 +307,31 @@ closure. The correct order is:
   `resume`, `audit-guards`, and `launch --max-cycles 1` previews, plus the
   thin `.claude/commands/develop.md` adapter. Launch remains a report-only
   cycle until the typed controller-state writer and worker spawn path land.
+- 2026-05-02: `/develop` dogfood with Claude added the missing collaboration
+  picture to the controller report. `watch` now shows authoritative work-board
+  and sync rows, auxiliary-only peer `agent-mind` hints, provider session-file
+  discovery, and unregistered-session counts so multi-agent tests expose when
+  raw provider streams and typed runtime registration diverge. `audit-packets
+  --drain-packets` now uses the existing deterministic packet-debt writer for
+  eligible plan-row ingestion receipts. The next loop-v2 slice is the
+  orchestration writer that turns these signals into bounded worker/intake
+  actions instead of making each agent manually throttle and triage packets.
+  Bundle LL narrowed the multi-session gap to registration latency, not total
+  detection failure, and added ack-queue aging plus pause/resume,
+  `tandem-validate`, and `view --surface ai` UX debts to the same dogfood
+  feedback loop. Bundle MM then corrected the orchestration implementation
+  target: extend the existing `agent-loop` proof/wake/action-request surface
+  into the loop-v2 writer instead of building a second orchestrator daemon.
+  The missing pieces are proof generators, event-driven refresh,
+  packet-attention/audit-packet ingestion, and bounded worker/intake writers.
+- 2026-05-02: `/develop` dogfood promoted continuation from operator habit to
+  typed controller state. `ContinuationRequiredSignal`, `WatcherLease`,
+  watcher status, and the final-response guard make "keep going" depend on
+  pending typed work, stale watcher/projection inputs, packet pressure, and
+  closure checks instead of chat-side reminders. The same session exposed a
+  pipeline-conservation sibling: `mark-delivered-local` receipts must be
+  consumed by status, remote pipeline loading, and commit gates after
+  projection refresh, otherwise `/develop` cannot checkpoint its own fixes.
 - 2026-05-01: Added `PacketCreationBinding` as the creation-time durability
   receipt for plan-scoped packet kinds. `post_packet` finalization now upserts
   a `PlanRow` before packet TTL can erase durable intent, records a binding

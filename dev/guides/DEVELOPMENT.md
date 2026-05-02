@@ -1881,7 +1881,13 @@ python3 dev/scripts/devctl.py check --profile ai-guard
 # grants explicit leases for any future worker fanout.
 python3 dev/scripts/devctl.py develop --status --format md
 python3 dev/scripts/devctl.py develop next --format md
+python3 dev/scripts/devctl.py develop watch --actor codex --format md
+python3 dev/scripts/devctl.py develop audit-packets --max-packets 10 --format md
+python3 dev/scripts/devctl.py develop audit-packets --drain-packets --max-packets 10 --format md
 python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1 --format md
+
+# Exact packet read for /develop packet-attention and beta-test findings.
+python3 dev/scripts/devctl.py review-channel --action show --packet-id rev_pkt_2725 --terminal none --format md
 
 # Release verification lane (wake guard + non-blocking mutation-score reminders + strict remote CI/CodeRabbit gates; off the configured release branch it resolves the active branch and enables commit fallback instead of hardcoding `master`)
 python3 dev/scripts/devctl.py check --profile release

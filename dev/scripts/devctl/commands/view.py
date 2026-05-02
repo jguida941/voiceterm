@@ -154,6 +154,7 @@ def _render_unsupported(surface: str, mode: str, fmt: str) -> str:
 
 _RENDERERS: dict[tuple[str, str], object] = {
     ("ai", "slim"): _render_ai_slim,
+    ("ai", "summary"): _render_ai_slim,
     ("cli", "summary"): _render_cli_summary,
     ("phone", "summary"): _render_phone_summary,
 }

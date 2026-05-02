@@ -21,6 +21,7 @@ from .head_movement import (
     head_has_moved,
     managed_receipt_parent_for_current_head,
 )
+from .refusal import refused_pipeline_result
 from .support import (
     PipelinePaths,
     REFRESHABLE_STATES,
@@ -183,16 +184,13 @@ def _refused(
     pipeline_id: str,
     recommended_next_action: str = "",
 ) -> dict[str, Any]:
-    result = {
-        "ok": False,
-        "action": "refresh-authorization",
-        "reason_refused": reason_refused,
-        "pipeline_id": pipeline_id,
-        "pipeline_artifact_path": str(paths.pipeline_path),
-    }
-    if recommended_next_action:
-        result["recommended_next_action"] = recommended_next_action
-    return result
+    return refused_pipeline_result(
+        action="refresh-authorization",
+        reason_refused=reason_refused,
+        pipeline_id=pipeline_id,
+        pipeline_artifact_path=paths.pipeline_path,
+        recommended_next_action=recommended_next_action,
+    )
 
 
 def _render_markdown(result: dict[str, Any]) -> str:

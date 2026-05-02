@@ -75,6 +75,7 @@ CI_COVERAGE_EXEMPTIONS: frozenset[str] = frozenset(
         "duplicate_types",
         "markdown_metadata_header",
         "mutation_score",
+        "orchestration_recommendation_closure",
         "rustsec_policy",
         "test_coverage_parity",
         "structural_complexity",

@@ -40,7 +40,7 @@ def discover_latest_session(
     operators think about "the session I'm running right now" without
     needing to know the session UUID.
     """
-    search_root = root if root is not None else _default_sessions_root(provider)
+    search_root = root if root is not None else default_sessions_root(provider)
     if search_root is None or not search_root.exists():
         return None
     candidates = [
@@ -67,7 +67,7 @@ def resolve_session_file(
 ) -> Path | None:
     """Resolve a session JSONL path by id substring or newest mtime."""
     if session_id:
-        search_root = root if root is not None else _default_sessions_root(provider)
+        search_root = root if root is not None else default_sessions_root(provider)
         if search_root is None or not search_root.exists():
             return None
         matches = [
@@ -175,9 +175,13 @@ def session_id_from_path(path: Path, *, provider: str) -> str:
     return stem
 
 
-def _default_sessions_root(provider: str) -> Path | None:
+def default_sessions_root(provider: str) -> Path | None:
+    """Return the provider's default local session root, when known."""
     if provider == PROVIDER_CODEX:
         return CODEX_SESSIONS_ROOT
     if provider == PROVIDER_CLAUDE:
         return CLAUDE_PROJECTS_ROOT
     return None
+
+
+_default_sessions_root = default_sessions_root

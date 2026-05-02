@@ -2,25 +2,31 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
 from ...config import REPO_ROOT
-from ...governance.system_catalog import build_system_catalog
 from ...runtime.development_team import build_default_development_topology
-from ...runtime.master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL, PlanRow
+from ...runtime.dashboard_snapshot_authority import build_dashboard_snapshot
+from ...runtime.master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL
 from ...runtime.master_plan_store import read_plan_rows_jsonl
+from .actor_resolution import resolve_actor
+from .continuation import continuation_signal, watcher_lease_status
+from .lifecycle import LIFECYCLE_ACTIONS
+from .lifecycle import lifecycle_next_commands, lifecycle_plan
 from .models import (
     DevelopmentControllerInputs,
-    DevelopmentDiscoverySnapshot,
-    DevelopmentLearningSnapshot,
     DevelopmentLoopReport,
-    DevelopmentNextSlice,
     DevelopmentTopologySummary,
     DevelopmentWorkstreamSummary,
     scaling_summary_from_contract,
 )
+from .next_slice import select_next_slice
+from .orchestration_inputs import orchestration_snapshot
+from .packet_attention import packet_attention_from_review_state, review_state_payload
+from .packet_debt import packet_debt_payload
+from .peer_mind import peer_mind_snapshots
+from .runtime_snapshot import runtime_snapshot_from_review_state
+from .snapshots import discovery_snapshot, learning_snapshot
 
 
 def build_report(args: Any) -> DevelopmentLoopReport:
@@ -28,24 +34,103 @@ def build_report(args: Any) -> DevelopmentLoopReport:
     action = _resolve_action(args)
     topology = build_default_development_topology()
     rows = read_plan_rows_jsonl(REPO_ROOT / DEFAULT_MASTER_PLAN_STORE_REL)
+    review_state = review_state_payload(REPO_ROOT)
+    actor, actor_source = resolve_actor(args, review_state)
+    packet_attention = packet_attention_from_review_state(
+        review_state,
+        rows=rows,
+        agent=actor,
+    )
     blockers, warnings = _action_findings(action, args)
+    next_commands = _next_commands(action)
+    next_slice = select_next_slice(rows, packet_attention=packet_attention)
+    required_checks = _required_checks(action)
+    runtime = runtime_snapshot_from_review_state(
+        review_state,
+        repo_root=REPO_ROOT,
+        actor=actor,
+        actor_source=actor_source,
+    )
+    dashboard = _orchestration_dashboard(REPO_ROOT)
+    peer_minds = peer_mind_snapshots(REPO_ROOT, review_state, actor=actor)
+    orchestration = orchestration_snapshot(
+        REPO_ROOT,
+        review_state,
+        actor=actor,
+        dashboard=dashboard,
+    )
+    watcher_lease = watcher_lease_status(REPO_ROOT, review_state, actor=actor)
+    continuation = continuation_signal(
+        packet_attention=packet_attention,
+        orchestration=orchestration,
+        watcher_lease=watcher_lease,
+        current_action=action,
+        fallback_commands=next_commands,
+    )
 
     return DevelopmentLoopReport(
         action=action,
         status="blocked" if blockers else "ready",
         ok=not blockers,
-        controller_state=_controller_state(action),
-        summary=_summary_for_action(action, blockers=blockers),
+        controller_state=_controller_state(action, args),
+        summary=_summary_for_action(
+            action,
+            blockers=blockers,
+            drain_packets=bool(getattr(args, "drain_packets", False)),
+            dry_run=bool(getattr(args, "dry_run", False)),
+        ),
         topology=_topology_summary(topology),
-        next_slice=_select_next_slice(rows),
-        learning=_learning_snapshot(REPO_ROOT),
-        discovery=_discovery_snapshot(),
-        required_checks=_required_checks(action),
-        next_commands=_next_commands(action),
+        next_slice=next_slice,
+        packet_attention=packet_attention,
+        runtime=runtime,
+        peer_minds=peer_minds,
+        orchestration=orchestration,
+        watcher_lease=watcher_lease,
+        continuation=continuation,
+        learning=learning_snapshot(REPO_ROOT),
+        discovery=discovery_snapshot(REPO_ROOT),
+        required_checks=required_checks,
+        next_commands=next_commands,
+        next_step_command=_next_step_command(
+            packet_attention_required=packet_attention.attention_required,
+            packet_attention_command=packet_attention.required_command,
+            next_commands=next_commands,
+        ),
+        lifecycle=lifecycle_plan(
+            action=action,
+            actor=actor,
+            args=args,
+            next_slice=next_slice,
+            packet_attention=packet_attention,
+            required_checks=required_checks,
+        ),
+        packet_debt_remediation=packet_debt_payload(
+            action,
+            args,
+            repo_root=REPO_ROOT,
+        ),
         blockers=blockers,
         warnings=warnings,
-        inputs=_controller_inputs(args, plan_rows=len(rows)),
+        inputs=_controller_inputs(
+            args,
+            plan_rows=len(rows),
+            actor=actor,
+            actor_source=actor_source,
+        ),
     )
+
+
+def _orchestration_dashboard(repo_root) -> dict[str, Any]:
+    """Return the dashboard-backed blocker view used by agent-loop, if available."""
+    try:
+        return build_dashboard_snapshot(
+            repo_root=repo_root,
+            view="overview",
+            role="dashboard",
+            include_review_state=False,
+        )
+    except Exception:  # broad-except: allow reason=dashboard snapshot is advisory context for /develop fallback=omit orchestration dashboard
+        return {}
 
 
 def _resolve_action(args: Any) -> str:
@@ -56,24 +141,42 @@ def _resolve_action(args: Any) -> str:
     )
 
 
-def _controller_state(action: str) -> str:
+def _controller_state(action: str, args: Any) -> str:
+    if action in LIFECYCLE_ACTIONS:
+        return f"read_only_{action}_preview"
     if action == "launch":
         return "read_only_launch_preview"
     if action in {"pause", "resume"}:
         return f"read_only_{action}_preview"
     if action == "audit-guards":
         return "read_only_guard_audit"
+    if action == "audit-packets":
+        if bool(getattr(args, "drain_packets", False)):
+            if bool(getattr(args, "dry_run", False)):
+                return "read_only_packet_debt_drain_preview"
+            return "packet_debt_drain"
+        return "read_only_packet_debt_audit"
     return "read_only"
 
 
-def _controller_inputs(args: Any, *, plan_rows: int) -> DevelopmentControllerInputs:
+def _controller_inputs(
+    args: Any,
+    *,
+    plan_rows: int,
+    actor: str,
+    actor_source: str,
+) -> DevelopmentControllerInputs:
     return DevelopmentControllerInputs(
         master_plan_store=DEFAULT_MASTER_PLAN_STORE_REL,
         plan_rows=plan_rows,
+        actor=actor,
+        requested_actor=str(getattr(args, "actor", "auto") or "auto"),
+        actor_source=actor_source,
         fleet=str(getattr(args, "fleet", "default") or "default"),
         max_cycles=int(getattr(args, "max_cycles", 1) or 1),
         max_workers=int(getattr(args, "max_workers", 0) or 0),
         dry_run=bool(getattr(args, "dry_run", False)),
+        drain_packets=bool(getattr(args, "drain_packets", False)),
     )
 
 
@@ -99,91 +202,6 @@ def _topology_summary(topology) -> DevelopmentTopologySummary:
     )
 
 
-def _select_next_slice(rows: tuple[PlanRow, ...]) -> DevelopmentNextSlice:
-    selected = _first_row_with_status(rows, "in_progress")
-    if selected is None:
-        selected = _first_row_with_status(rows, "queued")
-    if selected is None:
-        return DevelopmentNextSlice(
-            status="none",
-            reason="No queued or in-progress typed plan rows found.",
-        )
-    return DevelopmentNextSlice(
-        slice_id=selected.row_id,
-        source=selected.source_doc_path or DEFAULT_MASTER_PLAN_STORE_REL,
-        title=selected.title,
-        target_ref=selected.target_ref,
-        status=selected.status,
-        reason="Selected from typed master-plan rows, preferring in-progress before queued.",
-    )
-
-
-def _first_row_with_status(rows: tuple[PlanRow, ...], status: str) -> PlanRow | None:
-    for row in rows:
-        if row.status == status:
-            return row
-    return None
-
-
-def _discovery_snapshot() -> DevelopmentDiscoverySnapshot:
-    catalog = build_system_catalog(repo_root=REPO_ROOT)
-    return DevelopmentDiscoverySnapshot(
-        commands=catalog.total_commands,
-        guards=catalog.total_guards,
-        probes=catalog.total_probes,
-        surfaces=catalog.total_surfaces,
-        coverage_targets=(
-            "commands",
-            "guards",
-            "probes",
-            "surfaces",
-            "runtime-spine rows",
-            "platform contracts",
-        ),
-    )
-
-
-def _learning_snapshot(repo_root: Path) -> DevelopmentLearningSnapshot:
-    finding_rows = _jsonl_rows(repo_root / "dev/reports/governance/finding_reviews.jsonl")
-    promotion_rows = _jsonl_rows(
-        repo_root / "dev/reports/governance/guard_promotion_candidates.jsonl"
-    )
-    queued_promotions = sum(
-        1
-        for row in promotion_rows
-        if str(row.get("status") or row.get("candidate_status") or "queued") == "queued"
-    )
-    return DevelopmentLearningSnapshot(
-        open_findings=len(finding_rows),
-        promotion_candidates=len(promotion_rows),
-        queued_promotion_candidates=queued_promotions,
-        smartness_inputs=(
-            "governance-quality-feedback",
-            "probe-report",
-            "GuardSmartnessReport",
-            "red_team_fixture_result",
-        ),
-        learning_state="typed_inputs_available",
-    )
-
-
-def _jsonl_rows(path: Path) -> tuple[dict[str, Any], ...]:
-    if not path.exists():
-        return ()
-    rows: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        try:
-            payload = json.loads(stripped)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(payload, dict):
-            rows.append(payload)
-    return tuple(rows)
-
-
 def _action_findings(action: str, args: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
     blockers: list[str] = []
     warnings: list[str] = []
@@ -197,6 +215,14 @@ def _action_findings(action: str, args: Any) -> tuple[tuple[str, ...], tuple[str
         blockers.append("--max-cycles must be at least 1.")
     if max_workers < 0:
         blockers.append("--max-workers cannot be negative.")
+    if bool(getattr(args, "drain_packets", False)) and action != "audit-packets":
+        blockers.append("--drain-packets is only valid with audit-packets.")
+    if (
+        bool(getattr(args, "drain_packets", False))
+        and bool(getattr(args, "dry_run", False))
+        and action == "audit-packets"
+    ):
+        warnings.append("--dry-run suppresses packet debt writer execution.")
     if action == "launch":
         warnings.append(
             "launch is a read-only controller cycle preview; no worker process is spawned"
@@ -209,18 +235,36 @@ def _action_findings(action: str, args: Any) -> tuple[tuple[str, ...], tuple[str
         warnings.append(
             f"{action} is report-only until the typed controller-state writer lands"
         )
+    if action in LIFECYCLE_ACTIONS:
+        warnings.append(
+            f"{action} is a lifecycle preview; no lease, commit, reset, or packet write occurs"
+        )
     return tuple(blockers), tuple(warnings)
 
 
-def _summary_for_action(action: str, *, blockers: tuple[str, ...]) -> str:
+def _summary_for_action(
+    action: str,
+    *,
+    blockers: tuple[str, ...],
+    drain_packets: bool = False,
+    dry_run: bool = False,
+) -> str:
     if blockers:
         return "Develop controller request failed closed before execution."
     if action == "next":
         return "Selected the next bounded typed development slice."
     if action == "audit-guards":
         return "Rendered guard/probe learning inputs for development mode."
+    if action == "audit-packets":
+        if drain_packets:
+            if dry_run:
+                return "Previewed eligible packet carry-forward durable-ingestion debt."
+            return "Applied eligible packet carry-forward durable-ingestion debt."
+        return "Rendered packet carry-forward durable-ingestion debt."
     if action == "launch":
         return "Rendered one read-only develop controller cycle without mutation."
+    if action in LIFECYCLE_ACTIONS:
+        return f"Rendered read-only /develop {action} lifecycle guidance."
     if action in {"pause", "resume"}:
         return f"Rendered a read-only {action} request without mutating controller state."
     return "Rendered typed develop controller status."
@@ -233,13 +277,16 @@ def _required_checks(action: str) -> tuple[str, ...]:
         "python3 dev/scripts/checks/check_governance_closure.py --format md",
         "python3 dev/scripts/checks/check_multi_agent_sync.py",
     ]
-    if action in {"audit-guards", "launch"}:
+    if action in {"audit-guards", "audit-packets", "launch"}:
         checks.append("python3 dev/scripts/devctl.py probe-report --format md")
         checks.append("python3 dev/scripts/devctl.py governance-quality-feedback --format md")
     return tuple(checks)
 
 
 def _next_commands(action: str) -> tuple[str, ...]:
+    lifecycle_commands = lifecycle_next_commands(action)
+    if lifecycle_commands is not None:
+        return lifecycle_commands
     if action == "next":
         return ("python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1",)
     if action == "audit-guards":
@@ -247,12 +294,28 @@ def _next_commands(action: str) -> tuple[str, ...]:
             "python3 dev/scripts/devctl.py governance-quality-feedback --format md",
             "python3 dev/scripts/devctl.py probe-report --format md",
         )
+    if action == "audit-packets":
+        return (
+            "python3 dev/scripts/checks/probe_packet_carry_forward_debt.py --format md",
+            "python3 dev/scripts/devctl.py develop next --format md",
+        )
     if action == "launch":
         return (
             "python3 dev/scripts/devctl.py review-channel --action sync-status --terminal none --format md",
             "python3 dev/scripts/devctl.py develop next --format md",
         )
     return ("python3 dev/scripts/devctl.py develop next --format md",)
+
+
+def _next_step_command(
+    *,
+    packet_attention_required: bool,
+    packet_attention_command: str,
+    next_commands: tuple[str, ...],
+) -> str:
+    if packet_attention_required and packet_attention_command:
+        return packet_attention_command
+    return next_commands[0] if next_commands else ""
 
 
 __all__ = ["build_report"]

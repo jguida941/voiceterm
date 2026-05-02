@@ -146,6 +146,8 @@ from ..security.parser import add_security_parser
 from ..sync_parser import add_commit_parser, add_push_parser, add_sync_parser
 from ..triage.loop_parser import add_triage_loop_parser
 from ..triage.parser import add_findings_priority_parser, add_triage_parser
+from .artifact_suppression import ARTIFACT_WRITES_ENV, artifact_writes_suppressed
+from .artifact_suppression import read_only_command_suppresses_artifact_writes
 from .builders import add_standard_parsers
 
 # Commands that run as status/reporting surfaces from the caller's point of
@@ -175,39 +177,6 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset({
     "list",
     "rollout-tail",
 })
-
-# Environment variable checked by command handlers and artifact writers to
-# suppress incidental filesystem writes (receipts, snapshots) that would
-# otherwise make "read-only" commands fail on read-only mounts.  Set
-# automatically for READ_ONLY_COMMANDS; can also be set externally by MCP
-# adapters or container orchestration.
-ARTIFACT_WRITES_ENV = "DEVCTL_NO_ARTIFACT_WRITES"
-
-
-def artifact_writes_suppressed() -> bool:
-    """True when incidental artifact writes should be skipped."""
-    return os.environ.get(ARTIFACT_WRITES_ENV, "") == "1"
-
-
-def _read_only_command_suppresses_artifact_writes(args) -> bool:
-    """Return whether the dispatcher should set artifact-write suppression."""
-    if args.command not in READ_ONLY_COMMANDS:
-        return False
-    if args.command == "context-graph" and getattr(args, "mode", "") == "bootstrap":
-        return False
-    if args.command == "review-channel":
-        return str(getattr(args, "action", "") or "") in {
-            "status",
-            "doctor",
-            "watch",
-            "inbox",
-            "operator-inbox",
-            "sync-status",
-            "history",
-            "bridge-poll",
-            "render-bridge",
-        }
-    return True
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -444,7 +413,10 @@ def main() -> int:
     started = time.monotonic()
     return_code = 1
     is_read_only = args.command in READ_ONLY_COMMANDS
-    suppress_artifact_writes = _read_only_command_suppresses_artifact_writes(args)
+    suppress_artifact_writes = read_only_command_suppresses_artifact_writes(
+        args,
+        READ_ONLY_COMMANDS,
+    )
     previous_artifact_write_env = os.environ.get(ARTIFACT_WRITES_ENV)
     if suppress_artifact_writes:
         os.environ[ARTIFACT_WRITES_ENV] = "1"

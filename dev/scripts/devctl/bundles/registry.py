@@ -134,6 +134,7 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
     check_script_shell_command("typed_enum_connectivity"),
     check_script_shell_command("platform_contract_sync"),
     check_script_shell_command("review_channel_bridge"),
+    check_script_shell_command("orchestration_recommendation_closure"),
     check_script_shell_command("startup_authority_contract"),
     check_script_shell_command("review_surface_consistency"),
     check_script_shell_command("tandem_consistency"),

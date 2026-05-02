@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from .context_refs import normalize_context_pack_refs
 from .event_models import ReviewPacketRow
 from .packet_creation_binding import PACKET_CREATION_BINDING_EVENT_TYPES
+from .packet_debt_remediation_contracts import PACKET_DURABLE_INGESTION_EVENT_TYPES
 from .packet_lifecycle import apply_lifecycle_transition, project_packet_lifecycle
 from .pending_packets import partition_live_pending_packets
 
@@ -127,6 +128,11 @@ def apply_packet_transition(
         next_packet["packet_creation_binding"] = binding_payload
         next_packet["durable_binding"] = binding_payload
         return project_packet_lifecycle(next_packet)
+    if event_type in PACKET_DURABLE_INGESTION_EVENT_TYPES:
+        receipt = _packet_durable_ingestion_payload(event)
+        next_packet["packet_durable_ingestion_receipt"] = receipt
+        next_packet["durable_binding"] = receipt
+        return project_packet_lifecycle(next_packet)
     next_packet["status"] = event.get("status") or action_request_lifecycle_status(
         event_type
     )
@@ -239,6 +245,24 @@ def _packet_creation_binding_payload(event: Mapping[str, object]) -> dict[str, o
         payload = {}
     result = {str(key): value for key, value in payload.items() if str(key)}
     result.setdefault("contract_id", "PacketCreationBinding")
+    result.setdefault("event_id", str(event.get("event_id") or "").strip())
+    result.setdefault(
+        "recorded_at_utc",
+        str(event.get("timestamp_utc") or "").strip(),
+    )
+    return result
+
+
+def _packet_durable_ingestion_payload(event: Mapping[str, object]) -> dict[str, object]:
+    payload = event.get("packet_durable_ingestion")
+    if not isinstance(payload, Mapping):
+        payload = event.get("durable_binding")
+    if not isinstance(payload, Mapping):
+        payload = event.get("metadata")
+    if not isinstance(payload, Mapping):
+        payload = {}
+    result = {str(key): value for key, value in payload.items() if str(key)}
+    result.setdefault("contract_id", "PacketDurableIngestionReceipt")
     result.setdefault("event_id", str(event.get("event_id") or "").strip())
     result.setdefault(
         "recorded_at_utc",

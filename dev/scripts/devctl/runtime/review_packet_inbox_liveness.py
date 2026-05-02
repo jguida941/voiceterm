@@ -49,6 +49,8 @@ def is_active_acked_action_request(packet: Mapping[str, object]) -> bool:
 
 def is_expired_unresolved(packet: Mapping[str, object]) -> bool:
     """Return True when a packet is expired but unresolved."""
+    if _is_resolved_lifecycle(packet):
+        return False
     status = _packet_status(packet)
     if status == "expired":
         return True
@@ -64,6 +66,20 @@ def _packet_status(packet: Mapping[str, object]) -> str:
 
 def _packet_kind(packet: Mapping[str, object]) -> str:
     return _normalized_text(packet.get("kind"))
+
+
+def _is_resolved_lifecycle(packet: Mapping[str, object]) -> bool:
+    lifecycle = _normalized_text(packet.get("lifecycle_current_state"))
+    if lifecycle in {"archived", "applied", "dismissed"}:
+        return True
+    disposition = packet.get("disposition")
+    if not isinstance(disposition, Mapping):
+        return False
+    return _normalized_text(disposition.get("sink")) in {
+        "archived",
+        "applied",
+        "dismissed",
+    }
 
 
 def _normalized_text(value: object) -> str:

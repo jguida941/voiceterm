@@ -6,6 +6,20 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from dev.scripts.devctl.runtime.development_team import DevelopmentScalingContract
+from .collaboration_models import (
+    DevelopmentPeerMindEvent,
+    DevelopmentPeerMindSnapshot,
+    DevelopmentRuntimeRow,
+    DevelopmentRuntimeSnapshot,
+    DevelopmentSessionDiscoveryRow,
+)
+from .orchestration_models import (
+    DevelopmentAgentLoopInput,
+    DevelopmentContinuationRequiredSignal,
+    DevelopmentOrchestrationSignal,
+    DevelopmentOrchestrationSnapshot,
+    DevelopmentWatcherLease,
+)
 
 DEVELOPMENT_LOOP_CONTRACT_ID = "DevelopmentLoopReport"
 DEVELOPMENT_LOOP_SCHEMA_VERSION = 1
@@ -43,6 +57,22 @@ class DevelopmentDiscoverySnapshot:
     probes: int = 0
     surfaces: int = 0
     coverage_targets: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class DevelopmentPacketAttention:
+    """Packet-driven wake state that can preempt ordinary slice selection."""
+
+    attention_required: bool = False
+    agent: str = "codex"
+    attention_status: str = "none"
+    wake_reason: str = ""
+    latest_finding_packet_id: str = ""
+    pending_actionable_packet_ids: tuple[str, ...] = ()
+    expired_unresolved_count: int = 0
+    required_command: str = ""
+    durable_plan_row_id: str = ""
+    summary: str = "No packet attention is blocking /develop."
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,10 +118,38 @@ class DevelopmentControllerInputs:
 
     master_plan_store: str
     plan_rows: int
+    actor: str
     fleet: str
     max_cycles: int
     max_workers: int
     dry_run: bool
+    requested_actor: str = ""
+    actor_source: str = ""
+    drain_packets: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class DevelopmentLifecycleStep:
+    """One preview step for a `/develop` lifecycle action."""
+
+    step_id: str
+    purpose: str
+    state: str
+    command: str = ""
+    authority: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class DevelopmentLifecyclePlan:
+    """Lifecycle preview for developing through `/develop` itself."""
+
+    action: str
+    actor: str
+    slice_id: str
+    packet_id: str
+    state: str
+    summary: str
+    steps: tuple[DevelopmentLifecycleStep, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,10 +163,19 @@ class DevelopmentLoopReport:
     summary: str
     topology: DevelopmentTopologySummary
     next_slice: DevelopmentNextSlice
+    packet_attention: DevelopmentPacketAttention
+    runtime: DevelopmentRuntimeSnapshot
+    peer_minds: tuple[DevelopmentPeerMindSnapshot, ...]
+    orchestration: DevelopmentOrchestrationSnapshot
+    watcher_lease: DevelopmentWatcherLease
+    continuation: DevelopmentContinuationRequiredSignal
     learning: DevelopmentLearningSnapshot
     discovery: DevelopmentDiscoverySnapshot
     required_checks: tuple[str, ...]
     next_commands: tuple[str, ...]
+    next_step_command: str = ""
+    lifecycle: DevelopmentLifecyclePlan | None = None
+    packet_debt_remediation: dict[str, Any] | None = None
     blockers: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
     inputs: DevelopmentControllerInputs | None = None

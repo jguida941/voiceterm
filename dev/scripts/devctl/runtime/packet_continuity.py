@@ -16,6 +16,7 @@ _VISIBLE_SINK_PRIORITY = {
     "failed_ingestion": 1,
     "recovery_required": 2,
     "carry_forward_debt": 3,
+    "durable_owner": 4,
     "applied_to_plan": 4,
     "archived": 5,
 }
@@ -143,6 +144,8 @@ def _continuity_sink(packet: Mapping[str, object]) -> str:
         return "recovery_required"
     if disposition_sink == "archived":
         return "archived"
+    if _has_durable_owner(packet):
+        return "durable_owner"
     if (
         status == "acked"
         or lifecycle_state in {"acknowledged", "apply_pending_after_execution"}
@@ -156,6 +159,22 @@ def _disposition_sink(packet: Mapping[str, object]) -> str:
     if isinstance(disposition, Mapping):
         return _text(disposition.get("sink"))
     return ""
+
+
+def _has_durable_owner(packet: Mapping[str, object]) -> bool:
+    for field in (
+        "packet_creation_binding",
+        "packet_durable_ingestion_receipt",
+        "durable_binding",
+    ):
+        binding = packet.get(field)
+        if not isinstance(binding, Mapping):
+            continue
+        status = _text(binding.get("status"))
+        target = _text(binding.get("binding_target"))
+        if target and status in {"inserted", "updated", "already_present"}:
+            return True
+    return False
 
 
 def _disposition_field(packet: Mapping[str, object], field: str) -> str:
