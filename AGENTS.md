@@ -1881,6 +1881,7 @@ python3 dev/scripts/checks/check_contract_connectivity.py
 python3 dev/scripts/checks/check_typed_enum_connectivity.py
 python3 dev/scripts/checks/check_platform_contract_sync.py
 python3 dev/scripts/checks/check_review_channel_bridge.py
+python3 dev/scripts/checks/check_orchestration_recommendation_closure.py
 python3 dev/scripts/checks/check_startup_authority_contract.py
 python3 dev/scripts/checks/check_review_surface_consistency.py
 python3 dev/scripts/checks/check_tandem_consistency.py
@@ -1951,6 +1952,7 @@ python3 dev/scripts/checks/check_contract_connectivity.py
 python3 dev/scripts/checks/check_typed_enum_connectivity.py
 python3 dev/scripts/checks/check_platform_contract_sync.py
 python3 dev/scripts/checks/check_review_channel_bridge.py
+python3 dev/scripts/checks/check_orchestration_recommendation_closure.py
 python3 dev/scripts/checks/check_startup_authority_contract.py
 python3 dev/scripts/checks/check_review_surface_consistency.py
 python3 dev/scripts/checks/check_tandem_consistency.py
