@@ -40,6 +40,7 @@ from ..review_channel_command import RuntimePaths, _coerce_runtime_paths
 from .launcher_discipline import (
     enforce_launch_request_discipline,
 )
+from .launcher_discipline_receipts import persist_launcher_discipline_bypass_receipt
 from .bridge_launch_headless import (
     launch_sessions_headless as _launch_sessions_headless,
 )
@@ -149,6 +150,7 @@ def run_recover_action(
             sessions=sessions,
             terminal_profile_applied=terminal_profile_applied,
             interaction_mode=interaction_mode,
+            artifact_paths=runtime_paths.artifact_paths,
         )
     )
     refreshed_snapshot = refresh_recover_snapshot(
@@ -195,10 +197,15 @@ def _build_recover_sessions(
     )
     terminal = str(getattr(args, "terminal", "none") or "none")
     if terminal == "terminal-app":
-        enforce_launch_request_discipline(
+        receipt = enforce_launch_request_discipline(
             repo_root=repo_root,
             interaction_mode=interaction_mode,
             terminal_arg=terminal,
+            bypass_reason=str(getattr(args, "bypass_reason", "") or ""),
+        )
+        persist_launcher_discipline_bypass_receipt(
+            artifact_paths=runtime_paths.artifact_paths,
+            receipt=receipt,
         )
     available_profiles = (
         list_terminal_profiles()
@@ -282,10 +289,15 @@ def _maybe_launch_recover_sessions(
         "terminal-app",
         "none",
     }:
-        enforce_launch_request_discipline(
+        receipt = enforce_launch_request_discipline(
             repo_root=launch_input.repo_root,
             interaction_mode=launch_input.interaction_mode,
             terminal_arg=terminal,
+            bypass_reason=str(getattr(args, "bypass_reason", "") or ""),
+        )
+        persist_launcher_discipline_bypass_receipt(
+            artifact_paths=launch_input.artifact_paths,
+            receipt=receipt,
         )
         if terminal == "terminal-app":
             launch_terminal_sessions(

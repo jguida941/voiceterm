@@ -12,6 +12,7 @@ from .bridge_launch_headless import launch_sessions_headless as _launch_sessions
 from .launcher_discipline import (
     enforce_launch_request_discipline,
 )
+from .launcher_discipline_receipts import persist_launcher_discipline_bypass_receipt
 from ...review_channel.core import AUTO_DARK_TERMINAL_PROFILES, DEFAULT_TERMINAL_PROFILE
 from ...review_channel.handoff import (
     extract_bridge_snapshot,
@@ -50,6 +51,7 @@ class LaunchSessionRequest:
     retired_sessions: tuple["ConductorSessionRecord", ...] = ()
     cleanup_terminal_session_fn: Callable[..., list[str]] = cleanup_terminal_session
     observe_launch_state_fn: Callable[[], dict[str, object]] | None = None
+    artifact_paths: object | None = None
 
 
 def prepare_rollover_bundle(
@@ -187,12 +189,17 @@ def launch_sessions_if_requested(
     return launched, handoff_ack_required, handoff_ack_observed, cleanup_warnings
 
 
-def validate_launch_request_discipline(request: LaunchSessionRequest) -> None:
+def validate_launch_request_discipline(request: LaunchSessionRequest):
     """Backward-compatible wrapper for the shared launch-discipline gate."""
-    enforce_launch_request_discipline(
+    receipt = enforce_launch_request_discipline(
         repo_root=request.repo_root,
         interaction_mode=request.interaction_mode,
         terminal_arg=str(getattr(request.args, "terminal", "")),
+        bypass_reason=str(getattr(request.args, "bypass_reason", "") or ""),
+    )
+    return persist_launcher_discipline_bypass_receipt(
+        artifact_paths=request.artifact_paths,
+        receipt=receipt,
     )
 
 

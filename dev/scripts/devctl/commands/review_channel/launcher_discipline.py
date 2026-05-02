@@ -255,17 +255,38 @@ def enforce_launch_request_discipline(
     repo_root: Path | None,
     interaction_mode: str,
     terminal_arg: str,
-) -> None:
-    """Raise when a launch request violates visible/headless discipline."""
+    bypass_reason: str = "",
+) -> dict[str, object] | None:
+    """Raise when a launch request violates visible/headless discipline.
+
+    When ``bypass_reason`` is a non-empty string, refused verdicts are
+    overridden and a typed ``LauncherDisciplineBypass`` receipt dict is
+    returned so the caller can log it to the event store. The bypass is
+    a development-mode escape hatch: the architecture should evolve to
+    not need it, and every bypass is durable evidence of which gate
+    refused + why the operator authorized override. Codex's
+    investigation agents read these receipts to prioritize architectural
+    fixes for the bypassed gates.
+    """
+    bypass_records: list[dict[str, object]] = []
     trusted_root_verdict = validate_trusted_visible_launch_root(
         repo_root=repo_root,
         terminal_arg=terminal_arg,
     )
     if not trusted_root_verdict.allowed:
-        raise ValueError(
-            "Launcher discipline refused this launch: "
-            f"reason={trusted_root_verdict.denial_reason}. "
-            f"{trusted_root_verdict.operator_message}"
+        if not bypass_reason:
+            raise ValueError(
+                "Launcher discipline refused this launch: "
+                f"reason={trusted_root_verdict.denial_reason}. "
+                f"{trusted_root_verdict.operator_message}"
+            )
+        bypass_records.append(
+            _build_bypass_record(
+                verdict=trusted_root_verdict,
+                bypass_reason=bypass_reason,
+                terminal_arg=terminal_arg,
+                interaction_mode=interaction_mode,
+            )
         )
 
     discipline_verdict = validate_visible_launch_in_local_mode(
@@ -273,8 +294,45 @@ def enforce_launch_request_discipline(
         terminal_arg=terminal_arg,
     )
     if not discipline_verdict.allowed:
-        raise ValueError(
-            "Launcher discipline refused this launch: "
-            f"reason={discipline_verdict.denial_reason}. "
-            f"{discipline_verdict.operator_message}"
+        if not bypass_reason:
+            raise ValueError(
+                "Launcher discipline refused this launch: "
+                f"reason={discipline_verdict.denial_reason}. "
+                f"{discipline_verdict.operator_message}"
+            )
+        bypass_records.append(
+            _build_bypass_record(
+                verdict=discipline_verdict,
+                bypass_reason=bypass_reason,
+                terminal_arg=terminal_arg,
+                interaction_mode=interaction_mode,
+            )
         )
+
+    if not bypass_records:
+        return None
+    return dict(
+        schema_version=1,
+        contract_id="LauncherDisciplineBypass",
+        bypass_reason=bypass_reason,
+        terminal_arg=terminal_arg,
+        interaction_mode=interaction_mode,
+        bypassed_verdicts=bypass_records,
+    )
+
+
+def _build_bypass_record(
+    *,
+    verdict: LauncherDisciplineVerdict,
+    bypass_reason: str,
+    terminal_arg: str,
+    interaction_mode: str,
+) -> dict[str, object]:
+    """Typed record for one bypassed launcher-discipline verdict."""
+    return {
+        "denial_reason": verdict.denial_reason,
+        "operator_message": verdict.operator_message,
+        "bypass_reason": bypass_reason,
+        "terminal_arg": terminal_arg,
+        "interaction_mode": interaction_mode,
+    }

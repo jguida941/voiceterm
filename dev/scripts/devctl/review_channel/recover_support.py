@@ -69,6 +69,7 @@ class RecoverLaunchInput:
     sessions: list[dict[str, object]]
     terminal_profile_applied: str | None
     interaction_mode: str
+    artifact_paths: object | None = None
 
 
 def wait_for_claude_ack_refresh(
