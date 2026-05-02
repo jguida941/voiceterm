@@ -74,7 +74,10 @@ class DevelopmentPacketAttention:
     expired_unresolved_count: int = 0
     required_command: str = ""
     durable_plan_row_id: str = ""
-    summary: str = "No packet attention is blocking /develop."
+    summary: str = (
+        "no pending attention; proceed with current slice or /develop "
+        "dispatch-agent for next work"
+    )
 
 
 @dataclass(frozen=True, slots=True)

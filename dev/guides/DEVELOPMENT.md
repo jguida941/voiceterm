@@ -633,6 +633,10 @@ Three quality layers matter in practice:
     `remote_control` may use `--terminal none`, local visible recovery stays on
     `terminal-app`, and a successful headless recover must actually spawn the
     implementer plus wait for a current ACK instead of only preparing scripts.
+    When a development-mode caller supplies a typed launcher bypass reason,
+    the caller must persist the returned `LauncherDisciplineBypass` as a
+    `launcher_discipline_bypassed` event before launch/recover work can trust
+    the override as auditable evidence.
     The paired bootstrap/session-resume surfaces must keep a caller-threaded
     typed `ReviewState` authoritative over stale compact/current-session text
     so a recovered implementer sees the same instruction the reviewer/status

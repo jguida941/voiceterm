@@ -2188,6 +2188,11 @@ Machine-first output note:
     recommend headless `--terminal none`, and launch/recover requests fail
     closed before opening Terminal.app prompts that the remote operator cannot
     see.
+  - Development-mode launcher overrides are only trusted as durable audit
+    evidence after the caller persists the returned `LauncherDisciplineBypass`
+    as a `launcher_discipline_bypassed` event. The receipt records the bypass
+    reason, requested terminal, interaction mode, and each bypassed verdict;
+    the future operator-facing bypass flag remains separate follow-up work.
   - Event-backed `current_session` now preserves the prior typed instruction
     when the queue is blank and no explicit packet truth exists, but explicit
     live `packets` / persisted `packet_inbox` authority can still clear the

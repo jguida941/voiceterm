@@ -179,7 +179,10 @@ def _packet_attention_summary(
         return f"Packet debt audit requires {count} expired unresolved packet(s)."
     if record.attention_status == "checkpoint_required":
         return "Checkpoint attention requires startup authority repair before /develop can continue."
-    return "Packet attention requires inbox review before ordinary /develop work."
+    return (
+        "no pending attention; proceed with current slice or /develop "
+        "dispatch-agent for next work"
+    )
 
 
 def _live_pending_packet_ids(

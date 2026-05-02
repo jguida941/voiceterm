@@ -138,7 +138,8 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+- Cut a checkpoint before continuing to edit.
+- Run `python3 dev/scripts/devctl.py commit -m "<descriptive message>"`.
 
 ## Last Reviewed Scope
 

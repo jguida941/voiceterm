@@ -37,6 +37,42 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-02 - Launcher bypass receipts and failure routing become typed audit evidence
+
+Fact: Codex/Claude MP-377 dogfooding found three control-plane gaps in the
+same launch/review handoff lane. Development-mode launcher bypasses could
+return a typed `LauncherDisciplineBypass` receipt without any durable event
+store row, safe auto-apply failure envelopes needed a bounded route back into
+packet transport, and explicit `single_agent` collaboration posture fell
+through to `unknown`. The `/develop` status renderer also reused stale packet
+attention prose when all packet-attention fields were empty.
+
+Change: launch, bridge-handler, and recover callers now persist
+`launcher_discipline_bypassed` events idempotently whenever typed launcher
+discipline returns a bypass receipt. `failure_packet_router` routes failed
+safe-auto-apply action results only through the existing
+`SAFE_AUTO_APPLY_ACTION_REQUESTS` table and safe-auto-apply append helper.
+`collaboration_topology_mode` now preserves an explicit `single_agent`
+reviewer mode while still returning `unknown` for missing topology evidence.
+Empty `/develop` packet-attention state now reports that there is no pending
+attention and ordinary slice/dispatch work can proceed.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel/launcher_discipline_receipts.py`
+- `dev/scripts/devctl/review_channel/failure_packet_router.py`
+- `dev/scripts/devctl/review_channel/collaboration_session_coordination.py`
+- `dev/scripts/devctl/commands/development/packet_attention.py`
+- `dev/scripts/devctl/tests/review_channel/test_launcher_discipline_bypass_receipt.py`
+- `dev/scripts/devctl/tests/review_channel/test_failure_packet_router.py`
+- `dev/scripts/devctl/tests/review_channel/test_collaboration_session.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+
+Boundary: this does not ship the future operator-facing `--bypass-reason` CLI
+or auto-finding creation for bypass events. Those remain the separate Slice
+0.7/0.8 work items; this closure only makes the already-returned typed receipt
+durable and keeps the failure-packet route bounded by typed allowlist policy.
+
 ### 2026-05-02 - `/develop` wake pressure now includes passive packet delivery
 
 Fact: Codex/Claude `/develop` dogfooding exposed a bad split between typed

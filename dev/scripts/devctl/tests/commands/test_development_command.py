@@ -591,6 +591,24 @@ def test_packet_attention_includes_latest_finding_as_actionable() -> None:
     )
 
 
+def test_packet_attention_empty_state_reports_no_pending_attention() -> None:
+    attention = packet_attention_from_review_state({"packets": []}, rows=())
+
+    assert attention.attention_required is False
+    assert attention.attention_status == "none"
+    assert attention.wake_reason == ""
+    assert attention.latest_attention_packet_id == ""
+    assert attention.latest_finding_packet_id == ""
+    assert attention.pending_delivery_packet_ids == ()
+    assert attention.pending_actionable_packet_ids == ()
+    assert attention.expired_unresolved_count == 0
+    assert attention.required_command == ""
+    assert attention.summary == (
+        "no pending attention; proceed with current slice or /develop "
+        "dispatch-agent for next work"
+    )
+
+
 def test_packet_attention_treats_system_notice_as_delivery_wake() -> None:
     review_state = {
         "packets": [
