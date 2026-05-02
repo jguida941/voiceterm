@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `625580afd2c7` — Refresh policy-owned generated surfaces for c3adea3a
-- Tree hash: `fcee6e103b60`
-- Generation stamp: `snap-4ec1eba1ae61`
-- Generated at (UTC): 2026-05-02T18:56:07Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `117ea0d353fd` — Preserve single-agent topology mode
+- Tree hash: `54af909f0b06`
+- Generation stamp: `snap-31f785a4b5b8`
+- Generated at (UTC): 2026-05-02T18:58:54Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 136 files, +11562/-2069
+- Delta since last snapshot: 25 commits, 137 files, +11663/-2204
 - Governance findings: 152 open / 88 fixed / 254 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,27 +30,24 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `625580afd2c71a58e0f2ef42173f60be4f4a2fdb`
+- HEAD SHA: `117ea0d353fdd65196b519d0f867034bfcb2010b`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-02T14:51:50-04:00
+- HEAD timestamp (UTC): 2026-05-02T14:58:37-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_present
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 1
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
-- current_push_authorization: `push-auth-20260502T185013018877Z` (valid=True)
-- authorized_head_commit: `c3adea3a06ad2024a1bf09bd4d917d704d068b9c`
-- approved_target_identity: `tree-receipt-20260502T185013018877Z:1b241a84985feaf5ba2459d351d58082aec46d79`
 - publication_backlog: urgent
-- publication_guidance: 15 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 16 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -66,17 +63,17 @@ probes, typed actions, deterministic policy resolution — is what m...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `625580afd2c7`
+Range: last 25 commits ending at `117ea0d353fd`
 
-- commits: 24
-- files changed: 136
-- insertions: +11562
-- deletions: -2069
-- bundle classes touched: docs, tooling
+- commits: 25
+- files changed: 137
+- insertions: +11663
+- deletions: -2204
+- bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 3 file(s)
 
@@ -84,30 +81,31 @@ Range: last 24 commits ending at `625580afd2c7`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `625580af` | Refresh policy-owned generated surfaces for c3adea3a | 1 | +1/-1 | docs |  |
-| 2 | `c3adea3a` | Refresh external review snapshot for ff9988fe | 2 | +57/-54 | docs |  |
-| 3 | `ff9988fe` | Add failure packet router | 3 | +467/-57 | tooling |  |
-| 4 | `11ede1db` | Refresh external review snapshot for 492a2f37 | 2 | +64/-78 | docs |  |
-| 5 | `492a2f37` | drift before reviewer launch | 4 | +57/-49 | tooling |  |
-| 6 | `be1a3a04` | Refresh external review snapshot for be2c47c0 | 2 | +58/-59 | docs |  |
-| 7 | `be2c47c0` | Refresh managed projection surfaces (terminal-app launch pr… | 4 | +56/-51 | tooling |  |
-| 8 | `dfeb010d` | Refresh external review snapshot for 007b574f | 2 | +59/-60 | docs |  |
-| 9 | `007b574f` | Refresh managed projection surfaces (single_agent launch pr… | 4 | +60/-56 | tooling |  |
-| 10 | `3b643953` | Refresh managed projection surfaces (post-9537766e follow-u… | 3 | +61/-54 | tooling |  |
-| 11 | `a8a150d1` | Refresh external review snapshot for 9537766e | 2 | +60/-59 | docs |  |
-| 12 | `9537766e` | Refresh managed projection surfaces (post-7f4b5bf4 follow-u… | 3 | +61/-56 | tooling |  |
-| 13 | `08d33a43` | Refresh policy-owned generated surfaces for 4fc6a797 | 1 | +1/-1 | docs |  |
-| 14 | `4fc6a797` | Refresh external review snapshot for 7f4b5bf4 | 2 | +68/-64 | docs |  |
-| 15 | `7f4b5bf4` | Wake-binding slice + auto-dispatcher prep refactor (T22AN-C… | 29 | +1824/-171 | tooling |  |
-| 16 | `b06b38b4` | Refresh policy-owned generated surfaces for e61fdda3 | 1 | +1/-1 | docs |  |
-| 17 | `e61fdda3` | Refresh external review snapshot for 1fcceafa | 2 | +76/-90 | docs |  |
-| 18 | `1fcceafa` | Protect review-channel monitors from cleanup | 11 | +440/-57 | tooling |  |
-| 19 | `4a77272a` | Refresh external review snapshot for 05425b97 | 2 | +45/-45 | docs |  |
-| 20 | `05425b97` | Refresh external review snapshot for 2dc272ea | 1 | +64/-63 | tooling |  |
-| 21 | `2dc272ea` | Refresh policy-owned generated surfaces for 00e74e7c | 2 | +6/-4 | docs |  |
-| 22 | `00e74e7c` | Refresh external review snapshot for e83a5e75 | 2 | +80/-78 | docs |  |
-| 23 | `e83a5e75` | Add typed develop orchestration controller | 109 | +7827/-787 | tooling | Parser / ANSI boundary |
-| 24 | `e6c5cdf4` | Checkpoint typed projection drift after rev_pkt_2716 binding | 3 | +69/-74 | tooling |  |
+| 1 | `117ea0d3` | Preserve single-agent topology mode | 2 | +101/-135 | tooling |  |
+| 2 | `625580af` | Refresh policy-owned generated surfaces for c3adea3a | 1 | +1/-1 | docs |  |
+| 3 | `c3adea3a` | Refresh external review snapshot for ff9988fe | 2 | +57/-54 | docs |  |
+| 4 | `ff9988fe` | Add failure packet router | 3 | +467/-57 | tooling |  |
+| 5 | `11ede1db` | Refresh external review snapshot for 492a2f37 | 2 | +64/-78 | docs |  |
+| 6 | `492a2f37` | drift before reviewer launch | 4 | +57/-49 | tooling |  |
+| 7 | `be1a3a04` | Refresh external review snapshot for be2c47c0 | 2 | +58/-59 | docs |  |
+| 8 | `be2c47c0` | Refresh managed projection surfaces (terminal-app launch pr… | 4 | +56/-51 | tooling |  |
+| 9 | `dfeb010d` | Refresh external review snapshot for 007b574f | 2 | +59/-60 | docs |  |
+| 10 | `007b574f` | Refresh managed projection surfaces (single_agent launch pr… | 4 | +60/-56 | tooling |  |
+| 11 | `3b643953` | Refresh managed projection surfaces (post-9537766e follow-u… | 3 | +61/-54 | tooling |  |
+| 12 | `a8a150d1` | Refresh external review snapshot for 9537766e | 2 | +60/-59 | docs |  |
+| 13 | `9537766e` | Refresh managed projection surfaces (post-7f4b5bf4 follow-u… | 3 | +61/-56 | tooling |  |
+| 14 | `08d33a43` | Refresh policy-owned generated surfaces for 4fc6a797 | 1 | +1/-1 | docs |  |
+| 15 | `4fc6a797` | Refresh external review snapshot for 7f4b5bf4 | 2 | +68/-64 | docs |  |
+| 16 | `7f4b5bf4` | Wake-binding slice + auto-dispatcher prep refactor (T22AN-C… | 29 | +1824/-171 | tooling |  |
+| 17 | `b06b38b4` | Refresh policy-owned generated surfaces for e61fdda3 | 1 | +1/-1 | docs |  |
+| 18 | `e61fdda3` | Refresh external review snapshot for 1fcceafa | 2 | +76/-90 | docs |  |
+| 19 | `1fcceafa` | Protect review-channel monitors from cleanup | 11 | +440/-57 | tooling |  |
+| 20 | `4a77272a` | Refresh external review snapshot for 05425b97 | 2 | +45/-45 | docs |  |
+| 21 | `05425b97` | Refresh external review snapshot for 2dc272ea | 1 | +64/-63 | tooling |  |
+| 22 | `2dc272ea` | Refresh policy-owned generated surfaces for 00e74e7c | 2 | +6/-4 | docs |  |
+| 23 | `00e74e7c` | Refresh external review snapshot for e83a5e75 | 2 | +80/-78 | docs |  |
+| 24 | `e83a5e75` | Add typed develop orchestration controller | 109 | +7827/-787 | tooling | Parser / ANSI boundary |
+| 25 | `e6c5cdf4` | Checkpoint typed projection drift after rev_pkt_2716 binding | 3 | +69/-74 | tooling |  |
 
 ### Files
 
@@ -121,7 +119,7 @@ Range: last 24 commits ending at `625580afd2c7`
 | `dev/active/MASTER_PLAN.md` | tooling | +603/-4 |
 | `dev/active/ai_governance_platform.md` | tooling | +7/-0 |
 | `dev/active/autonomous_governance_loop_v2.md` | tooling | +25/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1149/-1158 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1240/-1285 |
 | `dev/guides/DEVELOPMENT.md` | docs | +6/-0 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +7/-7 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +56/-1 |
@@ -153,7 +151,7 @@ Range: last 24 commits ending at `625580afd2c7`
 | `dev/scripts/devctl/commands/development/orchestration_agent_loop_rows.py` | tooling | +46/-0 |
 | `dev/scripts/devctl/commands/development/orchestration_agent_loop_state.py` | tooling | +66/-0 |
 | `dev/scripts/devctl/commands/development/orchestration_inputs.py` | tooling | +89/-0 |
-| _96 more files trimmed_ | | |
+| _97 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -228,6 +226,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`117ea0d3`** — Preserve single-agent topology mode
+  - evolution: Fact: Codex/Claude `/develop` dogfooding exposed a bad split between typed queue truth and wake truth. A provider-to-provider `system_notice` could sit in the pending queue and count in runtime sync state, while `/devel…
 - **`625580af`** — Refresh policy-owned generated surfaces for c3adea3a
   - evolution: Fact: Codex/Claude `/develop` dogfooding exposed a bad split between typed queue truth and wake truth. A provider-to-provider `system_notice` could sit in the pending queue and count in runtime sync state, while `/devel…
 - **`c3adea3a`** — Refresh external review snapshot for ff9988fe
@@ -312,10 +312,10 @@ Recent findings:
 - open governance findings: 152
 
 ### Startup advisories
-- checkpoint_before_continue: dirty_after_local_checkpoint
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Relaunch the reviewer loop immediately.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/reporting/status.py`): dogfood.command.status: Auto-ingested devctl finalization failure rc=1.
@@ -337,4 +337,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-4ec1eba1ae61` binds this file to HEAD `625580afd2c7`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-31f785a4b5b8` binds this file to HEAD `117ea0d353fd`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
