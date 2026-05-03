@@ -15,11 +15,6 @@ from ...platform.connectivity_registry import (
 from ...platform.connectivity_reader_verification import (
     find_missing_connection_findings,
 )
-from ...runtime.authority_snapshot import (
-    build_authority_snapshot,
-    summary_blockers_csv,
-    summary_next_command,
-)
 from ...runtime.control_plane_read_model import (
     ControlPlaneReadModel,
     build_control_plane_read_model,
@@ -30,8 +25,6 @@ from ...runtime.control_plane_resolve import (
     read_json_artifact,
 )
 from ...runtime.control_topology import derive_startup_control_truth
-from ...runtime.review_state_locator import load_current_review_state
-from ...runtime.review_state_parser import review_state_from_payload
 from ...runtime.reviewer_runtime_models import (
     has_active_remote_control_attachment,
     remote_control_attachment_from_mapping,
@@ -48,6 +41,10 @@ from ...runtime.surface_provenance import (
 )
 from ...runtime.value_coercion import coerce_bool, coerce_string
 from . import session_resume_git as _session_resume_git
+from .session_resume_authority_finalize import (
+    AuthorityFinalizeInputs,
+    finalize_authority_payload,
+)
 from .session_resume_authority_payload import build_session_resume_review_state_context
 from .session_resume_packet import (
     SessionCachePacket,
@@ -62,6 +59,7 @@ from .session_resume_paths import (
     resolve_source_paths,
 )
 from .session_resume_role_projection import project_packet_next_command_for_role
+from .session_resume_review_state_payload import resolve_typed_review_state_payload
 from .session_resume_source_helpers import (
     AuthorityPayloadInputs,
     _load_session_resume_sources_and_model,
@@ -162,35 +160,19 @@ def build_from_sources(
         head_sha=head_sha,
         last_reviewed_sha=last_reviewed_sha,
     )
-    obs_status = (
-        model.reviewer_observation.status
-        if model.reviewer_observation is not None
-        else ""
-    )
+    observation = model.reviewer_observation
+    obs_status = observation.status if observation is not None else ""
     coordination = model.coordination or _extract_coordination(
         sources,
         repo_root=repo_root,
         governance=governance,
     )
-    review_state_payload = (
-        sources.get("review_state")
-        if isinstance(sources.get("review_state"), dict)
-        else {}
+    typed_review_state, review_state_payload = resolve_typed_review_state_payload(
+        repo_root=repo_root,
+        governance=governance,
+        review_state=review_state,
+        sources=sources,
     )
-    typed_review_state = review_state or review_state_from_payload(review_state_payload)
-    if review_state is None and not _review_state_has_packets(typed_review_state):
-        loaded_review_state = load_current_review_state(
-            repo_root,
-            governance=governance,
-            prefer_cached_projection=True,
-        )
-        if _review_state_has_packets(loaded_review_state):
-            typed_review_state = loaded_review_state
-            to_dict = getattr(typed_review_state, "to_dict", None)
-            if callable(to_dict):
-                payload = to_dict()
-                if isinstance(payload, dict):
-                    review_state_payload = payload
     attention_payload = _extract_attention_payload(
         sources,
         default_status=model.attention_status,
@@ -257,22 +239,20 @@ def build_from_sources(
         ),
     )
     _attach_review_state_provenance(authority_payload, typed_review_state)
-    shared_blockers = summary_blockers_csv(authority_payload)
-    top_blocker = model.top_blocker
-    if top_blocker == _str_field(session, "open_findings"):
-        top_blocker = open_findings
-    blockers = _resolve_blockers(receipt, top_blocker, shared_blockers)
-    explicit_runtime_command = bool(recovery_command or attention_command)
-    if shared_blockers != "none" and not explicit_runtime_command:
-        authority_payload["next_command"] = summary_next_command(authority_payload)
-    visible_next_cmd = project_packet_next_command_for_role(
-        role=role,
-        command=str(authority_payload.get("next_command") or visible_next_cmd),
-    )
-    authority_payload["next_command"] = visible_next_cmd
-    authority_snapshot = build_authority_snapshot(
-        authority_payload,
-        caller_role=role,
+    authority_payload, top_blocker, blockers, visible_next_cmd, authority_snapshot = (
+        finalize_authority_payload(
+            AuthorityFinalizeInputs(
+                authority_payload=authority_payload,
+                top_blocker=model.top_blocker,
+                open_findings=open_findings,
+                session_open_findings=_str_field(session, "open_findings"),
+                recovery_command=recovery_command,
+                attention_command=attention_command,
+                visible_next_cmd=visible_next_cmd,
+                role=role,
+                receipt=receipt,
+            )
+        )
     )
     return build_packet_from_resolved_context(
         repo_root=repo_root,
@@ -336,20 +316,6 @@ def _collaboration_payload_from_review_state(
         if isinstance(payload, dict) and isinstance(payload.get("collaboration"), dict):
             return dict(payload["collaboration"])
     return {}
-
-
-def _review_state_has_packets(review_state: object | None) -> bool:
-    if review_state is None:
-        return False
-    packets = getattr(review_state, "packets", None)
-    if packets:
-        return True
-    to_dict = getattr(review_state, "to_dict", None)
-    if callable(to_dict):
-        payload = to_dict()
-        if isinstance(payload, dict):
-            return bool(payload.get("packets"))
-    return False
 
 
 def _attach_review_state_provenance(
@@ -484,21 +450,3 @@ from .session_resume_render import (
     render_markdown,
     render_summary,
 )
-
-
-def _resolve_blockers(
-    receipt: dict[str, Any] | None,
-    top_blocker: str,
-    shared_blockers: str = "none",
-) -> str:
-    """Return the effective blocker string, failing closed without a receipt."""
-    if receipt is None:
-        return "bootstrap_required"
-    blockers: list[str] = []
-    for raw in (top_blocker, shared_blockers):
-        for token in str(raw or "").split(","):
-            blocker = token.strip()
-            if not blocker or blocker == "none" or blocker in blockers:
-                continue
-            blockers.append(blocker)
-    return ",".join(blockers) if blockers else "none"

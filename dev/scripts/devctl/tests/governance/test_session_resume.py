@@ -22,6 +22,9 @@ from dev.scripts.devctl.commands.governance.session_resume_paths import (
     get_review_state_mtime,
     resolve_source_paths,
 )
+from dev.scripts.devctl.commands.governance.session_resume_authority_finalize import (
+    resolve_blockers,
+)
 from dev.scripts.devctl.commands.governance.session_resume_support import (
     SessionCachePacket,
     build_from_sources,
@@ -586,6 +589,26 @@ class TestFieldDerivation(unittest.TestCase):
         )
         for b in ("startup_authority", "checkpoint_required", "continuation_blocked"):
             self.assertIn(b, result)
+
+    def test_backlog_open_findings_are_advisory_for_session_resume_blockers(
+        self,
+    ) -> None:
+        self.assertEqual(
+            resolve_blockers(
+                {"startup_authority_ok": True},
+                "152 open finding(s) (backlog)",
+            ),
+            "none",
+        )
+
+    def test_live_open_findings_still_block_session_resume(self) -> None:
+        self.assertEqual(
+            resolve_blockers(
+                {"startup_authority_ok": True},
+                "open finding(s): unresolved packet",
+            ),
+            "open finding(s): unresolved packet",
+        )
 
     def test_interaction_mode_none_compact(self) -> None:
         self.assertEqual(derive_interaction_mode(None), "unresolved")
