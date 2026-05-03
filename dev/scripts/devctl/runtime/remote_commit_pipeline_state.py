@@ -44,6 +44,7 @@ REFRESHABLE_PIPELINE_STATES = frozenset({
     "commit_recorded",
     "push_blocked",
     "awaiting_push",
+    STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
 })
 
 TERMINAL_PIPELINE_STATES = frozenset({

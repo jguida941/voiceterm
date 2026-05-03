@@ -134,7 +134,9 @@ def classify_pipeline(
     }
     expired = authorization_is_expired(payload, now=reference_now)
 
-    if state in TERMINAL_STATES:
+    if state in TERMINAL_STATES and not (
+        expired and state in REFRESHABLE_STATES
+    ):
         return PipelineAutoRecoveryClassification(
             classification=CLASSIFICATION_ALREADY_CLEAN,
             reason=f"pipeline_state_terminal:{state}",

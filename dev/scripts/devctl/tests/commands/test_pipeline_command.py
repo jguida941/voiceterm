@@ -261,6 +261,43 @@ class PipelineStatusTests(unittest.TestCase):
         finally:
             fixture.close()
 
+    def test_status_recommends_refresh_for_expired_delivered_local_pipeline(
+        self,
+    ) -> None:
+        authorized = "deadbeef00000000000000000000000000000000"
+        receipt_head = "feedface00000000000000000000000000000000"
+        fixture = _PipelineFixture(fake_head=receipt_head)
+        try:
+            fixture.write_payload(
+                _sample_pipeline_payload(
+                    state="delivered_locally_pending_publish",
+                    authorized_head_sha=authorized,
+                    commit_sha=authorized,
+                    expires_at_utc="2000-01-01T00:00:00.000000Z",
+                )
+            )
+            with patch(
+                "dev.scripts.devctl.commands.pipeline.head_movement.receipt_commit_parent_sha",
+                return_value=authorized,
+            ):
+                view = build_status_view(fixture.paths())
+
+            self.assertTrue(view["authorization_expired"])
+            self.assertFalse(view["head_has_moved"])
+            self.assertEqual(
+                view["recommended_next_action"],
+                "refresh-authorization",
+            )
+            self.assertEqual(
+                view["next_command"],
+                (
+                    "python3 dev/scripts/devctl.py pipeline --action "
+                    "refresh-authorization --format json"
+                ),
+            )
+        finally:
+            fixture.close()
+
     def test_status_projects_push_execute_for_live_commit_recorded_pipeline(self) -> None:
         fixture = _PipelineFixture(fake_head="deadbeef00000000000000000000000000000000")
         try:
@@ -657,6 +694,45 @@ class PipelineRefreshAuthorizationTests(unittest.TestCase):
         finally:
             fixture.close()
 
+    def test_refresh_authorization_accepts_delivered_local_pipeline(self) -> None:
+        authorized = "deadbeef00000000000000000000000000000000"
+        receipt_head = "feedface00000000000000000000000000000000"
+        fixture = _PipelineFixture(fake_head=receipt_head)
+        try:
+            expired = "2000-01-01T00:00:00.000000Z"
+            fixture.write_payload(
+                _sample_pipeline_payload(
+                    state="delivered_locally_pending_publish",
+                    authorized_head_sha=authorized,
+                    commit_sha=authorized,
+                    expires_at_utc=expired,
+                )
+            )
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.pipeline.head_movement."
+                    "receipt_commit_parent_sha",
+                    return_value=authorized,
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.pipeline."
+                    "refresh_authorization_action.refresh_pipeline_projections",
+                    return_value=[],
+                ),
+            ):
+                args = fixture.namespace(action="refresh-authorization")
+                rc = run_refresh_authorization(args)
+
+            self.assertEqual(rc, 0)
+            updated = fixture.read_payload()
+            self.assertEqual(updated["state"], "delivered_locally_pending_publish")
+            self.assertNotEqual(
+                updated["push_authorization"]["expires_at_utc"],
+                expired,
+            )
+        finally:
+            fixture.close()
+
 
 class PipelineLocalDeliveryTests(unittest.TestCase):
     def test_explicit_mark_delivered_local_accepts_push_failure_reasons(self) -> None:
@@ -874,6 +950,52 @@ class PipelineAutoRecoverTests(unittest.TestCase):
                 "dev.scripts.devctl.commands.pipeline.refresh_authorization_action.refresh_pipeline_projections",
                 return_value=[],
             ) as mock_refresh:
+                result = apply_auto_recover(
+                    paths=fixture.paths(),
+                    operator_actor="codex",
+                )
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["chosen_action"], "refresh-authorization")
+            self.assertEqual(
+                result["classification"]["classification"],
+                CLASSIFICATION_NEEDS_REFRESH_AUTHORIZATION,
+            )
+            mock_refresh.assert_called_once()
+            updated = fixture.read_payload()
+            self.assertNotEqual(
+                updated["push_authorization"]["expires_at_utc"],
+                expired,
+            )
+        finally:
+            fixture.close()
+
+    def test_auto_recover_refreshes_expired_delivered_local_pipeline(self) -> None:
+        authorized = "deadbeef00000000000000000000000000000000"
+        receipt_head = "feedface00000000000000000000000000000000"
+        fixture = _PipelineFixture(fake_head=receipt_head)
+        try:
+            expired = "2000-01-01T00:00:00.000000Z"
+            fixture.write_payload(
+                _sample_pipeline_payload(
+                    state="delivered_locally_pending_publish",
+                    authorized_head_sha=authorized,
+                    commit_sha=authorized,
+                    expires_at_utc=expired,
+                )
+            )
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.pipeline.head_movement."
+                    "receipt_commit_parent_sha",
+                    return_value=authorized,
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.pipeline."
+                    "refresh_authorization_action.refresh_pipeline_projections",
+                    return_value=[],
+                ) as mock_refresh,
+            ):
                 result = apply_auto_recover(
                     paths=fixture.paths(),
                     operator_actor="codex",

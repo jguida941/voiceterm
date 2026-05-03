@@ -293,7 +293,10 @@ def recommended_next_action(
     state = pipeline_state_of(payload)
     if not payload:
         return "none"
-    if state in TERMINAL_STATES:
+    expired = authorization_is_expired(payload, now=now)
+    if state in TERMINAL_STATES and not (
+        expired and state in REFRESHABLE_STATES
+    ):
         return "none"
     if head_has_moved(
         payload,
@@ -305,7 +308,7 @@ def recommended_next_action(
         return "mark-delivered-local"
     if state == "push_blocked":
         return "abandon"
-    if authorization_is_expired(payload, now=now):
+    if expired and state in REFRESHABLE_STATES:
         return "refresh-authorization"
     return "none"
 
@@ -319,7 +322,12 @@ def recommended_next_command(
 ) -> str:
     """Return the exact devctl command an operator/agent should run next."""
     state = pipeline_state_of(payload)
-    if not payload or state in TERMINAL_STATES:
+    if not payload:
+        return ""
+    expired = authorization_is_expired(payload, now=now)
+    if state in TERMINAL_STATES and not (
+        expired and state in REFRESHABLE_STATES
+    ):
         return ""
     if head_has_moved(
         payload,
@@ -331,7 +339,7 @@ def recommended_next_command(
         return _PIPELINE_MARK_DELIVERED_LOCAL_COMMAND
     if state == "push_blocked":
         return _PIPELINE_ABANDON_COMMAND
-    if authorization_is_expired(payload, now=now):
+    if expired and state in REFRESHABLE_STATES:
         return _PIPELINE_REFRESH_AUTHORIZATION_COMMAND
     if state in {"commit_recorded", "push_pending"}:
         return _PUSH_EXECUTE_COMMAND
