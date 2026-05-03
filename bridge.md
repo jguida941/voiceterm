@@ -78,10 +78,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-03T05:03:13Z`
-- Last Codex poll (Local America/New_York): `2026-05-03 01:03:13 EDT`
+- Last Codex poll: `2026-05-03T05:32:59Z`
+- Last Codex poll (Local America/New_York): `2026-05-03 01:32:59 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `f14e686ca522b061b416840b8b3dd805c5ef96d63440e3783dfd3f70adec9ae7`
+- Last non-audit worktree hash: `f1250b9de083dc46667c2a2195db39faf5debcd385ed3e45f31eb1c76ab90e28`
 - Current instruction revision: ``
 
 ## Protocol
@@ -138,8 +138,7 @@ none
 
 ## Current Instruction For Claude
 
-- Cut a checkpoint before continuing to edit.
-- Run `python3 dev/scripts/devctl.py commit -m "<descriptive message>"`.
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 
