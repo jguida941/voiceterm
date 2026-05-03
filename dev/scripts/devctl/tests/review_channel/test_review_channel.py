@@ -9166,6 +9166,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 action="launch",
                 execution_mode="auto",
                 terminal="terminal-app",
+                operator_interaction_mode="local_terminal",
                 terminal_profile="auto-dark",
                 review_channel_path=str(review_channel_path.relative_to(root)),
                 bridge_path=str(bridge_path.relative_to(root)),
@@ -9186,18 +9187,24 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             with (
                 patch.object(review_channel_command, "REPO_ROOT", root),
+                patch.object(
+                    review_channel_bridge_handler,
+                    "resolve_launch_interaction_mode",
+                    return_value="local_terminal",
+                ),
                 patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}, clear=False),
             ):
                 rc = review_channel_command.run(args)
 
             self.assertEqual(rc, 0)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
-            self.assertTrue(payload["ok"])
+            self.assertFalse(payload["ok"])
+            self.assertTrue(payload["exit_ok"])
             self.assertFalse(payload["launched"])
             self.assertEqual(payload["approval_mode"], "balanced")
             self.assertEqual(payload["terminal_profile_requested"], "auto-dark")
             self.assertEqual(payload["terminal_profile_applied"], "Pro")
-            self.assertEqual(payload["bridge_liveness"]["overall_state"], "fresh")
+            self.assertEqual(payload["bridge_liveness"]["overall_state"], "stale")
             self.assertTrue(payload["bridge_liveness"]["claude_ack_present"])
             self.assertNotIn("codex_planned_lane_count", payload)
             self.assertNotIn("claude_planned_lane_count", payload)
