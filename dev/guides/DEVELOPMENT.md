@@ -391,6 +391,14 @@ Three quality layers matter in practice:
   the future autonomy proof. Generic green suites, raw coverage, or broad
   blast-radius heuristics can weight trust, but they are not the primary
   automation gate.
+- Python validation must go through the bounded adapter for normal agent work:
+  use `python3 dev/scripts/devctl.py test-python --suite devctl` or explicit
+  `--path` targets. Repo-root pytest is scoped, fail-fast, and guarded by
+  session/per-test timeouts so a mistaken broad selection fails closed instead
+  of consuming an agent turn for hours.
+- `check-router` must add Python suites through path-aware risk add-ons, not
+  static bundle membership. Devctl-only changes get focused devctl tests;
+  Operator Console tests run only when `app/operator_console/**/*.py` is touched.
 - `probe_mixed_concerns.py` ranks Python files that contain 3+ independent
   top-level function clusters so mixed-concern modules get split before line
   counts hide the smell.

@@ -324,7 +324,7 @@ Looking to contribute or dig into the codebase?
 | Publish governed AI-governance changes | `python3 dev/scripts/devctl.py push --execute` |
 | Full CI-equivalent check locally | `python3 dev/scripts/devctl.py check --profile ci` |
 | Rust tests only | `cd rust && cargo test --bin voiceterm` |
-| Python tests only | `python3 -m pytest dev/scripts/devctl/tests/ -q` |
+| Python tests only | `python3 dev/scripts/devctl.py test-python --suite devctl` |
 | Check review-channel remote-control health | `python3 dev/scripts/devctl.py review-channel --action doctor --terminal none --format md` |
 | Check docs are up to date | `python3 dev/scripts/devctl.py docs-check --strict-tooling` |
 | Governance / archive hygiene | `python3 dev/scripts/devctl.py hygiene` |

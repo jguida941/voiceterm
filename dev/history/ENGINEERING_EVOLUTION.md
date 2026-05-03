@@ -37,6 +37,33 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-03 - Python tests now run through bounded repo policy
+
+Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands
+could still be selected by static bundles or copied into agent workflows,
+burning local sessions without a repo-owned timeout/target contract.
+
+Change: `devctl test-python` is now the repo-owned pytest adapter for named
+Python suites and explicit path targets. Root pytest discovery is scoped and
+fail-fast with session/per-test timeout rails, `check_pytest_runtime_policy.py`
+blocks raw pytest commands from canonical bundles plus missing pytest policy,
+and `check-router` adds Python tests as path-aware add-ons. Devctl-only
+tooling changes get focused devctl tests, while Operator Console tests only
+route for touched Python files under `app/operator_console`.
+
+Evidence:
+
+- `conftest.py`
+- `pytest.ini`
+- `dev/scripts/devctl/commands/python_tests.py`
+- `dev/scripts/devctl/runtime/python_test_contract.py`
+- `dev/scripts/checks/check_pytest_runtime_policy.py`
+- `dev/scripts/devctl/commands/check/router_support.py`
+- `dev/scripts/devctl/tests/commands/test_python_tests.py`
+- `dev/scripts/devctl/tests/checks/test_check_pytest_runtime_policy.py`
+- `dev/scripts/devctl/tests/commands/check/test_check_router.py`
+- `.github/workflows/tooling_control_plane.yml`
+
 ### 2026-05-03 - Governed push now detects trimmed managed-projection dirt before green reports
 
 Fact: Live post-push dogfooding caught a false green: `devctl push` published

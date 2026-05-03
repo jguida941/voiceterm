@@ -30,6 +30,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("guard_enforcement_inventory", "check_guard_enforcement_inventory.py"),
     ("guide_contract_sync", "check_guide_contract_sync.py"),
     ("python_broad_except", "check_python_broad_except.py"),
+    ("pytest_runtime_policy", "check_pytest_runtime_policy.py"),
     ("python_subprocess_policy", "check_python_subprocess_policy.py"),
     ("compat_matrix", "check_compat_matrix.py"),
     ("compat_matrix_smoke", "compat_matrix_smoke.py"),

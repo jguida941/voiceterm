@@ -15,11 +15,13 @@ from .router_constants import (
     CheckRouterConfig,
     resolve_check_router_config,
 )
+from .router_python_tests import detect_python_test_addons
 
 __all__ = [
     "BUNDLE_BY_LANE",
     "classify_lane",
     "dedupe_commands",
+    "detect_python_test_addons",
     "detect_risk_addons",
     "sample_paths",
 ]

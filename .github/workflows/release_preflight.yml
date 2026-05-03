@@ -211,6 +211,7 @@ jobs:
           python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
           python3 dev/scripts/checks/check_code_shape.py
           python3 dev/scripts/checks/check_package_layout.py
+          python3 dev/scripts/checks/check_pytest_runtime_policy.py
           python3 dev/scripts/checks/check_python_broad_except.py --since-ref "${{ steps.ai_guard_range.outputs.since }}" --head-ref "${{ steps.ai_guard_range.outputs.head }}"
           python3 dev/scripts/checks/check_python_subprocess_policy.py
           python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py

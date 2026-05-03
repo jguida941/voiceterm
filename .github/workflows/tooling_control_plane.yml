@@ -44,6 +44,8 @@ on:
       - "dev/guides/*.md"
       - "dev/scripts/README.md"
       - ".github/workflows/*.yml"
+      - "conftest.py"
+      - "pytest.ini"
       - "mypy.ini"
   pull_request:
     paths:
@@ -76,6 +78,8 @@ on:
       - "dev/guides/*.md"
       - "dev/scripts/README.md"
       - ".github/workflows/*.yml"
+      - "conftest.py"
+      - "pytest.ini"
       - "mypy.ini"
 
 jobs:
@@ -469,6 +473,9 @@ jobs:
           python3 dev/scripts/checks/check_package_layout.py \
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run pytest runtime policy guard
+        run: python3 dev/scripts/checks/check_pytest_runtime_policy.py
 
       - name: Run Python broad-except guard
         run: |

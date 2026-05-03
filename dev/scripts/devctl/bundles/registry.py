@@ -60,6 +60,7 @@ _GUARD_CHECKS: Final[tuple[str, ...]] = (
     check_script_shell_command("code_shape"),
     check_script_shell_command("function_duplication"),
     check_script_shell_command("package_layout"),
+    check_script_shell_command("pytest_runtime_policy"),
     check_script_shell_command("python_subprocess_policy"),
     check_script_shell_command("mutation_bypass_graph_closure"),
     check_script_shell_command("workflow_shell_hygiene"),
@@ -168,10 +169,6 @@ _RELEASE_PUBLICATION_SYNC_COMMAND: Final[str] = (
     check_script_shell_command("publication_sync", "--release-branch-aware")
 )
 
-# Operator Console proof path for tooling changes touching the optional PyQt UI.
-_OPERATOR_CONSOLE_TESTS_COMMAND: Final[str] = "python3 -m pytest app/operator_console/tests/ -q --tb=short"
-
-
 def _compose_post_push_guard_checks() -> tuple[str, ...]:
     """Reuse the canonical guard list while scoping diff-aware checks to origin/develop."""
     commands: list[str] = []
@@ -243,7 +240,6 @@ _BUNDLE_SPECS: Final[tuple[BundleSpec, ...]] = (
         *_ORCHESTRATE_COMMANDS,
         *_SHARED_GOVERNANCE_CHECKS,
         *_GUARD_CHECKS,
-        _OPERATOR_CONSOLE_TESTS_COMMAND,
         _HOST_PROCESS_HYGIENE_COMMAND,
         ),
     ),

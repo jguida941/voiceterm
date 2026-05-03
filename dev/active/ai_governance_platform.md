@@ -5570,6 +5570,14 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       scope: Use `rev_pkt_2842` as the typed evidence packet for general Python-practices tightening. Prefer existing tool/config ratchets before custom guard growth: expand Ruff's selected rule families, promote bounded mypy enforcement, add commit-time mypy/bandit coverage, wire Python dependency and test-isolation tools, and add only the missing custom guards/probes that cannot be covered by standard tools.
       acceptance_criteria: Wave 1 enables the selected Ruff rule families, promotes mypy enforcement by scoped package with a public-signature `Any` budget, and wires mypy/bandit into pre-commit without creating a separate lint system. Wave 2 adds pip-audit, pytest-randomly, and pytest-timeout through the existing security/test surfaces. Wave 3 adds assertion-less-test, environment-subscript, logger-name, and test-sleep guards with fixture proof, script-catalog rows, bundle/workflow routing, and docs. Wave 4 keeps primitive-obsession, unbounded-queue, and typed-contract property-test suggestions advisory until false-positive behavior is measured.
       progress: 2026-05-03 Claude packet `rev_pkt_2842` was acknowledged and ingested into typed plan authority as `PlanIntentIngestionReceipt` row `MP377-P0-T22AN-AA`; its wake receipt used `wake_method=session_poll` for the existing Codex session and recorded review-only delivery without spawning a provider process.
+- [ ] `MP377-P0-T22AN-AB` Bound Python test execution through typed validation policy.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `in_progress`
+      depends_on: `MP377-P0-T22AN-AA`, `MP377-P0-T22AN-X`
+      scope: Turn the pytest-runaway dogfood failure into a repo-owned validation adapter instead of letting agents and bundles call broad raw pytest directly. Keep the contract portable by treating pytest as this repo's adapter implementation, not universal platform authority.
+      acceptance_criteria: Root pytest discovery is scoped and fail-fast with session/per-test timeouts; `devctl test-python` owns named suites and explicit path targets; `check_pytest_runtime_policy.py` blocks raw pytest commands in canonical bundles and missing pytest config policy; `check-router` selects Python test add-ons from touched paths so devctl changes get focused devctl tests and Operator Console tests run only for Python source/test changes; script catalog, bundles, workflows, generated surfaces, and maintainer docs carry the same contract.
+      progress: 2026-05-03 first implementation adds root `pytest.ini` / `conftest.py` timeout rails, `devctl test-python`, `check_pytest_runtime_policy.py`, path-aware Python test add-ons in `check-router`, bundle/workflow routing, and focused contract tests.
 
 2026-05-02 `rev_pkt_2816` packet-stack durable-home map:
 

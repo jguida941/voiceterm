@@ -57,6 +57,7 @@ from ..commands import (
     process_cleanup,
     process_watch,
     publication_sync,
+    python_tests,
     pypi,
     quality_policy,
     ralph_status,
@@ -149,6 +150,7 @@ from ..triage.parser import add_findings_priority_parser, add_triage_parser
 from .artifact_suppression import ARTIFACT_WRITES_ENV, artifact_writes_suppressed
 from .artifact_suppression import read_only_command_suppresses_artifact_writes
 from .builders import add_standard_parsers
+from .python_tests import add_parser as add_python_tests_parser
 
 # Commands that run as status/reporting surfaces from the caller's point of
 # view. They skip audit event writes and telemetry refresh so devctl works on
@@ -225,6 +227,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_mutation_loop_parser(sub)
     add_failure_cleanup_parser(sub, default_ci_limit=DEFAULT_CI_LIMIT)
     add_reports_cleanup_parser(sub)
+    add_python_tests_parser(sub)
     add_commit_parser(sub)
     add_push_parser(sub)
     add_sync_parser(sub)
@@ -362,6 +365,7 @@ COMMAND_HANDLERS = {
     "process-audit": process_audit.run,
     "process-cleanup": process_cleanup.run,
     "process-watch": process_watch.run,
+    "test-python": python_tests.run,
     "guard-run": guard_run.run,
     "autonomy-swarm": autonomy_swarm.run,
     "mutation-loop": mutation_loop.run,

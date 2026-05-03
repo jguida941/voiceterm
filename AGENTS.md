@@ -1800,6 +1800,7 @@ python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
 python3 dev/scripts/checks/check_function_duplication.py
 python3 dev/scripts/checks/check_package_layout.py
+python3 dev/scripts/checks/check_pytest_runtime_policy.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
@@ -1844,6 +1845,7 @@ python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
 python3 dev/scripts/checks/check_function_duplication.py
 python3 dev/scripts/checks/check_package_layout.py
+python3 dev/scripts/checks/check_pytest_runtime_policy.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
@@ -1912,6 +1914,7 @@ python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
 python3 dev/scripts/checks/check_function_duplication.py
 python3 dev/scripts/checks/check_package_layout.py
+python3 dev/scripts/checks/check_pytest_runtime_policy.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
@@ -1941,7 +1944,6 @@ python3 dev/scripts/checks/check_python_suppression_debt.py
 python3 dev/scripts/checks/check_structural_similarity.py
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
-python3 -m pytest app/operator_console/tests/ -q --tb=short
 python3 dev/scripts/devctl.py process-cleanup --verify --format md
 ```
 
@@ -1987,6 +1989,7 @@ python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
 python3 dev/scripts/checks/check_function_duplication.py
 python3 dev/scripts/checks/check_package_layout.py
+python3 dev/scripts/checks/check_pytest_runtime_policy.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
@@ -2038,6 +2041,7 @@ python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop
 python3 dev/scripts/checks/check_function_duplication.py --since-ref origin/develop
 python3 dev/scripts/checks/check_package_layout.py --since-ref origin/develop
+python3 dev/scripts/checks/check_pytest_runtime_policy.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py --since-ref origin/develop
 python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py

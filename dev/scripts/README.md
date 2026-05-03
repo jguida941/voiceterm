@@ -276,6 +276,7 @@ python3 dev/scripts/devctl.py governance-bootstrap --target-repo /tmp/copied-rep
 python3 dev/scripts/devctl.py governance-export --format md
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py docs-check --strict-tooling
+python3 dev/scripts/devctl.py test-python --suite devctl
 python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/devctl.py process-cleanup --verify --format md
 python3 dev/scripts/devctl.py list
@@ -1715,6 +1716,7 @@ summary over the selected snapshot window.
 | `dev/scripts/checks/check_naming_consistency.py` | Host/provider naming consistency gate | Verifies host/provider IDs and provider-token labels stay aligned across runtime enums/registry, compatibility-matrix IDs, and tooling-owned token contracts (matrix policy, smoke policy map, and isolation scanner token regex). |
 | `dev/scripts/checks/check_repo_url_parity.py` | Repository URL parity guard | Verifies canonical repository URL consistency across Cargo/PyPI/docs metadata surfaces. |
 | `dev/scripts/checks/check_python_broad_except.py` | Python broad-except rationale guard | Fails when newly added `except Exception` / `except BaseException` handlers appear in repo-owned Python tooling or Operator Console code without a nearby `broad-except: allow reason=...` comment. The guard is diff-aware by default, excludes tests, and supports `--paths` for targeted local verification. |
+| `dev/scripts/checks/check_pytest_runtime_policy.py` | Pytest runtime policy guard | Fails when canonical bundles include raw pytest commands or the root pytest config loses bounded, fail-fast discovery defaults. |
 | `dev/scripts/checks/check_python_subprocess_policy.py` | Python subprocess policy guard | Fails when repo-owned Python tooling or Operator Console code calls `subprocess.run(...)` without an explicit `check=` keyword. Tests are excluded so intentional fixture/process assertions can stay flexible, and `--since-ref/--head-ref` support lets AI-guard/post-push lanes scope the scan to changed files. |
 | `dev/scripts/checks/check_command_source_validation.py` | Command-source validation guard | Fails when Python command construction uses `shlex.split(...)` on CLI/env/config input, forwards raw `sys.argv` into subprocess argv, or threads env-controlled command values into command runners without a validator helper. The initial rollout is intentionally focused on the selectable launcher lane (`scripts/` + `pypi/src`) so the rule can stay low-noise before any broader promotion. |
 | `dev/scripts/checks/check_rust_test_shape.py` | Rust test-shape non-regression guard | Fails when changed Rust test files cross soft/hard size budgets or grow oversize hotspots beyond configured growth limits. |
@@ -1801,6 +1803,11 @@ Machine-first output note:
     task-router quick map render from the same typed authority in
     `dev/scripts/devctl/governance/task_router_contract.py`.
   - `--execute` runs the routed bundle commands plus add-ons from `bundle_registry.py`; unknown paths escalate to the stricter tooling lane.
+- `test-python`: bounded Python test adapter for repo-owned pytest suites
+  (`devctl`, `operator-console`, or `root`), with fail-fast defaults plus
+  session/per-test timeouts enforced by the repo pytest plugin. `check-router`
+  adds focused devctl tests for tooling changes and Operator Console tests only
+  for touched `app/operator_console/**/*.py` paths.
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold/freshness checker for outcomes (strict by default; use `--report-only` for non-blocking reminders)
 - `docs-check`: docs coverage + tooling/deprecated-command policy guard (`--strict-tooling` also runs active-plan sync + multi-agent sync + markdown metadata-header + workflow-shell hygiene + guide-contract sync + bundle/workflow parity + stale-path audit)
@@ -2302,6 +2309,7 @@ Machine-first output note:
 | `check --profile fast` | you need a very fast local sanity pass while iterating | alias of `quick`; runs local guard checks (including AI-guard scripts) and is not a substitute for pre-push validation |
 | `check-router --since-ref origin/develop --execute` | before push when changed files span multiple surfaces | auto-selects required lane + risk add-ons and executes the routed command set from `bundle_registry.py` (unknown paths escalate to tooling) |
 | `check-router --since-ref origin/develop --quality-policy /tmp/pilot-policy.json` | you are piloting the governance router in another repo clone | reuses the same lane-selection engine against another repo's policy-owned path/risk rules |
+| `test-python --suite devctl --path dev/scripts/devctl/tests/commands/test_python_tests.py` | you need Python proof for a focused tooling slice | runs pytest through repo-owned fail-fast and timeout policy instead of a broad raw pytest command |
 | `tandem-validate --format md` | a Codex/Claude tandem slice needs one canonical validator instead of a hand-written checklist | runs preflight policy/status, derives the real lane and risk add-ons from `check-router`, executes the routed bundle, then rechecks `check_review_channel_bridge.py` and `check_tandem_consistency.py` at the end |
 | `governance-draft --format md` | you need the current governed-doc discovery surface before a write-mode docs or governance change | renders the deterministic repo-scan entrypoint that should match the CLI inventory and maintainer docs |
 | `check --profile ci` | before a normal push | catches build/test/lint issues early |
@@ -2616,6 +2624,8 @@ consistent:
   the `reports-cleanup` command.
 - `dev/scripts/devctl/reports_retention.py`: shared report-retention planning
   helpers used by both `hygiene` warnings and `reports-cleanup`.
+- `dev/scripts/devctl/commands/python_tests.py`: bounded pytest adapter for
+  repo-owned Python suites.
 - `dev/scripts/devctl/commands/check_profile.py`: shared `check` profile
   toggles/normalization.
 - `dev/scripts/devctl/commands/check_steps.py`: shared `check` step-spec

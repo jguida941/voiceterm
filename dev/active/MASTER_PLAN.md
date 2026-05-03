@@ -6310,6 +6310,11 @@ become the main product surface.
     adapter, register strict pytest contract/guard markers, and add focused
     contract-test coverage for task-router, push-policy, startup-context
     shape, and the first validation/failure adapter path.
+  - [ ] `MP377-P0-T22AN-AB` now owns the immediate pytest-runaway dogfood
+    closure: Python validation should route through the bounded
+    `devctl test-python` adapter, root pytest config must stay scoped and
+    timeout-guarded, and `check-router` should add path-aware Python suites
+    instead of keeping broad raw pytest in static bundles.
   - [ ] Freeze the first explanation/contract boundary shapes in that same
     lane: use closed-vocabulary status/wait-reason enums for `DecisionTrace`,
     add strict boundary-validation models plus JSON Schema emission for

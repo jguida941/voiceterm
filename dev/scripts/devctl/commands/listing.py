@@ -37,6 +37,7 @@ COMMANDS = [
     "process-cleanup",
     "process-audit",
     "process-watch",
+    "test-python",
     "guard-run",
     "compat-matrix",
     "mcp",

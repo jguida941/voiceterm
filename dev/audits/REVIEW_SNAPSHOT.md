@@ -5,15 +5,15 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `961d2e71846b` — Refresh external review snapshot for bf37dd06
-- Tree hash: `0f5b3fe611ed`
-- Generation stamp: `snap-c4215ea9390b`
-- Generated at (UTC): 2026-05-03T09:51:24Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `b7278dd4411c` — Refresh external review snapshot for 961d2e71
+- Tree hash: `be18a377e402`
+- Generation stamp: `snap-52454344bb0e`
+- Generated at (UTC): 2026-05-03T13:50:13Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 23 files, +1883/-1463
-- Governance findings: 152 open / 88 fixed / 254 total
+- Delta since last snapshot: 24 commits, 23 files, +1882/-1462
+- Governance findings: 154 open / 88 fixed / 256 total
 - Probe hints: 0 total across 0 files scanned
 
 ## 1. Identity
@@ -30,27 +30,23 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `961d2e71846b3859f7c7c165e737a441b4bddecf`
+- HEAD SHA: `b7278dd4411c1df05ce9d2a187980ee6e81bdfe0`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-03T05:50:26-04:00
+- HEAD timestamp (UTC): 2026-05-03T05:51:50-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
-- unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- action: `await_checkpoint`
+- reason: staged_index_budget_exceeded
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 35
+- unstaged_path_count: 2
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
-- latest_push_report_state: `blocked` (push_preflight_running)
-- current_push_authorization: `push-auth-20260503T094753748208Z` (valid=True)
-- authorized_head_commit: `4906ad50c726913a3d381d5d9b1b65814d8d3a73`
-- approved_target_identity: `tree-receipt-20260503T094753748208Z:00e02a9f15e50b4658316f86df3614700c732c74`
-- publication_backlog: recommended
-- publication_guidance: 4 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- latest_push_report_state: `post_push_green` (push_completed)
+- publication_backlog: none
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -66,55 +62,56 @@ probes, typed actions, deterministic policy resolution — is what m...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `961d2e71846b`
+Range: last 24 commits ending at `b7278dd4411c`
 
 - commits: 24
 - files changed: 23
-- insertions: +1883
-- deletions: -1463
-- bundle classes touched: tooling, docs
+- insertions: +1882
+- deletions: -1462
+- bundle classes touched: docs, tooling
 - authority surfaces touched: 1 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `961d2e71` | Refresh external review snapshot for bf37dd06 | 1 | +52/-48 | tooling |  |
-| 2 | `bf37dd06` | Refresh policy-owned generated surfaces for 4906ad50 | 1 | +1/-1 | docs |  |
-| 3 | `4906ad50` | Refresh external review snapshot for 772a0ce7 | 2 | +60/-55 | docs |  |
-| 4 | `772a0ce7` | Treat finding backlog as advisory in session resume | 5 | +247/-148 | tooling |  |
-| 5 | `2662a44f` | Refresh external review snapshot for f67eded6 | 2 | +45/-45 | docs |  |
-| 6 | `f67eded6` | Refresh external review snapshot for 2096395c | 1 | +46/-43 | tooling |  |
-| 7 | `2096395c` | Refresh external review snapshot for bcf72a35 | 2 | +60/-56 | docs |  |
-| 8 | `bcf72a35` | Fix idle review-channel status readiness | 8 | +246/-71 | tooling |  |
-| 9 | `b3e303b7` | Refresh external review snapshot for 2ff46d1c | 2 | +44/-44 | docs |  |
-| 10 | `2ff46d1c` | Refresh external review snapshot for fa2ca61c | 1 | +45/-42 | tooling |  |
-| 11 | `fa2ca61c` | Refresh external review snapshot for 9b6cc0d0 | 2 | +65/-58 | docs |  |
-| 12 | `9b6cc0d0` | Allow pending-publish pipeline authorization refresh | 6 | +191/-58 | tooling |  |
-| 13 | `7cb7ba19` | Refresh external review snapshot for fde85cea | 2 | +50/-55 | docs |  |
-| 14 | `fde85cea` | Refresh external review snapshot for d80d603a | 2 | +83/-115 | docs |  |
-| 15 | `d80d603a` | Refresh external review snapshot for a1a0468d | 2 | +57/-58 | docs |  |
-| 16 | `a1a0468d` | Refresh external review snapshot for de294ab4 | 2 | +69/-67 | docs |  |
-| 17 | `de294ab4` | Refresh external review snapshot for 37eb2d78 | 2 | +63/-67 | docs |  |
-| 18 | `37eb2d78` | Refresh external review snapshot for cc513241 | 2 | +54/-53 | docs |  |
-| 19 | `cc513241` | Refresh external review snapshot for f5d534ad | 2 | +49/-49 | docs |  |
-| 20 | `f5d534ad` | Refresh external review snapshot for 1ad2844d | 2 | +53/-50 | docs |  |
-| 21 | `1ad2844d` | Refresh external review snapshot for 330a82e6 | 2 | +78/-83 | docs |  |
-| 22 | `330a82e6` | Align review-channel launch dry-run test with visible policy | 2 | +67/-58 | tooling |  |
-| 23 | `0278cb96` | Migrate Codex provider args from --full-auto to explicit ap… | 8 | +112/-93 | tooling |  |
-| 24 | `a982d6d2` | Refresh external review snapshot for 4dee7ce3 | 2 | +46/-46 | docs |  |
+| 1 | `b7278dd4` | Refresh external review snapshot for 961d2e71 | 2 | +45/-45 | docs |  |
+| 2 | `961d2e71` | Refresh external review snapshot for bf37dd06 | 1 | +52/-48 | tooling |  |
+| 3 | `bf37dd06` | Refresh policy-owned generated surfaces for 4906ad50 | 1 | +1/-1 | docs |  |
+| 4 | `4906ad50` | Refresh external review snapshot for 772a0ce7 | 2 | +60/-55 | docs |  |
+| 5 | `772a0ce7` | Treat finding backlog as advisory in session resume | 5 | +247/-148 | tooling |  |
+| 6 | `2662a44f` | Refresh external review snapshot for f67eded6 | 2 | +45/-45 | docs |  |
+| 7 | `f67eded6` | Refresh external review snapshot for 2096395c | 1 | +46/-43 | tooling |  |
+| 8 | `2096395c` | Refresh external review snapshot for bcf72a35 | 2 | +60/-56 | docs |  |
+| 9 | `bcf72a35` | Fix idle review-channel status readiness | 8 | +246/-71 | tooling |  |
+| 10 | `b3e303b7` | Refresh external review snapshot for 2ff46d1c | 2 | +44/-44 | docs |  |
+| 11 | `2ff46d1c` | Refresh external review snapshot for fa2ca61c | 1 | +45/-42 | tooling |  |
+| 12 | `fa2ca61c` | Refresh external review snapshot for 9b6cc0d0 | 2 | +65/-58 | docs |  |
+| 13 | `9b6cc0d0` | Allow pending-publish pipeline authorization refresh | 6 | +191/-58 | tooling |  |
+| 14 | `7cb7ba19` | Refresh external review snapshot for fde85cea | 2 | +50/-55 | docs |  |
+| 15 | `fde85cea` | Refresh external review snapshot for d80d603a | 2 | +83/-115 | docs |  |
+| 16 | `d80d603a` | Refresh external review snapshot for a1a0468d | 2 | +57/-58 | docs |  |
+| 17 | `a1a0468d` | Refresh external review snapshot for de294ab4 | 2 | +69/-67 | docs |  |
+| 18 | `de294ab4` | Refresh external review snapshot for 37eb2d78 | 2 | +63/-67 | docs |  |
+| 19 | `37eb2d78` | Refresh external review snapshot for cc513241 | 2 | +54/-53 | docs |  |
+| 20 | `cc513241` | Refresh external review snapshot for f5d534ad | 2 | +49/-49 | docs |  |
+| 21 | `f5d534ad` | Refresh external review snapshot for 1ad2844d | 2 | +53/-50 | docs |  |
+| 22 | `1ad2844d` | Refresh external review snapshot for 330a82e6 | 2 | +78/-83 | docs |  |
+| 23 | `330a82e6` | Align review-channel launch dry-run test with visible policy | 2 | +67/-58 | tooling |  |
+| 24 | `0278cb96` | Migrate Codex provider args from --full-auto to explicit ap… | 8 | +112/-93 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `bridge.md` | docs | +149/-149 |
+| `bridge.md` | docs | +150/-150 |
 | `dev/active/MASTER_PLAN.md` | tooling | +1/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1174/-1210 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1172/-1208 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +1/-1 |
 | `dev/scripts/devctl/approval_mode.py` | tooling | +9/-1 |
 | `dev/scripts/devctl/commands/governance/session_resume_authority_finalize.py` | tooling | +87/-0 |
@@ -139,14 +136,12 @@ Range: last 24 commits ending at `961d2e71846b`
 ## 4. Quality signals
 
 ### Governance review
-- total findings: 254
-- open: 152
+- total findings: 256
+- open: 154
 - fixed: 88
 - false positives: 0
 
 Recent findings:
-- `dogfood.command.status` — `dev/scripts/devctl/commands/reporting/status.py` (n/a, verdict=`confirmed_issue`)
-- `dogfood.command.render-surfaces` — `dev/scripts/devctl/commands/governance/render_surfaces.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.agent-loop` — `dev/scripts/devctl/commands/reporting/claude_loop.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.agent-mind` — `dev/scripts/devctl/commands/agent_mind/command.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.governance-bootstrap` — `dev/scripts/devctl/commands/governance/bootstrap.py` (n/a, verdict=`confirmed_issue`)
@@ -155,6 +150,8 @@ Recent findings:
 - `dogfood.command.integrations-import` — `dev/scripts/devctl/commands/integrations_import.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.governance-export` — `dev/scripts/devctl/commands/governance/export.py` (n/a, verdict=`confirmed_issue`)
 - `packet.transition_session_disambiguation` — `dev/scripts/devctl/review_channel/instruction_transitions.py` (critical, verdict=`confirmed_issue`)
+- `packet.durable_ingestion_before_ttl` — `dev/scripts/devctl/runtime/packet_carry_forward.py` (critical, verdict=`confirmed_issue`)
+- `agent_sync.ambiguity_projection` — `dev/scripts/checks/multi_agent_sync` (high, verdict=`confirmed_issue`)
 
 ### Probe report
 - run_state: `missing`
@@ -197,54 +194,54 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`b7278dd4`** — Refresh external review snapshot for 961d2e71
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`961d2e71`** — Refresh external review snapshot for bf37dd06
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`bf37dd06`** — Refresh policy-owned generated surfaces for 4906ad50
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`4906ad50`** — Refresh external review snapshot for 772a0ce7
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`772a0ce7`** — Treat finding backlog as advisory in session resume
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`2662a44f`** — Refresh external review snapshot for f67eded6
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`f67eded6`** — Refresh external review snapshot for 2096395c
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`2096395c`** — Refresh external review snapshot for bcf72a35
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`bcf72a35`** — Fix idle review-channel status readiness
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`b3e303b7`** — Refresh external review snapshot for 2ff46d1c
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`2ff46d1c`** — Refresh external review snapshot for fa2ca61c
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`fa2ca61c`** — Refresh external review snapshot for 9b6cc0d0
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`9b6cc0d0`** — Allow pending-publish pipeline authorization refresh
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`7cb7ba19`** — Refresh external review snapshot for fde85cea
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`fde85cea`** — Refresh external review snapshot for d80d603a
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`d80d603a`** — Refresh external review snapshot for a1a0468d
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`a1a0468d`** — Refresh external review snapshot for de294ab4
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`de294ab4`** — Refresh external review snapshot for 37eb2d78
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`37eb2d78`** — Refresh external review snapshot for cc513241
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`cc513241`** — Refresh external review snapshot for f5d534ad
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`f5d534ad`** — Refresh external review snapshot for 1ad2844d
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`1ad2844d`** — Refresh external review snapshot for 330a82e6
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`330a82e6`** — Align review-channel launch dry-run test with visible policy
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`0278cb96`** — Migrate Codex provider args from --full-auto to explicit approval/sandbox flags
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
-- **`a982d6d2`** — Refresh external review snapshot for 4dee7ce3
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -260,19 +257,16 @@ Recent findings:
 
 ## 8. Known gaps and open items
 
-- open governance findings: 152
+- open governance findings: 154
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
-- **governance_open** (`dev/scripts/devctl/commands/reporting/status.py`): dogfood.command.status: Auto-ingested devctl finalization failure rc=1.
-repo_path=/Users/jguida941/testing_upgrade/codex-voice
-- **governance_open** (`dev/scripts/devctl/commands/governance/render_surfaces.py`): dogfood.command.render-surfaces: Auto-ingested devctl finalization failure rc=1.
-repo_path=/Users/jguida941/testing_upgrade/codex-voice
 - **governance_open** (`dev/scripts/devctl/commands/reporting/claude_loop.py`): dogfood.command.agent-loop: Auto-ingested devctl finalization failure rc=1.
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
 - **governance_open** (`dev/scripts/devctl/commands/agent_mind/command.py`): dogfood.command.agent-mind: Auto-ingested devctl finalization failure rc=1.
@@ -285,7 +279,10 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
 - **governance_open** (`dev/scripts/devctl/commands/integrations_import.py`): dogfood.command.integrations-import: Auto-ingested devctl finalization failure rc=1.
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
+- **governance_open** (`dev/scripts/devctl/commands/governance/export.py`): dogfood.command.governance-export: Auto-ingested devctl finalization failure rc=2.
+repo_path=/Users/jguida941/testing_upgrade/codex-voice
+- **governance_open** (`dev/scripts/devctl/review_channel/instruction_transitions.py`): packet.transition_session_disambiguation: source_packet_ids=rev_pkt_2691,rev_pkt_2696,rev_pkt_2705; Claude beta finding: transition_packet ack/apply/dismiss paths bypass session disambiguation, allowing cross-session packet actions. Durable owner: MP377-GUARDIR-TRANSITION-DISAMBIGUATION.
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-c4215ea9390b` binds this file to HEAD `961d2e71846b`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-52454344bb0e` binds this file to HEAD `b7278dd4411c`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

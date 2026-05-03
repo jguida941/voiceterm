@@ -21,6 +21,7 @@ from .router_render import render_markdown
 from .router_support import BUNDLE_BY_LANE
 from .router_support import classify_lane as _classify_lane
 from .router_support import dedupe_commands as _dedupe_commands
+from .router_support import detect_python_test_addons as _detect_python_test_addons
 from .router_support import detect_risk_addons as _detect_risk_addons
 
 
@@ -154,7 +155,10 @@ def run(args) -> int:
     lane = classification["lane"]
     bundle_name = bundle_by_lane[lane]
     bundle_commands, bundle_error = _extract_bundle_commands(bundle_name)
-    risk_addons = _detect_risk_addons(changed_paths, policy_path=policy_path)
+    risk_addons = [
+        *_detect_risk_addons(changed_paths, policy_path=policy_path),
+        *_detect_python_test_addons(changed_paths),
+    ]
 
     planned_rows = [
         {

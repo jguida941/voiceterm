@@ -47,13 +47,17 @@ class BundleRegistryContractTests(TestCase):
             "python3 dev/scripts/checks/check_guard_enforcement_inventory.py",
             "python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py",
             "python3 dev/scripts/checks/check_python_subprocess_policy.py",
+            "python3 dev/scripts/checks/check_pytest_runtime_policy.py",
             "python3 dev/scripts/checks/check_repo_url_parity.py",
             "python3 dev/scripts/checks/check_release_version_parity.py",
             "python3 dev/scripts/checks/check_review_channel_bridge.py",
             "python3 dev/scripts/checks/check_serde_compatibility.py",
-            "python3 -m pytest app/operator_console/tests/ -q --tb=short",
         }
         self.assertTrue(required_commands.issubset(commands))
+        self.assertNotIn(
+            "python3 dev/scripts/devctl.py test-python --suite operator-console",
+            commands,
+        )
         self.assertNotIn("python3 dev/scripts/checks/check_publication_sync.py", commands)
 
     def test_release_bundle_keeps_required_release_gates(self) -> None:

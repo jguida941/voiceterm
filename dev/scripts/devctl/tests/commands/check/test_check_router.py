@@ -178,6 +178,105 @@ class CheckRouterTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.check_router.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_devctl_change_routes_focused_devctl_tests_not_operator_console(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [
+                {
+                    "status": "M",
+                    "path": "dev/scripts/devctl/commands/python_tests.py",
+                }
+            ]
+        }
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/devctl.py docs-check --strict-tooling"],
+            None,
+        )
+
+        rc = check_router.run(make_args())
+        self.assertEqual(rc, 0)
+
+        payload = json.loads(write_output_mock.call_args.args[0])
+        planned_commands = [
+            row["command"] for row in payload["planned_commands"]
+        ]
+        joined = "\n".join(planned_commands)
+        self.assertIn("test-python --suite devctl", joined)
+        self.assertIn(
+            "dev/scripts/devctl/tests/commands/test_python_tests.py",
+            joined,
+        )
+        self.assertNotIn("test-python --suite operator-console", joined)
+
+    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_operator_console_change_routes_operator_console_tests(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [
+                {
+                    "status": "M",
+                    "path": "app/operator_console/state/presentation_state.py",
+                }
+            ]
+        }
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/devctl.py docs-check --strict-tooling"],
+            None,
+        )
+
+        rc = check_router.run(make_args())
+        self.assertEqual(rc, 0)
+
+        payload = json.loads(write_output_mock.call_args.args[0])
+        addon_ids = {item["id"] for item in payload["risk_addons"]}
+        self.assertIn("python-tests.operator-console", addon_ids)
+        planned_commands = [
+            row["command"] for row in payload["planned_commands"]
+        ]
+        self.assertIn("test-python --suite operator-console", "\n".join(planned_commands))
+
+    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_operator_console_docs_do_not_route_operator_console_tests(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [{"status": "M", "path": "app/operator_console/AGENTS.md"}]
+        }
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/devctl.py docs-check --strict-tooling"],
+            None,
+        )
+
+        rc = check_router.run(make_args())
+        self.assertEqual(rc, 0)
+
+        payload = json.loads(write_output_mock.call_args.args[0])
+        planned_commands = [
+            row["command"] for row in payload["planned_commands"]
+        ]
+        self.assertNotIn(
+            "test-python --suite operator-console",
+            "\n".join(planned_commands),
+        )
+
+    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_unknown_paths_escalate_to_tooling_lane(
         self,
         collect_git_status_mock,
