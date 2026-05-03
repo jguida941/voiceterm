@@ -13,8 +13,19 @@ from dev.scripts.devctl.runtime.startup_gate import (
 from dev.scripts.devctl.runtime.startup_receipt import StartupReceipt
 
 
-def _args(command: str, *, action: str = "") -> SimpleNamespace:
-    return SimpleNamespace(command=command, action=action)
+def _args(
+    command: str,
+    *,
+    action: str = "",
+    policy_hint: str = "",
+    remote_role: str = "",
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        command=command,
+        action=action,
+        policy_hint=policy_hint,
+        remote_role=remote_role,
+    )
 
 
 class StartupGateRoutingTests(unittest.TestCase):
@@ -44,6 +55,45 @@ class StartupGateRoutingTests(unittest.TestCase):
         self.assertFalse(
             command_requires_startup_gate(
                 _args("controller-action", action="refresh-status")
+            )
+        )
+
+    def test_review_only_reviewer_launch_skips_gate(self) -> None:
+        """Read-only reviewer launch is non-mutating: dirty worktree must not block it."""
+        self.assertFalse(
+            command_requires_startup_gate(
+                _args(
+                    "review-channel",
+                    action="launch",
+                    policy_hint="review_only",
+                    remote_role="reviewer",
+                )
+            )
+        )
+        # Sibling combos that ARE potentially mutating must still gate.
+        self.assertTrue(
+            command_requires_startup_gate(
+                _args(
+                    "review-channel",
+                    action="launch",
+                    policy_hint="review_only",
+                    remote_role="implementer",
+                )
+            )
+        )
+        self.assertTrue(
+            command_requires_startup_gate(
+                _args(
+                    "review-channel",
+                    action="launch",
+                    policy_hint="safe_auto_apply",
+                    remote_role="reviewer",
+                )
+            )
+        )
+        self.assertTrue(
+            command_requires_startup_gate(
+                _args("review-channel", action="launch")
             )
         )
 

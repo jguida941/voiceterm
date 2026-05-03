@@ -63,7 +63,20 @@ def build_session_script(
         approval_mode=approval_mode,
         dangerous=dangerous,
     )
-    execution_command = shlex.join([cli_path, *provider_args])
+    # Finding D fix (operator-confirmed regression 2026-05-03, scope auth
+    # 17:55Z): the interactive `codex` CLI checks isatty(0) on startup and
+    # exits with `Error: stdin is not a terminal` when the conductor
+    # invokes it as a backgrounded child of a `script -q -F` pty whose
+    # stdin came from a non-tty parent. The non-interactive `codex exec`
+    # subcommand reads the prompt from argv (or stdin if piped) without an
+    # isatty gate, so headless conductor launches use it. The interactive
+    # `--ask-for-approval` flag is not valid for `codex exec` (exec is
+    # non-interactive by design), so it is filtered for headless.
+    if headless and provider == "codex":
+        headless_args = _strip_interactive_only_args(provider_args)
+        execution_command = shlex.join([cli_path, "exec", *headless_args])
+    else:
+        execution_command = shlex.join([cli_path, *provider_args])
     inner_script_command = shlex.join([str(script_path), "__review_channel_inner"])
     lines = _header_lines(
         _SessionScriptHeader(
@@ -277,3 +290,25 @@ def _provider_args(
         repo_root=repo_root,
         approval_mode=resolved_mode,
     )
+
+
+def _strip_interactive_only_args(args: list[str]) -> list[str]:
+    """Remove flags that the non-interactive `codex exec` rejects.
+
+    `--ask-for-approval` is interactive-only; exec mode is non-interactive
+    by design. Filter both `--ask-for-approval VALUE` and
+    `--ask-for-approval=VALUE` forms.
+    """
+    cleaned: list[str] = []
+    skip_next = False
+    for arg in args:
+        if skip_next:
+            skip_next = False
+            continue
+        if arg == "--ask-for-approval":
+            skip_next = True
+            continue
+        if arg.startswith("--ask-for-approval="):
+            continue
+        cleaned.append(arg)
+    return cleaned

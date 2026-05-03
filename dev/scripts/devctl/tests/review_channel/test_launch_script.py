@@ -600,5 +600,113 @@ class TestInactivityWatchdog(unittest.TestCase):
         )
 
 
+class TestLaunchScriptCodexExecHeadlessSwitch(unittest.TestCase):
+    """Finding D regression guards: headless codex uses non-interactive `codex exec`.
+
+    The interactive `codex` CLI checks isatty(0) at startup and exits with
+    `Error: stdin is not a terminal` when launched from a backgrounded
+    `script -q -F` pty whose own stdin came from a non-tty parent. Headless
+    launches must use the `codex exec` subcommand which is non-interactive
+    by design and does not gate on isatty.
+    """
+
+    def _build_codex_script(
+        self,
+        *,
+        headless: bool,
+        interaction_mode: str = "",
+    ) -> str:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            script_path = root / "conductor.sh"
+            build_session_script(
+                provider="codex",
+                repo_root=root,
+                prompt="test prompt",
+                script_path=script_path,
+                resolve_cli_path_fn=lambda _p: "/opt/homebrew/bin/codex",
+                headless=headless,
+                interaction_mode=interaction_mode,
+                approval_mode="balanced",
+            )
+            return script_path.read_text(encoding="utf-8")
+
+    def test_headless_codex_uses_exec_subcommand(self) -> None:
+        script = self._build_codex_script(headless=True)
+        self.assertIn("/opt/homebrew/bin/codex exec ", script)
+
+    def test_remote_control_forces_codex_exec(self) -> None:
+        script = self._build_codex_script(
+            headless=False,
+            interaction_mode="remote_control",
+        )
+        self.assertIn("/opt/homebrew/bin/codex exec ", script)
+
+    def test_non_headless_codex_uses_interactive(self) -> None:
+        script = self._build_codex_script(headless=False)
+        # Interactive codex appears WITHOUT the `exec` subcommand.
+        # The space disambiguates it from "codex execute" or similar.
+        self.assertNotIn("/opt/homebrew/bin/codex exec ", script)
+        self.assertIn("/opt/homebrew/bin/codex ", script)
+
+    def test_headless_codex_strips_ask_for_approval(self) -> None:
+        script = self._build_codex_script(headless=True)
+        # `codex exec` is non-interactive; the interactive
+        # `--ask-for-approval` flag is invalid there and would crash codex
+        # at parse time. Filter it out.
+        self.assertNotIn("--ask-for-approval", script.split("codex exec ", 1)[1].split("\n", 1)[0])
+
+    def test_headless_claude_does_not_use_exec(self) -> None:
+        # The codex-exec switch must be codex-specific. Claude headless
+        # already works without isatty issues and has no `claude exec`
+        # subcommand; the switch must not affect the claude lane.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            script_path = root / "conductor.sh"
+            build_session_script(
+                provider="claude",
+                repo_root=root,
+                prompt="test prompt",
+                script_path=script_path,
+                resolve_cli_path_fn=lambda _p: "/usr/local/bin/claude",
+                headless=True,
+            )
+            script = script_path.read_text(encoding="utf-8")
+        self.assertNotIn("/usr/local/bin/claude exec ", script)
+
+
+class TestStripInteractiveOnlyArgs(unittest.TestCase):
+    """Unit tests for the `--ask-for-approval` filtering helper."""
+
+    def test_strips_space_separated_form(self) -> None:
+        from dev.scripts.devctl.review_channel.launch_script import (
+            _strip_interactive_only_args,
+        )
+        result = _strip_interactive_only_args(
+            ["-C", "/repo", "--ask-for-approval", "on-request", "--sandbox", "workspace-write"]
+        )
+        self.assertEqual(
+            result, ["-C", "/repo", "--sandbox", "workspace-write"]
+        )
+
+    def test_strips_equals_form(self) -> None:
+        from dev.scripts.devctl.review_channel.launch_script import (
+            _strip_interactive_only_args,
+        )
+        result = _strip_interactive_only_args(
+            ["-C", "/repo", "--ask-for-approval=on-request", "--sandbox", "workspace-write"]
+        )
+        self.assertEqual(
+            result, ["-C", "/repo", "--sandbox", "workspace-write"]
+        )
+
+    def test_no_op_when_flag_absent(self) -> None:
+        from dev.scripts.devctl.review_channel.launch_script import (
+            _strip_interactive_only_args,
+        )
+        args = ["-C", "/repo", "--sandbox", "workspace-write"]
+        self.assertEqual(_strip_interactive_only_args(args), args)
+
+
 if __name__ == "__main__":
     unittest.main()

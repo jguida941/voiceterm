@@ -34,11 +34,28 @@ def command_requires_startup_gate(args: SimpleNamespace) -> bool:
         return True
     if command == "review-channel":
         action = str(getattr(args, "action", "") or "").strip()
-        return action in _REVIEW_CHANNEL_GATED_ACTIONS
+        if action not in _REVIEW_CHANNEL_GATED_ACTIONS:
+            return False
+        # A read-only reviewer launch (`--policy-hint review_only` plus
+        # `--remote-role reviewer`) cannot mutate the worktree, so the
+        # startup-authority gate that exists to catch dirty-worktree intent
+        # drift does not apply. Without this short-circuit, every remote-
+        # control resume in a session that has any auto-projection drift
+        # is forced through a commit before a non-mutating reviewer can
+        # spawn — which is the recurring cascade Finding F + Z named.
+        if _is_review_only_reviewer_launch(args):
+            return False
+        return True
     if command == "controller-action":
         action = str(getattr(args, "action", "") or "").strip()
         return action in _CONTROLLER_ACTION_GATED_ACTIONS
     return False
+
+
+def _is_review_only_reviewer_launch(args: SimpleNamespace) -> bool:
+    policy_hint = str(getattr(args, "policy_hint", "") or "").strip().lower()
+    remote_role = str(getattr(args, "remote_role", "") or "").strip().lower()
+    return policy_hint == "review_only" and remote_role == "reviewer"
 
 
 def enforce_startup_gate(
