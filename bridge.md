@@ -78,11 +78,12 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-03T19:25:50Z`
-- Last Codex poll (Local America/New_York): `2026-05-03 15:25:50 EDT`
-- Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `374a685ead412eefad640afb312b1c1ea72072d67aa2cb8deef886962b56c854`
-- Current instruction revision: ``
+- Last Codex poll: `2026-05-03T20:48:01Z`
+- Last Codex poll (Local America/New_York): `2026-05-03 16:48:01 EDT`
+- Reviewer mode: `active_dual_agent`
+- Declared reviewer mode: `active_dual_agent`
+- Last non-audit worktree hash: `382c32478db2b37c3e68614883edc5d47c1520bc483516385c1e98f9c3ee6831`
+- Current instruction revision: `9f5033578f6c`
 
 ## Protocol
 
@@ -114,7 +115,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-05-03T19:20:50.004390Z.
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: 382c32478db2).
 
 ## Current Verdict
 
@@ -122,11 +123,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-2 pending review packet(s)
+4 pending review packet(s)
 
 ## Claude Status
 
-- Status unavailable.
+waiting_for_ack
 
 ## Claude Questions
 
@@ -134,16 +135,16 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+Priority action_request: Stage verified commit pipeline
 
 ## Last Reviewed Scope
 
-MP-377
+- (missing)
 
 ## Action Requests
 
-- No pending action requests.
+- [rev_pkt_2909] stage_commit_pipeline: target=runtime:devctl_commit:14945bd544169206519616db54be76589ee071a7@14945bd544169206519616db54be76589ee071a7; Stage verified commit pipeline (status: pending)
