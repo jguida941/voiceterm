@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 
 from ...common import emit_output, pipe_output, write_output
 from ...config import REPO_ROOT
@@ -21,16 +22,32 @@ from ...process_sweep.review_channel_monitors import (
 )
 from ...time_utils import utc_timestamp
 from ..check.process_sweep import _protected_registered_conductor_pids
+from .conductor_staleness import (
+    SUPERVISED_CONDUCTOR_SCOPE,
+    stale_supervised_conductor_rows as find_stale_supervised_conductor_rows,
+)
 
 PROCESS_LINE_MAX_LEN = 180
 PROCESS_REPORT_LIMIT = 12
 BLOCKING_SCOPES = {"voiceterm", "repo_runtime"}
-SUPERVISED_CONDUCTOR_SCOPE = "review_channel_conductor"
 
 
 def _is_sandbox_ps_warning(message: str) -> bool:
     lowered = message.lower()
     return "unable to execute ps" in lowered and "operation not permitted" in lowered
+
+
+def _current_repo_head() -> str:
+    result = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if result.returncode != 0:
+        return ""
+    return result.stdout.strip()
 
 
 def collect_process_audit_state() -> dict:
@@ -44,11 +61,24 @@ def collect_process_audit_state() -> dict:
     # (headless script daemons intentionally reparent).  Q37 Phase 2
     # will tighten this further by requiring operator_last_interaction_utc
     # so registered-but-unattended sessions get surfaced as warnings.
-    supervised_conductor_rows = [
+    supervised_conductor_rows_all = [
         row
         for row in rows
         if row.get("match_scope") == SUPERVISED_CONDUCTOR_SCOPE
         and (row.get("ppid") != 1 or row.get("pid") in protected_conductor_pids)
+    ]
+    stale_supervised_conductor_rows = find_stale_supervised_conductor_rows(
+        rows,
+        supervised_conductor_rows_all,
+        current_head=_current_repo_head(),
+    )
+    stale_supervised_conductor_pids = {
+        row["pid"] for row in stale_supervised_conductor_rows
+    }
+    supervised_conductor_rows = [
+        row
+        for row in supervised_conductor_rows_all
+        if row["pid"] not in stale_supervised_conductor_pids
     ]
     supervised_conductor_pids = {row["pid"] for row in supervised_conductor_rows}
     protected_monitor_pids = review_channel_monitor_pids(rows)
@@ -56,7 +86,12 @@ def collect_process_audit_state() -> dict:
     unprotected_rows = [
         row
         for row in rows
-        if row.get("pid") not in supervised_conductor_pids | protected_monitor_pids
+        if row.get("pid")
+        not in (
+            supervised_conductor_pids
+            | stale_supervised_conductor_pids
+            | protected_monitor_pids
+        )
     ]
     orphaned, active = split_orphaned_processes(
         unprotected_rows,
@@ -89,6 +124,7 @@ def collect_process_audit_state() -> dict:
         "stale_active_rows": stale_active,
         "active_recent_rows": active_recent,
         "active_supervised_conductor_rows": supervised_conductor_rows,
+        "stale_supervised_conductor_rows": stale_supervised_conductor_rows,
         "active_review_channel_monitor_rows": active_review_channel_monitor_rows,
         "recent_detached_rows": recent_detached,
         "active_recent_blocking_rows": active_recent_blocking,
@@ -105,7 +141,7 @@ def build_process_audit_report(*, strict: bool) -> dict:
     warnings: list[str] = []
 
     for warning in state["scan_warnings"]:
-        if _is_sandbox_ps_warning(warning):
+        if _is_sandbox_ps_warning(warning) and not strict:
             warnings.append(warning)
             continue
         errors.append(f"Host process audit unavailable: {warning}")
@@ -114,6 +150,7 @@ def build_process_audit_report(*, strict: bool) -> dict:
     stale_active = state["stale_active_rows"]
     active_recent = state["active_recent_rows"]
     supervised_conductors = state["active_supervised_conductor_rows"]
+    stale_supervised_conductors = state["stale_supervised_conductor_rows"]
     active_review_channel_monitors = state["active_review_channel_monitor_rows"]
     recent_detached = state["recent_detached_rows"]
     active_recent_blocking = state["active_recent_blocking_rows"]
@@ -133,6 +170,15 @@ def build_process_audit_report(*, strict: bool) -> dict:
             "Stale active repo-related host processes detected: "
             + format_process_rows(
                 stale_active,
+                line_max_len=PROCESS_LINE_MAX_LEN,
+                row_limit=PROCESS_REPORT_LIMIT,
+            )
+        )
+    if stale_supervised_conductors:
+        errors.append(
+            "Stale supervised review-channel conductors detected: "
+            + format_process_rows(
+                stale_supervised_conductors,
                 line_max_len=PROCESS_LINE_MAX_LEN,
                 row_limit=PROCESS_REPORT_LIMIT,
             )
@@ -182,6 +228,7 @@ def build_process_audit_report(*, strict: bool) -> dict:
         "stale_active_rows": stale_active,
         "active_recent_rows": active_recent,
         "active_supervised_conductor_rows": supervised_conductors,
+        "stale_supervised_conductor_rows": stale_supervised_conductors,
         "active_review_channel_monitor_rows": active_review_channel_monitors,
         "recent_detached_rows": recent_detached,
         "active_recent_blocking_rows": active_recent_blocking,
@@ -193,6 +240,7 @@ def build_process_audit_report(*, strict: bool) -> dict:
         "stale_active_count": len(stale_active),
         "active_recent_count": len(active_recent),
         "active_supervised_conductor_count": len(supervised_conductors),
+        "stale_supervised_conductor_count": len(stale_supervised_conductors),
         "active_review_channel_monitor_count": len(active_review_channel_monitors),
         "recent_detached_count": len(recent_detached),
         "active_recent_blocking_count": len(active_recent_blocking),
@@ -215,6 +263,10 @@ def _render_md(report: dict) -> str:
     lines.append(
         "- active_supervised_conductors: "
         f"{report['active_supervised_conductor_count']}"
+    )
+    lines.append(
+        "- stale_supervised_conductors: "
+        f"{report['stale_supervised_conductor_count']}"
     )
     lines.append(
         "- active_review_channel_monitors: "

@@ -13525,3 +13525,24 @@ Evidence:
 - `dev/scripts/devctl/tests/checks/test_check_multi_agent_sync.py`
 - `dev/scripts/devctl/tests/checks/test_check_registry_path_integrity.py`
 - `dev/scripts/devctl/tests/checks/test_check_provider_list_parity_graph.py`
+
+### 2026-05-03 - Host-process audit now fails stale supervised conductors
+
+Live dogfood of the Codex/Claude loop exposed a stale headless Claude
+conductor that remained registered as supervised even though its embedded
+session-resume packet still targeted old `HEAD` `d66f61f2` while the repo had
+advanced to `0e6730e1`. `process-audit --strict` now compares conductor
+resume/review-state `head_sha` evidence against current `HEAD`; mismatched
+registered conductors move to `stale_supervised_conductors` and fail the guard
+instead of being protected as healthy supervised rows. The same strict audit
+now fails when `ps` is unavailable, so sandbox-skipped host sweeps cannot report
+false green. `process-cleanup --verify` includes stale supervised conductor
+roots in cleanup targets, expands them to their descendant trees, and verifies
+the host table afterward.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/process/audit.py`
+- `dev/scripts/devctl/commands/process/cleanup.py`
+- `dev/scripts/devctl/tests/commands/process/test_process_audit.py`
+- `dev/scripts/devctl/tests/commands/process/test_process_cleanup.py`

@@ -36,15 +36,14 @@ class StaleConductorRetirementResult:
 
 def _stale_conductor_retirement_commands(state: dict) -> list[str]:
     commands: list[str] = []
-    for row in state.get("active_supervised_conductor_rows", []):
+    for row in state.get("stale_supervised_conductor_rows", []):
         try:
             pid = int(row.get("pid", 0) or 0)
-            elapsed_seconds = int(row.get("elapsed_seconds", -1) or -1)
         except (TypeError, ValueError):
             continue
         if pid <= 0:
             continue
-        if elapsed_seconds >= 0 and elapsed_seconds < DEFAULT_STALE_MIN_AGE_SECONDS:
+        if int(row.get("ppid", 0) or 0) != 1:
             continue
         commands.append(
             "python3 dev/scripts/devctl.py controller-action "
@@ -144,6 +143,10 @@ def _render_md(report: dict) -> str:
     lines.append(f"- total_detected_pre: {report['total_detected_pre']}")
     lines.append(f"- orphaned_pre: {report['orphaned_count_pre']}")
     lines.append(f"- stale_active_pre: {report['stale_active_count_pre']}")
+    lines.append(
+        "- stale_supervised_conductors_pre: "
+        f"{report['stale_supervised_conductor_count_pre']}"
+    )
     lines.append(f"- active_recent_pre: {report['active_recent_count_pre']}")
     lines.append(f"- recent_detached_pre: {report['recent_detached_count_pre']}")
     lines.append(f"- cleanup_target_count: {report['cleanup_target_count']}")
@@ -231,7 +234,11 @@ def build_process_cleanup_report(*, dry_run: bool, verify: bool) -> dict:
 
     cleanup_target_rows = expand_cleanup_target_rows(
         state["rows"],
-        [*state["orphaned_rows"], *state["stale_active_rows"]],
+        [
+            *state["orphaned_rows"],
+            *state["stale_active_rows"],
+            *state.get("stale_supervised_conductor_rows", []),
+        ],
     )
     killed_pids: list[int] = []
 
@@ -249,7 +256,7 @@ def build_process_cleanup_report(*, dry_run: bool, verify: bool) -> dict:
     recent_detached_rows = list(state.get("recent_detached_rows", []))
     stale_conductor_retirement_commands = (
         _stale_conductor_retirement_commands(state)
-        if recent_detached_rows
+        if recent_detached_rows or state.get("stale_supervised_conductor_rows")
         else []
     )
 
@@ -287,10 +294,17 @@ def build_process_cleanup_report(*, dry_run: bool, verify: bool) -> dict:
         "rows_pre": state["rows"],
         "orphaned_rows_pre": state["orphaned_rows"],
         "stale_active_rows_pre": state["stale_active_rows"],
+        "stale_supervised_conductor_rows_pre": state.get(
+            "stale_supervised_conductor_rows",
+            [],
+        ),
         "skipped_recent_rows": skipped_recent_rows,
         "total_detected_pre": len(state["rows"]),
         "orphaned_count_pre": len(state["orphaned_rows"]),
         "stale_active_count_pre": len(state["stale_active_rows"]),
+        "stale_supervised_conductor_count_pre": len(
+            state.get("stale_supervised_conductor_rows", [])
+        ),
         "active_recent_count_pre": len(state["active_recent_rows"]),
         "recent_detached_count_pre": len(recent_detached_rows),
         "stale_conductor_retirement_commands": stale_conductor_retirement_commands,

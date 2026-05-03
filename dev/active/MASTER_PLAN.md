@@ -5190,7 +5190,14 @@ become the main product surface.
   script probe still says `running`, even if `session.live` flipped false
   because prepared-head freshness drifted. That keeps
   `host-process-cleanup-post` green for a real running conductor instead of
-  forcing a kill-or-block choice during governed checkpoint retry.
+  forcing a kill-or-block choice during governed checkpoint retry. A
+  2026-05-03 dogfood follow-up closed the opposite failure mode: a registered
+  supervised conductor is no longer protected once its embedded
+  `SessionCachePacket.head_sha` / review-state `head_sha` differs from current
+  `HEAD`. Strict `process-audit` now reports those rows as
+  `stale_supervised_conductors`, fails if `ps` access is unavailable, and
+  `process-cleanup --verify` expands the stale conductor root to the full
+  descendant tree before re-running strict host verification.
   Execution spec:
   `dev/active/host_process_hygiene.md`. 2026-03-09 Codex re-review reopened
   follow-up hardening: orphaned non-allowlisted repo-cwd descendants can

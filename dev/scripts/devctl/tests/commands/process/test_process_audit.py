@@ -131,6 +131,32 @@ class ProcessAuditCommandTests(TestCase):
     @mock.patch(
         "dev.scripts.devctl.commands.process_audit.scan_repo_hygiene_process_tree"
     )
+    def test_run_strict_fails_when_sandbox_blocks_ps(
+        self,
+        scan_mock,
+        write_output_mock,
+    ) -> None:
+        scan_mock.return_value = (
+            [],
+            [
+                "Process sweep skipped: unable to execute ps ([Errno 1] Operation not permitted: 'ps')"
+            ],
+        )
+        args = build_parser().parse_args(
+            ["process-audit", "--strict", "--format", "json"]
+        )
+
+        rc = process_audit.run(args)
+
+        self.assertEqual(rc, 1)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertFalse(payload["ok"])
+        self.assertIn("Host process audit unavailable", payload["errors"][0])
+
+    @mock.patch("dev.scripts.devctl.commands.process_audit.write_output")
+    @mock.patch(
+        "dev.scripts.devctl.commands.process_audit.scan_repo_hygiene_process_tree"
+    )
     def test_run_strict_warns_but_does_not_fail_for_recent_repo_tooling_processes(
         self,
         scan_mock,
@@ -566,3 +592,68 @@ class ProcessAuditCommandTests(TestCase):
         self.assertEqual(payload["active_supervised_conductor_count"], 1)
         self.assertEqual(payload["recent_detached_count"], 0)
         self.assertFalse(payload["errors"])
+
+    @mock.patch(
+        "dev.scripts.devctl.commands.process_audit._current_repo_head",
+        return_value="0e6730e1a2f5afd2512883fce919c45dd7d02c3c",
+    )
+    @mock.patch(
+        "dev.scripts.devctl.commands.process_audit._protected_registered_conductor_pids",
+        return_value={610},
+    )
+    @mock.patch("dev.scripts.devctl.commands.process_audit.write_output")
+    @mock.patch(
+        "dev.scripts.devctl.commands.process_audit.scan_repo_hygiene_process_tree"
+    )
+    def test_run_strict_fails_for_registered_conductor_with_stale_resume_head(
+        self,
+        scan_mock,
+        write_output_mock,
+        _protected_pids_mock,
+        _head_mock,
+    ) -> None:
+        stale_prompt = (
+            "/Users/example/.local/bin/claude --permission-mode default "
+            '{"contract_id":"SessionCachePacket",'
+            '"head_sha":"d66f61f266a8ae53c4e18526c2b3741bddca3891"}'
+        )
+        scan_mock.return_value = (
+            [
+                {
+                    "pid": 610,
+                    "ppid": 1,
+                    "etime": "02:00",
+                    "elapsed_seconds": 120,
+                    "command": "script -q -F -t 0 /tmp/review-channel-launch-abc/claude-conductor.sh __review_channel_inner",
+                    "match_source": "direct",
+                    "match_scope": "review_channel_conductor",
+                    "lineage_depth": 0,
+                },
+                {
+                    "pid": 611,
+                    "ppid": 610,
+                    "etime": "01:59",
+                    "elapsed_seconds": 119,
+                    "command": stale_prompt,
+                    "match_source": "descendant",
+                    "match_scope": "review_channel_conductor",
+                    "lineage_depth": 1,
+                },
+            ],
+            [],
+        )
+        args = build_parser().parse_args(
+            ["process-audit", "--strict", "--format", "json"]
+        )
+
+        rc = process_audit.run(args)
+
+        self.assertEqual(rc, 1)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["active_supervised_conductor_count"], 0)
+        self.assertEqual(payload["stale_supervised_conductor_count"], 2)
+        self.assertIn(
+            "Stale supervised review-channel conductors detected",
+            payload["errors"][0],
+        )
