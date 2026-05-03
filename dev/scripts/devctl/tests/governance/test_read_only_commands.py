@@ -171,6 +171,26 @@ class ArtifactWriteSuppressionTests(unittest.TestCase):
 
         self.assertEqual(captured_env.get("val"), "")
 
+    def test_session_does_not_suppress_orientation_child_artifacts(self) -> None:
+        """The session orientation graph child must be able to save its snapshot."""
+        captured_env: dict[str, str] = {}
+
+        def spy_handler(_args):
+            captured_env["val"] = os.environ.get(ARTIFACT_WRITES_ENV, "")
+            return 0
+
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(ARTIFACT_WRITES_ENV, None)
+            with patch("dev.scripts.devctl.cli.enforce_startup_gate", return_value=None):
+                with patch.dict(cli.COMMAND_HANDLERS, {"session": spy_handler}):
+                    with patch(
+                        "sys.argv",
+                        ["devctl", "session", "--role", "implementer"],
+                    ):
+                        cli.main()
+
+        self.assertEqual(captured_env.get("val"), "")
+
     def test_develop_drain_packets_does_not_auto_suppress_artifacts(self) -> None:
         """Packet-drain mode is an explicit managed sink behind /develop."""
         captured_env: dict[str, str] = {}

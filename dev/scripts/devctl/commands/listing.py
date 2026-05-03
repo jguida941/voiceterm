@@ -52,6 +52,7 @@ COMMANDS = [
     "context-graph",
     "graph-walk",
     "startup-context",
+    "session",
     "session-resume",
     "platform-contracts",
     "system-map",

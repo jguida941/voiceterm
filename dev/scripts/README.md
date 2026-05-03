@@ -158,11 +158,15 @@ Continue into `review-channel --action status` plus the reviewer-owned
 heartbeat/bridge refresh; reserve relaunch/repair for
 `action=repair_reviewer_loop`, checkpoint/budget blockers, or typed stale /
 non-live reviewer runtime. After that Step 0 receipt, the canonical role-bound
-starter packet for a fresh Codex or Claude conversation is
-`python3 dev/scripts/devctl.py session-resume --role reviewer|implementer|observer --format bootstrap`;
+starter command for a fresh Codex or Claude conversation is
+`python3 dev/scripts/devctl.py session --role reviewer|implementer|observer --format md`;
 `dashboard` is accepted as the user-facing alias for the same read-only
-observer lane. Use that repo-owned packet instead of hand-written mode prompts
-or operator memory. A fresh provider session can prove typed rehydration with
+observer lane. It emits a typed `SessionOrientationPacket` by running
+`startup-context`, `session-resume`, `review-channel --action status --terminal none`,
+and `context-graph --mode bootstrap` in order, then reducing the preferred
+`AuthoritySnapshot` into the next command. Use that repo-owned packet instead
+of hand-written mode prompts, manual git inspection, or operator memory.
+A fresh provider session can prove typed rehydration with
 `python3 dev/scripts/devctl.py session-resume --role <role> --format json --provider <provider> --write-resume-receipt`.
 That command records `AgentResumeReceipt`; its exit code only proves the
 resume command ran. Consumers must read `agent_resume_receipt.authority_result`
@@ -1177,6 +1181,7 @@ python3 dev/scripts/devctl.py develop next --format md
 python3 dev/scripts/devctl.py develop audit-packets --max-packets 10 --format md
 python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1 --format md
 python3 dev/scripts/devctl.py view --surface ai --format md
+python3 dev/scripts/devctl.py session --role implementer --format md
 python3 dev/scripts/devctl.py startup-context --format summary
 python3 dev/scripts/devctl.py push --execute
 python3 dev/scripts/devctl.py tandem-validate --format md
@@ -1599,10 +1604,14 @@ needs more repo context. Query mode now resolves file-path terms plus typed
 contract and dataclass-field symbols such as `AutoModeState`,
 `PlanningIRSnapshot`, or `research_ref_budget` without already knowing the
 owning file path. Before edits, validation, or repo-owned launcher
-work, run `python3 dev/scripts/devctl.py startup-context --format summary` first
-and treat a non-zero exit as a hard stop to checkpoint or repair the repo
-state. After that Step 0 receipt is fresh, use the slim bootstrap packet for
-additional discovery and targeted `--query` reads.
+work, run `python3 dev/scripts/devctl.py session --role implementer --format md`
+first when you need full fresh-session orientation. That command runs the
+startup receipt, session resume, live review status, and bootstrap graph
+snapshot in one typed sequence. If you only need the Step 0 authority receipt,
+run `python3 dev/scripts/devctl.py startup-context --format summary` and treat
+a non-zero exit as a hard stop to checkpoint or repair the repo state. After
+that Step 0 receipt is fresh, use the slim bootstrap packet for additional
+discovery and targeted `--query` reads.
 When the startup receipt is red but the issue is still locally repairable,
 prefer `python3 dev/scripts/devctl.py startup-context --repair --apply-safe-fixes --format md`
 before falling back to operator nudges. That repo-owned path classifies the
@@ -1639,7 +1648,8 @@ Bootstrap mode also now writes a typed
 external `DEVCTL_NO_ARTIFACT_WRITES=1` is set, in which case the automatic
 snapshot save is suppressed for read-only mounts. The CLI no longer sets that
 suppression automatically for normal `context-graph --mode bootstrap` runs,
-because `system-picture` freshness depends on a current graph snapshot.
+and it also leaves snapshot writes enabled for `devctl session`, because the
+fresh-session orientation packet depends on a current graph snapshot.
 Explicit `--save-snapshot` still writes unconditionally. Use
 `--save-snapshot` on other `context-graph` modes when you need the same
 versioned graph baseline. `context-graph --mode diff --from ... --to ...`

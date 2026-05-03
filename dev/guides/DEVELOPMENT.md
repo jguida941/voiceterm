@@ -776,11 +776,13 @@ Three quality layers matter in practice:
     Raw bridge verdict/findings prose remains compatibility or drift evidence,
     not primary runtime authority.
   - Fresh reviewer and implementer sessions should bootstrap from role-first
-    receipts, not provider-local lore: run
-    `python3 dev/scripts/devctl.py startup-context --role <reviewer|implementer> --format summary`,
-    then
-    `python3 dev/scripts/devctl.py session-resume --role <reviewer|implementer> --format bootstrap`,
-    then `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.
+    receipts, not provider-local lore. For a new conversation or any
+    "where are we / next steps / resume" request, run
+    `python3 dev/scripts/devctl.py session --role <reviewer|implementer|observer> --format md`.
+    It emits `SessionOrientationPacket` by running `startup-context`,
+    `session-resume`, `review-channel --action status --terminal none`, and
+    `context-graph --mode bootstrap` in order, so non-zero startup blockers
+    are preserved as typed data instead of stopping later status/graph reads.
     Planned lane text and typed collaboration/runtime state decide which
     provider currently owns each role. For reviewer sessions, the bootstrap
     packet now prefers a frozen typed `review_candidate` when a bounded slice
@@ -811,10 +813,11 @@ Three quality layers matter in practice:
     degrades gracefully on `OSError`; other write failures propagate normally.
     Bootstrap `context-graph` is the exception to dispatcher suppression:
     normal `context-graph --mode bootstrap` runs persist a managed graph
-    snapshot because `system-picture` uses it for freshness. Explicit
-    external `DEVCTL_NO_ARTIFACT_WRITES=1` still suppresses that bootstrap
-    snapshot on read-only mounts, and explicit `--save-snapshot` on
-    `context-graph` still writes unconditionally.
+    snapshot because `system-picture` and fresh `devctl session` orientation
+    use it for freshness. Explicit external `DEVCTL_NO_ARTIFACT_WRITES=1`
+    still suppresses that bootstrap snapshot on read-only mounts, and
+    explicit `--save-snapshot` on `context-graph` still writes
+    unconditionally.
   - `wait_for_codex_poll_refresh()` in `handoff.py` has two satisfaction paths
     for the post-launch ACK gate: (1) reviewer-owned `Poll Status` text
     changed, or (2) `Last Codex poll` timestamp advanced past the pre-launch
@@ -2186,6 +2189,9 @@ of re-explaining the whole project:
 
 ```md
 Continue from the repo's current state. Do not start from scratch.
+
+First run:
+- `python3 dev/scripts/devctl.py session --role implementer --format md`
 
 Read:
 - `AGENTS.md`

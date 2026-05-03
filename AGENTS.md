@@ -333,21 +333,34 @@ them scoped to that subtree.
 
 Use this route to run end-to-end without ambiguity:
 
-1. Load `dev/active/INDEX.md`, then `dev/active/MASTER_PLAN.md`.
-2. Use `INDEX.md` role/authority fields to decide which active docs are required:
+1. For fresh-session orientation, "where are we?", "next steps?", or resume
+   questions, run
+   `python3 dev/scripts/devctl.py session --role implementer --format md`
+   before answering. That command runs `startup-context`, `session-resume`,
+   `review-channel --action status --terminal none`, and
+   `context-graph --mode bootstrap` in order and emits a typed
+   `SessionOrientationPacket`; do not infer next steps from `git status`,
+   markdown diffs, or chat memory alone.
+2. Load `dev/active/INDEX.md`, then `dev/active/MASTER_PLAN.md`.
+3. Use `INDEX.md` role/authority fields to decide which active docs are required:
    - `tracker` is execution authority.
    - `spec` is read when matching MP scope is in play.
    - `runbook` is read for active multi-agent cycles.
    - `reference` is context-only; do not treat as execution state.
-3. Select task class in the router table and run the matching command bundle.
-4. Apply risk-matrix add-ons for touched runtime risk classes.
-5. Run docs-governance/self-review/end-of-session checklist before handoff.
+4. Select task class in the router table and run the matching command bundle.
+5. Apply risk-matrix add-ons for touched runtime risk classes.
+6. Run docs-governance/self-review/end-of-session checklist before handoff.
 
 ## Mandatory 12-step SOP (always)
 
 Run this sequence for every task. Do not skip steps.
 
 1. Run session bootstrap checks and load `dev/active/INDEX.md` (`bundle.bootstrap`).
+   In a new conversation, the canonical first command is
+   `python3 dev/scripts/devctl.py session --role implementer --format md`;
+   it preserves Step 0 startup authority, refreshes review-channel status,
+   saves the bootstrap context graph snapshot, and reduces the preferred
+   `AuthoritySnapshot` into the next command.
    For any implementation, validation, or repo-owned launcher session, treat
    `python3 dev/scripts/devctl.py startup-context --format summary` as Step 0,
    not optional escalation. The compact summary is the default human-facing

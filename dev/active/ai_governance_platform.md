@@ -5578,6 +5578,22 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       scope: Turn the pytest-runaway dogfood failure into a repo-owned validation adapter instead of letting agents and bundles call broad raw pytest directly. Keep the contract portable by treating pytest as this repo's adapter implementation, not universal platform authority.
       acceptance_criteria: Root pytest discovery is scoped and fail-fast with session/per-test timeouts; `devctl test-python` owns named suites and explicit path targets; `check_pytest_runtime_policy.py` blocks raw pytest commands in canonical bundles and missing pytest config policy; `check-router` selects Python test add-ons from touched paths so devctl changes get focused devctl tests and Operator Console tests run only for Python source/test changes; script catalog, bundles, workflows, generated surfaces, and maintainer docs carry the same contract.
       progress: 2026-05-03 first implementation adds root `pytest.ini` / `conftest.py` timeout rails, `devctl test-python`, `check_pytest_runtime_policy.py`, path-aware Python test add-ons in `check-router`, bundle/workflow routing, and focused contract tests.
+- [ ] `MP377-P0-T22AN-AC` Automate fresh-session typed orientation.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `in_progress`
+      depends_on: `MP377-P0-T22AN-X`, `MP377-P0-T22AN-Y`
+      scope: Replace ad hoc "where are we / next steps" reconstruction with one governed `devctl session` orientation command. The command must run `startup-context`, `session-resume`, `review-channel --action status --terminal none`, and `context-graph --mode bootstrap` in order, preserve startup blockers as typed evidence, keep context-graph snapshot writes enabled for freshness, and reduce the preferred `AuthoritySnapshot` into the next command.
+      acceptance_criteria: `devctl session --role <role> --format md|json` emits `SessionOrientationPacket`; startup-context non-zero typed blockers do not stop session-resume/status/context-graph reads; reviewer/implementer/observer roles are supported; docs/bootstrap surfaces tell fresh sessions to use `devctl session` before answering; focused tests cover command order, review-status inclusion, artifact suppression override, and dashboard-to-observer normalization.
+      progress: 2026-05-03 operator dogfood found a fresh-session bootstrap miss where a new Codex session inferred state from git/docs without typed startup, review-status, or context-graph reads; that instruction was ingested into typed plan authority as `MP377-P0-T22AN-AC`.
+- [ ] `MP377-P0-T22AN-AD` Align slash entry points to typed governance domains.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AN-X`, `MP377-P0-T22AN-Y`
+      scope: Use archived Claude packet `rev_pkt_2863` as the durable architecture input for the "slash = typed domain" catalog. Treat the packet as a planning/domain-catalog slice, not an immediate removal of existing `/develop --role-preset reviewer|tester|intake|watcher` compatibility presets. Canonical domains should route `/develop` to development/mutation orchestration, `/review` to packet/finding lifecycle, `/test` to test evidence, `/intake` or `/plan` to typed plan/finding/guard ingestion, `/watch` to runtime observation, `/system` or `/status` to startup/control-plane state, and a slimmer `/bridge-loop` to launch/control.
+      acceptance_criteria: A typed slash-domain catalog or equivalent read model maps each slash to one backend domain without embedding policy in provider slash files; existing `/develop` role presets remain compatibility aliases until replacement slashes have typed contracts, docs, and tests; `.claude/commands/*` and generated slash templates stay thin adapters; guards/tests prove every slash maps to typed backend commands and no provider file becomes authority.
+      progress: 2026-05-03 Claude packet `rev_pkt_2863` expired before disposition but was read from typed packet history and ingested into durable plan authority as `PlanIntentIngestionReceipt` row `MP377-P0-T22AN-AD`; no immediate preset removal is authorized by this row.
 
 2026-05-02 `rev_pkt_2816` packet-stack durable-home map:
 

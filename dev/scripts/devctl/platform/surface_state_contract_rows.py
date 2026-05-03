@@ -9,6 +9,7 @@ landing disconnected across required projections.
 from __future__ import annotations
 
 from .contracts import ContractField, ContractSpec
+from .surface_state_contract_rows_session import session_orientation_contracts
 
 SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     ContractSpec(
@@ -364,6 +365,7 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             "continuity_attention",
         ),
     ),
+    *session_orientation_contracts(),
 )
 
 

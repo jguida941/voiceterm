@@ -70,10 +70,18 @@ def _review_channel_suppresses_artifact_writes(args: Any) -> bool:
     return action in _REVIEW_CHANNEL_READ_ONLY_ACTIONS
 
 
+def _session_suppresses_artifact_writes(args: Any) -> bool:
+    # ``devctl session`` is read-only from the caller's perspective, but its
+    # context-graph bootstrap child must still save the navigation snapshot
+    # that later startup/resume surfaces consume.
+    return False
+
+
 _ARTIFACT_SUPPRESSION_OVERRIDES: dict[str, Callable[[Any], bool]] = {
     "develop": _develop_suppresses_artifact_writes,
     "context-graph": _context_graph_suppresses_artifact_writes,
     "review-channel": _review_channel_suppresses_artifact_writes,
+    "session": _session_suppresses_artifact_writes,
 }
 
 

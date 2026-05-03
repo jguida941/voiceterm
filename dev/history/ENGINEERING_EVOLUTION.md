@@ -13535,6 +13535,31 @@ Evidence:
 - `dev/scripts/checks/check_registry_path_integrity.py`
 - `dev/scripts/checks/check_provider_list_parity_graph.py`
 
+### 2026-05-03 - Fresh sessions now use typed orientation packets
+
+Fresh "where are we / next steps / resume" requests no longer rely on
+manual git/doc reconstruction. `devctl session --role <role> --format md|json`
+now emits a bounded `SessionOrientationPacket` by running `startup-context`,
+`session-resume`, `review-channel --action status --terminal none`, and
+`context-graph --mode bootstrap` in order. Startup blockers remain typed data
+rather than aborting later status/graph reads, and the session command keeps
+context-graph bootstrap snapshot writes enabled so system-picture and graph
+freshness stay aligned.
+
+The same slice ingested the operator dogfood finding as
+`MP377-P0-T22AN-AC`, ingested Claude slash-domain packet `rev_pkt_2863` as
+`MP377-P0-T22AN-AD`, and dismissed no-work test packet `rev_pkt_2866` with a
+terminal rejected plan-ingestion receipt.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/governance/session.py`
+- `dev/scripts/devctl/commands/governance/session_orientation.py`
+- `dev/scripts/devctl/cli_parser/artifact_suppression.py`
+- `dev/scripts/devctl/platform/surface_state_contract_rows.py`
+- `dev/scripts/devctl/tests/governance/test_session_orientation.py`
+- `dev/scripts/devctl/tests/governance/test_read_only_commands.py`
+
 ### 2026-05-03 - `/develop` packet-aware roles and packet-ingestion dogfood
 
 T22AN-X adds packet-aware `/develop` composition over the existing typed

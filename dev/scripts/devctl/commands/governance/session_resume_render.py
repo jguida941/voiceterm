@@ -137,7 +137,8 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
                 "### Run In Order",
                 f"1. `{startup_context_command_for_role(role)}`",
                 f"2. `{session_resume_command_for_role(role)}`",
-                f"3. `{context_graph_bootstrap_command()}`",
+                f"3. `{_STATUS_COMMAND}`",
+                f"4. `{context_graph_bootstrap_command()}`",
             ]
         )
 

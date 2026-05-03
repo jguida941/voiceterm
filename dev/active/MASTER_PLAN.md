@@ -6315,6 +6315,14 @@ become the main product surface.
     `devctl test-python` adapter, root pytest config must stay scoped and
     timeout-guarded, and `check-router` should add path-aware Python suites
     instead of keeping broad raw pytest in static bundles.
+  - [ ] `MP377-P0-T22AN-AC` now owns fresh-session orientation automation:
+    `devctl session` must run startup-context, session-resume, live
+    review-channel status, and context-graph bootstrap before answering
+    "where are we" or selecting next work.
+  - [ ] `MP377-P0-T22AN-AD` now owns Claude `rev_pkt_2863` slash-domain
+    architecture: split canonical slash entry points by typed backend domain
+    while keeping current `/develop` role presets as compatibility aliases
+    until replacement slashes have contracts, docs, and tests.
   - [ ] Freeze the first explanation/contract boundary shapes in that same
     lane: use closed-vocabulary status/wait-reason enums for `DecisionTrace`,
     add strict boundary-validation models plus JSON Schema emission for
@@ -7498,3 +7506,9 @@ This generated ledger projects packet creation bindings for humans. The typed ro
 - [ ] `PKT-BIND-REV-PKT-2841` Packet finding: LLM-specific guard proposals: 8 study-backed + 2 industry-observation guards not currently caught (phantom imports 19.7% study, test weakening 76%, naive datetime 58.9%, secrets 40%, Pearce CWE on diff, refactor semantic ... (source `rev_pkt_2841`; target `plan:MP-377`; posted `2026-05-03T03:08:51.698067Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-2842` Packet finding: General Python practices audit: 11 high-leverage gaps — most are TIGHTENING existing config not new code. T22AN-AA slice in 4 waves (~640-820 LOC). Wave 1 zero-LOC config: enable 11 ruff rule families (PERF/TRY/G/T20/PGH/... (source `rev_pkt_2842`; target `plan:MP-377`; posted `2026-05-03T03:15:01.200784Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-2851` Packet action request: Stage verified commit pipeline (source `rev_pkt_2851`; target `devctl_commit:a982d6d2793c282a78afd527d785a916f7256fdc`; posted `2026-05-03T06:41:20.360806Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2863` Packet finding: Slash entry-point architecture (architect-level): operator's /develop-as-dev-entry hypothesis is right but cut needs to go deeper. 4 of 9 /develop role-presets (reviewer, tester, intake, watcher) are conceptually distinct... (source `rev_pkt_2863`; target `plan:MP-377`; posted `2026-05-03T13:29:20.096352Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2866` Packet finding: test post try (source `rev_pkt_2866`; target `plan:MP-377`; posted `2026-05-03T14:00:17.035974Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2867` Packet finding: review-channel status JSON has internal contradictions: 10 enumerated; trust-failure class extending rev_pkt_2827/2840 (source `rev_pkt_2867`; target `plan:MP-377`; posted `2026-05-03T14:34:45.897300Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2868` Packet finding: review-channel status JSON has internal contradictions: 10 enumerated; trust-failure class extending rev_pkt_2827/2840 (source `rev_pkt_2868`; target `plan:MP-377`; posted `2026-05-03T14:35:49.701330Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2869` Packet finding: rev_pkt_2868 contradictions reduce to ONE class: status surface bakes in claude+codex pairing assumption but agents are decoupled in single_agent/tools_only/dashboard-in-remote-control. Add mode_scope to bridge_liveness c... (source `rev_pkt_2869`; target `plan:MP-377`; posted `2026-05-03T14:38:15.079732Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2870` Packet action request: Execute governed commit pipeline `pipeline-a29d253bcb2d` (source `rev_pkt_2870`; target `remote_commit_pipeline:pipeline-a29d253bcb2d`; posted `2026-05-03T14:42:31.272296Z`; binding `plan_row`).
