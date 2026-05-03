@@ -129,7 +129,10 @@ def _runtime_summary(payload: Mapping[str, object]) -> dict[str, object]:
         ),
         "agent_work_board_row_count": len(work_rows),
         "agent_loop_decision_row_count": len(decision_rows),
-        "pending_packet_agents": pending_packet_agents(agents),
+        "pending_packet_agents": pending_packet_agents(
+            agents,
+            packet_rows=_packet_rows(payload),
+        ),
     }
 
 
@@ -178,6 +181,13 @@ def _string_items(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _packet_rows(payload: Mapping[str, object]) -> list[Mapping[str, object]]:
+    rows = payload.get("packets")
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, Mapping)]
 
 
 def _agent_id_rows(rows: object) -> set[str]:

@@ -566,8 +566,10 @@ Portability note:
   defaults to `--status pending`, and intentionally does not stamp
   `delivery_observed_at_utc` / `delivery_observed_by` on live
   `action_request` packets. Use it when the operator needs a bounded inbox
-  view without mutating delivery receipts; keep `inbox|watch --target <agent>`
-  for the active lane watchers that are supposed to acknowledge observation.
+  view without mutating delivery receipts; read-only operator `system_notice`
+  packets can remain pending there without becoming agent-loop wake debt. Keep
+  `inbox|watch --target <agent>` for the active lane watchers that are
+  supposed to acknowledge observation.
 - `review-channel --action history --include-outcomes` attaches a bounded
   read-side `PacketOutcomeLedger` to the shown history rows. Packet rows also
   carry `PacketLifecycleHistory` and `PacketDisposition`: ack events stay in
@@ -1934,11 +1936,14 @@ Machine-first output note:
   plan/finding/lifecycle ownership instead of living only in packet transport.
   `audit-packets --drain-packets` runs the existing guarded deterministic
   plan-row ingestion writer for eligible rows and emits durable-ingestion
-  receipts; it does not grant repo mutation. Live pending packets of any kind
-  to a conductor-backed actor now show up as delivery wake pressure in
+  receipts; it does not grant repo mutation. Live runtime-actionable pending
+  packets to a conductor-backed actor now show up as delivery wake pressure in
   `packet_attention` (`pending_delivery_packet_ids` and
   `latest_attention_packet_id`), while actionable instruction/action-request
   packets remain separately identified in `pending_actionable_packet_ids`.
+  Operator-targeted read-only `system_notice` packets remain operator-inbox
+  inventory and are not treated as agent-loop wake pressure by
+  `check_multi_agent_sync.py`.
   `--collaboration-mode <solo|pair_review|dashboard_led|intake_fanout|research_fanout|review_fanout|watcher_fanout|isolated_builder_fanout|dogfood_campaign>`
   and `--role-preset <dashboard|implementer|reviewer|architect|researcher|intake|tester|watcher|operator>`
   select the read-model lens rendered in `collaboration_mode`; they do not

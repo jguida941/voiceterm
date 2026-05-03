@@ -47,7 +47,9 @@ def agent_loop_decision_errors(payload: Mapping[str, object]) -> list[str]:
     errors: list[str] = []
     errors.extend(_work_board_decision_errors(work_rows, decision_rows))
     sync_agents = coerce_mapping(coerce_mapping(payload.get("agent_sync")).get("agents"))
-    pending_agents = set(pending_packet_agents(sync_agents))
+    pending_agents = set(
+        pending_packet_agents(sync_agents, packet_rows=_packet_rows(payload))
+    )
     decision_pending_agents = {
         coerce_text(row.get("actor_id"))
         for row in decision_rows
@@ -145,16 +147,71 @@ def _decision_packet_matches(
     return coerce_text(decision.get("legacy_unscoped_packet_id")) == expected_packet_id
 
 
-def pending_packet_agents(agents: Mapping[str, object]) -> list[str]:
-    """Return actors with non-empty typed pending-packet rows."""
+def pending_packet_agents(
+    agents: Mapping[str, object],
+    packet_rows: list[Mapping[str, object]] | None = None,
+) -> list[str]:
+    """Return actors with typed pending packets that should wake agent loops."""
+    packet_index = _packet_index(packet_rows or [])
     pending: list[str] = []
     for agent_id, row in agents.items():
         if not isinstance(row, Mapping):
             continue
         packets = row.get("pending_packets_to_me")
-        if isinstance(packets, list) and packets:
+        if not isinstance(packets, list):
+            continue
+        packet_ids = [coerce_text(packet_id) for packet_id in packets]
+        if _has_runtime_attention_packet(packet_ids, packet_index):
             pending.append(str(agent_id))
     return sorted(pending)
+
+
+def _packet_rows(payload: Mapping[str, object]) -> list[Mapping[str, object]]:
+    rows = payload.get("packets")
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, Mapping)]
+
+
+def _packet_index(
+    packet_rows: list[Mapping[str, object]],
+) -> dict[str, Mapping[str, object]]:
+    indexed: dict[str, Mapping[str, object]] = {}
+    for row in packet_rows:
+        packet_id = coerce_text(row.get("packet_id"))
+        if packet_id:
+            indexed[packet_id] = row
+    return indexed
+
+
+def _has_runtime_attention_packet(
+    packet_ids: list[str],
+    packet_index: Mapping[str, Mapping[str, object]],
+) -> bool:
+    for packet_id in packet_ids:
+        if not packet_id:
+            continue
+        packet = packet_index.get(packet_id)
+        if packet is None:
+            return True
+        if _requires_runtime_loop_attention(packet):
+            return True
+    return False
+
+
+def _requires_runtime_loop_attention(packet: Mapping[str, object]) -> bool:
+    if coerce_text(packet.get("to_agent")) != "operator":
+        return True
+    if coerce_text(packet.get("kind")) != "system_notice":
+        return True
+    if bool(packet.get("approval_required")):
+        return True
+    requested_action = coerce_text(packet.get("requested_action"))
+    policy_hint = coerce_text(packet.get("policy_hint"))
+    return requested_action not in {"", "review_only"} or policy_hint not in {
+        "",
+        "review_only",
+    }
 
 
 def _work_board_key(row: Mapping[str, object]) -> str:

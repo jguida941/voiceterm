@@ -140,16 +140,16 @@ def test_maybe_wake_posted_reviewer_packet_uses_typed_status_refresh() -> None:
     }
 
 
-def test_maybe_wake_posted_codex_packet_in_remote_control_skips_legacy_reviewer_wake() -> None:
-    """rev_pkt_2892 Finding 1 regression guard.
+def test_maybe_wake_posted_codex_packet_in_remote_control_uses_real_dispatcher(
+    monkeypatch,
+) -> None:
+    """rev_pkt_2904 integration regression guard.
 
-    In remote_control mode, an unscoped codex-targeted packet must NOT take
-    the legacy reviewer-wake path (which can spawn a fresh codex conductor).
-    It must route through the agent-wake dispatcher whose Finding W
-    short-circuit records attention only.
+    In remote_control mode, an unscoped codex-targeted packet posted through
+    event_post_wake must route through the real agent-wake dispatcher. The
+    dispatcher then records attention only instead of taking the legacy
+    reviewer-wake path that can spawn a fresh codex conductor.
     """
-    observed: dict[str, object] = {}
-
     def fake_refresh_status_snapshot(**_kwargs):
         return SimpleNamespace(
             bridge_liveness={"reviewer_mode": "single_agent"},
@@ -165,18 +165,16 @@ def test_maybe_wake_posted_codex_packet_in_remote_control_skips_legacy_reviewer_
     def reject_legacy_reviewer_wake(**_kwargs):
         raise AssertionError(
             "remote_control codex packet must not call the legacy "
-            "reviewer-wake path (Finding 1 from rev_pkt_2892)"
+            "reviewer-wake path (rev_pkt_2904)"
         )
 
-    def fake_agent_wake(**kwargs):
-        observed["wake_kwargs"] = kwargs
-        return {
-            "attempted": True,
-            "woke": False,
-            "reason": "remote_control_post_action_records_attention_only",
-            "wake_method": "typed_attention_event",
-            "target_agent": "codex",
-        }
+    from dev.scripts.devctl.review_channel import follow_controller
+
+    monkeypatch.setattr(
+        follow_controller,
+        "maybe_wake_waiting_reviewer_conductor",
+        reject_legacy_reviewer_wake,
+    )
 
     result = maybe_wake_posted_reviewer_packet(
         args=SimpleNamespace(execution_mode="event-backed"),
@@ -198,7 +196,6 @@ def test_maybe_wake_posted_codex_packet_in_remote_control_skips_legacy_reviewer_
             scan_repo_governance_fn=lambda _repo_root: SimpleNamespace(),
             derive_operator_interaction_mode_fn=lambda **_kwargs: "remote_control",
             maybe_wake_waiting_reviewer_conductor_fn=reject_legacy_reviewer_wake,
-            maybe_wake_waiting_agent_conductor_fn=fake_agent_wake,
             load_or_refresh_event_bundle_fn=lambda **_kwargs: SimpleNamespace(
                 review_state={}
             ),
@@ -207,8 +204,8 @@ def test_maybe_wake_posted_codex_packet_in_remote_control_skips_legacy_reviewer_
 
     assert result["wake_method"] == "typed_attention_event"
     assert result["reason"] == "remote_control_post_action_records_attention_only"
-    assert observed["wake_kwargs"]["target_agent"] == "codex"
-    assert observed["wake_kwargs"]["operator_interaction_mode"] == "remote_control"
+    assert result["target_agent"] == "codex"
+    assert result["visible_session_woke"] is False
 
 
 def test_maybe_wake_posted_reviewer_packet_routes_non_codex_adapter() -> None:

@@ -196,7 +196,9 @@ Use docs like this:
   to the live pending queue, and must not stamp `delivery_observed_*` on live
   `action_request` packets. Use it for operator/dashboard/phone inspection,
   and keep targeted `inbox` / `watch` polls for the actor lanes that are
-  supposed to record packet observation.
+  supposed to record packet observation. Pending read-only operator
+  `system_notice` rows, such as launch receipts, stay visible there without
+  forcing agent-loop wake debt.
 - Queue-derived next-step projections are action-request-first now. A live
   `action_request` must outrank later findings or commentary in
   `queue.derived_next_instruction`, and the typed source payload should carry
@@ -517,7 +519,9 @@ Three quality layers matter in practice:
   runtime-honesty role beyond markdown-lane parity: when typed
   `review_state` exists, it must also prove planned `AGENT-*` rows have not
   leaked into live collaboration participants or runtime registry entries
-  without live delegated-worker receipts.
+  without live delegated-worker receipts. The runtime packet-debt portion is
+  scoped to actionable pending packets, so read-only operator notices do not
+  require synthetic agent-loop decisions.
 - Keep one workflow, not a dev-vs-agent fork:
   - `active_dual_agent` is the fully enforced Codex/Claude loop. Use
     `python3 dev/scripts/devctl.py tandem-validate --format md` after code edits.

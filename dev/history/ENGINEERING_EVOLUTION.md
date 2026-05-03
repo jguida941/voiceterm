@@ -13669,3 +13669,22 @@ Evidence:
 - `dev/scripts/devctl/tests/review_channel/test_follow_controller_reviewer_wake.py`
 - `dev/scripts/devctl/tests/review_channel/test_launch_script.py`
 - `dev/scripts/devctl/tests/runtime/test_startup_gate.py`
+
+### 2026-05-03 - Operator launch notices no longer count as agent-loop wake debt
+
+Live single-agent verification exposed a false red `check_multi_agent_sync.py`
+state: the operator's read-only launch `system_notice` stayed pending in
+`operator-inbox`, while the agent-loop projection correctly had no operator
+runtime row to wake. The guard now distinguishes operator queue inventory from
+runtime-actionable packet pressure. Pending read-only operator `system_notice`
+rows remain visible for the operator without requiring synthetic
+`AgentLoopDecision` rows or actor-ambiguous global packet attention.
+
+Evidence:
+
+- `dev/scripts/checks/multi_agent_sync/runtime_truth.py`
+- `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop.py`
+- `dev/scripts/devctl/tests/checks/test_check_multi_agent_sync_runtime_truth.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`

@@ -258,6 +258,69 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         "resolved_review_state_relative_path"
     )
     @patch("dev.scripts.checks.multi_agent_sync.runtime_truth.load_review_state_payload")
+    def test_runtime_truth_allows_operator_read_only_notice_without_loop_wake(
+        self,
+        load_payload_mock,
+        relpath_mock,
+    ) -> None:
+        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        load_payload_mock.return_value = {
+            "collaboration": {
+                "participants": [],
+                "delegated_work": [],
+                "ready_gates": [],
+            },
+            "registry": {"agents": []},
+            "agent_sync": {
+                "agents": {
+                    "operator": {
+                        "pending_packets_to_me": ["rev_pkt_notice"],
+                    },
+                }
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_notice",
+                    "to_agent": "operator",
+                    "kind": "system_notice",
+                    "requested_action": "review_only",
+                    "policy_hint": "review_only",
+                    "approval_required": False,
+                    "status": "pending",
+                    "lifecycle_current_state": "pending",
+                }
+            ],
+            "agent_work_board": {"rows": []},
+            "agent_loop_decisions": [],
+            "reviewer_runtime": {
+                "packet_attention": {
+                    "observation_actor_id": "",
+                    "pending_packet_count": 0,
+                    "wake_required": False,
+                    "stale_reason": "",
+                }
+            },
+        }
+
+        result = runtime_truth.evaluate_runtime_truth(
+            repo_root=Path("/repo"),
+            planned_agent_ids=[],
+        )
+
+        self.assertTrue(result["checked"])
+        self.assertEqual(result["pending_packet_agents"], [])
+        self.assertFalse(
+            any("no pending count for: operator" in err for err in result["errors"])
+        )
+        self.assertFalse(
+            any("actor_identity_ambiguous_with_pending_wake" in err for err in result["errors"])
+        )
+
+    @patch(
+        "dev.scripts.checks.multi_agent_sync.runtime_truth."
+        "resolved_review_state_relative_path"
+    )
+    @patch("dev.scripts.checks.multi_agent_sync.runtime_truth.load_review_state_payload")
     def test_runtime_truth_blocks_queue_and_inbox_instruction_drift(
         self,
         load_payload_mock,
