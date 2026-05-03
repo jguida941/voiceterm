@@ -2,8 +2,9 @@
 
 Runs ensure --follow as a short tick for heartbeats/supervisor state,
 then checks for pending packets or dirty worktree. When work exists
-and no Codex process is alive, launches ``codex --full-auto`` directly,
-waits for it to finish, and loops back.
+and no Codex process is alive, launches a bounded ``codex exec`` review
+pass with the current CLI approval/sandbox flags, waits for it to finish,
+and loops back.
 """
 
 from __future__ import annotations
@@ -154,7 +155,7 @@ def _pgrep_codex_for_repo(repo_root: Path) -> bool:
 
 
 def _launch_codex_review(repo_root: Path) -> None:
-    """Launch codex --full-auto for one review pass, wait for it to finish."""
+    """Launch one bounded Codex review pass and wait for it to finish."""
     codex_bin = shutil.which("codex")
     if codex_bin is None:
         print("[session] WARNING: codex not found in PATH", file=sys.stderr)
@@ -178,8 +179,10 @@ def _launch_codex_review(repo_root: Path) -> None:
     cmd = [
         codex_bin,
         "-C", str(repo_root),
-        "--full-auto",
-        "-q", prompt,
+        "--ask-for-approval", "on-request",
+        "--sandbox", "workspace-write",
+        "exec",
+        prompt,
     ]
     print(f"[session] Launching Codex review pass...")
     try:

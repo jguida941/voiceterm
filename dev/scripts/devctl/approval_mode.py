@@ -84,7 +84,15 @@ def provider_args_for_approval_mode(
                 str(repo_root),
                 "--dangerously-bypass-approvals-and-sandbox",
             ]
-        return ["-C", str(repo_root), "--full-auto"]
+        approval_policy = "untrusted" if approval_mode == "strict" else "on-request"
+        return [
+            "-C",
+            str(repo_root),
+            "--ask-for-approval",
+            approval_policy,
+            "--sandbox",
+            "workspace-write",
+        ]
     if provider == "claude":
         if approval_mode == "trusted":
             return ["--dangerously-skip-permissions"]

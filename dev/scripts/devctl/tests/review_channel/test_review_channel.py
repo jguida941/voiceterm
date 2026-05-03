@@ -9165,7 +9165,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             args = SimpleNamespace(
                 action="launch",
                 execution_mode="auto",
-                terminal="none",
+                terminal="terminal-app",
                 terminal_profile="auto-dark",
                 review_channel_path=str(review_channel_path.relative_to(root)),
                 bridge_path=str(bridge_path.relative_to(root)),
@@ -9224,30 +9224,32 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(codex_session["capture_mode"], "terminal-script")
             codex_text = codex_script.read_text(encoding="utf-8")
             claude_text = claude_script.read_text(encoding="utf-8")
-            self.assertIn("--full-auto", codex_script.read_text(encoding="utf-8"))
+            self.assertIn("--ask-for-approval on-request", codex_text)
+            self.assertIn("--sandbox workspace-write", codex_text)
+            self.assertNotIn("--full-auto", codex_text)
             self.assertIn(
                 "--permission-mode default",
-                claude_script.read_text(encoding="utf-8"),
+                claude_text,
             )
             self.assertIn(
                 "unset CLAUDECODE || true",
-                claude_script.read_text(encoding="utf-8"),
+                claude_text,
             )
             self.assertIn(
                 "script -q -F -t 0",
-                codex_script.read_text(encoding="utf-8"),
+                codex_text,
             )
             self.assertIn(
                 "docs-check --strict-tooling",
-                codex_script.read_text(encoding="utf-8"),
+                codex_text,
             )
             self.assertIn(
                 "review-channel --action rollover",
-                codex_script.read_text(encoding="utf-8"),
+                codex_text,
             )
             self.assertIn(
                 "--await-ack-seconds 180",
-                codex_script.read_text(encoding="utf-8"),
+                codex_text,
             )
             self.assertIn(
                 "50% context remaining",

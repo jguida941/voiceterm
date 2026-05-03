@@ -346,7 +346,12 @@ class LaunchTopologyTests(unittest.TestCase):
                 for session in sessions
             }
 
-            self.assertIn("--full-auto", scripts_by_provider["codex"])
+            self.assertIn(
+                "--ask-for-approval on-request",
+                scripts_by_provider["codex"],
+            )
+            self.assertIn("--sandbox workspace-write", scripts_by_provider["codex"])
+            self.assertNotIn("--full-auto", scripts_by_provider["codex"])
             self.assertIn("--permission-mode default", scripts_by_provider["claude"])
             self.assertNotIn("--permission-mode auto", scripts_by_provider["claude"])
 
