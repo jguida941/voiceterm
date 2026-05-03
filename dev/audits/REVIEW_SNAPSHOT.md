@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `bcf72a352345` — Fix idle review-channel status readiness
-- Tree hash: `43cf204d51a3`
-- Generation stamp: `snap-6c3ea87b6c42`
-- Generated at (UTC): 2026-05-03T08:48:52Z
+- HEAD: `2096395c9622` — Refresh external review snapshot for bcf72a35
+- Tree hash: `55b0a853b8e7`
+- Generation stamp: `snap-6ca318bac8a0`
+- Generated at (UTC): 2026-05-03T08:50:05Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `local_terminal`)
+- Reviewer mode: `single_agent` (interaction: `single_agent`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 30 files, +2022/-1572
+- Delta since last snapshot: 24 commits, 30 files, +2035/-1584
 - Governance findings: 152 open / 88 fixed / 254 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,7 +30,7 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `bcf72a352345da90764ca8eefde6354bcc53c6ae`
+- HEAD SHA: `2096395c96224031141d21ce4221bac322ee51e3`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-05-03T04:48:37-04:00
 
@@ -45,15 +45,18 @@ probes, typed actions, deterministic policy resolution — is what m...
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report: `dev/reports/push/latest.json`
-- latest_push_report_state: `post_push_green` (push_completed)
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- latest_push_report_state: `blocked` (push_preflight_running)
+- current_push_authorization: `push-auth-20260503T084736764866Z` (valid=True)
+- authorized_head_commit: `2096395c96224031141d21ce4221bac322ee51e3`
+- approved_target_identity: `tree-receipt-20260503T084736764866Z:43cf204d51a3574d7885951b7efcf88997cdfff0`
+- publication_backlog: recommended
+- publication_guidance: 2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `local_terminal`
+- interaction_mode: `single_agent`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -67,12 +70,12 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `bcf72a352345`
+Range: last 24 commits ending at `2096395c9622`
 
 - commits: 24
 - files changed: 30
-- insertions: +2022
-- deletions: -1572
+- insertions: +2035
+- deletions: -1584
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 1 file(s)
 
@@ -80,39 +83,39 @@ Range: last 24 commits ending at `bcf72a352345`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `bcf72a35` | Fix idle review-channel status readiness | 8 | +246/-71 | tooling |  |
-| 2 | `b3e303b7` | Refresh external review snapshot for 2ff46d1c | 2 | +44/-44 | docs |  |
-| 3 | `2ff46d1c` | Refresh external review snapshot for fa2ca61c | 1 | +45/-42 | tooling |  |
-| 4 | `fa2ca61c` | Refresh external review snapshot for 9b6cc0d0 | 2 | +65/-58 | docs |  |
-| 5 | `9b6cc0d0` | Allow pending-publish pipeline authorization refresh | 6 | +191/-58 | tooling |  |
-| 6 | `7cb7ba19` | Refresh external review snapshot for fde85cea | 2 | +50/-55 | docs |  |
-| 7 | `fde85cea` | Refresh external review snapshot for d80d603a | 2 | +83/-115 | docs |  |
-| 8 | `d80d603a` | Refresh external review snapshot for a1a0468d | 2 | +57/-58 | docs |  |
-| 9 | `a1a0468d` | Refresh external review snapshot for de294ab4 | 2 | +69/-67 | docs |  |
-| 10 | `de294ab4` | Refresh external review snapshot for 37eb2d78 | 2 | +63/-67 | docs |  |
-| 11 | `37eb2d78` | Refresh external review snapshot for cc513241 | 2 | +54/-53 | docs |  |
-| 12 | `cc513241` | Refresh external review snapshot for f5d534ad | 2 | +49/-49 | docs |  |
-| 13 | `f5d534ad` | Refresh external review snapshot for 1ad2844d | 2 | +53/-50 | docs |  |
-| 14 | `1ad2844d` | Refresh external review snapshot for 330a82e6 | 2 | +78/-83 | docs |  |
-| 15 | `330a82e6` | Align review-channel launch dry-run test with visible policy | 2 | +67/-58 | tooling |  |
-| 16 | `0278cb96` | Migrate Codex provider args from --full-auto to explicit ap… | 8 | +112/-93 | tooling |  |
-| 17 | `a982d6d2` | Refresh external review snapshot for 4dee7ce3 | 2 | +46/-46 | docs |  |
-| 18 | `4dee7ce3` | Refresh external review snapshot for 6e55bc00 | 1 | +43/-43 | tooling |  |
-| 19 | `6e55bc00` | Refresh external review snapshot for e9a687a9 | 2 | +44/-44 | docs |  |
-| 20 | `e9a687a9` | Refresh external review snapshot for 8f6e138e | 1 | +47/-44 | tooling |  |
-| 21 | `8f6e138e` | Refresh external review snapshot for dbedb6d3 | 2 | +63/-68 | docs |  |
-| 22 | `dbedb6d3` | Fix governed push managed projection parsing | 15 | +359/-215 | tooling |  |
-| 23 | `04434ae5` | Refresh external review snapshot for 5799b3bf | 2 | +47/-47 | docs |  |
-| 24 | `5799b3bf` | Refresh external review snapshot for e6fbc758 | 1 | +47/-44 | tooling |  |
+| 1 | `2096395c` | Refresh external review snapshot for bcf72a35 | 2 | +60/-56 | docs |  |
+| 2 | `bcf72a35` | Fix idle review-channel status readiness | 8 | +246/-71 | tooling |  |
+| 3 | `b3e303b7` | Refresh external review snapshot for 2ff46d1c | 2 | +44/-44 | docs |  |
+| 4 | `2ff46d1c` | Refresh external review snapshot for fa2ca61c | 1 | +45/-42 | tooling |  |
+| 5 | `fa2ca61c` | Refresh external review snapshot for 9b6cc0d0 | 2 | +65/-58 | docs |  |
+| 6 | `9b6cc0d0` | Allow pending-publish pipeline authorization refresh | 6 | +191/-58 | tooling |  |
+| 7 | `7cb7ba19` | Refresh external review snapshot for fde85cea | 2 | +50/-55 | docs |  |
+| 8 | `fde85cea` | Refresh external review snapshot for d80d603a | 2 | +83/-115 | docs |  |
+| 9 | `d80d603a` | Refresh external review snapshot for a1a0468d | 2 | +57/-58 | docs |  |
+| 10 | `a1a0468d` | Refresh external review snapshot for de294ab4 | 2 | +69/-67 | docs |  |
+| 11 | `de294ab4` | Refresh external review snapshot for 37eb2d78 | 2 | +63/-67 | docs |  |
+| 12 | `37eb2d78` | Refresh external review snapshot for cc513241 | 2 | +54/-53 | docs |  |
+| 13 | `cc513241` | Refresh external review snapshot for f5d534ad | 2 | +49/-49 | docs |  |
+| 14 | `f5d534ad` | Refresh external review snapshot for 1ad2844d | 2 | +53/-50 | docs |  |
+| 15 | `1ad2844d` | Refresh external review snapshot for 330a82e6 | 2 | +78/-83 | docs |  |
+| 16 | `330a82e6` | Align review-channel launch dry-run test with visible policy | 2 | +67/-58 | tooling |  |
+| 17 | `0278cb96` | Migrate Codex provider args from --full-auto to explicit ap… | 8 | +112/-93 | tooling |  |
+| 18 | `a982d6d2` | Refresh external review snapshot for 4dee7ce3 | 2 | +46/-46 | docs |  |
+| 19 | `4dee7ce3` | Refresh external review snapshot for 6e55bc00 | 1 | +43/-43 | tooling |  |
+| 20 | `6e55bc00` | Refresh external review snapshot for e9a687a9 | 2 | +44/-44 | docs |  |
+| 21 | `e9a687a9` | Refresh external review snapshot for 8f6e138e | 1 | +47/-44 | tooling |  |
+| 22 | `8f6e138e` | Refresh external review snapshot for dbedb6d3 | 2 | +63/-68 | docs |  |
+| 23 | `dbedb6d3` | Fix governed push managed projection parsing | 15 | +359/-215 | tooling |  |
+| 24 | `04434ae5` | Refresh external review snapshot for 5799b3bf | 2 | +47/-47 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +1/-0 |
-| `bridge.md` | docs | +152/-152 |
+| `bridge.md` | docs | +155/-155 |
 | `dev/active/MASTER_PLAN.md` | tooling | +8/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1207/-1240 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1217/-1249 |
 | `dev/guides/DEVELOPMENT.md` | docs | +1/-1 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +1/-1 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +24/-0 |
@@ -201,6 +204,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`2096395c`** — Refresh external review snapshot for bcf72a35
+  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
 - **`bcf72a35`** — Fix idle review-channel status readiness
   - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
 - **`b3e303b7`** — Refresh external review snapshot for 2ff46d1c
@@ -247,8 +252,6 @@ Recent findings:
   - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
 - **`04434ae5`** — Refresh external review snapshot for 5799b3bf
   - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
-- **`5799b3bf`** — Refresh external review snapshot for e6fbc758
-  - evolution: Fact: Live post-push dogfooding caught a false green: `devctl push` published and reported `post_push_green`, but the final startup/bootstrap checks still found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was …
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -292,4 +295,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-6c3ea87b6c42` binds this file to HEAD `bcf72a352345`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-6ca318bac8a0` binds this file to HEAD `2096395c9622`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
