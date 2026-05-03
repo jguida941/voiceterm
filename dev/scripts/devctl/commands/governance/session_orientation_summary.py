@@ -167,6 +167,10 @@ def final_summary(
     if next_command:
         source = "review_status.attention"
     if not next_command:
+        next_command = startup_push_command(payloads)
+        if next_command:
+            source = "startup.push_decision"
+    if not next_command:
         next_command = text(authority.get("next_command"))
     if not next_command:
         next_command = fallback_next_command(payloads)
@@ -214,6 +218,15 @@ def review_status_attention_command(
     if command:
         return command
     return ""
+
+
+def startup_push_command(payloads: dict[str, dict[str, object]]) -> str:
+    """Return the governed push command when startup proves it is next."""
+    startup = mapping(payloads.get("startup", {}))
+    push_decision = mapping(startup.get("push_decision"))
+    if text(push_decision.get("action")) != "run_devctl_push":
+        return ""
+    return text(push_decision.get("next_step_command"))
 
 
 def authority_reduced(authority: dict[str, object]) -> dict[str, object]:
