@@ -878,3 +878,44 @@ def test_maybe_wake_waiting_reviewer_conductor_blocks_action_request_during_resy
     )
 
     assert result is None
+
+
+def test_maybe_wake_waiting_agent_conductor_remote_control_records_attention_only() -> None:
+    def fail_launch(**_kwargs):
+        raise AssertionError(
+            "remote_control packet-post wake must not auto-launch a conductor"
+        )
+
+    deps = ReviewerWakeDeps(
+        ensure_launcher_prereqs_fn=fail_launch,
+        build_launch_sessions_fn=fail_launch,
+        launch_sessions_headless_fn=lambda _sessions, _warnings: False,
+        load_conductor_sessions_fn=lambda **_kwargs: (),
+    )
+
+    result = maybe_wake_waiting_agent_conductor(
+        args=SimpleNamespace(execution_mode="markdown-bridge", terminal="none"),
+        repo_root=Path("/tmp/repo"),
+        paths={
+            "bridge_path": Path("/tmp/repo/bridge.md"),
+            "review_channel_path": Path("/tmp/repo/dev/active/review_channel.md"),
+            "status_dir": Path("/tmp/repo/dev/reports/review_channel/latest"),
+        },
+        report=_base_report(),
+        operator_interaction_mode="remote_control",
+        target_agent="codex",
+        packet={
+            "packet_id": "pkt-finding",
+            "to_agent": "codex",
+            "kind": "finding",
+            "status": "pending",
+            "target_role": "reviewer",
+        },
+        deps=deps,
+    )
+
+    assert result["attempted"] is True
+    assert result["woke"] is False
+    assert result["reason"] == "remote_control_post_action_records_attention_only"
+    assert result["wake_method"] == "typed_attention_event"
+    assert result["target_agent"] == "codex"

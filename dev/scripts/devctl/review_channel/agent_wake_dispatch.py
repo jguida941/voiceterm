@@ -145,6 +145,33 @@ def _wake_via_relaunch(
         packet,
         terminal_arg=getattr(routing.args, "terminal", ""),
     )
+    # In remote_control mode the operator cannot see or auth a fresh
+    # spawned conductor, so packet-post wake must record attention only and
+    # leave conductor relaunch to explicit `review-channel --action launch`
+    # or the scheduled publisher follow daemon. Without this gate, every
+    # packet post tries-and-fails to spawn a TTY-bound codex session.
+    if (
+        str(getattr(routing, "operator_interaction_mode", "") or "").strip()
+        == "remote_control"
+    ):
+        return wake_report(
+            packet=packet,
+            attempted=True,
+            woke=False,
+            reason="remote_control_post_action_records_attention_only",
+            target_agent=provider,
+            extras=WakeReceiptExtras(
+                target_role=target_role,
+                wake_method="typed_attention_event",
+                requested_session_visibility=visibility,
+                visible_session_woke=False,
+                warnings=(
+                    "Packet-post wake suppressed in remote_control: operator "
+                    "cannot authorize a spawned conductor through chat. Use "
+                    "`review-channel --action launch` for explicit relaunch.",
+                ),
+            ),
+        )
     if not target_role:
         return wake_report(
             packet=packet,
