@@ -880,6 +880,84 @@ def test_maybe_wake_waiting_reviewer_conductor_blocks_action_request_during_resy
     assert result is None
 
 
+def test_maybe_wake_waiting_agent_conductor_remote_control_unscoped_codex_uses_real_dispatcher() -> None:
+    """rev_pkt_2904 regression guard: unscoped codex packet in remote_control
+    must record attention only THROUGH THE REAL DISPATCHER, not bypass to
+    legacy reviewer wake. Codex's review identified that the previous fix's
+    remote_control guard was inside `_wake_via_relaunch`, which never
+    fires for unscoped codex packets because they short-circuit to
+    `maybe_wake_reviewer_fn` first. This test calls the real public
+    dispatcher with a fake `maybe_wake_reviewer_fn` that raises on call,
+    proving the legacy path is never reached.
+    """
+    def fail_legacy_reviewer_wake(**_kwargs):
+        raise AssertionError(
+            "remote_control unscoped codex packet must NOT call legacy "
+            "reviewer-wake path (rev_pkt_2904)"
+        )
+
+    deps = ReviewerWakeDeps(
+        ensure_launcher_prereqs_fn=lambda **_kw: (
+            "",
+            [
+                LaneAssignment(
+                    agent_id="AGENT-9",
+                    provider="codex",
+                    role="reviewer",
+                    lane="Codex review",
+                    docs="review",
+                    mp_scope="MP-377",
+                    worktree="../codex-voice-wt-a9",
+                    branch="feature/a9",
+                )
+            ],
+        ),
+        build_launch_sessions_fn=lambda **_kw: [],
+        launch_sessions_headless_fn=lambda _sessions, _warnings: False,
+        load_conductor_sessions_fn=lambda **_kwargs: (),
+    )
+
+    # Call the internal dispatcher directly so we can inject
+    # `maybe_wake_reviewer_fn`; the public shim hardcodes that to the
+    # real reviewer-wake function. This is the "real dispatcher"
+    # codex's review asked for — no fakes injected as the wake function.
+    from dev.scripts.devctl.review_channel.agent_wake_dispatch import (
+        WakeRoutingContext,
+        maybe_wake_waiting_agent_conductor as _dispatch,
+    )
+
+    result = _dispatch(
+        routing=WakeRoutingContext(
+            args=SimpleNamespace(execution_mode="markdown-bridge", terminal="none"),
+            repo_root=Path("/tmp/repo"),
+            paths={
+                "bridge_path": Path("/tmp/repo/bridge.md"),
+                "review_channel_path": Path("/tmp/repo/dev/active/review_channel.md"),
+                "status_dir": Path("/tmp/repo/dev/reports/review_channel/latest"),
+            },
+            report=_base_report(),
+            operator_interaction_mode="remote_control",
+        ),
+        target_agent="codex",
+        # Unscoped: no target_role and no target_session_id.
+        packet={
+            "packet_id": "pkt-codex-unscoped",
+            "to_agent": "codex",
+            "kind": "finding",
+            "status": "pending",
+        },
+        maybe_wake_reviewer_fn=fail_legacy_reviewer_wake,
+        deps=deps,
+    )
+
+    assert result is not None
+    assert result["attempted"] is True
+    assert result["woke"] is False
+    assert result["reason"] == "remote_control_post_action_records_attention_only"
+    assert result["wake_method"] == "typed_attention_event"
+    assert result["target_agent"] == "codex"
+
+
 def test_maybe_wake_waiting_agent_conductor_remote_control_records_attention_only() -> None:
     def fail_launch(**_kwargs):
         raise AssertionError(

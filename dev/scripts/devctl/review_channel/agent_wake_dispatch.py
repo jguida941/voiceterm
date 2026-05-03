@@ -59,6 +59,43 @@ def maybe_wake_waiting_agent_conductor(
     provider = str(target_agent or "").strip().lower()
     if not provider:
         return None
+    in_remote_control = (
+        str(routing.operator_interaction_mode or "").strip() == "remote_control"
+    )
+    # rev_pkt_2904 fix: in remote_control, unscoped codex packets must
+    # record attention only and NOT take the legacy reviewer-wake path
+    # which can spawn or replace a codex conductor. The remote_control
+    # guard inside `_wake_via_relaunch` (rev_pkt_2879 Finding W) is too
+    # late because this branch returns before reaching that function.
+    # Codex's live review of Phase 1.5: "agent_wake_dispatch.py
+    # immediately sends provider=codex packets without target_role or
+    # target_session_id back to maybe_wake_reviewer_fn before the
+    # remote_control attention-only guard. That defeats the rev_pkt_2892
+    # fix and can still spawn or replace a Codex conductor from packet
+    # post."
+    if (
+        provider == "codex"
+        and not packet_has_actor_route(packet)
+        and in_remote_control
+    ):
+        return wake_report(
+            packet=packet,
+            attempted=True,
+            woke=False,
+            reason="remote_control_post_action_records_attention_only",
+            target_agent=provider,
+            extras=WakeReceiptExtras(
+                target_role=str(packet.get("target_role") or "").strip(),
+                wake_method="typed_attention_event",
+                visible_session_woke=False,
+                warnings=(
+                    "Packet-post wake suppressed in remote_control: "
+                    "operator cannot authorize a spawned conductor through "
+                    "chat. Use `review-channel --action launch` for "
+                    "explicit relaunch.",
+                ),
+            ),
+        )
     if provider == "codex" and not packet_has_actor_route(packet):
         return maybe_wake_reviewer_fn(
             args=routing.args,

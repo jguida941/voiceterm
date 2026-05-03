@@ -575,7 +575,13 @@ def test_maybe_wake_posted_reviewer_packet_reports_startup_blocked_wake(
         deps=EventPostWakeDeps(
             refresh_status_snapshot_fn=fake_refresh_status_snapshot,
             scan_repo_governance_fn=lambda _repo_root: SimpleNamespace(),
-            derive_operator_interaction_mode_fn=lambda **_kwargs: "remote_control",
+            # Use local_terminal here. The startup-blocked attention path
+            # is appropriate when operator is at terminal AND startup
+            # authority is red. In remote_control, the rev_pkt_2904 fix
+            # short-circuits unscoped codex packets to attention-only
+            # BEFORE the startup-blocked report can fire — covered by a
+            # separate test below.
+            derive_operator_interaction_mode_fn=lambda **_kwargs: "local_terminal",
             maybe_wake_waiting_reviewer_conductor_fn=lambda **_kwargs: None,
             load_or_refresh_event_bundle_fn=lambda **_kwargs: SimpleNamespace(
                 review_state={}
