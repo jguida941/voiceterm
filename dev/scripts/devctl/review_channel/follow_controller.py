@@ -14,7 +14,6 @@ from .follow_loop import (
 )
 from .lifecycle_state import PublisherHeartbeat
 from .headless_delegate import (
-    can_delegate_dashboard_packet_headless,
     session_pids,
 )
 from .wake_receipt_models import WakeReceiptExtras
@@ -314,5 +313,4 @@ def maybe_wake_waiting_agent_conductor(
         maybe_wake_reviewer_fn=maybe_wake_waiting_reviewer_conductor,
         deps=deps,
     )
-
 

@@ -398,9 +398,9 @@ def _duty_proof_state(
 
     Per rev_pkt_2475 Scope D: env-declared caller identity
     (``DEVCTL_CALLER_AGENT`` + ``DEVCTL_CALLER_SESSION_ID``) is checked
-    against the proof's expected reviewer actor/session. A dashboard-claude
+    against the proof's expected reviewer actor/session. A dashboard-role
     session that lacks proper caller identity cannot stamp
-    ``semantic_review_claimed=True`` for a coder-claude reviewer_actor_id —
+    ``semantic_review_claimed=True`` for an implementer/reviewer role actor;
     the proof is downgraded with ``actor_session_mismatch`` stale_reason.
     """
     import os as _os

@@ -159,7 +159,7 @@
           "label": "Parser/ANSI boundary add-ons",
           "tokens": [
             "/ansi",
-            "/parser",
+            "rust/src/parser",
             "prompt/strip",
             "pty_session"
           ],
@@ -539,6 +539,22 @@
           "tracked": true,
           "local_only": false,
           "description": "Claude skill template for one-shot VoiceTerm capture."
+        },
+        {
+          "id": "develop_role_slash_adapters",
+          "surface_type": "assistant_template",
+          "renderer": "template_file",
+          "template_path": "dev/config/templates/develop_role_adapters.template.md",
+          "output_path": "dev/templates/slash/develop/roles.md",
+          "tracked": true,
+          "local_only": false,
+          "description": "Provider-neutral /develop role adapter catalog for Codex and Claude slash surfaces.",
+          "required_contains": [
+            "Provider-neutral role adapter catalog.",
+            "Codex and Claude consume the same role-to-mode map",
+            "--actor codex --role-preset dashboard --collaboration-mode dashboard_led",
+            "--actor claude --role-preset implementer --collaboration-mode pair_review"
+          ]
         },
         {
           "id": "portable_pre_commit_hook_stub",

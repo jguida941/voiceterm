@@ -17,13 +17,21 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from ..approval_mode import auto_elevated_approval_mode
 from .action_request_delivery import mark_action_request_packets_observed
 from .core import ensure_launcher_prereqs, filter_provider_lanes
 from .launch import build_launch_sessions
 from .launch_records import LaunchSessionRequest
 from .session_probe import load_conductor_sessions
 from .terminal_app import cleanup_terminal_session
+from .headless_delegate import terminal_window_ids
+from .reviewer_wake_launch import (
+    artifact_root as _artifact_root,
+    launch_sessions_headless as _launch_sessions_headless,
+    launch_sessions_visible as _launch_sessions_visible,
+    provider_target as _provider_target,
+    resolved_wake_approval_mode as _resolved_wake_approval_mode,
+    visible_session_woke as _visible_session_woke,
+)
 from .wake_receipt_models import (
     WakeReceiptExtras,
     headless_launch_pids,
@@ -50,22 +58,6 @@ __all__ = (
 )
 
 
-def _resolved_wake_approval_mode(*, args: object, interaction_mode: str) -> str:
-    """Apply the typed-state-driven approval-mode auto-elevation for reviewer-wake.
-
-    Mirrors the launch / rollover / recover entry points so a remote-control
-    reviewer-wake spawn does not silently wedge on a sandbox-escalation prompt
-    the headless terminal cannot render. When the operator did not pass an
-    explicit `--approval-mode`, route through the shared helper; otherwise
-    preserve the explicit value as a string for `LaunchSessionRequest`.
-    """
-    explicit = getattr(args, "approval_mode", None)
-    elevated = auto_elevated_approval_mode(
-        explicit_mode=explicit,
-        interaction_mode=interaction_mode,
-    )
-    return str(elevated or "")
-
 _BLOCKING_CLEANUP_WARNING_FRAGMENTS = (
     "permission denied",
     "failed to stop pid",
@@ -84,6 +76,7 @@ class ReviewerWakeDeps:
         build_launch_sessions
     )
     launch_sessions_headless_fn: Callable[..., bool] = None
+    launch_sessions_visible_fn: Callable[..., bool] = None
     load_conductor_sessions_fn: Callable[..., tuple[object, ...]] = (
         load_conductor_sessions
     )
@@ -93,13 +86,18 @@ class ReviewerWakeDeps:
     )
 
     def __post_init__(self) -> None:
-        if self.launch_sessions_headless_fn is not None:
-            return
-        object.__setattr__(
-            self,
-            "launch_sessions_headless_fn",
-            _launch_sessions_headless,
-        )
+        if self.launch_sessions_headless_fn is None:
+            object.__setattr__(
+                self,
+                "launch_sessions_headless_fn",
+                _launch_sessions_headless,
+            )
+        if self.launch_sessions_visible_fn is None:
+            object.__setattr__(
+                self,
+                "launch_sessions_visible_fn",
+                _launch_sessions_visible,
+            )
 
 
 @dataclass(frozen=True)
@@ -208,10 +206,11 @@ def launch_waiting_reviewer_conductor(
                 attempted=True,
                 woke=False,
                 reason=f"{provider}_lanes_missing",
-                target_agent=_non_codex_target(provider),
+                target_agent=_provider_target(provider),
                 extras=WakeReceiptExtras(warnings=tuple(context.cleanup_warnings)),
             )
 
+        visible_launch = context.wake_method_override == "visible_session_launch"
         sessions = deps.build_launch_sessions_fn(
             request=LaunchSessionRequest(
                 repo_root=context.repo_root,
@@ -243,7 +242,7 @@ def launch_waiting_reviewer_conductor(
                     interaction_mode=context.operator_interaction_mode,
                 ),
                 dangerous=bool(getattr(context.args, "dangerous", False)),
-                headless=True,
+                headless=not visible_launch,
                 bridge_liveness=bridge_liveness,
                 handoff_bundle=None,
                 script_dir=as_path(context.paths.get("script_dir")),
@@ -261,15 +260,20 @@ def launch_waiting_reviewer_conductor(
             attempted=True,
             woke=False,
             reason="launch_build_failed",
-            target_agent=_non_codex_target(provider),
+            target_agent=_provider_target(provider),
             extras=WakeReceiptExtras(
                 warnings=tuple([*context.cleanup_warnings, str(exc)]),
             ),
         )
 
     launch_warnings: list[str] = []
-    woke = deps.launch_sessions_headless_fn(sessions, launch_warnings)
-    spawned_pids = headless_launch_pids(sessions)
+    visible_launch = context.wake_method_override == "visible_session_launch"
+    if visible_launch:
+        woke = deps.launch_sessions_visible_fn(sessions, launch_warnings)
+        spawned_pids: tuple[int, ...] = ()
+    else:
+        woke = deps.launch_sessions_headless_fn(sessions, launch_warnings)
+        spawned_pids = headless_launch_pids(sessions)
     if (
         woke
         and artifact_root is not None
@@ -287,6 +291,8 @@ def launch_waiting_reviewer_conductor(
     is_delegate = wake_method == "headless_delegate"
     if is_delegate:
         reason = "headless_delegate_launched" if woke else "headless_delegate_failed"
+    elif visible_launch:
+        reason = "visible_session_launched" if woke else "visible_session_failed"
     else:
         reason = "launched" if woke else "launch_failed"
     return wake_report(
@@ -294,17 +300,27 @@ def launch_waiting_reviewer_conductor(
         attempted=True,
         woke=False if is_delegate else woke,
         reason=reason,
-        target_agent=_non_codex_target(provider),
+        target_agent=_provider_target(provider),
         extras=WakeReceiptExtras(
             target_role=context.target_role,
             target_session_id=context.target_session_id,
             dashboard_session_id=context.dashboard_session_id,
             wake_method=wake_method,
+            requested_session_visibility=(
+                "visible" if visible_launch else "headless" if is_delegate else ""
+            ),
             delegated=(woke and is_delegate) if is_delegate else None,
-            visible_session_woke=False if is_delegate else None,
+            visible_session_woke=_visible_session_woke(
+                visible_launch=visible_launch,
+                is_delegate=is_delegate,
+                woke=bool(woke),
+            ),
             spawned_pids=tuple(spawned_pids),
             delivered_to_pids=tuple(spawned_pids) if is_delegate else (),
             replaced_pids=tuple(context.replaced_pids),
+            terminal_window_ids=(
+                terminal_window_ids(sessions) if visible_launch else ()
+            ),
             warnings=tuple([*context.cleanup_warnings, *launch_warnings]),
         ),
     )
@@ -321,25 +337,3 @@ def _promotion_plan_rel(*, repo_root: Path, promotion_plan_path: Path | None) ->
         return str(promotion_plan_path.relative_to(repo_root))
     except ValueError:
         return "dev/active/review_channel.md"
-
-
-def _artifact_root(value: object) -> Path | None:
-    if value is None:
-        return None
-    artifact_root = getattr(value, "artifact_root", None)
-    return artifact_root if isinstance(artifact_root, Path) else None
-
-
-def _non_codex_target(provider: str) -> str:
-    return "" if provider == "codex" else provider
-
-
-def _launch_sessions_headless(
-    sessions: list[dict[str, object]],
-    warnings: list[str],
-) -> bool:
-    from ..commands.review_channel.bridge_launch_headless import (
-        launch_sessions_headless,
-    )
-
-    return launch_sessions_headless(sessions, warnings)

@@ -2,9 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from ...runtime.development_collaboration_modes import (
+    CollaborationModeTopology,
+    DevelopRolePresetSpec,
+)
+from ...runtime.development_packet_pressure_models import (
+    PacketAttentionIngestionDecision,
+    PacketBacklogPressure,
+    PacketIntentClassification,
+)
 from dev.scripts.devctl.runtime.development_team import DevelopmentScalingContract
 from .collaboration_models import (
     DevelopmentPeerMindEvent,
@@ -23,6 +33,11 @@ from .orchestration_models import (
 
 DEVELOPMENT_LOOP_CONTRACT_ID = "DevelopmentLoopReport"
 DEVELOPMENT_LOOP_SCHEMA_VERSION = 1
+CollaborationModePayload = CollaborationModeTopology | Mapping[str, object]
+CollaborationRolePresetPayload = DevelopRolePresetSpec | Mapping[str, object]
+PacketPressurePayload = PacketBacklogPressure | Mapping[str, object]
+PacketClassificationPayload = PacketIntentClassification | Mapping[str, object]
+PacketIngestionDecisionPayload = PacketAttentionIngestionDecision | Mapping[str, object]
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,6 +187,10 @@ class DevelopmentLoopReport:
     runtime: DevelopmentRuntimeSnapshot
     peer_minds: tuple[DevelopmentPeerMindSnapshot, ...]
     orchestration: DevelopmentOrchestrationSnapshot
+    collaboration_mode: CollaborationModePayload
+    packet_pressure: PacketPressurePayload
+    selected_packet_classifications: tuple[PacketClassificationPayload, ...]
+    packet_ingestion_decision: PacketIngestionDecisionPayload
     watcher_lease: DevelopmentWatcherLease
     continuation: DevelopmentContinuationRequiredSignal
     learning: DevelopmentLearningSnapshot

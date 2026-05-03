@@ -73,7 +73,7 @@ _RISK_RULES: tuple[RiskRule, ...] = (
     RiskRule(
         rule_id="parser-ansi-boundary",
         label="Parser / ANSI boundary",
-        tokens=("/ansi", "/parser", "prompt/strip", "pty_session"),
+        tokens=("/ansi", "rust/src/parser", "prompt/strip", "pty_session"),
     ),
     RiskRule(
         rule_id="unsafe-ffi-lifecycle",

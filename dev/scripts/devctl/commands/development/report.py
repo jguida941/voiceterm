@@ -5,10 +5,13 @@ from __future__ import annotations
 from typing import Any
 
 from ...config import REPO_ROOT
+from ...runtime.development_collaboration_modes import collaboration_mode_report
+from ...runtime.development_packet_pressure import packet_pressure_report
 from ...runtime.development_team import build_default_development_topology
 from ...runtime.dashboard_snapshot_authority import build_dashboard_snapshot
 from ...runtime.master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL
 from ...runtime.master_plan_store import read_plan_rows_jsonl
+from .actions import resolve_action
 from .actor_resolution import resolve_actor
 from .continuation import continuation_signal, watcher_lease_status
 from .lifecycle import LIFECYCLE_ACTIONS
@@ -31,7 +34,7 @@ from .snapshots import discovery_snapshot, learning_snapshot
 
 def build_report(args: Any) -> DevelopmentLoopReport:
     """Build the read-only controller report from existing typed surfaces."""
-    action = _resolve_action(args)
+    action = resolve_action(args)
     topology = build_default_development_topology()
     rows = read_plan_rows_jsonl(REPO_ROOT / DEFAULT_MASTER_PLAN_STORE_REL)
     review_state = review_state_payload(REPO_ROOT)
@@ -59,6 +62,16 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         actor=actor,
         dashboard=dashboard,
     )
+    collaboration_mode = collaboration_mode_report(
+        requested_mode=getattr(args, "collaboration_mode", ""),
+        requested_role_preset=getattr(args, "role_preset", ""),
+        max_workers=int(getattr(args, "max_workers", 0) or 0),
+    )
+    packet_pressure, classifications, ingestion_decision = packet_pressure_report(
+        review_state,
+        rows=rows,
+        actor=actor,
+    )
     watcher_lease = watcher_lease_status(REPO_ROOT, review_state, actor=actor)
     continuation = continuation_signal(
         packet_attention=packet_attention,
@@ -85,6 +98,10 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         runtime=runtime,
         peer_minds=peer_minds,
         orchestration=orchestration,
+        collaboration_mode=collaboration_mode,
+        packet_pressure=packet_pressure,
+        selected_packet_classifications=tuple(classifications),
+        packet_ingestion_decision=ingestion_decision,
         watcher_lease=watcher_lease,
         continuation=continuation,
         learning=learning_snapshot(REPO_ROOT),
@@ -131,15 +148,6 @@ def _orchestration_dashboard(repo_root) -> dict[str, Any]:
         )
     except Exception:  # broad-except: allow reason=dashboard snapshot is advisory context for /develop fallback=omit orchestration dashboard
         return {}
-
-
-def _resolve_action(args: Any) -> str:
-    return str(
-        getattr(args, "action_flag", None)
-        or getattr(args, "action", None)
-        or "status"
-    )
-
 
 def _controller_state(action: str, args: Any) -> str:
     if action in LIFECYCLE_ACTIONS:

@@ -170,7 +170,7 @@ RISK_ADDONS = (
         "label": "Parser/ANSI boundary add-ons",
         "tokens": (
             "/ansi",
-            "/parser",
+            "rust/src/parser",
             "prompt/strip",
             "pty_session",
         ),

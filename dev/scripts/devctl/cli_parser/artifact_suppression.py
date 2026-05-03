@@ -51,6 +51,13 @@ def read_only_command_suppresses_artifact_writes(
 
 
 def _develop_suppresses_artifact_writes(args: Any) -> bool:
+    action = str(
+        getattr(args, "action_flag", None)
+        or getattr(args, "action", None)
+        or "status"
+    )
+    if action == "ingest-plan":
+        return False
     return not bool(getattr(args, "drain_packets", False))
 
 

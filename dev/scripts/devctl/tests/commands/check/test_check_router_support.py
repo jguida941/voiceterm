@@ -67,6 +67,16 @@ class CheckRouterSupportTests(TestCase):
             }
         ])
 
+    def test_devctl_argparse_files_do_not_trigger_rust_parser_addon(self) -> None:
+        addons = detect_risk_addons(
+            ["dev/scripts/devctl/commands/development/parser.py"],
+        )
+
+        self.assertNotIn(
+            "parser-ansi-boundary",
+            {addon["id"] for addon in addons},
+        )
+
     def test_custom_governed_layout_routes_markdown_to_tooling_lane(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = Path(tmpdir)

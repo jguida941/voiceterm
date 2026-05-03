@@ -79,6 +79,13 @@ def build_packet_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             default="canonical",
             help="Adapter profile recorded on attached context-pack refs",
         ),
+        *_packet_target_arguments(arg_builder),
+        *_packet_runtime_approval_arguments(arg_builder),
+    ]
+
+
+def _packet_target_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
+    return [
         arg_builder(
             "--target-kind",
             choices=sorted(VALID_TARGET_KINDS),
@@ -150,12 +157,28 @@ def build_packet_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             "--target-session-id",
             help=(
                 "Optional session-id discriminator for the target agent. "
-                "Per rev_pkt_2472: pins the packet to one specific Claude "
-                "Code (or other agent) session, so dashboard-claude and "
-                "coder-claude cannot both consume the same packet. "
+                "Per rev_pkt_2472: pins the packet to one specific provider "
+                "session so a dashboard role and implementer role on the same "
+                "provider cannot both consume the same packet. "
                 "Consumers fail closed on mismatch when the field is set."
             ),
         ),
+        arg_builder(
+            "--requested-session-visibility",
+            choices=["dashboard_only", "headless", "visible"],
+            help=(
+                "Optional visibility request for the targeted actor/session. "
+                "`dashboard_only` records typed attention for the bound "
+                "dashboard poller, `visible` requests a user-visible session, "
+                "and `headless` requires explicit typed approval/proof before "
+                "any detached launch can satisfy the packet."
+            ),
+        ),
+    ]
+
+
+def _packet_runtime_approval_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
+    return [
         arg_builder(
             "--pipeline-generation",
             help="Runtime pipeline generation for `commit_approval` packets",

@@ -23,6 +23,8 @@ def render_markdown(report: DevelopmentLoopReport) -> str:
     lines.extend(runtime_lines(payload.get("runtime")))
     lines.extend(peer_mind_lines(payload.get("peer_minds")))
     lines.extend(orchestration_lines(payload.get("orchestration")))
+    lines.extend(_collaboration_mode_lines(payload.get("collaboration_mode")))
+    lines.extend(_packet_pressure_lines(payload))
     lines.extend(_watcher_lease_lines(payload.get("watcher_lease")))
     lines.extend(_continuation_lines(payload.get("continuation")))
     lines.extend(_workstream_lines(topology["workstreams"]))
@@ -91,6 +93,56 @@ def _workstream_lines(workstreams) -> list[str]:
         lines.append(
             f"- {item['display_name']} ({item['workstream_id']}): "
             f"{item['mutation_policy']}"
+        )
+    return lines
+
+
+def _collaboration_mode_lines(collaboration) -> list[str]:
+    if not isinstance(collaboration, dict):
+        return []
+    policy = collaboration.get("packet_pressure_policy")
+    pressure = policy if isinstance(policy, dict) else {}
+    return [
+        "",
+        "## Collaboration Mode",
+        "",
+        f"- contract_id: {collaboration.get('contract_id') or '(none)'}",
+        f"- selected_mode_id: {collaboration.get('selected_mode_id') or '(none)'}",
+        f"- selected_role_preset_id: {collaboration.get('selected_role_preset_id') or '(none)'}",
+        f"- mutable_fanout_status: {collaboration.get('mutable_fanout_status') or '(none)'}",
+        f"- default_worker_fanout: {collaboration.get('default_worker_fanout')}",
+        f"- soft_attention_budget: {pressure.get('soft_attention_budget')}",
+        f"- hard_attention_budget: {pressure.get('hard_attention_budget')}",
+        f"- near_ttl_minutes: {pressure.get('near_ttl_minutes')}",
+        f"- authority_policy: {collaboration.get('authority_policy') or '(none)'}",
+    ]
+
+
+def _packet_pressure_lines(payload) -> list[str]:
+    pressure = payload.get("packet_pressure")
+    decision = payload.get("packet_ingestion_decision")
+    if not isinstance(pressure, dict) or not isinstance(decision, dict):
+        return []
+    classifications = payload.get("selected_packet_classifications")
+    selected = classifications if isinstance(classifications, list) else []
+    lines = ["", "## Packet Pressure", ""]
+    lines.append(f"- pressure_state: {pressure.get('pressure_state') or '(none)'}")
+    lines.append(f"- live_total: {pressure.get('live_total')}")
+    lines.append(f"- actionable_total: {pressure.get('actionable_total')}")
+    lines.append(f"- near_ttl_total: {pressure.get('near_ttl_total')}")
+    lines.append(f"- expired_unresolved_total: {pressure.get('expired_unresolved_total')}")
+    lines.append(f"- carry_forward_total: {pressure.get('carry_forward_total')}")
+    lines.append(f"- durable_owner_gap_total: {pressure.get('durable_owner_gap_total')}")
+    lines.append(f"- decision: {decision.get('decision') or '(none)'}")
+    lines.append(f"- required_action: {decision.get('required_action') or '(none)'}")
+    lines.append(f"- next_command: {decision.get('next_command') or '(none)'}")
+    for item in selected[:10]:
+        if not isinstance(item, dict):
+            continue
+        lines.append(
+            f"- {item.get('packet_id')}: {item.get('classification')} "
+            f"owner={item.get('durable_owner') or '(none)'} "
+            f"terminal={item.get('terminal_receipt') or '(none)'}"
         )
     return lines
 

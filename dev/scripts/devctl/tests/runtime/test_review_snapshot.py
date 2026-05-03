@@ -294,6 +294,13 @@ def test_detect_risk_addons_triggers_on_parser_path() -> None:
     assert "Parser / ANSI boundary" in triggered
 
 
+def test_detect_risk_addons_does_not_trigger_on_devctl_argparse_path() -> None:
+    triggered = detect_risk_addons(
+        ("dev/scripts/devctl/commands/development/parser.py",)
+    )
+    assert "Parser / ANSI boundary" not in triggered
+
+
 def test_detect_risk_addons_triggers_multiple_for_pty_session() -> None:
     triggered = detect_risk_addons(("rust/src/pty_session.rs",))
     assert "Unsafe / FFI lifecycle" in triggered

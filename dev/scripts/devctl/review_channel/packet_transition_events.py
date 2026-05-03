@@ -18,6 +18,7 @@ from .event_store import (
 from .packet_attestation import validate_packet_apply_attestation
 from .packet_contract import PacketTransitionRequest
 from .packet_plan_integration import maybe_append_packet_plan_row
+from .packet_source_identity import source_identity
 from .remote_control_attachment_artifact import heartbeat_repo_remote_control_attachment
 
 TRANSITION_EVENT_TYPES = {
@@ -72,6 +73,7 @@ def build_transition_event(
         target_revision=packet.get("target_revision"),
         target_role=packet.get("target_role"),
         target_session_id=packet.get("target_session_id"),
+        requested_session_visibility=packet.get("requested_session_visibility"),
         anchor_refs=list(packet.get("anchor_refs") or []),
         intake_ref=packet.get("intake_ref"),
         mutation_op=packet.get("mutation_op"),
@@ -80,7 +82,7 @@ def build_transition_event(
         guard_results_summary=packet.get("guard_results_summary"),
         full_guard_bundle_evidence=packet.get("full_guard_bundle_evidence"),
         semantic_zref=packet.get("semantic_zref") or _packet_semantic_zref(packet),
-        source_identity=_source_identity(packet),
+        source_identity=source_identity(packet),
         status={"ack": "acked", "dismiss": "dismissed", "apply": "applied"}[
             request.action
         ],
@@ -110,17 +112,6 @@ def _transition_plan_id(
     if request_plan_id and request_plan_id != DEFAULT_REVIEW_CHANNEL_PLAN_ID:
         return request_plan_id
     return packet_plan_id or request_plan_id
-
-
-def _source_identity(packet: Mapping[str, object]) -> dict[str, object]:
-    raw = packet.get("source_identity")
-    if not isinstance(raw, Mapping):
-        return {}
-    return {
-        str(key).strip(): str(value or "").strip()
-        for key, value in raw.items()
-        if str(key).strip() and str(value or "").strip()
-    }
 
 
 def finish_transition_event(

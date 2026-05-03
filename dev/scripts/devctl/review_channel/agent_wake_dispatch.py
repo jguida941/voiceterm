@@ -1,7 +1,7 @@
 """Per-provider wake dispatcher for typed packet wake targets.
 
 Extracted from `follow_controller` so the multi-mode wake dispatch
-(codex reviewer-wake / non-codex headless-delegate / fallback relaunch)
+(legacy reviewer-wake / dashboard poll / visible worker / fallback relaunch)
 can grow independently without inflating the follow_controller host
 file beyond shape limits. Re-exported from `follow_controller` for
 backward-compatible imports.
@@ -9,22 +9,23 @@ backward-compatible imports.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 from .headless_delegate import (
-    can_delegate_dashboard_packet_headless,
-    session_pids,
+    packet_targets_dashboard_poll,
+    requested_worker_visibility,
 )
+from .follow_controller_wake_target import (
+    resolve_reviewer_wake_paths,
+)
+from .packet_predicates import packet_has_actor_route
 from .reviewer_follow_guard import (
     ReviewerWakeDeps,
     ReviewerWakeLaunchContext,
-    cleanup_candidate_provider_sessions,
-    cleanup_codex_sessions,
-    has_blocking_cleanup_warning,
     launch_waiting_reviewer_conductor,
 )
-from .reviewer_follow_guard import as_path
 from .wake_receipt_models import WakeReceiptExtras, wake_report
 
 
@@ -58,7 +59,7 @@ def maybe_wake_waiting_agent_conductor(
     provider = str(target_agent or "").strip().lower()
     if not provider:
         return None
-    if provider == "codex":
+    if provider == "codex" and not packet_has_actor_route(packet):
         return maybe_wake_reviewer_fn(
             args=routing.args,
             repo_root=routing.repo_root,
@@ -68,7 +69,7 @@ def maybe_wake_waiting_agent_conductor(
             deps=deps,
         )
 
-    wake_paths = _resolve_wake_paths(routing.paths)
+    wake_paths = resolve_reviewer_wake_paths(routing.paths)
     if wake_paths is None:
         return wake_report(
             packet=packet,
@@ -107,42 +108,26 @@ def _wake_target_session_packet(
     target_session_id: str,
     deps: ReviewerWakeDeps | None,
 ) -> dict[str, object]:
-    if can_delegate_dashboard_packet_headless(
-        packet,
-        operator_interaction_mode=routing.operator_interaction_mode,
-        headless_requested=str(getattr(routing.args, "terminal", "") or "").strip()
-        == "none",
-    ):
-        effective_deps = deps or ReviewerWakeDeps()
-        target_role = str(packet.get("target_role") or "").strip()
-        return launch_waiting_reviewer_conductor(
-            context=ReviewerWakeLaunchContext(
-                args=routing.args,
-                repo_root=routing.repo_root,
-                paths=routing.paths,
-                report=routing.report,
-                packet=packet,
-                wake_paths=wake_paths,
-                cleanup_warnings=(),
-                operator_interaction_mode=routing.operator_interaction_mode,
-                provider=provider,
-                wake_method_override="headless_delegate",
-                target_role=target_role,
-                target_session_id=target_session_id,
-                dashboard_session_id=target_session_id,
-            ),
-            deps=effective_deps,
-        )
     return wake_report(
         packet=packet,
         attempted=True,
         woke=False,
-        reason="target_session_unreachable_without_registry",
+        reason="target_session_poll_required",
         target_agent=provider,
         extras=WakeReceiptExtras(
             target_role=str(packet.get("target_role") or "").strip(),
             target_session_id=target_session_id,
-            wake_method="unreachable_until_operator_prompt",
+            dashboard_session_id=(
+                target_session_id if packet_targets_dashboard_poll(packet) else ""
+            ),
+            wake_method="session_poll",
+            requested_session_visibility=requested_worker_visibility(packet),
+            visible_session_woke=False,
+            warnings=(
+                "External push wake is unavailable for an existing provider "
+                "session; the bound role/session must observe this packet on "
+                "its next typed poll.",
+            ),
         ),
     )
 
@@ -155,57 +140,175 @@ def _wake_via_relaunch(
     wake_paths,
     deps: ReviewerWakeDeps | None,
 ) -> dict[str, object]:
-    effective_deps = deps or ReviewerWakeDeps()
-    cleanup_sessions = cleanup_candidate_provider_sessions(
-        session_output_root=wake_paths.status_dir,
-        provider=provider,
-        deps=effective_deps,
+    target_role = str(packet.get("target_role") or "").strip()
+    visibility = requested_worker_visibility(
+        packet,
+        terminal_arg=getattr(routing.args, "terminal", ""),
     )
-    cleanup_warnings: list[str] = []
-    if cleanup_sessions:
-        cleanup_warnings = cleanup_codex_sessions(
-            live_codex_sessions=cleanup_sessions,
-            deps=effective_deps,
-        )
-    if has_blocking_cleanup_warning(cleanup_warnings):
+    if not target_role:
         return wake_report(
             packet=packet,
             attempted=True,
             woke=False,
-            reason="cleanup_failed",
+            reason="target_session_binding_required",
             target_agent=provider,
-            extras=WakeReceiptExtras(warnings=tuple(cleanup_warnings)),
+            extras=WakeReceiptExtras(
+                wake_method="typed_attention_event",
+                visible_session_woke=False,
+                warnings=(
+                    "Provider wake suppressed: packet lacks actor role/session "
+                    "routing, so launching a fresh session would not prove the "
+                    "intended actor consumed it.",
+                ),
+            ),
         )
-
+    if visibility == "headless":
+        return wake_report(
+            packet=packet,
+            attempted=True,
+            woke=False,
+            reason="headless_requires_typed_approval",
+            target_agent=provider,
+            extras=WakeReceiptExtras(
+                target_role=target_role,
+                wake_method="headless_suppressed",
+                requested_session_visibility=visibility,
+                visible_session_woke=False,
+                warnings=(
+                    "Headless worker launch is suppressed until typed "
+                    "approval/proof marks this route as headless-approved.",
+                ),
+            ),
+        )
+    missing = _missing_launch_capabilities(
+        report=routing.report,
+        provider=provider,
+        role=target_role,
+        packet=packet,
+    )
+    if missing:
+        return wake_report(
+            packet=packet,
+            attempted=True,
+            woke=False,
+            reason="launch_authority_missing",
+            target_agent=provider,
+            extras=WakeReceiptExtras(
+                target_role=target_role,
+                wake_method="visible_launch_suppressed",
+                requested_session_visibility=visibility,
+                visible_session_woke=False,
+                warnings=(
+                    "Visible worker launch is suppressed because typed "
+                    "actor authority lacks required capability grants: "
+                    + ", ".join(missing),
+                ),
+            ),
+        )
+    effective_deps = deps or ReviewerWakeDeps()
     return launch_waiting_reviewer_conductor(
         context=ReviewerWakeLaunchContext(
-            args=routing.args,
+            args=_args_with_terminal(routing.args, terminal="terminal-app"),
             repo_root=routing.repo_root,
             paths=routing.paths,
             report=routing.report,
             packet=packet,
             wake_paths=wake_paths,
-            cleanup_warnings=tuple(cleanup_warnings),
+            cleanup_warnings=(),
             operator_interaction_mode=routing.operator_interaction_mode,
             provider=provider,
-            replaced_session_count=len(cleanup_sessions),
-            replaced_pids=session_pids(cleanup_sessions),
+            wake_method_override="visible_session_launch",
+            target_role=target_role,
         ),
         deps=effective_deps,
     )
 
 
-def _resolve_wake_paths(paths: dict[str, object]):
-    """Local wake-path resolver mirroring the host module's contract."""
-    from .reviewer_follow_guard import ReviewerWakePaths
+def _args_with_terminal(args: object, *, terminal: str) -> object:
+    from types import SimpleNamespace
 
-    status_dir = as_path(paths.get("status_dir"))
-    review_channel_path = as_path(paths.get("review_channel_path"))
-    bridge_path = as_path(paths.get("bridge_path"))
-    if status_dir is None or review_channel_path is None or bridge_path is None:
-        return None
-    return ReviewerWakePaths(
-        status_dir=status_dir,
-        review_channel_path=review_channel_path,
-        bridge_path=bridge_path,
+    values = dict(vars(args)) if hasattr(args, "__dict__") else {}
+    values["terminal"] = terminal
+    return SimpleNamespace(**values)
+
+
+def _missing_launch_capabilities(
+    *,
+    report: Mapping[str, object],
+    provider: str,
+    role: str,
+    packet: Mapping[str, object],
+) -> tuple[str, ...]:
+    required = _required_launch_capabilities(packet)
+    if not required:
+        return ()
+    grants = _granted_capabilities_for_route(
+        report=report,
+        provider=provider,
+        role=role,
     )
+    return tuple(capability for capability in required if capability not in grants)
+
+
+def _required_launch_capabilities(packet: Mapping[str, object]) -> tuple[str, ...]:
+    action = str(packet.get("requested_action") or "").strip()
+    if action == "stage_commit_pipeline":
+        return ("repo.stage", "repo.commit")
+    if action in {"commit", "push"}:
+        return ("repo.commit",)
+    if action == "kill_process":
+        return ("runtime.terminate",)
+    if action == "run_check":
+        return ("runtime.observe",)
+    if str(packet.get("kind") or "").strip() in {"action_request", "instruction"}:
+        return ("runtime.observe",)
+    return ("runtime.observe",)
+
+
+def _granted_capabilities_for_route(
+    *,
+    report: Mapping[str, object],
+    provider: str,
+    role: str,
+) -> set[str]:
+    rows = _actor_authority_rows(report)
+    provider_key = _normalize(provider)
+    role_key = _normalize(role)
+    capabilities: set[str] = set()
+    for row in rows:
+        row_provider = _normalize(row.get("provider"))
+        row_actor = _normalize(row.get("actor_id"))
+        row_role = _normalize(row.get("role"))
+        if provider_key and provider_key not in {row_provider, row_actor}:
+            continue
+        if role_key and row_role and role_key != row_role:
+            continue
+        for grant in _rows(row.get("grants")):
+            if bool(grant.get("granted")):
+                capability = str(grant.get("capability") or "").strip()
+                if capability:
+                    capabilities.add(capability)
+    return capabilities
+
+
+def _actor_authority_rows(report: Mapping[str, object]) -> tuple[Mapping[str, object], ...]:
+    authority = report.get("authority_snapshot")
+    if isinstance(authority, Mapping):
+        rows = _rows(authority.get("actor_authorities"))
+        if rows:
+            return rows
+    collaboration = report.get("collaboration")
+    if isinstance(collaboration, Mapping):
+        return _rows(collaboration.get("actor_authorities"))
+    return ()
+
+
+def _rows(value: object) -> tuple[Mapping[str, object], ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return ()
+    return tuple(row for row in value if isinstance(row, Mapping))
+
+
+def _normalize(value: object) -> str:
+    return str(value or "").strip().lower()
+

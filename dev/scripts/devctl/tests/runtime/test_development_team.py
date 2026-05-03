@@ -5,6 +5,15 @@ from __future__ import annotations
 import json
 
 from dev.scripts.devctl.commands.development import scaling_summary_from_contract
+from dev.scripts.devctl.runtime.development_collaboration_modes import (
+    COLLABORATION_MODE_CONTRACT_ID,
+    build_default_collaboration_mode_topology,
+    collaboration_mode_report,
+)
+from dev.scripts.devctl.runtime.development_role_adapters import (
+    build_develop_role_adapter_matrix,
+    render_develop_role_adapter_matrix_markdown,
+)
 from dev.scripts.devctl.runtime.development_team import (
     DEVELOPMENT_MODE_CONTRACT_ID,
     build_default_development_team,
@@ -155,6 +164,69 @@ def test_scaling_keeps_mutation_single_owner_while_fanning_out_intake() -> None:
     assert "disjoint path_scope" in modes["isolated_builder_fanout"].required_gates
     assert "session-bound MutationLease" in modes["leased_live_tree_builder"].required_gates
     assert "PacketDurableIngestionReceipt" in modes["intake_fanout"].evidence_outputs
+
+
+def test_collaboration_modes_are_read_only_role_presets() -> None:
+    topology = build_default_collaboration_mode_topology()
+    mode_ids = {item.mode_id for item in topology.modes}
+    role_ids = {item.preset_id for item in topology.role_presets}
+    report = collaboration_mode_report(max_workers=2)
+
+    assert topology.contract_id == COLLABORATION_MODE_CONTRACT_ID
+    assert "explains requested topology only" in topology.authority_policy
+    assert topology.default_worker_fanout == 0
+    assert mode_ids == {
+        "solo",
+        "pair_review",
+        "dashboard_led",
+        "intake_fanout",
+        "research_fanout",
+        "review_fanout",
+        "watcher_fanout",
+        "isolated_builder_fanout",
+        "dogfood_campaign",
+    }
+    assert role_ids == {
+        "dashboard",
+        "implementer",
+        "reviewer",
+        "architect",
+        "researcher",
+        "intake",
+        "tester",
+        "watcher",
+        "operator",
+    }
+    assert topology.packet_pressure_policy.soft_attention_budget == 12
+    assert topology.packet_pressure_policy.hard_attention_budget == 15
+    assert topology.packet_pressure_policy.near_ttl_minutes == 10
+    dashboard = next(item for item in topology.role_presets if item.preset_id == "dashboard")
+    assert dashboard.attention_subscription == "AgentAttentionLoop"
+    assert dashboard.timing_policy == "typed_event_driven_no_independent_poll"
+    assert "packet_arrival" in dashboard.attention_events
+    assert report["selected_mode_id"] == "solo"
+    assert report["selected_role_preset_id"] == "dashboard"
+    assert report["mutable_fanout_status"] == "blocked_by_read_model_mode"
+
+
+def test_role_adapter_matrix_is_shared_for_codex_and_claude() -> None:
+    rows = build_develop_role_adapter_matrix(extra_args="")
+    by_provider = {
+        provider: [row for row in rows if row.provider_id == provider]
+        for provider in {row.provider_id for row in rows}
+    }
+    codex_roles = {row.role_preset: row.collaboration_mode for row in by_provider["codex"]}
+    claude_roles = {
+        row.role_preset: row.collaboration_mode for row in by_provider["claude"]
+    }
+    rendered = render_develop_role_adapter_matrix_markdown()
+
+    assert codex_roles == claude_roles
+    assert codex_roles["dashboard"] == "dashboard_led"
+    assert codex_roles["implementer"] == "pair_review"
+    assert codex_roles["tester"] == "review_fanout"
+    assert "--actor codex --role-preset dashboard" in rendered
+    assert "--actor claude --role-preset dashboard" in rendered
 
 
 def test_develop_report_summary_consumes_scaling_contract() -> None:

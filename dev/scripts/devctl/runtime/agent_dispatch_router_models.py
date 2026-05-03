@@ -81,6 +81,7 @@ class AgentDispatchWorkFocus:
     latest_event_id: str = ""
     requested_action: str = ""
     policy_hint: str = ""
+    requested_session_visibility: str = ""
     source_contracts: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
@@ -172,6 +173,7 @@ class AgentDispatchRoute:
     packet_id: str = ""
     plan_target_ref: str = ""
     dispatch_kind: str = "observation"
+    requested_session_visibility: str = ""
     required_capabilities: tuple[str, ...] = ()
     guard_bundle: str = ""
     preflight_command: str = ""

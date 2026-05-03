@@ -400,6 +400,93 @@ class CheckRouterTests(unittest.TestCase):
         self.assertIn(cleanup_command, release_commands)
         self.assertNotIn(cleanup_command, docs_commands)
 
+    def test_tooling_bundle_routes_function_duplication_guard(self) -> None:
+        tooling_commands, tooling_error = check_router._extract_bundle_commands(
+            "bundle.tooling"
+        )
+
+        self.assertIsNone(tooling_error)
+        self.assertIn(
+            "python3 dev/scripts/checks/check_function_duplication.py",
+            tooling_commands,
+        )
+
+    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check_router.run_cmd")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_json_dry_run_serializes_steps_without_dry_run_stdout(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        run_cmd_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [{"status": "M", "path": "dev/scripts/devctl/commands/check.py"}]
+        }
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/checks/check_function_duplication.py"],
+            None,
+        )
+
+        rc = check_router.run(make_args(execute=True, dry_run=True, format="json"))
+
+        self.assertEqual(rc, 0)
+        run_cmd_mock.assert_not_called()
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(payload["steps"][0]["name"], "router-01")
+        self.assertTrue(payload["steps"][0]["skipped"])
+        self.assertIn(
+            "check_function_duplication.py",
+            payload["steps"][0]["router_command"],
+        )
+
+    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_since_ref_uses_dirty_worktree_slice_before_branch_range(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.side_effect = [
+            {
+                "mode": "commit-range",
+                "changes": [{"status": "M", "path": "rust/Cargo.toml"}],
+            },
+            {
+                "mode": "working-tree",
+                "changes": [
+                    {
+                        "status": "M",
+                        "path": "dev/scripts/devctl/commands/check.py",
+                    }
+                ],
+            },
+        ]
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/checks/check_function_duplication.py"],
+            None,
+        )
+
+        rc = check_router.run(make_args(since_ref="origin/develop"))
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(payload["lane"], "tooling")
+        self.assertEqual(
+            payload["change_scope"]["source"],
+            "working-tree-dirty-over-since-ref",
+        )
+        self.assertTrue(payload["change_scope"]["used_worktree_dirty_paths"])
+        self.assertEqual(payload["change_scope"]["range_changed_paths_count"], 1)
+        self.assertEqual(
+            payload["changed_paths"],
+            ["dev/scripts/devctl/commands/check.py"],
+        )
+
     @patch("dev.scripts.devctl.commands.check_router.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")

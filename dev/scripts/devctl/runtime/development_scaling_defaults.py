@@ -26,6 +26,7 @@ ROUTE_OUTPUTS = (
     "MutationLease",
     "PacketCreationBinding",
     "PacketDurableIngestionReceipt",
+    "PlanIntentIngestionReceipt",
     "PacketDebtRemediationReport",
     "AgentSessionOutcome",
     "RunRecord",
@@ -95,7 +96,13 @@ INTAKE_FANOUT_MODE = DevelopmentScaleModeSpec(
     ),
     capacity_effect="adds Plan Intake Steward lanes that write durable typed owners",
     required_gates=("packet lifecycle projection is fresh",),
-    evidence_outputs=("PlanRow", "FindingReview", "GuardPromotionCandidate", "PacketDurableIngestionReceipt"),
+    evidence_outputs=(
+        "PlanRow",
+        "FindingReview",
+        "GuardPromotionCandidate",
+        "PacketDurableIngestionReceipt",
+        "PlanIntentIngestionReceipt",
+    ),
     blocked_when=("packet would remain the only source of truth",),
 )
 REVIEW_FANOUT_MODE = DevelopmentScaleModeSpec(

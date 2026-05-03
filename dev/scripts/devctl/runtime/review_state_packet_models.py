@@ -188,6 +188,7 @@ class ReviewPacketState:
     target_revision: str = ""
     target_role: str = ""
     target_session_id: str = ""
+    requested_session_visibility: str = ""
     anchor_refs: tuple[str, ...] = ()
     intake_ref: str = ""
     mutation_op: str = ""

@@ -151,6 +151,15 @@ Use docs like this:
   row for humans. In VoiceTerm that projection is `dev/active/MASTER_PLAN.md`
   and the default typed store is `dev/state/plan_index.jsonl`, but portable
   runtime code must resolve both paths through governance/repo-pack state.
+- Agent-authored plans from chat, temp files, packet review, Codex, Claude, or
+  `/develop` must not remain prose-only. Use `devctl develop ingest-plan` with
+  `--packet-id`, `--source`, `--body-file`, or `--body` plus `--plan-row-id`
+  when the source is not already a checklist row. `--source` is the direct
+  markdown-plan file path and defaults to
+  `source_kind=markdown_plan_file`. The action writes `PlanRow` authority
+  through the repo-pack master-plan store and appends
+  `PlanIntentIngestionReceipt` rows for accepted, duplicate, rejected, or
+  obsolete outcomes, keeping source text as evidence rather than authority.
 - Headless `review-channel --action launch` (and `--action recover`) now
   auto-elevate `--approval-mode` to `trusted` when typed
   `interaction_mode == "remote_control"` and the operator did not pass an

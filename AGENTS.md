@@ -64,6 +64,15 @@ Portable-platform rule:
   `CollaborationSession.actor_authorities` / `AuthoritySnapshot.actor_authorities`
   grants such as `repo.commit` and `repo.stage` over reviewer-mode labels, and
   keep `approval.commit` separate from repo mutation authority.
+  Provider identity is transport, not authority: packets, slash adapters,
+  `/develop`, smart-router routes, startup/session-resume, dashboards, and
+  commit/push gates must resolve work through actor role, exact session id
+  when a live session is intended, and required capability grants. `codex`,
+  `claude`, `cursor`, or any future provider only describe the adapter used to
+  reach that actor. Compatibility fields such as `from_agent` / `to_agent`
+  may remain on packets for delivery, but they must not decide reviewer,
+  implementer, architect, watcher, dashboard, or operator authority by
+  themselves.
   `SessionPosture` is the canonical proof-tick producer for
   `interaction_mode`, `reviewer_mode`, and `actors[].occupied_lane`.
   Status, startup, dashboard, and bootstrap renderers must consume that
@@ -209,7 +218,7 @@ Release-governance note:
 | Where is the host-process hygiene + Activity Monitor automation plan? | `dev/active/host_process_hygiene.md` |
 | Where is the continuous local Codex-reviewer / Claude-coder loop hardening and later template-extraction plan? | `dev/active/continuous_swarm.md` |
 | Where is the bounded loop-v2 convergence plan that composes startup/work-intake, planning, auto-mode, monitor, graph discovery, and guard-promotion into one autonomous controller? | `dev/active/autonomous_governance_loop_v2.md` (subordinate `MP-377` execution spec; read after `dev/active/ai_governance_platform.md` and `dev/active/platform_authority_loop.md`) |
-| Where is the typed `/develop` controller surface and pressure-scaled development topology documented? | `dev/scripts/devctl/runtime/development_team.py` for `DevelopmentModeTopology` / `DevelopmentScalingContract`, `dev/scripts/devctl/commands/development/command.py` for the read-only `devctl develop` report surface, `.claude/commands/develop.md` for the thin slash adapter, plus `dev/active/autonomous_governance_loop_v2.md` and `dev/active/ai_governance_platform.md` for MP-377 execution authority. Packets remain communication/provenance; durable plan, finding, guard, graph, and pattern state must be promoted into typed stores before packet TTL can erase operator intent. |
+| Where is the typed `/develop` controller surface and pressure-scaled development topology documented? | `dev/scripts/devctl/runtime/development_team.py` for `DevelopmentModeTopology` / `DevelopmentScalingContract`, `dev/scripts/devctl/runtime/development_role_adapters.py` for the shared Codex/Claude role-to-mode adapter matrix, `dev/scripts/devctl/commands/development/command.py` for the `devctl develop` report/action surface, `dev/scripts/devctl/commands/development/plan_intake.py` plus `dev/scripts/devctl/runtime/plan_intent_ingestion.py` for the explicit `develop ingest-plan` write path, `dev/templates/slash/develop/roles.md` for the generated provider-neutral slash catalog, `.claude/commands/develop.md` for the thin Claude slash adapter, plus `dev/active/autonomous_governance_loop_v2.md` and `dev/active/ai_governance_platform.md` for MP-377 execution authority. Packets, chat, and temp files remain communication/provenance; durable plan, finding, guard, graph, pattern, and `PlanIntentIngestionReceipt` state must be promoted into typed stores before packet TTL or context loss can erase operator intent. |
 | Where is the optional VoiceTerm Operator Console plan? | `dev/active/operator_console.md` |
 | Where is the typed remote-session commit/push pipeline design for phone-steered sessions, including worktree-bound approval for worker vs control lanes? | `dev/active/remote_commit_pipeline.md` |
 | Where is the primary read-only review-channel readiness surface for that remote commit/push lane documented? | `dev/scripts/README.md` (`review-channel --action doctor`) for command semantics, plus `dev/active/remote_commit_pipeline.md` for lifecycle authority |
@@ -1784,6 +1793,7 @@ python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_function_duplication.py
 python3 dev/scripts/checks/check_package_layout.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
@@ -1827,6 +1837,7 @@ python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_function_duplication.py
 python3 dev/scripts/checks/check_package_layout.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
@@ -1894,6 +1905,7 @@ python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_function_duplication.py
 python3 dev/scripts/checks/check_package_layout.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
@@ -1968,6 +1980,7 @@ python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
+python3 dev/scripts/checks/check_function_duplication.py
 python3 dev/scripts/checks/check_package_layout.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
@@ -2018,6 +2031,7 @@ python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop
+python3 dev/scripts/checks/check_function_duplication.py --since-ref origin/develop
 python3 dev/scripts/checks/check_package_layout.py --since-ref origin/develop
 python3 dev/scripts/checks/check_python_subprocess_policy.py --since-ref origin/develop
 python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py

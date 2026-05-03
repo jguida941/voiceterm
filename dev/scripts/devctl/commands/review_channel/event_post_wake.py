@@ -13,10 +13,21 @@ from ...review_channel.follow_controller import (
 )
 from ...review_channel.events import load_or_refresh_event_bundle, refresh_event_bundle
 from ...review_channel.event_store import append_event, load_events
+from ...review_channel.packet_predicates import packet_has_actor_route
 from ...review_channel.state import refresh_status_snapshot
 from ...runtime.governance_scan import scan_repo_governance_safely
 from ...runtime.operator_context import derive_operator_interaction_mode
 from ..review_channel_command.models import RuntimePaths
+from .event_post_wake_reports import (
+    PACKET_WAKE_PIVOT_EVENT,
+    wake_attention_recorded_without_conductor,
+    wake_error,
+    wake_receipt_with_attention_decision,
+    wake_report_payload,
+    wake_skipped,
+    wake_target_session_binding_required,
+)
+from .event_post_wake_startup import startup_blocked_attention_report
 from .wake_receipt_persistence import record_packet_wake_receipt as _record_packet_wake_receipt
 
 
@@ -67,7 +78,7 @@ def maybe_wake_posted_reviewer_packet(
     target_agent = str(packet.get("to_agent") or "").strip()
     skip_reason = _wake_skip_reason(packet)
     if skip_reason:
-        return _wake_skipped(packet=packet, reason=skip_reason)
+        return wake_skipped(packet=packet, reason=skip_reason)
     resolved_deps = deps or _DEFAULT_EVENT_POST_WAKE_DEPS
 
     bridge_path = _as_path(paths.get("bridge_path"))
@@ -79,11 +90,27 @@ def maybe_wake_posted_reviewer_packet(
         status_dir=status_dir,
     )
     if missing:
-        return _wake_error(
+        return wake_error(
             packet=packet,
             reason="missing_runtime_paths",
             detail=f"Missing runtime paths for reviewer wake: {', '.join(missing)}",
         )
+    if _agent_wake_requires_session_binding(packet=packet, target_agent=target_agent):
+        wake = wake_receipt_with_attention_decision(
+            wake_target_session_binding_required(
+                packet=packet,
+                target_agent=target_agent,
+            )
+        )
+        _record_packet_wake_receipt(
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            artifact_paths=paths.get("artifact_paths"),
+            packet=packet,
+            wake=wake,
+            deps=resolved_deps,
+        )
+        return wake
 
     try:
         status_snapshot = resolved_deps.refresh_status_snapshot_fn(
@@ -98,7 +125,7 @@ def maybe_wake_posted_reviewer_packet(
             ),
         )
     except (OSError, ValueError) as exc:
-        return _wake_error(packet=packet, reason="status_refresh_failed", detail=str(exc))
+        return wake_error(packet=packet, reason="status_refresh_failed", detail=str(exc))
 
     review_state_payload = _merge_review_state_payloads(
         _provided_review_state_payload(posted_review_state_payload),
@@ -116,18 +143,7 @@ def maybe_wake_posted_reviewer_packet(
         receipt=None,
         reviewer_mode=str(status_snapshot.bridge_liveness.get("reviewer_mode") or ""),
     )
-    report = {
-        "bridge_liveness": dict(status_snapshot.bridge_liveness),
-        "packet_inbox": dict(review_state_payload.get("packet_inbox") or {}),
-        "packets": list(review_state_payload.get("packets") or []),
-        "coordination": review_state_payload.get("coordination"),
-        "coordination_state": review_state_payload.get("coordination_state"),
-        "agent_sync": review_state_payload.get("agent_sync"),
-        "agent_work_board": review_state_payload.get("agent_work_board"),
-        "agent_loop_decisions": review_state_payload.get("agent_loop_decisions"),
-        "reviewer_runtime": review_state_payload.get("reviewer_runtime"),
-        "authority_snapshot": review_state_payload.get("authority_snapshot"),
-    }
+    report = wake_report_payload(status_snapshot, review_state_payload)
     wake_paths = _wake_paths_mapping(
         bridge_path=bridge_path,
         review_channel_path=review_channel_path,
@@ -135,7 +151,17 @@ def maybe_wake_posted_reviewer_packet(
         promotion_plan_path=_as_path(paths.get("promotion_plan_path")),
         artifact_paths=paths.get("artifact_paths"),
     )
-    if target_agent == "codex":
+    if packet_has_actor_route(packet):
+        wake = resolved_deps.maybe_wake_waiting_agent_conductor_fn(
+            args=args,
+            repo_root=repo_root,
+            paths=wake_paths,
+            report=report,
+            operator_interaction_mode=operator_interaction_mode,
+            target_agent=target_agent,
+            packet=dict(packet),
+        )
+    elif target_agent == "codex":
         wake = resolved_deps.maybe_wake_waiting_reviewer_conductor_fn(
             args=args,
             repo_root=repo_root,
@@ -153,15 +179,24 @@ def maybe_wake_posted_reviewer_packet(
             target_agent=target_agent,
             packet=dict(packet),
         )
-    if isinstance(wake, dict):
-        _record_packet_wake_receipt(
-            repo_root=repo_root,
-            review_channel_path=review_channel_path,
-            artifact_paths=paths.get("artifact_paths"),
+    if not isinstance(wake, dict):
+        wake = startup_blocked_attention_report(
+            report=report,
             packet=packet,
-            wake=wake,
-            deps=resolved_deps,
+            target_agent=target_agent,
+            next_pivot_event=PACKET_WAKE_PIVOT_EVENT,
+        ) or wake_attention_recorded_without_conductor(
+            packet=packet,
+            target_agent=target_agent,
         )
+    _record_packet_wake_receipt(
+        repo_root=repo_root,
+        review_channel_path=review_channel_path,
+        artifact_paths=paths.get("artifact_paths"),
+        packet=packet,
+        wake=wake_receipt_with_attention_decision(wake),
+        deps=resolved_deps,
+    )
     return wake
 
 
@@ -227,41 +262,6 @@ def _merge_review_state_payloads(
     return merged
 
 
-def _wake_error(
-    *,
-    packet: Mapping[str, object],
-    reason: str,
-    detail: str,
-    target_agent: str = "",
-) -> dict[str, object]:
-    report = {
-        "attempted": True,
-        "woke": False,
-        "reason": reason,
-        "packet_id": str(packet.get("packet_id") or "").strip(),
-        "requested_action": str(packet.get("requested_action") or "").strip(),
-    }
-    if target_agent:
-        report["target_agent"] = target_agent
-    if detail:
-        report["warnings"] = [detail]
-    return report
-
-
-def _wake_skipped(
-    *,
-    packet: Mapping[str, object],
-    reason: str,
-) -> dict[str, object]:
-    return {
-        "attempted": False,
-        "woke": False,
-        "reason": reason,
-        "packet_id": str(packet.get("packet_id") or "").strip(),
-        "requested_action": str(packet.get("requested_action") or "").strip(),
-    }
-
-
 def _wake_skip_reason(packet: Mapping[str, object]) -> str:
     target_agent = str(packet.get("to_agent") or "").strip().lower()
     if target_agent in NON_CONDUCTOR_WAKE_TARGETS:
@@ -270,6 +270,18 @@ def _wake_skip_reason(packet: Mapping[str, object]) -> str:
     if status and status != "pending":
         return "non_pending_packet"
     return ""
+
+
+def _agent_wake_requires_session_binding(
+    *,
+    packet: Mapping[str, object],
+    target_agent: str,
+) -> bool:
+    if target_agent == "codex":
+        return False
+    target_role = str(packet.get("target_role") or "").strip()
+    target_session_id = str(packet.get("target_session_id") or "").strip()
+    return not (target_role and target_session_id)
 
 
 def _as_path(value: object) -> Path | None:

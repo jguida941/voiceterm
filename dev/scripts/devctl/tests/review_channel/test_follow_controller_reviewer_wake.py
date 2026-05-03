@@ -195,6 +195,7 @@ def test_maybe_wake_waiting_reviewer_conductor_relaunches_unobserved_action_requ
         "reason": "launched",
         "packet_id": "pkt-1",
         "requested_action": "restore_reviewer_turn",
+        "target_agent": "codex",
         "wake_method": "replace",
     }
     assert cleanup_calls == ["codex-conductor"]
@@ -326,6 +327,7 @@ def test_maybe_wake_waiting_reviewer_conductor_relaunches_unseen_finding() -> No
         "reason": "launched",
         "packet_id": "pkt-find-1",
         "requested_action": "",
+        "target_agent": "codex",
         "wake_method": "replace",
     }
     assert cleanup_calls == ["codex-conductor"]
@@ -411,6 +413,7 @@ def test_maybe_wake_waiting_reviewer_conductor_allows_typed_claude_lane_when_mod
         "reason": "launched",
         "packet_id": "pkt-find-2",
         "requested_action": "",
+        "target_agent": "codex",
         "wake_method": "replace",
     }
     assert cleanup_calls == ["codex-conductor"]
@@ -496,6 +499,7 @@ def test_maybe_wake_waiting_reviewer_conductor_allows_typed_finding_without_wait
         "reason": "launched",
         "packet_id": "pkt-find-typed",
         "requested_action": "",
+        "target_agent": "codex",
         "wake_method": "replace",
     }
     assert cleanup_calls == ["codex-conductor"]
@@ -553,6 +557,7 @@ def test_maybe_wake_waiting_reviewer_conductor_launches_when_no_live_codex_sessi
         "reason": "launched",
         "packet_id": "pkt-1",
         "requested_action": "restore_reviewer_turn",
+        "target_agent": "codex",
         "wake_method": "spawn_fresh",
     }
 
@@ -591,20 +596,19 @@ def test_maybe_wake_waiting_agent_conductor_does_not_spawn_mutating_target_sessi
         deps=deps,
     )
 
-    assert result == {
-        "attempted": True,
-        "woke": False,
-        "reason": "target_session_unreachable_without_registry",
-        "packet_id": "pkt-claude",
-        "requested_action": "stage_commit_pipeline",
-        "target_agent": "claude",
-        "target_role": "dashboard",
-        "target_session_id": "session-visible",
-        "wake_method": "unreachable_until_operator_prompt",
-    }
+    assert result["attempted"] is True
+    assert result["woke"] is False
+    assert result["reason"] == "target_session_poll_required"
+    assert result["packet_id"] == "pkt-claude"
+    assert result["requested_action"] == "stage_commit_pipeline"
+    assert result["target_agent"] == "claude"
+    assert result["target_role"] == "dashboard"
+    assert result["target_session_id"] == "session-visible"
+    assert result["wake_method"] == "session_poll"
+    assert result["visible_session_woke"] is False
 
 
-def test_maybe_wake_waiting_agent_conductor_delegates_read_only_dashboard_packet_headless() -> None:
+def test_maybe_wake_waiting_agent_conductor_records_dashboard_packet_for_poll() -> None:
     launch_calls: list[list[dict[str, object]]] = []
     build_requests: list[object] = []
 
@@ -672,27 +676,20 @@ def test_maybe_wake_waiting_agent_conductor_delegates_read_only_dashboard_packet
         deps=deps,
     )
 
-    assert result == {
-        "attempted": True,
-        "woke": False,
-        "reason": "headless_delegate_launched",
-        "packet_id": "pkt-dashboard",
-        "requested_action": "review_only",
-        "target_agent": "claude",
-        "target_role": "dashboard",
-        "target_session_id": "session-visible",
-        "dashboard_session_id": "session-visible",
-        "wake_method": "headless_delegate",
-        "delegated": True,
-        "visible_session_woke": False,
-        "spawned_pids": [4242],
-        "delivered_to_pids": [4242],
-    }
-    assert launch_calls == [
-        [{"session_name": "claude-headless-delegate", "headless_launch_pid": 4242}]
-    ]
-    assert build_requests[0].headless is True
-    assert build_requests[0].requested_worker_budgets == {"claude": 0}
+    assert result["attempted"] is True
+    assert result["woke"] is False
+    assert result["reason"] == "target_session_poll_required"
+    assert result["packet_id"] == "pkt-dashboard"
+    assert result["requested_action"] == "review_only"
+    assert result["target_agent"] == "claude"
+    assert result["target_role"] == "dashboard"
+    assert result["target_session_id"] == "session-visible"
+    assert result["dashboard_session_id"] == "session-visible"
+    assert result["wake_method"] == "session_poll"
+    assert result["requested_session_visibility"] == "dashboard_only"
+    assert result["visible_session_woke"] is False
+    assert launch_calls == []
+    assert build_requests == []
 
 
 def test_maybe_wake_waiting_reviewer_conductor_cleans_stale_running_codex_session() -> None:
@@ -758,6 +755,7 @@ def test_maybe_wake_waiting_reviewer_conductor_cleans_stale_running_codex_sessio
         "reason": "launched",
         "packet_id": "pkt-1",
         "requested_action": "restore_reviewer_turn",
+        "target_agent": "codex",
         "wake_method": "replace",
         "replaced_pids": [4242],
     }
@@ -850,6 +848,7 @@ def test_maybe_wake_waiting_reviewer_conductor_allows_finding_wake_during_resync
         "reason": "launched",
         "packet_id": "pkt-find-resync",
         "requested_action": "",
+        "target_agent": "codex",
         "wake_method": "replace",
     }
     assert cleanup_calls == ["codex-conductor"]

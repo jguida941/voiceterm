@@ -39,6 +39,7 @@ PACKET_POST_IDEMPOTENCY_FIELDS = (
     "target_revision",
     "target_role",
     "target_session_id",
+    "requested_session_visibility",
     "anchor_refs",
     "intake_ref",
     "mutation_op",

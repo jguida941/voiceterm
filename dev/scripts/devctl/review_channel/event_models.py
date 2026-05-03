@@ -36,6 +36,7 @@ class ReviewPacketRow(TypedDict):
     mutation_op: object
     target_role: object
     target_session_id: object
+    requested_session_visibility: object
     pipeline_generation: object
     staged_snapshot_hash: object
     guard_results_summary: object

@@ -12,6 +12,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from .session_id_extractors import mapping_int_ids
+
 
 @dataclass(frozen=True)
 class WakeReceiptExtras:
@@ -29,11 +31,13 @@ class WakeReceiptExtras:
     target_session_id: str = ""
     dashboard_session_id: str = ""
     wake_method: str = ""
+    requested_session_visibility: str = ""
     delegated: bool | None = None
     visible_session_woke: bool | None = None
     spawned_pids: tuple[int, ...] = ()
     delivered_to_pids: tuple[int, ...] = ()
     replaced_pids: tuple[int, ...] = ()
+    terminal_window_ids: tuple[int, ...] = ()
     warnings: tuple[str, ...] = ()
 
 
@@ -73,6 +77,8 @@ def wake_report(
         report["dashboard_session_id"] = payload.dashboard_session_id
     if payload.wake_method:
         report["wake_method"] = payload.wake_method
+    if payload.requested_session_visibility:
+        report["requested_session_visibility"] = payload.requested_session_visibility
     if payload.delegated is not None:
         report["delegated"] = bool(payload.delegated)
     if payload.visible_session_woke is not None:
@@ -83,6 +89,8 @@ def wake_report(
         report["delivered_to_pids"] = list(payload.delivered_to_pids)
     if payload.replaced_pids:
         report["replaced_pids"] = list(payload.replaced_pids)
+    if payload.terminal_window_ids:
+        report["terminal_window_ids"] = list(payload.terminal_window_ids)
     if payload.warnings:
         report["warnings"] = list(payload.warnings)
     return report
@@ -90,13 +98,4 @@ def wake_report(
 
 def headless_launch_pids(sessions: list[dict[str, object]]) -> tuple[int, ...]:
     """Extract dedup'd headless-launch PIDs from a session list."""
-    pids: list[int] = []
-    for session in sessions:
-        raw = session.get("headless_launch_pid") if isinstance(session, dict) else None
-        try:
-            pid = int(raw or 0)
-        except (TypeError, ValueError):
-            continue
-        if pid > 0:
-            pids.append(pid)
-    return tuple(dict.fromkeys(pids))
+    return mapping_int_ids(sessions, "headless_launch_pid")

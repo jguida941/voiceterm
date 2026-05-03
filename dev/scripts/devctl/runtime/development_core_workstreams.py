@@ -125,6 +125,7 @@ PLAN_INTAKE_STEWARD_WORKSTREAM = DevelopmentWorkstreamSpec(
             "ContextGraphSeed",
             "PacketCreationBinding",
             "PacketDurableIngestionReceipt",
+            "PlanIntentIngestionReceipt",
             "PacketDebtRemediationReport",
             "PacketIngestionGapReport",
         ),
@@ -160,6 +161,7 @@ PLAN_INTAKE_STEWARD_WORKSTREAM = DevelopmentWorkstreamSpec(
             "GuardPromotionCandidate",
             "PacketCreationBinding",
             "PacketDurableIngestionReceipt",
+            "PlanIntentIngestionReceipt",
             "PacketDebtRemediationReport",
         ),
         fail_closed_when=(

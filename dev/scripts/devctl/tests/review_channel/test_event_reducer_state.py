@@ -154,10 +154,10 @@ def test_packet_wake_attempt_projects_reviewer_wake_without_closing_packet() -> 
     assert packet["lifecycle_current_state"] == "pending"
     assert wake["contract_id"] == "PacketWakeReceipt"
     assert wake["event_id"] == "rev_evt_2"
-    assert wake["wake_method"] == "headless_delegate"
-    assert wake["delegated"] is True
+    assert wake["wake_method"] == "session_poll"
+    assert wake["delegated"] is False
     assert wake["visible_session_woke"] is False
-    assert wake["spawned_pids"] == [4242]
+    assert wake["requested_session_visibility"] == "dashboard_only"
 
 
 def _stage_commit_events(*, outcome_provider: str = "codex") -> list[dict[str, object]]:
@@ -276,7 +276,7 @@ def _packet_wake_events() -> list[dict[str, object]]:
         "staged_snapshot_hash": None,
         "guard_results_summary": None,
         "full_guard_bundle_evidence": None,
-        "expires_at_utc": "2026-05-02T14:00:00Z",
+        "expires_at_utc": "2099-05-02T14:00:00Z",
     }
     posted = {
         **packet_fields,
@@ -292,16 +292,15 @@ def _packet_wake_events() -> list[dict[str, object]]:
         "packet_id": "rev_pkt_wake",
         "attempted": True,
         "woke": False,
-        "delegated": True,
+        "delegated": False,
         "visible_session_woke": False,
-        "reason": "headless_delegate_launched",
-        "wake_method": "headless_delegate",
+        "reason": "target_session_poll_required",
+        "wake_method": "session_poll",
         "target_agent": "claude",
         "target_role": "dashboard",
         "target_session_id": "session-visible",
         "dashboard_session_id": "session-visible",
-        "spawned_pids": [4242],
-        "delivered_to_pids": [4242],
+        "requested_session_visibility": "dashboard_only",
         "recorded_at_utc": "2026-05-02T13:00:02Z",
     }
     wake = {
@@ -310,8 +309,8 @@ def _packet_wake_events() -> list[dict[str, object]]:
         "event_type": "packet_wake_attempted",
         "timestamp_utc": "2026-05-02T13:00:02Z",
         "source": "review_channel",
-        "wake_method": "headless_delegate",
-        "delegated": True,
+        "wake_method": "session_poll",
+        "delegated": False,
         "visible_session_woke": False,
         "wake_receipt": receipt,
         "metadata": {"wake_receipt": receipt},

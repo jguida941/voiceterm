@@ -14,6 +14,7 @@ from .packet_carry_forward_sources import (
     durable_packet_ids_from_finding_rows,
     durable_packet_ids_from_plan_rows,
 )
+from .packet_review_only import is_review_only_notice
 
 
 PACKET_CARRY_FORWARD_CONTRACT_ID = "PacketCarryForwardDebt"
@@ -166,7 +167,7 @@ def _status_carry_forward_reason(
 
 def _packet_has_durable_intent(packet: Mapping[str, object]) -> bool:
     kind = _text(packet.get("kind"))
-    if _is_review_only_notice(packet, kind=kind):
+    if is_review_only_notice(packet, kind=kind):
         return False
     if kind in _COMMUNICATION_ONLY_KINDS:
         if _text(packet.get("target_kind")) == "plan":
@@ -209,18 +210,6 @@ def _packet_has_durable_intent(packet: Mapping[str, object]) -> bool:
         "ingest",
     )
     return any(token in text for token in intent_tokens)
-
-
-def _is_review_only_notice(packet: Mapping[str, object], *, kind: str) -> bool:
-    if kind != "system_notice":
-        return False
-    if _text(packet.get("target_kind")) or _text(packet.get("target_ref")):
-        return False
-    if isinstance(packet.get("plan_proposal"), Mapping):
-        return False
-    return _text(packet.get("requested_action")) == "review_only" or (
-        _text(packet.get("policy_hint")) == "review_only"
-    )
 
 
 def _packet_intent_text(packet: Mapping[str, object]) -> str:

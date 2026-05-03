@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,6 +14,7 @@ from dev.scripts.devctl.commands.development import (
     orchestration_system_picture as orchestration_system_picture_module,
 )
 from dev.scripts.devctl.commands.development import packet_debt as development_packet_debt
+from dev.scripts.devctl.commands.development import plan_intake
 from dev.scripts.devctl.commands.development import report as development_report
 from dev.scripts.devctl.commands.development.actor_resolution import resolve_actor
 from dev.scripts.devctl.commands.development.models import DevelopmentPacketAttention
@@ -25,6 +27,9 @@ from dev.scripts.devctl.commands.development.packet_attention import (
 )
 from dev.scripts.devctl.commands.development.watcher.lease import watcher_lease_status
 from dev.scripts.devctl.runtime.master_plan_contract import PlanRow, SDLCStage
+from dev.scripts.devctl.runtime.development_role_adapters import (
+    build_develop_role_adapter_matrix,
+)
 
 
 def test_develop_command_is_registered_read_only() -> None:
@@ -62,6 +67,28 @@ def test_develop_status_renders_topology_and_scaling(capsys) -> None:
     assert payload["orchestration"]["authority_policy"] == (
         "consume_existing_agent_loop_and_system_picture"
     )
+    assert payload["collaboration_mode"]["contract_id"] == "CollaborationModeTopology"
+    assert payload["collaboration_mode"]["selected_mode_id"] == "solo"
+    assert payload["collaboration_mode"]["selected_role_preset_id"] == "dashboard"
+    assert payload["collaboration_mode"]["default_worker_fanout"] == 0
+    assert payload["collaboration_mode"]["packet_pressure_policy"] == {
+        "budget_behavior": (
+            "crossing a packet budget triggers classification and receipt "
+            "coverage, never blind autodrain"
+        ),
+        "durable_intent_policy": (
+            "classify durable intent as soon as detected and route to typed "
+            "owner or terminal receipt"
+        ),
+        "hard_attention_budget": 15,
+        "near_ttl_minutes": 10,
+        "soft_attention_budget": 12,
+    }
+    assert payload["packet_pressure"]["contract_id"] == "PacketBacklogPressure"
+    assert payload["packet_ingestion_decision"]["contract_id"] == (
+        "PacketAttentionIngestionDecision"
+    )
+    assert isinstance(payload["selected_packet_classifications"], list)
     assert "watcher_lease" in payload
     assert "--follow --terminal none --format json" in (
         payload["watcher_lease"]["next_report_command"]
@@ -75,6 +102,79 @@ def test_develop_status_renders_topology_and_scaling(capsys) -> None:
     )
     assert "intake_fanout" in payload["topology"]["scaling"]["mode_ids"]
     assert "WorkerPacket" in payload["topology"]["scaling"]["route_outputs"]
+
+
+def test_develop_status_accepts_collaboration_mode_and_role_preset(capsys) -> None:
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "--status",
+            "--collaboration-mode",
+            "dogfood_campaign",
+            "--role-preset",
+            "tester",
+            "--max-workers",
+            "2",
+            "--format",
+            "json",
+        ]
+    )
+
+    rc = cli.COMMAND_HANDLERS[args.command](args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    collaboration = payload["collaboration_mode"]
+    assert collaboration["requested_mode"] == "dogfood_campaign"
+    assert collaboration["requested_role_preset"] == "tester"
+    assert collaboration["selected_mode_id"] == "dogfood_campaign"
+    assert collaboration["selected_role_preset_id"] == "tester"
+    assert collaboration["selected_role_preset"]["mutation_policy"] == "evidence_only"
+    assert collaboration["mutable_fanout_status"] == "blocked_by_read_model_mode"
+
+
+def test_develop_role_slash_adapters_forward_to_typed_request_model() -> None:
+    matrix = build_develop_role_adapter_matrix(extra_args="")
+    providers = {row.provider_id for row in matrix}
+    roles_by_provider = {
+        provider: {row.role_preset for row in matrix if row.provider_id == provider}
+        for provider in providers
+    }
+
+    assert providers == {"codex", "claude"}
+    assert roles_by_provider["codex"] == roles_by_provider["claude"]
+    assert roles_by_provider["codex"] == {
+        "dashboard",
+        "implementer",
+        "reviewer",
+        "architect",
+        "researcher",
+        "intake",
+        "tester",
+        "watcher",
+        "operator",
+    }
+
+    for row in matrix:
+        args = cli.build_parser().parse_args(shlex.split(row.adapter_command)[2:])
+        assert args.command == "develop"
+        assert args.actor == row.provider_id
+        assert args.role_preset == row.role_preset
+        assert args.collaboration_mode == row.collaboration_mode
+
+    root = Path(__file__).resolve().parents[5]
+    develop_adapter = (root / ".claude" / "commands" / "develop.md").read_text(
+        encoding="utf-8",
+    )
+    rendered_catalog = (root / "dev/templates/slash/develop/roles.md").read_text(
+        encoding="utf-8",
+    )
+
+    assert "development_role_adapters.py" in develop_adapter
+    assert "role shortcuts must not fork" in develop_adapter
+    assert "--actor codex --role-preset dashboard" in rendered_catalog
+    assert "--actor claude --role-preset dashboard" in rendered_catalog
+    assert "repo-local path authority" in rendered_catalog
 
 
 def test_develop_launch_is_read_only_preview(capsys) -> None:
@@ -157,6 +257,8 @@ def test_develop_watch_markdown_includes_collaboration_sections(capsys) -> None:
     assert "## Runtime" in output
     assert "## Peer Mind" in output
     assert "## Orchestration Inputs" in output
+    assert "## Collaboration Mode" in output
+    assert "## Packet Pressure" in output
     assert "## Watcher Lease" in output
     assert "## Continuation" in output
     assert "authority_policy: auxiliary_context_only" in output
@@ -270,6 +372,265 @@ def test_develop_audit_packets_dry_run_suppresses_drain_writer(
     assert payload["inputs"]["dry_run"] is True
     assert payload["packet_debt_remediation"]["write_enabled"] is False
     assert any("--dry-run suppresses" in item for item in payload["warnings"])
+
+
+def test_develop_ingest_plan_body_writes_row_and_receipt(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(plan_intake, "REPO_ROOT", tmp_path)
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "ingest-plan",
+            "--plan-row-id",
+            "MP377-P0-T22AN-W",
+            "--title",
+            "Typed plan-ingestion closure for every planning source",
+            "--body",
+            "Any agent-authored plan must reach typed plan authority.",
+            "--source-kind",
+            "chat",
+            "--source-ref",
+            "chat://test-plan",
+            "--target-ref",
+            "plan:MP-377",
+            "--anchor-ref",
+            "section:MP-377",
+            "--format",
+            "json",
+        ]
+    )
+
+    rc = plan_intake.run_ingest_plan(args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    receipt = payload["receipt"]
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "dev/state/plan_index.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+    receipt_rows = [
+        json.loads(line)
+        for line in (
+            tmp_path / "dev/state/plan_ingestion_receipts.jsonl"
+        ).read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+    assert receipt["contract_id"] == "PlanIntentIngestionReceipt"
+    assert receipt["status"] == "accepted"
+    assert receipt["row_ids"] == ["MP377-P0-T22AN-W"]
+    assert rows[0]["row_id"] == "MP377-P0-T22AN-W"
+    assert rows[0]["provenance"]["source_kind"] == "PlanIntentIngestion:chat"
+    assert receipt_rows[0]["row_ids"] == ["MP377-P0-T22AN-W"]
+
+
+def test_develop_ingest_intent_alias_writes_typed_plan_receipt(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(plan_intake, "REPO_ROOT", tmp_path)
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "ingest-intent",
+            "--plan-row-id",
+            "MP377-P0-T22AN-X",
+            "--title",
+            "Packet-aware develop closure",
+            "--body",
+            "Claude dogfood packet feedback must become typed receipts.",
+            "--source-kind",
+            "chat",
+            "--source-ref",
+            "chat://test-ingest-intent",
+            "--target-ref",
+            "plan:MP-377",
+            "--format",
+            "json",
+        ]
+    )
+
+    rc = cli.COMMAND_HANDLERS[args.command](args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["action"] == "ingest-intent"
+    assert payload["receipt"]["row_ids"] == ["MP377-P0-T22AN-X"]
+
+
+def test_develop_ingest_plan_file_accepts_checklist_rows(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(plan_intake, "REPO_ROOT", tmp_path)
+    source = tmp_path / "plan.md"
+    source.write_text(
+        "# Typed Plan\n\n- [ ] `MP377-P0-T22AN-X` File-backed planning row\n",
+        encoding="utf-8",
+    )
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "ingest-plan",
+            "--body-file",
+            str(source),
+            "--source-kind",
+            "file",
+            "--target-ref",
+            "plan:MP-377",
+            "--format",
+            "json",
+        ]
+    )
+
+    receipt = plan_intake.ingest_plan_intent(args, repo_root=tmp_path)
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "dev/state/plan_index.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+
+    assert receipt.status == "accepted"
+    assert receipt.row_ids == ("MP377-P0-T22AN-X",)
+    assert rows[0]["title"] == "File-backed planning row"
+    assert rows[0]["target_ref"] == "plan:MP-377"
+
+
+def test_develop_ingest_intent_source_defaults_to_markdown_plan_file(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(plan_intake, "REPO_ROOT", tmp_path)
+    source = tmp_path / "plan.md"
+    source.write_text(
+        "# MP-377\n\n- [ ] `MP377-P0-T22AN-X` Source-backed planning row\n",
+        encoding="utf-8",
+    )
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "ingest-intent",
+            "--source",
+            str(source),
+            "--target-ref",
+            "plan:MP377-P0-T22AN-X",
+            "--mutation-op",
+            "append_acceptance_extension",
+            "--format",
+            "json",
+        ]
+    )
+
+    receipt = plan_intake.ingest_plan_intent(args, repo_root=tmp_path)
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "dev/state/plan_index.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+
+    assert receipt.status == "accepted"
+    assert receipt.source_kind == "markdown_plan_file"
+    assert receipt.row_ids == ("MP377-P0-T22AN-X",)
+    assert rows[0]["provenance"]["source_kind"] == (
+        "PlanIntentIngestion:markdown_plan_file"
+    )
+    assert rows[0]["mutation_op"] == "append_acceptance_extension"
+
+
+def test_develop_ingest_plan_packet_uses_packet_evidence(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(plan_intake, "REPO_ROOT", tmp_path)
+    state_path = (
+        tmp_path / "dev/reports/review_channel/projections/latest/review_state.json"
+    )
+    state_path.parent.mkdir(parents=True)
+    state_path.write_text(
+        json.dumps(
+            {
+                "packets": [
+                    {
+                        "packet_id": "rev_pkt_9001",
+                        "kind": "plan_patch_review",
+                        "summary": "Packet-backed plan row",
+                        "body": "Patch review body",
+                        "target_ref": "plan:MP-377",
+                        "mutation_op": "append_progress_log",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    args = cli.build_parser().parse_args(
+        ["develop", "ingest-plan", "--packet-id", "rev_pkt_9001", "--format", "json"]
+    )
+
+    receipt = plan_intake.ingest_plan_intent(args, repo_root=tmp_path)
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "dev/state/plan_index.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+    receipt_rows = [
+        json.loads(line)
+        for line in (tmp_path / "dev/state/plan_ingestion_receipts.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+
+    assert receipt.status == "accepted"
+    assert receipt.packet_id == "rev_pkt_9001"
+    assert receipt.row_ids == ("PKT-BIND-REV-PKT-9001",)
+    assert receipt_rows[0]["packet_id"] == "rev_pkt_9001"
+    assert rows[0]["sourced_from_packets"] == ["rev_pkt_9001"]
+    assert rows[0]["work_evidence_ids"][0] == "packet:rev_pkt_9001"
+
+
+def test_develop_ingest_plan_rejects_unowned_chat_plan(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(plan_intake, "REPO_ROOT", tmp_path)
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "ingest-plan",
+            "--body",
+            "A plan without a PlanRow id or checklist authority.",
+            "--source-kind",
+            "chat",
+            "--source-ref",
+            "chat://missing-row",
+            "--format",
+            "json",
+        ]
+    )
+
+    receipt = plan_intake.ingest_plan_intent(args, repo_root=tmp_path)
+
+    assert receipt.status == "rejected"
+    assert receipt.terminal_status == "rejected"
+    assert not (tmp_path / "dev/state/plan_index.jsonl").exists()
+    assert (
+        tmp_path / "dev/state/plan_ingestion_receipts.jsonl"
+    ).read_text(encoding="utf-8")
 
 
 def test_develop_drain_packets_only_valid_for_audit_packets() -> None:

@@ -58,6 +58,7 @@ _GUARD_CHECKS: Final[tuple[str, ...]] = (
     check_script_shell_command("cli_flags_parity"),
     check_script_shell_command("screenshot_integrity", "--stale-days", "120"),
     check_script_shell_command("code_shape"),
+    check_script_shell_command("function_duplication"),
     check_script_shell_command("package_layout"),
     check_script_shell_command("python_subprocess_policy"),
     check_script_shell_command("mutation_bypass_graph_closure"),
@@ -93,6 +94,7 @@ _GUARD_CHECKS: Final[tuple[str, ...]] = (
 _POST_PUSH_DIFF_GUARD_COMMANDS: Final[frozenset[str]] = frozenset(
     {
         check_script_shell_command("code_shape"),
+        check_script_shell_command("function_duplication"),
         check_script_shell_command("package_layout"),
         check_script_shell_command("python_subprocess_policy"),
         check_script_shell_command("rust_test_shape"),

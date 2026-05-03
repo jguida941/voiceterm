@@ -20,7 +20,13 @@ from ..runtime.conductor_capability import (
     context_graph_bootstrap_command,
     session_resume_command_for_role,
 )
+from ..runtime.development_role_adapters import (
+    DevelopRoleAdapterSpec,
+    render_develop_role_adapter_matrix_markdown,
+)
 from .task_router_contract import render_task_router_table_markdown
+
+ROLE_ADAPTER_CONSUMER_PROOF: type[DevelopRoleAdapterSpec] = DevelopRoleAdapterSpec
 
 
 def derive_surface_context(
@@ -52,23 +58,26 @@ def derive_surface_context(
         "development_doc",
         "dev/guides/DEVELOPMENT.md",
     )
-    return {
-        "bootstrap_steps": render_bootstrap_steps(
-            process_doc=process_doc,
-            execution_tracker_doc=execution_tracker_doc,
-            active_registry_doc=active_registry_doc,
-        ),
-        "key_commands_block": render_key_commands_block(),
-        "post_edit_verification_steps": render_post_edit_verification_steps(
-            bundle_by_lane=router_config.bundle_by_lane,
-            process_doc=process_doc,
-            development_doc=development_doc,
-        ),
-        "task_router_block": render_task_router_table_markdown(
-            bundle_by_lane=router_config.bundle_by_lane
-        ),
-        "guard_limits_block": render_guard_limits_block(),
-    }
+    context: dict[str, str] = {}
+    context["bootstrap_steps"] = render_bootstrap_steps(
+        process_doc=process_doc,
+        execution_tracker_doc=execution_tracker_doc,
+        active_registry_doc=active_registry_doc,
+    )
+    context["key_commands_block"] = render_key_commands_block()
+    context["post_edit_verification_steps"] = render_post_edit_verification_steps(
+        bundle_by_lane=router_config.bundle_by_lane,
+        process_doc=process_doc,
+        development_doc=development_doc,
+    )
+    context["task_router_block"] = render_task_router_table_markdown(
+        bundle_by_lane=router_config.bundle_by_lane
+    )
+    context["guard_limits_block"] = render_guard_limits_block()
+    context["develop_role_adapter_matrix"] = (
+        render_develop_role_adapter_matrix_markdown()
+    )
+    return context
 
 
 def render_bootstrap_steps(

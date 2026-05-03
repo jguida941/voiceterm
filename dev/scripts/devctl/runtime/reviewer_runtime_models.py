@@ -98,9 +98,9 @@ class PacketAttentionState:
     clock, while ``last_observed_event_id`` is per-actor_session.
 
     Per rev_pkt_2498 (5) actor/session routing: ``observation_actor_id``
-    and ``observation_session_id`` pin the attention state. dashboard-claude
-    and coder-claude cannot both satisfy the same wake; ambiguous provider
-    fails closed via ``actor_identity_ambiguous`` stale_reason.
+    and ``observation_session_id`` pin the attention state. Two roles on the
+    same provider cannot both satisfy the same wake; ambiguous provider/session
+    identity fails closed via ``actor_identity_ambiguous`` stale_reason.
     """
 
     observation_actor_id: str = ""
@@ -134,8 +134,8 @@ class ReviewerDutyProof:
     review proof when it was only a hash-freshness signal.
 
     Per rev_pkt_2470/2471: ``reviewer_actor_id`` and ``reviewer_session_id``
-    pin the proof to a specific actor/session so dashboard-claude posing as
-    coder-claude (or vice versa) cannot satisfy reviewer duty.
+    pin the proof to a specific actor/session so a dashboard role posing as an
+    implementer/reviewer role (or vice versa) cannot satisfy reviewer duty.
     """
 
     reviewer_actor_id: str = ""

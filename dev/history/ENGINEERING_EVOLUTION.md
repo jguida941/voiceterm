@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-05-02
+**Last Updated:** 2026-05-03
 
 ## At a Glance
 
@@ -36,6 +36,58 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-05-03 - Packet-aware `/develop` now records wake and role-adapter gaps
+
+Fact: T22AN-X dogfooding showed that productive work could still bypass typed
+session-start authority when a fresh agent trusted chat handoff prose before
+running the bootstrap trio, and that provider slash flows could scatter if
+Claude and Codex did not share one role-to-mode source for `/develop`.
+
+Change: Claude correction packets `rev_pkt_2835` and `rev_pkt_2836` now have
+durable `PlanIntentIngestionReceipt` rows. The MP-377 owner doc records
+typed-blocker wake evidence, bidirectional wake/subscriber closure, and a
+session-start bootstrap guard as T22AN-X acceptance scope.
+`development_role_adapters.py` now owns the shared Codex/Claude role matrix,
+`render-surfaces` projects that matrix into
+`dev/templates/slash/develop/roles.md`, and provider command files stay
+adapter-only entrypoints over `devctl develop --role-preset ...`. The scoped
+router dry-run also exposed a false-positive long-test trigger: devctl argparse
+files matched the broad `/parser` risk token, so the parser/ANSI add-on was
+narrowed to `rust/src/parser` while preserving the Rust parser/PTY coverage.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/development_role_adapters.py`
+- `dev/templates/slash/develop/roles.md`
+- `dev/scripts/devctl/commands/check/router_constants.py`
+- `dev/scripts/devctl/runtime/review_snapshot_hints.py`
+- `dev/active/ai_governance_platform.md`
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+
+### 2026-05-02 - Agent-authored plans now have a typed ingestion receipt path
+
+Fact: The MP-377 Typed AgentAttentionLoop plan exposed one more authority gap:
+agent-authored plans could still live only in chat, packet text, or temp files
+until a later manual edit copied them into the typed master-plan store. That
+left plan intent vulnerable to packet TTL, context compaction, or duplicate
+drafts.
+
+Change: `devctl develop ingest-plan` now accepts a plan packet, file, or body,
+upserts typed `PlanRow` records through the repo-pack master-plan store, and
+appends `PlanIntentIngestionReceipt` rows for accepted, duplicate, rejected, or
+obsolete outcomes. The P0.0 row `MP377-P0-T22AN-W` was dogfooded through that
+path from the current chat plan, while the MP-377 owner doc records the durable
+scope and acceptance criteria.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/plan_intake.py`
+- `dev/scripts/devctl/runtime/plan_intent_ingestion.py`
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
 
 ### 2026-05-02 - Governed commit failures now consume the failure packet router
 
@@ -13431,6 +13483,36 @@ Evidence:
 - `dev/scripts/checks/review_probes/probe_inter_agent_communication_lag.py`
 - `dev/scripts/checks/check_registry_path_integrity.py`
 - `dev/scripts/checks/check_provider_list_parity_graph.py`
+
+### 2026-05-03 - `/develop` packet-aware roles and packet-ingestion dogfood
+
+T22AN-X adds packet-aware `/develop` composition over the existing typed
+attention loop instead of introducing another scheduler. `/develop` now
+renders `CollaborationModeTopology`, role presets, packet pressure,
+selected `PacketIntentClassification` rows, and
+`PacketAttentionIngestionDecision`; `develop ingest-intent` is the smart
+packet/chat/file-to-state alias over `PlanIntentIngestionReceipt`.
+
+Claude dogfood packets drove three runtime closures in the same slice:
+dashboard role presets subscribe to `AgentAttentionLoop` events rather than
+polling independently, packet arrivals record `PacketWakeReceipt` rows even
+when no conductor process wake is possible, and startup-authority-blocked
+wakes now report `attention_decision_shape=startup_blocked` with blocker,
+`safe`, `may_mutate`, and the closure check command. Direct markdown plan
+sources can be ingested with `develop ingest-intent --source <file>`, which
+records `source_kind=markdown_plan_file` unless a narrower kind is supplied.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/development_collaboration_modes.py`
+- `dev/scripts/devctl/runtime/development_packet_pressure.py`
+- `dev/scripts/devctl/runtime/development_packet_pressure_classification.py`
+- `dev/scripts/devctl/runtime/development_packet_pressure_models.py`
+- `dev/scripts/devctl/commands/development/plan_intake.py`
+- `dev/scripts/devctl/commands/review_channel/event_post_wake.py`
+- `dev/scripts/devctl/tests/runtime/test_development_packet_pressure.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_post_wake.py`
 - `dev/scripts/checks/review_probes/probe_event_field_naming_consistency.py`
 - `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_instruction.py`
 - `dev/scripts/devctl/runtime/provider_registry.py`

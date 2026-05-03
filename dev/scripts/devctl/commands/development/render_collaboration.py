@@ -19,7 +19,9 @@ def runtime_lines(runtime) -> list[str]:
     lines.append(f"- safe_to_fanout: {runtime.get('safe_to_fanout')}")
     lines.append(f"- actor_sync_status: {runtime.get('actor_sync_status') or '(none)'}")
     lines.append(
-        f"- actor_pending_packet_count: {runtime.get('actor_pending_packet_count')}"
+        "- actor_pending_packet_count: "
+        f"{runtime.get('actor_pending_packet_count')} "
+        "(inbox packets routed to this actor)"
     )
     lines.append(f"- fresh_row_count: {runtime.get('fresh_row_count')}")
     lines.append(f"- stale_row_count: {runtime.get('stale_row_count')}")

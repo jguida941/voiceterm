@@ -613,20 +613,22 @@ Portability note:
   relaunch one waiting Codex reviewer conductor for the newest unseen
   action-request packet instead of leaving that wake-up dependent on a
   separately started watcher.
-- Event-backed packet posts also distinguish visible-session wake from
-  delegated dashboard execution. A packet targeting a non-Codex
-  `target_session_id` still fails closed by default, but safe dashboard/observer
-  packets (`system_notice`, `finding`, or `question` with no requested action
-  or `review_only`) may use `--terminal none` to launch a headless delegate.
-  The post response and a persisted `packet_wake_attempted` event then report
-  `wake_method=headless_delegate`, `delegated=true`,
-  `visible_session_woke=false`, and
-  `dashboard_session_id=<target_session_id>` so dashboard/remote-control
-  surfaces do not claim the visible terminal resumed. The reduced packet row
-  exposes that event as `reviewer_wake`; when the headless launcher can prove a
-  real process id, the receipt also carries `spawned_pids` and
-  `delivered_to_pids`. Mutating packets remain blocked until a real provider
-  registry or IPC path can address the exact target session.
+- Event-backed packet posts also distinguish role/session attention from
+  process launch. A packet targeting any provider-backed `target_session_id`
+  is not satisfied by launching another process; it records typed attention for
+  that exact actor/session and remains pending until the bound session observes
+  it on its polling cadence. Provider packet wakes without both `target_role`
+  and `target_session_id` record
+  `wake_method=typed_attention_event` with
+  `reason=target_session_binding_required` instead of launching a fresh
+  headless provider process. `requested_session_visibility` is generic across
+  roles: `dashboard_only` means typed poll only, `visible` means a new worker
+  must be user-visible and capability-gated, and `headless` is suppressed until
+  explicit typed approval/proof marks the route headless-approved. The reduced
+  packet row exposes wake evidence as `reviewer_wake`; receipts preserve
+  `visible_session_woke`, `target_role`, `target_session_id`,
+  `terminal_window_ids`, `spawned_pids`, and `delivered_to_pids` only when that
+  evidence is real.
 - Attention-priority parity is shared across producer paths too: bridge-backed
   `review-channel --action status` and event-backed `startup-context`,
   `session-resume`, and `dashboard` now all attach typed conductor session
@@ -1916,17 +1918,40 @@ Machine-first output note:
   `packet_attention` (`pending_delivery_packet_ids` and
   `latest_attention_packet_id`), while actionable instruction/action-request
   packets remain separately identified in `pending_actionable_packet_ids`.
+  `--collaboration-mode <solo|pair_review|dashboard_led|intake_fanout|research_fanout|review_fanout|watcher_fanout|isolated_builder_fanout|dogfood_campaign>`
+  and `--role-preset <dashboard|implementer|reviewer|architect|researcher|intake|tester|watcher|operator>`
+  select the read-model lens rendered in `collaboration_mode`; they do not
+  grant repo mutation authority. `development_role_adapters.py` is the shared
+  Codex/Claude role-to-mode adapter matrix; `render-surfaces` projects it into
+  `dev/templates/slash/develop/roles.md`, and provider command files such as
+  `.claude/commands/develop.md` only pass those typed request fields into this
+  same backend surface. They carry no policy, provider defaults, permissions,
+  independent polling cadence, or repo-local path authority.
+  `develop ingest-plan` / `develop ingest-intent` is the explicit write path
+  for agent-authored planning sources outside the packet-debt drain: pass
+  `--packet-id`, `--source`, `--body-file`, or `--body` plus a `--plan-row-id`
+  when the source is not already a checklist row. `--source` reads a markdown
+  plan file directly and records `source_kind=markdown_plan_file` unless a
+  narrower kind is supplied. It upserts typed `PlanRow` rows in the repo-pack
+  master-plan store and appends a `PlanIntentIngestionReceipt` under
+  `dev/state/plan_ingestion_receipts.jsonl`; duplicate, rejected, or obsolete
+  sources still produce a terminal typed receipt so chat text and temp files
+  remain evidence, not authority.
   Delivery wake is not the same proof as same visible-terminal resume; wake
   receipts and `/develop` reports should preserve whether delivery reached a
   fresh/headless conductor, the targeted UI session, or only typed runtime rows.
-  A packet scoped to a non-Codex `target_session_id` must not be satisfied by
-  launching a different session; until a provider conductor registry/IPC
-  channel exists, mutating target-session packets stay pending with
-  `wake_method=unreachable_until_operator_prompt`. Safe dashboard/observer
-  delivery packets may explicitly delegate to a headless conductor with
-  `--terminal none`; those receipts must render `wake_method=headless_delegate`
-  plus `visible_session_woke=false` so operators can tell headless work from a
-  resumed visible dashboard terminal. The receipt is persisted as
+  A packet scoped to any `target_session_id` must not be satisfied by launching
+  a different session, and a provider packet that lacks exact `target_role` /
+  `target_session_id` binding must not spawn a process at all. Until a
+  provider conductor registry/IPC channel exists, target-session packets stay
+  pending with `wake_method=session_poll`; the bound actor/session must observe
+  them through typed polling. Safe dashboard/observer delivery packets use
+  `requested_session_visibility=dashboard_only` rather than headless
+  delegation; headless launch requires a separate typed approval/proof.
+  Receipts must render `wake_method`, `requested_session_visibility`, and
+  `visible_session_woke` so operators can tell typed attention, visible work,
+  and approved headless work apart.
+  The receipt is persisted as
   `packet_wake_attempted` and projected onto packet rows as `reviewer_wake`;
   launcher-proven process ids appear as `spawned_pids` / `delivered_to_pids`.
   The current launch action is a report-only cycle; it does not spawn workers
@@ -2185,7 +2210,8 @@ Machine-first output note:
   without scraping raw JSONL or guessing from shell-command strings alone.
   Provider ids are syntax-validated rather than limited to Codex/Claude at
   argparse time, so `cursor`, `operator`, `system`, or a future repo-pack
-  provider can reach runtime session discovery; non-Codex/Claude providers
+  provider can reach runtime session discovery; providers without governed
+  trace roots
   should pass `--sessions-root` until they have a governed default trace root.
 - `review-channel`: current bridge-gated review-swarm bootstrap surface; it resolves the review plan, compatibility bridge, and status root through `ProjectGovernance` / repo-pack state (in VoiceTerm today: `dev/active/review_channel.md`, `bridge.md`, and `dev/reports/review_channel/latest/`). `--action launch` reads the governed review plan plus current compatibility bridge, derives reviewer/implementer ownership from the planned lane roles instead of a fixed `codex -> reviewer` / `claude -> implementer` assumption, emits the needed provider conductor launch scripts, defaults live macOS launches to an `auto-dark` Terminal profile when available, auto-relaunches a conductor in the same terminal when the provider exits cleanly, auto-starts the repo-owned ensure-follow publisher from the actual live launch/rollover router, and now requires a fresh `startup-context` receipt before repo-owned launch/rollover work can begin; the canonical bootstrap remains role-first through `startup-context --role <reviewer|implementer>` plus `session-resume --role <reviewer|implementer> --format bootstrap`, while Claude launch scripts still use the provider-default permission mode for balanced/strict sessions so repo-owned review loops stay portable across subscriptions where Claude `auto` mode is unavailable, and trusted mode still uses the explicit bypass flag. After that receipt gate, it enforces the existing bridge launch contract: first the `check_review_channel_bridge.py` guard must pass (required bootstrap sections, tracked-file safety, heartbeat metadata, live-section size caps, duplicate/unknown heading rejection, and transcript/ANSI contamination rejection), then the live bridge state must show active reviewer heartbeat and current implementer status within the five-minute heartbeat window and must not report `checkpoint_required` / `safe_to_continue_editing=false` from the typed push-enforcement budget; live Terminal-app launch/rollover also fail closed if that detached publisher does not come up; the publisher remains the long-lived service and reclaims the reviewer-supervisor runtime on its normal cadence, while the repo also ships `dev/config/launchd/review_channel_publisher.plist.template` plus `dev/config/launchd/review_channel_publisher_service.py` for login-time restart/backoff semantics outside the live launch path; terminal selection now routes through one shared policy: explicit `--terminal` wins, governed `remote_control` sessions stay headless, follow/recovery actions inherit an already-headless parent session, and otherwise live local launch/recovery defaults back to `--terminal terminal-app`; `--terminal none` means a real headless background conductor launch, not a render-only/report-only mode. `--refresh-bridge-heartbeat-if-stale` is the typed self-heal flag for launch/rollover paths and will refresh the reviewer heartbeat metadata plus the non-audit worktree hash when stale/missing heartbeat metadata is the only blocker; `--action render-bridge` is the repo-owned repair path for a polluted compatibility bridge and now rebuilds `bridge.md` from the typed `review_state` compatibility payload (`_compat.bridge_projection`) plus sanitized fixed sections instead of reparsing live markdown, preserving transcript junk, or hand-editing report blobs; the same render path rejects embedded markdown headings in flat bridge sections fail-closed so duplicate packet H2 blocks cannot leak back into `Current Instruction For Claude` on rerender; the startup gate still blocks `launch|rollover` on checkpoint-budget or other real authority failures, but it no longer blocks those actions solely because the reviewer loop is stale on the implementer side; `--action recover --recover-provider <provider>` is the narrower repo-owned stale-implementer replacement path and launches only a fresh conductor for the current implementer provider when attention says the implementer side is stale, but it now fails closed unless the current repo-owned reviewer provider session is already present; repeated unchanged stale reviewer/runtime states now also let `reviewer-heartbeat --follow` auto-trigger the repo-owned `--action rollover` path so remote-control recovery reuses the structured handoff bundle plus visible ACK contract instead of ad hoc restarts; `--action reset-implementer-state` is the repo-owned live-section repair path when attention says implementer-owned bridge state must return to canonical pending; it rewrites `Claude Status`, `Claude Questions`, and `Claude Ack`, then refreshes the typed review-channel projection without changing reviewer-owned instruction truth; non-zero provider exits still stop visibly so auth/CLI failures do not spin forever; `--action status` writes the latest bridge-backed projections under the governed review-channel status root (in VoiceTerm today: `dev/reports/review_channel/latest/`) as `review_state.json`, `compact.json`, `full.json`, `actions.json`, `latest.md`, and `registry/agents.json`, and now includes the derived next unchecked plan item, machine-readable `reviewer_worker` state, typed `current_session` live instruction / ACK state, canonical typed bridge freshness booleans (`bridge.reviewed_hash_current`, `bridge.review_needed`), typed conductor visibility state (`reviewer_runtime.conductor_visibility`, `reviewer_runtime.session_owner.session_visibility`), the typed `_compat.bridge_projection` payload used by repo-owned bridge repair, shared context-packet `guidance_refs` when probe guidance is in scope, bridge-backed `push_enforcement` fields (`checkpoint_required`, `safe_to_continue_editing`, `recommended_action`, `raw_git_push_guarded`), and the compact doctor projection with publisher/supervisor running state plus last heartbeat/stop-reason fields. The same status/doctor path now also projects one reduced `authority_snapshot` contract (`coordination_state`, `root_cause`, `required_action`, `next_command`, `safe_to_continue`) so callers can distinguish stale instruction/ACK handshake drift from broader resync or single-agent posture without manually reconciling five raw fields. Attention escalates to `checkpoint_required` when the worktree is over budget; instruction-shaped compatibility outputs stay flat here too, so `Current Instruction For Claude`, `current_session.current_instruction`, and queue `derived_next_instruction` use compact no-H2 summaries while the full `Context Recovery Packet` remains available in source metadata for prompt/audit consumers; `latest.md` now renders the current-session summary from that typed block while the bridge stays a compatibility projection, and `status` now also fails closed when it detects an implementer-only repo-owned session with no live repo-owned reviewer conductor because that hybrid loop is not trusted as steady-state reviewer authority, or `active_dual_agent` with no repo-owned conductors because detached follow heartbeats alone are not proof the loop is live; reviewer-owned instruction rewrites now also reset live `Claude Status` / `Claude Ack` sections to placeholder `- pending` state whenever the instruction revision changes so typed `current_session` stops mirroring stale implementer text until the implementer repolls and acknowledges the new revision; reviewer-owned hold-steady / checkpoint / governed-push-pending bridge state now counts as a valid implementer-side wait posture too, so conductors should keep polling repo-owned status/wait paths instead of asking operators to choose between polling, pushing, or side work; repo-owned heartbeat refresh also preserves a real reviewer checkpoint `Poll Status` instead of overwriting it with automation-only heartbeat text; active-work implementer polling is stricter now too: `--action implementer-wait` is only valid under an explicit reviewer-owned wait state, while active instructions require substantive `Claude Status` / `Claude Ack` updates that name concrete files, subsystems, findings, or one blocker/question instead of `No change. Continuing.` / reviewer-placeholder text; `--action ensure`, `--action reviewer-heartbeat`, and `--action reviewer-checkpoint` emit the same reviewer-worker contract, while `--action ensure --follow` cadence frames add `review_needed` signals without claiming semantic review completion; active reviewer checkpoints should prefer one typed `--checkpoint-payload-file` or the existing per-section `--*-file` flags for AI-generated markdown / shell-sensitive content instead of inline shell bodies, and `active_dual_agent` writes must carry the live `--expected-instruction-revision`; `--action implementer-wait` is the repo-owned bounded implementer-side polling path and replaces ad-hoc `sleep` shell loops by waking on meaningful reviewer-owned bridge changes, failing closed on reviewer-loop breakage, and timing out after one hour by default; `--action reviewer-wait` is the symmetric reviewer-side wait path that wakes on meaningful implementer-owned state changes over top-level `reviewer_worker` / `bridge_liveness` status truth plus projected `current_session` ACK/status fields from `review_state.json`; `reviewer-heartbeat --follow` now auto-escalates repeated unchanged stale-implementer state through the narrower `recover` path instead of a full-loop restart; `--action promote` is the typed repo-owned queue-advance path that rewrites `Current Instruction For Claude` from the next unchecked active-plan checklist item when the current slice is resolved and findings are clear; `--action rollover` writes a repo-visible handoff bundle, relaunches fresh conductors before compaction, and can wait for visible ACK lines in `bridge.md`
   - Remote-control recovery keeps local UI out of the path: if typed

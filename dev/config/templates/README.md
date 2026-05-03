@@ -12,6 +12,9 @@ scaffolds.
   `/voice` slash command.
 - `claude_voice_skill.template.md`: repo-pack template for the generated
   Claude `/voice` skill.
+- `develop_role_adapters.template.md`: provider-neutral `/develop` role
+  adapter catalog rendered from the shared role/mode matrix for Codex and
+  Claude slash surfaces.
 - `portable_governance_pre_commit_hook.stub.template.sh`: starter hook stub
   rendered into `portable_governance_pre_commit_hook.stub.sh`.
 - `portable_governance_post_commit_hook.stub.template.sh`: starter hook stub

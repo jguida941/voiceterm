@@ -9,6 +9,7 @@ from .event_models import ReviewPacketRow
 from .packet_creation_binding import PACKET_CREATION_BINDING_EVENT_TYPES
 from .packet_debt_remediation_contracts import PACKET_DURABLE_INGESTION_EVENT_TYPES
 from .packet_lifecycle import apply_lifecycle_transition, project_packet_lifecycle
+from .packet_source_identity import source_identity
 from .pending_packets import partition_live_pending_packets
 
 PACKET_WAKE_EVENT_TYPES = {"packet_wake_attempted"}
@@ -79,13 +80,14 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         mutation_op=event.get("mutation_op"),
         target_role=event.get("target_role"),
         target_session_id=event.get("target_session_id"),
+        requested_session_visibility=event.get("requested_session_visibility"),
         pipeline_generation=event.get("pipeline_generation"),
         staged_snapshot_hash=event.get("staged_snapshot_hash"),
         guard_results_summary=event.get("guard_results_summary"),
         full_guard_bundle_evidence=event.get("full_guard_bundle_evidence"),
         plan_proposal=event.get("plan_proposal"),
         semantic_zref=_semantic_zref(event),
-        source_identity=_source_identity(event),
+        source_identity=source_identity(event),
         status=event.get("status"),
         posted_at=event.get("timestamp_utc"),
         acked_by=None,
@@ -184,7 +186,7 @@ def apply_packet_transition(
         next_packet["semantic_zref"] = _semantic_zref(next_packet)
     if event.get("source_identity") is not None or packet.get("source_identity"):
         next_packet["source_identity"] = (
-            _source_identity(event) or _source_identity(packet)
+            source_identity(event) or source_identity(packet)
         )
     actor = str((event.get("metadata") or {}).get("actor") or "").strip()
     if event_type == "packet_acked":
@@ -315,14 +317,3 @@ def _semantic_zref(packet: Mapping[str, object]) -> str:
         return explicit
     packet_id = str(packet.get("packet_id") or "").strip()
     return f"packet:{packet_id}" if packet_id else ""
-
-
-def _source_identity(packet: Mapping[str, object]) -> dict[str, object]:
-    raw = packet.get("source_identity")
-    if not isinstance(raw, Mapping):
-        return {}
-    return {
-        str(key).strip(): str(value or "").strip()
-        for key, value in raw.items()
-        if str(key).strip() and str(value or "").strip()
-    }

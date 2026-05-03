@@ -1,42 +1,36 @@
-"""Headless-delegate predicates for typed wake target resolution.
+"""Provider wake predicates for typed packet target resolution.
 
 Extracted from `follow_controller` so the dashboard/observer
-delegation rules and the session-pid helper can grow without inflating
-the host file beyond shape limits. The predicate is the single source
-of truth for "is this packet safe to wake via a fresh headless
-conductor instead of falsely claiming the visible session woke?".
+dashboard-poll rules, worker visibility rules, and session-pid helper can
+grow without inflating the host file beyond shape limits. These predicates are
+the single source of truth for deciding whether a provider-targeted packet
+should wait for a bound dashboard poll, launch a visible worker, or fail closed
+before any headless worker is spawned.
 """
 
 from __future__ import annotations
 
-from ..runtime.operator_context import is_remote_mode
+from .session_id_extractors import mapping_int_ids, object_int_ids
 
 _HEADLESS_DELEGATE_TARGET_ROLES = frozenset({"dashboard", "observer"})
 _HEADLESS_DELEGATE_PACKET_KINDS = frozenset(
     {"system_notice", "finding", "question"}
 )
 _HEADLESS_DELEGATE_REQUESTED_ACTIONS = frozenset({"", "review_only"})
+_IMPLEMENTER_TARGET_ROLES = frozenset(
+    {"coder", "coding", "implementation", "implementer"}
+)
+_REQUESTED_VISIBILITIES = frozenset({"dashboard_only", "headless", "visible"})
 
 
-def can_delegate_dashboard_packet_headless(
-    packet: dict[str, object],
-    *,
-    operator_interaction_mode: str,
-    headless_requested: bool = False,
-) -> bool:
-    """Return True when a non-codex packet is safe to wake via a delegate.
+def packet_targets_dashboard_poll(packet: dict[str, object]) -> bool:
+    """Return True when the target is a live dashboard/observer poller.
 
-    Conditions (all must hold):
-    - operator_interaction_mode is remote OR --terminal=none was requested
-    - packet's target_role is in {dashboard, observer}
-    - packet's kind is in {system_notice, finding, question}
-    - packet's requested_action is in {empty, review_only}
+    Some provider adapters cannot be externally pushed awake. For review-only
+    dashboard packets, the correct wake is typed attention for the bound
+    dashboard session and that session's own polling cadence, not a fresh
+    detached process.
     """
-    if not (
-        is_remote_mode(str(operator_interaction_mode or "").strip())
-        or headless_requested
-    ):
-        return False
     target_role = str(packet.get("target_role") or "").strip().lower()
     if target_role not in _HEADLESS_DELEGATE_TARGET_ROLES:
         return False
@@ -47,6 +41,33 @@ def can_delegate_dashboard_packet_headless(
     return requested_action in _HEADLESS_DELEGATE_REQUESTED_ACTIONS
 
 
+def packet_targets_implementer_worker(packet: dict[str, object]) -> bool:
+    """Return True when a packet targets a mutating implementer-style role."""
+    target_role = str(packet.get("target_role") or "").strip().lower()
+    return target_role in _IMPLEMENTER_TARGET_ROLES
+
+
+def requested_worker_visibility(
+    packet: dict[str, object],
+    *,
+    terminal_arg: object = "",
+) -> str:
+    """Resolve requested worker visibility from packet policy and CLI mode."""
+    requested = str(
+        packet.get("requested_session_visibility") or ""
+    ).strip().lower()
+    if requested in _REQUESTED_VISIBILITIES:
+        return requested
+    if packet_targets_dashboard_poll(packet):
+        return "dashboard_only"
+    return "visible"
+
+
+def terminal_window_ids(sessions: list[dict[str, object]]) -> tuple[int, ...]:
+    """Extract dedup'd Terminal.app window ids from a session list."""
+    return mapping_int_ids(sessions, "terminal_window_id")
+
+
 def session_pids(sessions: tuple[object, ...]) -> tuple[int, ...]:
     """Extract dedup'd session PIDs from a session probe tuple.
 
@@ -55,15 +76,4 @@ def session_pids(sessions: tuple[object, ...]) -> tuple[int, ...]:
     available. Used by the wake path to attribute replaced_pids in the
     wake receipt.
     """
-    pids: list[int] = []
-    for session in sessions:
-        for attr in ("session_pid", "pid"):
-            raw = getattr(session, attr, None)
-            try:
-                pid = int(raw or 0)
-            except (TypeError, ValueError):
-                continue
-            if pid > 0:
-                pids.append(pid)
-                break
-    return tuple(dict.fromkeys(pids))
+    return object_int_ids(sessions, ("session_pid", "pid"))

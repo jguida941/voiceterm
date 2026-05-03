@@ -3,6 +3,12 @@
 from __future__ import annotations
 
 from .contracts import ContractField, ContractSpec
+from .runtime_state_contract_rows_development_packets import (
+    DEVELOPMENT_PACKET_STATE_CONTRACTS,
+)
+from .runtime_state_contract_rows_development_roles import (
+    DEVELOPMENT_ROLE_STATE_CONTRACTS,
+)
 
 DEVELOPMENT_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     ContractSpec(
@@ -128,6 +134,37 @@ DEVELOPMENT_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 ),
             ),
             ContractField(
+                "collaboration_mode",
+                "dict[str, Any]",
+                (
+                    "CollaborationModeTopology read-model payload with selected "
+                    "mode, role preset, and packet-pressure policy. This explains "
+                    "requested topology and never grants authority."
+                ),
+            ),
+            ContractField(
+                "packet_pressure",
+                "PacketBacklogPressure",
+                (
+                    "Packet backlog pressure counts live/actionable, near-TTL, "
+                    "expired unresolved, carry-forward, durable-owner-gap, "
+                    "per-kind, and per-role packet pressure."
+                ),
+            ),
+            ContractField(
+                "selected_packet_classifications",
+                "tuple[PacketIntentClassification, ...]",
+                "Classifications for packets selected by pressure or durable-intent rules.",
+            ),
+            ContractField(
+                "packet_ingestion_decision",
+                "PacketAttentionIngestionDecision",
+                (
+                    "AgentAttentionLoop packet decision: continue, pivot, "
+                    "ingest durable intent, request operator decision, or fail closed."
+                ),
+            ),
+            ContractField(
                 "watcher_lease",
                 "DevelopmentWatcherLease",
                 "Typed watcher lease/status for pending packet observation.",
@@ -187,7 +224,94 @@ DEVELOPMENT_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             "packet_attention",
             "runtime",
             "orchestration",
+            "collaboration_mode",
+            "packet_pressure",
+            "packet_ingestion_decision",
         ),
+    ),
+    ContractSpec(
+        contract_id="CollaborationModeTopology",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Read-only `/develop` collaboration-mode and role-preset topology. "
+            "It explains requested mode, role lens, packet pressure policy, and "
+            "fanout gates while leaving authority to typed runtime contracts."
+        ),
+        required_fields=(
+            ContractField("topology_id", "str", "Named collaboration topology preset."),
+            ContractField(
+                "modes",
+                "tuple[DevelopCollaborationModeSpec, ...]",
+                "Requested collaboration modes such as solo, pair_review, and fanout modes.",
+            ),
+            ContractField(
+                "role_presets",
+                "tuple[DevelopRolePresetSpec, ...]",
+                "Role lenses compiled by slash adapters or `/develop` requests.",
+            ),
+            ContractField(
+                "packet_pressure_policy",
+                "PacketAttentionPressurePolicy",
+                "Repo-pack configurable soft/hard packet budgets and near-TTL window.",
+            ),
+            ContractField(
+                "authority_policy",
+                "str",
+                "Statement that this read model never grants authority.",
+            ),
+            ContractField(
+                "slash_adapter_policy",
+                "str",
+                "Slash adapters pass typed request fields and carry no policy.",
+            ),
+            ContractField("default_mode_id", "str", "Default collaboration mode."),
+            ContractField("default_role_preset_id", "str", "Default role preset."),
+            ContractField(
+                "default_worker_fanout",
+                "int",
+                "Default worker fanout for unqualified requests.",
+            ),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.development_collaboration_modes:"
+            "CollaborationModeTopology"
+        ),
+        startup_surface_tokens=(
+            "modes",
+            "role_presets",
+            "packet_pressure_policy",
+            "authority_policy",
+        ),
+    ),
+    *DEVELOPMENT_ROLE_STATE_CONTRACTS,
+    *DEVELOPMENT_PACKET_STATE_CONTRACTS,
+    ContractSpec(
+        contract_id="PlanIntentIngestionReceipt",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed receipt proving an agent-authored plan source was converted "
+            "into PlanRow authority or recorded as an explicit terminal outcome."
+        ),
+        required_fields=(
+            ContractField("receipt_id", "str", "Stable receipt id for this attempt."),
+            ContractField("source_kind", "str", "Source family such as chat, file, markdown_plan_file, or packet."),
+            ContractField("source_ref", "str", "Evidence reference for the source."),
+            ContractField("status", "str", "accepted, duplicate, rejected, obsolete, or preview."),
+            ContractField("reason", "str", "Bounded outcome reason."),
+            ContractField("target_kind", "str", "plan_row or terminal_receipt."),
+            ContractField("target_ref", "str", "Typed plan target ref when available."),
+            ContractField("row_ids", "tuple[str, ...]", "PlanRow ids written or previewed."),
+            ContractField("store_statuses", "tuple[str, ...]", "Per-row JSONL upsert statuses."),
+            ContractField("terminal_status", "str", "Terminal receipt class when no PlanRow is written."),
+            ContractField("packet_id", "str", "Packet evidence id for packet-backed plan sources."),
+            ContractField("path", "str", "Typed plan store path."),
+            ContractField("receipt_path", "str", "Append-only receipt store path."),
+            ContractField("source_hash", "str", "Hash of the ingested plan source."),
+            ContractField("recorded_at_utc", "str", "UTC receipt timestamp."),
+            ContractField("dry_run", "bool", "Whether writes were suppressed."),
+        ),
+        runtime_model="dev.scripts.devctl.runtime.plan_intent_ingestion:PlanIntentIngestionReceipt",
+        startup_surface_tokens=("status", "row_ids", "terminal_status"),
     ),
 )
 

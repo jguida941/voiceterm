@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
@@ -26,17 +25,20 @@ from .packet_plan_proposal import (
     plan_proposal_for_fields,
     validate_plan_proposal_contract,
 )
+from .packet_route_scope import (
+    normalize_packet_route_role,
+    packet_route_matches_scope,
+)
 from .packet_target_validation import (
     STAGE_PIPELINE_ACTION_REQUEST_ACTIONS,
     VALID_PLAN_MUTATION_OPS,
     VALID_TARGET_KINDS,
     validate_target_fields,
 )
-
-_MP_ID_RE = re.compile(r"^MP-\d+$", re.IGNORECASE)
-_PLAN_TASK_RE = re.compile(r"^MP\d+-P\d+(?:-T\d+[A-Z]*(?:-[A-Z])?)?$", re.IGNORECASE)
-_PACKET_ID_RE = re.compile(r"^rev_pkt_\d+$", re.IGNORECASE)
-_ANCHOR_PREFIX_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*:")
+from .packet_text_fields import (
+    clean_optional_text as _clean_optional_text,
+    normalize_anchor_ref_rows as _normalize_anchor_ref_rows,
+)
 
 VALID_AGENT_IDS = frozenset(default_packet_agent_ids())
 COMMIT_APPROVAL_PACKET_KIND = "commit_approval"
@@ -83,12 +85,12 @@ PACKET_KIND_SCHEMAS = {
 class PacketTargetFields:
     """Typed plan/runtime target metadata carried by review packets.
 
-    Per rev_pkt_2472 actor/session discriminator: ``target_role`` and
-    ``target_session_id`` let routers distinguish dashboard-claude vs
-    coder-claude (and future role-suffixed agent variants) when the legacy
-    ``to_agent`` field alone is ambiguous. Both default to empty so existing
-    packets without the discriminator remain valid; consumers fail closed
-    when they are present and don't match the current session.
+    ``target_role`` and ``target_session_id`` are actor-route discriminators:
+    they distinguish reviewer, implementer, architect, dashboard, watcher, and
+    other role sessions that may run on any provider adapter. The legacy
+    ``to_agent`` provider field remains delivery compatibility only; authority
+    consumers fail closed unless scoped actor/session fields and capability
+    grants match the intended route.
     """
 
     target_kind: str = ""
@@ -99,6 +101,7 @@ class PacketTargetFields:
     mutation_op: str = ""
     target_role: str = ""
     target_session_id: str = ""
+    requested_session_visibility: str = ""
 
     @classmethod
     def from_values(
@@ -112,6 +115,7 @@ class PacketTargetFields:
         mutation_op: object = None,
         target_role: object = None,
         target_session_id: object = None,
+        requested_session_visibility: object = None,
     ) -> "PacketTargetFields":
         return cls(
             target_kind=_clean_optional_text(target_kind) or "",
@@ -122,6 +126,9 @@ class PacketTargetFields:
             mutation_op=_clean_optional_text(mutation_op) or "",
             target_role=_clean_optional_text(target_role) or "",
             target_session_id=_clean_optional_text(target_session_id) or "",
+            requested_session_visibility=(
+                _clean_optional_text(requested_session_visibility) or ""
+            ),
         )
 
     def to_event_fields(self) -> dict[str, object]:
@@ -134,6 +141,9 @@ class PacketTargetFields:
         fields["mutation_op"] = self.mutation_op or None
         fields["target_role"] = self.target_role or None
         fields["target_session_id"] = self.target_session_id or None
+        fields["requested_session_visibility"] = (
+            self.requested_session_visibility or None
+        )
         return fields
 
     def has_values(self) -> bool:
@@ -147,59 +157,9 @@ class PacketTargetFields:
                 self.mutation_op,
                 self.target_role,
                 self.target_session_id,
+                self.requested_session_visibility,
             )
         )
-
-
-_ROLE_ALIASES = {
-    "coder": "implementer",
-    "coding": "implementer",
-    "implementation": "implementer",
-    "implementer": "implementer",
-    "review": "reviewer",
-    "reviewer": "reviewer",
-    "dashboard": "dashboard",
-    "observer": "dashboard",
-    "watcher": "dashboard",
-    "operator": "operator",
-    "remote_operator": "operator",
-    "subagent": "subagent",
-}
-
-
-def normalize_packet_route_role(value: object) -> str:
-    """Normalize packet route roles for target-role comparisons."""
-    role = _clean_optional_text(value) or ""
-    if not role:
-        return ""
-    key = role.lower().replace("-", "_").replace(" ", "_")
-    return _ROLE_ALIASES.get(key, key)
-
-
-def packet_route_matches_scope(
-    packet: Mapping[str, object],
-    *,
-    target_role: object = "",
-    target_session_id: object = "",
-) -> bool:
-    """Return whether ``packet`` is visible to the scoped actor/session.
-
-    Legacy packets without target discriminators stay visible to existing
-    agent-level readers. Packets that do carry ``target_role`` or
-    ``target_session_id`` fail closed unless the caller provides a matching
-    scoped identity.
-    """
-    packet_role = normalize_packet_route_role(packet.get("target_role"))
-    scope_role = normalize_packet_route_role(target_role)
-    if packet_role and packet_role != scope_role:
-        return False
-
-    packet_session = _clean_optional_text(packet.get("target_session_id")) or ""
-    scope_session = _clean_optional_text(target_session_id) or ""
-    if packet_session and packet_session != scope_session:
-        return False
-
-    return True
 
 
 @dataclass(frozen=True, slots=True)
@@ -322,45 +282,6 @@ def _validate_plan_proposal_fields(
         carrier_kinds=CARRIER_PACKET_KINDS,
         existing_packets=existing_packets,
     )
-
-
-def _clean_optional_text(value: object) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
-def _normalize_string_rows(value: object) -> list[str]:
-    if not isinstance(value, (list, tuple)):
-        return []
-    rows: list[str] = []
-    for entry in value:
-        text = str(entry).strip()
-        if text:
-            rows.append(text)
-    return rows
-
-
-def _normalize_anchor_ref_rows(value: object) -> list[str]:
-    rows: list[str] = []
-    for text in _normalize_string_rows(value):
-        rows.append(_canonical_anchor_ref(text))
-    return rows
-
-
-def _canonical_anchor_ref(value: str) -> str:
-    """Accept operator vocabulary and store canonical typed anchor refs."""
-    text = value.strip()
-    if _ANCHOR_PREFIX_RE.match(text):
-        return text
-    if _PACKET_ID_RE.fullmatch(text):
-        return f"packet:{text.lower()}"
-    if _PLAN_TASK_RE.fullmatch(text):
-        return f"checklist:{text.upper()}"
-    if _MP_ID_RE.fullmatch(text):
-        return f"section:{text.upper()}"
-    return text
 
 
 def _resolve_valid_agent_ids(
