@@ -15,7 +15,10 @@ from ..runtime.surface_snapshot import (
     build_surface_zref,
 )
 from .core import DEFAULT_BRIDGE_REL
-from .current_session_attention import codex_packet_attention_requires_clear
+from .current_session_attention import (
+    codex_packet_attention_requires_clear,
+    reviewer_checkpoint_instruction_preservation,
+)
 from .current_session_projection import current_session_payload
 from .event_projection_context import (
     EventProjectionBaseState,
@@ -441,9 +444,17 @@ def _resolve_current_session(
         review_state,
     )
     if codex_packet_attention_requires_clear(review_state):
-        current_session = replace(
-            current_session,
-            current_instruction="",
-            current_instruction_revision="",
-        )
+        preserved = reviewer_checkpoint_instruction_preservation(review_state)
+        if preserved is not None:
+            current_session = replace(
+                current_session,
+                current_instruction=preserved[0],
+                current_instruction_revision=preserved[1],
+            )
+        else:
+            current_session = replace(
+                current_session,
+                current_instruction="",
+                current_instruction_revision="",
+            )
     return current_session

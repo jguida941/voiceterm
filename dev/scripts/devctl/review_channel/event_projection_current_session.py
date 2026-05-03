@@ -8,7 +8,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..runtime.agent_session_outcome import AgentSessionOutcomeState
-from .current_session_attention import codex_packet_attention_requires_clear
+from .current_session_attention import (
+    codex_packet_attention_requires_clear,
+    reviewer_checkpoint_instruction_preservation,
+)
 from .current_session_projection import (
     build_bridge_current_session,
     build_event_current_session,
@@ -47,11 +50,19 @@ def resolve_current_session(
         prior_review_state=prior_review_state,
     )
     if codex_packet_attention_requires_clear(review_state):
-        current_session = replace(
-            current_session,
-            current_instruction="",
-            current_instruction_revision="",
-        )
+        preserved = reviewer_checkpoint_instruction_preservation(review_state)
+        if preserved is not None:
+            current_session = replace(
+                current_session,
+                current_instruction=preserved[0],
+                current_instruction_revision=preserved[1],
+            )
+        else:
+            current_session = replace(
+                current_session,
+                current_instruction="",
+                current_instruction_revision="",
+            )
     return current_session
 
 

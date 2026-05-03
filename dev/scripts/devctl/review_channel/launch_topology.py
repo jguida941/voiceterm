@@ -73,6 +73,19 @@ def build_conductor_launch_specs(
     )
     specs: list[ConductorLaunchSpec] = []
     for provider in providers:
+        spec_lanes = lane_map.get(provider, ())
+        spec_budget = budgets.get(provider, 0) or 0
+        # rev_pkt_2923 MP377-P0-T22AN-L: do not generate a conductor script
+        # for a provider with zero lanes AND zero worker budget. Without this
+        # filter, callers that strip `claude_lanes=[]` (e.g., the reviewer-only
+        # launch path that bridge_action_support.is_reviewer_only_launch_scope
+        # produces) still emit a `claude-conductor.sh` script because the
+        # legacy provider_lane_map keeps an empty `claude` entry. The script
+        # then gets spawned by the supervision loop, which is exactly the
+        # rogue-claude-conductor recurrence (Finding X) operator's been
+        # killing all session.
+        if not spec_lanes and spec_budget <= 0:
+            continue
         role = role_map.get(provider, role_for_provider(provider)).value
         counterpart_provider = _counterpart_provider(
             provider=provider,
@@ -87,8 +100,8 @@ def build_conductor_launch_specs(
                 counterpart_provider=counterpart_provider,
                 counterpart_name=counterpart_provider.title(),
                 role=role,
-                lanes=lane_map.get(provider, ()),
-                requested_worker_budget=budgets.get(provider, 0),
+                lanes=spec_lanes,
+                requested_worker_budget=spec_budget,
             )
         )
     return tuple(specs)

@@ -44,6 +44,40 @@ class LaunchTopologyTests(unittest.TestCase):
         self.assertEqual(specs[0].counterpart_name, "Claude")
         self.assertEqual(specs[1].requested_worker_budget, 2)
 
+    def test_build_conductor_launch_specs_skips_provider_with_no_lanes_and_zero_budget(self) -> None:
+        """rev_pkt_2923 MP377-P0-T22AN-L regression guard.
+
+        When a provider has no lanes AND zero worker budget (e.g., reviewer-only
+        launch path that strips claude_lanes via
+        bridge_action_support.is_reviewer_only_launch_scope), no conductor
+        spec should be generated for it. Without this filter, an empty
+        ``claude`` entry kept in the legacy provider_lane_map produces a
+        claude-conductor.sh script that the supervision loop spawns — the
+        rogue claude-conductor recurrence (Finding X) operator killed all
+        session.
+        """
+        specs = build_conductor_launch_specs(
+            provider_lane_map={
+                "codex": (_lane("AGENT-1", "codex", "Codex review"),),
+                "claude": (),
+            },
+            requested_worker_budgets={"codex": 0, "claude": 0},
+        )
+
+        self.assertEqual([spec.provider for spec in specs], ["codex"])
+        # Sanity: claude with non-zero budget should still get a spec.
+        specs_with_claude_budget = build_conductor_launch_specs(
+            provider_lane_map={
+                "codex": (_lane("AGENT-1", "codex", "Codex review"),),
+                "claude": (),
+            },
+            requested_worker_budgets={"codex": 0, "claude": 2},
+        )
+        self.assertEqual(
+            sorted(spec.provider for spec in specs_with_claude_budget),
+            ["claude", "codex"],
+        )
+
     def test_build_conductor_launch_specs_respects_explicit_lane_roles(self) -> None:
         specs = build_conductor_launch_specs(
             provider_lane_map={

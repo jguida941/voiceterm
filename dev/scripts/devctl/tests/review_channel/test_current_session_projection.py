@@ -1705,3 +1705,82 @@ def test_resolve_current_session_authority_ignores_bridge_wait_placeholder() -> 
     assert resolved.current_instruction in {"", "(missing)"}
     assert resolved.current_instruction_revision == ""
     assert resolved.open_findings == "193 expired unresolved review packet(s)"
+
+
+def test_build_event_current_session_preserves_reviewer_checkpoint_revision_when_packet_attention_clears() -> None:
+    """rev_pkt_2922 Finding Y regression guard.
+
+    When packet attention requires clearing the current-session instruction,
+    a live reviewer_checkpoint payload's instruction/revision must be
+    preserved. Without this, reviewer-checkpoint writes are wiped by the
+    subsequent packet-attention clear and `check_review_channel_bridge.py`
+    fails because typed current-session instruction revision is missing.
+    """
+    review_state = {
+        "latest_reviewer_checkpoint": {
+            "current_instruction": "Codex: address rev_pkt_2922.",
+            "current_instruction_revision": "abc1234567ef",
+            "open_findings": "",
+            "reviewer_mode": "single_agent",
+            "worktree_hash": "",
+            "reviewer_actor": "codex",
+            "reason": "operator-manual-override",
+            "event_id": "rev_evt_99999",
+            "timestamp": "2026-05-03T22:00:00Z",
+        },
+        # Packet inbox triggers the clear-from-packet-truth path because no
+        # current_instruction_packet_id is set.
+        "packet_inbox": {
+            "agents": [
+                {
+                    "agent": "claude",
+                    "current_instruction_packet_id": "",
+                }
+            ],
+        },
+        "packets": [],
+    }
+    bridge_liveness = {
+        "current_instruction_revision": "",
+    }
+
+    resolved = build_event_current_session(
+        review_state=review_state,
+        bridge_liveness=bridge_liveness,
+    )
+
+    # The reviewer_checkpoint instruction/revision MUST be preserved even
+    # though packet attention says clear. This is the bug Finding Y named.
+    assert resolved.current_instruction == "Codex: address rev_pkt_2922."
+    assert resolved.current_instruction_revision == "abc1234567ef"
+
+
+def test_build_event_current_session_clears_when_no_reviewer_checkpoint_and_packet_attention_clears() -> None:
+    """rev_pkt_2922 Finding Y inverse guard: when no live reviewer_checkpoint
+    payload exists, the packet-attention clear path must still work
+    (legacy behavior) — only packet-derived state should clear."""
+    review_state = {
+        # No latest_reviewer_checkpoint at all.
+        "packet_inbox": {
+            "agents": [
+                {
+                    "agent": "claude",
+                    "current_instruction_packet_id": "",
+                }
+            ],
+        },
+        "packets": [],
+    }
+    bridge_liveness = {
+        "current_instruction_revision": "stale-revision",
+    }
+
+    resolved = build_event_current_session(
+        review_state=review_state,
+        bridge_liveness=bridge_liveness,
+    )
+
+    # Without a live reviewer_checkpoint, the legacy clear behavior holds:
+    # current_instruction and revision both empty.
+    assert resolved.current_instruction in {"", "(missing)"}
+    assert resolved.current_instruction_revision == ""

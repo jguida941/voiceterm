@@ -10,6 +10,7 @@ from .collaboration_provider import coding_provider_from_review_state
 from .current_session_attention import (
     implementer_packet_attention_for,
     packet_attention_requires_clear,
+    reviewer_checkpoint_instruction_preservation,
 )
 from .current_session_authority import prefer_bridge_current_session
 from .current_session_bridge_fallback import merge_bridge_session_event_fallback
@@ -229,8 +230,12 @@ def build_event_current_session(
         current_instruction_revision,
     )
     if clear_from_packet_truth:
-        current_instruction = ""
-        current_instruction_revision = ""
+        preserved = reviewer_checkpoint_instruction_preservation(review_state)
+        if preserved is not None:
+            current_instruction, current_instruction_revision = preserved
+        else:
+            current_instruction = ""
+            current_instruction_revision = ""
     instruction_missing = is_missing_instruction(current_instruction)
     if (
         instruction_missing
