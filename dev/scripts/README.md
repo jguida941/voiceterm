@@ -1817,7 +1817,9 @@ Machine-first output note:
   (`devctl`, `operator-console`, or `root`), with fail-fast defaults plus
   session/per-test timeouts enforced by the repo pytest plugin. `check-router`
   adds focused devctl tests for tooling changes and Operator Console tests only
-  for touched `app/operator_console/**/*.py` paths.
+  for touched `app/operator_console/**/*.py` paths. `AGENTS.md` must list this
+  command because `check_agents_contract.py` mirrors the live command inventory
+  from `dev/scripts/devctl/commands/listing.py`.
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold/freshness checker for outcomes (strict by default; use `--report-only` for non-blocking reminders)
 - `docs-check`: docs coverage + tooling/deprecated-command policy guard (`--strict-tooling` also runs active-plan sync + multi-agent sync + markdown metadata-header + workflow-shell hygiene + guide-contract sync + bundle/workflow parity + stale-path audit)

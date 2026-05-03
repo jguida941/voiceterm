@@ -49,7 +49,9 @@ fail-fast with session/per-test timeout rails, `check_pytest_runtime_policy.py`
 blocks raw pytest commands from canonical bundles plus missing pytest policy,
 and `check-router` adds Python tests as path-aware add-ons. Devctl-only
 tooling changes get focused devctl tests, while Operator Console tests only
-route for touched Python files under `app/operator_console`.
+route for touched Python files under `app/operator_console`. The `AGENTS.md`
+command inventory now names `test-python`, and `check_agents_contract.py`
+keeps that inventory aligned with live `devctl` command authority.
 
 Evidence:
 

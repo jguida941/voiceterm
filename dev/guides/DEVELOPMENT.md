@@ -396,6 +396,9 @@ Three quality layers matter in practice:
   `--path` targets. Repo-root pytest is scoped, fail-fast, and guarded by
   session/per-test timeouts so a mistaken broad selection fails closed instead
   of consuming an agent turn for hours.
+- Keep the `AGENTS.md` tooling inventory aligned with live `devctl list`
+  command authority: `test-python` is a first-class command there, and
+  `check_agents_contract.py` fails if the inventory omits it.
 - `check-router` must add Python suites through path-aware risk add-ons, not
   static bundle membership. Devctl-only changes get focused devctl tests;
   Operator Console tests run only when `app/operator_console/**/*.py` is touched.

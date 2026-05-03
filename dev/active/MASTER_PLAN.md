@@ -6314,7 +6314,10 @@ become the main product surface.
     closure: Python validation should route through the bounded
     `devctl test-python` adapter, root pytest config must stay scoped and
     timeout-guarded, and `check-router` should add path-aware Python suites
-    instead of keeping broad raw pytest in static bundles.
+    instead of keeping broad raw pytest in static bundles. The `AGENTS.md`
+    command inventory now names `test-python` directly so
+    `check_agents_contract.py` protects that adapter as part of startup and
+    push governance.
   - [ ] `MP377-P0-T22AN-AC` now owns fresh-session orientation automation:
     `devctl session` must run startup-context, session-resume, live
     review-channel status, and context-graph bootstrap before answering

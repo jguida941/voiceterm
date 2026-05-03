@@ -2396,6 +2396,9 @@ Core commands:
   - `pedantic` is an advisory maintainer lane for intentional lint-hardening sweeps; it is opt-in and not part of required bundles or release gates.
   - `check --profile pedantic` writes structured artifacts to `dev/reports/check/clippy-pedantic-summary.json` and `dev/reports/check/clippy-pedantic-lints.json`; consume them through `report --pedantic` or `triage --pedantic` instead of making ad hoc decisions from raw terminal output.
   - Structured `check` output timestamps are UTC for stable cross-run correlation.
+- `test-python` (repo-owned Python test adapter for named suites or explicit
+  `--path` targets; use it instead of broad raw `pytest` so session and
+  per-test timeouts stay bounded)
 - `check-router` (path-aware lane selector that maps changed files to `bundle.docs|bundle.runtime|bundle.tooling|bundle.release`, reports required risk add-ons, and can execute the routed command set with `--execute`)
 - `compat-matrix` (single-view host/provider compatibility matrix summary and policy validation surface)
   - Matrix checks now include a minimal no-dependency YAML fallback parser so
