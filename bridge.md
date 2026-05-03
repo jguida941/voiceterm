@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-03T07:19:24Z`
-- Last Codex poll (Local America/New_York): `2026-05-03 03:19:24 EDT`
+- Last Codex poll: `2026-05-03T07:29:59Z`
+- Last Codex poll (Local America/New_York): `2026-05-03 03:29:59 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `c09fb56524728f9cf5f3ff6a3c082d5e4ca8058e06dfd78082d271eae99a7cf2`
-- Current instruction revision: ``
+- Current instruction revision: `c4e74873bc9f`
 
 ## Protocol
 
@@ -114,11 +114,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-05-03T07:18:39.412698Z.
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: promote derived plan instruction into current_session after typed packet cleanup; observed-tree: c09fb5652472; reviewed-tree: c09fb5652472; instruction-rev: 3854453b46aa).
 
 ## Current Verdict
 
-- reviewer state unavailable
+- Accepted: local single-agent governance repair; continue with typed plan instruction.
 
 ## Open Findings
 
@@ -126,7 +126,7 @@ none
 
 ## Claude Status
 
-- Status unavailable.
+- pending
 
 ## Claude Questions
 
@@ -134,15 +134,20 @@ none
 
 ## Claude Ack
 
-- missing
+- pending
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+- Next scoped plan item (dev/active/ai_governance_platform.md): Phase P0 - Findings Spine, Dogfood, And Plan Authority: `MP377-P0-T08` Extend `PlatformFindingIngest` for finding durability without distraction: every review-channel finding and ad-hoc capture must mirror into `FindingBacklog` / `governance-review` with severity, plan anchor, evidence ref, lifecycle outcome, stale-pending visibility, dashboard counts, startup `quality_signals.open_findings_summary`, and findings-priority ordering. This extends the existing finding spine only. owner_doc: `dev/active/ai_governance_platform.md` status: `in_progress` depends_on: `MP377-P0-T01`, `MP377-P0-T06` progress: 2026-04-27 Slice A promoted failed-command dogfood auto-ingest to default report-only recording through the existing dogfood ledger plus governance-review/FindingBacklog seam. Remaining T08 scope is packet finding/ad-hoc capture lifecycle metadata and non-distraction ordering. progress: 2026-04-29 Plan 4.1 rescue Slice A added MVP `PacketIntentAnchor` / `PlanIterationSession` projections for recent planning packets. Pending or expired plan packets surface as `plan_anchor_pending` startup/session continuity, while only explicitly applied plan packets remain eligible to create `MasterPlan` / `PlanRow` execution authority through `PacketPlanIntegration`.
+- Context packet: trigger `review-channel-promotion`; query terms: `dev/active/ai_governance_platform.md`
+- Canonical refs:
+  - `dev/active/ai_governance_platform.md#phase:mp377-p0`
+  - `dev/active/ai_governance_platform.md#phase:mp398-p0`
+  - `dev/active/ai_governance_platform.md#phase:mp399-p0`
 
 ## Last Reviewed Scope
 
-MP-377
+- MP-377
 
 ## Action Requests
 
