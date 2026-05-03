@@ -78,8 +78,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-03T23:51:22Z`
-- Last Codex poll (Local America/New_York): `2026-05-03 19:51:22 EDT`
+- Last Codex poll: `2026-05-03T23:57:59Z`
+- Last Codex poll (Local America/New_York): `2026-05-03 19:57:59 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `47c311a39cdebbd0765b0405bfd1df4e9b8a7f3b06c5995a121fcd77291cf006`
 - Current instruction revision: `7ebeb245f749`
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-2 pending review packet(s)
+1 pending review packet(s)
 
 ## Claude Status
 
@@ -134,7 +134,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- [rev_pkt_2929] stage_commit_pipeline: target=runtime:devctl_commit:d1b3377bd278d6b826942b130811b307179fdce4@d1b3377bd278d6b826942b130811b307179fdce4; Stage verified commit pipeline for T22AN-L/Finding Y closure (status: pending)
+- No pending action requests.
