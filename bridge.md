@@ -78,10 +78,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-03T23:18:27Z`
-- Last Codex poll (Local America/New_York): `2026-05-03 19:18:27 EDT`
+- Last Codex poll: `2026-05-03T23:29:46Z`
+- Last Codex poll (Local America/New_York): `2026-05-03 19:29:46 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `9185691cc33c63f30efa425884224b290619b164f0199db9f486b7d5ae316e6a`
+- Last non-audit worktree hash: `927874cacdbe15ce2af54f9fae6cfe6b150eeeac6df8b445cd321b3b94d03b0c`
 - Current instruction revision: `7ebeb245f749`
 
 ## Protocol
@@ -142,7 +142,7 @@ Codex: read rev_pkt_2922 + rev_pkt_2923. You have writer authority. Implement T2
 
 ## Last Reviewed Scope
 
-MP-377
+MP-355
 
 ## Action Requests
 
