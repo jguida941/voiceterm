@@ -456,6 +456,36 @@ def test_current_session_drift_warning_keeps_fresh_bridge_checkpoint_authority()
     assert warning == ""
 
 
+def test_current_session_drift_warning_ignores_generated_idle_placeholders() -> None:
+    warning = current_session_authority_drift_warning(
+        snapshot=BridgeSnapshot(
+            metadata={"current_instruction_revision": ""},
+            sections={
+                "Current Instruction For Claude": "- Await reviewer instruction refresh.",
+                "Claude Status": "- Status unavailable.",
+                "Claude Ack": "- missing",
+                "Open Findings": "none",
+                "Last Reviewed Scope": "MP-355",
+            },
+        ),
+        prior_review_state={
+            "current_session": {
+                "current_instruction": "",
+                "current_instruction_revision": "",
+                "implementer_status": "(missing)",
+                "implementer_ack": "",
+                "implementer_ack_revision": "",
+                "implementer_ack_state": "missing",
+                "open_findings": "none",
+                "last_reviewed_scope": "MP-355",
+            }
+        },
+        bridge_liveness={"reviewer_freshness": "fresh"},
+    )
+
+    assert warning == ""
+
+
 def test_build_event_current_session_clears_prior_instruction_when_queue_is_empty() -> None:
     state = build_event_current_session(
         review_state={

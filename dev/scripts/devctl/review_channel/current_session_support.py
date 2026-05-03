@@ -161,6 +161,12 @@ def current_session_authority_drift_warning(
             if heading == "Current Instruction For Claude"
             else clean_section(typed_value)
         )
+        if _bridge_placeholder_matches_missing_typed_value(
+            heading=heading,
+            typed_value=normalized_typed,
+            live_value=live_value,
+        ):
+            continue
         if normalized_typed != live_value:
             drifted.append(heading)
     if not drifted:
@@ -175,6 +181,37 @@ def current_session_authority_drift_warning(
         "state so the next typed snapshot converges on the reviewer-owned "
         "checkpoint."
     )
+
+
+def _bridge_placeholder_matches_missing_typed_value(
+    *,
+    heading: str,
+    typed_value: str,
+    live_value: str,
+) -> bool:
+    typed = clean_section(typed_value).lower()
+    live = _normalize_placeholder_text(live_value)
+    typed_missing = typed in {"", "(missing)", "missing", "none"}
+    if not typed_missing:
+        return False
+    if heading == "Current Instruction For Claude":
+        return live in {
+            "await reviewer instruction refresh",
+            "stop at a safe boundary",
+            "relaunch before compaction",
+        }
+    if heading == "Claude Status":
+        return live in {"status unavailable", "missing"}
+    if heading == "Claude Ack":
+        return live in {"missing"}
+    return False
+
+
+def _normalize_placeholder_text(value: str) -> str:
+    text = clean_section(value).lower().rstrip(".").strip()
+    if text.startswith("- "):
+        text = text[2:].strip()
+    return text
 
 
 def _bridge_current_session_from_snapshot(

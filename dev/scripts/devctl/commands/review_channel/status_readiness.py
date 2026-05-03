@@ -93,12 +93,46 @@ def _safe_to_continue(
     doctor: Mapping[str, object],
 ) -> bool:
     if "safe_to_continue" in authority:
-        return coerce_bool(authority.get("safe_to_continue"))
+        authority_safe = coerce_bool(authority.get("safe_to_continue"))
+        if authority_safe:
+            return True
+        return _read_only_status_can_continue(authority, attention, doctor)
     attention_status = _text(attention.get("status"))
     if attention_status.lower() not in _HEALTHY_ATTENTION_STATUSES:
         return False
     doctor_status = _text(doctor.get("status"))
     if doctor_status.lower() not in _HEALTHY_ATTENTION_STATUSES:
+        return False
+    return True
+
+
+def _read_only_status_can_continue(
+    authority: Mapping[str, object],
+    attention: Mapping[str, object],
+    doctor: Mapping[str, object],
+) -> bool:
+    """Do not make read-only status fail just because observer mutation is blocked."""
+    attention_status = _text(attention.get("status")).lower()
+    doctor_status = _text(doctor.get("status")).lower()
+    if attention_status not in _HEALTHY_ATTENTION_STATUSES:
+        return False
+    if doctor_status not in _HEALTHY_ATTENTION_STATUSES:
+        return False
+    if _text(authority.get("implementation_permission")) in {"blocked", "suspended"}:
+        return False
+    if _text(authority.get("current_instruction_revision")):
+        return False
+    if _text(authority.get("implementer_ack_state")) in {"stale"}:
+        return False
+    required_action = _text(authority.get("required_action"))
+    if required_action and required_action not in {"continue_scoped_loop"}:
+        return False
+    coordination_state = _text(authority.get("coordination_state"))
+    if coordination_state and coordination_state not in {
+        "ready",
+        "single_agent",
+        "single_agent_authoritative",
+    }:
         return False
     return True
 

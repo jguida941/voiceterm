@@ -61,3 +61,44 @@ def test_runtime_readiness_preserves_ok_when_runtime_is_ready() -> None:
     assert report["command_ok"] is True
     assert report["ok"] is True
     assert report["runtime_readiness"]["status"] == "ready"
+
+
+def test_runtime_readiness_allows_healthy_read_only_observer_status() -> None:
+    report: dict[str, object] = {
+        "action": "status",
+        "exit_ok": True,
+        "errors": [],
+        "attention": {"status": "healthy"},
+        "doctor": {
+            "status": "healthy",
+            "decision_action_id": "continue_scoped_loop",
+        },
+        "authority_snapshot": {
+            "safe_to_continue": False,
+            "coordination_state": "single_agent",
+            "required_action": "continue_scoped_loop",
+            "implementation_permission": "active",
+            "current_instruction_revision": "",
+            "implementer_ack_state": "missing",
+            "allowed_actions": [
+                "startup-context.summary",
+                "review-channel.status",
+                "context-graph.bootstrap",
+            ],
+            "blocked_actions": [
+                "implementation.edit",
+                "vcs.stage",
+                "vcs.commit",
+                "vcs.push",
+            ],
+        },
+    }
+
+    attach_runtime_readiness(report)
+
+    readiness = report["runtime_readiness"]
+    assert report["command_ok"] is True
+    assert report["ok"] is True
+    assert readiness["system_ok"] is True
+    assert readiness["status"] == "ready"
+    assert readiness["safe_to_continue"] is True

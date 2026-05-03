@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from .review_state_packet_models import (
     AgentAttentionRecord,
     PacketInboxState,
@@ -13,14 +15,20 @@ def merge_packet_inbox_states(
     rebuilt: PacketInboxState,
     persisted: PacketInboxState,
     live_packet_ids: frozenset[str] | None,
+    live_packet_ids_by_agent: Mapping[str, frozenset[str]] | None = None,
 ) -> PacketInboxState:
     """Merge rebuilt packet-inbox truth with any still-relevant persisted state."""
     merged_agents: list[AgentAttentionRecord] = []
     for agent in sorted(_agent_ids(rebuilt=rebuilt, persisted=persisted)):
+        agent_live_packet_ids = _live_packet_ids_for_agent(
+            agent,
+            live_packet_ids=live_packet_ids,
+            live_packet_ids_by_agent=live_packet_ids_by_agent,
+        )
         rebuilt_record = rebuilt.for_agent(agent)
         persisted_record = sanitize_persisted_record(
             persisted.for_agent(agent),
-            live_packet_ids=live_packet_ids,
+            live_packet_ids=agent_live_packet_ids,
         )
         if rebuilt_record is None and persisted_record is None:
             continue
@@ -35,13 +43,28 @@ def merge_packet_inbox_states(
             _merge_agent_attention_records(
                 rebuilt_record=rebuilt_record,
                 persisted_record=persisted_record,
-                rebuilt_packet_refs_authoritative=live_packet_ids is not None,
+                rebuilt_packet_refs_authoritative=agent_live_packet_ids is not None,
             )
         )
     return PacketInboxState(
         attention_revision=rebuilt.attention_revision or persisted.attention_revision,
         agents=tuple(merged_agents),
     )
+
+
+def _live_packet_ids_for_agent(
+    agent: str,
+    *,
+    live_packet_ids: frozenset[str] | None,
+    live_packet_ids_by_agent: Mapping[str, frozenset[str]] | None,
+) -> frozenset[str] | None:
+    if live_packet_ids is None:
+        return None
+    if not live_packet_ids:
+        return live_packet_ids
+    if live_packet_ids_by_agent is None:
+        return live_packet_ids
+    return live_packet_ids_by_agent.get(agent)
 
 
 def sanitize_persisted_record(

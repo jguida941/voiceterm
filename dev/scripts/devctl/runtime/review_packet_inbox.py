@@ -82,6 +82,9 @@ def packet_inbox_from_review_state(
         rebuilt=rebuilt,
         persisted=persisted,
         live_packet_ids=_live_packet_ids(raw_packets) if packets_present else None,
+        live_packet_ids_by_agent=(
+            _live_packet_ids_by_agent(raw_packets) if packets_present else None
+        ),
     )
 
 
@@ -291,6 +294,19 @@ def _packet_rows(packets: Sequence[object] | object) -> tuple[Mapping[str, objec
     if not isinstance(packets, Sequence) or isinstance(packets, (str, bytes)):
         return ()
     return tuple(packet for packet in packets if isinstance(packet, Mapping))
+
+
+def _live_packet_ids_by_agent(
+    packets: Sequence[object] | object,
+) -> dict[str, frozenset[str]]:
+    by_agent: dict[str, set[str]] = {}
+    for packet in _packet_rows(packets):
+        agent = str(packet.get("to_agent") or "").strip().lower()
+        packet_id = _packet_id(packet)
+        if not agent or not packet_id:
+            continue
+        by_agent.setdefault(agent, set()).add(packet_id)
+    return {agent: frozenset(packet_ids) for agent, packet_ids in by_agent.items()}
 
 
 def _target_agents(packet_rows: list[dict[str, object]]) -> tuple[str, ...]:
