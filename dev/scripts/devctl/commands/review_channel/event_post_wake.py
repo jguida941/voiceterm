@@ -151,6 +151,16 @@ def maybe_wake_posted_reviewer_packet(
         promotion_plan_path=_as_path(paths.get("promotion_plan_path")),
         artifact_paths=paths.get("artifact_paths"),
     )
+    # Route through the agent-wake dispatcher in remote_control even for
+    # legacy unscoped codex packets (Finding 1 from rev_pkt_2892 review of
+    # Phase 1): the legacy reviewer wake path can spawn a fresh codex
+    # conductor in remote_control because `_reviewer_wake_allowed` returns
+    # True for that mode unconditionally. Routing through
+    # `maybe_wake_waiting_agent_conductor_fn` instead applies the Finding W
+    # remote_control attention-only short-circuit added in agent_wake_dispatch.
+    in_remote_control = (
+        str(operator_interaction_mode or "").strip() == "remote_control"
+    )
     if packet_has_actor_route(packet):
         wake = resolved_deps.maybe_wake_waiting_agent_conductor_fn(
             args=args,
@@ -161,7 +171,7 @@ def maybe_wake_posted_reviewer_packet(
             target_agent=target_agent,
             packet=dict(packet),
         )
-    elif target_agent == "codex":
+    elif target_agent == "codex" and not in_remote_control:
         wake = resolved_deps.maybe_wake_waiting_reviewer_conductor_fn(
             args=args,
             repo_root=repo_root,

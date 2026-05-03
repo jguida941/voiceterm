@@ -13624,3 +13624,48 @@ Evidence:
 - `dev/scripts/devctl/commands/process/cleanup.py`
 - `dev/scripts/devctl/tests/commands/process/test_process_audit.py`
 - `dev/scripts/devctl/tests/commands/process/test_process_cleanup.py`
+
+### 2026-05-03 - Remote-control codex launch unblocked (Findings D + F + 1 + 2)
+
+Live role-flip dogfood (claude-as-coder, codex-as-reviewer) exposed three
+remote-control launch regressions that prevented headless codex spawn:
+
+- **Finding D**: the conductor-generated launch script invoked the
+  interactive `codex` CLI which gates on `isatty(0)`; in
+  `script -q -F` pty backgrounded from a non-tty parent the slave saw EOF
+  immediately so codex exited with `Error: stdin is not a terminal`.
+  `launch_script.py` now uses the non-interactive `codex exec` subcommand
+  for headless launches and filters the `--ask-for-approval` interactive-only
+  flag.
+- **Finding F**: the startup-authority gate ran on every `review-channel
+  --action launch`, including non-mutating reviewer-only spawns whose
+  worktree state cannot affect outcome. `startup_gate.py` now short-circuits
+  the gate when the launch is declared `--policy-hint review_only --remote-role
+  reviewer`, paired with the launch-roster restriction below.
+- **Finding W**: `review-channel --action post` triggered fresh codex
+  spawns as a side effect via the legacy reviewer-wake path even when the
+  operator could not authorize a TTY. `agent_wake_dispatch._wake_via_relaunch`
+  now returns attention-only in `remote_control` so packet posting records
+  attention without forcing a launch.
+- **rev_pkt_2892 Finding 1** (live codex review of Phase 1): the
+  `event_post_wake.py:164` legacy reviewer-wake branch still spawned codex
+  in `remote_control`. Routed through the gated agent-wake dispatcher
+  instead.
+- **rev_pkt_2892 Finding 2**: the `policy_hint=review_only` gate-skip
+  could be combined with a launch roster that still spawned implementer
+  lanes. Added `review_only_scope.is_reviewer_only_launch_scope` and
+  apply it in `bridge_action_support.py` to strip claude+cursor lanes
+  when the caller declared reviewer-only.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/agent_wake_dispatch.py`
+- `dev/scripts/devctl/review_channel/launch_script.py`
+- `dev/scripts/devctl/runtime/startup_gate.py`
+- `dev/scripts/devctl/commands/review_channel/event_post_wake.py`
+- `dev/scripts/devctl/commands/review_channel/bridge_action_support.py`
+- `dev/scripts/devctl/commands/review_channel/review_only_scope.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_post_wake.py`
+- `dev/scripts/devctl/tests/review_channel/test_follow_controller_reviewer_wake.py`
+- `dev/scripts/devctl/tests/review_channel/test_launch_script.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_gate.py`

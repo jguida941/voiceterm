@@ -14,6 +14,7 @@ from ...review_channel.core import (
 )
 from ...review_channel.current_session_projection import bridge_implementer_state_hash
 from ...review_channel.bridge_runtime_state import BridgeStateContext
+from .review_only_scope import is_reviewer_only_launch_scope
 from ...review_channel.handoff import extract_bridge_snapshot, handoff_bundle_to_dict
 from ...review_channel.launch import (
     build_launch_sessions,
@@ -234,6 +235,13 @@ def build_bridge_sessions(
         build_launch_sessions_fn = build_launch_sessions
 
     effective_cursor_lanes = context.cursor_lanes or []
+    # rev_pkt_2892 Finding 2: pair the launch-roster restriction with the
+    # startup-gate short-circuit; see review_only_scope.py for the helper.
+    effective_codex_lanes = list(context.codex_lanes)
+    effective_claude_lanes = list(context.claude_lanes)
+    if is_reviewer_only_launch_scope(args):
+        effective_claude_lanes = []
+        effective_cursor_lanes = []
     approval_mode = normalize_approval_mode(
         auto_elevated_approval_mode(
             explicit_mode=getattr(args, "approval_mode", None),
@@ -250,10 +258,10 @@ def build_bridge_sessions(
             repo_root=context.repo_root,
             review_channel_path=context.review_channel_path,
             bridge_path=context.bridge_path,
-            codex_lanes=context.codex_lanes,
-            claude_lanes=context.claude_lanes,
-            codex_workers=min(args.codex_workers, len(context.codex_lanes)),
-            claude_workers=min(args.claude_workers, len(context.claude_lanes)),
+            codex_lanes=effective_codex_lanes,
+            claude_lanes=effective_claude_lanes,
+            codex_workers=min(args.codex_workers, len(effective_codex_lanes)),
+            claude_workers=min(args.claude_workers, len(effective_claude_lanes)),
             cursor_lanes=effective_cursor_lanes,
             cursor_workers=min(
                 getattr(args, "cursor_workers", len(effective_cursor_lanes)),
