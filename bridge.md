@@ -81,7 +81,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-05-03T05:03:13Z`
 - Last Codex poll (Local America/New_York): `2026-05-03 01:03:13 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `ed361efa371c14cb805ff67ea74dbe0820f56a6bf18a0e4644abbb2217c45966`
+- Last non-audit worktree hash: `f14e686ca522b061b416840b8b3dd805c5ef96d63440e3783dfd3f70adec9ae7`
 - Current instruction revision: ``
 
 ## Protocol
@@ -138,7 +138,8 @@ none
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+- Cut a checkpoint before continuing to edit.
+- Run `python3 dev/scripts/devctl.py commit -m "<descriptive message>"`.
 
 ## Last Reviewed Scope
 

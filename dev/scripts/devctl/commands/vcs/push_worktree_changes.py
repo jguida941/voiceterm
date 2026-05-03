@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from .push_projection_receipt import managed_projection_receipt_paths
+from .push_projection_paths import managed_projection_receipt_paths
 
 
 def change_blocks_push_dirty_tree(change: Mapping[str, object]) -> bool:

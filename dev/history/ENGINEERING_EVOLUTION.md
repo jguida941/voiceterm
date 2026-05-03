@@ -37,6 +37,30 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-03 - Governed push now detects trimmed managed-projection dirt before green reports
+
+Fact: Live post-push dogfooding caught a false green: `devctl push` published
+and reported `post_push_green`, but the final startup/bootstrap checks still
+found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was the shared git
+capture helper trimming the leading space from `git status --porcelain`, so an
+unstaged managed row could arrive as `M dev/audits/REVIEW_SNAPSHOT.md` and the
+managed-projection receipt parser skipped it.
+
+Change: governed push now parses both normal and leading-space-trimmed
+porcelain rows before classifying managed projection dirt. The receipt helper
+was split into focused status, staging, and path modules so the parser fix
+does not keep expanding the receipt orchestrator. A regression test proves the
+trimmed ReviewSnapshot row is staged and committed as a managed receipt rather
+than allowing a green report over dirty tracked state.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/vcs/push_projection_status.py`
+- `dev/scripts/devctl/commands/vcs/push_projection_staging.py`
+- `dev/scripts/devctl/commands/vcs/push_projection_paths.py`
+- `dev/scripts/devctl/commands/vcs/push_projection_receipt.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
 ### 2026-05-03 - Packet-aware `/develop` now records wake and role-adapter gaps
 
 Fact: T22AN-X dogfooding showed that productive work could still bypass typed

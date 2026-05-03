@@ -4227,20 +4227,22 @@ class PushBridgeSyncTests(unittest.TestCase):
         )
 
     @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_staging.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_status.run_git_capture")
     @patch(
-        "dev.scripts.devctl.commands.vcs.push_projection_receipt.scan_repo_governance_safely",
+        "dev.scripts.devctl.commands.vcs.push_projection_paths.scan_repo_governance_safely",
         return_value=None,
     )
     def test_projection_receipt_commits_managed_bridge_drift_before_push(
         self,
         _scan_governance_mock,
-        run_git_capture_mock,
+        status_git_mock,
+        staging_git_mock,
+        receipt_git_mock,
     ) -> None:
-        run_git_capture_mock.side_effect = [
-            (0, " M bridge.md", ""),
-            (0, "", ""),
-            (0, "", ""),
-            (0, "bridge.md", ""),
+        status_git_mock.return_value = (0, " M bridge.md", "")
+        staging_git_mock.side_effect = [(0, "", ""), (0, "", ""), (0, "bridge.md", "")]
+        receipt_git_mock.side_effect = [
             (0, "abc1234", ""),
             (0, "", ""),
             (0, "receipt-sha", ""),
@@ -4264,11 +4266,11 @@ class PushBridgeSyncTests(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            run_git_capture_mock.call_args_list[2].args[0],
+            staging_git_mock.call_args_list[1].args[0],
             ["add", "--", "bridge.md"],
         )
         self.assertEqual(
-            run_git_capture_mock.call_args_list[5].args[0],
+            receipt_git_mock.call_args_list[1].args[0],
             [
                 "commit",
                 "-m",
@@ -4279,20 +4281,75 @@ class PushBridgeSyncTests(unittest.TestCase):
         )
 
     @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_staging.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_status.run_git_capture")
     @patch(
-        "dev.scripts.devctl.commands.vcs.push_projection_receipt.scan_repo_governance_safely",
+        "dev.scripts.devctl.commands.vcs.push_projection_paths.scan_repo_governance_safely",
+        return_value=None,
+    )
+    def test_projection_receipt_handles_stripped_unstaged_status_column(
+        self,
+        _scan_governance_mock,
+        status_git_mock,
+        staging_git_mock,
+        receipt_git_mock,
+    ) -> None:
+        status_git_mock.return_value = (0, "M dev/audits/REVIEW_SNAPSHOT.md", "")
+        staging_git_mock.side_effect = [
+            (0, "", ""),
+            (0, "", ""),
+            (0, "dev/audits/REVIEW_SNAPSHOT.md", ""),
+        ]
+        receipt_git_mock.side_effect = [
+            (0, "abc1234", ""),
+            (0, "", ""),
+            (0, "receipt-sha", ""),
+        ]
+        state = SimpleNamespace(errors=[], warnings=[])
+
+        push_projection_receipt.auto_commit_managed_projection_receipt(
+            state,
+            make_policy(),
+        )
+
+        self.assertEqual(state.errors, [])
+        self.assertEqual(
+            staging_git_mock.call_args_list[1].args[0],
+            ["add", "--", "dev/audits/REVIEW_SNAPSHOT.md"],
+        )
+        self.assertEqual(
+            state.warnings,
+            [
+                "Committed managed projection receipt receipt-sha for "
+                "dev/audits/REVIEW_SNAPSHOT.md before push."
+            ],
+        )
+
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_staging.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_status.run_git_capture")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_projection_paths.scan_repo_governance_safely",
         return_value=None,
     )
     def test_projection_receipt_commits_bridge_and_review_snapshot_drift(
         self,
         _scan_governance_mock,
-        run_git_capture_mock,
+        status_git_mock,
+        staging_git_mock,
+        receipt_git_mock,
     ) -> None:
-        run_git_capture_mock.side_effect = [
-            (0, " M bridge.md\n M dev/audits/REVIEW_SNAPSHOT.md", ""),
+        status_git_mock.return_value = (
+            0,
+            " M bridge.md\n M dev/audits/REVIEW_SNAPSHOT.md",
+            "",
+        )
+        staging_git_mock.side_effect = [
             (0, "", ""),
             (0, "", ""),
             (0, "bridge.md\ndev/audits/REVIEW_SNAPSHOT.md", ""),
+        ]
+        receipt_git_mock.side_effect = [
             (0, "abc1234", ""),
             (0, "", ""),
             (0, "receipt-sha", ""),
@@ -4310,7 +4367,7 @@ class PushBridgeSyncTests(unittest.TestCase):
 
         self.assertEqual(state.errors, [])
         self.assertEqual(
-            run_git_capture_mock.call_args_list[2].args[0],
+            staging_git_mock.call_args_list[1].args[0],
             ["add", "--", "bridge.md", "dev/audits/REVIEW_SNAPSHOT.md"],
         )
         self.assertEqual(
@@ -4322,18 +4379,20 @@ class PushBridgeSyncTests(unittest.TestCase):
         )
 
     @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_staging.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_status.run_git_capture")
     @patch(
-        "dev.scripts.devctl.commands.vcs.push_projection_receipt.scan_repo_governance_safely",
+        "dev.scripts.devctl.commands.vcs.push_projection_paths.scan_repo_governance_safely",
         return_value=None,
     )
     def test_projection_receipt_ignores_mixed_source_dirty_state(
         self,
         _scan_governance_mock,
-        run_git_capture_mock,
+        status_git_mock,
+        staging_git_mock,
+        receipt_git_mock,
     ) -> None:
-        run_git_capture_mock.side_effect = [
-            (0, " M bridge.md\n M source.py", ""),
-        ]
+        status_git_mock.return_value = (0, " M bridge.md\n M source.py", "")
         state = SimpleNamespace(errors=[], warnings=[])
 
         push_projection_receipt.auto_commit_managed_projection_receipt(
@@ -4347,23 +4406,31 @@ class PushBridgeSyncTests(unittest.TestCase):
 
         self.assertEqual(state.errors, [])
         self.assertEqual(state.warnings, [])
-        self.assertEqual(run_git_capture_mock.call_count, 1)
+        self.assertEqual(status_git_mock.call_count, 1)
+        self.assertEqual(staging_git_mock.call_count, 0)
+        self.assertEqual(receipt_git_mock.call_count, 0)
 
     @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_staging.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_status.run_git_capture")
     @patch(
-        "dev.scripts.devctl.commands.vcs.push_projection_receipt.scan_repo_governance_safely",
+        "dev.scripts.devctl.commands.vcs.push_projection_paths.scan_repo_governance_safely",
         return_value=None,
     )
     def test_projection_receipt_preserves_staged_only_next_commit_intent(
         self,
         _scan_governance_mock,
-        run_git_capture_mock,
+        status_git_mock,
+        staging_git_mock,
+        receipt_git_mock,
     ) -> None:
-        run_git_capture_mock.side_effect = [
-            (0, " M bridge.md\nM  next_commit.py", ""),
+        status_git_mock.return_value = (0, " M bridge.md\nM  next_commit.py", "")
+        staging_git_mock.side_effect = [
             (0, "next_commit.py", ""),
             (0, "", ""),
             (0, "bridge.md\nnext_commit.py", ""),
+        ]
+        receipt_git_mock.side_effect = [
             (0, "abc1234", ""),
             (0, "", ""),
             (0, "receipt-sha", ""),
@@ -4381,7 +4448,7 @@ class PushBridgeSyncTests(unittest.TestCase):
 
         self.assertEqual(state.errors, [])
         self.assertEqual(
-            run_git_capture_mock.call_args_list[5].args[0],
+            receipt_git_mock.call_args_list[1].args[0],
             [
                 "commit",
                 "-m",

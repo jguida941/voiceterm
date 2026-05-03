@@ -651,6 +651,13 @@
   startup registry source, `check_system_picture_freshness.py` gates stale
   startup/graph evidence, and `devctl push` refreshes ReviewSnapshot plus
   managed projection receipts before routed preflight.
+- 2026-05-03 governed-push managed-projection parser closure (MP-377):
+  live dogfood found that `devctl push` could report `post_push_green` while
+  `dev/audits/REVIEW_SNAPSHOT.md` stayed dirty because the shared git helper
+  trimmed the leading space from an unstaged porcelain row. The receipt path
+  now parses that trimmed form, splits dirty-status/path/staging helpers out
+  of the receipt orchestrator, and covers the case with a regression test so
+  managed `bridge.md` / ReviewSnapshot drift cannot hide behind a green push.
 - 2026-04-26 Connected AI Platform Plan 4.1 Slice 0/A start (MP-377):
   commit/push reports now carry explicit diagnostics for git commit failure,
   landed-commit receipt/projection pending state, review-gated publication,

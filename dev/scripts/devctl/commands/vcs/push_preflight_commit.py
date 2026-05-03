@@ -9,7 +9,7 @@ from ...config import REPO_ROOT
 from ...runtime.commit_permission_hook import MANAGED_PROJECTION_RECEIPT_COMMIT_ENV
 from ...runtime.review_snapshot_refresh import GENERATED_SURFACE_RECEIPT_SUBJECT_PREFIX
 from ...runtime.vcs import run_git_capture
-from .push_projection_receipt import managed_projection_receipt_paths
+from .push_projection_paths import managed_projection_receipt_paths
 from .push_worktree_changes import blocking_dirty_paths
 
 POST_VALIDATION_AUTO_COMMIT_REPAIR = "post_validation_auto_commit_repair"
