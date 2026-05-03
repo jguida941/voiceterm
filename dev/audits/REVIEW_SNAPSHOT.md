@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `08e13d94fd16` — Document test-python command inventory
-- Tree hash: `f7581ff7635d`
-- Generation stamp: `snap-4a102ae92a31`
-- Generated at (UTC): 2026-05-03T15:26:46Z
+- HEAD: `72269c1b1e2b` — Refresh external review snapshot for 08e13d94
+- Tree hash: `78652a8ba837`
+- Generation stamp: `snap-89d21bd5da7d`
+- Generated at (UTC): 2026-05-03T15:30:22Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `local_terminal`)
+- Reviewer mode: `single_agent` (interaction: `single_agent`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 63 files, +4080/-1542
+- Delta since last snapshot: 24 commits, 63 files, +4081/-1545
 - Governance findings: 154 open / 88 fixed / 256 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,7 +30,7 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `08e13d94fd162f7738123bcb96b5a0a986998da0`
+- HEAD SHA: `72269c1b1e2b63c20d6e697d58bed7eb7817bc8b`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-05-03T11:26:29-04:00
 
@@ -45,15 +45,18 @@ probes, typed actions, deterministic policy resolution — is what m...
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report: `dev/reports/push/latest.json`
-- latest_push_report_state: `blocked` (validation_failed)
+- latest_push_report_state: `blocked` (push_preflight_running)
+- current_push_authorization: `push-auth-20260503T152509479967Z` (valid=True)
+- authorized_head_commit: `72269c1b1e2b63c20d6e697d58bed7eb7817bc8b`
+- approved_target_identity: `tree-receipt-20260503T152509479967Z:f7581ff7635dd3281e6e8278d65b6b4632c4b014`
 - publication_backlog: urgent
-- publication_guidance: 8 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 9 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `local_terminal`
+- interaction_mode: `single_agent`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -67,12 +70,12 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `08e13d94fd16`
+Range: last 24 commits ending at `72269c1b1e2b`
 
 - commits: 24
 - files changed: 63
-- insertions: +4080
-- deletions: -1542
+- insertions: +4081
+- deletions: -1545
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 2 file(s)
 
@@ -80,30 +83,30 @@ Range: last 24 commits ending at `08e13d94fd16`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `08e13d94` | Document test-python command inventory | 6 | +68/-55 | tooling |  |
-| 2 | `33543b22` | Refresh external review snapshot for ad0f4ed0 | 2 | +45/-45 | docs |  |
-| 3 | `ad0f4ed0` | Refresh external review snapshot for f963b75c | 1 | +47/-44 | tooling |  |
-| 4 | `f963b75c` | Refresh external review snapshot for b089cc14 | 2 | +55/-58 | docs |  |
-| 5 | `b089cc14` | Surface governed push in session orientation | 3 | +144/-49 | tooling |  |
-| 6 | `22ba3616` | Refresh external review snapshot for be072632 | 2 | +79/-79 | docs |  |
-| 7 | `be072632` | Automate typed session orientation | 25 | +1259/-168 | tooling |  |
-| 8 | `1ea62a24` | Bound Python test execution policy | 36 | +1046/-102 | tooling |  |
-| 9 | `b7278dd4` | Refresh external review snapshot for 961d2e71 | 2 | +45/-45 | docs |  |
-| 10 | `961d2e71` | Refresh external review snapshot for bf37dd06 | 1 | +52/-48 | tooling |  |
-| 11 | `bf37dd06` | Refresh policy-owned generated surfaces for 4906ad50 | 1 | +1/-1 | docs |  |
-| 12 | `4906ad50` | Refresh external review snapshot for 772a0ce7 | 2 | +60/-55 | docs |  |
-| 13 | `772a0ce7` | Treat finding backlog as advisory in session resume | 5 | +247/-148 | tooling |  |
-| 14 | `2662a44f` | Refresh external review snapshot for f67eded6 | 2 | +45/-45 | docs |  |
-| 15 | `f67eded6` | Refresh external review snapshot for 2096395c | 1 | +46/-43 | tooling |  |
-| 16 | `2096395c` | Refresh external review snapshot for bcf72a35 | 2 | +60/-56 | docs |  |
-| 17 | `bcf72a35` | Fix idle review-channel status readiness | 8 | +246/-71 | tooling |  |
-| 18 | `b3e303b7` | Refresh external review snapshot for 2ff46d1c | 2 | +44/-44 | docs |  |
-| 19 | `2ff46d1c` | Refresh external review snapshot for fa2ca61c | 1 | +45/-42 | tooling |  |
-| 20 | `fa2ca61c` | Refresh external review snapshot for 9b6cc0d0 | 2 | +65/-58 | docs |  |
-| 21 | `9b6cc0d0` | Allow pending-publish pipeline authorization refresh | 6 | +191/-58 | tooling |  |
-| 22 | `7cb7ba19` | Refresh external review snapshot for fde85cea | 2 | +50/-55 | docs |  |
-| 23 | `fde85cea` | Refresh external review snapshot for d80d603a | 2 | +83/-115 | docs |  |
-| 24 | `d80d603a` | Refresh external review snapshot for a1a0468d | 2 | +57/-58 | docs |  |
+| 1 | `72269c1b` | Refresh external review snapshot for 08e13d94 | 2 | +58/-61 | docs |  |
+| 2 | `08e13d94` | Document test-python command inventory | 6 | +68/-55 | tooling |  |
+| 3 | `33543b22` | Refresh external review snapshot for ad0f4ed0 | 2 | +45/-45 | docs |  |
+| 4 | `ad0f4ed0` | Refresh external review snapshot for f963b75c | 1 | +47/-44 | tooling |  |
+| 5 | `f963b75c` | Refresh external review snapshot for b089cc14 | 2 | +55/-58 | docs |  |
+| 6 | `b089cc14` | Surface governed push in session orientation | 3 | +144/-49 | tooling |  |
+| 7 | `22ba3616` | Refresh external review snapshot for be072632 | 2 | +79/-79 | docs |  |
+| 8 | `be072632` | Automate typed session orientation | 25 | +1259/-168 | tooling |  |
+| 9 | `1ea62a24` | Bound Python test execution policy | 36 | +1046/-102 | tooling |  |
+| 10 | `b7278dd4` | Refresh external review snapshot for 961d2e71 | 2 | +45/-45 | docs |  |
+| 11 | `961d2e71` | Refresh external review snapshot for bf37dd06 | 1 | +52/-48 | tooling |  |
+| 12 | `bf37dd06` | Refresh policy-owned generated surfaces for 4906ad50 | 1 | +1/-1 | docs |  |
+| 13 | `4906ad50` | Refresh external review snapshot for 772a0ce7 | 2 | +60/-55 | docs |  |
+| 14 | `772a0ce7` | Treat finding backlog as advisory in session resume | 5 | +247/-148 | tooling |  |
+| 15 | `2662a44f` | Refresh external review snapshot for f67eded6 | 2 | +45/-45 | docs |  |
+| 16 | `f67eded6` | Refresh external review snapshot for 2096395c | 1 | +46/-43 | tooling |  |
+| 17 | `2096395c` | Refresh external review snapshot for bcf72a35 | 2 | +60/-56 | docs |  |
+| 18 | `bcf72a35` | Fix idle review-channel status readiness | 8 | +246/-71 | tooling |  |
+| 19 | `b3e303b7` | Refresh external review snapshot for 2ff46d1c | 2 | +44/-44 | docs |  |
+| 20 | `2ff46d1c` | Refresh external review snapshot for fa2ca61c | 1 | +45/-42 | tooling |  |
+| 21 | `fa2ca61c` | Refresh external review snapshot for 9b6cc0d0 | 2 | +65/-58 | docs |  |
+| 22 | `9b6cc0d0` | Allow pending-publish pipeline authorization refresh | 6 | +191/-58 | tooling |  |
+| 23 | `7cb7ba19` | Refresh external review snapshot for fde85cea | 2 | +50/-55 | docs |  |
+| 24 | `fde85cea` | Refresh external review snapshot for d80d603a | 2 | +83/-115 | docs |  |
 
 ### Files
 
@@ -114,11 +117,11 @@ Range: last 24 commits ending at `08e13d94fd16`
 | `AGENTS.md` | docs | +26/-6 |
 | `README.md` | docs | +1/-1 |
 | `app/operator_console/AGENTS.md` | docs | +1/-1 |
-| `bridge.md` | docs | +76/-77 |
+| `bridge.md` | docs | +62/-62 |
 | `conftest.py` | tooling | +128/-0 |
 | `dev/active/MASTER_PLAN.md` | tooling | +23/-1 |
 | `dev/active/ai_governance_platform.md` | tooling | +24/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1245/-1257 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1260/-1275 |
 | `dev/guides/DEVELOPMENT.md` | docs | +26/-9 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +6/-6 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +55/-1 |
@@ -216,6 +219,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`72269c1b`** — Refresh external review snapshot for 08e13d94
+  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`08e13d94`** — Document test-python command inventory
   - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`33543b22`** — Refresh external review snapshot for ad0f4ed0
@@ -262,8 +267,6 @@ Recent findings:
   - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 - **`fde85cea`** — Refresh external review snapshot for d80d603a
   - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
-- **`d80d603a`** — Refresh external review snapshot for a1a0468d
-  - evolution: Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands could still be selected by static bundles or copied into agent workflows, burning local sessions without a repo-owned timeout/target contract.…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -306,4 +309,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-4a102ae92a31` binds this file to HEAD `08e13d94fd16`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-89d21bd5da7d` binds this file to HEAD `72269c1b1e2b`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
