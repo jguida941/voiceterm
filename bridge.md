@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-03T20:48:01Z`
-- Last Codex poll (Local America/New_York): `2026-05-03 16:48:01 EDT`
+- Last Codex poll: `2026-05-03T21:01:56Z`
+- Last Codex poll (Local America/New_York): `2026-05-03 17:01:56 EDT`
 - Reviewer mode: `active_dual_agent`
 - Declared reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `382c32478db2b37c3e68614883edc5d47c1520bc483516385c1e98f9c3ee6831`
+- Last non-audit worktree hash: `230372b6d04a2c7c9504d540328e5ff18d5553c7455216c9e2f4c327ee040519`
 - Current instruction revision: `9f5033578f6c`
 
 ## Protocol
@@ -115,7 +115,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: 382c32478db2).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 230372b6d04a).
 
 ## Current Verdict
 
@@ -147,4 +147,4 @@ Priority action_request: Stage verified commit pipeline
 
 ## Action Requests
 
-- [rev_pkt_2909] stage_commit_pipeline: target=runtime:devctl_commit:14945bd544169206519616db54be76589ee071a7@14945bd544169206519616db54be76589ee071a7; Stage verified commit pipeline (status: pending)
+- [rev_pkt_2912] stage_commit_pipeline: target=runtime:devctl_commit:0bba7ed5a7d734eb243ee16f41c8c275988f86e9@0bba7ed5a7d734eb243ee16f41c8c275988f86e9; Stage verified commit pipeline (status: pending)
