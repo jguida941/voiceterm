@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `900de219918c` — Record review-channel poll projection receipt
-- Tree hash: `36a76663734e`
-- Generation stamp: `snap-d49703d8ba2d`
-- Generated at (UTC): 2026-05-03T03:44:36Z
+- HEAD: `ba76cf52777e` — Refresh external review snapshot for 900de219
+- Tree hash: `44918b1e1f21`
+- Generation stamp: `snap-6a904e4ea02c`
+- Generated at (UTC): 2026-05-03T03:51:14Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `local_terminal`)
+- Reviewer mode: `single_agent` (interaction: `single_agent`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 93 files, +6414/-1790
+- Delta since last snapshot: 24 commits, 93 files, +6404/-1786
 - Governance findings: 152 open / 88 fixed / 254 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,7 +30,7 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `900de219918ca0876987911b01db2dba6f35bdde`
+- HEAD SHA: `ba76cf52777e782b4d88ccfd018f99880e219984`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-05-02T23:44:21-04:00
 
@@ -45,15 +45,18 @@ probes, typed actions, deterministic policy resolution — is what m...
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report: `dev/reports/push/latest.json`
-- latest_push_report_state: `blocked` (validation_failed)
-- publication_backlog: recommended
-- publication_guidance: 4 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- latest_push_report_state: `blocked` (push_preflight_running)
+- current_push_authorization: `push-auth-20260503T034330118575Z` (valid=True)
+- authorized_head_commit: `ba76cf52777e782b4d88ccfd018f99880e219984`
+- approved_target_identity: `tree-receipt-20260503T034330118575Z:36a76663734ecdb09973a62d5ad8a77150c4b02b`
+- publication_backlog: urgent
+- publication_guidance: 5 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `local_terminal`
+- interaction_mode: `single_agent`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -67,12 +70,12 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `900de219918c`
+Range: last 24 commits ending at `ba76cf52777e`
 
 - commits: 24
 - files changed: 93
-- insertions: +6414
-- deletions: -1790
+- insertions: +6404
+- deletions: -1786
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 10 file(s)
 
@@ -80,30 +83,30 @@ Range: last 24 commits ending at `900de219918c`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `900de219` | Record review-channel poll projection receipt | 2 | +44/-41 | docs |  |
-| 2 | `532f5665` | Refresh external review snapshot for f9176c87 | 2 | +112/-83 | docs |  |
-| 3 | `f9176c87` | Checkpoint typed develop and wake routing | 89 | +4809/-588 | tooling |  |
-| 4 | `d66f61f2` | Refresh external review snapshot for 8d59ccfb | 2 | +54/-52 | docs |  |
-| 5 | `8d59ccfb` | Refresh external review snapshot for 67901df8 | 2 | +69/-65 | docs |  |
-| 6 | `67901df8` | Route commit failures through failure packet router | 11 | +273/-87 | tooling |  |
-| 7 | `ed38ab8e` | Refresh external review snapshot for 5d00434a | 2 | +46/-48 | docs |  |
-| 8 | `5d00434a` | Refresh external review snapshot for 34c4ea42 | 1 | +47/-44 | tooling |  |
-| 9 | `34c4ea42` | Refresh external review snapshot for 1733d2a8 | 2 | +60/-60 | docs |  |
-| 10 | `1733d2a8` | Integrate packet finding stack into MP-377 plan | 2 | +176/-61 | tooling |  |
-| 11 | `82d0bb3a` | Refresh external review snapshot for 48b0e03d | 1 | +42/-39 | tooling |  |
-| 12 | `48b0e03d` | Refresh external review snapshot for f04275a0 | 2 | +57/-62 | docs |  |
-| 13 | `f04275a0` | chore(push): auto-commit preflight-generated changes | 3 | +56/-58 | tooling |  |
-| 14 | `38c938ba` | Refresh external review snapshot for 6ed88467 | 2 | +47/-44 | docs |  |
-| 15 | `6ed88467` | Refresh external review snapshot for 50ac1d8a | 1 | +45/-49 | tooling |  |
-| 16 | `50ac1d8a` | Refresh plan projection for automation findings | 2 | +2/-0 | tooling |  |
-| 17 | `3d02e980` | Refresh review snapshot after system picture update | 1 | +71/-97 | tooling |  |
-| 18 | `93f32b7d` | Refresh managed projection surfaces after publisher stop | 3 | +5/-3 | tooling |  |
-| 19 | `9d05fe6c` | Refresh managed projection surfaces after publisher update | 3 | +7/-5 | tooling |  |
-| 20 | `b8dfb984` | Refresh managed projection surfaces after drift repair | 4 | +67/-55 | tooling |  |
-| 21 | `8a361a42` | Refresh external review snapshot for f510da77 | 2 | +65/-69 | docs |  |
-| 22 | `f510da77` | Fix empty develop packet attention summary | 11 | +160/-83 | tooling |  |
-| 23 | `5908bcd9` | Refresh external review snapshot for a2c85e4a | 2 | +47/-47 | docs |  |
-| 24 | `a2c85e4a` | Refresh external review snapshot for 4baabf40 | 1 | +53/-50 | tooling |  |
+| 1 | `ba76cf52` | Refresh external review snapshot for 900de219 | 2 | +43/-46 | docs |  |
+| 2 | `900de219` | Record review-channel poll projection receipt | 2 | +44/-41 | docs |  |
+| 3 | `532f5665` | Refresh external review snapshot for f9176c87 | 2 | +112/-83 | docs |  |
+| 4 | `f9176c87` | Checkpoint typed develop and wake routing | 89 | +4809/-588 | tooling |  |
+| 5 | `d66f61f2` | Refresh external review snapshot for 8d59ccfb | 2 | +54/-52 | docs |  |
+| 6 | `8d59ccfb` | Refresh external review snapshot for 67901df8 | 2 | +69/-65 | docs |  |
+| 7 | `67901df8` | Route commit failures through failure packet router | 11 | +273/-87 | tooling |  |
+| 8 | `ed38ab8e` | Refresh external review snapshot for 5d00434a | 2 | +46/-48 | docs |  |
+| 9 | `5d00434a` | Refresh external review snapshot for 34c4ea42 | 1 | +47/-44 | tooling |  |
+| 10 | `34c4ea42` | Refresh external review snapshot for 1733d2a8 | 2 | +60/-60 | docs |  |
+| 11 | `1733d2a8` | Integrate packet finding stack into MP-377 plan | 2 | +176/-61 | tooling |  |
+| 12 | `82d0bb3a` | Refresh external review snapshot for 48b0e03d | 1 | +42/-39 | tooling |  |
+| 13 | `48b0e03d` | Refresh external review snapshot for f04275a0 | 2 | +57/-62 | docs |  |
+| 14 | `f04275a0` | chore(push): auto-commit preflight-generated changes | 3 | +56/-58 | tooling |  |
+| 15 | `38c938ba` | Refresh external review snapshot for 6ed88467 | 2 | +47/-44 | docs |  |
+| 16 | `6ed88467` | Refresh external review snapshot for 50ac1d8a | 1 | +45/-49 | tooling |  |
+| 17 | `50ac1d8a` | Refresh plan projection for automation findings | 2 | +2/-0 | tooling |  |
+| 18 | `3d02e980` | Refresh review snapshot after system picture update | 1 | +71/-97 | tooling |  |
+| 19 | `93f32b7d` | Refresh managed projection surfaces after publisher stop | 3 | +5/-3 | tooling |  |
+| 20 | `9d05fe6c` | Refresh managed projection surfaces after publisher update | 3 | +7/-5 | tooling |  |
+| 21 | `b8dfb984` | Refresh managed projection surfaces after drift repair | 4 | +67/-55 | tooling |  |
+| 22 | `8a361a42` | Refresh external review snapshot for f510da77 | 2 | +65/-69 | docs |  |
+| 23 | `f510da77` | Fix empty develop packet attention summary | 11 | +160/-83 | tooling |  |
+| 24 | `5908bcd9` | Refresh external review snapshot for a2c85e4a | 2 | +47/-47 | docs |  |
 
 ### Files
 
@@ -114,10 +117,10 @@ Range: last 24 commits ending at `900de219918c`
 | `.github/workflows/release_preflight.yml` | tooling | +1/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +7/-0 |
 | `AGENTS.md` | docs | +17/-2 |
-| `bridge.md` | docs | +65/-65 |
+| `bridge.md` | docs | +67/-67 |
 | `dev/active/MASTER_PLAN.md` | tooling | +39/-4 |
 | `dev/active/ai_governance_platform.md` | tooling | +187/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1209/-1208 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1197/-1202 |
 | `dev/config/devctl_repo_policy.json` | tooling | +17/-1 |
 | `dev/config/templates/README.md` | tooling | +3/-0 |
 | `dev/config/templates/develop_role_adapters.template.md` | tooling | +8/-0 |
@@ -229,6 +232,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`ba76cf52`** — Refresh external review snapshot for 900de219
+  - evolution: Fact: The MP-377 Typed AgentAttentionLoop plan exposed one more authority gap: agent-authored plans could still live only in chat, packet text, or temp files until a later manual edit copied them into the typed master-p…
 - **`900de219`** — Record review-channel poll projection receipt
   - evolution: Fact: The MP-377 Typed AgentAttentionLoop plan exposed one more authority gap: agent-authored plans could still live only in chat, packet text, or temp files until a later manual edit copied them into the typed master-p…
 - **`532f5665`** — Refresh external review snapshot for f9176c87
@@ -276,8 +281,6 @@ Recent findings:
   - evolution: Fact: The MP-377 Typed AgentAttentionLoop plan exposed one more authority gap: agent-authored plans could still live only in chat, packet text, or temp files until a later manual edit copied them into the typed master-p…
 - **`5908bcd9`** — Refresh external review snapshot for a2c85e4a
   - evolution: Fact: The MP-377 Typed AgentAttentionLoop plan exposed one more authority gap: agent-authored plans could still live only in chat, packet text, or temp files until a later manual edit copied them into the typed master-p…
-- **`a2c85e4a`** — Refresh external review snapshot for 4baabf40
-  - evolution: Fact: The MP-377 Typed AgentAttentionLoop plan exposed one more authority gap: agent-authored plans could still live only in chat, packet text, or temp files until a later manual edit copied them into the typed master-p…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -321,4 +324,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-d49703d8ba2d` binds this file to HEAD `900de219918c`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-6a904e4ea02c` binds this file to HEAD `ba76cf52777e`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
