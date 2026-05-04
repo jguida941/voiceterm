@@ -46,6 +46,18 @@ def add_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Collect all failures instead of stopping at the first failure.",
     )
     cmd.add_argument(
+        "--parallel-workers",
+        type=int,
+        default=1,
+        help="Maximum pytest shard workers for explicit multi-path runs.",
+    )
+    cmd.add_argument(
+        "--no-parallel",
+        action="store_true",
+        default=False,
+        help="Disable pytest path sharding even when multiple --path values are supplied.",
+    )
+    cmd.add_argument(
         "--dry-run",
         action="store_true",
         default=False,

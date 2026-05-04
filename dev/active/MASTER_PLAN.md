@@ -6325,7 +6325,11 @@ become the main product surface.
     instead of keeping broad raw pytest in static bundles. The `AGENTS.md`
     command inventory now names `test-python` directly so
     `check_agents_contract.py` protects that adapter as part of startup and
-    push governance.
+    push governance. 2026-05-04 dogfood of governed push showed the focused
+    devctl add-on timing out as one monolithic pytest command; the adapter now
+    shards explicit multi-path runs with `--parallel-workers`, the router uses
+    that path for focused devctl add-ons, and temp/external work-intake pacing
+    no longer falls back to scanning the canonical repo context graph.
   - [ ] `MP377-P0-T22AN-AC` now owns fresh-session orientation automation:
     `devctl session` must run startup-context, session-resume, live
     review-channel status, and context-graph bootstrap before answering

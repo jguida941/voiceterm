@@ -405,7 +405,10 @@ Three quality layers matter in practice:
   use `python3 dev/scripts/devctl.py test-python --suite devctl` or explicit
   `--path` targets. Repo-root pytest is scoped, fail-fast, and guarded by
   session/per-test timeouts so a mistaken broad selection fails closed instead
-  of consuming an agent turn for hours.
+  of consuming an agent turn for hours. When a focused add-on has multiple
+  explicit paths, prefer `--parallel-workers <n>` so pytest files run as
+  ordered shards with live completion progress; use `--no-parallel` only for
+  sequential debugging.
 - Keep the `AGENTS.md` tooling inventory aligned with live `devctl list`
   command authority: `test-python` is a first-class command there, and
   `check_agents_contract.py` fails if the inventory omits it.

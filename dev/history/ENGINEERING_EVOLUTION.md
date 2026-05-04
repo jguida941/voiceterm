@@ -13918,3 +13918,29 @@ Evidence:
 - `dev/scripts/README.md`
 - `AGENTS.md`
 - `dev/guides/DEVELOPMENT.md`
+
+### 2026-05-04 - Focused Python preflight now shards explicit devctl tests
+
+Governed push dogfood showed that `check-router --execute --keep-going` was
+parallelizing independent guards, but its focused devctl pytest risk add-on
+still ran one monolithic `devctl test-python` command. On a long-lived branch
+that selected many touched devctl test files, that final command passed 219
+tests and then hit the 600s session timeout with little actionable progress.
+
+Change: `devctl test-python` now exposes `--parallel-workers` / `--no-parallel`
+and shards explicit multi-path runs by pytest target while preserving ordered
+report output and failure excerpts. `check-router` uses that sharded path for
+focused devctl add-ons with a bounded per-test cap. The same dogfood run also
+exposed packet event projection rebuilding the canonical repo context graph
+from temp VCS test repos; work-intake pacing now returns typed
+`no_context_graph_snapshot` evidence for temp/external repos without saved graph
+snapshots instead of scanning the wrong tree.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/python_test_runner/command.py`
+- `dev/scripts/devctl/cli_parser/python_tests.py`
+- `dev/scripts/devctl/commands/check/router_python_tests.py`
+- `dev/scripts/devctl/runtime/work_intake_pacing.py`
+- `dev/scripts/devctl/tests/commands/test_python_tests.py`
+- `dev/scripts/devctl/tests/runtime/test_work_intake_pacing_snapshot_preference.py`

@@ -2447,7 +2447,9 @@ Core commands:
   - Structured `check` output timestamps are UTC for stable cross-run correlation.
 - `test-python` (repo-owned Python test adapter for named suites or explicit
   `--path` targets; use it instead of broad raw `pytest` so session and
-  per-test timeouts stay bounded)
+  per-test timeouts stay bounded; explicit multi-path runs can shard by file
+  with `--parallel-workers <n>`, or use `--no-parallel` for sequential
+  debugging)
 - `check-router` (path-aware lane selector that maps changed files to `bundle.docs|bundle.runtime|bundle.tooling|bundle.release`, reports required risk add-ons, and can execute the routed command set with `--execute`; `--keep-going` uses phased execution so projection/status commands stay ordered while independent guards run in parallel)
 - `compat-matrix` (single-view host/provider compatibility matrix summary and policy validation surface)
   - Matrix checks now include a minimal no-dependency YAML fallback parser so

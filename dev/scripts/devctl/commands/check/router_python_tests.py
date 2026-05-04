@@ -8,6 +8,8 @@ _FOCUSED_DEVCTL_TEST_BASE_TIMEOUT_SECONDS = 300
 _FOCUSED_DEVCTL_TEST_TARGET_BUDGET = 8
 _FOCUSED_DEVCTL_TEST_EXTRA_SECONDS_PER_TARGET = 30
 _FOCUSED_DEVCTL_TEST_MAX_TIMEOUT_SECONDS = 900
+_FOCUSED_DEVCTL_TEST_PER_TEST_TIMEOUT_SECONDS = 90
+_FOCUSED_DEVCTL_TEST_PARALLEL_WORKERS = 4
 
 
 def detect_python_test_addons(changed_paths: list[str]) -> list[dict]:
@@ -91,7 +93,8 @@ def _devctl_test_command(test_paths: tuple[str, ...]) -> str:
     return (
         "python3 dev/scripts/devctl.py test-python --suite devctl "
         f"{path_args} --timeout-seconds {timeout_seconds} "
-        "--per-test-timeout-seconds 30"
+        f"--per-test-timeout-seconds {_FOCUSED_DEVCTL_TEST_PER_TEST_TIMEOUT_SECONDS} "
+        f"--parallel-workers {_FOCUSED_DEVCTL_TEST_PARALLEL_WORKERS}"
     )
 
 

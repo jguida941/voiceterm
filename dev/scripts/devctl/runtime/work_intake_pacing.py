@@ -18,6 +18,7 @@ from ..context_graph.models import (
 from ..context_graph.latest_snapshot import latest_context_graph_snapshot_path
 from ..context_graph.snapshot_payload import ContextGraphSnapshot
 from ..context_graph.snapshot_store import load_context_graph_snapshot
+from ..config import get_repo_root
 from ..platform.planning_ir_models import NextBestSliceRecord, PlanningIRSnapshot
 from .project_governance import ProjectGovernance
 from .review_state_models import ReviewState
@@ -165,8 +166,9 @@ def _resolve_graph_inputs(
     the saved snapshot is accepted regardless of HEAD match and tagged with
     a typed freshness marker (`saved_graph_snapshot_current` vs
     `saved_graph_snapshot_stale_head`). Only when no snapshot exists at all
-    does the live builder run, and callers can observe that via the
-    `no_snapshot`-to-`live_context_graph_build` fall-through source value.
+    and the caller is the canonical repo root does the live builder run;
+    external/temp repos cannot safely fall back to the process-global builder
+    because it scans the configured repo root.
     """
     from ..context_graph.builder import build_context_graph
     from ..governance.push_state import current_head_commit_sha
@@ -187,6 +189,8 @@ def _resolve_graph_inputs(
             source,
             confidence,
         )
+    if repo_root.resolve() != get_repo_root().resolve():
+        return (), (), "no_context_graph_snapshot", "low"
     nodes, edges = build_context_graph()
     return tuple(nodes), tuple(edges), "live_context_graph_build", "medium"
 

@@ -60,6 +60,11 @@ class ResolveGraphInputsSnapshotPreferenceTests(unittest.TestCase):
                 "dev.scripts.devctl.context_graph.builder.build_context_graph",
                 return_value=(live_nodes, live_edges),
             ) as live_build_mock,
+            patch.object(
+                pacing_module,
+                "get_repo_root",
+                return_value=Path("/tmp/fake"),
+            ),
         ):
             result = pacing_module._resolve_graph_inputs(repo_root=Path("/tmp/fake"))
         return (*result, live_build_mock)
@@ -115,6 +120,38 @@ class ResolveGraphInputsSnapshotPreferenceTests(unittest.TestCase):
         self.assertEqual(source, "live_context_graph_build")
         self.assertEqual(confidence, "medium")
         live_build_mock.assert_called_once_with()
+
+    def test_external_repo_without_snapshot_does_not_scan_canonical_repo(self) -> None:
+        """External/temp repos must not fall through to the process-global graph builder."""
+        with (
+            patch.object(
+                pacing_module,
+                "latest_context_graph_snapshot_path",
+                return_value=None,
+            ),
+            patch(
+                "dev.scripts.devctl.governance.push_state.current_head_commit_sha",
+                return_value="abc123",
+            ),
+            patch(
+                "dev.scripts.devctl.context_graph.builder.build_context_graph",
+                return_value=(("node",), ("edge",)),
+            ) as live_build_mock,
+            patch.object(
+                pacing_module,
+                "get_repo_root",
+                return_value=Path("/tmp/canonical"),
+            ),
+        ):
+            nodes, edges, source, confidence = pacing_module._resolve_graph_inputs(
+                repo_root=Path("/tmp/external")
+            )
+
+        self.assertEqual(nodes, ())
+        self.assertEqual(edges, ())
+        self.assertEqual(source, "no_context_graph_snapshot")
+        self.assertEqual(confidence, "low")
+        live_build_mock.assert_not_called()
 
 
 if __name__ == "__main__":

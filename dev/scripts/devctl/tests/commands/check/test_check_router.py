@@ -213,6 +213,8 @@ class CheckRouterTests(unittest.TestCase):
         ]
         joined = "\n".join(planned_commands)
         self.assertIn("test-python --suite devctl", joined)
+        self.assertIn("--per-test-timeout-seconds 90", joined)
+        self.assertIn("--parallel-workers 4", joined)
         self.assertIn(
             "dev/scripts/devctl/tests/commands/test_python_tests.py",
             joined,
