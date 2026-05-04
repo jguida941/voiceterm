@@ -32,6 +32,7 @@ from .current_session_support import (
     prior_typed_current_session,
     resolve_instruction_revision as _resolve_instruction_revision,
 )
+from .current_session_queue import queue_instruction_is_priority_action_request
 from .handoff import BridgeSnapshot
 from .session_state_hints import provider_session_state_hint
 from .status_projection_helpers import clean_section
@@ -229,7 +230,10 @@ def build_event_current_session(
         current_instruction,
         current_instruction_revision,
     )
-    if clear_from_packet_truth:
+    if clear_from_packet_truth and not queue_instruction_is_priority_action_request(
+        review_state,
+        current_instruction=current_instruction,
+    ):
         preserved = reviewer_checkpoint_instruction_preservation(review_state)
         if preserved is not None:
             current_instruction, current_instruction_revision = preserved

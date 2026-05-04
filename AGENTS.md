@@ -47,6 +47,10 @@ Portable-platform rule:
   reviewer heartbeat/checkpoint as the source that updates typed
   `current_session` state rather than reverse-reprojecting stale session state
   back into `bridge.md`.
+  Queue-selected priority `action_request` packets are also typed runtime
+  authority for `current_session.current_instruction`; projection and
+  packet-truth clear paths must not erase them just because the packet target
+  differs from the active single-agent coding provider.
   The same contract applies to prepared launch authority after launch:
   remote-control continuity must be derived from typed governance/review-state
   evidence rather than launcher env vars alone, so receipt commits do not make

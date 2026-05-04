@@ -81,8 +81,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-05-03T23:57:59Z`
 - Last Codex poll (Local America/New_York): `2026-05-03 19:57:59 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `47c311a39cdebbd0765b0405bfd1df4e9b8a7f3b06c5995a121fcd77291cf006`
-- Current instruction revision: `7ebeb245f749`
+- Last non-audit worktree hash: `3ba0b0c30a3bca8e73e547615a1a87526e6d8cc153ed4ab7cbd0e69d34a1289b`
+- Current instruction revision: `1e61f0775bf7`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s)
+none
 
 ## Claude Status
 
@@ -138,7 +138,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-Codex: read rev_pkt_2922 + rev_pkt_2923. You have writer authority. Implement T22AN-L launch roster fix + Finding Y current_session projection fix. Do not redo architectural review.
+Priority action_request: Stage verified commit pipeline for T22AN-L/Finding Y closure
 
 ## Last Reviewed Scope
 

@@ -209,7 +209,10 @@ Use docs like this:
   `current_session.current_instruction` so dashboard and status clients stay
   on the action-request-first control path during read-only polls instead of
   falling back to a later commentary packet while a live action request is
-  still pending.
+  still pending. When the selected source is an `action_request`, the
+  projection stays authoritative even if the packet targets the implementer
+  while single-agent mode makes Codex the active coding provider; packet-truth
+  clear paths must not erase that live handoff instruction.
 - Keep remote-control review-channel wake, status, and dashboard surfaces in
   lockstep when you touch that lane: `pending_action_requests` means live
   pending `kind="action_request"` packets only, dashboard conductor rows must

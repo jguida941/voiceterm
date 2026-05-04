@@ -611,7 +611,10 @@ Portability note:
   has not started" from repo-owned typed state. The same priority selection
   also drives `current_session.current_instruction`, so read-only dashboard and
   status clients do not fall back to a later commentary packet while a live
-  action request is still pending.
+  action request is still pending. That `action_request` selection stays
+  authoritative even when the packet target is the implementer and single-agent
+  mode resolves the active coding provider to Codex; packet-truth clear paths
+  must preserve the handoff instruction.
 - The same review-channel/dashboard lane now keeps liveness and queue counts
   fail-closed on typed runtime state too: `pending_action_requests` counts only
   live pending `kind="action_request"` packets, dashboard terminal/markdown

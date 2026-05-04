@@ -9,6 +9,7 @@ from .collaboration_provider import (
     reviewer_provider_from_review_state,
 )
 from .current_session_attention import has_explicit_packet_truth
+from .current_session_queue import queue_instruction_is_priority_action_request
 from .current_session_support import compute_implementer_state_hash
 from ..runtime.review_packet_inbox import (
     packet_inbox_from_review_state,
@@ -48,6 +49,11 @@ def normalize_current_session_from_packet_truth(
     if clear_instruction and not _current_instruction_is_packet_owned(
         resolved_review_state,
         current_session=current_session,
+    ):
+        clear_instruction = False
+    if clear_instruction and queue_instruction_is_priority_action_request(
+        resolved_review_state,
+        current_instruction=current_session.current_instruction,
     ):
         clear_instruction = False
     if clear_instruction and _attention_preserves_current_instruction(

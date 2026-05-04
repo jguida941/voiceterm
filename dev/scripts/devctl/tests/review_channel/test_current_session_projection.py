@@ -1755,6 +1755,59 @@ def test_build_event_current_session_preserves_reviewer_checkpoint_revision_when
     assert resolved.current_instruction_revision == "abc1234567ef"
 
 
+def test_build_event_current_session_priority_action_request_overrides_reviewer_checkpoint() -> None:
+    review_state = _priority_action_request_review_state()
+
+    resolved = build_event_current_session(
+        review_state=review_state,
+        bridge_liveness={"current_instruction_revision": ""},
+    )
+
+    assert resolved.current_instruction == _PRIORITY_ACTION_REQUEST_INSTRUCTION
+    assert resolved.current_instruction_revision
+    assert resolved.current_instruction_revision != "old-checkpoint-rev"
+
+
+def test_event_projection_assembly_priority_action_request_survives_attention_clear() -> None:
+    review_state = _priority_action_request_review_state()
+
+    resolved = resolve_event_projection_assembly_current_session(
+        review_state,
+        context=SimpleNamespace(prior_review_state=None),
+        bridge_liveness={"current_instruction_revision": ""},
+        deps=SimpleNamespace(build_event_current_session=build_event_current_session),
+    )
+
+    assert resolved.current_instruction == _PRIORITY_ACTION_REQUEST_INSTRUCTION
+    assert resolved.current_instruction_revision
+    assert resolved.current_instruction_revision != "old-checkpoint-rev"
+
+
+def test_normalize_current_session_from_packet_truth_preserves_priority_action_request() -> None:
+    normalized = _normalize_current_session_from_packet_truth(
+        current_session=ReviewCurrentSessionState(
+            current_instruction=_PRIORITY_ACTION_REQUEST_INSTRUCTION,
+            current_instruction_revision="priority-rev",
+            implementer_status="working",
+            implementer_ack="",
+            implementer_ack_revision="",
+            implementer_ack_state="missing",
+            implementer_state_hash="state-hash",
+            implementer_session_state="",
+            implementer_session_hint="",
+            open_findings="none",
+            last_reviewed_scope="MP-377",
+        ),
+        review_state=_priority_action_request_review_state(
+            latest_reviewer_checkpoint=False
+        ),
+    )
+
+    assert normalized.current_instruction == _PRIORITY_ACTION_REQUEST_INSTRUCTION
+    assert normalized.current_instruction_revision == "priority-rev"
+    assert normalized.implementer_ack_state == "missing"
+
+
 def test_build_event_current_session_clears_when_no_reviewer_checkpoint_and_packet_attention_clears() -> None:
     """rev_pkt_2922 Finding Y inverse guard: when no live reviewer_checkpoint
     payload exists, the packet-attention clear path must still work
@@ -1784,3 +1837,78 @@ def test_build_event_current_session_clears_when_no_reviewer_checkpoint_and_pack
     # current_instruction and revision both empty.
     assert resolved.current_instruction in {"", "(missing)"}
     assert resolved.current_instruction_revision == ""
+
+
+_PRIORITY_ACTION_REQUEST_INSTRUCTION = (
+    "Priority action_request: Stage verified commit pipeline for T22AN-L/Finding Y closure"
+)
+
+
+def _priority_action_request_review_state(
+    *,
+    latest_reviewer_checkpoint: bool = True,
+) -> dict[str, object]:
+    review_state: dict[str, object] = {
+        "collaboration": {
+            "coding_agent": "codex",
+        },
+        "review": {"plan_id": "MP-377"},
+        "queue": {
+            "pending_total": 1,
+            "pending_claude": 1,
+            "derived_next_instruction": _PRIORITY_ACTION_REQUEST_INSTRUCTION,
+            "derived_next_instruction_source": {
+                "packet_id": "rev_pkt_2929",
+                "packet_class": "action_request",
+                "kind": "action_request",
+                "from_agent": "codex",
+                "to_agent": "claude",
+                "selection_policy": "action_request_priority",
+            },
+        },
+        "packet_inbox": {
+            "attention_revision": "packet-attention-rev",
+            "agents": [
+                {
+                    "agent": "codex",
+                    "current_instruction_packet_id": "",
+                    "pending_actionable_packet_ids": [],
+                    "expired_unresolved_packet_ids": [],
+                    "attention_status": "idle",
+                    "wake_reason": "",
+                    "delivery_state": "idle",
+                },
+                {
+                    "agent": "claude",
+                    "current_instruction_packet_id": "rev_pkt_2929",
+                    "pending_actionable_packet_ids": ["rev_pkt_2929"],
+                    "expired_unresolved_packet_ids": [],
+                    "attention_status": "wake_required",
+                    "wake_reason": "action_request_pending",
+                    "delivery_state": "unseen",
+                },
+            ],
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_2929",
+                "status": "pending",
+                "summary": "Stage verified commit pipeline",
+                "body": "Run the stage_commit_pipeline handoff.",
+                "kind": "action_request",
+                "from_agent": "codex",
+                "to_agent": "claude",
+                "requested_action": "stage_commit_pipeline",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ],
+        "registry": {"agents": [{"agent_id": "codex", "job_state": "active"}]},
+    }
+    if latest_reviewer_checkpoint:
+        review_state["latest_reviewer_checkpoint"] = {
+            "current_instruction": "Codex: read rev_pkt_2922 + rev_pkt_2923.",
+            "current_instruction_revision": "old-checkpoint-rev",
+            "event_id": "rev_evt_checkpoint",
+            "timestamp": "2026-05-03T22:00:00Z",
+        }
+    return review_state

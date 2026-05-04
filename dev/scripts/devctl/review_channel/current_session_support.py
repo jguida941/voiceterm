@@ -12,6 +12,10 @@ from .collaboration_provider import (
 )
 from .handoff import BridgeSnapshot
 from .handoff_constants import _is_substantive_text
+from .current_session_queue import (
+    queue_current_instruction,
+    queue_instruction_is_priority_action_request,
+)
 from .current_session_instruction_support import (
     canonicalize_instruction_state as _canonicalize_instruction_state,
     instruction_revision_reuse_warning,
@@ -125,6 +129,8 @@ def prior_typed_current_session(
         open_findings=open_findings,
         last_reviewed_scope=last_reviewed_scope,
     )
+
+
 def current_session_authority_drift_warning(
     *,
     snapshot: BridgeSnapshot,
@@ -252,6 +258,8 @@ def _bridge_current_session_from_snapshot(
         open_findings=_section_text(snapshot, "Open Findings"),
         last_reviewed_scope=_section_text(snapshot, "Last Reviewed Scope"),
     )
+
+
 def event_current_instruction(review_state: Mapping[str, object]) -> str:
     """Derive the event-backed current instruction from the typed queue only.
 
@@ -261,19 +269,20 @@ def event_current_instruction(review_state: Mapping[str, object]) -> str:
     queue-derived instruction so reviewer-checkpoint writes are immediately
     visible in typed current_session without parsing bridge.md as authority.
     """
+    queue_instruction = queue_current_instruction(review_state)
+    if queue_instruction_is_priority_action_request(
+        review_state,
+        current_instruction=queue_instruction,
+    ):
+        return queue_instruction
+
     checkpoint = _mapping(review_state.get("latest_reviewer_checkpoint"))
     checkpoint_instruction = str(
         checkpoint.get("current_instruction") or ""
     ).strip()
     if checkpoint_instruction:
         return checkpoint_instruction
-    queue = _mapping(review_state.get("queue"))
-    source = _mapping(queue.get("derived_next_instruction_source"))
-    target = str(source.get("to_agent") or "").strip().lower()
-    if target and target != coding_provider_from_review_state(review_state):
-        return ""
-    derived = str(queue.get("derived_next_instruction") or "").strip()
-    return derived
+    return queue_instruction
 
 
 def event_open_findings(review_state: Mapping[str, object]) -> str:

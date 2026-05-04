@@ -37,6 +37,32 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-03 - Priority action requests now stay current-session authority
+
+Fact: The final T22AN-L/Finding Y stage-commit handoff packet selected a
+queue-priority `action_request`, but event-backed `current_session` projection
+still preferred the stale reviewer checkpoint and then let implementer packet
+attention clear the instruction. This made `check_review_surface_consistency.py`
+report a mismatch between the queue's derived next instruction and
+`current_session.current_instruction`.
+
+Change: current-session derivation now treats queue-selected priority
+`action_request` packets as live runtime authority ahead of reviewer checkpoint
+fallbacks, even when the target packet is for the implementer and the active
+single-agent coding provider is Codex. The event projection and packet-truth
+normalizer share that predicate so packet-attention clear paths cannot erase a
+valid `stage_commit_pipeline` action request while preserving the existing clear
+behavior for non-packet instructions.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/current_session_support.py`
+- `dev/scripts/devctl/review_channel/current_session_queue.py`
+- `dev/scripts/devctl/review_channel/current_session_attention.py`
+- `dev/scripts/devctl/review_channel/current_session_projection.py`
+- `dev/scripts/devctl/review_channel/current_session_packet_normalize.py`
+- `dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`
+
 ### 2026-05-03 - Python tests now run through bounded repo policy
 
 Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands

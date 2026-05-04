@@ -99,6 +99,14 @@
   `interaction_mode=remote_control`. Pending or expired planning packets now
   project as `PacketIntentAnchor` / `PlanIterationSession` continuity hints;
   only explicit applied planning packets enter typed MasterPlan authority.
+- 2026-05-03 review-channel priority action-request projection follow-up
+  (MP-377): queue-selected priority `action_request` packets now remain
+  `current_session.current_instruction` authority ahead of stale reviewer
+  checkpoints and across packet-truth clear paths, including single-agent
+  lanes where the handoff packet targets the implementer while Codex is the
+  active coding provider. This keeps `check_review_surface_consistency.py`
+  aligned with the action-request-first queue contract after final
+  `stage_commit_pipeline` packet posts.
 - 2026-04-29 Plan 4.1 Graph Intelligence safe slice (MP-377):
   `dev/active/ai_governance_platform.md` now carries `MP377-P0-T13A` as the
   owner row for widening the existing generated context graph, not a new graph
