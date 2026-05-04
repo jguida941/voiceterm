@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `6a721e78893b` — Fix post-push range scoping
-- Tree hash: `3b500c780375`
-- Generation stamp: `snap-0f4b9d3af9c4`
-- Generated at (UTC): 2026-05-04T12:10:47Z
+- HEAD: `116d5b6e338b` — Refresh external review snapshot for 6a721e78
+- Tree hash: `0c7a5e8df48f`
+- Generation stamp: `snap-d70f662a3dc3`
+- Generated at (UTC): 2026-05-04T12:12:41Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `local_terminal`)
+- Reviewer mode: `single_agent` (interaction: `single_agent`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 95 files, +5137/-4011
+- Delta since last snapshot: 24 commits, 95 files, +5116/-3993
 - Governance findings: 154 open / 88 fixed / 256 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,7 +30,7 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `6a721e78893b9337dbc4f42ec738564edf32db1c`
+- HEAD SHA: `116d5b6e338bcdc6ac6862246e30b2057e2a0fe0`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-05-04T08:10:31-04:00
 
@@ -44,15 +44,17 @@ probes, typed actions, deterministic policy resolution — is what m...
 - staged_path_count: 0
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
-- latest_push_report_state: `published_remote` (post_push_bundle_failed)
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- latest_push_report_state: `blocked` (push_preflight_running)
+- current_push_authorization: `push-auth-20260504T120925322555Z` (valid=True)
+- authorized_head_commit: `116d5b6e338bcdc6ac6862246e30b2057e2a0fe0`
+- publication_backlog: recommended
+- publication_guidance: 2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `local_terminal`
+- interaction_mode: `single_agent`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -66,12 +68,12 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `6a721e78893b`
+Range: last 24 commits ending at `116d5b6e338b`
 
 - commits: 24
 - files changed: 95
-- insertions: +5137
-- deletions: -4011
+- insertions: +5116
+- deletions: -3993
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 5 file(s)
 
@@ -79,30 +81,30 @@ Range: last 24 commits ending at `6a721e78893b`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `6a721e78` | Fix post-push range scoping | 4 | +75/-58 | tooling |  |
-| 2 | `759abf90` | Refresh external review snapshot for 3db1597c | 2 | +46/-46 | docs |  |
-| 3 | `3db1597c` | Refresh external review snapshot for 04ad16b1 | 2 | +47/-49 | docs |  |
-| 4 | `04ad16b1` | Refresh external review snapshot for c66f5f65 | 2 | +67/-66 | docs |  |
-| 5 | `c66f5f65` | Shard focused Python tests | 14 | +420/-72 | tooling |  |
-| 6 | `639ef536` | Refresh external review snapshot for 12cf2f1d | 2 | +46/-46 | docs |  |
-| 7 | `12cf2f1d` | Refresh external review snapshot for bb85d5e0 | 2 | +47/-45 | docs |  |
-| 8 | `bb85d5e0` | Refresh external review snapshot for 5a2eb104 | 2 | +69/-74 | docs |  |
-| 9 | `5a2eb104` | Show governed commit progress | 16 | +249/-75 | tooling |  |
-| 10 | `e382b175` | Phase routed preflight execution | 18 | +646/-170 | tooling |  |
-| 11 | `35dc5c13` | Refresh external review snapshot for e7aa7df1 | 2 | +51/-53 | docs |  |
-| 12 | `e7aa7df1` | Refresh external review snapshot for 6d8004fc | 2 | +52/-50 | docs |  |
-| 13 | `6d8004fc` | Refresh policy-owned generated surfaces for b6a926fc | 1 | +1/-1 | docs |  |
-| 14 | `b6a926fc` | Refresh external review snapshot for d3cf4e73 | 2 | +99/-86 | docs |  |
-| 15 | `d3cf4e73` | Harden packet attention and routed guard coverage | 72 | +2469/-2618 | tooling |  |
-| 16 | `2a3e3731` | Refresh external review snapshot for 764252dc | 2 | +43/-43 | docs |  |
-| 17 | `764252dc` | Refresh external review snapshot for bc821042 | 2 | +48/-45 | docs |  |
-| 18 | `bc821042` | Refresh external review snapshot for c2cf00e6 | 2 | +68/-67 | docs |  |
-| 19 | `c2cf00e6` | Preserve priority action-request current session | 14 | +347/-92 | tooling |  |
-| 20 | `71258903` | Refresh external review snapshot for c3b8b148 | 2 | +43/-43 | docs |  |
-| 21 | `c3b8b148` | Refresh external review snapshot for 6d9e177d | 2 | +43/-45 | docs |  |
-| 22 | `6d9e177d` | Refresh external review snapshot for 26a94370 | 2 | +66/-72 | docs |  |
-| 23 | `26a94370` | Absorb projection drift to clear governed-push gate per cod… | 3 | +9/-7 | tooling |  |
-| 24 | `d1b3377b` | Refresh external review snapshot for dae2c50e | 2 | +86/-88 | docs |  |
+| 1 | `116d5b6e` | Refresh external review snapshot for 6a721e78 | 2 | +65/-70 | docs |  |
+| 2 | `6a721e78` | Fix post-push range scoping | 4 | +75/-58 | tooling |  |
+| 3 | `759abf90` | Refresh external review snapshot for 3db1597c | 2 | +46/-46 | docs |  |
+| 4 | `3db1597c` | Refresh external review snapshot for 04ad16b1 | 2 | +47/-49 | docs |  |
+| 5 | `04ad16b1` | Refresh external review snapshot for c66f5f65 | 2 | +67/-66 | docs |  |
+| 6 | `c66f5f65` | Shard focused Python tests | 14 | +420/-72 | tooling |  |
+| 7 | `639ef536` | Refresh external review snapshot for 12cf2f1d | 2 | +46/-46 | docs |  |
+| 8 | `12cf2f1d` | Refresh external review snapshot for bb85d5e0 | 2 | +47/-45 | docs |  |
+| 9 | `bb85d5e0` | Refresh external review snapshot for 5a2eb104 | 2 | +69/-74 | docs |  |
+| 10 | `5a2eb104` | Show governed commit progress | 16 | +249/-75 | tooling |  |
+| 11 | `e382b175` | Phase routed preflight execution | 18 | +646/-170 | tooling |  |
+| 12 | `35dc5c13` | Refresh external review snapshot for e7aa7df1 | 2 | +51/-53 | docs |  |
+| 13 | `e7aa7df1` | Refresh external review snapshot for 6d8004fc | 2 | +52/-50 | docs |  |
+| 14 | `6d8004fc` | Refresh policy-owned generated surfaces for b6a926fc | 1 | +1/-1 | docs |  |
+| 15 | `b6a926fc` | Refresh external review snapshot for d3cf4e73 | 2 | +99/-86 | docs |  |
+| 16 | `d3cf4e73` | Harden packet attention and routed guard coverage | 72 | +2469/-2618 | tooling |  |
+| 17 | `2a3e3731` | Refresh external review snapshot for 764252dc | 2 | +43/-43 | docs |  |
+| 18 | `764252dc` | Refresh external review snapshot for bc821042 | 2 | +48/-45 | docs |  |
+| 19 | `bc821042` | Refresh external review snapshot for c2cf00e6 | 2 | +68/-67 | docs |  |
+| 20 | `c2cf00e6` | Preserve priority action-request current session | 14 | +347/-92 | tooling |  |
+| 21 | `71258903` | Refresh external review snapshot for c3b8b148 | 2 | +43/-43 | docs |  |
+| 22 | `c3b8b148` | Refresh external review snapshot for 6d9e177d | 2 | +43/-45 | docs |  |
+| 23 | `6d9e177d` | Refresh external review snapshot for 26a94370 | 2 | +66/-72 | docs |  |
+| 24 | `26a94370` | Absorb projection drift to clear governed-push gate per cod… | 3 | +9/-7 | tooling |  |
 
 ### Files
 
@@ -111,10 +113,10 @@ Range: last 24 commits ending at `6a721e78893b`
 | `.github/workflows/release_preflight.yml` | tooling | +9/-2 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +38/-5 |
 | `AGENTS.md` | docs | +66/-13 |
-| `bridge.md` | docs | +73/-73 |
+| `bridge.md` | docs | +72/-72 |
 | `dev/active/MASTER_PLAN.md` | tooling | +82/-4 |
 | `dev/active/ai_governance_platform.md` | tooling | +49/-5 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1218/-1213 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1198/-1196 |
 | `dev/config/git_hooks/post-commit-review-snapshot.sh` | tooling | +8/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +28/-7 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +5/-5 |
@@ -218,6 +220,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`116d5b6e`** — Refresh external review snapshot for 6a721e78
+  - evolution: Fact: live dogfooding showed the packet-delivery path was still carrying process semantics. Even after earlier exact-session fixes, packet post/follow helpers and their docs/tests still treated "packet arrived" as a pos…
 - **`6a721e78`** — Fix post-push range scoping
   - evolution: Fact: live dogfooding showed the packet-delivery path was still carrying process semantics. Even after earlier exact-session fixes, packet post/follow helpers and their docs/tests still treated "packet arrived" as a pos…
 - **`759abf90`** — Refresh external review snapshot for 3db1597c
@@ -267,8 +271,6 @@ Recent findings:
   - action_request requesting stage_commit_pipeline at HEAD d1b3377b. Bundle.tooling/check-router
   - passed; codex confirmed governed checkpoint recorded. Push was not executed because the typed
   - evolution: Fact: The final T22AN-L/Finding Y stage-commit handoff packet selected a queue-priority `action_request`, but event-backed `current_session` projection still preferred the stale reviewer checkpoint and then let implemen…
-- **`d1b3377b`** — Refresh external review snapshot for dae2c50e
-  - evolution: Fact: The final T22AN-L/Finding Y stage-commit handoff packet selected a queue-priority `action_request`, but event-backed `current_session` projection still preferred the stale reviewer checkpoint and then let implemen…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -311,4 +313,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-0f4b9d3af9c4` binds this file to HEAD `6a721e78893b`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-d70f662a3dc3` binds this file to HEAD `116d5b6e338b`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
