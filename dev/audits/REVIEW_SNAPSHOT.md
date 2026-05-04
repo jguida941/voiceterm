@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `9ef6604573c2` — Refresh external review snapshot for faba8791
-- Tree hash: `a04a3cfa7d1c`
-- Generation stamp: `snap-277094bba2ba`
-- Generated at (UTC): 2026-05-04T13:08:07Z
+- HEAD: `da0c9c80e14a` — Refresh external review snapshot for 9ef66045
+- Tree hash: `b4b42f2f7dfc`
+- Generation stamp: `snap-eb1ac1864fdd`
+- Generated at (UTC): 2026-05-04T13:09:08Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `single_agent`)
+- Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 112 files, +5479/-4112
+- Delta since last snapshot: 24 commits, 106 files, +5178/-4064
 - Governance findings: 154 open / 88 fixed / 256 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,9 +30,9 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `9ef6604573c254a6614b275428c3803550ded7dd`
+- HEAD SHA: `da0c9c80e14af22db5d73afe51448f5edb02e0bf`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-04T09:05:42-04:00
+- HEAD timestamp (UTC): 2026-05-04T09:08:08-04:00
 
 ## 2. Governance state
 
@@ -48,13 +48,13 @@ probes, typed actions, deterministic policy resolution — is what m...
 - current_push_authorization: `push-auth-20260504T130435898819Z` (valid=True)
 - authorized_head_commit: `9ef6604573c254a6614b275428c3803550ded7dd`
 - publication_backlog: recommended
-- publication_guidance: 2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 3 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `single_agent`
+- interaction_mode: `local_terminal`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -68,12 +68,12 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `9ef6604573c2`
+Range: last 24 commits ending at `da0c9c80e14a`
 
 - commits: 24
-- files changed: 112
-- insertions: +5479
-- deletions: -4112
+- files changed: 106
+- insertions: +5178
+- deletions: -4064
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 6 file(s)
 
@@ -81,30 +81,30 @@ Range: last 24 commits ending at `9ef6604573c2`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `9ef66045` | Refresh external review snapshot for faba8791 | 2 | +71/-72 | docs |  |
-| 2 | `faba8791` | Classify durable expired packets | 25 | +360/-126 | tooling |  |
-| 3 | `7d29dd85` | Refresh external review snapshot for 9e027548 | 2 | +47/-44 | docs |  |
-| 4 | `9e027548` | Refresh external review snapshot for 116d5b6e | 2 | +46/-44 | docs |  |
-| 5 | `116d5b6e` | Refresh external review snapshot for 6a721e78 | 2 | +65/-70 | docs |  |
-| 6 | `6a721e78` | Fix post-push range scoping | 4 | +75/-58 | tooling |  |
-| 7 | `759abf90` | Refresh external review snapshot for 3db1597c | 2 | +46/-46 | docs |  |
-| 8 | `3db1597c` | Refresh external review snapshot for 04ad16b1 | 2 | +47/-49 | docs |  |
-| 9 | `04ad16b1` | Refresh external review snapshot for c66f5f65 | 2 | +67/-66 | docs |  |
-| 10 | `c66f5f65` | Shard focused Python tests | 14 | +420/-72 | tooling |  |
-| 11 | `639ef536` | Refresh external review snapshot for 12cf2f1d | 2 | +46/-46 | docs |  |
-| 12 | `12cf2f1d` | Refresh external review snapshot for bb85d5e0 | 2 | +47/-45 | docs |  |
-| 13 | `bb85d5e0` | Refresh external review snapshot for 5a2eb104 | 2 | +69/-74 | docs |  |
-| 14 | `5a2eb104` | Show governed commit progress | 16 | +249/-75 | tooling |  |
-| 15 | `e382b175` | Phase routed preflight execution | 18 | +646/-170 | tooling |  |
-| 16 | `35dc5c13` | Refresh external review snapshot for e7aa7df1 | 2 | +51/-53 | docs |  |
-| 17 | `e7aa7df1` | Refresh external review snapshot for 6d8004fc | 2 | +52/-50 | docs |  |
-| 18 | `6d8004fc` | Refresh policy-owned generated surfaces for b6a926fc | 1 | +1/-1 | docs |  |
-| 19 | `b6a926fc` | Refresh external review snapshot for d3cf4e73 | 2 | +99/-86 | docs |  |
-| 20 | `d3cf4e73` | Harden packet attention and routed guard coverage | 72 | +2469/-2618 | tooling |  |
-| 21 | `2a3e3731` | Refresh external review snapshot for 764252dc | 2 | +43/-43 | docs |  |
-| 22 | `764252dc` | Refresh external review snapshot for bc821042 | 2 | +48/-45 | docs |  |
-| 23 | `bc821042` | Refresh external review snapshot for c2cf00e6 | 2 | +68/-67 | docs |  |
-| 24 | `c2cf00e6` | Preserve priority action-request current session | 14 | +347/-92 | tooling |  |
+| 1 | `da0c9c80` | Refresh external review snapshot for 9ef66045 | 2 | +46/-44 | docs |  |
+| 2 | `9ef66045` | Refresh external review snapshot for faba8791 | 2 | +71/-72 | docs |  |
+| 3 | `faba8791` | Classify durable expired packets | 25 | +360/-126 | tooling |  |
+| 4 | `7d29dd85` | Refresh external review snapshot for 9e027548 | 2 | +47/-44 | docs |  |
+| 5 | `9e027548` | Refresh external review snapshot for 116d5b6e | 2 | +46/-44 | docs |  |
+| 6 | `116d5b6e` | Refresh external review snapshot for 6a721e78 | 2 | +65/-70 | docs |  |
+| 7 | `6a721e78` | Fix post-push range scoping | 4 | +75/-58 | tooling |  |
+| 8 | `759abf90` | Refresh external review snapshot for 3db1597c | 2 | +46/-46 | docs |  |
+| 9 | `3db1597c` | Refresh external review snapshot for 04ad16b1 | 2 | +47/-49 | docs |  |
+| 10 | `04ad16b1` | Refresh external review snapshot for c66f5f65 | 2 | +67/-66 | docs |  |
+| 11 | `c66f5f65` | Shard focused Python tests | 14 | +420/-72 | tooling |  |
+| 12 | `639ef536` | Refresh external review snapshot for 12cf2f1d | 2 | +46/-46 | docs |  |
+| 13 | `12cf2f1d` | Refresh external review snapshot for bb85d5e0 | 2 | +47/-45 | docs |  |
+| 14 | `bb85d5e0` | Refresh external review snapshot for 5a2eb104 | 2 | +69/-74 | docs |  |
+| 15 | `5a2eb104` | Show governed commit progress | 16 | +249/-75 | tooling |  |
+| 16 | `e382b175` | Phase routed preflight execution | 18 | +646/-170 | tooling |  |
+| 17 | `35dc5c13` | Refresh external review snapshot for e7aa7df1 | 2 | +51/-53 | docs |  |
+| 18 | `e7aa7df1` | Refresh external review snapshot for 6d8004fc | 2 | +52/-50 | docs |  |
+| 19 | `6d8004fc` | Refresh policy-owned generated surfaces for b6a926fc | 1 | +1/-1 | docs |  |
+| 20 | `b6a926fc` | Refresh external review snapshot for d3cf4e73 | 2 | +99/-86 | docs |  |
+| 21 | `d3cf4e73` | Harden packet attention and routed guard coverage | 72 | +2469/-2618 | tooling |  |
+| 22 | `2a3e3731` | Refresh external review snapshot for 764252dc | 2 | +43/-43 | docs |  |
+| 23 | `764252dc` | Refresh external review snapshot for bc821042 | 2 | +48/-45 | docs |  |
+| 24 | `bc821042` | Refresh external review snapshot for c2cf00e6 | 2 | +68/-67 | docs |  |
 
 ### Files
 
@@ -112,16 +112,16 @@ Range: last 24 commits ending at `9ef6604573c2`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +9/-2 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +38/-5 |
-| `AGENTS.md` | docs | +67/-14 |
-| `bridge.md` | docs | +65/-65 |
-| `dev/active/MASTER_PLAN.md` | tooling | +86/-4 |
+| `AGENTS.md` | docs | +63/-14 |
+| `bridge.md` | docs | +62/-62 |
+| `dev/active/MASTER_PLAN.md` | tooling | +78/-4 |
 | `dev/active/ai_governance_platform.md` | tooling | +50/-5 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1266/-1257 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1235/-1223 |
 | `dev/config/git_hooks/post-commit-review-snapshot.sh` | tooling | +8/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +31/-7 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +6/-6 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +308/-28 |
-| `dev/scripts/README.md` | tooling | +69/-52 |
+| `dev/guides/DEVELOPMENT.md` | docs | +27/-6 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +5/-5 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +282/-28 |
+| `dev/scripts/README.md` | tooling | +65/-51 |
 | `dev/scripts/checks/check_guard_enforcement_inventory.py` | tooling | +0/-4 |
 | `dev/scripts/checks/compat_matrix/yaml_json_loader.py` | tooling | +2/-0 |
 | `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop.py` | tooling | +16/-0 |
@@ -150,7 +150,7 @@ Range: last 24 commits ending at `9ef6604573c2`
 | `dev/scripts/devctl/commands/development/peer_mind_wake.py` | tooling | +13/-3 |
 | `dev/scripts/devctl/commands/development/render.py` | tooling | +6/-1 |
 | `dev/scripts/devctl/commands/development/render_collaboration.py` | tooling | +2/-1 |
-| _72 more files trimmed_ | | |
+| _66 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -222,6 +222,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`da0c9c80`** — Refresh external review snapshot for 9ef66045
+  - evolution: Fact: live dogfooding showed the packet-delivery path was still carrying process semantics. Even after earlier exact-session fixes, packet post/follow helpers and their docs/tests still treated "packet arrived" as a pos…
 - **`9ef66045`** — Refresh external review snapshot for faba8791
   - evolution: Fact: live dogfooding showed the packet-delivery path was still carrying process semantics. Even after earlier exact-session fixes, packet post/follow helpers and their docs/tests still treated "packet arrived" as a pos…
 - **`faba8791`** — Classify durable expired packets
@@ -268,8 +270,6 @@ Recent findings:
   - evolution: Fact: The final T22AN-L/Finding Y stage-commit handoff packet selected a queue-priority `action_request`, but event-backed `current_session` projection still preferred the stale reviewer checkpoint and then let implemen…
 - **`bc821042`** — Refresh external review snapshot for c2cf00e6
   - evolution: Fact: The final T22AN-L/Finding Y stage-commit handoff packet selected a queue-priority `action_request`, but event-backed `current_session` projection still preferred the stale reviewer checkpoint and then let implemen…
-- **`c2cf00e6`** — Preserve priority action-request current session
-  - evolution: Fact: The final T22AN-L/Finding Y stage-commit handoff packet selected a queue-priority `action_request`, but event-backed `current_session` projection still preferred the stale reviewer checkpoint and then let implemen…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -312,4 +312,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-277094bba2ba` binds this file to HEAD `9ef6604573c2`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-eb1ac1864fdd` binds this file to HEAD `da0c9c80e14a`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
