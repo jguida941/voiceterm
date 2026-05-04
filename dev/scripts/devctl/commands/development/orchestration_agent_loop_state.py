@@ -21,8 +21,10 @@ def agent_loop_status(row: DevelopmentAgentLoopInput) -> str:
     """Classify one row for the controller status surface."""
     if row.missing_proofs or row.proof_state == "missing":
         return "missing"
+    if _observer_wait_is_current(row):
+        return "current"
     if row.pending_packet_count > 0 or row.should_continue_loop:
-        if not row.safe_to_continue or row.top_blocker:
+        if not row.safe_to_continue or _has_top_blocker(row):
             return "blocked"
         return "action_required"
     return "current"
@@ -36,7 +38,7 @@ def agent_loop_signal_id(row: DevelopmentAgentLoopInput) -> str:
 
 
 def agent_loop_summary(row: DevelopmentAgentLoopInput) -> str:
-    blocker = row.top_blocker or row.required_action or row.lifecycle_state
+    blocker = _top_blocker(row) or row.required_action or row.lifecycle_state
     return (
         f"{row.actor_id or 'actor'} {row.actor_role or 'role'} "
         f"requires {row.required_action or 'attention'}; "
@@ -55,6 +57,30 @@ def agent_loop_severity(row: DevelopmentAgentLoopInput, status: str) -> str:
     if status == "action_required":
         return "medium"
     return "info"
+
+
+def _observer_wait_is_current(row: DevelopmentAgentLoopInput) -> bool:
+    return (
+        row.pending_packet_count == 0
+        and row.should_continue_loop
+        and row.safe_to_continue
+        and not row.may_mutate
+        and not _has_top_blocker(row)
+        and row.required_action == "observe_typed_runtime"
+        and row.loop_mode == "typed_event_wait"
+        and row.proof_state == "satisfied"
+    )
+
+
+def _has_top_blocker(row: DevelopmentAgentLoopInput) -> bool:
+    return bool(_top_blocker(row))
+
+
+def _top_blocker(row: DevelopmentAgentLoopInput) -> str:
+    blocker = str(row.top_blocker or "").strip()
+    if blocker.lower() in {"none", "(none)"}:
+        return ""
+    return blocker
 
 
 __all__ = [

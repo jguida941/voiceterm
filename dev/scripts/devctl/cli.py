@@ -11,7 +11,7 @@ import sys
 from .commands.python_test_runner import command as python_test_command
 from .commands.reporting import dogfood, progress_status
 from .commands.development import command as development_command
-from .commands.governance import session as governance_session
+from .commands.governance import relaunch_loop, session as governance_session
 from .cli_parser import entrypoint as _impl
 
 # Keep the compatibility shim visible to static command-surface guards.
@@ -19,8 +19,9 @@ COMMAND_HANDLERS = {
     "develop": development_command.run,
     "dogfood": dogfood.run,
     "progress-status": progress_status.run,
+    "relaunch-loop": relaunch_loop.run,
     "session": governance_session.run,
-    "test-python": python_test_command.run,
 }
+COMMAND_HANDLERS["test-python"] = python_test_command.run
 
 sys.modules[__name__] = _impl

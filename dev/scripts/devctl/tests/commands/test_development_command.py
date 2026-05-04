@@ -21,6 +21,11 @@ from dev.scripts.devctl.commands.development.models import (
     DevelopmentPacketAttention,
     DevelopmentPeerMindSnapshot,
 )
+from dev.scripts.devctl.commands.development.continuation import continuation_signal
+from dev.scripts.devctl.commands.development.orchestration_models import (
+    DevelopmentOrchestrationSnapshot,
+    DevelopmentWatcherLease,
+)
 from dev.scripts.devctl.commands.development.next_slice import select_next_slice
 from dev.scripts.devctl.commands.development.orchestration_inputs import (
     orchestration_snapshot,
@@ -33,6 +38,31 @@ from dev.scripts.devctl.runtime.master_plan_contract import PlanRow, SDLCStage
 from dev.scripts.devctl.runtime.development_role_adapters import (
     build_develop_role_adapter_matrix,
 )
+from dev.scripts.devctl.runtime.development_packet_pressure_models import (
+    PacketBacklogPressure,
+)
+
+
+def _packet_pressure(
+    *,
+    live_total: int,
+    actionable_total: int,
+) -> PacketBacklogPressure:
+    return PacketBacklogPressure(
+        live_total=live_total,
+        actionable_total=actionable_total,
+        near_ttl_total=0,
+        expired_unresolved_total=0,
+        carry_forward_total=0,
+        durable_owner_gap_total=0,
+        per_kind={},
+        per_role={},
+        selected_packet_ids=(),
+        pressure_state="below_budget",
+        soft_attention_budget=12,
+        hard_attention_budget=15,
+        near_ttl_minutes=10,
+    )
 
 
 def test_develop_command_is_registered_read_only() -> None:
@@ -282,6 +312,71 @@ def test_watcher_lease_uses_live_watcher_heartbeat_when_actor_row_is_idle(
 
     assert lease.status == "live"
     assert lease.stale_seconds <= 300
+
+
+def test_stopped_watcher_does_not_block_when_packet_pressure_is_clear() -> None:
+    signal = continuation_signal(
+        packet_attention=DevelopmentPacketAttention(),
+        orchestration=DevelopmentOrchestrationSnapshot(),
+        watcher_lease=DevelopmentWatcherLease(
+            watched_actor="claude",
+            status="stopped",
+            next_report_command=(
+                "python3 dev/scripts/devctl.py review-channel --action watch"
+            ),
+        ),
+        packet_pressure=_packet_pressure(live_total=0, actionable_total=0),
+        current_action="status",
+        fallback_commands=("python3 dev/scripts/devctl.py develop next --format md",),
+    )
+
+    assert signal.continuation_required is False
+    assert signal.final_response_allowed is True
+    assert signal.next_required_command == ""
+    assert signal.reasons == ()
+
+
+def test_stopped_watcher_blocks_when_packet_pressure_is_missing() -> None:
+    signal = continuation_signal(
+        packet_attention=DevelopmentPacketAttention(),
+        orchestration=DevelopmentOrchestrationSnapshot(),
+        watcher_lease=DevelopmentWatcherLease(
+            watched_actor="claude",
+            status="stopped",
+            next_report_command=(
+                "python3 dev/scripts/devctl.py review-channel --action watch"
+            ),
+        ),
+        current_action="status",
+        fallback_commands=("python3 dev/scripts/devctl.py develop next --format md",),
+    )
+
+    assert signal.continuation_required is True
+    assert signal.final_response_allowed is False
+    assert signal.reasons == ("watcher_stopped:claude",)
+    assert signal.next_required_command.endswith("review-channel --action watch")
+
+
+def test_stopped_watcher_blocks_when_live_packet_pressure_exists() -> None:
+    signal = continuation_signal(
+        packet_attention=DevelopmentPacketAttention(),
+        orchestration=DevelopmentOrchestrationSnapshot(),
+        watcher_lease=DevelopmentWatcherLease(
+            watched_actor="claude",
+            status="stopped",
+            next_report_command=(
+                "python3 dev/scripts/devctl.py review-channel --action watch"
+            ),
+        ),
+        packet_pressure=_packet_pressure(live_total=1, actionable_total=0),
+        current_action="status",
+        fallback_commands=("python3 dev/scripts/devctl.py develop next --format md",),
+    )
+
+    assert signal.continuation_required is True
+    assert signal.final_response_allowed is False
+    assert signal.reasons == ("watcher_stopped:claude",)
+    assert signal.next_required_command.endswith("review-channel --action watch")
 
 
 def test_develop_watch_is_actor_scoped_lifecycle_preview(capsys) -> None:
@@ -762,6 +857,49 @@ def test_develop_orchestration_inputs_consume_existing_surfaces(tmp_path) -> Non
         "python3 dev/scripts/devctl.py agent-loop --format json"
     )
     assert snapshot.agent_loop_decisions[0].top_blocker.startswith("655 expired")
+
+
+def test_develop_orchestration_treats_idle_observer_wait_as_current(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    summary_path = tmp_path / "dev/reports/system_picture/latest/summary.json"
+    summary_path.parent.mkdir(parents=True)
+    summary_path.write_text(json.dumps({"sections": []}), encoding="utf-8")
+    monkeypatch.setattr(
+        orchestration_system_picture_module,
+        "_current_system_picture_sections_by_id",
+        lambda _repo_root: {},
+    )
+    review_state = {
+        "agent_loop_decisions": [
+            {
+                "actor_id": "codex",
+                "actor_role": "dashboard",
+                "session_id": "session-1",
+                "lifecycle_state": "idle",
+                "required_action": "observe_typed_runtime",
+                "loop_mode": "typed_event_wait",
+                "should_continue_loop": True,
+                "safe_to_continue": True,
+                "may_mutate": False,
+                "proof_state": "satisfied",
+                "pending_packet_count": 0,
+                "top_blocker": "none",
+                "next_loop_command": (
+                    "python3 dev/scripts/devctl.py agent-loop --format json"
+                ),
+            }
+        ],
+        "packets": [],
+    }
+
+    snapshot = orchestration_snapshot(tmp_path, review_state, actor="codex")
+
+    assert snapshot.status == "current"
+    assert snapshot.action_required_count == 0
+    assert snapshot.signal_count == 0
+    assert snapshot.agent_loop_decisions[0].required_action == "observe_typed_runtime"
 
 
 def test_develop_orchestration_closes_stale_summary_when_live_section_current(

@@ -87,6 +87,7 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         packet_attention=packet_attention,
         orchestration=orchestration,
         watcher_lease=watcher_lease,
+        packet_pressure=packet_pressure,
         current_action=action,
         fallback_commands=next_commands,
     )

@@ -351,6 +351,61 @@ def test_status_bundle_keeps_actor_pending_pressure_without_session_match() -> N
     assert attention["stale_reason"] == "actor_identity_ambiguous_with_pending_wake"
 
 
+def test_status_bundle_counts_active_wake_rows_as_ambiguous_pressure() -> None:
+    payload = {
+        "current_session": {"current_instruction_revision": "rev-current"},
+        "attention": {"status": "ok"},
+        "reviewer_runtime": {
+            "agent_runtime_clock": {
+                "source_latest_event_id": "rev_evt_4",
+                "snapshot_id": "agent-runtime-clock:rev_evt_4",
+            }
+        },
+        "agent_sync": {
+            "agents": {
+                "claude": {
+                    "last_consumed_event_id_lower_bound": "rev_evt_1",
+                    "pending_packets_to_me": [],
+                }
+            }
+        },
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "claude",
+                    "role": "implementer",
+                    "session_id": "s-claude",
+                    "active_packet_id": "rev_pkt_1",
+                    "attention_packet_id": "rev_pkt_1",
+                    "source_event_id": "rev_evt_4",
+                }
+            ]
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_1",
+                "to_agent": "claude",
+                "kind": "action_request",
+                "status": "acked",
+                "lifecycle_current_state": "in_progress",
+                "latest_event_id": "rev_evt_4",
+                "target_role": "implementer",
+                "target_session_id": "s-claude",
+            }
+        ],
+    }
+
+    projected = _attach_agent_loop_decisions(payload)
+
+    decision = projected["agent_loop_decisions"][0]
+    assert decision["active_packet_id"] == "rev_pkt_1"
+    assert decision["wake_required"] is True
+    assert decision["pending_packet_count"] == 0
+    attention = projected["reviewer_runtime"]["packet_attention"]
+    assert attention["pending_packet_count"] == 1
+    assert attention["stale_reason"] == "actor_identity_ambiguous_with_pending_wake"
+
+
 def test_status_bundle_clears_agent_sync_attention_when_sessions_disagree() -> None:
     payload = {
         "current_session": {"current_instruction_revision": "rev-current"},

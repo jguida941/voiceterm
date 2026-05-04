@@ -30,7 +30,7 @@ def apply_scoped_attention_to_ambiguous_packet_attention(
     queue = _mapping(review_state.get("queue"))
     pending_count = _int(queue.get("pending_total")) or sum(
         _int(row.get("pending_packet_count")) for row in wake_rows
-    )
+    ) or len(wake_rows)
     updated_attention = dict(attention)
     updated_attention["latest_inbox_event_id"] = (
         _text(updated_attention.get("latest_inbox_event_id"))

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .continuation_commands import next_required_command
+from .continuation_commands import next_required_command, watcher_report_needed
 from .models import (
     DevelopmentContinuationRequiredSignal,
     DevelopmentOrchestrationSnapshot,
@@ -17,6 +17,7 @@ def continuation_signal(
     packet_attention: DevelopmentPacketAttention,
     orchestration: DevelopmentOrchestrationSnapshot,
     watcher_lease: DevelopmentWatcherLease,
+    packet_pressure: object | None = None,
     current_action: str,
     fallback_commands: tuple[str, ...],
 ) -> DevelopmentContinuationRequiredSignal:
@@ -25,11 +26,13 @@ def continuation_signal(
         packet_attention=packet_attention,
         orchestration=orchestration,
         watcher_lease=watcher_lease,
+        packet_pressure=packet_pressure,
     )
     next_command = next_required_command(
         packet_attention=packet_attention,
         orchestration=orchestration,
         watcher_lease=watcher_lease,
+        packet_pressure=packet_pressure,
         current_action=current_action,
         fallback_commands=fallback_commands,
     )
@@ -50,6 +53,7 @@ def _continuation_reasons(
     packet_attention: DevelopmentPacketAttention,
     orchestration: DevelopmentOrchestrationSnapshot,
     watcher_lease: DevelopmentWatcherLease,
+    packet_pressure: object | None = None,
 ) -> tuple[str, ...]:
     reasons: list[str] = []
     if packet_attention.attention_required:
@@ -60,7 +64,11 @@ def _continuation_reasons(
         reasons.append(f"stale_orchestration_inputs:{orchestration.stale_projection_count}")
     if orchestration.missing_projection_count:
         reasons.append(f"missing_orchestration_inputs:{orchestration.missing_projection_count}")
-    if watcher_lease.status != "live":
+    if watcher_report_needed(
+        packet_attention=packet_attention,
+        watcher_lease=watcher_lease,
+        packet_pressure=packet_pressure,
+    ):
         reasons.append(f"watcher_{watcher_lease.status}:{watcher_lease.watched_actor}")
     return tuple(reasons)
 

@@ -27,6 +27,7 @@ COMMANDS = [
     "release-gates",
     "ship",
     "release-notes",
+    "relaunch-loop",
     "homebrew",
     "pypi",
     "status",

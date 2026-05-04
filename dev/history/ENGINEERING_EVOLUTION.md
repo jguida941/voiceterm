@@ -37,6 +37,57 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-04 - `/develop` continuation now gates stopped watchers on typed packet pressure
+
+Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the
+continuation controller. A stopped watcher was always treated as continuation
+debt in one path, then a follow-up review found the opposite unsafe edge:
+`watcher_report_needed(..., packet_pressure=None)` treated missing pressure
+evidence as clear. That let absent evidence look like zero packet pressure.
+
+Change: continuation now threads `PacketBacklogPressure` through the next
+command and reason selectors. A stopped watcher blocks when packet attention is
+live, packet ids remain pending/actionable, expired unresolved packets exist,
+any pressure count is non-zero, or pressure evidence is missing. It only
+closes when typed pressure evidence is present and clear. Idle
+`observe_typed_runtime` rows with no packets and no real blocker now classify
+as current, so `/develop next` can distinguish quiet observer waits from real
+watcher debt.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/continuation.py`
+- `dev/scripts/devctl/commands/development/continuation_commands.py`
+- `dev/scripts/devctl/commands/development/orchestration_agent_loop_state.py`
+- `dev/scripts/devctl/commands/development/report.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+
+### 2026-05-04 - Relaunch-loop contracts now dogfood slice closure into queued dispatch
+
+Fact: the Codex/Claude loop could still stop between slices even though packet
+delivery correctly records attention only. Claude can schedule in-session wake
+ticks, but Codex has no self-scheduler once the CLI exits. The missing piece
+was a scheduler-owned typed handoff between slice closure and provider launch.
+
+Change: added the first bounded relaunch-loop slice. `SliceClosureEvent`
+captures a closed slice and next owner, `AgentRelaunchTrigger` queues the
+scheduler-owned relaunch request, `RelaunchQuotaExceeded` fails closed on
+runaway loops, and `devctl relaunch-loop` can emit a closure, convert it into
+an idempotent queue row, and dry-run dispatch. The dispatcher preview does not
+spawn providers yet; that remains blocked until typed provider/conductor
+registry authority lands.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/relaunch_loop_models.py`
+- `dev/scripts/devctl/runtime/relaunch_loop_builder.py`
+- `dev/scripts/devctl/runtime/relaunch_loop_store.py`
+- `dev/scripts/devctl/commands/governance/relaunch_loop.py`
+- `dev/scripts/devctl/cli_parser/relaunch_loop.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_relaunch_loop.py`
+- `dev/scripts/devctl/tests/runtime/test_relaunch_loop.py`
+- `dev/scripts/devctl/tests/commands/test_relaunch_loop_command.py`
+
 ### 2026-05-04 - Packet delivery records attention, not conductor wake
 
 Fact: live dogfooding showed the packet-delivery path was still carrying

@@ -720,6 +720,13 @@ Three quality layers matter in practice:
     reviewer-side bounded wait path over `reviewer_worker` hash truth plus the
     projected typed `current_session` ACK/status fields from
     `review_state.json`.
+  - For cross-AI slice turnover, use the typed relaunch-loop controller before
+    any provider process spawn: `devctl relaunch-loop --action emit-closure`
+    records a `SliceClosureEvent`, `--action watch-once` queues an
+    `AgentRelaunchTrigger`, and `--action dispatch-once --dry-run` proves the
+    launch command that a future scheduler/OS service would run. This is
+    dogfoodable typed state, not packet delivery wake authority; provider
+    spawning remains fail-closed until dispatcher registry authority lands.
   - `implementer-wait` is only valid under an explicit reviewer-owned wait
     state. If `Current Instruction For Claude` still assigns active work,
     `Claude Status` / `Claude Ack` must stay substantive: name concrete
@@ -1951,6 +1958,11 @@ python3 dev/scripts/devctl.py develop watch --actor codex --format md
 python3 dev/scripts/devctl.py develop audit-packets --max-packets 10 --format md
 python3 dev/scripts/devctl.py develop audit-packets --drain-packets --max-packets 10 --format md
 python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1 --format md
+
+# `/develop next` continuation is packet-pressure aware: a stopped watcher is
+# only non-blocking when packet attention is empty and a typed
+# PacketBacklogPressure report proves all watched pressure counts are zero.
+# Missing packet-pressure evidence fails closed to the watcher report command.
 
 # Exact packet read for /develop packet-attention and beta-test findings.
 python3 dev/scripts/devctl.py review-channel --action show --packet-id rev_pkt_2725 --terminal none --format md

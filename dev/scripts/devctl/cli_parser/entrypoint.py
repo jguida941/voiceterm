@@ -89,6 +89,7 @@ from ..commands.governance import (
     orphan_inventory as governance_orphan_inventory,
     orchestrate_watch as governance_orchestrate_watch,
     quality_feedback as governance_quality_feedback,
+    relaunch_loop,
     render_surfaces,
     review as governance_review,
     review_snapshot as governance_review_snapshot,
@@ -151,6 +152,7 @@ from .artifact_suppression import ARTIFACT_WRITES_ENV, artifact_writes_suppresse
 from .artifact_suppression import read_only_command_suppresses_artifact_writes
 from .builders import add_standard_parsers
 from .python_tests import add_parser as add_python_tests_parser
+from .relaunch_loop import add_relaunch_loop_parser
 
 # Commands that run as status/reporting surfaces from the caller's point of
 # view. They skip audit event writes and telemetry refresh so devctl works on
@@ -200,6 +202,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_governance_quality_feedback_parser(sub)
     add_orchestrate_parsers(sub)
     add_publication_sync_parser(sub)
+    add_relaunch_loop_parser(sub)
     add_platform_contracts_parser(sub)
     add_system_map_parser(sub)
     add_system_picture_parser(sub)
@@ -320,6 +323,7 @@ COMMAND_HANDLERS = {
     "release-gates": release_gates.run,
     "ship": ship.run,
     "release-notes": release_notes.run,
+    "relaunch-loop": relaunch_loop.run,
     "review-channel": review_channel.run,
     "pipeline": pipeline_command.run,
     "rollout-tail": rollout_tail.run,

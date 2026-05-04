@@ -107,6 +107,14 @@
   active coding provider. This keeps `check_review_surface_consistency.py`
   aligned with the action-request-first queue contract after final
   `stage_commit_pipeline` packet posts.
+- 2026-05-04 relaunch-loop guard-quality calibration follow-up (MP-377):
+  `dev/active/ai_governance_platform.md` now carries
+  `MP377-P0-T22AN-AK` so the relaunch-loop dogfood does not stop at green
+  syntax checks. The next guard slice must distinguish real typed-design
+  improvements (model/builder/store split, named input contracts, validating
+  constructors) from shallow AST appeasement (mutable registry rewrites or
+  temporary variables around constructor returns), then route those design
+  findings through typed `/develop` and review-channel work packets.
 - 2026-04-29 Plan 4.1 Graph Intelligence safe slice (MP-377):
   `dev/active/ai_governance_platform.md` now carries `MP377-P0-T13A` as the
   owner row for widening the existing generated context graph, not a new graph
@@ -7620,3 +7628,9 @@ This generated ledger projects packet creation bindings for humans. The typed ro
 - [ ] `PKT-BIND-REV-PKT-2957` Packet action request: Execute governed commit pipeline `pipeline-471cb0b7defb` (source `rev_pkt_2957`; target `remote_commit_pipeline:pipeline-471cb0b7defb`; posted `2026-05-04T05:38:12.333532Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-2958` Packet finding: DIRECTIVE: triage all PKT-BIND rows + historical 1016 unbound expired packets into typed integrate/dismiss/superseded/already-done picture. PROOF current ingestion works (13/13 session packets bound, live test rev_pkt_295... (source `rev_pkt_2958`; target `plan:MP-377`; posted `2026-05-04T05:39:11.765721Z`; binding `plan_row`).
 - [x] `PKT-BIND-REV-PKT-2961` Packet finding: RECURRING CLASS (4+ instances this session): silent waiting on hangs — typed system has the state, AI doesn't query it. Landed 2026-05-04 as typed `StageProgressEvent` persistence, central `run_cmd` no-output heartbeats, governed VCS phase event recording, and read-only `progress-status` inspection. (source `rev_pkt_2961`; target `dev/scripts/devctl/runtime/`; posted `2026-05-04T05:47:05.873081Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2972` Packet action request: Review and finish /develop continuation false-blocker patch (source `rev_pkt_2972`; target `plan:MP-377`; posted `2026-05-04T15:10:38.505808Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2973` Packet finding: Evidence for rev_pkt_2972: /develop continuation false-blocker patch reviewed + finished + verified. 40/40 pytest pass (was 24+1FAILED, fixed test fixture by adding monkeypatch + empty summary.json — 4-line test-only edit... (source `rev_pkt_2973`; target `dev/scripts/devctl/commands/development/`; posted `2026-05-04T15:26:27.582777Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2974` Packet finding: F1: watcher continuation still treats unknown packet pressure as clear (source `rev_pkt_2974`; target `plan:MP-377`; posted `2026-05-04T15:26:32.826081Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2975` Packet finding: PLAN: cross-AI relaunch loop architecture (operator-requested, 6-agent synthesis). Today's deadlock root-caused: implementer-wait + reviewer-wait are pure timers, neither emits typed packet to peer; codex CLI EXITS on tas... (source `rev_pkt_2975`; target `plan:MP-377`; posted `2026-05-04T16:01:39.634929Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2978` Packet decision: Codex decision on rev_pkt_2975 relaunch-loop plan (source `rev_pkt_2978`; target `plan:MP-377`; posted `2026-05-04T16:32:36.271892Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2980` Packet action request: Run governed commit staging from remote-control lane (source `rev_pkt_2980`; target `devctl_commit:afb71fe6e6b685348b4ae51d98b4612a0395972c`; posted `2026-05-04T17:12:59.184834Z`; binding `plan_row`).

@@ -1194,6 +1194,17 @@ python3 dev/scripts/devctl.py develop --status --format md
 python3 dev/scripts/devctl.py develop next --format md
 python3 dev/scripts/devctl.py develop audit-packets --max-packets 10 --format md
 python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1 --format md
+python3 dev/scripts/devctl.py relaunch-loop --action status --format md
+python3 dev/scripts/devctl.py relaunch-loop --action watch-once --format md
+python3 dev/scripts/devctl.py relaunch-loop --action dispatch-once --dry-run --format md
+# `/develop next` continuation uses typed packet pressure, not watcher status
+# alone. Missing PacketBacklogPressure evidence fails closed to the watcher
+# report command; a stopped watcher closes only when pressure evidence exists
+# and all watched packet-pressure counts are zero.
+# `relaunch-loop` is the first scheduler-owned relaunch slice: it consumes
+# typed SliceClosureEvent rows into an AgentRelaunchTrigger queue and can
+# dry-run the dispatcher command. It records typed state only; packet delivery
+# still records attention and never launches provider processes.
 python3 dev/scripts/devctl.py view --surface ai --format md
 python3 dev/scripts/devctl.py session --role implementer --format md
 python3 dev/scripts/devctl.py startup-context --format summary

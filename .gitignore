@@ -135,6 +135,7 @@ Testing_Guide.md
 # Local runtime memory artifacts
 .voiceterm/memory/
 **/.voiceterm/memory/
+dev/state/relaunch_loop/
 
 # Local scanner scratch artifacts (external tools)
 /cvelist
