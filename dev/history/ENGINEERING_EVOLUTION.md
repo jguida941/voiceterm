@@ -13331,6 +13331,15 @@ authority: stale read-only work-board visibility rows no longer require a
 matching loop decision unless a live packet or execution field gives them loop
 work.
 
+Second follow-up: the next dogfood run showed that `devctl commit` could still
+look hung even when work was progressing, because `run_git_capture()` captured
+the whole `git commit` subprocess and the managed post-commit receipt hook sent
+its `review-snapshot --write --receipt-commit` work to `/dev/null`. Governed
+commit now emits flushed `[devctl vcs] phase=...` progress lines, streams the
+git/post-commit-hook output for the irreversible commit subprocess, and the
+managed post-commit hook announces the trailing ReviewSnapshot receipt refresh
+before and after its quiet internal call.
+
 Evidence:
 
 - `dev/scripts/devctl/bundles/registry.py`
@@ -13339,12 +13348,18 @@ Evidence:
 - `dev/scripts/devctl/commands/check/router_execution.py`
 - `dev/scripts/devctl/commands/check/router_python_tests.py`
 - `dev/scripts/devctl/commands/check/router_render.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py`
+- `dev/scripts/devctl/commands/vcs/progress.py`
+- `dev/scripts/devctl/runtime/vcs.py`
 - `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop.py`
+- `dev/config/git_hooks/post-commit-review-snapshot.sh`
 - `dev/scripts/devctl/governance/push_routing.py`
 - `dev/scripts/checks/check_guard_enforcement_inventory.py`
 - `dev/scripts/devctl/tests/checks/test_check_multi_agent_sync_runtime_truth.py`
 - `dev/scripts/devctl/tests/commands/check/test_check_router.py`
 - `dev/scripts/devctl/tests/governance/test_bundle_registry.py`
+- `dev/scripts/devctl/tests/runtime/test_vcs.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
 - `dev/scripts/README.md`
 - `AGENTS.md`
 - `dev/guides/DEVELOPMENT.md`

@@ -2580,7 +2580,8 @@ def test_commit_does_not_refresh_review_projections_after_approval(
     ):
         commit_result = executor.execute(
             build_commit_action(
-                repo_pack_id="test-pack", pipeline_id=pipeline.pipeline_id
+                repo_pack_id="test-pack",
+                pipeline_id=pipeline.pipeline_id,
             )
         )
 
@@ -2661,19 +2662,36 @@ def test_commit_marks_git_invocation_as_governed(tmp_path: Path) -> None:
         "dev.scripts.devctl.commands.vcs.governed_executor_commit_phase",
         fromlist=["run_git_capture"],
     ).run_git_capture
-    captured_calls: list[tuple[tuple[str, ...], dict[str, str] | None]] = []
+    captured_calls: list[tuple[tuple[str, ...], dict[str, str] | None, bool]] = []
 
-    def _capture_commit_args(args, *, repo_root: Path, extra_env=None):
-        captured_calls.append((tuple(args), extra_env))
-        return original_run_git_capture(args, repo_root=repo_root, extra_env=extra_env)
+    def _capture_commit_args(
+        args,
+        *,
+        repo_root: Path,
+        extra_env=None,
+        stream_output=False,
+    ):
+        captured_calls.append((tuple(args), extra_env, stream_output))
+        return original_run_git_capture(
+            args,
+            repo_root=repo_root,
+            extra_env=extra_env,
+            stream_output=stream_output,
+        )
 
     with patch(
         "dev.scripts.devctl.commands.vcs.governed_executor_commit_phase.run_git_capture",
         side_effect=_capture_commit_args,
+    ), patch(
+        "dev.scripts.devctl.commands.vcs.governed_executor_commit_phase.pending_packet_queue_block_commit",
+        return_value=None,
     ):
         commit_result = executor.execute(
             build_commit_action(
-                repo_pack_id="test-pack", pipeline_id=pipeline.pipeline_id
+                repo_pack_id="test-pack",
+                pipeline_id=pipeline.pipeline_id,
+                action_request_packet_id="rev_pkt_fixture_commit",
+                action_request_target_agent="codex",
             )
         )
 
@@ -2682,7 +2700,8 @@ def test_commit_marks_git_invocation_as_governed(tmp_path: Path) -> None:
         args[:3] == ("-c", "devctl.governed-commit=true", "commit")
         and "--no-verify" in args
         and extra_env == {"DEVCTL_GOVERNED_COMMIT": "1"}
-        for args, extra_env in captured_calls
+        and stream_output is True
+        for args, extra_env, stream_output in captured_calls
     )
 
 

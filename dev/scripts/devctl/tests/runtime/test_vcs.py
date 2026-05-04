@@ -69,3 +69,31 @@ def test_run_git_capture_does_not_retry_sandbox_index_denial() -> None:
     assert "Operation not permitted" in stderr
     assert len(calls) == 1
     sleep_mock.assert_not_called()
+
+
+def test_run_git_capture_streams_combined_output(capsys) -> None:
+    class FakeProcess:
+        stdout = iter(("stream one\n", "stream two\n"))
+
+        def wait(self) -> int:
+            return 0
+
+    popen_calls: list[list[str]] = []
+
+    def fake_popen(cmd, **_kwargs):
+        popen_calls.append(list(cmd))
+        return FakeProcess()
+
+    with patch.object(vcs.subprocess, "Popen", side_effect=fake_popen):
+        code, stdout, stderr = vcs.run_git_capture(
+            ["status", "--short"],
+            repo_root=Path("/tmp/repo"),
+            stream_output=True,
+        )
+
+    captured = capsys.readouterr()
+    assert code == 0
+    assert stdout == ""
+    assert stderr == "stream one\nstream two"
+    assert captured.err == "stream one\nstream two\n"
+    assert popen_calls == [["git", "status", "--short"]]

@@ -6346,7 +6346,11 @@ become the main product surface.
     routed preflight now exposes serial/parallel execution-plan metadata,
     keeps projection/status commands ordered, runs independent guard rows in
     worker batches, and scales focused Python-test timeout to selected target
-    count.
+    count. The same dogfood cycle exposed the next silent serial phase:
+    governed commit now emits VCS phase progress while `git commit` and the
+    post-commit ReviewSnapshot receipt hook run, so operators can distinguish
+    commit execution, receipt refresh, and push handoff without process-table
+    guessing.
   - [ ] `MP377-P0-T22AN-AF` now owns the packet-attention/no-conductor
     boundary: packet post, delivery, follow-loop attention, inbox/watch, and
     packet-backed control paths may update typed packet attention and plan
@@ -7602,3 +7606,8 @@ This generated ledger projects packet creation bindings for humans. The typed ro
 - [ ] `PKT-BIND-REV-PKT-2948` Packet finding: 8-agent synthesis on dev/reports/ 8.8GB intelligence: produce-don't-consume is universal (~80% data unread), rate accelerating across all metrics (W18 packet expiry 30x W13, 471 swarm fails in 41hr, codebase 3.5x growth),... (source `rev_pkt_2948`; target `dev/scripts/devctl/governance/intelligence_hub/`; posted `2026-05-04T03:53:56.805808Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-2949` Packet finding: Critical work-authority-freshness gap: implementer almost started coding from stale current_instruction (revision 7ebeb245f749 written when codex was writer, prose addresses Codex by name) + stale referenced packets (rev_... (source `rev_pkt_2949`; target `dev/scripts/devctl/runtime/`; posted `2026-05-04T04:07:21.506925Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-2952` Packet finding: ALERT: 826->1016 (+190) packets expired this session while AE/AF slice landed. Recent operator-authorized instruction-kind packets lost to clock: rev_pkt_2880 (RESUME + AutonomyMode META-DESIGN ASSIGNMENT, operator author... (source `rev_pkt_2952`; target `dev/scripts/devctl/runtime/plan_intent_ingestion.py`; posted `2026-05-04T04:49:09.404141Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2955` Packet finding: Architectural origin probe: DEFAULT_PACKET_TTL_MINUTES=30 is vestigial cargo-cult from operator's INITIAL Mar 9 control-plane landing (commit 54ff89ffa9, before plan_intent_ingestion + plan-row-binding existed) — bare lit... (source `rev_pkt_2955`; target `dev/scripts/devctl/review_channel/event_store.py`; posted `2026-05-04T05:05:22.536324Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2956` Packet finding: PROOF TEST: operator-requested live verification of plan ingestion. Marker packet only — no code change requested. Posted to demonstrate write-paths to typed state are working in real time. (source `rev_pkt_2956`; target `dev/state/plan_index.jsonl`; posted `2026-05-04T05:33:19.326864Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2957` Packet action request: Execute governed commit pipeline `pipeline-471cb0b7defb` (source `rev_pkt_2957`; target `remote_commit_pipeline:pipeline-471cb0b7defb`; posted `2026-05-04T05:38:12.333532Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2958` Packet finding: DIRECTIVE: triage all PKT-BIND rows + historical 1016 unbound expired packets into typed integrate/dismiss/superseded/already-done picture. PROOF current ingestion works (13/13 session packets bound, live test rev_pkt_295... (source `rev_pkt_2958`; target `plan:MP-377`; posted `2026-05-04T05:39:11.765721Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2961` Packet finding: RECURRING CLASS (4+ instances this session): silent waiting on hangs — typed system has the state, AI doesn't query it. Live evidence: codex right now hung 2+min in commit preflight silent section, falling back to ps -axo... (source `rev_pkt_2961`; target `dev/scripts/devctl/runtime/`; posted `2026-05-04T05:47:05.873081Z`; binding `plan_row`).

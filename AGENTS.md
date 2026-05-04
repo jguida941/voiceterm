@@ -1527,7 +1527,10 @@ false positives, and fixes real issues — then re-runs CodeRabbit to verify.
    --receipt-commit`, and a blocking pre-push hook that refuses raw `git push`
    unless the nested push came from `devctl push --execute`, so raw commits
    still produce the same receipt shape while raw publication stays on the
-   governed path. The governed push path accepts that receipt shape when the
+   governed path. Governed `devctl commit` streams VCS phase progress during
+   the irreversible git commit, and the post-commit hook announces the trailing
+   ReviewSnapshot receipt refresh instead of leaving a long silent process.
+   The governed push path accepts that receipt shape when the
    receipt HEAD, or any contiguous managed bridge/ReviewSnapshot receipt
    ancestor above it, leads back to the active `PushAuthorizationRecord`;
    stale detached pipeline records are ignored in `single_agent` mode, while

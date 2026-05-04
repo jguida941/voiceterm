@@ -99,8 +99,16 @@ if [ "$CHANGED" = "$TARGET" ]; then
     exit 0
 fi
 
+if [ "${DEVCTL_GOVERNED_COMMIT:-}" = "1" ]; then
+    echo "[post-commit hook] refreshing ReviewSnapshot receipt..." >&2
+fi
+
 if ! "$DEVCTL_PYTHON" dev/scripts/devctl.py review-snapshot --write --receipt-commit --format terminal >/dev/null 2>&1; then
     echo "[post-commit hook] devctl review-snapshot --receipt-commit failed; continuing commit." >&2
+else
+    if [ "${DEVCTL_GOVERNED_COMMIT:-}" = "1" ]; then
+        echo "[post-commit hook] ReviewSnapshot receipt refresh complete." >&2
+    fi
 fi
 
 exit 0

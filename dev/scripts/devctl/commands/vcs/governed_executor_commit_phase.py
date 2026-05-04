@@ -47,6 +47,7 @@ from .governed_executor_sync import (
     get_approval_decision_packet,
     sync_pipeline_approval,
 )
+from .progress import emit_vcs_progress
 
 ResultBuilder = Callable[..., ActionResult]
 PipelinePersister = Callable[[RemoteCommitPipelineContract], list[str]]
@@ -73,6 +74,7 @@ def execute_commit(
     context: CommitPipelineContext,
 ) -> ActionResult:
     """Run the commit phase of the governed commit pipeline."""
+    emit_vcs_progress("commit.load_pipeline", "loading governed commit pipeline")
     pipeline = context.load_pipeline()
     requested_pipeline_id = string_value(action.parameters.get("pipeline_id"))
     if not pipeline.pipeline_id or (
@@ -86,15 +88,18 @@ def execute_commit(
             operator_guidance="Stage a pipeline first, then rerun `vcs.commit`.",
         )
 
+    emit_vcs_progress("commit.sync_approval", "syncing approval packet state")
     pipeline = sync_pipeline_approval(
         pipeline,
         context.event_packets_loader(),
         approval_packet_kind=APPROVAL_PACKET_KIND,
     )
+    emit_vcs_progress("commit.attention_lease", "pinning packet-attention revision")
     pipeline = _acquire_attention_revision_lease(
         pipeline=pipeline,
         context=context,
     )
+    emit_vcs_progress("commit.attention_preflight", "checking attention drift")
     attention_block = _attention_revision_preflight_block(
         action_id=action.action_id,
         context=context,
@@ -108,6 +113,7 @@ def execute_commit(
     action_request_target_agent = string_value(
         action.parameters.get("action_request_target_agent")
     )
+    emit_vcs_progress("commit.packet_gate", "checking pending packet gate")
     if action_request_packet_id and action_request_target_agent:
         pending_block = pending_packet_queue_block_commit(
             repo_root=context.repo_root,
@@ -138,6 +144,7 @@ def execute_commit(
                 guidance=pending_block,
             ),
         )
+    emit_vcs_progress("commit.readiness", "verifying staged tree and message")
     readiness = evaluate_commit_readiness(
         pipeline=pipeline,
         repo_root=context.repo_root,
@@ -167,12 +174,15 @@ def execute_commit(
     )
     context.persist_pipeline_contract_only(commit_pending)
 
+    emit_vcs_progress("commit.git_commit", "running git commit and post-commit hook")
     commit_code, _, commit_error = run_git_capture(
         list(readiness.git_commit_args),
         repo_root=context.repo_root,
         extra_env={"DEVCTL_GOVERNED_COMMIT": "1"},
+        stream_output=True,
     )
     if commit_code != 0:
+        emit_vcs_progress("commit.failed", "git commit failed; routing typed failure")
         return _commit_failure_result(
             action_id=action.action_id,
             context=context,
@@ -180,6 +190,7 @@ def execute_commit(
             commit_error=commit_error,
         )
 
+    emit_vcs_progress("commit.record", "git commit returned; recording pipeline state")
     commit_sha = head_commit(context.repo_root)
     decision = get_approval_decision_packet(
         context.event_packets_loader(),
@@ -200,6 +211,7 @@ def execute_commit(
         artifact_relpath=context.pipeline_artifact_relpath,
         result_builder=context.result_builder,
     )
+    emit_vcs_progress("commit.complete", f"recorded sha={commit_sha}; push is next")
     return _commit_success_result(
         action_id=action.action_id,
         context=context,

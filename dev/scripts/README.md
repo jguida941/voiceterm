@@ -1064,7 +1064,10 @@ Portability note:
   ReviewSnapshot projection for allowed commits. The receipt hook delegates to
   `python3 dev/scripts/devctl.py review-snapshot --write --receipt-commit`
   so the final pushed branch can end with a governed ReviewSnapshot receipt
-  instead of a manually refreshed dirty worktree, while the pre-push hook
+  instead of a manually refreshed dirty worktree. Governed `devctl commit`
+  streams phase progress while the irreversible git commit is running, and the
+  managed post-commit hook announces the trailing receipt refresh before and
+  after its quiet `review-snapshot` call, while the pre-push hook
   refuses raw `git push` unless the nested push came from
   `python3 dev/scripts/devctl.py push --execute`. `devctl push` consumes that
   shape directly: a receipt HEAD may satisfy a current

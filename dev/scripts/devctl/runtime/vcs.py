@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -43,6 +44,7 @@ def run_git_capture(
     *,
     repo_root: Path = REPO_ROOT,
     extra_env: Mapping[str, str] | None = None,
+    stream_output: bool = False,
 ) -> tuple[int, str, str]:
     """Run a git command and return ``(returncode, stdout, stderr)``."""
     attempts = 1 + (len(INDEX_LOCK_RETRY_DELAYS) if _uses_git_index(args) else 0)
@@ -52,6 +54,7 @@ def run_git_capture(
             args,
             repo_root=repo_root,
             extra_env=extra_env,
+            stream_output=stream_output,
         )
         code, _stdout, stderr = last_result
         if code == 0 or not git_index_lock_busy(stderr):
@@ -66,7 +69,14 @@ def _run_git_capture_once(
     *,
     repo_root: Path = REPO_ROOT,
     extra_env: Mapping[str, str] | None = None,
+    stream_output: bool = False,
 ) -> tuple[int, str, str]:
+    if stream_output:
+        return _run_git_capture_streaming(
+            args,
+            repo_root=repo_root,
+            extra_env=extra_env,
+        )
     try:
         completed = subprocess.run(
             ["git", *args],
@@ -83,6 +93,34 @@ def _run_git_capture_once(
         (completed.stdout or "").strip(),
         (completed.stderr or "").strip(),
     )
+
+
+def _run_git_capture_streaming(
+    args: Sequence[str],
+    *,
+    repo_root: Path = REPO_ROOT,
+    extra_env: Mapping[str, str] | None = None,
+) -> tuple[int, str, str]:
+    output_parts: list[str] = []
+    try:
+        process = subprocess.Popen(
+            ["git", *args],
+            cwd=repo_root,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env=git_command_env(repo_root, extra_env=extra_env),
+        )
+    except OSError as exc:
+        return 127, "", str(exc)
+    if process.stdout is not None:
+        for line in process.stdout:
+            output_parts.append(line)
+            sys.stderr.write(line)
+            sys.stderr.flush()
+    returncode = process.wait()
+    combined = "".join(output_parts).strip()
+    return returncode, "", combined
 
 
 def _uses_git_index(args: Sequence[str]) -> bool:
