@@ -2100,9 +2100,9 @@ python3 dev/scripts/checks/check_structural_complexity.py --since-ref origin/dev
 python3 dev/scripts/checks/check_duplicate_types.py --since-ref origin/develop
 python3 dev/scripts/checks/check_package_layout.py --since-ref origin/develop
 python3 dev/scripts/checks/check_command_source_validation.py --since-ref origin/develop
-python3 dev/scripts/checks/check_registry_path_integrity.py --since-ref origin/develop
-python3 dev/scripts/checks/check_runtime_spine_closure.py --since-ref origin/develop
-python3 dev/scripts/checks/check_provider_list_parity_graph.py --since-ref origin/develop
+python3 dev/scripts/checks/check_registry_path_integrity.py
+python3 dev/scripts/checks/check_runtime_spine_closure.py
+python3 dev/scripts/checks/check_provider_list_parity_graph.py
 python3 dev/scripts/checks/check_pytest_runtime_policy.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py --since-ref origin/develop
 python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py

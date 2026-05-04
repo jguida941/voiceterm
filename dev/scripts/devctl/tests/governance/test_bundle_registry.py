@@ -92,6 +92,24 @@ class BundleRegistryContractTests(TestCase):
         commands = set(get_bundle_commands("bundle.post-push"))
         self.assertNotIn("python3 dev/scripts/checks/check_publication_sync.py", commands)
 
+    def test_post_push_bundle_only_ranges_range_aware_guards(self) -> None:
+        commands = set(get_bundle_commands("bundle.post-push"))
+        non_range_guards = {
+            "python3 dev/scripts/checks/check_registry_path_integrity.py",
+            "python3 dev/scripts/checks/check_runtime_spine_closure.py",
+            "python3 dev/scripts/checks/check_provider_list_parity_graph.py",
+        }
+        range_guards = {
+            "python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop",
+            "python3 dev/scripts/checks/check_command_source_validation.py --since-ref origin/develop",
+        }
+
+        self.assertTrue(non_range_guards.issubset(commands))
+        for command in commands:
+            if any(guard in command for guard in non_range_guards):
+                self.assertNotIn("--since-ref", command)
+        self.assertTrue(range_guards.issubset(commands))
+
     def test_reference_renderer_includes_all_bundles(self) -> None:
         markdown = render_all_bundle_reference_markdown()
         for bundle_name in BUNDLE_REGISTRY:
