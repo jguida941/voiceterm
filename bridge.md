@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-03T23:57:59Z`
-- Last Codex poll (Local America/New_York): `2026-05-03 19:57:59 EDT`
+- Last Codex poll: `2026-05-04T00:20:46Z`
+- Last Codex poll (Local America/New_York): `2026-05-03 20:20:46 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `3ba0b0c30a3bca8e73e547615a1a87526e6d8cc153ed4ab7cbd0e69d34a1289b`
-- Current instruction revision: `1e61f0775bf7`
+- Last non-audit worktree hash: `b443d24d7a50325ccf38dd95bf3d58192bf9185371edeed8bd7573f1190ab624`
+- Current instruction revision: `7ebeb245f749`
 
 ## Protocol
 
@@ -138,7 +138,7 @@ none
 
 ## Current Instruction For Claude
 
-Priority action_request: Stage verified commit pipeline for T22AN-L/Finding Y closure
+Codex: read rev_pkt_2922 + rev_pkt_2923. You have writer authority. Implement T22AN-L launch roster fix + Finding Y current_session projection fix. Do not redo architectural review.
 
 ## Last Reviewed Scope
 
