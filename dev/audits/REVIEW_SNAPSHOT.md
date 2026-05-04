@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `bc821042df9f` — Refresh external review snapshot for c2cf00e6
-- Tree hash: `d60152528fb6`
-- Generation stamp: `snap-efd89eb4e10b`
-- Generated at (UTC): 2026-05-04T00:27:43Z
+- HEAD: `764252dcb96c` — Refresh external review snapshot for bc821042
+- Tree hash: `d63df7d279ba`
+- Generation stamp: `snap-76448b96f9be`
+- Generated at (UTC): 2026-05-04T00:28:56Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 32 files, +2399/-1206
+- Delta since last snapshot: 24 commits, 32 files, +2389/-1190
 - Governance findings: 154 open / 88 fixed / 256 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,9 +30,9 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `bc821042df9f4b13124ad65d9cb037fba360f61e`
+- HEAD SHA: `764252dcb96c89a1c8d9e7eddd69a4c130da89ba`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-03T20:22:24-04:00
+- HEAD timestamp (UTC): 2026-05-03T20:27:44-04:00
 
 ## 2. Governance state
 
@@ -50,7 +50,7 @@ probes, typed actions, deterministic policy resolution — is what m...
 - authorized_head_commit: `bc821042df9f4b13124ad65d9cb037fba360f61e`
 - approved_target_identity: `tree-receipt-20260504T002046575624Z:5867d318d6a633da511c609ddfc95fef73cc7a93`
 - publication_backlog: urgent
-- publication_guidance: 12 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 13 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -70,12 +70,12 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `bc821042df9f`
+Range: last 24 commits ending at `764252dcb96c`
 
 - commits: 24
 - files changed: 32
-- insertions: +2399
-- deletions: -1206
+- insertions: +2389
+- deletions: -1190
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 3 file(s)
 
@@ -83,39 +83,39 @@ Range: last 24 commits ending at `bc821042df9f`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `bc821042` | Refresh external review snapshot for c2cf00e6 | 2 | +68/-67 | docs |  |
-| 2 | `c2cf00e6` | Preserve priority action-request current session | 14 | +347/-92 | tooling |  |
-| 3 | `71258903` | Refresh external review snapshot for c3b8b148 | 2 | +43/-43 | docs |  |
-| 4 | `c3b8b148` | Refresh external review snapshot for 6d9e177d | 2 | +43/-45 | docs |  |
-| 5 | `6d9e177d` | Refresh external review snapshot for 26a94370 | 2 | +66/-72 | docs |  |
-| 6 | `26a94370` | Absorb projection drift to clear governed-push gate per cod… | 3 | +9/-7 | tooling |  |
-| 7 | `d1b3377b` | Refresh external review snapshot for dae2c50e | 2 | +86/-88 | docs |  |
-| 8 | `dae2c50e` | Tighten operator notice sync guard | 12 | +297/-127 | tooling |  |
-| 9 | `1096b88d` | Implement codex's rev_pkt_2922 (Finding Y) + rev_pkt_2923 (… | 7 | +196/-16 | tooling |  |
-| 10 | `1761e564` | Absorb projection drift to clear startup gate before termin… | 3 | +7/-5 | tooling |  |
-| 11 | `0bba7ed5` | Absorb projection drift to clear bridge guard ACK mismatch… | 3 | +23/-12 | tooling |  |
-| 12 | `14945bd5` | Tighten remote_control wake routing per codex rev_pkt_2904 | 3 | +122/-1 | tooling |  |
-| 13 | `8c61c403` | Refresh external review snapshot for 8da8cee3 | 2 | +44/-44 | docs |  |
-| 14 | `8da8cee3` | Refresh external review snapshot for 1bf050cb | 1 | +44/-44 | tooling |  |
-| 15 | `1bf050cb` | Refresh policy-owned generated surfaces for 66480513 | 1 | +1/-1 | docs |  |
-| 16 | `66480513` | Refresh external review snapshot for b5a3728c | 2 | +70/-69 | docs |  |
-| 17 | `b5a3728c` | Phase 1.5: tighten remote_control wake/launch scope per rev… | 9 | +241/-67 | tooling |  |
-| 18 | `63171e06` | Refresh external review snapshot for 689b31b2 | 2 | +60/-61 | docs |  |
-| 19 | `689b31b2` | Unblock remote-control codex launch (Findings D + F minimal… | 8 | +274/-59 | tooling |  |
-| 20 | `19b907d1` | Refresh external review snapshot for ebc0732d | 2 | +62/-62 | docs |  |
-| 21 | `ebc0732d` | Suppress packet-post auto-spawn in remote_control mode (Fin… | 6 | +148/-76 | tooling |  |
-| 22 | `d876071a` | Refresh external review snapshot for 8b102bf9 | 2 | +45/-45 | docs |  |
-| 23 | `8b102bf9` | Refresh external review snapshot for 72269c1b | 1 | +45/-42 | tooling |  |
-| 24 | `72269c1b` | Refresh external review snapshot for 08e13d94 | 2 | +58/-61 | docs |  |
+| 1 | `764252dc` | Refresh external review snapshot for bc821042 | 2 | +48/-45 | docs |  |
+| 2 | `bc821042` | Refresh external review snapshot for c2cf00e6 | 2 | +68/-67 | docs |  |
+| 3 | `c2cf00e6` | Preserve priority action-request current session | 14 | +347/-92 | tooling |  |
+| 4 | `71258903` | Refresh external review snapshot for c3b8b148 | 2 | +43/-43 | docs |  |
+| 5 | `c3b8b148` | Refresh external review snapshot for 6d9e177d | 2 | +43/-45 | docs |  |
+| 6 | `6d9e177d` | Refresh external review snapshot for 26a94370 | 2 | +66/-72 | docs |  |
+| 7 | `26a94370` | Absorb projection drift to clear governed-push gate per cod… | 3 | +9/-7 | tooling |  |
+| 8 | `d1b3377b` | Refresh external review snapshot for dae2c50e | 2 | +86/-88 | docs |  |
+| 9 | `dae2c50e` | Tighten operator notice sync guard | 12 | +297/-127 | tooling |  |
+| 10 | `1096b88d` | Implement codex's rev_pkt_2922 (Finding Y) + rev_pkt_2923 (… | 7 | +196/-16 | tooling |  |
+| 11 | `1761e564` | Absorb projection drift to clear startup gate before termin… | 3 | +7/-5 | tooling |  |
+| 12 | `0bba7ed5` | Absorb projection drift to clear bridge guard ACK mismatch… | 3 | +23/-12 | tooling |  |
+| 13 | `14945bd5` | Tighten remote_control wake routing per codex rev_pkt_2904 | 3 | +122/-1 | tooling |  |
+| 14 | `8c61c403` | Refresh external review snapshot for 8da8cee3 | 2 | +44/-44 | docs |  |
+| 15 | `8da8cee3` | Refresh external review snapshot for 1bf050cb | 1 | +44/-44 | tooling |  |
+| 16 | `1bf050cb` | Refresh policy-owned generated surfaces for 66480513 | 1 | +1/-1 | docs |  |
+| 17 | `66480513` | Refresh external review snapshot for b5a3728c | 2 | +70/-69 | docs |  |
+| 18 | `b5a3728c` | Phase 1.5: tighten remote_control wake/launch scope per rev… | 9 | +241/-67 | tooling |  |
+| 19 | `63171e06` | Refresh external review snapshot for 689b31b2 | 2 | +60/-61 | docs |  |
+| 20 | `689b31b2` | Unblock remote-control codex launch (Findings D + F minimal… | 8 | +274/-59 | tooling |  |
+| 21 | `19b907d1` | Refresh external review snapshot for ebc0732d | 2 | +62/-62 | docs |  |
+| 22 | `ebc0732d` | Suppress packet-post auto-spawn in remote_control mode (Fin… | 6 | +148/-76 | tooling |  |
+| 23 | `d876071a` | Refresh external review snapshot for 8b102bf9 | 2 | +45/-45 | docs |  |
+| 24 | `8b102bf9` | Refresh external review snapshot for 72269c1b | 1 | +45/-42 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +5/-1 |
-| `bridge.md` | docs | +130/-130 |
+| `bridge.md` | docs | +128/-128 |
 | `dev/active/MASTER_PLAN.md` | tooling | +31/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +994/-1002 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +986/-988 |
 | `dev/guides/DEVELOPMENT.md` | docs | +10/-3 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +2/-2 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +90/-0 |
@@ -208,6 +208,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`764252dc`** — Refresh external review snapshot for bc821042
+  - evolution: Fact: The final T22AN-L/Finding Y stage-commit handoff packet selected a queue-priority `action_request`, but event-backed `current_session` projection still preferred the stale reviewer checkpoint and then let implemen…
 - **`bc821042`** — Refresh external review snapshot for c2cf00e6
   - evolution: Fact: The final T22AN-L/Finding Y stage-commit handoff packet selected a queue-priority `action_request`, but event-backed `current_session` projection still preferred the stale reviewer checkpoint and then let implemen…
 - **`c2cf00e6`** — Preserve priority action-request current session
@@ -260,8 +262,6 @@ Recent findings:
   - evolution: Fact: The final T22AN-L/Finding Y stage-commit handoff packet selected a queue-priority `action_request`, but event-backed `current_session` projection still preferred the stale reviewer checkpoint and then let implemen…
 - **`8b102bf9`** — Refresh external review snapshot for 72269c1b
   - evolution: Fact: The final T22AN-L/Finding Y stage-commit handoff packet selected a queue-priority `action_request`, but event-backed `current_session` projection still preferred the stale reviewer checkpoint and then let implemen…
-- **`72269c1b`** — Refresh external review snapshot for 08e13d94
-  - evolution: Fact: The final T22AN-L/Finding Y stage-commit handoff packet selected a queue-priority `action_request`, but event-backed `current_session` projection still preferred the stale reviewer checkpoint and then let implemen…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -304,4 +304,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-efd89eb4e10b` binds this file to HEAD `bc821042df9f`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-76448b96f9be` binds this file to HEAD `764252dcb96c`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
