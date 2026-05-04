@@ -20,6 +20,14 @@ def render_markdown(report: dict) -> str:
     )
     lines.append(f"- risk_addons: {len(report['risk_addons'])}")
     lines.append(f"- planned_commands: {len(report['planned_commands'])}")
+    execution_plan = report.get("execution_plan")
+    if isinstance(execution_plan, dict):
+        lines.append(
+            "- execution_plan: "
+            f"serial={execution_plan.get('serial_required_command_count', 0)} "
+            f"parallel_safe={execution_plan.get('parallel_safe_command_count', 0)} "
+            f"phases={execution_plan.get('phase_count', 0)}"
+        )
     coverage = report.get("guard_coverage")
     if isinstance(coverage, dict):
         lines.append(
@@ -87,7 +95,10 @@ def render_markdown(report: dict) -> str:
         lines.append("")
         lines.append("## Planned Commands")
         for row in report["planned_commands"]:
-            lines.append(f"- `{row['source']}` -> `{row['command']}`")
+            safety = row.get("parallel_safety", "parallel_safe")
+            reason = row.get("parallel_reason", "")
+            suffix = f" [{safety}: {reason}]" if reason else f" [{safety}]"
+            lines.append(f"- `{row['source']}` -> `{row['command']}`{suffix}")
 
     if report["steps"]:
         lines.append("")

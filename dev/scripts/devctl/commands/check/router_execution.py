@@ -1,4 +1,4 @@
-"""Execution helpers for check-router command plans."""
+"""Execution orchestration for check-router command plans."""
 
 from __future__ import annotations
 
@@ -6,45 +6,11 @@ import json
 
 from ...common import emit_output, pipe_output, run_cmd, write_output
 from ...config import REPO_ROOT
-from .router_range import normalize_router_command
+from .progress import emit_progress
+from .router_phases import router_batches, router_execution_summary
+from .router_plan import build_planned_rows
+from .router_steps import dry_run_step_result, execute_router_row
 from .steps import run_step_specs
-
-
-def build_planned_rows(
-    *,
-    bundle_name: str,
-    bundle_commands: list[str],
-    risk_addons: list[dict],
-    policy_path: str | None,
-    since_ref: str | None,
-    head_ref: str,
-) -> list[dict[str, str]]:
-    planned_rows = [
-        {
-            "source": bundle_name,
-            "command": normalize_router_command(
-                command,
-                policy_path,
-                since_ref=since_ref,
-                head_ref=head_ref,
-            ),
-        }
-        for command in bundle_commands
-    ]
-    for addon in risk_addons:
-        planned_rows.extend(
-            {
-                "source": addon["id"],
-                "command": normalize_router_command(
-                    command,
-                    policy_path,
-                    since_ref=since_ref,
-                    head_ref=head_ref,
-                ),
-            }
-            for command in addon["commands"]
-        )
-    return planned_rows
 
 
 def execute_planned_rows(
@@ -90,7 +56,11 @@ def _execute_rows(planned_rows: list[dict[str, str]], args) -> tuple[list[dict],
     if dry_run and args.format == "json":
         return (
             [
-                _dry_run_step_result(f"router-{index:02d}", row)
+                dry_run_step_result(
+                    f"router-{index:02d}",
+                    row,
+                    repo_root=REPO_ROOT,
+                )
                 for index, row in enumerate(planned_rows, start=1)
             ],
             True,
@@ -127,23 +97,37 @@ def _execute_rows_parallel(
     dry_run: bool,
     max_workers: int,
 ) -> tuple[list[dict], bool]:
-    step_specs = [
-        {
-            "name": f"router-{index:02d}",
-            "cmd": ["bash", "-lc", row["command"]],
-            "cwd": REPO_ROOT,
-        }
-        for index, row in enumerate(planned_rows, start=1)
-    ]
-    steps = run_step_specs(
-        step_specs,
-        dry_run=dry_run,
-        parallel_enabled=True,
-        max_workers=max_workers,
-    )
-    for step, row in zip(steps, planned_rows, strict=False):
-        step["source"] = row["source"]
-        step["router_command"] = row["command"]
+    steps: list[dict] = []
+    current = 0
+    total = len(planned_rows)
+    for batch in router_batches(planned_rows):
+        step_specs = [
+            {
+                "name": f"router-{current + index:02d}",
+                "cmd": ["bash", "-lc", row["command"]],
+                "cwd": REPO_ROOT,
+            }
+            for index, row in enumerate(batch.rows, start=1)
+        ]
+        emit_progress(
+            step_specs,
+            current=current,
+            total=total,
+            is_parallel=batch.parallel_enabled,
+        )
+        batch_steps = run_step_specs(
+            step_specs,
+            dry_run=dry_run,
+            parallel_enabled=batch.parallel_enabled,
+            max_workers=max_workers,
+        )
+        for step, row in zip(batch_steps, batch.rows, strict=False):
+            step["source"] = row["source"]
+            step["router_command"] = row["command"]
+            step["parallel_safety"] = row.get("parallel_safety", "parallel_safe")
+            step["parallel_reason"] = row.get("parallel_reason", "")
+        steps.extend(batch_steps)
+        current += len(batch.rows)
     ok = all(int(step.get("returncode") or 0) == 0 for step in steps)
     return steps, ok
 
@@ -155,28 +139,19 @@ def _execute_row(
     args,
     dry_run: bool,
 ) -> dict:
-    step_name = f"router-{index:02d}"
-    if dry_run and args.format == "json":
-        return _dry_run_step_result(step_name, row)
-    result = run_cmd(
-        step_name,
-        ["bash", "-lc", row["command"]],
-        cwd=REPO_ROOT,
+    return execute_router_row(
+        index=index,
+        row=row,
         dry_run=dry_run,
+        json_format=args.format == "json",
+        repo_root=REPO_ROOT,
+        runner=run_cmd,
     )
-    result["source"] = row["source"]
-    result["router_command"] = row["command"]
-    return result
 
 
-def _dry_run_step_result(name: str, row: dict[str, str]) -> dict[str, object]:
-    return dict(
-        name=name,
-        cmd=["bash", "-lc", row["command"]],
-        cwd=str(REPO_ROOT),
-        returncode=0,
-        duration_s=0.0,
-        skipped=True,
-        source=row["source"],
-        router_command=row["command"],
-    )
+__all__ = [
+    "build_planned_rows",
+    "emit_router_report",
+    "execute_planned_rows",
+    "router_execution_summary",
+]

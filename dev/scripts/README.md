@@ -1235,6 +1235,8 @@ python3 dev/scripts/devctl.py check --profile ci --with-process-sweep-cleanup
 python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute --keep-going
 python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute --keep-going --parallel-workers 8
 python3 dev/scripts/devctl.py check-router --since-ref origin/develop --quality-policy /tmp/pilot-policy.json
+# `check-router --execute --keep-going` reports serial-required projection/status
+# commands separately from parallel-safe guard rows in `execution_plan`.
 # Canonical guarded branch-push validation path (non-mutating by default)
 python3 dev/scripts/devctl.py push
 # Execute the real short-lived branch push plus the configured post-push bundle
@@ -1823,14 +1825,15 @@ Machine-first output note:
   - The six-row `AGENTS.md` router table and the generated `CLAUDE.md`
     task-router quick map render from the same typed authority in
     `dev/scripts/devctl/governance/task_router_contract.py`.
-  - `--execute` runs the routed bundle commands plus add-ons from `bundle_registry.py`; use `--keep-going` for publish/preflight proof so later guards still run after an early failure. Reports include a typed `CheckRouterGuardCoverageReceipt` plus `GuardRemediationAction` rows, so automation can distinguish all-planned-commands-executed from first-failure-only evidence.
+  - `--execute` runs the routed bundle commands plus add-ons from `bundle_registry.py`; use `--keep-going` for publish/preflight proof so later guards still run after an early failure. Reports include a typed `CheckRouterGuardCoverageReceipt` plus `GuardRemediationAction` rows, and `execution_plan` separates serial-required projection/status commands from parallel-safe guard rows so automation can prove both safety and coverage.
   - Range-aware universal guards such as Python broad-except and command-source validation receive the router's `--since-ref/--head-ref` automatically, which keeps clean-worktree push preflight from missing already-committed Python changes.
   - Unknown paths escalate to the stricter tooling lane.
 - `test-python`: bounded Python test adapter for repo-owned pytest suites
   (`devctl`, `operator-console`, or `root`), with fail-fast defaults plus
   session/per-test timeouts enforced by the repo pytest plugin. `check-router`
   adds focused devctl tests for tooling changes and Operator Console tests only
-  for touched `app/operator_console/**/*.py` paths. `AGENTS.md` must list this
+  for touched `app/operator_console/**/*.py` paths; focused devctl add-ons
+  scale their session timeout with selected test-target count. `AGENTS.md` must list this
   command because `check_agents_contract.py` mirrors the live command inventory
   from `dev/scripts/devctl/commands/listing.py`.
 - `mutants`: mutation test helper wrapper
@@ -2330,7 +2333,7 @@ Machine-first output note:
 | Command | Run it when | Why |
 |---|---|---|
 | `check --profile fast` | you need a very fast local sanity pass while iterating | alias of `quick`; runs local guard checks (including AI-guard scripts) and is not a substitute for pre-push validation |
-| `check-router --since-ref origin/develop --execute --keep-going` | before push when changed files span multiple surfaces | auto-selects required lane + risk add-ons, executes the routed command set from `bundle_registry.py` in parallel by default, and emits guard coverage/remediation evidence (unknown paths escalate to tooling); add `--parallel-workers <n>` to tune or `--no-parallel` for sequential debugging |
+| `check-router --since-ref origin/develop --execute --keep-going` | before push when changed files span multiple surfaces | auto-selects required lane + risk add-ons, phases serial-sensitive projection/status commands away from parallel-safe guards, and emits guard coverage/remediation evidence (unknown paths escalate to tooling); add `--parallel-workers <n>` to tune or `--no-parallel` for sequential debugging |
 | `check-router --since-ref origin/develop --quality-policy /tmp/pilot-policy.json` | you are piloting the governance router in another repo clone | reuses the same lane-selection engine against another repo's policy-owned path/risk rules |
 | `test-python --suite devctl --path dev/scripts/devctl/tests/commands/test_python_tests.py` | you need Python proof for a focused tooling slice | runs pytest through repo-owned fail-fast and timeout policy instead of a broad raw pytest command |
 | `tandem-validate --format md` | a Codex/Claude tandem slice needs one canonical validator instead of a hand-written checklist | runs preflight policy/status, derives the real lane and risk add-ons from `check-router`, executes the routed bundle, then rechecks `check_review_channel_bridge.py` and `check_tandem_consistency.py` at the end |

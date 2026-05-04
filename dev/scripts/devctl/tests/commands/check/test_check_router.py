@@ -222,6 +222,44 @@ class CheckRouterTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_devctl_focused_test_timeout_scales_with_target_count(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [
+                {"status": "M", "path": path}
+                for path in (
+                    "dev/scripts/devctl/tests/checks/test_check_multi_agent_sync_runtime_truth.py",
+                    "dev/scripts/devctl/tests/commands/check/test_check_router.py",
+                    "dev/scripts/devctl/tests/commands/test_development_command.py",
+                    "dev/scripts/devctl/tests/governance/test_bundle_registry.py",
+                    "dev/scripts/devctl/tests/review_channel/test_collaboration_session.py",
+                    "dev/scripts/devctl/tests/review_channel/test_current_session_projection.py",
+                    "dev/scripts/devctl/tests/review_channel/test_event_post_wake.py",
+                    "dev/scripts/devctl/tests/review_channel/test_event_render_typed_sections.py",
+                    "dev/scripts/devctl/tests/review_channel/test_failure_packet_router.py",
+                    "dev/scripts/devctl/tests/review_channel/test_follow_controller_reviewer_wake.py",
+                )
+            ]
+        }
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/devctl.py docs-check --strict-tooling"],
+            None,
+        )
+
+        rc = check_router.run(make_args())
+        self.assertEqual(rc, 0)
+
+        payload = json.loads(write_output_mock.call_args.args[0])
+        joined = "\n".join(row["command"] for row in payload["planned_commands"])
+        self.assertIn("--timeout-seconds 360", joined)
+
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_operator_console_change_routes_operator_console_tests(
         self,
         collect_git_status_mock,
@@ -539,39 +577,47 @@ class CheckRouterTests(unittest.TestCase):
             ],
             None,
         )
-        run_step_specs_mock.return_value = [
-            {
-                "name": "router-01",
-                "cmd": ["bash", "-lc", "docs-check"],
-                "cwd": ".",
-                "returncode": 1,
-                "duration_s": 0.01,
-                "skipped": False,
-                "failure_output": (
-                    "Strict tooling docs mode requires maintainer docs; missing: "
-                    "AGENTS.md, dev/guides/DEVELOPMENT.md."
-                ),
-            },
-            {
-                "name": "router-02",
-                "cmd": ["bash", "-lc", "registry"],
-                "cwd": ".",
-                "returncode": 0,
-                "duration_s": 0.01,
-                "skipped": False,
-            },
+        run_step_specs_mock.side_effect = [
+            [
+                {
+                    "name": "router-01",
+                    "cmd": ["bash", "-lc", "docs-check"],
+                    "cwd": ".",
+                    "returncode": 1,
+                    "duration_s": 0.01,
+                    "skipped": False,
+                    "failure_output": (
+                        "Strict tooling docs mode requires maintainer docs; missing: "
+                        "AGENTS.md, dev/guides/DEVELOPMENT.md."
+                    ),
+                }
+            ],
+            [
+                {
+                    "name": "router-02",
+                    "cmd": ["bash", "-lc", "registry"],
+                    "cwd": ".",
+                    "returncode": 0,
+                    "duration_s": 0.01,
+                    "skipped": False,
+                }
+            ],
         ]
 
         rc = check_router.run(make_args(execute=True, keep_going=True))
 
         self.assertEqual(rc, 1)
-        run_step_specs_mock.assert_called_once()
-        _, kwargs = run_step_specs_mock.call_args
-        self.assertTrue(kwargs["parallel_enabled"])
-        self.assertEqual(kwargs["max_workers"], 4)
+        self.assertEqual(run_step_specs_mock.call_count, 2)
+        first_kwargs = run_step_specs_mock.call_args_list[0].kwargs
+        second_kwargs = run_step_specs_mock.call_args_list[1].kwargs
+        self.assertFalse(first_kwargs["parallel_enabled"])
+        self.assertTrue(second_kwargs["parallel_enabled"])
+        self.assertEqual(second_kwargs["max_workers"], 4)
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertTrue(payload["parallel_enabled"])
         self.assertEqual(payload["parallel_workers"], 4)
+        self.assertEqual(payload["execution_plan"]["serial_required_command_count"], 1)
+        self.assertEqual(payload["execution_plan"]["parallel_safe_command_count"], 1)
         coverage = payload["guard_coverage"]
         self.assertEqual(coverage["contract_id"], "CheckRouterGuardCoverageReceipt")
         self.assertEqual(coverage["planned_command_count"], 2)
@@ -587,6 +633,73 @@ class CheckRouterTests(unittest.TestCase):
             payload["remediation_actions"][0]["required_paths"],
             ["AGENTS.md", "dev/guides/DEVELOPMENT.md"],
         )
+
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.run_step_specs")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_keep_going_keeps_projection_commands_ordered_around_parallel_guards(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        run_step_specs_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [{"status": "M", "path": "dev/scripts/README.md"}]
+        }
+        extract_bundle_mock.return_value = (
+            [
+                "python3 dev/scripts/devctl.py docs-check --strict-tooling",
+                "python3 dev/scripts/checks/check_registry_path_integrity.py",
+                "python3 dev/scripts/checks/check_review_surface_consistency.py",
+            ],
+            None,
+        )
+        run_step_specs_mock.side_effect = [
+            [
+                {
+                    "name": "router-01",
+                    "cmd": ["bash", "-lc", "docs-check"],
+                    "cwd": ".",
+                    "returncode": 0,
+                    "duration_s": 0.01,
+                    "skipped": False,
+                }
+            ],
+            [
+                {
+                    "name": "router-02",
+                    "cmd": ["bash", "-lc", "registry"],
+                    "cwd": ".",
+                    "returncode": 0,
+                    "duration_s": 0.01,
+                    "skipped": False,
+                }
+            ],
+            [
+                {
+                    "name": "router-03",
+                    "cmd": ["bash", "-lc", "review-surface"],
+                    "cwd": ".",
+                    "returncode": 0,
+                    "duration_s": 0.01,
+                    "skipped": False,
+                }
+            ],
+        ]
+
+        rc = check_router.run(make_args(execute=True, keep_going=True))
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(run_step_specs_mock.call_count, 3)
+        self.assertFalse(run_step_specs_mock.call_args_list[0].kwargs["parallel_enabled"])
+        self.assertTrue(run_step_specs_mock.call_args_list[1].kwargs["parallel_enabled"])
+        self.assertFalse(run_step_specs_mock.call_args_list[2].kwargs["parallel_enabled"])
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(payload["execution_plan"]["serial_required_command_count"], 2)
+        self.assertEqual(payload["execution_plan"]["parallel_safe_command_count"], 1)
+        self.assertEqual([step["name"] for step in payload["steps"]], ["router-01", "router-02", "router-03"])
 
     def test_bundle_contract_extracts_non_empty_commands(self) -> None:
         for lane, bundle_name in check_router.BUNDLE_BY_LANE.items():

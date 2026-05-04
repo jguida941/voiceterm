@@ -14,6 +14,7 @@ from .router_execution import (
     build_planned_rows,
     emit_router_report,
     execute_planned_rows,
+    router_execution_summary,
 )
 from .router_render import render_markdown
 from .router_support import classify_lane as _classify_lane
@@ -172,6 +173,7 @@ def run(args) -> int:
         "keep_going": keep_going,
         "parallel_enabled": parallel_enabled,
         "parallel_workers": parallel_workers,
+        "execution_plan": router_execution_summary(planned_rows),
         "error": bundle_error,
     }
     report["guard_coverage"] = build_guard_coverage_receipt(

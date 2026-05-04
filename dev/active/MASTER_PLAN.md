@@ -6340,8 +6340,13 @@ become the main product surface.
     managed projection receipt repair, routed `check-router --execute
     --keep-going` guard coverage/remediation proof, bounded fixed-point
     refresh, concurrent source-edit waiting, governed `devctl push --execute`,
-    and packet evidence closeout through one typed controller instead of
-    watcher-authored shell branching.
+    long-running phase progress, and packet evidence closeout through one
+    typed controller instead of watcher-authored shell branching. The
+    2026-05-04 router follow-up proved the first automation sub-slice:
+    routed preflight now exposes serial/parallel execution-plan metadata,
+    keeps projection/status commands ordered, runs independent guard rows in
+    worker batches, and scales focused Python-test timeout to selected target
+    count.
   - [ ] `MP377-P0-T22AN-AF` now owns the packet-attention/no-conductor
     boundary: packet post, delivery, follow-loop attention, inbox/watch, and
     packet-backed control paths may update typed packet attention and plan
@@ -7596,3 +7601,4 @@ This generated ledger projects packet creation bindings for humans. The typed ro
 - [ ] `PKT-BIND-REV-PKT-2947` Packet finding: Organizational guards gap (operator escalation): platform identity failure - 77 check_*.py outside devctl/, state forked across 4 roots (8.8GB), zero existing guards catch this. Propose 4 new universal guards (canonical_d... (source `rev_pkt_2947`; target `dev/scripts/checks/`; posted `2026-05-04T03:42:33.838153Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-2948` Packet finding: 8-agent synthesis on dev/reports/ 8.8GB intelligence: produce-don't-consume is universal (~80% data unread), rate accelerating across all metrics (W18 packet expiry 30x W13, 471 swarm fails in 41hr, codebase 3.5x growth),... (source `rev_pkt_2948`; target `dev/scripts/devctl/governance/intelligence_hub/`; posted `2026-05-04T03:53:56.805808Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-2949` Packet finding: Critical work-authority-freshness gap: implementer almost started coding from stale current_instruction (revision 7ebeb245f749 written when codex was writer, prose addresses Codex by name) + stale referenced packets (rev_... (source `rev_pkt_2949`; target `dev/scripts/devctl/runtime/`; posted `2026-05-04T04:07:21.506925Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2952` Packet finding: ALERT: 826->1016 (+190) packets expired this session while AE/AF slice landed. Recent operator-authorized instruction-kind packets lost to clock: rev_pkt_2880 (RESUME + AutonomyMode META-DESIGN ASSIGNMENT, operator author... (source `rev_pkt_2952`; target `dev/scripts/devctl/runtime/plan_intent_ingestion.py`; posted `2026-05-04T04:49:09.404141Z`; binding `plan_row`).

@@ -1898,6 +1898,11 @@ Mutation runs can be long; plan to run them overnight and use Ctrl+C to stop if 
 - See `dev/guides/DEVCTL_AUTOGUIDE.md` for automation-first loop orchestration (`triage-loop`, Ralph mode controls, and proposal artifacts).
 - `devctl check --with-process-sweep-cleanup` sweeps orphaned and stale test processes before and after a run (stale active threshold: `>=600s`); the sweep is opt-in so normal check output does not hide code-shape failures behind host cleanup noise.
 - `devctl check` runs independent setup gates (`fmt`, `clippy`, AI guard scripts) and test/build phases in parallel batches by default.
+- `devctl check-router --execute --keep-going` also reports a typed execution
+  plan: serial-sensitive projection/status commands stay ordered, while
+  parallel-safe guards run in worker batches with progress lines. Focused
+  devctl Python risk add-ons scale their session timeout with the selected
+  test target count instead of using one fixed ceiling for every slice.
 
 ```bash
 # Core checks (fmt, clippy, tests, build)

@@ -13319,7 +13319,17 @@ Follow-up: Claude dogfood packet `rev_pkt_2946` exposed that the routed
 already had an ordered parallel step runner. `check-router` now exposes
 `--parallel-workers` / `--no-parallel`, runs `--execute --keep-going` routed
 commands through the shared parallel runner by default, and reports the
-parallel settings in JSON/markdown output.
+parallel settings in JSON/markdown output. The live governed-push retry then
+proved the safety boundary: review/status projection checks cannot race every
+independent guard, and the focused devctl pytest add-on should not compete
+with dozens of guard subprocesses under one fixed 300s timeout. The router now
+emits `execution_plan` metadata, keeps serial-required projection/status/test
+commands in ordered phases, parallelizes only parallel-safe guard rows, and
+scales focused devctl Python-test timeout by selected target count. The same
+follow-up made `check_multi_agent_sync.py` mirror `AgentLoopDecision`
+authority: stale read-only work-board visibility rows no longer require a
+matching loop decision unless a live packet or execution field gives them loop
+work.
 
 Evidence:
 
@@ -13327,9 +13337,12 @@ Evidence:
 - `dev/scripts/devctl/cli_parser/quality.py`
 - `dev/scripts/devctl/commands/check/router.py`
 - `dev/scripts/devctl/commands/check/router_execution.py`
+- `dev/scripts/devctl/commands/check/router_python_tests.py`
 - `dev/scripts/devctl/commands/check/router_render.py`
+- `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop.py`
 - `dev/scripts/devctl/governance/push_routing.py`
 - `dev/scripts/checks/check_guard_enforcement_inventory.py`
+- `dev/scripts/devctl/tests/checks/test_check_multi_agent_sync_runtime_truth.py`
 - `dev/scripts/devctl/tests/commands/check/test_check_router.py`
 - `dev/scripts/devctl/tests/governance/test_bundle_registry.py`
 - `dev/scripts/README.md`

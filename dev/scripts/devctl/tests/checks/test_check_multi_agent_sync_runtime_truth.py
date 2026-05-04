@@ -258,6 +258,76 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         "resolved_review_state_relative_path"
     )
     @patch("dev.scripts.checks.multi_agent_sync.runtime_truth.load_review_state_payload")
+    def test_runtime_truth_allows_stale_read_only_board_rows_without_loop_decisions(
+        self,
+        load_payload_mock,
+        relpath_mock,
+    ) -> None:
+        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        load_payload_mock.return_value = {
+            "collaboration": {
+                "participants": [],
+                "delegated_work": [],
+                "ready_gates": [],
+            },
+            "registry": {"agents": []},
+            "agent_sync": {"agents": {}},
+            "agent_work_board": {
+                "rows": [
+                    {
+                        "actor_id": "claude",
+                        "role": "dashboard",
+                        "session_id": "s-stale",
+                        "idle_seconds": 1200,
+                        "stale_after_seconds": 600,
+                        "confidence_class": "stale",
+                        "active_packet_id": "",
+                        "attention_packet_id": "",
+                        "executing_packet_id": "",
+                    },
+                    {
+                        "actor_id": "codex",
+                        "role": "dashboard",
+                        "session_id": "s-live",
+                        "idle_seconds": 10,
+                        "stale_after_seconds": 600,
+                        "confidence_class": "derived_typed_event",
+                    },
+                ]
+            },
+            "agent_loop_decisions": [
+                {
+                    "actor_id": "codex",
+                    "actor_role": "dashboard",
+                    "session_id": "s-live",
+                    "pending_packet_count": 0,
+                }
+            ],
+            "reviewer_runtime": {
+                "packet_attention": {
+                    "observation_actor_id": "",
+                    "pending_packet_count": 0,
+                    "wake_required": False,
+                    "stale_reason": "",
+                }
+            },
+        }
+
+        result = runtime_truth.evaluate_runtime_truth(
+            repo_root=Path("/repo"),
+            planned_agent_ids=[],
+        )
+
+        self.assertTrue(result["checked"])
+        self.assertFalse(
+            any("s-stale" in err for err in result["errors"])
+        )
+
+    @patch(
+        "dev.scripts.checks.multi_agent_sync.runtime_truth."
+        "resolved_review_state_relative_path"
+    )
+    @patch("dev.scripts.checks.multi_agent_sync.runtime_truth.load_review_state_payload")
     def test_runtime_truth_allows_operator_read_only_notice_without_loop_wake(
         self,
         load_payload_mock,

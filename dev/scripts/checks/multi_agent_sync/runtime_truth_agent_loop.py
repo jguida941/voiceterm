@@ -94,6 +94,8 @@ def _work_board_decision_errors(
     }
     errors: list[str] = []
     for row in work_rows:
+        if not _work_board_row_requires_loop_decision(row):
+            continue
         key = _work_board_key(row)
         if not key:
             continue
@@ -106,6 +108,20 @@ def _work_board_decision_errors(
             continue
         errors.extend(_packet_focus_errors(key, row, decision))
     return errors
+
+
+def _work_board_row_requires_loop_decision(row: Mapping[str, object]) -> bool:
+    if (
+        coerce_text(row.get("active_packet_id"))
+        or coerce_text(row.get("attention_packet_id"))
+        or coerce_text(row.get("executing_packet_id"))
+    ):
+        return True
+    if coerce_text(row.get("confidence_class")) == "stale":
+        return False
+    stale_after = coerce_int(row.get("stale_after_seconds"))
+    idle_seconds = coerce_int(row.get("idle_seconds"))
+    return not (stale_after > 0 and idle_seconds > stale_after)
 
 
 def _packet_focus_errors(
