@@ -590,7 +590,8 @@ Portability note:
   `post_packet` finalization when they carry explicit plan context, so a
   plan-scoped finding can become a `PlanRow` before TTL expiry instead of
   waiting for manual apply. Bound packets that later expire are classified as
-  `expired_after_durable_binding` and do not become carry-forward debt.
+  `expired_after_durable_binding` in both `PacketDisposition` and the
+  read-side `PacketOutcomeLedger`, and do not become carry-forward debt.
   The pending-packet disposition guard remains a follow-on enforcement slice.
 - `review-channel --action show --packet-id <id>` is the exact packet-read
   surface for agents and operators. It uses the same event-backed reducer as

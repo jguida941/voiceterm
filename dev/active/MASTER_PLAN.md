@@ -6383,6 +6383,11 @@ become the main product surface.
     closure: pre-expiry intent extraction and startup batch-ingest must move
     substantive packet bodies into durable plan/finding ownership before
     `clock_expired_without_disposition` can archive the transport.
+    2026-05-04 read-side closure: `PacketOutcomeLedger` and
+    `PacketDisposition` now preserve `expired_after_durable_binding` for
+    packets with `PacketCreationBinding` or durable-ingestion receipts, so
+    plan-bound expired Claude/Codex packets remain archived audit rows with a
+    durable owner instead of looking like unbound clock loss.
   - [ ] Freeze the first explanation/contract boundary shapes in that same
     lane: use closed-vocabulary status/wait-reason enums for `DecisionTrace`,
     add strict boundary-validation models plus JSON Schema emission for

@@ -77,12 +77,12 @@ def refresh_review_snapshot_file(
         from .governance_scan import scan_repo_governance_safely
         from .review_snapshot import build_review_snapshot
         from .review_snapshot_render import render_review_snapshot_markdown
-    except Exception as exc:  # pragma: no cover - import-time safety net
+    except Exception as exc:  # broad-except: allow reason=post-commit refresh import failure must not block landed commit fallback=return warning
         return [f"review_snapshot_refresh_import_failed: {exc}"]
 
     try:
         governance = scan_repo_governance_safely(repo_root)
-    except Exception:
+    except Exception:  # broad-except: allow reason=governance lookup only selects snapshot path fallback=use default target
         governance = None
 
     target_rel = _resolve_target(governance)
@@ -98,7 +98,7 @@ def refresh_review_snapshot_file(
             previous_head_sha=previous_head_sha,
         )
         markdown = render_review_snapshot_markdown(snapshot)
-    except Exception as exc:
+    except Exception as exc:  # broad-except: allow reason=snapshot build failure should become post-commit warning fallback=return warning
         return [f"review_snapshot_build_failed: {exc}"]
 
     try:
@@ -145,12 +145,12 @@ def refresh_and_stage_review_snapshot(
     # this is the fresh-repo no-op case and it's not an error.
     try:
         from .governance_scan import scan_repo_governance_safely
-    except Exception as exc:  # pragma: no cover - import-time safety net
+    except Exception as exc:  # broad-except: allow reason=stage helper import failure must not mask commit outcome fallback=return warning
         return [f"review_snapshot_stage_import_failed: {exc}"]
 
     try:
         governance = scan_repo_governance_safely(repo_root)
-    except Exception:
+    except Exception:  # broad-except: allow reason=governance lookup only selects staged snapshot path fallback=use default target
         governance = None
     target_rel = _resolve_target(governance)
     target = repo_root / target_rel
@@ -159,7 +159,7 @@ def refresh_and_stage_review_snapshot(
 
     try:
         from .vcs import run_git_capture
-    except Exception as exc:  # pragma: no cover - import-time safety net
+    except Exception as exc:  # broad-except: allow reason=VCS import failure must not mask commit outcome fallback=return warning
         return [f"review_snapshot_stage_import_failed: {exc}"]
 
     code, _, stderr = run_git_capture(

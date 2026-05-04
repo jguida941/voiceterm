@@ -44,6 +44,7 @@ def _parse_scalar(value: str) -> object:
     if token.startswith("[") or token.startswith("{"):
         try:
             return json.loads(token)
+        # broad-except: allow reason=invalid inline JSON should become a typed YAML fallback parse error fallback=raise YamlFallbackParseError
         except Exception as exc:
             raise YamlFallbackParseError(
                 f"invalid inline collection scalar: {token}"
@@ -199,5 +200,6 @@ def load_yaml_or_json(raw: str, *, yaml_module: object | None = _yaml) -> object
         return yaml_module.safe_load(raw)
     try:
         return json.loads(raw)
+    # broad-except: allow reason=YAML fallback loader intentionally accepts non-JSON input fallback=parse minimal YAML subset
     except Exception:
         return _parse_minimal_yaml(raw)

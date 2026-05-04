@@ -88,6 +88,7 @@ def _has_pending_work(repo_root: Path) -> bool:
         reviewer_agent = reviewer_provider_from_review_state(review_state)
         if load_pending_reviewer_packets(repo_root, reviewer_agent=reviewer_agent):
             return True
+    # broad-except: allow reason=review-state lookup is advisory for the launcher loop fallback=check worktree changes
     except Exception:
         pass
     if _has_reviewer_relevant_changes(repo_root):
@@ -114,6 +115,7 @@ def _has_reviewer_relevant_changes(repo_root: Path) -> bool:
             text=True,
             timeout=10,
         )
+    # broad-except: allow reason=git status failure should not trigger reviewer launch fallback=treat worktree as not reviewer-relevant
     except Exception:
         return False
     for line in result.stdout.splitlines():
@@ -134,6 +136,7 @@ def _codex_is_running(repo_root: Path) -> bool:
         status_dir = repo_root / config.review_status_dir_rel
         providers = active_conductor_providers(session_output_root=status_dir)
         return "codex" in providers
+    # broad-except: allow reason=typed conductor probe may be unavailable in legacy loop fallback=repo-scoped pgrep check
     except Exception:
         pass
     # Fallback: narrow pgrep to codex processes whose cwd is this repo
@@ -150,6 +153,7 @@ def _pgrep_codex_for_repo(repo_root: Path) -> bool:
             timeout=5,
         )
         return result.returncode == 0
+    # broad-except: allow reason=pgrep fallback is best-effort liveness detection fallback=treat codex as not running
     except Exception:
         return False
 
@@ -195,5 +199,6 @@ def _launch_codex_review(repo_root: Path) -> None:
         print(f"[session] Codex exited with code {result.returncode}")
     except subprocess.TimeoutExpired:
         print("[session] Codex review timed out after 5 minutes")
+    # broad-except: allow reason=bounded reviewer launcher must report launch failure without crashing loop fallback=print stderr warning
     except Exception as exc:
         print(f"[session] Codex launch failed: {exc}", file=sys.stderr)

@@ -410,6 +410,7 @@ def _try_cached_graph() -> tuple[list[GraphNode], list[GraphEdge]] | None:
         ]
         if nodes and edges:
             return (nodes, edges)
+    # broad-except: allow reason=context-graph latest artifact is optional escalation evidence fallback=return no latest graph
     except Exception:
         pass
     return None

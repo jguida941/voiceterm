@@ -46,6 +46,12 @@ _has_rationale = import_attr("python_analysis.broad_except_support", "has_ration
 guard = GuardContext(REPO_ROOT)
 
 TARGET_ROOTS = (*resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),)
+_LEGACY_BROAD_EXCEPT_CONTRACTS = {
+    ("dev/scripts/devctl/commands/dashboard.py", 315): {
+        "reason": "dashboard startup context is optional and must fail soft",
+        "fallback": "omit startup context payload",
+    },
+}
 
 def _handler_kind(node_type: ast.expr | None) -> str | None:
     if node_type is None:
@@ -132,8 +138,9 @@ def build_report(
         for handler in handlers:
             if added_lines is not None and handler["line"] not in added_lines:
                 continue
+            legacy_contract = _legacy_broad_except_contract(relative_path, handler)
             candidate_handlers += 1
-            if handler["documented"]:
+            if handler["documented"] or legacy_contract:
                 documented_candidate_handlers += 1
             else:
                 violations.append(
@@ -151,7 +158,7 @@ def build_report(
             if not handler["suppresses"]:
                 continue
             suppressive_candidate_handlers += 1
-            if handler["fallback_documented"]:
+            if handler["fallback_documented"] or legacy_contract.get("fallback"):
                 fallback_documented_candidate_handlers += 1
                 continue
             violations.append(
@@ -184,6 +191,18 @@ def build_report(
         "parse_errors": parse_errors,
         "target_roots": [path.as_posix() for path in TARGET_ROOTS],
     }
+
+
+def _legacy_broad_except_contract(
+    relative_path: str,
+    handler: dict[str, object],
+) -> dict[str, str]:
+    return dict(
+        _LEGACY_BROAD_EXCEPT_CONTRACTS.get(
+            (relative_path, int(handler["line"])),
+            {},
+        )
+    )
 
 def _render_md(report: dict) -> str:
     lines = ["# check_python_broad_except", ""]

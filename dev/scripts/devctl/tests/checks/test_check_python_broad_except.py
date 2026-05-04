@@ -84,6 +84,38 @@ class CheckPythonBroadExceptTests(unittest.TestCase):
         self.assertEqual(report["documented_candidate_handlers"], 1)
         self.assertEqual(report["fallback_documented_candidate_handlers"], 1)
 
+    def test_report_accepts_legacy_contract_entry(self) -> None:
+        path = self._write(
+            "dev/scripts/legacy.py",
+            (
+                "def sample() -> None:\n"
+                "    try:\n"
+                "        run()\n"
+                "    except Exception:\n"
+                "        return None\n"
+            ),
+        )
+        contracts = SCRIPT._LEGACY_BROAD_EXCEPT_CONTRACTS
+        original = dict(contracts)
+        contracts[("dev/scripts/legacy.py", 4)] = {
+            "reason": "legacy fail-soft path is documented outside hardlocked file",
+            "fallback": "return None",
+        }
+        try:
+            report = SCRIPT.build_report(
+                repo_root=self.root,
+                candidate_paths=[path.relative_to(self.root)],
+                added_lines_by_path={"dev/scripts/legacy.py": {4}},
+                mode="working-tree",
+            )
+        finally:
+            contracts.clear()
+            contracts.update(original)
+
+        self.assertTrue(report["ok"], report["violations"])
+        self.assertEqual(report["documented_candidate_handlers"], 1)
+        self.assertEqual(report["fallback_documented_candidate_handlers"], 1)
+
     def test_report_ignores_existing_broad_exception_when_handler_line_not_added(
         self,
     ) -> None:

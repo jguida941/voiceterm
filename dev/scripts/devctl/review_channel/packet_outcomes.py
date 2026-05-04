@@ -3,44 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from enum import Enum
 import re
 
-from .packet_lifecycle import project_packet_lifecycle
-
-
-class PacketOutcome(str, Enum):
-    """Terminal outcome assigned to packet-history rows."""
-
-    DELIVERED_VIA_COMMIT = "delivered_via_commit"
-    SUPERSEDED_BY = "superseded_by"
-    PROMOTED_TO_FINDING = "promoted_to_finding"
-    WITHDRAWN_BY_REVIEWER = "withdrawn_by_reviewer"
-    EXPIRED_UNRECOVERABLE = "expired_unrecoverable"
-    ARCHIVED = "archived"
-    LOST = "lost"
-
-
-@dataclass(frozen=True, slots=True)
-class PacketOutcomeRecord:
-    """One typed outcome for a packet-history row."""
-
-    packet_id: str
-    outcome: PacketOutcome
-    evidence_ref: str
-    recorded_at_utc: str
-    reason: str
-    status: str
-    expires_at_utc: str
-    source_event_id: str = ""
-    superseding_packet_id: str = ""
-
-    def to_dict(self) -> dict[str, object]:
-        payload = asdict(self)
-        payload["outcome"] = self.outcome.value
-        return payload
+from .packet_lifecycle import _has_creation_binding, project_packet_lifecycle
+from .packet_outcome_models import PacketOutcome, PacketOutcomeRecord
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,32 +86,62 @@ def _record_for_packet(
     generated_at_utc: str,
 ) -> PacketOutcomeRecord:
     packet_id = _text(packet.get("packet_id"))
-    status = _text(packet.get("status"))
-    expires_at = _text(packet.get("expires_at_utc"))
     posted_at = _parse_utc(_text(packet.get("posted_at")))
     explicit_expiry = _find_expiry_event(packet_id, events)
     if explicit_expiry is not None:
-        return PacketOutcomeRecord(
-            packet_id=packet_id,
-            outcome=PacketOutcome.ARCHIVED,
-            evidence_ref=f"event:{_text(explicit_expiry.get('event_id'))}",
-            recorded_at_utc=generated_at_utc,
+        durable_classification = _durable_archive_classification(packet)
+        source_event_id = _text(explicit_expiry.get("event_id"))
+        if durable_classification:
+            return _archived_packet_record(
+                packet,
+                generated_at_utc,
+                evidence_ref=f"archive_classification:{durable_classification}",
+                reason="expired packet already has durable typed ownership",
+                source_event_id=source_event_id,
+            )
+        return _archived_packet_record(
+            packet,
+            generated_at_utc,
+            evidence_ref=f"event:{source_event_id}",
             reason="explicit packet_expired event archived the packet without later resolution evidence",
-            status=status,
-            expires_at_utc=expires_at,
-            source_event_id=_text(explicit_expiry.get("event_id")),
+            source_event_id=source_event_id,
         )
     evidence = _find_later_evidence(packet_id, posted_at, events)
     if evidence is not None:
         return _record_from_evidence(packet, evidence, generated_at_utc)
-    return PacketOutcomeRecord(
-        packet_id=packet_id,
-        outcome=PacketOutcome.ARCHIVED,
+    durable_classification = _durable_archive_classification(packet)
+    if durable_classification:
+        return _archived_packet_record(
+            packet,
+            generated_at_utc,
+            evidence_ref=f"archive_classification:{durable_classification}",
+            reason="pending packet TTL elapsed after durable typed ownership was recorded",
+        )
+    return _archived_packet_record(
+        packet,
+        generated_at_utc,
         evidence_ref="archive_classification:clock_expired_without_disposition",
-        recorded_at_utc=generated_at_utc,
         reason="pending packet TTL elapsed and the lifecycle reducer archived it for audit",
-        status=status,
-        expires_at_utc=expires_at,
+    )
+
+
+def _archived_packet_record(
+    packet: Mapping[str, object],
+    generated_at_utc: str,
+    *,
+    evidence_ref: str,
+    reason: str,
+    source_event_id: str = "",
+) -> PacketOutcomeRecord:
+    return PacketOutcomeRecord(
+        packet_id=_text(packet.get("packet_id")),
+        outcome=PacketOutcome.ARCHIVED,
+        evidence_ref=evidence_ref,
+        recorded_at_utc=generated_at_utc,
+        reason=reason,
+        status=_text(packet.get("status")),
+        expires_at_utc=_text(packet.get("expires_at_utc")),
+        source_event_id=source_event_id,
     )
 
 
@@ -180,6 +178,14 @@ def _packet_needs_outcome(packet: Mapping[str, object]) -> bool:
         return False
     expires_at = _parse_utc(_text(packet.get("expires_at_utc")))
     return expires_at is not None and expires_at <= datetime.now(timezone.utc)
+
+
+def _durable_archive_classification(packet: Mapping[str, object]) -> str:
+    return (
+        "expired_after_durable_binding"
+        if _has_creation_binding(packet)
+        else ""
+    )
 
 
 def _find_later_evidence(

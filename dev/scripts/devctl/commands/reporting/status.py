@@ -38,6 +38,7 @@ def run(args) -> int:
 
     try:
         append_metric("status", report)
+    # broad-except: allow reason=metrics persistence is telemetry and must not fail the status command fallback=print warning
     except Exception as exc:  # pragma: no cover - fail-soft telemetry path
         print(
             f"[devctl status] warning: unable to persist metrics ({exc})",

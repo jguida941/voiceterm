@@ -156,6 +156,7 @@ def main() -> int:
                     }
                 )
 
+    # broad-except: allow reason=per-file Rust metric failure should become a scan error instead of aborting the guard fallback=record error string
     except Exception as exc:
         error = str(exc)
 

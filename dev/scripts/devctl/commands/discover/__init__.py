@@ -109,6 +109,7 @@ def _load_enabled_checks() -> object | None:
 
         gov = scan_repo_governance(REPO_ROOT)
         return gov.enabled_checks
+    # broad-except: allow reason=discover can still report when optional governance scan is unavailable fallback=return no enabled-checks addendum
     except Exception:
         return None
 

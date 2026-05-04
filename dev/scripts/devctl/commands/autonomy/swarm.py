@@ -92,6 +92,7 @@ def _fanout_gate_error(args) -> str | None:
         return None
     try:
         coordination = build_coordination_snapshot()
+    # broad-except: allow reason=missing coordination proof must fail closed instead of launching mutable swarm fallback=return operator-facing block reason
     except Exception as exc:  # pragma: no cover - defensive fail-closed guard
         return (
             "Error: mutable autonomy-swarm requires typed fanout proof, but "
@@ -229,6 +230,7 @@ def run(args) -> int:
         if bool(args.post_audit):
             try:
                 post_audit_payload = _run_post_audit_digest(args, run_label)
+            # broad-except: allow reason=post-audit is advisory after swarm run and must not hide the primary result fallback=attach failed audit payload
             except Exception as exc:  # pragma: no cover - defensive fail-open guard
                 post_audit_payload = _post_audit_payload(
                     enabled=True,

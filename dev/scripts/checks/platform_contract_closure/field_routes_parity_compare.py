@@ -121,8 +121,7 @@ def run_extractor(
     """
     try:
         return extractor(model), None
-    # broad-except: a crashing surface must become a parity violation,
-    # not a closure-aggregator crash.
+    # broad-except: allow reason=a crashing surface must become a parity violation, not a closure-aggregator crash fallback=emit control-plane-parity-extractor-error
     except Exception as exc:  # noqa: BLE001
         violation = {
             "kind": "control_plane_parity",

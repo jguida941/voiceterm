@@ -197,6 +197,11 @@ def _action_event(
 
 
 def _clock_expired_action(packet: Mapping[str, object]) -> dict[str, object]:
+    classification = (
+        "expired_after_durable_binding"
+        if _has_creation_binding(packet)
+        else "clock_expired_without_disposition"
+    )
     return _drop_empty_fields(
         asdict(
             PacketLifecycleEvent(
@@ -204,7 +209,7 @@ def _clock_expired_action(packet: Mapping[str, object]) -> dict[str, object]:
                 at_utc=_text(packet.get("expires_at_utc")),
                 by_agent="system",
                 action="archived",
-                target_anchor="archive_classification:clock_expired_without_disposition",
+                target_anchor=f"archive_classification:{classification}",
                 reason="packet TTL elapsed before an explicit disposition event",
             )
         )
@@ -453,7 +458,12 @@ def _target_anchor(*, action: str, packet: Mapping[str, object]) -> str:
     if action == "dismissed":
         return "archive_classification:dismissed_with_actor"
     if action == "archived":
-        return "archive_classification:clock_expired_without_disposition"
+        classification = (
+            "expired_after_durable_binding"
+            if _has_creation_binding(packet)
+            else "clock_expired_without_disposition"
+        )
+        return f"archive_classification:{classification}"
     if action in {"failed", "apply_pending_after_execution", "execution_started"}:
         return f"packet:{_text(packet.get('packet_id'))}"
 

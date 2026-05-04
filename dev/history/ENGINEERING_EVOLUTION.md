@@ -13944,3 +13944,27 @@ Evidence:
 - `dev/scripts/devctl/runtime/work_intake_pacing.py`
 - `dev/scripts/devctl/tests/commands/test_python_tests.py`
 - `dev/scripts/devctl/tests/runtime/test_work_intake_pacing_snapshot_preference.py`
+
+### 2026-05-04 - Plan-bound expired packets stay visibly durable in history
+
+Live Claude-to-Codex dogfood showed a read-side contradiction: packets such as
+`rev_pkt_2961` and `rev_pkt_2958` had `PacketCreationBinding` plan rows, but
+`review-channel --action history --include-outcomes` still reported their
+outcome evidence as `clock_expired_without_disposition`. That made durable
+packet communication look like lost live attention even though the plan owner
+already existed.
+
+Change: synthetic stale-pending archive actions and explicit `packet_expired`
+anchors now derive their archive classification from packet creation or
+durable-ingestion receipts. `PacketOutcomeLedger` shares that same binding
+test, so plan-bound expired packets report
+`archive_classification:expired_after_durable_binding` in both disposition and
+outcome evidence.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/packet_lifecycle.py`
+- `dev/scripts/devctl/review_channel/packet_outcomes.py`
+- `dev/scripts/devctl/review_channel/packet_outcome_models.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_outcomes.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_lifecycle.py`

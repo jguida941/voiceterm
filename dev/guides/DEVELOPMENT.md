@@ -1117,6 +1117,9 @@ Three quality layers matter in practice:
     also carry `PacketLifecycleHistory` / `PacketDisposition` fields, so
     `acknowledged_events`, `acted_on_events`, `lifecycle_current_state`, and
     `resolution_anchor` must be preserved when adding packet read surfaces.
+    If `PacketCreationBinding` or `PacketDurableIngestionReceipt` proves a
+    plan-row owner, clock-expired rows must stay archived but classify as
+    `expired_after_durable_binding`, not generic clock-expiry loss.
     Use `review-channel --action expire-packets --limit <n>` when stale
     pending packets need durable lifecycle closure: the action writes explicit
     `packet_expired` events and keeps read-only inbox/history/sync-status

@@ -127,6 +127,7 @@ def _atomic_write_text(path: Path, content: str, *, encoding: str = "utf-8") -> 
                 # Atomicity of rename(2) still holds; persistence is best-effort.
                 pass
         os.replace(tmp_path, path)
+    # broad-except: allow reason=atomic projection write cleanup must preserve original write failure fallback=remove temp file then re-raise
     except Exception:
         try:
             tmp_path.unlink(missing_ok=True)
