@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `299674a0229f` — Add routed guard timeout progress
-- Tree hash: `f1d153b1bd1a`
-- Generation stamp: `snap-0ccb915fc9f9`
-- Generated at (UTC): 2026-05-04T14:28:45Z
+- HEAD: `b3ff926d42bc` — Refresh external review snapshot for 299674a0
+- Tree hash: `cdcf89866d9c`
+- Generation stamp: `snap-a32741e97699`
+- Generated at (UTC): 2026-05-04T14:30:55Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `local_terminal`)
+- Reviewer mode: `single_agent` (interaction: `single_agent`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 126 files, +6898/-4411
+- Delta since last snapshot: 24 commits, 126 files, +6935/-4448
 - Governance findings: 154 open / 88 fixed / 256 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,7 +30,7 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `299674a0229fcfc41a0ad2941158d0bdfefd0ad2`
+- HEAD SHA: `b3ff926d42bca1111e03e25ef8c69c52329558db`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-05-04T10:28:28-04:00
 
@@ -44,15 +44,17 @@ probes, typed actions, deterministic policy resolution — is what m...
 - staged_path_count: 0
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
-- latest_push_report_state: `post_push_green` (push_completed)
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- latest_push_report_state: `blocked` (push_preflight_running)
+- current_push_authorization: `push-auth-20260504T142726518500Z` (valid=True)
+- authorized_head_commit: `b3ff926d42bca1111e03e25ef8c69c52329558db`
+- publication_backlog: recommended
+- publication_guidance: 2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `local_terminal`
+- interaction_mode: `single_agent`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -66,12 +68,12 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `299674a0229f`
+Range: last 24 commits ending at `b3ff926d42bc`
 
 - commits: 24
 - files changed: 126
-- insertions: +6898
-- deletions: -4411
+- insertions: +6935
+- deletions: -4448
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 7 file(s)
 
@@ -79,30 +81,30 @@ Range: last 24 commits ending at `299674a0229f`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `299674a0` | Add routed guard timeout progress | 39 | +1783/-406 | tooling |  |
-| 2 | `ef9db514` | Refresh external review snapshot for da0c9c80 | 2 | +53/-53 | docs |  |
-| 3 | `da0c9c80` | Refresh external review snapshot for 9ef66045 | 2 | +46/-44 | docs |  |
-| 4 | `9ef66045` | Refresh external review snapshot for faba8791 | 2 | +71/-72 | docs |  |
-| 5 | `faba8791` | Classify durable expired packets | 25 | +360/-126 | tooling |  |
-| 6 | `7d29dd85` | Refresh external review snapshot for 9e027548 | 2 | +47/-44 | docs |  |
-| 7 | `9e027548` | Refresh external review snapshot for 116d5b6e | 2 | +46/-44 | docs |  |
-| 8 | `116d5b6e` | Refresh external review snapshot for 6a721e78 | 2 | +65/-70 | docs |  |
-| 9 | `6a721e78` | Fix post-push range scoping | 4 | +75/-58 | tooling |  |
-| 10 | `759abf90` | Refresh external review snapshot for 3db1597c | 2 | +46/-46 | docs |  |
-| 11 | `3db1597c` | Refresh external review snapshot for 04ad16b1 | 2 | +47/-49 | docs |  |
-| 12 | `04ad16b1` | Refresh external review snapshot for c66f5f65 | 2 | +67/-66 | docs |  |
-| 13 | `c66f5f65` | Shard focused Python tests | 14 | +420/-72 | tooling |  |
-| 14 | `639ef536` | Refresh external review snapshot for 12cf2f1d | 2 | +46/-46 | docs |  |
-| 15 | `12cf2f1d` | Refresh external review snapshot for bb85d5e0 | 2 | +47/-45 | docs |  |
-| 16 | `bb85d5e0` | Refresh external review snapshot for 5a2eb104 | 2 | +69/-74 | docs |  |
-| 17 | `5a2eb104` | Show governed commit progress | 16 | +249/-75 | tooling |  |
-| 18 | `e382b175` | Phase routed preflight execution | 18 | +646/-170 | tooling |  |
-| 19 | `35dc5c13` | Refresh external review snapshot for e7aa7df1 | 2 | +51/-53 | docs |  |
-| 20 | `e7aa7df1` | Refresh external review snapshot for 6d8004fc | 2 | +52/-50 | docs |  |
-| 21 | `6d8004fc` | Refresh policy-owned generated surfaces for b6a926fc | 1 | +1/-1 | docs |  |
-| 22 | `b6a926fc` | Refresh external review snapshot for d3cf4e73 | 2 | +99/-86 | docs |  |
-| 23 | `d3cf4e73` | Harden packet attention and routed guard coverage | 72 | +2469/-2618 | tooling |  |
-| 24 | `2a3e3731` | Refresh external review snapshot for 764252dc | 2 | +43/-43 | docs |  |
+| 1 | `b3ff926d` | Refresh external review snapshot for 299674a0 | 2 | +80/-80 | docs |  |
+| 2 | `299674a0` | Add routed guard timeout progress | 39 | +1783/-406 | tooling |  |
+| 3 | `ef9db514` | Refresh external review snapshot for da0c9c80 | 2 | +53/-53 | docs |  |
+| 4 | `da0c9c80` | Refresh external review snapshot for 9ef66045 | 2 | +46/-44 | docs |  |
+| 5 | `9ef66045` | Refresh external review snapshot for faba8791 | 2 | +71/-72 | docs |  |
+| 6 | `faba8791` | Classify durable expired packets | 25 | +360/-126 | tooling |  |
+| 7 | `7d29dd85` | Refresh external review snapshot for 9e027548 | 2 | +47/-44 | docs |  |
+| 8 | `9e027548` | Refresh external review snapshot for 116d5b6e | 2 | +46/-44 | docs |  |
+| 9 | `116d5b6e` | Refresh external review snapshot for 6a721e78 | 2 | +65/-70 | docs |  |
+| 10 | `6a721e78` | Fix post-push range scoping | 4 | +75/-58 | tooling |  |
+| 11 | `759abf90` | Refresh external review snapshot for 3db1597c | 2 | +46/-46 | docs |  |
+| 12 | `3db1597c` | Refresh external review snapshot for 04ad16b1 | 2 | +47/-49 | docs |  |
+| 13 | `04ad16b1` | Refresh external review snapshot for c66f5f65 | 2 | +67/-66 | docs |  |
+| 14 | `c66f5f65` | Shard focused Python tests | 14 | +420/-72 | tooling |  |
+| 15 | `639ef536` | Refresh external review snapshot for 12cf2f1d | 2 | +46/-46 | docs |  |
+| 16 | `12cf2f1d` | Refresh external review snapshot for bb85d5e0 | 2 | +47/-45 | docs |  |
+| 17 | `bb85d5e0` | Refresh external review snapshot for 5a2eb104 | 2 | +69/-74 | docs |  |
+| 18 | `5a2eb104` | Show governed commit progress | 16 | +249/-75 | tooling |  |
+| 19 | `e382b175` | Phase routed preflight execution | 18 | +646/-170 | tooling |  |
+| 20 | `35dc5c13` | Refresh external review snapshot for e7aa7df1 | 2 | +51/-53 | docs |  |
+| 21 | `e7aa7df1` | Refresh external review snapshot for 6d8004fc | 2 | +52/-50 | docs |  |
+| 22 | `6d8004fc` | Refresh policy-owned generated surfaces for b6a926fc | 1 | +1/-1 | docs |  |
+| 23 | `b6a926fc` | Refresh external review snapshot for d3cf4e73 | 2 | +99/-86 | docs |  |
+| 24 | `d3cf4e73` | Harden packet attention and routed guard coverage | 72 | +2469/-2618 | tooling |  |
 
 ### Files
 
@@ -114,7 +116,7 @@ Range: last 24 commits ending at `299674a0229f`
 | `bridge.md` | docs | +59/-59 |
 | `dev/active/MASTER_PLAN.md` | tooling | +80/-6 |
 | `dev/active/ai_governance_platform.md` | tooling | +52/-7 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1228/-1221 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1265/-1258 |
 | `dev/config/git_hooks/post-commit-review-snapshot.sh` | tooling | +8/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +41/-7 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +6/-6 |
@@ -221,6 +223,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`b3ff926d`** — Refresh external review snapshot for 299674a0
+  - evolution: Fact: live dogfooding showed the packet-delivery path was still carrying process semantics. Even after earlier exact-session fixes, packet post/follow helpers and their docs/tests still treated "packet arrived" as a pos…
 - **`299674a0`** — Add routed guard timeout progress
   - evolution: Fact: live dogfooding showed the packet-delivery path was still carrying process semantics. Even after earlier exact-session fixes, packet post/follow helpers and their docs/tests still treated "packet arrived" as a pos…
 - **`ef9db514`** — Refresh external review snapshot for da0c9c80
@@ -267,8 +271,6 @@ Recent findings:
   - evolution: Fact: live dogfooding showed the packet-delivery path was still carrying process semantics. Even after earlier exact-session fixes, packet post/follow helpers and their docs/tests still treated "packet arrived" as a pos…
 - **`d3cf4e73`** — Harden packet attention and routed guard coverage
   - evolution: Fact: live dogfooding showed the packet-delivery path was still carrying process semantics. Even after earlier exact-session fixes, packet post/follow helpers and their docs/tests still treated "packet arrived" as a pos…
-- **`2a3e3731`** — Refresh external review snapshot for 764252dc
-  - evolution: Fact: The final T22AN-L/Finding Y stage-commit handoff packet selected a queue-priority `action_request`, but event-backed `current_session` projection still preferred the stale reviewer checkpoint and then let implemen…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -311,4 +313,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-0ccb915fc9f9` binds this file to HEAD `299674a0229f`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-a32741e97699` binds this file to HEAD `b3ff926d42bc`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
