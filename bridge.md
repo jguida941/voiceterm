@@ -126,7 +126,7 @@ none
 
 ## Claude Status
 
-- Status unavailable.
+assigned
 
 ## Claude Questions
 
