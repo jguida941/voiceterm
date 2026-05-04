@@ -30,6 +30,17 @@ def build_continuity(
             alignment_status="missing",
             alignment_reason="no_plan_resume_or_review_state",
         )
+    unresolved_plan_references = _extract_mp_token_labels(review_scope)
+    if session_resume is None and entry is None and unresolved_plan_references:
+        return SessionContinuityState(
+            review_scope=review_scope,
+            review_instruction=review_instruction,
+            review_open_findings=review_open_findings,
+            implementer_status=implementer_status,
+            alignment_status="needs_review",
+            alignment_reason="unresolved_review_plan_reference",
+            unresolved_plan_references=unresolved_plan_references,
+        )
     if session_resume is None:
         return SessionContinuityState(
             source_plan_path=entry.path if entry is not None else "",
@@ -102,6 +113,8 @@ def confidence(
     continuity: SessionContinuityState,
 ) -> tuple[str, str]:
     """Return startup confidence and fallback reason for the intake packet."""
+    if continuity.alignment_reason == "unresolved_review_plan_reference":
+        return "low", "unresolved_review_plan_reference"
     if active_entry is None:
         return "low", "no_plan_registry_target"
     if continuity.alignment_status in {"aligned", "scope_aligned", "instruction_aligned"}:
@@ -183,6 +196,13 @@ def _extract_mp_tokens(text: str) -> frozenset[str]:
     if not text:
         return frozenset()
     return frozenset(match.group(0).casefold() for match in _MP_TOKEN_RE.finditer(text))
+
+
+def _extract_mp_token_labels(text: str) -> tuple[str, ...]:
+    if not text:
+        return ()
+    tokens = {match.group(0).upper() for match in _MP_TOKEN_RE.finditer(text)}
+    return tuple(sorted(tokens))
 
 
 def _token_set_similarity(left: str, right: str) -> float:

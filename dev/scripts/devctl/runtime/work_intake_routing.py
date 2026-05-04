@@ -227,6 +227,7 @@ def _preflight_command(
     ]
     if bool(preflight.get("execute")):
         command_parts.append("--execute")
+        command_parts.append("--keep-going")
     return " ".join(command_parts)
 
 

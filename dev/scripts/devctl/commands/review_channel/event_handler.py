@@ -213,6 +213,7 @@ def _run_event_action(
                 posted_review_state_payload=review_state_payload,
             )
             if reviewer_wake is not None:
+                report["packet_attention"] = reviewer_wake
                 report["reviewer_wake"] = reviewer_wake
         if getattr(args, "follow", False) and exit_code == 0:
             return _run_watch_follow(

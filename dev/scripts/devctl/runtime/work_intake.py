@@ -22,6 +22,7 @@ from .work_intake_plan_routing import PlanRoutingState
 from .work_intake_phase_routing import build_plan_routing_state
 from .work_intake_pacing import _PacingFocus, _PacingInputs, build_session_pacing_state
 from .work_intake_ownership import build_work_intake_ownership_state
+from .work_intake_plan_references import unresolved_review_scope_plan_references
 from .work_intake_routing import build_routing, scope_hints, warm_refs, writeback_sinks
 from .work_intake_selection import (
     build_target_ref,
@@ -59,6 +60,11 @@ def build_work_intake_packet(
         governance=governance,
     )
     active_entry = select_active_plan_entry(governance, resolved_review_state)
+    if unresolved_review_scope_plan_references(
+        governance.plan_registry.entries,
+        resolved_review_state,
+    ):
+        active_entry = None
     routing = build_routing(
         repo_root,
         governance=governance,

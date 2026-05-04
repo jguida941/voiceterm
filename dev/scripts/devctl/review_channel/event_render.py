@@ -55,7 +55,10 @@ def render_event_md(report: dict) -> str:
     append_coordination_state_section(lines, report.get("coordination_state"))
     append_work_board_section(lines, report.get("work_board"))
     _append_queue_reconciliation(lines, report.get("queue_reconciliation"))
-    _append_reviewer_wake(lines, report.get("reviewer_wake"))
+    _append_packet_attention(
+        lines,
+        report.get("packet_attention") or report.get("reviewer_wake"),
+    )
     append_common_report_sections(lines, report)
     append_doctor_markdown(lines, report.get("doctor"))
     packet = report.get("packet")
@@ -123,13 +126,16 @@ def _append_queue_reconciliation(lines: list[str], reconciliation: object) -> No
         )
 
 
-def _append_reviewer_wake(lines: list[str], wake: object) -> None:
+def _append_packet_attention(lines: list[str], wake: object) -> None:
     if not isinstance(wake, dict) or not wake:
         return
     lines.append("")
-    lines.append("## Packet Wake")
+    heading = "## Packet Wake" if bool(wake.get("attempted")) else "## Packet Attention"
+    lines.append(heading)
     lines.append(f"- attempted: {bool(wake.get('attempted'))}")
     lines.append(f"- woke: {bool(wake.get('woke'))}")
+    if "attention_recorded" in wake:
+        lines.append(f"- attention_recorded: {bool(wake.get('attention_recorded'))}")
     if "visible_session_woke" in wake:
         lines.append(f"- visible_session_woke: {bool(wake.get('visible_session_woke'))}")
     if "delegated" in wake:
@@ -250,7 +256,10 @@ def _append_packet_section(lines: list[str], packet: dict) -> None:
             "- full_guard_bundle_evidence: "
             f"{packet.get('full_guard_bundle_evidence')}"
         )
-    _append_reviewer_wake(lines, packet.get("reviewer_wake"))
+    _append_packet_attention(
+        lines,
+        packet.get("packet_attention") or packet.get("reviewer_wake"),
+    )
     append_context_pack_ref_lines(
         lines,
         packet.get("context_pack_refs"),

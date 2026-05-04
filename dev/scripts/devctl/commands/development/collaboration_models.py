@@ -85,6 +85,7 @@ class DevelopmentPeerMindSnapshot:
     age_seconds: int = -1
     confidence: str = "missing_auxiliary"
     authority_policy: str = "auxiliary_context_only"
+    attention_hint: str = ""
     wake_hint: str = ""
     suggested_command: str = ""
     latest_summary: str = ""

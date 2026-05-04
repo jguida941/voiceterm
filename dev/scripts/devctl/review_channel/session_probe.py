@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import json
-import shutil
-import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 from .launch_authority import assess_prepared_launch_authority
 from .session_liveness import SessionLivenessEvidence, build_session_liveness_evidence
+from .session_probe_process import (
+    current_branch_for_workspace,
+    probe_script_pid,
+    probe_script_running,
+)
 
 ACTIVE_SESSION_FRESHNESS_SECONDS = 120
 
@@ -55,6 +58,7 @@ class ConductorSessionRecord:
     prepared_session_token: str = ""
     review_state_path: str = ""
     workspace_root: str = ""
+    current_branch: str = ""
     live_reason: str = ""
     script_probe_state: str = ""
     terminal_window_state: str = ""
@@ -140,12 +144,13 @@ def load_conductor_sessions(
         planned_lanes = tuple(_planned_lane_rows(metadata.get("planned_lanes")))
         repo_root_text = _session_metadata_text(metadata, "repo_root") or ""
         workspace_root_text = _session_metadata_text(metadata, "workspace_root") or ""
+        workspace_path_text = workspace_root_text or repo_root_text
         script_path_text = _session_metadata_text(metadata, "script_path")
         log_path_text = _session_metadata_text(metadata, "log_path")
         review_state_path_text = _session_metadata_text(metadata, "review_state_path") or ""
         terminal_window_id = _session_metadata_optional_int(metadata, "terminal_window_id")
-        session_pid = _probe_script_pid(script_path_text)
-        process_running = _probe_script_running(
+        session_pid = probe_script_pid(script_path_text)
+        process_running = probe_script_running(
             script_path_text,
             session_pid=session_pid,
         )
@@ -216,6 +221,7 @@ def load_conductor_sessions(
                 or "",
                 review_state_path=review_state_path_text,
                 workspace_root=workspace_root_text,
+                current_branch=current_branch_for_workspace(workspace_path_text),
                 live_reason=liveness.reason,
                 script_probe_state=liveness.script_probe_state,
                 terminal_window_state=liveness.terminal_window_state,
@@ -286,52 +292,6 @@ def _normalize_session_text(value: object) -> str:
     if text.startswith("`") and text.endswith("`") and len(text) >= 2:
         text = text[1:-1].strip()
     return text
-
-
-def _probe_script_running(
-    script_path_text: str | None,
-    *,
-    session_pid: int | None = None,
-) -> bool | None:
-    pid = session_pid if session_pid is not None else _probe_script_pid(script_path_text)
-    if pid is not None:
-        return True
-    if not script_path_text or shutil.which("pgrep") is None:
-        return None
-    try:
-        result = subprocess.run(
-            ["pgrep", "-f", script_path_text],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if result.returncode == 1:
-        return False
-    return None
-
-
-def _probe_script_pid(script_path_text: str | None) -> int | None:
-    if not script_path_text or shutil.which("pgrep") is None:
-        return None
-    try:
-        result = subprocess.run(
-            ["pgrep", "-fo", script_path_text],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if result.returncode != 0:
-        return None
-    try:
-        return int(result.stdout.strip().splitlines()[0])
-    except (IndexError, TypeError, ValueError):
-        return None
 
 
 def _log_age_seconds(log_path_text: str | None) -> int | None:

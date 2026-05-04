@@ -46,12 +46,19 @@ class BundleRegistryContractTests(TestCase):
             "python3 dev/scripts/checks/check_bundle_workflow_parity.py",
             "python3 dev/scripts/checks/check_guard_enforcement_inventory.py",
             "python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py",
+            "python3 dev/scripts/checks/check_python_broad_except.py",
             "python3 dev/scripts/checks/check_python_subprocess_policy.py",
             "python3 dev/scripts/checks/check_pytest_runtime_policy.py",
+            "python3 dev/scripts/checks/check_command_source_validation.py",
+            "python3 dev/scripts/checks/check_registry_path_integrity.py",
+            "python3 dev/scripts/checks/check_runtime_spine_closure.py",
+            "python3 dev/scripts/checks/check_provider_list_parity_graph.py",
             "python3 dev/scripts/checks/check_repo_url_parity.py",
             "python3 dev/scripts/checks/check_release_version_parity.py",
             "python3 dev/scripts/checks/check_review_channel_bridge.py",
             "python3 dev/scripts/checks/check_serde_compatibility.py",
+            "python3 dev/scripts/checks/check_structural_complexity.py",
+            "python3 dev/scripts/checks/check_duplicate_types.py",
         }
         self.assertTrue(required_commands.issubset(commands))
         self.assertNotIn(

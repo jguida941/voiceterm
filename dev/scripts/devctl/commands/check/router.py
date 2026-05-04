@@ -2,23 +2,20 @@
 
 from __future__ import annotations
 
-import json
-
 from ...bundle_registry import BUNDLE_AUTHORITY_PATH, get_bundle_commands
 from ...collect import collect_git_status
-from ...common import (
-    emit_output,
-    inject_quality_policy_command,
-    normalize_repo_python_shell_command,
-    pipe_output,
-    run_cmd,
-    write_output,
-)
 from ...time_utils import utc_timestamp
-from ...config import REPO_ROOT
-from .router_constants import resolve_check_router_config
+from .router_constants import BUNDLE_BY_LANE, resolve_check_router_config
+from .router_coverage import (
+    build_guard_coverage_receipt,
+    build_remediation_actions,
+)
+from .router_execution import (
+    build_planned_rows,
+    emit_router_report,
+    execute_planned_rows,
+)
 from .router_render import render_markdown
-from .router_support import BUNDLE_BY_LANE
 from .router_support import classify_lane as _classify_lane
 from .router_support import dedupe_commands as _dedupe_commands
 from .router_support import detect_python_test_addons as _detect_python_test_addons
@@ -39,25 +36,6 @@ def _extract_bundle_commands(bundle_name: str) -> tuple[list[str], str | None]:
 
 def _render_md(report: dict) -> str:
     return render_markdown(report)
-
-
-def _normalize_router_command(command: str, policy_path: str | None) -> str:
-    return normalize_repo_python_shell_command(
-        inject_quality_policy_command(command, policy_path)
-    )
-
-
-def _dry_run_step_result(name: str, row: dict[str, str]) -> dict[str, object]:
-    return dict(
-        name=name,
-        cmd=["bash", "-lc", row["command"]],
-        cwd=str(REPO_ROOT),
-        returncode=0,
-        duration_s=0.0,
-        skipped=True,
-        source=row["source"],
-        router_command=row["command"],
-    )
 
 
 def _changed_paths(git_info: dict[str, object]) -> list[str]:
@@ -133,22 +111,7 @@ def run(args) -> int:
             "execute": bool(getattr(args, "execute", False)),
             "error": git_info["error"],
         }
-        output = (
-            json.dumps(report, indent=2)
-            if args.format == "json"
-            else _render_md(report)
-        )
-        pipe_rc = emit_output(
-            output,
-            output_path=args.output,
-            pipe_command=args.pipe_command,
-            pipe_args=args.pipe_args,
-            writer=write_output,
-            piper=pipe_output,
-        )
-        if pipe_rc != 0:
-            return pipe_rc
-        return 1
+        return emit_router_report(args, report, render_md=_render_md)
 
     changed_paths = _changed_paths(git_info)
     classification = _classify_lane(changed_paths, policy_path=policy_path)
@@ -160,49 +123,30 @@ def run(args) -> int:
         *_detect_python_test_addons(changed_paths),
     ]
 
-    planned_rows = [
-        {
-            "source": bundle_name,
-            "command": _normalize_router_command(command, policy_path),
-        }
-        for command in bundle_commands
-    ]
-    for addon in risk_addons:
-        planned_rows.extend(
-            {
-                "source": addon["id"],
-                "command": _normalize_router_command(command, policy_path),
-            }
-            for command in addon["commands"]
+    planned_rows = _dedupe_commands(
+        build_planned_rows(
+            bundle_name=bundle_name,
+            bundle_commands=bundle_commands,
+            risk_addons=risk_addons,
+            policy_path=policy_path,
+            since_ref=since_ref,
+            head_ref=head_ref,
         )
-    planned_rows = _dedupe_commands(planned_rows)
-
-    steps: list[dict] = []
-    ok = bundle_error is None
+    )
+    steps, ok = execute_planned_rows(
+        planned_rows=planned_rows,
+        args=args,
+        bundle_error=bundle_error,
+    )
     execute = bool(getattr(args, "execute", False))
-    if execute and bundle_error is None:
-        keep_going = bool(getattr(args, "keep_going", False))
-        dry_run = bool(getattr(args, "dry_run", False))
-        for index, row in enumerate(planned_rows, start=1):
-            step_name = f"router-{index:02d}"
-            if dry_run and args.format == "json":
-                result = _dry_run_step_result(step_name, row)
-            else:
-                result = run_cmd(
-                    step_name,
-                    ["bash", "-lc", row["command"]],
-                    cwd=REPO_ROOT,
-                    dry_run=dry_run,
-                )
-                result["source"] = row["source"]
-                result["router_command"] = row["command"]
-            steps.append(result)
-            if result["returncode"] != 0:
-                ok = False
-                if not keep_going:
-                    break
-    elif execute and bundle_error is not None:
-        ok = False
+    keep_going = bool(getattr(args, "keep_going", False))
+    parallel_workers = max(1, int(getattr(args, "parallel_workers", 4)))
+    parallel_enabled = (
+        execute
+        and keep_going
+        and not bool(getattr(args, "no_parallel", False))
+        and parallel_workers > 1
+    )
 
     report = {
         "command": "check-router",
@@ -225,21 +169,19 @@ def run(args) -> int:
         "planned_commands": planned_rows,
         "steps": steps,
         "execute": execute,
+        "keep_going": keep_going,
+        "parallel_enabled": parallel_enabled,
+        "parallel_workers": parallel_workers,
         "error": bundle_error,
     }
-
-    if args.format == "json":
-        output = json.dumps(report, indent=2)
-    else:
-        output = _render_md(report)
-    pipe_rc = emit_output(
-        output,
-        output_path=args.output,
-        pipe_command=args.pipe_command,
-        pipe_args=args.pipe_args,
-        writer=write_output,
-        piper=pipe_output,
+    report["guard_coverage"] = build_guard_coverage_receipt(
+        planned_rows=planned_rows,
+        steps=steps,
+        execute=execute,
+        dry_run=bool(getattr(args, "dry_run", False)),
+        bundle_name=bundle_name,
+        risk_addons=risk_addons,
     )
-    if pipe_rc != 0:
-        return pipe_rc
-    return 0 if ok else 1
+    report["remediation_actions"] = build_remediation_actions(steps)
+
+    return emit_router_report(args, report, render_md=_render_md)

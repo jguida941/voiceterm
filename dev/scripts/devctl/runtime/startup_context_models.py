@@ -162,12 +162,16 @@ class StartupContext:
         d["contract_ownership_map"] = bounded_contract_ownership_map(
             self.contract_ownership_map
         )
-        d["connectivity_registry"] = dict(self.connectivity_registry)
+        d["connectivity_registry"] = _compact_connectivity_registry(
+            self.connectivity_registry
+        )
         d["runtime_spine_closure"] = dict(self.runtime_spine_closure)
-        d["packet_continuity_index"] = dict(self.packet_continuity_index)
-        d["packet_carry_forward_debt"] = [
-            dict(row) for row in self.packet_carry_forward_debt
-        ]
+        d["packet_continuity_index"] = _compact_packet_continuity_index(
+            self.packet_continuity_index
+        )
+        d["packet_carry_forward_debt"] = _compact_packet_carry_forward_debt(
+            self.packet_carry_forward_debt
+        )
         d["continuity_attention"] = dict(self.continuity_attention)
         d["key_surfaces"] = list(self.key_surfaces)
         d["snapshot_id"] = self.snapshot_id
@@ -207,13 +211,13 @@ class StartupContext:
         return d
 
 
-def startup_packet_intent_anchor_dict(anchor: object) -> dict[str, object]:
+def startup_packet_intent_anchor_dict(anchor: PacketIntentAnchor) -> dict[str, object]:
     """Compact startup projection of a packet-derived plan anchor."""
     return {
-        "packet_id": getattr(anchor, "packet_id", ""),
-        "target_plan": getattr(anchor, "target_plan", ""),
-        "anchor_refs": list(getattr(anchor, "anchor_refs", ()) or ()),
-        "lifecycle_state": getattr(anchor, "lifecycle_state", ""),
+        "packet_id": anchor.packet_id,
+        "target_plan": anchor.target_plan,
+        "anchor_refs": list(anchor.anchor_refs),
+        "lifecycle_state": anchor.lifecycle_state,
     }
 
 
@@ -222,6 +226,54 @@ def _compact_product_thesis(value: str, limit: int = 480) -> str:
     if len(text) <= limit:
         return text
     return text[: limit - 3].rstrip() + "..."
+
+
+def _compact_connectivity_registry(
+    value: dict[str, object],
+    *,
+    contract_limit: int = 8,
+) -> dict[str, object]:
+    payload = dict(value)
+    contract_ids = [
+        str(item)
+        for item in (payload.get("connected_contract_ids") or ())
+        if str(item).strip()
+    ]
+    if len(contract_ids) <= contract_limit:
+        return payload
+    payload["connected_contract_ids"] = contract_ids[:contract_limit]
+    payload["connected_contract_ids_truncated"] = len(contract_ids) - contract_limit
+    return payload
+
+
+def _compact_packet_continuity_index(
+    value: dict[str, object],
+    *,
+    row_limit: int = 2,
+) -> dict[str, object]:
+    payload = dict(value)
+    rows = [dict(row) for row in (payload.get("rows") or ()) if isinstance(row, dict)]
+    if len(rows) <= row_limit:
+        return payload
+    payload["rows"] = rows[:row_limit]
+    payload["rows_truncated"] = len(rows) - row_limit
+    return payload
+
+
+def _compact_packet_carry_forward_debt(
+    rows: tuple[dict[str, object], ...],
+    *,
+    row_limit: int = 2,
+) -> list[dict[str, object]]:
+    bounded = [dict(row) for row in rows[:row_limit]]
+    if len(rows) > row_limit:
+        bounded.append(
+            {
+                "contract_id": "PacketCarryForwardDebtSummary",
+                "truncated_count": len(rows) - row_limit,
+            }
+        )
+    return bounded
 
 
 __all__ = [

@@ -91,6 +91,36 @@ def test_sync_status_agent_loop_decisions_filter_target_agent() -> None:
     assert [row["actor_id"] for row in decisions] == ["claude"]
 
 
+def test_sync_status_agent_loop_ignores_stale_visibility_rows_without_packets() -> None:
+    review_state = {
+        "current_session": {"current_instruction_revision": "rev-current"},
+        "reviewer_runtime": {
+            "agent_runtime_clock": {"source_latest_event_id": "rev_evt_1"}
+        },
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "claude",
+                    "role": "dashboard",
+                    "session_id": "s-stale",
+                    "status": "idle",
+                    "idle_seconds": 999,
+                    "stale_after_seconds": 300,
+                    "confidence_class": "stale",
+                }
+            ]
+        },
+        "packets": [],
+    }
+
+    decisions = agent_loop_decisions_for_work_board(
+        review_state=review_state,
+        work_board=review_state["agent_work_board"],
+    )
+
+    assert decisions == []
+
+
 def test_sync_status_agent_loop_accepts_typed_tuple_packet_rows() -> None:
     review_state = {
         "current_session": {"current_instruction_revision": "rev-current"},

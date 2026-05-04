@@ -19,6 +19,8 @@ def make_args(**overrides) -> SimpleNamespace:
         "execute": False,
         "dry_run": False,
         "keep_going": False,
+        "no_parallel": False,
+        "parallel_workers": 4,
         "format": "json",
         "output": None,
         "pipe_command": None,
@@ -43,6 +45,9 @@ class CheckRouterTests(unittest.TestCase):
                 "--execute",
                 "--dry-run",
                 "--keep-going",
+                "--parallel-workers",
+                "8",
+                "--no-parallel",
                 "--quality-policy",
                 "/tmp/router-policy.json",
             ]
@@ -53,9 +58,11 @@ class CheckRouterTests(unittest.TestCase):
         self.assertTrue(args.execute)
         self.assertTrue(args.dry_run)
         self.assertTrue(args.keep_going)
+        self.assertEqual(args.parallel_workers, 8)
+        self.assertTrue(args.no_parallel)
         self.assertEqual(args.quality_policy, "/tmp/router-policy.json")
 
-    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_docs_only_changes_route_to_docs_lane(
@@ -83,7 +90,7 @@ class CheckRouterTests(unittest.TestCase):
         self.assertTrue(payload["match_evidence"])
         self.assertTrue(payload["rejected_rule_traces"])
 
-    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_runtime_hud_changes_detect_overlay_addon(
@@ -117,7 +124,7 @@ class CheckRouterTests(unittest.TestCase):
             overlay_addon["commands"],
         )
 
-    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_pty_session_changes_detect_unsafe_lifecycle_addon(
@@ -148,7 +155,7 @@ class CheckRouterTests(unittest.TestCase):
             unsafe_addon["commands"],
         )
 
-    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_tooling_precedence_over_runtime_when_both_present(
@@ -175,7 +182,7 @@ class CheckRouterTests(unittest.TestCase):
         self.assertEqual(payload["lane"], "tooling")
         self.assertEqual(payload["bundle"], "bundle.tooling")
 
-    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_devctl_change_routes_focused_devctl_tests_not_operator_console(
@@ -212,7 +219,7 @@ class CheckRouterTests(unittest.TestCase):
         )
         self.assertNotIn("test-python --suite operator-console", joined)
 
-    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_operator_console_change_routes_operator_console_tests(
@@ -245,7 +252,7 @@ class CheckRouterTests(unittest.TestCase):
         ]
         self.assertIn("test-python --suite operator-console", "\n".join(planned_commands))
 
-    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_operator_console_docs_do_not_route_operator_console_tests(
@@ -274,7 +281,7 @@ class CheckRouterTests(unittest.TestCase):
             "\n".join(planned_commands),
         )
 
-    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_unknown_paths_escalate_to_tooling_lane(
@@ -299,7 +306,7 @@ class CheckRouterTests(unittest.TestCase):
         reason_text = " ".join(payload["reasons"])
         self.assertIn("Unknown paths detected", reason_text)
 
-    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_active_plan_markdown_routes_to_tooling_lane(
@@ -323,7 +330,7 @@ class CheckRouterTests(unittest.TestCase):
         self.assertEqual(payload["lane"], "tooling")
         self.assertEqual(payload["bundle"], "bundle.tooling")
 
-    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_release_signals_route_to_release_lane(
@@ -347,8 +354,8 @@ class CheckRouterTests(unittest.TestCase):
         self.assertEqual(payload["lane"], "release")
         self.assertEqual(payload["bundle"], "bundle.release")
 
-    @patch("dev.scripts.devctl.commands.check_router.write_output")
-    @patch("dev.scripts.devctl.commands.check_router.run_cmd")
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.run_cmd")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_execute_runs_planned_commands(
@@ -393,7 +400,7 @@ class CheckRouterTests(unittest.TestCase):
         self.assertTrue(payload["execute"])
         self.assertEqual(len(payload["steps"]), 1)
 
-    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_quality_policy_override_flows_into_policy_aware_commands(
@@ -420,8 +427,53 @@ class CheckRouterTests(unittest.TestCase):
         self.assertIn(sys.executable, planned)
         self.assertIn("--quality-policy /tmp/router-policy.json", planned)
 
-    @patch("dev.scripts.devctl.commands.check_router.write_output")
-    @patch("dev.scripts.devctl.commands.check_router.run_cmd")
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_since_ref_flows_into_range_aware_guard_commands(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.side_effect = [
+            {
+                "mode": "commit-range",
+                "changes": [
+                    {
+                        "status": "M",
+                        "path": "dev/scripts/devctl/commands/check/router.py",
+                    }
+                ],
+            },
+            {"mode": "working-tree", "changes": []},
+        ]
+        extract_bundle_mock.return_value = (
+            [
+                "python3 dev/scripts/checks/check_python_broad_except.py",
+                "python3 dev/scripts/checks/check_command_source_validation.py",
+                "python3 dev/scripts/checks/check_code_shape.py",
+            ],
+            None,
+        )
+
+        rc = check_router.run(make_args(since_ref="origin/feature/demo"))
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        commands = [row["command"] for row in payload["planned_commands"]]
+        self.assertIn(
+            "--since-ref origin/feature/demo --head-ref HEAD",
+            commands[0],
+        )
+        self.assertIn(
+            "--since-ref origin/feature/demo --head-ref HEAD",
+            commands[1],
+        )
+        self.assertNotIn("--since-ref origin/feature/demo", commands[2])
+
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.run_cmd")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_execute_rewrites_repo_pytest_bundle_commands_to_active_interpreter(
@@ -465,6 +517,76 @@ class CheckRouterTests(unittest.TestCase):
         payload = json.loads(write_output_mock.call_args.args[0])
         planned = payload["planned_commands"][0]["command"]
         self.assertIn(sys.executable, planned)
+
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.run_step_specs")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_keep_going_reports_guard_coverage_and_remediation(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        run_step_specs_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [{"status": "M", "path": "dev/scripts/README.md"}]
+        }
+        extract_bundle_mock.return_value = (
+            [
+                "python3 dev/scripts/devctl.py docs-check --strict-tooling",
+                "python3 dev/scripts/checks/check_registry_path_integrity.py",
+            ],
+            None,
+        )
+        run_step_specs_mock.return_value = [
+            {
+                "name": "router-01",
+                "cmd": ["bash", "-lc", "docs-check"],
+                "cwd": ".",
+                "returncode": 1,
+                "duration_s": 0.01,
+                "skipped": False,
+                "failure_output": (
+                    "Strict tooling docs mode requires maintainer docs; missing: "
+                    "AGENTS.md, dev/guides/DEVELOPMENT.md."
+                ),
+            },
+            {
+                "name": "router-02",
+                "cmd": ["bash", "-lc", "registry"],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.01,
+                "skipped": False,
+            },
+        ]
+
+        rc = check_router.run(make_args(execute=True, keep_going=True))
+
+        self.assertEqual(rc, 1)
+        run_step_specs_mock.assert_called_once()
+        _, kwargs = run_step_specs_mock.call_args
+        self.assertTrue(kwargs["parallel_enabled"])
+        self.assertEqual(kwargs["max_workers"], 4)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(payload["parallel_enabled"])
+        self.assertEqual(payload["parallel_workers"], 4)
+        coverage = payload["guard_coverage"]
+        self.assertEqual(coverage["contract_id"], "CheckRouterGuardCoverageReceipt")
+        self.assertEqual(coverage["planned_command_count"], 2)
+        self.assertEqual(coverage["executed_command_count"], 2)
+        self.assertEqual(coverage["failed_command_count"], 1)
+        self.assertEqual(coverage["unexecuted_command_count"], 0)
+        self.assertTrue(coverage["all_planned_commands_executed"])
+        self.assertEqual(
+            payload["remediation_actions"][0]["reason"],
+            "strict_tooling_maintainer_docs_missing",
+        )
+        self.assertEqual(
+            payload["remediation_actions"][0]["required_paths"],
+            ["AGENTS.md", "dev/guides/DEVELOPMENT.md"],
+        )
 
     def test_bundle_contract_extracts_non_empty_commands(self) -> None:
         for lane, bundle_name in check_router.BUNDLE_BY_LANE.items():
@@ -510,8 +632,8 @@ class CheckRouterTests(unittest.TestCase):
             tooling_commands,
         )
 
-    @patch("dev.scripts.devctl.commands.check_router.write_output")
-    @patch("dev.scripts.devctl.commands.check_router.run_cmd")
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.run_cmd")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_json_dry_run_serializes_steps_without_dry_run_stdout(
@@ -541,7 +663,7 @@ class CheckRouterTests(unittest.TestCase):
             payload["steps"][0]["router_command"],
         )
 
-    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_since_ref_uses_dirty_worktree_slice_before_branch_range(
@@ -586,7 +708,7 @@ class CheckRouterTests(unittest.TestCase):
             ["dev/scripts/devctl/commands/check.py"],
         )
 
-    @patch("dev.scripts.devctl.commands.check_router.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
     def test_latency_changes_detect_direct_host_cleanup_addon(

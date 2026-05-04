@@ -27,6 +27,9 @@ def participant_from_record(
     attachment: RemoteControlAttachmentState | None,
 ) -> CollaborationParticipantState:
     lane_title, mp_scope, worktree, branch = primary_lane_fields(record)
+    workspace_root = record.workspace_root or record.repo_root
+    worktree_identity = worktree or workspace_root
+    branch_name = branch or record.current_branch
     if attachment is None:
         return CollaborationParticipantState(
             agent_id=record.provider,
@@ -47,9 +50,9 @@ def participant_from_record(
             planned_lane_count=record.planned_lane_count,
             lane=lane_title,
             mp_scope=mp_scope,
-            worktree=worktree,
-            branch=branch,
-            workspace_root=record.workspace_root,
+            worktree=worktree_identity,
+            branch=branch_name,
+            workspace_root=workspace_root,
         )
     return CollaborationParticipantState(
         agent_id=record.provider,
@@ -70,9 +73,9 @@ def participant_from_record(
         planned_lane_count=record.planned_lane_count,
         lane=lane_title,
         mp_scope=mp_scope,
-        worktree=worktree,
-        branch=branch,
-        workspace_root=record.workspace_root,
+        worktree=worktree_identity,
+        branch=branch_name,
+        workspace_root=workspace_root,
     )
 
 

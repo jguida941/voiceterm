@@ -104,13 +104,14 @@ def _runtime_row_text(row: dict[str, object]) -> str:
 
 
 def _peer_lines(peer: dict[str, object]) -> list[str]:
+    attention_hint = peer.get("attention_hint") or peer.get("wake_hint") or "(none)"
     lines = [
         (
             f"- {peer.get('provider') or '(peer)'}: "
             f"{peer.get('confidence') or '(unknown)'} "
             f"age={peer.get('age_seconds')}s "
             f"events={peer.get('event_count')} "
-            f"wake_hint={peer.get('wake_hint') or '(none)'} "
+            f"attention_hint={attention_hint} "
             f"sessions={peer.get('covered_session_count', 0)}/"
             f"{peer.get('known_session_count', 0)} "
             f"omitted={peer.get('omitted_session_count', 0)}"

@@ -366,7 +366,7 @@ def test_build_work_intake_packet_prefers_mp_scoped_spec_and_reconciles_review_s
     assert packet.routing.rejected_rule_traces
     assert (
         packet.routing.preflight_command
-        == "python3 dev/scripts/devctl.py check-router --since-ref origin/feature/demo --execute"
+        == "python3 dev/scripts/devctl.py check-router --since-ref origin/feature/demo --execute --keep-going"
     )
     assert packet.writeback_sinks == (
         "dev/active/platform_authority_loop.md",
@@ -524,7 +524,7 @@ def test_build_work_intake_packet_uses_develop_base_for_dirty_worktree_preflight
 
     assert (
         packet.routing.preflight_command
-        == "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute"
+        == "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute --keep-going"
     )
 
 

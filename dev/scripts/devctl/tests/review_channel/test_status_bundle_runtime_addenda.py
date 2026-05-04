@@ -7,6 +7,9 @@ from dev.scripts.devctl.review_channel.status_bundle import (
     _attach_agent_loop_decisions,
     _preserve_typed_runtime_addenda,
 )
+from dev.scripts.devctl.commands.review_channel.status_runtime_projection import (
+    _refresh_report_work_board_identity,
+)
 from dev.scripts.devctl.review_channel.agent_work_board_posture import (
     apply_work_board_session_posture,
 )
@@ -66,6 +69,90 @@ def test_status_bundle_preserves_event_runtime_addenda() -> None:
     )
     assert merged["reviewer_runtime"]["packet_attention"]["latest_inbox_event_id"] == "rev_evt_1"
     assert merged["reviewer_runtime"]["inbox_observation"]["last_inbox_event_id"] == "rev_evt_1"
+
+
+def test_status_bundle_refreshes_preserved_work_board_runtime_identity() -> None:
+    review_state = {
+        "collaboration": {
+            "participants": (
+                {
+                    "agent_id": "claude",
+                    "provider": "claude",
+                    "role": "implementer",
+                    "worktree": "/repo/worktree",
+                    "branch": "feature/live",
+                    "workspace_root": "/repo/worktree",
+                },
+            )
+        },
+        "reviewer_runtime": {},
+    }
+    prior = {
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "claude",
+                    "role": "dashboard",
+                    "session_id": "s-claude",
+                    "worktree_identity": "",
+                    "branch": "",
+                    "path_scope": [],
+                }
+            ]
+        }
+    }
+
+    merged = _preserve_typed_runtime_addenda(
+        review_state,
+        prior_review_state=prior,
+    )
+
+    row = merged["agent_work_board"]["rows"][0]
+    assert row["worktree_identity"] == "/repo/worktree"
+    assert row["branch"] == "feature/live"
+    assert row["path_scope"] == ["/repo/worktree"]
+
+
+def test_status_report_refreshes_work_board_runtime_identity() -> None:
+    report = {
+        "collaboration": {
+            "participants": (
+                {
+                    "agent_id": "claude",
+                    "provider": "claude",
+                    "role": "implementer",
+                    "worktree": "/repo/worktree",
+                    "branch": "feature/live",
+                    "workspace_root": "/repo/worktree",
+                },
+            )
+        },
+        "current_session": {"current_instruction_revision": "rev-current"},
+        "reviewer_runtime": {
+            "agent_runtime_clock": {"source_latest_event_id": "rev_evt_1"}
+        },
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "claude",
+                    "role": "dashboard",
+                    "session_id": "s-claude",
+                    "worktree_identity": "",
+                    "branch": "",
+                    "path_scope": [],
+                }
+            ]
+        },
+        "packets": [],
+    }
+
+    _refresh_report_work_board_identity(report)
+
+    row = report["agent_work_board"]["rows"][0]
+    assert row["worktree_identity"] == "/repo/worktree"
+    assert row["branch"] == "feature/live"
+    assert row["path_scope"] == ["/repo/worktree"]
+    assert report["agent_loop_decisions"][0]["actor_id"] == "claude"
 
 
 def test_status_runtime_addenda_reconciles_session_posture_liveness() -> None:

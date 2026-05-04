@@ -67,13 +67,18 @@ def _next_slice_lines(next_slice) -> list[str]:
 
 
 def _packet_attention_lines(attention) -> list[str]:
+    attention_reason = (
+        attention.get("attention_reason")
+        or attention.get("wake_reason")
+        or "(none)"
+    )
     return [
         "",
         "## Packet Attention",
         "",
         f"- attention_required: {attention.get('attention_required')}",
         f"- attention_status: {attention.get('attention_status')}",
-        f"- wake_reason: {attention.get('wake_reason') or '(none)'}",
+        f"- attention_reason: {attention_reason}",
         f"- latest_attention_packet_id: {attention.get('latest_attention_packet_id') or '(none)'}",
         f"- latest_finding_packet_id: {attention.get('latest_finding_packet_id') or '(none)'}",
         "- pending_delivery_packet_ids: "

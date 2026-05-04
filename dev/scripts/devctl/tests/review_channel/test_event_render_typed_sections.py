@@ -176,6 +176,76 @@ def test_render_event_md_renders_packet_wake_receipt() -> None:
     assert "- replaced_pids: 4242" in text
 
 
+def test_render_event_md_renders_packet_attention_without_wake() -> None:
+    report = _base_report(None, None)
+    report["action"] = "post"
+    report["packet_attention"] = {
+        "attempted": False,
+        "woke": False,
+        "attention_recorded": True,
+        "reason": "packet_delivery_records_typed_attention_only",
+        "target_agent": "codex",
+        "wake_method": "none",
+        "packet_id": "rev_pkt_attention",
+    }
+
+    text = render_event_md(report)
+
+    assert "## Packet Attention" in text
+    assert "- attempted: False" in text
+    assert "- woke: False" in text
+    assert "- attention_recorded: True" in text
+    assert "- wake_method: none" in text
+    assert "- packet_id: rev_pkt_attention" in text
+
+
+def test_render_event_md_accepts_legacy_reviewer_wake_attention_alias() -> None:
+    report = _base_report(None, None)
+    report["action"] = "post"
+    report["reviewer_wake"] = {
+        "attempted": False,
+        "woke": False,
+        "attention_recorded": True,
+        "reason": "packet_delivery_records_typed_attention_only",
+        "target_agent": "codex",
+        "wake_method": "none",
+        "packet_id": "rev_pkt_legacy_attention",
+    }
+
+    text = render_event_md(report)
+
+    assert "## Packet Attention" in text
+    assert "- packet_id: rev_pkt_legacy_attention" in text
+
+
+def test_render_event_md_renders_packet_section_attention_alias() -> None:
+    report = _base_report(None, None)
+    report["action"] = "show"
+    report["packet"] = {
+        "packet_id": "rev_pkt_show_attention",
+        "trace_id": "trace-show",
+        "from_agent": "claude",
+        "to_agent": "codex",
+        "status": "pending",
+        "summary": "Attention alias inside packet row",
+        "reviewer_wake": {
+            "attempted": False,
+            "woke": False,
+            "attention_recorded": True,
+            "reason": "packet_delivery_records_typed_attention_only",
+            "target_agent": "codex",
+            "wake_method": "none",
+            "packet_id": "rev_pkt_show_attention",
+        },
+    }
+
+    text = render_event_md(report)
+
+    assert "## Packet" in text
+    assert "## Packet Attention" in text
+    assert "- packet_id: rev_pkt_show_attention" in text
+
+
 def test_render_event_md_renders_headless_delegate_wake_receipt() -> None:
     report = _base_report(None, None)
     report["action"] = "post"

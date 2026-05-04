@@ -509,8 +509,12 @@ Portability note:
 	  `--profile ci`). A valid `stage_commit_pipeline` post also emits an
 	  `ActionRequestRuntimeAuthorityEvidence` metadata payload when typed
 	  collaboration authority is available from the reduced review state or the
-	  configured raw state path. Governed commit can then derive missing
-	  action-request caller identity, caller role, capability grants, live
+	  configured raw state path. `safe_auto_apply` consumes that authority
+	  evidence for actor-targeted handoff packets instead of limiting automatic
+	  ACK/apply to system-authored packets; packets without target-actor
+	  stage/commit capability evidence still remain pending. Governed commit
+	  can then derive missing action-request caller identity, caller role,
+	  capability grants, live
 	  pipeline generation, and staged snapshot hash from typed state; stale
 	  pipeline contracts are ignored, and packet body prose is never executable
 	  authority. The same valid post also emits an
@@ -619,26 +623,26 @@ Portability note:
   fail-closed on typed runtime state too: `pending_action_requests` counts only
   live pending `kind="action_request"` packets, dashboard terminal/markdown
   renderers keep a conductor row in `RUNNING` when the typed session says
-  `alive=true` even if the PID is unavailable, and `ensure --follow` may
-  relaunch one waiting Codex reviewer conductor for the newest unseen
-  action-request packet instead of leaving that wake-up dependent on a
+  `alive=true` even if the PID is unavailable. `ensure --follow` may record
+  typed attention for the newest unseen action-request packet, but packet
+  delivery does not relaunch a Codex reviewer conductor or depend on a
   separately started watcher.
 - Event-backed packet posts also distinguish role/session attention from
   process launch. A packet targeting any provider-backed `target_session_id`
   is not satisfied by launching another process; it records typed attention for
   that exact actor/session and remains pending until the bound session observes
-  it on its polling cadence. Provider packet wakes without both `target_role`
-  and `target_session_id` record
-  `wake_method=typed_attention_event` with
-  `reason=target_session_binding_required` instead of launching a fresh
-  headless provider process. `requested_session_visibility` is generic across
-  roles: `dashboard_only` means typed poll only, `visible` means a new worker
-  must be user-visible and capability-gated, and `headless` is suppressed until
-  explicit typed approval/proof marks the route headless-approved. The reduced
-  packet row exposes wake evidence as `reviewer_wake`; receipts preserve
-  `visible_session_woke`, `target_role`, `target_session_id`,
-  `terminal_window_ids`, `spawned_pids`, and `delivered_to_pids` only when that
-  evidence is real.
+  it on its polling cadence. Provider packet delivery without both
+  `target_role` and `target_session_id` records typed attention only instead
+  of launching a fresh headless provider process. `requested_session_visibility`
+  is generic across roles: `dashboard_only` means typed poll only, `visible`
+  means a new worker must be user-visible and capability-gated by a separate
+  scheduler/runtime controller, and `headless` is suppressed until explicit
+  typed approval/proof marks the route headless-approved. The reduced packet
+  post JSON exposes `packet_attention` as the primary receipt; historical
+  readers may still see the same payload under the compatibility alias
+  `reviewer_wake`. Process ids such as `spawned_pids` and `delivered_to_pids`
+  are only valid when a true launch controller, not packet delivery, produced
+  them.
 - Attention-priority parity is shared across producer paths too: bridge-backed
   `review-channel --action status` and event-backed `startup-context`,
   `session-resume`, and `dashboard` now all attach typed conductor session
@@ -730,9 +734,10 @@ Portability note:
   path. It sleeps on cadence too, but wakes on meaningful implementer-side
   changes (`reviewer_worker` hash drift plus typed current-session / ACK
   updates) instead of treating passive supervisor freshness as equivalent to
-  new review work. The same wait path now also wakes on the newest
+  new review work. The same wait path now also pivots on the newest
   Codex-targeted pending packet id, so reviewer-side packet delivery no longer
-  depends on a separately started watcher during bounded waits. It reads the
+  depends on a separately started watcher during bounded waits; that pivot is
+  typed attention only and does not launch or replace a conductor. It reads the
   real `status` report shape (`reviewer_worker` + `bridge_liveness`) and loads
   typed `current_session` state from the generated `review_state.json` /
   `compact.json` projections rather than from an invented top-level status
@@ -1227,7 +1232,8 @@ python3 dev/scripts/devctl.py check --profile ci --no-parallel
 # Optional: add the orphaned/stale test-process cleanup sweep around checks
 python3 dev/scripts/devctl.py check --profile ci --with-process-sweep-cleanup
 # Optional: path-aware pre-push routing from changed files
-python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute
+python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute --keep-going
+python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute --keep-going --parallel-workers 8
 python3 dev/scripts/devctl.py check-router --since-ref origin/develop --quality-policy /tmp/pilot-policy.json
 # Canonical guarded branch-push validation path (non-mutating by default)
 python3 dev/scripts/devctl.py push
@@ -1733,7 +1739,7 @@ summary over the selected snapshot window.
 | `dev/scripts/checks/check_python_broad_except.py` | Python broad-except rationale guard | Fails when newly added `except Exception` / `except BaseException` handlers appear in repo-owned Python tooling or Operator Console code without a nearby `broad-except: allow reason=...` comment. The guard is diff-aware by default, excludes tests, and supports `--paths` for targeted local verification. |
 | `dev/scripts/checks/check_pytest_runtime_policy.py` | Pytest runtime policy guard | Fails when canonical bundles include raw pytest commands or the root pytest config loses bounded, fail-fast discovery defaults. |
 | `dev/scripts/checks/check_python_subprocess_policy.py` | Python subprocess policy guard | Fails when repo-owned Python tooling or Operator Console code calls `subprocess.run(...)` without an explicit `check=` keyword. Tests are excluded so intentional fixture/process assertions can stay flexible, and `--since-ref/--head-ref` support lets AI-guard/post-push lanes scope the scan to changed files. |
-| `dev/scripts/checks/check_command_source_validation.py` | Command-source validation guard | Fails when Python command construction uses `shlex.split(...)` on CLI/env/config input, forwards raw `sys.argv` into subprocess argv, or threads env-controlled command values into command runners without a validator helper. The initial rollout is intentionally focused on the selectable launcher lane (`scripts/` + `pypi/src`) so the rule can stay low-noise before any broader promotion. |
+| `dev/scripts/checks/check_command_source_validation.py` | Command-source validation guard | Fails when Python command construction uses `shlex.split(...)` on CLI/env/config input, forwards raw `sys.argv` into subprocess argv, or threads env-controlled command values into command runners without a validator helper. It is part of the default shared bundle guard floor; repo policy can still narrow target roots for external-adopter pilots. |
 | `dev/scripts/checks/check_rust_test_shape.py` | Rust test-shape non-regression guard | Fails when changed Rust test files cross soft/hard size budgets or grow oversize hotspots beyond configured growth limits. |
 | `dev/scripts/checks/check_rust_lint_debt.py` | Rust lint-debt non-regression guard | Fails when changed non-test Rust files increase `#[allow(...)]` usage, `#[allow(dead_code)]` usage, `unwrap/expect` calls, `unwrap_unchecked/expect_unchecked` calls, or panic-macro paths; supports dead-code inventory/report output and optional policy flags (`--fail-on-undocumented-dead-code`, `--fail-on-any-dead-code`). |
 | `dev/scripts/checks/check_rust_best_practices.py` | Rust best-practices non-regression guard | Fails when changed non-test Rust files increase reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, public `unsafe fn` surfaces lacking `# Safety` docs, `unsafe impl` blocks missing nearby safety rationale, `std::mem::forget`/`mem::forget` usage, `Result<_, String>` surfaces, suppressed channel-send results (`let _ = tx.send(...)` / `_ = tx.try_send(...)`), suppressed event-emitter results (`let _ = sender.emit(...)`), bare detached `thread::spawn(...)` statements without a nearby `detached-thread: allow reason=...` note, `unwrap()`/`expect()` on `join`/`recv` paths, suspicious `OpenOptions::new().create(true)` chains that do not make overwrite semantics explicit via `append(true)`, `truncate(...)`, or `create_new(true)`, direct `==` / `!=` comparisons against float literals in runtime Rust code, app-owned persistent TOML writes that still use direct overwrite helpers (`fs::write`, `File::create`, truncate-open `OpenOptions`) instead of a temp-file swap, or hand-rolled persistent TOML parsers in config/state readers when the repo already has the `toml` crate available. Supports `--absolute` for full-tree Rust audits instead of changed-file-only non-regression scans. |
@@ -1817,7 +1823,9 @@ Machine-first output note:
   - The six-row `AGENTS.md` router table and the generated `CLAUDE.md`
     task-router quick map render from the same typed authority in
     `dev/scripts/devctl/governance/task_router_contract.py`.
-  - `--execute` runs the routed bundle commands plus add-ons from `bundle_registry.py`; unknown paths escalate to the stricter tooling lane.
+  - `--execute` runs the routed bundle commands plus add-ons from `bundle_registry.py`; use `--keep-going` for publish/preflight proof so later guards still run after an early failure. Reports include a typed `CheckRouterGuardCoverageReceipt` plus `GuardRemediationAction` rows, so automation can distinguish all-planned-commands-executed from first-failure-only evidence.
+  - Range-aware universal guards such as Python broad-except and command-source validation receive the router's `--since-ref/--head-ref` automatically, which keeps clean-worktree push preflight from missing already-committed Python changes.
+  - Unknown paths escalate to the stricter tooling lane.
 - `test-python`: bounded Python test adapter for repo-owned pytest suites
   (`devctl`, `operator-console`, or `root`), with fail-fast defaults plus
   session/per-test timeouts enforced by the repo pytest plugin. `check-router`
@@ -1940,10 +1948,13 @@ Machine-first output note:
   `audit-packets --drain-packets` runs the existing guarded deterministic
   plan-row ingestion writer for eligible rows and emits durable-ingestion
   receipts; it does not grant repo mutation. Live runtime-actionable pending
-  packets to a conductor-backed actor now show up as delivery wake pressure in
+  packets to a conductor-backed actor now show up as delivery attention in
   `packet_attention` (`pending_delivery_packet_ids` and
   `latest_attention_packet_id`), while actionable instruction/action-request
   packets remain separately identified in `pending_actionable_packet_ids`.
+  Peer `agent-mind` rows render `attention_hint` and append concrete
+  inbox/agent-mind poll commands to `next_commands`; these are polling and
+  typed-state refresh prompts, not wake or launch authority.
   Operator-targeted read-only `system_notice` packets remain operator-inbox
   inventory and are not treated as agent-loop wake pressure by
   `check_multi_agent_sync.py`.
@@ -1966,23 +1977,15 @@ Machine-first output note:
   `dev/state/plan_ingestion_receipts.jsonl`; duplicate, rejected, or obsolete
   sources still produce a terminal typed receipt so chat text and temp files
   remain evidence, not authority.
-  Delivery wake is not the same proof as same visible-terminal resume; wake
-  receipts and `/develop` reports should preserve whether delivery reached a
-  fresh/headless conductor, the targeted UI session, or only typed runtime rows.
-  A packet scoped to any `target_session_id` must not be satisfied by launching
-  a different session, and a provider packet that lacks exact `target_role` /
-  `target_session_id` binding must not spawn a process at all. Until a
-  provider conductor registry/IPC channel exists, target-session packets stay
-  pending with `wake_method=session_poll`; the bound actor/session must observe
-  them through typed polling. Safe dashboard/observer delivery packets use
-  `requested_session_visibility=dashboard_only` rather than headless
-  delegation; headless launch requires a separate typed approval/proof.
-  Receipts must render `wake_method`, `requested_session_visibility`, and
-  `visible_session_woke` so operators can tell typed attention, visible work,
-  and approved headless work apart.
-  The receipt is persisted as
-  `packet_wake_attempted` and projected onto packet rows as `reviewer_wake`;
-  launcher-proven process ids appear as `spawned_pids` / `delivered_to_pids`.
+  Packet attention is not a launch signal and is not proof that a visible
+  terminal resumed. Packet post, delivery, follow-loop attention, inbox/watch,
+  and packet-backed control paths may record typed attention and feed plan or
+  scheduler state, but they must not spawn, replace, clean up, or externally
+  wake provider sessions. A packet scoped to any `target_session_id` must be
+  observed by that bound actor/session through typed polling; an unbound
+  provider packet remains typed attention only. Session starts, rollover,
+  replacement, and worker fanout require separate scheduler/runtime authority
+  at an explicit task boundary.
   The current launch action is a report-only cycle; it does not spawn workers
   or grant mutation.
 - `view`: typed presentation adapter over catalog/read-model surfaces. For
@@ -2327,7 +2330,7 @@ Machine-first output note:
 | Command | Run it when | Why |
 |---|---|---|
 | `check --profile fast` | you need a very fast local sanity pass while iterating | alias of `quick`; runs local guard checks (including AI-guard scripts) and is not a substitute for pre-push validation |
-| `check-router --since-ref origin/develop --execute` | before push when changed files span multiple surfaces | auto-selects required lane + risk add-ons and executes the routed command set from `bundle_registry.py` (unknown paths escalate to tooling) |
+| `check-router --since-ref origin/develop --execute --keep-going` | before push when changed files span multiple surfaces | auto-selects required lane + risk add-ons, executes the routed command set from `bundle_registry.py` in parallel by default, and emits guard coverage/remediation evidence (unknown paths escalate to tooling); add `--parallel-workers <n>` to tune or `--no-parallel` for sequential debugging |
 | `check-router --since-ref origin/develop --quality-policy /tmp/pilot-policy.json` | you are piloting the governance router in another repo clone | reuses the same lane-selection engine against another repo's policy-owned path/risk rules |
 | `test-python --suite devctl --path dev/scripts/devctl/tests/commands/test_python_tests.py` | you need Python proof for a focused tooling slice | runs pytest through repo-owned fail-fast and timeout policy instead of a broad raw pytest command |
 | `tandem-validate --format md` | a Codex/Claude tandem slice needs one canonical validator instead of a hand-written checklist | runs preflight policy/status, derives the real lane and risk add-ons from `check-router`, executes the routed bundle, then rechecks `check_review_channel_bridge.py` and `check_tandem_consistency.py` at the end |

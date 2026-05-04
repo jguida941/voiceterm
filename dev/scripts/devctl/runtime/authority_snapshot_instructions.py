@@ -69,7 +69,28 @@ def reviewer_instruction_requires_clear(
     )
     if not record:
         return False
-    return not str(record.get("current_instruction_packet_id") or "").strip()
+    if str(record.get("current_instruction_packet_id") or "").strip():
+        return False
+    return _reviewer_packet_attention_active(record)
+
+
+def _reviewer_packet_attention_active(record: Mapping[str, object]) -> bool:
+    for key in (
+        "pending_actionable_packet_ids",
+        "expired_unresolved_packet_ids",
+    ):
+        value = record.get(key)
+        if isinstance(value, list) and value:
+            return True
+        if isinstance(value, str) and value.strip():
+            return True
+    status = str(record.get("attention_status") or "").strip()
+    if status not in {
+        "review_needed",
+        "wake_required",
+    }:
+        return False
+    return bool(str(record.get("latest_finding_packet_id") or "").strip())
 
 
 def instruction_requires_clear(inputs: AuthorityInstructionInputs) -> bool:

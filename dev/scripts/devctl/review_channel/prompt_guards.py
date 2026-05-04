@@ -159,10 +159,10 @@ def _reviewer_guard_lines(
         ),
         (
             f"- `review-channel --action reviewer-wait` now includes the "
-            f"{counterpart_provider_name}-targeted pending-packet wake path, so "
-            "reviewer-side wait does not depend on a separately started packet "
-            "watcher. Use the standalone watch/inbox surface only for observer "
-            "dashboards or explicit queue inspection."
+            f"{counterpart_provider_name}-targeted pending-packet attention path, "
+            "so reviewer-side wait does not depend on a separately started packet "
+            "watcher or a conductor launch. Use the standalone watch/inbox surface "
+            "only for observer dashboards or explicit queue inspection."
         ),
         (
             "- In `active_dual_agent`, reviewer mode is review-only by default. "

@@ -64,6 +64,35 @@ def wake_skipped(
     return _base_wake_report(packet=packet, attempted=False, reason=reason)
 
 
+def packet_delivery_recorded_without_wake(
+    *,
+    packet: Mapping[str, object],
+    target_agent: str,
+) -> dict[str, object]:
+    """Return the post-packet scheduling receipt.
+
+    Packet delivery is communication and typed-state input. It must not become
+    process authority; session start/rollover belongs to scheduler/runtime
+    controllers that consume typed state after a task boundary.
+    """
+    report = _base_wake_report(
+        packet=packet,
+        attempted=False,
+        reason="packet_delivery_records_typed_attention_only",
+    )
+    report["target_agent"] = target_agent
+    report["target_role"] = _text(packet.get("target_role"))
+    report["target_session_id"] = _text(packet.get("target_session_id"))
+    report["attention_recorded"] = True
+    report["wake_method"] = "none"
+    report["warnings"] = [
+        "Packet delivery does not launch, replace, or externally wake agent "
+        "sessions; scheduler/runtime controllers must consume typed packet "
+        "state and decide session work at explicit task boundaries."
+    ]
+    return report
+
+
 def wake_attention_recorded_without_conductor(
     *,
     packet: Mapping[str, object],
@@ -128,6 +157,7 @@ def _text(value: object) -> str:
 __all__ = [
     "PACKET_ARRIVAL_ATTENTION_SHAPE",
     "PACKET_WAKE_PIVOT_EVENT",
+    "packet_delivery_recorded_without_wake",
     "wake_attention_recorded_without_conductor",
     "wake_error",
     "wake_receipt_with_attention_decision",

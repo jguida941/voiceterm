@@ -37,10 +37,6 @@ ENFORCEMENT_EXEMPTIONS = {
         "kind": "helper",
         "reason": "shared bootstrap helper imported by other checks, not a lane-owned guard",
     },
-    "command_source_validation": {
-        "kind": "pilot-lane",
-        "reason": "launcher-only hard guard currently ships through the selectable launcher policy/command surface until broader repo rollout is complete",
-    },
     "duplication_audit_support": {
         "kind": "helper",
         "reason": "support module for duplication audit heuristics, not a standalone guard entrypoint",

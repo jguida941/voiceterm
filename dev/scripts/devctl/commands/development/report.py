@@ -13,6 +13,10 @@ from ...runtime.master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL
 from ...runtime.master_plan_store import read_plan_rows_jsonl
 from .actions import resolve_action
 from .actor_resolution import resolve_actor
+from .attention_commands import (
+    next_commands_with_attention,
+    peer_mind_alias_warnings,
+)
 from .continuation import continuation_signal, watcher_lease_status
 from .lifecycle import LIFECYCLE_ACTIONS
 from .lifecycle import lifecycle_next_commands, lifecycle_plan
@@ -45,7 +49,7 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         agent=actor,
     )
     blockers, warnings = _action_findings(action, args)
-    next_commands = _next_commands(action)
+    base_next_commands = _next_commands(action)
     next_slice = select_next_slice(rows, packet_attention=packet_attention)
     required_checks = _required_checks(action)
     runtime = runtime_snapshot_from_review_state(
@@ -56,6 +60,12 @@ def build_report(args: Any) -> DevelopmentLoopReport:
     )
     dashboard = _orchestration_dashboard(REPO_ROOT)
     peer_minds = peer_mind_snapshots(REPO_ROOT, review_state, actor=actor)
+    warnings = (*warnings, *peer_mind_alias_warnings(peer_minds))
+    next_commands = next_commands_with_attention(
+        base_next_commands,
+        packet_attention=packet_attention,
+        peer_minds=peer_minds,
+    )
     orchestration = orchestration_snapshot(
         REPO_ROOT,
         review_state,
@@ -324,6 +334,10 @@ def _next_step_command(
     if packet_attention_required and packet_attention_command:
         return packet_attention_command
     return next_commands[0] if next_commands else ""
+
+
+_next_commands_with_attention = next_commands_with_attention
+_peer_mind_alias_warnings = peer_mind_alias_warnings
 
 
 __all__ = ["build_report"]

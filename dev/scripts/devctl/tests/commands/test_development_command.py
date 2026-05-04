@@ -17,7 +17,10 @@ from dev.scripts.devctl.commands.development import packet_debt as development_p
 from dev.scripts.devctl.commands.development import plan_intake
 from dev.scripts.devctl.commands.development import report as development_report
 from dev.scripts.devctl.commands.development.actor_resolution import resolve_actor
-from dev.scripts.devctl.commands.development.models import DevelopmentPacketAttention
+from dev.scripts.devctl.commands.development.models import (
+    DevelopmentPacketAttention,
+    DevelopmentPeerMindSnapshot,
+)
 from dev.scripts.devctl.commands.development.next_slice import select_next_slice
 from dev.scripts.devctl.commands.development.orchestration_inputs import (
     orchestration_snapshot,
@@ -55,6 +58,8 @@ def test_develop_status_renders_topology_and_scaling(capsys) -> None:
     assert payload["topology"]["topology_id"] == "develop-default"
     assert "next_step_command" in payload
     assert "packet_attention" in payload
+    assert "attention_reason" in payload["packet_attention"]
+    assert "wake_reason" in payload["packet_attention"]
     assert payload["runtime"]["authority_source"] == (
         "AgentWorkBoardProjection+AgentSyncProjection"
     )
@@ -64,6 +69,8 @@ def test_develop_status_renders_topology_and_scaling(capsys) -> None:
     assert payload["peer_minds"]
     assert payload["peer_minds"][0]["authority_policy"] == "auxiliary_context_only"
     assert payload["peer_minds"][0]["coverage_scope"] == "provider_latest_projection"
+    assert "attention_hint" in payload["peer_minds"][0]
+    assert "wake_hint" in payload["peer_minds"][0]
     assert payload["orchestration"]["authority_policy"] == (
         "consume_existing_agent_loop_and_system_picture"
     )
@@ -102,6 +109,53 @@ def test_develop_status_renders_topology_and_scaling(capsys) -> None:
     )
     assert "intake_fanout" in payload["topology"]["scaling"]["mode_ids"]
     assert "WorkerPacket" in payload["topology"]["scaling"]["route_outputs"]
+
+
+def test_next_commands_with_attention_uses_registered_peer_hints() -> None:
+    commands = development_report._next_commands_with_attention(
+        ("python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1",),
+        packet_attention=DevelopmentPacketAttention(
+            attention_required=True,
+            required_command="python3 dev/scripts/devctl.py review-channel --action show --packet-id rev_pkt_1 --terminal none --format md",
+        ),
+        peer_minds=(
+            DevelopmentPeerMindSnapshot(
+                provider="claude",
+                attention_hint="refresh_agent_mind",
+                wake_hint="refresh_agent_mind",
+                suggested_command="python3 dev/scripts/devctl.py agent-mind --agent claude --since-cursor --project --format md --limit 20",
+            ),
+            DevelopmentPeerMindSnapshot(
+                provider="codex",
+                attention_hint="peer_recent_activity",
+                wake_hint="peer_recent_activity",
+                suggested_command="ignored",
+            ),
+        ),
+    )
+
+    assert commands == (
+        "python3 dev/scripts/devctl.py review-channel --action show --packet-id rev_pkt_1 --terminal none --format md",
+        "python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1",
+        "python3 dev/scripts/devctl.py agent-mind --agent claude --since-cursor --project --format md --limit 20",
+    )
+
+
+def test_peer_mind_alias_divergence_is_reported() -> None:
+    warnings = development_report._peer_mind_alias_warnings(
+        (
+            DevelopmentPeerMindSnapshot(
+                provider="claude",
+                attention_hint="peer_packet_activity",
+                wake_hint="refresh_agent_mind",
+            ),
+        )
+    )
+
+    assert warnings == (
+        "peer_mind_hint_alias_diverged:"
+        "claude:attention_hint=peer_packet_activity:wake_hint=refresh_agent_mind",
+    )
 
 
 def test_develop_status_accepts_collaboration_mode_and_role_preset(capsys) -> None:
@@ -263,6 +317,7 @@ def test_develop_watch_markdown_includes_collaboration_sections(capsys) -> None:
     assert "## Continuation" in output
     assert "authority_policy: auxiliary_context_only" in output
     assert "coverage_scope: provider_latest_projection" in output
+    assert "attention_hint=" in output
 
 
 def test_develop_verify_lists_required_checks(capsys) -> None:

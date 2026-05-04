@@ -1,4 +1,4 @@
-"""Wake classification for `/develop` peer-mind context."""
+"""Attention classification for `/develop` peer-mind context."""
 
 from __future__ import annotations
 
@@ -17,6 +17,12 @@ _PACKET_TERMS = (
     "posted",
     "unacked",
 )
+ATTENTION_COMMAND_HINTS = frozenset(
+    {
+        "refresh_agent_mind",
+        "peer_packet_activity",
+    }
+)
 
 
 def peer_mind_wake_hint(
@@ -25,7 +31,11 @@ def peer_mind_wake_hint(
     latest_summary: str,
     events: tuple[DevelopmentPeerMindEvent, ...],
 ) -> str:
-    """Return the wake hint for a peer-mind projection."""
+    """Return the attention hint for a peer-mind projection.
+
+    The function name is kept for compatibility with older imports; the value
+    is an inbox/polling hint, not process wake authority.
+    """
     if confidence != "fresh_auxiliary":
         return "refresh_agent_mind"
 
@@ -42,4 +52,4 @@ def _is_packet_activity(text: str) -> bool:
     return any(term in normalized for term in _PACKET_TERMS)
 
 
-__all__ = ["peer_mind_wake_hint"]
+__all__ = ["ATTENTION_COMMAND_HINTS", "peer_mind_wake_hint"]

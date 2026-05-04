@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-05-03
+**Last Updated:** 2026-05-04
 
 ## At a Glance
 
@@ -36,6 +36,50 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-05-04 - Packet delivery records attention, not conductor wake
+
+Fact: live dogfooding showed the packet-delivery path was still carrying
+process semantics. Even after earlier exact-session fixes, packet post/follow
+helpers and their docs/tests still treated "packet arrived" as a possible
+conductor launch, replacement, or cleanup trigger. That contradicted the
+typed-state architecture: packets are communication, plan-intake, and attention
+input; session starts belong to scheduler/runtime controllers at task
+boundaries.
+
+Change: event-backed packet post, reviewer follow attention, and provider
+packet dispatch now return a no-launch attention receipt
+(`attempted=false`, `woke=false`, `wake_method=none`,
+`attention_recorded=true`). The focused tests assert that launcher, cleanup,
+headless delegate, and relaunch dependencies are not called from packet
+delivery. Markdown renders no-launch delivery as "Packet Attention", and
+runtime presence no longer promotes fresh packet activity into detached Claude
+liveness when the typed reviewer mode is inactive/single-agent. The durable
+plan now carries `MP377-P0-T22AN-AF` for the packet-attention/no-conductor
+boundary and `MP377-P0-T22AN-AG` for the `rev_pkt_2936` cold-bootstrap
+enforcement follow-up.
+
+Follow-up: Claude dogfood packet `rev_pkt_2940` proved the live no-launch
+contract for both Claude- and Codex-targeted packets, then exposed two
+reporting gaps. Post-action JSON now emits `packet_attention` as the primary
+receipt and keeps `reviewer_wake` only as a compatibility alias; communication
+only `system_notice` creation-binding receipts with plan anchors now say the
+plan context is advisory instead of claiming no context existed. `/develop`
+also renders peer `attention_hint` / packet `attention_reason` language and
+appends concrete inbox/agent-mind poll commands to `next_commands`, so agents
+can keep cross-session awareness fresh without adding packet wakeups.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel/event_post_wake.py`
+- `dev/scripts/devctl/commands/review_channel/event_handler.py`
+- `dev/scripts/devctl/review_channel/packet_creation_binding.py`
+- `dev/scripts/devctl/commands/development/report.py`
+- `dev/scripts/devctl/review_channel/follow_controller.py`
+- `dev/scripts/devctl/review_channel/agent_wake_dispatch.py`
+- `dev/scripts/devctl/review_channel/status_projection_runtime_presence.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_post_wake.py`
+- `dev/scripts/devctl/tests/review_channel/test_follow_controller_reviewer_wake.py`
 
 ### 2026-05-03 - Priority action requests now stay current-session authority
 
@@ -237,13 +281,14 @@ non-actionable. That let a stopped agent have pending typed communication
 without a wake edge.
 
 Change: `/develop` now treats any live pending packet to a conductor-backed
-actor as delivery wake pressure, exposing `latest_attention_packet_id` and
+actor as delivery attention pressure, exposing `latest_attention_packet_id` and
 `pending_delivery_packet_ids` while keeping `pending_actionable_packet_ids`
 reserved for instruction/action-request style work. Auto actor resolution also
 uses single live pending packet delivery before falling back to caller
-environment. The event-backed packet-post wake helper now wakes real provider
-targets for `system_notice` delivery and still refuses synthetic
-`operator`/`system` targets.
+environment. This 2026-05-02 slice used wake wording that the 2026-05-04
+packet-attention/no-conductor closure supersedes: event-backed packet post now
+records typed attention only and still refuses synthetic `operator`/`system`
+targets.
 
 Evidence:
 
@@ -253,11 +298,11 @@ Evidence:
 - `dev/scripts/devctl/tests/commands/test_development_command.py`
 - `dev/scripts/devctl/tests/review_channel/test_event_post_wake.py`
 
-Boundary: this proves typed delivery wake and Claude-side packet handling, not
-same visible terminal resume. The `rev_pkt_2760` dogfood produced Claude
+Boundary: this proved typed delivery attention and Claude-side packet handling,
+not same visible terminal resume. The `rev_pkt_2760` dogfood produced Claude
 follow-up `rev_pkt_2761`, while the operator-visible terminal could still look
-parked; the remaining wake-binding work must distinguish headless/new-session
-delivery from resuming the exact UI session a human is watching.
+parked. The 2026-05-04 no-conductor closure tightened the boundary further:
+packet delivery may not launch a headless/new session at all.
 
 Follow-up: Claude finding `rev_pkt_2762` pinned the relaunch root cause in
 `follow_controller.py` / `reviewer_follow_guard.py`. Wake receipts now carry a
@@ -268,19 +313,12 @@ instead of launching a different session and calling that a wake. Full
 receipt intentionally avoids claiming `spawned_pid` / `delivered_to_pid`
 evidence until a real registry or launcher PID capture path exists.
 
-Remote-control closure: safe read-only dashboard packets can now delegate work
-without lying about visible wake. A dashboard/observer `system_notice`,
-`finding`, or `question` with empty or `review_only` requested action may use
-`--terminal none` as an explicit `headless_delegate` grant. The receipt reports
-`delegated=true`, `visible_session_woke=false`, and
-`wake_method=headless_delegate`, so a headless Claude lane can inspect and
-report back while the visible dashboard session remains parked. Claude
-verification packets `rev_pkt_2766` / `rev_pkt_2767` found the receipt was
-stdout-only, so the post path now appends a `packet_wake_attempted` event and
-projects `PacketWakeReceipt` back onto the packet row as `reviewer_wake`.
-When the headless launcher has a real process id, the same receipt carries
-`spawned_pids` and `delivered_to_pids`. Mutating target-session packets still
-fail closed until a real provider registry/IPC path exists.
+Remote-control closure at the time: safe read-only dashboard packets could
+delegate work without claiming visible wake. The later T22AN-AF correction
+supersedes that model for packet delivery: headless or visible launches require
+separate scheduler/runtime authority, and packet post itself records typed
+attention only. Historical `packet_wake_attempted` / `reviewer_wake` rows
+remain audit evidence; they are not current authority to spawn conductors.
 
 ### 2026-05-01 - Typed `/develop` becomes a real read-only MP-377 controller surface
 
@@ -2647,12 +2685,13 @@ The closure aligned all three surfaces on the same contract. Pending-action
 counts now include only live pending `kind="action_request"` packets, dashboard
 terminal/markdown renderers keep repo-owned conductor rows in `RUNNING` when
 typed session state says `alive=true` even if PID capture is unavailable, and
-`ensure --follow` can now relaunch one waiting Codex reviewer conductor for the
-newest unseen action-request packet instead of leaving wake-up dependent on a
-separate watcher. The wake slice was also split across the existing
+`ensure --follow` can now surface the newest unseen action-request packet
+instead of leaving attention dependent on a separate watcher. The historical
+wake slice was split across the existing
 `follow_controller.py` orchestration seam and `reviewer_follow_guard.py`
-runtime/launch helper seam so the code-shape and startup-authority guards stay
-green while the loop remains portable.
+runtime/launch helper seam, but the 2026-05-04 T22AN-AF correction supersedes
+packet-triggered relaunch: packet delivery records attention only, and session
+starts require separate scheduler/runtime authority.
 
 Evidence: `dev/scripts/devctl/runtime/control_plane_resolve.py`,
 `dev/scripts/devctl/commands/dashboard_render/terminal.py`,
@@ -13182,6 +13221,120 @@ Evidence:
 - `dev/scripts/README.md`
 - `AGENTS.md`
 - `dev/guides/DEVELOPMENT.md`
+
+### 2026-05-04 - Packet attention status now carries live runtime identity
+
+Claude dogfood packet `rev_pkt_2941` found that status/develop work-board rows
+could still show a live provider session with blank worktree/branch identity
+even though conductor metadata and `CollaborationSession.participants` carried
+the session workspace root. That made runtime-presence views harder to trust
+and let preserved event-owned rows keep stale shape while status knew fresher
+participant identity.
+
+Change: conductor session records now capture the current git branch for their
+workspace, collaboration participants fall back from planned-lane worktree to
+session workspace root, work-board row building uses workspace root as the
+identity fallback, and status refresh/report paths repair preserved work-board
+rows from fresh collaboration participants. Stale work-board visibility rows
+without bound packet ids no longer create agent-loop decisions.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/session_probe.py`
+- `dev/scripts/devctl/review_channel/collaboration_session_roster_projection.py`
+- `dev/scripts/devctl/review_channel/agent_work_board_row_builder.py`
+- `dev/scripts/devctl/review_channel/status_bundle.py`
+- `dev/scripts/devctl/commands/review_channel/status_runtime_projection.py`
+- `dev/scripts/devctl/review_channel/agent_loop_decision_projection.py`
+- `dev/scripts/devctl/tests/review_channel/test_collaboration_session.py`
+- `dev/scripts/devctl/tests/review_channel/test_status_bundle_runtime_addenda.py`
+- `dev/scripts/devctl/tests/review_channel/test_sync_status_agent_loop.py`
+
+### 2026-05-04 - Semantic guard-promotion packet is now durable plan work
+
+Claude dogfood packet `rev_pkt_2942` captured the operator's requirement that
+the platform catch AI-generated vocabulary drift and duplicated semantic types
+deterministically instead of relying on ad hoc grep scans. The packet ties that
+need to the wake-to-attention rename, `/develop` next-command vocabulary drift,
+and Session*/Packet*/Receipt* dataclass proliferation.
+
+Change: `MP377-P0-T22AN-AH` now owns the deterministic semantic guard
+promotion slice. It will extend existing `probe_term_consistency` and
+`check_contract_connectivity` foundations with typed rename/vocabulary records,
+dataclass clustering exceptions, explicit soft/hard deadlines, and
+check-router coverage before promotion into the shared floor.
+
+Evidence:
+
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+- `rev_pkt_2942`
+
+### 2026-05-04 - Routing and expiry dogfood packets are now durable plan work
+
+Claude dogfood packets `rev_pkt_2943` and `rev_pkt_2944` captured the live
+operator concern that packet attention is still not enough when findings do not
+reach the AI working surface or expire before their body is converted into typed
+plan/finding state.
+
+Change: `MP377-P0-T22AN-AI` now owns the architectural-suggestion routing
+slice: aggregate existing governance/probe/guard findings, rank the bounded
+top-N for the current actor and slice, and surface them through `/develop`
+attention without launching agents. `MP377-P0-T22AN-G` now explicitly carries
+the packet-expiry closure from `rev_pkt_2944`: pre-expiry intent extraction,
+startup batch-ingest of recently archived unbound packets, and lifecycle
+vocabulary that distinguishes transport expiry from content disposition. Claude
+then measured the live backlog through typed state: 826 unbound substantive
+expired packets, including 24 operator-authored rows, so the drain path is not
+cosmetic backlog cleanup.
+
+Evidence:
+
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+- `rev_pkt_2943`
+- `rev_pkt_2944`
+
+### 2026-05-04 - Check-router now proves guard coverage before publication
+
+Live `rev_pkt_2929` publication dogfood showed two separate gaps in the
+handoff-to-push lane: the routed bundle could stop after the first failing
+guard, and several cross-cutting Python/source/registry/runtime-spine guards
+were not part of the shared bundle floor. That made it possible to publish a
+tooling commit with no typed evidence that all required guard families had
+actually run.
+
+Change: `bundle_registry.py` now promotes the missing cross-cutting guards
+into the shared non-bootstrap guard floor, including Python broad-except,
+command-source validation, registry path integrity, runtime-spine closure,
+provider-list parity, duplicate-type, structural-complexity, and AGENTS bundle
+render validation. `check-router` now emits a typed
+`CheckRouterGuardCoverageReceipt` plus `GuardRemediationAction` rows, threads
+its `--since-ref/--head-ref` into range-aware guard commands, and governed
+push preflight calls it with `--keep-going` so later guards still execute after
+an early docs or sync failure.
+
+Follow-up: Claude dogfood packet `rev_pkt_2946` exposed that the routed
+`--keep-going` proof still ran planned commands serially while `devctl check`
+already had an ordered parallel step runner. `check-router` now exposes
+`--parallel-workers` / `--no-parallel`, runs `--execute --keep-going` routed
+commands through the shared parallel runner by default, and reports the
+parallel settings in JSON/markdown output.
+
+Evidence:
+
+- `dev/scripts/devctl/bundles/registry.py`
+- `dev/scripts/devctl/cli_parser/quality.py`
+- `dev/scripts/devctl/commands/check/router.py`
+- `dev/scripts/devctl/commands/check/router_execution.py`
+- `dev/scripts/devctl/commands/check/router_render.py`
+- `dev/scripts/devctl/governance/push_routing.py`
+- `dev/scripts/checks/check_guard_enforcement_inventory.py`
+- `dev/scripts/devctl/tests/commands/check/test_check_router.py`
+- `dev/scripts/devctl/tests/governance/test_bundle_registry.py`
+- `dev/scripts/README.md`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
 - `dev/active/MASTER_PLAN.md`
 
 ### 2026-04-22 — Worktree-orphan snapshots become startup and VCS preflight evidence
@@ -13714,3 +13867,26 @@ Evidence:
 - `AGENTS.md`
 - `dev/guides/DEVELOPMENT.md`
 - `dev/scripts/README.md`
+
+### 2026-05-04 - Actor-authorized safe-auto-apply keeps stage handoff on typed authority
+
+Live `stage_commit_pipeline` dogfood exposed that safe auto-apply only accepted
+system-authored handoff packets, even when executable action-request posts
+already carried `ActionRequestRuntimeAuthorityEvidence`. That forced a manual
+ACK/apply step for actor-authored packets whose target actor and capability
+grants were already proven in typed state.
+
+Change: `safe_auto_apply` now accepts non-system handoff packets only when the
+metadata carries `ActionRequestRuntimeAuthorityEvidence`, the packet target
+matches the authority actor id or provider, and the authority grants either
+`repo.stage_handoff` or both `repo.stage` and `repo.commit`. Packets lacking
+those proofs still remain pending. This keeps auto-advance on typed runtime
+authority instead of sender names or packet prose.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/safe_auto_apply.py`
+- `dev/scripts/devctl/tests/review_channel/test_failure_packet_router.py`
+- `dev/scripts/README.md`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`

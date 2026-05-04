@@ -46,6 +46,7 @@ class SessionContinuityState:
     implementer_status: str = ""
     alignment_status: str = "missing"
     alignment_reason: str = ""
+    unresolved_plan_references: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)

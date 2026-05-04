@@ -51,6 +51,7 @@ def _snapshot_for_provider(
         return DevelopmentPeerMindSnapshot(
             provider=provider,
             known_session_count=known_session_count,
+            attention_hint="refresh_agent_mind",
             wake_hint="refresh_agent_mind",
             suggested_command=agent_mind_command(provider),
         )
@@ -58,7 +59,7 @@ def _snapshot_for_provider(
     age_seconds = _age_seconds(projection)
     confidence = _confidence(age_seconds)
     latest_summary = _latest_summary(events)
-    wake_hint = peer_mind_wake_hint(
+    attention_hint = peer_mind_wake_hint(
         confidence=confidence,
         latest_summary=latest_summary,
         events=events,
@@ -72,11 +73,12 @@ def _snapshot_for_provider(
         event_count=_int(projection.get("event_count")),
         age_seconds=age_seconds,
         confidence=confidence,
-        wake_hint=wake_hint,
+        attention_hint=attention_hint,
+        wake_hint=attention_hint,
         suggested_command=suggested_peer_mind_command(
             provider=provider,
             actor=actor,
-            wake_hint=wake_hint,
+            wake_hint=attention_hint,
         ),
         latest_summary=latest_summary,
         events=events,

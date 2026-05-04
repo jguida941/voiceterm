@@ -102,6 +102,13 @@ def packet_activity_providers_for_bridge(
     capability_provider_fn,
 ) -> tuple[str, ...]:
     providers: list[str] = []
+    reviewer_mode = str(
+        bridge_liveness.get("effective_reviewer_mode")
+        or bridge_liveness.get("reviewer_mode")
+        or ""
+    ).strip()
+    if not reviewer_mode_is_active(reviewer_mode):
+        return ()
     implementer_provider = capability_provider_fn(
         bridge_liveness, "implementer_capability"
     ) or default_provider_for_role(TandemRole.IMPLEMENTER)

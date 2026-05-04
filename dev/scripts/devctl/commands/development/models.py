@@ -81,6 +81,7 @@ class DevelopmentPacketAttention:
     attention_required: bool = False
     agent: str = "codex"
     attention_status: str = "none"
+    attention_reason: str = ""
     wake_reason: str = ""
     latest_attention_packet_id: str = ""
     latest_finding_packet_id: str = ""

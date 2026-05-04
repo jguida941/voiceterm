@@ -13,29 +13,16 @@ from .follow_loop import (
     run_configured_follow_action,
 )
 from .lifecycle_state import PublisherHeartbeat
-from .headless_delegate import (
-    session_pids,
-)
 from .wake_receipt_models import WakeReceiptExtras
 from .reviewer_follow_guard import (
     ReviewerWakeDeps,
-    ReviewerWakeLaunchContext,
-    ReviewerWakePaths,
-    as_path,
-    cleanup_candidate_codex_sessions,
-    cleanup_candidate_provider_sessions,
-    cleanup_codex_sessions,
-    has_blocking_cleanup_warning,
-    launch_waiting_reviewer_conductor,
     maybe_refresh_automation_reviewer_heartbeat,
     wake_report,
 )
 from .reviewer_head_tracking import compute_review_range
 from .follow_controller_wake_target import (
     resolve_reviewer_wake_target as _resolve_reviewer_wake_target,
-    resolve_reviewer_wake_paths as _resolve_reviewer_wake_paths,
 )
-from ..runtime.operator_context import is_remote_mode
 
 
 @dataclass(frozen=True)
@@ -224,59 +211,34 @@ def maybe_wake_waiting_reviewer_conductor(
     operator_interaction_mode: str,
     deps: ReviewerWakeDeps | None = None,
 ) -> dict[str, object] | None:
-    """Relaunch a stuck Codex reviewer session for one pending action request."""
+    """Record reviewer packet attention without launching a conductor."""
 
-    effective_deps = deps or ReviewerWakeDeps()
     packet, immediate_report = _resolve_reviewer_wake_target(
         report=report,
         operator_interaction_mode=operator_interaction_mode,
     )
     if immediate_report is not None or packet is None:
         return immediate_report
-
-    wake_paths = _resolve_reviewer_wake_paths(paths)
-    if wake_paths is None:
-        return wake_report(
-            packet=packet,
-            attempted=True,
-            woke=False,
-            reason="runtime_paths_missing",
-        )
-
-    cleanup_sessions = cleanup_candidate_codex_sessions(
-        session_output_root=wake_paths.status_dir,
-        deps=effective_deps,
-    )
-    cleanup_warnings: list[str] = []
-    if cleanup_sessions:
-        cleanup_warnings = cleanup_codex_sessions(
-            live_codex_sessions=cleanup_sessions,
-            deps=effective_deps,
-        )
-    if has_blocking_cleanup_warning(cleanup_warnings):
-        return wake_report(
-            packet=packet,
-            attempted=True,
-            woke=False,
-            reason="cleanup_failed",
-            extras=WakeReceiptExtras(warnings=tuple(cleanup_warnings)),
-        )
-
-    return launch_waiting_reviewer_conductor(
-        context=ReviewerWakeLaunchContext(
-            args=args,
-            repo_root=repo_root,
-            paths=paths,
-            report=report,
-            packet=packet,
-            wake_paths=wake_paths,
-            cleanup_warnings=tuple(cleanup_warnings),
-            operator_interaction_mode=operator_interaction_mode,
-            replaced_session_count=len(cleanup_sessions),
-            replaced_pids=session_pids(cleanup_sessions),
+    report = wake_report(
+        packet=packet,
+        attempted=False,
+        woke=False,
+        reason="packet_delivery_records_typed_attention_only",
+        target_agent="codex",
+        extras=WakeReceiptExtras(
+            target_role=str(packet.get("target_role") or "").strip(),
+            target_session_id=str(packet.get("target_session_id") or "").strip(),
+            wake_method="none",
+            visible_session_woke=False,
+            warnings=(
+                "Packet attention does not launch or replace the reviewer "
+                "conductor; scheduler/runtime controllers own session starts "
+                "after explicit task boundaries.",
+            ),
         ),
-        deps=effective_deps,
     )
+    report["attention_recorded"] = True
+    return report
 
 
 def maybe_wake_waiting_agent_conductor(
@@ -290,7 +252,7 @@ def maybe_wake_waiting_agent_conductor(
     packet: dict[str, object],
     deps: ReviewerWakeDeps | None = None,
 ) -> dict[str, object] | None:
-    """Relaunch a provider conductor for a typed packet wake target.
+    """Record provider packet attention for a typed packet target.
 
     Thin shim — dispatch logic lives in `agent_wake_dispatch` so the
     multi-mode resolution can grow independently of the follow loop.
@@ -313,4 +275,3 @@ def maybe_wake_waiting_agent_conductor(
         maybe_wake_reviewer_fn=maybe_wake_waiting_reviewer_conductor,
         deps=deps,
     )
-

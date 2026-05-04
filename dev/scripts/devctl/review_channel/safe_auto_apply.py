@@ -61,8 +61,7 @@ def append_safe_auto_apply_events(
 def _packet_allows_safe_auto_apply(packet: dict[str, object]) -> bool:
     return (
         str(packet.get("event_type") or "").strip() == "packet_posted"
-        and str(packet.get("from_agent") or "").strip() == "system"
-        and str(packet.get("to_agent") or "").strip() == "claude"
+        and _packet_sender_allows_safe_auto_apply(packet)
         and str(packet.get("kind") or "").strip() == "action_request"
         and str(packet.get("policy_hint") or "").strip() == "safe_auto_apply"
         and not bool(packet.get("approval_required"))
@@ -72,6 +71,42 @@ def _packet_allows_safe_auto_apply(packet: dict[str, object]) -> bool:
         and str(packet.get("target_ref") or "").strip().startswith("devctl_commit:")
         and bool(str(packet.get("full_guard_bundle_evidence") or "").strip())
         and _has_completed_handoff_evidence(packet)
+    )
+
+
+def _packet_sender_allows_safe_auto_apply(packet: dict[str, object]) -> bool:
+    if str(packet.get("from_agent") or "").strip() == "system":
+        return bool(str(packet.get("to_agent") or "").strip())
+    evidence = _runtime_authority_evidence(packet)
+    if (
+        str(evidence.get("contract_id") or "")
+        != "ActionRequestRuntimeAuthorityEvidence"
+    ):
+        return False
+    target_actor = str(packet.get("to_agent") or "").strip().lower()
+    evidence_actor = str(evidence.get("actor_id") or "").strip().lower()
+    evidence_provider = str(evidence.get("provider") or "").strip().lower()
+    return bool(
+        target_actor
+        and target_actor in {evidence_actor, evidence_provider}
+        and _capabilities_grant_safe_auto_apply(evidence.get("granted_capabilities"))
+    )
+
+
+def _runtime_authority_evidence(packet: dict[str, object]) -> dict[str, object]:
+    metadata = packet.get("metadata")
+    if not isinstance(metadata, dict):
+        return {}
+    evidence = metadata.get("runtime_authority_evidence")
+    return evidence if isinstance(evidence, dict) else {}
+
+
+def _capabilities_grant_safe_auto_apply(value: object) -> bool:
+    if not isinstance(value, list | tuple | set):
+        return False
+    granted = {str(item or "").strip() for item in value}
+    return bool(
+        {"repo.stage_handoff"} & granted or {"repo.stage", "repo.commit"} <= granted
     )
 
 

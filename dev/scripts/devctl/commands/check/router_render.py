@@ -13,8 +13,26 @@ def render_markdown(report: dict) -> str:
     lines.append(f"- commit_range: {report['since_ref']}...{report['head_ref']}")
     lines.append(f"- changed_paths: {len(report['changed_paths'])}")
     lines.append(f"- execute: {report['execute']}")
+    lines.append(
+        "- parallel: "
+        f"{bool(report.get('parallel_enabled', False))} "
+        f"(workers={int(report.get('parallel_workers') or 1)})"
+    )
     lines.append(f"- risk_addons: {len(report['risk_addons'])}")
     lines.append(f"- planned_commands: {len(report['planned_commands'])}")
+    coverage = report.get("guard_coverage")
+    if isinstance(coverage, dict):
+        lines.append(
+            "- guard_coverage: "
+            f"planned={coverage.get('planned_command_count', 0)} "
+            f"executed={coverage.get('executed_command_count', 0)} "
+            f"failed={coverage.get('failed_command_count', 0)} "
+            f"unexecuted={coverage.get('unexecuted_command_count', 0)}"
+        )
+        lines.append(
+            "- guard_coverage_all_executed: "
+            f"{coverage.get('all_planned_commands_executed', False)}"
+        )
     if report.get("error"):
         lines.append(f"- error: {report['error']}")
 
@@ -85,4 +103,24 @@ def render_markdown(report: dict) -> str:
                 escaped_output = failure_output.replace("`", "\\`")
                 lines.append(f"| `{step['name']} output` | excerpt | - | - |")
                 lines.append(f"|  | `{escaped_output}` | - | - |")
+    remediation_actions = report.get("remediation_actions")
+    if isinstance(remediation_actions, list) and remediation_actions:
+        lines.append("")
+        lines.append("## Remediation Actions")
+        for action in remediation_actions:
+            if not isinstance(action, dict):
+                continue
+            paths = action.get("required_paths")
+            paths_text = ", ".join(str(path) for path in paths) if isinstance(paths, list) else ""
+            lines.append(
+                "- "
+                + str(action.get("action_id") or "guard-remediation")
+                + ": "
+                + str(action.get("reason") or "guard_failed")
+            )
+            if paths_text:
+                lines.append(f"  required_paths: {paths_text}")
+            remediation = str(action.get("remediation") or "").strip()
+            if remediation:
+                lines.append(f"  remediation: {remediation}")
     return "\n".join(lines)

@@ -123,6 +123,11 @@ Use docs like this:
   staged snapshot hash from typed collaboration/session-posture/pipeline
   state, but stale pipeline bindings are ignored and packet body prose never
   grants mutation authority.
+  `safe_auto_apply` may auto-advance actor-authored `stage_commit_pipeline`
+  packets only when that metadata proves the packet target matches the actor
+  id/provider and grants `repo.stage_handoff` or both `repo.stage` and
+  `repo.commit`; packets without those capability proofs remain pending for
+  explicit lifecycle handling.
   governed push may skip reviewer-loop repair only when that receipt matches
   the current prepared session, or when no provider-matching conductor
   metadata exists and the packet target is bound to the current
@@ -1347,8 +1352,12 @@ fallback bug into its fix).
    - `python3 dev/scripts/checks/check_instruction_surface_sync.py`
    - `python3 dev/scripts/checks/check_cli_flags_parity.py`
    - `python3 dev/scripts/checks/check_code_shape.py`
+   - `python3 dev/scripts/checks/check_python_broad_except.py`
    - `python3 dev/scripts/checks/check_python_subprocess_policy.py`
-   - `DEVCTL_QUALITY_POLICY=dev/config/devctl_policies/launcher.json python3 dev/scripts/checks/check_command_source_validation.py`
+   - `python3 dev/scripts/checks/check_command_source_validation.py`
+   - `python3 dev/scripts/checks/check_registry_path_integrity.py`
+   - `python3 dev/scripts/checks/check_runtime_spine_closure.py`
+   - `python3 dev/scripts/checks/check_provider_list_parity_graph.py`
    - `python3 dev/scripts/checks/check_workflow_shell_hygiene.py`
    - `python3 dev/scripts/checks/check_workflow_action_pinning.py`
    - `python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations`
@@ -1576,7 +1585,7 @@ Why this model is safe:
 | Instruction/starter surface drift | `python3 dev/scripts/checks/check_instruction_surface_sync.py` (`python3 dev/scripts/devctl.py render-surfaces --write --format md` to regenerate) | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
 | Python broad-except drift (new `except Exception` / `BaseException` without rationale) | `python3 dev/scripts/checks/check_python_broad_except.py --since-ref origin/develop --head-ref HEAD` | `tooling_control_plane.yml` + `release_preflight.yml` + `devctl check --profile ci` AI guard |
 | Python subprocess policy drift (`subprocess.run(...)` missing explicit `check=`) | `python3 dev/scripts/checks/check_python_subprocess_policy.py` | `tooling_control_plane.yml` + `release_preflight.yml` + `devctl check --profile ci` AI guard |
-| Launcher command-source drift (`shlex.split(...)` on CLI/env/config input, raw `sys.argv` forwarding, env-controlled command argv without validators) | `DEVCTL_QUALITY_POLICY=dev/config/devctl_policies/launcher.json python3 dev/scripts/checks/check_command_source_validation.py` | `launcher-check` selectable lane (pilot rollout) |
+| Python command-source drift (`shlex.split(...)` on CLI/env/config input, raw `sys.argv` forwarding, env-controlled command argv without validators) | `python3 dev/scripts/checks/check_command_source_validation.py` | `tooling_control_plane.yml` + default bundle guard floor |
 | Host/provider naming contract drift | `python3 dev/scripts/checks/check_naming_consistency.py` | `tooling_control_plane.yml` + `devctl check --profile ci` AI guard |
 | Host/provider compatibility matrix drift | `python3 dev/scripts/checks/check_compat_matrix.py` + `python3 dev/scripts/checks/compat_matrix_smoke.py` | `tooling_control_plane.yml` + `release_preflight.yml` |
 | MCP allowlist/contract drift for read-only adapter surface | `python3 dev/scripts/devctl.py mcp --tool release_contract_snapshot --format json` + `python3 -m unittest dev.scripts.devctl.tests.test_mcp` | `tooling_control_plane.yml` (unit test lane) |
@@ -1694,7 +1703,7 @@ Workflow permissions note:
    decision exists. Queue truth is apply-bound too: only applied
    `commit_approval` decisions clear the live approval request, not `acked`
    packets or stale packet history.
-6. If you are not using `devctl push`, run `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute` or the matching bundle manually (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`) before `git push`, then run `bundle.post-push`.
+6. If you are not using `devctl push`, run `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute --keep-going` or the matching bundle manually (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`) before `git push`, then run `bundle.post-push`.
 7. If you add or rename a `devctl` command, update the CLI inventory (`devctl list`) and the maintainer command docs in the same change so discovery stays truthful.
 8. Merge to `develop` only after review and green checks.
 
@@ -1948,7 +1957,7 @@ python3 dev/scripts/devctl.py process-cleanup --verify --format md
 python3 dev/scripts/devctl.py process-audit --strict --format md
 
 # Path-aware pre-push router (select lane + risk add-ons from changed paths)
-python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute
+python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute --keep-going
 
 # Mutants wrapper (offline cache)
 python3 dev/scripts/devctl.py mutants --module overlay --offline \
@@ -2365,7 +2374,7 @@ Docs governance guardrails:
 - `python3 dev/scripts/checks/check_rust_lint_debt.py` blocks non-regressive growth of `#[allow(...)]` attributes (including `#[allow(dead_code)]`), non-test `unwrap/expect`, `unwrap_unchecked/expect_unchecked`, and `panic!` call-sites in changed Rust files; use `--report-dead-code` to inventory instances and `--fail-on-undocumented-dead-code` / `--fail-on-any-dead-code` for stricter policy modes.
 - `python3 dev/scripts/checks/check_python_broad_except.py` blocks newly added broad Python handlers (`except Exception` / `except BaseException`) unless a nearby `broad-except: allow reason=...` comment makes the fail-soft behavior explicit.
 - `python3 dev/scripts/checks/check_python_subprocess_policy.py` blocks repo-owned Python tooling and Operator Console code from adding `subprocess.run(...)` calls without an explicit `check=` keyword, keeping subprocess failure handling intentional instead of relying on the default.
-- `DEVCTL_QUALITY_POLICY=dev/config/devctl_policies/launcher.json python3 dev/scripts/checks/check_command_source_validation.py` blocks the launcher/package pilot lane from reintroducing unsafe command construction patterns such as `shlex.split(...)` on untrusted input, raw `sys.argv` forwarding, and env-driven command argv without a validator helper.
+- `python3 dev/scripts/checks/check_command_source_validation.py` blocks repo-owned Python tooling from reintroducing unsafe command construction patterns such as `shlex.split(...)` on untrusted input, raw `sys.argv` forwarding, and env-driven command argv without a validator helper. The guard is now part of the default bundle floor; policy files can still narrow target roots for adopter repos.
 - `python3 dev/scripts/checks/check_rust_best_practices.py` blocks non-regressive growth of reason-less `#[allow(...)]`, undocumented `unsafe { ... }` blocks, public `unsafe fn` surfaces without `# Safety` docs, `unsafe impl` blocks without nearby safety rationale, `std::mem::forget`/`mem::forget` usage, `Result<_, String>` surfaces, suppressed `send(...)`/`try_send(...)` and `emit(...)` results, bare detached `thread::spawn(...)` statements without a nearby `detached-thread: allow reason=...` note, suspicious `OpenOptions::new().create(true)` chains that omit explicit overwrite semantics (`append(true)`, `truncate(...)`, or `create_new(true)`), direct `==` / `!=` comparisons against float literals, app-owned persistent TOML writes that still overwrite the final file directly instead of using a temp-file swap, and hand-rolled persistent TOML parsers in changed Rust files.
 - `python3 dev/scripts/checks/check_serde_compatibility.py` blocks newly introduced internally/adjacently tagged Rust `Deserialize` enums unless they either define a `#[serde(other)]` fallback variant or document intentional fail-closed behavior with a nearby `serde-compat: allow reason=...` comment.
 - `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py` blocks non-regressive growth of unallowlisted runtime `panic!` call-sites unless nearby rationale comments (`panic-policy: allow reason=...`) are present.

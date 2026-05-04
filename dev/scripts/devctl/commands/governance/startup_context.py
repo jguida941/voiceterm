@@ -294,14 +294,18 @@ def _machine_summary(
         summary["attention"] = attention_payload
     if getattr(ctx, "packet_inbox", None) is not None:
         summary["packet_inbox"] = _machine_summary_packet_inbox(ctx.packet_inbox)
-    summary["runtime_spine_closure"] = dict(ctx.runtime_spine_closure)
+    summary["runtime_spine_closure"] = dict(
+        getattr(ctx, "runtime_spine_closure", {}) or {}
+    )
     summary["packet_continuity_index"] = dict(
         getattr(ctx, "packet_continuity_index", {}) or {}
     )
     summary["packet_carry_forward_debt"] = [
-        dict(row) for row in ctx.packet_carry_forward_debt
+        dict(row) for row in getattr(ctx, "packet_carry_forward_debt", ()) or ()
     ]
-    summary["continuity_attention"] = dict(ctx.continuity_attention)
+    summary["continuity_attention"] = dict(
+        getattr(ctx, "continuity_attention", {}) or {}
+    )
     if ctx.work_intake is not None:
         summary["work_intake"] = {
             "coordination": ctx.work_intake.coordination.to_dict(),

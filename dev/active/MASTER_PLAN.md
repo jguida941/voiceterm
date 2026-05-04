@@ -6334,6 +6334,42 @@ become the main product surface.
     architecture: split canonical slash entry points by typed backend domain
     while keeping current `/develop` role presets as compatibility aliases
     until replacement slashes have contracts, docs, and tests.
+  - [ ] `MP377-P0-T22AN-AE` now owns the `rev_pkt_2929` handoff-to-
+    publication dogfood gap: a `stage_commit_pipeline` packet with typed
+    runtime authority should drive ACK/apply, startup push-state evaluation,
+    managed projection receipt repair, routed `check-router --execute
+    --keep-going` guard coverage/remediation proof, bounded fixed-point
+    refresh, concurrent source-edit waiting, governed `devctl push --execute`,
+    and packet evidence closeout through one typed controller instead of
+    watcher-authored shell branching.
+  - [ ] `MP377-P0-T22AN-AF` now owns the packet-attention/no-conductor
+    boundary: packet post, delivery, follow-loop attention, inbox/watch, and
+    packet-backed control paths may update typed packet attention and plan
+    intake, but must never launch, replace, clean up, or externally wake a
+    provider session. Scheduler/runtime controllers own session starts and
+    worker fanout after explicit task-boundary evidence. Claude dogfood
+    `rev_pkt_2940` added the post-report `packet_attention` primary key,
+    advisory plan-context binding receipts for communication-only notices, and
+    `/develop` peer-mind `attention_hint` poll commands.
+  - [ ] `MP377-P0-T22AN-AG` now owns `rev_pkt_2936` Class F cold-session
+    bootstrap enforcement: startup-context, role-bound session-resume, and
+    context-graph bootstrap receipts must be mandatory runtime preconditions,
+    not prose conventions that a new agent can skip.
+  - [ ] `MP377-P0-T22AN-AH` now owns `rev_pkt_2942` deterministic semantic
+    guard promotion: encode contract-renames, vocabulary contracts, and
+    dataclass shape clusters as typed guard inputs so wake-to-attention,
+    next-command vocabulary drift, and Session*/Packet*/Receipt* type
+    proliferation are caught by deterministic checks instead of operator-led
+    grep scans.
+  - [ ] `MP377-P0-T22AN-AI` now owns `rev_pkt_2943` architectural-suggestion
+    routing: aggregate governance/probe/guard findings, rank the top bounded
+    suggestions for the current actor/slice, and surface them through
+    `/develop` attention before more guard output becomes another ignored
+    report backlog.
+  - [ ] `MP377-P0-T22AN-G` now explicitly includes `rev_pkt_2944` packet-expiry
+    closure: pre-expiry intent extraction and startup batch-ingest must move
+    substantive packet bodies into durable plan/finding ownership before
+    `clock_expired_without_disposition` can archive the transport.
   - [ ] Freeze the first explanation/contract boundary shapes in that same
     lane: use closed-vocabulary status/wait-reason enums for `DecisionTrace`,
     add strict boundary-validation models plus JSON Schema emission for
@@ -7546,3 +7582,17 @@ This generated ledger projects packet creation bindings for humans. The typed ro
 - [ ] `PKT-BIND-REV-PKT-2922` Packet finding: Finding Y: event projection clears typed current-session revision after reviewer checkpoint (source `rev_pkt_2922`; target `dev/scripts/devctl/review_channel/event_projection_assembly.py`; posted `2026-05-03T22:15:23.670163Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-2923` Packet decision: Codex decision: MP377-P0-T22AN-L is selected; Claude owns edits under current authority (source `rev_pkt_2923`; target `plan:MP-377`; posted `2026-05-03T22:17:32.555971Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-2929` Packet action request: Stage verified commit pipeline for T22AN-L/Finding Y closure (source `rev_pkt_2929`; target `devctl_commit:d1b3377bd278d6b826942b130811b307179fdce4`; posted `2026-05-03T23:51:21.072541Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2932` Packet finding: Pipeline automation gap: ack → absorb-drift → push → apply lifecycle is currently glued by claude shelling each step. 64% of this branch's commits are typed-automation seams not real fix work. Operator names this as the n... (source `rev_pkt_2932`; target `plan:MP-377`; posted `2026-05-04T00:37:06.114181Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2935` Packet finding: Slash-command family synthesis: /architect /coder /reviewer /dashboard /refactor /architect-final /onboarding — anchored to rev_pkt_2793/2863/2729 + MP-377/376; full authority to Codex (source `rev_pkt_2935`; target `dev/active/ai_governance_platform.md`; posted `2026-05-04T01:25:14.153675Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2936` Packet finding: Class F: cold-session bootstrap bypass — typed bootstrap chain exists but agents skip it. Sharpens rev_pkt_2932 with new architectural class + dogfood plan. Codex picks shape, integrates into MP-377. (source `rev_pkt_2936`; target `plan:MP-377`; posted `2026-05-04T01:27:48.119569Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2937` Packet action request: Stage verified commit pipeline (source `rev_pkt_2937`; target `devctl_commit:2a3e3731e7a47a52de4ce97d081480793c52ebf2`; posted `2026-05-04T01:44:17.671378Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2940` Packet finding: MP377-P0-T22AN-AF dogfood: contract holds end-to-end (rev_pkt_2938+2939 process-proof), plus 2 minor follow-ups (JSON key naming + system_notice plan-binding asymmetry) (source `rev_pkt_2940`; target `dev/scripts/devctl/review_channel/agent_wake_dispatch.py`; posted `2026-05-04T02:05:46.064464Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2941` Packet finding: AE/AF wake-attention sweep: 5 in-scope items bundled (rev_pkt_2932 self-block live-observable, runtime_presence 2 gaps, _next_commands_with_attention 3 micros, meta SlicePhaseSignal proposal, scattered-systems scan starter) (source `rev_pkt_2941`; target `dev/scripts/devctl/commands/development/report.py`; posted `2026-05-04T02:19:10.510530Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2942` Packet finding: Meta-architectural ask: 3 new deterministic-semantic guards (vocabulary_drift, dataclass_shape_clustering, contract_rename_completion) so the platform catches AI-generated duplication automatically — without operator-led ... (source `rev_pkt_2942`; target `dev/scripts/devctl/checks/`; posted `2026-05-04T02:28:31.282557Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2943` Packet finding: Synthesis: routing IS the limiting reagent (0%-cleanup proof) + 5 architectural ASKs (Rust pre-flight oracle, one-screen catalog, graph-first nav, refactor-candidate posting, /run-all-guards slash) + 10 new guards + contr... (source `rev_pkt_2943`; target `dev/scripts/devctl/checks/`; posted `2026-05-04T02:47:55.217736Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2944` Packet finding: Critical: 30-min DEFAULT_PACKET_TTL + clock_expired_without_disposition silently loses substantive operator-authorized work (rev_pkt_2863/2879/2880/2881 archived unbound). All fix parts exist (plan_intent_ingestion.py + s... (source `rev_pkt_2944`; target `dev/scripts/devctl/review_channel/event_store.py`; posted `2026-05-04T02:59:50.268751Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2945` Packet finding: Batch 1 (verified): 24 operator-authored expired packets — 4 verified IMPLEMENTED (with git+grep proof), 1 strong + 1 partial STILL_OPEN, 4 verified SUPERSEDED, 3 partial-implementation, 11 honestly labeled NEEDS_VERIFICA... (source `rev_pkt_2945`; target `plan:MP-377`; posted `2026-05-04T03:07:50.703680Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2946` Packet finding: Focused fix: parallelize check-router execution. Parallel infrastructure already exists (steps.py:54 ThreadPoolExecutor, used by check --parallel-workers) but check-router's router_execution.py loops run_cmd sequentially.... (source `rev_pkt_2946`; target `dev/scripts/devctl/commands/check/router_execution.py`; posted `2026-05-04T03:15:30.670807Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2947` Packet finding: Organizational guards gap (operator escalation): platform identity failure - 77 check_*.py outside devctl/, state forked across 4 roots (8.8GB), zero existing guards catch this. Propose 4 new universal guards (canonical_d... (source `rev_pkt_2947`; target `dev/scripts/checks/`; posted `2026-05-04T03:42:33.838153Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2948` Packet finding: 8-agent synthesis on dev/reports/ 8.8GB intelligence: produce-don't-consume is universal (~80% data unread), rate accelerating across all metrics (W18 packet expiry 30x W13, 471 swarm fails in 41hr, codebase 3.5x growth),... (source `rev_pkt_2948`; target `dev/scripts/devctl/governance/intelligence_hub/`; posted `2026-05-04T03:53:56.805808Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-2949` Packet finding: Critical work-authority-freshness gap: implementer almost started coding from stale current_instruction (revision 7ebeb245f749 written when codex was writer, prose addresses Codex by name) + stale referenced packets (rev_... (source `rev_pkt_2949`; target `dev/scripts/devctl/runtime/`; posted `2026-05-04T04:07:21.506925Z`; binding `plan_row`).

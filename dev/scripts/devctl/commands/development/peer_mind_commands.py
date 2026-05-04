@@ -11,7 +11,7 @@ def suggested_peer_mind_command(
     actor: str,
     wake_hint: str,
 ) -> str:
-    """Return the typed command suggested by a peer-mind wake hint."""
+    """Return the typed command suggested by a peer-mind attention hint."""
     if wake_hint == "peer_packet_activity":
         return actor_inbox_command(actor)
     if wake_hint == "refresh_agent_mind":

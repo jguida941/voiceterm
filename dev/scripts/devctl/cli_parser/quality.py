@@ -66,6 +66,23 @@ def _add_check_router_parser(sub: argparse._SubParsersAction) -> None:
         help="Continue execution after a failed routed command",
     )
     router_cmd.add_argument(
+        "--no-parallel",
+        action="store_true",
+        help=(
+            "Run routed commands sequentially even when --keep-going allows "
+            "parallel execution"
+        ),
+    )
+    router_cmd.add_argument(
+        "--parallel-workers",
+        type=int,
+        default=4,
+        help=(
+            "Worker count for parallel routed commands when --execute "
+            "--keep-going is active (default: 4)"
+        ),
+    )
+    router_cmd.add_argument(
         "--quality-policy",
         help=(
             "Optional repo policy JSON file used to resolve repo-governance routing "

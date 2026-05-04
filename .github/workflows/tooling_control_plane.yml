@@ -447,6 +447,9 @@ jobs:
       - name: Run multi-agent sync guard
         run: python3 dev/scripts/checks/check_multi_agent_sync.py
 
+      - name: Run AGENTS bundle render guard
+        run: python3 dev/scripts/checks/check_agents_bundle_render.py
+
       - name: Run CLI flags parity guard
         run: python3 dev/scripts/checks/check_cli_flags_parity.py
 
@@ -467,6 +470,27 @@ jobs:
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
+      - name: Run Python broad-except guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_python_broad_except.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run structural complexity guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_structural_complexity.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run duplicate types guard
+        run: |
+          set -euo pipefail
+          python3 dev/scripts/checks/check_duplicate_types.py \
+            --since-ref "${{ steps.range.outputs.since }}" \
+            --head-ref "${{ steps.range.outputs.head }}"
+
       - name: Run package-layout guard
         run: |
           set -euo pipefail
@@ -474,15 +498,24 @@ jobs:
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
-      - name: Run pytest runtime policy guard
-        run: python3 dev/scripts/checks/check_pytest_runtime_policy.py
-
-      - name: Run Python broad-except guard
+      - name: Run command source validation guard
         run: |
           set -euo pipefail
-          python3 dev/scripts/checks/check_python_broad_except.py \
+          python3 dev/scripts/checks/check_command_source_validation.py \
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
+
+      - name: Run registry path integrity guard
+        run: python3 dev/scripts/checks/check_registry_path_integrity.py
+
+      - name: Run runtime spine closure guard
+        run: python3 dev/scripts/checks/check_runtime_spine_closure.py
+
+      - name: Run provider list parity graph guard
+        run: python3 dev/scripts/checks/check_provider_list_parity_graph.py
+
+      - name: Run pytest runtime policy guard
+        run: python3 dev/scripts/checks/check_pytest_runtime_policy.py
 
       - name: Run Python subprocess policy guard
         run: |

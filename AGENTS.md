@@ -232,9 +232,11 @@ Release-governance note:
 | Where is the typed review-packet lifecycle/disposition surface documented? | `dev/scripts/README.md` for `review-channel --action history --include-outcomes` and evidence-bound `review-channel --action apply` semantics, `dev/scripts/devctl/review_channel/packet_lifecycle.py` for `PacketLifecycleHistory` / `PacketDisposition`, `dev/scripts/devctl/review_channel/packet_attestation.py` for `PacketGuardAttestation`, `dev/scripts/devctl/review_channel/packet_plan_integration.py` for plan-target apply rows, `dev/scripts/devctl/review_channel/packet_outcomes.py` for the bounded `PacketOutcomeLedger` classifier, and `dev/active/ai_governance_platform.md` `MP377-P0-T08A..T08E` for the plan-integrated deferred queue. Clock-expired pending packets must classify as archived audit rows, not silently lost live intent, and `packet_applied` work claims must carry matching guard/run/action evidence rather than relying on ACK state. |
 | Where is the packet-backed bridge Action Requests contract documented? | `dev/active/remote_control_runtime.md` for lifecycle authority, plus `dev/scripts/README.md` for `review-channel --action post --kind action_request` runtime-binding flag usage |
 | Where is the 2026-04-29 typed runtime-authority evidence closure for action requests documented? | `dev/scripts/devctl/review_channel/events.py::_runtime_authority_evidence_for_request` attaches `ActionRequestRuntimeAuthorityEvidence` on executable packet posts, while `dev/scripts/devctl/commands/vcs/commit_action_request_authority.py` and `commit_action_request_evidence.py` derive missing caller role, target actor identity, capability, live pipeline generation, and staged snapshot facts from typed state only; see `dev/scripts/README.md` and `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-29 entry "Action-request checkpoint authority now derives missing evidence from typed state". |
+| Where is the 2026-05-04 actor-authorized safe-auto-apply closure documented (`stage_commit_pipeline` packets from non-system actors may auto-advance only when runtime authority evidence proves the target actor/provider and repo handoff or stage+commit capability)? | `dev/scripts/devctl/review_channel/safe_auto_apply.py` for the allowlist, `dev/scripts/devctl/tests/review_channel/test_failure_packet_router.py` for actor-authority coverage, `dev/scripts/README.md` for operator command semantics, and `dev/history/ENGINEERING_EVOLUTION.md` 2026-05-04 entry "Actor-authorized safe-auto-apply keeps stage handoff on typed authority". |
+| Where is the 2026-05-04 guard-floor and push-preflight coverage closure documented (`check-router --execute --keep-going` emits a typed guard coverage/remediation receipt and the shared bundle floor includes cross-cutting Python/source/registry/runtime-spine guards)? | `dev/scripts/devctl/bundles/registry.py` for the shared guard floor, `dev/scripts/devctl/commands/check/router.py` / `router_render.py` for `CheckRouterGuardCoverageReceipt` and `GuardRemediationAction` output, `dev/scripts/devctl/governance/push_routing.py` for governed push preflight `--keep-going`, `dev/scripts/devctl/tests/commands/check/test_check_router.py` plus `dev/scripts/devctl/tests/governance/test_bundle_registry.py` for coverage, and `dev/history/ENGINEERING_EVOLUTION.md` 2026-05-04 entry "Check-router now proves guard coverage before publication". |
 | Where is the 2026-04-23 remote-control pre-pipeline commit staging handoff documented (`git_index_write_blocked` becomes `requested_action=stage_commit_pipeline` to the attached provider instead of a local prompt)? | `dev/active/remote_commit_pipeline.md` and `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-23 entry "Remote-control commit staging now hands sandbox prompts to Claude"; runtime behavior lives in `dev/scripts/devctl/commands/vcs/commit_preflight_validators.py`, `dev/scripts/devctl/commands/vcs/governed_executor_commit_runtime.py`, `dev/scripts/devctl/commands/vcs/governed_executor_packets.py`, and `dev/scripts/devctl/review_channel/packet_contract.py`. |
 | Where is the action-request-first priority selection + `current_session.current_instruction` control-path integration documented? | `dev/scripts/devctl/review_channel/packet_control_loop.py` for the `select_priority_pending_packet` + `action_request_control_state` implementation, plus `dev/history/ENGINEERING_EVOLUTION.md` entry on the priority selector feeding `current_session.current_instruction` |
-| Which modules own remote-control reviewer wake, dashboard conductor liveness without a PID, and `pending_action_requests` truth? | `dev/scripts/devctl/review_channel/follow_controller.py::maybe_wake_waiting_reviewer_conductor` orchestrates the bounded reviewer wake, `dev/scripts/devctl/review_channel/reviewer_follow_guard.py` owns the reusable launch/runtime helpers, `dev/scripts/devctl/runtime/control_plane_resolve.py::resolve_pending_packets` counts only live pending `kind="action_request"` packets, and `dev/scripts/devctl/commands/dashboard_render/{terminal,markdown}.py` keep repo-owned conductor rows in `RUNNING` when typed session state says `alive=true` even if `pid` is unavailable. |
+| Which modules own packet attention, scheduler-owned session starts, dashboard conductor liveness without a PID, and `pending_action_requests` truth? | `dev/scripts/devctl/commands/review_channel/event_post_wake.py`, `dev/scripts/devctl/review_channel/follow_controller.py::maybe_wake_waiting_reviewer_conductor`, and `dev/scripts/devctl/review_channel/agent_wake_dispatch.py::maybe_wake_waiting_agent_conductor` record packet attention only; packet delivery must not launch, replace, clean up, or externally wake provider sessions. Event-backed post JSON exposes the receipt as `packet_attention` while preserving `reviewer_wake` only as a compatibility alias. Scheduler/runtime controllers own session starts at explicit task boundaries. `dev/scripts/devctl/runtime/control_plane_resolve.py::resolve_pending_packets` counts only live pending `kind="action_request"` packets, and `dev/scripts/devctl/commands/dashboard_render/{terminal,markdown}.py` keep repo-owned conductor rows in `RUNNING` when typed session state says `alive=true` even if `pid` is unavailable. |
 | Where is the remote-control reviewer/runtime closure plan for typed operator mode, packet-backed action requests, dashboard convergence, and auto-polling? | `dev/active/remote_control_runtime.md` (subordinate `MP-377` execution spec; read after `dev/active/remote_commit_pipeline.md`) |
 | Where is the 2026-04-09 F1/F2/F3 reviewer-follow-up closure documented (`devctl commit` remote-control approval boundary restored, `process_sweep` supervisor-backed liveness fallback, and `rollout-tail` Claude auto-discovery narrowed)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-09 entry "Remote-control commit now waits for typed approval; process_sweep and rollout-tail narrow their trust boundaries" |
 | Where is the 2026-04-20 headless-remote-control approval-mode auto-elevation + inbox-drain prompt + typed conductor stall diagnostics documented? | `dev/scripts/devctl/approval_mode.py::auto_elevated_approval_mode` for the shared elevation helper, `dev/scripts/devctl/review_channel/prompt.py` for the post-bootstrap inbox-drain section, `dev/scripts/devctl/review_channel/stall_diagnostics.py` for the typed `ConductorStallDiagnosis` reader, plus `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-20 entry "Headless remote-control launches auto-elevate approval-mode and conductor stalls become typed" |
@@ -1812,11 +1814,19 @@ python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_system_picture_freshness.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
+python3 dev/scripts/checks/check_agents_bundle_render.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
 python3 dev/scripts/checks/check_function_duplication.py
+python3 dev/scripts/checks/check_python_broad_except.py
+python3 dev/scripts/checks/check_structural_complexity.py
+python3 dev/scripts/checks/check_duplicate_types.py
 python3 dev/scripts/checks/check_package_layout.py
+python3 dev/scripts/checks/check_command_source_validation.py
+python3 dev/scripts/checks/check_registry_path_integrity.py
+python3 dev/scripts/checks/check_runtime_spine_closure.py
+python3 dev/scripts/checks/check_provider_list_parity_graph.py
 python3 dev/scripts/checks/check_pytest_runtime_policy.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
@@ -1857,11 +1867,19 @@ python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_system_picture_freshness.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
+python3 dev/scripts/checks/check_agents_bundle_render.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
 python3 dev/scripts/checks/check_function_duplication.py
+python3 dev/scripts/checks/check_python_broad_except.py
+python3 dev/scripts/checks/check_structural_complexity.py
+python3 dev/scripts/checks/check_duplicate_types.py
 python3 dev/scripts/checks/check_package_layout.py
+python3 dev/scripts/checks/check_command_source_validation.py
+python3 dev/scripts/checks/check_registry_path_integrity.py
+python3 dev/scripts/checks/check_runtime_spine_closure.py
+python3 dev/scripts/checks/check_provider_list_parity_graph.py
 python3 dev/scripts/checks/check_pytest_runtime_policy.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
@@ -1926,11 +1944,19 @@ python3 dev/scripts/checks/check_package_layout.py --fail-on-baseline-debt --bas
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_system_picture_freshness.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
+python3 dev/scripts/checks/check_agents_bundle_render.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
 python3 dev/scripts/checks/check_function_duplication.py
+python3 dev/scripts/checks/check_python_broad_except.py
+python3 dev/scripts/checks/check_structural_complexity.py
+python3 dev/scripts/checks/check_duplicate_types.py
 python3 dev/scripts/checks/check_package_layout.py
+python3 dev/scripts/checks/check_command_source_validation.py
+python3 dev/scripts/checks/check_registry_path_integrity.py
+python3 dev/scripts/checks/check_runtime_spine_closure.py
+python3 dev/scripts/checks/check_provider_list_parity_graph.py
 python3 dev/scripts/checks/check_pytest_runtime_policy.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
@@ -2001,11 +2027,19 @@ CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_system_picture_freshness.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
+python3 dev/scripts/checks/check_agents_bundle_render.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
 python3 dev/scripts/checks/check_function_duplication.py
+python3 dev/scripts/checks/check_python_broad_except.py
+python3 dev/scripts/checks/check_structural_complexity.py
+python3 dev/scripts/checks/check_duplicate_types.py
 python3 dev/scripts/checks/check_package_layout.py
+python3 dev/scripts/checks/check_command_source_validation.py
+python3 dev/scripts/checks/check_registry_path_integrity.py
+python3 dev/scripts/checks/check_runtime_spine_closure.py
+python3 dev/scripts/checks/check_provider_list_parity_graph.py
 python3 dev/scripts/checks/check_pytest_runtime_policy.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
 python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
@@ -2053,11 +2087,19 @@ python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_review_channel_bridge.py
 python3 dev/scripts/checks/check_system_picture_freshness.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
+python3 dev/scripts/checks/check_agents_bundle_render.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop
 python3 dev/scripts/checks/check_function_duplication.py --since-ref origin/develop
+python3 dev/scripts/checks/check_python_broad_except.py --since-ref origin/develop
+python3 dev/scripts/checks/check_structural_complexity.py --since-ref origin/develop
+python3 dev/scripts/checks/check_duplicate_types.py --since-ref origin/develop
 python3 dev/scripts/checks/check_package_layout.py --since-ref origin/develop
+python3 dev/scripts/checks/check_command_source_validation.py --since-ref origin/develop
+python3 dev/scripts/checks/check_registry_path_integrity.py --since-ref origin/develop
+python3 dev/scripts/checks/check_runtime_spine_closure.py --since-ref origin/develop
+python3 dev/scripts/checks/check_provider_list_parity_graph.py --since-ref origin/develop
 python3 dev/scripts/checks/check_pytest_runtime_policy.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py --since-ref origin/develop
 python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
@@ -2535,7 +2577,7 @@ Core commands:
 | `python3 dev/scripts/devctl.py report --pedantic --pedantic-refresh --format json` | you want one command that refreshes the advisory sweep and emits a structured repo-owned summary | reruns pedantic artifact generation, then reads those artifacts plus `dev/config/clippy/pedantic_policy.json` for review/AI consumption |
 | `python3 dev/scripts/devctl.py report --rust-audits --with-charts --emit-bundle --format md` | you want one readable Rust guard audit pack with charts, stats, and file hotspots | runs the Rust best-practices, lint-debt, and runtime-panic guards together, explains why the reported patterns are risky, and writes `.md` + `.json` bundle artifacts with optional matplotlib charts |
 | `python3 dev/scripts/devctl.py triage --pedantic --no-cihub --emit-bundle --format md` | you want an AI-friendly pedantic cleanup packet without creating a second triage system | folds the saved pedantic artifacts into normal `triage` output and bundle files; add `--pedantic-refresh` only when you intentionally want triage to regenerate the artifacts inline |
-| `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute` | before push when scope spans docs/runtime/tooling/release surfaces | auto-selects the stricter required lane, includes risk add-ons, and runs the routed bundle commands |
+| `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute --keep-going` | before push when scope spans docs/runtime/tooling/release surfaces | auto-selects the stricter required lane, includes risk add-ons, runs the routed bundle commands in parallel by default, and reports typed guard coverage/remediation evidence; use `--parallel-workers <n>` to tune or `--no-parallel` to force sequential routing |
 | `python3 dev/scripts/devctl.py check --profile ci` | before a normal push | catches compile/test/lint issues early |
 | `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test --bin voiceterm ...` | an AI/dev session needs to run raw Rust tests or test binaries directly | runs the command without a shell wrapper, then automatically executes the required post-test hygiene follow-up so stale host processes do not accumulate |
 | `python3 dev/scripts/devctl.py check --profile quick --skip-fmt --skip-clippy --no-parallel --with-process-sweep-cleanup` | right after raw `cargo test` / manual test-binary runs when orphan sweep is needed | runs the AI-guard script pack plus opt-in process sweep and host-side `process-cleanup --verify`, so stale repo-related host trees and structural regressions are caught before later runs |
@@ -2719,8 +2761,8 @@ Operator Console code from calling `subprocess.run(...)` without an explicit
 `check_command_source_validation.py` blocks launcher/package Python entrypoints
 from rebuilding unsafe command sources (`shlex.split(...)` on CLI/env/config
 input, raw `sys.argv` forwarding, env-controlled command argv without
-validation); during the pilot it is intentionally scoped through the selectable
-launcher lane rather than the full default repo policy.
+validation); it now runs in the default shared bundle guard floor, while repo
+policy can still narrow target roots for external-adopter pilots.
 `check_python_broad_except.py` blocks newly added `except Exception` /
 `except BaseException` handlers in repo-owned Python tooling/app code unless a
 nearby `broad-except: allow reason=...` comment documents the fail-soft path.

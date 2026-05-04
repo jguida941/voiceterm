@@ -182,6 +182,8 @@ def _participant_scope(
     worktree = str((participant or {}).get("worktree") or "")
     branch = str((participant or {}).get("branch") or "")
     workspace_root = str((participant or {}).get("workspace_root") or "")
+    if not worktree:
+        worktree = workspace_root
     return worktree, branch, [workspace_root] if workspace_root else []
 
 

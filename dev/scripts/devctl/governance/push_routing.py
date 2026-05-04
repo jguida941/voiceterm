@@ -46,6 +46,7 @@ def build_preflight_shell_command(
     ]
     if policy.preflight.execute:
         args.append("--execute")
+        args.append("--keep-going")
     command = shlex.join(args)
     return normalize_repo_python_shell_command(
         inject_quality_policy_command(command, quality_policy_path)

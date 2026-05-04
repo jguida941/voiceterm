@@ -207,12 +207,20 @@ jobs:
           python3 dev/scripts/checks/check_active_plan_sync.py
           python3 dev/scripts/checks/check_system_picture_freshness.py
           python3 dev/scripts/checks/check_multi_agent_sync.py
+          python3 dev/scripts/checks/check_agents_bundle_render.py
           python3 dev/scripts/checks/check_cli_flags_parity.py
           python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
           python3 dev/scripts/checks/check_code_shape.py
-          python3 dev/scripts/checks/check_package_layout.py
-          python3 dev/scripts/checks/check_pytest_runtime_policy.py
+          python3 dev/scripts/checks/check_function_duplication.py
           python3 dev/scripts/checks/check_python_broad_except.py --since-ref "${{ steps.ai_guard_range.outputs.since }}" --head-ref "${{ steps.ai_guard_range.outputs.head }}"
+          python3 dev/scripts/checks/check_structural_complexity.py --since-ref "${{ steps.ai_guard_range.outputs.since }}" --head-ref "${{ steps.ai_guard_range.outputs.head }}"
+          python3 dev/scripts/checks/check_duplicate_types.py --since-ref "${{ steps.ai_guard_range.outputs.since }}" --head-ref "${{ steps.ai_guard_range.outputs.head }}"
+          python3 dev/scripts/checks/check_package_layout.py
+          python3 dev/scripts/checks/check_command_source_validation.py --since-ref "${{ steps.ai_guard_range.outputs.since }}" --head-ref "${{ steps.ai_guard_range.outputs.head }}"
+          python3 dev/scripts/checks/check_registry_path_integrity.py
+          python3 dev/scripts/checks/check_runtime_spine_closure.py
+          python3 dev/scripts/checks/check_provider_list_parity_graph.py
+          python3 dev/scripts/checks/check_pytest_runtime_policy.py
           python3 dev/scripts/checks/check_python_subprocess_policy.py
           python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
           python3 dev/scripts/checks/check_workflow_shell_hygiene.py
@@ -239,7 +247,6 @@ jobs:
           python3 dev/scripts/checks/check_python_design_complexity.py
           python3 dev/scripts/checks/check_python_cyclic_imports.py
           python3 dev/scripts/checks/check_python_suppression_debt.py
-          python3 dev/scripts/checks/check_function_duplication.py
           python3 dev/scripts/checks/check_structural_similarity.py
           markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore \
             README.md \

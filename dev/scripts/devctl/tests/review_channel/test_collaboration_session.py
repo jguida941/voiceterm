@@ -30,6 +30,7 @@ def _session_record(
     requested_worker_budget: int | None = None,
     planned_lanes: tuple[dict[str, str], ...] = (),
     workspace_root: str = "",
+    current_branch: str = "",
 ) -> ConductorSessionRecord:
     return ConductorSessionRecord(
         provider=provider,
@@ -53,6 +54,7 @@ def _session_record(
         live=live,
         age_seconds=5,
         workspace_root=workspace_root,
+        current_branch=current_branch,
     )
 
 
@@ -483,6 +485,49 @@ def test_build_collaboration_session_carries_lane_identity_from_session_metadata
     assert participant.worktree == "../wt-review"
     assert participant.branch == "feature/review"
     assert participant.workspace_root == str((tmp_path / "../wt-review").resolve())
+
+
+def test_build_collaboration_session_falls_back_to_session_workspace_identity(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    workspace_root = str((tmp_path / "../live-session").resolve())
+    session_records = (
+        _session_record(
+            "claude",
+            "implementer",
+            workspace_root=workspace_root,
+            current_branch="feature/live-session",
+        ),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: (),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-05-04T00:00:00Z",
+        plan_id="MP-377",
+        session_id="session-1",
+        bridge_liveness={"reviewer_mode": "tools_only"},
+        current_session=_current_session(
+            instruction="Keep session identity visible.",
+            last_reviewed_scope="dev/scripts/devctl/review_channel/session_probe.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    participant = next(row for row in session.participants if row.provider == "claude")
+    assert participant.worktree == workspace_root
+    assert participant.branch == "feature/live-session"
+    assert participant.workspace_root == workspace_root
 
 
 def test_build_collaboration_session_promotes_fresh_local_single_agent_reviewer(

@@ -135,6 +135,9 @@ def test_post_packet_records_communication_only_classification(
             plan_id="MP-377",
             summary="Status only",
             body="Plan and guard status only; no new durable work item.",
+            target=PacketTargetFields.from_values(
+                anchor_refs=("section:MP-377",),
+            ),
         ),
     )
 
@@ -149,6 +152,11 @@ def test_post_packet_records_communication_only_classification(
     assert packet["packet_creation_binding"]["binding_target_kind"] == (
         "communication_only"
     )
+    assert packet["packet_creation_binding"]["reason"] == (
+        "communication_only_system_notice_plan_context_advisory"
+    )
+    assert packet["packet_creation_binding"]["advisory_plan_context_present"] is True
+    assert "section:MP-377" in packet["packet_creation_binding"]["plan_context_refs"]
     assert not (tmp_path / "dev/state/plan_index.jsonl").exists()
 
 

@@ -140,6 +140,51 @@ def test_emitted_packet_passes_safe_auto_apply_allowlist(tmp_path):
     assert _packet_allows_safe_auto_apply(event) is True
 
 
+def test_actor_authority_stage_commit_pipeline_passes_safe_auto_apply(tmp_path):
+    """Typed target authority can auto-apply without a system sender."""
+    context = _context(tmp_path)
+    event = _build_action_request_event(
+        result=_LIVE_24_FILE_REPRO_RESULT,
+        context=context,
+        existing_events=[],
+        target_ref="",
+        full_guard_bundle_evidence="",
+        completed_handoff_session_id="completed-handoff-1",
+    )
+    event["from_agent"] = "codex"
+    event["metadata"] = {
+        "runtime_authority_evidence": {
+            "contract_id": "ActionRequestRuntimeAuthorityEvidence",
+            "actor_id": "claude",
+            "provider": "claude",
+            "granted_capabilities": ["repo.stage_handoff"],
+        }
+    }
+    assert _packet_allows_safe_auto_apply(event) is True
+
+
+def test_actor_authority_safe_auto_apply_requires_target_capability(tmp_path):
+    context = _context(tmp_path)
+    event = _build_action_request_event(
+        result=_LIVE_24_FILE_REPRO_RESULT,
+        context=context,
+        existing_events=[],
+        target_ref="",
+        full_guard_bundle_evidence="",
+        completed_handoff_session_id="completed-handoff-1",
+    )
+    event["from_agent"] = "codex"
+    event["metadata"] = {
+        "runtime_authority_evidence": {
+            "contract_id": "ActionRequestRuntimeAuthorityEvidence",
+            "actor_id": "claude",
+            "provider": "claude",
+            "granted_capabilities": ["runtime.observe"],
+        }
+    }
+    assert _packet_allows_safe_auto_apply(event) is False
+
+
 def test_emitted_packet_fields_match_safe_auto_apply_shape(tmp_path):
     """Spot-check the contract shape every consumer of safe_auto_apply expects."""
     context = _context(tmp_path)

@@ -79,11 +79,28 @@ def bind_packet_at_creation(
     if not packet_id:
         return binding_result("failed", "missing_packet_id")
 
+    explicit_plan_context = _has_explicit_plan_context(packet_event)
     if _should_bind_to_plan_row(packet_event):
         return bind_packet_to_plan_row(
             repo_root=repo_root,
             artifact_paths=artifact_paths,
             packet_event=packet_event,
+        )
+
+    if kind == "system_notice" and explicit_plan_context:
+        return binding_result(
+            "skipped",
+            "communication_only_system_notice_plan_context_advisory",
+            packet_id=packet_id,
+            binding_target_kind="communication_only",
+            binding_target="",
+            advisory_plan_context_present=True,
+            plan_context_refs=_plan_context_refs(packet_event),
+            binding_policy=(
+                "system_notice packets can carry attention and plan anchors, "
+                "but only target_kind=plan, plan_proposal, or durable work "
+                "packet kinds create plan rows"
+            ),
         )
 
     if kind in _LIFECYCLE_BINDING_KINDS:
@@ -171,6 +188,21 @@ def _has_explicit_plan_context(packet_event: Mapping[str, object]) -> bool:
     return bool(_rows(packet_event.get("anchor_refs")))
 
 
+def _plan_context_refs(packet_event: Mapping[str, object]) -> list[str]:
+    refs: list[str] = []
+    plan_id = _text(packet_event.get("plan_id"))
+    if plan_id and plan_id != DEFAULT_REVIEW_CHANNEL_PLAN_ID:
+        refs.append(f"plan:{plan_id}")
+    target_ref = _text(packet_event.get("target_ref"))
+    if target_ref:
+        refs.append(target_ref)
+    intake_ref = _text(packet_event.get("intake_ref"))
+    if intake_ref:
+        refs.append(intake_ref)
+    refs.extend(_rows(packet_event.get("anchor_refs")))
+    return _dedupe(refs)
+
+
 def _has_durable_intent(packet_event: Mapping[str, object]) -> bool:
     haystack = " ".join(
         _text(packet_event.get(key)).lower()
@@ -203,6 +235,17 @@ def _rows(value: object) -> list[str]:
     if not isinstance(value, (list, tuple)):
         return []
     return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _dedupe(rows: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for row in rows:
+        if row in seen:
+            continue
+        seen.add(row)
+        result.append(row)
+    return result
 
 
 def _mapping(value: object) -> Mapping[str, object]:

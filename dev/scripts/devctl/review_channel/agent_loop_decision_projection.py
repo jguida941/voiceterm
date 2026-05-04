@@ -40,6 +40,8 @@ def agent_loop_decisions_for_work_board(
         session_id = _text(row.get("session_id"))
         if not actor_id or (target_agent and actor_id != target_agent):
             continue
+        if not _row_has_loop_authority(row):
+            continue
         key = (actor_id, role, session_id)
         if key in seen:
             continue
@@ -144,6 +146,30 @@ def _source_row(
         "source_event_id": _text(row.get("source_event_id")),
         "source_surface": _text(row.get("source_surface")),
     }
+
+
+def _row_has_loop_authority(row: Mapping[str, object]) -> bool:
+    """Stale visibility rows do not create loop work unless a packet binds them."""
+    if (
+        _text(row.get("active_packet_id"))
+        or _text(row.get("attention_packet_id"))
+        or _text(row.get("executing_packet_id"))
+    ):
+        return True
+    if _text(row.get("confidence_class")) == "stale":
+        return False
+    stale_after = _int(row.get("stale_after_seconds"))
+    idle_seconds = _int(row.get("idle_seconds"))
+    if stale_after > 0 and idle_seconds > stale_after:
+        return False
+    return True
+
+
+def _int(value: object) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
 
 
 __all__ = [

@@ -29,8 +29,13 @@ from .pending_packets import load_pending_packet_queue
 from .promotion import derive_promotion_candidate
 from .status_projection import build_bridge_review_state
 from .status_projection_support import ReviewStateContext
+from .status_work_board_identity import refresh_preserved_work_board_runtime_identity
 from .topology import build_planned_topology
 from ..time_utils import utc_timestamp
+
+_refresh_preserved_work_board_runtime_identity = (
+    refresh_preserved_work_board_runtime_identity
+)
 
 
 @dataclass(frozen=True)
@@ -90,6 +95,14 @@ def write_status_projection_bundle(
         timestamp=timestamp,
     )
     review_state = canonicalize_projection_review_state(review_state)
+    refreshed_work_board = refresh_preserved_work_board_runtime_identity(
+        review_state.get("agent_work_board"),
+        collaboration=review_state.get("collaboration"),
+    )
+    if refreshed_work_board is not review_state.get("agent_work_board"):
+        review_state = dict(review_state)
+        review_state["agent_work_board"] = refreshed_work_board
+        review_state = _attach_agent_loop_decisions(review_state)
     review_state = apply_work_board_session_posture(review_state)
     snapshot_id = str(review_state.get("snapshot_id") or "").strip()
     zref = str(review_state.get("zref") or "").strip()
@@ -264,6 +277,11 @@ def _preserve_typed_runtime_addenda(
     ):
         value = prior.get(key)
         if value:
+            if key == "agent_work_board":
+                value = refresh_preserved_work_board_runtime_identity(
+                    value,
+                    collaboration=merged.get("collaboration"),
+                )
             merged[key] = value
     prior_runtime = prior.get("reviewer_runtime")
     if isinstance(prior_runtime, Mapping):

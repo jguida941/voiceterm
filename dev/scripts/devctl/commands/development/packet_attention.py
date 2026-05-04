@@ -68,6 +68,7 @@ def packet_attention_from_review_state(
         attention_required=attention_required,
         agent=agent,
         attention_status=status,
+        attention_reason=wake_reason,
         wake_reason=wake_reason,
         latest_attention_packet_id=latest_attention_packet_id,
         latest_finding_packet_id=packet_id,

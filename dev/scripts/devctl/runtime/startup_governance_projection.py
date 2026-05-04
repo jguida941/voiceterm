@@ -7,6 +7,48 @@ from typing import Any
 
 from .project_governance import ProjectGovernance
 
+_PUSH_ENFORCEMENT_STARTUP_FIELDS = (
+    "checkpoint_required",
+    "safe_to_continue_editing",
+    "worktree_clean",
+    "worktree_dirty",
+    "checkpoint_reason",
+    "recommended_action",
+    "raw_git_push_guarded",
+    "current_branch",
+    "upstream_ref",
+    "current_head_commit",
+    "current_worktree_identity",
+    "current_approved_target_identity",
+    "current_push_authorization_valid",
+    "current_push_authorization_id",
+    "current_push_authorization_head_commit",
+    "managed_projection_drift",
+    "managed_projection_dirty_paths",
+    "ahead_of_upstream_commits",
+    "ahead_of_upstream_source_commits",
+    "ahead_of_upstream_managed_receipt_commits",
+    "dirty_path_count",
+    "staged_path_count",
+    "unstaged_path_count",
+    "untracked_path_count",
+    "publication_backlog_state",
+    "publication_backlog_summary",
+    "pending_publication_commits",
+    "latest_push_report_status",
+    "latest_push_report_reason",
+    "latest_push_report_matches_current_branch",
+    "latest_push_report_matches_current_head",
+    "latest_push_report_matches_current_worktree",
+    "latest_push_report_matches_current_approved_target",
+    "selected_push_report_status",
+    "selected_push_report_reason",
+    "selected_push_report_matches_current_branch",
+    "selected_push_report_matches_current_head",
+    "selected_push_report_matches_current_worktree",
+    "selected_push_report_matches_current_approved_target",
+)
+
 
 def startup_governance_dict(governance: ProjectGovernance) -> dict[str, Any]:
     """Return the bounded governance projection used by startup-context."""
@@ -30,7 +72,9 @@ def startup_governance_dict(governance: ProjectGovernance) -> dict[str, Any]:
         ],
     }
     payload["bridge_config"] = asdict(governance.bridge_config)
-    payload["push_enforcement"] = asdict(governance.push_enforcement)
+    payload["push_enforcement"] = _startup_push_enforcement_dict(
+        governance.push_enforcement
+    )
     payload["startup_order"] = list(governance.startup_order)
     payload["docs_authority"] = governance.docs_authority
     payload["workflow_profiles"] = list(governance.workflow_profiles)
@@ -80,5 +124,28 @@ def _startup_plan_entry_dict(entry) -> dict[str, object]:
     payload["when_agents_read"] = entry.when_agents_read
     payload["scope"] = entry.scope
     if entry.session_resume is not None and entry.session_resume.summary:
-        payload["session_resume_summary"] = entry.session_resume.summary
+        payload["session_resume_summary"] = _brief_text(
+            entry.session_resume.summary,
+            limit=240,
+        )
     return payload
+
+
+def _startup_push_enforcement_dict(push_enforcement: object) -> dict[str, object]:
+    payload: dict[str, object] = {}
+    for field_name in _PUSH_ENFORCEMENT_STARTUP_FIELDS:
+        value = getattr(push_enforcement, field_name, None)
+        if value in (None, "", ()):
+            continue
+        if isinstance(value, tuple):
+            payload[field_name] = list(value)
+            continue
+        payload[field_name] = value
+    return payload
+
+
+def _brief_text(value: str, *, limit: int) -> str:
+    compact = " ".join(str(value or "").split())
+    if len(compact) <= limit:
+        return compact
+    return compact[: max(limit - 3, 0)].rstrip() + "..."
