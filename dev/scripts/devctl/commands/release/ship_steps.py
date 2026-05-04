@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 from typing import Dict
 
-from ...common import confirm_or_abort, run_cmd
+from ...common import CommandRunPolicy, confirm_or_abort, run_cmd
 from ...config import REPO_ROOT
 from ...script_catalog import check_script_cmd
 from .guard import check_release_version_parity
@@ -93,7 +93,7 @@ def run_verify_checks(
                 cmd,
                 cwd=REPO_ROOT,
                 dry_run=dry_run,
-                live_output=False,
+                policy=CommandRunPolicy(live_output=False),
             )
             for name, cmd in checks
         ]
@@ -108,7 +108,7 @@ def run_verify_checks(
                 cmd,
                 cwd=REPO_ROOT,
                 dry_run=dry_run,
-                live_output=False,
+                policy=CommandRunPolicy(live_output=False),
             ): (index, name, cmd)
             for index, (name, cmd) in enumerate(checks)
         }

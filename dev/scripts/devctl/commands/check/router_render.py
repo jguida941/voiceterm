@@ -28,6 +28,13 @@ def render_markdown(report: dict) -> str:
             f"parallel_safe={execution_plan.get('parallel_safe_command_count', 0)} "
             f"phases={execution_plan.get('phase_count', 0)}"
         )
+    execution_policy = report.get("execution_policy")
+    if isinstance(execution_policy, dict):
+        lines.append(
+            "- execution_policy: "
+            f"command_timeout={execution_policy.get('command_timeout_seconds', 0)}s "
+            f"route_timeout={execution_policy.get('route_timeout_seconds', 0)}s"
+        )
     coverage = report.get("guard_coverage")
     if isinstance(coverage, dict):
         lines.append(
@@ -97,23 +104,29 @@ def render_markdown(report: dict) -> str:
         for row in report["planned_commands"]:
             safety = row.get("parallel_safety", "parallel_safe")
             reason = row.get("parallel_reason", "")
-            suffix = f" [{safety}: {reason}]" if reason else f" [{safety}]"
+            timeout = row.get("timeout_seconds")
+            timeout_text = f", timeout={timeout}s" if timeout else ""
+            suffix = (
+                f" [{safety}{timeout_text}: {reason}]"
+                if reason
+                else f" [{safety}{timeout_text}]"
+            )
             lines.append(f"- `{row['source']}` -> `{row['command']}`{suffix}")
 
     if report["steps"]:
         lines.append("")
         lines.append("## Execution Steps")
-        lines.append("| Step | Source | Exit | Duration (s) |")
-        lines.append("|---|---|---:|---:|")
+        lines.append("| Step | Source | Exit | Duration (s) | Timeout (s) |")
+        lines.append("|---|---|---:|---:|---:|")
         for step in report["steps"]:
             lines.append(
-                f"| `{step['name']}` | `{step['source']}` | {step['returncode']} | {step['duration_s']} |"
+                f"| `{step['name']}` | `{step['source']}` | {step['returncode']} | {step['duration_s']} | {step.get('timeout_seconds', '')} |"
             )
             failure_output = step.get("failure_output")
             if failure_output:
                 escaped_output = failure_output.replace("`", "\\`")
-                lines.append(f"| `{step['name']} output` | excerpt | - | - |")
-                lines.append(f"|  | `{escaped_output}` | - | - |")
+                lines.append(f"| `{step['name']} output` | excerpt | - | - | - |")
+                lines.append(f"|  | `{escaped_output}` | - | - | - |")
     remediation_actions = report.get("remediation_actions")
     if isinstance(remediation_actions, list) and remediation_actions:
         lines.append("")

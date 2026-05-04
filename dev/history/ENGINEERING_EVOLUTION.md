@@ -13968,3 +13968,58 @@ Evidence:
 - `dev/scripts/devctl/review_channel/packet_outcome_models.py`
 - `dev/scripts/devctl/tests/review_channel/test_packet_outcomes.py`
 - `dev/scripts/devctl/tests/review_channel/test_packet_lifecycle.py`
+
+### 2026-05-04 - Long-running devctl stages now emit typed progress heartbeats
+
+Remote-control dogfood around `rev_pkt_2961` showed a recurring operational
+failure: when commit/push preflights or routed guards went quiet, the operator
+and agents fell back to `ps` polling and Activity Monitor inference. The
+system had typed state for packets and plans, but not for a currently running
+child command that had not printed output recently.
+
+Change: the shared `run_cmd` live-output path now records
+`StageProgressEvent` rows for command start, no-output heartbeat, completion,
+failure, timeout, and interrupt. Governed VCS progress phases write into the
+same progress trail, and the new read-only `progress-status` command renders
+the latest event plus recent tail from `dev/reports/progress/`. These events
+are progress/status artifacts only; they do not wake packet handlers, launch
+conductors, or mutate packet queues.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/stage_progress.py`
+- `dev/scripts/devctl/command_runner.py`
+- `dev/scripts/devctl/command_runner_process.py`
+- `dev/scripts/devctl/runtime/command_progress.py`
+- `dev/scripts/devctl/commands/vcs/progress.py`
+- `dev/scripts/devctl/commands/reporting/progress_status.py`
+- `dev/scripts/devctl/tests/test_common.py`
+- `dev/scripts/devctl/tests/runtime/test_stage_progress.py`
+- `dev/scripts/devctl/tests/commands/reporting/test_progress_status.py`
+
+### 2026-05-04 - Routed guards now fail visibly on timeout instead of waiting silently
+
+Check-router dogfood on the progress slice showed the remaining half of the
+same automation bug class. The routed tooling bundle correctly selected phased
+parallel execution, but when the route reached a serial-required
+startup-authority guard, the operator still saw one Python process consuming
+CPU with no hard route-level outcome. Serial-required projection guards may
+run alone by design, but they still need a bounded execution policy.
+
+Change: `check-router` now exposes command and route timeout policy in its
+planned rows and markdown/JSON report. The shared `run_cmd` path accepts an
+explicit `timeout_seconds`, records timeout progress events, tears down the
+child process group, and returns `124` with `timed_out=true`. Router remediation
+classifies these failures as `guard_execution_timed_out`, so a timeout is a
+blocking guard result with exact command evidence, not a skipped guard or a
+green route.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/check/router_execution.py`
+- `dev/scripts/devctl/commands/check/router_render.py`
+- `dev/scripts/devctl/commands/check/router_coverage.py`
+- `dev/scripts/devctl/command_runner.py`
+- `dev/scripts/devctl/command_runner_process.py`
+- `dev/scripts/devctl/runtime/command_progress.py`
+- `dev/scripts/devctl/tests/commands/check/test_check_router.py`

@@ -5,7 +5,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List
 
-from ...common import run_cmd
+from ...common import CommandRunPolicy, run_cmd
 
 
 def build_step_spec(
@@ -35,6 +35,7 @@ def run_step_specs_serial(step_specs: List[dict], dry_run: bool) -> List[dict]:
                 cwd=spec.get("cwd"),
                 env=spec.get("env"),
                 dry_run=dry_run,
+                policy=CommandRunPolicy(timeout_seconds=spec.get("timeout_seconds")),
             )
         )
     return results
@@ -60,6 +61,7 @@ def run_step_specs_parallel(
                 cwd=spec.get("cwd"),
                 env=spec.get("env"),
                 dry_run=dry_run,
+                policy=CommandRunPolicy(timeout_seconds=spec.get("timeout_seconds")),
             ): index
             for index, spec in enumerate(step_specs)
         }

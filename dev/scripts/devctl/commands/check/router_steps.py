@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
+from ...common import CommandRunPolicy
+
 RunCommand = Callable[[str, list[str]], dict]
 
 
@@ -25,6 +27,7 @@ def execute_router_row(
         ["bash", "-lc", row["command"]],
         cwd=repo_root,
         dry_run=dry_run,
+        policy=CommandRunPolicy(timeout_seconds=row.get("timeout_seconds")),
     )
     result["source"] = row["source"]
     result["router_command"] = row["command"]
@@ -48,6 +51,7 @@ def dry_run_step_result(
         router_command=row["command"],
         parallel_safety=row.get("parallel_safety", "parallel_safe"),
         parallel_reason=row.get("parallel_reason", ""),
+        timeout_seconds=row.get("timeout_seconds"),
     )
 
 

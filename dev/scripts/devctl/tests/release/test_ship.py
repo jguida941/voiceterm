@@ -384,7 +384,7 @@ class ShipReleaseParityTests(TestCase):
         seen_live_output: list[bool] = []
 
         def fake_run_cmd(name, cmd, **kwargs):
-            seen_live_output.append(kwargs["live_output"])
+            seen_live_output.append(kwargs["policy"].live_output)
             delay = {
                 "coderabbit-gate": 0.05,
                 "check-release": 0.01,

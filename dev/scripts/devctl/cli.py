@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 
 from .commands.python_test_runner import command as python_test_command
-from .commands.reporting import dogfood
+from .commands.reporting import dogfood, progress_status
 from .commands.development import command as development_command
 from .commands.governance import session as governance_session
 from .cli_parser import entrypoint as _impl
@@ -18,6 +18,7 @@ from .cli_parser import entrypoint as _impl
 COMMAND_HANDLERS = {
     "develop": development_command.run,
     "dogfood": dogfood.run,
+    "progress-status": progress_status.run,
     "session": governance_session.run,
     "test-python": python_test_command.run,
 }

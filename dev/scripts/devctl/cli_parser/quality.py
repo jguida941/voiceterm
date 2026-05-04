@@ -83,6 +83,24 @@ def _add_check_router_parser(sub: argparse._SubParsersAction) -> None:
         ),
     )
     router_cmd.add_argument(
+        "--command-timeout-seconds",
+        type=int,
+        default=300,
+        help=(
+            "Default timeout for each routed command; explicit command-level "
+            "--timeout-seconds values receive a small envelope (default: 300)"
+        ),
+    )
+    router_cmd.add_argument(
+        "--route-timeout-seconds",
+        type=int,
+        default=1800,
+        help=(
+            "Overall routed execution budget before remaining commands become "
+            "typed timeout failures (default: 1800)"
+        ),
+    )
+    router_cmd.add_argument(
         "--quality-policy",
         help=(
             "Optional repo policy JSON file used to resolve repo-governance routing "

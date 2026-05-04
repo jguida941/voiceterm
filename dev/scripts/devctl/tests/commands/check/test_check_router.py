@@ -21,6 +21,8 @@ def make_args(**overrides) -> SimpleNamespace:
         "keep_going": False,
         "no_parallel": False,
         "parallel_workers": 4,
+        "command_timeout_seconds": 300,
+        "route_timeout_seconds": 1800,
         "format": "json",
         "output": None,
         "pipe_command": None,
@@ -47,6 +49,10 @@ class CheckRouterTests(unittest.TestCase):
                 "--keep-going",
                 "--parallel-workers",
                 "8",
+                "--command-timeout-seconds",
+                "120",
+                "--route-timeout-seconds",
+                "600",
                 "--no-parallel",
                 "--quality-policy",
                 "/tmp/router-policy.json",
@@ -59,6 +65,8 @@ class CheckRouterTests(unittest.TestCase):
         self.assertTrue(args.dry_run)
         self.assertTrue(args.keep_going)
         self.assertEqual(args.parallel_workers, 8)
+        self.assertEqual(args.command_timeout_seconds, 120)
+        self.assertEqual(args.route_timeout_seconds, 600)
         self.assertTrue(args.no_parallel)
         self.assertEqual(args.quality_policy, "/tmp/router-policy.json")
 
@@ -430,6 +438,7 @@ class CheckRouterTests(unittest.TestCase):
         run_cmd_mock.assert_called_once()
         executed = run_cmd_mock.call_args.args[1]
         self.assertEqual(executed[:2], ["bash", "-lc"])
+        self.assertEqual(run_cmd_mock.call_args.kwargs["policy"].timeout_seconds, 300)
         self.assertIn(sys.executable, executed[2])
         self.assertFalse(
             executed[2].startswith("python3 "),
@@ -438,6 +447,8 @@ class CheckRouterTests(unittest.TestCase):
 
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertTrue(payload["execute"])
+        self.assertEqual(payload["execution_policy"]["command_timeout_seconds"], 300)
+        self.assertEqual(payload["planned_commands"][0]["timeout_seconds"], 300)
         self.assertEqual(len(payload["steps"]), 1)
 
     @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
@@ -548,6 +559,7 @@ class CheckRouterTests(unittest.TestCase):
 
         executed = run_cmd_mock.call_args.args[1]
         self.assertEqual(executed[:2], ["bash", "-lc"])
+        self.assertEqual(run_cmd_mock.call_args.kwargs["policy"].timeout_seconds, 300)
         self.assertIn(sys.executable, executed[2])
         self.assertFalse(
             executed[2].startswith("python3 "),
@@ -615,6 +627,8 @@ class CheckRouterTests(unittest.TestCase):
         self.assertFalse(first_kwargs["parallel_enabled"])
         self.assertTrue(second_kwargs["parallel_enabled"])
         self.assertEqual(second_kwargs["max_workers"], 4)
+        second_specs = run_step_specs_mock.call_args_list[1].args[0]
+        self.assertEqual(second_specs[0]["timeout_seconds"], 300)
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertTrue(payload["parallel_enabled"])
         self.assertEqual(payload["parallel_workers"], 4)
@@ -635,6 +649,50 @@ class CheckRouterTests(unittest.TestCase):
             payload["remediation_actions"][0]["required_paths"],
             ["AGENTS.md", "dev/guides/DEVELOPMENT.md"],
         )
+
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
+    @patch("dev.scripts.devctl.commands.check.router_execution.run_step_specs")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_keep_going_timeout_becomes_failed_guard_evidence(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        run_step_specs_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [{"status": "M", "path": "dev/scripts/README.md"}]
+        }
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/checks/check_startup_authority_contract.py"],
+            None,
+        )
+        run_step_specs_mock.return_value = [
+            {
+                "name": "router-01",
+                "cmd": ["bash", "-lc", "startup-authority"],
+                "cwd": ".",
+                "returncode": 124,
+                "duration_s": 300.0,
+                "skipped": False,
+                "timed_out": True,
+                "timeout_seconds": 300,
+                "failure_output": "command timed out after 300s: startup-authority",
+            }
+        ]
+
+        rc = check_router.run(make_args(execute=True, keep_going=True))
+
+        self.assertEqual(rc, 1)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["guard_coverage"]["failed_command_count"], 1)
+        self.assertEqual(
+            payload["remediation_actions"][0]["reason"],
+            "guard_execution_timed_out",
+        )
+        self.assertTrue(payload["steps"][0]["timed_out"])
 
     @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check.router_execution.run_step_specs")

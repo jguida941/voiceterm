@@ -41,6 +41,7 @@ class ReadOnlyCommandSetTests(unittest.TestCase):
             "agent-loop",
             "discover",
             "findings-priority",
+            "progress-status",
             "graph-walk",
             "view",
             "list",

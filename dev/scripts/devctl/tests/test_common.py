@@ -1,5 +1,6 @@
 """Tests for shared devctl command helpers."""
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -9,7 +10,11 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from dev.scripts.devctl import common
-from dev.scripts.devctl.common import run_cmd
+from dev.scripts.devctl.common import CommandRunPolicy, run_cmd
+from dev.scripts.devctl.runtime.stage_progress import (
+    PROGRESS_ROOT_ENV,
+    read_progress_events,
+)
 from dev.scripts.devctl.steps import format_steps_md
 
 
@@ -41,7 +46,8 @@ class RunCmdTests(TestCase):
         self.assertIn("error", result)
 
     @patch(
-        "dev.scripts.devctl.common._run_with_live_output", side_effect=KeyboardInterrupt
+        "dev.scripts.devctl.command_runner._run_with_live_output",
+        side_effect=KeyboardInterrupt,
     )
     def test_run_cmd_interrupt_returns_structured_error(self, _run_mock) -> None:
         result = run_cmd("interrupt", [sys.executable, "-c", "print('x')"])
@@ -49,17 +55,53 @@ class RunCmdTests(TestCase):
         self.assertIn("interrupted", result.get("error", ""))
 
     @patch(
-        "dev.scripts.devctl.common._run_without_live_output",
+        "dev.scripts.devctl.command_runner._run_without_live_output",
         return_value=(0, "ok"),
     )
     def test_run_cmd_quiet_mode_uses_silent_runner(self, run_mock) -> None:
-        result = run_cmd("quiet", [sys.executable, "-c", "print('ok')"], live_output=False)
+        result = run_cmd(
+            "quiet",
+            [sys.executable, "-c", "print('ok')"],
+            policy=CommandRunPolicy(live_output=False),
+        )
         self.assertEqual(result["returncode"], 0)
         run_mock.assert_called_once()
 
     @patch("builtins.print")
+    def test_run_cmd_records_progress_start_and_completion(self, _mock_print) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            with patch.dict(os.environ, {PROGRESS_ROOT_ENV: tmp_dir}, clear=False):
+                result = run_cmd("progress-ok", [sys.executable, "-c", "print('ok')"])
+                events = read_progress_events(limit=10)
+
+        self.assertEqual(result["returncode"], 0)
+        phases = [event.phase for event in events]
+        self.assertIn("command.start", phases)
+        self.assertIn("command.complete", phases)
+
+    @patch("builtins.print")
+    def test_run_cmd_emits_heartbeat_when_child_is_silent(self, _mock_print) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            with patch.dict(
+                os.environ,
+                {
+                    PROGRESS_ROOT_ENV: tmp_dir,
+                    "DEVCTL_PROGRESS_HEARTBEAT_SECONDS": "0.01",
+                },
+                clear=False,
+            ):
+                result = run_cmd(
+                    "heartbeat",
+                    [sys.executable, "-c", "import time; time.sleep(0.08)"],
+                )
+                events = read_progress_events(limit=20)
+
+        self.assertEqual(result["returncode"], 0)
+        self.assertIn("command.heartbeat", [event.phase for event in events])
+
+    @patch("builtins.print")
     @patch(
-        "dev.scripts.devctl.common._resolve_live_output_timeout_seconds",
+        "dev.scripts.devctl.command_runner_process._resolve_live_output_timeout_seconds",
         return_value=0.05,
     )
     def test_run_cmd_timeout_returns_124_and_failure_excerpt(
@@ -73,8 +115,8 @@ class RunCmdTests(TestCase):
 
 
 class RunWithLiveOutputTests(TestCase):
-    @patch("dev.scripts.devctl.common._terminate_subprocess_tree")
-    @patch("dev.scripts.devctl.common.subprocess.Popen")
+    @patch("dev.scripts.devctl.command_runner_process._terminate_subprocess_tree")
+    @patch("dev.scripts.devctl.command_runner_process.subprocess.Popen")
     def test_interrupt_terminates_subprocess_tree(
         self,
         popen_mock,
@@ -107,7 +149,7 @@ class RunWithLiveOutputTests(TestCase):
 
     @patch("builtins.print")
     @patch(
-        "dev.scripts.devctl.common._resolve_live_output_timeout_seconds",
+        "dev.scripts.devctl.command_runner_process._resolve_live_output_timeout_seconds",
         return_value=0.5,
     )
     def test_parent_exit_does_not_wait_for_inherited_stdout_pipe(

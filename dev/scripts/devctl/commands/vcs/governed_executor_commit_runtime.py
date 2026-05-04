@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 from typing import Callable
 
-from ...common import run_cmd
+from ...common import CommandRunPolicy, run_cmd
 from ...review_channel.event_reducer import load_or_refresh_event_bundle
 from ...review_channel.events import post_packet, resolve_artifact_paths
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
@@ -150,7 +150,7 @@ def _run_startup_context_command(
     command: list[str],
     cwd: Path,
 ) -> dict[str, object]:
-    return run_cmd(name, command, cwd=cwd, live_output=False)
+    return run_cmd(name, command, cwd=cwd, policy=CommandRunPolicy(live_output=False))
 
 
 def attention_revision_stale(

@@ -122,6 +122,8 @@ def _source_counts(planned_rows: list[dict[str, str]]) -> dict[str, int]:
 
 
 def _classify_failure_reason(output: str) -> str:
+    if "timed out after" in output or "route budget exhausted" in output:
+        return "guard_execution_timed_out"
     if "Strict tooling docs mode requires maintainer docs" in output:
         return "strict_tooling_maintainer_docs_missing"
     if "Engineering evolution log is required" in output:
@@ -157,6 +159,11 @@ def _split_required_paths(raw: str) -> list[str]:
 
 
 def _remediation_text(output: str) -> str:
+    if "timed out after" in output or "route budget exhausted" in output:
+        return (
+            "Inspect the timed-out guard for a hang, narrow its scan scope, "
+            "or raise its typed execution policy only with measured evidence."
+        )
     required_paths = _required_paths_from_failure(output)
     if required_paths:
         return "Update required paths: " + ", ".join(required_paths)

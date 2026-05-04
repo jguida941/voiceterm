@@ -34,6 +34,7 @@ COMMANDS = [
     "orchestrate-watch",
     "report",
     "findings-priority",
+    "progress-status",
     "process-cleanup",
     "process-audit",
     "process-watch",

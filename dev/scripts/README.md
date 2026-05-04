@@ -1238,9 +1238,13 @@ python3 dev/scripts/devctl.py check --profile ci --with-process-sweep-cleanup
 # Optional: path-aware pre-push routing from changed files
 python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute --keep-going
 python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute --keep-going --parallel-workers 8
+python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute --keep-going --command-timeout-seconds 300 --route-timeout-seconds 1800
 python3 dev/scripts/devctl.py check-router --since-ref origin/develop --quality-policy /tmp/pilot-policy.json
 # `check-router --execute --keep-going` reports serial-required projection/status
-# commands separately from parallel-safe guard rows in `execution_plan`.
+# commands separately from parallel-safe guard rows in `execution_plan`; timed-out
+# routed commands fail with returncode 124 and remediation evidence.
+# Read the latest typed progress event/heartbeat for a long-running devctl run.
+python3 dev/scripts/devctl.py progress-status --format md --limit 10
 # Canonical guarded branch-push validation path (non-mutating by default)
 python3 dev/scripts/devctl.py push
 # Execute the real short-lived branch push plus the configured post-push bundle
@@ -1830,6 +1834,11 @@ Machine-first output note:
     task-router quick map render from the same typed authority in
     `dev/scripts/devctl/governance/task_router_contract.py`.
   - `--execute` runs the routed bundle commands plus add-ons from `bundle_registry.py`; use `--keep-going` for publish/preflight proof so later guards still run after an early failure. Reports include a typed `CheckRouterGuardCoverageReceipt` plus `GuardRemediationAction` rows, and `execution_plan` separates serial-required projection/status commands from parallel-safe guard rows so automation can prove both safety and coverage.
+- `progress-status`: read-only view of typed `StageProgressEvent` artifacts
+  written by long-running `run_cmd` child processes and governed VCS phases.
+  Use it when a guard/preflight appears quiet; it reports the latest command
+  start, no-output heartbeat, completion/failure, and recent event tail without
+  launching conductors, waking packet handlers, or mutating typed queues.
   - Range-aware universal guards such as Python broad-except and command-source validation receive the router's `--since-ref/--head-ref` automatically, which keeps clean-worktree push preflight from missing already-committed Python changes.
   - Unknown paths escalate to the stricter tooling lane.
 - `test-python`: bounded Python test adapter for repo-owned pytest suites
@@ -2341,7 +2350,8 @@ Machine-first output note:
 | Command | Run it when | Why |
 |---|---|---|
 | `check --profile fast` | you need a very fast local sanity pass while iterating | alias of `quick`; runs local guard checks (including AI-guard scripts) and is not a substitute for pre-push validation |
-| `check-router --since-ref origin/develop --execute --keep-going` | before push when changed files span multiple surfaces | auto-selects required lane + risk add-ons, phases serial-sensitive projection/status commands away from parallel-safe guards, and emits guard coverage/remediation evidence (unknown paths escalate to tooling); add `--parallel-workers <n>` to tune or `--no-parallel` for sequential debugging |
+| `check-router --since-ref origin/develop --execute --keep-going` | before push when changed files span multiple surfaces | auto-selects required lane + risk add-ons, phases serial-sensitive projection/status commands away from parallel-safe guards, applies command/route timeout policy, and emits guard coverage/remediation evidence (unknown paths escalate to tooling); add `--parallel-workers <n>` to tune, `--no-parallel` for sequential debugging, or `--command-timeout-seconds` / `--route-timeout-seconds` only with measured evidence |
+| `progress-status --format md --limit 10` | a long devctl/check-router/commit/push run appears silent | reads the latest typed `StageProgressEvent` heartbeat/completion trail so agents and operators can inspect progress without manual process-table polling |
 | `check-router --since-ref origin/develop --quality-policy /tmp/pilot-policy.json` | you are piloting the governance router in another repo clone | reuses the same lane-selection engine against another repo's policy-owned path/risk rules |
 | `test-python --suite devctl --path dev/scripts/devctl/tests/commands/test_python_tests.py` | you need Python proof for a focused tooling slice | runs pytest through repo-owned fail-fast and timeout policy instead of a broad raw pytest command; add `--parallel-workers <n>` for multi-path shard progress or `--no-parallel` for sequential debugging |
 | `tandem-validate --format md` | a Codex/Claude tandem slice needs one canonical validator instead of a hand-written checklist | runs preflight policy/status, derives the real lane and risk add-ons from `check-router`, executes the routed bundle, then rechecks `check_review_channel_bridge.py` and `check_tandem_consistency.py` at the end |

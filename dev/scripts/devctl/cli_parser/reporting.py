@@ -18,6 +18,7 @@ from ..governance_review.parser import add_governance_review_parser
 from ..probe_report.parser import add_probe_report_parser
 from ..quality_policy.parser import add_quality_policy_parser
 from ..ralph_status_parser import add_ralph_status_parser
+from ..commands.reporting.progress_status import add_parser as add_progress_status_parser
 from .builders_ops import (
     add_audit_scaffold_parser,
     add_docs_check_parser,
@@ -44,6 +45,7 @@ def add_reporting_parsers(
     add_mcp_parser(sub)
     add_data_science_parser(sub)
     add_quality_policy_parser(sub)
+    add_progress_status_parser(sub)
     add_governance_export_parser(sub)
     add_governance_bootstrap_parser(sub)
     add_governance_review_parser(sub)

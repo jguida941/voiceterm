@@ -9,7 +9,7 @@ import os
 import sys
 import time
 
-from ...common import run_cmd, write_output
+from ...common import CommandRunPolicy, run_cmd, write_output
 from ...config import REPO_ROOT
 from ...runtime.python_test_contract import build_python_test_command
 from ...time_utils import utc_timestamp
@@ -97,7 +97,7 @@ def _run_python_test_shards(
                 cwd=REPO_ROOT,
                 env=env,
                 dry_run=dry_run,
-                live_output=False,
+                policy=CommandRunPolicy(live_output=False),
             ): index
             for index, spec in enumerate(shard_specs)
         }

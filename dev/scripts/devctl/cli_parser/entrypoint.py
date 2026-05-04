@@ -97,7 +97,7 @@ from ..commands.governance import (
     simple_lanes,
     startup_context as governance_startup_context,
 )
-from ..commands.reporting import claude_loop, dogfood, findings_priority
+from ..commands.reporting import claude_loop, dogfood, findings_priority, progress_status
 from ..commands.vcs import commit as vcs_commit, push
 from ..config import (
     DEFAULT_CI_LIMIT,
@@ -178,6 +178,7 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset({
     "view",
     "list",
     "rollout-tail",
+    "progress-status",
 })
 
 
@@ -334,6 +335,7 @@ COMMAND_HANDLERS = {
     "system-picture": system_picture.run,
     "report": report.run,
     "findings-priority": findings_priority.run,
+    "progress-status": progress_status.run,
     "triage": triage.run,
     "data-science": data_science.run,
     "develop": development.run,
