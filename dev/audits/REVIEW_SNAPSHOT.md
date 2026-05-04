@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `bb85d5e0ee05` — Refresh external review snapshot for 5a2eb104
-- Tree hash: `ea60020e6a9a`
-- Generation stamp: `snap-2d97a8314972`
-- Generated at (UTC): 2026-05-04T05:56:40Z
+- HEAD: `12cf2f1d02f7` — Refresh external review snapshot for bb85d5e0
+- Tree hash: `790e025607c5`
+- Generation stamp: `snap-b3b822b9724f`
+- Generated at (UTC): 2026-05-04T05:58:02Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `single_agent`)
+- Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 95 files, +5122/-3878
+- Delta since last snapshot: 24 commits, 95 files, +5125/-3879
 - Governance findings: 154 open / 88 fixed / 256 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,9 +30,9 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `bb85d5e0ee050af3f8e18376d28ba56ec52b5937`
+- HEAD SHA: `12cf2f1d02f779509159ea89524779c132a3efe2`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-04T01:53:20-04:00
+- HEAD timestamp (UTC): 2026-05-04T01:56:43-04:00
 
 ## 2. Governance state
 
@@ -48,13 +48,13 @@ probes, typed actions, deterministic policy resolution — is what m...
 - current_push_authorization: `push-auth-20260504T055148594670Z` (valid=True)
 - authorized_head_commit: `bb85d5e0ee050af3f8e18376d28ba56ec52b5937`
 - publication_backlog: urgent
-- publication_guidance: 22 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 23 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `single_agent`
+- interaction_mode: `local_terminal`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -68,12 +68,12 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `bb85d5e0ee05`
+Range: last 24 commits ending at `12cf2f1d02f7`
 
 - commits: 24
 - files changed: 95
-- insertions: +5122
-- deletions: -3878
+- insertions: +5125
+- deletions: -3879
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 5 file(s)
 
@@ -81,30 +81,30 @@ Range: last 24 commits ending at `bb85d5e0ee05`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `bb85d5e0` | Refresh external review snapshot for 5a2eb104 | 2 | +69/-74 | docs |  |
-| 2 | `5a2eb104` | Show governed commit progress | 16 | +249/-75 | tooling |  |
-| 3 | `e382b175` | Phase routed preflight execution | 18 | +646/-170 | tooling |  |
-| 4 | `35dc5c13` | Refresh external review snapshot for e7aa7df1 | 2 | +51/-53 | docs |  |
-| 5 | `e7aa7df1` | Refresh external review snapshot for 6d8004fc | 2 | +52/-50 | docs |  |
-| 6 | `6d8004fc` | Refresh policy-owned generated surfaces for b6a926fc | 1 | +1/-1 | docs |  |
-| 7 | `b6a926fc` | Refresh external review snapshot for d3cf4e73 | 2 | +99/-86 | docs |  |
-| 8 | `d3cf4e73` | Harden packet attention and routed guard coverage | 72 | +2469/-2618 | tooling |  |
-| 9 | `2a3e3731` | Refresh external review snapshot for 764252dc | 2 | +43/-43 | docs |  |
-| 10 | `764252dc` | Refresh external review snapshot for bc821042 | 2 | +48/-45 | docs |  |
-| 11 | `bc821042` | Refresh external review snapshot for c2cf00e6 | 2 | +68/-67 | docs |  |
-| 12 | `c2cf00e6` | Preserve priority action-request current session | 14 | +347/-92 | tooling |  |
-| 13 | `71258903` | Refresh external review snapshot for c3b8b148 | 2 | +43/-43 | docs |  |
-| 14 | `c3b8b148` | Refresh external review snapshot for 6d9e177d | 2 | +43/-45 | docs |  |
-| 15 | `6d9e177d` | Refresh external review snapshot for 26a94370 | 2 | +66/-72 | docs |  |
-| 16 | `26a94370` | Absorb projection drift to clear governed-push gate per cod… | 3 | +9/-7 | tooling |  |
-| 17 | `d1b3377b` | Refresh external review snapshot for dae2c50e | 2 | +86/-88 | docs |  |
-| 18 | `dae2c50e` | Tighten operator notice sync guard | 12 | +297/-127 | tooling |  |
-| 19 | `1096b88d` | Implement codex's rev_pkt_2922 (Finding Y) + rev_pkt_2923 (… | 7 | +196/-16 | tooling |  |
-| 20 | `1761e564` | Absorb projection drift to clear startup gate before termin… | 3 | +7/-5 | tooling |  |
-| 21 | `0bba7ed5` | Absorb projection drift to clear bridge guard ACK mismatch… | 3 | +23/-12 | tooling |  |
-| 22 | `14945bd5` | Tighten remote_control wake routing per codex rev_pkt_2904 | 3 | +122/-1 | tooling |  |
-| 23 | `8c61c403` | Refresh external review snapshot for 8da8cee3 | 2 | +44/-44 | docs |  |
-| 24 | `8da8cee3` | Refresh external review snapshot for 1bf050cb | 1 | +44/-44 | tooling |  |
+| 1 | `12cf2f1d` | Refresh external review snapshot for bb85d5e0 | 2 | +47/-45 | docs |  |
+| 2 | `bb85d5e0` | Refresh external review snapshot for 5a2eb104 | 2 | +69/-74 | docs |  |
+| 3 | `5a2eb104` | Show governed commit progress | 16 | +249/-75 | tooling |  |
+| 4 | `e382b175` | Phase routed preflight execution | 18 | +646/-170 | tooling |  |
+| 5 | `35dc5c13` | Refresh external review snapshot for e7aa7df1 | 2 | +51/-53 | docs |  |
+| 6 | `e7aa7df1` | Refresh external review snapshot for 6d8004fc | 2 | +52/-50 | docs |  |
+| 7 | `6d8004fc` | Refresh policy-owned generated surfaces for b6a926fc | 1 | +1/-1 | docs |  |
+| 8 | `b6a926fc` | Refresh external review snapshot for d3cf4e73 | 2 | +99/-86 | docs |  |
+| 9 | `d3cf4e73` | Harden packet attention and routed guard coverage | 72 | +2469/-2618 | tooling |  |
+| 10 | `2a3e3731` | Refresh external review snapshot for 764252dc | 2 | +43/-43 | docs |  |
+| 11 | `764252dc` | Refresh external review snapshot for bc821042 | 2 | +48/-45 | docs |  |
+| 12 | `bc821042` | Refresh external review snapshot for c2cf00e6 | 2 | +68/-67 | docs |  |
+| 13 | `c2cf00e6` | Preserve priority action-request current session | 14 | +347/-92 | tooling |  |
+| 14 | `71258903` | Refresh external review snapshot for c3b8b148 | 2 | +43/-43 | docs |  |
+| 15 | `c3b8b148` | Refresh external review snapshot for 6d9e177d | 2 | +43/-45 | docs |  |
+| 16 | `6d9e177d` | Refresh external review snapshot for 26a94370 | 2 | +66/-72 | docs |  |
+| 17 | `26a94370` | Absorb projection drift to clear governed-push gate per cod… | 3 | +9/-7 | tooling |  |
+| 18 | `d1b3377b` | Refresh external review snapshot for dae2c50e | 2 | +86/-88 | docs |  |
+| 19 | `dae2c50e` | Tighten operator notice sync guard | 12 | +297/-127 | tooling |  |
+| 20 | `1096b88d` | Implement codex's rev_pkt_2922 (Finding Y) + rev_pkt_2923 (… | 7 | +196/-16 | tooling |  |
+| 21 | `1761e564` | Absorb projection drift to clear startup gate before termin… | 3 | +7/-5 | tooling |  |
+| 22 | `0bba7ed5` | Absorb projection drift to clear bridge guard ACK mismatch… | 3 | +23/-12 | tooling |  |
+| 23 | `14945bd5` | Tighten remote_control wake routing per codex rev_pkt_2904 | 3 | +122/-1 | tooling |  |
+| 24 | `8c61c403` | Refresh external review snapshot for 8da8cee3 | 2 | +44/-44 | docs |  |
 
 ### Files
 
@@ -113,10 +113,10 @@ Range: last 24 commits ending at `bb85d5e0ee05`
 | `.github/workflows/release_preflight.yml` | tooling | +9/-2 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +38/-5 |
 | `AGENTS.md` | docs | +61/-10 |
-| `bridge.md` | docs | +105/-105 |
+| `bridge.md` | docs | +107/-107 |
 | `dev/active/MASTER_PLAN.md` | tooling | +90/-3 |
 | `dev/active/ai_governance_platform.md` | tooling | +48/-4 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1027/-1023 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1028/-1022 |
 | `dev/config/git_hooks/post-commit-review-snapshot.sh` | tooling | +8/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +30/-8 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +5/-5 |
@@ -220,6 +220,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`12cf2f1d`** — Refresh external review snapshot for bb85d5e0
+  - evolution: Fact: live dogfooding showed the packet-delivery path was still carrying process semantics. Even after earlier exact-session fixes, packet post/follow helpers and their docs/tests still treated "packet arrived" as a pos…
 - **`bb85d5e0`** — Refresh external review snapshot for 5a2eb104
   - evolution: Fact: live dogfooding showed the packet-delivery path was still carrying process semantics. Even after earlier exact-session fixes, packet post/follow helpers and their docs/tests still treated "packet arrived" as a pos…
 - **`5a2eb104`** — Show governed commit progress
@@ -271,8 +273,6 @@ Recent findings:
   - evolution: Fact: The final T22AN-L/Finding Y stage-commit handoff packet selected a queue-priority `action_request`, but event-backed `current_session` projection still preferred the stale reviewer checkpoint and then let implemen…
 - **`8c61c403`** — Refresh external review snapshot for 8da8cee3
   - evolution: Fact: The final T22AN-L/Finding Y stage-commit handoff packet selected a queue-priority `action_request`, but event-backed `current_session` projection still preferred the stale reviewer checkpoint and then let implemen…
-- **`8da8cee3`** — Refresh external review snapshot for 1bf050cb
-  - evolution: Fact: The final T22AN-L/Finding Y stage-commit handoff packet selected a queue-priority `action_request`, but event-backed `current_session` projection still preferred the stale reviewer checkpoint and then let implemen…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -315,4 +315,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-2d97a8314972` binds this file to HEAD `bb85d5e0ee05`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-b3b822b9724f` binds this file to HEAD `12cf2f1d02f7`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
