@@ -66,6 +66,32 @@ Evidence:
 - `dev/scripts/devctl/tests/runtime/test_runtime_truth_snapshot.py`
 - `dev/scripts/devctl/tests/checks/test_check_ground_truth_probe_gate.py`
 
+### 2026-05-05 - Development can defer publication without bypassing mutation gates
+
+Fact: dogfood showed another loop failure mode: once a slice is checkpointed
+and ready for publication, a long governed push/preflight can strand the next
+implementation slice even though typed push state still says the worktree is
+safe to continue editing.
+
+Change: added `startup-context --defer-publication` plus the
+`DEVCTL_DEFER_PUBLICATION=1` env hook. The action router now records
+`publication_deferred_active`, `publication_deferred_reason`,
+`deferred_publication_command`, and `deferred_publication_actions` when the
+operator explicitly defers publication or a dirty-checkpoint gate for continued
+development. The mode only re-allows `implementation.edit` for an implementer
+lane with active implementation permission and a deferable dirty
+checkpoint/publication reason. It keeps `vcs.stage`, `vcs.commit`, and
+`vcs.push` blocked, so the deferred checkpoint/publication/preflight remains
+typed debt instead of becoming a raw guard skip.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/action_routing.py`
+- `dev/scripts/devctl/runtime/action_routing_publication_defer.py`
+- `dev/scripts/devctl/commands/governance/startup_context.py`
+- `dev/scripts/devctl/commands/governance/startup_context_defer.py`
+- `dev/scripts/devctl/tests/runtime/test_action_routing.py`
+
 ### 2026-05-05 - Claude built-in remote-control now mirrors through an async hook
 
 Fact: project slash adapters cannot invoke Claude's built-in `/remote-control`

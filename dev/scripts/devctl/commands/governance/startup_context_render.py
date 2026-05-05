@@ -202,6 +202,18 @@ def render_markdown(ctx_dict: dict) -> str:
     ).strip()
     if implementation_permission:
         lines.append(f"- implementation_permission: `{implementation_permission}`")
+    if bool(ctx_dict.get("publication_deferred_active", False)):
+        lines.append("- publication_deferred_active: `true`")
+        reason = str(ctx_dict.get("publication_deferred_reason") or "").strip()
+        if reason:
+            lines.append(f"- publication_deferred_reason: `{reason}`")
+        command = str(ctx_dict.get("deferred_publication_command") or "").strip()
+        if command:
+            lines.append(f"- deferred_publication_command: `{command}`")
+        actions = ctx_dict.get("deferred_publication_actions")
+        if isinstance(actions, list) and actions:
+            action_text = ", ".join(f"`{action}`" for action in actions)
+            lines.append(f"- deferred_publication_actions: {action_text}")
     lines.append(f"- interaction_mode: `{_interaction_mode(ctx_dict)}`")
     recovery_action = str(ctx_dict.get("recovery_action") or "").strip()
     if recovery_action:

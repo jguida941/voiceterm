@@ -593,3 +593,57 @@ def test_status_bundle_skips_operator_system_notice_queue_wake_debt() -> None:
     projected = _attach_agent_loop_decisions(payload)
 
     assert projected["agent_loop_decisions"] == []
+
+
+def test_status_bundle_attaches_peer_attention_windows() -> None:
+    payload = {
+        "current_session": {"current_instruction_revision": "rev-current"},
+        "reviewer_runtime": {
+            "agent_runtime_clock": {
+                "source_latest_event_id": "rev_evt_20",
+                "snapshot_id": "agent-runtime-clock:rev_evt_20",
+            }
+        },
+        "agent_sync": {"source_latest_event_id": "rev_evt_20", "agents": {}},
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "claude",
+                    "role": "reviewer",
+                    "session_id": "s-review",
+                    "active_packet_id": "rev_pkt_attention",
+                    "attention_packet_id": "rev_pkt_attention",
+                    "source_event_id": "rev_evt_20",
+                    "status": "working",
+                }
+            ]
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_attention",
+                "from_agent": "codex",
+                "to_agent": "claude",
+                "kind": "action_request",
+                "status": "acked",
+                "lifecycle_current_state": "in_progress",
+                "latest_event_id": "rev_evt_20",
+                "target_role": "reviewer",
+                "target_session_id": "s-review",
+                "summary": "Review active handoff",
+            },
+        ],
+    }
+
+    projected = _attach_agent_loop_decisions(payload)
+
+    attention_windows = projected["attention_windows"]["windows"]
+    assert attention_windows[0]["latest_attention_packet_id"] == "rev_pkt_attention"
+    assert attention_windows[0]["blocking_consume_required"] is False
+    assert attention_windows[0]["blocking_packet_ids"] == []
+    assert attention_windows[0]["next_commands"] == []
+    assert attention_windows[0]["peer_recent_packets"][0]["mutation_blocking"] is False
+    assert (
+        attention_windows[0]["peer_recent_packets"][0]["show_command"]
+        == "python3 dev/scripts/devctl.py review-channel --action show "
+        "--packet-id rev_pkt_attention --terminal none --format md"
+    )

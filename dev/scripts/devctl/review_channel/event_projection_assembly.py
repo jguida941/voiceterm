@@ -246,52 +246,7 @@ def _apply_review_state_enrichment(
         row.to_dict() for row in build_round_proofs_from_review_state(review_state)
     ]
 
-    # Per Codex rev_pkt_2271 #2: rebuild work-board AFTER collaboration is
-    # populated so AgentWorkBoardRow.worktree_identity / branch / path_scope
-    # read from typed CollaborationParticipantState rather than fallbacks.
-    # The reducer's earlier build sees only _PLACEHOLDER_COLLABORATION.
-    from .agent_work_board_projection import build_agent_work_board_projection
-    from .agent_work_board_posture import apply_work_board_session_posture
-    review_state["agent_work_board"] = dict(
-        build_agent_work_board_projection(
-            events=list(getattr(runtime, "events", []) or []),
-            packet_rows=list(review_state.get("packets") or []),
-            agent_sync_payload=dict(review_state.get("agent_sync") or {}),
-            collaboration=review_state["collaboration"],
-            refresh_seq=int(
-                (review_state.get("agent_sync") or {}).get("projection_refresh_seq") or 0
-            ),
-            refreshed_at_utc=str(review_state.get("timestamp") or ""),
-        )
-    )
-    review_state = apply_work_board_session_posture(review_state)
-
-    # Per rev_pkt_2273/2278/2281/2298: 4-field topology/authority split.
-    # Computed AFTER agent_work_board so the projection sees observed runtime.
-    from .coordination_state_projection import build_coordination_state_projection
-    review_state["coordination_state"] = dict(
-        build_coordination_state_projection(
-            agent_work_board_payload=review_state["agent_work_board"],
-            agent_sync_payload=review_state.get("agent_sync"),
-            collaboration=review_state["collaboration"],
-            reviewer_runtime=review_state.get("reviewer_runtime"),
-        )
-    )
-    from .agent_loop_decision_projection import (
-        agent_loop_decisions_for_work_board,
-        apply_agent_sync_session_attention_disambiguation,
-        apply_scoped_attention_to_ambiguous_packet_attention,
-    )
-    review_state["agent_loop_decisions"] = agent_loop_decisions_for_work_board(
-        review_state=review_state,
-        work_board=review_state["agent_work_board"],
-    )
-    review_state = apply_agent_sync_session_attention_disambiguation(review_state)
-    review_state = apply_scoped_attention_to_ambiguous_packet_attention(review_state)
-    from ..runtime.agent_dispatch_router import build_agent_dispatch_router
-    review_state["agent_dispatch_router"] = build_agent_dispatch_router(
-        review_state=review_state,
-    ).to_dict()
+    review_state = _apply_runtime_route_projections(review_state, runtime)
     review_state["commit_pipeline"] = runtime.commit_pipeline.to_dict()
     review_state["push_authorization"] = push_authorization_payload(
         runtime.commit_pipeline
@@ -372,6 +327,66 @@ def _apply_review_state_enrichment(
         raw_service_identity=identity.raw_service_identity,
         raw_attach_auth_policy=identity.raw_attach_auth_policy,
     )
+
+
+def _apply_runtime_route_projections(
+    review_state: dict[str, object],
+    runtime: EventProjectionRuntimeState,
+) -> dict[str, object]:
+    # Rebuild work-board after collaboration is populated so row identity
+    # comes from typed CollaborationParticipantState rather than fallbacks.
+    from .agent_work_board_projection import build_agent_work_board_projection
+    from .agent_work_board_posture import apply_work_board_session_posture
+
+    review_state["agent_work_board"] = dict(
+        build_agent_work_board_projection(
+            events=list(getattr(runtime, "events", []) or []),
+            packet_rows=list(review_state.get("packets") or []),
+            agent_sync_payload=dict(review_state.get("agent_sync") or {}),
+            collaboration=review_state["collaboration"],
+            refresh_seq=int(
+                (review_state.get("agent_sync") or {}).get("projection_refresh_seq") or 0
+            ),
+            refreshed_at_utc=str(review_state.get("timestamp") or ""),
+        )
+    )
+    review_state = apply_work_board_session_posture(review_state)
+    return _apply_attention_route_projections(review_state)
+
+
+def _apply_attention_route_projections(
+    review_state: dict[str, object],
+) -> dict[str, object]:
+    from .agent_loop_decision_projection import (
+        agent_loop_decisions_for_work_board,
+        apply_agent_sync_session_attention_disambiguation,
+        apply_scoped_attention_to_ambiguous_packet_attention,
+    )
+    from .coordination_state_projection import build_coordination_state_projection
+    from ..runtime.agent_dispatch_router import build_agent_dispatch_router
+    from ..runtime.peer_attention_window import build_attention_window_projection
+
+    review_state["coordination_state"] = dict(
+        build_coordination_state_projection(
+            agent_work_board_payload=review_state["agent_work_board"],
+            agent_sync_payload=review_state.get("agent_sync"),
+            collaboration=review_state["collaboration"],
+            reviewer_runtime=review_state.get("reviewer_runtime"),
+        )
+    )
+    review_state["agent_loop_decisions"] = agent_loop_decisions_for_work_board(
+        review_state=review_state,
+        work_board=review_state["agent_work_board"],
+    )
+    review_state = apply_agent_sync_session_attention_disambiguation(review_state)
+    review_state = apply_scoped_attention_to_ambiguous_packet_attention(review_state)
+    review_state["attention_windows"] = build_attention_window_projection(
+        review_state
+    ).to_dict()
+    review_state["agent_dispatch_router"] = build_agent_dispatch_router(
+        review_state=review_state,
+    ).to_dict()
+    return review_state
 
 
 def _suppress_legacy_recovery_command_when_remote_only(

@@ -15,6 +15,7 @@ from .action_routing_support import (
     push_enforcement,
 )
 from .advisory_next_action_role_filter import project_next_command_for_role
+from .action_routing_publication_defer import PublicationDeferInput, publication_defer_decision
 from .commit_permission import (
     CommitPermissionDecision,
     build_commit_permission_decision,
@@ -26,20 +27,12 @@ from .implementation_admissibility import (
 )
 
 _LANES = frozenset({"dashboard", "implementer", "observer", "reviewer"})
-_READ_ACTIONS = (
-    "startup-context.summary",
-    "review-channel.status",
-    "context-graph.bootstrap",
-)
+_READ_ACTIONS = ("startup-context.summary", "review-channel.status", "context-graph.bootstrap")
 _FINDING_ACTIONS = ("review-channel.post_finding",)
 _IMPLEMENTATION_ACTIONS = ("implementation.edit", "vcs.stage", "vcs.commit")
 _MUTATING_ACTIONS = (
-    "implementation.edit",
-    "vcs.stage",
-    "vcs.commit",
-    "vcs.push",
-    "runtime.recover",
-    "runtime.terminate",
+    "implementation.edit", "vcs.stage", "vcs.commit", "vcs.push",
+    "runtime.recover", "runtime.terminate",
 )
 
 
@@ -100,6 +93,10 @@ class ActionRoutingDecision:
     control_recovery_action: str = ""
     escalation_action: str = ""
     implementation_admissibility: str = "allowed"
+    publication_deferred_active: bool = False
+    publication_deferred_reason: str = ""
+    deferred_publication_command: str = ""
+    deferred_publication_actions: tuple[str, ...] = ()
     agent_lane: AgentLaneDecision = field(default_factory=AgentLaneDecision)
 
     def to_dict(self) -> dict[str, object]:
@@ -107,6 +104,7 @@ class ActionRoutingDecision:
         payload["intrinsic_allowed_actions"] = list(self.intrinsic_allowed_actions)
         payload["allowed_actions"] = list(self.allowed_actions)
         payload["blocked_actions"] = list(self.blocked_actions)
+        payload["deferred_publication_actions"] = list(self.deferred_publication_actions)
         payload["agent_lane"] = self.agent_lane.to_dict()
         return payload
 
@@ -189,6 +187,7 @@ def build_startup_action_routing(
     next_command: str,
     caller_role: object = "",
     reviewer_override: bool = False,
+    defer_publication: bool = False,
 ) -> ActionRoutingDecision:
     """Build the startup control decision consumed by hooks and agents."""
     resolved_coordination = coordination_state(ctx_payload)
@@ -249,6 +248,26 @@ def build_startup_action_routing(
         control_recovery_action = "coordination_resync"
         escalation_action = "operator_resume_review_loop"
 
+    publication_defer = publication_defer_decision(
+        PublicationDeferInput(
+            ctx_payload=ctx_payload,
+            next_command=next_command,
+            lane_edit_allowed=lane.edit_gate.edit_allowed,
+            lane_permissions=lane.permissions,
+            push=push,
+            permission=permission,
+            defer_publication=defer_publication,
+        )
+    )
+    if publication_defer.active:
+        if "implementation.edit" in blocked:
+            blocked.remove("implementation.edit")
+        _append_unique(blocked, publication_defer.blocked_actions)
+        admissibility = ImplementationAdmissibilityState(
+            status="allowed",
+            reasons=(*admissibility.reasons, publication_defer.reason),
+        )
+
     allowed = [action for action in intrinsic_allowed if action not in blocked]
     visible_next_command = project_next_command_for_role(
         role=caller_role,
@@ -262,6 +281,10 @@ def build_startup_action_routing(
         control_recovery_action=control_recovery_action,
         escalation_action=escalation_action,
         implementation_admissibility=admissibility.status,
+        publication_deferred_active=publication_defer.active,
+        publication_deferred_reason=publication_defer.reason,
+        deferred_publication_command=publication_defer.deferred_command,
+        deferred_publication_actions=publication_defer.blocked_actions,
         agent_lane=lane,
     )
 
@@ -272,6 +295,7 @@ def project_startup_action_routing(
     next_command: str,
     caller_role: object = "",
     reviewer_override: bool = False,
+    defer_publication: bool = False,
 ) -> ActionRoutingDecision:
     """Add the action-routing projection to an existing startup payload."""
     decision = build_startup_action_routing(
@@ -279,6 +303,7 @@ def project_startup_action_routing(
         next_command=next_command,
         caller_role=caller_role,
         reviewer_override=reviewer_override,
+        defer_publication=defer_publication,
     )
     payload["next_command"] = decision.next_command
     payload["intrinsic_allowed_actions"] = list(decision.intrinsic_allowed_actions)
@@ -287,6 +312,12 @@ def project_startup_action_routing(
     payload["control_recovery_action"] = decision.control_recovery_action
     payload["implementation_admissibility"] = decision.implementation_admissibility
     payload["escalation_action"] = decision.escalation_action
+    payload["publication_deferred_active"] = decision.publication_deferred_active
+    payload["publication_deferred_reason"] = decision.publication_deferred_reason
+    payload["deferred_publication_command"] = decision.deferred_publication_command
+    payload["deferred_publication_actions"] = list(
+        decision.deferred_publication_actions
+    )
     payload["agent_lane"] = decision.agent_lane.to_dict()
     payload["lane_edit_gate"] = decision.agent_lane.edit_gate.to_dict()
     payload["action_routing"] = decision.to_dict()

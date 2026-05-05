@@ -104,6 +104,7 @@ def write_status_projection_bundle(
         review_state["agent_work_board"] = refreshed_work_board
         review_state = _attach_agent_loop_decisions(review_state)
     review_state = apply_work_board_session_posture(review_state)
+    review_state = _attach_agent_loop_decisions(review_state)
     snapshot_id = str(review_state.get("snapshot_id") or "").strip()
     zref = str(review_state.get("zref") or "").strip()
     agent_registry = _status_agent_registry(review_state)
@@ -240,6 +241,10 @@ def _attach_agent_loop_decisions(
     with_decisions = apply_scoped_attention_to_ambiguous_packet_attention(
         with_decisions
     )
+    from ..runtime.peer_attention_window import build_attention_window_projection
+    with_decisions["attention_windows"] = build_attention_window_projection(
+        with_decisions
+    ).to_dict()
     from ..runtime.agent_dispatch_router import build_agent_dispatch_router
     with_decisions["agent_dispatch_router"] = build_agent_dispatch_router(
         review_state=with_decisions,
@@ -274,6 +279,7 @@ def _preserve_typed_runtime_addenda(
         "agent_work_board",
         "coordination_state",
         "agent_loop_decisions",
+        "attention_windows",
     ):
         value = prior.get(key)
         if value:

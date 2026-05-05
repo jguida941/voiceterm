@@ -980,8 +980,14 @@ Portability note:
   `allowed_actions`, `blocked_actions`, `control_recovery_action`,
   `escalation_action`) and typed `agent_lane` permissions so hooks, launchers,
   and AI sessions can execute the repo-owned next step rather than inferring
-  it from partial state. Destructive runtime recovery is projected separately
-  through closed `recovery_action` / `recovery_basis` / `recovery_scope`
+  it from partial state. `startup-context --defer-publication` is the explicit
+  development escape hatch for long publication/preflight waits: when typed
+  push state is blocked only by a dirty-checkpoint/publication gate, it
+  re-allows only `implementation.edit` and records the deferred checkpoint or
+  push command while keeping `vcs.stage`, `vcs.commit`, and `vcs.push`
+  blocked. Destructive runtime recovery is projected separately through closed
+  `recovery_action` /
+  `recovery_basis` / `recovery_scope`
   fields plus `lane_edit_gate`, so observer/dashboard lanes can emit findings
   or packets without gaining kill/relaunch/edit authority. Startup now also
   carries a bounded

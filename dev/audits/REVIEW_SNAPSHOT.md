@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `1cfa5df29bbc` — Refresh external review snapshot for f5e2e183
-- Tree hash: `ccd3f513206b`
-- Generation stamp: `snap-2a03445efdbd`
-- Generated at (UTC): 2026-05-05T04:13:09Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `local_terminal`)
+- HEAD: `9c02b8b2f38c` — Refresh external review snapshot for 1cfa5df2
+- Tree hash: `0d7bbb387dab`
+- Generation stamp: `snap-8584d85ae468`
+- Generated at (UTC): 2026-05-05T15:13:21Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 162 files, +15624/-2845
+- Delta since last snapshot: 24 commits, 162 files, +15612/-2830
 - Governance findings: 157 open / 88 fixed / 259 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,31 +30,31 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `1cfa5df29bbc56b27f6bafdda318d71b0c6c050b`
+- HEAD SHA: `9c02b8b2f38cdf726bd28b55518613fd6180c213`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-05T00:12:03-04:00
+- HEAD timestamp (UTC): 2026-05-05T00:13:38-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
+- action: `await_checkpoint`
+- reason: staged_index_budget_exceeded
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 25
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- next_step_command: `n/a`
 - latest_push_report_state: `blocked` (push_preflight_running)
-- current_push_authorization: `push-auth-20260505T040833598726Z` (valid=True)
+- current_push_authorization: `push-auth-20260505T040833598726Z` (valid=False)
 - authorized_head_commit: `f5e2e1830745efacc21971413762206eb66d62da`
 - publication_backlog: urgent
-- publication_guidance: 5 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 6 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `local_terminal`
+- interaction_mode: `remote_control`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -64,16 +64,17 @@ probes, typed actions, deterministic policy resolution — is what m...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `1cfa5df29bbc`
+Range: last 24 commits ending at `9c02b8b2f38c`
 
 - commits: 24
 - files changed: 162
-- insertions: +15624
-- deletions: -2845
+- insertions: +15612
+- deletions: -2830
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 6 file(s)
 
@@ -81,30 +82,30 @@ Range: last 24 commits ending at `1cfa5df29bbc`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `1cfa5df2` | Refresh external review snapshot for f5e2e183 | 2 | +54/-52 | docs |  |
-| 2 | `f5e2e183` | Refresh external review snapshot for ed79cd0e | 2 | +95/-91 | docs |  |
-| 3 | `ed79cd0e` | Implement runtime truth remote control pipeline | 100 | +10011/-1014 | tooling |  |
-| 4 | `27b81fdb` | Refresh external review snapshot for de639cbc | 2 | +74/-73 | docs |  |
-| 5 | `de639cbc` | Add relaunch-loop lifecycle contracts | 31 | +1911/-106 | tooling |  |
-| 6 | `afb71fe6` | Refresh external review snapshot for b9406f73 | 2 | +66/-71 | docs |  |
-| 7 | `b9406f73` | Refresh external review snapshot for b3ff926d | 2 | +45/-43 | docs |  |
-| 8 | `b3ff926d` | Refresh external review snapshot for 299674a0 | 2 | +80/-80 | docs |  |
-| 9 | `299674a0` | Add routed guard timeout progress | 39 | +1783/-406 | tooling |  |
-| 10 | `ef9db514` | Refresh external review snapshot for da0c9c80 | 2 | +53/-53 | docs |  |
-| 11 | `da0c9c80` | Refresh external review snapshot for 9ef66045 | 2 | +46/-44 | docs |  |
-| 12 | `9ef66045` | Refresh external review snapshot for faba8791 | 2 | +71/-72 | docs |  |
-| 13 | `faba8791` | Classify durable expired packets | 25 | +360/-126 | tooling |  |
-| 14 | `7d29dd85` | Refresh external review snapshot for 9e027548 | 2 | +47/-44 | docs |  |
-| 15 | `9e027548` | Refresh external review snapshot for 116d5b6e | 2 | +46/-44 | docs |  |
-| 16 | `116d5b6e` | Refresh external review snapshot for 6a721e78 | 2 | +65/-70 | docs |  |
-| 17 | `6a721e78` | Fix post-push range scoping | 4 | +75/-58 | tooling |  |
-| 18 | `759abf90` | Refresh external review snapshot for 3db1597c | 2 | +46/-46 | docs |  |
-| 19 | `3db1597c` | Refresh external review snapshot for 04ad16b1 | 2 | +47/-49 | docs |  |
-| 20 | `04ad16b1` | Refresh external review snapshot for c66f5f65 | 2 | +67/-66 | docs |  |
-| 21 | `c66f5f65` | Shard focused Python tests | 14 | +420/-72 | tooling |  |
-| 22 | `639ef536` | Refresh external review snapshot for 12cf2f1d | 2 | +46/-46 | docs |  |
-| 23 | `12cf2f1d` | Refresh external review snapshot for bb85d5e0 | 2 | +47/-45 | docs |  |
-| 24 | `bb85d5e0` | Refresh external review snapshot for 5a2eb104 | 2 | +69/-74 | docs |  |
+| 1 | `9c02b8b2` | Refresh external review snapshot for 1cfa5df2 | 2 | +57/-59 | docs |  |
+| 2 | `1cfa5df2` | Refresh external review snapshot for f5e2e183 | 2 | +54/-52 | docs |  |
+| 3 | `f5e2e183` | Refresh external review snapshot for ed79cd0e | 2 | +95/-91 | docs |  |
+| 4 | `ed79cd0e` | Implement runtime truth remote control pipeline | 100 | +10011/-1014 | tooling |  |
+| 5 | `27b81fdb` | Refresh external review snapshot for de639cbc | 2 | +74/-73 | docs |  |
+| 6 | `de639cbc` | Add relaunch-loop lifecycle contracts | 31 | +1911/-106 | tooling |  |
+| 7 | `afb71fe6` | Refresh external review snapshot for b9406f73 | 2 | +66/-71 | docs |  |
+| 8 | `b9406f73` | Refresh external review snapshot for b3ff926d | 2 | +45/-43 | docs |  |
+| 9 | `b3ff926d` | Refresh external review snapshot for 299674a0 | 2 | +80/-80 | docs |  |
+| 10 | `299674a0` | Add routed guard timeout progress | 39 | +1783/-406 | tooling |  |
+| 11 | `ef9db514` | Refresh external review snapshot for da0c9c80 | 2 | +53/-53 | docs |  |
+| 12 | `da0c9c80` | Refresh external review snapshot for 9ef66045 | 2 | +46/-44 | docs |  |
+| 13 | `9ef66045` | Refresh external review snapshot for faba8791 | 2 | +71/-72 | docs |  |
+| 14 | `faba8791` | Classify durable expired packets | 25 | +360/-126 | tooling |  |
+| 15 | `7d29dd85` | Refresh external review snapshot for 9e027548 | 2 | +47/-44 | docs |  |
+| 16 | `9e027548` | Refresh external review snapshot for 116d5b6e | 2 | +46/-44 | docs |  |
+| 17 | `116d5b6e` | Refresh external review snapshot for 6a721e78 | 2 | +65/-70 | docs |  |
+| 18 | `6a721e78` | Fix post-push range scoping | 4 | +75/-58 | tooling |  |
+| 19 | `759abf90` | Refresh external review snapshot for 3db1597c | 2 | +46/-46 | docs |  |
+| 20 | `3db1597c` | Refresh external review snapshot for 04ad16b1 | 2 | +47/-49 | docs |  |
+| 21 | `04ad16b1` | Refresh external review snapshot for c66f5f65 | 2 | +67/-66 | docs |  |
+| 22 | `c66f5f65` | Shard focused Python tests | 14 | +420/-72 | tooling |  |
+| 23 | `639ef536` | Refresh external review snapshot for 12cf2f1d | 2 | +46/-46 | docs |  |
+| 24 | `12cf2f1d` | Refresh external review snapshot for bb85d5e0 | 2 | +47/-45 | docs |  |
 
 ### Files
 
@@ -116,11 +117,11 @@ Range: last 24 commits ending at `1cfa5df29bbc`
 | `.github/workflows/tooling_control_plane.yml` | tooling | +6/-0 |
 | `.gitignore` | tooling | +4/-0 |
 | `AGENTS.md` | docs | +19/-9 |
-| `bridge.md` | docs | +65/-65 |
+| `bridge.md` | docs | +64/-64 |
 | `dev/active/MASTER_PLAN.md` | tooling | +108/-3 |
 | `dev/active/ai_governance_platform.md` | tooling | +63/-6 |
 | `dev/active/remote_control_runtime.md` | tooling | +37/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1398/-1403 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1387/-1389 |
 | `dev/config/devctl_repo_policy.json` | tooling | +50/-0 |
 | `dev/config/templates/README.md` | tooling | +7/-0 |
 | `dev/config/templates/claude_typed_remote_control_command.template.md` | tooling | +56/-0 |
@@ -224,6 +225,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`9c02b8b2`** — Refresh external review snapshot for 1cfa5df2
+  - evolution: Fact: the remote-control dogfood failure showed a structural AI-agent failure mode. The typed system designed hook/transcript proof channels around `bridge_status` before asking where Claude Code itself stored the statu…
 - **`1cfa5df2`** — Refresh external review snapshot for f5e2e183
   - evolution: Fact: the remote-control dogfood failure showed a structural AI-agent failure mode. The typed system designed hook/transcript proof channels around `bridge_status` before asking where Claude Code itself stored the statu…
 - **`f5e2e183`** — Refresh external review snapshot for ed79cd0e
@@ -270,8 +273,6 @@ Recent findings:
   - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`12cf2f1d`** — Refresh external review snapshot for bb85d5e0
   - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
-- **`bb85d5e0`** — Refresh external review snapshot for 5a2eb104
-  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -290,10 +291,11 @@ Recent findings:
 - open governance findings: 157
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/reporting/orchestrate_status.py`): dogfood.command.orchestrate-status: Auto-ingested devctl finalization failure rc=1.
@@ -311,4 +313,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-2a03445efdbd` binds this file to HEAD `1cfa5df29bbc`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-8584d85ae468` binds this file to HEAD `9c02b8b2f38c`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

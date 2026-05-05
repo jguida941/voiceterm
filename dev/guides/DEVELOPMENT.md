@@ -351,6 +351,12 @@ checkpoint budget, resync, or implementation authority temporarily blocks
 mutation, and `implementation_admissibility` is the shared
 `allowed|checkpoint_required|blocked` mutability summary consumed by startup
 and monitor surfaces.
+Use `python3 dev/scripts/devctl.py startup-context --defer-publication --format summary`
+only as a development-mode publication deferral when the governed push/preflight
+or dirty-checkpoint path is too slow for the current coding loop. It can
+re-allow `implementation.edit` while preserving the deferred checkpoint or push
+command as typed debt, but it does not authorize `vcs.stage`, `vcs.commit`,
+`vcs.push`, reviewer-lane mutation, or read-only lane mutation.
 
 | `push_decision` | Meaning | Next governed step |
 |---|---|---|

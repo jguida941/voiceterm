@@ -13,7 +13,7 @@ from dev.scripts.devctl.commands.remote_control import _source_proof
 from dev.scripts.devctl.commands.remote_control import _session_state_proof
 
 
-SESSION_ID = "5e1bb36e-192c-4147-a773-48f36ece6fe9"
+SESSION_ID = "test-claude-session-0001"
 CLAUDE_ENV = {
     "CLAUDECODE": "1",
     "AI_AGENT": "claude-code/2.1.126/agent",

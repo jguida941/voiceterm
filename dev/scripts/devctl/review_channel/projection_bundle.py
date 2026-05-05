@@ -55,6 +55,7 @@ _TYPED_REVIEW_STATE_KEYS = (
     "agent_sync",
     "agent_work_board",
     "agent_loop_decisions",
+    "attention_windows",
     "coordination_state",
     "warnings",
     "errors",

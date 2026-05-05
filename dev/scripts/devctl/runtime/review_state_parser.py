@@ -59,6 +59,7 @@ _REVIEW_STATE_SHAPE_KEYS = (
     "agent_sync",
     "agent_work_board",
     "agent_loop_decisions",
+    "attention_windows",
     "coordination_state",
 )
 
@@ -206,16 +207,7 @@ def _build_review_state(
             review_payload.get("round_proofs")
             or review_payload.get("agent_round_proofs")
         ),
-        # Per Codex rev_pkt_2271 #3: round-trip the projection-only addenda
-        # so typed consumers see them on ReviewState. _mapping returns an
-        # empty mapping when missing so the dataclass default applies.
-        agent_sync=dict(_mapping(review_payload.get("agent_sync"))),
-        agent_work_board=dict(_mapping(review_payload.get("agent_work_board"))),
-        agent_loop_decisions=_mapping_rows(
-            review_payload.get("agent_loop_decisions")
-        ),
-        agent_dispatch_router=dict(_mapping(review_payload.get("agent_dispatch_router"))),
-        coordination_state=dict(_mapping(review_payload.get("coordination_state"))),
+        **_projection_addenda(review_payload),
         warnings=tuple(warnings),
         errors=errors,
         source_identity=source_identity(review_payload.get("source_identity")),
@@ -230,6 +222,30 @@ def _build_review_state(
         or _string(review_payload.get("zref"))
         or _string(_mapping(review_payload.get("commit_pipeline")).get("zref")),
     )
+
+
+def _projection_addenda(
+    review_payload: Mapping[str, object],
+) -> dict[str, object]:
+    """Return projection-only addenda that typed consumers still need."""
+    addenda: dict[str, object] = {}
+    addenda["agent_sync"] = dict(_mapping(review_payload.get("agent_sync")))
+    addenda["agent_work_board"] = dict(
+        _mapping(review_payload.get("agent_work_board"))
+    )
+    addenda["agent_loop_decisions"] = _mapping_rows(
+        review_payload.get("agent_loop_decisions")
+    )
+    addenda["attention_windows"] = dict(
+        _mapping(review_payload.get("attention_windows"))
+    )
+    addenda["agent_dispatch_router"] = dict(
+        _mapping(review_payload.get("agent_dispatch_router"))
+    )
+    addenda["coordination_state"] = dict(
+        _mapping(review_payload.get("coordination_state"))
+    )
+    return addenda
 
 
 def _mapping_rows(value: object) -> list[dict[str, object]]:

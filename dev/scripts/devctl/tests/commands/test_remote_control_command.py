@@ -306,7 +306,7 @@ def test_source_proof_accepts_fresh_typed_slash_metadata(tmp_path: Path) -> None
         resolve_lifecycle_source_proof_from_projection,
     )
 
-    session_id = "5e1bb36e-192c-4147-a773-48f36ece6fe9"
+    session_id = "test-claude-session-0001"
     session_path = tmp_path / f"{session_id}.jsonl"
     session_path.write_text(
         json.dumps(
@@ -343,7 +343,7 @@ def test_source_proof_rejects_stale_typed_slash_metadata(tmp_path: Path) -> None
         resolve_lifecycle_source_proof_from_projection,
     )
 
-    session_id = "5e1bb36e-192c-4147-a773-48f36ece6fe9"
+    session_id = "test-claude-session-0001"
     session_path = tmp_path / f"{session_id}.jsonl"
     session_path.write_text(
         json.dumps(
@@ -534,7 +534,7 @@ def test_builtin_remote_control_hook_promotes_from_transcript_url(
     )
     from dev.scripts.devctl.time_utils import utc_timestamp
 
-    session_id = "5e1bb36e-192c-4147-a773-48f36ece6fe9"
+    session_id = "test-claude-session-0001"
     session_path = tmp_path / f"{session_id}.jsonl"
     timestamp = utc_timestamp()
     session_path.write_text(
@@ -638,7 +638,7 @@ def test_builtin_remote_control_hook_promotes_from_live_session_state(
 ) -> None:
     from dev.scripts.devctl.commands.remote_control import _session_state_proof
 
-    session_id = "5e1bb36e-192c-4147-a773-48f36ece6fe9"
+    session_id = "test-claude-session-0001"
     session_path = tmp_path / f"{session_id}.jsonl"
     session_path.write_text("", encoding="utf-8")
     session_state_root = tmp_path / "claude-sessions"
@@ -717,7 +717,7 @@ def test_user_prompt_expansion_hook_promotes_and_dedupes_submit(
     )
     from dev.scripts.devctl.time_utils import utc_timestamp
 
-    session_id = "5e1bb36e-192c-4147-a773-48f36ece6fe9"
+    session_id = "test-claude-session-0001"
     session_path = tmp_path / f"{session_id}.jsonl"
     timestamp = utc_timestamp()
     session_path.write_text(
@@ -1093,7 +1093,7 @@ def test_status_reconciles_live_session_state_bridge(
         json.dumps(
             {
                 "pid": 33330,
-                "sessionId": "5e1bb36e-192c-4147-a773-48f36ece6fe9",
+                "sessionId": "test-claude-session-0001",
                 "cwd": str(Path(__file__).resolve().parents[5]),
                 "status": "idle",
                 "updatedAt": _now_epoch_ms(),
@@ -1151,7 +1151,7 @@ def test_status_clears_session_state_attachment_when_bridge_id_disappears(
     state_path = session_state_root / "33330.json"
     state_payload = {
         "pid": 33330,
-        "sessionId": "5e1bb36e-192c-4147-a773-48f36ece6fe9",
+        "sessionId": "test-claude-session-0001",
         "cwd": str(Path(__file__).resolve().parents[5]),
         "status": "idle",
         "updatedAt": _now_epoch_ms(),

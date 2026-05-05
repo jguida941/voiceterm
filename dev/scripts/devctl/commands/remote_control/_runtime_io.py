@@ -25,6 +25,7 @@ from ...runtime.remote_control_slash_adapters import (
 )
 from ...runtime.reviewer_runtime_models import RemoteControlAttachmentState
 from ...time_utils import utc_timestamp
+import dev.scripts.devctl.commands.remote_control._session_state_proof as _session_state_proof
 from ._attachment_upsert import persist_lifecycle_attachment
 from ._invocation_logging import (
     LifecycleBeforeState,

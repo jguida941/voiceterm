@@ -26,6 +26,10 @@ from .startup_context_summary import (
 from .startup_context_recovery import (
     apply_recovery_authority_summary,
 )
+from .startup_context_defer import (
+    StartupRoutingOptions,
+    defer_publication_requested,
+)
 from ...runtime.machine_output import (
     ArtifactOutputOptions,
     emit_machine_artifact_output,
@@ -147,6 +151,16 @@ def add_parser(subparsers) -> None:
             "still failing closed on approval-boundary work."
         ),
     )
+    sc_cmd.add_argument(
+        "--defer-publication",
+        action="store_true",
+        default=False,
+        help=(
+            "Development-only: keep implementation.edit available while "
+            "governed checkpoint/publication/preflight is deferred for "
+            "editing only. This does not authorize stage, commit, or push."
+        ),
+    )
     add_standard_output_arguments(sc_cmd, format_choices=("json", "md", "summary"))
 
 
@@ -230,8 +244,7 @@ def _machine_summary(
     push,
     authority_report: dict[str, object],
     startup_receipt_path: str,
-    caller_role: str | None = None,
-    reviewer_override: bool = False,
+    routing_options: StartupRoutingOptions,
 ) -> dict[str, object]:
     summary: dict[str, object] = {}
     summary["advisory_action"] = ctx.advisory_action
@@ -317,8 +330,9 @@ def _machine_summary(
     project_startup_action_routing(
         summary,
         next_command=_summary_next_command(summary),
-        caller_role=caller_role,
-        reviewer_override=reviewer_override,
+        caller_role=routing_options.caller_role,
+        reviewer_override=routing_options.reviewer_override,
+        defer_publication=routing_options.defer_publication,
     )
     return summary
 
@@ -336,6 +350,12 @@ def run(args) -> int:
     governance = ctx.governance
     caller_role = getattr(args, "role", None)
     reviewer_override = getattr(args, "reviewer_override", False)
+    defer_publication = defer_publication_requested(args)
+    routing_options = StartupRoutingOptions(
+        caller_role=caller_role,
+        reviewer_override=reviewer_override,
+        defer_publication=defer_publication,
+    )
     authority_intent = _startup_authority_intent(
         caller_role=caller_role,
         reviewer_override=reviewer_override,
@@ -373,11 +393,12 @@ def run(args) -> int:
         bool(push.safe_to_continue_editing) if push is not None else True
     )
     payload["startup_authority"] = _startup_authority_payload(authority_report)
-    project_startup_action_routing(
+    routing_decision = project_startup_action_routing(
         payload,
         next_command=_summary_next_command(payload),
         caller_role=caller_role,
         reviewer_override=reviewer_override,
+        defer_publication=defer_publication,
     )
     authority_snapshot = project_authority_snapshot(
         payload,
@@ -408,7 +429,12 @@ def run(args) -> int:
         receipt_display_path,
         receipt.head_commit_sha,
     )
-    blocked = blocks_new_implementation(ctx) or not bool(authority_report.get("ok", False))
+    authority_ok = bool(authority_report.get("ok", False))
+    blocked = blocks_new_implementation(ctx) or not authority_ok
+    if routing_decision.publication_deferred_active:
+        # The deferral reopens implementation edits only. Publication actions
+        # stay blocked in ActionRoutingDecision.blocked_actions.
+        blocked = False
     # Role-aware reviewer gate: in active_dual_agent, reviewer must not
     # start implementation work unless explicitly overridden.
     reviewer_blocked = False
@@ -441,8 +467,7 @@ def run(args) -> int:
                 push=push,
                 authority_report=authority_report,
                 startup_receipt_path=receipt_display_path,
-                caller_role=caller_role,
-                reviewer_override=reviewer_override,
+                routing_options=routing_options,
             ),
         ),
     )

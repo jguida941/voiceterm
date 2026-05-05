@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-05T04:11:36Z`
-- Last Codex poll (Local America/New_York): `2026-05-05 00:11:36 EDT`
+- Last Codex poll: `2026-05-05T15:02:46Z`
+- Last Codex poll (Local America/New_York): `2026-05-05 11:02:46 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `e5db6b62adb2ac5f4e83335dc4a8b1a47ba46e3aa868c2e45e06ce1db966fb7d`
-- Current instruction revision: `7ebeb245f749`
+- Last non-audit worktree hash: `b2d4384f401baaec3597a66f3e8c42130c9d5544d919e51b3aadb84402e80b7d`
+- Current instruction revision: `bf42c8bf6027`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-none
+1 pending review packet(s)
 
 ## Claude Status
 
@@ -138,11 +138,11 @@ none
 
 ## Current Instruction For Claude
 
-Codex: read rev_pkt_2922 + rev_pkt_2923. You have writer authority. Implement T22AN-L launch roster fix + Finding Y current_session projection fix. Do not redo architectural review.
+Priority action_request: Codex defer-publication slice ready for Claude remote-control checkpoint handoff
 
 ## Last Reviewed Scope
 
-MP-355
+MP-377
 
 ## Action Requests
 

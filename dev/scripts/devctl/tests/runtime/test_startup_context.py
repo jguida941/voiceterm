@@ -1193,6 +1193,14 @@ class TestCLIRegistration(unittest.TestCase):
         self.assertEqual(args.command, "startup-context")
         self.assertEqual(args.format, "summary")
 
+    def test_parser_accepts_defer_publication(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            ["startup-context", "--defer-publication", "--format", "summary"]
+        )
+        self.assertEqual(args.command, "startup-context")
+        self.assertTrue(args.defer_publication)
+
     def test_handler_registered(self) -> None:
         self.assertIn("startup-context", COMMAND_HANDLERS)
 
@@ -2061,6 +2069,54 @@ class TestCLIRegistration(unittest.TestCase):
             rendered,
         )
         self.assertIn("implementation_permission=suspended", rendered)
+
+    def test_summary_surfaces_development_publication_deferral(self) -> None:
+        rendered = _render_summary(
+            {
+                "advisory_action": "checkpoint_before_continue",
+                "advisory_reason": "dirty_path_budget_exceeded",
+                "implementation_permission": "active",
+                "publication_deferred_active": True,
+                "publication_deferred_reason": "publication_deferred_for_development",
+                "deferred_publication_command": (
+                    'python3 dev/scripts/devctl.py commit -m "checkpoint"'
+                ),
+                "deferred_publication_actions": [
+                    "vcs.stage",
+                    "vcs.commit",
+                    "vcs.push",
+                ],
+                "reviewer_gate": {
+                    "implementation_blocked": False,
+                    "implementation_block_reason": "",
+                },
+                "startup_authority": {"ok": False},
+                "governance": {
+                    "push_enforcement": {
+                        "checkpoint_required": True,
+                        "safe_to_continue_editing": False,
+                    }
+                },
+                "push_decision": {
+                    "action": "await_checkpoint",
+                    "next_step_command": "",
+                },
+            }
+        )
+
+        self.assertIn("publication_deferred_active=True", rendered)
+        self.assertIn(
+            "publication_deferred_reason=publication_deferred_for_development",
+            rendered,
+        )
+        self.assertIn(
+            'deferred_publication_command=python3 dev/scripts/devctl.py commit -m "checkpoint"',
+            rendered,
+        )
+        self.assertIn(
+            "deferred_publication_actions=vcs.stage,vcs.commit,vcs.push",
+            rendered,
+        )
 
     def test_summary_reports_blockers_and_rerun_when_checkpoint_is_required(
         self,
