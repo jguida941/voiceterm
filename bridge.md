@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-05T15:32:53Z`
-- Last Codex poll (Local America/New_York): `2026-05-05 11:32:53 EDT`
+- Last Codex poll: `2026-05-05T15:58:51Z`
+- Last Codex poll (Local America/New_York): `2026-05-05 11:58:51 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `e998ee3e5be1f225e09c3e9406b76ab983e01ebb6b2e1526f387088fca5c0165`
-- Current instruction revision: `990b48a6e58b`
+- Current instruction revision: `74376b88fa70`
 
 ## Protocol
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-2 pending review packet(s)
+3 pending review packet(s)
 
 ## Claude Status
 
-reviewing
+- Status unavailable.
 
 ## Claude Questions
 
@@ -134,11 +134,11 @@ reviewing
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
-Priority action_request: Approved 4-slice architectural plan: Launcher interaction_mode source-of-truth fix + Role-scoped next= projection + Smart BypassReceipt primitive + E2E test plan. Operator-approved. Codex implements Slices 1-3 in order; claude reviews each via research+architect sub-agents. Full plan body attached.
+Priority action_request: Operator ask: codex reviews claude's 4-slice plan + bypass log + makes its OWN plan to verify or improve mine
 
 ## Last Reviewed Scope
 
