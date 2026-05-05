@@ -32,12 +32,17 @@ from .startup_advisory_decision import (
     derive_advisory_decision as _derive_advisory_decision,
 )
 from .startup_blocker_decision import derive_startup_blocker
-from .startup_connectivity_registry import startup_connectivity_registry
 from .startup_continuity import (
     startup_continuity_attention,
     startup_packet_continuity_index,
     startup_packet_carry_forward_debt,
     startup_runtime_spine_closure,
+)
+from .startup_context_assembly import (
+    StartupContextAssemblyInput,
+    _assemble_startup_context,
+    compute_startup_continuity_signals,
+    extract_coordination_state_projection,
 )
 from .startup_context_models import ReviewerGateState, StartupContext
 from .startup_context_projections import build_contract_ownership_map
@@ -46,15 +51,38 @@ from .startup_push_decision import derive_push_decision as _derive_push_decision
 from .startup_review_state import (
     load_startup_review_state as _load_startup_review_state,
 )
-from .startup_signals import (
-    compact_startup_quality_signals,
-    load_startup_quality_signals,
+from .startup_signals import compact_startup_quality_signals, load_startup_quality_signals
+from .startup_runtime_truth import (
+    StartupQualityBlockerDeps,
+    startup_quality_blocker_inputs as _startup_quality_blocker_inputs_impl,
+)
+from .startup_runtime_truth import (
+    startup_runtime_truth_and_gate as _startup_runtime_truth_and_gate,
 )
 from .surface_snapshot import build_surface_snapshot_id, build_surface_zref
 from .work_intake import WorkIntakePacket, WorkIntakeStateInputs, build_work_intake_packet
 from .work_intake_coordination import build_work_intake_coordination_state
 from .work_intake_ownership import build_work_intake_ownership_state
 from .worktree_orphan_snapshot_projection import build_orphan_snapshot_projection
+
+
+def _startup_quality_blocker_inputs(
+    *,
+    repo_root: Path,
+    review_state: "ReviewState | None",
+    push_decision: PushDecisionState,
+) -> tuple[object, dict[str, object], object]:
+    return _startup_quality_blocker_inputs_impl(
+        repo_root=repo_root,
+        review_state=review_state,
+        push_decision=push_decision,
+        deps=StartupQualityBlockerDeps(
+            build_orphan_snapshot_projection=build_orphan_snapshot_projection,
+            load_startup_quality_signals=load_startup_quality_signals,
+            compact_startup_quality_signals=compact_startup_quality_signals,
+            derive_startup_blocker=derive_startup_blocker,
+        ),
+    )
 
 
 def _detect_reviewer_gate(
@@ -90,14 +118,6 @@ def _governance_interaction_mode(
     return str(governance.bridge_config.operator_interaction_mode or "").strip()
 
 
-def _review_state_remote_control_attachment(
-    review_state: "ReviewState | None",
-) -> RemoteControlAttachmentState | None:
-    if review_state is None:
-        return None
-    return review_state.reviewer_runtime.remote_control_attachment
-
-
 def _detect_reviewer_gate_from_typed_state(
     repo_root: Path,
     *,
@@ -120,15 +140,31 @@ def _interaction_mode_from_reviewer_mode(
     governance_mode: str = "",
     remote_control_attachment: RemoteControlAttachmentState | None = None,
 ) -> str:
-    """Derive operator interaction mode; fails closed to 'unresolved'."""
+    """Derive operator interaction mode; fails closed to 'unresolved'.
+
+    Per rev_pkt_3021 #3: ``governance_mode == "remote_control"`` alone is
+    NOT sufficient to promote operator location. Governance can DECLARE
+    intent, but typed attachment evidence is required to confirm it. The
+    prior shape (governance precedence without attachment proof) reopened
+    the cross-surface divergence operator_context.py and session_posture.py
+    already fail closed on, so startup-context now matches their semantics.
+
+    Other resolved governance values (local_direct, dashboard_remote, etc.)
+    are still trusted directly because they are not the contested promotion
+    path — only remote_control requires attachment evidence.
+    """
     gov = (governance_mode or "").strip()
     resolved = resolve_operator_interaction_mode(gov)
-    if is_resolved(resolved.value) and resolved.value != "local_terminal":
-        return resolved.value
-    # An active remote-control attachment overrides the local_terminal governance
-    # default so operators on phone/remote sessions resolve to remote_control
-    # without needing a repo-policy flip. (rev_pkt_0448)
-    if has_active_remote_control_attachment(remote_control_attachment):
+    attachment_active = has_active_remote_control_attachment(remote_control_attachment)
+    resolved_value = resolved.value
+    if (
+        is_resolved(resolved_value)
+        and resolved_value not in {"local_terminal", "remote_control"}
+    ):
+        return resolved_value
+    if resolved_value == "remote_control" and attachment_active:
+        return "remote_control"
+    if attachment_active:
         return "remote_control"
     if gov == "local_terminal":
         return "local_terminal"
@@ -316,10 +352,6 @@ def _load_startup_coordination_snapshot(
     )
 
 
-def _startup_key_surfaces(governance: ProjectGovernance | None) -> tuple[str, ...]:
-    return startup_key_surfaces(governance)
-
-
 def _attach_startup_surface_identity(
     *,
     governance: ProjectGovernance,
@@ -388,6 +420,11 @@ def build_startup_context(
         review_state=review_state,
         review_status_dir=review_status_dir,
     )
+    gate, runtime_truth = _startup_runtime_truth_and_gate(
+        repo_root=repo_root,
+        review_state=review_state,
+        gate=gate,
+    )
     push_decision = _derive_push_decision(
         governance.push_enforcement,
         review_gate_allows_push=gate.review_gate_allows_push,
@@ -429,15 +466,8 @@ def build_startup_context(
         gate=gate,
         work_intake=work_intake,
     )
-    orphan_snapshot = build_orphan_snapshot_projection(
+    orphan_snapshot, quality_signals, blocker = _startup_quality_blocker_inputs(
         repo_root=repo_root,
-        review_state=review_state,
-        scan_trigger="startup_context",
-    )
-    quality_signals = compact_startup_quality_signals(
-        load_startup_quality_signals(repo_root)
-    )
-    blocker = derive_startup_blocker(
         review_state=review_state,
         push_decision=push_decision,
     )
@@ -456,76 +486,47 @@ def build_startup_context(
         review_state.packets if review_state is not None else (),
     )
 
-    # Per Codex rev_pkt_2313/2326/2337: pull typed CoordinationStateProjection
-    # from review_state into StartupContext so recovery / push surfaces
-    # consume the typed 4-field split alongside legacy
-    # observed_control_topology.
-    coordination_state_projection: dict[str, object] = {}
-    if review_state is not None:
-        cs = getattr(review_state, "coordination_state", None)
-        if isinstance(cs, dict):
-            coordination_state_projection = dict(cs)
+    coordination_state_projection = extract_coordination_state_projection(review_state)
 
-    runtime_spine_closure = startup_runtime_spine_closure(repo_root)
-    packet_carry_forward_debt = startup_packet_carry_forward_debt(
+    (
+        runtime_spine_closure,
+        packet_carry_forward_debt,
+        packet_continuity_index,
+        continuity_attention,
+    ) = compute_startup_continuity_signals(
         repo_root=repo_root,
         review_state=review_state,
     )
-    packet_continuity_index = startup_packet_continuity_index(review_state)
-    continuity_attention = startup_continuity_attention(
-        runtime_spine_closure=runtime_spine_closure,
-        packet_carry_forward_debt=packet_carry_forward_debt,
-        packet_continuity_index=packet_continuity_index,
-    )
 
-    ctx = StartupContext(
-        governance=governance,
-        reviewer_gate=gate,
-        push_decision=push_decision,
-        advisory_action=advisory.action,
-        advisory_reason=advisory.reason,
-        observed_control_topology=observed_control_topology,
-        implementation_permission=implementation_permission,
-        recovery_authority=recovery_authority,
-        rule_summary=advisory.rule_summary,
-        match_evidence=advisory.match_evidence,
-        rejected_rule_traces=advisory.rejected_rule_traces,
-        product_thesis=governance.product_thesis if governance else "",
-        work_intake=work_intake,
-        coordination=coordination_snapshot,
-        coordination_state_projection=coordination_state_projection,
-        reviewer_runtime=(
-            review_state.reviewer_runtime if review_state is not None else None
-        ),
-        session_posture=(
-            review_state.reviewer_runtime.session_posture
-            if review_state is not None
-            else None
-        ),
-        remote_control_attachment=_review_state_remote_control_attachment(review_state),
-        attention=(review_state.attention if review_state is not None else None),
-        current_session=current_session,
-        packet_inbox=(review_state.packet_inbox if review_state is not None else None),
-        packet_intent_anchors=packet_intent_anchors,
-        plan_iteration_session=plan_iteration_session_from_anchors(
-            packet_intent_anchors
-        ),
-        quality_signals=quality_signals,
-        orphan_snapshot=orphan_snapshot,
-        blocker=blocker,
-        contract_ownership_map=build_contract_ownership_map(),
-        connectivity_registry=startup_connectivity_registry(repo_root),
-        runtime_spine_closure=runtime_spine_closure,
-        packet_continuity_index=packet_continuity_index,
-        packet_carry_forward_debt=packet_carry_forward_debt,
-        continuity_attention=continuity_attention,
-        key_surfaces=_startup_key_surfaces(governance),
-        snapshot_id=snapshot_id,
-        zref=zref,
+    ctx = _assemble_startup_context(
+        StartupContextAssemblyInput(
+            repo_root=repo_root,
+            governance=governance,
+            review_state=review_state,
+            gate=gate,
+            push_decision=push_decision,
+            advisory=advisory,
+            observed_control_topology=observed_control_topology,
+            implementation_permission=implementation_permission,
+            recovery_authority=recovery_authority,
+            work_intake=work_intake,
+            coordination_snapshot=coordination_snapshot,
+            coordination_state_projection=coordination_state_projection,
+            current_session=current_session,
+            runtime_truth=runtime_truth,
+            packet_intent_anchors=packet_intent_anchors,
+            quality_signals=quality_signals,
+            orphan_snapshot=orphan_snapshot,
+            blocker=blocker,
+            runtime_spine_closure=runtime_spine_closure,
+            packet_continuity_index=packet_continuity_index,
+            packet_carry_forward_debt=packet_carry_forward_debt,
+            continuity_attention=continuity_attention,
+            snapshot_id=snapshot_id,
+            zref=zref,
+        )
     )
     return _attach_authority_snapshot(ctx, caller_role=caller_role)
-
-
 def _attach_authority_snapshot(
     ctx: StartupContext,
     *,

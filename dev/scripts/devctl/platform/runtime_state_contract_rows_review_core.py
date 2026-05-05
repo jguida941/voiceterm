@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .contracts import ContractField, ContractSpec
+from .runtime_state_contract_rows_remote_control import REMOTE_CONTROL_STATE_CONTRACTS
 
 if TYPE_CHECKING:
     from ..runtime.packet_intent_anchor import PlanIterationSession
@@ -416,6 +417,7 @@ REVIEW_CORE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             "session_posture",
         ),
     ),
+    *REMOTE_CONTROL_STATE_CONTRACTS,
     ContractSpec(
         contract_id="SessionPosture",
         owner_layer="governance_runtime",

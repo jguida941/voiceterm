@@ -1164,17 +1164,37 @@ Portability note:
   scanning so vibecoders do not need to memorize policy paths:
   `launcher-check`, `launcher-probes`, and `launcher-policy` all target
   `dev/config/devctl_policies/launcher.json`.
-- `dev/scripts/remote-bridge-loop.sh` is also repo-local wrapper glue: it
-  syncs the project-local `/project:bridge-loop` slash command from
-  `dev/scripts/remote_bridge_prompt.md`, checks `claude auth status`, prints
-  typed review-channel health, surfaces the repo-owned top-level
-  `recommended_command` plus runtime `doctor.decision_command`, and steers the
-  same repo-owned `review-channel` launch/recovery surfaces from a
-  phone-controlled Claude session. When given `--session-url` or
-  `--session-id`, it also registers that external Claude session into the
-  typed `remote_control_attachment` runtime state so startup/session-resume/
-  dashboard can talk about the same phone session. It does not create a
-  second reviewer backend or a hidden Codex recover path.
+- `remote-control` owns the repo-local phone/dashboard remote lifecycle.
+  `start`, `enter`, `heartbeat`, `exit`, `status`, `doctor`, and `dry-run`
+  all read or write the same typed `RemoteControlAttachmentState` artifact
+  consumed by review-channel status, startup, session-resume, dashboard, and
+  commit/push gates. Active non-expired attachments promote
+  `operator_interaction_mode=remote_control`; detached, stale, expired, or
+  missing attachments fall back to local-terminal operator truth when repo
+  governance is local. Claude physical remote-control is a built-in Claude
+  slash flow, not a `claude --remote-control` CLI launch. The primary local
+  integration is the project `.claude/settings.json` `UserPromptExpansion`
+  async hook, with `UserPromptSubmit` fallback: when Claude activates
+  built-in `/remote-control` or `/rc`, the hook calls `remote-control hook`,
+  devctl filters the prompt, reads Claude's live
+  `~/.claude/sessions/<pid>.json` `bridgeSessionId` state for the matching
+  `sessionId`/repo cwd, and records typed state with
+  `proven_source_kind=claude_builtin_slash` and
+  `physical_confirmation_method=claude_session_state_bridge`. The transcript
+  `bridge_status` URL remains fallback activation evidence, not the primary
+  liveness clock.
+  The same project settings install a `SessionEnd` hook that detaches typed
+  state when the local Claude process exits. Existing Claude sessions may need
+  restart before a newly added project hook is loaded.
+  `/project:typed-remote-control` is the only generated project slash adapter
+  over this backend and contains no policy. Project `/remote-control` and
+  `/bridge-loop` aliases are intentionally retired so Claude's provider-owned
+  `/remote-control` and `/rc` commands win dispatch.
+- `dev/scripts/remote-bridge-loop.sh` is compatibility wrapper glue only. It
+  forwards existing wrapper flags into
+  `python3 dev/scripts/devctl.py remote-control start --launcher-source
+  remote-bridge-loop --entrypoint legacy_remote_bridge_loop`; it does not sync slash
+  command content, own lifecycle policy, or create a second reviewer backend.
 - Higher-level workflow helpers such as mutation, Ralph, process hygiene, and
   some docs-routing commands still include VoiceTerm repo policy and are not
   yet fully repo-agnostic.
@@ -1193,6 +1213,7 @@ python3 dev/scripts/devctl.py quality-policy --format md
 python3 dev/scripts/devctl.py develop --status --format md
 python3 dev/scripts/devctl.py develop next --format md
 python3 dev/scripts/devctl.py develop audit-packets --max-packets 10 --format md
+python3 dev/scripts/devctl.py develop design-preflight --topic "remote control active" --record-ground-truth-receipt --format md
 python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1 --format md
 python3 dev/scripts/devctl.py relaunch-loop --action status --format md
 python3 dev/scripts/devctl.py relaunch-loop --action watch-once --format md
@@ -1700,6 +1721,8 @@ summary over the selected snapshot window.
 | `dev/scripts/sync_external_integrations.sh` | External integration sync helper | Syncs pinned `integrations/code-link-ide` and `integrations/ci-cd-hub` submodules (optional `--remote` tracking updates). |
 | `dev/scripts/update-homebrew.sh` | Legacy adapter | Routes to `devctl homebrew`; internal mode syncs formula URL/version/SHA, canonical `desc`, and rewrites legacy Cargo manifest paths from `libexec/src/Cargo.toml` to `libexec/rust/Cargo.toml`. |
 | `dev/scripts/reviewer_loop.sh` | Review-loop wrapper | Repo-local helper for the Markdown-swarm reviewer loop; prefer `devctl review-channel` for canonical governed launch/recovery/status flows, but keep this wrapper documented while the compatibility seam remains tracked. |
+| `dev/scripts/remote-bridge-loop.sh` | Remote-control compatibility wrapper | Forwards legacy bridge-loop launches into `devctl remote-control start`; lifecycle policy and typed attachment writes live in the devctl backend. |
+| `dev/scripts/remote_bridge_prompt.md` | Compatibility note | Documents that the old prompt source is retired and points to generated slash adapters plus `devctl remote-control`. |
 | `dev/scripts/mutation/cli.py` | Mutation CLI | Canonical mutation entrypoint for this repo's mutation workflow. |
 | `dev/scripts/mutation/config.py` | Mutation module registry | Module definitions, exclusion lists, shard validation, and interactive selection helpers. |
 | `dev/scripts/mutation/git.py` | Mutation git targeting | Detects changed `.rs` files via `git diff` against a base branch for focused mutation runs. |
@@ -2366,6 +2389,9 @@ Machine-first output note:
 | `check-router --since-ref origin/develop --quality-policy /tmp/pilot-policy.json` | you are piloting the governance router in another repo clone | reuses the same lane-selection engine against another repo's policy-owned path/risk rules |
 | `test-python --suite devctl --path dev/scripts/devctl/tests/commands/test_python_tests.py` | you need Python proof for a focused tooling slice | runs pytest through repo-owned fail-fast and timeout policy instead of a broad raw pytest command; add `--parallel-workers <n>` for multi-path shard progress or `--no-parallel` for sequential debugging |
 | `tandem-validate --format md` | a Codex/Claude tandem slice needs one canonical validator instead of a hand-written checklist | runs preflight policy/status, derives the real lane and risk add-ons from `check-router`, executes the routed bundle, then rechecks `check_review_channel_bridge.py` and `check_tandem_consistency.py` at the end |
+| `develop design-preflight --topic "<state/proof topic>" --record-ground-truth-receipt --format md` | you are about to add or change a typed runtime contract, proof channel, architecture rule, or runtime-state reducer | runs the connected ground-truth pipeline first: ReviewState -> `RuntimeTruthSnapshot`, agent-mind projections, provider session state such as Claude `bridgeSessionId`, connectivity registry, command registry, startup quality signals, and existing contracts; records `GroundTruthProbeRunReceipt` so `check_ground_truth_probe_gate.py` can prove the design looked at upstream truth before creating or extending contracts |
+| `check_ground_truth_probe_gate.py --format md` | runtime/proof/architecture files changed and the design may have introduced a new authority surface | blocks when trigger paths changed without a current satisfied `GroundTruthProbeRunReceipt`, preventing another proof-channel design that skips upstream UI/state-file ground truth |
+| `check_memory_not_authority.py --format md` | an agent wants to preserve an AI/process/runtime rule in local memory or scratch notes | blocks load-bearing architecture/process authority from living only in operator memory, forcing it into repo contracts, policy, maintainer docs, or guards |
 | `governance-draft --format md` | you need the current governed-doc discovery surface before a write-mode docs or governance change | renders the deterministic repo-scan entrypoint that should match the CLI inventory and maintainer docs |
 | `check --profile ci` | before a normal push | catches build/test/lint issues early |
 | `check --profile prepush` | runtime changes touch perf/latency/parser/wake-word/memory-sensitive paths | adds perf + memory-heavy validation before CI catches it |
@@ -2429,7 +2455,13 @@ Machine-first output note:
 | `review-channel --action launch --terminal none --dry-run --format md --refresh-bridge-heartbeat-if-stale` | you want to bootstrap the current Codex-reviewer / Claude-implementer compatibility loop from a fresh conversation without hand-editing stale heartbeat metadata first | enforces the fail-closed launch contract, blocks launch when the typed checkpoint budget already says the slice must checkpoint first, auto-refreshes stale/missing reviewer heartbeat metadata only when the rest of the live bridge contract is already valid, accepts canonical reviewer-reset implementer placeholders (`Claude Status: - pending`, `Claude Ack: - pending`) for a fresh instruction revision, reads the static planned lane table from `dev/active/review_channel.md`, treats the emitted `registry/agents.json` as provider/session-backed runtime state, generates conductor launch scripts with clean-exit auto-relaunch supervision, and shows the exact bootstrap before opening any terminals. Use `--terminal none` for dry-run/script-only work, explicit headless launches, or governed `remote_control` sessions rather than as the casual local default. |
 | `review-channel --action launch --terminal terminal-app --refresh-bridge-heartbeat-if-stale` | you want the live Codex + Claude conductor windows and the bridge heartbeat may have aged out | performs the same guarded bootstrap, refuses a fresh launch when the typed checkpoint budget is already over limit, repairs stale/missing reviewer heartbeat metadata when that is the only blocker, accepts canonical reviewer-reset implementer placeholders for a new instruction revision, then opens one Terminal.app window per provider; it still fails closed if the existing repo-owned session artifacts still look active so a second launch cannot silently race on the same `latest/sessions/` logs, and a successful plain launch now also reaps superseded stale conductor metadata/windows after the fresh pair comes up. In `local_terminal` sessions this is the default live launch/recovery path; typed recovery/doctor surfaces only recommend headless relaunch when the runtime is explicitly `remote_control`, and visible local launch/recover now also fail closed when the repo root is a transient temp clone (`/tmp`, `/private/tmp`, or the active system temp dir) so provider directory-trust prompts cannot stall automation before the conductor even starts. |
 | `review-channel --action attach-remote-control --session-url https://claude.ai/code/session_... --terminal none --format json` | you need the external Claude phone session represented inside the typed runtime instead of only in chat memory | writes the canonical `remote_control_attachment` sidecar under the review status root, refreshes typed `review_state.json` when bridge/runtime paths are available, and projects the same attachment upward through reviewer runtime, session-resume, startup, and control-plane readers |
-| `./dev/scripts/remote-bridge-loop.sh --bootstrap-review-channel --session-url https://claude.ai/code/session_...` | you want one phone-steerable Claude session on your local Mac, may need to relaunch the repo-owned review pair first, and want the typed runtime to know the live phone session too | syncs `.claude/commands/bridge-loop.md` from the tracked `dev/scripts/remote_bridge_prompt.md` source, checks `claude auth status`, prints typed `review-channel` health plus top-level `recommended_command` / runtime `doctor.decision_command`, prefers that typed review-channel recovery command when bootstrap is requested, falls back to the sanctioned `review-channel --action launch` path only when no typed recovery command exists, registers the external Claude remote session into the same typed review runtime when the URL/id is provided, keeps the Mac awake while the session is open, and then opens Claude Code remote control so the phone session can read bridge state, relay what Codex last wrote, and drive the same repo-owned launch/recovery commands from the local machine |
+| `remote-control dry-run --provider claude --format md` | you want to preview typed phone/dashboard lifecycle state without launching Claude or mutating typed attachment state | shows current attachment status, TTL/expiry state, slash entrypoints, the provider built-in `/remote-control` command, and the operator mode that status/startup surfaces will derive |
+| `remote-control hook --provider claude --format json` | Claude's project-level async `UserPromptExpansion` hook, or broad `UserPromptSubmit` fallback, fired after the operator typed built-in `/remote-control` or `/rc` | reads the hook JSON from stdin, fast-exits on non-remote-control prompts, prefers Claude's live `~/.claude/sessions/<pid>.json` `bridgeSessionId` proof for the matching `sessionId`/repo cwd, falls back to a same-session transcript `bridge_status` URL, dedupes multiple hook events for the same activation, then writes the identity-bound `RemoteControlAttachmentState` with `physical_confirmation_method=claude_session_state_bridge` or `claude_hook_transcript`; without trusted proof it records origin evidence but fails closed instead of promoting remote mode |
+| `remote-control status --provider claude --format md` | you need the typed surface to agree with Claude's visible Remote Control active/inactive status | reads the current attachment, reconciles from live Claude session-state `bridgeSessionId` proof when present, and clears session-state-owned active state when that bridge id disappears so toggling built-in `/remote-control` off returns the typed mode to `local_terminal` |
+| `remote-control enter --provider claude --entrypoint /project:typed-remote-control --session-url https://claude.ai/code/session_... --format md` | Claude built-in `/remote-control` is already active and exposed a real provider session URL that must be bound to typed runtime state | writes or refreshes the provider-scoped `RemoteControlAttachmentState` sidecar with launcher source, host pid/session label, heartbeat TTL, previous operator mode, entrypoint metadata, and remote-control identity, then refreshes review status when bridge/runtime paths are available |
+| `remote-control heartbeat --provider claude --format md` | an active remote session needs to keep `operator_interaction_mode=remote_control` from expiring while work continues | refreshes `last_seen_utc` on the same typed attachment when trusted provider-owned proof exists; direct CLI heartbeats without proof still fail closed, and stale TTL expiry stops remote mode promotion until status, hook, heartbeat, or `enter` refreshes the attachment |
+| `remote-control exit --provider claude --format md` | the remote session is closing and local-terminal operator truth should resume | marks the attachment detached and refreshes review status so startup, status, doctor, dashboard, and session-resume stop treating the phone lane as live |
+| `./dev/scripts/remote-bridge-loop.sh --session-url https://claude.ai/code/session_...` | you need the legacy wrapper name while the provider-owned `/remote-control` surface is active | forwards to `devctl remote-control start --launcher-source remote-bridge-loop --entrypoint legacy_remote_bridge_loop`; lifecycle policy and typed attachment writes remain in `devctl remote-control` |
 
 Primary-worktree note:
 - In remote-control or other phone/dashboard-led `single_agent` lanes, keep

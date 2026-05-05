@@ -65,6 +65,8 @@ from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     ReviewerRuntimeContract,
     ReviewerSessionOwnerState,
 )
+from dev.scripts.devctl.runtime.runtime_truth_snapshot import RuntimeTruthSnapshot
+from dev.scripts.devctl.runtime.session_posture import SessionPosture
 from dev.scripts.devctl.runtime.startup_blocker_decision import BlockerSnapshot
 from dev.scripts.devctl.runtime.startup_context import (
     ReviewerGateState,
@@ -965,6 +967,26 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertEqual(
             payload["reviewer_runtime"]["session_owner"]["session_pid"],
             42,
+        )
+
+    def test_to_dict_prefers_runtime_truth_interaction_mode(self) -> None:
+        ctx = StartupContext(
+            reviewer_gate=ReviewerGateState(operator_interaction_mode="single_agent"),
+            session_posture=SessionPosture(interaction_mode="unresolved"),
+            runtime_truth=RuntimeTruthSnapshot(
+                interaction_mode="remote_control",
+                remote_control_active=True,
+                remote_control_method="claude_session_state_bridge",
+                remote_control_session_id="session_abc123",
+            ),
+        )
+
+        payload = ctx.to_dict()
+
+        self.assertEqual(payload["interaction_mode"], "remote_control")
+        self.assertEqual(
+            payload["runtime_truth"]["remote_control_method"],
+            "claude_session_state_bridge",
         )
 
     def test_slim_token_budget(self) -> None:
@@ -3818,10 +3840,40 @@ class TestInteractionModeFromReviewerMode(unittest.TestCase):
             "unresolved",
         )
 
-    def test_governance_mode_takes_precedence(self) -> None:
+    def test_governance_remote_control_without_attachment_falls_closed(self) -> None:
+        """Per rev_pkt_3021 #3: governance_mode="remote_control" alone is
+        NOT sufficient to promote operator location. Typed attachment
+        evidence is required. Without an active attachment, derivation
+        falls through to the reviewer_mode fallback, matching the
+        fail-closed semantics already in operator_context.py and
+        session_posture.py.
+        """
         result = _interaction_mode_from_reviewer_mode(
             "single_agent",
             governance_mode="remote_control",
+        )
+        self.assertEqual(result, "single_agent")
+
+    def test_governance_remote_control_with_active_attachment_promotes(self) -> None:
+        """Companion to ``..._falls_closed``: governance_mode declares
+        intent + active typed attachment proves it -> promote to
+        remote_control. This is the only path that promotes operator
+        location, regardless of which signal arrives first.
+        """
+        from datetime import datetime, timezone
+
+        live_now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        result = _interaction_mode_from_reviewer_mode(
+            "single_agent",
+            governance_mode="remote_control",
+            remote_control_attachment=RemoteControlAttachmentState(
+                provider="claude",
+                session_name="VoiceTerm Bridge Loop",
+                remote_session_id="session_abc123",
+                status="attached",
+                attached_at_utc=live_now_utc,
+                last_seen_utc=live_now_utc,
+            ),
         )
         self.assertEqual(result, "remote_control")
 
@@ -3841,6 +3893,14 @@ class TestInteractionModeFromReviewerMode(unittest.TestCase):
         self.assertEqual(result, "single_agent")
 
     def test_remote_control_attachment_promotes_remote_control_mode(self) -> None:
+        # rev_pkt_2986 #4 + rev_pkt_2988 #5: ``remote_attachment_active``
+        # is TTL-aware. An ``attached`` status with no heartbeat
+        # timestamps is correctly classified as expired/stale, so the
+        # fixture must carry a live ``last_seen_utc`` to represent a
+        # genuinely active remote-control session.
+        from datetime import datetime, timezone
+
+        live_now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         result = _interaction_mode_from_reviewer_mode(
             "single_agent",
             governance_mode="",
@@ -3849,6 +3909,8 @@ class TestInteractionModeFromReviewerMode(unittest.TestCase):
                 session_name="VoiceTerm Bridge Loop",
                 remote_session_id="session_abc123",
                 status="attached",
+                attached_at_utc=live_now_utc,
+                last_seen_utc=live_now_utc,
             ),
         )
         self.assertEqual(result, "remote_control")

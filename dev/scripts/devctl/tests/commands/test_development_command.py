@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from dev.scripts.devctl import cli
 from dev.scripts.devctl.commands import development
 from dev.scripts.devctl.commands.development import (
+    design_preflight as design_preflight_module,
     orchestration_system_picture as orchestration_system_picture_module,
 )
 from dev.scripts.devctl.commands.development import packet_debt as development_packet_debt
@@ -23,6 +24,7 @@ from dev.scripts.devctl.commands.development.models import (
 )
 from dev.scripts.devctl.commands.development.continuation import continuation_signal
 from dev.scripts.devctl.commands.development.orchestration_models import (
+    DevelopmentContinuationRequiredSignal,
     DevelopmentOrchestrationSnapshot,
     DevelopmentWatcherLease,
 )
@@ -33,6 +35,10 @@ from dev.scripts.devctl.commands.development.orchestration_inputs import (
 from dev.scripts.devctl.commands.development.packet_attention import (
     packet_attention_from_review_state,
 )
+from dev.scripts.devctl.commands.development.status_summary import (
+    status_for_report,
+    summary_for_action,
+)
 from dev.scripts.devctl.commands.development.watcher.lease import watcher_lease_status
 from dev.scripts.devctl.runtime.master_plan_contract import PlanRow, SDLCStage
 from dev.scripts.devctl.runtime.development_role_adapters import (
@@ -41,6 +47,7 @@ from dev.scripts.devctl.runtime.development_role_adapters import (
 from dev.scripts.devctl.runtime.development_packet_pressure_models import (
     PacketBacklogPressure,
 )
+from dev.scripts.devctl.runtime.runtime_truth_snapshot import RuntimeTruthSnapshot
 
 
 def _packet_pressure(
@@ -217,6 +224,88 @@ def test_develop_status_accepts_collaboration_mode_and_role_preset(capsys) -> No
     assert collaboration["mutable_fanout_status"] == "blocked_by_read_model_mode"
 
 
+def test_develop_design_preflight_records_ground_truth_receipt(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    class FakeConnectivity:
+        def to_dict(self):
+            return {
+                "contract_id": "ConnectivityRegistrySnapshot",
+                "connected_contracts": [
+                    {"contract_id": "RemoteControlAttachmentState"},
+                ],
+                "warnings": [],
+            }
+
+    recorded = {}
+
+    def fake_append(receipt, *, repo_root, receipt_path=None):
+        recorded["receipt"] = receipt
+        return repo_root / "dev/state/ground_truth_probe_receipts.jsonl"
+
+    monkeypatch.setattr(
+        design_preflight_module,
+        "build_connectivity_registry_snapshot",
+        lambda repo_root: FakeConnectivity(),
+    )
+    monkeypatch.setattr(
+        design_preflight_module,
+        "load_startup_quality_signals",
+        lambda repo_root: {"probe_report": {"risk_hints": 0}},
+    )
+    monkeypatch.setattr(
+        design_preflight_module,
+        "build_runtime_truth_snapshot",
+        lambda **kwargs: RuntimeTruthSnapshot(
+            interaction_mode="remote_control",
+            remote_control_active=True,
+            remote_control_method="claude_session_state_bridge",
+            remote_control_session_id="session_123",
+            agent_mind_providers=("claude",),
+        ),
+    )
+    monkeypatch.setattr(
+        design_preflight_module,
+        "collect_git_status",
+        lambda **kwargs: {
+            "changes": [
+                {"path": "dev/scripts/devctl/runtime/new_contract.py"},
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        design_preflight_module,
+        "detect_ground_truth_trigger_paths",
+        lambda **kwargs: ("dev/scripts/devctl/runtime/new_contract.py",),
+    )
+    monkeypatch.setattr(
+        design_preflight_module,
+        "append_ground_truth_probe_receipt",
+        fake_append,
+    )
+
+    args = SimpleNamespace(
+        action="design-preflight",
+        action_flag=None,
+        topic="remote control active",
+        record_ground_truth_receipt=True,
+        since_ref="",
+    )
+
+    report = design_preflight_module.build_design_preflight(
+        args=args,
+        repo_root=tmp_path,
+        review_state={},
+    )
+
+    assert report is not None
+    assert report.routing_decision == "reuse_existing_surface"
+    assert report.receipt_path == "dev/state/ground_truth_probe_receipts.jsonl"
+    assert report.receipt_verdict == "satisfied"
+    assert recorded["receipt"].contract_id == "GroundTruthProbeRunReceipt"
+
+
 def test_develop_role_slash_adapters_forward_to_typed_request_model() -> None:
     matrix = build_develop_role_adapter_matrix(extra_args="")
     providers = {row.provider_id for row in matrix}
@@ -377,6 +466,36 @@ def test_stopped_watcher_blocks_when_live_packet_pressure_exists() -> None:
     assert signal.final_response_allowed is False
     assert signal.reasons == ("watcher_stopped:claude",)
     assert signal.next_required_command.endswith("review-channel --action watch")
+
+
+def test_develop_report_status_does_not_render_ready_when_continuation_required() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=True,
+        status="continue_required",
+        final_response_allowed=False,
+        reasons=("packet_attention:action_request_pending",),
+        next_required_command=(
+            "python3 dev/scripts/devctl.py review-channel --action inbox "
+            "--target claude --actor claude --status pending --terminal none --format md"
+        ),
+        stop_policy="stop_only_when_typed_controller_closed",
+        summary=(
+            "Do not stop here; run `python3 dev/scripts/devctl.py "
+            "review-channel --action inbox --target claude --actor claude "
+            "--status pending --terminal none --format md` next."
+        ),
+    )
+
+    assert status_for_report(
+        blockers=(),
+        continuation=continuation,
+    ) == "continue_required"
+    assert "Do not stop here" in summary_for_action(
+        "status",
+        blockers=(),
+        continuation=continuation,
+        lifecycle_actions=frozenset(),
+    )
 
 
 def test_develop_watch_is_actor_scoped_lifecycle_preview(capsys) -> None:
@@ -781,6 +900,42 @@ def test_develop_ingest_plan_rejects_unowned_chat_plan(
     assert (
         tmp_path / "dev/state/plan_ingestion_receipts.jsonl"
     ).read_text(encoding="utf-8")
+
+
+def test_develop_ingest_plan_missing_row_markdown_names_corrected_shape(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(plan_intake, "REPO_ROOT", tmp_path)
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "ingest-plan",
+            "--dry-run",
+            "--actor",
+            "claude",
+            "--body",
+            "A prose plan without row authority.",
+            "--source-kind",
+            "chat",
+            "--source-ref",
+            "chat://missing-row",
+            "--target-ref",
+            "plan:MP-377",
+            "--format",
+            "md",
+        ]
+    )
+
+    rc = plan_intake.run_ingest_plan(args)
+
+    assert rc == 0
+    output = capsys.readouterr().out
+    assert "missing_plan_row_or_checklist_authority" in output
+    assert "--plan-row-id '<PLAN_ROW_ID>'" in output
+    assert "checklist row" in output
+    assert "develop ingest-plan --actor claude --plan-row-id" in output
 
 
 def test_develop_drain_packets_only_valid_for_audit_packets() -> None:

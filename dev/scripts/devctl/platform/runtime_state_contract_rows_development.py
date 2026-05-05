@@ -9,6 +9,7 @@ from .runtime_state_contract_rows_development_packets import (
 from .runtime_state_contract_rows_development_roles import (
     DEVELOPMENT_ROLE_STATE_CONTRACTS,
 )
+from .runtime_state_contract_rows_ground_truth import GROUND_TRUTH_STATE_CONTRACTS
 
 DEVELOPMENT_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     ContractSpec(
@@ -208,6 +209,11 @@ DEVELOPMENT_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Preview-only `/develop` lifecycle guidance for actor work.",
             ),
             ContractField(
+                "design_preflight",
+                "DevelopmentDesignPreflight | None",
+                "Ground-truth-first architecture/design preflight report.",
+            ),
+            ContractField(
                 "packet_debt_remediation",
                 "dict[str, Any] | None",
                 "PacketDebtRemediationReport payload for audit-packets actions.",
@@ -285,6 +291,7 @@ DEVELOPMENT_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     ),
     *DEVELOPMENT_ROLE_STATE_CONTRACTS,
     *DEVELOPMENT_PACKET_STATE_CONTRACTS,
+    *GROUND_TRUTH_STATE_CONTRACTS,
     ContractSpec(
         contract_id="PlanIntentIngestionReceipt",
         owner_layer="governance_runtime",

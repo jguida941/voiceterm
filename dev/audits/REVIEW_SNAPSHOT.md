@@ -5,15 +5,15 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `de639cbc2b70` — Add relaunch-loop lifecycle contracts
-- Tree hash: `268fd5f15acd`
-- Generation stamp: `snap-9a2bb18f2307`
-- Generated at (UTC): 2026-05-04T18:22:00Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `single_agent`)
+- HEAD: `27b81fdb2eb2` — Refresh external review snapshot for de639cbc
+- Tree hash: `822ee0f3f1b3`
+- Generation stamp: `snap-741d06531f60`
+- Generated at (UTC): 2026-05-05T04:05:15Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 90 files, +6388/-1963
-- Governance findings: 156 open / 88 fixed / 258 total
+- Delta since last snapshot: 24 commits, 90 files, +6410/-1986
+- Governance findings: 157 open / 88 fixed / 259 total
 - Probe hints: 0 total across 0 files scanned
 
 ## 1. Identity
@@ -30,29 +30,29 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `de639cbc2b70086c457df50fb1145b2284663c65`
+- HEAD SHA: `27b81fdb2eb23d212fcecd1a46abb6d12804f118`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-05-04T14:20:48-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
+- action: `await_checkpoint`
+- reason: staged_index_budget_exceeded
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 98
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- next_step_command: `n/a`
 - latest_push_report_state: `post_push_green` (push_completed)
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_backlog: recommended
+- publication_guidance: 2 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `single_agent`
+- interaction_mode: `local_terminal`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -62,47 +62,48 @@ probes, typed actions, deterministic policy resolution — is what m...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `de639cbc2b70`
+Range: last 24 commits ending at `27b81fdb2eb2`
 
 - commits: 24
 - files changed: 90
-- insertions: +6388
-- deletions: -1963
-- bundle classes touched: tooling, docs
+- insertions: +6410
+- deletions: -1986
+- bundle classes touched: docs, tooling
 - authority surfaces touched: 5 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `de639cbc` | Add relaunch-loop lifecycle contracts | 31 | +1911/-106 | tooling |  |
-| 2 | `afb71fe6` | Refresh external review snapshot for b9406f73 | 2 | +66/-71 | docs |  |
-| 3 | `b9406f73` | Refresh external review snapshot for b3ff926d | 2 | +45/-43 | docs |  |
-| 4 | `b3ff926d` | Refresh external review snapshot for 299674a0 | 2 | +80/-80 | docs |  |
-| 5 | `299674a0` | Add routed guard timeout progress | 39 | +1783/-406 | tooling |  |
-| 6 | `ef9db514` | Refresh external review snapshot for da0c9c80 | 2 | +53/-53 | docs |  |
-| 7 | `da0c9c80` | Refresh external review snapshot for 9ef66045 | 2 | +46/-44 | docs |  |
-| 8 | `9ef66045` | Refresh external review snapshot for faba8791 | 2 | +71/-72 | docs |  |
-| 9 | `faba8791` | Classify durable expired packets | 25 | +360/-126 | tooling |  |
-| 10 | `7d29dd85` | Refresh external review snapshot for 9e027548 | 2 | +47/-44 | docs |  |
-| 11 | `9e027548` | Refresh external review snapshot for 116d5b6e | 2 | +46/-44 | docs |  |
-| 12 | `116d5b6e` | Refresh external review snapshot for 6a721e78 | 2 | +65/-70 | docs |  |
-| 13 | `6a721e78` | Fix post-push range scoping | 4 | +75/-58 | tooling |  |
-| 14 | `759abf90` | Refresh external review snapshot for 3db1597c | 2 | +46/-46 | docs |  |
-| 15 | `3db1597c` | Refresh external review snapshot for 04ad16b1 | 2 | +47/-49 | docs |  |
-| 16 | `04ad16b1` | Refresh external review snapshot for c66f5f65 | 2 | +67/-66 | docs |  |
-| 17 | `c66f5f65` | Shard focused Python tests | 14 | +420/-72 | tooling |  |
-| 18 | `639ef536` | Refresh external review snapshot for 12cf2f1d | 2 | +46/-46 | docs |  |
-| 19 | `12cf2f1d` | Refresh external review snapshot for bb85d5e0 | 2 | +47/-45 | docs |  |
-| 20 | `bb85d5e0` | Refresh external review snapshot for 5a2eb104 | 2 | +69/-74 | docs |  |
-| 21 | `5a2eb104` | Show governed commit progress | 16 | +249/-75 | tooling |  |
-| 22 | `e382b175` | Phase routed preflight execution | 18 | +646/-170 | tooling |  |
-| 23 | `35dc5c13` | Refresh external review snapshot for e7aa7df1 | 2 | +51/-53 | docs |  |
-| 24 | `e7aa7df1` | Refresh external review snapshot for 6d8004fc | 2 | +52/-50 | docs |  |
+| 1 | `27b81fdb` | Refresh external review snapshot for de639cbc | 2 | +74/-73 | docs |  |
+| 2 | `de639cbc` | Add relaunch-loop lifecycle contracts | 31 | +1911/-106 | tooling |  |
+| 3 | `afb71fe6` | Refresh external review snapshot for b9406f73 | 2 | +66/-71 | docs |  |
+| 4 | `b9406f73` | Refresh external review snapshot for b3ff926d | 2 | +45/-43 | docs |  |
+| 5 | `b3ff926d` | Refresh external review snapshot for 299674a0 | 2 | +80/-80 | docs |  |
+| 6 | `299674a0` | Add routed guard timeout progress | 39 | +1783/-406 | tooling |  |
+| 7 | `ef9db514` | Refresh external review snapshot for da0c9c80 | 2 | +53/-53 | docs |  |
+| 8 | `da0c9c80` | Refresh external review snapshot for 9ef66045 | 2 | +46/-44 | docs |  |
+| 9 | `9ef66045` | Refresh external review snapshot for faba8791 | 2 | +71/-72 | docs |  |
+| 10 | `faba8791` | Classify durable expired packets | 25 | +360/-126 | tooling |  |
+| 11 | `7d29dd85` | Refresh external review snapshot for 9e027548 | 2 | +47/-44 | docs |  |
+| 12 | `9e027548` | Refresh external review snapshot for 116d5b6e | 2 | +46/-44 | docs |  |
+| 13 | `116d5b6e` | Refresh external review snapshot for 6a721e78 | 2 | +65/-70 | docs |  |
+| 14 | `6a721e78` | Fix post-push range scoping | 4 | +75/-58 | tooling |  |
+| 15 | `759abf90` | Refresh external review snapshot for 3db1597c | 2 | +46/-46 | docs |  |
+| 16 | `3db1597c` | Refresh external review snapshot for 04ad16b1 | 2 | +47/-49 | docs |  |
+| 17 | `04ad16b1` | Refresh external review snapshot for c66f5f65 | 2 | +67/-66 | docs |  |
+| 18 | `c66f5f65` | Shard focused Python tests | 14 | +420/-72 | tooling |  |
+| 19 | `639ef536` | Refresh external review snapshot for 12cf2f1d | 2 | +46/-46 | docs |  |
+| 20 | `12cf2f1d` | Refresh external review snapshot for bb85d5e0 | 2 | +47/-45 | docs |  |
+| 21 | `bb85d5e0` | Refresh external review snapshot for 5a2eb104 | 2 | +69/-74 | docs |  |
+| 22 | `5a2eb104` | Show governed commit progress | 16 | +249/-75 | tooling |  |
+| 23 | `e382b175` | Phase routed preflight execution | 18 | +646/-170 | tooling |  |
+| 24 | `35dc5c13` | Refresh external review snapshot for e7aa7df1 | 2 | +51/-53 | docs |  |
 
 ### Files
 
@@ -110,10 +111,10 @@ Range: last 24 commits ending at `de639cbc2b70`
 |---|---|---|
 | `.gitignore` | tooling | +1/-0 |
 | `AGENTS.md` | docs | +24/-13 |
-| `bridge.md` | docs | +56/-56 |
+| `bridge.md` | docs | +57/-57 |
 | `dev/active/MASTER_PLAN.md` | tooling | +44/-6 |
 | `dev/active/ai_governance_platform.md` | tooling | +21/-4 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1312/-1322 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1333/-1344 |
 | `dev/config/git_hooks/post-commit-review-snapshot.sh` | tooling | +8/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +39/-2 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +7/-7 |
@@ -153,13 +154,12 @@ Range: last 24 commits ending at `de639cbc2b70`
 ## 4. Quality signals
 
 ### Governance review
-- total findings: 258
-- open: 156
+- total findings: 259
+- open: 157
 - fixed: 88
 - false positives: 0
 
 Recent findings:
-- `dogfood.command.governance-bootstrap` — `dev/scripts/devctl/commands/governance/bootstrap.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.orchestrate-status` — `dev/scripts/devctl/commands/reporting/orchestrate_status.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.orchestrate-watch` — `dev/scripts/devctl/commands/governance/orchestrate_watch.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.integrations-import` — `dev/scripts/devctl/commands/integrations_import.py` (n/a, verdict=`confirmed_issue`)
@@ -169,6 +169,7 @@ Recent findings:
 - `agent_sync.ambiguity_projection` — `dev/scripts/checks/multi_agent_sync` (high, verdict=`confirmed_issue`)
 - `review_channel.command_latency_under_fanout` — `dev/scripts/devctl/commands/review_channel` (high, verdict=`confirmed_issue`)
 - `work_board.rows_duplication` — `dev/scripts/devctl/runtime/agent_dispatch_router.py` (high, verdict=`confirmed_issue`)
+- `dogfood.command.reports-cleanup` — `dev/scripts/devctl/commands/reports_cleanup.py` (n/a, verdict=`confirmed_issue`)
 
 ### Probe report
 - run_state: `missing`
@@ -218,54 +219,54 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`27b81fdb`** — Refresh external review snapshot for de639cbc
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`de639cbc`** — Add relaunch-loop lifecycle contracts
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`afb71fe6`** — Refresh external review snapshot for b9406f73
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`b9406f73`** — Refresh external review snapshot for b3ff926d
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`b3ff926d`** — Refresh external review snapshot for 299674a0
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`299674a0`** — Add routed guard timeout progress
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`ef9db514`** — Refresh external review snapshot for da0c9c80
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`da0c9c80`** — Refresh external review snapshot for 9ef66045
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`9ef66045`** — Refresh external review snapshot for faba8791
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`faba8791`** — Classify durable expired packets
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`7d29dd85`** — Refresh external review snapshot for 9e027548
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`9e027548`** — Refresh external review snapshot for 116d5b6e
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`116d5b6e`** — Refresh external review snapshot for 6a721e78
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`6a721e78`** — Fix post-push range scoping
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`759abf90`** — Refresh external review snapshot for 3db1597c
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`3db1597c`** — Refresh external review snapshot for 04ad16b1
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`04ad16b1`** — Refresh external review snapshot for c66f5f65
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`c66f5f65`** — Shard focused Python tests
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`639ef536`** — Refresh external review snapshot for 12cf2f1d
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`12cf2f1d`** — Refresh external review snapshot for bb85d5e0
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`bb85d5e0`** — Refresh external review snapshot for 5a2eb104
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`5a2eb104`** — Show governed commit progress
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`e382b175`** — Phase routed preflight execution
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`35dc5c13`** — Refresh external review snapshot for e7aa7df1
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
-- **`e7aa7df1`** — Refresh external review snapshot for 6d8004fc
-  - evolution: Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the continuation controller. A stopped watcher was always treated as continuation debt in one path, then a follow-up review found the opposite unsaf…
+  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -281,17 +282,16 @@ Recent findings:
 
 ## 8. Known gaps and open items
 
-- open governance findings: 156
+- open governance findings: 157
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
-- **governance_open** (`dev/scripts/devctl/commands/governance/bootstrap.py`): dogfood.command.governance-bootstrap: Auto-ingested devctl finalization failure rc=2.
-repo_path=/Users/jguida941/testing_upgrade/codex-voice
 - **governance_open** (`dev/scripts/devctl/commands/reporting/orchestrate_status.py`): dogfood.command.orchestrate-status: Auto-ingested devctl finalization failure rc=1.
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
 - **governance_open** (`dev/scripts/devctl/commands/governance/orchestrate_watch.py`): dogfood.command.orchestrate-watch: Auto-ingested devctl finalization failure rc=1.
@@ -303,7 +303,8 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 - **governance_open** (`dev/scripts/devctl/review_channel/instruction_transitions.py`): packet.transition_session_disambiguation: source_packet_ids=rev_pkt_2691,rev_pkt_2696,rev_pkt_2705; Claude beta finding: transition_packet ack/apply/dismiss paths bypass session disambiguation, allowing cross-session packet actions. Durable owner: MP377-GUARDIR-TRANSITION-DISAMBIGUATION.
 - **governance_open** (`dev/scripts/devctl/runtime/packet_carry_forward.py`): packet.durable_ingestion_before_ttl: source_packet_ids=rev_pkt_2691,rev_pkt_2696,rev_pkt_2697,rev_pkt_2699,rev_pkt_2700,rev_pkt_2701,rev_pkt_2702,rev_pkt_2704,rev_pkt_2705; packets are transport/provenance only, so packet-carried work must be promoted into PlanRow/FindingReview/GuardPromotionCandidate/knowledge state before TTL expiry. Durable owner: MP377-GUARDIR-PACKET-DURABLE-INGESTION.
 - **governance_open** (`dev/scripts/checks/multi_agent_sync`): agent_sync.ambiguity_projection: source_packet_ids=rev_pkt_2697,rev_pkt_2705; canonical_active_packet_ambiguity can render empty while ambiguity exists, and expired-but-pending split state creates carry-forward debt. Durable owner: MP377-GUARDIR-AGENT-SYNC-AMBIGUITY-CARRYFORWARD.
+- **governance_open** (`dev/scripts/devctl/commands/review_channel`): review_channel.command_latency_under_fanout: source_packet_ids=rev_pkt_2704,rev_pkt_2705; review-channel post and startup-context can hang under multi-agent load, tied to process-cleanup and detached sleep pressure. Durable owner: MP377-GUARDIR-FANOUT-COMMAND-HANGS.
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-9a2bb18f2307` binds this file to HEAD `de639cbc2b70`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-741d06531f60` binds this file to HEAD `27b81fdb2eb2`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

@@ -9,8 +9,10 @@ import pytest
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.review_channel._attach_remote_control import (
     _build_attachment,
-    _session_id_from_url,
     run_attach_remote_control_action,
+)
+from dev.scripts.devctl.runtime.remote_control_attachment_models import (
+    session_id_from_url as _session_id_from_url,
 )
 from dev.scripts.devctl.review_channel.events import (
     post_packet,
@@ -148,6 +150,95 @@ def test_attach_remote_control_action_allows_unknown_status_without_url(
     assert report["attachment"]["status"] == "unknown"
 
 
+def test_attach_remote_control_action_without_identity_falls_closed(
+    tmp_path: Path,
+) -> None:
+    """Direct attach writer must not persist status=attached without identity."""
+    status_dir = tmp_path / "status"
+    status_dir.mkdir()
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "review-channel",
+            "--action",
+            "attach-remote-control",
+            "--terminal",
+            "none",
+            "--format",
+            "json",
+        ]
+    )
+
+    report, exit_code = run_attach_remote_control_action(
+        args=args,
+        repo_root=tmp_path,
+        paths={"status_dir": status_dir},
+    )
+
+    assert exit_code == 0
+    attachment = report["attachment"]
+    assert attachment["status"] == "evidence_missing"
+    assert attachment["remote_session_id"] == ""
+    assert attachment["session_url"] == ""
+    artifact_path = status_dir / "sessions" / "claude-remote-control.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert payload["status"] == "evidence_missing"
+    assert has_active_remote_control_attachment(
+        load_remote_control_attachment(output_root=status_dir, provider="claude")
+    ) is False
+
+
+def test_attach_remote_control_action_without_identity_does_not_refresh_bound_existing(
+    tmp_path: Path,
+) -> None:
+    """Review-channel attach is not proof to refresh identity by itself."""
+    status_dir = tmp_path / "status"
+    status_dir.mkdir()
+    persist_remote_control_attachment(
+        RemoteControlAttachmentState(
+            provider="claude",
+            role="operator",
+            attachment_id="remote-attach-existing",
+            session_name="Claude remote control",
+            remote_session_id="session_existing",
+            session_url="https://claude.ai/code/session_existing",
+            status="attached",
+            attached_at_utc="2026-04-09T00:00:00Z",
+            last_seen_utc="2026-04-09T00:00:01Z",
+            heartbeat_ttl_seconds=10_000_000,
+        ),
+        output_root=status_dir,
+    )
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "review-channel",
+            "--action",
+            "attach-remote-control",
+            "--terminal",
+            "none",
+            "--format",
+            "json",
+        ]
+    )
+
+    report, exit_code = run_attach_remote_control_action(
+        args=args,
+        repo_root=tmp_path,
+        paths={"status_dir": status_dir},
+    )
+
+    assert exit_code == 0
+    attachment = report["attachment"]
+    assert attachment["status"] == "evidence_missing"
+    assert attachment["attachment_id"] != "remote-attach-existing"
+    assert attachment["remote_session_id"] == ""
+    assert attachment["session_url"] == ""
+    assert attachment["last_seen_utc"] > "2026-04-09T00:00:01Z"
+    stored = load_remote_control_attachment(output_root=status_dir, provider="claude")
+    assert has_active_remote_control_attachment(stored) is False
+
+
 def test_build_attachment_defaults_remote_role_to_operator() -> None:
     attachment = _build_attachment(args=_make_attach_args(), existing=None)
 
@@ -228,6 +319,103 @@ def test_has_active_predicate_is_false_for_stale_attachment() -> None:
     assert has_active_remote_control_attachment(attachment) is False
 
 
+def test_has_active_predicate_is_false_for_unknown_status() -> None:
+    """Per rev_pkt_3000 + rev_pkt_3003 #1: ``unknown`` must not promote
+    operator_interaction_mode=remote_control. Only identity-bound
+    ``attached`` attachments count as active.
+    """
+    from datetime import datetime, timezone
+
+    live_now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    attachment = RemoteControlAttachmentState(
+        provider="claude",
+        role="implementer",
+        attachment_id="remote-attach-unknown",
+        session_name="VoiceTerm Bridge Loop",
+        remote_session_id="session_pre_heartbeat",
+        session_url="https://claude.ai/code/session_pre_heartbeat",
+        status="unknown",
+        attached_at_utc=live_now_utc,
+        last_seen_utc=live_now_utc,
+    )
+
+    assert has_active_remote_control_attachment(attachment) is False
+
+
+def test_has_active_predicate_is_false_for_evidence_missing_status() -> None:
+    """Per rev_pkt_2996 #1: an invocation that lacked current session
+    identity AND had no live identity-bound prior attachment falls back
+    to ``evidence_missing``. That status must NOT promote
+    operator_interaction_mode=remote_control regardless of timestamps.
+    """
+    from datetime import datetime, timezone
+
+    live_now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    attachment = RemoteControlAttachmentState(
+        provider="claude",
+        role="implementer",
+        attachment_id="remote-attach-evidence-missing",
+        session_name="",
+        remote_session_id="",
+        session_url="",
+        status="evidence_missing",
+        attached_at_utc=live_now_utc,
+        last_seen_utc=live_now_utc,
+    )
+
+    assert has_active_remote_control_attachment(attachment) is False
+
+
+def test_has_active_predicate_is_false_for_attached_without_bound_identity() -> None:
+    """Per rev_pkt_3023 P0 #2: status=attached + fresh TTL is NOT
+    sufficient. Without ``remote_session_id`` or ``session_url`` the
+    attachment cannot prove a live remote-control session, so the
+    predicate must fail closed.
+
+    This protects against malformed/legacy rows that previously could
+    fail-open and promote operator_interaction_mode=remote_control.
+    """
+    from datetime import datetime, timezone
+
+    live_now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    attachment = RemoteControlAttachmentState(
+        provider="claude",
+        role="implementer",
+        attachment_id="remote-attach-no-identity",
+        session_name="VoiceTerm Bridge Loop",
+        remote_session_id="",
+        session_url="",
+        status="attached",
+        attached_at_utc=live_now_utc,
+        last_seen_utc=live_now_utc,
+    )
+
+    assert has_active_remote_control_attachment(attachment) is False
+
+
+def test_has_active_predicate_is_true_only_for_attached_with_fresh_heartbeat() -> None:
+    """Companion to the unknown/evidence_missing fail-closed tests:
+    confirm the affirmative path still works — ``status="attached"``
+    with a live heartbeat IS active.
+    """
+    from datetime import datetime, timezone
+
+    live_now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    attachment = RemoteControlAttachmentState(
+        provider="claude",
+        role="implementer",
+        attachment_id="remote-attach-live",
+        session_name="VoiceTerm Bridge Loop",
+        remote_session_id="session_live",
+        session_url="https://claude.ai/code/session_live",
+        status="attached",
+        attached_at_utc=live_now_utc,
+        last_seen_utc=live_now_utc,
+    )
+
+    assert has_active_remote_control_attachment(attachment) is True
+
+
 def test_deactivate_remote_control_attachments_downgrades_all_providers(
     tmp_path: Path,
 ) -> None:
@@ -290,6 +478,7 @@ def test_provider_parameterized_artifacts_do_not_clobber_each_other(
         status="attached",
         attached_at_utc="2026-04-09T00:00:00Z",
         last_seen_utc="2026-04-09T00:00:01Z",
+        heartbeat_ttl_seconds=10_000_000,
     )
     codex_state = RemoteControlAttachmentState(
         provider="codex",
@@ -301,6 +490,7 @@ def test_provider_parameterized_artifacts_do_not_clobber_each_other(
         status="attached",
         attached_at_utc="2026-04-09T00:00:02Z",
         last_seen_utc="2026-04-09T00:00:03Z",
+        heartbeat_ttl_seconds=10_000_000,
     )
 
     claude_path = persist_remote_control_attachment(
@@ -356,6 +546,7 @@ def test_post_packet_refreshes_active_remote_control_attachment_last_seen(
             status="attached",
             attached_at_utc="2026-04-09T00:00:00Z",
             last_seen_utc="2026-04-09T00:00:01Z",
+            heartbeat_ttl_seconds=10_000_000,
         ),
         output_root=status_dir,
     )
@@ -399,6 +590,7 @@ def test_transition_packet_refreshes_remote_attachment_and_action_receipt(
             status="attached",
             attached_at_utc="2026-04-09T00:00:00Z",
             last_seen_utc="2026-04-09T00:00:01Z",
+            heartbeat_ttl_seconds=10_000_000,
         ),
         output_root=status_dir,
     )

@@ -19,6 +19,7 @@ def render_markdown(report: DevelopmentLoopReport) -> str:
     lines.extend(_header_lines(payload, topology, scaling))
     lines.extend(_next_slice_lines(payload["next_slice"]))
     lines.extend(_packet_attention_lines(payload["packet_attention"]))
+    lines.extend(_design_preflight_lines(payload.get("design_preflight")))
     lines.extend(_lifecycle_lines(payload.get("lifecycle")))
     lines.extend(runtime_lines(payload.get("runtime")))
     lines.extend(peer_mind_lines(payload.get("peer_minds")))
@@ -40,7 +41,7 @@ def render_markdown(report: DevelopmentLoopReport) -> str:
 
 
 def _header_lines(payload: dict[str, object], topology, scaling) -> list[str]:
-    return [
+    lines = [
         f"- ok: {payload['ok']}",
         f"- action: {payload['action']}",
         f"- status: {payload['status']}",
@@ -51,6 +52,16 @@ def _header_lines(payload: dict[str, object], topology, scaling) -> list[str]:
         f"- default_worker_fanout: {topology['default_worker_fanout']}",
         f"- scaling_modes: {', '.join(scaling['mode_ids'])}",
     ]
+    continuation = payload.get("continuation")
+    if isinstance(continuation, dict) and continuation.get("continuation_required"):
+        lines.insert(5, f"- final_response_allowed: {continuation.get('final_response_allowed')}")
+        lines.insert(6, "- do_not_stop_here: True")
+        lines.insert(
+            7,
+            "- next_required_command: "
+            f"{continuation.get('next_required_command') or '(none)'}",
+        )
+    return lines
 
 
 def _next_slice_lines(next_slice) -> list[str]:
@@ -90,6 +101,41 @@ def _packet_attention_lines(attention) -> list[str]:
         f"- required_command: {attention.get('required_command') or '(none)'}",
         f"- summary: {attention.get('summary') or '(none)'}",
     ]
+
+
+def _design_preflight_lines(design_preflight) -> list[str]:
+    if not isinstance(design_preflight, dict):
+        return []
+    lines = ["", "## Design Preflight", ""]
+    lines.append(f"- topic: {design_preflight.get('topic') or '(none)'}")
+    lines.append(
+        f"- routing_decision: {design_preflight.get('routing_decision') or '(none)'}"
+    )
+    lines.append(f"- summary: {design_preflight.get('summary') or '(none)'}")
+    lines.append(f"- receipt_verdict: {design_preflight.get('receipt_verdict')}")
+    lines.append(f"- receipt_path: {design_preflight.get('receipt_path') or '(none)'}")
+    lines.append(
+        "- trigger_paths_digest: "
+        f"{design_preflight.get('trigger_paths_digest') or '(none)'}"
+    )
+    lines.append(
+        "- observed_probe_ids: "
+        f"{_list_text(design_preflight.get('observed_probe_ids'))}"
+    )
+    lines.append(
+        "- trigger_paths: "
+        f"{_list_text(design_preflight.get('trigger_paths'))}"
+    )
+    probes = design_preflight.get("probes")
+    if isinstance(probes, list):
+        for probe in probes:
+            if not isinstance(probe, dict):
+                continue
+            lines.append(
+                f"- {probe.get('probe_id')}: {probe.get('status')} - "
+                f"{probe.get('summary')}"
+            )
+    return lines
 
 
 def _workstream_lines(workstreams) -> list[str]:

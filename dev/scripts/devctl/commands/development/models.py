@@ -75,6 +75,35 @@ class DevelopmentDiscoverySnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class DevelopmentGroundTruthProbe:
+    """One probe result in a design-preflight pass."""
+
+    probe_id: str
+    status: str
+    summary: str
+    evidence_ref: str = ""
+    observed_fields: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class DevelopmentDesignPreflight:
+    """Ground-truth-first architecture/design preflight report."""
+
+    topic: str
+    routing_decision: str
+    summary: str
+    required_probe_ids: tuple[str, ...]
+    observed_probe_ids: tuple[str, ...]
+    trigger_paths: tuple[str, ...]
+    trigger_paths_digest: str
+    receipt_verdict: str
+    receipt_path: str = ""
+    runtime_truth: Mapping[str, object] | None = None
+    probes: tuple[DevelopmentGroundTruthProbe, ...] = ()
+    next_commands: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class DevelopmentPacketAttention:
     """Packet-driven wake state that can preempt ordinary slice selection."""
 
@@ -200,6 +229,7 @@ class DevelopmentLoopReport:
     next_commands: tuple[str, ...]
     next_step_command: str = ""
     lifecycle: DevelopmentLifecyclePlan | None = None
+    design_preflight: DevelopmentDesignPreflight | None = None
     packet_debt_remediation: dict[str, Any] | None = None
     blockers: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()

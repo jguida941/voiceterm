@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ..runtime.agent_mind_projection_read import read_agent_mind_projection
 from ..runtime.governance_scan import scan_repo_governance_safely
+from ..runtime.remote_control_attachment_status import remote_attachment_active
 from .current_session_attention import has_explicit_packet_truth
 from .current_session_packet_normalize import (
     normalize_current_session_from_packet_truth as _normalize_current_session_from_packet_truth,
@@ -146,12 +147,22 @@ def _operator_interaction_mode(
 
 
 def _bridge_has_remote_control_attachment(bridge_liveness: dict[str, object]) -> bool:
+    """Return True when the bridge proves a live remote-control attachment.
+
+    Per rev_pkt_2986 finding #4: this used to be a local
+    ``status == "attached"`` check that ignored TTL and the typed
+    ``unknown`` (active) status, so a stale or never-heartbeated remote
+    attachment would still fail-open as live. Replaced with the shared
+    ``remote_attachment_active`` helper which honors
+    ``ACTIVE_REMOTE_CONTROL_ATTACHMENT_STATUSES`` AND
+    ``remote_attachment_expired`` TTL semantics.
+    """
     providers = bridge_liveness.get("remote_control_active_providers")
     if isinstance(providers, (list, tuple, set)):
         return any(str(provider or "").strip() for provider in providers)
     attachment = bridge_liveness.get("remote_control_attachment")
     if isinstance(attachment, dict):
-        return str(attachment.get("status") or "").strip() == "attached"
+        return remote_attachment_active(attachment)
     return False
 
 

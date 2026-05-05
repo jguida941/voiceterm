@@ -24,9 +24,16 @@ from ..runtime.development_role_adapters import (
     DevelopRoleAdapterSpec,
     render_develop_role_adapter_matrix_markdown,
 )
+from ..runtime.remote_control_slash_adapters import (
+    RemoteControlSlashAdapterSpec,
+    render_remote_control_slash_adapter_catalog_markdown,
+)
 from .task_router_contract import render_task_router_table_markdown
 
 ROLE_ADAPTER_CONSUMER_PROOF: type[DevelopRoleAdapterSpec] = DevelopRoleAdapterSpec
+REMOTE_CONTROL_ADAPTER_CONSUMER_PROOF: type[RemoteControlSlashAdapterSpec] = (
+    RemoteControlSlashAdapterSpec
+)
 
 
 def derive_surface_context(
@@ -76,6 +83,9 @@ def derive_surface_context(
     context["guard_limits_block"] = render_guard_limits_block()
     context["develop_role_adapter_matrix"] = (
         render_develop_role_adapter_matrix_markdown()
+    )
+    context["remote_control_slash_adapter_catalog"] = (
+        render_remote_control_slash_adapter_catalog_markdown()
     )
     return context
 

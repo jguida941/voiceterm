@@ -15,6 +15,13 @@ scaffolds.
 - `develop_role_adapters.template.md`: provider-neutral `/develop` role
   adapter catalog rendered from the shared role/mode matrix for Codex and
   Claude slash surfaces.
+- `remote_control_slash_adapters.template.md`: provider-neutral
+  typed remote-control adapter catalog rendered from the typed
+  remote-control lifecycle backend.
+- `claude_remote_control_hook_settings.template.json`: project-level Claude
+  `UserPromptExpansion` hook, plus `UserPromptSubmit` fallback, that watches
+  built-in `/remote-control` prompts and mirrors fresh provider session
+  evidence into typed devctl lifecycle state.
 - `portable_governance_pre_commit_hook.stub.template.sh`: starter hook stub
   rendered into `portable_governance_pre_commit_hook.stub.sh`.
 - `portable_governance_post_commit_hook.stub.template.sh`: starter hook stub

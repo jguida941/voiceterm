@@ -37,6 +37,113 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-05 - Architecture design now starts with ground-truth preflight
+
+Fact: the remote-control dogfood failure showed a structural AI-agent failure
+mode. The typed system designed hook/transcript proof channels around
+`bridge_status` before asking where Claude Code itself stored the status-bar
+truth. The upstream state was already present in
+`~/.claude/sessions/<pid>.json` as `bridgeSessionId`.
+
+Change: added `RuntimeTruthSnapshot` as a reducer over current review/runtime
+evidence and added `devctl develop design-preflight` as the connected
+architecture pipeline. The preflight probes agent-mind, provider-owned session
+state, contract connectivity, command registries, startup quality signals, and
+existing contracts, then records `GroundTruthProbeRunReceipt`. The new
+`check_ground_truth_probe_gate.py` guard blocks runtime/proof/architecture
+trigger paths when that receipt is missing, stale, or did not observe the
+required probe set. This keeps new proof-channel design aligned with the repo's
+compiler thesis: upstream facts and typed reductions first, new contracts only
+when existing surfaces cannot carry the state.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/runtime_truth_snapshot.py`
+- `dev/scripts/devctl/runtime/ground_truth_probe_receipt.py`
+- `dev/scripts/devctl/commands/development/design_preflight.py`
+- `dev/scripts/checks/check_ground_truth_probe_gate.py`
+- `dev/scripts/checks/ground_truth_probe_gate/command.py`
+- `dev/scripts/devctl/tests/runtime/test_runtime_truth_snapshot.py`
+- `dev/scripts/devctl/tests/checks/test_check_ground_truth_probe_gate.py`
+
+### 2026-05-05 - Claude built-in remote-control now mirrors through an async hook
+
+Fact: project slash adapters cannot invoke Claude's built-in `/remote-control`
+command, and the earlier physical-confirmation flag could be self-attested by
+direct CLI callers. Claude's hook docs also make `UserPromptSubmit` fire before
+prompt processing and give it no matcher support, so a synchronous hook would
+race or block the built-in slash.
+
+Change: added a project `.claude/settings.json` async `UserPromptExpansion`
+hook for built-in `/remote-control` / `/rc` plus a broad `UserPromptSubmit`
+fallback that fast-exits on unrelated prompts. The backend prefers Claude's
+live `~/.claude/sessions/<pid>.json` `bridgeSessionId` state for the matching
+`sessionId`/repo cwd, then falls back to a same-session built-in
+`/remote-control is active` transcript bridge-status row with a
+`claude.ai/code/session_...` URL. It records hook/session/transcript/dedupe
+evidence on `RemoteControlAttachmentState` and
+`RemoteControlInvocationReceipt`, and treats
+`physical_confirmation_method=claude_session_state_bridge` or
+`claude_hook_transcript` as high-confidence physical proof. Direct CLI
+`--physical-remote-control-confirmed` downgrades to
+`operator_assertion`; origin proof (`proven_source_kind`) alone does not prove
+activation. The same settings surface installs a `SessionEnd` detach hook, and
+detach/evidence-missing lifecycle writes now clear stale physical confirmation
+state. Physical dogfood then proved Claude can emit the authoritative
+`bridge_status` URL without a preceding `local_command` row, so transcript
+proof now accepts that first-party bridge-status row as sufficient same-session
+physical activation proof. The same dogfood then proved `bridge_status` is an
+edge event while `bridgeSessionId` is the live on/off signal: non-null
+`session_*` means active, null means off. `remote-control status` now
+reconciles from that session-state proof so typed status follows Claude's UI
+without waiting for another slash activation. The project `/remote-control`
+and `/bridge-loop` aliases are
+retired so Claude's provider-owned commands win dispatch; only
+`/project:typed-remote-control` remains as a manual typed-state recovery path.
+
+Follow-up: the same dogfood session exposed that reviewer/architect packets
+can pile up while an implementer keeps editing. `rev_pkt_3042` plus Claude's
+`rev_pkt_3043` / `rev_pkt_3044` design packets now anchor
+`MP377-P0-T22AN-AM/AN`: add typed packet urgency, relevance,
+per-actor attention windows, in-flight attention signals, blocker-only
+mutation interruption, and architecture/blocker target fields. Relevant
+review feedback should become ambient working context; only true blockers
+force `consume_packet` before mutation.
+
+Evidence:
+
+- `.claude/settings.json`
+- `dev/scripts/devctl/commands/remote_control/_hook.py`
+- `dev/scripts/devctl/commands/remote_control/_source_proof.py`
+- `dev/scripts/devctl/commands/remote_control/_transcript_proof.py`
+- `dev/scripts/devctl/tests/commands/test_remote_control_command.py`
+- `dev/scripts/devctl/tests/commands/test_remote_control_source_proof.py`
+
+### 2026-05-04 - Remote-control lifecycle now owns typed attach state
+
+Fact: the phone/dashboard remote-control path had two authority leaks. The
+legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude
+slash file, while stale `remote_control` signals could keep local sessions in
+remote mode after the typed attachment stopped being live.
+
+Change: added `devctl remote-control` with `start`, `enter`, `heartbeat`,
+`exit`, `status`, `doctor`, and `dry-run`. The command writes the existing
+provider-scoped `RemoteControlAttachmentState` artifact, now extended with
+launcher source, host pid/session label, heartbeat TTL, previous operator
+mode, and entrypoint. Slash surfaces are generated thin adapters over the same
+backend, and `remote-bridge-loop.sh` is compatibility wrapper glue only.
+Mode derivation now requires an active non-expired attachment before promoting
+`operator_interaction_mode=remote_control`.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/remote_control/command.py`
+- `dev/scripts/devctl/runtime/remote_control_attachment_status.py`
+- `dev/scripts/devctl/runtime/remote_control_slash_adapters.py`
+- `.claude/commands/typed-remote-control.md`
+- `.claude/settings.json`
+- `dev/scripts/devctl/tests/commands/test_remote_control_command.py`
+
 ### 2026-05-04 - `/develop` continuation now gates stopped watchers on typed packet pressure
 
 Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the

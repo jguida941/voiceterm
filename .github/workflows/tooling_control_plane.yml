@@ -373,6 +373,12 @@ jobs:
       - name: Run guard-enforcement inventory gate
         run: python3 dev/scripts/checks/check_guard_enforcement_inventory.py
 
+      - name: Run ground-truth probe gate
+        run: python3 dev/scripts/checks/check_ground_truth_probe_gate.py
+
+      - name: Run memory-not-authority guard
+        run: python3 dev/scripts/checks/check_memory_not_authority.py
+
       - name: Run architecture-surface sync guard
         run: |
           set -euo pipefail

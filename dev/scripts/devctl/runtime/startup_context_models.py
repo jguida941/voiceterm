@@ -20,6 +20,7 @@ from .reviewer_runtime_models import (
     RemoteControlAttachmentState,
     ReviewerRuntimeContract,
 )
+from .runtime_truth_snapshot import RuntimeTruthSnapshot
 from .session_posture import SessionPosture
 from .startup_blocker_decision import BlockerSnapshot
 from .startup_context_projections import (
@@ -78,6 +79,7 @@ class StartupContext:
     authority_snapshot: AuthoritySnapshot | None = None
     reviewer_runtime: ReviewerRuntimeContract | None = None
     session_posture: SessionPosture | None = None
+    runtime_truth: RuntimeTruthSnapshot | None = None
     remote_control_attachment: RemoteControlAttachmentState | None = None
     attention: ReviewAttentionState | None = None
     current_session: ReviewCurrentSessionState | None = None
@@ -114,10 +116,10 @@ class StartupContext:
         d["reason"] = self.advisory_reason
         d["advisory_action"] = self.advisory_action
         d["advisory_reason"] = self.advisory_reason
-        d["interaction_mode"] = (
-            self.session_posture.interaction_mode
-            if self.session_posture is not None
-            else self.reviewer_gate.operator_interaction_mode
+        d["interaction_mode"] = _startup_interaction_mode(
+            runtime_truth=self.runtime_truth,
+            session_posture=self.session_posture,
+            reviewer_gate=self.reviewer_gate,
         )
         d["reviewer_mode"] = (
             self.session_posture.reviewer_mode
@@ -192,6 +194,8 @@ class StartupContext:
             d["reviewer_runtime"] = reviewer_runtime
         if self.session_posture is not None:
             d["session_posture"] = self.session_posture.to_dict()
+        if self.runtime_truth is not None:
+            d["runtime_truth"] = _startup_runtime_truth_dict(self.runtime_truth)
         if self.remote_control_attachment is not None:
             d["remote_control_attachment"] = asdict(self.remote_control_attachment)
         if self.attention is not None:
@@ -219,6 +223,48 @@ def startup_packet_intent_anchor_dict(anchor: PacketIntentAnchor) -> dict[str, o
         "anchor_refs": list(anchor.anchor_refs),
         "lifecycle_state": anchor.lifecycle_state,
     }
+
+
+def _startup_runtime_truth_dict(
+    runtime_truth: RuntimeTruthSnapshot,
+) -> dict[str, object]:
+    payload = runtime_truth.to_dict()
+    return {
+        key: payload.get(key)
+        for key in (
+            "contract_id",
+            "generated_at_utc",
+            "interaction_mode",
+            "reviewer_mode",
+            "effective_reviewer_mode",
+            "packet_attention_required",
+            "pending_packet_count",
+            "active_actor_count",
+            "remote_control_active",
+            "remote_control_method",
+            "remote_control_session_id",
+            "connectivity_contract_count",
+            "connectivity_warning_count",
+            "routing_decision",
+        )
+    }
+
+
+def _startup_interaction_mode(
+    *,
+    runtime_truth: RuntimeTruthSnapshot | None,
+    session_posture: SessionPosture | None,
+    reviewer_gate: ReviewerGateState,
+) -> str:
+    for value in (
+        runtime_truth.interaction_mode if runtime_truth is not None else "",
+        session_posture.interaction_mode if session_posture is not None else "",
+        reviewer_gate.operator_interaction_mode,
+    ):
+        text = str(value or "").strip()
+        if text and text != "unresolved":
+            return text
+    return "unresolved"
 
 
 def _compact_product_thesis(value: str, limit: int = 480) -> str:

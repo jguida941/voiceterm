@@ -6,6 +6,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from ..time_utils import parse_utc_timestamp
 from .development_collaboration_modes import PacketAttentionPressurePolicy
 from .development_packet_pressure_classification import (
     classify_packet,
@@ -146,6 +147,15 @@ def _decision(
             selected_packet_ids=packet_ids,
             next_command=_ingest_or_inbox_command(classifications, actor),
         )
+    if any(_requires_packet_review(item) for item in classifications):
+        return PacketAttentionIngestionDecision(
+            decision="pivot_to_packet_review",
+            reason_code="pending_packet_requires_review",
+            required_action="review_selected_packets",
+            fail_closed=False,
+            selected_packet_ids=packet_ids,
+            next_command=_show_or_inbox_command(packet_ids, actor),
+        )
     if (
         pressure.live_total >= pressure.soft_attention_budget
         or pressure.near_ttl_total
@@ -166,6 +176,10 @@ def _decision(
         fail_closed=False,
         selected_packet_ids=packet_ids,
     )
+
+
+def _requires_packet_review(item: PacketIntentClassification) -> bool:
+    return item.classification not in {"communication-only"}
 
 
 def _pressure_state(
@@ -244,16 +258,7 @@ def _counts(values) -> dict[str, int]:
 
 
 def _parse_utc(value: object):
-    text = _text(value)
-    if not text:
-        return None
-    try:
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+    return parse_utc_timestamp(value)
 
 
 def _text(value: object) -> str:

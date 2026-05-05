@@ -64,6 +64,7 @@ from ..commands import (
     release,
     release_gates,
     release_notes,
+    remote_control,
     report,
     reports_cleanup,
     review_channel,
@@ -153,6 +154,7 @@ from .artifact_suppression import read_only_command_suppresses_artifact_writes
 from .builders import add_standard_parsers
 from .python_tests import add_parser as add_python_tests_parser
 from .relaunch_loop import add_relaunch_loop_parser
+from .remote_control import add_remote_control_parser
 
 # Commands that run as status/reporting surfaces from the caller's point of
 # view. They skip audit event writes and telemetry refresh so devctl works on
@@ -203,6 +205,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_orchestrate_parsers(sub)
     add_publication_sync_parser(sub)
     add_relaunch_loop_parser(sub)
+    add_remote_control_parser(sub)
     add_platform_contracts_parser(sub)
     add_system_map_parser(sub)
     add_system_picture_parser(sub)
@@ -324,6 +327,7 @@ COMMAND_HANDLERS = {
     "ship": ship.run,
     "release-notes": release_notes.run,
     "relaunch-loop": relaunch_loop.run,
+    "remote-control": remote_control.run,
     "review-channel": review_channel.run,
     "pipeline": pipeline_command.run,
     "rollout-tail": rollout_tail.run,

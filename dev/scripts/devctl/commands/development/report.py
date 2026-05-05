@@ -18,6 +18,7 @@ from .attention_commands import (
     peer_mind_alias_warnings,
 )
 from .continuation import continuation_signal, watcher_lease_status
+from .design_preflight import build_design_preflight
 from .lifecycle import LIFECYCLE_ACTIONS
 from .lifecycle import lifecycle_next_commands, lifecycle_plan
 from .models import (
@@ -34,6 +35,7 @@ from .packet_debt import packet_debt_payload
 from .peer_mind import peer_mind_snapshots
 from .runtime_snapshot import runtime_snapshot_from_review_state
 from .snapshots import discovery_snapshot, learning_snapshot
+from .status_summary import status_for_report, summary_for_action
 
 
 def build_report(args: Any) -> DevelopmentLoopReport:
@@ -82,6 +84,11 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         rows=rows,
         actor=actor,
     )
+    design_preflight = build_design_preflight(
+        args=args,
+        repo_root=REPO_ROOT,
+        review_state=review_state,
+    )
     watcher_lease = watcher_lease_status(REPO_ROOT, review_state, actor=actor)
     continuation = continuation_signal(
         packet_attention=packet_attention,
@@ -92,14 +99,17 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         fallback_commands=next_commands,
     )
 
+    status = status_for_report(blockers=blockers, continuation=continuation)
     return DevelopmentLoopReport(
         action=action,
-        status="blocked" if blockers else "ready",
+        status=status,
         ok=not blockers,
         controller_state=_controller_state(action, args),
-        summary=_summary_for_action(
+        summary=summary_for_action(
             action,
             blockers=blockers,
+            continuation=continuation,
+            lifecycle_actions=LIFECYCLE_ACTIONS,
             drain_packets=bool(getattr(args, "drain_packets", False)),
             dry_run=bool(getattr(args, "dry_run", False)),
         ),
@@ -132,6 +142,7 @@ def build_report(args: Any) -> DevelopmentLoopReport:
             packet_attention=packet_attention,
             required_checks=required_checks,
         ),
+        design_preflight=design_preflight,
         packet_debt_remediation=packet_debt_payload(
             action,
             args,
@@ -165,6 +176,10 @@ def _controller_state(action: str, args: Any) -> str:
         return f"read_only_{action}_preview"
     if action == "launch":
         return "read_only_launch_preview"
+    if action == "design-preflight":
+        if bool(getattr(args, "record_ground_truth_receipt", False)):
+            return "ground_truth_receipt_recorded"
+        return "read_only_design_preflight"
     if action in {"pause", "resume"}:
         return f"read_only_{action}_preview"
     if action == "audit-guards":
@@ -261,34 +276,6 @@ def _action_findings(action: str, args: Any) -> tuple[tuple[str, ...], tuple[str
     return tuple(blockers), tuple(warnings)
 
 
-def _summary_for_action(
-    action: str,
-    *,
-    blockers: tuple[str, ...],
-    drain_packets: bool = False,
-    dry_run: bool = False,
-) -> str:
-    if blockers:
-        return "Develop controller request failed closed before execution."
-    if action == "next":
-        return "Selected the next bounded typed development slice."
-    if action == "audit-guards":
-        return "Rendered guard/probe learning inputs for development mode."
-    if action == "audit-packets":
-        if drain_packets:
-            if dry_run:
-                return "Previewed eligible packet carry-forward durable-ingestion debt."
-            return "Applied eligible packet carry-forward durable-ingestion debt."
-        return "Rendered packet carry-forward durable-ingestion debt."
-    if action == "launch":
-        return "Rendered one read-only develop controller cycle without mutation."
-    if action in LIFECYCLE_ACTIONS:
-        return f"Rendered read-only /develop {action} lifecycle guidance."
-    if action in {"pause", "resume"}:
-        return f"Rendered a read-only {action} request without mutating controller state."
-    return "Rendered typed develop controller status."
-
-
 def _required_checks(action: str) -> tuple[str, ...]:
     checks = [
         "python3 dev/scripts/checks/check_active_plan_sync.py",
@@ -296,9 +283,13 @@ def _required_checks(action: str) -> tuple[str, ...]:
         "python3 dev/scripts/checks/check_governance_closure.py --format md",
         "python3 dev/scripts/checks/check_multi_agent_sync.py",
     ]
-    if action in {"audit-guards", "audit-packets", "launch"}:
+    if action in {"audit-guards", "audit-packets", "launch", "design-preflight"}:
         checks.append("python3 dev/scripts/devctl.py probe-report --format md")
         checks.append("python3 dev/scripts/devctl.py governance-quality-feedback --format md")
+    if action == "design-preflight":
+        checks.append(
+            "python3 dev/scripts/checks/check_ground_truth_probe_gate.py --format md"
+        )
     return tuple(checks)
 
 
@@ -317,6 +308,12 @@ def _next_commands(action: str) -> tuple[str, ...]:
         return (
             "python3 dev/scripts/checks/probe_packet_carry_forward_debt.py --format md",
             "python3 dev/scripts/devctl.py develop next --format md",
+        )
+    if action == "design-preflight":
+        return (
+            "python3 dev/scripts/devctl.py develop design-preflight "
+            "--topic \"<state/proof topic>\" --record-ground-truth-receipt --format json",
+            "python3 dev/scripts/checks/check_ground_truth_probe_gate.py --format md",
         )
     if action == "launch":
         return (
@@ -339,6 +336,4 @@ def _next_step_command(
 
 _next_commands_with_attention = next_commands_with_attention
 _peer_mind_alias_warnings = peer_mind_alias_warnings
-
-
 __all__ = ["build_report"]

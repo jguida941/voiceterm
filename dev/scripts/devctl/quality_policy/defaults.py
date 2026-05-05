@@ -87,6 +87,17 @@ DEFAULT_AI_GUARD_SPECS = (
         supports_commit_range=False,
     ),
     QualityStepSpec(
+        "ground-truth-probe-gate",
+        "ground_truth_probe_gate",
+        languages=("python",),
+    ),
+    QualityStepSpec(
+        "memory-not-authority-guard",
+        "memory_not_authority",
+        languages=("python",),
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
         "provider-list-parity-graph-guard",
         "provider_list_parity_graph",
         languages=("python",),

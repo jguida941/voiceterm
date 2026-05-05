@@ -259,6 +259,38 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
         help="Optional metadata path echoed into the typed remote-control attachment.",
     ),
     _arg(
+        "--launcher-source",
+        default="",
+        help="Repo-owned source that created the remote-control attachment.",
+    ),
+    _arg(
+        "--host-pid",
+        type=int,
+        default=None,
+        help="Local host process pid for the remote-control lifecycle.",
+    ),
+    _arg(
+        "--host-session-label",
+        default="",
+        help="Local host session label for the remote-control lifecycle.",
+    ),
+    _arg(
+        "--heartbeat-ttl-seconds",
+        type=int,
+        default=900,
+        help="Seconds before a remote-control heartbeat expires.",
+    ),
+    _arg(
+        "--previous-operator-mode",
+        default="",
+        help="Operator mode observed before entering remote control.",
+    ),
+    _arg(
+        "--entrypoint",
+        default="",
+        help="Slash or launcher entrypoint that touched the attachment.",
+    ),
+    _arg(
         "--dry-run",
         action="store_true",
         help="Build the launch bundle without opening Terminal.app windows",

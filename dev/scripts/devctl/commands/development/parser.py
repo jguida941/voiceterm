@@ -20,6 +20,7 @@ DEVELOP_ACTIONS = (
     "resume",
     "audit-guards",
     "audit-packets",
+    "design-preflight",
     "ingest-intent",
     "ingest-plan",
     "launch",
@@ -74,6 +75,7 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
     _add_controller_options(cmd)
     _add_collaboration_options(cmd)
     _add_packet_options(cmd)
+    _add_design_preflight_options(cmd)
     _add_ingest_options(cmd)
     add_standard_output_arguments(
         cmd,
@@ -167,6 +169,21 @@ def _add_packet_options(cmd: argparse.ArgumentParser) -> None:
         "--packet-id",
         default="",
         help="Optional packet id for /develop show, lifecycle previews, or ingest intent.",
+    )
+
+
+def _add_design_preflight_options(cmd: argparse.ArgumentParser) -> None:
+    """Add ground-truth design-preflight options."""
+    cmd.add_argument(
+        "--topic",
+        default="",
+        help="State, proof channel, or contract topic for design-preflight.",
+    )
+    cmd.add_argument(
+        "--record-ground-truth-receipt",
+        action="store_true",
+        default=False,
+        help="Append a GroundTruthProbeRunReceipt for design-preflight evidence.",
     )
 
 
@@ -265,6 +282,10 @@ def _action_flags() -> tuple[tuple[str, str], ...]:
         ("resume", "Render a typed resume request without mutating state."),
         ("audit-guards", "Show guard/probe learning checks for this loop."),
         ("audit-packets", "Show packet carry-forward durable-ingestion debt."),
+        (
+            "design-preflight",
+            "Probe ground truth before adding architecture/proof surfaces.",
+        ),
         ("ingest-intent", "Ingest packet/chat/file intent into typed state."),
         ("ingest-plan", "Ingest a plan packet/file/body into typed plan authority."),
         ("launch", "Run one read-only controller cycle report."),

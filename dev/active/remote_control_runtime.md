@@ -1,6 +1,6 @@
 # Remote Control Runtime Closure Plan
 
-**Status**: active  |  **Last updated**: 2026-04-18 | **Owner:** Tooling/control plane/review runtime/dashboard
+**Status**: active  |  **Last updated**: 2026-05-04 | **Owner:** Tooling/control plane/review runtime/dashboard
 Execution plan contract: required
 This spec is mirrored in `dev/active/MASTER_PLAN.md` under `MP-380..MP-387`.
 It closes the remote-control/operator-surface gaps found in the 2026-04-04
@@ -21,6 +21,42 @@ contract exists.
 
 ## Execution Checklist
 
+- [x] MP377-P0-T22Y-J remote-control lifecycle command: route
+      `/project:typed-remote-control` and the legacy
+      `remote-bridge-loop.sh` wrapper through `devctl remote-control` so typed
+      `RemoteControlAttachmentState` is the single attach/heartbeat/detach
+      authority. Attachment heartbeat TTL now prevents stale remote state from
+      promoting `operator_interaction_mode=remote_control` forever.
+- [x] MP377-P0-T22Y-K Claude built-in remote-control hook bridge: install the
+      project `.claude/settings.json` async `UserPromptExpansion` hook for the
+      built-in `/remote-control` / `/rc` slash command plus a broad
+      `UserPromptSubmit` fallback that fast-exits on unrelated prompts. Both
+      events route through `devctl remote-control hook`, dedupe on the hook
+      session/transcript/remote URL proof, and promote remote mode only after
+      provider-owned proof exposes current physical remote-control identity.
+      The primary proof is the matching Claude session-state
+      `~/.claude/sessions/<pid>.json` `bridgeSessionId`; the transcript
+      `/remote-control is active` bridge-status URL remains fallback activation
+      evidence rather than the liveness clock.
+      The same settings surface adds a `SessionEnd` hook to detach typed state
+      on local Claude process exit; existing Claude sessions may need restart
+      before newly added project hook settings are active.
+- [ ] MP377-P0-T22Y-L Remote-control physical proof hardening and dogfood
+      gate: keep `proven_source_kind` as origin proof only, require
+      `physical_confirmation_method=claude_session_state_bridge` with a live
+      same-session `bridgeSessionId`, or `claude_hook_transcript` plus a
+      same-session Claude transcript URL for fallback activation proof,
+      downgrade direct
+      CLI `--physical-remote-control-confirmed` to
+      `physical_confirmation_method=operator_assertion`, and preserve hook
+      event/session/transcript/dedupe evidence in both attachment and receipt
+      state. Acceptance requires a fresh Claude restart, the operator typing
+      real built-in `/remote-control`, the operator opening/scanning the
+      provider session, `devctl` recording the real hook-backed proof, all
+      status/startup/review/dashboard/posture surfaces deriving
+      `operator_interaction_mode=remote_control`, and explicit exit or
+      `SessionEnd` returning to `local_terminal`. Synthetic hook/transcript
+      tests are regression evidence only; they do not close this dogfood gate.
 - [ ] MP-384 / MP-387 coordination-read-model convergence: carry
       `CoordinationSnapshot` through `ControlPlaneReadModel`, make
       `startup-context` summary/machine-summary and reviewer bootstrap read the

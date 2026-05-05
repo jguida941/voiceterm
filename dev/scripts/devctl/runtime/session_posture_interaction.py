@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-
-_REMOTE_ATTACHMENT_ACTIVE = frozenset({"attached", "unknown"})
+from .remote_control_attachment_status import (
+    remote_attachment_active as _remote_attachment_active,
+)
 
 
 def resolve_interaction_mode(
@@ -17,7 +17,9 @@ def resolve_interaction_mode(
     if remote_attachment_active(remote_control_attachment):
         return "remote_control"
     mode = _text(value)
-    if mode in {"remote_control", "local_terminal", "dual_agent", "single_agent"}:
+    if mode == "remote_control":
+        mode = ""
+    if mode in {"local_terminal", "dual_agent", "single_agent"}:
         return mode
     effective = _text(effective_reviewer_mode)
     if effective == "active_dual_agent":
@@ -29,12 +31,7 @@ def resolve_interaction_mode(
 
 def remote_attachment_active(value: object | None) -> bool:
     """Return whether a remote-control attachment proves live remote control."""
-    if value is None:
-        return False
-    status = _text(getattr(value, "status", ""))
-    if not status and isinstance(value, Mapping):
-        status = _text(value.get("status"))
-    return status in _REMOTE_ATTACHMENT_ACTIVE
+    return _remote_attachment_active(value)
 
 
 def _text(value: object) -> str:

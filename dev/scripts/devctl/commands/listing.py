@@ -28,6 +28,7 @@ COMMANDS = [
     "ship",
     "release-notes",
     "relaunch-loop",
+    "remote-control",
     "homebrew",
     "pypi",
     "status",

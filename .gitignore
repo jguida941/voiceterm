@@ -114,9 +114,11 @@ claudeaudit.md
 CLAUDE.md
 **/CLAUDE.md
 .claude/*
+!.claude/settings.json
 !.claude/commands/
 .claude/commands/*
 !.claude/commands/develop.md
+!.claude/commands/typed-remote-control.md
 docs/active/claude_review*.md
 docs/active/visual*.md
 dev/active/DEV_MODE_PLAN.md
@@ -136,6 +138,7 @@ Testing_Guide.md
 .voiceterm/memory/
 **/.voiceterm/memory/
 dev/state/relaunch_loop/
+dev/state/remote_control/
 
 # Local scanner scratch artifacts (external tools)
 /cvelist

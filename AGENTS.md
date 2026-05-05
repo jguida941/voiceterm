@@ -308,7 +308,7 @@ Release-governance note:
 | How do we run the current parallel Codex/Claude markdown swarm cycle? | `dev/active/review_channel.md` |
 | Where is the local-first continuous swarm execution contract (next-task promotion, peer liveness, context rotation)? | `dev/active/continuous_swarm.md` |
 | Where are `devctl` command semantics and examples? | `dev/scripts/README.md` |
-| Where is the repo-local phone-steered Claude remote-control bridge wrapper documented? | `dev/scripts/README.md` for wrapper usage/limits, plus `dev/active/continuous_swarm.md` for the live `MP-358` execution state |
+| Where is the repo-local phone/dashboard remote-control lifecycle documented? | `dev/scripts/README.md` for `devctl remote-control` and the compatibility `remote-bridge-loop.sh` wrapper, plus `dev/active/remote_control_runtime.md` for lifecycle authority |
 | Where is the plain-language `devctl` system architecture map, including portable naming/map direction? | `dev/guides/DEVCTL_ARCHITECTURE.md` |
 | Where is the devctl automation playbook? | `dev/guides/DEVCTL_AUTOGUIDE.md` |
 | Where is MCP-to-devctl architecture alignment and extension policy? | `dev/guides/MCP_DEVCTL_ALIGNMENT.md` |
@@ -1929,6 +1929,8 @@ python3 dev/scripts/checks/check_agents_contract.py
 python3 dev/scripts/checks/check_release_version_parity.py
 python3 dev/scripts/checks/check_repo_url_parity.py
 python3 dev/scripts/checks/check_guard_enforcement_inventory.py
+python3 dev/scripts/checks/check_ground_truth_probe_gate.py
+python3 dev/scripts/checks/check_memory_not_authority.py
 python3 dev/scripts/checks/check_architecture_surface_sync.py
 python3 dev/scripts/checks/check_review_snapshot_freshness.py
 python3 dev/scripts/checks/check_guide_contract_sync.py
@@ -2009,6 +2011,8 @@ python3 dev/scripts/checks/check_agents_contract.py
 python3 dev/scripts/checks/check_release_version_parity.py
 python3 dev/scripts/checks/check_repo_url_parity.py
 python3 dev/scripts/checks/check_guard_enforcement_inventory.py
+python3 dev/scripts/checks/check_ground_truth_probe_gate.py
+python3 dev/scripts/checks/check_memory_not_authority.py
 python3 dev/scripts/checks/check_architecture_surface_sync.py
 python3 dev/scripts/checks/check_review_snapshot_freshness.py
 python3 dev/scripts/checks/check_guide_contract_sync.py

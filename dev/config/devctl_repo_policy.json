@@ -557,6 +557,56 @@
           ]
         },
         {
+          "id": "remote_control_slash_adapters",
+          "surface_type": "assistant_template",
+          "renderer": "template_file",
+          "template_path": "dev/config/templates/remote_control_slash_adapters.template.md",
+          "output_path": "dev/templates/slash/remote-control/commands.md",
+          "tracked": true,
+          "local_only": false,
+          "description": "Provider-neutral typed remote-control adapter catalog.",
+          "required_contains": [
+            "Provider slash files are thin adapters over `devctl remote-control`.",
+            "/project:typed-remote-control",
+            "python3 dev/scripts/devctl.py remote-control enter --provider claude"
+          ]
+        },
+        {
+          "id": "claude_remote_control_hook_settings",
+          "surface_type": "assistant_template",
+          "renderer": "template_file",
+          "template_path": "dev/config/templates/claude_remote_control_hook_settings.template.json",
+          "output_path": ".claude/settings.json",
+          "tracked": true,
+          "local_only": false,
+          "description": "Project Claude hook that mirrors built-in /remote-control prompts into typed devctl lifecycle state.",
+          "required_contains": [
+            "\"UserPromptSubmit\"",
+            "\"SessionEnd\"",
+            "\"async\": true",
+            "remote-control hook --provider claude",
+            "remote-control exit --provider claude",
+            "claude_builtin_remote_control",
+            "claude_builtin_slash"
+          ]
+        },
+        {
+          "id": "claude_typed_remote_control_command",
+          "surface_type": "assistant_template",
+          "renderer": "template_file",
+          "template_path": "dev/config/templates/claude_typed_remote_control_command.template.md",
+          "output_path": ".claude/commands/typed-remote-control.md",
+          "tracked": true,
+          "local_only": false,
+          "description": "Canonical Claude /project:typed-remote-control adapter (avoids built-in /remote-control collision).",
+          "required_contains": [
+            "python3 dev/scripts/devctl.py remote-control enter --provider claude --entrypoint /project:typed-remote-control",
+            "This file is only an adapter.",
+            "RemoteControlAttachmentState",
+            "allowed-tools:"
+          ]
+        },
+        {
           "id": "portable_pre_commit_hook_stub",
           "surface_type": "starter_artifact",
           "renderer": "template_file",

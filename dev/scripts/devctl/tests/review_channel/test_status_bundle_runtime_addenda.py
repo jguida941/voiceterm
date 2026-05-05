@@ -550,7 +550,46 @@ def test_status_bundle_adds_queue_targeted_agent_loop_decision() -> None:
         "rev_pkt_new",
         "rev_pkt_old",
     }
-    assert set(claude_sync["route_attention_packet_ids"]) == {
-        "rev_pkt_new",
-        "rev_pkt_old",
+
+
+def test_status_bundle_skips_operator_system_notice_queue_wake_debt() -> None:
+    payload = {
+        "current_session": {"current_instruction_revision": "rev-current"},
+        "queue": {
+            "pending_total": 1,
+            "pending_operator": 1,
+        },
+        "reviewer_runtime": {
+            "agent_runtime_clock": {
+                "source_latest_event_id": "rev_evt_notice",
+                "snapshot_id": "agent-runtime-clock:rev_evt_notice",
+            }
+        },
+        "agent_sync": {
+            "agents": {
+                "operator": {
+                    "pending_packets_to_me": ["rev_pkt_notice"],
+                }
+            }
+        },
+        "agent_work_board": {"rows": []},
+        "packets": [
+            {
+                "packet_id": "rev_pkt_notice",
+                "to_agent": "operator",
+                "kind": "system_notice",
+                "status": "pending",
+                "lifecycle_current_state": "pending",
+                "latest_event_id": "rev_evt_notice",
+                "requested_action": "review_only",
+                "policy_hint": "review_only",
+                "approval_required": False,
+                "target_role": "operator",
+                "target_session_id": "operator-session",
+            },
+        ],
     }
+
+    projected = _attach_agent_loop_decisions(payload)
+
+    assert projected["agent_loop_decisions"] == []

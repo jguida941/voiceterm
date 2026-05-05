@@ -226,6 +226,10 @@ def derive_operator_interaction_mode(
     )
     from .conductor_capability import normalize_reviewer_mode
 
+    attachment = remote_control_attachment_from_mapping(
+        _nested_get(review_state_payload, "reviewer_runtime", "remote_control_attachment")
+    )
+    attachment_active = has_active_remote_control_attachment(attachment)
     candidates = (
         _governance_interaction_mode(governance),
         coerce_string(_nested_get(review_state_payload, "collaboration", "operator_interaction_mode")),
@@ -235,15 +239,14 @@ def derive_operator_interaction_mode(
     saw_local_terminal = False
     for candidate in candidates:
         resolved = resolve_operator_interaction_mode(candidate)
+        if resolved.value == "remote_control" and not attachment_active:
+            continue
         if is_resolved(resolved.value) and resolved.value != "local_terminal":
             return resolved.value
         if resolved.value == "local_terminal":
             saw_local_terminal = True
 
-    attachment = remote_control_attachment_from_mapping(
-        _nested_get(review_state_payload, "reviewer_runtime", "remote_control_attachment")
-    )
-    if has_active_remote_control_attachment(attachment):
+    if attachment_active:
         return "remote_control"
 
     if saw_local_terminal:

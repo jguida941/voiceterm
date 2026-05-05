@@ -6,6 +6,7 @@ import secrets
 from collections.abc import Mapping
 from pathlib import Path
 
+from ...runtime.typed_string_field import read_string_field as _field
 from ...review_channel.context_refs import normalize_context_pack_refs
 from ...review_channel.event_store import (
     DEFAULT_REVIEW_CHANNEL_PLAN_ID,
@@ -316,9 +317,3 @@ def _grant_actor(grant: object) -> str:
     return _field(grant, "caller_agent") or _field(grant, "target_agent")
 
 
-def _field(value: object, name: str) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, Mapping):
-        return str(value.get(name) or "").strip()
-    return str(getattr(value, name, "") or "").strip()

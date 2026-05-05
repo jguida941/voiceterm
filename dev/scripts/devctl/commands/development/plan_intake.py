@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -44,6 +45,9 @@ def run_ingest_plan(args: Any) -> int:
         "ok": receipt.status in {"accepted", "duplicate", "obsolete", "preview"},
         "receipt": receipt.to_dict(),
     }
+    remediation = _remediation_for_receipt(args, receipt)
+    if remediation:
+        payload["remediation"] = remediation
     output = json.dumps(payload, indent=2, sort_keys=True)
     if getattr(args, "format", "json") != "json":
         output = _render_markdown(payload)
@@ -210,7 +214,62 @@ def _render_markdown(payload: Mapping[str, object]) -> str:
         f"- receipt_path: `{data.get('receipt_path') or ''}`",
         f"- row_ids: {', '.join(f'`{row}`' for row in rows) if rows else '(none)'}",
     ]
+    remediation = payload.get("remediation")
+    if isinstance(remediation, Mapping) and remediation:
+        lines.extend(
+            [
+                "",
+                "## Remediation",
+                "",
+                f"- reason: {remediation.get('reason') or ''}",
+                f"- required_authority: {remediation.get('required_authority') or ''}",
+                f"- corrected_command_shape: `{remediation.get('corrected_command_shape') or ''}`",
+            ]
+        )
     return "\n".join(lines) + "\n"
+
+
+def _remediation_for_receipt(
+    args: Any,
+    receipt: PlanIntentIngestionReceipt,
+) -> Mapping[str, str]:
+    if receipt.reason != "missing_plan_row_or_checklist_authority":
+        return {}
+    return {
+        "reason": (
+            "Prose plan sources are evidence, not execution authority, until "
+            "they carry an explicit PlanRow id or markdown checklist row."
+        ),
+        "required_authority": (
+            "Add --plan-row-id <PlanRow id>, or provide a source/body-file "
+            "containing a checklist row shaped like '- [ ] `MP377-...` Title'."
+        ),
+        "corrected_command_shape": _corrected_command_shape(args),
+    }
+
+
+def _corrected_command_shape(args: Any) -> str:
+    command = [
+        "python3",
+        "dev/scripts/devctl.py",
+        "develop",
+        "ingest-plan",
+    ]
+    actor = text(getattr(args, "actor", ""))
+    if actor:
+        command.extend(("--actor", actor))
+    command.extend(("--plan-row-id", "<PLAN_ROW_ID>"))
+    source_kind = text(getattr(args, "source_kind", ""))
+    if source_kind:
+        command.extend(("--source-kind", source_kind))
+    source_ref = text(getattr(args, "source_ref", ""))
+    if source_ref:
+        command.extend(("--source-ref", source_ref))
+    target_ref = text(getattr(args, "target_ref", ""))
+    if target_ref:
+        command.extend(("--target-ref", target_ref))
+    command.extend(("--body", "<plan prose>"))
+    return " ".join(shlex.quote(part) for part in command)
 
 
 __all__ = ["ingest_plan_intent", "run_ingest_plan"]

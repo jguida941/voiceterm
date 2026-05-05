@@ -148,6 +148,34 @@ def test_existing_plan_row_owner_removes_durable_owner_gap() -> None:
     assert decision["decision"] == "pivot_to_packet_review"
 
 
+def test_pending_action_request_pivots_even_with_durable_owner() -> None:
+    packet = _packet(
+        "rev_pkt_60",
+        kind="action_request",
+        target_kind="plan",
+        target_ref="plan:MP-377",
+    )
+    row = PlanRow(
+        row_id="PKT-BIND-REV-PKT-60",
+        title="Packet action request",
+        status="queued",
+        sdlc_stage="impl",
+        sourced_from_packets=("rev_pkt_60",),
+    )
+
+    pressure, classifications, decision = packet_pressure_report(
+        {"packets": [packet]},
+        rows=(row,),
+        actor="claude",
+    )
+
+    assert pressure["pressure_state"] == "below_budget"
+    assert classifications[0]["durable_owner"] == "PKT-BIND-REV-PKT-60"
+    assert decision["decision"] == "pivot_to_packet_review"
+    assert decision["reason_code"] == "pending_packet_requires_review"
+    assert "review-channel --action show" in decision["next_command"]
+
+
 def _packet(
     packet_id: str,
     *,

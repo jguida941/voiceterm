@@ -288,6 +288,15 @@ def test_build_collaboration_session_promotes_active_remote_control_attachment(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
+    # Per rev_pkt_2986 finding #4 + rev_pkt_2996 finding #1: an attachment
+    # with status="attached" but heartbeat older than the TTL is correctly
+    # classified as expired/stale by ``remote_attachment_active``. The
+    # fixture must therefore carry a live ``last_seen_utc`` to represent
+    # a genuinely active remote-control session.
+    from datetime import datetime, timezone
+
+    live_now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
     session_records = (
         _session_record("codex", "reviewer", live=False),
         _session_record("claude", "implementer", live=False),
@@ -309,8 +318,8 @@ def test_build_collaboration_session_promotes_active_remote_control_attachment(
                 remote_session_id="session_abc123",
                 session_url="https://claude.ai/code/session_abc123",
                 status="attached",
-                attached_at_utc="2026-04-11T00:00:00Z",
-                last_seen_utc="2026-04-11T00:00:01Z",
+                attached_at_utc=live_now_utc,
+                last_seen_utc=live_now_utc,
                 metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
             ),
         ),
@@ -364,6 +373,13 @@ def test_build_collaboration_session_collapses_single_agent_remote_dashboard_to_
         "load_conductor_sessions",
         lambda *, session_output_root: session_records,
     )
+    # Per rev_pkt_2986 finding #4 + rev_pkt_2996 finding #1: live
+    # heartbeat timestamps are required for the attachment to read as
+    # genuinely active under TTL semantics.
+    from datetime import datetime, timezone
+
+    live_now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
     monkeypatch.setattr(
         collaboration_mod,
         "load_remote_control_attachments",
@@ -376,8 +392,8 @@ def test_build_collaboration_session_collapses_single_agent_remote_dashboard_to_
                 remote_session_id="session_dash",
                 session_url="https://claude.ai/code/session_dash",
                 status="attached",
-                attached_at_utc="2026-04-11T00:00:00Z",
-                last_seen_utc="2026-04-11T00:00:01Z",
+                attached_at_utc=live_now_utc,
+                last_seen_utc=live_now_utc,
                 metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
             ),
         ),
@@ -534,6 +550,14 @@ def test_build_collaboration_session_promotes_fresh_local_single_agent_reviewer(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
+    # Per rev_pkt_3000 + rev_pkt_3003 #1: ``unknown`` no longer counts
+    # active and ``remote_attachment_active`` is TTL-aware. The fixture
+    # must carry a live ``last_seen_utc`` so the attachment is genuinely
+    # active.
+    from datetime import datetime, timezone
+
+    live_now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
     session_records = (
         _session_record("codex", "reviewer", live=False),
         _session_record("claude", "implementer", live=False),
@@ -555,8 +579,8 @@ def test_build_collaboration_session_promotes_fresh_local_single_agent_reviewer(
                 remote_session_id="session_abc123",
                 session_url="https://claude.ai/code/session_abc123",
                 status="attached",
-                attached_at_utc="2026-04-11T00:00:00Z",
-                last_seen_utc="2026-04-11T00:00:01Z",
+                attached_at_utc=live_now_utc,
+                last_seen_utc=live_now_utc,
                 metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
             ),
         ),
@@ -598,6 +622,16 @@ def test_build_collaboration_session_promotes_recent_local_reviewer_packet_activ
     monkeypatch,
     tmp_path: Path,
 ) -> None:
+    # Per rev_pkt_3000 + rev_pkt_3003 #1: TTL-aware active check needs
+    # live ``last_seen_utc`` for the attachment to register as active.
+    # The collaboration_mod._utcnow monkeypatch only affects the module's
+    # own freshness arithmetic; the runtime ``remote_attachment_active``
+    # helper uses wall-clock now, so the fixture must carry real-current
+    # timestamps independent of the test's logical "now".
+    from datetime import datetime as _dt, timezone as _tz
+
+    live_now_utc = _dt.now(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
     session_records = (
         _session_record("codex", "reviewer", live=False),
         _session_record("claude", "implementer", live=False),
@@ -634,8 +668,8 @@ def test_build_collaboration_session_promotes_recent_local_reviewer_packet_activ
                 remote_session_id="session_abc123",
                 session_url="https://claude.ai/code/session_abc123",
                 status="attached",
-                attached_at_utc="2026-04-11T00:00:00Z",
-                last_seen_utc="2026-04-11T00:00:01Z",
+                attached_at_utc=live_now_utc,
+                last_seen_utc=live_now_utc,
                 metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
             ),
         ),
@@ -682,6 +716,15 @@ def test_build_collaboration_session_promotes_recent_local_reviewer_rollout_acti
     monkeypatch,
     tmp_path: Path,
 ) -> None:
+    # Per rev_pkt_3000 + rev_pkt_3003 #1: TTL-aware active check needs
+    # live ``last_seen_utc`` for the attachment. The ``_utcnow``
+    # monkeypatch only affects collaboration_mod's freshness math; the
+    # runtime active helper uses wall-clock now, so the fixture must
+    # carry real-current timestamps.
+    from datetime import datetime as _dt, timezone as _tz
+
+    live_now_utc = _dt.now(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
     session_records = (
         _session_record("codex", "reviewer", live=False),
         _session_record("claude", "implementer", live=False),
@@ -722,8 +765,8 @@ def test_build_collaboration_session_promotes_recent_local_reviewer_rollout_acti
                 remote_session_id="session_abc123",
                 session_url="https://claude.ai/code/session_abc123",
                 status="attached",
-                attached_at_utc="2026-04-11T00:00:00Z",
-                last_seen_utc="2026-04-11T00:00:01Z",
+                attached_at_utc=live_now_utc,
+                last_seen_utc=live_now_utc,
                 metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
             ),
         ),
@@ -916,6 +959,12 @@ def test_build_collaboration_session_demotes_stale_implementer_assignment_when_a
     monkeypatch,
     tmp_path: Path,
 ) -> None:
+    # Per rev_pkt_3000 + rev_pkt_3003 #1: TTL-aware active check needs
+    # live ``last_seen_utc``.
+    from datetime import datetime as _dt, timezone as _tz
+
+    live_now_utc = _dt.now(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
     session_records = (
         _session_record("codex", "reviewer"),
         _session_record("claude", "implementer"),
@@ -937,8 +986,8 @@ def test_build_collaboration_session_demotes_stale_implementer_assignment_when_a
                 remote_session_id="session_dash",
                 session_url="https://claude.ai/code/session_dash",
                 status="attached",
-                attached_at_utc="2026-04-18T00:00:00Z",
-                last_seen_utc="2026-04-18T00:00:01Z",
+                attached_at_utc=live_now_utc,
+                last_seen_utc=live_now_utc,
                 metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
             ),
         ),

@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-04T18:21:25Z`
-- Last Codex poll (Local America/New_York): `2026-05-04 14:21:25 EDT`
+- Last Codex poll: `2026-05-05T03:52:36Z`
+- Last Codex poll (Local America/New_York): `2026-05-04 23:52:36 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `4837bb614562c875b93b5e126ab83e2ab792d632f329faf13e9fcd87f3647dbf`
-- Current instruction revision: `7ebeb245f749`
+- Last non-audit worktree hash: `4df1e8e27cacf14956159d9a140000b2e5e257340f17dbc2995bf3a2380888c2`
+- Current instruction revision: `cf7708796e5c`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-none
+5 pending review packet(s)
 
 ## Claude Status
 
@@ -134,11 +134,11 @@ none
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-Codex: read rev_pkt_2922 + rev_pkt_2923. You have writer authority. Implement T22AN-L launch roster fix + Finding Y current_session projection fix. Do not redo architectural review.
+Priority action_request: Execute governed commit pipeline `pipeline-4010446f1057`
 
 ## Last Reviewed Scope
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- No pending action requests.
+- [rev_pkt_3054] commit: target=runtime:remote_commit_pipeline:pipeline-4010446f1057@gen-25ae615a1562; Execute governed commit pipeline `pipeline-4010446f1057` (status: pending)

@@ -21,3 +21,6 @@ Template assets:
 
 - `codex/voice.md`: markdown command template for a native Codex `/voice` flow.
 - `claude/SKILL.md`: skill template for Claude-side voice capture workflow.
+- `develop/roles.md`: generated provider-neutral `/develop` role adapter catalog.
+- `remote-control/commands.md`: generated provider-neutral
+  `/project:typed-remote-control` recovery adapter catalog.

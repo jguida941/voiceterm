@@ -84,19 +84,33 @@ Use docs like this:
   or startup authority once, pass the same value into session preparation and
   the pre-spawn gate, and keep prepared script replay bound to current HEAD,
   instruction revision, and the typed `review_state.json` turn/session token.
-- `dev/scripts/remote-bridge-loop.sh` is only a repo-local wrapper over that
-  same review-channel runtime. It syncs the tracked `/project:bridge-loop`
-  prompt, checks `claude auth status`, prints typed review-channel health, and
-  can relaunch the sanctioned pair, but it does not create a separate Codex
-  backend or a private "recover codex" path. The wrapper now also surfaces the
-  top-level typed `recommended_command`, typed runtime
-  `doctor.decision_command`, and managed git-hook health; only executable
-  repo-owned shell commands should be auto-run from those fields, while typed
-  decision ids remain state labels. Remote commit/push authority also does not
-  live in that wrapper; it routes through the Phase-0 design in
-  `dev/active/remote_commit_pipeline.md`, while remote-control operator mode,
-  action transport, dashboard convergence, and auto-poll behavior now route
-  through `dev/active/remote_control_runtime.md`.
+- `devctl remote-control` owns the repo-local remote operator lifecycle:
+  `start`, `enter`, `heartbeat`, `exit`, `hook`, `status`, `doctor`, and
+  `dry-run` read or write `RemoteControlAttachmentState` under the governed
+  review status root. The primary Claude path is the project
+  `.claude/settings.json` async `UserPromptExpansion` hook for built-in
+  `/remote-control` / `/rc`, with `UserPromptSubmit` as a fast-exit fallback;
+  it records active typed state only after provider-owned proof exposes a
+  current bridge identity. The primary proof is Claude's live
+  `~/.claude/sessions/<pid>.json` `bridgeSessionId` for the matching
+  `sessionId`/repo cwd, classified as
+  `physical_confirmation_method=claude_session_state_bridge`; transcript
+  `bridge_status` URL evidence remains fallback activation proof classified as
+  `claude_hook_transcript`. Direct CLI
+  `--physical-remote-control-confirmed` is lower-confidence
+  `operator_assertion`, not physical proof. The companion `SessionEnd` hook
+  detaches typed state when the local Claude process exits; restart existing
+  Claude sessions after first adding or changing these project hook settings.
+  `/project:typed-remote-control` is the only generated project slash adapter
+  for manual typed-state recovery; project `/remote-control` and `/bridge-loop`
+  aliases are intentionally retired so Claude's provider-owned commands win
+  dispatch. `dev/scripts/remote-bridge-loop.sh` is compatibility wrapper glue
+  only; it forwards to `devctl remote-control start --launcher-source
+  remote-bridge-loop --entrypoint legacy_remote_bridge_loop`. Remote commit/push
+  authority does not live in the wrapper or slash files; it routes through the
+  Phase-0 design in `dev/active/remote_commit_pipeline.md`, while
+  remote-control operator mode, action transport, dashboard convergence, and
+  auto-poll behavior route through `dev/active/remote_control_runtime.md`.
 - Packet actor/target CLI fields are intentionally parser-loose now: repo-owned
   validation resolves legal ids from typed collaboration/runtime state or
   repo-owned session metadata instead of a fixed provider-choice list.
@@ -421,6 +435,20 @@ Three quality layers matter in practice:
 - `probe_split_advisor.py` turns those mixed-concern clusters into bounded
   split recommendations by combining local import coupling with latest
   context-graph hotspot evidence.
+- `devctl develop design-preflight --topic "<state/proof topic>"
+  --record-ground-truth-receipt` is the ground-truth-first architecture
+  pipeline for runtime/proof-channel work. It reduces current review/runtime
+  state into `RuntimeTruthSnapshot`, checks agent-mind, provider-owned state
+  such as Claude `~/.claude/sessions/<pid>.json` `bridgeSessionId`,
+  connectivity, command registry, startup quality signals, and existing
+  contracts, then records a `GroundTruthProbeRunReceipt` before design work
+  adds or extends authority surfaces. `check_ground_truth_probe_gate.py` blocks
+  relevant runtime/proof/architecture edits when that receipt is missing or
+  stale.
+- `check_memory_not_authority.py` enforces the same architecture rule from the
+  other side: local operator memory can carry continuity notes, but durable
+  process, governance, and proof-channel rules must live in repo contracts,
+  policy, docs, or guards.
 - `check_code_shape.py` now ratchets path-override debt too: untouched legacy
   over-cap overrides still show up as warnings, but touched files, newly added
   over-cap overrides, worsened over-cap policies, and touched Python files
@@ -1369,6 +1397,8 @@ fallback bug into its fix).
    - `python3 dev/scripts/checks/check_python_subprocess_policy.py`
    - `python3 dev/scripts/checks/check_command_source_validation.py`
    - `python3 dev/scripts/checks/check_registry_path_integrity.py`
+   - `python3 dev/scripts/checks/check_ground_truth_probe_gate.py`
+   - `python3 dev/scripts/checks/check_memory_not_authority.py`
    - `python3 dev/scripts/checks/check_runtime_spine_closure.py`
    - `python3 dev/scripts/checks/check_provider_list_parity_graph.py`
    - `python3 dev/scripts/checks/check_workflow_shell_hygiene.py`
@@ -1395,6 +1425,8 @@ fallback bug into its fix).
 4. If you changed shared platform/runtime contract surfaces (`dev/scripts/devctl/platform/**`,
    shared runtime contract models, durable probe/report schema constants, or
    startup-surface contract routing), also run:
+   - `python3 dev/scripts/devctl.py develop design-preflight --topic "<state/proof topic>" --record-ground-truth-receipt --format md`
+   - `python3 dev/scripts/checks/check_ground_truth_probe_gate.py --format md`
    - `python3 dev/scripts/checks/check_platform_contract_closure.py`
    - `python3 dev/scripts/checks/check_contract_connectivity.py`
    - `python3 dev/scripts/checks/check_governance_closure.py`
@@ -1963,6 +1995,14 @@ python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1 --format m
 # only non-blocking when packet attention is empty and a typed
 # PacketBacklogPressure report proves all watched pressure counts are zero.
 # Missing packet-pressure evidence fails closed to the watcher report command.
+
+# MP377-P0-T22AN-AM follow-up: reviewer/architect/operator/system packets for
+# the current slice must become continuous typed peer attention. High-relevance
+# urgent feedback should be visible as ambient context; only true blocker
+# packets should force consume_packet before the next mutation. Until the
+# dedicated AttentionWindow gate lands, active implementers should poll the
+# relevant inbox before broad edit runs when review-channel reports pending
+# urgent or blocking packets.
 
 # Exact packet read for /develop packet-attention and beta-test findings.
 python3 dev/scripts/devctl.py review-channel --action show --packet-id rev_pkt_2725 --terminal none --format md

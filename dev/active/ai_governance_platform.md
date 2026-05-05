@@ -4643,11 +4643,26 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
 - [ ] `MP377-P0-T22Y-J` Wire `/remote-control` slash-command setup to typed attach runtime identity.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`
-      status: `queued`
+      status: `in_progress`
       depends_on: `MP377-P0-T22B`
       disposition_sources: `rev_pkt_2222`
-      scope: Make slash-command remote-control setup call the typed `attach-remote-control` path with current session identity rather than writing no durable runtime state.
-      acceptance_criteria: `/remote-control` produces typed attach evidence visible to review-channel status/doctor and MCP hook verification; failures name the missing runtime identity field.
+      scope: Make slash-command remote-control setup call the typed remote-control lifecycle path with current session identity rather than writing no durable runtime state or carrying policy in provider slash files.
+      acceptance_criteria: Claude built-in `/remote-control` / `/rc` and manual `/project:typed-remote-control` recovery produce typed attach evidence visible to review-channel status/doctor and startup/session posture; Claude session-state `bridgeSessionId` is consumed as the live on/off proof while transcript `bridge_status` remains fallback activation evidence; retired project `/remote-control` and `/bridge-loop` aliases are not generated; stale attachment TTL prevents remote mode promotion; failures name the missing runtime identity field and corrected lifecycle command.
+      progress_log: 2026-05-04 `/develop ingest-plan --actor claude --plan-row-id MP377-P0-T22Y-J` accepted the unified remote-control lifecycle plan into `dev/state/plan_index.jsonl` and wrote `PlanIntentIngestionReceipt` `plan-ingest-610c2d0bf9fb4a3b`.
+- [ ] `MP377-P0-T22Y-K` Observe Claude built-in remote-control activation through project hooks.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `in_progress`
+      depends_on: `MP377-P0-T22Y-J`
+      scope: Use `.claude/settings.json` hooks to observe the operator's real built-in `/remote-control` / `/rc` action instead of pretending a project slash command can invoke it. Prefer `UserPromptExpansion` when Claude emits it for built-in slash commands, keep `UserPromptSubmit` as a fast-exit fallback, and record hook event/session/transcript/dedupe fields on typed attachment and receipt state.
+      acceptance_criteria: Non-remote prompts return without transcript polling; `UserPromptExpansion` and `UserPromptSubmit` are both accepted for the real command; duplicate hook events for one activation produce a no-op instead of a second active write; `SessionEnd` marks the attachment detached; hook settings are generated from repo templates rather than hand-maintained provider policy.
+- [ ] `MP377-P0-T22Y-L` Harden remote-control physical proof and run physical dogfood.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `in_progress`
+      depends_on: `MP377-P0-T22Y-K`
+      scope: Split remote-control origin proof from physical activation proof. `proven_source_kind=claude_builtin_slash` only proves the operator slash origin. Activation prefers `physical_confirmation_method=claude_session_state_bridge`, a fresh same-session Claude session-state `bridgeSessionId`, and a real `https://claude.ai/code/session_...` URL; transcript `bridge_status` remains fallback activation evidence with `physical_confirmation_method=claude_hook_transcript`. Direct CLI `--physical-remote-control-confirmed` may only record `operator_assertion` and must not satisfy the physical dogfood gate.
+      acceptance_criteria: Direct CLI with the physical flag records lower-confidence `operator_assertion` and leaves `physical_remote_control_confirmed=false`; hook proof without URL or with a different transcript session fails closed; hook proof with same-session fresh URL promotes `operator_interaction_mode=remote_control`; duplicate hook events do not double-write active state; final acceptance requires restarting Claude so hooks load, typing real built-in `/remote-control`, opening/scanning the remote session, observing a real hook-backed transcript URL receipt, and proving exit/SessionEnd returns to `local_terminal`.
 - [ ] `MP377-P0-T22Z-A` Establish Rust closed-domain enum discipline with explicit open-domain skips.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`
@@ -5652,6 +5667,30 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       scope: Turn the relaunch-loop dogfood findings into a guard-quality calibration slice: code-shape, parameter-count, dict-schema, and facade-wrapper checks should push agents toward typed contracts, route tables, validating parsers, and model/builder/store separation, not toward mutable-global registry rewrites or no-op temporary variables that only satisfy an AST pattern. The first calibration corpus is the relaunch-loop split, including `COMMAND_HANDLERS`, `SliceClosureInput` / `RelaunchTriggerInput`, and `from_mapping` constructors that perform coercion/normalization.
       acceptance_criteria: Guard fixtures distinguish intentional typed command registries from untyped large dict literals; facade-wrapper detection exempts constructors/parsers only when they prove coercion, validation, normalization, or fail-closed rejection rather than pure pass-through; parameter-count remediation is accepted only when a named input contract replaces raw long argument lists without becoming an unvalidated catch-all bag; check-router / docs output explains the design property being enforced; regression tests include both the good relaunch-loop split and shallow appeasement counterexamples.
       progress: 2026-05-04 operator review of the relaunch-loop guard failure found that the module split and typed input contracts were genuine architectural improvements, while the temporary `COMMAND_HANDLERS` assignment style and `target = cls(...); return target` facade workaround were shallow guard appeasement. This row keeps that learning in durable plan authority and routes it to Claude/Codex implementation through typed review-channel packets instead of memory-only advice.
+- [ ] `MP377-P0-T22AN-AM` Add continuous peer attention windows with blocker-only mutation interruption.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AN-AF`, `MP377-P0-T22AN-AI`, `MP377-P0-T22AN-X`
+      disposition_sources: `rev_pkt_3042`, `rev_pkt_3043`, `rev_pkt_3044`
+      scope: Add a typed `PacketUrgency`, `PacketAttentionPolicy`, per-actor `AttentionWindow`, `PeerPacketRow`, and in-flight attention signal model so reviewer, architect, operator, and system packets become continuous ambient context for active implementers instead of requiring a human paste or a reactive stop. Packet posts recompute relevance for known peer actors using active plan row, dirty paths, role/session, packet kind/severity, target fields, and current slice; high-relevance urgent packets enter the peer attention window as ambient context for the next turn, while only truly blocking urgency or mutation-revoking packets enter `blocking_consume_required` and feed `AgentStopGate` / `AuthorityContinuationDecision` before the next mutation.
+      acceptance_criteria: A new P0/P1 finding packet for the active plan row appears in the target actor's `AttentionWindow.peer_recent_packets` with relevance score, consume status, and exact `review-channel show` command; in-flight packet/finding composition can publish a predicted inbound signal so peers know review feedback is likely soon without stopping; a blocking packet sets `may_mutate=false` and `required_action=consume_packet`; non-blocking urgent reviewer feedback is visible in agent-loop, `/develop`, dashboard, and review-channel status without stopping normal in-scope edits; packet attention remains typed state only and does not launch or replace provider sessions.
+- [ ] `MP377-P0-T22AN-AN` Add typed architecture and blocker packet targets.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AN-AM`, `MP377-P0-T22AN-AF`
+      disposition_sources: `rev_pkt_3042`
+      scope: Extend packet target vocabulary so architecture direction, runtime blockers, implementation handoffs, checkpoint blockers, and dogfood acceptance gates can be expressed structurally instead of hidden in packet prose or rejected by a too-narrow `target_kind` enum. Preserve those fields through packet lifecycle, inbox, attention, plan ingestion, and relevance classification.
+      acceptance_criteria: Architecture finding packets can carry `target_ref=packet-attention-during-active-coding` without schema rejection; instruction/finding packets can carry bounded target fields for runtime blockers, implementation handoff, and dogfood acceptance gates; role/intent mismatch is visible when implementation work is routed through a reviewer-only target; relevance classifiers can use the structured target instead of parsing packet prose.
+- [ ] `MP377-P0-T22AN-AO` Route architecture/proof-channel design through ground-truth preflight.
+      phase_id: `MP377-P0`
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T22AN-C`, `MP377-P0-T22AN-M`, `MP377-P0-T22AN-AN`
+      disposition_sources: `rev_pkt_3012`, `rev_pkt_3024`, `rev_pkt_3047`
+      scope: Add a connected design preflight so architecture, runtime-state, and proof-channel work starts from upstream/repo truth instead of designing sidecar contracts first. The pipeline runs `/develop design-preflight`, reduces current review/runtime state into `RuntimeTruthSnapshot`, probes agent-mind, provider-owned session state such as Claude `~/.claude/sessions/<pid>.json` `bridgeSessionId`, connectivity, command registry, startup quality signals, and existing contracts, then records `GroundTruthProbeRunReceipt` before implementation proceeds.
+      acceptance_criteria: Runtime/proof/architecture edits that touch trigger paths fail `check_ground_truth_probe_gate.py` unless a current satisfied `GroundTruthProbeRunReceipt` covers the changed paths digest and required probes; `/develop design-preflight --topic "<state/proof topic>"` reports whether to reuse an existing surface, extend an existing contract, block for missing topic, or justify a new contract; `RuntimeTruthSnapshot` is registered as a reducer over ReviewState/runtime evidence rather than a parallel authority store; new proof-channel design must name upstream state sources or existing contracts before adding typed surfaces; maintainer docs and command registries advertise the pipeline as the architecture-safe entrypoint.
 
 2026-05-02 `rev_pkt_2816` packet-stack durable-home map:
 
@@ -5680,6 +5719,7 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
 | `rev_pkt_2929` stage handoff push dogfood | `MP377-P0-T22AN-AE` | end-to-end handoff-to-publication controller |
 | `rev_pkt_2914` / `rev_pkt_2919` / operator 2026-05-04 conductor-spawn dogfood | `MP377-P0-T22AN-AF` | packet attention is typed state only; no conductor launch from delivery |
 | `rev_pkt_2936` Class F cold-session bootstrap bypass | `MP377-P0-T22AN-AG` | enforce startup-context + session-resume + context-graph bootstrap receipts |
+| `rev_pkt_3042` / `rev_pkt_3043` / `rev_pkt_3044` packet-attention miss during remote-control hook work | `MP377-P0-T22AN-AM`, `MP377-P0-T22AN-AN` | continuous peer attention windows carry urgent context; only blocker packets interrupt mutation; architecture/blocker targets stay typed |
 - [ ] `MP377-P0-T22AB-A` Add typed `BypassReceipt` schema and write path.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`
