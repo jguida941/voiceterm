@@ -86,6 +86,29 @@ Evidence:
 - `dev/active/ai_governance_platform.md`
 - `rev_pkt_3081`
 
+### 2026-05-06 - Role-matrix dogfood disposition is packet-bound
+
+Change: recorded the operator-confirmed role-matrix rule through typed
+review-channel packets instead of chat prose. Codex uses tracked `AGENTS.md`;
+Claude uses ignored local `CLAUDE.md`; both are projection-only over typed
+startup authority; `CODEX.md` must not be generated or consumed as a repo
+surface.
+
+The follow-up dogfood evidence stays fail-closed. `rev_pkt_3085` carries the
+coordination instruction, `rev_pkt_3086` records Claude Pass-B evidence for the
+implementer lane, and `rev_pkt_3087` records Codex's bounded disposition for
+`rev_pkt_3084`: accept the boot-card correction and positive fail-closed
+evidence, then split the broader architectural observations into separate
+future work instead of expanding the active slice.
+
+Evidence:
+
+- `rev_pkt_3085`
+- `rev_pkt_3086`
+- `rev_pkt_3087`
+- `PKT-BIND-REV-PKT-3086`
+- `PKT-BIND-REV-PKT-3087`
+
 ### 2026-05-06 - Governed exception semantic links stay typed and projection-safe
 
 Fact: the governed-exception receipt lineage and the user's ZGraph framing fit
