@@ -2045,10 +2045,11 @@ python3 dev/scripts/devctl.py develop audit-packets --max-packets 10 --format md
 python3 dev/scripts/devctl.py develop audit-packets --drain-packets --max-packets 10 --format md
 python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1 --format md
 
-# `/develop campaign` is read-only remote-control dogfood state. It projects
-# Codex/Claude role lanes, remote-control attachment proof, packet blockers,
-# mode drift, and mutation/publication gates from typed state; it does not wake
-# agents, write packets, or grant mutation authority.
+# `/develop campaign` is read-only remote-control dogfood state. It folds the
+# remote-control pair plan, governed-exception lifecycle plan, bypass-retirement
+# push proof, Pass-C role-matrix dogfood, packet blockers, mode drift, and
+# mutation/publication gates into one typed read model. It does not wake agents,
+# write packets, approve commits, execute exceptions, or grant mutation authority.
 
 # `/develop next` continuation is packet-pressure aware: a stopped watcher is
 # only non-blocking when packet attention is empty and a typed

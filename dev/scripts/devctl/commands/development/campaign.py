@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 
 from ...runtime.remote_control_attachment_models import (
     remote_control_attachment_from_mapping,
@@ -18,18 +19,34 @@ from .models import (
     DevelopmentCampaignRoleState,
     DevelopmentPacketAttention,
 )
+from .campaign_exception_proof import (
+    bypass_posture,
+    governed_exception_projection,
+    publication_proof_summary,
+    push_proof_projection,
+)
 
 CAMPAIGN_CONTRACT_ID = "RemoteControlCollaborationCampaign"
 CAMPAIGN_SCHEMA_VERSION = 1
 CAMPAIGN_PLAN_ROW_ID = "MP377-P0-RC-PAIR-S1"
+EXCEPTION_PLAN_ROW_ID = "MP377-P0-EXC-S1"
+ROLE_MATRIX_PLAN_ROW_ID = "MP377-P0-ROLE-MATRIX-DOGFOOD-S1"
 PRIMARY_MODE_ID = "dashboard_led"
 PROOF_REQUIREMENTS = (
     "RemoteControlAttachmentState attached and identity-bound",
     "CollaborationSession / SessionPosture agree on remote-control posture",
     "current Claude dashboard/reviewer packet debt triaged through typed state",
+    "GovernedExceptionLifecycle has no open publication exception debt",
+    "bypass publication transport retired only after devctl push --execute proof",
+    "Pass-C role-matrix dogfood starts from AGENTS.md and records typed evidence",
     "AgentLoopDecision grants mutation before edits",
     "guard bundle green before commit",
     "devctl push --execute with remote-ref proof after new commits",
+)
+FOLDED_PLAN_ROW_IDS = (
+    CAMPAIGN_PLAN_ROW_ID,
+    EXCEPTION_PLAN_ROW_ID,
+    ROLE_MATRIX_PLAN_ROW_ID,
 )
 
 
@@ -37,6 +54,7 @@ def campaign_report(
     review_state: Mapping[str, object],
     *,
     packet_attention: DevelopmentPacketAttention,
+    exception_store_path: Path | None = None,
 ) -> DevelopmentCampaignReport:
     """Build the read-only campaign report from existing typed surfaces."""
     reviewer_runtime = _mapping(review_state.get("reviewer_runtime"))
@@ -64,13 +82,24 @@ def campaign_report(
     )
     interaction_mode = _text(session_posture.get("interaction_mode"))
     remote_stale = attachment is not None and not remote_active
+    exception_projection = governed_exception_projection(exception_store_path)
+    push_projection = push_proof_projection(review_state)
+    posture = bypass_posture(
+        exception_projection=exception_projection,
+        push_projection=push_projection,
+    )
+    open_exception_debt = bool(
+        exception_projection.pending_count or exception_projection.error_count
+    )
     mode_drift = _mode_drift(
         remote_active=remote_active,
         topology=topology,
         legacy_mode=legacy_mode,
         interaction_mode=interaction_mode,
     )
-    fail_closed = bool(pending_packet_id or remote_stale or mode_drift)
+    fail_closed = bool(
+        pending_packet_id or remote_stale or mode_drift or open_exception_debt
+    )
     mutation_allowed = (
         not fail_closed
         and any(
@@ -83,6 +112,7 @@ def campaign_report(
         pending_packet_id=pending_packet_id,
         remote_stale=remote_stale,
         mode_drift=mode_drift,
+        open_exception_debt=open_exception_debt,
         mutation_allowed=mutation_allowed,
     )
     attachment_age_seconds = remote_attachment_age_seconds(attachment)
@@ -111,6 +141,26 @@ def campaign_report(
         fail_closed=fail_closed,
         mutation_allowed=mutation_allowed,
         publication_allowed=publication_allowed,
+        folded_plan_row_ids=FOLDED_PLAN_ROW_IDS,
+        governed_exception_store_path=exception_projection.store_path,
+        governed_exception_pending_count=exception_projection.pending_count,
+        governed_exception_error_count=exception_projection.error_count,
+        governed_exception_status=exception_projection.status,
+        bypass_posture=posture,
+        bypass_publication_transport_retired=posture.startswith(
+            "retired_governed_push"
+        ),
+        latest_push_report_path=push_projection.path,
+        latest_push_report_status=push_projection.status,
+        latest_push_report_head_commit=push_projection.head_commit,
+        latest_push_report_published_remote=push_projection.published_remote,
+        latest_push_report_post_push_green=push_projection.post_push_green,
+        latest_push_report_matches_current_head=push_projection.matches_current_head,
+        publication_proof_summary=publication_proof_summary(
+            posture=posture,
+            push_projection=push_projection,
+            exception_projection=exception_projection,
+        ),
         pending_packet_id=pending_packet_id,
         pending_packet_required_command=pending_packet_command,
         codex_next_command=_next_command_for(roles, "codex"),
@@ -178,6 +228,7 @@ def _campaign_status(
     pending_packet_id: str,
     remote_stale: bool,
     mode_drift: bool,
+    open_exception_debt: bool,
     mutation_allowed: bool,
 ) -> str:
     if pending_packet_id:
@@ -186,6 +237,8 @@ def _campaign_status(
         return "blocked_remote_control_stale"
     if mode_drift:
         return "blocked_mode_drift"
+    if open_exception_debt:
+        return "blocked_governed_exception_debt"
     if mutation_allowed:
         return "ready_for_codex_build"
     return "observe_only"
@@ -196,6 +249,7 @@ def _current_phase(status: str) -> str:
         "blocked_pending_packet_triage": "claude_dashboard_ack_triage",
         "blocked_remote_control_stale": "remote_control_heartbeat_required",
         "blocked_mode_drift": "typed_mode_resync_required",
+        "blocked_governed_exception_debt": "governed_exception_repair",
         "ready_for_codex_build": "codex_build_claude_review",
     }
     return phases.get(status, "read_only_observation")
@@ -208,6 +262,8 @@ def _summary(status: str) -> str:
         return "Remote-control transport exists but lacks fresh typed attachment proof."
     if status == "blocked_mode_drift":
         return "Typed mode fields disagree; mutation remains fail-closed."
+    if status == "blocked_governed_exception_debt":
+        return "Governed exception debt is open; repair/proof must run before mutation."
     if status == "ready_for_codex_build":
         return "Codex may build under typed gates; Claude remains the review/dashboard lane."
     return "Campaign is read-only until typed authority grants the next lane."

@@ -4407,10 +4407,12 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
 	      `devctl develop campaign`; bridge, dashboard, generated markdown, and
 	      memory notes remain projections only.
 	      acceptance_criteria: `devctl develop campaign` shows remote-control
-	      attachment proof, Codex and Claude role lanes, pending packet blockers,
-	      interaction-mode / reviewer-mode drift, mutation_allowed, and
-	      publication_allowed. It must fail closed while packet carry-forward
-	      debt, stale remote-control proof, or cross-source mode drift remain.
+	      attachment proof, Codex and Claude role lanes, governed-exception
+	      lifecycle debt, bypass-retirement push proof, Pass-C role-matrix
+	      tracking, pending packet blockers, interaction-mode / reviewer-mode
+	      drift, mutation_allowed, and publication_allowed. It must fail closed
+	      while packet carry-forward debt, open exception debt, stale
+	      remote-control proof, or cross-source mode drift remain.
 	      The same row keeps yesterday's open loop visible: governed push closure
 	      proof through `devctl push --execute`, Pass-C dogfood from `AGENTS.md`,
 	      bounded packet carry-forward triage, and repair of

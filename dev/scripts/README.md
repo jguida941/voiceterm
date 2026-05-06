@@ -2070,8 +2070,10 @@ Machine-first output note:
   `audit-packets`, `campaign`, and `launch --dry-run --max-cycles 1`.
   `campaign` renders the `RemoteControlCollaborationCampaign` read model so
   Codex/Claude remote-control dogfood can see role lanes, attachment proof,
-  packet blockers, mode drift, and mutation/publication gates without waking
-  agents or granting authority. `agent-mind` appears only as
+  governed-exception lifecycle debt, bypass-retirement push proof, Pass-C
+  role-matrix tracking, packet blockers, mode drift, and mutation/publication
+  gates without waking agents, approving commits, executing exceptions, or
+  granting authority. `agent-mind` appears only as
   `authority_policy=auxiliary_context_only`; typed
   `AgentWorkBoardProjection` / `AgentSyncProjection` and packet lifecycle rows
   remain authority. `audit-packets` renders `PacketDebtRemediationReport` so

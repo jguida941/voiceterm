@@ -126,7 +126,7 @@ def build_instruction_boot_card(
         "- `python3 dev/scripts/devctl.py system-picture --format md`",
         "- `python3 dev/scripts/devctl.py platform-contracts --format md`",
         "- `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md`",
-        "- `python3 dev/scripts/devctl.py develop campaign --format md`",
+        "- `python3 dev/scripts/devctl.py develop campaign --format md` (remote-control, exception debt, and push-proof posture)",
         "- `python3 dev/scripts/devctl.py develop show --slice-id <id> --format md`",
         "",
         "## Active-plan onboarding (adding files under `dev/active/`)",

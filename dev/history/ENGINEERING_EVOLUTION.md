@@ -47,6 +47,13 @@ mutation/publication gates. It fails closed when packet debt, stale
 remote-control proof, or interaction-mode drift prevents safe mutation, and it
 does not wake agents or execute bypass publication.
 
+Follow-up: extended the same read model so the campaign lane also folds in
+governed-exception lifecycle debt, bypass-retirement proof from
+`devctl push --execute`, and Pass-C role-matrix tracking. Raw bypass transport
+is reported as retired only when the selected governed push report is
+post-push-green for the current HEAD and no governed exception lifecycle is
+open.
+
 Evidence:
 
 - `dev/scripts/devctl/commands/development/campaign.py`

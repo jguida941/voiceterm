@@ -312,6 +312,102 @@ def test_develop_campaign_pending_packet_blocks_review_claim() -> None:
     assert report.claude_next_command.endswith("--format md")
 
 
+def test_develop_campaign_folds_bypass_retirement_into_lane(tmp_path: Path) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    report = campaign_report(
+        {
+            "governance": {
+                "push_enforcement": {
+                    "current_head_commit": "abc123",
+                    "worktree_dirty": False,
+                    "selected_push_report_path": "dev/reports/push/latest_push_report.json",
+                    "selected_push_report_status": "post_push_green",
+                    "selected_push_report_head_commit": "abc123",
+                    "selected_push_report_published_remote": True,
+                    "selected_push_report_post_push_green": True,
+                    "selected_push_report_matches_current_head": True,
+                }
+            },
+            "reviewer_runtime": {
+                "session_posture": {"interaction_mode": "remote_control"},
+                "remote_control_attachment": {
+                    "provider": "claude",
+                    "status": "attached",
+                    "remote_session_id": "session_remote",
+                    "last_seen_utc": now,
+                    "physical_remote_control_confirmed": True,
+                },
+            },
+            "coordination_state": {
+                "coordination_topology": "multi_agent_active",
+                "legacy_reviewer_mode": "active_dual_agent",
+            },
+            "agent_work_board": {
+                "rows": [
+                    {
+                        "actor_id": "codex",
+                        "role": "implementer",
+                        "session_id": "codex-session",
+                        "status": "idle",
+                        "mutation_mode": "live_tree",
+                    }
+                ]
+            },
+            "agent_loop_decisions": [
+                {
+                    "actor_id": "codex",
+                    "actor_role": "implementer",
+                    "session_id": "codex-session",
+                    "may_mutate": True,
+                    "required_action": "continue_current_execution",
+                    "proof_state": "satisfied",
+                }
+            ],
+        },
+        packet_attention=DevelopmentPacketAttention(),
+        exception_store_path=tmp_path / "missing.jsonl",
+    )
+
+    assert report.bypass_posture == "retired_governed_push_green"
+    assert report.bypass_publication_transport_retired is True
+    assert report.governed_exception_status == "clear"
+    assert report.governed_exception_pending_count == 0
+    assert report.latest_push_report_status == "post_push_green"
+    assert report.latest_push_report_matches_current_head is True
+    assert "MP377-P0-EXC-S1" in report.folded_plan_row_ids
+    assert "MP377-P0-ROLE-MATRIX-DOGFOOD-S1" in report.folded_plan_row_ids
+
+
+def test_develop_campaign_fails_closed_on_open_governed_exception(
+    tmp_path: Path,
+) -> None:
+    store_path = tmp_path / "governed_exception_lifecycles.jsonl"
+    store_path.write_text(
+        json.dumps({"lifecycle_id": "gel:vcs.push:test", "status": "open"}) + "\n",
+        encoding="utf-8",
+    )
+
+    report = campaign_report(
+        {
+            "reviewer_runtime": {"session_posture": {"interaction_mode": "remote_control"}},
+            "coordination_state": {
+                "coordination_topology": "multi_agent_active",
+                "legacy_reviewer_mode": "active_dual_agent",
+            },
+        },
+        packet_attention=DevelopmentPacketAttention(),
+        exception_store_path=store_path,
+    )
+
+    assert report.status == "blocked_governed_exception_debt"
+    assert report.current_phase == "governed_exception_repair"
+    assert report.fail_closed is True
+    assert report.governed_exception_status == "open_exception_debt"
+    assert report.governed_exception_pending_count == 1
+    assert report.bypass_posture == "blocked_open_governed_exception_debt"
+    assert report.bypass_publication_transport_retired is False
+
+
 def test_develop_design_preflight_records_ground_truth_receipt(
     monkeypatch,
     tmp_path,
