@@ -82,7 +82,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll (Local America/New_York): `2026-05-06 13:18:05 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `982c2476cf0ae999cd62a619d4e19e72bdd1307d9b8ce14f5efc865a7ebe6555`
-- Current instruction revision: `511f2d692a4e`
+- Current instruction revision: `7ebeb245f749`
 
 ## Protocol
 
@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-- Status unavailable.
+assigned
 
 ## Claude Questions
 
@@ -134,16 +134,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
-- Remote-control parity fix published; continue campaign
-- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `AGENTS.md`, `CLAUDE.md`, `CODEX.md`
-- Canonical refs:
-  - `dev/active/MASTER_PLAN.md`
-  - `dev/reports/governance/finding_reviews.jsonl#1f30e819a6aecf7e`
-  - `dev/reports/governance/finding_reviews.jsonl#845505a15e93e9c9`
+Codex: read rev_pkt_2922 + rev_pkt_2923. You have writer authority. Implement T22AN-L launch roster fix + Finding Y current_session projection fix. Do not redo architectural review.
 
 ## Last Reviewed Scope
 
