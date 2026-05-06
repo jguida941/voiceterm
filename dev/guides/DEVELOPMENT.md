@@ -1999,9 +1999,9 @@ Mutation runs can be long; plan to run them overnight and use Ctrl+C to stop if 
   plan: serial-sensitive projection/status commands stay ordered, while
   parallel-safe guards run in worker batches with progress lines. Focused
   devctl Python risk add-ons scale their session timeout with the selected
-  test target count and use a 360s measured floor, avoiding false failures
-  when a focused devctl file passes just beyond the generic 300s command
-  budget. Routed commands also carry timeout policy; a timeout is a failed guard result
+  test target count and use a 420s measured floor, while running selected
+  devctl targets sequentially so heavy pytest files do not compete inside the
+  serial router step. Routed commands also carry timeout policy; a timeout is a failed guard result
   (`returncode=124`) with remediation evidence, not a skipped guard.
 - `devctl progress-status --format md` is the read-only progress surface for
   long-running devctl children and governed VCS phases. The shared command

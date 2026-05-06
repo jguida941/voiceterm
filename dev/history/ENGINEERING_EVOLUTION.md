@@ -79,12 +79,15 @@ Evidence:
 ### 2026-05-06 - Focused devctl pytest uses a measured timeout floor
 
 Change: raised the path-aware focused devctl test add-on from a generic 300s
-command timeout floor to 360s before target-count scaling. Governed push
-preflight measured `dev/scripts/devctl/tests/commands/test_development_command.py`
+command timeout floor to 420s before target-count scaling and kept selected
+devctl targets sequential inside the serial router step. Governed push
+preflight first measured `dev/scripts/devctl/tests/commands/test_development_command.py`
 passing 20 tests in 314s, then failing only because the adapter's own session
-timeout fired at 300s. The router already allowed a larger wrapper budget; the
-test command now matches that measured reality instead of producing a false
-publication blocker.
+timeout fired at 300s. The next dogfood run proved the route-level 420s budget
+was not reaching the test runner and that two concurrent devctl shards could
+starve the heavy development-command test until it timed out at 360s after 28
+passing tests. The focused command now matches measured reality without making
+heavy devctl files compete with each other.
 
 Evidence:
 
