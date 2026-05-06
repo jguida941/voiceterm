@@ -62,6 +62,7 @@
 ## Verification before handoff
 
 - Run the task-class guard bundle selected by `python3 dev/scripts/devctl.py check-router --format md`.
+- Use `python3 dev/scripts/devctl.py test-python --suite devctl --path <test>` for focused Python proof instead of raw broad pytest.
 - For generated-surface changes, run `python3 dev/scripts/devctl.py render-surfaces --format md` and `python3 dev/scripts/checks/check_instruction_surface_sync.py --format md`.
 - For governance/runtime contract changes, run `python3 dev/scripts/devctl.py platform-contracts --format md` and `python3 dev/scripts/checks/check_platform_contract_closure.py --format md`.
 - The managed ReviewSnapshot hooks are time-bounded and fail-open; freshness guards remain the proof of current receipts.

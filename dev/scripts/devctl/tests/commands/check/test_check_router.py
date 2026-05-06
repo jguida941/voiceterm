@@ -221,6 +221,7 @@ class CheckRouterTests(unittest.TestCase):
         ]
         joined = "\n".join(planned_commands)
         self.assertIn("test-python --suite devctl", joined)
+        self.assertIn("--timeout-seconds 360", joined)
         self.assertIn("--per-test-timeout-seconds 90", joined)
         self.assertIn("--parallel-workers 4", joined)
         self.assertIn(
@@ -265,7 +266,7 @@ class CheckRouterTests(unittest.TestCase):
 
         payload = json.loads(write_output_mock.call_args.args[0])
         joined = "\n".join(row["command"] for row in payload["planned_commands"])
-        self.assertIn("--timeout-seconds 360", joined)
+        self.assertIn("--timeout-seconds 420", joined)
 
     @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")

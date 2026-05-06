@@ -76,6 +76,21 @@ Evidence:
 - `dev/scripts/devctl/commands/development/report.py`
 - `dev/scripts/devctl/tests/commands/test_development_command.py`
 
+### 2026-05-06 - Focused devctl pytest uses a measured timeout floor
+
+Change: raised the path-aware focused devctl test add-on from a generic 300s
+command timeout floor to 360s before target-count scaling. Governed push
+preflight measured `dev/scripts/devctl/tests/commands/test_development_command.py`
+passing 20 tests in 314s, then failing only because the adapter's own session
+timeout fired at 300s. The router already allowed a larger wrapper budget; the
+test command now matches that measured reality instead of producing a false
+publication blocker.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/check/router_python_tests.py`
+- `dev/scripts/devctl/tests/commands/check/test_check_router.py`
+
 ### 2026-05-06 - Boot cards carry the memory-not-authority rule
 
 Change: made the generated `InstructionBootCard` carry the canonical
