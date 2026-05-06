@@ -7,6 +7,9 @@ from ...config import REPO_ROOT
 _FOCUSED_DEVCTL_TEST_BASE_TIMEOUT_SECONDS = 420
 _FOCUSED_DEVCTL_TEST_PER_TEST_TIMEOUT_SECONDS = 90
 _FOCUSED_DEVCTL_TEST_PARALLEL_WORKERS = 1
+_FOCUSED_DEVCTL_TEST_TARGET_TIMEOUT_SECONDS = {
+    "dev/scripts/devctl/tests/commands/test_development_command.py": 600,
+}
 
 
 def detect_python_test_addons(changed_paths: list[str]) -> list[dict]:
@@ -92,12 +95,20 @@ def _devctl_test_commands(test_paths: tuple[str, ...]) -> list[str]:
 
 
 def _devctl_test_command(test_path: str) -> str:
+    timeout_seconds = _devctl_test_timeout_seconds(test_path)
     return (
         "python3 dev/scripts/devctl.py test-python --suite devctl "
         f"--path {test_path} "
-        f"--timeout-seconds {_FOCUSED_DEVCTL_TEST_BASE_TIMEOUT_SECONDS} "
+        f"--timeout-seconds {timeout_seconds} "
         f"--per-test-timeout-seconds {_FOCUSED_DEVCTL_TEST_PER_TEST_TIMEOUT_SECONDS} "
         f"--parallel-workers {_FOCUSED_DEVCTL_TEST_PARALLEL_WORKERS}"
+    )
+
+
+def _devctl_test_timeout_seconds(test_path: str) -> int:
+    return _FOCUSED_DEVCTL_TEST_TARGET_TIMEOUT_SECONDS.get(
+        test_path,
+        _FOCUSED_DEVCTL_TEST_BASE_TIMEOUT_SECONDS,
     )
 
 

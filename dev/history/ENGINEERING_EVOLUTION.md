@@ -79,17 +79,20 @@ Evidence:
 ### 2026-05-06 - Focused devctl pytest uses split bounded sessions
 
 Change: raised the path-aware focused devctl test add-on from a generic 300s
-command timeout floor to 420s and then split selected targets into serial
-single-target sessions. Governed push preflight first measured
+command timeout floor to 420s, split selected targets into serial
+single-target sessions, and added measured per-target overrides for known-heavy
+files. Governed push preflight first measured
 `dev/scripts/devctl/tests/commands/test_development_command.py` passing 20
 tests in 314s, then failing only because the adapter's own session timeout
 fired at 300s. The next dogfood runs proved the route-level 420s budget was
 not reaching the test runner, that two concurrent devctl shards could starve
 the heavy development-command test until it timed out at 360s after 28 passing
-tests, and that combining the router and development-command files in one
-sequential pytest session still timed out at 420s after 45 passing tests. The
-router now emits one serial focused devctl `test-python` command per selected
-target, so each heavy file gets its own bounded typed proof window.
+tests, that combining the router and development-command files in one
+sequential pytest session still timed out at 420s after 45 passing tests, and
+that `test_development_command.py` passes as a single target in 435.45s under a
+600s typed session. The router now emits one serial focused devctl
+`test-python` command per selected target, so each heavy file gets its own
+bounded typed proof window.
 
 Evidence:
 

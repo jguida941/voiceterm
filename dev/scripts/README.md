@@ -1958,7 +1958,8 @@ Machine-first output note:
   fallback. `check-router` adds focused devctl tests for tooling changes and
   Operator Console tests only for touched `app/operator_console/**/*.py`
   paths; focused devctl add-ons split selected targets into serial
-  single-target sessions with a 420s measured floor and a bounded per-test cap.
+  single-target sessions with a 420s measured floor, measured per-target
+  overrides for known-heavy files, and a bounded per-test cap.
   Generated instruction boot cards route agents through typed startup,
   session, graph, and `/develop` commands; the live command inventory remains
   owned by `SystemCatalog` / `devctl` listing surfaces, not AGENTS prose.

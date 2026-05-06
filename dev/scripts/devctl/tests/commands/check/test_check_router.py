@@ -280,7 +280,10 @@ class CheckRouterTests(unittest.TestCase):
         self.assertEqual(len(devctl_commands), 10)
         for command in devctl_commands:
             self.assertEqual(command.count("--path "), 1)
-            self.assertIn("--timeout-seconds 420", command)
+            if "dev/scripts/devctl/tests/commands/test_development_command.py" in command:
+                self.assertIn("--timeout-seconds 600", command)
+            else:
+                self.assertIn("--timeout-seconds 420", command)
             self.assertIn("--parallel-workers 1", command)
 
     @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
