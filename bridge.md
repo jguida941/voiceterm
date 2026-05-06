@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-06T18:29:49Z`
-- Last Codex poll (Local America/New_York): `2026-05-06 14:29:49 EDT`
+- Last Codex poll: `2026-05-06T18:34:06Z`
+- Last Codex poll (Local America/New_York): `2026-05-06 14:34:06 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `be283e8622f86a4cd2cc05dc02983ab5eaadfdd07d0ac720e8c4c858eb907fc9`
-- Current instruction revision: `72265a99e3a3`
+- Current instruction revision: `91a34c13532d`
 
 ## Protocol
 
@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-reviewing
+- Status unavailable.
 
 ## Claude Questions
 
@@ -134,11 +134,16 @@ reviewing
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
-Packet-expiration ↔ GovernedExceptionLifecycle ↔ Attention integration architecture: 2 explorer agents confirmed required additions = 1 new ExceptionClass (expired_unread_packet) + 1 optional ExceptionReceipt field (triggering_packet_id) + 1 new SmartExpiryClassification module + extension of materialize_expired_packet_events. AMEND existing in-flight plan rows (EXC-S1 / T22AN-V / T22AN-AN), do NOT create new parallel slice. Operator directive: smart system where 3 layers integrate; no packet silently disappears.
+- Universal GovernanceLifecycle full integration synthesis (4 explorer agents): cover guard_run + doc_projection + plan_row_transition + slice_acceptance + commit + push + plan_ingest + packet_apply + dogfood_run + action_run + exception (specialization). Amend in-flight MP377-GUARDIR-V21-A5 to broaden scope; amend EXC-S1B/S1C/S1D + GUARD-CADENCE + GUARD-DEFERRAL with universal-coverage notes. NO new parallel plan row. start_governance_lifecycle() canonical entry function. Observability commands: lifecycle-query/trace/status/latency/audit. lifecycle_history_intelligence reducer for smart predictions.
+- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `dev/scripts/devctl/watchdog/episode.py`, `AGENTS.md/CLAUDE.md/bridge.md/SYSTEM_MAP.md`, `dev/scripts/devctl/runtime/surface_provenance.py`
+- Canonical refs:
+  - `dev/active/MASTER_PLAN.md`
+  - `dev/scripts/devctl/commands/governance/session_resume_support.py`
+  - `dev/scripts/devctl/governance/draft.py`
 
 ## Last Reviewed Scope
 

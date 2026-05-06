@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `bca3c2fd55ec` — Refresh external review snapshot for 34ce6fc1
-- Tree hash: `ba6ea4ad682f`
-- Generation stamp: `snap-7919f3b64aa3`
-- Generated at (UTC): 2026-05-06T18:34:32Z
+- HEAD: `7b73c670bfdb` — Refresh external review snapshot for bca3c2fd
+- Tree hash: `137a91c060bb`
+- Generation stamp: `snap-6d5dd6c965ba`
+- Generated at (UTC): 2026-05-06T18:36:24Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `single_agent`)
+- Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 54 files, +4645/-2340
+- Delta since last snapshot: 24 commits, 54 files, +4648/-2345
 - Governance findings: 158 open / 88 fixed / 260 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,9 +30,9 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `bca3c2fd55ec04324bbdbe49b121bfb17c86ab41`
+- HEAD SHA: `7b73c670bfdb92281ba74bf2b01e57913b0f3f00`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-06T14:31:15-04:00
+- HEAD timestamp (UTC): 2026-05-06T14:34:33-04:00
 
 ## 2. Governance state
 
@@ -48,13 +48,13 @@ probes, typed actions, deterministic policy resolution — is what m...
 - current_push_authorization: `push-auth-20260506T182949599741Z` (valid=True)
 - authorized_head_commit: `bca3c2fd55ec04324bbdbe49b121bfb17c86ab41`
 - publication_backlog: recommended
-- publication_guidance: 2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 3 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `single_agent`
+- interaction_mode: `local_terminal`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -68,52 +68,52 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `bca3c2fd55ec`
+Range: last 24 commits ending at `7b73c670bfdb`
 
 - commits: 24
 - files changed: 54
-- insertions: +4645
-- deletions: -2340
+- insertions: +4648
+- deletions: -2345
 - bundle classes touched: docs, tooling
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `bca3c2fd` | Refresh external review snapshot for 34ce6fc1 | 2 | +84/-91 | docs |  |
-| 2 | `34ce6fc1` | Stop archived packets blocking live work | 29 | +998/-398 | tooling |  |
-| 3 | `f4b6c1ca` | Refresh external review snapshot for d8f090f2 | 2 | +53/-48 | docs |  |
-| 4 | `d8f090f2` | Refresh external review snapshot for 2f05dc5a | 2 | +48/-51 | docs |  |
-| 5 | `2f05dc5a` | Refresh external review snapshot for e4958183 | 2 | +61/-63 | docs |  |
-| 6 | `e4958183` | Record remote-control parity handoff | 2 | +60/-60 | docs |  |
-| 7 | `218bb398` | Refresh external review snapshot for 74bfb1c2 | 2 | +52/-47 | docs |  |
-| 8 | `74bfb1c2` | Refresh external review snapshot for 3d4ae574 | 2 | +48/-51 | docs |  |
-| 9 | `3d4ae574` | Refresh external review snapshot for e08186fa | 2 | +85/-71 | docs |  |
-| 10 | `e08186fa` | Fix remote-control packet scope parity | 29 | +1090/-543 | tooling |  |
-| 11 | `e13fb3d2` | Refresh external review snapshot for e6a486b1 | 2 | +46/-46 | docs |  |
-| 12 | `e6a486b1` | Refresh external review snapshot for f4aa0823 | 2 | +46/-44 | docs |  |
-| 13 | `f4aa0823` | Refresh external review snapshot for 17c86a1f | 2 | +61/-63 | docs |  |
-| 14 | `17c86a1f` | Record remote-control campaign packet | 2 | +54/-54 | docs |  |
-| 15 | `111e1de3` | Refresh external review snapshot for 5dee4db9 | 2 | +44/-44 | docs |  |
-| 16 | `5dee4db9` | Refresh external review snapshot for 3bf94665 | 2 | +45/-43 | docs |  |
-| 17 | `3bf94665` | Refresh external review snapshot for c95aa86b | 2 | +73/-71 | docs |  |
-| 18 | `c95aa86b` | Fold exception proof into campaign lane | 18 | +702/-202 | tooling |  |
-| 19 | `9d7ae361` | Refresh external review snapshot for a6c1034e | 2 | +49/-48 | docs |  |
-| 20 | `a6c1034e` | Refresh external review snapshot for c0796505 | 2 | +48/-49 | docs |  |
-| 21 | `c0796505` | Refresh external review snapshot for 2b8397a5 | 2 | +72/-64 | docs |  |
-| 22 | `2b8397a5` | Add remote-control pair campaign view | 20 | +722/-84 | tooling |  |
-| 23 | `f3489a3c` | Refresh external review snapshot for 26ef3f79 | 2 | +58/-58 | docs |  |
-| 24 | `26ef3f79` | Refresh external review snapshot for 32d6f1f2 | 2 | +46/-47 | docs |  |
+| 1 | `7b73c670` | Refresh external review snapshot for bca3c2fd | 2 | +49/-52 | docs |  |
+| 2 | `bca3c2fd` | Refresh external review snapshot for 34ce6fc1 | 2 | +84/-91 | docs |  |
+| 3 | `34ce6fc1` | Stop archived packets blocking live work | 29 | +998/-398 | tooling |  |
+| 4 | `f4b6c1ca` | Refresh external review snapshot for d8f090f2 | 2 | +53/-48 | docs |  |
+| 5 | `d8f090f2` | Refresh external review snapshot for 2f05dc5a | 2 | +48/-51 | docs |  |
+| 6 | `2f05dc5a` | Refresh external review snapshot for e4958183 | 2 | +61/-63 | docs |  |
+| 7 | `e4958183` | Record remote-control parity handoff | 2 | +60/-60 | docs |  |
+| 8 | `218bb398` | Refresh external review snapshot for 74bfb1c2 | 2 | +52/-47 | docs |  |
+| 9 | `74bfb1c2` | Refresh external review snapshot for 3d4ae574 | 2 | +48/-51 | docs |  |
+| 10 | `3d4ae574` | Refresh external review snapshot for e08186fa | 2 | +85/-71 | docs |  |
+| 11 | `e08186fa` | Fix remote-control packet scope parity | 29 | +1090/-543 | tooling |  |
+| 12 | `e13fb3d2` | Refresh external review snapshot for e6a486b1 | 2 | +46/-46 | docs |  |
+| 13 | `e6a486b1` | Refresh external review snapshot for f4aa0823 | 2 | +46/-44 | docs |  |
+| 14 | `f4aa0823` | Refresh external review snapshot for 17c86a1f | 2 | +61/-63 | docs |  |
+| 15 | `17c86a1f` | Record remote-control campaign packet | 2 | +54/-54 | docs |  |
+| 16 | `111e1de3` | Refresh external review snapshot for 5dee4db9 | 2 | +44/-44 | docs |  |
+| 17 | `5dee4db9` | Refresh external review snapshot for 3bf94665 | 2 | +45/-43 | docs |  |
+| 18 | `3bf94665` | Refresh external review snapshot for c95aa86b | 2 | +73/-71 | docs |  |
+| 19 | `c95aa86b` | Fold exception proof into campaign lane | 18 | +702/-202 | tooling |  |
+| 20 | `9d7ae361` | Refresh external review snapshot for a6c1034e | 2 | +49/-48 | docs |  |
+| 21 | `a6c1034e` | Refresh external review snapshot for c0796505 | 2 | +48/-49 | docs |  |
+| 22 | `c0796505` | Refresh external review snapshot for 2b8397a5 | 2 | +72/-64 | docs |  |
+| 23 | `2b8397a5` | Add remote-control pair campaign view | 20 | +722/-84 | tooling |  |
+| 24 | `f3489a3c` | Refresh external review snapshot for 26ef3f79 | 2 | +58/-58 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +4/-1 |
-| `bridge.md` | docs | +116/-111 |
+| `bridge.md` | docs | +119/-119 |
 | `dev/active/MASTER_PLAN.md` | tooling | +20/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +41/-4 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1277/-1256 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1277/-1253 |
 | `dev/guides/DEVELOPMENT.md` | docs | +24/-4 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +6/-6 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +64/-0 |
@@ -207,6 +207,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`7b73c670`** — Refresh external review snapshot for bca3c2fd
+  - evolution: Change: added the read-only `devctl develop campaign` surface and the `RemoteControlCollaborationCampaign` platform contract. The report projects the Codex/Claude remote-control campaign from existing typed state: role …
 - **`bca3c2fd`** — Refresh external review snapshot for 34ce6fc1
   - evolution: Change: added the read-only `devctl develop campaign` surface and the `RemoteControlCollaborationCampaign` platform contract. The report projects the Codex/Claude remote-control campaign from existing typed state: role …
 - **`34ce6fc1`** — Stop archived packets blocking live work
@@ -253,8 +255,6 @@ Recent findings:
   - evolution: Change: added the read-only `devctl develop campaign` surface and the `RemoteControlCollaborationCampaign` platform contract. The report projects the Codex/Claude remote-control campaign from existing typed state: role …
 - **`f3489a3c`** — Refresh external review snapshot for 26ef3f79
   - evolution: Change: added the read-only `devctl develop campaign` surface and the `RemoteControlCollaborationCampaign` platform contract. The report projects the Codex/Claude remote-control campaign from existing typed state: role …
-- **`26ef3f79`** — Refresh external review snapshot for 32d6f1f2
-  - evolution: Change: added the read-only `devctl develop campaign` surface and the `RemoteControlCollaborationCampaign` platform contract. The report projects the Codex/Claude remote-control campaign from existing typed state: role …
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -293,4 +293,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-7919f3b64aa3` binds this file to HEAD `bca3c2fd55ec`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-6d5dd6c965ba` binds this file to HEAD `7b73c670bfdb`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
