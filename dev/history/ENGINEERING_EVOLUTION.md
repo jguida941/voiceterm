@@ -109,15 +109,16 @@ Evidence:
 - `PKT-BIND-REV-PKT-3086`
 - `PKT-BIND-REV-PKT-3087`
 
-### 2026-05-06 - Post-commit receipt refresh is time-bounded
+### 2026-05-06 - ReviewSnapshot hook refreshes are time-bounded
 
-Change: added a managed timeout around the post-commit
-`review-snapshot --write --receipt-commit` hook. The hook still fails open with
-a warning, but `DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS` now bounds the receipt
-refresh by default so a slow or stuck snapshot writer does not leave a landed
-commit looking unfinished.
+Change: added managed timeouts around the pre-commit
+`review-snapshot --write` refresh and post-commit
+`review-snapshot --write --receipt-commit` refresh. The hooks still fail open
+with a warning, but `DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS` now bounds both
+snapshot writers by default so a slow or stuck refresh does not leave an
+otherwise-allowed commit looking unfinished.
 
-This keeps the automation path simple: hooks can fire the receipt refresh
+This keeps the automation path simple: hooks can fire the snapshot/receipt refresh
 without operator babysitting, while the deterministic freshness guards remain
 the authority that accepts or rejects the eventual receipt chain.
 

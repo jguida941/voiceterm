@@ -1128,10 +1128,11 @@ Portability note:
   ReviewSnapshot projection for allowed commits. The receipt hook delegates to
   `python3 dev/scripts/devctl.py review-snapshot --write --receipt-commit`
   so the final pushed branch can end with a governed ReviewSnapshot receipt
-  instead of a manually refreshed dirty worktree. The receipt refresh is bounded
-  by `DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS` (default 90 seconds, `0` to
-  disable the timeout) and still fails open with a warning so a slow
-  ReviewSnapshot cannot make an already-landed commit appear stuck. Governed
+  instead of a manually refreshed dirty worktree. Both the pre-commit snapshot
+  refresh and post-commit receipt refresh are bounded by
+  `DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS` (default 90 seconds, `0` to disable
+  the timeout) and still fail open with a warning so a slow ReviewSnapshot
+  cannot make an otherwise-allowed commit appear stuck. Governed
   `devctl commit` streams phase progress while the irreversible git commit is
   running, and the managed post-commit hook announces the trailing receipt
   refresh before and after its quiet `review-snapshot` call, while the pre-push hook

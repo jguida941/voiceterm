@@ -24,6 +24,7 @@
 #                                           authority and staged-path checks pass
 #   DEVCTL_NO_ARTIFACT_WRITES=1             skip the bridge/status + snapshot
 #                                           refreshes
+#   DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS  snapshot refresh timeout (default 90)
 #
 # Failure policy:
 # - commit_permission failures are blocking. raw git commits must not bypass
@@ -108,6 +109,41 @@ if ! "$DEVCTL_PYTHON" dev/scripts/devctl.py --help >/dev/null 2>&1; then
     exit 0
 fi
 
+DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS="${DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS:-90}"
+case "$DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS" in
+    ''|*[!0-9]*)
+        echo "[pre-commit hook] invalid DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS; using 90." >&2
+        DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS=90
+        ;;
+esac
+
+run_review_snapshot_refresh() {
+    if [ "$DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS" = "0" ]; then
+        "$DEVCTL_PYTHON" dev/scripts/devctl.py review-snapshot --write --format terminal >/dev/null 2>&1
+        return $?
+    fi
+
+    "$DEVCTL_PYTHON" dev/scripts/devctl.py review-snapshot --write --format terminal >/dev/null 2>&1 &
+    child_pid=$!
+    elapsed=0
+
+    while kill -0 "$child_pid" 2>/dev/null; do
+        if [ "$elapsed" -ge "$DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS" ]; then
+            kill "$child_pid" 2>/dev/null || true
+            sleep 1
+            if kill -0 "$child_pid" 2>/dev/null; then
+                kill -9 "$child_pid" 2>/dev/null || true
+            fi
+            wait "$child_pid" 2>/dev/null || true
+            return 124
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+
+    wait "$child_pid"
+}
+
 if [ "${DEVCTL_NO_REVIEW_CHANNEL_STATUS_REFRESH:-}" != "1" ] && [ "${DEVCTL_NO_ARTIFACT_WRITES:-}" != "1" ]; then
     if "$DEVCTL_PYTHON" dev/scripts/devctl.py review-channel --action status --terminal none --format json >/dev/null 2>&1; then
         BRIDGE_TARGET=$("$DEVCTL_PYTHON" - <<'PYEOF' 2>/dev/null || echo ""
@@ -139,7 +175,7 @@ fi
 # Run the refresh through the typed command so the output path comes
 # from ProjectGovernance.artifact_roots.review_snapshot_path (adopter
 # repos override it via devctl_repo_policy.json).
-if ! "$DEVCTL_PYTHON" dev/scripts/devctl.py review-snapshot --write --format terminal >/dev/null 2>&1; then
+if ! run_review_snapshot_refresh; then
     echo "[pre-commit hook] devctl review-snapshot --write failed; continuing commit." >&2
     exit 0
 fi
