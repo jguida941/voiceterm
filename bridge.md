@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-06T19:27:30Z`
-- Last Codex poll (Local America/New_York): `2026-05-06 15:27:30 EDT`
+- Last Codex poll: `2026-05-06T19:44:44Z`
+- Last Codex poll (Local America/New_York): `2026-05-06 15:44:44 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `aadba47266d2812f7f270c9bdd1a0f23a0c5f53b8889961db8eb1005bb1fb0b0`
-- Current instruction revision: `4f4c8d4f9912`
+- Last non-audit worktree hash: `42f5336b0af805e1c4b62935e6ba387b87de0d764103f3de113536c0f805136a`
+- Current instruction revision: `ba7c30067de4`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-2 pending review packet(s)
+1 pending review packet(s)
 
 ## Claude Status
 
@@ -134,20 +134,20 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
-- Universal GovernanceLifecycle plan ingestion published
-- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `dev/reports/push/latest_push_report.json`
+- Priority-weighted + dependency-aware + deterministic slice selector design. Operator-authored question. Architectural shape: DevelopmentSelectorPolicy typed contract + priority/depends_on/blocked_until fields on PlanRow + score function (leverage + urgency + recency + in_progress bonus, deterministic alphabetical tiebreak). Stays deterministic because all inputs typed. Composes with MP377-GUARDIR-V21-A5 amended scope (preferred Option A: amend existing row, no new parallel). NOT now — schedule into trajectory after MP377-GUARDIR-PACKET-DURABLE-INGESTION ships.
+- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `dev/scripts/devctl/commands/development/next_slice.py`, `dev/scripts/devctl/runtime/master_plan_contract.py`
 - Canonical refs:
   - `dev/active/MASTER_PLAN.md`
+  - `dev/scripts/devctl/commands/development/models.py`
   - `dev/scripts/devctl/governance/draft.py`
-  - `dev/scripts/devctl/governance/push_policy.py`
 
 ## Last Reviewed Scope
 
-MP-377
+MP-355
 
 ## Action Requests
 
