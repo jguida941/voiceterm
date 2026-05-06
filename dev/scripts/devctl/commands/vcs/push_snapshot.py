@@ -106,6 +106,8 @@ def _enforce_execution_truth(
     outcome: PushFlowOutcome,
 ) -> PushFlowOutcome:
     """Fail closed when a report claims publication without subprocess proof."""
+    if outcome.reason == "branch_already_pushed":
+        return outcome
     if not bool(context.args.execute) or not outcome.stages.published_remote:
         return outcome
     state = context.state

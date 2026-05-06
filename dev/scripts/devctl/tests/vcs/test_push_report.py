@@ -8,6 +8,7 @@ from dev.scripts.devctl.commands.vcs.push_report import (
     PushReportInputs,
     PushStageTruth,
     build_push_report,
+    render_push_report,
 )
 
 
@@ -107,3 +108,43 @@ def test_push_report_marks_remote_published_post_push_pending() -> None:
     assert report["push_diagnostic"]["summary"] == "remote_published_post_push_pending"
     assert report["push_diagnostic"]["git_push_state"] == "landed"
     assert report["push_diagnostic"]["post_push_state"] == "failed"
+
+
+def test_push_report_names_push_report_artifact_explicitly() -> None:
+    report = build_push_report(
+        _inputs(artifact_path="dev/reports/push/latest_push_report.json")
+    )
+
+    assert report["artifacts"]["push_report_json"] == (
+        "dev/reports/push/latest_push_report.json"
+    )
+    assert report["artifacts"]["latest_json"] == (
+        "dev/reports/push/latest_push_report.json"
+    )
+    rendered = render_push_report(report)
+    assert "- push_report_json: dev/reports/push/latest_push_report.json" in rendered
+    assert "- latest_json:" not in rendered
+
+
+def test_push_report_marks_already_pushed_without_git_push_attempt() -> None:
+    report = build_push_report(
+        _inputs(
+            execute=True,
+            action_result={"ok": True, "reason": "branch_already_pushed"},
+            push_stages=PushStageTruth(
+                validation_ready=True,
+                published_remote=True,
+            ),
+            push_step=None,
+            post_push_steps=[],
+        )
+    )
+
+    assert report["published_remote"] is True
+    assert report["push_diagnostic"] == {
+        "summary": "remote_already_published_post_push_pending",
+        "validation_state": "passed",
+        "publication_state": "already_published",
+        "git_push_state": "not_required",
+        "post_push_state": "pending",
+    }

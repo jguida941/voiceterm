@@ -126,7 +126,10 @@ def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
     if inputs.push_authorization_mode:
         report["push_authorization_mode"] = inputs.push_authorization_mode
     if inputs.artifact_path:
-        report["artifacts"] = {"latest_json": inputs.artifact_path}
+        report["artifacts"] = {
+            "push_report_json": inputs.artifact_path,
+            "latest_json": inputs.artifact_path,
+        }
     return report
 
 
@@ -165,7 +168,10 @@ def render_push_report(report: dict[str, Any]) -> str:
     lines.append(f"- errors: {len(errors)}")
     artifacts = report.get("artifacts") or {}
     if artifacts:
-        lines.append(f"- latest_json: {artifacts.get('latest_json')}")
+        push_report_json = artifacts.get("push_report_json") or artifacts.get(
+            "latest_json"
+        )
+        lines.append(f"- push_report_json: {push_report_json}")
     lines.append("")
     lines.append("## Policy")
     lines.append("")

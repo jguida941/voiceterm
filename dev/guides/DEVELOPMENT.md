@@ -1723,7 +1723,7 @@ Workflow permissions note:
    closed by default; any temporary override must be a tracked,
    short-lived exception rather than a standing local convenience. The
    managed latest-push artifact at
-   `dev/reports/push/latest.json` preserves that stage truth for later
+   `dev/reports/push/latest_push_report.json` preserves that stage truth for later
    startup/recovery, now writes phase-aware in-flight snapshots from
    `push_preflight_running` through `push_pending`, writes a
    `published_remote` snapshot immediately after `git push` succeeds, and

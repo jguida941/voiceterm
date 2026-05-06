@@ -8489,7 +8489,8 @@ working on `MP-377`.
   `selected_push_report_*` / `selected_push_report_source` fields, so
   startup recovery and governed push decisions can fail closed on the
   selected current-target receipt while operator/read-only status surfaces
-  stay truthful about the actual `dev/reports/push/latest.json` artifact. The
+  stay truthful about the actual `dev/reports/push/latest_push_report.json`
+  artifact. The
   same slice also closes the bridge compat omission that kept
   bridge-backed `_compat` payloads from carrying `push_enforcement`, and adds
   latest-push artifact freshness invalidation to review projection caches so
@@ -9005,7 +9006,8 @@ working on `MP-377`.
   provider-first defaults.
 - 2026-04-11 governed-push visibility slice:
   resume with the phase-aware latest-push artifact closure in place.
-  `devctl push --execute` now refreshes `dev/reports/push/latest.json` from
+  `devctl push --execute` now refreshes
+  `dev/reports/push/latest_push_report.json` from
   `push_preflight_running` through `push_pending` and on into the existing
   `published_remote` state, and startup already suppresses duplicate push
   advice when that current-head artifact is live. The next work here is still
@@ -11485,7 +11487,8 @@ Execution order for this section:
   the same role/mode proof to the external-repo ladder in
   `portable_code_governance.md`.
 - 2026-04-11: Closed the governed-push latest-artifact visibility gap inside
-  the shared platform owner chain. The canonical `dev/reports/push/latest.json`
+  the shared platform owner chain. The canonical
+  `dev/reports/push/latest_push_report.json`
   surface now advances through `push_preflight_running`, `push_pending`, and
   the existing post-`git push` publication snapshot instead of staying on the
   last completed report until the next terminal state. Startup also now

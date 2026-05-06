@@ -112,10 +112,13 @@ def load_sources(
             governance=governance,
         ):
             review_state_payload = read_json_artifact(paths["review_state"])
+    push_report_payload = read_json_artifact(paths["push_report"])
+    if push_report_payload is None and not paths["push_report"].exists():
+        push_report_payload = _read_legacy_push_report_artifact(repo_root)
     sources: dict[str, Any] = {
         "receipt": read_json_artifact(paths["receipt"]),
         "review_state": review_state_payload,
-        "push_report": read_json_artifact(paths["push_report"]),
+        "push_report": push_report_payload,
         "publisher_hb": read_json_artifact(paths["publisher_hb"]),
         "supervisor_hb": read_json_artifact(paths["supervisor_hb"]),
         "session_output_root": paths["publisher_hb"].parent,
@@ -159,3 +162,20 @@ def _push_report_path(repo_root: Path) -> Path:
         return repo_root / active_path_config().push_report_rel
     except Exception:  # broad-except: allow reason=repo-pack bootstrap can fail before path config is activated fallback=legacy push-report layout
         return repo_root / "dev/reports/push/latest/push_report.json"
+
+
+def _read_legacy_push_report_artifact(repo_root: Path) -> dict[str, Any] | None:
+    try:
+        from ..repo_packs import active_path_config
+
+        rels = getattr(active_path_config(), "legacy_push_report_rels", ())
+    except Exception:
+        rels = ()
+    for rel in rels:
+        relpath = str(rel).strip()
+        if not relpath:
+            continue
+        payload = read_json_artifact(repo_root / relpath)
+        if payload is not None:
+            return payload
+    return None

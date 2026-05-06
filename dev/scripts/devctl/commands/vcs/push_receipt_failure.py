@@ -4,7 +4,7 @@ from __future__ import annotations
 
 REVIEW_SNAPSHOT_RECEIPT_FAILURE_DETAIL_LIMIT = 400
 REVIEW_SNAPSHOT_RECEIPT_FAILURE_TRUNCATION = (
-    " [...truncated; see dev/reports/push/latest.json]"
+    " [...truncated; see dev/reports/push/latest_push_report.json]"
 )
 
 

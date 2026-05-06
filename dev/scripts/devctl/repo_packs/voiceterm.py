@@ -11,7 +11,8 @@ DEFAULT_BRIDGE_REL = "bridge.md"
 DEFAULT_REVIEW_STATUS_DIR_REL = "dev/reports/review_channel/latest"
 DEFAULT_MOBILE_STATUS_REL = "dev/reports/mobile/latest/full.json"
 DEFAULT_PHONE_STATUS_REL = "dev/reports/autonomy/queue/phone/latest.json"
-DEFAULT_PUSH_REPORT_REL = "dev/reports/push/latest.json"
+DEFAULT_PUSH_REPORT_REL = "dev/reports/push/latest_push_report.json"
+LEGACY_PUSH_REPORT_RELS = ("dev/reports/push/latest.json",)
 # ---------------------------------------------------------------------------
 # Centralized path configuration for VoiceTerm repo artifacts
 # ---------------------------------------------------------------------------
@@ -30,6 +31,7 @@ class RepoPathConfig:
     mobile_status_rel: str = DEFAULT_MOBILE_STATUS_REL
     phone_status_rel: str = DEFAULT_PHONE_STATUS_REL
     push_report_rel: str = DEFAULT_PUSH_REPORT_REL
+    legacy_push_report_rels: tuple[str, ...] = LEGACY_PUSH_REPORT_RELS
     # Bridge portability: gitignored local-state prefix, display timezone
     local_state_prefix_rel: str = ".voiceterm/memory/"
     display_timezone: str = "America/New_York"

@@ -50,10 +50,16 @@ def project_push_report(
     if isinstance(report, dict):
         artifacts_dict = report.get("artifacts")
         if isinstance(artifacts_dict, dict):
+            push_report_json = string_value(artifacts_dict.get("push_report_json"))
             latest_json = string_value(artifacts_dict.get("latest_json"))
-            if latest_json:
-                artifacts = (latest_json,)
-                push_report_path = latest_json
+            paths = tuple(
+                dict.fromkeys(
+                    path for path in (push_report_json, latest_json) if path
+                )
+            )
+            if paths:
+                artifacts = paths
+                push_report_path = paths[0]
     push_pipeline_phases = dict(mapping(report.get("push_pipeline_phases")))
 
     push_completed = _push_report_completed(report)
@@ -215,6 +221,8 @@ def _default_phase(name: str) -> dict[str, object]:
 def _silent_push_failure_reason(report: Mapping[str, object]) -> str:
     stages = mapping(report.get("push_stages"))
     if not bool(stages.get("published_remote")):
+        return ""
+    if string_value(report.get("reason")) == "branch_already_pushed":
         return ""
     if not bool(report.get("execute")):
         return ""

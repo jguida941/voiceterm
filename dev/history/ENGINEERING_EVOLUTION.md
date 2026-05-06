@@ -37,6 +37,29 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-06 - Governed push report path names the artifact explicitly
+
+Change: renamed the repo-pack canonical latest push report from the generic
+`dev/reports/push/latest.json` to
+`dev/reports/push/latest_push_report.json`. The old path remains a legacy read
+fallback only; new governed push runs write the explicit filename and report it
+as `artifacts.push_report_json`.
+
+The same slice corrected already-published no-op reporting:
+`branch_already_pushed` now carries `published_remote` stage truth and a
+`remote_already_published_post_push_pending` diagnostic without pretending
+post-push validation is green.
+
+Evidence:
+
+- `dev/scripts/devctl/repo_packs/voiceterm.py`
+- `dev/scripts/devctl/commands/vcs/push_artifact.py`
+- `dev/scripts/devctl/commands/vcs/push_flow.py`
+- `dev/scripts/devctl/commands/vcs/push_diagnostics.py`
+- `dev/scripts/devctl/tests/vcs/test_push_artifact.py`
+- `dev/scripts/devctl/tests/vcs/test_push_report.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
 ### 2026-05-06 - Agent bootstrap surfaces are generated boot cards
 
 Change: replaced hand-maintained AGENTS authority prose with a generated

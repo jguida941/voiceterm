@@ -94,7 +94,7 @@ def execute_push_flow_with_dependencies(
             operator_guidance=(
                 "No push is required; the current branch already matches the remote."
             ),
-            stages=PushStageTruth(validation_ready=True),
+            stages=PushStageTruth(validation_ready=True, published_remote=True),
         )
     if not args.execute:
         return PushFlowOutcome(

@@ -244,8 +244,10 @@ def _machine_summary(
     push,
     authority_report: dict[str, object],
     startup_receipt_path: str,
-    routing_options: StartupRoutingOptions,
+    routing_options: StartupRoutingOptions | None = None,
 ) -> dict[str, object]:
+    if routing_options is None:
+        routing_options = StartupRoutingOptions()
     summary: dict[str, object] = {}
     summary["advisory_action"] = ctx.advisory_action
     summary["advisory_reason"] = ctx.advisory_reason

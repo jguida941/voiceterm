@@ -1354,7 +1354,12 @@ class PushCommandTests(unittest.TestCase):
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "validation_ready")
         self.assertEqual(
-            payload["artifacts"]["latest_json"], "dev/reports/push/latest.json"
+            payload["artifacts"]["push_report_json"],
+            "dev/reports/push/latest_push_report.json",
+        )
+        self.assertEqual(
+            payload["artifacts"]["latest_json"],
+            "dev/reports/push/latest_push_report.json",
         )
         self.assertEqual(
             payload["push_authorization_id"],
@@ -1370,7 +1375,7 @@ class PushCommandTests(unittest.TestCase):
         )
         self.assertEqual(
             payload["action_result"]["artifact_paths"],
-            ["dev/reports/push/latest.json"],
+            ["dev/reports/push/latest_push_report.json"],
         )
         self.assertEqual(
             payload["push_stages"],
@@ -1507,15 +1512,19 @@ class PushCommandTests(unittest.TestCase):
         )
         self.sync_bridge_mock.assert_not_called()
         payload = json.loads(write_output_mock.call_args.args[0])
-        self.assertEqual(payload["status"], "validation_ready")
+        self.assertEqual(payload["status"], "published_remote")
         self.assertEqual(payload["reason"], "branch_already_pushed")
         self.assertIsNone(payload["preflight_step"])
         self.assertIsNone(payload["push_step"])
         self.assertEqual(
+            payload["push_diagnostic"]["summary"],
+            "remote_already_published_post_push_pending",
+        )
+        self.assertEqual(
             payload["push_stages"],
             {
                 "validation_ready": True,
-                "published_remote": False,
+                "published_remote": True,
                 "post_push_green": False,
             },
         )
@@ -1582,10 +1591,14 @@ class PushCommandTests(unittest.TestCase):
             [["git", "fetch", "origin"]],
         )
         payload = json.loads(write_output_mock.call_args.args[0])
-        self.assertEqual(payload["status"], "validation_ready")
+        self.assertEqual(payload["status"], "published_remote")
         self.assertEqual(payload["reason"], "branch_already_pushed")
         self.assertIsNone(payload["preflight_step"])
         self.assertIsNone(payload["push_step"])
+        self.assertEqual(
+            payload["push_diagnostic"]["summary"],
+            "remote_already_published_post_push_pending",
+        )
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch(
@@ -1710,7 +1723,12 @@ class PushCommandTests(unittest.TestCase):
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "post_push_green")
         self.assertEqual(
-            payload["artifacts"]["latest_json"], "dev/reports/push/latest.json"
+            payload["artifacts"]["push_report_json"],
+            "dev/reports/push/latest_push_report.json",
+        )
+        self.assertEqual(
+            payload["artifacts"]["latest_json"],
+            "dev/reports/push/latest_push_report.json",
         )
         self.assertEqual(
             payload["push_authorization_mode"],
@@ -1718,7 +1736,7 @@ class PushCommandTests(unittest.TestCase):
         )
         self.assertEqual(
             payload["action_result"]["artifact_paths"],
-            ["dev/reports/push/latest.json"],
+            ["dev/reports/push/latest_push_report.json"],
         )
         self.assertEqual(
             payload["push_stages"],
@@ -2691,7 +2709,10 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertIn("returncode=3", state.errors[0])
         self.assertIn("output=", state.errors[0])
-        self.assertIn("truncated; see dev/reports/push/latest.json", state.errors[0])
+        self.assertIn(
+            "truncated; see dev/reports/push/latest_push_report.json",
+            state.errors[0],
+        )
         self.assertLess(len(result["error_detail"]), 450)
 
     def test_generated_preflight_commit_gets_snapshot_receipt_before_authorization(
@@ -4526,7 +4547,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertTrue(payload["action_result"]["partial_progress"])
         self.assertEqual(
             payload["action_result"]["artifact_paths"],
-            ["dev/reports/push/latest.json"],
+            ["dev/reports/push/latest_push_report.json"],
         )
         self.assertEqual(
             payload["push_stages"],
@@ -4613,7 +4634,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertTrue(payload["action_result"]["partial_progress"])
         self.assertEqual(
             payload["action_result"]["artifact_paths"],
-            ["dev/reports/push/latest.json"],
+            ["dev/reports/push/latest_push_report.json"],
         )
         self.assertEqual(
             payload["push_stages"],

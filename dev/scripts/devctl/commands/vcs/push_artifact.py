@@ -1,4 +1,4 @@
-"""Managed latest-push artifact helpers."""
+"""Managed latest-push report artifact helpers."""
 
 from __future__ import annotations
 
@@ -20,6 +20,23 @@ def resolve_push_report_artifact_path(*, repo_root: Path = REPO_ROOT) -> Path:
     return resolve_repo_path(active_path_config().push_report_rel, repo_root=repo_root)
 
 
+def resolve_legacy_push_report_artifact_paths(
+    *,
+    repo_root: Path = REPO_ROOT,
+) -> tuple[Path, ...]:
+    """Return legacy latest-push report paths accepted as read fallbacks."""
+    config = active_path_config()
+    canonical = str(config.push_report_rel).strip()
+    rels = getattr(config, "legacy_push_report_rels", ())
+    paths: list[Path] = []
+    for rel in rels:
+        relpath = str(rel).strip()
+        if not relpath or relpath == canonical:
+            continue
+        paths.append(resolve_repo_path(relpath, repo_root=repo_root))
+    return tuple(paths)
+
+
 def _resolve_receipt_history_path(*, repo_root: Path = REPO_ROOT) -> Path:
     """Return the append-only JSONL receipt history path."""
     push_dir = resolve_push_report_artifact_path(repo_root=repo_root).parent
@@ -33,16 +50,29 @@ def latest_push_report_relpath(*, repo_root: Path = REPO_ROOT) -> str:
 
 def load_latest_push_report(*, repo_root: Path = REPO_ROOT) -> dict[str, Any] | None:
     """Load the managed latest-push artifact when it exists and is valid JSON."""
+    path = resolve_push_report_artifact_path(repo_root=repo_root)
     payload, error = read_json_object(
-        resolve_push_report_artifact_path(repo_root=repo_root),
+        path,
         missing_message="",
         invalid_message="",
         object_message="",
         reject_duplicate_keys=True,
     )
-    if error:
+    if payload is not None:
+        return payload
+    if path.exists():
         return None
-    return payload
+    for legacy_path in resolve_legacy_push_report_artifact_paths(repo_root=repo_root):
+        payload, error = read_json_object(
+            legacy_path,
+            missing_message="",
+            invalid_message="",
+            object_message="",
+            reject_duplicate_keys=True,
+        )
+        if payload is not None:
+            return payload
+    return None
 
 
 def serialize_push_report(report: dict[str, Any]) -> str:

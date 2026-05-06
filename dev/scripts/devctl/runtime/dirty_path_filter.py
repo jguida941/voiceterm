@@ -14,6 +14,11 @@ def ignored_dirty_path_prefixes() -> tuple[str, ...]:
         config.review_status_dir_rel.strip("/"),
         config.review_artifact_root_rel.strip("/"),
         config.push_report_rel.strip("/"),
+        *(
+            str(rel).strip("/")
+            for rel in getattr(config, "legacy_push_report_rels", ())
+            if str(rel).strip("/")
+        ),
         config.bridge_rel.strip("/"),
         "convo.md",
     ]

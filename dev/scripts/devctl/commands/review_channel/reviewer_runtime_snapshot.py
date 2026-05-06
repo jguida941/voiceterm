@@ -291,14 +291,17 @@ def _attach_agent_runtime_projections(
     review_state: ReviewState,
 ) -> None:
     """Attach typed multi-agent runtime projections from ReviewState."""
-    if review_state.agent_sync:
-        report["agent_sync"] = dict(review_state.agent_sync)
-    if review_state.agent_work_board:
-        report["agent_work_board"] = dict(review_state.agent_work_board)
-    if review_state.coordination_state:
-        report["coordination_state"] = dict(review_state.coordination_state)
-    if review_state.agent_work_board:
+    agent_sync = getattr(review_state, "agent_sync", None)
+    agent_work_board = getattr(review_state, "agent_work_board", None)
+    coordination_state = getattr(review_state, "coordination_state", None)
+    if agent_sync:
+        report["agent_sync"] = dict(agent_sync)
+    if agent_work_board:
+        report["agent_work_board"] = dict(agent_work_board)
+    if coordination_state:
+        report["coordination_state"] = dict(coordination_state)
+    if agent_work_board:
         report["agent_loop_decisions"] = agent_loop_decisions_for_work_board(
             review_state=review_state.to_dict(),
-            work_board=review_state.agent_work_board,
+            work_board=agent_work_board,
         )

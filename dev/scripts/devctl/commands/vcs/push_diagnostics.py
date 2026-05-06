@@ -25,7 +25,11 @@ def build_push_diagnostic(
         errors=errors,
         push_stages=push_stages,
     )
-    git_push_state = _git_push_state(push_stages=push_stages, push_step=push_step)
+    git_push_state = _git_push_state(
+        push_stages=push_stages,
+        reason=reason,
+        push_step=push_step,
+    )
     post_push_state = _post_push_state(
         push_stages=push_stages,
         reason=reason,
@@ -66,6 +70,8 @@ def _publication_state(
     errors: list[str],
     push_stages: "PushStageTruth",
 ) -> str:
+    if reason == "branch_already_pushed":
+        return "already_published"
     if push_stages.published_remote:
         return "published"
     if any(error.startswith("Publication authorization blocks") for error in errors):
@@ -82,8 +88,11 @@ def _publication_state(
 def _git_push_state(
     *,
     push_stages: "PushStageTruth",
+    reason: str,
     push_step: dict[str, Any] | None,
 ) -> str:
+    if reason == "branch_already_pushed":
+        return "not_required"
     if (
         push_stages.published_remote
         and push_step
@@ -130,6 +139,8 @@ def _push_diagnostic_summary(
         return "git_push_failed"
     if publication_state == "awaiting_execute":
         return "validation_ready_execute_required"
+    if publication_state == "already_published":
+        return "remote_already_published_post_push_pending"
     if publication_state == "published" and post_push_state != "green":
         return "remote_published_post_push_pending"
     if publication_state == "published":

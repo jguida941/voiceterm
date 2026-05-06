@@ -128,6 +128,12 @@
   `DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS` (default 90 seconds) and preserves
   the existing fail-open warning policy so ordinary commits do not hang while
   receipt freshness remains enforced by guards.
+- 2026-05-06 governed-push report naming (MP-377): the repo-pack canonical
+  latest push report is now `dev/reports/push/latest_push_report.json`, with
+  `dev/reports/push/latest.json` accepted only as a legacy read fallback.
+  Already-published no-op reruns now surface `published_remote` /
+  `branch_already_pushed` truth without pretending post-push validation is
+  green.
 - 2026-04-29 Plan 4.1 Graph Intelligence safe slice (MP-377):
   `dev/active/ai_governance_platform.md` now carries `MP377-P0-T13A` as the
   owner row for widening the existing generated context graph, not a new graph
