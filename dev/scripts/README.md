@@ -1805,8 +1805,8 @@ summary over the selected snapshot window.
 | `dev/scripts/artifacts/sha256.py` | Checksum writer | Canonical helper for release/archive checksum generation. |
 | `dev/scripts/checks/check_mutation_score.py` | Mutation score gate | Used in CI and local validation; prints outcomes source freshness and supports `--max-age-hours` stale-data gating. |
 | `dev/scripts/checks/check_mutation_bypass_graph_closure.py` | Governed-mutation bypass graph guard | Stable shim entrypoint for the graph-backed mutation-bypass closure check while the packaged implementation lives under `dev/scripts/checks/mutation_bypass_graph_closure/`; proves raw-git mutation callsites still route through the governed executor surface. |
-| `dev/scripts/checks/check_agents_contract.py` | AGENTS contract gate | Verifies required AGENTS SOP sections, bundles, and routing rows are present. |
-| `dev/scripts/checks/check_agents_bundle_render.py` | AGENTS bundle render gate | Verifies AGENTS rendered command-bundle section matches canonical output from `dev/scripts/devctl/bundle_registry.py`; supports `--write` to regenerate the section. |
+| `dev/scripts/checks/check_agents_contract.py` | AGENTS boot-card contract gate | Verifies `AGENTS.md` is a generated projection-only `InstructionBootCard` with the required bootstrap sections, command routes, provenance markers, size budgets, and forbidden authority-claim checks. |
+| `dev/scripts/checks/check_agents_bundle_render.py` | AGENTS boot-card render compatibility gate | Backward-compatible guard for existing bundles; delegates to `render-surfaces` for the `agents_boot_card` projection instead of treating AGENTS as command-bundle authority. |
 | `dev/scripts/checks/check_bootstrap.py` | Check bootstrap helper | Shared import-resolution and UTC runtime-error/timestamp helpers used by standalone guard scripts; not invoked directly by bundles. |
 | `dev/scripts/checks/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, mirrored-spec phase headings, cross-doc links, execution-plan metadata/marker/section parity (including `Session Resume`), the typed umbrella-plan phase/task contract for `dev/active/ai_governance_platform.md`, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, archive-vs-active doc boundaries for the reduced active owner set, and `MASTER_PLAN` Status Snapshot release metadata freshness. |
 | `dev/scripts/checks/check_architecture_surface_sync.py` | Architecture-surface sync guard | Scans newly added files and fails when active-plan docs, new check scripts, new `devctl` commands, new `app/**` surfaces, or new workflow files are not wired into the repo's owning authority docs/bundles/workflow docs. Supports `--since-ref`/`--head-ref` for branch diffs and `--paths` for targeted local verification. |
@@ -1950,9 +1950,9 @@ Machine-first output note:
   Operator Console tests only for touched `app/operator_console/**/*.py`
   paths; focused devctl add-ons scale their session timeout with selected
   test-target count and run devctl shards with a bounded per-test cap.
-  `AGENTS.md` must list this
-  command because `check_agents_contract.py` mirrors the live command inventory
-  from `dev/scripts/devctl/commands/listing.py`.
+  Generated instruction boot cards route agents through typed startup,
+  session, graph, and `/develop` commands; the live command inventory remains
+  owned by `SystemCatalog` / `devctl` listing surfaces, not AGENTS prose.
 - `mutants`: mutation test helper wrapper
 - `mutation-score`: threshold/freshness checker for outcomes (strict by default; use `--report-only` for non-blocking reminders)
 - `docs-check`: docs coverage + tooling/deprecated-command policy guard (`--strict-tooling` also runs active-plan sync + multi-agent sync + markdown metadata-header + workflow-shell hygiene + guide-contract sync + bundle/workflow parity + stale-path audit)

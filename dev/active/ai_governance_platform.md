@@ -4519,6 +4519,15 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       depends_on: `MP377-P0-T13`, `MP377-P0-T15`
       scope: Extend `render-surfaces` and existing generated-surface guards for one `AGENTS.md` quick-map section and one `CLAUDE.md` key-command section using typed command/catalog inputs. Do not migrate the full files in one slice.
       acceptance_criteria: The selected generated sections are reproducible from typed inputs, hand-edits fail the owning guard, and product docs remain untouched unless shipped VoiceTerm behavior changes.
+      progress: 2026-05-06 MP377-P0-INSTRUCTION-SURFACE-SLIM-S1 widened
+      this wedge into projection-only generated boot cards over typed
+      bootstrap authority. `InstructionBootCard` now renders `AGENTS.md` and
+      local-only `CLAUDE.md`, keeps optional `CODEX.md` missing-local-only,
+      routes agents through startup-context, session-resume, review-channel
+      status, context-graph bootstrap, `/develop`, system-map,
+      system-picture, platform-contracts, render-surfaces, and docs-check,
+      and retargets the AGENTS guards to projection validity rather than
+      durable authority.
 - [ ] `MP377-P0-T19A` Move bootstrap command execution through stdin/script-file rendering so generated agent instructions do not leak long prompts or operational packets through argv/process listings.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`

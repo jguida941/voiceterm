@@ -102,6 +102,20 @@ def _scan_doc_policy(
     )
     return DocPolicy(
         docs_authority_path=inputs.docs_authority,
+        process_authority_paths=(
+            plan_registry.index_path,
+            plan_registry.tracker_path,
+        ),
+        projection_surface_paths=tuple(
+            path
+            for path in (
+                inputs.docs_authority,
+                inputs.bridge_config.bridge_path
+                if inputs.bridge_config.bridge_active
+                else "",
+            )
+            if path
+        ),
         active_docs_root=inputs.path_roots.active_docs,
         guides_root=inputs.path_roots.guides,
         governed_doc_roots=inputs.governed_doc_roots,

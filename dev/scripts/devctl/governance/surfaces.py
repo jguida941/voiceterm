@@ -32,11 +32,18 @@ class SurfaceSpec:
     surface_type: str
     renderer: str
     output_path: str
-    template_path: str | None
-    tracked: bool
-    local_only: bool
-    description: str
-    required_contains: tuple[str, ...]
+    template_path: str | None = None
+    source_path: str | None = None
+    optional_source: bool = False
+    tracked: bool = False
+    local_only: bool = False
+    description: str = ""
+    required_contains: tuple[str, ...] = ()
+    source_required_contains: tuple[str, ...] = ()
+    forbidden_contains: tuple[str, ...] = ()
+    max_output_lines: int = 0
+    max_output_bytes: int = 0
+    projection_only: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,8 +225,20 @@ def _parse_surface_specs(
         if renderer == "template_file" and not template_value:
             warnings.append(f"surface `{surface_id}` needs `template_path`; skipped.")
             continue
+        source_path = entry.get("source_path")
+        source_value = str(source_path).strip() if source_path else None
         required_contains = _parse_required_contains(
             entry.get("required_contains"),
+            surface_id=surface_id,
+            warnings=warnings,
+        )
+        source_required_contains = _parse_required_contains(
+            entry.get("source_required_contains"),
+            surface_id=surface_id,
+            warnings=warnings,
+        )
+        forbidden_contains = _parse_required_contains(
+            entry.get("forbidden_contains"),
             surface_id=surface_id,
             warnings=warnings,
         )
@@ -230,10 +249,17 @@ def _parse_surface_specs(
                 renderer=renderer,
                 output_path=output_path,
                 template_path=template_value,
+                source_path=source_value,
+                optional_source=bool(entry.get("optional_source", False)),
                 tracked=bool(entry.get("tracked", False)),
                 local_only=bool(entry.get("local_only", False)),
                 description=str(entry.get("description") or "").strip(),
                 required_contains=required_contains,
+                source_required_contains=source_required_contains,
+                forbidden_contains=forbidden_contains,
+                max_output_lines=_positive_int(entry.get("max_output_lines")),
+                max_output_bytes=_positive_int(entry.get("max_output_bytes")),
+                projection_only=bool(entry.get("projection_only", False)),
             )
         )
         seen_ids.add(surface_id)
@@ -263,6 +289,14 @@ def _parse_required_contains(
             continue
         items.append(text)
     return tuple(items)
+
+
+def _positive_int(value: object) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return parsed if parsed > 0 else 0
 
 
 def _build_unknown_surface_report(

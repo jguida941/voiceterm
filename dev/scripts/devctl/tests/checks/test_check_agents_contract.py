@@ -10,6 +10,9 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from dev.scripts.devctl.config import REPO_ROOT
+from dev.scripts.devctl.governance.instruction_boot_card import (
+    build_instruction_boot_card,
+)
 
 SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/check_agents_contract.py"
 
@@ -26,24 +29,6 @@ def _load_script_module():
     return module
 
 
-def _valid_agents_text(script) -> str:
-    lines: list[str] = ["# AGENTS", ""]
-    for heading in script.REQUIRED_H2:
-        lines.append(f"## {heading}")
-        lines.append("placeholder")
-        lines.append("")
-    for bundle in script.REQUIRED_BUNDLES:
-        lines.append(f"`{bundle}`")
-    lines.append("")
-    lines.extend(script.REQUIRED_MARKERS)
-    lines.append("")
-    lines.extend(script.REQUIRED_ROUTER_SNIPPETS)
-    lines.append("")
-    lines.extend(script.REQUIRED_COMMANDS)
-    lines.append("")
-    return "\n".join(lines)
-
-
 class CheckAgentsContractTests(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -56,42 +41,43 @@ class CheckAgentsContractTests(TestCase):
         path.write_text(text, encoding="utf-8")
         return path
 
-    def test_build_report_ok_for_complete_contract(self) -> None:
-        agents_path = self._with_temp_agents(_valid_agents_text(self.script))
+    def _valid_agents_text(self) -> str:
+        return build_instruction_boot_card(
+            surface_id="agents_boot_card",
+            output_path="AGENTS.md",
+            source_path="dev/state/plan_index.jsonl",
+            repo_pack_id="voiceterm",
+            repo_pack_version="0.1.0-dev",
+        )
+
+    def test_build_report_ok_for_boot_projection(self) -> None:
+        agents_path = self._with_temp_agents(self._valid_agents_text())
         with patch.object(self.script, "AGENTS_PATH", agents_path):
             report = self.script._build_report()
         self.assertTrue(report["ok"])
         self.assertEqual(report["missing_h2"], [])
-        self.assertEqual(report["missing_bundles"], [])
         self.assertEqual(report["missing_markers"], [])
-        self.assertEqual(report["missing_router_rows"], [])
         self.assertEqual(report["missing_commands"], [])
-
-    def test_build_report_flags_missing_router_row(self) -> None:
-        text = _valid_agents_text(self.script).replace(
-            self.script.REQUIRED_ROUTER_SNIPPETS[0], ""
-        )
-        agents_path = self._with_temp_agents(text)
-        with patch.object(self.script, "AGENTS_PATH", agents_path):
-            report = self.script._build_report()
-        self.assertFalse(report["ok"])
-        self.assertEqual(
-            report["missing_router_rows"], [self.script.REQUIRED_ROUTER_SNIPPETS[0]]
-        )
+        self.assertEqual(report["forbidden_claims"], [])
 
     def test_build_report_flags_missing_command(self) -> None:
-        missing_command = "governance-bootstrap"
-        text = _valid_agents_text(self.script).replace(missing_command, "")
+        missing_command = "system-picture"
+        text = self._valid_agents_text().replace(missing_command, "")
         agents_path = self._with_temp_agents(text)
         with patch.object(self.script, "AGENTS_PATH", agents_path):
             report = self.script._build_report()
         self.assertFalse(report["ok"])
         self.assertEqual(report["missing_commands"], [missing_command])
 
-    def test_router_markers_include_typed_authority_path(self) -> None:
-        self.assertIn(
-            "dev/scripts/devctl/governance/task_router_contract.py",
-            self.script.REQUIRED_MARKERS,
+    def test_build_report_flags_forbidden_authority_claim(self) -> None:
+        text = self._valid_agents_text() + "\nAGENTS.md is canonical authority\n"
+        agents_path = self._with_temp_agents(text)
+        with patch.object(self.script, "AGENTS_PATH", agents_path):
+            report = self.script._build_report()
+        self.assertFalse(report["ok"])
+        self.assertEqual(
+            report["forbidden_claims"],
+            ["AGENTS.md is canonical authority"],
         )
 
     def test_build_report_missing_file_returns_error(self) -> None:

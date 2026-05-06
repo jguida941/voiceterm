@@ -27,7 +27,9 @@ def build_report(
     report = build_surface_report(
         policy_path=policy_path,
         allow_missing_local_only=True,
-        allowed_renderers=frozenset({"template_file", "system_map_renderer"}),
+        allowed_renderers=frozenset(
+            {"instruction_boot_card", "template_file", "system_map_renderer"}
+        ),
     )
     report["command"] = "check_instruction_surface_sync"
     return report

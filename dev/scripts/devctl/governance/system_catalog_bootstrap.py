@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from .system_catalog_instruction_bootstrap import (
+    instruction_authority_bootstrap_commands,
+    instruction_develop_bootstrap_commands,
+)
 from .system_catalog_models import CatalogBootstrapCommand, CatalogBootstrapLinks
 
 
@@ -34,9 +38,19 @@ def _startup_bootstrap_commands(
     probe_ids: tuple[str, ...] = (),
 ) -> tuple[CatalogBootstrapCommand, ...]:
     """Return the startup and policy-facing bootstrap entries."""
+    return (
+        *_startup_authority_bootstrap_commands(),
+        *instruction_authority_bootstrap_commands(),
+        *instruction_develop_bootstrap_commands(),
+        *_session_bootstrap_commands(),
+        *_quality_bootstrap_commands(guard_ids=guard_ids, probe_ids=probe_ids),
+    )
+
+
+def _startup_authority_bootstrap_commands() -> tuple[CatalogBootstrapCommand, ...]:
+    """Return first-hop startup, graph, and authority reducer commands."""
     from ..runtime.conductor_capability import (
         context_graph_bootstrap_command,
-        session_resume_command_for_role,
     )
 
     return (
@@ -74,6 +88,14 @@ def _startup_bootstrap_commands(
                 plan_paths=("dev/active/ai_governance_platform.md",),
             ),
         ),
+    )
+
+
+def _session_bootstrap_commands() -> tuple[CatalogBootstrapCommand, ...]:
+    """Return role-bound session bootstrap command entries."""
+    from ..runtime.conductor_capability import session_resume_command_for_role
+
+    return (
         _entry(
             command_id="session_resume_reviewer",
             label="Reviewer bootstrap packet",
@@ -102,6 +124,16 @@ def _startup_bootstrap_commands(
                 ),
             ),
         ),
+    )
+
+
+def _quality_bootstrap_commands(
+    *,
+    guard_ids: tuple[str, ...] = (),
+    probe_ids: tuple[str, ...] = (),
+) -> tuple[CatalogBootstrapCommand, ...]:
+    """Return publish, quality, and probe bootstrap command entries."""
+    return (
         _entry(
             command_id="governed_push_execute",
             label="Governed push execute",

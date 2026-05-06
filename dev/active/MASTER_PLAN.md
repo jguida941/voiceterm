@@ -115,6 +115,13 @@
   constructors) from shallow AST appeasement (mutable registry rewrites or
   temporary variables around constructor returns), then route those design
   findings through typed `/develop` and review-channel work packets.
+- 2026-05-06 generated boot-card authority/projection split (MP-377):
+  `AGENTS.md` is now a tracked generated `InstructionBootCard`, `CLAUDE.md`
+  is the local-only peer projection, and optional `CODEX.md` remains
+  missing-local-only unless repo policy enables it. Durable startup/process
+  authority stays in typed plan rows, repo-pack policy, contracts, receipts,
+  startup-context, session-resume, context-graph, `/develop`, and guards;
+  generated markdown only routes agents to those typed surfaces.
 - 2026-04-29 Plan 4.1 Graph Intelligence safe slice (MP-377):
   `dev/active/ai_governance_platform.md` now carries `MP377-P0-T13A` as the
   owner row for widening the existing generated context graph, not a new graph

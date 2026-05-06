@@ -13,6 +13,9 @@ from dev.scripts.checks.package_layout import instruction_surface_sync
 from dev.scripts.devctl import cli
 from dev.scripts.devctl.commands import listing
 from dev.scripts.devctl.commands.governance import render_surfaces
+from dev.scripts.devctl.governance.instruction_boot_card import (
+    build_instruction_boot_card,
+)
 from dev.scripts.devctl.governance import surface_runtime, surfaces
 
 
@@ -71,24 +74,24 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
         report = surfaces.build_surface_report(allow_missing_local_only=True)
 
         self.assertTrue(report["ok"])
-        self.assertEqual(report["surface_count"], 9)
+        self.assertEqual(report["surface_count"], 14)
         self.assertIn(
-            "agents_bundle_reference",
+            "agents_boot_card",
             {entry["surface_id"] for entry in report["surfaces"]},
         )
 
-    def test_instruction_surface_guard_ignores_agents_bundle_surface(self) -> None:
+    def test_instruction_surface_guard_includes_boot_card_surfaces(self) -> None:
         report = instruction_surface_sync.build_report()
 
         self.assertTrue(report["ok"])
-        self.assertEqual(report["surface_count"], 8)
-        self.assertNotIn(
-            "agents_bundle_reference",
-            {entry["surface_id"] for entry in report["surfaces"]},
-        )
+        self.assertEqual(report["surface_count"], 14)
+        surface_ids = {entry["surface_id"] for entry in report["surfaces"]}
+        self.assertIn("agents_boot_card", surface_ids)
+        self.assertIn("claude_boot_card", surface_ids)
+        self.assertIn("codex_boot_card", surface_ids)
         self.assertIn(
             "system_map_index",
-            {entry["surface_id"] for entry in report["surfaces"]},
+            surface_ids,
         )
 
     def test_surface_report_uses_connectivity_registry_summary(self) -> None:
@@ -127,103 +130,23 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             report["connectivity_registry"]["reader_ids"],
         )
 
-    def test_claude_surface_renders_blocking_post_edit_verification(self) -> None:
+    def test_claude_boot_card_renders_projection_only_bootstrap(self) -> None:
         policy = surfaces.load_surface_policy()
         claude_surface = next(
-            entry for entry in policy.surfaces if entry.surface_id == "claude_instructions"
+            entry for entry in policy.surfaces if entry.surface_id == "claude_boot_card"
         )
-        template_text = Path(claude_surface.template_path).read_text(encoding="utf-8")
-        rendered_text, missing_context = surface_runtime._render_template_text(
-            template_text,
-            policy.context,
+        rendered_text = build_instruction_boot_card(
+            surface_id=claude_surface.surface_id,
+            output_path=claude_surface.output_path,
+            source_path=claude_surface.source_path or "",
+            repo_pack_id=policy.context["repo_pack_id"],
+            repo_pack_version=policy.context["repo_pack_version"],
         )
 
-        self.assertEqual(missing_context, [])
         for required_snippet in claude_surface.required_contains:
             self.assertIn(required_snippet, rendered_text)
         self.assertIn(
-            "Run the task-class bundle from `AGENTS.md` after every file create/edit:",
-            rendered_text,
-        )
-        self.assertIn(
-            "## System model",
-            rendered_text,
-        )
-        self.assertIn(
-            "compiler-style control system for AI work",
-            rendered_text,
-        )
-        self.assertIn(
-            "`TypedAction -> ActionResult -> RunRecord`",
-            rendered_text,
-        )
-        self.assertIn(
-            "## Governance capabilities (available during work)",
-            rendered_text,
-        )
-        self.assertIn(
-            "See `dev/guides/AI_GOVERNANCE_PLATFORM.md` for the durable architecture version of this",
-            rendered_text,
-        )
-        self.assertIn(
-            "model.",
-            rendered_text,
-        )
-        self.assertIn(
-            "The model proposes, but repo-owned",
-            rendered_text,
-        )
-        self.assertIn(
-            "deterministic passes decide what work is admissible and what evidence is",
-            rendered_text,
-        )
-        self.assertIn(
-            "required.",
-            rendered_text,
-        )
-        self.assertIn("## Task Router Quick Map", rendered_text)
-        self.assertIn(
-            "Canonical task-router authority lives in",
-            rendered_text,
-        )
-        self.assertIn(
-            "| Changed tooling/process/CI/governance surfaces | Tooling/process/CI | `bundle.tooling` |",
-            rendered_text,
-        )
-        self.assertIn(
-            "python3 dev/scripts/devctl.py check-router --format md",
-            rendered_text,
-        )
-        self.assertIn(
-            "`decision_mode` gates action: `auto_apply` means fix directly,",
-            rendered_text,
-        )
-        self.assertIn(
-            "## Checkpoint / Review / Push Contract",
-            rendered_text,
-        )
-        self.assertIn(
-            "Treat `push_decision` as the canonical next remote-action state machine:",
-            rendered_text,
-        )
-        self.assertIn(
-            "python3 dev/scripts/devctl.py push --execute",
-            rendered_text,
-        )
-        self.assertIn(
-            "governance-review --record --signal-type probe|guard|audit --check-id <id>",
-            rendered_text,
-        )
-        self.assertIn(
-            "Step 0 for any edit, validation, or repo-owned launcher session:",
-            rendered_text,
-        )
-        self.assertIn(
-            "python3 dev/scripts/devctl.py startup-context --format json",
-            rendered_text,
-        )
-        self.assertIn(
-            "python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap",
+            "python3 dev/scripts/devctl.py startup-context --role implementer --format json",
             rendered_text,
         )
         self.assertIn(
@@ -231,104 +154,41 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             rendered_text,
         )
         self.assertIn(
-            "If it exits non-zero, checkpoint or repair the state before editing or launching more work.",
+            "This is projection-only",
             rendered_text,
         )
         self.assertIn(
-            "Do not treat a user summary, stale chat continuity, or memory as a substitute for this receipt.",
+            "projection_only: true",
             rendered_text,
         )
-        self.assertIn(
-            "Do not echo bootstrap packets back into chat by default.",
-            rendered_text,
-        )
-        self.assertIn(
-            "This is the canonical new-conversation bootstrap surface",
-            rendered_text,
-        )
-        self.assertIn(
-            "Keep any chat bootstrap acknowledgement to blocker state plus next step;",
-            rendered_text,
-        )
-        self.assertIn(
-            "`startup-context` now carries compact governance, reviewer gate, advisory",
-            rendered_text,
-        )
-        self.assertIn(
-            "context-graph --mode diff --from previous --to latest --format md",
-            rendered_text,
-        )
-        self.assertIn(
-            "This block is rendered from `dev/scripts/checks/code_shape_function_exceptions.py`",
-            rendered_text,
-        )
-        self.assertIn(
-            "Function exceptions/overrides live in `dev/scripts/checks/code_shape_function_exceptions.py`",
-            rendered_text,
-        )
-        self.assertIn(
-            'For "which tool should I run now?", use `dev/guides/DEVELOPMENT.md` (`What checks',
-            rendered_text,
-        )
-        self.assertIn(
-            "python3 dev/scripts/devctl.py check --profile ci",
-            rendered_text,
-        )
-        self.assertIn(
-            "python3 dev/scripts/devctl.py probe-report --format md",
-            rendered_text,
-        )
-        self.assertIn(
-            "python3 dev/scripts/devctl.py governance-review --format md",
-            rendered_text,
-        )
-        self.assertIn(
-            "python3 dev/scripts/devctl.py review-channel --action reviewer-wait --reason awaiting-implementer --terminal none --format json",
-            rendered_text,
-        )
-        self.assertNotIn("--seconds 60", rendered_text)
-        self.assertIn(
-            "## Mode-aware review-channel bootstrap",
-            rendered_text,
-        )
-        self.assertIn(
-            "review-channel --action status --terminal none --format json",
-            rendered_text,
-        )
-        self.assertIn(
-            "If reviewer-owned bridge state says `hold steady`, `waiting for reviewer promotion`,",
-            rendered_text,
-        )
-        self.assertIn(
-            "On each repoll, read `Last Codex poll` / `Poll Status` first.",
-            rendered_text,
-        )
-        self.assertIn(
-            "every `Claude Status` / `Claude Ack` update must",
-            rendered_text,
-        )
-        self.assertIn(
-            "Do not use raw shell sleep loops such as `sleep 60`",
-            rendered_text,
-        )
+        self.assertLessEqual(len(rendered_text.splitlines()), 200)
+        self.assertLessEqual(len(rendered_text.encode("utf-8")), 32768)
 
-    def test_claude_surface_key_commands_come_from_system_catalog(self) -> None:
+    def test_boot_card_forbids_authority_claims(self) -> None:
         from dev.scripts.devctl.governance.system_catalog import build_system_catalog
 
         policy = surfaces.load_surface_policy()
-        claude_surface = next(
-            entry for entry in policy.surfaces if entry.surface_id == "claude_instructions"
+        agents_surface = next(
+            entry for entry in policy.surfaces if entry.surface_id == "agents_boot_card"
         )
-        template_text = Path(claude_surface.template_path).read_text(encoding="utf-8")
-        rendered_text, missing_context = surface_runtime._render_template_text(
-            template_text,
-            policy.context,
+        rendered_text = build_instruction_boot_card(
+            surface_id=agents_surface.surface_id,
+            output_path=agents_surface.output_path,
+            source_path=agents_surface.source_path or "",
+            repo_pack_id=policy.context["repo_pack_id"],
+            repo_pack_version=policy.context["repo_pack_version"],
         )
 
-        self.assertEqual(missing_context, [])
-        for entry in build_system_catalog().bootstrap_commands:
-            self.assertIn(f"# {entry.label}", rendered_text)
-            self.assertIn(entry.command, rendered_text)
+        self.assertIn("system-picture", rendered_text)
+        self.assertIn("platform-contracts", rendered_text)
+        self.assertIn("develop next", rendered_text)
+        self.assertIn("develop show", rendered_text)
+        for forbidden in agents_surface.forbidden_contains:
+            self.assertNotIn(forbidden, rendered_text)
+        self.assertIn(
+            "system_picture",
+            {entry.command_id for entry in build_system_catalog().bootstrap_commands},
+        )
 
 
 class RenderSurfacesCliIntegrationTests(unittest.TestCase):

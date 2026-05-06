@@ -77,6 +77,16 @@ def startup_governance_dict(governance: ProjectGovernance) -> dict[str, Any]:
     )
     payload["startup_order"] = list(governance.startup_order)
     payload["docs_authority"] = governance.docs_authority
+    payload["process_authority_paths"] = list(
+        governance.doc_policy.process_authority_paths
+    )
+    payload["projection_surface_paths"] = list(
+        governance.doc_policy.projection_surface_paths
+    )
+    payload["docs_authority_interpretation"] = (
+        "compatibility_startup_path; generated instruction boot cards are "
+        "projection-only"
+    )
     payload["workflow_profiles"] = list(governance.workflow_profiles)
     payload["command_routing_defaults"] = dict(governance.command_routing_defaults or {})
     payload["enabled_checks_summary"] = dict(

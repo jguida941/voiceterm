@@ -1,11 +1,11 @@
-"""Tests for AGENTS bundle render guard script."""
+"""Tests for the AGENTS boot-card compatibility guard."""
 
 from __future__ import annotations
 
 import importlib.util
-import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 
@@ -21,7 +21,7 @@ def _load_module(name: str, relative_path: str):
 
 
 class CheckAgentsBundleRenderTests(unittest.TestCase):
-    """Protect AGENTS rendered bundle section guard behavior."""
+    """Protect the compatibility shim over render-surfaces."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -30,109 +30,41 @@ class CheckAgentsBundleRenderTests(unittest.TestCase):
             "dev/scripts/checks/check_agents_bundle_render.py",
         )
 
-    def test_build_report_passes_when_agents_section_matches_registry(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            agents_path = Path(tmpdir) / "AGENTS.md"
-            agents_path.write_text(
-                "\n".join(
-                    [
-                        "# AGENTS",
-                        "",
-                        "Header text.",
-                        "",
-                        self.script.render_agents_bundle_section_markdown(),
-                        "",
-                        self.script.NEXT_HEADING,
-                        "",
-                        "Tail text.",
-                    ]
-                ),
-                encoding="utf-8",
-            )
-            original_agents_path = self.script.AGENTS_PATH
-            self.addCleanup(setattr, self.script, "AGENTS_PATH", original_agents_path)
-            self.script.AGENTS_PATH = agents_path
-
-            report = self.script.build_report()
-
-            self.assertTrue(report["ok"])
-            self.assertFalse(report["changed"])
-            self.assertFalse(report["wrote"])
-
-    def test_build_report_detects_drift_without_write(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            agents_path = Path(tmpdir) / "AGENTS.md"
-            agents_path.write_text(
-                "\n".join(
-                    [
-                        "# AGENTS",
-                        "",
-                        "## Command bundles (rendered reference)",
-                        "",
-                        "stale section",
-                        "",
-                        self.script.NEXT_HEADING,
-                        "",
-                    ]
-                ),
-                encoding="utf-8",
-            )
-            original_agents_path = self.script.AGENTS_PATH
-            self.addCleanup(setattr, self.script, "AGENTS_PATH", original_agents_path)
-            self.script.AGENTS_PATH = agents_path
-
-            report = self.script.build_report(write=False)
-
-            self.assertFalse(report["ok"])
-            self.assertTrue(report["changed"])
-            self.assertFalse(report["wrote"])
-            self.assertGreater(len(report.get("diff_preview", [])), 0)
-
-    def test_build_report_write_repairs_drift(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            agents_path = Path(tmpdir) / "AGENTS.md"
-            agents_path.write_text(
-                "\n".join(
-                    [
-                        "# AGENTS",
-                        "",
-                        "## Command bundles (rendered reference)",
-                        "",
-                        "stale section",
-                        "",
-                        self.script.NEXT_HEADING,
-                        "",
-                    ]
-                ),
-                encoding="utf-8",
-            )
-            original_agents_path = self.script.AGENTS_PATH
-            self.addCleanup(setattr, self.script, "AGENTS_PATH", original_agents_path)
-            self.script.AGENTS_PATH = agents_path
+    def test_build_report_delegates_to_agents_boot_card_surface(self) -> None:
+        with patch.object(self.script, "build_surface_report") as build_report:
+            build_report.return_value = {
+                "command": "render-surfaces",
+                "ok": True,
+                "surfaces": [{"surface_id": "agents_boot_card"}],
+            }
 
             report = self.script.build_report(write=True)
-            self.assertTrue(report["ok"])
-            self.assertTrue(report["changed"])
-            self.assertTrue(report["wrote"])
 
-            second_report = self.script.build_report(write=False)
-            self.assertTrue(second_report["ok"])
-            self.assertFalse(second_report["changed"])
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["command"], "check_agents_bundle_render")
+        self.assertIn("InstructionBootCard", report["compatibility_note"])
+        build_report.assert_called_once_with(
+            surface_ids=("agents_boot_card",),
+            write=True,
+            allow_missing_local_only=False,
+            allowed_renderers=frozenset({"instruction_boot_card"}),
+        )
 
-    def test_build_report_fails_when_section_markers_missing(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            agents_path = Path(tmpdir) / "AGENTS.md"
-            agents_path.write_text("# AGENTS\n\nno section markers\n", encoding="utf-8")
-            original_agents_path = self.script.AGENTS_PATH
-            self.addCleanup(setattr, self.script, "AGENTS_PATH", original_agents_path)
-            self.script.AGENTS_PATH = agents_path
+    def test_render_markdown_keeps_compatibility_heading(self) -> None:
+        markdown = self.script.render_markdown(
+            {
+                "command": "check_agents_bundle_render",
+                "ok": True,
+                "repo_pack_id": "voiceterm",
+                "repo_pack_version": "0.1.0-dev",
+                "policy_path": "dev/config/devctl_repo_policy.json",
+                "surface_count": 0,
+                "warnings": [],
+                "surfaces": [],
+            }
+        )
 
-            report = self.script.build_report()
-
-            self.assertFalse(report["ok"])
-            self.assertIn(
-                "Unable to locate AGENTS bundle section boundaries", report["error"]
-            )
+        self.assertIn("# check_agents_bundle_render", markdown)
 
 
 if __name__ == "__main__":

@@ -35,6 +35,12 @@ def doc_policy_from_mapping(
 ) -> DocPolicy:
     policy = DocPolicy(
         docs_authority_path=coerce_string(payload.get("docs_authority_path")),
+        process_authority_paths=coerce_string_items(
+            payload.get("process_authority_paths")
+        ),
+        projection_surface_paths=coerce_string_items(
+            payload.get("projection_surface_paths")
+        ),
         active_docs_root=coerce_string(payload.get("active_docs_root")),
         guides_root=coerce_string(payload.get("guides_root")),
         governed_doc_roots=coerce_string_items(

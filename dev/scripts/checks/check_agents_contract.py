@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the required AGENTS.md structure and core operational contracts."""
+"""Validate AGENTS.md as a generated projection-only boot card."""
 
 from __future__ import annotations
 
@@ -16,77 +16,16 @@ except ModuleNotFoundError:
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from dev.scripts.devctl.governance.instruction_boot_card import (  # noqa: E402
+    FORBIDDEN_BOOT_CLAIMS,
+    INSTRUCTION_BOOT_CARD_CONTRACT_ID,
+    REQUIRED_BOOT_COMMANDS,
+    REQUIRED_BOOT_SECTIONS,
+)
+
 AGENTS_PATH = REPO_ROOT / "AGENTS.md"
-
-REQUIRED_H2 = [
-    "Purpose",
-    "Source-of-truth map",
-    "Instruction scope and precedence",
-    "Mandatory 12-step SOP (always)",
-    "Execution-plan traceability (required)",
-    "Continuous improvement loop (required)",
-    "Active-plan onboarding (adding files under `dev/active/`)",
-    "Task router (pick one class)",
-    "Context packs (load only what class needs)",
-    "Command bundles (rendered reference)",
-    "Release SOP (master only)",
-    "CI lane mapping (what must be green)",
-    "Documentation governance",
-    "Tooling inventory",
-    "End-of-session checklist",
-]
-
-REQUIRED_BUNDLES = [
-    "bundle.bootstrap",
-    "bundle.runtime",
-    "bundle.docs",
-    "bundle.tooling",
-    "bundle.release",
-    "bundle.post-push",
-]
-
-
-def _load_router_requirements() -> tuple[str, list[str]]:
-    from dev.scripts.devctl.commands.check_router_constants import (
-        resolve_check_router_config,
-    )
-    from dev.scripts.devctl.governance.task_router_contract import (
-        TASK_ROUTER_AUTHORITY_PATH,
-        task_router_markdown_rows,
-    )
-
-    router_config = resolve_check_router_config()
-    router_rows = list(
-        task_router_markdown_rows(bundle_by_lane=router_config.bundle_by_lane)
-    )
-    return TASK_ROUTER_AUTHORITY_PATH, router_rows
-
-
-TASK_ROUTER_AUTHORITY_PATH, REQUIRED_ROUTER_SNIPPETS = _load_router_requirements()
-
-
-def _load_command_requirements() -> list[str]:
-    from dev.scripts.devctl.commands.listing import COMMANDS
-
-    return list(COMMANDS)
-
-
-REQUIRED_COMMANDS = _load_command_requirements()
-
-REQUIRED_MARKERS = [
-    "dev/active/INDEX.md",
-    "python3 dev/scripts/checks/check_active_plan_sync.py",
-    "python3 dev/scripts/checks/check_release_version_parity.py",
-    "python3 dev/scripts/devctl.py docs-check --strict-tooling",
-    "python3 dev/scripts/devctl.py status --ci --require-ci --format md",
-    "dev/scripts/devctl/bundle_registry.py",
-    TASK_ROUTER_AUTHORITY_PATH,
-    "Execution plan contract: required",
-    "repeat-to-automate",
-    "dev/audits/AUTOMATION_DEBT_REGISTER.md",
-    "dev/audits/METRICS_SCHEMA.md",
-    "python3 dev/scripts/audits/audit_metrics.py",
-]
+MAX_BOOT_CARD_LINES = 200
+MAX_BOOT_CARD_BYTES = 32768
 
 
 def _extract_h2(text: str) -> list[str]:
@@ -111,36 +50,53 @@ def _build_report() -> dict:
 
     text = AGENTS_PATH.read_text(encoding="utf-8")
     h2 = _extract_h2(text)
+    line_count = len(text.splitlines())
+    byte_count = len(text.encode("utf-8"))
 
-    missing_h2 = [heading for heading in REQUIRED_H2 if heading not in h2]
-    missing_bundles = [
-        bundle for bundle in REQUIRED_BUNDLES if f"`{bundle}`" not in text
+    missing_h2 = [heading for heading in REQUIRED_BOOT_SECTIONS if heading not in h2]
+    missing_markers = [
+        marker
+        for marker in (
+            "This is projection-only",
+            INSTRUCTION_BOOT_CARD_CONTRACT_ID,
+            "projection_only: true",
+            "SurfaceProvenance",
+        )
+        if marker not in text
     ]
-    missing_markers = [marker for marker in REQUIRED_MARKERS if marker not in text]
-    missing_router = [row for row in REQUIRED_ROUTER_SNIPPETS if row not in text]
     missing_commands = [
         command
-        for command in REQUIRED_COMMANDS
+        for command in REQUIRED_BOOT_COMMANDS
         if not _contains_command_token(text, command)
     ]
+    forbidden_claims = [claim for claim in FORBIDDEN_BOOT_CLAIMS if claim in text]
+    over_line_budget = line_count > MAX_BOOT_CARD_LINES
+    over_byte_budget = byte_count > MAX_BOOT_CARD_BYTES
 
     ok = not (
         missing_h2
-        or missing_bundles
         or missing_markers
-        or missing_router
         or missing_commands
+        or forbidden_claims
+        or over_line_budget
+        or over_byte_budget
     )
 
     return {
         "command": "check_agents_contract",
         "ok": ok,
         "path": str(AGENTS_PATH.relative_to(REPO_ROOT)),
+        "contract_id": INSTRUCTION_BOOT_CARD_CONTRACT_ID,
+        "line_count": line_count,
+        "byte_count": byte_count,
+        "max_line_count": MAX_BOOT_CARD_LINES,
+        "max_byte_count": MAX_BOOT_CARD_BYTES,
         "missing_h2": missing_h2,
-        "missing_bundles": missing_bundles,
         "missing_markers": missing_markers,
-        "missing_router_rows": missing_router,
         "missing_commands": missing_commands,
+        "forbidden_claims": forbidden_claims,
+        "over_line_budget": over_line_budget,
+        "over_byte_budget": over_byte_budget,
     }
 
 
@@ -152,42 +108,17 @@ def _render_md(report: dict) -> str:
         return "\n".join(lines)
 
     lines.append(f"- path: {report['path']}")
-    lines.append(
-        "- missing_h2: "
-        + (", ".join(report["missing_h2"]) if report["missing_h2"] else "none")
-    )
-    lines.append(
-        "- missing_bundles: "
-        + (
-            ", ".join(report["missing_bundles"])
-            if report["missing_bundles"]
-            else "none"
-        )
-    )
-    lines.append(
-        "- missing_markers: "
-        + (
-            ", ".join(report["missing_markers"])
-            if report["missing_markers"]
-            else "none"
-        )
-    )
-    lines.append(
-        "- missing_router_rows: "
-        + (
-            ", ".join(report["missing_router_rows"])
-            if report["missing_router_rows"]
-            else "none"
-        )
-    )
-    lines.append(
-        "- missing_commands: "
-        + (
-            ", ".join(report["missing_commands"])
-            if report["missing_commands"]
-            else "none"
-        )
-    )
+    lines.append(f"- contract_id: {report['contract_id']}")
+    lines.append(f"- lines: {report['line_count']} / {report['max_line_count']}")
+    lines.append(f"- bytes: {report['byte_count']} / {report['max_byte_count']}")
+    for key in (
+        "missing_h2",
+        "missing_markers",
+        "missing_commands",
+        "forbidden_claims",
+    ):
+        value = report[key]
+        lines.append(f"- {key}: " + (", ".join(value) if value else "none"))
     return "\n".join(lines)
 
 

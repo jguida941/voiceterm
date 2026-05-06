@@ -62,6 +62,8 @@ class DocPolicy:
     """Typed markdown-governance policy carried by ProjectGovernance."""
 
     docs_authority_path: str = "AGENTS.md"
+    process_authority_paths: tuple[str, ...] = ()
+    projection_surface_paths: tuple[str, ...] = ()
     active_docs_root: str = "dev/active"
     guides_root: str = "dev/guides"
     governed_doc_roots: tuple[str, ...] = ()
@@ -76,6 +78,8 @@ class DocPolicy:
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
+        payload["process_authority_paths"] = list(self.process_authority_paths)
+        payload["projection_surface_paths"] = list(self.projection_surface_paths)
         payload["governed_doc_roots"] = list(self.governed_doc_roots)
         payload["allowed_doc_classes"] = list(self.allowed_doc_classes)
         payload["allowed_authorities"] = list(self.allowed_authorities)

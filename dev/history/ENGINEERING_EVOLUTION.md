@@ -37,6 +37,32 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-06 - Agent bootstrap surfaces are generated boot cards
+
+Change: replaced hand-maintained AGENTS authority prose with a generated
+`InstructionBootCard` projection. `AGENTS.md` is now a short tracked boot card,
+`CLAUDE.md` is a local-only generated peer card, and optional `CODEX.md` stays
+local-only/missing-safe until repo policy enables it. The cards route agents
+through typed startup authority, session resume, review-channel status,
+context graph bootstrap, `/develop`, system-map/picture reducers, platform
+contracts, render-surfaces, and docs-check instead of carrying durable policy
+authority themselves.
+
+The render-surface policy now carries source-path, projection-only,
+required/forbidden text, and size-budget metadata for instruction boot cards.
+Legacy AGENTS guards were retargeted to validate projection correctness and
+forbidden authority claims rather than treating AGENTS as the canonical command
+bundle or SDLC source.
+
+Evidence:
+
+- `dev/scripts/devctl/governance/instruction_boot_card.py`
+- `dev/scripts/devctl/governance/surface_runtime.py`
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/checks/check_agents_contract.py`
+- `dev/scripts/checks/check_agents_bundle_render.py`
+- `AGENTS.md`
+
 ### 2026-05-06 - Governed exception semantic links stay typed and projection-safe
 
 Fact: the governed-exception receipt lineage and the user's ZGraph framing fit

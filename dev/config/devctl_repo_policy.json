@@ -337,15 +337,17 @@
           ]
         },
         {
-          "id": "agents_push_workflow_surface",
+          "id": "agents_boot_card_surface",
           "doc_path": "AGENTS.md",
           "required_contains": [
-            "python3 dev/scripts/devctl.py startup-context --format summary",
-            "python3 dev/scripts/devctl.py push --execute",
-            "await_checkpoint",
-            "await_review",
-            "run_devctl_push",
-            "no_push_needed"
+            "InstructionBootCard",
+            "projection_only: true",
+            "SurfaceProvenance",
+            "startup-context",
+            "develop next",
+            "dev/active/INDEX.md",
+            "Add an entry in `dev/active/INDEX.md`",
+            "Run `python3 dev/scripts/checks/check_active_plan_sync.py`"
           ]
         },
         {
@@ -475,13 +477,47 @@
       },
       "surfaces": [
         {
-          "id": "agents_bundle_reference",
-          "surface_type": "process_doc",
-          "renderer": "agents_bundle_section",
+          "id": "agents_boot_card",
+          "surface_type": "instruction_boot_card",
+          "renderer": "instruction_boot_card",
           "output_path": "AGENTS.md",
+          "source_path": "dev/state/plan_index.jsonl",
+          "optional_source": false,
           "tracked": true,
           "local_only": false,
-          "description": "Rendered AGENTS command-bundle reference section."
+          "projection_only": true,
+          "max_output_lines": 200,
+          "max_output_bytes": 32768,
+          "description": "Generated projection-only Codex/agent boot card over typed startup authority.",
+          "source_required_contains": [
+            "MP377-P0-INSTRUCTION-SURFACE-SLIM-S1"
+          ],
+          "required_contains": [
+            "This is projection-only",
+            "Run in order",
+            "Typed authority",
+            "Projection-only surfaces",
+            "Never",
+            "Focused navigation",
+            "Verification before handoff",
+            "startup-context",
+            "session-resume",
+            "review-channel status",
+            "context-graph --mode bootstrap",
+            "develop next",
+            "system-map",
+            "system-picture",
+            "platform-contracts",
+            "render-surfaces",
+            "docs-check",
+            "projection_only: true"
+          ],
+          "forbidden_contains": [
+            "AGENTS.md is canonical authority",
+            "CLAUDE.md is canonical authority",
+            "CODEX.md is canonical authority",
+            "VoiceTerm is hidden default platform authority"
+          ]
         },
         {
           "id": "system_map_index",
@@ -500,24 +536,89 @@
           ]
         },
         {
-          "id": "claude_instructions",
-          "surface_type": "local_instructions",
-          "renderer": "template_file",
-          "template_path": "dev/config/templates/claude_instructions.template.md",
+          "id": "claude_boot_card",
+          "surface_type": "instruction_boot_card",
+          "renderer": "instruction_boot_card",
           "output_path": "CLAUDE.md",
+          "source_path": "dev/state/plan_index.jsonl",
+          "optional_source": false,
           "tracked": false,
           "local_only": true,
-          "description": "Local-only Claude instructions surface rendered from repo-pack policy.",
+          "projection_only": true,
+          "max_output_lines": 200,
+          "max_output_bytes": 32768,
+          "description": "Local-only generated Claude boot card over typed startup authority.",
+          "source_required_contains": [
+            "MP377-P0-INSTRUCTION-SURFACE-SLIM-S1"
+          ],
           "required_contains": [
-            "## Task Router Quick Map",
-            "## Checkpoint / Review / Push Contract",
-            "## Mandatory post-edit verification (blocking)",
-            "After EVERY file create/edit, you MUST run the repo-required verification before",
-            "Done means the required guards/tests passed.",
-            "Run the task-class bundle from `AGENTS.md` after every file create/edit:",
-            "python3 dev/scripts/devctl.py probe-report --format md",
-            "python3 dev/scripts/devctl.py push --execute",
-            "Treat `push_decision` as the canonical next remote-action state machine:"
+            "This is projection-only",
+            "Run in order",
+            "Typed authority",
+            "Projection-only surfaces",
+            "Never",
+            "Focused navigation",
+            "Verification before handoff",
+            "startup-context",
+            "session-resume",
+            "review-channel status",
+            "context-graph --mode bootstrap",
+            "develop next",
+            "system-map",
+            "system-picture",
+            "platform-contracts",
+            "render-surfaces",
+            "docs-check",
+            "projection_only: true"
+          ],
+          "forbidden_contains": [
+            "AGENTS.md is canonical authority",
+            "CLAUDE.md is canonical authority",
+            "CODEX.md is canonical authority",
+            "VoiceTerm is hidden default platform authority"
+          ]
+        },
+        {
+          "id": "codex_boot_card",
+          "surface_type": "instruction_boot_card",
+          "renderer": "instruction_boot_card",
+          "output_path": "CODEX.md",
+          "source_path": "dev/state/plan_index.jsonl",
+          "optional_source": true,
+          "tracked": false,
+          "local_only": true,
+          "projection_only": true,
+          "max_output_lines": 200,
+          "max_output_bytes": 32768,
+          "description": "Optional local-only generated Codex boot card over typed startup authority.",
+          "source_required_contains": [
+            "MP377-P0-INSTRUCTION-SURFACE-SLIM-S1"
+          ],
+          "required_contains": [
+            "This is projection-only",
+            "Run in order",
+            "Typed authority",
+            "Projection-only surfaces",
+            "Never",
+            "Focused navigation",
+            "Verification before handoff",
+            "startup-context",
+            "session-resume",
+            "review-channel status",
+            "context-graph --mode bootstrap",
+            "develop next",
+            "system-map",
+            "system-picture",
+            "platform-contracts",
+            "render-surfaces",
+            "docs-check",
+            "projection_only: true"
+          ],
+          "forbidden_contains": [
+            "AGENTS.md is canonical authority",
+            "CLAUDE.md is canonical authority",
+            "CODEX.md is canonical authority",
+            "VoiceTerm is hidden default platform authority"
           ]
         },
         {
