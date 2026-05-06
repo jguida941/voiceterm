@@ -169,7 +169,7 @@ def _read_legacy_push_report_artifact(repo_root: Path) -> dict[str, Any] | None:
         from ..repo_packs import active_path_config
 
         rels = getattr(active_path_config(), "legacy_push_report_rels", ())
-    except Exception:
+    except Exception:  # broad-except: allow reason=repo-pack path config fallback must not break read-only control-state projection fallback=skip legacy report scan
         rels = ()
     for rel in rels:
         relpath = str(rel).strip()

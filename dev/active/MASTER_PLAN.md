@@ -134,6 +134,11 @@
   Already-published no-op reruns now surface `published_remote` /
   `branch_already_pushed` truth without pretending post-push validation is
   green.
+- 2026-05-06 boot-card memory authority guard closure (MP-377): the generated
+  `InstructionBootCard` now carries the canonical "memory is short-term
+  continuity" rule, and the legacy push-report fallback has an explicit
+  broad-exception rationale so governed push preflight can distinguish real
+  blockers from source-owned guard policy.
 - 2026-04-29 Plan 4.1 Graph Intelligence safe slice (MP-377):
   `dev/active/ai_governance_platform.md` now carries `MP377-P0-T13A` as the
   owner row for widening the existing generated context graph, not a new graph

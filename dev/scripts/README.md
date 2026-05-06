@@ -149,7 +149,8 @@ Generated bootstrap surfaces are part of that same architecture boundary:
 and `CODEX.md` is not generated as a repo surface. Keep them synced with
 `render-surfaces`, and make sure they explain the compiler-style control model plus the
 `TypedAction -> ActionResult -> RunRecord` path instead of relying on chat
-memory or stale starter prose.
+memory or stale starter prose. `AGENTS.md` also states the canonical
+memory-is-continuity rule enforced by `check_memory_not_authority.py`.
 Reviewer bootstrap note: repo-owned Codex conductors still begin with
 `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`,
 but a non-zero receipt with `action=continue_editing` / `reason=review_pending`
@@ -2049,7 +2050,9 @@ Machine-first output note:
     against its own `repo_governance.surface_generation` contract.
   - `AGENTS.md` is the shared first-hop AI boot card. `CLAUDE.md` remains an
     ignored local peer projection for provider-specific startup, but `CODEX.md`
-    is not a repo surface; Codex uses `AGENTS.md`.
+    is not a repo surface; Codex uses `AGENTS.md`. The generated boot card owns
+    the memory-continuity warning so local notes cannot become process
+    authority by omission.
   - The same render pass derives boot-card routing from typed startup and
     governance context, so repo policy JSON does not carry duplicate bootstrap
     prose or a local Codex boot-card target.

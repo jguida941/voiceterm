@@ -454,7 +454,9 @@ Three quality layers matter in practice:
 - `check_memory_not_authority.py` enforces the same architecture rule from the
   other side: local operator memory can carry continuity notes, but durable
   process, governance, and proof-channel rules must live in repo contracts,
-  policy, docs, or guards.
+  policy, docs, or guards. The generated `AGENTS.md` boot card carries that
+  canonical memory-is-continuity warning so agents hit it before using local
+  notes as authority.
 - `check_code_shape.py` now ratchets path-override debt too: untouched legacy
   over-cap overrides still show up as warnings, but touched files, newly added
   over-cap overrides, worsened over-cap policies, and touched Python files
@@ -1208,7 +1210,8 @@ Three quality layers matter in practice:
   `repo_governance.surface_generation`; use `--write` after updating those
   templates, context values, or generated starter outputs. The policy generates
   `AGENTS.md` as the shared tracked boot card and must not materialize a
-  `CODEX.md` boot-card surface.
+  `CODEX.md` boot-card surface. The boot-card renderer also owns the memory
+  continuity rule required by `check_memory_not_authority.py`.
 - The managed ReviewSnapshot hook refreshes are fail-open and time-bounded.
   `DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS` defaults to 90 seconds (`0`
   disables the timeout) so pre-commit `review-snapshot --write` and

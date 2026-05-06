@@ -60,6 +60,22 @@ Evidence:
 - `dev/scripts/devctl/tests/vcs/test_push_report.py`
 - `dev/scripts/devctl/tests/vcs/test_push.py`
 
+### 2026-05-06 - Boot cards carry the memory-not-authority rule
+
+Change: made the generated `InstructionBootCard` carry the canonical
+"memory is short-term continuity" rule, keeping the rule in repo-owned generated
+surface authority instead of operator notes. The same push-preflight cleanup
+documented the legacy push-report fallback's broad exception so the fallback is
+guard-approved instead of silently suppressing config errors.
+
+Evidence:
+
+- `AGENTS.md`
+- `dev/scripts/devctl/governance/instruction_boot_card.py`
+- `dev/scripts/devctl/runtime/control_plane_sources.py`
+- `dev/scripts/checks/check_memory_not_authority.py`
+- `dev/scripts/checks/check_python_broad_except.py`
+
 ### 2026-05-06 - Agent bootstrap surfaces are generated boot cards
 
 Change: replaced hand-maintained AGENTS authority prose with a generated

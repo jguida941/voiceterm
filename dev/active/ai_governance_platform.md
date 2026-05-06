@@ -4550,7 +4550,10 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       status, context-graph bootstrap, `/develop`, system-map,
       system-picture, platform-contracts, render-surfaces, and docs-check,
       and retargets the AGENTS guards to projection validity rather than
-      durable authority. The managed pre-commit ReviewSnapshot refresh and
+      durable authority. The generated boot card now includes the canonical
+      memory-is-continuity rule required by `check_memory_not_authority.py`,
+      so local notes stay continuity hints instead of process authority. The
+      managed pre-commit ReviewSnapshot refresh and
       post-commit ReviewSnapshot receipt hook are now time-bounded and
       fail-open so typed guard freshness, not a hanging hook subprocess, owns
       receipt proof after commits.
