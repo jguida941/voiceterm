@@ -109,6 +109,23 @@ Evidence:
 - `PKT-BIND-REV-PKT-3086`
 - `PKT-BIND-REV-PKT-3087`
 
+### 2026-05-06 - Post-commit receipt refresh is time-bounded
+
+Change: added a managed timeout around the post-commit
+`review-snapshot --write --receipt-commit` hook. The hook still fails open with
+a warning, but `DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS` now bounds the receipt
+refresh by default so a slow or stuck snapshot writer does not leave a landed
+commit looking unfinished.
+
+This keeps the automation path simple: hooks can fire the receipt refresh
+without operator babysitting, while the deterministic freshness guards remain
+the authority that accepts or rejects the eventual receipt chain.
+
+Evidence:
+
+- `dev/config/git_hooks/post-commit-review-snapshot.sh`
+- `dev/scripts/devctl/tests/commands/governance/test_install_git_hooks.py`
+
 ### 2026-05-06 - Governed exception semantic links stay typed and projection-safe
 
 Fact: the governed-exception receipt lineage and the user's ZGraph framing fit

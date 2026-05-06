@@ -13,6 +13,7 @@
 #   DEVCTL_NO_REVIEW_SNAPSHOT_REFRESH=1     skip the refresh entirely
 #   DEVCTL_REVIEW_SNAPSHOT_RECEIPT_COMMIT=1 skip recursive receipt commits
 #   DEVCTL_NO_ARTIFACT_WRITES=1             skip (read-only mount, CI sandbox)
+#   DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS  receipt refresh timeout (default 90)
 #
 # Failure policy: every error is a warning, never a blocker. A failed receipt
 # hook must not make `git commit` appear to fail after the commit already
@@ -103,7 +104,42 @@ if [ "${DEVCTL_GOVERNED_COMMIT:-}" = "1" ]; then
     echo "[post-commit hook] refreshing ReviewSnapshot receipt..." >&2
 fi
 
-if ! "$DEVCTL_PYTHON" dev/scripts/devctl.py review-snapshot --write --receipt-commit --format terminal >/dev/null 2>&1; then
+DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS="${DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS:-90}"
+case "$DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS" in
+    ''|*[!0-9]*)
+        echo "[post-commit hook] invalid DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS; using 90." >&2
+        DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS=90
+        ;;
+esac
+
+run_review_snapshot_receipt() {
+    if [ "$DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS" = "0" ]; then
+        "$DEVCTL_PYTHON" dev/scripts/devctl.py review-snapshot --write --receipt-commit --format terminal >/dev/null 2>&1
+        return $?
+    fi
+
+    "$DEVCTL_PYTHON" dev/scripts/devctl.py review-snapshot --write --receipt-commit --format terminal >/dev/null 2>&1 &
+    child_pid=$!
+    elapsed=0
+
+    while kill -0 "$child_pid" 2>/dev/null; do
+        if [ "$elapsed" -ge "$DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS" ]; then
+            kill "$child_pid" 2>/dev/null || true
+            sleep 1
+            if kill -0 "$child_pid" 2>/dev/null; then
+                kill -9 "$child_pid" 2>/dev/null || true
+            fi
+            wait "$child_pid" 2>/dev/null || true
+            return 124
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+
+    wait "$child_pid"
+}
+
+if ! run_review_snapshot_receipt; then
     echo "[post-commit hook] devctl review-snapshot --receipt-commit failed; continuing commit." >&2
 else
     if [ "${DEVCTL_GOVERNED_COMMIT:-}" = "1" ]; then

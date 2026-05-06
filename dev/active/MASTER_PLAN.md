@@ -122,6 +122,12 @@
   authority stays in typed plan rows, repo-pack policy, contracts, receipts,
   startup-context, session-resume, context-graph, `/develop`, and guards;
   generated markdown only routes agents to those typed surfaces.
+- 2026-05-06 post-commit receipt hook timeout (MP-377): the managed
+  post-commit ReviewSnapshot receipt hook now bounds
+  `review-snapshot --write --receipt-commit` with
+  `DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS` (default 90 seconds) and preserves
+  the existing fail-open warning policy so ordinary commits do not hang while
+  receipt freshness remains enforced by guards.
 - 2026-04-29 Plan 4.1 Graph Intelligence safe slice (MP-377):
   `dev/active/ai_governance_platform.md` now carries `MP377-P0-T13A` as the
   owner row for widening the existing generated context graph, not a new graph

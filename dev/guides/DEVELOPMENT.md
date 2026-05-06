@@ -1209,6 +1209,12 @@ Three quality layers matter in practice:
   templates, context values, or generated starter outputs. The policy generates
   `AGENTS.md` as the shared tracked boot card and must not materialize a
   `CODEX.md` boot-card surface.
+- The managed post-commit ReviewSnapshot receipt hook is fail-open and
+  time-bounded. `DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS` defaults to 90 seconds
+  (`0` disables the timeout) so `review-snapshot --write --receipt-commit`
+  cannot leave an already-successful commit waiting indefinitely; freshness
+  guards still decide whether the receipt chain is acceptable before handoff or
+  publication.
 - Status-driven compatibility refresh stays narrower than explicit rewrite:
   `review-channel --action status` may now reproject `bridge.md` from typed
   `_compat.bridge_projection` state even while pending reviewer-targeted

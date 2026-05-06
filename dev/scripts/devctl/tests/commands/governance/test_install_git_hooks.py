@@ -380,3 +380,18 @@ def test_repo_pre_commit_template_checks_commit_permission_before_refresh() -> N
     assert "commit_permission_hook" in content
     assert "raw git commits must not bypass" in content
     assert "DEVCTL_REVIEW_SNAPSHOT_RECEIPT_COMMIT" in content
+
+
+def test_repo_post_commit_template_times_out_receipt_refresh() -> None:
+    template_path = (
+        Path(__file__).resolve().parents[6]
+        / "dev"
+        / "config"
+        / "git_hooks"
+        / "post-commit-review-snapshot.sh"
+    )
+    content = template_path.read_text(encoding="utf-8")
+    assert "DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS" in content
+    assert "run_review_snapshot_receipt" in content
+    assert "return 124" in content
+    assert "continuing commit" in content
