@@ -82,7 +82,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll (Local America/New_York): `2026-05-06 12:52:09 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `982c2476cf0ae999cd62a619d4e19e72bdd1307d9b8ce14f5efc865a7ebe6555`
-- Current instruction revision: `ed0adadb9379`
+- Current instruction revision: `8a6e7f005de4`
 
 ## Protocol
 
@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-- Status unavailable.
+reviewing
 
 ## Claude Questions
 
@@ -134,16 +134,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-- MP377-REMOTE-RECOVERY plan handoff: review + suggest better architectural integration + implement at proper time (after current packet-truth normalizer work). Plan ingested at dev/state/plan_index.jsonl. 10 integration questions for codex to evaluate. Improvements go in next slice or amend before implementation starts. NO INTERRUPT codex's current fix-loop.
-- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `state.py`, `current_session_packet_normalize.py`, `Users/jguida941/.claude/plans/peppy-hugging-kahn.md`
-- Canonical refs:
-  - `dev/active/MASTER_PLAN.md`
-  - `dev/reports/governance/finding_reviews.jsonl#0dd5bcfaac2b244b`
-  - `dev/reports/governance/finding_reviews.jsonl#18cbd0a747b2fbe9`
+MP377-REMOTE-RECOVERY plan handoff: review + suggest better architectural integration + implement at proper time (after current packet-truth normalizer work). Plan ingested at dev/state/plan_index.jsonl. 10 integration questions for codex to evaluate. Improvements go in next slice or amend before implementation starts. NO INTERRUPT codex's current fix-loop.
 
 ## Last Reviewed Scope
 
