@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `547141d45765` — Refresh external review snapshot for d6a683e1
-- Tree hash: `fb9f64f5faea`
-- Generation stamp: `snap-217b38b56061`
-- Generated at (UTC): 2026-05-06T08:43:33Z
-- Push decision: `no_push_needed` — governed_push_in_progress
-- Reviewer mode: `single_agent` (interaction: `single_agent`)
+- HEAD: `f5f08da540b5` — Refresh external review snapshot for 547141d4
+- Tree hash: `3da2486485c9`
+- Generation stamp: `snap-a288fa56065c`
+- Generated at (UTC): 2026-05-06T08:44:44Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 108 files, +7634/-5682
+- Delta since last snapshot: 24 commits, 108 files, +7616/-5665
 - Governance findings: 158 open / 88 fixed / 260 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,28 +30,29 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `547141d45765315950c956f19c199f7ea5b498c6`
+- HEAD SHA: `f5f08da540b5716e831143b50d6b05a27688a600`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-06T04:41:00-04:00
+- HEAD timestamp (UTC): 2026-05-06T04:43:35-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `no_push_needed`
-- reason: governed_push_in_progress
-- push_eligible_now: False
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
 - worktree_clean: True
 - staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (push_preflight_running)
 - publication_backlog: urgent
+- publication_guidance: 7 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `single_agent`
+- interaction_mode: `local_terminal`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -65,12 +66,12 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `547141d45765`
+Range: last 24 commits ending at `f5f08da540b5`
 
 - commits: 24
 - files changed: 108
-- insertions: +7634
-- deletions: -5682
+- insertions: +7616
+- deletions: -5665
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 6 file(s)
 
@@ -78,41 +79,41 @@ Range: last 24 commits ending at `547141d45765`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `547141d4` | Refresh external review snapshot for d6a683e1 | 2 | +59/-59 | docs |  |
-| 2 | `d6a683e1` | Close push preflight guard gaps | 10 | +106/-76 | tooling |  |
-| 3 | `926950f0` | Refresh external review snapshot for b2e22dca | 2 | +50/-49 | docs |  |
-| 4 | `b2e22dca` | Refresh external review snapshot for 65f4852a | 2 | +46/-46 | docs |  |
-| 5 | `65f4852a` | Refresh external review snapshot for 1769a22b | 2 | +75/-74 | docs |  |
-| 6 | `1769a22b` | Rename latest push report artifact | 25 | +370/-145 | tooling |  |
-| 7 | `bf05ad5d` | Refresh external review snapshot for ed485e2f | 2 | +64/-64 | docs |  |
-| 8 | `ed485e2f` | Bound ReviewSnapshot hook refreshes | 10 | +144/-91 | tooling |  |
-| 9 | `2a5505b6` | Refresh external review snapshot for 58688059 | 2 | +63/-63 | docs |  |
-| 10 | `58688059` | Bound post-commit receipt refresh | 10 | +143/-56 | tooling |  |
-| 11 | `ab69857d` | Refresh external review snapshot for fb0fef5d | 2 | +56/-55 | docs |  |
-| 12 | `fb0fef5d` | Record role-matrix dogfood disposition | 5 | +95/-71 | tooling |  |
-| 13 | `5368bb9b` | Record boot dogfood packet binding | 3 | +6/-4 | tooling |  |
-| 14 | `87c24fa1` | Remove Codex boot card surface | 13 | +95/-142 | tooling |  |
-| 15 | `830aa787` | Refresh external review snapshot for 4dfd3939 | 2 | +57/-56 | docs |  |
-| 16 | `4dfd3939` | Add provider-neutral boot dogfood plan | 8 | +137/-84 | tooling |  |
-| 17 | `ed012aee` | Refresh external review snapshot for a3b129ee | 2 | +54/-54 | docs |  |
-| 18 | `a3b129ee` | Restore agents contract script mode | 2 | +50/-50 | tooling |  |
-| 19 | `b01b50de` | Refresh external review snapshot for ee2fdbfa | 2 | +72/-68 | docs |  |
-| 20 | `ee2fdbfa` | Generate agent boot cards from typed authority | 27 | +1120/-3737 | tooling |  |
-| 21 | `4395f17d` | Refresh external review snapshot for d900d149 | 2 | +80/-73 | docs |  |
-| 22 | `d900d149` | Add governed exception lifecycle foundation | 72 | +4578/-451 | tooling |  |
-| 23 | `58246e50` | Refresh projections for rev_pkt_3071+3072 codex handoff | 2 | +50/-50 | docs |  |
-| 24 | `0492bac5` | Refresh external review snapshot for 10364c5f | 2 | +64/-64 | docs |  |
+| 1 | `f5f08da5` | Refresh external review snapshot for 547141d4 | 2 | +46/-47 | docs |  |
+| 2 | `547141d4` | Refresh external review snapshot for d6a683e1 | 2 | +59/-59 | docs |  |
+| 3 | `d6a683e1` | Close push preflight guard gaps | 10 | +106/-76 | tooling |  |
+| 4 | `926950f0` | Refresh external review snapshot for b2e22dca | 2 | +50/-49 | docs |  |
+| 5 | `b2e22dca` | Refresh external review snapshot for 65f4852a | 2 | +46/-46 | docs |  |
+| 6 | `65f4852a` | Refresh external review snapshot for 1769a22b | 2 | +75/-74 | docs |  |
+| 7 | `1769a22b` | Rename latest push report artifact | 25 | +370/-145 | tooling |  |
+| 8 | `bf05ad5d` | Refresh external review snapshot for ed485e2f | 2 | +64/-64 | docs |  |
+| 9 | `ed485e2f` | Bound ReviewSnapshot hook refreshes | 10 | +144/-91 | tooling |  |
+| 10 | `2a5505b6` | Refresh external review snapshot for 58688059 | 2 | +63/-63 | docs |  |
+| 11 | `58688059` | Bound post-commit receipt refresh | 10 | +143/-56 | tooling |  |
+| 12 | `ab69857d` | Refresh external review snapshot for fb0fef5d | 2 | +56/-55 | docs |  |
+| 13 | `fb0fef5d` | Record role-matrix dogfood disposition | 5 | +95/-71 | tooling |  |
+| 14 | `5368bb9b` | Record boot dogfood packet binding | 3 | +6/-4 | tooling |  |
+| 15 | `87c24fa1` | Remove Codex boot card surface | 13 | +95/-142 | tooling |  |
+| 16 | `830aa787` | Refresh external review snapshot for 4dfd3939 | 2 | +57/-56 | docs |  |
+| 17 | `4dfd3939` | Add provider-neutral boot dogfood plan | 8 | +137/-84 | tooling |  |
+| 18 | `ed012aee` | Refresh external review snapshot for a3b129ee | 2 | +54/-54 | docs |  |
+| 19 | `a3b129ee` | Restore agents contract script mode | 2 | +50/-50 | tooling |  |
+| 20 | `b01b50de` | Refresh external review snapshot for ee2fdbfa | 2 | +72/-68 | docs |  |
+| 21 | `ee2fdbfa` | Generate agent boot cards from typed authority | 27 | +1120/-3737 | tooling |  |
+| 22 | `4395f17d` | Refresh external review snapshot for d900d149 | 2 | +80/-73 | docs |  |
+| 23 | `d900d149` | Add governed exception lifecycle foundation | 72 | +4578/-451 | tooling |  |
+| 24 | `58246e50` | Refresh projections for rev_pkt_3071+3072 codex handoff | 2 | +50/-50 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +92/-2961 |
-| `bridge.md` | docs | +80/-80 |
+| `bridge.md` | docs | +79/-79 |
 | `dev/active/MASTER_PLAN.md` | tooling | +89/-16 |
 | `dev/active/ai_governance_platform.md` | tooling | +216/-30 |
 | `dev/active/review_channel.md` | tooling | +13/-2 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1373/-1373 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1356/-1357 |
 | `dev/config/devctl_repo_policy.json` | tooling | +126/-70 |
 | `dev/config/git_hooks/post-commit-review-snapshot.sh` | tooling | +37/-1 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +37/-1 |
@@ -225,6 +226,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`f5f08da5`** — Refresh external review snapshot for 547141d4
+  - evolution: Change: renamed the repo-pack canonical latest push report from the generic `dev/reports/push/latest.json` to `dev/reports/push/latest_push_report.json`. The old path remains a legacy read fallback only; new governed pu…
 - **`547141d4`** — Refresh external review snapshot for d6a683e1
   - evolution: Change: renamed the repo-pack canonical latest push report from the generic `dev/reports/push/latest.json` to `dev/reports/push/latest_push_report.json`. The old path remains a legacy read fallback only; new governed pu…
 - **`d6a683e1`** — Close push preflight guard gaps
@@ -272,8 +275,6 @@ Recent findings:
   - evolution: Fact: the governed-bypass idea needed to become repair/proof lifecycle state before any execution path could be safe. A raw bypass command or generated markdown plan would have violated the platform authority boundary b…
 - **`58246e50`** — Refresh projections for rev_pkt_3071+3072 codex handoff
   - evolution: Fact: the governed-bypass idea needed to become repair/proof lifecycle state before any execution path could be safe. A raw bypass command or generated markdown plan would have violated the platform authority boundary b…
-- **`0492bac5`** — Refresh external review snapshot for 10364c5f
-  - evolution: Fact: the governed-bypass idea needed to become repair/proof lifecycle state before any execution path could be safe. A raw bypass command or generated markdown plan would have violated the platform authority boundary b…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -312,4 +313,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-217b38b56061` binds this file to HEAD `547141d45765`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-a288fa56065c` binds this file to HEAD `f5f08da540b5`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
