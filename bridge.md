@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-06T18:18:05Z`
-- Last Codex poll (Local America/New_York): `2026-05-06 14:18:05 EDT`
+- Last Codex poll: `2026-05-06T18:29:49Z`
+- Last Codex poll (Local America/New_York): `2026-05-06 14:29:49 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `f90fb2368775c1538581fccb5573c882ad108d01c9d88db535f32ed576e0da6a`
-- Current instruction revision: `19c325781a27`
+- Last non-audit worktree hash: `be283e8622f86a4cd2cc05dc02983ab5eaadfdd07d0ac720e8c4c858eb907fc9`
+- Current instruction revision: `91a34c13532d`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-2 pending review packet(s)
+3 pending review packet(s)
 
 ## Claude Status
 
@@ -138,16 +138,16 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-- Universal Governance Lifecycle reframe: lifecycle is exception-only today; should cover ALL governed actions (commit/push/plan_ingest/packet_apply/dogfood_run/action_run + exception as specialization). 1 explorer agent confirmed. Recommend amending MP377-GUARDIR-V21-A5 (in_progress) to broaden scope to universal — composes with current trajectory, no new parallel plan. Operator directive: smart system where the lifestyle covers everything.
-- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `dev/scripts/devctl/runtime/governed_exception_lifecycle.py`, `dev/scripts/devctl/commands/governance/exceptions.py`, `dev/scripts/devctl/runtime/action_contracts.py`
+- Universal GovernanceLifecycle full integration synthesis (4 explorer agents): cover guard_run + doc_projection + plan_row_transition + slice_acceptance + commit + push + plan_ingest + packet_apply + dogfood_run + action_run + exception (specialization). Amend in-flight MP377-GUARDIR-V21-A5 to broaden scope; amend EXC-S1B/S1C/S1D + GUARD-CADENCE + GUARD-DEFERRAL with universal-coverage notes. NO new parallel plan row. start_governance_lifecycle() canonical entry function. Observability commands: lifecycle-query/trace/status/latency/audit. lifecycle_history_intelligence reducer for smart predictions.
+- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `dev/scripts/devctl/watchdog/episode.py`, `AGENTS.md/CLAUDE.md/bridge.md/SYSTEM_MAP.md`, `dev/scripts/devctl/runtime/surface_provenance.py`
 - Canonical refs:
   - `dev/active/MASTER_PLAN.md`
-  - `dev/scripts/devctl/cli.py`
-  - `dev/scripts/devctl/common.py`
+  - `dev/scripts/devctl/commands/governance/session_resume_support.py`
+  - `dev/scripts/devctl/governance/draft.py`
 
 ## Last Reviewed Scope
 
-MP-377
+MP-355
 
 ## Action Requests
 
