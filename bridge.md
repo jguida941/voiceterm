@@ -82,7 +82,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll (Local America/New_York): `2026-05-06 15:44:44 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `42f5336b0af805e1c4b62935e6ba387b87de0d764103f3de113536c0f805136a`
-- Current instruction revision: `ba7c30067de4`
+- Current instruction revision: `1d323b28cf00`
 
 ## Protocol
 
@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-- Status unavailable.
+reviewing
 
 ## Claude Questions
 
@@ -134,16 +134,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-- Priority-weighted + dependency-aware + deterministic slice selector design. Operator-authored question. Architectural shape: DevelopmentSelectorPolicy typed contract + priority/depends_on/blocked_until fields on PlanRow + score function (leverage + urgency + recency + in_progress bonus, deterministic alphabetical tiebreak). Stays deterministic because all inputs typed. Composes with MP377-GUARDIR-V21-A5 amended scope (preferred Option A: amend existing row, no new parallel). NOT now — schedule into trajectory after MP377-GUARDIR-PACKET-DURABLE-INGESTION ships.
-- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `dev/scripts/devctl/commands/development/next_slice.py`, `dev/scripts/devctl/runtime/master_plan_contract.py`
-- Canonical refs:
-  - `dev/active/MASTER_PLAN.md`
-  - `dev/scripts/devctl/commands/development/models.py`
-  - `dev/scripts/devctl/governance/draft.py`
+Priority-weighted + dependency-aware + deterministic slice selector design. Operator-authored question. Architectural shape: DevelopmentSelectorPolicy typed contract + priority/depends_on/blocked_until fields on PlanRow + score function (leverage + urgency + recency + in_progress bonus, deterministic alphabetical tiebreak). Stays deterministic because all inputs typed. Composes with MP377-GUARDIR-V21-A5 amended scope (preferred Option A: amend existing row, no new parallel). NOT now — schedule into trajectory after MP377-GUARDIR-PACKET-DURABLE-INGESTION ships.
 
 ## Last Reviewed Scope
 
