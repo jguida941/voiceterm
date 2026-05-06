@@ -16,6 +16,7 @@ from dev.scripts.devctl.context_graph.query import (
 from dev.scripts.devctl.context_graph.concepts import build_concept_nodes
 from dev.scripts.devctl.context_graph.models import (
     EDGE_KIND_CONTAINS,
+    EDGE_KIND_FINDING_BLOCKS,
     EDGE_KIND_GUARDS,
     EDGE_KIND_IMPORTS,
     EDGE_KIND_RELATED_TO,
@@ -173,6 +174,36 @@ class TestContextGraphBuild(unittest.TestCase):
                 for node in nodes
             ),
             "graph should expose AutoModeState as a typed contract node",
+        )
+        self.assertTrue(
+            any(
+                node.node_kind == NODE_KIND_TYPED_CONTRACT
+                and node.label == "GovernedExceptionLifecycle"
+                for node in nodes
+            ),
+            "graph should expose GovernedExceptionLifecycle as a typed contract node",
+        )
+
+    def test_governed_exception_contract_nodes_carry_cross_link_metadata(self) -> None:
+        nodes, _ = build_context_graph()
+        candidates = [
+            node
+            for node in nodes
+            if node.node_kind == NODE_KIND_TYPED_CONTRACT
+            and node.label == "ExceptionReceipt"
+        ]
+        self.assertTrue(candidates, "ExceptionReceipt contract node should be indexed")
+        cross_links = candidates[0].metadata.get("cross_links")
+        self.assertIsInstance(cross_links, list)
+        self.assertTrue(
+            any(
+                isinstance(link, dict)
+                and link.get("source_field") == "finding_id"
+                and link.get("target_contract") == "FindingBacklog"
+                and link.get("edge_kind") == EDGE_KIND_FINDING_BLOCKS
+                for link in cross_links
+            ),
+            "ExceptionReceipt should expose typed FindingBacklog cross-link metadata",
         )
 
     def test_includes_dataclass_field_nodes(self) -> None:

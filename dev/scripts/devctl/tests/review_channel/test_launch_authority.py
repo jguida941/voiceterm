@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -27,6 +28,7 @@ class AssessPreparedLaunchAuthorityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = Path(tmpdir)
             review_state_path = repo_root / "review_state.json"
+            observed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             review_state_path.write_text(
                 json.dumps(
                     {
@@ -35,8 +37,11 @@ class AssessPreparedLaunchAuthorityTests(unittest.TestCase):
                         "reviewer_runtime": {
                             "remote_control_attachment": {
                                 "provider": "claude",
+                                "remote_session_id": "session_remote_claude",
                                 "session_name": "claude-remote-control",
                                 "status": "attached",
+                                "attached_at_utc": observed_at,
+                                "last_seen_utc": observed_at,
                             },
                         },
                     }

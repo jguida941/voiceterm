@@ -11,7 +11,11 @@ import sys
 from .commands.python_test_runner import command as python_test_command
 from .commands.reporting import dogfood, progress_status
 from .commands.development import command as development_command
-from .commands.governance import relaunch_loop, session as governance_session
+from .commands.governance import (
+    exceptions as governance_exceptions,
+    relaunch_loop,
+    session as governance_session,
+)
 from .commands.remote_control import command as remote_control_command
 from .cli_parser import entrypoint as _impl
 
@@ -19,6 +23,7 @@ from .cli_parser import entrypoint as _impl
 COMMAND_HANDLER_ROWS = (
     ("develop", development_command.run),
     ("dogfood", dogfood.run),
+    ("exceptions", governance_exceptions.run),
     ("progress-status", progress_status.run),
     ("relaunch-loop", relaunch_loop.run),
     ("remote-control", remote_control_command.run),

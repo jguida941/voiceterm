@@ -16,24 +16,7 @@ from ..runtime.startup_continuity import (
     startup_packet_carry_forward_debt,
     startup_runtime_spine_closure,
 )
-from ..probe_topology.packet import (
-    enrich_query_node,
-    query_hot_index_ranking_summary,
-    query_match_evidence,
-    query_match_summary,
-    query_ranking_summary,
-    record_query_match_reason,
-)
-from .query_matching import (
-    matching_aliases,
-    matching_variants,
-    query_terms,
-    query_variants,
-    ref_matches,
-)
 from .models import (
-    EDGE_KIND_GUARDS,
-    EDGE_KIND_SCOPED_BY,
     NODE_KIND_GUARD,
     NODE_KIND_PLAN,
     NODE_KIND_PROBE,
@@ -42,10 +25,9 @@ from .models import (
     GraphEdge,
     GraphNode,
     GraphSize,
-    HotIndexSummary,
-    QueryResult,
 )
 from .bootstrap_catalog import load_bootstrap_catalog_context
+from .query_search import query_context_graph
 from ..runtime.startup_signals import compact_startup_quality_signals
 from .startup_signals import load_bootstrap_quality_signals
 
@@ -55,205 +37,6 @@ _USAGE = (
     "the canonical docs. Use `context-graph --query <term>` for targeted "
     "subgraphs on specific files, MPs, guards, or subsystems."
 )
-_MAX_MATCHED_EDGES = 200
-_MAX_RESULT_NODES = 120
-
-
-def query_context_graph(
-    query: str,
-    nodes: list[GraphNode],
-    edges: list[GraphEdge],
-) -> QueryResult:
-    """Run a text query against the built graph, returning a targeted subgraph.
-
-    Matches node labels and canonical_pointer_refs against the query string.
-    Returns matched nodes sorted by temperature (hottest first) plus their
-    immediate edge neighborhood.
-    """
-    query_lower = query.lower().strip()
-    if not query_lower:
-        top_nodes = [
-            enrich_query_node(
-                node,
-                match_summary="Returned from the hot index because the query was empty.",
-                match_evidence=("empty query requested the hottest nodes",),
-                ranking_summary=query_hot_index_ranking_summary(node),
-            )
-            for node in sorted(nodes, key=lambda n: -n.temperature)[:20]
-        ]
-        return QueryResult(
-            query=query,
-            matched_nodes=top_nodes,
-            edges=[],
-            hot_index_summary=_hot_index_summary(nodes, edges),
-            evidence=["empty query: returning top-20 hottest nodes"],
-        )
-
-    terms = query_terms(query_lower)
-    variants_by_term = {
-        term: query_variants(term)
-        for term in terms
-    }
-
-    matched_ids: set[str] = set()
-    match_reasons: dict[str, list[str]] = {}
-    for node in nodes:
-        label_lower = node.label.lower()
-        ref_lower = node.canonical_pointer_ref.lower()
-        label_matches = matching_variants(label_lower, variants_by_term)
-        ref_match_values = ref_matches(node, ref_lower, query_lower, variants_by_term)
-        if label_matches or ref_match_values:
-            matched_ids.add(node.node_id)
-        if label_matches:
-            record_query_match_reason(
-                match_reasons,
-                node.node_id,
-                f"label matched `{node.label}`",
-            )
-        if ref_match_values:
-            record_query_match_reason(
-                match_reasons,
-                node.node_id,
-                f"canonical ref matched `{node.canonical_pointer_ref}`",
-            )
-        scope = str(node.metadata.get("scope", "")).lower()
-        scope_matches = matching_variants(scope, variants_by_term)
-        if scope_matches:
-            matched_ids.add(node.node_id)
-            record_query_match_reason(
-                match_reasons,
-                node.node_id,
-                f"scope matched `{scope}`",
-            )
-        aliases = node.metadata.get("aliases", [])
-        alias_matches: list[str] = []
-        if isinstance(aliases, list):
-            alias_matches = matching_aliases(aliases, variants_by_term)
-        if alias_matches:
-            matched_ids.add(node.node_id)
-            record_query_match_reason(
-                match_reasons,
-                node.node_id,
-                "alias matched `"
-                + ", ".join(alias_matches[:2])
-                + "`",
-            )
-
-    neighbor_ids: set[str] = set()
-    matched_edges: list[GraphEdge] = []
-    # Guard edges (guard → file) create N_guards × N_files cartesian noise
-    # when querying for source files. Keep them when the query matched a guard
-    # node directly (the user asked about a guard). Filter otherwise.
-    matched_has_guard = any(nid.startswith("guard:") for nid in matched_ids)
-    for edge in edges:
-        if edge.edge_kind == EDGE_KIND_GUARDS and not matched_has_guard:
-            continue
-        if edge.source_id in matched_ids or edge.target_id in matched_ids:
-            matched_edges.append(edge)
-
-    total_matched_edge_count = len(matched_edges)
-    if len(matched_edges) > _MAX_MATCHED_EDGES:
-        matched_edges = sorted(
-            matched_edges,
-            key=lambda item: _query_edge_sort_key(item),
-        )[:_MAX_MATCHED_EDGES]
-    for edge in matched_edges:
-        neighbor_ids.add(edge.source_id)
-        neighbor_ids.add(edge.target_id)
-
-    result_ids = matched_ids | neighbor_ids
-    edge_count_by_node: dict[str, int] = {}
-    for edge in matched_edges:
-        edge_count_by_node[edge.source_id] = edge_count_by_node.get(edge.source_id, 0) + 1
-        edge_count_by_node[edge.target_id] = edge_count_by_node.get(edge.target_id, 0) + 1
-    all_result_nodes = [
-        enrich_query_node(
-            node,
-            match_summary=query_match_summary(
-                node,
-                direct_match=node.node_id in matched_ids,
-                reasons=match_reasons.get(node.node_id, []),
-            ),
-            match_evidence=query_match_evidence(
-                node,
-                direct_match=node.node_id in matched_ids,
-                reasons=match_reasons.get(node.node_id, []),
-            ),
-            ranking_summary=query_ranking_summary(
-                node,
-                direct_match=node.node_id in matched_ids,
-                connected_edge_count=edge_count_by_node.get(node.node_id, 0),
-            ),
-        )
-        for node in sorted(
-            [n for n in nodes if n.node_id in result_ids],
-            key=lambda n: (-n.temperature, n.node_id),
-        )
-    ]
-    total_result_node_count = len(all_result_nodes)
-    result_nodes = all_result_nodes[:_MAX_RESULT_NODES]
-
-    if not matched_ids:
-        confidence = "no_match"
-    elif not matched_edges:
-        confidence = "low_confidence"
-    else:
-        # If all edges are heuristic documented_by, downgrade to low_confidence
-        from .models import EDGE_KIND_DOCUMENTED_BY
-        non_heuristic = [e for e in matched_edges if e.edge_kind != EDGE_KIND_DOCUMENTED_BY]
-        confidence = "high" if non_heuristic else "low_confidence"
-
-    return QueryResult(
-        query=query,
-        matched_nodes=result_nodes,
-        edges=matched_edges,
-        hot_index_summary=_hot_index_summary(nodes, edges),
-        confidence=confidence,
-        evidence=[
-            f"matched {len(matched_ids)} direct node(s)",
-            _node_count_evidence(len(result_nodes), total_result_node_count, len(neighbor_ids)),
-            _edge_count_evidence(len(matched_edges), total_matched_edge_count),
-            f"confidence: {confidence}",
-        ],
-    )
-
-
-def _node_count_evidence(
-    visible_count: int,
-    total_count: int,
-    neighbor_count: int,
-) -> str:
-    if visible_count == total_count:
-        return f"expanded to {neighbor_count} neighbor(s)"
-    return (
-        f"expanded to {neighbor_count} neighbor(s); "
-        f"{visible_count} of {total_count} node(s) shown"
-    )
-
-
-def _edge_count_evidence(visible_count: int, total_count: int) -> str:
-    if visible_count == total_count:
-        return f"{visible_count} connecting edge(s)"
-    return f"{visible_count} of {total_count} connecting edge(s) shown"
-
-
-def _query_edge_sort_key(edge: GraphEdge) -> tuple[int, str, str, str]:
-    priority = {
-        EDGE_KIND_SCOPED_BY: 0,
-        "routes_to": 1,
-        "packet_handoff": 2,
-        "receipt_proves": 3,
-        "probe_finds": 4,
-        "guard_catches": 5,
-        "finding_blocks": 6,
-        "contract_reads": 7,
-        "contract_writes": 8,
-        "contains": 9,
-        "command_invokes": 10,
-        "test_covers": 11,
-        "workflow_runs": 12,
-    }.get(edge.edge_kind, 20)
-    return (priority, edge.edge_kind, edge.source_id, edge.target_id)
 
 
 def _current_branch(repo_root) -> str:
@@ -408,25 +191,6 @@ def _hotspot_summaries(hotspots: list[GraphNode]) -> list[dict[str, object]]:
         }
         for n in hotspots
     ]
-
-
-def _hot_index_summary(
-    nodes: list[GraphNode],
-    edges: list[GraphEdge],
-) -> HotIndexSummary:
-    """Build the compact hot-index summary for any query result."""
-    by_kind: dict[str, int] = {}
-    for node in nodes:
-        by_kind[node.node_kind] = by_kind.get(node.node_kind, 0) + 1
-    edge_kinds: dict[str, int] = {}
-    for edge in edges:
-        edge_kinds[edge.edge_kind] = edge_kinds.get(edge.edge_kind, 0) + 1
-    return HotIndexSummary(
-        total_nodes=len(nodes),
-        total_edges=len(edges),
-        nodes_by_kind=by_kind,
-        edges_by_kind=edge_kinds,
-    )
 
 
 def _bootstrap_hotspot_ranking_summary(node: GraphNode) -> str:

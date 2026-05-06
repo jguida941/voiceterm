@@ -100,6 +100,7 @@ def _contract_row(
         fields=fields,
         projection_ids=projection_ids,
         reader_ids=reader_ids,
+        cross_links=contract.cross_links,
     )
 
 

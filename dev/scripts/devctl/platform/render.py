@@ -2,11 +2,31 @@
 
 from __future__ import annotations
 
-from .contracts import ArtifactSchemaSpec, ContractField, ContractSpec, PlatformBlueprint
+from .contracts import (
+    ArtifactSchemaSpec,
+    ContractField,
+    ContractSpec,
+    CrossLinkSpec,
+    PlatformBlueprint,
+)
 
 
 def _render_field(field: ContractField) -> str:
     return f"  - {field.name}: {field.type_hint} — {field.description}"
+
+
+def _render_cross_link(link: CrossLinkSpec) -> str:
+    required = " required" if link.required else ""
+    direction = f" direction={link.direction}" if link.direction else ""
+    resolver = ""
+    if link.target_resolver:
+        resolver = f" resolver={link.target_resolver}"
+    elif link.target_id_template:
+        resolver = f" target={link.target_id_template}"
+    return (
+        f"  - cross_link {link.source_field} -> {link.target_contract} "
+        f"via {link.edge_kind}{direction}{required}{resolver}"
+    )
 
 
 def _render_contract(contract: ContractSpec) -> list[str]:
@@ -23,6 +43,7 @@ def _render_contract(contract: ContractSpec) -> list[str]:
             "  - startup_surface_tokens: "
             + ", ".join(contract.startup_surface_tokens)
         )
+    lines.extend(_render_cross_link(link) for link in contract.cross_links)
     lines.extend(_render_field(field) for field in contract.required_fields)
     return lines
 

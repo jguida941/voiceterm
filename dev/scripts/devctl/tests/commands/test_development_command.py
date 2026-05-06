@@ -697,6 +697,24 @@ def test_develop_ingest_plan_body_writes_row_and_receipt(
     assert receipt["row_ids"] == ["MP377-P0-T22AN-W"]
     assert rows[0]["row_id"] == "MP377-P0-T22AN-W"
     assert rows[0]["provenance"]["source_kind"] == "PlanIntentIngestion:chat"
+    assert any(
+        ref.startswith("plan_source_snapshot:")
+        for ref in rows[0]["work_evidence_ids"]
+    )
+    snapshots = [
+        json.loads(line)
+        for line in (tmp_path / "dev/state/plan_source_snapshots.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+    assert snapshots[0]["plan_row_id"] == "MP377-P0-T22AN-W"
+    assert snapshots[0]["source_text"] == (
+        "Any agent-authored plan must reach typed plan authority."
+    )
+    assert receipt["source_snapshot_ids"] == [snapshots[0]["snapshot_id"]]
+    assert receipt["source_retention_status"] == "snapshotted"
+    assert receipt["source_integrity_status"] == "ok"
     assert receipt_rows[0]["row_ids"] == ["MP377-P0-T22AN-W"]
 
 
@@ -836,6 +854,7 @@ def test_develop_ingest_plan_packet_uses_packet_evidence(
                         "kind": "plan_patch_review",
                         "summary": "Packet-backed plan row",
                         "body": "Patch review body",
+                        "expires_at_utc": "2026-05-06T00:00:00Z",
                         "target_ref": "plan:MP-377",
                         "mutation_op": "append_progress_log",
                     }
@@ -867,9 +886,28 @@ def test_develop_ingest_plan_packet_uses_packet_evidence(
     assert receipt.status == "accepted"
     assert receipt.packet_id == "rev_pkt_9001"
     assert receipt.row_ids == ("PKT-BIND-REV-PKT-9001",)
+    assert receipt.source_retention_status == "snapshotted"
+    assert receipt.source_integrity_status == "ok"
+    assert receipt.source_packet_expires_at_utc == "2026-05-06T00:00:00Z"
     assert receipt_rows[0]["packet_id"] == "rev_pkt_9001"
+    assert receipt_rows[0]["source_snapshot_ids"] == list(receipt.source_snapshot_ids)
     assert rows[0]["sourced_from_packets"] == ["rev_pkt_9001"]
     assert rows[0]["work_evidence_ids"][0] == "packet:rev_pkt_9001"
+    assert any(
+        ref.startswith("plan_source_snapshot:")
+        for ref in rows[0]["work_evidence_ids"]
+    )
+    snapshots = [
+        json.loads(line)
+        for line in (tmp_path / "dev/state/plan_source_snapshots.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+    assert snapshots[0]["plan_row_id"] == "PKT-BIND-REV-PKT-9001"
+    assert snapshots[0]["source_packet_id"] == "rev_pkt_9001"
+    assert snapshots[0]["packet_expires_at_utc"] == "2026-05-06T00:00:00Z"
+    assert "Patch review body" in snapshots[0]["source_text"]
 
 
 def test_develop_ingest_plan_rejects_unowned_chat_plan(

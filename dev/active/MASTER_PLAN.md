@@ -539,13 +539,49 @@
   that catch unaccepted completions, lane advancement without acceptance or
   override, missing packet correlation, unevidenced checks, prose-only
   architecture decisions, and dirty files not mapped to packets.
-- 2026-04-29 GuardIR raw-bypass receipt catalog (MP-377): raw `--no-verify`
-  commit/push paths are queued as `MP377-P0-T22AB-A..T22AB-C`. The rule is:
-  bypass may be operator-authorized, but bypass without typed receipt is not
-  acceptable governance state. Rows cover `BypassReceipt` schema/write path,
-  startup/runtime-agreement surfacing of unadjudicated receipts, and governed
-  push/extraction/fanout gates that block until skipped gates are replayed,
-  adjudicated by matching CI, or explicitly overridden with typed evidence.
+- 2026-05-06 governed exception lifecycle correction (MP-377): the earlier
+  raw `BypassReceipt` direction is superseded by `MP377-P0-EXC-S1`, with
+  follow-up typed rows `MP377-P0-EXC-S1B`, `MP377-P0-EXC-S1C`, and
+  `MP377-P0-EXC-S1D` for generated context-graph materialization, focused
+  lineage traversal, and live dual-agent role-swap acceptance. The related
+  `MP377-P0-T08F` packet-lifecycle row is the role/session inbox prerequisite:
+  packets route to reviewer/implementer/operator roles plus exact sessions
+  when scoped, not to provider names as authority.
+  Bypass is not the feature; exception -> repair -> proof -> learning is the
+  feature. Slice 1 stays read-only for execution and only adds typed
+  contracts, validation, registry/SYSTEM_MAP visibility, durable plan-source
+  retention, and read-only `devctl exceptions pending/validate` surfaces.
+  Semantic-link metadata belongs in typed `ContractSpec.cross_links`; comments,
+  `typing.Annotated`, generated graph outputs, bridge text, dashboards, and
+  markdown remain documentation/projections rather than authority. Green unit
+	  tests do not prove the collaboration loop: end-to-end acceptance requires
+	  live Codex+Claude dogfood in both role assignments, with packet observation,
+	  disposition, semantic-link visibility, and `check_multi_agent_sync.py`
+	  passing after each phase.
+- 2026-05-06 guard cadence / physical dogfood correction (MP-377): green
+  unit tests are regression evidence, not sufficient physical proof for major
+  governance features. `MP377-P0-GUARD-CADENCE-S1` is queued as the typed owner
+  for graph-scoped guard scheduling: run safety/proof/authority checks
+  immediately, feature-local checks after coherent chunks, subsystem
+  architecture checks at stabilization points, full closure checks before plan
+  status/checkpoint/push, and whole-system cleanup as separate follow-up rows.
+  `MP377-P0-GUARD-DEFERRAL-S1` remains the child slice for deferrable
+  quality-debt receipts; open deferrals block checkpoint, push, resolution,
+  slice close, and success claims until rerun proof closes them. This is not a
+  bypass: security, command exposure, mutation authority, raw bypass,
+  generated-markdown authority, stale-HEAD, missing receipt, and missing push
+  proof gates cannot be deferred. The cadence slice must physically compare
+  always-run versus staged-cadence dogfood and
+  record elapsed time, failures caught, refactor churn, late failures, false
+  positives, out-of-scope file churn, and final quality.
+- 2026-05-06 operator-correction intake failure (MP-377): a Codex process
+  failure was observed when operator architecture feedback was initially folded
+  into broad cadence/plan prose instead of immediately refining a scoped typed
+  row with its own `PlanIntentIngestionReceipt` and `PlanSourceSnapshot`.
+  `MP377-P0-OPERATOR-CORRECTION-INTAKE-S1` is queued to close that process gap:
+  operator corrections that add or modify governance rules, acceptance gates,
+  closure blockers, or agent-process invariants must be typed first, projected
+  second. Broad markdown summaries cannot be the first durable authority.
 - 2026-04-27 governed-push execution-truth invariant (MP-377):
   the `rev_pkt_2027` / `rev_pkt_2029` regression proved a Class-A trust
   break: a push report could claim `published_remote` with a fixture branch
@@ -7723,3 +7759,5 @@ This generated ledger projects packet creation bindings for humans. The typed ro
 - [ ] `PKT-BIND-REV-PKT-3067` Packet finding: Reviewer-lane response to rev_pkt_3066: rev_pkt_3065 findings 1-5 VERIFIED in code+tests; 4 held peer_attention_window concerns folded in; finding 6 open as research-lane (source `rev_pkt_3067`; target `plan:MP-377`; posted `2026-05-05T13:57:49.922486Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3068` Packet finding: Architectural smell: typed next= field is not role-scoped — gives commands the caller cannot execute under remote-control + role + defer-publication. Operator-flagged. Slice A proposal in body. (source `rev_pkt_3068`; target `plan:MP-377`; posted `2026-05-05T14:44:55.919877Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3069` Packet finding: Smart bypass system architecture (operator-designed) + launcher-discipline interaction_mode drift bug + role-scoped next= sharpening + end-to-end test plan — 4 composing slices for next codex architectural session (source `rev_pkt_3069`; target `plan:MP-377`; posted `2026-05-05T15:17:20.013827Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3073` Packet finding: Reviewer/architect assessment of operator's GovernedExceptionLifecycle plan: agree with reframe (Exception→Repair→Proof→Learning > BypassReceipt-only); 7 concerns codex should resolve; claude's commitment as reviewer-arch... (source `rev_pkt_3073`; target `plan:MP-377`; posted `2026-05-05T23:09:31.952615Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3078` Packet finding: Operator extension to rev_pkt_3076: add MP377-P0-GUARD-CADENCE-S1 + GUARD-DEFERRAL-S1 + EXC-S1D physical-dogfood gate + T08F role-swap proof; do NOT expand EXC-S1; tier 0 always immediate; cadence is governance not bypass (source `rev_pkt_3078`; target `plan:MP-377`; posted `2026-05-06T02:13:42.296834Z`; binding `plan_row`).

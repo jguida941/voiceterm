@@ -63,6 +63,83 @@ Current ingestion status:
   Claude stays watcher/verification owner, while mutable fanout remains
   blocked.
 
+2026-05-06 governed exception lifecycle correction:
+- `MP377-P0-EXC-S1` replaces the earlier raw-bypass receipt direction with a
+  governed exception lifecycle foundation. Bypass is not the feature; the
+  feature is exception -> repair -> proof -> learning.
+- Slice 1 is intentionally read-only for command execution: it adds
+  `GovernedExceptionLifecycle`, `ExceptionReceipt`, `ResolutionReceipt`,
+  `ExceptionPolicy`, `ExceptionClass`, `ExceptionLifecycleStatus`,
+  `ClosureProof`, `AutoRepairReceipt`, and `ManualBypassImportReceipt`
+  contracts, JSONL/source-retention helpers, validation, registry visibility,
+  and `devctl exceptions pending/validate`.
+- Slice 2 adds request intake, still with no exception execution:
+  a future `devctl exceptions request` surface will validate action kind,
+  phase, guard id, exception class, specific reason, and bounded scope; capture
+  current HEAD/worktree fingerprint plus available typed authority evidence;
+  stage a `planned_finding_ingest_ref`; write a pending `ExceptionReceipt`
+  inside a `GovernedExceptionLifecycle`; and report
+  `execution_status=not_executed`.
+  It does not run repair, proof, close, import, dashboard, bridge, slash, or
+  bypass paths.
+- The durable source of the full operator plan is not a review-channel packet.
+  `PlanSourceSnapshot` rows under `dev/state/plan_source_snapshots.jsonl` plus
+  `PlanIntentIngestionReceipt.source_snapshot_ids` and
+  `PlanRow.work_evidence_ids` preserve the full consolidated plan after packet
+  expiry. For `MP377-P0-EXC-S1`, the current/latest accepted receipt must point
+  at a snapshot that passes required-anchor validation; an older full snapshot
+  cannot mask a newer short-summary ingest.
+- 2026-05-06 semantic-link/ZGraph review: the accepted architecture is hybrid
+  over the existing `ContextGraphSnapshot`. Do not build a parallel ZGraph
+  authority store. `ContractSpec.cross_links` is the canonical typed metadata
+  for field-to-contract semantic links; comments/docstrings and
+  `typing.Annotated` may document or prototype links but are not authority.
+  Slice 1 may expose metadata and registry/context-graph discoverability only.
+  `MP377-P0-EXC-S1B` materializes governed-exception lifecycle/receipt rows as
+  read-only context-graph nodes/edges from typed JSONL state, and
+  `MP377-P0-EXC-S1C` adds focused graph-walk lineage traversal. Z-ref
+  compression, inferred-property engines, contradiction gates, and fanout/push
+  blocking remain later proof/evaluation slices.
+- 2026-05-06 role-inbox correction: `MP377-P0-T08F` is now the packet
+  lifecycle prerequisite for role-swapping collaboration. Packet inboxes,
+  packet attention, ACK/apply authority, queue-derived current instruction,
+  and single-agent carry-forward reads must resolve through `target_role`,
+  exact `target_session_id` when scoped, actor authority, and capability
+  grants. `to_agent` / `from_agent` remain compatibility delivery labels, not
+  authority. Pending packets must remain visible until acknowledged, applied
+  with evidence, dismissed, superseded by typed disposition, archived by
+  lifecycle policy, or ingested into typed plan/finding/receipt state.
+- `MP377-P0-EXC-S1D` adds the governed-exception acceptance dependency: do not
+  call semantic links, receipt lineage, or graph traversal end-to-end accepted
+  until live Codex+Claude dogfood proves both role assignments
+  (Codex implementer + Claude reviewer, then Claude implementer + Codex
+  reviewer), packet observation/disposition, read-only governed-exception
+  pending/validate visibility, semantic-link projection, and
+  `check_multi_agent_sync.py` passing after each phase.
+- Raw exception execution, request, repair/prove/close/import-manual commands,
+  dashboard writes, bridge writes, slash command writes, and raw `git push
+  --no-verify` paths are out of scope until later slices add proof and policy
+  gates.
+- 2026-05-06 guard cadence / physical dogfood intake: `MP377-P0-GUARD-CADENCE-S1`
+  owns the future graph-scoped validation scheduler. It classifies checks into
+  immediate safety/proof/authority checks, local feature checks, subsystem
+  architecture checks, closure checks, and whole-system cleanup rows. The
+  scheduler should use touched files, `ContextGraphSnapshot`,
+  `ContractSpec.cross_links`, runtime contract ownership, and command-catalog
+  metadata to choose the smallest sufficient check set, then escalate before
+  closure/checkpoint/push. It is not a bypass: non-deferrable security,
+  authority, command-exposure, mutation, raw-bypass, generated-markdown
+  authority, stale-HEAD, missing-receipt, and missing-push-proof gates still fail
+  closed. `MP377-P0-GUARD-DEFERRAL-S1` is the linked receipt slice for
+  deferrable code-shape/refactor quality debt, and it must require typed owner,
+  scope, reason, rerun command, follow-up row, expiry, and closure proof.
+- Major governance features need physical dogfood before end-to-end closure.
+  Unit tests and guards remain required, but collaboration/runtime features must
+  also exercise real `devctl` surfaces. Where behavior depends on both supported
+  providers, acceptance requires live Codex+Claude evidence in swapped roles;
+  when that live peer is unavailable, the dogfood gate is blocked rather than
+  passed.
+
 2026-04-29 invariant review intake:
 - Verdict: accepted with caveats. Review-channel packets already append and
   reduce events, `PacketLifecycleHistory` already projects lifecycle state, and
@@ -4270,6 +4347,74 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       status: `queued`
       depends_on: `MP377-P0-T08A`
       disposition_sources: `rev_pkt_HH`
+- [ ] `MP377-P0-T08F` Route packet inboxes by role/session so providers can switch roles without hiding packet debt.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `queued`
+      depends_on: `MP377-P0-T08A`, `MP377-P0-T22AN-AF`
+      disposition_sources: `operator:2026-05-06-role-oriented-packet-inbox`
+      scope: Make `target_role` plus exact `target_session_id` when scoped the
+      canonical packet inbox and attention route. Resolve provider/actor from
+      typed `CollaborationSession`, `SessionPosture`, actor authority, and
+      capability grants; keep `to_agent` / `from_agent` as compatibility
+      delivery labels only. Pending packets must not disappear when Codex,
+      Claude, Cursor, or a human switches between implementer, reviewer,
+      operator, watcher, or other roles.
+      acceptance_criteria: Inbox/watch/status/current-session readers group by
+      role/session before provider; ACK/apply/dismiss authorization checks the
+      resolved role holder or capability-granted actor instead of literal
+      `to_agent`; single-agent mode reads relevant reviewer and implementer
+      packet debt before scoped decisions; tests cover provider role swaps,
+	      stale packet carry-forward, ambiguous route fail-closed behavior, and
+	      no packet considered consumed until lifecycle disposition records
+	      acknowledged, applied, dismissed, superseded, archived, or typed-plan /
+	      finding / receipt ingestion. Physical dogfood must post and observe live
+	      packets in both Codex-reviewer/Claude-implementer and
+	      Claude-reviewer/Codex-implementer role assignments; if a live provider
+	      is unavailable, record the gate as blocked instead of accepted.
+	- [ ] `MP377-P0-GUARD-CADENCE-S1` Add graph-scoped guard cadence and physical dogfood scheduling so the system chooses when to run immediate, feature-local, subsystem, closure, and whole-system checks without skipping evidence.
+	      owner_doc: `dev/active/ai_governance_platform.md`
+	      status: `queued`
+	      depends_on: `MP377-P0-T08F`
+	      disposition_sources: `operator:2026-05-06-graph-scoped-guard-cadence-physical-dogfood`
+	      scope: Use touched files, `ContextGraphSnapshot`,
+	      `ContractSpec.cross_links`, runtime contract ownership, command catalog
+	      metadata, and guard risk classes to produce a typed `GuardRunPlan` /
+	      validation schedule. Safety/proof/authority checks run immediately and
+	      remain non-deferrable; code-shape/refactor-only pressure may be batched
+	      only through typed quality debt. Major governance features require real
+	      `devctl` command smoke and, when provider collaboration is the behavior,
+	      live Codex+Claude role-swap dogfood evidence.
+	      acceptance_criteria: The cadence policy distinguishes Tier 0 immediate
+	      checks, Tier 1 feature-local checks, Tier 2 subsystem stabilization
+	      checks, Tier 3 closure checks, and Tier 4 whole-system cleanup rows;
+	      `MP377-P0-GUARD-DEFERRAL-S1` owns typed deferral receipts; no
+	      non-deferrable security, authority, command-exposure, mutation, raw
+	      bypass, generated-markdown authority, stale-HEAD, missing-receipt, or
+	      missing-push-proof gate can be deferred; open deferral receipts block
+	      checkpoint, push, resolution, slice close, and success claims until
+	      rerun proof closes them; a dogfood experiment compares
+	      always-run versus staged cadence and records elapsed time, failures
+	      caught, refactor churn, false positives, late failures, out-of-scope
+	      file churn, and final quality.
+	- [ ] `MP377-P0-OPERATOR-CORRECTION-INTAKE-S1` Add a typed intake gate for
+	      operator architecture corrections so new governance invariants are
+	      not lost inside broad plan prose or chat summaries.
+	      owner_doc: `dev/active/ai_governance_platform.md`
+	      status: `queued`
+	      depends_on: `MP377-P0-GUARD-CADENCE-S1`
+	      disposition_sources: `operator:2026-05-06-codex-missed-typed-ingestion-root-cause`
+	      scope: When the operator corrects an architectural invariant,
+	      acceptance gate, closure blocker, or agent-process rule, classify it
+	      before summarizing: new typed PlanRow, refinement of an existing
+	      typed PlanRow, or terminal duplicate/rejection receipt. Run
+	      `develop ingest-plan` or the current typed ingestion path before
+	      relying on markdown docs, chat memory, generated summaries, or
+	      broad plan prose.
+	      acceptance_criteria: The intake path writes a
+	      `PlanIntentIngestionReceipt` and `PlanSourceSnapshot` preserving the
+	      scoped source, links affected PlanRows, includes an explain-back of
+	      what changed and why, and blocks affected-scope closure while an
+	      unresolved operator-correction intake row remains open.
 - [ ] `MP377-P0-T09` Add `CodexAgentPollLoop` as the consumer loop for Codex-targeted packets: poll `review-channel inbox --target codex --status pending` on cadence, handle findings at slice-boundary/non-critical cadence, route action_requests through typed preconditions, emit dogfood rows per tick, and write superseded outcomes for satisfied asks through the Slice B reducer.
       owner_doc: `dev/active/remote_control_runtime.md`
       status: `queued`
@@ -5720,27 +5865,27 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
 | `rev_pkt_2914` / `rev_pkt_2919` / operator 2026-05-04 conductor-spawn dogfood | `MP377-P0-T22AN-AF` | packet attention is typed state only; no conductor launch from delivery |
 | `rev_pkt_2936` Class F cold-session bootstrap bypass | `MP377-P0-T22AN-AG` | enforce startup-context + session-resume + context-graph bootstrap receipts |
 | `rev_pkt_3042` / `rev_pkt_3043` / `rev_pkt_3044` packet-attention miss during remote-control hook work | `MP377-P0-T22AN-AM`, `MP377-P0-T22AN-AN` | continuous peer attention windows carry urgent context; only blocker packets interrupt mutation; architecture/blocker targets stay typed |
-- [ ] `MP377-P0-T22AB-A` Add typed `BypassReceipt` schema and write path.
+- [ ] `MP377-P0-T22AB-A` Superseded by governed exception lifecycle receipt foundation.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`
-      status: `queued`
+      status: `superseded`
       depends_on: `MP377-P0-T22T`, `MP377-P0-T22W`
-      scope: Add a typed `BypassReceipt` contract plus append-only governance receipt store such as `dev/reports/governance/bypass_receipts.jsonl`. The preferred write path is a low-friction `devctl` wrapper for operator-authorized raw `--no-verify` commit/push, with passive detection/advisory capture where feasible.
-      acceptance_criteria: A bypass receipt captures `pre_bypass_head`, `post_bypass_head`, delivered `commit_shas`, `gates_skipped`, operator `authorization_scope`, `caller_agent`, `revalidation_targets`, `expected_followup`, `expires_at_utc`, and `adjudication_status=pending`. The receipt is append-only, ActionResult/report shaped, and explicit that it is not a successful guard attestation.
-- [ ] `MP377-P0-T22AB-B` Surface unadjudicated bypass receipts in startup and runtime agreement.
+      scope: Superseded by `MP377-P0-EXC-S1`. Do not add a low-friction raw bypass wrapper. The safe foundation is `GovernedExceptionLifecycle` plus typed `ExceptionReceipt` / `ResolutionReceipt` validation and registry visibility, with manual bypass import reserved for later historical evidence only.
+      acceptance_criteria: `MP377-P0-EXC-S1` preserves the full consolidated plan through `PlanSourceSnapshot`, validates exception receipts fail closed, registers exception contracts in platform/SYSTEM_MAP visibility, and introduces no exception execution path.
+- [ ] `MP377-P0-T22AB-B` Superseded by open governed-exception projection slices.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`
-      status: `queued`
+      status: `superseded`
       depends_on: `MP377-P0-T22AB-A`, `MP377-P0-T22W`
-      scope: Teach startup-context, review-channel status/doctor, and `RuntimeAgreementReport` to expose pending bypass receipts, including unadjudicated count, affected commits, affected paths, expiry, and the exact replay or CI-adjudication command.
-      acceptance_criteria: A session after a raw bypass shows `unadjudicated_bypass_count > 0`, names the bypass receipt id and commit range, and recommends rerunning the relevant bundle or marking `validated_via_ci` only when matching CI evidence exists. `RuntimeAgreementReport` includes "no outstanding bypass receipts" as a quorum fact.
-- [ ] `MP377-P0-T22AB-C` Gate governed push, extraction, and fanout on pending bypass adjudication.
+      scope: Replace bypass-receipt wording with later governed-exception projection work: startup-context, session-resume, system-picture, review-channel status/doctor, and `RuntimeAgreementReport` should surface pending governed exceptions from typed lifecycle state, not raw bypass state.
+      acceptance_criteria: Future projection slices show open governed exception count, highest severity, mutation/fanout posture, repair command, proof command, and stale projection status from typed lifecycle rows. The durable replacement plan row is typed `MP377-P0-EXC-S1`.
+- [ ] `MP377-P0-T22AB-C` Superseded by governed-exception proof gates.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`
-      status: `queued`
+      status: `superseded`
       depends_on: `MP377-P0-T22AB-B`, `MP377-P0-T22G`, `MP377-P0-T22W`
-      scope: Route governed push, extraction, and fanout preflights through pending-bypass state so raw skipped gates cannot disappear from the next session's safety model.
-      acceptance_criteria: Governed push blocks while `unadjudicated_bypass_count > 0` unless an explicit typed override is present; successful rerun or matching CI evidence transitions receipts to `validated_via_ci`; expired receipts become `rerun_required` / `aged_out` with remediation packet evidence; missing receipt for known raw-bypass evidence is itself a governance finding.
+      scope: Gate governed push, extraction, and fanout on open governed exception lifecycle state after later proof/projection slices land. Slice 1 deliberately adds no mutation gate and no exception execution path.
+      acceptance_criteria: Future proof slices block publish-class work when an open P0 push/commit exception lacks `ResolutionReceipt` proof; closure requires the original guarded command to pass without exception and remote-ref/post-push proof for `vcs.push`. The durable replacement plan row is typed `MP377-P0-EXC-S1`.
 
 2026-04-29 `rev_pkt_2145` deferred-packet disposition ledger:
 

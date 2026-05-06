@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from .contracts import CrossLinkSpec
+
 
 @dataclass(frozen=True, slots=True)
 class ConnectivityFieldRow:
@@ -39,6 +41,7 @@ class ConnectivityContractRow:
     fields: tuple[ConnectivityFieldRow, ...]
     projection_ids: tuple[str, ...] = ()
     reader_ids: tuple[str, ...] = ()
+    cross_links: tuple[CrossLinkSpec, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

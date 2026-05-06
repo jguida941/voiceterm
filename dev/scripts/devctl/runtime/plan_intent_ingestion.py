@@ -31,6 +31,17 @@ class PlanIntentIngestionReceipt:
     path: str = ""
     receipt_path: str = ""
     source_hash: str = ""
+    source_snapshot_ids: tuple[str, ...] = ()
+    source_snapshot_path: str = ""
+    canonical_source_hash: str = ""
+    source_packet_expires_at_utc: str = ""
+    source_retention_status: str = ""
+    source_integrity_status: str = ""
+    source_completeness_status: str = ""
+    source_required_anchor_count: int = 0
+    source_matched_anchor_count: int = 0
+    source_missing_required_anchors: tuple[str, ...] = ()
+    source_integrity_checked_at_utc: str = ""
     recorded_at_utc: str = ""
     dry_run: bool = False
     schema_version: int = MASTER_PLAN_SCHEMA_VERSION
@@ -40,6 +51,10 @@ class PlanIntentIngestionReceipt:
         payload = asdict(self)
         payload["row_ids"] = list(self.row_ids)
         payload["store_statuses"] = list(self.store_statuses)
+        payload["source_snapshot_ids"] = list(self.source_snapshot_ids)
+        payload["source_missing_required_anchors"] = list(
+            self.source_missing_required_anchors
+        )
         return payload
 
 

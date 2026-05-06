@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from .contracts import ContractField, ContractSpec
 from .runtime_state_contract_rows_development import DEVELOPMENT_STATE_CONTRACTS
+from .runtime_state_contract_rows_governed_exceptions import (
+    GOVERNED_EXCEPTION_STATE_CONTRACTS,
+)
 from .runtime_state_contract_rows_review_pipeline import (
     REVIEW_PIPELINE_STATE_CONTRACTS,
 )
@@ -226,6 +229,7 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         startup_surface_tokens=("approvals", "active_runs", "review_bridge"),
     ),
     *DEVELOPMENT_STATE_CONTRACTS,
+    *GOVERNED_EXCEPTION_STATE_CONTRACTS,
     *REVIEW_PIPELINE_STATE_CONTRACTS,
     *RELAUNCH_LOOP_STATE_CONTRACTS,
 )

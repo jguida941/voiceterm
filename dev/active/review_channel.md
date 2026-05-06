@@ -1546,8 +1546,14 @@ Expected Phase-2 tests:
 
 ### Phase 3 - Routed Review + Guarded Handoffs
 
-- [ ] Add per-target inbox filtering so packets can be routed to `codex`,
-      `claude`, or `operator`.
+- [ ] Add role/session inbox filtering so packets route to
+      `reviewer`, `implementer`, `operator`, or another typed role plus exact
+      session id when scoped. Provider targets such as `codex` or `claude`
+      remain compatibility delivery labels only; they must resolve through the
+      typed collaboration/session registry and fail closed when ambiguous.
+      Pending packets must stay visible until acknowledged, applied with
+      evidence, dismissed, superseded, archived by lifecycle policy, or
+      ingested into typed plan/finding/receipt state.
 - [ ] Replace the fixed provider-shaped queue/current-session state with a
       registry-driven topology: pending counts, heartbeat freshness, ACK
       state, and lane ownership must derive from `TandemProfile` / the agent
@@ -1583,6 +1589,11 @@ Expected Phase-2 tests:
       implementer/provider lanes next, and only then generalize reviewer
       provider selection once the registry/adapter/current-session contracts
       stay green.
+- [ ] Add live role-swap dogfood before claiming provider-neutral tandem
+      success: prove Codex implementer + Claude reviewer, then Claude
+      implementer + Codex reviewer, with packet observation/disposition,
+      guard-attested apply where relevant, no stale packet debt hidden by the
+      switch, and `check_multi_agent_sync.py` passing after each phase.
 - [ ] Add explicit `acked|dismissed|applied|expired` transitions and
       stale-packet watch behavior.
 - [ ] Add policy-aware action hints so packets can express `review_only`,

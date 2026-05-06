@@ -192,6 +192,11 @@ REVIEW_CORE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Current top-priority attention state, if any.",
             ),
             ContractField(
+                "attention_windows",
+                "dict[str, object]",
+                "Per-peer attention window projection derived from typed packet attention.",
+            ),
+            ContractField(
                 "recovery_assessment",
                 "RecoveryAssessmentState | None",
                 "Canonical typed diagnosis/decision pair that explanatory review surfaces project instead of recomputing local recovery prose.",

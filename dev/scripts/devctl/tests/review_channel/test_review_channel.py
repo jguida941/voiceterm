@@ -995,7 +995,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
                     return_value=None,
                 ),
                 patch(
-                    "dev.scripts.devctl.review_channel.session_probe._probe_script_running",
+                    "dev.scripts.devctl.review_channel.session_probe.probe_script_running",
                     return_value=False,
                 ),
                 patch(
@@ -1056,7 +1056,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
             with (
                 patch(
-                    "dev.scripts.devctl.review_channel.session_probe._probe_script_running",
+                    "dev.scripts.devctl.review_channel.session_probe.probe_script_running",
                     return_value=False,
                 ),
                 patch(
@@ -1118,7 +1118,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
             with (
                 patch(
-                    "dev.scripts.devctl.review_channel.session_probe._probe_script_running",
+                    "dev.scripts.devctl.review_channel.session_probe.probe_script_running",
                     return_value=True,
                 ),
                 patch(
@@ -1184,7 +1184,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
             with (
                 patch(
-                    "dev.scripts.devctl.review_channel.session_probe._probe_script_running",
+                    "dev.scripts.devctl.review_channel.session_probe.probe_script_running",
                     return_value=True,
                 ),
                 patch(
@@ -1230,6 +1230,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
                             bridge_path=bridge_path,
                             handoff_bundle=SimpleNamespace(rollover_id="rollover-123"),
                             terminal_profile_applied="Pro",
+                            interaction_mode="local_terminal",
                             launch_terminal_sessions_fn=lambda *args, **kwargs: None,
                             retired_sessions=(retired_session,),
                             cleanup_terminal_session_fn=lambda session: cleanup_calls.append(
@@ -1269,6 +1270,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
                         bridge_path=bridge_path,
                         handoff_bundle=None,
                         terminal_profile_applied="Pro",
+                        interaction_mode="local_terminal",
                         launch_terminal_sessions_fn=lambda *args, **kwargs: None,
                         retired_sessions=(retired_session,),
                         cleanup_terminal_session_fn=lambda session: cleanup_calls.append(
@@ -1403,6 +1405,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
                             bridge_path=bridge_path,
                             handoff_bundle=None,
                             terminal_profile_applied="Pro",
+                            interaction_mode="local_terminal",
                             launch_terminal_sessions_fn=lambda *args, **kwargs: None,
                         )
                     )
@@ -1775,7 +1778,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
             log_path.write_text("still live\n", encoding="utf-8")
 
             with patch(
-                "dev.scripts.devctl.review_channel.session_probe._probe_script_running",
+                "dev.scripts.devctl.review_channel.session_probe.probe_script_running",
                 return_value=None,
             ):
                 conflicts = detect_active_session_conflicts(
@@ -1811,7 +1814,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
             with (
                 patch(
-                    "dev.scripts.devctl.review_channel.session_probe._probe_script_running",
+                    "dev.scripts.devctl.review_channel.session_probe.probe_script_running",
                     return_value=False,
                 ),
                 patch(
@@ -1872,7 +1875,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
             with (
                 patch(
-                    "dev.scripts.devctl.review_channel.session_probe._probe_script_running",
+                    "dev.scripts.devctl.review_channel.session_probe.probe_script_running",
                     return_value=False,
                 ),
                 patch(
@@ -1910,7 +1913,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
             with (
                 patch(
-                    "dev.scripts.devctl.review_channel.session_probe._probe_script_running",
+                    "dev.scripts.devctl.review_channel.session_probe.probe_script_running",
                     return_value=False,
                 ),
                 patch(
@@ -1951,7 +1954,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
             with (
                 patch(
-                    "dev.scripts.devctl.review_channel.session_probe._probe_script_running",
+                    "dev.scripts.devctl.review_channel.session_probe.probe_script_running",
                     return_value=False,
                 ),
                 patch(

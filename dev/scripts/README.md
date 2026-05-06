@@ -271,6 +271,7 @@ python3 dev/scripts/devctl.py system-picture --format md
 python3 dev/scripts/devctl.py system-picture --write-ledger --format md
 python3 dev/scripts/devctl.py render-surfaces --format md
 python3 dev/scripts/devctl.py platform-contracts --format md
+python3 dev/scripts/devctl.py exceptions pending --format json
 python3 dev/scripts/checks/check_platform_contract_closure.py
 python3 dev/scripts/checks/check_contract_connectivity.py
 python3 dev/scripts/devctl.py doc-authority --format md
@@ -367,6 +368,53 @@ Portability note:
 - `platform-contracts` exposes the broader shared backend blueprint so another
   repo, frontend, or AI installer can see the intended package/runtime/repo-pack
   boundary without reverse-engineering it from active-plan prose alone.
+- Governed exceptions are modeled as typed receipt/lifecycle debt, not as a
+  bypass path. `python3 dev/scripts/devctl.py exceptions pending --format json`
+  reads the optional `dev/state/governed_exception_lifecycles.jsonl` authority
+  store without creating it, and `exceptions validate <path>` validates
+  JSON/JSONL `ExceptionReceipt` or `GovernedExceptionLifecycle` fixtures.
+  Slice 1 exposes no request, repair, proof, close, manual-import, or execution
+  command. Later request intake remains a separate linked plan slice; this
+  Slice 1 surface only reads/validates typed state. The contracts live in
+  `dev/scripts/devctl/runtime/governed_exception_contracts.py` and register
+  through `platform-contracts`, SYSTEM_MAP connectivity, and context-graph
+  typed-contract discovery.
+- Governed-exception semantic links are typed registry metadata, not comments
+  or Python-only annotations. `ContractSpec.cross_links` records field-level
+  links such as `ExceptionReceipt.finding_id -> FindingBacklog` with the
+  context-graph edge kind, target resolver/template, direction, and validation
+  policy. The connectivity registry and context graph may project that
+  metadata for discovery, but they do not become authority and they do not
+  materialize lifecycle row nodes until the later `MP377-P0-EXC-S1B` graph
+  slice.
+- Packet-backed plan ingestion now retains full source bodies in
+  `PlanSourceSnapshot` rows. For `MP377-P0-EXC-S1`, the snapshot validator
+  requires the consolidated governed-exception plan anchors and rejects a short
+  summary snapshot even when the hash matches. Current-source validation is
+  bound to the latest accepted `PlanIntentIngestionReceipt` for the row, so an
+  older full snapshot cannot mask a newer short-summary snapshot after packet
+  expiry.
+- Major governance features need physical dogfood evidence in addition to green
+  unit tests and guards. For governed exceptions and role/session packet routing,
+  exercise the real `devctl` command surfaces and record dogfood rows; when the
+  behavior depends on both supported providers, closure requires live
+  Codex+Claude role-swap evidence, or an explicit blocked dogfood gate if a live
+  peer is unavailable.
+- Guard cadence is future typed work, not a local skip. `MP377-P0-GUARD-CADENCE-S1`
+  owns graph-scoped validation scheduling over touched files,
+  `ContextGraphSnapshot`, `ContractSpec.cross_links`, runtime contract
+  ownership, and command catalog metadata. Safety/proof/authority checks stay
+  immediate and non-deferrable; code-shape/refactor-only checks may become
+  batched only through `MP377-P0-GUARD-DEFERRAL-S1` typed quality-debt receipts
+  with owner, scope, reason, rerun command, expiry, follow-up row, and closure
+  proof. Open deferrals block checkpoint, push, resolution, slice close, and
+  success claims until rerun proof closes them.
+- Operator architecture corrections are intake events, not prose cleanup.
+  `MP377-P0-OPERATOR-CORRECTION-INTAKE-S1` owns the follow-up rule: when an
+  operator correction changes a governance invariant, acceptance gate, closure
+  blocker, or agent-process rule, run typed plan ingestion first and treat
+  docs/markdown as projections after the `PlanIntentIngestionReceipt` and
+  `PlanSourceSnapshot` exist.
 - Worktree-orphan prevention is now represented as typed runtime contract
   surface too: `dev/scripts/devctl/runtime/worktree_orphan_contracts.py`
   re-exports the slice-one `OrphanSnapshot`, `OrphanSource`,
@@ -593,6 +641,14 @@ Portability note:
   `expired_after_durable_binding` in both `PacketDisposition` and the
   read-side `PacketOutcomeLedger`, and do not become carry-forward debt.
   The pending-packet disposition guard remains a follow-on enforcement slice.
+- Packet inbox and attention authority is role/session-first even while
+  compatibility commands still expose provider-shaped flags. Use
+  `target_role` and exact `target_session_id` when a live session is intended;
+  resolve the current provider/actor from typed collaboration/session state.
+  `to_agent` / `from_agent` are delivery labels only. A packet must stay
+  visible until lifecycle state records acknowledgment, guard-attested apply,
+  dismissal, supersession, archive, or durable ingestion into plan/finding /
+  receipt state, so provider role swaps cannot hide packet debt.
 - `review-channel --action show --packet-id <id>` is the exact packet-read
   surface for agents and operators. It uses the same event-backed reducer as
   `history`, requires `--packet-id`, renders the packet body plus matching
@@ -1243,6 +1299,8 @@ python3 dev/scripts/devctl.py launcher-policy
 python3 dev/scripts/devctl.py render-surfaces --format md
 python3 dev/scripts/devctl.py render-surfaces --write --format md
 python3 dev/scripts/devctl.py platform-contracts --format md
+python3 dev/scripts/devctl.py exceptions pending --format json
+python3 dev/scripts/devctl.py exceptions validate <path> --format md
 python3 dev/scripts/devctl.py system-picture --format md
 python3 dev/scripts/devctl.py system-picture --write-ledger --format md
 python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md
@@ -1752,8 +1810,10 @@ summary over the selected snapshot window.
 | `dev/scripts/checks/check_bootstrap.py` | Check bootstrap helper | Shared import-resolution and UTC runtime-error/timestamp helpers used by standalone guard scripts; not invoked directly by bundles. |
 | `dev/scripts/checks/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, mirrored-spec phase headings, cross-doc links, execution-plan metadata/marker/section parity (including `Session Resume`), the typed umbrella-plan phase/task contract for `dev/active/ai_governance_platform.md`, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, archive-vs-active doc boundaries for the reduced active owner set, and `MASTER_PLAN` Status Snapshot release metadata freshness. |
 | `dev/scripts/checks/check_architecture_surface_sync.py` | Architecture-surface sync guard | Scans newly added files and fails when active-plan docs, new check scripts, new `devctl` commands, new `app/**` surfaces, or new workflow files are not wired into the repo's owning authority docs/bundles/workflow docs. Supports `--since-ref`/`--head-ref` for branch diffs and `--paths` for targeted local verification. |
+| `dev/scripts/checks/check_ground_truth_probe_gate.py` | Ground-truth probe gate | Blocks runtime/proof/architecture changes that introduce or extend authority surfaces without a current satisfied `GroundTruthProbeRunReceipt`; pairs with `develop design-preflight --record-ground-truth-receipt` so new design work starts from repo truth instead of sidecar assumptions. Supports `--format`. |
 | `dev/scripts/checks/check_guide_contract_sync.py` | Durable guide contract sync guard | Verifies repo-policy-owned durable guide/playbook coverage contracts (for example `dev/guides/DEVCTL_AUTOGUIDE.md`) so major control-plane surfaces cannot silently fall out of the operator docs while code keeps moving. |
 | `dev/scripts/checks/check_instruction_surface_sync.py` | Generated-surface sync guard | Verifies policy-owned instruction/starter surfaces still match the current repo-pack templates/context without writing files, so `render-surfaces --write` stays paired with a real enforcement lane in tooling/release validation. |
+| `dev/scripts/checks/check_memory_not_authority.py` | Memory-not-authority guard | Blocks load-bearing architecture, process, runtime, or governance rules from living only in operator memory or scratch notes; durable rules must be promoted into typed contracts, repo policy, maintainer docs, active plan state, or guards. Supports `--format`. |
 | `dev/scripts/checks/check_platform_layer_boundaries.py` | Platform-layer boundary guard | Stable shim entrypoint for the architecture-boundary guard that blocks forbidden imports across reusable-backend, surface, and mobile/frontend layers while the implementation lives under `dev/scripts/checks/architecture_boundary/`. |
 | `dev/scripts/checks/check_multi_agent_sync.py` | Multi-agent coordination gate | Verifies `MASTER_PLAN` board parity with the merged markdown-swarm tables in `dev/active/review_channel.md` for dynamic `AGENT-<N>` lanes (lane/MP/worktree/branch alignment, instruction/ack protocol checks, lane-lock + MP-collision handoff checks, status/date formatting, ledger traceability, and required end-of-cycle signoff when all agent lanes are merged). |
 | `dev/scripts/checks/check_review_channel_bridge.py` | Markdown-bridge contract gate | Verifies the active `bridge.md` bridge exposes the required bootstrap sections/markers, tracked-file safety, and current poll/hash heartbeat metadata while `dev/active/review_channel.md` still declares the transitional markdown bridge active. |

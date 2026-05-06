@@ -35,6 +35,7 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "AgentDispatchRouter" in contract_ids
     assert "DevelopmentModeTopology" in contract_ids
     assert "DevelopmentLoopReport" in contract_ids
+    assert "PlanSourceSnapshot" in contract_ids
     assert "ReviewerRuntimeContract" in contract_ids
     assert "SessionPosture" in contract_ids
     assert "PacketIntentAnchor" in contract_ids
@@ -46,6 +47,15 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "FailurePacket" in contract_ids
     assert "LocalServiceEndpoint" in contract_ids
     assert "CallerAuthorityPolicy" in contract_ids
+    assert "GovernedExceptionLifecycle" in contract_ids
+    assert "ExceptionReceipt" in contract_ids
+    assert "ResolutionReceipt" in contract_ids
+    assert "ExceptionPolicy" in contract_ids
+    assert "ExceptionClass" in contract_ids
+    assert "ExceptionLifecycleStatus" in contract_ids
+    assert "ClosureProof" in contract_ids
+    assert "AutoRepairReceipt" in contract_ids
+    assert "ManualBypassImportReceipt" in contract_ids
     assert len(blueprint.artifact_schemas) >= 1
 
 
@@ -93,6 +103,14 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "runtime" in contract_map["DevelopmentLoopReport"]
     assert "peer_minds" in contract_map["DevelopmentLoopReport"]
     assert "packet_debt_remediation" in contract_map["DevelopmentLoopReport"]
+    assert "source_snapshot_ids" in contract_map["PlanIntentIngestionReceipt"]
+    assert "source_integrity_status" in contract_map["PlanIntentIngestionReceipt"]
+    assert "source_completeness_status" in contract_map["PlanIntentIngestionReceipt"]
+    assert "source_missing_required_anchors" in contract_map["PlanIntentIngestionReceipt"]
+    assert "source_text" in contract_map["PlanSourceSnapshot"]
+    assert "retention_status" in contract_map["PlanSourceSnapshot"]
+    assert "source_completeness_status" in contract_map["PlanSourceSnapshot"]
+    assert "missing_required_anchors" in contract_map["PlanSourceSnapshot"]
     assert "authority_snapshot" in contract_map["SessionCachePacket"]
     assert "session_posture" in contract_map["SessionCachePacket"]
     assert "packet_intent_anchors" in contract_map["SessionCachePacket"]
@@ -111,6 +129,77 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "authorized_head_sha" in contract_map["PushAuthorizationRecord"]
     assert "approval_mode" in contract_map["PushAuthorizationRecord"]
     assert "snapshot_id" in contract_map["RemoteCommitPipelineContract"]
+    assert "exception" in contract_map["GovernedExceptionLifecycle"]
+    assert "operator_reason" in contract_map["ExceptionReceipt"]
+    assert "remote_ref_verified" in contract_map["ExceptionReceipt"]
+    assert "validation_receipt_id" in contract_map["ResolutionReceipt"]
+    assert "forbidden_exception_classes" in contract_map["ExceptionPolicy"]
+
+
+def test_governed_exception_contracts_declare_semantic_cross_links() -> None:
+    blueprint = build_platform_blueprint()
+    contract_map = {
+        contract.contract_id: contract
+        for contract in blueprint.shared_contracts
+    }
+
+    lifecycle_links = {
+        (link.source_field, link.target_contract, link.edge_kind, link.direction)
+        for link in contract_map["GovernedExceptionLifecycle"].cross_links
+    }
+    receipt_links = {
+        (link.source_field, link.target_contract, link.edge_kind, link.direction)
+        for link in contract_map["ExceptionReceipt"].cross_links
+    }
+    resolution_links = {
+        (link.source_field, link.target_contract, link.edge_kind)
+        for link in contract_map["ResolutionReceipt"].cross_links
+    }
+
+    assert ("exception", "ExceptionReceipt", "contains", "forward") in lifecycle_links
+    assert (
+        "finding_id",
+        "FindingBacklog",
+        "finding_blocks",
+        "reverse",
+    ) in lifecycle_links
+    assert (
+        "finding_id",
+        "FindingBacklog",
+        "finding_blocks",
+        "reverse",
+    ) in receipt_links
+    assert (
+        "exception_lifecycle_id",
+        "GovernedExceptionLifecycle",
+        "receipt_proves",
+    ) in resolution_links
+    assert contract_map["ExceptionReceipt"].cross_links[0].target_resolver == (
+        "finding_backlog_id"
+    )
+    lifecycle_resolution = next(
+        link
+        for link in contract_map["GovernedExceptionLifecycle"].cross_links
+        if link.source_field == "resolution_receipt_id"
+    )
+    assert lifecycle_resolution.target_resolver == "resolution_receipt_id"
+    assert lifecycle_resolution.target_id_template == ""
+    resolution_closure = next(
+        link
+        for link in contract_map["ResolutionReceipt"].cross_links
+        if link.source_field == "closure_proof_id"
+    )
+    assert resolution_closure.target_resolver == "closure_proof_id"
+    assert resolution_closure.target_id_template == ""
+    validation_link = next(
+        link
+        for link in contract_map["ClosureProof"].cross_links
+        if link.target_contract == "ValidationReceipt"
+    )
+    assert validation_link.required is False
+    assert validation_link.validation_policy == (
+        "deferred_until_validation_contract_registered"
+    )
 
 
 def test_platform_contracts_json_output(capsys) -> None:
@@ -139,6 +228,12 @@ def test_platform_contracts_json_output(capsys) -> None:
     assert "human_operator" in caller_ids
     layer_ids = [row["layer_id"] for row in payload["layers"]]
     assert "governance_runtime" in layer_ids
+    exception_contract = next(
+        row for row in payload["shared_contracts"]
+        if row["contract_id"] == "ExceptionReceipt"
+    )
+    assert exception_contract["cross_links"]
+    assert exception_contract["cross_links"][0]["target_contract"] == "FindingBacklog"
 
 
 def test_platform_contracts_markdown_output(capsys) -> None:

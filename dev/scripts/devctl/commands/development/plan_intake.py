@@ -22,6 +22,7 @@ from ...runtime.plan_intent_ingestion import (
     append_plan_intent_ingestion_receipt,
     plan_intent_content_hash,
 )
+from ...runtime.plan_source_retention import PLAN_SOURCE_SNAPSHOT_STORE_REL
 from ...time_utils import utc_timestamp
 from .actions import resolve_action
 from .plan_intake_receipts import (
@@ -32,6 +33,17 @@ from .plan_intake_receipts import (
 )
 from .plan_intake_rows import rows_from_source
 from .plan_intake_sources import source_from_args
+from .plan_intake_source_snapshots import (
+    rows_with_source_snapshot_refs,
+    source_completeness_status,
+    source_integrity_status,
+    source_matched_anchor_count,
+    source_missing_required_anchors,
+    source_packet_expires_at,
+    source_required_anchor_count,
+    source_retention_status,
+    write_source_snapshots,
+)
 from .plan_intake_support import text
 
 
@@ -71,6 +83,7 @@ def ingest_plan_intent(
     source_hash = plan_intent_content_hash(source.body)
     store_path = repo_root / DEFAULT_MASTER_PLAN_STORE_REL
     receipt_path = repo_root / PLAN_INTENT_INGESTION_RECEIPT_STORE_REL
+    source_snapshot_path = repo_root / PLAN_SOURCE_SNAPSHOT_STORE_REL
     context = ReceiptBuildContext(
         args=args,
         source=source,
@@ -106,6 +119,7 @@ def ingest_plan_intent(
         context=context,
         store_path=store_path,
         receipt_path=receipt_path,
+        source_snapshot_path=source_snapshot_path,
     )
 
 
@@ -145,6 +159,7 @@ def _write_or_preview_rows(
     context: ReceiptBuildContext,
     store_path: Path,
     receipt_path: Path,
+    source_snapshot_path: Path,
 ) -> PlanIntentIngestionReceipt:
     if bool(getattr(args, "dry_run", False)):
         return build_receipt(
@@ -155,10 +170,24 @@ def _write_or_preview_rows(
                 target_kind="plan_row",
                 row_ids=tuple(row.row_id for row in rows),
                 store_statuses=tuple("preview" for _row in rows),
+                source_retention_status="preview",
+                source_integrity_status="unknown",
+                source_completeness_status="unknown",
+                source_integrity_checked_at_utc=context.observed_at,
             ),
         )
 
-    stored_rows, store_statuses = _upsert_rows(store_path, rows)
+    rows_with_snapshot_refs = rows_with_source_snapshot_refs(
+        rows,
+        source=context.source,
+        source_hash=context.source_hash,
+    )
+    stored_rows, store_statuses = _upsert_rows(store_path, rows_with_snapshot_refs)
+    snapshots = write_source_snapshots(
+        source_snapshot_path,
+        rows=stored_rows,
+        context=context,
+    )
     status, reason, terminal = receipt_status(store_statuses)
     receipt = build_receipt(
         context,
@@ -169,8 +198,23 @@ def _write_or_preview_rows(
             row_ids=tuple(row.row_id for row in stored_rows),
             store_statuses=store_statuses,
             terminal_status=terminal,
-        ),
-    )
+                source_snapshot_ids=tuple(snapshot.snapshot_id for snapshot in snapshots),
+                source_snapshot_path=str(source_snapshot_path),
+                canonical_source_hash=(
+                    snapshots[0].body_hash if snapshots else context.source_hash
+                ),
+                source_packet_expires_at_utc=source_packet_expires_at(context.source),
+                source_retention_status=source_retention_status(snapshots),
+                source_integrity_status=source_integrity_status(snapshots),
+                source_completeness_status=source_completeness_status(snapshots),
+                source_required_anchor_count=source_required_anchor_count(snapshots),
+                source_matched_anchor_count=source_matched_anchor_count(snapshots),
+                source_missing_required_anchors=source_missing_required_anchors(
+                    snapshots
+                ),
+                source_integrity_checked_at_utc=context.observed_at,
+            ),
+        )
     return append_plan_intent_ingestion_receipt(receipt_path, receipt)
 
 
@@ -213,6 +257,9 @@ def _render_markdown(payload: Mapping[str, object]) -> str:
         f"- path: `{data.get('path') or ''}`",
         f"- receipt_path: `{data.get('receipt_path') or ''}`",
         f"- row_ids: {', '.join(f'`{row}`' for row in rows) if rows else '(none)'}",
+        f"- source_retention_status: `{data.get('source_retention_status') or ''}`",
+        f"- source_integrity_status: `{data.get('source_integrity_status') or ''}`",
+        f"- source_completeness_status: `{data.get('source_completeness_status') or ''}`",
     ]
     remediation = payload.get("remediation")
     if isinstance(remediation, Mapping) and remediation:

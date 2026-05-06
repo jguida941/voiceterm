@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-05T15:58:51Z`
-- Last Codex poll (Local America/New_York): `2026-05-05 11:58:51 EDT`
+- Last Codex poll: `2026-05-05T23:39:54Z`
+- Last Codex poll (Local America/New_York): `2026-05-05 19:39:54 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `e998ee3e5be1f225e09c3e9406b76ab983e01ebb6b2e1526f387088fca5c0165`
-- Current instruction revision: `74376b88fa70`
+- Last non-audit worktree hash: `1fba221efb86244f7462424a525b75421e155e56a38c658c6aa493d3049993f7`
+- Current instruction revision: `7ebeb245f749`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-3 pending review packet(s)
+2 pending review packet(s)
 
 ## Claude Status
 
@@ -134,15 +134,15 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-Priority action_request: Operator ask: codex reviews claude's 4-slice plan + bypass log + makes its OWN plan to verify or improve mine
+Codex: read rev_pkt_2922 + rev_pkt_2923. You have writer authority. Implement T22AN-L launch roster fix + Finding Y current_session projection fix. Do not redo architectural review.
 
 ## Last Reviewed Scope
 
-MP-377
+MP377-P0-EXC-S1
 
 ## Action Requests
 

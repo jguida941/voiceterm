@@ -360,6 +360,7 @@ def test_single_agent_remote_control_attachment_keeps_claude_typed_authority(
 ) -> None:
     output_root = tmp_path / "dev/reports/review_channel/latest"
     output_root.mkdir(parents=True)
+    observed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     persist_remote_control_attachment(
         RemoteControlAttachmentState(
             provider="claude",
@@ -369,8 +370,8 @@ def test_single_agent_remote_control_attachment_keeps_claude_typed_authority(
             remote_session_id="session_abc123",
             session_url="https://claude.ai/code/session_abc123",
             status="attached",
-            attached_at_utc="2026-04-11T23:00:00Z",
-            last_seen_utc="2026-04-11T23:00:01Z",
+            attached_at_utc=observed_at,
+            last_seen_utc=observed_at,
         ),
         output_root=output_root,
     )

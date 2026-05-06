@@ -86,3 +86,32 @@ def test_system_map_registry_summary_declares_required_consumers() -> None:
     assert summary.zero_reader_field_count == 0
     for reader_id in CONNECTIVITY_REGISTRY_READER_IDS:
         assert reader_id in summary.reader_ids
+
+
+def test_system_map_registry_includes_governed_exception_contracts() -> None:
+    snapshot = build_system_map_snapshot()
+    contract_ids = {
+        row.contract_id for row in snapshot.connectivity_registry.connected_contracts
+    }
+
+    assert "GovernedExceptionLifecycle" in contract_ids
+    assert "ExceptionReceipt" in contract_ids
+    assert "ResolutionReceipt" in contract_ids
+
+
+def test_system_map_registry_projects_governed_exception_cross_links() -> None:
+    snapshot = build_system_map_snapshot()
+    contract_map = {
+        row.contract_id: row for row in snapshot.connectivity_registry.connected_contracts
+    }
+    receipt_links = {
+        (link.source_field, link.target_contract, link.edge_kind, link.direction)
+        for link in contract_map["ExceptionReceipt"].cross_links
+    }
+
+    assert (
+        "finding_id",
+        "FindingBacklog",
+        "finding_blocks",
+        "reverse",
+    ) in receipt_links

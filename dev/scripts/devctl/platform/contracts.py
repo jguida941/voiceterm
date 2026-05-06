@@ -24,6 +24,23 @@ class ContractField:
 
 
 @dataclass(frozen=True, slots=True)
+class CrossLinkSpec:
+    """Semantic graph-link metadata declared by the owning typed contract."""
+
+    source_field: str
+    target_contract: str
+    edge_kind: str
+    target_node_kind: str = ""
+    target_id_template: str = ""
+    target_resolver: str = ""
+    direction: str = "forward"
+    cardinality: str = "zero_or_one"
+    required: bool = False
+    required_when: str = ""
+    validation_policy: str = "best_effort"
+
+
+@dataclass(frozen=True, slots=True)
 class ContractSpec:
     """A typed contract that frontends, loops, and repo packs should share."""
 
@@ -33,6 +50,7 @@ class ContractSpec:
     required_fields: tuple[ContractField, ...]
     runtime_model: str = ""
     startup_surface_tokens: tuple[str, ...] = ()
+    cross_links: tuple[CrossLinkSpec, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,0 +1,125 @@
+"""Plan-ingestion runtime-state contract rows."""
+
+from __future__ import annotations
+
+from ..runtime.plan_source_retention_models import PlanSourceSnapshot
+from .contracts import ContractField, ContractSpec, CrossLinkSpec
+
+PLAN_INTAKE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
+    ContractSpec(
+        contract_id="PlanIntentIngestionReceipt",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed receipt proving an agent-authored plan source was converted "
+            "into PlanRow authority or recorded as an explicit terminal outcome."
+        ),
+        required_fields=(
+            ContractField("receipt_id", "str", "Stable receipt id for this attempt."),
+            ContractField("source_kind", "str", "Source family such as chat, file, markdown_plan_file, or packet."),
+            ContractField("source_ref", "str", "Evidence reference for the source."),
+            ContractField("status", "str", "accepted, duplicate, rejected, obsolete, or preview."),
+            ContractField("reason", "str", "Bounded outcome reason."),
+            ContractField("target_kind", "str", "plan_row or terminal_receipt."),
+            ContractField("target_ref", "str", "Typed plan target ref when available."),
+            ContractField("row_ids", "tuple[str, ...]", "PlanRow ids written or previewed."),
+            ContractField("store_statuses", "tuple[str, ...]", "Per-row JSONL upsert statuses."),
+            ContractField("terminal_status", "str", "Terminal receipt class when no PlanRow is written."),
+            ContractField("packet_id", "str", "Packet evidence id for packet-backed plan sources."),
+            ContractField("path", "str", "Typed plan store path."),
+            ContractField("receipt_path", "str", "Append-only receipt store path."),
+            ContractField("source_hash", "str", "Hash of the ingested plan source."),
+            ContractField(
+                "source_snapshot_ids",
+                "tuple[str, ...]",
+                "Durable PlanSourceSnapshot ids written for packet/file/body sources.",
+            ),
+            ContractField("source_snapshot_path", "str", "Append-only source snapshot store path."),
+            ContractField("canonical_source_hash", "str", "Hash of the retained canonical source body."),
+            ContractField("source_packet_expires_at_utc", "str", "Packet expiry timestamp when known."),
+            ContractField("source_retention_status", "str", "protected, snapshotted, packet_only, missing, or preview."),
+            ContractField("source_integrity_status", "str", "ok, packet_expired_snapshot_ok, dangling, or unknown."),
+            ContractField(
+                "source_completeness_status",
+                "str",
+                "full_plan_retained, missing_required_anchors, not_required, or unknown.",
+            ),
+            ContractField(
+                "source_required_anchor_count",
+                "int",
+                "Required full-plan anchor count for this retained source.",
+            ),
+            ContractField(
+                "source_matched_anchor_count",
+                "int",
+                "Matched required full-plan anchor count for this retained source.",
+            ),
+            ContractField(
+                "source_missing_required_anchors",
+                "tuple[str, ...]",
+                "Required full-plan anchors absent from the retained source.",
+            ),
+            ContractField("source_integrity_checked_at_utc", "str", "UTC timestamp of source-integrity classification."),
+            ContractField("recorded_at_utc", "str", "UTC receipt timestamp."),
+            ContractField("dry_run", "bool", "Whether writes were suppressed."),
+        ),
+        runtime_model="dev.scripts.devctl.runtime.plan_intent_ingestion:PlanIntentIngestionReceipt",
+        startup_surface_tokens=("status", "row_ids", "terminal_status"),
+    ),
+    ContractSpec(
+        contract_id="PlanSourceSnapshot",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Durable source-body snapshot for a PlanRow so packet-backed plan "
+            "authority remains reconstructable after review-channel packet expiry."
+        ),
+        required_fields=(
+            ContractField("snapshot_id", "str", "Stable source snapshot id."),
+            ContractField("plan_row_id", "str", "PlanRow preserved by the snapshot."),
+            ContractField("source_kind", "str", "Source kind such as packet or chat."),
+            ContractField("source_ref", "str", "Original source reference."),
+            ContractField("source_hash", "str", "Hash observed by plan ingestion."),
+            ContractField("body_hash", "str", "Hash of retained source_text."),
+            ContractField("captured_at_utc", "str", "UTC capture timestamp."),
+            ContractField("source_packet_id", "str", "Packet id when packet-backed."),
+            ContractField("packet_expires_at_utc", "str", "Packet expiry timestamp when known."),
+            ContractField("retention_status", "str", "protected, snapshotted, packet_only, or missing."),
+            ContractField("source_integrity_status", "str", "ok, packet_expired_snapshot_ok, dangling, or unknown."),
+            ContractField(
+                "source_completeness_status",
+                "str",
+                "full_plan_retained, missing_required_anchors, or not_required.",
+            ),
+            ContractField("required_anchor_count", "int", "Required full-plan anchor count."),
+            ContractField("matched_anchor_count", "int", "Matched full-plan anchor count."),
+            ContractField(
+                "missing_required_anchors",
+                "tuple[str, ...]",
+                "Required anchors absent from source_text.",
+            ),
+            ContractField("source_text", "str", "Retained source text/body."),
+            ContractField("source_summary", "str", "Compact source summary."),
+            ContractField("snapshot_path", "str", "JSONL snapshot store path."),
+        ),
+        runtime_model=f"{PlanSourceSnapshot.__module__}:{PlanSourceSnapshot.__qualname__}",
+        startup_surface_tokens=(
+            "plan_row_id",
+            "source_packet_id",
+            "retention_status",
+            "source_integrity_status",
+        ),
+        cross_links=(
+            CrossLinkSpec(
+                "plan_row_id",
+                "PlanRow",
+                "related_to",
+                target_node_kind="plan_row",
+                target_id_template="plan:{value}",
+                required=False,
+                required_when="PlanRow is registered as a platform contract",
+                validation_policy="deferred_until_plan_row_contract_registered",
+            ),
+        ),
+    ),
+)
+
+__all__ = ["PLAN_INTAKE_STATE_CONTRACTS"]

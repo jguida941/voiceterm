@@ -35,6 +35,17 @@ class ReceiptOutcome:
     row_ids: tuple[str, ...] = ()
     store_statuses: tuple[str, ...] = ()
     terminal_status: str = ""
+    source_snapshot_ids: tuple[str, ...] = ()
+    source_snapshot_path: str = ""
+    canonical_source_hash: str = ""
+    source_packet_expires_at_utc: str = ""
+    source_retention_status: str = ""
+    source_integrity_status: str = ""
+    source_completeness_status: str = ""
+    source_required_anchor_count: int = 0
+    source_matched_anchor_count: int = 0
+    source_missing_required_anchors: tuple[str, ...] = ()
+    source_integrity_checked_at_utc: str = ""
 
 
 def build_receipt(
@@ -64,6 +75,17 @@ def build_receipt(
         packet_id=text(packet.get("packet_id")),
         path=str(context.store_path),
         source_hash=context.source_hash,
+        source_snapshot_ids=outcome.source_snapshot_ids,
+        source_snapshot_path=outcome.source_snapshot_path,
+        canonical_source_hash=outcome.canonical_source_hash,
+        source_packet_expires_at_utc=outcome.source_packet_expires_at_utc,
+        source_retention_status=outcome.source_retention_status,
+        source_integrity_status=outcome.source_integrity_status,
+        source_completeness_status=outcome.source_completeness_status,
+        source_required_anchor_count=outcome.source_required_anchor_count,
+        source_matched_anchor_count=outcome.source_matched_anchor_count,
+        source_missing_required_anchors=outcome.source_missing_required_anchors,
+        source_integrity_checked_at_utc=outcome.source_integrity_checked_at_utc,
         recorded_at_utc=context.observed_at,
         dry_run=bool(getattr(context.args, "dry_run", False)),
     )

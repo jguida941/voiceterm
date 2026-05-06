@@ -83,6 +83,7 @@ from ..commands.governance import (
     bootstrap as governance_bootstrap,
     doc_authority as governance_doc_authority,
     draft as governance_draft,
+    exceptions as governance_exceptions,
     export as governance_export,
     hygiene as governance_hygiene,
     import_findings as governance_import_findings,
@@ -152,6 +153,7 @@ from ..triage.parser import add_findings_priority_parser, add_triage_parser
 from .artifact_suppression import ARTIFACT_WRITES_ENV, artifact_writes_suppressed
 from .artifact_suppression import read_only_command_suppresses_artifact_writes
 from .builders import add_standard_parsers
+from .exceptions import add_exceptions_parser
 from .python_tests import add_parser as add_python_tests_parser
 from .relaunch_loop import add_relaunch_loop_parser
 from .remote_control import add_remote_control_parser
@@ -167,6 +169,7 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset({
     "session-resume",
     "context-graph",
     "develop",
+    "exceptions",
     "review-channel",
     "quality-policy",
     "orphan-inventory",
@@ -205,6 +208,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_orchestrate_parsers(sub)
     add_publication_sync_parser(sub)
     add_relaunch_loop_parser(sub)
+    add_exceptions_parser(sub)
     add_remote_control_parser(sub)
     add_platform_contracts_parser(sub)
     add_system_map_parser(sub)
@@ -347,6 +351,7 @@ COMMAND_HANDLERS = {
     "triage": triage.run,
     "data-science": data_science.run,
     "develop": development.run,
+    "exceptions": governance_exceptions.run,
     "probe-report": probe_report.run,
     "quality-policy": quality_policy.run,
     "launcher-check": simple_lanes.run_launcher_check,

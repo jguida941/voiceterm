@@ -191,6 +191,29 @@ is mandatory even for small patches. At minimum, run the task-class bundle plus
 any touched risk-matrix add-ons, then follow the concrete post-edit check
 inventory in `dev/guides/DEVELOPMENT.md` (`What checks protect us` and
 `After file edits`).
+- Green tests alone do not close major governance features. When the feature
+  changes collaboration, runtime authority, packet routing, exception
+  lifecycle, commit/push proof, or generated projection authority, closure also
+  needs physical dogfood through the real `devctl` surfaces and, when the
+  behavior depends on both supported providers, live Codex+Claude role-swap
+  evidence recorded as typed dogfood/plan evidence. If the live peer/provider is
+  unavailable, mark that acceptance gate blocked rather than passed.
+- Guard execution should become graph-scoped scheduling, not bypass. Until the
+  typed cadence slice lands, safety/proof/authority checks remain immediate and
+  non-deferrable; code-shape/refactor-only pressure may be recorded as future
+  typed guard-cadence or quality-debt work, but do not invent ad hoc skips. The
+  active future owner is `MP377-P0-GUARD-CADENCE-S1`, with
+  `MP377-P0-GUARD-DEFERRAL-S1` as the deferrable-quality receipt slice. Open
+  deferral receipts block checkpoint, push, resolution, slice close, and
+  success claims until rerun proof closes them.
+- Operator architecture corrections must be typed before they are summarized
+  into broad plan prose. When the operator adds or corrects a governance rule,
+  acceptance gate, closure blocker, or agent-process invariant, first classify
+  it as a new PlanRow, a refinement to an existing PlanRow, or a terminal
+  duplicate/rejection receipt, then use the typed plan-ingestion path so a
+  `PlanIntentIngestionReceipt` and `PlanSourceSnapshot` preserve the scoped
+  source. `MP377-P0-OPERATOR-CORRECTION-INTAKE-S1` owns the follow-up guard so
+  this does not get lost inside huge plans or chat summaries again.
 
 Direct post-edit enforcement link:
 - After every file create/edit, follow
@@ -231,6 +254,8 @@ Release-governance note:
 | Where is the typed review-channel approval-packet vocabulary for that remote commit/push lane documented? | `dev/active/remote_commit_pipeline.md` for contract semantics, plus `dev/scripts/README.md` for `review-channel --action post --kind commit_approval` flag usage |
 | Where is the operator-facing read-only packet queue surface for that same typed lane documented? | `dev/scripts/README.md` for `review-channel --action operator-inbox` semantics, plus `dev/active/review_channel.md` for the review-channel contract that keeps operator reads on the existing packet transport without mutating delivery receipts. Read-only operator `system_notice` packets such as launch receipts may remain pending in the operator queue without becoming agent-loop wake debt; `check_multi_agent_sync.py` only requires loop decisions for runtime-actionable pending packets. |
 | Where is portable typed master-plan authority, ingestion, and explain-back documented? | `dev/scripts/devctl/runtime/master_plan_contract.py` for `MasterPlan` / `PlanRow` / `LinkedDoc` / `PlanProposal` / `ExplainBackReceipt`, `dev/scripts/devctl/runtime/master_plan_parse.py` for coercion from repo-pack JSON, `dev/scripts/devctl/governance/master_plan_ingestion.py` for repo-agnostic markdown/prose ingestion adapters, `dev/scripts/devctl/runtime/master_plan_store.py` for the JSONL authority store, and `ProjectGovernance.master_plan` for repo-pack path authority. VoiceTerm currently projects that authority through `dev/active/MASTER_PLAN.md` and the default typed store `dev/state/plan_index.jsonl`; portable layers must resolve these paths through governance instead of hardcoding them. |
+| Where is the governed exception lifecycle Slice 1 foundation documented? | `dev/scripts/devctl/runtime/governed_exception_contracts.py`, `governed_exception_receipts.py`, `governed_exception_lifecycle.py`, `governed_exception_policy.py`, `governed_exception_store.py`, and `governed_exception_validation.py` for typed receipt/lifecycle/policy contracts, read-only JSONL loading, and fail-closed validation; `dev/scripts/devctl/commands/governance/exceptions.py` plus `dev/scripts/devctl/cli_parser/exceptions.py` for read-only `devctl exceptions pending/validate`; `dev/scripts/devctl/platform/runtime_state_contract_rows_governed_exception_*.py` for platform-contract and SYSTEM_MAP / ConnectivityRegistry visibility; `dev/scripts/devctl/runtime/plan_source_retention.py`, `dev/scripts/devctl/runtime/plan_intent_ingestion.py`, `dev/state/plan_source_snapshots.jsonl`, and `dev/state/plan_ingestion_receipts.jsonl` for full-source plan retention on `MP377-P0-EXC-S1`. Bypass is not an execution feature: raw bypass evidence may only be imported later as typed historical evidence, generated markdown remains projection-only, and request/repair/prove/close/import/execution paths remain deferred to later slices. |
+| Where is graph-scoped guard cadence and physical dogfood scheduling documented? | `dev/active/ai_governance_platform.md` and `dev/active/MASTER_PLAN.md` for `MP377-P0-GUARD-CADENCE-S1`, with typed source retained in `dev/state/plan_source_snapshots.jsonl` and receipt `dev/state/plan_ingestion_receipts.jsonl`. It schedules checks by risk and graph impact instead of skipping them: safety/proof/authority checks are immediate and non-deferrable, `MP377-P0-GUARD-DEFERRAL-S1` owns future quality-debt receipts, and major governance feature closure needs physical `devctl` dogfood evidence plus live Codex+Claude role-swap proof when provider collaboration is the behavior. |
 | Where is the typed review-packet lifecycle/disposition surface documented? | `dev/scripts/README.md` for `review-channel --action history --include-outcomes` and evidence-bound `review-channel --action apply` semantics, `dev/scripts/devctl/review_channel/packet_lifecycle.py` for `PacketLifecycleHistory` / `PacketDisposition`, `dev/scripts/devctl/review_channel/packet_attestation.py` for `PacketGuardAttestation`, `dev/scripts/devctl/review_channel/packet_plan_integration.py` for plan-target apply rows, `dev/scripts/devctl/review_channel/packet_outcomes.py` plus `packet_outcome_models.py` for the bounded `PacketOutcomeLedger` classifier, and `dev/active/ai_governance_platform.md` `MP377-P0-T08A..T08E` for the plan-integrated deferred queue. Clock-expired pending packets must classify as archived audit rows, plan-bound expired packets must report `expired_after_durable_binding`, and `packet_applied` work claims must carry matching guard/run/action evidence rather than relying on ACK state. |
 | Where is the packet-backed bridge Action Requests contract documented? | `dev/active/remote_control_runtime.md` for lifecycle authority, plus `dev/scripts/README.md` for `review-channel --action post --kind action_request` runtime-binding flag usage |
 | Where is the 2026-04-29 typed runtime-authority evidence closure for action requests documented? | `dev/scripts/devctl/review_channel/events.py::_runtime_authority_evidence_for_request` attaches `ActionRequestRuntimeAuthorityEvidence` on executable packet posts, while `dev/scripts/devctl/commands/vcs/commit_action_request_authority.py` and `commit_action_request_evidence.py` derive missing caller role, target actor identity, capability, live pipeline generation, and staged snapshot facts from typed state only; see `dev/scripts/README.md` and `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-29 entry "Action-request checkpoint authority now derives missing evidence from typed state". |

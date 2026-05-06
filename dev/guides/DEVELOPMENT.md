@@ -853,8 +853,15 @@ Three quality layers matter in practice:
     Implementer bootstrap is packet-first as well: if `Pending Inbox` / typed
     packet state already names a Claude-targeted packet or required command,
     run `review-channel --action inbox --target claude --actor claude --status
-    pending --format md` before asking the operator whether to continue a
-    permitted probe.
+    pending --format md` as the current compatibility read, but treat the
+    durable rule as role/session-first. Packets are addressed to reviewer,
+    implementer, operator, watcher, or another typed role plus exact session
+    id when scoped; provider names are delivery labels only. A role change
+    must not hide packet debt. Before a single-agent or role-swapped session
+    picks work, it must inspect relevant reviewer/implementer packet debt and
+    carry forward each packet to acknowledgment, guard-attested apply,
+    dismissal, supersession, archive, or typed plan/finding/receipt ingestion.
+    Do that before asking the operator whether to continue a permitted probe.
   - The review-candidate / recovery / collaboration-model seams are now split
     into helper modules (`candidate_parse.py`, `candidate_paths.py`,
     `recovery_decision.py`, `recovery_evidence.py`,
@@ -1265,7 +1272,12 @@ Three quality layers matter in practice:
   AST-backed and ignores module/class/function docstrings, so new route
   tokens must be identifiers, attribute names, dotted chains, or explicit
   string-literal keys that the consumer genuinely executes, and a docstring
-  or comment mention alone will not satisfy the check. Shared
+  or comment mention alone will not satisfy the check. Semantic graph links
+  follow the same authority rule: declare them in typed
+  `ContractSpec.cross_links` / connectivity-registry metadata, including target
+  resolver or template and edge direction, while treating comments,
+  docstrings, `typing.Annotated`, context-graph output, and ZGraph-compatible
+  encodings as documentation or generated projections only. Shared
   `ViolationRecord` projection for probe-report and governance-review rows
   lands in `dev/scripts/devctl/runtime/probe_report_violations.py` and
   `dev/scripts/devctl/runtime/governance_review_violations.py`; both are
@@ -1437,6 +1449,29 @@ fallback bug into its fix).
    - `python3 dev/scripts/checks/check_contract_connectivity.py`
    - `python3 dev/scripts/checks/check_governance_closure.py`
    - `python3 dev/scripts/devctl.py platform-contracts --format md`
+   - `python3 dev/scripts/devctl.py exceptions pending --format json` when
+     touching governed-exception receipt or lifecycle contracts
+   - Do not treat code-shape/refactor guard pressure as permission to skip a
+     check. Until `MP377-P0-GUARD-CADENCE-S1` lands, fix the guard or record
+     future typed quality-debt work; safety, proof, authority, command exposure,
+     mutation, raw bypass, generated-markdown authority, stale-HEAD, missing
+     receipt, and missing push-proof checks stay non-deferrable.
+     Deferrable cleanup checks may only be deferred through typed receipts, and
+     any open deferral blocks checkpoint, push, resolution, slice close, and
+     success claims until rerun proof closes it.
+   - Do not bury operator architecture corrections inside broad markdown
+     summaries. `MP377-P0-OPERATOR-CORRECTION-INTAKE-S1` owns the follow-up
+     process: when operator feedback changes a governance invariant,
+     acceptance gate, closure blocker, or agent-process rule, create or refine
+     scoped typed plan state first, then project it into docs.
+   - Physically exercise the real `devctl` command surfaces for major
+     governance changes before claiming end-to-end closure. For collaboration,
+     runtime authority, packet routing, exception lifecycle, commit/push proof,
+     or generated projection authority changes, record dogfood evidence; if the
+     behavior depends on Codex+Claude cooperation, use live role-swap dogfood or
+     mark the gate blocked when the live peer is unavailable.
+   - `python3 -m pytest dev/scripts/devctl/tests/runtime/test_plan_source_retention.py -q`
+     when touching packet-backed plan ingestion or `PlanSourceSnapshot`
    - `python3 dev/scripts/devctl.py system-picture --format md`
    - `python3 -m pytest dev/scripts/devctl/tests/platform/test_planning_ir.py dev/scripts/devctl/tests/platform/test_system_picture.py -q --tb=short`
    - For worktree-orphan contract changes, also run

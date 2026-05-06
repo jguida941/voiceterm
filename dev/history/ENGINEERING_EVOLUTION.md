@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-05-04
+**Last Updated:** 2026-05-06
 
 ## At a Glance
 
@@ -36,6 +36,124 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-05-06 - Governed exception semantic links stay typed and projection-safe
+
+Fact: the governed-exception receipt lineage and the user's ZGraph framing fit
+the repo's existing context-graph substrate. `GraphEdge` already has the same
+source/target/operation shape as the proposed Z-relation, and
+`ContextGraphSnapshot` is already the generated graph read model over typed
+truth. A parallel ZGraph authority store would have split readers, snapshot
+diffing, and graph-walk traversal away from the platform registry.
+
+Change: added typed `ContractSpec.cross_links` metadata plus connectivity
+registry/context-graph projection of that metadata. Governed-exception
+contracts now declare the safe field-level semantic links needed for later
+lineage traversal, such as `ExceptionReceipt.finding_id -> FindingBacklog`.
+Comments, docstrings, `typing.Annotated`, generated graph output, bridge text,
+dashboard rows, and markdown remain documentation/projections only.
+
+Follow-up typed rows `MP377-P0-EXC-S1B` and `MP377-P0-EXC-S1C` preserve the
+later work: materialize lifecycle/receipt rows as context-graph nodes/edges,
+then add focused graph-walk exception lineage traversal. Z-ref compression,
+inferred-property engines, contradiction gates, and mutation/fanout policy
+remain later proof/evaluation slices.
+
+Evidence:
+
+- `dev/scripts/devctl/platform/contracts.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_governed_exception_core.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_governed_exception_descriptors.py`
+- `dev/scripts/devctl/platform/connectivity_registry.py`
+- `dev/scripts/devctl/context_graph/connectivity_registry_nodes.py`
+- `dev/scripts/devctl/tests/platform/test_platform_contracts.py`
+- `dev/scripts/devctl/tests/platform/test_system_map.py`
+- `dev/scripts/devctl/tests/context_graph/test_context_graph.py`
+
+### 2026-05-06 - Governed exception Slice 1 stays read-only
+
+Change: kept the governed-exception Slice 1 command surface read-only while
+adding typed receipt/lifecycle contracts, validation, registry visibility, and
+full-source plan retention. Request intake remains a separate later slice.
+Slice 1 does not run repair/proof/close, does not import manual bypass
+evidence, does not write generated markdown or bridge/dashboard/slash surfaces,
+and does not bless raw `git push --no-verify`.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/governance/exceptions.py`
+- `dev/scripts/devctl/cli_parser/exceptions.py`
+- `dev/scripts/devctl/tests/runtime/test_governed_exception_contracts.py`
+- `dev/scripts/devctl/tests/commands/test_exceptions_command.py`
+
+### 2026-05-05 - Governed exception receipts became typed registered contracts
+
+Fact: the governed-bypass idea needed to become repair/proof lifecycle state
+before any execution path could be safe. A raw bypass command or generated
+markdown plan would have violated the platform authority boundary by making a
+projection or ad hoc shell action into governance truth.
+
+Change: added Slice 1 governed-exception runtime contracts and validation:
+`GovernedExceptionLifecycle`, `ExceptionReceipt`, `ResolutionReceipt`,
+`ExceptionPolicy`, `ExceptionClass`, `ExceptionLifecycleStatus`,
+`ClosureProof`, `AutoRepairReceipt`, and `ManualBypassImportReceipt`. The
+read-only `devctl exceptions pending|validate` surface reads/validates typed
+JSON/JSONL state only and does not execute, request, repair, prove, close, or
+write exception rows. The contracts register through `platform-contracts`,
+ConnectivityRegistrySnapshot/SYSTEM_MAP, and context-graph typed-contract
+discovery so future slices can route finding/remediation/proof work without
+creating a parallel lifecycle system.
+
+Plan ingestion also gained `PlanSourceSnapshot` full-plan retention proof. For
+`MP377-P0-EXC-S1`, source retention now records completeness status and required
+anchor counts, and validation rejects short-summary snapshots so expiring
+review-channel packets cannot become the only durable source for the slice.
+The current-source validator is bound to the latest accepted
+`PlanIntentIngestionReceipt` for the row, preventing an older complete snapshot
+from masking a newer incomplete source snapshot.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/governed_exception_contracts.py`
+- `dev/scripts/devctl/runtime/governed_exception_store.py`
+- `dev/scripts/devctl/runtime/plan_source_retention.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_governed_exceptions.py`
+- `dev/scripts/devctl/commands/governance/exceptions.py`
+- `dev/scripts/devctl/tests/runtime/test_governed_exception_contracts.py`
+- `dev/scripts/devctl/tests/runtime/test_plan_source_retention.py`
+- `dev/scripts/devctl/tests/commands/test_exceptions_command.py`
+
+### 2026-05-06 - Guard cadence and physical dogfood become typed plan work
+
+Fact: green unit tests and guards are necessary, but they do not prove that a
+major governance feature works through the live control plane. The current
+governed-exception and role/session packet-routing work needs real `devctl`
+surface smoke plus Codex+Claude role-swap dogfood before end-to-end acceptance.
+
+Change: ingested `MP377-P0-GUARD-CADENCE-S1` as the future owner for
+graph-scoped validation scheduling and physical dogfood cadence. It keeps
+safety/proof/authority checks immediate and non-deferrable, batches only
+cleanup-grade checks through future typed receipts, and requires the dogfood
+experiment to compare always-run versus staged cadence using elapsed time,
+failures caught, refactor churn, false positives, late failures, out-of-scope
+file churn, and final quality. `MP377-P0-GUARD-DEFERRAL-S1` remains the child
+slice for deferrable quality-debt receipts.
+
+Correction: the same session exposed a Codex process failure. Operator
+architecture feedback about the guard-deferral closure rule was initially
+treated as broad cadence-plan prose instead of being immediately forced into
+scoped typed plan authority. The correction is now tracked as
+`MP377-P0-OPERATOR-CORRECTION-INTAKE-S1`: operator governance corrections must
+be classified and ingested as typed PlanRows/refinements/terminal receipts
+before markdown summaries or generated docs can claim to preserve them.
+
+Evidence:
+
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/state/plan_source_snapshots.jsonl`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
 
 ### 2026-05-05 - Architecture design now starts with ground-truth preflight
 
@@ -14207,3 +14325,29 @@ Evidence:
 - `dev/scripts/devctl/command_runner_process.py`
 - `dev/scripts/devctl/runtime/command_progress.py`
 - `dev/scripts/devctl/tests/commands/check/test_check_router.py`
+
+### 2026-05-06 - Role/session packet inbox accepted as governed-exception prerequisite
+
+Operator review of the governed-exception semantic-link plan found a broader
+runtime authority gap: packet inboxes cannot be owned by provider names if
+Codex and Claude can switch reviewer/implementer roles. A pending packet must
+remain visible through role/session state until lifecycle disposition or
+durable ingestion proves it was handled; switching providers must not hide or
+drop packet debt.
+
+Change: the finding is now typed plan state as `MP377-P0-T08F`, with
+`MP377-P0-EXC-S1D` recording the governed-exception acceptance dependency.
+`role_oriented_packet_inbox` is also recorded in governance-review as a
+confirmed authority-boundary issue. The implementation remains a future
+review-channel slice; current governed-exception Slice 1 stays limited to
+contracts, validation, registry visibility, plan-source retention, read-only
+exception commands, and semantic-link metadata.
+
+Evidence:
+
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/state/plan_source_snapshots.jsonl`
+- `dev/reports/governance/finding_reviews.jsonl`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/review_channel.md`

@@ -46,6 +46,7 @@ COMMANDS = [
     "mcp",
     "data-science",
     "develop",
+    "exceptions",
     "quality-policy",
     "launcher-check",
     "launcher-probes",

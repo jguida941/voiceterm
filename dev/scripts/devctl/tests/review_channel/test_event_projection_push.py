@@ -27,6 +27,7 @@ from dev.scripts.devctl.runtime.reviewer_runtime_models import (
 class _DummyCollaboration:
     contract_id: str = "CollaborationSession"
     participants: tuple[object, ...] = ()
+    session_posture: object | None = None
 
 
 _REVIEWER_RUNTIME = ReviewerRuntimeContract(
@@ -162,7 +163,7 @@ def test_enrich_event_review_state_attaches_push_truth(
     }
 
     with patch(
-        "dev.scripts.devctl.review_channel.event_projection_assembly._load_bridge_inputs",
+        "dev.scripts.devctl.review_channel.event_projection_context.load_bridge_inputs",
         return_value=("", None),
     ):
         enriched, extras = enrich_event_review_state(
@@ -303,7 +304,7 @@ def test_enrich_uses_snapshot_push_enforcement_when_provided(
     }
 
     with patch(
-        "dev.scripts.devctl.review_channel.event_projection_assembly._load_bridge_inputs",
+        "dev.scripts.devctl.review_channel.event_projection_context.load_bridge_inputs",
         return_value=("", None),
     ):
         enriched, extras = enrich_event_review_state(

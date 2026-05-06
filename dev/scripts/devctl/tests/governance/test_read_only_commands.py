@@ -30,6 +30,7 @@ class ReadOnlyCommandSetTests(unittest.TestCase):
             "session-resume",
             "context-graph",
             "develop",
+            "exceptions",
             "review-channel",
             "quality-policy",
             "orphan-inventory",
@@ -211,6 +212,12 @@ class ArtifactWriteSuppressionTests(unittest.TestCase):
                         cli.main()
 
         self.assertEqual(captured_env.get("val"), "")
+
+    def test_exceptions_request_is_not_slice_one_command(self) -> None:
+        """Slice 1 exposes only read-only pending/validate actions."""
+        with patch("sys.argv", ["devctl", "exceptions", "request"]):
+            with self.assertRaises(SystemExit):
+                cli.main()
 
     def test_context_graph_bootstrap_respects_external_suppression(self) -> None:
         """Explicit DEVCTL_NO_ARTIFACT_WRITES=1 still suppresses bootstrap writes."""

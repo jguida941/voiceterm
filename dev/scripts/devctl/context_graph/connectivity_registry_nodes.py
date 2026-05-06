@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from ..platform.connectivity_registry import (
@@ -15,6 +14,11 @@ from ..platform.connectivity_registry_models import (
     ConnectivityRegistrySnapshot,
 )
 from .contract_relations import contract_aliases, field_aliases
+from .connectivity_registry_metadata import (
+    registry_contract_metadata,
+    registry_field_metadata,
+    registry_snapshot_metadata,
+)
 from .models import (
     EDGE_KIND_CONTAINS,
     EDGE_KIND_RELATED_TO,
@@ -27,24 +31,6 @@ from .models import (
 )
 
 
-@dataclass(frozen=True, slots=True)
-class RegistrySnapshotMetadata:
-    """Bounded GraphNode metadata for the registry contract node."""
-
-    connectivity_registry_contract_id: str
-    connected_contract_count: int
-    source_field_count: int
-    zero_reader_field_count: int
-    reader_ids: tuple[str, ...]
-    governed_surface_ids: tuple[str, ...]
-
-    def to_dict(self) -> dict[str, object]:
-        payload = asdict(self)
-        payload["reader_ids"] = list(self.reader_ids)
-        payload["governed_surface_ids"] = list(self.governed_surface_ids)
-        return payload
-
-
 def load_connectivity_registry(
     repo_root: Path,
 ) -> ConnectivityRegistrySnapshot | None:
@@ -55,51 +41,12 @@ def load_connectivity_registry(
         return None
 
 
-def registry_contract_metadata(
-    registry: ConnectivityRegistrySnapshot,
-    row: ConnectivityContractRow,
-) -> dict[str, object]:
-    return {
-        "connectivity_registry_contract_id": registry.contract_id,
-        "owner_layer": row.owner_layer,
-        "writer_id": row.writer.writer_id,
-        "reader_ids": list(row.reader_ids),
-        "projection_ids": list(row.projection_ids),
-    }
-
-
-def registry_snapshot_metadata(
-    registry: ConnectivityRegistrySnapshot | None,
-) -> dict[str, object]:
-    if registry is None:
-        return {}
-    summary = summarize_connectivity_registry(registry)
-    return RegistrySnapshotMetadata(
-        connectivity_registry_contract_id=registry.contract_id,
-        connected_contract_count=summary.connected_contract_count,
-        source_field_count=summary.source_field_count,
-        zero_reader_field_count=summary.zero_reader_field_count,
-        reader_ids=summary.reader_ids,
-        governed_surface_ids=summary.governed_surface_ids,
-    ).to_dict()
-
-
 def registry_fields_by_name(
     row: ConnectivityContractRow | None,
 ) -> dict[str, ConnectivityFieldRow]:
     if row is None:
         return {}
     return {field.field_name: field for field in row.fields}
-
-
-def registry_field_metadata(field: ConnectivityFieldRow) -> dict[str, object]:
-    return {
-        "field_kind": field.field_kind,
-        "writer_ids": list(field.writer_ids),
-        "reader_ids": list(field.reader_ids),
-        "projection_ids": list(field.projection_ids),
-        "derived_from": list(field.derived_from),
-    }
 
 
 def registry_only_contract_nodes(
