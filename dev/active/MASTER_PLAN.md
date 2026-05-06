@@ -6428,9 +6428,10 @@ become the main product surface.
     that path for focused devctl add-ons, and temp/external work-intake pacing
     no longer falls back to scanning the canonical repo context graph.
     2026-05-06 governed-push dogfood then proved the focused devctl command
-    could pass after the generic 300s command budget; the router now uses a
-    420s measured floor before scaling by selected target count and keeps the
-    focused devctl targets sequential inside the serial router step.
+    could pass after the generic 300s command budget, but could still time out
+    when two heavy targets shared one pytest session; the router now splits
+    focused devctl targets into serial single-target sessions with a 420s
+    measured floor.
   - [ ] `MP377-P0-T22AN-AC` now owns fresh-session orientation automation:
     `devctl session` must run startup-context, session-resume, live
     review-channel status, and context-graph bootstrap before answering
@@ -6450,9 +6451,8 @@ become the main product surface.
     2026-05-04 router follow-up proved the first automation sub-slice:
     routed preflight now exposes serial/parallel execution-plan metadata,
     keeps projection/status commands ordered, runs independent guard rows in
-    worker batches, and scales focused Python-test timeout from a measured
-    420s floor to selected target count while keeping heavy focused devctl
-    targets sequential. The same dogfood cycle exposed the next silent serial phase:
+    worker batches, and splits focused devctl Python proof into serial
+    single-target sessions with a measured 420s floor. The same dogfood cycle exposed the next silent serial phase:
     governed commit now emits VCS phase progress while `git commit` and the
     post-commit ReviewSnapshot receipt hook run, so operators can distinguish
     commit execution, receipt refresh, and push handoff without process-table

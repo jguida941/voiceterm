@@ -228,12 +228,19 @@ class CheckRouterTests(unittest.TestCase):
             "dev/scripts/devctl/tests/commands/test_python_tests.py",
             joined,
         )
+        devctl_commands = [
+            command
+            for command in planned_commands
+            if "test-python --suite devctl" in command
+        ]
+        self.assertEqual(len(devctl_commands), 1)
+        self.assertEqual(devctl_commands[0].count("--path "), 1)
         self.assertNotIn("test-python --suite operator-console", joined)
 
     @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
     @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
-    def test_devctl_focused_test_timeout_scales_with_target_count(
+    def test_devctl_focused_test_targets_split_into_serial_sessions(
         self,
         collect_git_status_mock,
         extract_bundle_mock,
@@ -265,8 +272,16 @@ class CheckRouterTests(unittest.TestCase):
         self.assertEqual(rc, 0)
 
         payload = json.loads(write_output_mock.call_args.args[0])
-        joined = "\n".join(row["command"] for row in payload["planned_commands"])
-        self.assertIn("--timeout-seconds 480", joined)
+        devctl_commands = [
+            row["command"]
+            for row in payload["planned_commands"]
+            if "test-python --suite devctl" in row["command"]
+        ]
+        self.assertEqual(len(devctl_commands), 10)
+        for command in devctl_commands:
+            self.assertEqual(command.count("--path "), 1)
+            self.assertIn("--timeout-seconds 420", command)
+            self.assertIn("--parallel-workers 1", command)
 
     @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")

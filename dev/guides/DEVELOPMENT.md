@@ -1998,10 +1998,9 @@ Mutation runs can be long; plan to run them overnight and use Ctrl+C to stop if 
 - `devctl check-router --execute --keep-going` also reports a typed execution
   plan: serial-sensitive projection/status commands stay ordered, while
   parallel-safe guards run in worker batches with progress lines. Focused
-  devctl Python risk add-ons scale their session timeout with the selected
-  test target count and use a 420s measured floor, while running selected
-  devctl targets sequentially so heavy pytest files do not compete inside the
-  serial router step. Routed commands also carry timeout policy; a timeout is a failed guard result
+  devctl Python risk add-ons split selected targets into serial single-target
+  sessions with a 420s measured floor, so heavy pytest files do not compete
+  inside one combined session. Routed commands also carry timeout policy; a timeout is a failed guard result
   (`returncode=124`) with remediation evidence, not a skipped guard.
 - `devctl progress-status --format md` is the read-only progress surface for
   long-running devctl children and governed VCS phases. The shared command

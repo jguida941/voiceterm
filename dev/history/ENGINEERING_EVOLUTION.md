@@ -76,18 +76,20 @@ Evidence:
 - `dev/scripts/devctl/commands/development/report.py`
 - `dev/scripts/devctl/tests/commands/test_development_command.py`
 
-### 2026-05-06 - Focused devctl pytest uses a measured timeout floor
+### 2026-05-06 - Focused devctl pytest uses split bounded sessions
 
 Change: raised the path-aware focused devctl test add-on from a generic 300s
-command timeout floor to 420s before target-count scaling and kept selected
-devctl targets sequential inside the serial router step. Governed push
-preflight first measured `dev/scripts/devctl/tests/commands/test_development_command.py`
-passing 20 tests in 314s, then failing only because the adapter's own session
-timeout fired at 300s. The next dogfood run proved the route-level 420s budget
-was not reaching the test runner and that two concurrent devctl shards could
-starve the heavy development-command test until it timed out at 360s after 28
-passing tests. The focused command now matches measured reality without making
-heavy devctl files compete with each other.
+command timeout floor to 420s and then split selected targets into serial
+single-target sessions. Governed push preflight first measured
+`dev/scripts/devctl/tests/commands/test_development_command.py` passing 20
+tests in 314s, then failing only because the adapter's own session timeout
+fired at 300s. The next dogfood runs proved the route-level 420s budget was
+not reaching the test runner, that two concurrent devctl shards could starve
+the heavy development-command test until it timed out at 360s after 28 passing
+tests, and that combining the router and development-command files in one
+sequential pytest session still timed out at 420s after 45 passing tests. The
+router now emits one serial focused devctl `test-python` command per selected
+target, so each heavy file gets its own bounded typed proof window.
 
 Evidence:
 
@@ -13790,7 +13792,7 @@ independent guard, and the focused devctl pytest add-on should not compete
 with dozens of guard subprocesses under one fixed 300s timeout. The router now
 emits `execution_plan` metadata, keeps serial-required projection/status/test
 commands in ordered phases, parallelizes only parallel-safe guard rows, and
-scales focused devctl Python-test timeout by selected target count. The same
+keeps focused devctl Python-test proof out of parallel guard batches. The same
 follow-up made `check_multi_agent_sync.py` mirror `AgentLoopDecision`
 authority: stale read-only work-board visibility rows no longer require a
 matching loop decision unless a live packet or execution field gives them loop

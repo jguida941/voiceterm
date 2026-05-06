@@ -1957,9 +1957,8 @@ Machine-first output note:
   reporting ordered shard results; `--no-parallel` keeps a sequential
   fallback. `check-router` adds focused devctl tests for tooling changes and
   Operator Console tests only for touched `app/operator_console/**/*.py`
-  paths; focused devctl add-ons scale their session timeout with selected
-  test-target count from a 420s measured floor and run devctl targets
-  sequentially with a bounded per-test cap.
+  paths; focused devctl add-ons split selected targets into serial
+  single-target sessions with a 420s measured floor and a bounded per-test cap.
   Generated instruction boot cards route agents through typed startup,
   session, graph, and `/develop` commands; the live command inventory remains
   owned by `SystemCatalog` / `devctl` listing surfaces, not AGENTS prose.

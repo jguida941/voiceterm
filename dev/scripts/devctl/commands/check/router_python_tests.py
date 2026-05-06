@@ -5,9 +5,6 @@ from __future__ import annotations
 from ...config import REPO_ROOT
 
 _FOCUSED_DEVCTL_TEST_BASE_TIMEOUT_SECONDS = 420
-_FOCUSED_DEVCTL_TEST_TARGET_BUDGET = 8
-_FOCUSED_DEVCTL_TEST_EXTRA_SECONDS_PER_TARGET = 30
-_FOCUSED_DEVCTL_TEST_MAX_TIMEOUT_SECONDS = 900
 _FOCUSED_DEVCTL_TEST_PER_TEST_TIMEOUT_SECONDS = 90
 _FOCUSED_DEVCTL_TEST_PARALLEL_WORKERS = 1
 
@@ -42,7 +39,7 @@ def detect_python_test_addons(changed_paths: list[str]) -> list[dict]:
                 "id": "python-tests.devctl-focused",
                 "label": "Focused devctl Python tests",
                 "matched_paths": devctl_paths,
-                "commands": [_devctl_test_command(devctl_test_paths)],
+                "commands": _devctl_test_commands(devctl_test_paths),
             }
         )
     return addons
@@ -87,23 +84,20 @@ def _operator_console_test_command(matched_paths: list[str]) -> str:
     )
 
 
-def _devctl_test_command(test_paths: tuple[str, ...]) -> str:
-    path_args = " ".join(f"--path {path}" for path in test_paths)
-    timeout_seconds = _devctl_test_timeout_seconds(test_paths)
+def _devctl_test_commands(test_paths: tuple[str, ...]) -> list[str]:
+    return [
+        _devctl_test_command(test_path)
+        for test_path in sorted(test_paths)
+    ]
+
+
+def _devctl_test_command(test_path: str) -> str:
     return (
         "python3 dev/scripts/devctl.py test-python --suite devctl "
-        f"{path_args} --timeout-seconds {timeout_seconds} "
+        f"--path {test_path} "
+        f"--timeout-seconds {_FOCUSED_DEVCTL_TEST_BASE_TIMEOUT_SECONDS} "
         f"--per-test-timeout-seconds {_FOCUSED_DEVCTL_TEST_PER_TEST_TIMEOUT_SECONDS} "
         f"--parallel-workers {_FOCUSED_DEVCTL_TEST_PARALLEL_WORKERS}"
-    )
-
-
-def _devctl_test_timeout_seconds(test_paths: tuple[str, ...]) -> int:
-    extra_targets = max(0, len(test_paths) - _FOCUSED_DEVCTL_TEST_TARGET_BUDGET)
-    return min(
-        _FOCUSED_DEVCTL_TEST_MAX_TIMEOUT_SECONDS,
-        _FOCUSED_DEVCTL_TEST_BASE_TIMEOUT_SECONDS
-        + extra_targets * _FOCUSED_DEVCTL_TEST_EXTRA_SECONDS_PER_TARGET,
     )
 
 
