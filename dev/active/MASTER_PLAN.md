@@ -562,9 +562,16 @@
   `typing.Annotated`, generated graph outputs, bridge text, dashboards, and
   markdown remain documentation/projections rather than authority. Green unit
 	  tests do not prove the collaboration loop: end-to-end acceptance requires
-	  live Codex+Claude dogfood in both role assignments, with packet observation,
-	  disposition, semantic-link visibility, and `check_multi_agent_sync.py`
-	  passing after each phase.
+	  live registered-agent dogfood across role lanes, with provider labels such
+	  as Codex and Claude treated as runtimes only. `MP377-P0-ROLE-MATRIX-DOGFOOD-S1`
+	  now owns the future proof matrix: registered agents must enter typed session
+	  posture as implementer, reviewer, operator, or observer; role and authority
+	  state decide allowed actions; handoff routes through typed packets or plan
+	  rows; mutation requires `TypedAction`; and proof requires `ActionResult`,
+	  `RunRecord`, or `ValidationReceipt`. If boot-card dogfood hits
+	  `authority_result=blocked` for coordination resync or code-shape debt, record
+	  fail-closed evidence and continue only read-only reducers instead of claiming
+	  multi-agent automation is green.
 - 2026-05-06 guard cadence / physical dogfood correction (MP-377): green
   unit tests are regression evidence, not sufficient physical proof for major
   governance features. `MP377-P0-GUARD-CADENCE-S1` is queued as the typed owner

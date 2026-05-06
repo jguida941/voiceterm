@@ -63,6 +63,30 @@ Evidence:
 - `dev/scripts/checks/check_agents_bundle_render.py`
 - `AGENTS.md`
 
+### 2026-05-06 - Boot-card dogfood stays provider-neutral and fail-closed
+
+Change: refined the MP-377 dogfood plan so Codex and Claude are example agent
+runtimes, not authority categories. The new typed row
+`MP377-P0-ROLE-MATRIX-DOGFOOD-S1` owns future role-matrix proof across
+registered agent identity, role lane, `AuthoritySnapshot`, `SessionPosture`,
+capability state, typed packets/plan rows, `TypedAction`, and
+`ActionResult`/`RunRecord`/`ValidationReceipt`.
+
+Live boot-card dogfood found a fail-closed authority result rather than a green
+multi-agent automation proof: startup/context reducers remained available, but
+`session-resume`, `review-channel status`, and `/develop next` reported
+coordination resync, packet debt, and code-shape blockers. The correct slice
+claim is therefore narrower: the boot-card route is typed and fail-closed; it
+detects coordination blockers and preserves read-only recovery navigation.
+
+Evidence:
+
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `rev_pkt_3081`
+
 ### 2026-05-06 - Governed exception semantic links stay typed and projection-safe
 
 Fact: the governed-exception receipt lineage and the user's ZGraph framing fit

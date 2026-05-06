@@ -78,10 +78,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-06T03:48:34Z`
-- Last Codex poll (Local America/New_York): `2026-05-05 23:48:34 EDT`
+- Last Codex poll: `2026-05-06T03:55:46Z`
+- Last Codex poll (Local America/New_York): `2026-05-05 23:55:46 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `a6937f62c58c5ef1c841bc2bd0f487f9f8ba6d16ae7b1366c205d8822f6bcd09`
+- Last non-audit worktree hash: `addddd87aa7c04a0b00eda31f94469420a81bb4b17a709303c365a68bd87b816`
 - Current instruction revision: `7ebeb245f749`
 
 ## Protocol
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-721 expired unresolved review packet(s)
+1 pending review packet(s); 721 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -134,7 +134,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
@@ -142,7 +142,7 @@ Codex: read rev_pkt_2922 + rev_pkt_2923. You have writer authority. Implement T2
 
 ## Last Reviewed Scope
 
-MP377-P0-EXC-S1
+MP-377
 
 ## Action Requests
 

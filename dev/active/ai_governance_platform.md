@@ -4359,18 +4359,40 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       delivery labels only. Pending packets must not disappear when Codex,
       Claude, Cursor, or a human switches between implementer, reviewer,
       operator, watcher, or other roles.
-      acceptance_criteria: Inbox/watch/status/current-session readers group by
-      role/session before provider; ACK/apply/dismiss authorization checks the
-      resolved role holder or capability-granted actor instead of literal
-      `to_agent`; single-agent mode reads relevant reviewer and implementer
-      packet debt before scoped decisions; tests cover provider role swaps,
+	      acceptance_criteria: Inbox/watch/status/current-session readers group by
+	      role/session before provider; ACK/apply/dismiss authorization checks the
+	      resolved role holder or capability-granted actor instead of literal
+	      `to_agent`; single-agent mode reads relevant reviewer and implementer
+	      packet debt before scoped decisions; tests cover provider role swaps,
 	      stale packet carry-forward, ambiguous route fail-closed behavior, and
 	      no packet considered consumed until lifecycle disposition records
 	      acknowledged, applied, dismissed, superseded, archived, or typed-plan /
 	      finding / receipt ingestion. Physical dogfood must post and observe live
-	      packets in both Codex-reviewer/Claude-implementer and
-	      Claude-reviewer/Codex-implementer role assignments; if a live provider
-	      is unavailable, record the gate as blocked instead of accepted.
+	      packets by registered agent identity plus role lane plus authority state,
+	      not by provider name; if a live runtime is unavailable, record the gate
+	      as blocked instead of accepted.
+	- [ ] `MP377-P0-ROLE-MATRIX-DOGFOOD-S1` Prove provider-neutral boot-card and
+	      packet-routing dogfood across registered agents and role lanes.
+	      owner_doc: `dev/active/ai_governance_platform.md`
+	      status: `queued`
+	      depends_on: `MP377-P0-T19`, `MP377-P0-T08F`, `MP377-P0-T16`
+	      disposition_sources: `operator:2026-05-06-provider-neutral-role-matrix-dogfood`
+	      scope: Treat Claude and Codex as example runtimes only. The runtime must
+	      reason in terms of `agent_runtime_id`, `agent_identity`, role lane,
+	      `AuthoritySnapshot`, `SessionPosture`, actor capability state,
+	      `WorkIntakePacket`, `PlanExpectationPacket`, and review-channel packets.
+	      Provider names must not grant reviewer, implementer, operator, observer,
+	      mutation, or proof authority by themselves.
+	      acceptance_criteria: Codex and Claude are physically dogfooded as
+	      implementer, reviewer, operator, and observer where live runtimes are
+	      available; any future registered agent follows the same typed lane rules;
+	      role switching is recorded by typed session/authority state rather than
+	      chat prose; handoffs route through typed packets or plan rows; mutation
+	      remains blocked without `TypedAction`; proof remains blocked without
+	      `ActionResult`, `RunRecord`, or `ValidationReceipt`; and
+	      `session-resume authority_result=blocked` for `coordination_resync_required`
+	      or code-shape debt is recorded as fail-closed dogfood evidence while only
+	      read-only reducers continue.
 	- [ ] `MP377-P0-GUARD-CADENCE-S1` Add graph-scoped guard cadence and physical dogfood scheduling so the system chooses when to run immediate, feature-local, subsystem, closure, and whole-system checks without skipping evidence.
 	      owner_doc: `dev/active/ai_governance_platform.md`
 	      status: `queued`
