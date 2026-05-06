@@ -1290,6 +1290,9 @@ python3 dev/scripts/devctl.py relaunch-loop --action dispatch-once --dry-run --f
 # alone. Missing PacketBacklogPressure evidence fails closed to the watcher
 # report command; a stopped watcher closes only when pressure evidence exists
 # and all watched packet-pressure counts are zero.
+# `/develop audit-packets` consumes PacketAttentionIngestionDecision.next_command
+# after classification so the controller advances to the selected packet action
+# instead of asking the caller to rerun the audit reducer.
 # `relaunch-loop` is the first scheduler-owned relaunch slice: it consumes
 # typed SliceClosureEvent rows into an AgentRelaunchTrigger queue and can
 # dry-run the dispatcher command. It records typed state only; packet delivery
@@ -2068,6 +2071,10 @@ Machine-first output note:
   remain authority. `audit-packets` renders `PacketDebtRemediationReport` so
   ACKed or expired packets with durable intent are routed toward
   plan/finding/lifecycle ownership instead of living only in packet transport.
+  When packet attention already required `audit-packets`, the continuation
+  path now promotes `PacketAttentionIngestionDecision.next_command` into the
+  report's `next_step_command` and first `next_commands` row, so automation can
+  fire the selected bounded packet action without re-running the same reducer.
   `audit-packets --drain-packets` runs the existing guarded deterministic
   plan-row ingestion writer for eligible rows and emits durable-ingestion
   receipts; it does not grant repo mutation. Live runtime-actionable pending

@@ -2047,6 +2047,11 @@ python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1 --format m
 # only non-blocking when packet attention is empty and a typed
 # PacketBacklogPressure report proves all watched pressure counts are zero.
 # Missing packet-pressure evidence fails closed to the watcher report command.
+# `/develop audit-packets` must not self-loop on the packet-attention audit
+# command. After it classifies packet pressure, the continuation command,
+# top-level next_step_command, and first Next Commands row come from
+# PacketAttentionIngestionDecision.next_command, normally the bounded
+# `review-channel --action show --packet-id ...` packet read surface.
 
 # MP377-P0-T22AN-AM follow-up: reviewer/architect/operator/system packets for
 # the current slice must become continuous typed peer attention. High-relevance

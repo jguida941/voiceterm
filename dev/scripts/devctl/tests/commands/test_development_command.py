@@ -45,6 +45,7 @@ from dev.scripts.devctl.runtime.development_role_adapters import (
     build_develop_role_adapter_matrix,
 )
 from dev.scripts.devctl.runtime.development_packet_pressure_models import (
+    PacketAttentionIngestionDecision,
     PacketBacklogPressure,
 )
 from dev.scripts.devctl.runtime.runtime_truth_snapshot import RuntimeTruthSnapshot
@@ -466,6 +467,54 @@ def test_stopped_watcher_blocks_when_live_packet_pressure_exists() -> None:
     assert signal.final_response_allowed is False
     assert signal.reasons == ("watcher_stopped:claude",)
     assert signal.next_required_command.endswith("review-channel --action watch")
+
+
+def test_develop_audit_packets_report_promotes_packet_decision_command(
+    monkeypatch,
+) -> None:
+    packet_command = (
+        "python3 dev/scripts/devctl.py review-channel --action show "
+        "--packet-id rev_pkt_3087 --terminal none --format md"
+    )
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_3087",
+                "to_agent": "codex",
+                "kind": "instruction",
+                "status": "pending",
+                "expires_at_utc": "2000-01-01T00:00:00Z",
+            }
+        ]
+    }
+
+    def fake_packet_pressure(*_args, **_kwargs):
+        return (
+            _packet_pressure(live_total=0, actionable_total=1).to_dict(),
+            [],
+            PacketAttentionIngestionDecision(
+                decision="pivot_to_packet_review",
+                reason_code="expired_unresolved",
+                required_action="review_selected_packets",
+                fail_closed=False,
+                selected_packet_ids=("rev_pkt_3087",),
+                next_command=packet_command,
+            ).to_dict(),
+        )
+
+    monkeypatch.setattr(development_report, "read_plan_rows_jsonl", lambda _path: ())
+    monkeypatch.setattr(development_report, "review_state_payload", lambda _repo: review_state)
+    monkeypatch.setattr(development_report, "_orchestration_dashboard", lambda _repo: {})
+    monkeypatch.setattr(development_report, "packet_pressure_report", fake_packet_pressure)
+    args = cli.build_parser().parse_args(
+        ["develop", "audit-packets", "--actor", "codex", "--format", "json"]
+    )
+
+    report = development_report.build_report(args)
+
+    assert report.continuation.next_required_command == packet_command
+    assert report.next_step_command == packet_command
+    assert report.next_commands[0] == packet_command
 
 
 def test_develop_report_status_does_not_render_ready_when_continuation_required() -> None:

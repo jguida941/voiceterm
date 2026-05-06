@@ -217,7 +217,11 @@
   now mirrors the packet-attention command as top-level `next_step_command`,
   lists the triggering packet in `pending_actionable_packet_ids`, and
   prioritizes durable packet row `PKT-BIND-REV-PKT-2725` before ordinary next
-  slices. `review-channel --action show --packet-id <id>` is the typed
+  slices. The 2026-05-06 dogfood follow-up closed the `audit-packets` self-loop:
+  once packet pressure is classified, `PacketAttentionIngestionDecision.next_command`
+  becomes the continuation command, top-level `next_step_command`, and first
+  `next_commands` row instead of sending the caller back to the audit reducer.
+  `review-channel --action show --packet-id <id>` is the typed
   packet-body read surface, and `history --packet-id <id>` now resolves the
   exact packet row instead of forcing raw artifact grep. Remaining Bundle FF
   follow-up stays in MP-377: caller-aware required-command rendering,

@@ -60,6 +60,22 @@ Evidence:
 - `dev/scripts/devctl/tests/vcs/test_push_report.py`
 - `dev/scripts/devctl/tests/vcs/test_push.py`
 
+### 2026-05-06 - /develop audit-packets advances to the selected packet action
+
+Change: tightened the typed `/develop` continuation loop so an
+`audit-packets` run no longer reports itself as the next required command after
+packet pressure has already been classified. When
+`PacketAttentionIngestionDecision.next_command` names a bounded packet action,
+that command becomes the continuation command, top-level `next_step_command`,
+and first `next_commands` row.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/continuation.py`
+- `dev/scripts/devctl/commands/development/continuation_commands.py`
+- `dev/scripts/devctl/commands/development/report.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+
 ### 2026-05-06 - Boot cards carry the memory-not-authority rule
 
 Change: made the generated `InstructionBootCard` carry the canonical

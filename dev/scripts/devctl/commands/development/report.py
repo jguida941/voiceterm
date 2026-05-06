@@ -84,6 +84,10 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         rows=rows,
         actor=actor,
     )
+    if action == "audit-packets":
+        decision_command = str(ingestion_decision.get("next_command") or "").strip()
+        if decision_command:
+            next_commands = tuple(dict.fromkeys((decision_command, *next_commands)))
     design_preflight = build_design_preflight(
         args=args,
         repo_root=REPO_ROOT,
@@ -129,7 +133,8 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         discovery=discovery_snapshot(REPO_ROOT),
         required_checks=required_checks,
         next_commands=next_commands,
-        next_step_command=_next_step_command(
+        next_step_command=continuation.next_required_command
+        or _next_step_command(
             packet_attention_required=packet_attention.attention_required,
             packet_attention_command=packet_attention.required_command,
             next_commands=next_commands,
