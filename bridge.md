@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-06T19:08:33Z`
-- Last Codex poll (Local America/New_York): `2026-05-06 15:08:33 EDT`
+- Last Codex poll: `2026-05-06T19:12:39Z`
+- Last Codex poll (Local America/New_York): `2026-05-06 15:12:39 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `aadba47266d2812f7f270c9bdd1a0f23a0c5f53b8889961db8eb1005bb1fb0b0`
-- Current instruction revision: ``
+- Current instruction revision: `623b0d91e6dd`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-none
+1 pending review packet(s)
 
 ## Claude Status
 
@@ -138,11 +138,16 @@ none
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+- Historical orphan audit (578 expired-with-content vs 34 applied = 17:1 ratio) + retroactive-sweep + go-forward smart-classifier integration plan. Connects to existing amended plan rows (S1, S1B, S1C, S1D, GUARD-CADENCE, GUARD-DEFERRAL) — NO new parallel slice. Retroactive sweep in S1B materialize scope; smart-classifier in S1 foundation; DeferredPacketReceipt mirrors DeferredGuardReceipt. No content lost guarantee: every historical expired packet gets typed LifecycleEvent classification (superseded_by | obsolete_no_owner | still_relevant_unowned | failed_smart_check).
+- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `dev/reports/review_channel/projections/latest/review_state.json`, `exceptions`
+- Canonical refs:
+  - `dev/active/MASTER_PLAN.md`
+  - `dev/reports/governance/finding_reviews.jsonl#audit_memory_governance_integration_gap`
+  - `dev/scripts/devctl/cli.py`
 
 ## Last Reviewed Scope
 
-MP-355
+MP-377
 
 ## Action Requests
 
