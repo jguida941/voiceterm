@@ -9,6 +9,7 @@ from typing import Any
 
 from ..time_utils import utc_timestamp
 from .agent_mind_projection_read import read_agent_mind_projection
+from .remote_control_attachment_status import remote_attachment_active
 from .session_posture import SessionPosture, session_posture_from_mapping
 from .startup_signals import load_startup_quality_signals
 
@@ -98,7 +99,7 @@ def build_runtime_truth_snapshot(
 
     live_actors = _live_actor_ids(posture)
     agent_minds = _agent_mind_providers(repo_root, agent_mind_providers)
-    remote_active = _remote_control_active(attachment)
+    remote_active = remote_attachment_active(attachment)
     observed_sources = [
         _source_row(
             "review_state",
@@ -241,15 +242,6 @@ def _live_actor_ids(posture: Mapping[str, object]) -> tuple[str, ...]:
         if actor_id and actor_id not in ids:
             ids.append(actor_id)
     return tuple(ids)
-
-
-def _remote_control_active(attachment: Mapping[str, object]) -> bool:
-    if not attachment:
-        return False
-    status = _text(attachment.get("status"))
-    method = _text(attachment.get("physical_confirmation_method"))
-    remote_session_id = _text(attachment.get("remote_session_id"))
-    return status == "attached" and bool(remote_session_id) and method != "none"
 
 
 def _agent_mind_providers(repo_root: Path, providers: tuple[str, ...]) -> tuple[str, ...]:

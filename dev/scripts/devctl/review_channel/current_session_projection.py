@@ -32,7 +32,7 @@ from .current_session_support import (
     prior_typed_current_session,
     resolve_instruction_revision as _resolve_instruction_revision,
 )
-from .current_session_queue import queue_instruction_is_priority_action_request
+from .current_session_queue import queue_instruction_preserves_packet_truth_clear
 from .handoff import BridgeSnapshot
 from .session_state_hints import provider_session_state_hint
 from .status_projection_helpers import clean_section
@@ -211,7 +211,13 @@ def build_event_current_session(
     implementer_provider = coding_provider_from_review_state(review_state)
     current_instruction = event_current_instruction(review_state)
     packet_attention = implementer_packet_attention_for(review_state)
-    clear_from_packet_truth = packet_attention_requires_clear(packet_attention)
+    clear_from_packet_truth = (
+        packet_attention_requires_clear(packet_attention)
+        and not queue_instruction_preserves_packet_truth_clear(
+            review_state,
+            current_instruction=current_instruction,
+        )
+    )
     current_instruction_revision = str(
         bridge_liveness.get("current_instruction_revision") or ""
     )
@@ -230,7 +236,7 @@ def build_event_current_session(
         current_instruction,
         current_instruction_revision,
     )
-    if clear_from_packet_truth and not queue_instruction_is_priority_action_request(
+    if clear_from_packet_truth and not queue_instruction_preserves_packet_truth_clear(
         review_state,
         current_instruction=current_instruction,
     ):

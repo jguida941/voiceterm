@@ -136,6 +136,13 @@
   current campaign is intentionally fail-closed until packet debt,
   remote-control freshness, and interaction-mode/reviewer-mode drift are
   repaired.
+- 2026-05-06 remote-control packet/current-session scope fix (MP-377):
+  dashboard-targeted instruction packets now stay visible through
+  `current_session.current_instruction` even when markdown canonicalization adds
+  bullets, and runtime AgentLoopDecision parity compares actor, role, and
+  session before flagging packet-id drift. Remote-control packet truth remains
+  fail-closed: stale TTLs do not promote remote-control mode, and current
+  packet debt still requires checkpoint/repair before mutable fanout.
 - 2026-05-06 governed-push report naming (MP-377): the repo-pack canonical
   latest push report is now `dev/reports/push/latest_push_report.json`, with
   `dev/reports/push/latest.json` accepted only as a legacy read fallback.

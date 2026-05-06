@@ -1020,6 +1020,33 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
             "\n".join(report["errors"]),
         )
 
+    def test_build_report_accepts_canonical_bulleted_current_instruction(self) -> None:
+        payloads = self._phase_zero_payloads()
+        review_state = payloads["review_state_payload"]
+        assert isinstance(review_state, dict)
+        review_state["queue"] = {
+            "derived_next_instruction": (
+                "Priority action_request: Run governed checkpoint\n"
+                "- Context packet: trigger `review-channel-event`"
+            ),
+            "derived_next_instruction_source": {"packet_id": "rev_pkt_1818"},
+        }
+        review_state["current_session"] = {
+            "current_instruction": (
+                "- Priority action_request: Run governed checkpoint\n"
+                "- Context packet: trigger `review-channel-event`"
+            ),
+            "current_instruction_revision": "rev-123",
+        }
+
+        report = self.script.build_report(**payloads, disk_review_state_payload=None)
+
+        self.assertTrue(report["ok"])
+        self.assertNotIn(
+            "queue/current-session parity mismatch",
+            "\n".join(report["errors"]),
+        )
+
     def test_build_report_fails_when_attention_drifts_from_recovery_assessment(self) -> None:
         report = self.script.build_report(
             startup_payload={

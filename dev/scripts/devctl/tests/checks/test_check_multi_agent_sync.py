@@ -326,6 +326,92 @@ class CheckMultiAgentSyncTests(unittest.TestCase):
             any("Packet inbox current instruction disagrees" in err for err in errors)
         )
 
+    def test_scoped_dashboard_instruction_ignores_subagent_active_packet(self) -> None:
+        payload = {
+            "queue": {
+                "derived_next_instruction_source": {
+                    "to_agent": "claude",
+                    "packet_id": "rev_pkt_3100",
+                    "target_role": "dashboard",
+                    "target_session_id": "session-a",
+                }
+            },
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "claude",
+                        "current_instruction_packet_id": "rev_pkt_3100",
+                    }
+                ]
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_3100",
+                    "to_agent": "claude",
+                    "target_role": "dashboard",
+                    "target_session_id": "session-a",
+                }
+            ],
+        }
+        decisions = [
+            {
+                "actor_id": "claude",
+                "actor_role": "subagent",
+                "session_id": "session-a",
+                "active_packet_id": "rev_pkt_2980",
+                "attention_packet_id": "rev_pkt_2980",
+            }
+        ]
+
+        self.assertEqual(instruction_authority_mismatch_errors(payload, decisions), [])
+
+    def test_scoped_dashboard_instruction_still_blocks_same_scope_drift(self) -> None:
+        payload = {
+            "queue": {
+                "derived_next_instruction_source": {
+                    "to_agent": "claude",
+                    "packet_id": "rev_pkt_3100",
+                    "target_role": "dashboard",
+                    "target_session_id": "session-a",
+                }
+            },
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "claude",
+                        "current_instruction_packet_id": "rev_pkt_3100",
+                    }
+                ]
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_3100",
+                    "to_agent": "claude",
+                    "target_role": "dashboard",
+                    "target_session_id": "session-a",
+                }
+            ],
+        }
+        decisions = [
+            {
+                "actor_id": "claude",
+                "actor_role": "dashboard",
+                "session_id": "session-a",
+                "active_packet_id": "rev_pkt_2980",
+                "attention_packet_id": "rev_pkt_2980",
+            }
+        ]
+
+        errors = instruction_authority_mismatch_errors(payload, decisions)
+
+        self.assertEqual(len(errors), 2)
+        self.assertTrue(
+            any("Queue-derived current instruction disagrees" in err for err in errors)
+        )
+        self.assertTrue(
+            any("Packet inbox current instruction disagrees" in err for err in errors)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

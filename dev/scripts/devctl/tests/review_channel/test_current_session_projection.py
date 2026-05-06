@@ -17,6 +17,9 @@ from dev.scripts.devctl.review_channel.current_session_projection import (
 from dev.scripts.devctl.review_channel.current_session_authority import (
     prefer_bridge_current_session,
 )
+from dev.scripts.devctl.review_channel.current_session_queue import (
+    queue_instruction_is_dashboard_route,
+)
 from dev.scripts.devctl.review_channel.current_session_support import (
     current_session_authority_drift_warning,
     prior_typed_current_session,
@@ -1766,6 +1769,104 @@ def test_build_event_current_session_priority_action_request_overrides_reviewer_
     assert resolved.current_instruction == _PRIORITY_ACTION_REQUEST_INSTRUCTION
     assert resolved.current_instruction_revision
     assert resolved.current_instruction_revision != "old-checkpoint-rev"
+
+
+def test_build_event_current_session_instruction_packet_overrides_reviewer_checkpoint() -> None:
+    review_state = _priority_action_request_review_state()
+    review_state["queue"]["derived_next_instruction"] = (
+        "Remote-control campaign lane published; continue packet audit"
+    )
+    review_state["queue"]["derived_next_instruction_source"] = {
+        "packet_id": "rev_pkt_3100",
+        "packet_class": "instruction",
+        "kind": "instruction",
+        "from_agent": "codex",
+        "to_agent": "claude",
+        "target_role": "dashboard",
+        "target_session_id": "session-a",
+        "selection_policy": "instruction_like_fifo",
+    }
+    review_state["packet_inbox"]["agents"][1]["current_instruction_packet_id"] = (
+        "rev_pkt_3100"
+    )
+    review_state["packet_inbox"]["agents"][1]["pending_actionable_packet_ids"] = [
+        "rev_pkt_3100"
+    ]
+    review_state["packets"] = [
+        {
+            "packet_id": "rev_pkt_3100",
+            "status": "pending",
+            "summary": "Remote-control campaign lane published",
+            "body": "Continue packet audit.",
+            "kind": "instruction",
+            "from_agent": "codex",
+            "to_agent": "claude",
+            "requested_action": "review_only",
+            "target_role": "dashboard",
+            "target_session_id": "session-a",
+            "expires_at_utc": "2999-01-01T00:00:00Z",
+        }
+    ]
+
+    resolved = build_event_current_session(
+        review_state=review_state,
+        bridge_liveness={"current_instruction_revision": ""},
+    )
+
+    assert resolved.current_instruction == (
+        "Remote-control campaign lane published; continue packet audit"
+    )
+    assert resolved.current_instruction_revision
+    assert resolved.current_instruction_revision != "old-checkpoint-rev"
+    assert queue_instruction_is_dashboard_route(
+        review_state,
+        current_instruction="- Remote-control campaign lane published; continue packet audit",
+    )
+
+
+def test_normalize_current_session_from_packet_truth_preserves_dashboard_instruction() -> None:
+    review_state = _priority_action_request_review_state(
+        latest_reviewer_checkpoint=False
+    )
+    review_state["queue"]["derived_next_instruction"] = (
+        "Remote-control campaign lane published; continue packet audit"
+    )
+    review_state["queue"]["derived_next_instruction_source"] = {
+        "packet_id": "rev_pkt_3100",
+        "packet_class": "instruction",
+        "kind": "instruction",
+        "from_agent": "codex",
+        "to_agent": "claude",
+        "target_role": "dashboard",
+        "target_session_id": "session-a",
+        "selection_policy": "instruction_like_fifo",
+    }
+    review_state["packet_inbox"]["agents"][0]["current_instruction_packet_id"] = ""
+    review_state["packet_inbox"]["agents"][0]["pending_actionable_packet_ids"] = []
+
+    normalized = _normalize_current_session_from_packet_truth(
+        current_session=ReviewCurrentSessionState(
+            current_instruction=(
+                "- Remote-control campaign lane published; continue packet audit"
+            ),
+            current_instruction_revision="dashboard-rev",
+            implementer_status="working",
+            implementer_ack="",
+            implementer_ack_revision="",
+            implementer_ack_state="missing",
+            implementer_state_hash="state-hash",
+            implementer_session_state="",
+            implementer_session_hint="",
+            open_findings="none",
+            last_reviewed_scope="MP-377",
+        ),
+        review_state=review_state,
+    )
+
+    assert normalized.current_instruction == (
+        "- Remote-control campaign lane published; continue packet audit"
+    )
+    assert normalized.current_instruction_revision == "dashboard-rev"
 
 
 def test_event_projection_assembly_priority_action_request_survives_attention_clear() -> None:

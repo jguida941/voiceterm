@@ -35,6 +35,7 @@ def test_runtime_truth_snapshot_reduces_review_state(monkeypatch, tmp_path: Path
             "remote_control_attachment": {
                 "status": "attached",
                 "remote_session_id": "session_123",
+                "heartbeat_ttl_seconds": "-1",
                 "physical_confirmation_method": "claude_session_state_bridge",
             },
             "session_posture": {
@@ -65,3 +66,39 @@ def test_runtime_truth_snapshot_reduces_review_state(monkeypatch, tmp_path: Path
     assert snapshot.live_actor_ids == ("claude",)
     assert snapshot.agent_mind_providers == ("claude",)
     assert snapshot.connectivity_contract_count == 1
+
+
+def test_runtime_truth_snapshot_uses_shared_remote_control_ttl_predicate(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        "dev.scripts.devctl.runtime.runtime_truth_snapshot.read_agent_mind_projection",
+        lambda repo_root, *, provider: {},
+    )
+    monkeypatch.setattr(
+        "dev.scripts.devctl.runtime.runtime_truth_snapshot.load_startup_quality_signals",
+        lambda repo_root: {},
+    )
+    review_state = {
+        "reviewer_runtime": {
+            "remote_control_attachment": {
+                "status": "attached",
+                "remote_session_id": "session_123",
+                "last_seen_utc": "2020-01-01T00:00:00Z",
+                "heartbeat_ttl_seconds": "900",
+                "physical_confirmation_method": "claude_session_state_bridge",
+            },
+            "session_posture": {
+                "interaction_mode": "remote_control",
+                "actors": [],
+            },
+        },
+    }
+
+    snapshot = build_runtime_truth_snapshot(
+        repo_root=tmp_path,
+        review_state=review_state,
+    )
+
+    assert snapshot.remote_control_active is False

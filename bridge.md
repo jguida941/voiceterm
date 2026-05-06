@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-06T16:05:52Z`
-- Last Codex poll (Local America/New_York): `2026-05-06 12:05:52 EDT`
+- Last Codex poll: `2026-05-06T16:32:29Z`
+- Last Codex poll (Local America/New_York): `2026-05-06 12:32:29 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `c834bca60b9fba05869914ae37347328238b14f2f42cdc718049ae0c239a96e0`
-- Current instruction revision: `7ebeb245f749`
+- Last non-audit worktree hash: `61f89631b5a483a9f8bd1f5bf30a9b226660cdea11b4f8c2474e88bc5bf5c5f3`
+- Current instruction revision: `ed0adadb9379`
 
 ## Protocol
 
@@ -134,15 +134,20 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
-Codex: read rev_pkt_2922 + rev_pkt_2923. You have writer authority. Implement T22AN-L launch roster fix + Finding Y current_session projection fix. Do not redo architectural review.
+- MP377-REMOTE-RECOVERY plan handoff: review + suggest better architectural integration + implement at proper time (after current packet-truth normalizer work). Plan ingested at dev/state/plan_index.jsonl. 10 integration questions for codex to evaluate. Improvements go in next slice or amend before implementation starts. NO INTERRUPT codex's current fix-loop.
+- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `state.py`, `current_session_packet_normalize.py`, `Users/jguida941/.claude/plans/peppy-hugging-kahn.md`
+- Canonical refs:
+  - `dev/active/MASTER_PLAN.md`
+  - `dev/reports/governance/finding_reviews.jsonl#0dd5bcfaac2b244b`
+  - `dev/reports/governance/finding_reviews.jsonl#18cbd0a747b2fbe9`
 
 ## Last Reviewed Scope
 
-MP-355
+MP-377
 
 ## Action Requests
 

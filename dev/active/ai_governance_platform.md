@@ -4418,6 +4418,11 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
 	      bounded packet carry-forward triage, and repair of
 	      interaction_mode/reviewer_mode drift before mutable fanout or role swap
 	      claims are accepted.
+	      progress: 2026-05-06 packet-truth normalizers now treat
+	      dashboard-targeted instruction packets as scoped current-session
+	      authority for the matching actor/role/session lane, preserve their
+	      markdown-canonicalized instruction text across clear paths, and use the
+	      shared remote-control TTL predicate before promoting remote mode.
 	- [ ] `MP377-P0-GUARD-CADENCE-S1` Add graph-scoped guard cadence and physical dogfood scheduling so the system chooses when to run immediate, feature-local, subsystem, closure, and whole-system checks without skipping evidence.
 	      owner_doc: `dev/active/ai_governance_platform.md`
 	      status: `queued`

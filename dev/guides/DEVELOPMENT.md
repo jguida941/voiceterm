@@ -232,6 +232,13 @@ Use docs like this:
   projection stays authoritative even if the packet targets the implementer
   while single-agent mode makes Codex the active coding provider; packet-truth
   clear paths must not erase that live handoff instruction.
+- Dashboard-scoped instruction packets follow the same contract. When a packet
+  targets the remote-control dashboard lane, current-session status may render
+  the instruction as canonical markdown bullets, but guards must compare the
+  typed instruction content rather than treating the bullet form as drift.
+  Scoped AgentLoopDecision checks must compare actor, role, and session so a
+  dashboard packet does not conflict with a stale subagent packet for the same
+  provider label.
 - Keep remote-control review-channel wake, status, and dashboard surfaces in
   lockstep when you touch that lane: `pending_action_requests` means live
   pending `kind="action_request"` packets only, dashboard conductor rows must

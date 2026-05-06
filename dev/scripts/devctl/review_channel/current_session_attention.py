@@ -5,14 +5,14 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from .collaboration_provider import coding_provider_from_review_state
-from .current_session_queue import queue_instruction_is_priority_action_request
+from .current_session_queue import queue_instruction_preserves_packet_truth_clear
 from ..runtime.review_packet_inbox import packet_inbox_from_review_state
 
 
 def codex_packet_attention_requires_clear(
     review_state: Mapping[str, object],
 ) -> bool:
-    if queue_instruction_is_priority_action_request(review_state):
+    if queue_instruction_preserves_packet_truth_clear(review_state):
         return False
     return implementer_packet_attention_requires_clear(review_state)
 

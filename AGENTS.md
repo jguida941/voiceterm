@@ -34,6 +34,7 @@
 
 - Generated markdown, bridge text, dashboard rows, mobile/status views, slash commands, and prompt files are projections or thin adapters.
 - `AGENTS.md` is the shared generated boot card; local peer projections route agents to typed state without overriding it.
+- Remote-control/dashboard handoffs must remain typed packets or plan rows; provider labels and bridge text are never authority.
 - Refresh generated surfaces with `python3 dev/scripts/devctl.py render-surfaces --write --format md`.
 - Check projection drift with `python3 dev/scripts/devctl.py docs-check --strict-tooling --format json`.
 

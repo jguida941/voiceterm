@@ -63,6 +63,25 @@ Evidence:
 - `dev/scripts/devctl/tests/commands/test_development_command.py`
 - `dev/state/plan_index.jsonl`
 
+### 2026-05-06 - Remote-control packet truth is scoped by role and session
+
+Change: fixed the remote-control dogfood deadlock where dashboard-targeted
+instruction packets could be selected by the typed queue but erased or flagged
+as drift by current-session and multi-agent consistency readers. The readers
+now preserve dashboard instruction packets across packet-truth clear paths,
+compare canonical markdown bullets by instruction content, and scope
+AgentLoopDecision packet parity by actor, role, and session before reporting a
+conflict. Runtime truth also uses the shared remote-control attachment TTL
+predicate instead of a local status-only check.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/current_session_queue.py`
+- `dev/scripts/devctl/review_channel/current_session_projection.py`
+- `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_instruction.py`
+- `dev/scripts/checks/review_surface_consistency/parity.py`
+- `dev/scripts/devctl/runtime/runtime_truth_snapshot.py`
+
 ### 2026-05-06 - Governed push report path names the artifact explicitly
 
 Change: renamed the repo-pack canonical latest push report from the generic

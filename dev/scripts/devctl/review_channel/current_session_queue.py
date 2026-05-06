@@ -7,6 +7,19 @@ from collections.abc import Mapping
 from .collaboration_provider import coding_provider_from_review_state
 from .status_projection_helpers import clean_section
 
+_ROLE_ALIAS_PAIRS = (
+    ("coder", "implementer"),
+    ("coding", "implementer"),
+    ("implementation", "implementer"),
+    ("implementer", "implementer"),
+    ("review", "reviewer"),
+    ("reviewer", "reviewer"),
+    ("dashboard", "dashboard"),
+    ("observer", "dashboard"),
+    ("operator", "operator"),
+)
+_ROLE_ALIASES = dict(_ROLE_ALIAS_PAIRS)
+
 
 def queue_current_instruction(review_state: Mapping[str, object]) -> str:
     """Return the queue-selected instruction after role/target filtering."""
@@ -18,7 +31,12 @@ def queue_current_instruction(review_state: Mapping[str, object]) -> str:
     if _source_is_action_request(source):
         return derived
     target = str(source.get("to_agent") or "").strip().lower()
-    if target and target != coding_provider_from_review_state(review_state):
+    target_role = _normalize_role(source.get("target_role"))
+    if (
+        target
+        and target != coding_provider_from_review_state(review_state)
+        and target_role != "dashboard"
+    ):
         return ""
     return derived
 
@@ -36,11 +54,47 @@ def queue_instruction_is_priority_action_request(
     derived = str(queue.get("derived_next_instruction") or "").strip()
     if not derived:
         return False
-    if current_instruction and clean_section(current_instruction) != clean_section(
-        derived
+    if current_instruction and not _same_instruction(
+        current_instruction,
+        derived,
     ):
         return False
     return _source_is_action_request(source)
+
+
+def queue_instruction_is_dashboard_route(
+    review_state: Mapping[str, object] | None,
+    *,
+    current_instruction: str = "",
+) -> bool:
+    """Return true when the selected queue instruction targets a dashboard lane."""
+    if not isinstance(review_state, Mapping):
+        return False
+    queue = _mapping(review_state.get("queue"))
+    source = _mapping(queue.get("derived_next_instruction_source"))
+    derived = str(queue.get("derived_next_instruction") or "").strip()
+    if not derived:
+        return False
+    if current_instruction and not _same_instruction(
+        current_instruction,
+        derived,
+    ):
+        return False
+    return _normalize_role(source.get("target_role")) == "dashboard"
+
+
+def queue_instruction_preserves_packet_truth_clear(
+    review_state: Mapping[str, object] | None,
+    *,
+    current_instruction: str = "",
+) -> bool:
+    return queue_instruction_is_priority_action_request(
+        review_state,
+        current_instruction=current_instruction,
+    ) or queue_instruction_is_dashboard_route(
+        review_state,
+        current_instruction=current_instruction,
+    )
 
 
 def _source_is_action_request(source: Mapping[str, object]) -> bool:
@@ -56,6 +110,36 @@ def _source_is_action_request(source: Mapping[str, object]) -> bool:
         str(source.get("selection_policy") or "").strip()
         == "action_request_priority"
     )
+
+
+def _normalize_role(value: object) -> str:
+    role = str(value or "").strip()
+    if not role:
+        return ""
+    key = role.lower().replace("-", "_").replace(" ", "_")
+    return _ROLE_ALIASES.get(key, key)
+
+
+def _same_instruction(left: str, right: str) -> bool:
+    left_clean = clean_section(left)
+    right_clean = clean_section(right)
+    if left_clean == right_clean:
+        return True
+    return _without_markdown_bullets(left_clean) == _without_markdown_bullets(
+        right_clean
+    )
+
+
+def _without_markdown_bullets(text: str) -> str:
+    lines = []
+    for line in clean_section(text).splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("- "):
+            stripped = stripped[2:].strip()
+        lines.append(stripped)
+    return "\n".join(lines)
 
 
 def _mapping(value: object) -> Mapping[str, object]:

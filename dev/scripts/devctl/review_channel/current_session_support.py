@@ -263,17 +263,11 @@ def _bridge_current_session_from_snapshot(
 def event_current_instruction(review_state: Mapping[str, object]) -> str:
     """Derive the event-backed current instruction from the typed queue only.
 
-    Per rev_pkt_2546 (Plan 4.1 Scope 1): when the reduced review_state carries
-    a typed ``latest_reviewer_checkpoint`` payload (emitted by the
-    ``review_channel.reviewer_checkpoint`` event), prefer it over the
-    queue-derived instruction so reviewer-checkpoint writes are immediately
-    visible in typed current_session without parsing bridge.md as authority.
+    Typed queue instructions are the live route. A reviewer checkpoint is a
+    preserved fallback only when no queue instruction is currently selected.
     """
     queue_instruction = queue_current_instruction(review_state)
-    if queue_instruction_is_priority_action_request(
-        review_state,
-        current_instruction=queue_instruction,
-    ):
+    if queue_instruction:
         return queue_instruction
 
     checkpoint = _mapping(review_state.get("latest_reviewer_checkpoint"))

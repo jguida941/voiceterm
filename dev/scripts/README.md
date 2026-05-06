@@ -678,6 +678,11 @@ Portability note:
   authoritative even when the packet target is the implementer and single-agent
   mode resolves the active coding provider to Codex; packet-truth clear paths
   must preserve the handoff instruction.
+- Dashboard-targeted instruction packets are also first-class queue authority.
+  Current-session projections may canonicalize them as markdown bullets, so
+  surface-consistency checks compare normalized instruction content. Runtime
+  packet/AgentLoopDecision drift checks must scope by actor, role, and session
+  before treating two packet ids as conflicting authority.
 - The same review-channel/dashboard lane now keeps liveness and queue counts
   fail-closed on typed runtime state too: `pending_action_requests` counts only
   live pending `kind="action_request"` packets, dashboard terminal/markdown
