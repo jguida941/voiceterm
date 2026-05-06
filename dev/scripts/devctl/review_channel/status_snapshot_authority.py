@@ -185,7 +185,10 @@ def _review_state_with_packet_truth(
     ):
         resolved_review_state = resolved_review_state.get("review_state")
     review_state = dict(resolved_review_state or {})
-    review_state["packets"] = [dict(packet) for packet in pending_packets]
+    review_state["packets"] = _merge_pending_and_prior_packets(
+        pending_packets,
+        review_state.get("packets"),
+    )
     review_state["queue"] = asdict(
         build_queue_state(
             None,
@@ -194,6 +197,28 @@ def _review_state_with_packet_truth(
         )
     )
     return review_state
+
+
+def _merge_pending_and_prior_packets(
+    pending_packets: tuple[dict[str, object], ...],
+    prior_packets: object,
+) -> list[dict[str, object]]:
+    merged: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for packet in (*pending_packets, *_packet_rows(prior_packets)):
+        packet_id = str(packet.get("packet_id") or "").strip()
+        if packet_id and packet_id in seen:
+            continue
+        if packet_id:
+            seen.add(packet_id)
+        merged.append(dict(packet))
+    return merged
+
+
+def _packet_rows(value: object) -> tuple[dict[str, object], ...]:
+    if not isinstance(value, list):
+        return ()
+    return tuple(dict(packet) for packet in value if isinstance(packet, dict))
 
 
 def _overlay_packet_current_session(

@@ -109,8 +109,6 @@ def summarize_packet_attention_open_findings(
         summary_parts.append(f"{expired_total} expired unresolved review packet(s)")
     if summary_parts:
         return "; ".join(summary_parts)
-    if normalized_fallback:
-        return normalized_fallback
     return "none"
 
 

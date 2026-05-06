@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from .collaboration_provider import coding_provider_from_review_state
+from .current_session_checkpoint import reviewer_checkpoint_instruction_preservation
 from .current_session_queue import queue_instruction_preserves_packet_truth_clear
 from ..runtime.review_packet_inbox import packet_inbox_from_review_state
 
@@ -58,30 +59,3 @@ def has_explicit_packet_truth(review_state: Mapping[str, object]) -> bool:
         return True
     packets = review_state.get("packets")
     return isinstance(packets, list) and bool(packets)
-
-
-def reviewer_checkpoint_instruction_preservation(
-    review_state: Mapping[str, object],
-) -> tuple[str, str] | None:
-    """Return (instruction, revision) from `latest_reviewer_checkpoint` if live.
-
-    rev_pkt_2922 Finding Y: when packet attention says clear the
-    current-session instruction, packet-derived state should clear but a live
-    reviewer-checkpoint instruction/revision must be preserved. Without this,
-    `check_review_channel_bridge.py` reports the typed current-session
-    instruction revision missing because the reviewer_checkpoint write was
-    wiped by the subsequent packet-attention clear.
-
-    Returns ``None`` when no live reviewer checkpoint payload is present, in
-    which case the caller should fall back to the existing clear behavior.
-    """
-    checkpoint = review_state.get("latest_reviewer_checkpoint")
-    if not isinstance(checkpoint, Mapping):
-        return None
-    revision = str(
-        checkpoint.get("current_instruction_revision") or ""
-    ).strip()
-    instruction = str(checkpoint.get("current_instruction") or "").strip()
-    if not (revision and instruction):
-        return None
-    return instruction, revision

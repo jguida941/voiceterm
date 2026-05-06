@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 from ..runtime.review_packet_inbox_liveness import is_expired_unresolved
 
 from .packet_contract import packet_route_matches_scope
 from .pending_packets import live_pending_packets, partition_live_packet_queue
+from .timestamp_parse import parse_utc_value as _parse_utc
 
 
 def filter_inbox_packets(
@@ -127,16 +126,3 @@ def _packet_matches_inbox_status(packet: dict[str, object], status: str) -> bool
 
 def _packet_has_route_scope(packet: dict[str, object]) -> bool:
     return bool(packet.get("target_role") or packet.get("target_session_id"))
-
-
-def _parse_utc(value: object) -> datetime | None:
-    text = str(value or "").strip()
-    if not text:
-        return None
-    try:
-        stamp = datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if stamp.tzinfo is None:
-        return stamp.replace(tzinfo=timezone.utc)
-    return stamp.astimezone(timezone.utc)

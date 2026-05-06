@@ -50,6 +50,34 @@ def test_operator_mode_falls_back_to_reviewer_mode_without_remote_liveness(
     assert mode == "dual_agent"
 
 
+def test_review_state_with_packet_truth_keeps_prior_terminal_packets() -> None:
+    review_state = status_snapshot_authority._review_state_with_packet_truth(
+        prior_review_state={
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_3110",
+                    "kind": "instruction",
+                    "status": "applied",
+                }
+            ]
+        },
+        pending_packets=(
+            {
+                "packet_id": "rev_pkt_live",
+                "kind": "instruction",
+                "status": "pending",
+            },
+        ),
+        stale_packet_count=0,
+    )
+
+    assert review_state is not None
+    assert [packet["packet_id"] for packet in review_state["packets"]] == [
+        "rev_pkt_live",
+        "rev_pkt_3110",
+    ]
+
+
 def test_recover_blocks_remote_visible_launch_before_terminal_profile_lookup(
     monkeypatch,
     tmp_path,

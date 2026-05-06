@@ -70,12 +70,16 @@ def _packet_kind(packet: Mapping[str, object]) -> str:
 
 def _is_resolved_lifecycle(packet: Mapping[str, object]) -> bool:
     lifecycle = _normalized_text(packet.get("lifecycle_current_state"))
-    if lifecycle in {"applied", "dismissed"}:
+    if lifecycle in {"applied", "dismissed", "archived"}:
         return True
     disposition = packet.get("disposition")
     if not isinstance(disposition, Mapping):
         return False
-    return _normalized_text(disposition.get("sink")) in {"applied", "dismissed"}
+    return _normalized_text(disposition.get("sink")) in {
+        "applied",
+        "dismissed",
+        "archived",
+    }
 
 
 def _normalized_text(value: object) -> str:

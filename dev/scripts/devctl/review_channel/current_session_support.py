@@ -16,6 +16,7 @@ from .current_session_queue import (
     queue_current_instruction,
     queue_instruction_is_priority_action_request,
 )
+from .current_session_attention import reviewer_checkpoint_instruction_preservation
 from .current_session_instruction_support import (
     canonicalize_instruction_state as _canonicalize_instruction_state,
     instruction_revision_reuse_warning,
@@ -271,11 +272,9 @@ def event_current_instruction(review_state: Mapping[str, object]) -> str:
         return queue_instruction
 
     checkpoint = _mapping(review_state.get("latest_reviewer_checkpoint"))
-    checkpoint_instruction = str(
-        checkpoint.get("current_instruction") or ""
-    ).strip()
-    if checkpoint_instruction:
-        return checkpoint_instruction
+    preserved = reviewer_checkpoint_instruction_preservation(review_state)
+    if preserved is not None:
+        return preserved[0]
     return queue_instruction
 
 

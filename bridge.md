@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-06T17:22:11Z`
-- Last Codex poll (Local America/New_York): `2026-05-06 13:22:11 EDT`
+- Last Codex poll: `2026-05-06T18:18:05Z`
+- Last Codex poll (Local America/New_York): `2026-05-06 14:18:05 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `982c2476cf0ae999cd62a619d4e19e72bdd1307d9b8ce14f5efc865a7ebe6555`
-- Current instruction revision: `511f2d692a4e`
+- Last non-audit worktree hash: `f90fb2368775c1538581fccb5573c882ad108d01c9d88db535f32ed576e0da6a`
+- Current instruction revision: `19c325781a27`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s); 725 expired unresolved review packet(s)
+2 pending review packet(s)
 
 ## Claude Status
 
@@ -134,20 +134,20 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
-- Remote-control parity fix published; continue campaign
-- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `AGENTS.md`, `CLAUDE.md`, `CODEX.md`
+- Universal Governance Lifecycle reframe: lifecycle is exception-only today; should cover ALL governed actions (commit/push/plan_ingest/packet_apply/dogfood_run/action_run + exception as specialization). 1 explorer agent confirmed. Recommend amending MP377-GUARDIR-V21-A5 (in_progress) to broaden scope to universal — composes with current trajectory, no new parallel plan. Operator directive: smart system where the lifestyle covers everything.
+- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `dev/scripts/devctl/runtime/governed_exception_lifecycle.py`, `dev/scripts/devctl/commands/governance/exceptions.py`, `dev/scripts/devctl/runtime/action_contracts.py`
 - Canonical refs:
   - `dev/active/MASTER_PLAN.md`
-  - `dev/reports/governance/finding_reviews.jsonl#1f30e819a6aecf7e`
-  - `dev/reports/governance/finding_reviews.jsonl#845505a15e93e9c9`
+  - `dev/scripts/devctl/cli.py`
+  - `dev/scripts/devctl/common.py`
 
 ## Last Reviewed Scope
 
-MP-355
+MP-377
 
 ## Action Requests
 

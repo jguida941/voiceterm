@@ -17,6 +17,8 @@ from .ast_helpers import call_name
 
 _CURRENT_SESSION_CONSTRUCTOR_ALLOWLIST = frozenset(
     {
+        "dev/scripts/devctl/review_channel/current_session_bridge_state.py",
+        "dev/scripts/devctl/review_channel/current_session_event_state.py",
         "dev/scripts/devctl/review_channel/current_session_projection.py",
         "dev/scripts/devctl/review_channel/current_session_support.py",
         "dev/scripts/devctl/review_channel/event_reducer_state.py",

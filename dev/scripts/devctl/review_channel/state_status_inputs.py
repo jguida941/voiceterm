@@ -76,11 +76,12 @@ def load_prior_review_state(
         prefer_cached_projection=False,
         allow_live_refresh=False,
     )
-    review_state_path = output_root / "review_state.json"
-    try:
-        local_payload = json.loads(review_state_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        local_payload = None
+    local_payload = _read_json_mapping(output_root / "review_state.json")
+    state_payload = _read_json_mapping(output_root.parent / "state" / "latest.json")
+    if isinstance(canonical_payload, dict) and isinstance(state_payload, dict):
+        canonical_payload = _merge_prior_review_state(canonical_payload, state_payload)
+    if isinstance(local_payload, dict) and isinstance(state_payload, dict):
+        local_payload = _merge_prior_review_state(local_payload, state_payload)
     if isinstance(canonical_payload, dict) and isinstance(local_payload, dict):
         return _merge_prior_review_state(canonical_payload, local_payload)
     if isinstance(canonical_payload, dict):
@@ -88,6 +89,14 @@ def load_prior_review_state(
     if isinstance(local_payload, dict):
         return local_payload
     return None
+
+
+def _read_json_mapping(path: Path) -> dict[str, object] | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return payload if isinstance(payload, dict) else None
 
 
 def build_reviewer_worker_snapshot(
@@ -114,9 +123,6 @@ def _merge_prior_review_state(
     local_payload: dict[str, object],
 ) -> dict[str, object]:
     local_hash = _reviewer_accepted_implementer_state_hash(local_payload)
-    if not local_hash or _reviewer_accepted_implementer_state_hash(canonical_payload):
-        return canonical_payload
-
     merged: dict[str, object] = dict(canonical_payload)
     target = merged
     nested_review_state = merged.get("review_state")
@@ -124,17 +130,32 @@ def _merge_prior_review_state(
         target = dict(nested_review_state)
         merged["review_state"] = target
 
-    reviewer_runtime = target.get("reviewer_runtime")
-    target["reviewer_runtime"] = (
-        dict(reviewer_runtime) if isinstance(reviewer_runtime, Mapping) else {}
-    )
-    review_acceptance = target["reviewer_runtime"].get("review_acceptance")
-    target["reviewer_runtime"]["review_acceptance"] = (
-        dict(review_acceptance) if isinstance(review_acceptance, Mapping) else {}
-    )
-    target["reviewer_runtime"]["review_acceptance"][
-        "reviewer_accepted_implementer_state_hash"
-    ] = local_hash
+    if local_hash and not _reviewer_accepted_implementer_state_hash(canonical_payload):
+        reviewer_runtime = target.get("reviewer_runtime")
+        target["reviewer_runtime"] = (
+            dict(reviewer_runtime) if isinstance(reviewer_runtime, Mapping) else {}
+        )
+        review_acceptance = target["reviewer_runtime"].get("review_acceptance")
+        target["reviewer_runtime"]["review_acceptance"] = (
+            dict(review_acceptance) if isinstance(review_acceptance, Mapping) else {}
+        )
+        target["reviewer_runtime"]["review_acceptance"][
+            "reviewer_accepted_implementer_state_hash"
+        ] = local_hash
+    local_target: Mapping[str, object] = local_payload
+    local_nested_review_state = local_payload.get("review_state")
+    if isinstance(local_nested_review_state, Mapping):
+        local_target = local_nested_review_state
+    for field in ("latest_reviewer_checkpoint", "packet_continuity_index"):
+        if field not in target and isinstance(local_target.get(field), Mapping):
+            target[field] = dict(local_target[field])
+    local_packets = local_target.get("packets")
+    target_packets = target.get("packets")
+    if isinstance(local_packets, list) and (
+        not isinstance(target_packets, list)
+        or len(local_packets) > len(target_packets)
+    ):
+        target["packets"] = list(local_packets)
     return merged
 
 

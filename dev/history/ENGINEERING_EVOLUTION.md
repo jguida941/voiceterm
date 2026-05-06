@@ -63,6 +63,25 @@ Evidence:
 - `dev/scripts/devctl/tests/commands/test_development_command.py`
 - `dev/state/plan_index.jsonl`
 
+### 2026-05-06 - Archived packet history no longer blocks live work
+
+Change: tightened review-channel packet liveness so archived/applied/dismissed
+packet rows stay as audit and carry-forward evidence without re-entering
+`/develop`, startup, or current-session attention as live blockers. The
+current-session projection now suppresses older reviewer checkpoint text when a
+newer terminal instruction/action-request packet exists, preventing stale
+bridge prose from overriding typed packet truth during remote-control dogfood.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/review_packet_inbox_liveness.py`
+- `dev/scripts/devctl/runtime/review_packet_inbox_rows.py`
+- `dev/scripts/devctl/review_channel/current_session_attention.py`
+- `dev/scripts/devctl/review_channel/current_session_projection.py`
+- `dev/scripts/devctl/review_channel/status_snapshot_authority.py`
+- `dev/scripts/devctl/tests/runtime/test_development_packet_pressure.py`
+- `dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`
+
 ### 2026-05-06 - Remote-control packet truth is scoped by role and session
 
 Change: fixed the remote-control dogfood deadlock where dashboard-targeted

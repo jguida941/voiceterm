@@ -1177,6 +1177,12 @@ Three quality layers matter in practice:
     If `PacketCreationBinding` or `PacketDurableIngestionReceipt` proves a
     plan-row owner, clock-expired rows must stay archived but classify as
     `expired_after_durable_binding`, not generic clock-expiry loss.
+    Archived packet rows remain history/provenance and must not re-enter
+    `/develop`, startup, or current-session attention as live blockers after
+    terminal `applied`, `dismissed`, or `archived` disposition. A newer
+    terminal instruction/action-request packet also suppresses older reviewer
+    checkpoint text instead of letting bridge/current-session prose resurrect
+    stale instructions.
     Use `review-channel --action expire-packets --limit <n>` when stale
     pending packets need durable lifecycle closure: the action writes explicit
     `packet_expired` events and keeps read-only inbox/history/sync-status

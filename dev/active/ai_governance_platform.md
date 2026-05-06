@@ -109,6 +109,13 @@ Current ingestion status:
   authority. Pending packets must remain visible until acknowledged, applied
   with evidence, dismissed, superseded by typed disposition, archived by
   lifecycle policy, or ingested into typed plan/finding/receipt state.
+- 2026-05-06 remote-control packet-liveness repair: archived packet-history
+  rows remain provenance and carry-forward debt, but terminal
+  `applied`/`dismissed`/`archived` lifecycle state must not block `/develop`,
+  startup, or current-session attention as live packet debt. Current-session
+  projection also suppresses old reviewer checkpoint instructions when newer
+  terminal instruction/action-request packet truth exists, so Claude remote
+  control cannot be steered by stale bridge prose.
 - `MP377-P0-EXC-S1D` adds the governed-exception acceptance dependency: do not
   call semantic links, receipt lineage, or graph traversal end-to-end accepted
   until live Codex+Claude dogfood proves both role assignments

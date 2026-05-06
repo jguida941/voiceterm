@@ -133,6 +133,10 @@
   `devctl develop campaign` now projects role lanes, remote-control attachment
   proof, packet blockers, interaction-mode drift, and mutation/publication
   gates from typed state without waking agents or granting authority. The
+  follow-up remote-control repair keeps archived packet-history rows as audit
+  evidence instead of live attention blockers, and prevents stale reviewer
+  checkpoint prose from overriding newer terminal instruction/action-request
+  packet truth. The
   current campaign is intentionally fail-closed until packet debt,
   remote-control freshness, and interaction-mode/reviewer-mode drift are
   repaired.

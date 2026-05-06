@@ -1758,6 +1758,171 @@ def test_build_event_current_session_preserves_reviewer_checkpoint_revision_when
     assert resolved.current_instruction_revision == "abc1234567ef"
 
 
+def test_build_event_current_session_does_not_restore_checkpoint_after_newer_terminal_instruction_packet() -> None:
+    review_state = {
+        "latest_reviewer_checkpoint": {
+            "current_instruction": "Codex: read rev_pkt_2922 + rev_pkt_2923.",
+            "current_instruction_revision": "old-checkpoint-rev",
+            "event_id": "rev_evt_checkpoint",
+            "timestamp_utc": "2026-05-03T22:44:34Z",
+        },
+        "packet_inbox": {
+            "agents": [
+                {
+                    "agent": "claude",
+                    "current_instruction_packet_id": "",
+                }
+            ],
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_3110",
+                "kind": "instruction",
+                "status": "applied",
+                "lifecycle_current_state": "applied",
+                "to_agent": "codex",
+                "target_role": "dashboard",
+                "posted_at": "2026-05-06T17:20:00Z",
+            }
+        ],
+    }
+
+    resolved = build_event_current_session(
+        review_state=review_state,
+        bridge_liveness={"current_instruction_revision": ""},
+    )
+
+    assert resolved.current_instruction == ""
+    assert resolved.current_instruction_revision == ""
+
+
+def test_resolve_current_session_authority_does_not_restore_bridge_after_newer_terminal_instruction_packet() -> None:
+    review_state = {
+        "current_session": {
+            "current_instruction": "Codex: read rev_pkt_2922 + rev_pkt_2923.",
+            "current_instruction_revision": "old-checkpoint-rev",
+            "implementer_status": "",
+            "implementer_ack": "",
+            "implementer_ack_revision": "",
+            "implementer_ack_state": "missing",
+            "implementer_state_hash": "",
+            "open_findings": "725 expired unresolved review packet(s)",
+            "last_reviewed_scope": "MP-377",
+        },
+        "latest_reviewer_checkpoint": {
+            "current_instruction": "Codex: read rev_pkt_2922 + rev_pkt_2923.",
+            "current_instruction_revision": "old-checkpoint-rev",
+            "event_id": "rev_evt_checkpoint",
+            "timestamp_utc": "2026-05-03T22:44:34Z",
+        },
+        "packet_inbox": {
+            "agents": [
+                {
+                    "agent": "claude",
+                    "current_instruction_packet_id": "",
+                }
+            ],
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_3110",
+                "kind": "instruction",
+                "status": "applied",
+                "lifecycle_current_state": "applied",
+                "to_agent": "codex",
+                "target_role": "dashboard",
+                "posted_at": "2026-05-06T17:20:00Z",
+            }
+        ],
+    }
+    snapshot = BridgeSnapshot(
+        metadata={},
+        sections={
+            "Current Instruction For Claude": (
+                "Codex: read rev_pkt_2922 + rev_pkt_2923."
+            ),
+            "Open Findings": "725 expired unresolved review packet(s)",
+            "Claude Status": "assigned",
+            "Claude Ack": "",
+            "Last Reviewed Scope": "MP-377",
+        },
+    )
+
+    resolved = resolve_current_session_authority(
+        snapshot=snapshot,
+        bridge_liveness={"current_instruction_revision": "old-checkpoint-rev"},
+        prior_review_state=review_state,
+    )
+
+    assert resolved.current_instruction == ""
+    assert resolved.current_instruction_revision == ""
+    assert resolved.open_findings == "none"
+
+
+def test_resolve_current_session_authority_uses_continuity_index_to_suppress_old_checkpoint() -> None:
+    review_state = {
+        "current_session": {
+            "current_instruction": "Codex: read rev_pkt_2922 + rev_pkt_2923.",
+            "current_instruction_revision": "old-checkpoint-rev",
+            "implementer_status": "",
+            "implementer_ack": "",
+            "implementer_ack_revision": "",
+            "implementer_ack_state": "missing",
+            "implementer_state_hash": "",
+            "open_findings": "725 expired unresolved review packet(s)",
+            "last_reviewed_scope": "MP-377",
+        },
+        "latest_reviewer_checkpoint": {
+            "current_instruction": "Codex: read rev_pkt_2922 + rev_pkt_2923.",
+            "current_instruction_revision": "old-checkpoint-rev",
+            "event_id": "rev_evt_52534",
+            "timestamp_utc": "2026-05-03T22:44:34Z",
+        },
+        "packet_inbox": {
+            "agents": [
+                {
+                    "agent": "claude",
+                    "current_instruction_packet_id": "",
+                }
+            ],
+        },
+        "packets": [],
+        "packet_continuity_index": {
+            "rows": [
+                {
+                    "packet_id": "rev_pkt_3110",
+                    "status": "applied",
+                    "lifecycle_state": "applied",
+                    "sink": "archived",
+                    "latest_event_id": "rev_evt_53859",
+                }
+            ]
+        },
+    }
+    snapshot = BridgeSnapshot(
+        metadata={},
+        sections={
+            "Current Instruction For Claude": (
+                "Codex: read rev_pkt_2922 + rev_pkt_2923."
+            ),
+            "Open Findings": "725 expired unresolved review packet(s)",
+            "Claude Status": "assigned",
+            "Claude Ack": "",
+            "Last Reviewed Scope": "MP-377",
+        },
+    )
+
+    resolved = resolve_current_session_authority(
+        snapshot=snapshot,
+        bridge_liveness={"current_instruction_revision": "old-checkpoint-rev"},
+        prior_review_state=review_state,
+    )
+
+    assert resolved.current_instruction == ""
+    assert resolved.current_instruction_revision == ""
+    assert resolved.open_findings == "none"
+
+
 def test_build_event_current_session_priority_action_request_overrides_reviewer_checkpoint() -> None:
     review_state = _priority_action_request_review_state()
 

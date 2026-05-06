@@ -237,6 +237,33 @@ def test_open_findings_summary_does_not_revive_evicted_expired_packets() -> None
     assert summary == "none"
 
 
+def test_open_findings_summary_drops_stale_packet_summary_when_packet_truth_is_clear() -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_archived_expired",
+                "kind": "finding",
+                "status": "expired",
+                "to_agent": "codex",
+                "lifecycle_current_state": "archived",
+                "disposition": {"sink": "archived"},
+            }
+        ],
+        "queue": {
+            "pending_total": 0,
+            "stale_packet_count": 0,
+        },
+    }
+
+    summary = summarize_packet_attention_open_findings(
+        review_state,
+        fallback="725 expired unresolved review packet(s)",
+        agent="codex",
+    )
+
+    assert summary == "none"
+
+
 def test_packet_inbox_indexes_current_instruction_by_target_agent() -> None:
     review_state = {
         "packets": [

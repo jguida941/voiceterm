@@ -2088,6 +2088,10 @@ Machine-first output note:
   path now promotes `PacketAttentionIngestionDecision.next_command` into the
   report's `next_step_command` and first `next_commands` row, so automation can
   fire the selected bounded packet action without re-running the same reducer.
+  Archived packet-history rows remain audit evidence: terminal
+  `applied`/`dismissed`/`archived` rows may still count toward carry-forward
+  and provenance reports, but they must not block `/develop`, startup, or
+  current-session projection as live packet attention.
   `audit-packets --drain-packets` runs the existing guarded deterministic
   plan-row ingestion writer for eligible rows and emits durable-ingestion
   receipts; it does not grant repo mutation. Live runtime-actionable pending

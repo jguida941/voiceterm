@@ -91,6 +91,28 @@ def test_expired_unresolved_communication_pivots_without_autodrain() -> None:
     assert decision["decision"] == "pivot_to_packet_review"
 
 
+def test_archived_expired_packets_do_not_drive_packet_pressure() -> None:
+    packet = _packet(
+        "rev_pkt_archived",
+        status="expired",
+        lifecycle_current_state="archived",
+        expires_at_utc=_stamp(minutes=-5),
+        disposition={"sink": "archived"},
+    )
+
+    pressure, classifications, decision = packet_pressure_report(
+        {"packets": [packet]},
+        rows=(),
+        actor="codex",
+    )
+
+    assert pressure["live_total"] == 0
+    assert pressure["actionable_total"] == 0
+    assert pressure["expired_unresolved_total"] == 0
+    assert classifications == []
+    assert decision["decision"] == "continue_current_work"
+
+
 def test_duplicate_and_obsolete_packets_are_terminal_classifications() -> None:
     packets = [
         _packet(
@@ -180,6 +202,8 @@ def _packet(
     packet_id: str,
     *,
     kind: str = "system_notice",
+    status: str = "pending",
+    lifecycle_current_state: str = "",
     target_kind: str = "",
     target_ref: str = "",
     expires_at_utc: str | None = None,
@@ -188,7 +212,7 @@ def _packet(
     packet = {
         "packet_id": packet_id,
         "kind": kind,
-        "status": "pending",
+        "status": status,
         "to_agent": "codex",
         "summary": "packet pressure test",
         "requested_action": "review_only",
@@ -199,6 +223,8 @@ def _packet(
         "target_ref": target_ref,
         "expires_at_utc": expires_at_utc or "2999-01-01T00:00:00Z",
     }
+    if lifecycle_current_state:
+        packet["lifecycle_current_state"] = lifecycle_current_state
     if disposition is not None:
         packet["disposition"] = disposition
     return packet

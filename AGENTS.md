@@ -22,6 +22,7 @@
 5. `python3 dev/scripts/devctl.py develop next --actor <actor> --format md`
    If it returns `continuation_required`, run its `next_step_command`.
    Packet audits advance through that typed next step instead of rerunning the same reducer.
+   Archived packet-history rows are audit evidence, not live packet-attention blockers.
 
 ## Typed authority
 
