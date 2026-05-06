@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-06T16:57:00Z`
-- Last Codex poll (Local America/New_York): `2026-05-06 12:57:00 EDT`
+- Last Codex poll: `2026-05-06T17:13:52Z`
+- Last Codex poll (Local America/New_York): `2026-05-06 13:13:52 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `982c2476cf0ae999cd62a619d4e19e72bdd1307d9b8ce14f5efc865a7ebe6555`
-- Current instruction revision: `ed0adadb9379`
+- Current instruction revision: `511f2d692a4e`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s); 724 expired unresolved review packet(s)
+1 pending review packet(s); 725 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -134,20 +134,20 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-- MP377-REMOTE-RECOVERY plan handoff: review + suggest better architectural integration + implement at proper time (after current packet-truth normalizer work). Plan ingested at dev/state/plan_index.jsonl. 10 integration questions for codex to evaluate. Improvements go in next slice or amend before implementation starts. NO INTERRUPT codex's current fix-loop.
-- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `state.py`, `current_session_packet_normalize.py`, `Users/jguida941/.claude/plans/peppy-hugging-kahn.md`
+- Remote-control parity fix published; continue campaign
+- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `AGENTS.md`, `CLAUDE.md`, `CODEX.md`
 - Canonical refs:
   - `dev/active/MASTER_PLAN.md`
-  - `dev/reports/governance/finding_reviews.jsonl#0dd5bcfaac2b244b`
-  - `dev/reports/governance/finding_reviews.jsonl#18cbd0a747b2fbe9`
+  - `dev/reports/governance/finding_reviews.jsonl#1f30e819a6aecf7e`
+  - `dev/reports/governance/finding_reviews.jsonl#845505a15e93e9c9`
 
 ## Last Reviewed Scope
 
-MP-355
+MP-377
 
 ## Action Requests
 

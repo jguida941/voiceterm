@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `74bfb1c29f2c` — Refresh external review snapshot for 3d4ae574
-- Tree hash: `80918882f49b`
-- Generation stamp: `snap-8d5a4d8ad08c`
-- Generated at (UTC): 2026-05-06T16:59:28Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `218bb398cbc6` — Refresh external review snapshot for 74bfb1c2
+- Tree hash: `561789f5823e`
+- Generation stamp: `snap-b624e7862aea`
+- Generated at (UTC): 2026-05-06T17:15:06Z
+- Push decision: `no_push_needed` — managed_projection_drift_only
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 41 files, +3770/-2055
+- Delta since last snapshot: 24 commits, 41 files, +3768/-2047
 - Governance findings: 158 open / 88 fixed / 260 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,25 +30,24 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `74bfb1c29f2cc830540673685832c19ccb5ba8d0`
+- HEAD SHA: `218bb398cbc65feae69e1e07679dacf6d5c147cf`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-06T12:57:31-04:00
+- HEAD timestamp (UTC): 2026-05-06T13:00:03-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
+- action: `no_push_needed`
+- reason: managed_projection_drift_only
+- push_eligible_now: False
 - worktree_clean: True
 - staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
-- latest_push_report_state: `blocked` (push_preflight_running)
+- next_step_command: `n/a`
+- latest_push_report_state: `post_push_green` (push_completed)
 - current_push_authorization: `push-auth-20260506T165209700286Z` (valid=True)
 - authorized_head_commit: `3d4ae57429bdfd7d63180036c7b213aedb07d726`
-- publication_backlog: urgent
-- publication_guidance: 7 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_backlog: none
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -64,16 +63,16 @@ probes, typed actions, deterministic policy resolution — is what m...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `no_push_needed` — managed_projection_drift_only
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `74bfb1c29f2c`
+Range: last 24 commits ending at `218bb398cbc6`
 
 - commits: 24
 - files changed: 41
-- insertions: +3770
-- deletions: -2055
+- insertions: +3768
+- deletions: -2047
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 1 file(s)
 
@@ -81,40 +80,40 @@ Range: last 24 commits ending at `74bfb1c29f2c`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `74bfb1c2` | Refresh external review snapshot for 3d4ae574 | 2 | +48/-51 | docs |  |
-| 2 | `3d4ae574` | Refresh external review snapshot for e08186fa | 2 | +85/-71 | docs |  |
-| 3 | `e08186fa` | Fix remote-control packet scope parity | 29 | +1090/-543 | tooling |  |
-| 4 | `e13fb3d2` | Refresh external review snapshot for e6a486b1 | 2 | +46/-46 | docs |  |
-| 5 | `e6a486b1` | Refresh external review snapshot for f4aa0823 | 2 | +46/-44 | docs |  |
-| 6 | `f4aa0823` | Refresh external review snapshot for 17c86a1f | 2 | +61/-63 | docs |  |
-| 7 | `17c86a1f` | Record remote-control campaign packet | 2 | +54/-54 | docs |  |
-| 8 | `111e1de3` | Refresh external review snapshot for 5dee4db9 | 2 | +44/-44 | docs |  |
-| 9 | `5dee4db9` | Refresh external review snapshot for 3bf94665 | 2 | +45/-43 | docs |  |
-| 10 | `3bf94665` | Refresh external review snapshot for c95aa86b | 2 | +73/-71 | docs |  |
-| 11 | `c95aa86b` | Fold exception proof into campaign lane | 18 | +702/-202 | tooling |  |
-| 12 | `9d7ae361` | Refresh external review snapshot for a6c1034e | 2 | +49/-48 | docs |  |
-| 13 | `a6c1034e` | Refresh external review snapshot for c0796505 | 2 | +48/-49 | docs |  |
-| 14 | `c0796505` | Refresh external review snapshot for 2b8397a5 | 2 | +72/-64 | docs |  |
-| 15 | `2b8397a5` | Add remote-control pair campaign view | 20 | +722/-84 | tooling |  |
-| 16 | `f3489a3c` | Refresh external review snapshot for 26ef3f79 | 2 | +58/-58 | docs |  |
-| 17 | `26ef3f79` | Refresh external review snapshot for 32d6f1f2 | 2 | +46/-47 | docs |  |
-| 18 | `32d6f1f2` | Refresh external review snapshot for b741a46a | 2 | +62/-62 | docs |  |
-| 19 | `b741a46a` | Add measured devctl test timeout override | 10 | +91/-69 | tooling |  |
-| 20 | `aed37390` | Refresh external review snapshot for c831b36a | 2 | +60/-77 | docs |  |
-| 21 | `c831b36a` | Refresh external review snapshot for f6ab7bf7 | 2 | +47/-48 | docs |  |
-| 22 | `f6ab7bf7` | Refresh external review snapshot for 9e3f7098 | 2 | +60/-62 | docs |  |
-| 23 | `9e3f7098` | Split focused devctl router tests | 10 | +107/-100 | tooling |  |
-| 24 | `3769a6c2` | Refresh external review snapshot for 72116dde | 2 | +54/-55 | docs |  |
+| 1 | `218bb398` | Refresh external review snapshot for 74bfb1c2 | 2 | +52/-47 | docs |  |
+| 2 | `74bfb1c2` | Refresh external review snapshot for 3d4ae574 | 2 | +48/-51 | docs |  |
+| 3 | `3d4ae574` | Refresh external review snapshot for e08186fa | 2 | +85/-71 | docs |  |
+| 4 | `e08186fa` | Fix remote-control packet scope parity | 29 | +1090/-543 | tooling |  |
+| 5 | `e13fb3d2` | Refresh external review snapshot for e6a486b1 | 2 | +46/-46 | docs |  |
+| 6 | `e6a486b1` | Refresh external review snapshot for f4aa0823 | 2 | +46/-44 | docs |  |
+| 7 | `f4aa0823` | Refresh external review snapshot for 17c86a1f | 2 | +61/-63 | docs |  |
+| 8 | `17c86a1f` | Record remote-control campaign packet | 2 | +54/-54 | docs |  |
+| 9 | `111e1de3` | Refresh external review snapshot for 5dee4db9 | 2 | +44/-44 | docs |  |
+| 10 | `5dee4db9` | Refresh external review snapshot for 3bf94665 | 2 | +45/-43 | docs |  |
+| 11 | `3bf94665` | Refresh external review snapshot for c95aa86b | 2 | +73/-71 | docs |  |
+| 12 | `c95aa86b` | Fold exception proof into campaign lane | 18 | +702/-202 | tooling |  |
+| 13 | `9d7ae361` | Refresh external review snapshot for a6c1034e | 2 | +49/-48 | docs |  |
+| 14 | `a6c1034e` | Refresh external review snapshot for c0796505 | 2 | +48/-49 | docs |  |
+| 15 | `c0796505` | Refresh external review snapshot for 2b8397a5 | 2 | +72/-64 | docs |  |
+| 16 | `2b8397a5` | Add remote-control pair campaign view | 20 | +722/-84 | tooling |  |
+| 17 | `f3489a3c` | Refresh external review snapshot for 26ef3f79 | 2 | +58/-58 | docs |  |
+| 18 | `26ef3f79` | Refresh external review snapshot for 32d6f1f2 | 2 | +46/-47 | docs |  |
+| 19 | `32d6f1f2` | Refresh external review snapshot for b741a46a | 2 | +62/-62 | docs |  |
+| 20 | `b741a46a` | Add measured devctl test timeout override | 10 | +91/-69 | tooling |  |
+| 21 | `aed37390` | Refresh external review snapshot for c831b36a | 2 | +60/-77 | docs |  |
+| 22 | `c831b36a` | Refresh external review snapshot for f6ab7bf7 | 2 | +47/-48 | docs |  |
+| 23 | `f6ab7bf7` | Refresh external review snapshot for 9e3f7098 | 2 | +60/-62 | docs |  |
+| 24 | `9e3f7098` | Split focused devctl router tests | 10 | +107/-100 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +5/-3 |
-| `bridge.md` | docs | +69/-69 |
+| `bridge.md` | docs | +77/-72 |
 | `dev/active/MASTER_PLAN.md` | tooling | +29/-10 |
 | `dev/active/ai_governance_platform.md` | tooling | +36/-6 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1287/-1281 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1277/-1270 |
 | `dev/guides/DEVELOPMENT.md` | docs | +24/-10 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +5/-5 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +67/-17 |
@@ -213,6 +212,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`218bb398`** — Refresh external review snapshot for 74bfb1c2
+  - evolution: Change: added the read-only `devctl develop campaign` surface and the `RemoteControlCollaborationCampaign` platform contract. The report projects the Codex/Claude remote-control campaign from existing typed state: role …
 - **`74bfb1c2`** — Refresh external review snapshot for 3d4ae574
   - evolution: Change: added the read-only `devctl develop campaign` surface and the `RemoteControlCollaborationCampaign` platform contract. The report projects the Codex/Claude remote-control campaign from existing typed state: role …
 - **`3d4ae574`** — Refresh external review snapshot for e08186fa
@@ -259,8 +260,6 @@ Recent findings:
   - evolution: Change: added the read-only `devctl develop campaign` surface and the `RemoteControlCollaborationCampaign` platform contract. The report projects the Codex/Claude remote-control campaign from existing typed state: role …
 - **`9e3f7098`** — Split focused devctl router tests
   - evolution: Change: added the read-only `devctl develop campaign` surface and the `RemoteControlCollaborationCampaign` platform contract. The report projects the Codex/Claude remote-control campaign from existing typed state: role …
-- **`3769a6c2`** — Refresh external review snapshot for 72116dde
-  - evolution: Change: added the read-only `devctl develop campaign` surface and the `RemoteControlCollaborationCampaign` platform contract. The report projects the Codex/Claude remote-control campaign from existing typed state: role …
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -279,10 +278,11 @@ Recent findings:
 - open governance findings: 158
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- no_push_needed: managed_projection_drift_only
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Checkpoint dirty work.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/governance/orchestrate_watch.py`): dogfood.command.orchestrate-watch: Auto-ingested devctl finalization failure rc=1.
@@ -299,4 +299,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-8d5a4d8ad08c` binds this file to HEAD `74bfb1c29f2c`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-b624e7862aea` binds this file to HEAD `218bb398cbc6`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
