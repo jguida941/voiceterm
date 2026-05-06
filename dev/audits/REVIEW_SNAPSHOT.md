@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `3bf946658463` — Refresh external review snapshot for c95aa86b
-- Tree hash: `1d65d0774679`
-- Generation stamp: `snap-820f2cb1eadb`
-- Generated at (UTC): 2026-05-06T15:32:32Z
+- HEAD: `5dee4db94f71` — Refresh external review snapshot for 3bf94665
+- Tree hash: `3dbb25886551`
+- Generation stamp: `snap-94b727045513`
+- Generated at (UTC): 2026-05-06T15:33:41Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `single_agent`)
+- Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 25 files, +2778/-1596
+- Delta since last snapshot: 24 commits, 25 files, +2777/-1595
 - Governance findings: 158 open / 88 fixed / 260 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,9 +30,9 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `3bf94665846356ff35471bfb3660624230c32aef`
+- HEAD SHA: `5dee4db94f719a3b86ee30779574feb0edba9af9`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-06T11:30:28-04:00
+- HEAD timestamp (UTC): 2026-05-06T11:32:33-04:00
 
 ## 2. Governance state
 
@@ -48,13 +48,13 @@ probes, typed actions, deterministic policy resolution — is what m...
 - current_push_authorization: `push-auth-20260506T152912937683Z` (valid=True)
 - authorized_head_commit: `3bf94665846356ff35471bfb3660624230c32aef`
 - publication_backlog: recommended
-- publication_guidance: 2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 3 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `single_agent`
+- interaction_mode: `local_terminal`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -68,12 +68,12 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `3bf946658463`
+Range: last 24 commits ending at `5dee4db94f71`
 
 - commits: 24
 - files changed: 25
-- insertions: +2778
-- deletions: -1596
+- insertions: +2777
+- deletions: -1595
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 1 file(s)
 
@@ -81,30 +81,30 @@ Range: last 24 commits ending at `3bf946658463`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `3bf94665` | Refresh external review snapshot for c95aa86b | 2 | +73/-71 | docs |  |
-| 2 | `c95aa86b` | Fold exception proof into campaign lane | 18 | +702/-202 | tooling |  |
-| 3 | `9d7ae361` | Refresh external review snapshot for a6c1034e | 2 | +49/-48 | docs |  |
-| 4 | `a6c1034e` | Refresh external review snapshot for c0796505 | 2 | +48/-49 | docs |  |
-| 5 | `c0796505` | Refresh external review snapshot for 2b8397a5 | 2 | +72/-64 | docs |  |
-| 6 | `2b8397a5` | Add remote-control pair campaign view | 20 | +722/-84 | tooling |  |
-| 7 | `f3489a3c` | Refresh external review snapshot for 26ef3f79 | 2 | +58/-58 | docs |  |
-| 8 | `26ef3f79` | Refresh external review snapshot for 32d6f1f2 | 2 | +46/-47 | docs |  |
-| 9 | `32d6f1f2` | Refresh external review snapshot for b741a46a | 2 | +62/-62 | docs |  |
-| 10 | `b741a46a` | Add measured devctl test timeout override | 10 | +91/-69 | tooling |  |
-| 11 | `aed37390` | Refresh external review snapshot for c831b36a | 2 | +60/-77 | docs |  |
-| 12 | `c831b36a` | Refresh external review snapshot for f6ab7bf7 | 2 | +47/-48 | docs |  |
-| 13 | `f6ab7bf7` | Refresh external review snapshot for 9e3f7098 | 2 | +60/-62 | docs |  |
-| 14 | `9e3f7098` | Split focused devctl router tests | 10 | +107/-100 | tooling |  |
-| 15 | `3769a6c2` | Refresh external review snapshot for 72116dde | 2 | +54/-55 | docs |  |
-| 16 | `72116dde` | Refresh external review snapshot for e21cd117 | 2 | +45/-43 | docs |  |
-| 17 | `e21cd117` | Refresh external review snapshot for 850a2a7e | 2 | +63/-66 | docs |  |
-| 18 | `850a2a7e` | Serialize focused devctl test add-on | 10 | +79/-74 | tooling |  |
-| 19 | `c696409b` | Refresh external review snapshot for 88d16d7d | 2 | +55/-57 | docs |  |
-| 20 | `88d16d7d` | Refresh external review snapshot for e30be54e | 2 | +44/-42 | docs |  |
-| 21 | `e30be54e` | Refresh external review snapshot for 03be7736 | 2 | +66/-67 | docs |  |
-| 22 | `03be7736` | Raise focused devctl test timeout floor | 10 | +83/-59 | tooling |  |
-| 23 | `847dc839` | Refresh external review snapshot for 7a1c5131 | 2 | +46/-48 | docs |  |
-| 24 | `7a1c5131` | Refresh external review snapshot for f6daf24e | 2 | +46/-44 | docs |  |
+| 1 | `5dee4db9` | Refresh external review snapshot for 3bf94665 | 2 | +45/-43 | docs |  |
+| 2 | `3bf94665` | Refresh external review snapshot for c95aa86b | 2 | +73/-71 | docs |  |
+| 3 | `c95aa86b` | Fold exception proof into campaign lane | 18 | +702/-202 | tooling |  |
+| 4 | `9d7ae361` | Refresh external review snapshot for a6c1034e | 2 | +49/-48 | docs |  |
+| 5 | `a6c1034e` | Refresh external review snapshot for c0796505 | 2 | +48/-49 | docs |  |
+| 6 | `c0796505` | Refresh external review snapshot for 2b8397a5 | 2 | +72/-64 | docs |  |
+| 7 | `2b8397a5` | Add remote-control pair campaign view | 20 | +722/-84 | tooling |  |
+| 8 | `f3489a3c` | Refresh external review snapshot for 26ef3f79 | 2 | +58/-58 | docs |  |
+| 9 | `26ef3f79` | Refresh external review snapshot for 32d6f1f2 | 2 | +46/-47 | docs |  |
+| 10 | `32d6f1f2` | Refresh external review snapshot for b741a46a | 2 | +62/-62 | docs |  |
+| 11 | `b741a46a` | Add measured devctl test timeout override | 10 | +91/-69 | tooling |  |
+| 12 | `aed37390` | Refresh external review snapshot for c831b36a | 2 | +60/-77 | docs |  |
+| 13 | `c831b36a` | Refresh external review snapshot for f6ab7bf7 | 2 | +47/-48 | docs |  |
+| 14 | `f6ab7bf7` | Refresh external review snapshot for 9e3f7098 | 2 | +60/-62 | docs |  |
+| 15 | `9e3f7098` | Split focused devctl router tests | 10 | +107/-100 | tooling |  |
+| 16 | `3769a6c2` | Refresh external review snapshot for 72116dde | 2 | +54/-55 | docs |  |
+| 17 | `72116dde` | Refresh external review snapshot for e21cd117 | 2 | +45/-43 | docs |  |
+| 18 | `e21cd117` | Refresh external review snapshot for 850a2a7e | 2 | +63/-66 | docs |  |
+| 19 | `850a2a7e` | Serialize focused devctl test add-on | 10 | +79/-74 | tooling |  |
+| 20 | `c696409b` | Refresh external review snapshot for 88d16d7d | 2 | +55/-57 | docs |  |
+| 21 | `88d16d7d` | Refresh external review snapshot for e30be54e | 2 | +44/-42 | docs |  |
+| 22 | `e30be54e` | Refresh external review snapshot for 03be7736 | 2 | +66/-67 | docs |  |
+| 23 | `03be7736` | Raise focused devctl test timeout floor | 10 | +83/-59 | tooling |  |
+| 24 | `847dc839` | Refresh external review snapshot for 7a1c5131 | 2 | +46/-48 | docs |  |
 
 ### Files
 
@@ -114,7 +114,7 @@ Range: last 24 commits ending at `3bf946658463`
 | `bridge.md` | docs | +46/-46 |
 | `dev/active/MASTER_PLAN.md` | tooling | +31/-14 |
 | `dev/active/ai_governance_platform.md` | tooling | +33/-8 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1286/-1300 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1285/-1299 |
 | `dev/guides/DEVELOPMENT.md` | docs | +23/-15 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +4/-4 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +71/-22 |
@@ -197,6 +197,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`5dee4db9`** — Refresh external review snapshot for 3bf94665
+  - evolution: Change: added the read-only `devctl develop campaign` surface and the `RemoteControlCollaborationCampaign` platform contract. The report projects the Codex/Claude remote-control campaign from existing typed state: role …
 - **`3bf94665`** — Refresh external review snapshot for c95aa86b
   - evolution: Change: added the read-only `devctl develop campaign` surface and the `RemoteControlCollaborationCampaign` platform contract. The report projects the Codex/Claude remote-control campaign from existing typed state: role …
 - **`c95aa86b`** — Fold exception proof into campaign lane
@@ -243,8 +245,6 @@ Recent findings:
   - evolution: Change: added the read-only `devctl develop campaign` surface and the `RemoteControlCollaborationCampaign` platform contract. The report projects the Codex/Claude remote-control campaign from existing typed state: role …
 - **`847dc839`** — Refresh external review snapshot for 7a1c5131
   - evolution: Change: added the read-only `devctl develop campaign` surface and the `RemoteControlCollaborationCampaign` platform contract. The report projects the Codex/Claude remote-control campaign from existing typed state: role …
-- **`7a1c5131`** — Refresh external review snapshot for f6daf24e
-  - evolution: Change: added the read-only `devctl develop campaign` surface and the `RemoteControlCollaborationCampaign` platform contract. The report projects the Codex/Claude remote-control campaign from existing typed state: role …
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -283,4 +283,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-820f2cb1eadb` binds this file to HEAD `3bf946658463`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-94b727045513` binds this file to HEAD `5dee4db94f71`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
