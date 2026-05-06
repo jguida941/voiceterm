@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-06T18:50:14Z`
-- Last Codex poll (Local America/New_York): `2026-05-06 14:50:14 EDT`
+- Last Codex poll: `2026-05-06T19:05:53Z`
+- Last Codex poll (Local America/New_York): `2026-05-06 15:05:53 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `be283e8622f86a4cd2cc05dc02983ab5eaadfdd07d0ac720e8c4c858eb907fc9`
-- Current instruction revision: `af86895d4b22`
+- Last non-audit worktree hash: `aadba47266d2812f7f270c9bdd1a0f23a0c5f53b8889961db8eb1005bb1fb0b0`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-2 pending review packet(s)
+none
 
 ## Claude Status
 
@@ -134,20 +134,15 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
-- Packet liveness repair pushed through governed path
-- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `commit`, `push`
-- Canonical refs:
-  - `dev/active/MASTER_PLAN.md`
-  - `dev/reports/governance/finding_reviews.jsonl#1507bf2ad54d6bd6`
-  - `dev/reports/governance/finding_reviews.jsonl#27de80329150209d`
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 
-MP-377
+MP-355
 
 ## Action Requests
 
