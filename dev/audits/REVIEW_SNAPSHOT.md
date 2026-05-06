@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `ab69857d2b92` — Refresh external review snapshot for fb0fef5d
-- Tree hash: `5ea7a1e34046`
-- Generation stamp: `snap-d3871804d14c`
-- Generated at (UTC): 2026-05-06T04:37:51Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `58688059a2b4` — Bound post-commit receipt refresh
+- Tree hash: `cb628cb9c3e9`
+- Generation stamp: `snap-59695be3a58c`
+- Generated at (UTC): 2026-05-06T04:38:10Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 197 files, +20285/-6692
+- Delta since last snapshot: 24 commits, 199 files, +20362/-6677
 - Governance findings: 158 open / 88 fixed / 260 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,23 +30,23 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `ab69857d2b921f58823ca156f5472233cb209717`
+- HEAD SHA: `58688059a2b4a05aa65cb1b9b8ce2569813f086e`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-06T00:28:37-04:00
+- HEAD timestamp (UTC): 2026-05-06T00:36:52-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_present
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 9
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: recommended
-- publication_guidance: 2 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 3 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -62,16 +62,16 @@ probes, typed actions, deterministic policy resolution — is what m...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `ab69857d2b92`
+Range: last 24 commits ending at `58688059a2b4`
 
 - commits: 24
-- files changed: 197
-- insertions: +20285
-- deletions: -6692
+- files changed: 199
+- insertions: +20362
+- deletions: -6677
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 7 file(s)
 
@@ -79,30 +79,30 @@ Range: last 24 commits ending at `ab69857d2b92`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `ab69857d` | Refresh external review snapshot for fb0fef5d | 2 | +56/-55 | docs |  |
-| 2 | `fb0fef5d` | Record role-matrix dogfood disposition | 5 | +95/-71 | tooling |  |
-| 3 | `5368bb9b` | Record boot dogfood packet binding | 3 | +6/-4 | tooling |  |
-| 4 | `87c24fa1` | Remove Codex boot card surface | 13 | +95/-142 | tooling |  |
-| 5 | `830aa787` | Refresh external review snapshot for 4dfd3939 | 2 | +57/-56 | docs |  |
-| 6 | `4dfd3939` | Add provider-neutral boot dogfood plan | 8 | +137/-84 | tooling |  |
-| 7 | `ed012aee` | Refresh external review snapshot for a3b129ee | 2 | +54/-54 | docs |  |
-| 8 | `a3b129ee` | Restore agents contract script mode | 2 | +50/-50 | tooling |  |
-| 9 | `b01b50de` | Refresh external review snapshot for ee2fdbfa | 2 | +72/-68 | docs |  |
-| 10 | `ee2fdbfa` | Generate agent boot cards from typed authority | 27 | +1120/-3737 | tooling |  |
-| 11 | `4395f17d` | Refresh external review snapshot for d900d149 | 2 | +80/-73 | docs |  |
-| 12 | `d900d149` | Add governed exception lifecycle foundation | 72 | +4578/-451 | tooling |  |
-| 13 | `58246e50` | Refresh projections for rev_pkt_3071+3072 codex handoff | 2 | +50/-50 | docs |  |
-| 14 | `0492bac5` | Refresh external review snapshot for 10364c5f | 2 | +64/-64 | docs |  |
-| 15 | `10364c5f` | Refresh projections for rev_pkt_3068+3069+3070 plan handoff… | 4 | +60/-58 | tooling |  |
-| 16 | `2e1d341f` | Refresh external review snapshot for d7ce0f7d | 2 | +63/-63 | docs |  |
-| 17 | `d7ce0f7d` | Add publication-defer routing and peer attention-window pro… | 27 | +1380/-146 | tooling |  |
-| 18 | `9c02b8b2` | Refresh external review snapshot for 1cfa5df2 | 2 | +57/-59 | docs |  |
-| 19 | `1cfa5df2` | Refresh external review snapshot for f5e2e183 | 2 | +54/-52 | docs |  |
-| 20 | `f5e2e183` | Refresh external review snapshot for ed79cd0e | 2 | +95/-91 | docs |  |
-| 21 | `ed79cd0e` | Implement runtime truth remote control pipeline | 100 | +10011/-1014 | tooling |  |
-| 22 | `27b81fdb` | Refresh external review snapshot for de639cbc | 2 | +74/-73 | docs |  |
-| 23 | `de639cbc` | Add relaunch-loop lifecycle contracts | 31 | +1911/-106 | tooling |  |
-| 24 | `afb71fe6` | Refresh external review snapshot for b9406f73 | 2 | +66/-71 | docs |  |
+| 1 | `58688059` | Bound post-commit receipt refresh | 10 | +143/-56 | tooling |  |
+| 2 | `ab69857d` | Refresh external review snapshot for fb0fef5d | 2 | +56/-55 | docs |  |
+| 3 | `fb0fef5d` | Record role-matrix dogfood disposition | 5 | +95/-71 | tooling |  |
+| 4 | `5368bb9b` | Record boot dogfood packet binding | 3 | +6/-4 | tooling |  |
+| 5 | `87c24fa1` | Remove Codex boot card surface | 13 | +95/-142 | tooling |  |
+| 6 | `830aa787` | Refresh external review snapshot for 4dfd3939 | 2 | +57/-56 | docs |  |
+| 7 | `4dfd3939` | Add provider-neutral boot dogfood plan | 8 | +137/-84 | tooling |  |
+| 8 | `ed012aee` | Refresh external review snapshot for a3b129ee | 2 | +54/-54 | docs |  |
+| 9 | `a3b129ee` | Restore agents contract script mode | 2 | +50/-50 | tooling |  |
+| 10 | `b01b50de` | Refresh external review snapshot for ee2fdbfa | 2 | +72/-68 | docs |  |
+| 11 | `ee2fdbfa` | Generate agent boot cards from typed authority | 27 | +1120/-3737 | tooling |  |
+| 12 | `4395f17d` | Refresh external review snapshot for d900d149 | 2 | +80/-73 | docs |  |
+| 13 | `d900d149` | Add governed exception lifecycle foundation | 72 | +4578/-451 | tooling |  |
+| 14 | `58246e50` | Refresh projections for rev_pkt_3071+3072 codex handoff | 2 | +50/-50 | docs |  |
+| 15 | `0492bac5` | Refresh external review snapshot for 10364c5f | 2 | +64/-64 | docs |  |
+| 16 | `10364c5f` | Refresh projections for rev_pkt_3068+3069+3070 plan handoff… | 4 | +60/-58 | tooling |  |
+| 17 | `2e1d341f` | Refresh external review snapshot for d7ce0f7d | 2 | +63/-63 | docs |  |
+| 18 | `d7ce0f7d` | Add publication-defer routing and peer attention-window pro… | 27 | +1380/-146 | tooling |  |
+| 19 | `9c02b8b2` | Refresh external review snapshot for 1cfa5df2 | 2 | +57/-59 | docs |  |
+| 20 | `1cfa5df2` | Refresh external review snapshot for f5e2e183 | 2 | +54/-52 | docs |  |
+| 21 | `f5e2e183` | Refresh external review snapshot for ed79cd0e | 2 | +95/-91 | docs |  |
+| 22 | `ed79cd0e` | Implement runtime truth remote control pipeline | 100 | +10011/-1014 | tooling |  |
+| 23 | `27b81fdb` | Refresh external review snapshot for de639cbc | 2 | +74/-73 | docs |  |
+| 24 | `de639cbc` | Add relaunch-loop lifecycle contracts | 31 | +1911/-106 | tooling |  |
 
 ### Files
 
@@ -113,21 +113,22 @@ Range: last 24 commits ending at `ab69857d2b92`
 | `.github/workflows/release_preflight.yml` | tooling | +2/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +6/-0 |
 | `.gitignore` | tooling | +4/-0 |
-| `AGENTS.md` | docs | +95/-2961 |
-| `bridge.md` | docs | +103/-103 |
-| `dev/active/MASTER_PLAN.md` | tooling | +172/-13 |
-| `dev/active/ai_governance_platform.md` | tooling | +258/-25 |
+| `AGENTS.md` | docs | +96/-2961 |
+| `bridge.md` | docs | +100/-100 |
+| `dev/active/MASTER_PLAN.md` | tooling | +178/-13 |
+| `dev/active/ai_governance_platform.md` | tooling | +261/-26 |
 | `dev/active/remote_control_runtime.md` | tooling | +37/-1 |
 | `dev/active/review_channel.md` | tooling | +13/-2 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1425/-1419 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1412/-1401 |
 | `dev/config/devctl_repo_policy.json` | tooling | +176/-70 |
+| `dev/config/git_hooks/post-commit-review-snapshot.sh` | tooling | +37/-1 |
 | `dev/config/templates/README.md` | tooling | +7/-0 |
 | `dev/config/templates/claude_typed_remote_control_command.template.md` | tooling | +56/-0 |
 | `dev/config/templates/remote_control_slash_adapters.template.md` | tooling | +1/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +118/-23 |
+| `dev/guides/DEVELOPMENT.md` | docs | +124/-23 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +18/-15 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +408/-8 |
-| `dev/scripts/README.md` | tooling | +143/-38 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +425/-8 |
+| `dev/scripts/README.md` | tooling | +150/-42 |
 | `dev/scripts/checks/check_agents_bundle_render.py` | tooling | +22/-103 |
 | `dev/scripts/checks/check_agents_contract.py` | tooling | +49/-118 |
 | `dev/scripts/checks/check_ground_truth_probe_gate.py` | tooling | +11/-0 |
@@ -147,8 +148,7 @@ Range: last 24 commits ending at `ab69857d2b92`
 | `dev/scripts/devctl/cli_parser/remote_control.py` | tooling | +148/-0 |
 | `dev/scripts/devctl/commands/development/continuation.py` | tooling | +10/-2 |
 | `dev/scripts/devctl/commands/development/continuation_commands.py` | tooling | +51/-2 |
-| `dev/scripts/devctl/commands/development/design_preflight.py` | tooling | +350/-0 |
-| _157 more files trimmed_ | | |
+| _159 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -232,6 +232,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`58688059`** — Bound post-commit receipt refresh
+  - evolution: Change: replaced hand-maintained AGENTS authority prose with a generated `InstructionBootCard` projection. `AGENTS.md` is now the short tracked boot card, `CLAUDE.md` is an ignored local-only generated peer card, and `C…
 - **`ab69857d`** — Refresh external review snapshot for fb0fef5d
   - evolution: Change: replaced hand-maintained AGENTS authority prose with a generated `InstructionBootCard` projection. `AGENTS.md` is now the short tracked boot card, `CLAUDE.md` is an ignored local-only generated peer card, and `C…
 - **`fb0fef5d`** — Record role-matrix dogfood disposition
@@ -279,8 +281,6 @@ Recent findings:
   - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 - **`de639cbc`** — Add relaunch-loop lifecycle contracts
   - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
-- **`afb71fe6`** — Refresh external review snapshot for b9406f73
-  - evolution: Fact: the phone/dashboard remote-control path had two authority leaks. The legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude slash file, while stale `remote_control` signals could keep loca…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -299,10 +299,10 @@ Recent findings:
 - open governance findings: 158
 
 ### Startup advisories
-- checkpoint_before_continue: dirty_after_local_checkpoint
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Relaunch the reviewer loop immediately.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/governance/orchestrate_watch.py`): dogfood.command.orchestrate-watch: Auto-ingested devctl finalization failure rc=1.
@@ -319,4 +319,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-d3871804d14c` binds this file to HEAD `ab69857d2b92`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-59695be3a58c` binds this file to HEAD `58688059a2b4`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
