@@ -18,6 +18,7 @@ from dev.scripts.devctl.commands.development import packet_debt as development_p
 from dev.scripts.devctl.commands.development import plan_intake
 from dev.scripts.devctl.commands.development import report as development_report
 from dev.scripts.devctl.commands.development.actor_resolution import resolve_actor
+from dev.scripts.devctl.commands.development.campaign import campaign_report
 from dev.scripts.devctl.commands.development.models import (
     DevelopmentPacketAttention,
     DevelopmentPeerMindSnapshot,
@@ -223,6 +224,92 @@ def test_develop_status_accepts_collaboration_mode_and_role_preset(capsys) -> No
     assert collaboration["selected_role_preset_id"] == "tester"
     assert collaboration["selected_role_preset"]["mutation_policy"] == "evidence_only"
     assert collaboration["mutable_fanout_status"] == "blocked_by_read_model_mode"
+
+
+def test_develop_campaign_parser_action_is_read_only() -> None:
+    args = cli.build_parser().parse_args(["develop", "campaign", "--format", "json"])
+
+    assert args.command == "develop"
+    assert args.action == "campaign"
+    assert "develop" in cli.READ_ONLY_COMMANDS
+
+
+def test_develop_campaign_fails_closed_on_mode_drift() -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    review_state = {
+        "effective_reviewer_mode": "single_agent",
+        "coordination_state": {
+            "coordination_topology": "multi_agent_active",
+            "legacy_reviewer_mode": "single_agent",
+        },
+        "reviewer_runtime": {
+            "session_posture": {"interaction_mode": "local_terminal"},
+            "remote_control_attachment": {
+                "provider": "claude",
+                "status": "attached",
+                "remote_session_id": "session_remote",
+                "last_seen_utc": now,
+                "physical_remote_control_confirmed": True,
+            },
+        },
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "codex",
+                    "role": "implementer",
+                    "session_id": "codex-session",
+                    "status": "idle",
+                    "mutation_mode": "live_tree",
+                }
+            ]
+        },
+        "agent_loop_decisions": [
+            {
+                "actor_id": "codex",
+                "actor_role": "implementer",
+                "session_id": "codex-session",
+                "may_mutate": True,
+                "required_action": "continue_current_execution",
+                "proof_state": "satisfied",
+                "next_loop_command": "python3 dev/scripts/devctl.py agent-loop --format json --actor codex",
+            }
+        ],
+    }
+
+    report = campaign_report(
+        review_state,
+        packet_attention=DevelopmentPacketAttention(),
+    )
+
+    assert report.remote_control_active is True
+    assert report.mode_drift is True
+    assert report.fail_closed is True
+    assert report.mutation_allowed is False
+    assert report.status == "blocked_mode_drift"
+
+
+def test_develop_campaign_pending_packet_blocks_review_claim() -> None:
+    report = campaign_report(
+        {
+            "reviewer_runtime": {"session_posture": {"interaction_mode": "remote_control"}},
+            "coordination_state": {
+                "coordination_topology": "multi_agent_active",
+                "legacy_reviewer_mode": "active_dual_agent",
+            },
+        },
+        packet_attention=DevelopmentPacketAttention(
+            latest_attention_packet_id="rev_pkt_3096",
+            required_command=(
+                "python3 dev/scripts/devctl.py review-channel --action inbox "
+                "--target claude --actor claude --status pending --terminal none --format md"
+            ),
+        ),
+    )
+
+    assert report.status == "blocked_pending_packet_triage"
+    assert report.pending_packet_id == "rev_pkt_3096"
+    assert report.fail_closed is True
+    assert report.claude_next_command.endswith("--format md")
 
 
 def test_develop_design_preflight_records_ground_truth_receipt(

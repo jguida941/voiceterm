@@ -203,6 +203,57 @@ class DevelopmentLifecyclePlan:
 
 
 @dataclass(frozen=True, slots=True)
+class DevelopmentCampaignRoleState:
+    """One actor lane in the remote-control pair campaign."""
+
+    actor_id: str
+    role: str
+    session_id: str
+    status: str
+    mutation_mode: str
+    active_packet_id: str = ""
+    may_mutate: bool = False
+    required_action: str = ""
+    proof_state: str = ""
+    blocker: str = ""
+    next_command: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class DevelopmentCampaignReport:
+    """Read-only remote-control campaign state for Codex/Claude dogfood."""
+
+    plan_row_id: str
+    mode_id: str
+    status: str
+    current_phase: str
+    summary: str
+    remote_control_provider: str = ""
+    remote_control_status: str = ""
+    remote_control_active: bool = False
+    remote_control_identity_bound: bool = False
+    remote_control_session_id: str = ""
+    remote_control_age_seconds: int = -1
+    physical_remote_control_confirmed: bool = False
+    coordination_topology: str = ""
+    legacy_reviewer_mode: str = ""
+    effective_reviewer_mode: str = ""
+    operator_interaction_mode: str = ""
+    mode_drift: bool = False
+    fail_closed: bool = True
+    mutation_allowed: bool = False
+    publication_allowed: bool = False
+    pending_packet_id: str = ""
+    pending_packet_required_command: str = ""
+    codex_next_command: str = ""
+    claude_next_command: str = ""
+    roles: tuple[DevelopmentCampaignRoleState, ...] = ()
+    proof_requirements: tuple[str, ...] = ()
+    contract_id: str = "RemoteControlCollaborationCampaign"
+    schema_version: int = 1
+
+
+@dataclass(frozen=True, slots=True)
 class DevelopmentLoopReport:
     """Read-only controller report for `/develop` and `devctl develop`."""
 
@@ -229,6 +280,7 @@ class DevelopmentLoopReport:
     next_commands: tuple[str, ...]
     next_step_command: str = ""
     lifecycle: DevelopmentLifecyclePlan | None = None
+    campaign: DevelopmentCampaignReport | None = None
     design_preflight: DevelopmentDesignPreflight | None = None
     packet_debt_remediation: dict[str, Any] | None = None
     blockers: tuple[str, ...] = ()

@@ -37,6 +37,25 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-06 - /develop campaign makes remote-control pair state typed
+
+Change: added the read-only `devctl develop campaign` surface and the
+`RemoteControlCollaborationCampaign` platform contract. The report projects the
+Codex/Claude remote-control campaign from existing typed state: role lanes,
+remote-control attachment proof, packet blockers, mode drift, and
+mutation/publication gates. It fails closed when packet debt, stale
+remote-control proof, or interaction-mode drift prevents safe mutation, and it
+does not wake agents or execute bypass publication.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/campaign.py`
+- `dev/scripts/devctl/commands/development/models.py`
+- `dev/scripts/devctl/commands/development/report.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_development.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `dev/state/plan_index.jsonl`
+
 ### 2026-05-06 - Governed push report path names the artifact explicitly
 
 Change: renamed the repo-pack canonical latest push report from the generic

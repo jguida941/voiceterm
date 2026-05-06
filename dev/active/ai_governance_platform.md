@@ -4393,6 +4393,29 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
 	      `session-resume authority_result=blocked` for `coordination_resync_required`
 	      or code-shape debt is recorded as fail-closed dogfood evidence while only
 	      read-only reducers continue.
+	- [ ] `MP377-P0-RC-PAIR-S1` Run the remote-control Codex/Claude pair
+	      campaign as typed, fail-closed dogfood.
+	      owner_doc: `dev/active/ai_governance_platform.md`
+	      status: `queued`
+	      depends_on: `MP377-P0-ROLE-MATRIX-DOGFOOD-S1`, `MP377-P0-T08F`
+	      disposition_sources: `operator:2026-05-06-remote-control-codex-claude-campaign`
+	      scope: The operator is remote; Claude occupies the dashboard /
+	      remote-control reviewer lane and Codex occupies the implementer /
+	      reviewer-coder lane until typed authority grants a role swap. The
+	      campaign reads startup-context, session-resume, review-channel,
+	      agent-loop, packet attention, plan rows, and platform contracts through
+	      `devctl develop campaign`; bridge, dashboard, generated markdown, and
+	      memory notes remain projections only.
+	      acceptance_criteria: `devctl develop campaign` shows remote-control
+	      attachment proof, Codex and Claude role lanes, pending packet blockers,
+	      interaction-mode / reviewer-mode drift, mutation_allowed, and
+	      publication_allowed. It must fail closed while packet carry-forward
+	      debt, stale remote-control proof, or cross-source mode drift remain.
+	      The same row keeps yesterday's open loop visible: governed push closure
+	      proof through `devctl push --execute`, Pass-C dogfood from `AGENTS.md`,
+	      bounded packet carry-forward triage, and repair of
+	      interaction_mode/reviewer_mode drift before mutable fanout or role swap
+	      claims are accepted.
 	- [ ] `MP377-P0-GUARD-CADENCE-S1` Add graph-scoped guard cadence and physical dogfood scheduling so the system chooses when to run immediate, feature-local, subsystem, closure, and whole-system checks without skipping evidence.
 	      owner_doc: `dev/active/ai_governance_platform.md`
 	      status: `queued`

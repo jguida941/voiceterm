@@ -21,6 +21,7 @@ def render_markdown(report: DevelopmentLoopReport) -> str:
     lines.extend(_packet_attention_lines(payload["packet_attention"]))
     lines.extend(_design_preflight_lines(payload.get("design_preflight")))
     lines.extend(_lifecycle_lines(payload.get("lifecycle")))
+    lines.extend(_campaign_lines(payload.get("campaign")))
     lines.extend(runtime_lines(payload.get("runtime")))
     lines.extend(peer_mind_lines(payload.get("peer_minds")))
     lines.extend(orchestration_lines(payload.get("orchestration")))
@@ -220,6 +221,66 @@ def _lifecycle_lines(lifecycle) -> list[str]:
     return lines
 
 
+def _campaign_lines(campaign) -> list[str]:
+    if not isinstance(campaign, dict):
+        return []
+    lines = ["", "## Remote-Control Campaign", ""]
+    lines.append(f"- contract_id: {campaign.get('contract_id')}")
+    lines.append(f"- plan_row_id: {campaign.get('plan_row_id')}")
+    lines.append(f"- mode_id: {campaign.get('mode_id')}")
+    lines.append(f"- status: {campaign.get('status')}")
+    lines.append(f"- current_phase: {campaign.get('current_phase')}")
+    lines.append(f"- summary: {campaign.get('summary')}")
+    lines.append(
+        "- remote_control: "
+        f"provider={campaign.get('remote_control_provider') or '(none)'} "
+        f"status={campaign.get('remote_control_status') or '(none)'} "
+        f"active={campaign.get('remote_control_active')} "
+        f"identity_bound={campaign.get('remote_control_identity_bound')} "
+        f"age={campaign.get('remote_control_age_seconds')}s "
+        f"session={campaign.get('remote_control_session_id') or '(none)'}"
+    )
+    lines.append(
+        "- typed_mode: "
+        f"topology={campaign.get('coordination_topology') or '(none)'} "
+        f"legacy={campaign.get('legacy_reviewer_mode') or '(none)'} "
+        f"effective={campaign.get('effective_reviewer_mode') or '(none)'} "
+        f"operator={campaign.get('operator_interaction_mode') or '(none)'}"
+    )
+    lines.append(f"- mode_drift: {campaign.get('mode_drift')}")
+    lines.append(f"- fail_closed: {campaign.get('fail_closed')}")
+    lines.append(f"- mutation_allowed: {campaign.get('mutation_allowed')}")
+    lines.append(f"- publication_allowed: {campaign.get('publication_allowed')}")
+    lines.append(f"- pending_packet_id: {campaign.get('pending_packet_id') or '(none)'}")
+    if campaign.get("pending_packet_required_command"):
+        lines.append(
+            "- pending_packet_required_command: "
+            f"{campaign.get('pending_packet_required_command')}"
+        )
+    if campaign.get("codex_next_command"):
+        lines.append(f"- codex_next_command: {campaign.get('codex_next_command')}")
+    if campaign.get("claude_next_command"):
+        lines.append(f"- claude_next_command: {campaign.get('claude_next_command')}")
+    roles = campaign.get("roles") if isinstance(campaign.get("roles"), list) else []
+    for role in roles:
+        if not isinstance(role, dict):
+            continue
+        lines.append(
+            f"- {role.get('actor_id')}:{role.get('role')} "
+            f"status={role.get('status')} mutate={role.get('may_mutate')} "
+            f"action={role.get('required_action') or '(none)'} "
+            f"packet={role.get('active_packet_id') or '(none)'} "
+            f"blocker={_clip(role.get('blocker'), limit=120) or '(none)'}"
+        )
+    requirements = campaign.get("proof_requirements")
+    if isinstance(requirements, list) and requirements:
+        lines.append(
+            "- proof_requirements: "
+            + "; ".join(str(item) for item in requirements)
+        )
+    return lines
+
+
 def _scaling_lines(scaling) -> list[str]:
     lines = ["", "## Scaling", ""]
     lines.append(f"- pressure_inputs: {', '.join(scaling['pressure_inputs'])}")
@@ -332,6 +393,13 @@ def _list_text(value) -> str:
     if not isinstance(value, list) or not value:
         return "(none)"
     return ", ".join(str(item) for item in value)
+
+
+def _clip(value: object, *, limit: int = 220) -> str:
+    text = str(value or "").replace("\n", " ").strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3].rstrip() + "..."
 
 
 __all__ = ["render_markdown"]

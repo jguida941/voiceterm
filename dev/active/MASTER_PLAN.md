@@ -128,6 +128,14 @@
   `DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS` (default 90 seconds) and preserves
   the existing fail-open warning policy so ordinary commits do not hang while
   receipt freshness remains enforced by guards.
+- 2026-05-06 remote-control campaign read model (MP-377): `MP377-P0-RC-PAIR-S1`
+  is the typed owner row for the Codex/Claude remote-control dogfood campaign.
+  `devctl develop campaign` now projects role lanes, remote-control attachment
+  proof, packet blockers, interaction-mode drift, and mutation/publication
+  gates from typed state without waking agents or granting authority. The
+  current campaign is intentionally fail-closed until packet debt,
+  remote-control freshness, and interaction-mode/reviewer-mode drift are
+  repaired.
 - 2026-05-06 governed-push report naming (MP-377): the repo-pack canonical
   latest push report is now `dev/reports/push/latest_push_report.json`, with
   `dev/reports/push/latest.json` accepted only as a legacy read fallback.

@@ -17,6 +17,7 @@ from .attention_commands import (
     next_commands_with_attention,
     peer_mind_alias_warnings,
 )
+from .campaign import campaign_report
 from .continuation import continuation_signal, watcher_lease_status
 from .design_preflight import build_design_preflight
 from .lifecycle import LIFECYCLE_ACTIONS
@@ -94,6 +95,10 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         review_state=review_state,
     )
     watcher_lease = watcher_lease_status(REPO_ROOT, review_state, actor=actor)
+    campaign = campaign_report(
+        review_state,
+        packet_attention=packet_attention,
+    )
     continuation = continuation_signal(
         packet_attention=packet_attention,
         orchestration=orchestration,
@@ -147,6 +152,7 @@ def build_report(args: Any) -> DevelopmentLoopReport:
             packet_attention=packet_attention,
             required_checks=required_checks,
         ),
+        campaign=campaign,
         design_preflight=design_preflight,
         packet_debt_remediation=packet_debt_payload(
             action,
@@ -185,6 +191,8 @@ def _controller_state(action: str, args: Any) -> str:
         if bool(getattr(args, "record_ground_truth_receipt", False)):
             return "ground_truth_receipt_recorded"
         return "read_only_design_preflight"
+    if action == "campaign":
+        return "read_only_remote_control_campaign"
     if action in {"pause", "resume"}:
         return f"read_only_{action}_preview"
     if action == "audit-guards":
@@ -288,7 +296,13 @@ def _required_checks(action: str) -> tuple[str, ...]:
         "python3 dev/scripts/checks/check_governance_closure.py --format md",
         "python3 dev/scripts/checks/check_multi_agent_sync.py",
     ]
-    if action in {"audit-guards", "audit-packets", "launch", "design-preflight"}:
+    if action in {
+        "audit-guards",
+        "audit-packets",
+        "launch",
+        "design-preflight",
+        "campaign",
+    }:
         checks.append("python3 dev/scripts/devctl.py probe-report --format md")
         checks.append("python3 dev/scripts/devctl.py governance-quality-feedback --format md")
     if action == "design-preflight":
@@ -324,6 +338,12 @@ def _next_commands(action: str) -> tuple[str, ...]:
         return (
             "python3 dev/scripts/devctl.py review-channel --action sync-status --terminal none --format md",
             "python3 dev/scripts/devctl.py develop next --format md",
+        )
+    if action == "campaign":
+        return (
+            "python3 dev/scripts/devctl.py review-channel --action inbox "
+            "--target claude --actor claude --status pending --terminal none --format md",
+            "python3 dev/scripts/devctl.py develop next --actor codex --format md",
         )
     return ("python3 dev/scripts/devctl.py develop next --format md",)
 

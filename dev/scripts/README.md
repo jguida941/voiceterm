@@ -1280,6 +1280,7 @@ python3 dev/scripts/devctl.py report --python-guard-backlog --python-guard-backl
 python3 dev/scripts/devctl.py quality-policy --format md
 python3 dev/scripts/devctl.py develop --status --format md
 python3 dev/scripts/devctl.py develop next --format md
+python3 dev/scripts/devctl.py develop campaign --format md
 python3 dev/scripts/devctl.py develop audit-packets --max-packets 10 --format md
 python3 dev/scripts/devctl.py develop design-preflight --topic "remote control active" --record-ground-truth-receipt --format md
 python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1 --format md
@@ -2066,8 +2067,12 @@ Machine-first output note:
   context, guard/probe learning counts, and system discovery into a
   `DevelopmentLoopReport` for `status`, `next`, `show`, `start`, `watch`,
   `verify`, `submit`, `close`, `rollback`, `pause`, `resume`, `audit-guards`,
-  `audit-packets`, and `launch --dry-run --max-cycles 1`. `agent-mind`
-  appears only as `authority_policy=auxiliary_context_only`; typed
+  `audit-packets`, `campaign`, and `launch --dry-run --max-cycles 1`.
+  `campaign` renders the `RemoteControlCollaborationCampaign` read model so
+  Codex/Claude remote-control dogfood can see role lanes, attachment proof,
+  packet blockers, mode drift, and mutation/publication gates without waking
+  agents or granting authority. `agent-mind` appears only as
+  `authority_policy=auxiliary_context_only`; typed
   `AgentWorkBoardProjection` / `AgentSyncProjection` and packet lifecycle rows
   remain authority. `audit-packets` renders `PacketDebtRemediationReport` so
   ACKed or expired packets with durable intent are routed toward

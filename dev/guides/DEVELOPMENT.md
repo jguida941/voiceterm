@@ -2040,9 +2040,15 @@ python3 dev/scripts/devctl.py check --profile ai-guard
 python3 dev/scripts/devctl.py develop --status --format md
 python3 dev/scripts/devctl.py develop next --format md
 python3 dev/scripts/devctl.py develop watch --actor codex --format md
+python3 dev/scripts/devctl.py develop campaign --format md
 python3 dev/scripts/devctl.py develop audit-packets --max-packets 10 --format md
 python3 dev/scripts/devctl.py develop audit-packets --drain-packets --max-packets 10 --format md
 python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1 --format md
+
+# `/develop campaign` is read-only remote-control dogfood state. It projects
+# Codex/Claude role lanes, remote-control attachment proof, packet blockers,
+# mode drift, and mutation/publication gates from typed state; it does not wake
+# agents, write packets, or grant mutation authority.
 
 # `/develop next` continuation is packet-pressure aware: a stopped watcher is
 # only non-blocking when packet attention is empty and a typed

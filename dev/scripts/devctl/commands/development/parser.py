@@ -23,6 +23,7 @@ DEVELOP_ACTIONS = (
     "design-preflight",
     "ingest-intent",
     "ingest-plan",
+    "campaign",
     "launch",
 )
 
@@ -288,6 +289,7 @@ def _action_flags() -> tuple[tuple[str, str], ...]:
         ),
         ("ingest-intent", "Ingest packet/chat/file intent into typed state."),
         ("ingest-plan", "Ingest a plan packet/file/body into typed plan authority."),
+        ("campaign", "Show the remote-control Codex/Claude campaign state."),
         ("launch", "Run one read-only controller cycle report."),
     )
 
