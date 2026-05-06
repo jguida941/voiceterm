@@ -95,11 +95,13 @@ Current ingestion status:
   for field-to-contract semantic links; comments/docstrings and
   `typing.Annotated` may document or prototype links but are not authority.
   Slice 1 may expose metadata and registry/context-graph discoverability only.
-  `MP377-P0-EXC-S1B` materializes governed-exception lifecycle/receipt rows as
-  read-only context-graph nodes/edges from typed JSONL state, and
-  `MP377-P0-EXC-S1C` adds focused graph-walk lineage traversal. Z-ref
-  compression, inferred-property engines, contradiction gates, and fanout/push
-  blocking remain later proof/evaluation slices.
+  `MP377-P0-EXC-S1B` now materializes `GovernanceLifecycle` records as
+  read-only context-graph nodes/edges from typed state, with
+  `GovernedExceptionLifecycle` as the first specialization, and
+  `MP377-P0-EXC-S1C` adds focused graph-walk lineage traversal across all
+  lifecycle-relevant kinds. Z-ref compression, inferred-property engines,
+  contradiction gates, and fanout/push blocking remain later proof/evaluation
+  slices.
 - 2026-05-06 role-inbox correction: `MP377-P0-T08F` is now the packet
   lifecycle prerequisite for role-swapping collaboration. Packet inboxes,
   packet attention, ACK/apply authority, queue-derived current instruction,
@@ -116,13 +118,26 @@ Current ingestion status:
   projection also suppresses old reviewer checkpoint instructions when newer
   terminal instruction/action-request packet truth exists, so Claude remote
   control cannot be steered by stale bridge prose.
-- `MP377-P0-EXC-S1D` adds the governed-exception acceptance dependency: do not
-  call semantic links, receipt lineage, or graph traversal end-to-end accepted
-  until live Codex+Claude dogfood proves both role assignments
-  (Codex implementer + Claude reviewer, then Claude implementer + Codex
-  reviewer), packet observation/disposition, read-only governed-exception
-  pending/validate visibility, semantic-link projection, and
-  `check_multi_agent_sync.py` passing after each phase.
+- 2026-05-06 universal `GovernanceLifecycle` intake: `rev_pkt_3114` is
+  accepted as a typed correction after narrowing. `MP377-GUARDIR-V21-A5`
+  remains the packet/action-request lifecycle checkpoint and commit-seam proof;
+  it is the seed pattern for the later universal lifecycle, not the owner of the
+  entire implementation. Existing queued rows carry the expansion:
+  `MP377-P0-EXC-S1B` for read-only graph materialization,
+  `MP377-P0-EXC-S1C` for graph-walk lineage,
+  `MP377-P0-EXC-S1D` for live role-lane dogfood,
+  `MP377-P0-GUARD-CADENCE-S1` for lifecycle-aware guard cadence, and
+  `MP377-P0-GUARD-DEFERRAL-S1` for lifecycle-linked deferral receipts. Every
+  lifecycle-relevant typed action must eventually write a lifecycle event or
+  carry an explicit out-of-scope/noop reason; projections do not count as
+  authority.
+- `MP377-P0-EXC-S1D` adds the lifecycle acceptance dependency: do not call
+  semantic links, receipt lineage, or graph traversal end-to-end accepted until
+  live registered-agent dogfood proves role-lane assignments, packet
+  observation/disposition, read-only lifecycle visibility, semantic-link
+  projection, and `check_multi_agent_sync.py` passing after each phase. Provider
+  labels such as Codex and Claude are runtimes only; role and authority state
+  decide allowed actions.
 - Raw exception execution, request, repair/prove/close/import-manual commands,
   dashboard writes, bridge writes, slash command writes, and raw `git push
   --no-verify` paths are out of scope until later slices add proof and policy
@@ -133,13 +148,17 @@ Current ingestion status:
   architecture checks, closure checks, and whole-system cleanup rows. The
   scheduler should use touched files, `ContextGraphSnapshot`,
   `ContractSpec.cross_links`, runtime contract ownership, and command-catalog
-  metadata to choose the smallest sufficient check set, then escalate before
-  closure/checkpoint/push. It is not a bypass: non-deferrable security,
+  metadata to choose the smallest sufficient check set, then consume
+  `GovernanceLifecycle` ledger history once the typed lifecycle ledger lands
+  and escalate before closure/checkpoint/push. It is not a bypass:
+  non-deferrable security,
   authority, command-exposure, mutation, raw-bypass, generated-markdown
   authority, stale-HEAD, missing-receipt, and missing-push-proof gates still fail
   closed. `MP377-P0-GUARD-DEFERRAL-S1` is the linked receipt slice for
-  deferrable code-shape/refactor quality debt, and it must require typed owner,
-  scope, reason, rerun command, follow-up row, expiry, and closure proof.
+  deferrable code-shape/refactor quality debt, and each `DeferredGuardReceipt`
+  must link to a lifecycle event id or explicit blocked-integration note while
+  requiring typed owner, scope, reason, rerun command, follow-up row, expiry,
+  and closure proof.
 - Major governance features need physical dogfood before end-to-end closure.
   Unit tests and guards remain required, but collaboration/runtime features must
   also exercise real `devctl` surfaces. Where behavior depends on both supported
@@ -4437,16 +4456,18 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
 	      disposition_sources: `operator:2026-05-06-graph-scoped-guard-cadence-physical-dogfood`
 	      scope: Use touched files, `ContextGraphSnapshot`,
 	      `ContractSpec.cross_links`, runtime contract ownership, command catalog
-	      metadata, and guard risk classes to produce a typed `GuardRunPlan` /
-	      validation schedule. Safety/proof/authority checks run immediately and
-	      remain non-deferrable; code-shape/refactor-only pressure may be batched
-	      only through typed quality debt. Major governance features require real
-	      `devctl` command smoke and, when provider collaboration is the behavior,
-	      live Codex+Claude role-swap dogfood evidence.
+	      metadata, guard risk classes, and, once available, typed
+	      `GovernanceLifecycle` ledger history to produce a typed `GuardRunPlan`
+	      / validation schedule. Safety/proof/authority checks run immediately
+	      and remain non-deferrable; code-shape/refactor-only pressure may be
+	      batched only through typed quality debt. Major governance features
+	      require real `devctl` command smoke and, when provider collaboration is
+	      the behavior, live registered-agent role-swap dogfood evidence.
 	      acceptance_criteria: The cadence policy distinguishes Tier 0 immediate
 	      checks, Tier 1 feature-local checks, Tier 2 subsystem stabilization
 	      checks, Tier 3 closure checks, and Tier 4 whole-system cleanup rows;
-	      `MP377-P0-GUARD-DEFERRAL-S1` owns typed deferral receipts; no
+	      `MP377-P0-GUARD-DEFERRAL-S1` owns typed deferral receipts linked to
+	      lifecycle event ids or explicit blocked-integration notes; no
 	      non-deferrable security, authority, command-exposure, mutation, raw
 	      bypass, generated-markdown authority, stale-HEAD, missing-receipt, or
 	      missing-push-proof gate can be deferred; open deferral receipts block

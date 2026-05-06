@@ -147,6 +147,18 @@
   session before flagging packet-id drift. Remote-control packet truth remains
   fail-closed: stale TTLs do not promote remote-control mode, and current
   packet debt still requires checkpoint/repair before mutable fanout.
+- 2026-05-06 universal GovernanceLifecycle typed intake (MP-377):
+  `rev_pkt_3114` was ingested as a narrowed typed correction, not a new
+  top-level plan row. `MP377-GUARDIR-V21-A5` remains the packet/action-request
+  lifecycle checkpoint and commit-seam proof, while existing queued rows now
+  carry the generalized lifecycle expansion: graph materialization
+  (`MP377-P0-EXC-S1B`), graph-walk lineage (`MP377-P0-EXC-S1C`), live role-lane
+  dogfood (`MP377-P0-EXC-S1D`), lifecycle-aware guard cadence
+  (`MP377-P0-GUARD-CADENCE-S1`), and lifecycle-linked deferral receipts
+  (`MP377-P0-GUARD-DEFERRAL-S1`). `GovernedExceptionLifecycle` stays the first
+  exception specialization under the broader future `GovernanceLifecycle`;
+  lifecycle-relevant typed actions must eventually emit a lifecycle event or an
+  explicit out-of-scope/noop reason.
 - 2026-05-06 governed-push report naming (MP-377): the repo-pack canonical
   latest push report is now `dev/reports/push/latest_push_report.json`, with
   `dev/reports/push/latest.json` accepted only as a legacy read fallback.
@@ -589,8 +601,9 @@
 - 2026-05-06 governed exception lifecycle correction (MP-377): the earlier
   raw `BypassReceipt` direction is superseded by `MP377-P0-EXC-S1`, with
   follow-up typed rows `MP377-P0-EXC-S1B`, `MP377-P0-EXC-S1C`, and
-  `MP377-P0-EXC-S1D` for generated context-graph materialization, focused
-  lineage traversal, and live dual-agent role-swap acceptance. The related
+  `MP377-P0-EXC-S1D` for generated lifecycle context-graph materialization,
+  focused lineage traversal, and live registered-agent role-lane acceptance.
+  The related
   `MP377-P0-T08F` packet-lifecycle row is the role/session inbox prerequisite:
   packets route to reviewer/implementer/operator roles plus exact sessions
   when scoped, not to provider names as authority.
@@ -619,10 +632,13 @@
   immediately, feature-local checks after coherent chunks, subsystem
   architecture checks at stabilization points, full closure checks before plan
   status/checkpoint/push, and whole-system cleanup as separate follow-up rows.
-  `MP377-P0-GUARD-DEFERRAL-S1` remains the child slice for deferrable
-  quality-debt receipts; open deferrals block checkpoint, push, resolution,
-  slice close, and success claims until rerun proof closes them. This is not a
-  bypass: security, command exposure, mutation authority, raw bypass,
+  Once the typed lifecycle ledger exists, guard cadence must also consume
+  `GovernanceLifecycle` history for run timing, bottlenecks, retry frequency,
+  and proof latency. `MP377-P0-GUARD-DEFERRAL-S1` remains the child slice for
+  deferrable quality-debt receipts linked to lifecycle event ids; open
+  deferrals block checkpoint, push, resolution, slice close, and success claims
+  until rerun proof closes them. This is not a bypass: security, command
+  exposure, mutation authority, raw bypass,
   generated-markdown authority, stale-HEAD, missing receipt, and missing push
   proof gates cannot be deferred. The cadence slice must physically compare
   always-run versus staged-cadence dogfood and

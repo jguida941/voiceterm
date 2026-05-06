@@ -37,6 +37,28 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-06 - Universal governance lifecycle is typed into existing rows
+
+Change: ingested Claude/operator `rev_pkt_3114` as a narrowed plan correction
+instead of adding a parallel plan row. `MP377-GUARDIR-V21-A5` remains the
+packet/action-request lifecycle checkpoint and commit-seam proof, while existing
+queued rows now carry the generalized `GovernanceLifecycle` expansion for
+read-only graph materialization, graph-walk lineage, live role-lane dogfood,
+guard cadence, and lifecycle-linked deferral receipts.
+
+Decision: `GovernedExceptionLifecycle` stays the first exception specialization
+under the broader future lifecycle envelope. Lifecycle-relevant typed actions
+must eventually write a lifecycle event or an explicit out-of-scope/noop reason;
+generated markdown and dashboard/bridge projections remain non-authoritative.
+
+Evidence:
+
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/state/plan_source_snapshots.jsonl`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+
 ### 2026-05-06 - /develop campaign makes remote-control pair state typed
 
 Change: added the read-only `devctl develop campaign` surface and the
