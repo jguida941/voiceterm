@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-- Status unavailable.
+assigned
 
 ## Claude Questions
 
@@ -134,7 +134,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
