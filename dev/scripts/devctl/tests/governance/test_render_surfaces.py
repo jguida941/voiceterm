@@ -74,7 +74,7 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
         report = surfaces.build_surface_report(allow_missing_local_only=True)
 
         self.assertTrue(report["ok"])
-        self.assertEqual(report["surface_count"], 14)
+        self.assertEqual(report["surface_count"], 13)
         self.assertIn(
             "agents_boot_card",
             {entry["surface_id"] for entry in report["surfaces"]},
@@ -84,11 +84,11 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
         report = instruction_surface_sync.build_report()
 
         self.assertTrue(report["ok"])
-        self.assertEqual(report["surface_count"], 14)
+        self.assertEqual(report["surface_count"], 13)
         surface_ids = {entry["surface_id"] for entry in report["surfaces"]}
         self.assertIn("agents_boot_card", surface_ids)
         self.assertIn("claude_boot_card", surface_ids)
-        self.assertIn("codex_boot_card", surface_ids)
+        self.assertNotIn("codex_boot_card", surface_ids)
         self.assertIn(
             "system_map_index",
             surface_ids,

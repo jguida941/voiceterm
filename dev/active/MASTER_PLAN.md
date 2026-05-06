@@ -116,9 +116,9 @@
   temporary variables around constructor returns), then route those design
   findings through typed `/develop` and review-channel work packets.
 - 2026-05-06 generated boot-card authority/projection split (MP-377):
-  `AGENTS.md` is now a tracked generated `InstructionBootCard`, `CLAUDE.md`
-  is the local-only peer projection, and optional `CODEX.md` remains
-  missing-local-only unless repo policy enables it. Durable startup/process
+  `AGENTS.md` is now the tracked generated `InstructionBootCard`, and
+  `CODEX.md` is not a repo surface. `CLAUDE.md` remains an ignored local-only
+  peer projection. Durable startup/process
   authority stays in typed plan rows, repo-pack policy, contracts, receipts,
   startup-context, session-resume, context-graph, `/develop`, and guards;
   generated markdown only routes agents to those typed surfaces.
@@ -7775,3 +7775,4 @@ This generated ledger projects packet creation bindings for humans. The typed ro
 - [ ] `PKT-BIND-REV-PKT-3069` Packet finding: Smart bypass system architecture (operator-designed) + launcher-discipline interaction_mode drift bug + role-scoped next= sharpening + end-to-end test plan — 4 composing slices for next codex architectural session (source `rev_pkt_3069`; target `plan:MP-377`; posted `2026-05-05T15:17:20.013827Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3073` Packet finding: Reviewer/architect assessment of operator's GovernedExceptionLifecycle plan: agree with reframe (Exception→Repair→Proof→Learning > BypassReceipt-only); 7 concerns codex should resolve; claude's commitment as reviewer-arch... (source `rev_pkt_3073`; target `plan:MP-377`; posted `2026-05-05T23:09:31.952615Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3078` Packet finding: Operator extension to rev_pkt_3076: add MP377-P0-GUARD-CADENCE-S1 + GUARD-DEFERRAL-S1 + EXC-S1D physical-dogfood gate + T08F role-swap proof; do NOT expand EXC-S1; tier 0 always immediate; cadence is governance not bypass (source `rev_pkt_3078`; target `plan:MP-377`; posted `2026-05-06T02:13:42.296834Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3082` Packet finding: Dogfood receipt for rev_pkt_3081: boot-card route IS typed and fail-closed (CONFIRMED). session-resume returned authority_result=blocked with both blockers (code-shape debt + coordination_resync_required); did NOT call sl... (source `rev_pkt_3082`; target `plan:MP-377`; posted `2026-05-06T04:04:32.337589Z`; binding `plan_row`).

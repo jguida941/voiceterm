@@ -40,13 +40,12 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 ### 2026-05-06 - Agent bootstrap surfaces are generated boot cards
 
 Change: replaced hand-maintained AGENTS authority prose with a generated
-`InstructionBootCard` projection. `AGENTS.md` is now a short tracked boot card,
-`CLAUDE.md` is a local-only generated peer card, and optional `CODEX.md` stays
-local-only/missing-safe until repo policy enables it. The cards route agents
-through typed startup authority, session resume, review-channel status,
-context graph bootstrap, `/develop`, system-map/picture reducers, platform
-contracts, render-surfaces, and docs-check instead of carrying durable policy
-authority themselves.
+`InstructionBootCard` projection. `AGENTS.md` is now the short tracked boot
+card, `CLAUDE.md` is an ignored local-only generated peer card, and `CODEX.md`
+is not a repo surface. The cards route agents through typed startup authority,
+session resume, review-channel status, context graph bootstrap, `/develop`,
+system-map/picture reducers, platform contracts, render-surfaces, and
+docs-check instead of carrying durable policy authority themselves.
 
 The render-surface policy now carries source-path, projection-only,
 required/forbidden text, and size-budget metadata for instruction boot cards.

@@ -32,7 +32,7 @@
 ## Projection-only surfaces
 
 - Generated markdown, bridge text, dashboard rows, mobile/status views, slash commands, and prompt files are projections or thin adapters.
-- `AGENTS.md`, `CLAUDE.md`, and `CODEX.md` boot cards route agents to typed state; they do not override typed state.
+- `AGENTS.md` is the shared generated boot card; local peer projections route agents to typed state without overriding it.
 - Refresh generated surfaces with `python3 dev/scripts/devctl.py render-surfaces --write --format md`.
 - Check projection drift with `python3 dev/scripts/devctl.py docs-check --strict-tooling --format json`.
 

@@ -4543,8 +4543,9 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       acceptance_criteria: The selected generated sections are reproducible from typed inputs, hand-edits fail the owning guard, and product docs remain untouched unless shipped VoiceTerm behavior changes.
       progress: 2026-05-06 MP377-P0-INSTRUCTION-SURFACE-SLIM-S1 widened
       this wedge into projection-only generated boot cards over typed
-      bootstrap authority. `InstructionBootCard` now renders `AGENTS.md` and
-      local-only `CLAUDE.md`, keeps optional `CODEX.md` missing-local-only,
+      bootstrap authority. `InstructionBootCard` now renders tracked
+      `AGENTS.md` and ignored local-only `CLAUDE.md`; `CODEX.md` is not a repo
+      surface,
       routes agents through startup-context, session-resume, review-channel
       status, context-graph bootstrap, `/develop`, system-map,
       system-picture, platform-contracts, render-surfaces, and docs-check,

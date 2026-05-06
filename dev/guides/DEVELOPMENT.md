@@ -1197,8 +1197,8 @@ Three quality layers matter in practice:
   include `startup_authority_contract` so a dirty worktree after a local
   checkpoint fails `check --profile ci`, not only `startup-context` or
   `devctl push`.
-- The six-row AGENTS router table and the generated `CLAUDE.md` task-router
-  quick map both render from the typed router authority in
+- The shared `AGENTS.md` boot card and ignored local `CLAUDE.md` peer
+  projection both render from typed authority in
   `dev/scripts/devctl/governance/task_router_contract.py`. When the touched
   scope is mixed or unclear, run
   `python3 dev/scripts/devctl.py check-router --format md` instead of relying
@@ -1206,7 +1206,9 @@ Three quality layers matter in practice:
 - `python3 dev/scripts/devctl.py render-surfaces --format md` previews the
   policy-owned instruction/starter surfaces defined in
   `repo_governance.surface_generation`; use `--write` after updating those
-  templates, context values, or generated starter outputs.
+  templates, context values, or generated starter outputs. The policy generates
+  `AGENTS.md` as the shared tracked boot card and must not materialize a
+  `CODEX.md` boot-card surface.
 - Status-driven compatibility refresh stays narrower than explicit rewrite:
   `review-channel --action status` may now reproject `bridge.md` from typed
   `_compat.bridge_projection` state even while pending reviewer-targeted

@@ -515,7 +515,6 @@
           "forbidden_contains": [
             "AGENTS.md is canonical authority",
             "CLAUDE.md is canonical authority",
-            "CODEX.md is canonical authority",
             "VoiceTerm is hidden default platform authority"
           ]
         },
@@ -574,50 +573,6 @@
           "forbidden_contains": [
             "AGENTS.md is canonical authority",
             "CLAUDE.md is canonical authority",
-            "CODEX.md is canonical authority",
-            "VoiceTerm is hidden default platform authority"
-          ]
-        },
-        {
-          "id": "codex_boot_card",
-          "surface_type": "instruction_boot_card",
-          "renderer": "instruction_boot_card",
-          "output_path": "CODEX.md",
-          "source_path": "dev/state/plan_index.jsonl",
-          "optional_source": true,
-          "tracked": false,
-          "local_only": true,
-          "projection_only": true,
-          "max_output_lines": 200,
-          "max_output_bytes": 32768,
-          "description": "Optional local-only generated Codex boot card over typed startup authority.",
-          "source_required_contains": [
-            "MP377-P0-INSTRUCTION-SURFACE-SLIM-S1"
-          ],
-          "required_contains": [
-            "This is projection-only",
-            "Run in order",
-            "Typed authority",
-            "Projection-only surfaces",
-            "Never",
-            "Focused navigation",
-            "Verification before handoff",
-            "startup-context",
-            "session-resume",
-            "review-channel status",
-            "context-graph --mode bootstrap",
-            "develop next",
-            "system-map",
-            "system-picture",
-            "platform-contracts",
-            "render-surfaces",
-            "docs-check",
-            "projection_only: true"
-          ],
-          "forbidden_contains": [
-            "AGENTS.md is canonical authority",
-            "CLAUDE.md is canonical authority",
-            "CODEX.md is canonical authority",
             "VoiceTerm is hidden default platform authority"
           ]
         },

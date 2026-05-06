@@ -144,9 +144,10 @@ review-channel conductors now also export their typed lane as
 `DEVCTL_CALLER_ROLE`, and `devctl commit --role <lane>` remains available for
 wrappers/tests, so dashboard, observer, and default reviewer lanes fail closed
 before staging instead of reaching a mid-flight approval or git-index prompt.
-Generated bootstrap surfaces such as `CLAUDE.md` are part of that same
-architecture boundary: keep them synced with `render-surfaces`, and make sure
-they explain the compiler-style control model plus the
+Generated bootstrap surfaces are part of that same architecture boundary:
+`AGENTS.md` is the shared tracked boot card, `CLAUDE.md` is ignored local-only,
+and `CODEX.md` is not generated as a repo surface. Keep them synced with
+`render-surfaces`, and make sure they explain the compiler-style control model plus the
 `TypedAction -> ActionResult -> RunRecord` path instead of relying on chat
 memory or stale starter prose.
 Reviewer bootstrap note: repo-owned Codex conductors still begin with
@@ -1930,8 +1931,8 @@ Machine-first output note:
     compatibility docs come from typed doc authority (`ProjectGovernance`
     `DocRegistry` plus surface context), so custom-layout repos do not need
     VoiceTerm-shaped `dev/active/*` buckets for tooling classification.
-  - The six-row `AGENTS.md` router table and the generated `CLAUDE.md`
-    task-router quick map render from the same typed authority in
+  - The shared `AGENTS.md` boot card and ignored local `CLAUDE.md` peer
+    projection render from the same typed authority in
     `dev/scripts/devctl/governance/task_router_contract.py`.
   - `--execute` runs the routed bundle commands plus add-ons from `bundle_registry.py`; use `--keep-going` for publish/preflight proof so later guards still run after an early failure. Reports include a typed `CheckRouterGuardCoverageReceipt` plus `GuardRemediationAction` rows, and `execution_plan` separates serial-required projection/status commands from parallel-safe guard rows so automation can prove both safety and coverage.
 - `progress-status`: read-only view of typed `StageProgressEvent` artifacts
@@ -2034,25 +2035,20 @@ Machine-first output note:
   - Treat this as the live enabled-inventory view. Numeric code-shape limits
     still come from the code-owned policy modules under `dev/scripts/checks/`,
     and `render-surfaces` is what projects those limits into generated
-    bootstrap surfaces such as `CLAUDE.md`.
+    bootstrap surfaces.
 - `render-surfaces`: policy-owned repo-pack surface generator and drift checker
-  for instruction files and starter artifacts such as local `CLAUDE.md`,
-  slash/skill templates, and portable governance stubs
+  for instruction files and starter artifacts such as tracked `AGENTS.md`,
+  local `CLAUDE.md`, slash/skill templates, and portable governance stubs
   - `--write` rewrites drifted outputs in place, while plain read mode is a
     safe check surface for local validation and `docs-check --strict-tooling`.
   - `--quality-policy <path>` lets another repo reuse the same generator
     against its own `repo_governance.surface_generation` contract.
-  - The local `CLAUDE.md` output is the first-hop AI awareness surface. Keep
-    it in sync so it advertises `ai_instruction`, `decision_mode`,
-    `governance-review --record`, packet-level operational feedback, saved
-    graph snapshots, this repo's first-party client/product-integration role
-    over the portable governance platform, and points agents back to
-    `dev/guides/DEVELOPMENT.md` plus this command guide for "which tool
-    should I run now?" routing.
-  - The same render pass now derives `CLAUDE.md`'s task-router quick map from
-    `governance/task_router_contract.py` and derives the guard-limit block from the
-    live code-shape policy modules, so repo policy JSON no longer needs to
-    carry a second hardcoded copy of those limits.
+  - `AGENTS.md` is the shared first-hop AI boot card. `CLAUDE.md` remains an
+    ignored local peer projection for provider-specific startup, but `CODEX.md`
+    is not a repo surface; Codex uses `AGENTS.md`.
+  - The same render pass derives boot-card routing from typed startup and
+    governance context, so repo policy JSON does not carry duplicate bootstrap
+    prose or a local Codex boot-card target.
 - `develop`: read-only typed `/develop` controller report. It composes
   `DevelopmentModeTopology`, `DevelopmentScalingContract`, typed master-plan
   rows, packet attention, runtime work-board rows, auxiliary `agent-mind`
