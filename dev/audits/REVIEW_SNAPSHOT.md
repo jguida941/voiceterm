@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `3769a6c29b05` — Refresh external review snapshot for 72116dde
-- Tree hash: `2bdd474f411c`
-- Generation stamp: `snap-ea1720f5753f`
-- Generated at (UTC): 2026-05-06T12:46:21Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `9e3f70985ee7` — Split focused devctl router tests
+- Tree hash: `b34b003c020d`
+- Generation stamp: `snap-1ef02847b6da`
+- Generated at (UTC): 2026-05-06T12:46:44Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 31 files, +1926/-1519
+- Delta since last snapshot: 24 commits, 29 files, +1889/-1528
 - Governance findings: 158 open / 88 fixed / 260 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,23 +30,23 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `3769a6c29b052f7e1001609a72caae2dd5d31ee6`
+- HEAD SHA: `9e3f70985ee78bec47fd0b0554d41fe9470480e1`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-06T08:12:44-04:00
+- HEAD timestamp (UTC): 2026-05-06T08:45:13-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_present
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 9
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 12 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 13 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -62,16 +62,16 @@ probes, typed actions, deterministic policy resolution — is what m...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `3769a6c29b05`
+Range: last 24 commits ending at `9e3f70985ee7`
 
 - commits: 24
-- files changed: 31
-- insertions: +1926
-- deletions: -1519
+- files changed: 29
+- insertions: +1889
+- deletions: -1528
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 4 file(s)
 
@@ -79,30 +79,30 @@ Range: last 24 commits ending at `3769a6c29b05`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `3769a6c2` | Refresh external review snapshot for 72116dde | 2 | +54/-55 | docs |  |
-| 2 | `72116dde` | Refresh external review snapshot for e21cd117 | 2 | +45/-43 | docs |  |
-| 3 | `e21cd117` | Refresh external review snapshot for 850a2a7e | 2 | +63/-66 | docs |  |
-| 4 | `850a2a7e` | Serialize focused devctl test add-on | 10 | +79/-74 | tooling |  |
-| 5 | `c696409b` | Refresh external review snapshot for 88d16d7d | 2 | +55/-57 | docs |  |
-| 6 | `88d16d7d` | Refresh external review snapshot for e30be54e | 2 | +44/-42 | docs |  |
-| 7 | `e30be54e` | Refresh external review snapshot for 03be7736 | 2 | +66/-67 | docs |  |
-| 8 | `03be7736` | Raise focused devctl test timeout floor | 10 | +83/-59 | tooling |  |
-| 9 | `847dc839` | Refresh external review snapshot for 7a1c5131 | 2 | +46/-48 | docs |  |
-| 10 | `7a1c5131` | Refresh external review snapshot for f6daf24e | 2 | +46/-44 | docs |  |
-| 11 | `f6daf24e` | Refresh external review snapshot for 44184fe0 | 2 | +77/-85 | docs |  |
-| 12 | `44184fe0` | Advance audit-packets continuation | 10 | +169/-93 | tooling |  |
-| 13 | `77838451` | Refresh external review snapshot for c6583026 | 2 | +47/-44 | docs |  |
-| 14 | `c6583026` | Refresh external review snapshot for d10c973a | 2 | +42/-42 | docs |  |
-| 15 | `d10c973a` | Refresh external review snapshot for f5f08da5 | 2 | +50/-49 | docs |  |
-| 16 | `f5f08da5` | Refresh external review snapshot for 547141d4 | 2 | +46/-47 | docs |  |
-| 17 | `547141d4` | Refresh external review snapshot for d6a683e1 | 2 | +59/-59 | docs |  |
-| 18 | `d6a683e1` | Close push preflight guard gaps | 10 | +106/-76 | tooling |  |
-| 19 | `926950f0` | Refresh external review snapshot for b2e22dca | 2 | +50/-49 | docs |  |
-| 20 | `b2e22dca` | Refresh external review snapshot for 65f4852a | 2 | +46/-46 | docs |  |
-| 21 | `65f4852a` | Refresh external review snapshot for 1769a22b | 2 | +75/-74 | docs |  |
-| 22 | `1769a22b` | Rename latest push report artifact | 25 | +370/-145 | tooling |  |
-| 23 | `bf05ad5d` | Refresh external review snapshot for ed485e2f | 2 | +64/-64 | docs |  |
-| 24 | `ed485e2f` | Bound ReviewSnapshot hook refreshes | 10 | +144/-91 | tooling |  |
+| 1 | `9e3f7098` | Split focused devctl router tests | 10 | +107/-100 | tooling |  |
+| 2 | `3769a6c2` | Refresh external review snapshot for 72116dde | 2 | +54/-55 | docs |  |
+| 3 | `72116dde` | Refresh external review snapshot for e21cd117 | 2 | +45/-43 | docs |  |
+| 4 | `e21cd117` | Refresh external review snapshot for 850a2a7e | 2 | +63/-66 | docs |  |
+| 5 | `850a2a7e` | Serialize focused devctl test add-on | 10 | +79/-74 | tooling |  |
+| 6 | `c696409b` | Refresh external review snapshot for 88d16d7d | 2 | +55/-57 | docs |  |
+| 7 | `88d16d7d` | Refresh external review snapshot for e30be54e | 2 | +44/-42 | docs |  |
+| 8 | `e30be54e` | Refresh external review snapshot for 03be7736 | 2 | +66/-67 | docs |  |
+| 9 | `03be7736` | Raise focused devctl test timeout floor | 10 | +83/-59 | tooling |  |
+| 10 | `847dc839` | Refresh external review snapshot for 7a1c5131 | 2 | +46/-48 | docs |  |
+| 11 | `7a1c5131` | Refresh external review snapshot for f6daf24e | 2 | +46/-44 | docs |  |
+| 12 | `f6daf24e` | Refresh external review snapshot for 44184fe0 | 2 | +77/-85 | docs |  |
+| 13 | `44184fe0` | Advance audit-packets continuation | 10 | +169/-93 | tooling |  |
+| 14 | `77838451` | Refresh external review snapshot for c6583026 | 2 | +47/-44 | docs |  |
+| 15 | `c6583026` | Refresh external review snapshot for d10c973a | 2 | +42/-42 | docs |  |
+| 16 | `d10c973a` | Refresh external review snapshot for f5f08da5 | 2 | +50/-49 | docs |  |
+| 17 | `f5f08da5` | Refresh external review snapshot for 547141d4 | 2 | +46/-47 | docs |  |
+| 18 | `547141d4` | Refresh external review snapshot for d6a683e1 | 2 | +59/-59 | docs |  |
+| 19 | `d6a683e1` | Close push preflight guard gaps | 10 | +106/-76 | tooling |  |
+| 20 | `926950f0` | Refresh external review snapshot for b2e22dca | 2 | +50/-49 | docs |  |
+| 21 | `b2e22dca` | Refresh external review snapshot for 65f4852a | 2 | +46/-46 | docs |  |
+| 22 | `65f4852a` | Refresh external review snapshot for 1769a22b | 2 | +75/-74 | docs |  |
+| 23 | `1769a22b` | Rename latest push report artifact | 25 | +370/-145 | tooling |  |
+| 24 | `bf05ad5d` | Refresh external review snapshot for ed485e2f | 2 | +64/-64 | docs |  |
 
 ### Files
 
@@ -110,15 +110,14 @@ Range: last 24 commits ending at `3769a6c29b05`
 |---|---|---|
 | `AGENTS.md` | docs | +6/-2 |
 | `bridge.md` | docs | +50/-50 |
-| `dev/active/MASTER_PLAN.md` | tooling | +28/-8 |
-| `dev/active/ai_governance_platform.md` | tooling | +17/-9 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1338/-1365 |
-| `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +37/-1 |
-| `dev/guides/DEVELOPMENT.md` | docs | +23/-14 |
+| `dev/active/MASTER_PLAN.md` | tooling | +31/-11 |
+| `dev/active/ai_governance_platform.md` | tooling | +14/-7 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1325/-1353 |
+| `dev/guides/DEVELOPMENT.md` | docs | +20/-12 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +1/-1 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +86/-12 |
-| `dev/scripts/README.md` | tooling | +25/-13 |
-| `dev/scripts/devctl/commands/check/router_python_tests.py` | tooling | +3/-3 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +91/-16 |
+| `dev/scripts/README.md` | tooling | +22/-12 |
+| `dev/scripts/devctl/commands/check/router_python_tests.py` | tooling | +14/-20 |
 | `dev/scripts/devctl/commands/development/report.py` | tooling | +6/-1 |
 | `dev/scripts/devctl/commands/governance/startup_context.py` | tooling | +3/-1 |
 | `dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py` | tooling | +11/-8 |
@@ -133,8 +132,7 @@ Range: last 24 commits ending at `3769a6c29b05`
 | `dev/scripts/devctl/repo_packs/voiceterm.py` | tooling | +3/-1 |
 | `dev/scripts/devctl/runtime/control_plane_sources.py` | tooling | +22/-2 |
 | `dev/scripts/devctl/runtime/dirty_path_filter.py` | tooling | +5/-0 |
-| `dev/scripts/devctl/tests/commands/check/test_check_router.py` | tooling | +5/-4 |
-| `dev/scripts/devctl/tests/commands/governance/test_install_git_hooks.py` | tooling | +15/-0 |
+| `dev/scripts/devctl/tests/commands/check/test_check_router.py` | tooling | +23/-7 |
 | `dev/scripts/devctl/tests/commands/test_development_command.py` | tooling | +49/-0 |
 | `dev/scripts/devctl/tests/vcs/test_push.py` | tooling | +31/-10 |
 | `dev/scripts/devctl/tests/vcs/test_push_artifact.py` | tooling | +45/-0 |
@@ -204,6 +202,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`9e3f7098`** — Split focused devctl router tests
+  - evolution: Change: renamed the repo-pack canonical latest push report from the generic `dev/reports/push/latest.json` to `dev/reports/push/latest_push_report.json`. The old path remains a legacy read fallback only; new governed pu…
 - **`3769a6c2`** — Refresh external review snapshot for 72116dde
   - evolution: Change: renamed the repo-pack canonical latest push report from the generic `dev/reports/push/latest.json` to `dev/reports/push/latest_push_report.json`. The old path remains a legacy read fallback only; new governed pu…
 - **`72116dde`** — Refresh external review snapshot for e21cd117
@@ -250,8 +250,6 @@ Recent findings:
   - evolution: Change: renamed the repo-pack canonical latest push report from the generic `dev/reports/push/latest.json` to `dev/reports/push/latest_push_report.json`. The old path remains a legacy read fallback only; new governed pu…
 - **`bf05ad5d`** — Refresh external review snapshot for ed485e2f
   - evolution: Change: renamed the repo-pack canonical latest push report from the generic `dev/reports/push/latest.json` to `dev/reports/push/latest_push_report.json`. The old path remains a legacy read fallback only; new governed pu…
-- **`ed485e2f`** — Bound ReviewSnapshot hook refreshes
-  - evolution: Change: renamed the repo-pack canonical latest push report from the generic `dev/reports/push/latest.json` to `dev/reports/push/latest_push_report.json`. The old path remains a legacy read fallback only; new governed pu…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -270,10 +268,10 @@ Recent findings:
 - open governance findings: 158
 
 ### Startup advisories
-- checkpoint_before_continue: dirty_after_local_checkpoint
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Relaunch the reviewer loop immediately.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/governance/orchestrate_watch.py`): dogfood.command.orchestrate-watch: Auto-ingested devctl finalization failure rc=1.
@@ -290,4 +288,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-ea1720f5753f` binds this file to HEAD `3769a6c29b05`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-1ef02847b6da` binds this file to HEAD `9e3f70985ee7`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
