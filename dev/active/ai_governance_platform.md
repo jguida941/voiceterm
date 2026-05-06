@@ -131,6 +131,22 @@ Current ingestion status:
   lifecycle-relevant typed action must eventually write a lifecycle event or
   carry an explicit out-of-scope/noop reason; projections do not count as
   authority.
+- 2026-05-06 packet-expiry lifecycle audit: `rev_pkt_3119` is accepted as a
+  scoped plan amendment after Codex verified the count class: substantial
+  packet bodies are overwhelmingly unresolved through expired/archived or
+  stale-pending lifecycle state compared with typed apply. This is real
+  architecture debt, but not a new lane. `MP377-P0-EXC-S1` owns the future
+  `SmartExpiryClassification` reducer and `expired_unread_packet` exception
+  hook; `MP377-P0-EXC-S1B` owns the one-time retroactive classification sweep
+  over review-channel trace history and its `RetroactiveSweepReceipt`;
+  `MP377-P0-EXC-S1C` owns graph-walk lineage for packet classification
+  outcomes; `MP377-P0-EXC-S1D` owns live Codex/Claude no-content-lost dogfood;
+  `MP377-P0-GUARD-CADENCE-S1` consumes lifecycle history so future cadence can
+  distinguish safe expiry from deferral or escalation; and
+  `MP377-P0-GUARD-DEFERRAL-S1` owns `DeferredPacketReceipt` as a typed child
+  evidence pattern. The guarantee is explicit disposition, supersession,
+  escalation, or blocked-classification evidence for historical packet content,
+  not silent drop.
 - `MP377-P0-EXC-S1D` adds the lifecycle acceptance dependency: do not call
   semantic links, receipt lineage, or graph traversal end-to-end accepted until
   live registered-agent dogfood proves role-lane assignments, packet

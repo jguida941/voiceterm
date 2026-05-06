@@ -59,6 +59,26 @@ Evidence:
 - `dev/active/MASTER_PLAN.md`
 - `dev/active/ai_governance_platform.md`
 
+### 2026-05-06 - Packet-expiry sweep is folded into lifecycle rows
+
+Change: applied Claude/operator `rev_pkt_3119` as typed plan amendments after
+verifying the audit class from the review-channel event log. The unresolved
+substantial-packet backlog is now tracked as lifecycle architecture debt, not as
+a new standalone plan lane.
+
+Decision: the go-forward classifier belongs in `MP377-P0-EXC-S1`; the
+retroactive historical sweep and `RetroactiveSweepReceipt` belong in
+`MP377-P0-EXC-S1B`; graph-walk lineage, role-lane dogfood, cadence, and
+deferral receipts stay in their existing MP-377 rows. Historical packet content
+must be explicitly classified, superseded, escalated, or blocked with evidence.
+
+Evidence:
+
+- `rev_pkt_3119`
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/state/plan_source_snapshots.jsonl`
+
 ### 2026-05-06 - /develop campaign makes remote-control pair state typed
 
 Change: added the read-only `devctl develop campaign` surface and the

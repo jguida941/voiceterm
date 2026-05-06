@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-06T19:12:39Z`
-- Last Codex poll (Local America/New_York): `2026-05-06 15:12:39 EDT`
+- Last Codex poll: `2026-05-06T19:27:30Z`
+- Last Codex poll (Local America/New_York): `2026-05-06 15:27:30 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `aadba47266d2812f7f270c9bdd1a0f23a0c5f53b8889961db8eb1005bb1fb0b0`
-- Current instruction revision: `623b0d91e6dd`
+- Current instruction revision: `4f4c8d4f9912`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s)
+2 pending review packet(s)
 
 ## Claude Status
 
@@ -134,16 +134,16 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-- Historical orphan audit (578 expired-with-content vs 34 applied = 17:1 ratio) + retroactive-sweep + go-forward smart-classifier integration plan. Connects to existing amended plan rows (S1, S1B, S1C, S1D, GUARD-CADENCE, GUARD-DEFERRAL) — NO new parallel slice. Retroactive sweep in S1B materialize scope; smart-classifier in S1 foundation; DeferredPacketReceipt mirrors DeferredGuardReceipt. No content lost guarantee: every historical expired packet gets typed LifecycleEvent classification (superseded_by | obsolete_no_owner | still_relevant_unowned | failed_smart_check).
-- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `dev/reports/review_channel/projections/latest/review_state.json`, `exceptions`
+- Universal GovernanceLifecycle plan ingestion published
+- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `dev/reports/push/latest_push_report.json`
 - Canonical refs:
   - `dev/active/MASTER_PLAN.md`
-  - `dev/reports/governance/finding_reviews.jsonl#audit_memory_governance_integration_gap`
-  - `dev/scripts/devctl/cli.py`
+  - `dev/scripts/devctl/governance/draft.py`
+  - `dev/scripts/devctl/governance/push_policy.py`
 
 ## Last Reviewed Scope
 

@@ -159,6 +159,17 @@
   exception specialization under the broader future `GovernanceLifecycle`;
   lifecycle-relevant typed actions must eventually emit a lifecycle event or an
   explicit out-of-scope/noop reason.
+- 2026-05-06 packet-expiry lifecycle audit (MP-377): `rev_pkt_3119` confirmed
+  packet-expiry carry-forward as real architecture debt: substantial packet
+  bodies currently skew toward expired/archived or stale-pending state versus
+  typed apply. The correction is folded into existing rows, not a parallel
+  slice: `MP377-P0-EXC-S1` owns the go-forward `SmartExpiryClassification`
+  foundation, `MP377-P0-EXC-S1B` owns the one-time retroactive classification
+  sweep and `RetroactiveSweepReceipt`, `MP377-P0-EXC-S1C` owns graph-walk
+  lineage over classification outcomes, `MP377-P0-EXC-S1D` owns live
+  no-content-lost dogfood, `MP377-P0-GUARD-CADENCE-S1` consumes lifecycle
+  history for cadence, and `MP377-P0-GUARD-DEFERRAL-S1` owns
+  `DeferredPacketReceipt` as the packet counterpart to `DeferredGuardReceipt`.
 - 2026-05-06 governed-push report naming (MP-377): the repo-pack canonical
   latest push report is now `dev/reports/push/latest_push_report.json`, with
   `dev/reports/push/latest.json` accepted only as a legacy read fallback.
