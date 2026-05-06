@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `2b535a3c5b1d` — Refresh external review snapshot for c4fd1c3e
-- Tree hash: `4d8b19c0ba15`
-- Generation stamp: `snap-a7678fa5157d`
-- Generated at (UTC): 2026-05-06T19:08:59Z
+- HEAD: `a90c3aa939b6` — Refresh external review snapshot for 2b535a3c
+- Tree hash: `4c4f6355d8f3`
+- Generation stamp: `snap-5cd2b9343ffb`
+- Generated at (UTC): 2026-05-06T19:10:09Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `single_agent`)
+- Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 52 files, +4115/-2389
+- Delta since last snapshot: 24 commits, 52 files, +4113/-2384
 - Governance findings: 158 open / 88 fixed / 260 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,9 +30,9 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `2b535a3c5b1d4c71a406ea6fa743018d2ecc868c`
+- HEAD SHA: `a90c3aa939b6a5e174d8809a712fd27caf7385f0`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-06T15:07:11-04:00
+- HEAD timestamp (UTC): 2026-05-06T15:09:01-04:00
 
 ## 2. Governance state
 
@@ -48,13 +48,13 @@ probes, typed actions, deterministic policy resolution — is what m...
 - current_push_authorization: `push-auth-20260506T190553960892Z` (valid=True)
 - authorized_head_commit: `2b535a3c5b1d4c71a406ea6fa743018d2ecc868c`
 - publication_backlog: recommended
-- publication_guidance: 2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 3 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `single_agent`
+- interaction_mode: `local_terminal`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -68,42 +68,42 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `2b535a3c5b1d`
+Range: last 24 commits ending at `a90c3aa939b6`
 
 - commits: 24
 - files changed: 52
-- insertions: +4115
-- deletions: -2389
+- insertions: +4113
+- deletions: -2384
 - bundle classes touched: docs, tooling
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `2b535a3c` | Refresh external review snapshot for c4fd1c3e | 2 | +75/-81 | docs |  |
-| 2 | `c4fd1c3e` | Ingest universal governance lifecycle plan | 8 | +191/-121 | tooling |  |
-| 3 | `af287813` | Refresh external review snapshot for 7b73c670 | 2 | +53/-48 | docs |  |
-| 4 | `7b73c670` | Refresh external review snapshot for bca3c2fd | 2 | +49/-52 | docs |  |
-| 5 | `bca3c2fd` | Refresh external review snapshot for 34ce6fc1 | 2 | +84/-91 | docs |  |
-| 6 | `34ce6fc1` | Stop archived packets blocking live work | 29 | +998/-398 | tooling |  |
-| 7 | `f4b6c1ca` | Refresh external review snapshot for d8f090f2 | 2 | +53/-48 | docs |  |
-| 8 | `d8f090f2` | Refresh external review snapshot for 2f05dc5a | 2 | +48/-51 | docs |  |
-| 9 | `2f05dc5a` | Refresh external review snapshot for e4958183 | 2 | +61/-63 | docs |  |
-| 10 | `e4958183` | Record remote-control parity handoff | 2 | +60/-60 | docs |  |
-| 11 | `218bb398` | Refresh external review snapshot for 74bfb1c2 | 2 | +52/-47 | docs |  |
-| 12 | `74bfb1c2` | Refresh external review snapshot for 3d4ae574 | 2 | +48/-51 | docs |  |
-| 13 | `3d4ae574` | Refresh external review snapshot for e08186fa | 2 | +85/-71 | docs |  |
-| 14 | `e08186fa` | Fix remote-control packet scope parity | 29 | +1090/-543 | tooling |  |
-| 15 | `e13fb3d2` | Refresh external review snapshot for e6a486b1 | 2 | +46/-46 | docs |  |
-| 16 | `e6a486b1` | Refresh external review snapshot for f4aa0823 | 2 | +46/-44 | docs |  |
-| 17 | `f4aa0823` | Refresh external review snapshot for 17c86a1f | 2 | +61/-63 | docs |  |
-| 18 | `17c86a1f` | Record remote-control campaign packet | 2 | +54/-54 | docs |  |
-| 19 | `111e1de3` | Refresh external review snapshot for 5dee4db9 | 2 | +44/-44 | docs |  |
-| 20 | `5dee4db9` | Refresh external review snapshot for 3bf94665 | 2 | +45/-43 | docs |  |
-| 21 | `3bf94665` | Refresh external review snapshot for c95aa86b | 2 | +73/-71 | docs |  |
-| 22 | `c95aa86b` | Fold exception proof into campaign lane | 18 | +702/-202 | tooling |  |
-| 23 | `9d7ae361` | Refresh external review snapshot for a6c1034e | 2 | +49/-48 | docs |  |
-| 24 | `a6c1034e` | Refresh external review snapshot for c0796505 | 2 | +48/-49 | docs |  |
+| 1 | `a90c3aa9` | Refresh external review snapshot for 2b535a3c | 2 | +46/-44 | docs |  |
+| 2 | `2b535a3c` | Refresh external review snapshot for c4fd1c3e | 2 | +75/-81 | docs |  |
+| 3 | `c4fd1c3e` | Ingest universal governance lifecycle plan | 8 | +191/-121 | tooling |  |
+| 4 | `af287813` | Refresh external review snapshot for 7b73c670 | 2 | +53/-48 | docs |  |
+| 5 | `7b73c670` | Refresh external review snapshot for bca3c2fd | 2 | +49/-52 | docs |  |
+| 6 | `bca3c2fd` | Refresh external review snapshot for 34ce6fc1 | 2 | +84/-91 | docs |  |
+| 7 | `34ce6fc1` | Stop archived packets blocking live work | 29 | +998/-398 | tooling |  |
+| 8 | `f4b6c1ca` | Refresh external review snapshot for d8f090f2 | 2 | +53/-48 | docs |  |
+| 9 | `d8f090f2` | Refresh external review snapshot for 2f05dc5a | 2 | +48/-51 | docs |  |
+| 10 | `2f05dc5a` | Refresh external review snapshot for e4958183 | 2 | +61/-63 | docs |  |
+| 11 | `e4958183` | Record remote-control parity handoff | 2 | +60/-60 | docs |  |
+| 12 | `218bb398` | Refresh external review snapshot for 74bfb1c2 | 2 | +52/-47 | docs |  |
+| 13 | `74bfb1c2` | Refresh external review snapshot for 3d4ae574 | 2 | +48/-51 | docs |  |
+| 14 | `3d4ae574` | Refresh external review snapshot for e08186fa | 2 | +85/-71 | docs |  |
+| 15 | `e08186fa` | Fix remote-control packet scope parity | 29 | +1090/-543 | tooling |  |
+| 16 | `e13fb3d2` | Refresh external review snapshot for e6a486b1 | 2 | +46/-46 | docs |  |
+| 17 | `e6a486b1` | Refresh external review snapshot for f4aa0823 | 2 | +46/-44 | docs |  |
+| 18 | `f4aa0823` | Refresh external review snapshot for 17c86a1f | 2 | +61/-63 | docs |  |
+| 19 | `17c86a1f` | Record remote-control campaign packet | 2 | +54/-54 | docs |  |
+| 20 | `111e1de3` | Refresh external review snapshot for 5dee4db9 | 2 | +44/-44 | docs |  |
+| 21 | `5dee4db9` | Refresh external review snapshot for 3bf94665 | 2 | +45/-43 | docs |  |
+| 22 | `3bf94665` | Refresh external review snapshot for c95aa86b | 2 | +73/-71 | docs |  |
+| 23 | `c95aa86b` | Fold exception proof into campaign lane | 18 | +702/-202 | tooling |  |
+| 24 | `9d7ae361` | Refresh external review snapshot for a6c1034e | 2 | +49/-48 | docs |  |
 
 ### Files
 
@@ -113,7 +113,7 @@ Range: last 24 commits ending at `2b535a3c5b1d`
 | `bridge.md` | docs | +139/-139 |
 | `dev/active/MASTER_PLAN.md` | tooling | +34/-6 |
 | `dev/active/ai_governance_platform.md` | tooling | +62/-27 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1261/-1248 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1259/-1243 |
 | `dev/guides/DEVELOPMENT.md` | docs | +18/-4 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +3/-3 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +67/-0 |
@@ -207,6 +207,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`a90c3aa9`** — Refresh external review snapshot for 2b535a3c
+  - evolution: Change: ingested Claude/operator `rev_pkt_3114` as a narrowed plan correction instead of adding a parallel plan row. `MP377-GUARDIR-V21-A5` remains the packet/action-request lifecycle checkpoint and commit-seam proof, w…
 - **`2b535a3c`** — Refresh external review snapshot for c4fd1c3e
   - evolution: Change: ingested Claude/operator `rev_pkt_3114` as a narrowed plan correction instead of adding a parallel plan row. `MP377-GUARDIR-V21-A5` remains the packet/action-request lifecycle checkpoint and commit-seam proof, w…
 - **`c4fd1c3e`** — Ingest universal governance lifecycle plan
@@ -253,8 +255,6 @@ Recent findings:
   - evolution: Change: ingested Claude/operator `rev_pkt_3114` as a narrowed plan correction instead of adding a parallel plan row. `MP377-GUARDIR-V21-A5` remains the packet/action-request lifecycle checkpoint and commit-seam proof, w…
 - **`9d7ae361`** — Refresh external review snapshot for a6c1034e
   - evolution: Change: ingested Claude/operator `rev_pkt_3114` as a narrowed plan correction instead of adding a parallel plan row. `MP377-GUARDIR-V21-A5` remains the packet/action-request lifecycle checkpoint and commit-seam proof, w…
-- **`a6c1034e`** — Refresh external review snapshot for c0796505
-  - evolution: Change: ingested Claude/operator `rev_pkt_3114` as a narrowed plan correction instead of adding a parallel plan row. `MP377-GUARDIR-V21-A5` remains the packet/action-request lifecycle checkpoint and commit-seam proof, w…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -293,4 +293,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-a7678fa5157d` binds this file to HEAD `2b535a3c5b1d`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-5cd2b9343ffb` binds this file to HEAD `a90c3aa939b6`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
