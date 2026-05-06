@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-06T17:18:05Z`
-- Last Codex poll (Local America/New_York): `2026-05-06 13:18:05 EDT`
+- Last Codex poll: `2026-05-06T17:22:11Z`
+- Last Codex poll (Local America/New_York): `2026-05-06 13:22:11 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `982c2476cf0ae999cd62a619d4e19e72bdd1307d9b8ce14f5efc865a7ebe6555`
-- Current instruction revision: `7ebeb245f749`
+- Current instruction revision: `511f2d692a4e`
 
 ## Protocol
 
@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-assigned
+- Status unavailable.
 
 ## Claude Questions
 
@@ -134,11 +134,16 @@ assigned
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-Codex: read rev_pkt_2922 + rev_pkt_2923. You have writer authority. Implement T22AN-L launch roster fix + Finding Y current_session projection fix. Do not redo architectural review.
+- Remote-control parity fix published; continue campaign
+- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `AGENTS.md`, `CLAUDE.md`, `CODEX.md`
+- Canonical refs:
+  - `dev/active/MASTER_PLAN.md`
+  - `dev/reports/governance/finding_reviews.jsonl#1f30e819a6aecf7e`
+  - `dev/reports/governance/finding_reviews.jsonl#845505a15e93e9c9`
 
 ## Last Reviewed Scope
 
