@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `78741171e354` — Checkpoint packet intake and role authority repairs
-- Tree hash: `08c32f293f6a`
-- Generation stamp: `snap-40511d2978f9`
-- Generated at (UTC): 2026-05-07T12:58:57Z
-- Push decision: `await_review` — review_loop_relaunch_required
+- HEAD: `3d532df6e494` — Refresh policy-owned generated surfaces for 95a1050e
+- Tree hash: `0472cb8e0dad`
+- Generation stamp: `snap-60e039f15b88`
+- Generated at (UTC): 2026-05-07T13:04:57Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 182 files, +12033/-4699
+- Delta since last snapshot: 24 commits, 172 files, +11022/-4207
 - Governance findings: 158 open / 88 fixed / 260 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,30 +30,31 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `78741171e354f8b884041d62c7fef5b934344256`
+- HEAD SHA: `3d532df6e4944c03e1116fa61dc5f1e8461ee237`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-07T08:58:28-04:00
+- HEAD timestamp (UTC): 2026-05-07T09:04:08-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_review`
-- reason: review_loop_relaunch_required
-- push_eligible_now: False
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
 - worktree_clean: True
 - staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
-- latest_push_report_state: `post_push_green` (push_completed)
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push once review is accepted.
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- latest_push_report_state: `blocked` (push_preflight_running)
+- current_push_authorization: `push-auth-20260507T125740712103Z` (valid=True)
+- authorized_head_commit: `95a1050e5a7d5ef82e5f23cff651c67eef9abf88`
+- publication_backlog: recommended
+- publication_guidance: 3 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
 - reviewer_freshness: unknown
-- reviewer_publish_clear: False
+- reviewer_publish_clear: True
 - interaction_mode: `local_terminal`
-- implementation_blocked: yes — review_loop_relaunch_required
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -63,16 +64,16 @@ probes, typed actions, deterministic policy resolution — is what m...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `repair_reviewer_loop` — review_loop_relaunch_required
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `78741171e354`
+Range: last 24 commits ending at `3d532df6e494`
 
 - commits: 24
-- files changed: 182
-- insertions: +12033
-- deletions: -4699
+- files changed: 172
+- insertions: +11022
+- deletions: -4207
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 24 file(s)
 
@@ -80,57 +81,52 @@ Range: last 24 commits ending at `78741171e354`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `78741171` | Checkpoint packet intake and role authority repairs | 159 | +8583/-2539 | tooling |  |
-| 2 | `e3f17d25` | Refresh external review snapshot for d48cf3b4 | 2 | +53/-48 | docs |  |
-| 3 | `d48cf3b4` | Refresh external review snapshot for 06e31e4e | 2 | +49/-52 | docs |  |
-| 4 | `06e31e4e` | Refresh external review snapshot for dbaa9ad3 | 2 | +65/-66 | docs |  |
-| 5 | `dbaa9ad3` | Ingest packet expiry lifecycle sweep plan | 8 | +129/-69 | tooling |  |
-| 6 | `1d065cd2` | Refresh external review snapshot for b75cd4c7 | 1 | +60/-60 | tooling |  |
-| 7 | `b75cd4c7` | Refresh external review snapshot for 7a73b299 | 1 | +11/-6 | docs |  |
-| 8 | `7a73b299` | Refresh external review snapshot for a90c3aa9 | 2 | +44/-44 | docs |  |
-| 9 | `a90c3aa9` | Refresh external review snapshot for 2b535a3c | 2 | +46/-44 | docs |  |
-| 10 | `2b535a3c` | Refresh external review snapshot for c4fd1c3e | 2 | +75/-81 | docs |  |
-| 11 | `c4fd1c3e` | Ingest universal governance lifecycle plan | 8 | +191/-121 | tooling |  |
-| 12 | `af287813` | Refresh external review snapshot for 7b73c670 | 2 | +53/-48 | docs |  |
-| 13 | `7b73c670` | Refresh external review snapshot for bca3c2fd | 2 | +49/-52 | docs |  |
-| 14 | `bca3c2fd` | Refresh external review snapshot for 34ce6fc1 | 2 | +84/-91 | docs |  |
-| 15 | `34ce6fc1` | Stop archived packets blocking live work | 29 | +998/-398 | tooling |  |
-| 16 | `f4b6c1ca` | Refresh external review snapshot for d8f090f2 | 2 | +53/-48 | docs |  |
-| 17 | `d8f090f2` | Refresh external review snapshot for 2f05dc5a | 2 | +48/-51 | docs |  |
-| 18 | `2f05dc5a` | Refresh external review snapshot for e4958183 | 2 | +61/-63 | docs |  |
-| 19 | `e4958183` | Record remote-control parity handoff | 2 | +60/-60 | docs |  |
-| 20 | `218bb398` | Refresh external review snapshot for 74bfb1c2 | 2 | +52/-47 | docs |  |
-| 21 | `74bfb1c2` | Refresh external review snapshot for 3d4ae574 | 2 | +48/-51 | docs |  |
-| 22 | `3d4ae574` | Refresh external review snapshot for e08186fa | 2 | +85/-71 | docs |  |
-| 23 | `e08186fa` | Fix remote-control packet scope parity | 29 | +1090/-543 | tooling |  |
-| 24 | `e13fb3d2` | Refresh external review snapshot for e6a486b1 | 2 | +46/-46 | docs |  |
+| 1 | `3d532df6` | Refresh policy-owned generated surfaces for 95a1050e | 1 | +2/-2 | docs |  |
+| 2 | `95a1050e` | Refresh external review snapshot for 78741171 | 2 | +123/-95 | docs |  |
+| 3 | `78741171` | Checkpoint packet intake and role authority repairs | 159 | +8583/-2539 | tooling |  |
+| 4 | `e3f17d25` | Refresh external review snapshot for d48cf3b4 | 2 | +53/-48 | docs |  |
+| 5 | `d48cf3b4` | Refresh external review snapshot for 06e31e4e | 2 | +49/-52 | docs |  |
+| 6 | `06e31e4e` | Refresh external review snapshot for dbaa9ad3 | 2 | +65/-66 | docs |  |
+| 7 | `dbaa9ad3` | Ingest packet expiry lifecycle sweep plan | 8 | +129/-69 | tooling |  |
+| 8 | `1d065cd2` | Refresh external review snapshot for b75cd4c7 | 1 | +60/-60 | tooling |  |
+| 9 | `b75cd4c7` | Refresh external review snapshot for 7a73b299 | 1 | +11/-6 | docs |  |
+| 10 | `7a73b299` | Refresh external review snapshot for a90c3aa9 | 2 | +44/-44 | docs |  |
+| 11 | `a90c3aa9` | Refresh external review snapshot for 2b535a3c | 2 | +46/-44 | docs |  |
+| 12 | `2b535a3c` | Refresh external review snapshot for c4fd1c3e | 2 | +75/-81 | docs |  |
+| 13 | `c4fd1c3e` | Ingest universal governance lifecycle plan | 8 | +191/-121 | tooling |  |
+| 14 | `af287813` | Refresh external review snapshot for 7b73c670 | 2 | +53/-48 | docs |  |
+| 15 | `7b73c670` | Refresh external review snapshot for bca3c2fd | 2 | +49/-52 | docs |  |
+| 16 | `bca3c2fd` | Refresh external review snapshot for 34ce6fc1 | 2 | +84/-91 | docs |  |
+| 17 | `34ce6fc1` | Stop archived packets blocking live work | 29 | +998/-398 | tooling |  |
+| 18 | `f4b6c1ca` | Refresh external review snapshot for d8f090f2 | 2 | +53/-48 | docs |  |
+| 19 | `d8f090f2` | Refresh external review snapshot for 2f05dc5a | 2 | +48/-51 | docs |  |
+| 20 | `2f05dc5a` | Refresh external review snapshot for e4958183 | 2 | +61/-63 | docs |  |
+| 21 | `e4958183` | Record remote-control parity handoff | 2 | +60/-60 | docs |  |
+| 22 | `218bb398` | Refresh external review snapshot for 74bfb1c2 | 2 | +52/-47 | docs |  |
+| 23 | `74bfb1c2` | Refresh external review snapshot for 3d4ae574 | 2 | +48/-51 | docs |  |
+| 24 | `3d4ae574` | Refresh external review snapshot for e08186fa | 2 | +85/-71 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `AGENTS.md` | docs | +4/-0 |
-| `bridge.md` | docs | +191/-189 |
-| `dev/active/MASTER_PLAN.md` | tooling | +62/-6 |
-| `dev/active/ai_governance_platform.md` | tooling | +81/-23 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1209/-1199 |
+| `AGENTS.md` | docs | +3/-0 |
+| `bridge.md` | docs | +184/-188 |
+| `dev/active/MASTER_PLAN.md` | tooling | +55/-6 |
+| `dev/active/ai_governance_platform.md` | tooling | +76/-23 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1228/-1189 |
 | `dev/config/launchd/review_channel_publisher_service.py` | tooling | +12/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +36/-6 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +4/-4 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +111/-0 |
-| `dev/scripts/README.md` | tooling | +26/-0 |
+| `dev/guides/DEVELOPMENT.md` | docs | +29/-6 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +5/-5 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +92/-0 |
+| `dev/scripts/README.md` | tooling | +21/-0 |
 | `dev/scripts/checks/check_devctl_cold_boot.py` | tooling | +12/-0 |
 | `dev/scripts/checks/devctl_cold_boot/__init__.py` | tooling | +1/-0 |
 | `dev/scripts/checks/devctl_cold_boot/command.py` | tooling | +68/-0 |
-| `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_instruction.py` | tooling | +140/-14 |
+| `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_instruction.py` | tooling | +53/-2 |
 | `dev/scripts/checks/platform_contract_closure/typed_state_writer_authority.py` | tooling | +2/-0 |
 | `dev/scripts/checks/review_channel_bridge/report.py` | tooling | +8/-0 |
 | `dev/scripts/checks/review_channel_bridge/typed_state.py` | tooling | +93/-5 |
-| `dev/scripts/checks/review_surface_consistency/bridge_poll_parity.py` | tooling | +61/-0 |
-| `dev/scripts/checks/review_surface_consistency/disk_parity.py` | tooling | +123/-0 |
-| `dev/scripts/checks/review_surface_consistency/parity.py` | tooling | +29/-441 |
-| `dev/scripts/checks/review_surface_consistency/queue_parity.py` | tooling | +57/-0 |
-| `dev/scripts/checks/review_surface_consistency/recovery_parity.py` | tooling | +261/-0 |
 | `dev/scripts/devctl/commands/check/router_python_tests.py` | tooling | +29/-0 |
 | `dev/scripts/devctl/commands/development/next_slice.py` | tooling | +4/-0 |
 | `dev/scripts/devctl/commands/development/packet_attention.py` | tooling | +85/-169 |
@@ -149,7 +145,12 @@ Range: last 24 commits ending at `78741171e354`
 | `dev/scripts/devctl/commands/review_channel/_recover.py` | tooling | +7/-1 |
 | `dev/scripts/devctl/commands/review_channel/_render_bridge.py` | tooling | +30/-25 |
 | `dev/scripts/devctl/commands/review_channel/_reviewer.py` | tooling | +21/-16 |
-| _142 more files trimmed_ | | |
+| `dev/scripts/devctl/commands/review_channel/bridge_action_prepare.py` | tooling | +127/-0 |
+| `dev/scripts/devctl/commands/review_channel/bridge_action_support.py` | tooling | +5/-38 |
+| `dev/scripts/devctl/commands/review_channel/bridge_handler.py` | tooling | +112/-93 |
+| `dev/scripts/devctl/commands/review_channel/bridge_interaction_mode.py` | tooling | +65/-0 |
+| `dev/scripts/devctl/commands/review_channel/bridge_launch_control.py` | tooling | +11/-32 |
+| _132 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -237,6 +238,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`3d532df6`** — Refresh policy-owned generated surfaces for 95a1050e
+- **`95a1050e`** — Refresh external review snapshot for 78741171
 - **`78741171`** — Checkpoint packet intake and role authority repairs
 - **`e3f17d25`** — Refresh external review snapshot for d48cf3b4
   - evolution: Change: ingested Claude/operator `rev_pkt_3114` as a narrowed plan correction instead of adding a parallel plan row. `MP377-GUARDIR-V21-A5` remains the packet/action-request lifecycle checkpoint and commit-seam proof, w…
@@ -280,10 +283,6 @@ Recent findings:
   - evolution: Change: ingested Claude/operator `rev_pkt_3114` as a narrowed plan correction instead of adding a parallel plan row. `MP377-GUARDIR-V21-A5` remains the packet/action-request lifecycle checkpoint and commit-seam proof, w…
 - **`3d4ae574`** — Refresh external review snapshot for e08186fa
   - evolution: Change: ingested Claude/operator `rev_pkt_3114` as a narrowed plan correction instead of adding a parallel plan row. `MP377-GUARDIR-V21-A5` remains the packet/action-request lifecycle checkpoint and commit-seam proof, w…
-- **`e08186fa`** — Fix remote-control packet scope parity
-  - evolution: Change: ingested Claude/operator `rev_pkt_3114` as a narrowed plan correction instead of adding a parallel plan row. `MP377-GUARDIR-V21-A5` remains the packet/action-request lifecycle checkpoint and commit-seam proof, w…
-- **`e13fb3d2`** — Refresh external review snapshot for e6a486b1
-  - evolution: Change: ingested Claude/operator `rev_pkt_3114` as a narrowed plan correction instead of adding a parallel plan row. `MP377-GUARDIR-V21-A5` remains the packet/action-request lifecycle checkpoint and commit-seam proof, w…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -302,10 +301,10 @@ Recent findings:
 - open governance findings: 158
 
 ### Startup advisories
-- repair_reviewer_loop: review_loop_relaunch_required
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Cut a checkpoint before doing anything else.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/governance/orchestrate_watch.py`): dogfood.command.orchestrate-watch: Auto-ingested devctl finalization failure rc=1.
@@ -322,4 +321,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-40511d2978f9` binds this file to HEAD `78741171e354`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-60e039f15b88` binds this file to HEAD `3d532df6e494`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
