@@ -208,6 +208,24 @@ def _blocker_categories(text: str) -> tuple[str, ...]:
     if _has_any(
         text,
         (
+            "push_preflight_running",
+            "run_devctl_push",
+            "check-router",
+            "check router",
+            "route budget",
+            "route timeout",
+            "guard cadence",
+            "guard deferral",
+            "long-running",
+            "long running",
+            "code-shape",
+            "code shape",
+        ),
+    ):
+        categories.append("guard_scheduler")
+    if _has_any(
+        text,
+        (
             "checkpoint",
             "index.lock",
             "git_index_write_blocked",
@@ -231,6 +249,13 @@ def _has_any(text: str, terms: tuple[str, ...]) -> bool:
 
 
 _CATEGORY_ROW_IDS = {
+    "guard_scheduler": (
+        "MP377-P0-SMART-CHECK-DEFERRAL-S1",
+        "MP377-P0-GUARD-CADENCE-S1",
+        "MP377-P0-GUARD-DEFERRAL-S1",
+        "MP377-P0-COMMAND-RESULT-OBSERVABILITY-S1",
+        "MP377-P0-T22AN-AB",
+    ),
     "topology": (
         "MP377-P0-TOPOLOGY-NEUTRAL-NEXT-S1",
         "MP377-P0-ROLE-MATRIX-ROSTER-S1",

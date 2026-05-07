@@ -1897,6 +1897,48 @@ def test_develop_next_maps_checkpoint_blocker_to_checkpoint_automation_row() -> 
     assert selected.slice_id == "MP377-P0-CHECKPOINT-AUTOMATION-S1"
 
 
+def test_develop_next_maps_long_quality_blocker_to_smart_check_deferral_row() -> None:
+    active_general = PlanRow(
+        row_id="MP377-P0-T22AN-AB",
+        title="Bound Python test execution through typed validation policy",
+        status="in_progress",
+        sdlc_stage=SDLCStage.IMPL,
+    )
+    smart_scheduler = PlanRow(
+        row_id="MP377-P0-SMART-CHECK-DEFERRAL-S1",
+        title="Schedule smart checks and governed deferrals for development loops",
+        status="in_progress",
+        sdlc_stage=SDLCStage.SPEC,
+        anchor_refs=("MP377-P0-GUARD-DEFERRAL-S1",),
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        status="action_required",
+        action_required_count=1,
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="s1",
+                lifecycle_state="blocked",
+                required_action="resolve_blocker",
+                loop_mode="run_or_report_blocker",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="satisfied",
+                top_blocker="code-shape debt from push_preflight_running",
+            ),
+        ),
+    )
+
+    selected = select_next_slice(
+        (active_general, smart_scheduler),
+        orchestration=orchestration,
+    )
+
+    assert selected.slice_id == "MP377-P0-SMART-CHECK-DEFERRAL-S1"
+
+
 def test_develop_next_maps_startup_checkpoint_blocker_to_checkpoint_row() -> None:
     active_general = PlanRow(
         row_id="MP377-P0-T22AN-AC",

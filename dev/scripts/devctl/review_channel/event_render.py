@@ -14,6 +14,7 @@ from ..review_channel.event_render_typed_sections import (
     append_coordination_state_section,
     append_work_board_section,
 )
+from ..review_channel.event_render_queue import append_event_queue_summary
 from ..review_channel.pending_packets import partition_live_packet_queue
 
 from ..commands.review_channel_bridge_render import append_common_report_sections
@@ -26,11 +27,7 @@ def render_event_md(report: dict) -> str:
     lines.append(f"- action: {report.get('action')}")
     lines.append(f"- execution_mode: {report.get('execution_mode')}")
     queue = report.get("queue") or {}
-    lines.append(f"- pending_total: {queue.get('pending_total', 0)}")
-    lines.append(
-        "- stale_packet_count: "
-        f"{queue.get('stale_packet_count', 0)} (expired pending packets)"
-    )
+    append_event_queue_summary(lines, queue)
     if report.get("target"):
         lines.append(f"- target: {report.get('target')}")
     if report.get("status_filter"):

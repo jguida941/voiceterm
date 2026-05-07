@@ -9,6 +9,12 @@ from dev.scripts.devctl.runtime.value_coercion import (
     coerce_mapping,
     coerce_text,
 )
+from dev.scripts.devctl.review_channel.agent_sync_readers import (
+    agent_sync_pending_packet_ids_from_row,
+)
+from dev.scripts.devctl.review_channel.packet_loop_attention import (
+    packet_requires_loop_attention,
+)
 
 if __package__:
     from .runtime_truth_agent_loop_attention import (
@@ -173,10 +179,7 @@ def pending_packet_agents(
     for agent_id, row in agents.items():
         if not isinstance(row, Mapping):
             continue
-        packets = row.get("pending_packets_to_me")
-        if not isinstance(packets, list):
-            continue
-        packet_ids = [coerce_text(packet_id) for packet_id in packets]
+        packet_ids = agent_sync_pending_packet_ids_from_row(row)
         if _has_runtime_attention_packet(packet_ids, packet_index):
             pending.append(str(agent_id))
     return sorted(pending)
@@ -201,7 +204,7 @@ def _packet_index(
 
 
 def _has_runtime_attention_packet(
-    packet_ids: list[str],
+    packet_ids: tuple[str, ...],
     packet_index: Mapping[str, Mapping[str, object]],
 ) -> bool:
     for packet_id in packet_ids:
@@ -210,24 +213,9 @@ def _has_runtime_attention_packet(
         packet = packet_index.get(packet_id)
         if packet is None:
             return True
-        if _requires_runtime_loop_attention(packet):
+        if packet_requires_loop_attention(packet):
             return True
     return False
-
-
-def _requires_runtime_loop_attention(packet: Mapping[str, object]) -> bool:
-    if coerce_text(packet.get("to_agent")) != "operator":
-        return True
-    if coerce_text(packet.get("kind")) != "system_notice":
-        return True
-    if bool(packet.get("approval_required")):
-        return True
-    requested_action = coerce_text(packet.get("requested_action"))
-    policy_hint = coerce_text(packet.get("policy_hint"))
-    return requested_action not in {"", "review_only"} or policy_hint not in {
-        "",
-        "review_only",
-    }
 
 
 def _work_board_key(row: Mapping[str, object]) -> str:

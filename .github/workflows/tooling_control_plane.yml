@@ -370,6 +370,9 @@ jobs:
       - name: Run repo URL parity guard
         run: python3 dev/scripts/checks/check_repo_url_parity.py
 
+      - name: Run devctl cold-boot import smoke guard
+        run: python3 dev/scripts/checks/check_devctl_cold_boot.py --format md
+
       - name: Run guard-enforcement inventory gate
         run: python3 dev/scripts/checks/check_guard_enforcement_inventory.py
 

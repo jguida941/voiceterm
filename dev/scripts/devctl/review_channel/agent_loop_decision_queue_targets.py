@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import Literal
 
 from ..runtime.value_coercion import (
     coerce_mapping,
@@ -14,6 +15,8 @@ from ..runtime.review_packet_inbox_actionable import (
 from ..runtime.review_packet_inbox_liveness import (
     is_live_pending as _is_live_pending_packet,
 )
+from .agent_sync_readers import agent_sync_pending_packet_ids
+from .packet_loop_attention import packet_requires_loop_attention
 
 _ROLE_ALIASES = {
     "coder": "implementer",
@@ -29,6 +32,19 @@ _ROLE_ALIASES = {
 
 
 _KNOWN_PENDING_ACTORS = ("codex", "claude", "cursor", "operator")
+RouteDecisionConfidenceClass = Literal[
+    "agent_sync_pending_packet_inference",
+    "queue_pending_count_inference",
+    "queue_scoped_packet",
+]
+
+AGENT_SYNC_PENDING_PACKET_INFERENCE: RouteDecisionConfidenceClass = (
+    "agent_sync_pending_packet_inference"
+)
+QUEUE_PENDING_COUNT_INFERENCE: RouteDecisionConfidenceClass = (
+    "queue_pending_count_inference"
+)
+QUEUE_SCOPED_PACKET: RouteDecisionConfidenceClass = "queue_scoped_packet"
 
 
 def queue_target_decisions(
@@ -43,9 +59,10 @@ def queue_target_decisions(
     Two paths emit rows here:
     1. ``queue.derived_next_instruction_source.to_agent`` — set only for
        queue-selected packets that name an active next instruction.
-    2. ``queue.pending_<actor>`` counters — broad pending counters only
-       open a route scan. Rows are emitted for pending runtime-actionable
-       packets only, so communication-only notices do not become loop wake debt.
+    2. ``agent_sync.agents[actor].pending_packets_to_me`` and legacy
+       ``queue.pending_<actor>`` counters open a route scan. Rows are emitted
+       for pending loop-attention packets, so typed findings wake the target
+       actor while operator review-only notices remain receipt-only.
     """
     decisions: list[tuple[tuple[str, str, str], dict[str, object]]] = []
     seen_local: set[tuple[str, str, str]] = set(seen_keys)
@@ -104,14 +121,18 @@ def _pending_packet_decisions(
     queue = coerce_mapping(review_state.get("queue"))
     decisions: list[tuple[tuple[str, str, str], dict[str, object]]] = []
     for actor_id in _KNOWN_PENDING_ACTORS:
-        pending_count = _coerce_count(queue.get(f"pending_{actor_id}"))
+        pending_packet_ids = agent_sync_pending_packet_ids(review_state, actor_id)
+        pending_count = _coerce_count(queue.get(f"pending_{actor_id}")) or len(
+            pending_packet_ids
+        )
         if pending_count <= 0:
             continue
         if target_agent and actor_id != target_agent:
             continue
-        packet = _first_pending_runtime_actionable_packet_for_actor(
+        packet = _first_pending_loop_attention_packet_for_actor(
             review_state,
             actor_id,
+            packet_ids=pending_packet_ids,
         )
         if not packet:
             continue
@@ -137,9 +158,13 @@ def _pending_packet_decisions(
         decision["source_work_board_row"] = {
             "route_key": "|".join(key),
             "status": "queue_targeted_by_pending_count",
-            "confidence_class": "queue_pending_count_inference",
+            "confidence_class": AGENT_SYNC_PENDING_PACKET_INFERENCE
+            if pending_packet_ids
+            else QUEUE_PENDING_COUNT_INFERENCE,
             "source_event_id": coerce_text(packet.get("latest_event_id")),
-            "source_surface": f"queue.pending_{actor_id}",
+            "source_surface": "agent_sync.pending_packets_to_me"
+            if pending_packet_ids
+            else f"queue.pending_{actor_id}",
         }
         decisions.append((key, decision))
     return decisions
@@ -152,25 +177,34 @@ def _coerce_count(value: object) -> int:
         return 0
 
 
-def _first_pending_runtime_actionable_packet_for_actor(
+def _first_pending_loop_attention_packet_for_actor(
     review_state: Mapping[str, object],
     actor_id: str,
+    *,
+    packet_ids: tuple[str, ...] = (),
 ) -> Mapping[str, object] | None:
-    """Return the first pending actionable packet routed to ``actor_id``."""
+    """Return the first pending packet that should wake ``actor_id``."""
     packets = review_state.get("packets")
     if not isinstance(packets, list):
         return None
+    packet_id_filter = set(packet_ids)
+    fallback: Mapping[str, object] | None = None
     for row in packets:
         if not isinstance(row, Mapping):
+            continue
+        if packet_id_filter and coerce_text(row.get("packet_id")) not in packet_id_filter:
             continue
         if coerce_text(row.get("to_agent")) != actor_id:
             continue
         if not _is_live_pending_packet(row):
             continue
-        if not _is_runtime_actionable_packet(row):
+        if not packet_requires_loop_attention(row):
             continue
-        return row
-    return None
+        if _is_runtime_actionable_packet(row):
+            return row
+        if fallback is None:
+            fallback = row
+    return fallback
 
 
 def _queue_target_route(
@@ -202,7 +236,7 @@ def _source_row(route: Mapping[str, str]) -> dict[str, object]:
     return {
         "route_key": "|".join(key),
         "status": "queue_targeted",
-        "confidence_class": "queue_scoped_packet",
+        "confidence_class": QUEUE_SCOPED_PACKET,
         "source_event_id": route.get("source_event_id", ""),
         "source_surface": "queue.derived_next_instruction_source",
     }

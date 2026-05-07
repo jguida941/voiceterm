@@ -13,6 +13,10 @@ from ..runtime.value_coercion import coerce_mapping as _mapping
 from ..runtime.value_coercion import coerce_text as _text
 from .active_packet_authority import current_active_packet_for_agent
 from .agent_packet_focus import packet_by_id
+from .agent_sync_readers import (
+    agent_sync_pending_packet_count_from_row,
+    agent_sync_row_for_actor,
+)
 from .agent_sync_models import (
     ACTIVE_LIFECYCLE_STATES,
     TERMINAL_NON_SUCCESS_STATES,
@@ -86,7 +90,7 @@ def packet_attention_for_agent(
             attention_packet=attention_packet,
             pending_packets=pending_packets,
             fallback=fallback,
-            agent_sync=_agent_sync_row(review_state, actor_id),
+            agent_sync=agent_sync_row_for_actor(review_state, actor_id),
             packet_rows_authoritative=packet_rows_authoritative,
         )
     )
@@ -148,7 +152,7 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
         )
         pending_packet_count = len(
             context.pending_packets
-        ) or _agent_sync_pending_packet_count(agent_sync)
+        ) or agent_sync_pending_packet_count_from_row(agent_sync)
         fallback_attention_changed_at = _text(
             fallback.get("latest_attention_changed_at_utc")
         )
@@ -286,22 +290,6 @@ def _latest_event_id(*values: str) -> str:
             best = text
             best_rank = rank
     return best
-
-
-def _agent_sync_row(
-    review_state: Mapping[str, object],
-    actor: str,
-) -> Mapping[str, object]:
-    agents = _mapping(_mapping(review_state.get("agent_sync")).get("agents"))
-    row = agents.get(actor)
-    return row if isinstance(row, Mapping) else {}
-
-
-def _agent_sync_pending_packet_count(agent_sync: Mapping[str, object]) -> int:
-    packets = agent_sync.get("pending_packets_to_me")
-    if isinstance(packets, list):
-        return len([packet_id for packet_id in packets if _text(packet_id)])
-    return 0
 
 
 def _observer_legacy_action_request(

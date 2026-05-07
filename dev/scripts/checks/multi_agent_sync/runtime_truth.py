@@ -21,6 +21,11 @@ from dev.scripts.devctl.runtime.review_state_locator import (  # pragma: no cove
 from dev.scripts.devctl.runtime.agent_dispatch_router import (  # pragma: no cover - import wiring
     build_agent_dispatch_router,
 )
+from dev.scripts.devctl.review_channel.agent_loop_decision_projection import (  # pragma: no cover - import wiring
+    agent_loop_decisions_for_work_board,
+    apply_agent_sync_session_attention_disambiguation,
+    apply_scoped_attention_to_ambiguous_packet_attention,
+)
 
 if __package__:
     from .runtime_truth_agent_loop import (
@@ -57,6 +62,7 @@ def evaluate_runtime_truth(
             "review_state_path": resolved_review_state_relative_path(repo_root),
             "errors": [],
         }
+    payload = _with_pending_agent_loop_projection(payload)
 
     planned_ids = {
         str(agent).strip().upper()
@@ -106,6 +112,58 @@ def evaluate_runtime_truth(
         "errors": errors,
         "warnings": warnings,
     }
+
+
+def _with_pending_agent_loop_projection(
+    payload: Mapping[str, object],
+) -> Mapping[str, object]:
+    """Append missing loop rows for pending packets before validation.
+
+    ``review-channel status`` is allowed to be read-only and may leave the
+    persisted latest JSON one projection step behind. The sync guard should
+    validate the canonical typed projection, while still preserving existing
+    bad rows so drift tests keep failing closed.
+    """
+    agent_sync = _mapping(payload.get("agent_sync"))
+    agents = _mapping(agent_sync.get("agents"))
+    pending_agents = set(pending_packet_agents(agents, packet_rows=_packet_rows(payload)))
+    if not pending_agents:
+        return payload
+
+    work_board = _mapping(payload.get("agent_work_board"))
+    if not work_board:
+        return payload
+
+    existing = agent_loop_decision_rows(payload)
+    seen = {_decision_key(row) for row in existing if _decision_key(row)}
+    projected = agent_loop_decisions_for_work_board(
+        review_state=payload,
+        work_board=work_board,
+    )
+    missing = [
+        row
+        for row in projected
+        if str(row.get("actor_id") or "").strip() in pending_agents
+        and _decision_key(row)
+        and _decision_key(row) not in seen
+    ]
+    if not missing:
+        return payload
+
+    updated: dict[str, object] = dict(payload)
+    updated["agent_loop_decisions"] = [*existing, *missing]
+    updated = apply_agent_sync_session_attention_disambiguation(updated)
+    updated = apply_scoped_attention_to_ambiguous_packet_attention(updated)
+    return updated
+
+
+def _decision_key(row: Mapping[str, object]) -> tuple[str, str, str]:
+    actor = str(row.get("actor_id") or "").strip()
+    role = str(row.get("actor_role") or "").strip()
+    session = str(row.get("session_id") or "").strip()
+    if not actor:
+        return ("", "", "")
+    return (actor, role, session)
 
 
 def _runtime_summary(payload: Mapping[str, object]) -> dict[str, object]:

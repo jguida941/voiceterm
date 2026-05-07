@@ -170,6 +170,106 @@ def test_sync_status_agent_loop_accepts_typed_tuple_packet_rows() -> None:
     assert decisions[0]["pending_packet_count"] == 1
 
 
+def test_sync_status_agent_loop_synthesizes_agent_sync_finding_wake() -> None:
+    review_state = {
+        "current_session": {"current_instruction_revision": "rev-current"},
+        "reviewer_runtime": {
+            "agent_runtime_clock": {"source_latest_event_id": "rev_evt_1"},
+            "packet_attention": {
+                "observation_actor_id": "",
+                "pending_packet_count": 0,
+                "wake_required": False,
+                "stale_reason": "actor_identity_ambiguous",
+            },
+        },
+        "agent_sync": {
+            "agents": {
+                "claude": {
+                    "pending_packets_to_me": ["rev_pkt_finding"],
+                    "last_consumed_event_id_lower_bound": "rev_evt_0",
+                }
+            }
+        },
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "codex",
+                    "role": "reviewer",
+                    "session_id": "s-codex",
+                    "status": "idle",
+                    "source_event_id": "rev_evt_1",
+                }
+            ]
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_finding",
+                "to_agent": "claude",
+                "kind": "finding",
+                "status": "pending",
+                "lifecycle_current_state": "pending",
+                "requested_action": "review_only",
+                "policy_hint": "review_only",
+                "approval_required": False,
+                "latest_event_id": "rev_evt_2",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ],
+    }
+
+    decisions = agent_loop_decisions_for_work_board(
+        review_state=review_state,
+        work_board=review_state["agent_work_board"],
+    )
+
+    claude = next(row for row in decisions if row["actor_id"] == "claude")
+    assert claude["attention_packet_id"] == "rev_pkt_finding"
+    assert claude["wake_required"] is True
+    assert claude["pending_packet_count"] == 1
+    assert (
+        claude["source_work_board_row"]["source_surface"]
+        == "agent_sync.pending_packets_to_me"
+    )
+
+
+def test_sync_status_agent_loop_keeps_operator_review_only_notice_receipt_only() -> None:
+    review_state = {
+        "current_session": {"current_instruction_revision": "rev-current"},
+        "reviewer_runtime": {
+            "agent_runtime_clock": {"source_latest_event_id": "rev_evt_1"}
+        },
+        "agent_sync": {
+            "agents": {
+                "operator": {
+                    "pending_packets_to_me": ["rev_pkt_notice"],
+                }
+            }
+        },
+        "agent_work_board": {"rows": []},
+        "packets": [
+            {
+                "packet_id": "rev_pkt_notice",
+                "to_agent": "operator",
+                "kind": "system_notice",
+                "status": "pending",
+                "lifecycle_current_state": "pending",
+                "requested_action": "review_only",
+                "policy_hint": "review_only",
+                "approval_required": False,
+                "latest_event_id": "rev_evt_2",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ],
+    }
+
+    decisions = agent_loop_decisions_for_work_board(
+        review_state=review_state,
+        work_board=review_state["agent_work_board"],
+    )
+
+    assert decisions == []
+
+
 def test_packet_attention_uses_unique_actor_pending_inventory() -> None:
     review_state = {
         "agent_sync": {

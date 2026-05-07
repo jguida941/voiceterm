@@ -82,6 +82,56 @@ def test_targeted_inbox_queue_uses_target_filtered_packets() -> None:
     assert report["queue"]["derived_next_instruction_source"] == {}
 
 
+def test_targeted_inbox_surfaces_agent_sync_pending_when_filter_is_empty() -> None:
+    args = SimpleNamespace(
+        action="inbox",
+        target="claude",
+        status="pending",
+        limit=20,
+        terminal_profile=None,
+        approval_mode=None,
+    )
+    bundle = SimpleNamespace(
+        review_state={
+            "warnings": [],
+            "errors": [],
+            "queue": {"pending_total": 0, "stale_packet_count": 0},
+            "agent_sync": {
+                "agents": {
+                    "claude": {
+                        "pending_packets_to_me": ["rev_pkt_finding"],
+                    }
+                }
+            },
+        },
+        projection_paths=ReviewChannelProjectionPaths(
+            root_dir="",
+            review_state_path="",
+            compact_path="",
+            full_path="",
+            actions_path="",
+            trace_path="",
+            latest_markdown_path="",
+            agent_registry_path="",
+            commit_pipeline_path="",
+        ),
+        artifact_paths=ReviewChannelArtifactPaths(
+            artifact_root="",
+            event_log_path="",
+            state_path="",
+            projections_root="",
+        ),
+    )
+
+    report, exit_code = _build_event_report(args=args, bundle=bundle, packets=[])
+
+    assert exit_code == 0
+    assert report["queue"]["pending_total"] == 0
+    assert report["queue"]["agent_sync_pending_total"] == 1
+    assert report["queue"]["agent_sync_pending_packet_ids"] == ["rev_pkt_finding"]
+    assert "outside the actionable inbox filter" in report["queue"]["filtered_pending_note"]
+
+
 def test_inbox_filter_honors_session_scope_when_present() -> None:
     review_state = {
         "packets": [

@@ -20,7 +20,6 @@ from ...review_channel.events import (
     load_or_refresh_event_bundle,
     refresh_event_bundle,
 )
-from ...review_channel.event_projection_queue import build_event_queue_summary
 from ...review_channel.bridge_projection import render_bridge_projection
 from ...review_channel.heartbeat import compute_non_audit_worktree_hash
 from ...review_channel.follow_stream import (
@@ -49,6 +48,7 @@ from .event_action_support import (
 )
 from .event_history_outcomes import attach_history_outcomes_if_requested
 from .event_expire_packets_action import run_expire_packets_action
+from .event_queue_report import queue_for_event_report
 from .event_post_bridge_sync import sync_bridge_after_posted_current_instruction
 from .event_post_wake import maybe_wake_posted_reviewer_packet
 from .sync_status_action import run_sync_status_action
@@ -89,7 +89,7 @@ def _build_event_report(
             bundle.review_state,
             history_limit=history_limit,
         ).to_dict()
-    queue = _queue_for_event_report(args=args, bundle=bundle, packets=packets)
+    queue = queue_for_event_report(args=args, bundle=bundle, packets=packets)
     report = {
         "command": "review-channel",
         "timestamp": utc_timestamp(),
@@ -136,36 +136,6 @@ def _build_event_report(
     }
     return report, report["exit_code"]
 
-
-def _queue_for_event_report(*, args, bundle, packets: list[dict[str, object]] | None):
-    queue = bundle.review_state.get("queue", {})
-    target = str(getattr(args, "target", "") or "").strip()
-    status_filter = str(getattr(args, "status", "") or "").strip()
-    if (
-        args.action not in {"inbox", "watch", "operator-inbox"}
-        or not target
-        or packets is None
-        or status_filter not in {"", "pending"}
-    ):
-        return queue
-    pending_counts = {
-        "codex": 0,
-        "claude": 0,
-        "cursor": 0,
-        "operator": 0,
-    }
-    if target in pending_counts:
-        pending_counts[target] = len(packets)
-    else:
-        pending_counts[target] = len(packets)
-    stale_count = 0
-    if isinstance(queue, dict):
-        stale_count = int(queue.get("stale_packet_count") or 0)
-    return build_event_queue_summary(
-        pending_counts,
-        stale_count,
-        packets=packets,
-    )
 
 def _run_event_action(
     *,
