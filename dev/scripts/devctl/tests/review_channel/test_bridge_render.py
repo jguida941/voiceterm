@@ -14,6 +14,7 @@ import pytest
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import review_channel as review_channel_command
 from dev.scripts.devctl.commands.review_channel.bridge_render import (
+    BridgeSuccessReportRequest,
     build_bridge_success_report,
 )
 from dev.scripts.devctl.commands.review_channel.status_bridge_sync import (
@@ -68,6 +69,46 @@ def _bridge_report_args() -> SimpleNamespace:
         codex_workers=0,
         claude_workers=0,
     )
+
+
+def test_bridge_report_includes_split_launch_result_booleans() -> None:
+    args = _bridge_report_args()
+    args.action = "launch"
+    sessions = [
+        {
+            "provider": "codex",
+            "headless_launch_status": "alive",
+            "headless_launch_pid": 1234,
+        }
+    ]
+
+    report, exit_code = build_bridge_success_report(
+        BridgeSuccessReportRequest(
+            args=args,
+            bridge_liveness={
+                "overall_state": "fresh",
+                "codex_conductor_active": True,
+            },
+            attention={},
+            reviewer_worker=None,
+            codex_lanes=[],
+            claude_lanes=[],
+            terminal_profile_applied=None,
+            warnings=[],
+            sessions=sessions,
+            handoff_bundle=None,
+            projection_paths=None,
+            launched=True,
+            handoff_ack_required=False,
+            handoff_ack_observed=None,
+        )
+    )
+
+    assert exit_code == 0
+    assert report["launched"] is True
+    assert report["typed_state_written"] is True
+    assert report["process_alive"] is True
+    assert report["bridge_attached"] is True
 
 
 def _review_channel_text() -> str:
@@ -1031,7 +1072,7 @@ def test_status_bridge_sync_does_not_reverse_newer_reviewer_heartbeat(
     assert "- Last Codex poll: `2026-04-24T17:05:00Z`" in rewritten
 
 
-def test_reviewer_mode_drift_does_not_demote_active_bridge_mode() -> None:
+def test_reviewer_mode_drift_demotes_active_bridge_to_effective_tools_only() -> None:
     drifted = reviewer_mode_projection_drifted(
         snapshot_metadata={"reviewer_mode": "active_dual_agent"},
         review_state_payload={
@@ -1042,7 +1083,7 @@ def test_reviewer_mode_drift_does_not_demote_active_bridge_mode() -> None:
         },
     )
 
-    assert drifted is False
+    assert drifted is True
 
 
 def test_reviewer_mode_drift_promotes_remote_control_effective_mode() -> None:
@@ -1166,52 +1207,54 @@ def test_status_bridge_sync_projects_effective_live_mode_over_stale_tools_only(
 
 def test_build_bridge_success_report_uses_typed_collaboration_runtime_counts() -> None:
     report, exit_code = build_bridge_success_report(
-        args=_bridge_report_args(),
-        bridge_liveness={
-            "overall_state": "inactive",
-            "active_conductor_providers": [],
-            "publisher_running": False,
-            "reviewer_supervisor_running": False,
-        },
-        attention={
-            "status": "inactive",
-            "owner": "system",
-            "summary": "",
-            "recommended_action": "",
-            "recommended_command": "",
-        },
-        reviewer_worker=None,
-        collaboration={
-            "participants": [
-                {
-                    "agent_id": "claude",
-                    "provider": "claude",
-                    "role": "implementer",
-                    "live": True,
-                    "planned_lane_count": 8,
-                    "requested_worker_budget": 0,
-                },
-                {
-                    "agent_id": "codex",
-                    "provider": "codex",
-                    "role": "reviewer",
-                    "live": False,
-                    "planned_lane_count": 8,
-                    "requested_worker_budget": 0,
-                },
-            ],
-            "delegated_work": [],
-        },
-        codex_lanes=[object()] * 8,
-        claude_lanes=[object()] * 8,
-        terminal_profile_applied="Pro",
-        warnings=[],
-        sessions=[],
-        handoff_bundle=None,
-        projection_paths={},
-        launched=False,
-        handoff_ack_required=False,
-        handoff_ack_observed=None,
+        BridgeSuccessReportRequest(
+            args=_bridge_report_args(),
+            bridge_liveness={
+                "overall_state": "inactive",
+                "active_conductor_providers": [],
+                "publisher_running": False,
+                "reviewer_supervisor_running": False,
+            },
+            attention={
+                "status": "inactive",
+                "owner": "system",
+                "summary": "",
+                "recommended_action": "",
+                "recommended_command": "",
+            },
+            reviewer_worker=None,
+            collaboration={
+                "participants": [
+                    {
+                        "agent_id": "claude",
+                        "provider": "claude",
+                        "role": "implementer",
+                        "live": True,
+                        "planned_lane_count": 8,
+                        "requested_worker_budget": 0,
+                    },
+                    {
+                        "agent_id": "codex",
+                        "provider": "codex",
+                        "role": "reviewer",
+                        "live": False,
+                        "planned_lane_count": 8,
+                        "requested_worker_budget": 0,
+                    },
+                ],
+                "delegated_work": [],
+            },
+            codex_lanes=[object()] * 8,
+            claude_lanes=[object()] * 8,
+            terminal_profile_applied="Pro",
+            warnings=[],
+            sessions=[],
+            handoff_bundle=None,
+            projection_paths={},
+            launched=False,
+            handoff_ack_required=False,
+            handoff_ack_observed=None,
+        )
     )
 
     assert exit_code == 0

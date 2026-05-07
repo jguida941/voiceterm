@@ -26,6 +26,9 @@ from dev.scripts.devctl.runtime.review_state_locator import (
     resolve_review_state_path,
     review_state_relative_candidates,
 )
+from dev.scripts.devctl.runtime.review_state_refresh_support import (
+    refresh_event_backed_review_state_payload,
+)
 
 
 def _governance(
@@ -359,6 +362,49 @@ def test_load_current_review_state_payload_refreshes_event_backed_projection_for
         ),
     )
     refresh_status_snapshot_mock.assert_not_called()
+
+
+@patch("dev.scripts.devctl.review_channel.event_store.resolve_artifact_paths")
+@patch("dev.scripts.devctl.review_channel.event_reducer.refresh_event_bundle")
+def test_event_backed_refresh_returns_in_memory_state_when_writes_are_suppressed(
+    refresh_event_bundle_mock,
+    resolve_artifact_paths_mock,
+    tmp_path: Path,
+) -> None:
+    review_channel_path = tmp_path / "dev" / "active" / "review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
+    stale_projection = (
+        tmp_path
+        / "dev"
+        / "reports"
+        / "review_channel"
+        / "projections"
+        / "latest"
+        / "review_state.json"
+    )
+    _write_review_state(
+        stale_projection,
+        payload={"current_session": {"current_instruction": "stale file"}},
+    )
+    resolve_artifact_paths_mock.return_value = SimpleNamespace(
+        projections_root=str(stale_projection.parent),
+        event_log_path=str(tmp_path / "trace.ndjson"),
+        state_path=str(tmp_path / "state.json"),
+    )
+    refresh_event_bundle_mock.return_value = SimpleNamespace(
+        review_state={"current_session": {"current_instruction": "fresh memory"}},
+        projection_paths=SimpleNamespace(review_state_path=str(stale_projection)),
+    )
+
+    payload = refresh_event_backed_review_state_payload(
+        tmp_path,
+        governance=_governance(
+            review_channel_path="dev/active/review_channel.md",
+        ),
+    )
+
+    assert payload == {"current_session": {"current_instruction": "fresh memory"}}
 
 
 @patch(

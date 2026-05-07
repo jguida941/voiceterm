@@ -41,6 +41,9 @@ from .reviewer_head_tracking import (
     current_head_sha as _current_head_sha,
 )
 REVIEWER_MODE_RE = re.compile(r"(?m)^- Reviewer mode:\s*`.*?`\s*$")
+DECLARED_REVIEWER_MODE_RE = re.compile(
+    r"(?m)^- Declared reviewer mode:\s*`.*?`\s*$"
+)
 
 
 DEFAULT_REVIEWER_ACTOR = "codex"
@@ -202,25 +205,10 @@ def write_reviewer_checkpoint(
                 ),
             ),
         )
-        updated_text = _replace_section(
+        updated_text = _replace_reviewer_checkpoint_sections(
             updated_text,
-            heading="Current Verdict",
-            body=checkpoint.current_verdict.strip(),
-        )
-        updated_text = _replace_section(
-            updated_text,
-            heading="Open Findings",
-            body=checkpoint.open_findings.strip(),
-        )
-        updated_text = _replace_section(
-            updated_text,
-            heading="Current Instruction For Claude",
-            body=checkpoint.current_instruction.strip(),
-        )
-        updated_text = _replace_section(
-            updated_text,
-            heading="Last Reviewed Scope",
-            body=reviewed_scope_body,
+            checkpoint=checkpoint,
+            reviewed_scope_body=reviewed_scope_body,
         )
         return reset_implementer_sections_on_instruction_change(
             updated_text,
@@ -260,6 +248,34 @@ def write_reviewer_checkpoint(
         bridge_path=bridge_path,
     )
     return write
+
+
+def _replace_reviewer_checkpoint_sections(
+    text: str,
+    *,
+    checkpoint: ReviewerCheckpointUpdate,
+    reviewed_scope_body: str,
+) -> str:
+    text = _replace_section(
+        text,
+        heading="Current Verdict",
+        body=checkpoint.current_verdict.strip(),
+    )
+    text = _replace_section(
+        text,
+        heading="Open Findings",
+        body=checkpoint.open_findings.strip(),
+    )
+    text = _replace_section(
+        text,
+        heading="Current Instruction For Claude",
+        body=checkpoint.current_instruction.strip(),
+    )
+    return _replace_section(
+        text,
+        heading="Last Reviewed Scope",
+        body=reviewed_scope_body,
+    )
 
 
 def _append_typed_reviewer_checkpoint_event(
@@ -467,7 +483,9 @@ def ensure_reviewer_heartbeat(
 
 
 def reviewer_mode_from_bridge_text(bridge_text: str) -> ReviewerMode:
-    mode_match = REVIEWER_MODE_RE.search(bridge_text)
+    mode_match = DECLARED_REVIEWER_MODE_RE.search(bridge_text)
+    if mode_match is None:
+        mode_match = REVIEWER_MODE_RE.search(bridge_text)
     raw_mode = ""
     if mode_match:
         line = mode_match.group(0)

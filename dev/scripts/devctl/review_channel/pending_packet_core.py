@@ -5,6 +5,12 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone
 
+from .pending_packet_approval_resolution import (
+    approval_resolution_key,
+    is_applied_approval_decision,
+    is_pending_approval_request,
+)
+from .pending_packet_durable_resolution import has_durable_resolution
 from .pending_packet_models import PacketQueueReconciliation
 
 
@@ -22,10 +28,10 @@ def partition_live_pending_packets(
     live_packets: list[object] = []
     stale_packets: list[object] = []
     resolved_approval_keys = {
-        _approval_resolution_key(packet)
+        approval_resolution_key(packet)
         for packet in packet_list
-        if _is_applied_approval_decision(packet)
-        and any(_approval_resolution_key(packet))
+        if is_applied_approval_decision(packet)
+        and any(approval_resolution_key(packet))
     }
     now = datetime.now(timezone.utc)
     for packet in packet_list:
@@ -34,9 +40,11 @@ def partition_live_pending_packets(
             continue
         if _has_terminal_action_request_receipt(packet):
             continue
+        if has_durable_resolution(packet):
+            continue
         if (
-            _is_pending_approval_request(packet)
-            and _approval_resolution_key(packet) in resolved_approval_keys
+            is_pending_approval_request(packet)
+            and approval_resolution_key(packet) in resolved_approval_keys
         ):
             continue
         expires_at = _parse_utc(
@@ -127,28 +135,6 @@ def reconcile_packet_queue(
     )
 
 
-def _is_pending_approval_request(packet: object) -> bool:
-    status = str(_packet_value(packet, "status") or "").strip()
-    if status != "pending":
-        return False
-    if not bool(_packet_value(packet, "approval_required")):
-        return False
-    return _is_commit_approval_kind(packet)
-
-
-def _is_applied_approval_decision(packet: object) -> bool:
-    status = str(_packet_value(packet, "status") or "").strip()
-    if status != "applied":
-        return False
-    if bool(_packet_value(packet, "approval_required")):
-        return False
-    return _is_commit_approval_kind(packet)
-
-
-def _is_commit_approval_kind(packet: object) -> bool:
-    return str(_packet_value(packet, "kind") or "").strip() == "commit_approval"
-
-
 def _has_terminal_action_request_receipt(packet: object) -> bool:
     if str(_packet_value(packet, "kind") or "").strip() != "action_request":
         return False
@@ -157,15 +143,6 @@ def _has_terminal_action_request_receipt(packet: object) -> bool:
         or str(
             _packet_value(packet, "apply_pending_after_execution_at_utc") or ""
         ).strip()
-    )
-
-
-def _approval_resolution_key(packet: object) -> tuple[str, str, str, str]:
-    return (
-        str(_packet_value(packet, "trace_id") or "").strip(),
-        str(_packet_value(packet, "kind") or "").strip(),
-        str(_packet_value(packet, "target_ref") or "").strip(),
-        str(_packet_value(packet, "pipeline_generation") or "").strip(),
     )
 
 

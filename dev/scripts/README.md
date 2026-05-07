@@ -2403,6 +2403,23 @@ Machine-first output note:
     as a `launcher_discipline_bypassed` event. The receipt records the bypass
     reason, requested terminal, interaction mode, and each bypassed verdict;
     the future operator-facing bypass flag remains separate follow-up work.
+  - Launch orchestration has explicit module boundaries now:
+    `bridge_action_prepare.py` owns action preparation, `bridge_scope.py` owns
+    scope promotion helpers, `bridge_stale_refresh.py` owns stale heartbeat
+    self-heal, `launcher_discipline_enforcement.py` owns bypass receipt
+    enforcement, and `parser_launch_arguments.py` / `parser_types.py` own the
+    launch CLI argument table. Keep new launch behavior inside the matching
+    helper instead of regrowing the handler/support/parser modules beyond their
+    guard budgets.
+  - `--reviewer-mode active_dual_agent` is an authoritative launch override:
+    if typed bridge metadata still says `single_agent`, launch rewrites it
+    instead of silently ignoring the flag. Publisher and reviewer-supervisor
+    lifecycle heartbeats plus daemon event rows also carry
+    `invocation_provenance` with `parent_pid`, `process_pid`, `launchd_label`,
+    `daemon_supervisor`, `trigger_reason`, and `command_line`; the launchd
+    wrapper sets `launchd_label=com.voiceterm.review-channel.publisher` and
+    `daemon_supervisor=launchd` so remote-control operators can prove why an
+    auto-spawn occurred.
   - Event-backed `current_session` now preserves the prior typed instruction
     when the queue is blank and no explicit packet truth exists, but explicit
     live `packets` / persisted `packet_inbox` authority can still clear the

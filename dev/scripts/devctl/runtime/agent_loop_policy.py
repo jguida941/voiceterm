@@ -102,22 +102,9 @@ def policy_for_turn(
     )
 
     if decision_code == "stop_no_work" or required_action == "stop_no_work":
-        loop_mode = "stopped" if proof.advance_allowed else "await_round_proof"
-        stop_cadence = 0 if proof.advance_allowed else max(30, min(cadence, 120))
-        return AgentLoopPolicy(
-            loop_mode=loop_mode,
-            loop_driver_agent=driver,
-            loop_intent=ctx.loop_intent,
-            recommended_cadence_seconds=stop_cadence,
-            can_run_next_command=False,
-            dogfood_record_allowed=False,
-            proof_gate=proof,
-            policy_reason=proof.reason or "completed_handoff_has_no_new_scoped_work",
-            next_loop_command=command,
-        )
-
-    if not should_continue_loop:
-        return AgentLoopPolicy(
+        policy = _stopped_policy(ctx, driver, cadence, proof, command)
+    elif not should_continue_loop:
+        policy = AgentLoopPolicy(
             loop_mode="blocked_wait",
             loop_driver_agent=driver,
             loop_intent=ctx.loop_intent,
@@ -126,12 +113,11 @@ def policy_for_turn(
             policy_reason="missing_required_loop_identity",
             next_loop_command=command,
         )
-
-    if (
+    elif (
         ctx.operator_override.edit_allowed
         and required_action == "repair_startup_authority"
     ):
-        return AgentLoopPolicy(
+        policy = AgentLoopPolicy(
             loop_mode="operator_override_edit",
             loop_driver_agent=driver,
             loop_intent=ctx.loop_intent,
@@ -142,9 +128,8 @@ def policy_for_turn(
             policy_reason="operator_override_edit_only_allows_scoped_implementation",
             next_loop_command=command,
         )
-
-    if required_action in _MUTATION_ACTIONS and not ctx.may_mutate:
-        return AgentLoopPolicy(
+    elif required_action in _MUTATION_ACTIONS and not ctx.may_mutate:
+        policy = AgentLoopPolicy(
             loop_mode="observer_wait",
             loop_driver_agent=driver,
             loop_intent=ctx.loop_intent,
@@ -155,9 +140,20 @@ def policy_for_turn(
             policy_reason=f"{required_action}_requires_mutation_authority",
             next_loop_command=command,
         )
-
-    if required_action == "triage_pending_packet":
-        return AgentLoopPolicy(
+    elif required_action == "repair_startup_authority" and ctx.may_mutate:
+        policy = AgentLoopPolicy(
+            loop_mode="startup_repair",
+            loop_driver_agent=driver,
+            loop_intent=ctx.loop_intent,
+            recommended_cadence_seconds=max(15, min(cadence, 60)),
+            can_run_next_command=True,
+            dogfood_record_allowed=True,
+            proof_gate=proof,
+            policy_reason="startup_repair_authorized_by_actor_capabilities",
+            next_loop_command=command,
+        )
+    elif required_action == "triage_pending_packet":
+        policy = AgentLoopPolicy(
             loop_mode="pivot_to_packet",
             loop_driver_agent=driver,
             loop_intent=ctx.loop_intent,
@@ -168,9 +164,8 @@ def policy_for_turn(
             policy_reason="packet_attention_triage_preempts_blocked_mutation",
             next_loop_command=command,
         )
-
-    if decision_code in {"pivot_to_packet", "continue_current_execution"}:
-        return AgentLoopPolicy(
+    elif decision_code in {"pivot_to_packet", "continue_current_execution"}:
+        policy = AgentLoopPolicy(
             loop_mode=decision_code,
             loop_driver_agent=driver,
             loop_intent=ctx.loop_intent,
@@ -181,9 +176,8 @@ def policy_for_turn(
             policy_reason="scoped_packet_requires_actor_work",
             next_loop_command=command,
         )
-
-    if required_action == "resume_or_recover_session":
-        return AgentLoopPolicy(
+    elif required_action == "resume_or_recover_session":
+        policy = AgentLoopPolicy(
             loop_mode="recover_or_relaunch",
             loop_driver_agent=driver,
             loop_intent=ctx.loop_intent,
@@ -194,9 +188,8 @@ def policy_for_turn(
             policy_reason="session_outcome_requires_recovery_decision",
             next_loop_command=command,
         )
-
-    if loop_state == "blocked":
-        return AgentLoopPolicy(
+    elif loop_state == "blocked":
+        policy = AgentLoopPolicy(
             loop_mode="run_or_report_blocker",
             loop_driver_agent=driver,
             loop_intent=ctx.loop_intent,
@@ -207,9 +200,8 @@ def policy_for_turn(
             policy_reason="blocker_requires_authorized_owner",
             next_loop_command=command,
         )
-
-    if loop_state in {"observe", "wait"}:
-        return AgentLoopPolicy(
+    elif loop_state in {"observe", "wait"}:
+        policy = AgentLoopPolicy(
             loop_mode="typed_event_wait",
             loop_driver_agent=driver,
             loop_intent=ctx.loop_intent,
@@ -220,15 +212,38 @@ def policy_for_turn(
             policy_reason="no_claimable_scoped_work_for_actor",
             next_loop_command=command,
         )
+    else:
+        policy = AgentLoopPolicy(
+            loop_mode="typed_event_wait",
+            loop_driver_agent=driver,
+            loop_intent=ctx.loop_intent,
+            recommended_cadence_seconds=cadence,
+            can_run_next_command=False,
+            proof_gate=proof,
+            policy_reason="default_typed_loop_policy",
+            next_loop_command=command,
+        )
+    return policy
 
+
+def _stopped_policy(
+    ctx: _LoopContext,
+    driver: str,
+    cadence: int,
+    proof: AgentLoopProofGate,
+    command: str,
+) -> AgentLoopPolicy:
+    loop_mode = "stopped" if proof.advance_allowed else "await_round_proof"
+    stop_cadence = 0 if proof.advance_allowed else max(30, min(cadence, 120))
     return AgentLoopPolicy(
-        loop_mode="typed_event_wait",
+        loop_mode=loop_mode,
         loop_driver_agent=driver,
         loop_intent=ctx.loop_intent,
-        recommended_cadence_seconds=cadence,
+        recommended_cadence_seconds=stop_cadence,
         can_run_next_command=False,
+        dogfood_record_allowed=False,
         proof_gate=proof,
-        policy_reason="default_typed_loop_policy",
+        policy_reason=proof.reason or "completed_handoff_has_no_new_scoped_work",
         next_loop_command=command,
     )
 

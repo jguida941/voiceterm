@@ -473,6 +473,106 @@ def test_actor_loop_attention_respects_role_and_session_scope() -> None:
     assert decision.attention_packet_id == "rev_pkt_match"
 
 
+def test_agent_loop_ignores_stale_sync_packet_count_when_rows_are_authority() -> None:
+    review_state = _state()
+    review_state["agent_sync"] = {
+        "agents": {
+            "claude": {
+                "last_consumed_event_id_lower_bound": "rev_evt_100",
+                "pending_packets_to_me": [
+                    "rev_pkt_3149",
+                    "rev_pkt_3150",
+                    "rev_pkt_3151",
+                ],
+            }
+        }
+    }
+    review_state["reviewer_runtime"]["packet_attention"] = {
+        "observation_actor_id": "claude",
+        "observation_session_id": "s1",
+        "latest_inbox_event_id": "rev_evt_101",
+        "latest_attention_packet_id": "rev_pkt_3150",
+        "last_observed_event_id": "rev_evt_100",
+        "pending_packet_count": 3,
+        "wake_required": True,
+        "pivot_required": True,
+        "stale_reason": "wake_required",
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={
+            "control_plane": {
+                "top_blocker": "startup authority: staged_index_budget_exceeded",
+                "next_command": "python3.11 dev/scripts/devctl.py commit -m checkpoint",
+            }
+        },
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="s1",
+    )
+
+    assert decision.required_action == "repair_startup_authority"
+    assert decision.reason_code == "repair_startup_authority"
+    assert decision.decision == "run_next_command"
+    assert decision.pending_packet_count == 0
+    assert decision.latest_inbox_event_id == ""
+    assert decision.active_packet_id == ""
+    assert decision.attention_packet_id == ""
+
+
+def test_agent_loop_does_not_pivot_to_archived_work_board_packet() -> None:
+    review_state = _state(
+        _packet(
+            packet_id="rev_pkt_3150",
+            lifecycle_current_state="archived",
+            status="applied",
+            target_role="implementer",
+            target_session_id="s1",
+        )
+    )
+    review_state["agent_work_board"] = {
+        "rows": [
+            {
+                "actor_id": "claude",
+                "role": "implementer",
+                "session_id": "s1",
+                "active_packet_id": "rev_pkt_3150",
+                "attention_packet_id": "rev_pkt_3150",
+                "source_event_id": "rev_evt_101",
+                "mutation_mode": "live_tree",
+                "granted_capabilities": ["repo.stage"],
+            }
+        ]
+    }
+    review_state["reviewer_runtime"]["packet_attention"] = {
+        "observation_actor_id": "claude",
+        "observation_session_id": "s1",
+        "latest_inbox_event_id": "rev_evt_101",
+        "latest_attention_packet_id": "rev_pkt_3150",
+        "last_observed_event_id": "rev_evt_100",
+        "pending_packet_count": 1,
+        "wake_required": True,
+        "pivot_required": True,
+        "stale_reason": "wake_required",
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="s1",
+    )
+
+    assert decision.required_action == "wait_for_scoped_packet"
+    assert decision.decision == "wait"
+    assert decision.pending_packet_count == 0
+    assert decision.latest_inbox_event_id == ""
+    assert decision.active_packet_id == ""
+    assert decision.attention_packet_id == ""
+
+
 def test_mutation_authority_respects_action_routing_blocks() -> None:
     review_state = _state(
         _packet(
@@ -581,6 +681,265 @@ def test_startup_blocker_overrides_work_packet_but_keeps_loop_alive() -> None:
     assert decision.loop_mode == "observer_wait"
     assert decision.can_run_next_command is False
     assert decision.policy_reason == "repair_startup_authority_requires_mutation_authority"
+
+
+def test_startup_repair_uses_stage_commit_capabilities_without_edit_permission() -> None:
+    review_state = _state()
+    review_state["collaboration"] = {
+        "actor_authorities": [
+            {
+                "actor_id": "claude",
+                "provider": "claude",
+                "live": True,
+                "grants": [
+                    {"capability": "repo.stage", "granted": True},
+                    {"capability": "repo.commit", "granted": True},
+                ],
+            }
+        ]
+    }
+    review_state["action_routing"] = {
+        "allowed_actions": ["startup-context.summary", "review-channel.status"],
+        "blocked_actions": [
+            "implementation.edit",
+            "vcs.stage",
+            "vcs.commit",
+            "vcs.push",
+        ],
+        "agent_lane": {"edit_gate": {"edit_allowed": False}},
+    }
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={
+            "control_plane": {
+                "top_blocker": "startup authority: staged_index_budget_exceeded",
+                "next_action": (
+                    "checkpoint_blocked_by_startup_authority:"
+                    "staged_index_budget_exceeded"
+                ),
+                "next_command": 'python3 dev/scripts/devctl.py commit -m "checkpoint"',
+            }
+        },
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="s1",
+    )
+
+    assert decision.loop_state == "blocked"
+    assert decision.required_action == "repair_startup_authority"
+    assert decision.may_mutate is True
+    assert decision.can_run_next_command is True
+    assert decision.next_command == 'python3 dev/scripts/devctl.py commit -m "checkpoint"'
+    assert decision.loop_mode == "startup_repair"
+    assert "vcs.stage" in decision.allowed_actions
+    assert "vcs.commit" in decision.allowed_actions
+    assert "vcs.stage" not in decision.blocked_actions
+    assert "vcs.commit" not in decision.blocked_actions
+    assert "implementation.edit" in decision.blocked_actions
+    assert "vcs.push" in decision.blocked_actions
+
+
+def test_remote_control_implementer_participant_grants_checkpoint_vcs_only() -> None:
+    review_state = _state()
+    review_state["collaboration"] = {
+        "participants": [
+            {
+                "agent_id": "claude",
+                "provider": "claude",
+                "role": "operator",
+                "live": True,
+                "status": "live",
+                "capture_mode": "remote-control",
+            }
+        ],
+        "actor_authorities": [
+            {
+                "actor_id": "claude",
+                "provider": "claude",
+                "role": "reviewer",
+                "live": True,
+                "grants": [
+                    {"capability": "repo.stage_handoff", "granted": True},
+                    {"capability": "review.checkpoint", "granted": True},
+                ],
+            }
+        ],
+    }
+    review_state["action_routing"] = {
+        "allowed_actions": ["startup-context.summary", "review-channel.status"],
+        "blocked_actions": [
+            "implementation.edit",
+            "vcs.stage",
+            "vcs.commit",
+            "vcs.push",
+        ],
+        "agent_lane": {"edit_gate": {"edit_allowed": False}},
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={
+            "control_plane": {
+                "top_blocker": "startup authority: staged_index_budget_exceeded",
+                "next_action": (
+                    "checkpoint_blocked_by_startup_authority:"
+                    "staged_index_budget_exceeded"
+                ),
+                "next_command": 'python3 dev/scripts/devctl.py commit -m "checkpoint"',
+            }
+        },
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="remote-session",
+    )
+
+    assert decision.loop_mode == "startup_repair"
+    assert decision.may_mutate is True
+    assert decision.can_run_next_command is True
+    assert "repo.stage" in decision.granted_capabilities
+    assert "repo.commit" in decision.granted_capabilities
+    assert "vcs.stage" in decision.allowed_actions
+    assert "vcs.commit" in decision.allowed_actions
+    assert "implementation.edit" in decision.blocked_actions
+    assert "vcs.push" in decision.blocked_actions
+
+
+def test_remote_control_checkpoint_grants_survive_empty_scoped_work_board_row() -> None:
+    review_state = _state()
+    review_state["agent_work_board"] = {
+        "rows": [
+            {
+                "actor_id": "claude",
+                "role": "implementer",
+                "session_id": "remote-session",
+                "mutation_mode": "read_only",
+                "granted_capabilities": [],
+            }
+        ]
+    }
+    review_state["collaboration"] = {
+        "participants": [
+            {
+                "agent_id": "claude",
+                "provider": "claude",
+                "role": "operator",
+                "live": True,
+                "capture_mode": "remote-control",
+            }
+        ],
+        "actor_authorities": [
+            {
+                "actor_id": "claude",
+                "provider": "claude",
+                "role": "implementer",
+                "live": True,
+                "grants": [
+                    {"capability": "repo.stage", "granted": True},
+                    {"capability": "repo.commit", "granted": True},
+                ],
+            }
+        ],
+    }
+    review_state["action_routing"] = {
+        "allowed_actions": ["startup-context.summary", "review-channel.status"],
+        "blocked_actions": [
+            "implementation.edit",
+            "vcs.stage",
+            "vcs.commit",
+            "vcs.push",
+        ],
+        "agent_lane": {"edit_gate": {"edit_allowed": False}},
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={
+            "control_plane": {
+                "top_blocker": "startup authority: import_index_atomicity",
+                "next_action": (
+                    "checkpoint_blocked_by_startup_authority:"
+                    "import_index_atomicity"
+                ),
+                "next_command": 'python3 dev/scripts/devctl.py commit -m "checkpoint"',
+            }
+        },
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="remote-session",
+    )
+
+    assert decision.loop_mode == "startup_repair"
+    assert decision.may_mutate is True
+    assert decision.can_run_next_command is True
+    assert "repo.stage" in decision.granted_capabilities
+    assert "repo.commit" in decision.granted_capabilities
+    assert "vcs.stage" in decision.allowed_actions
+    assert "vcs.commit" in decision.allowed_actions
+    assert "vcs.stage" not in decision.blocked_actions
+    assert "vcs.commit" not in decision.blocked_actions
+    assert "implementation.edit" in decision.blocked_actions
+    assert "vcs.push" in decision.blocked_actions
+
+
+def test_remote_control_reviewer_participant_does_not_gain_checkpoint_vcs() -> None:
+    review_state = _state()
+    review_state["collaboration"] = {
+        "participants": [
+            {
+                "agent_id": "claude",
+                "provider": "claude",
+                "role": "operator",
+                "live": True,
+                "status": "live",
+                "capture_mode": "remote-control",
+            }
+        ],
+        "actor_authorities": [
+            {
+                "actor_id": "claude",
+                "provider": "claude",
+                "role": "reviewer",
+                "live": True,
+                "grants": [
+                    {"capability": "repo.stage_handoff", "granted": True},
+                    {"capability": "review.checkpoint", "granted": True},
+                ],
+            }
+        ],
+    }
+    review_state["action_routing"] = {
+        "allowed_actions": ["startup-context.summary", "review-channel.status"],
+        "blocked_actions": [
+            "implementation.edit",
+            "vcs.stage",
+            "vcs.commit",
+            "vcs.push",
+        ],
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={
+            "control_plane": {
+                "top_blocker": "startup authority: staged_index_budget_exceeded",
+                "next_action": (
+                    "checkpoint_blocked_by_startup_authority:"
+                    "staged_index_budget_exceeded"
+                ),
+                "next_command": 'python3 dev/scripts/devctl.py commit -m "checkpoint"',
+            }
+        },
+        actor_id="claude",
+        actor_role="reviewer",
+        session_id="remote-session",
+    )
+
+    assert decision.loop_mode == "observer_wait"
+    assert decision.may_mutate is False
+    assert "repo.stage" not in decision.granted_capabilities
+    assert "repo.commit" not in decision.granted_capabilities
+    assert "vcs.stage" in decision.blocked_actions
+    assert "vcs.commit" in decision.blocked_actions
 
 
 def test_packet_attention_preempts_startup_blocker_without_mutation() -> None:
@@ -909,6 +1268,7 @@ def test_completed_handoff_pivots_when_new_packet_needs_attention() -> None:
             packet_id="rev_pkt_new",
             target_role="coder",
             target_session_id="s1",
+            latest_event_id="rev_evt_101",
         )
     )
     review_state["reviewer_runtime"]["packet_attention"] = {

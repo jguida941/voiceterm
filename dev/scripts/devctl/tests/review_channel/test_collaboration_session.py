@@ -142,7 +142,7 @@ def test_build_collaboration_session_projects_unresolved_dead_session_outcome(
     monkeypatch.setattr(
         collaboration_mod,
         "load_remote_control_attachments",
-        lambda *, output_root, active_only: (),
+        lambda *, output_root, active_only, **_kwargs: (),
     )
     monkeypatch.setattr(
         collaboration_mod,
@@ -309,7 +309,7 @@ def test_build_collaboration_session_promotes_active_remote_control_attachment(
     monkeypatch.setattr(
         collaboration_mod,
         "load_remote_control_attachments",
-        lambda *, output_root, active_only=False: (
+        lambda *, output_root, active_only=False, **_kwargs: (
             RemoteControlAttachmentState(
                 provider="claude",
                 role="implementer",
@@ -360,7 +360,102 @@ def test_build_collaboration_session_promotes_active_remote_control_attachment(
     assert session.restart.source == "remote_control_attachment"
 
 
-def test_build_collaboration_session_collapses_single_agent_remote_dashboard_to_local_writer(
+def test_build_collaboration_session_refreshes_remote_control_from_claude_session_state(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from dev.scripts.devctl.commands.remote_control import _session_state_proof
+    from dev.scripts.devctl.review_channel.remote_control_attachment_artifact import (
+        persist_remote_control_attachment,
+    )
+
+    session_records = (
+        _session_record("codex", "reviewer", live=False),
+        _session_record("claude", "implementer", live=False, workspace_root="../codex-voice-wt-a9"),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    session_state_root = tmp_path / "claude-sessions"
+    session_state_root.mkdir()
+    (session_state_root / "33330.json").write_text(
+        json.dumps(
+            {
+                "pid": 33330,
+                "sessionId": "claude-session-0001",
+                "cwd": str(tmp_path),
+                "status": "idle",
+                "updatedAt": datetime.now(timezone.utc).isoformat(),
+                "bridgeSessionId": "session_state",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        _session_state_proof,
+        "CLAUDE_SESSION_STATE_ROOT",
+        session_state_root,
+    )
+    monkeypatch.setattr(_session_state_proof, "_pid_alive", lambda _pid: True)
+    persist_remote_control_attachment(
+        RemoteControlAttachmentState(
+            provider="claude",
+            role="operator",
+            attachment_id="remote-attach-stale",
+            session_name="VoiceTerm Remote Control",
+            remote_session_id="session_old",
+            session_url="https://claude.ai/code/session_old",
+            status="attached",
+            attached_at_utc="2026-04-11T00:00:00Z",
+            last_seen_utc="2026-04-11T00:00:00Z",
+            source_hook_session_id="claude-session-0001",
+            source_proof_channel="claude_session_state",
+            physical_remote_control_confirmed=True,
+            physical_confirmation_method="claude_session_state_bridge",
+        ),
+        output_root=tmp_path,
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/runtime/startup_context.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-11T00:00:00Z",
+        plan_id="MP-380",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "codex_poll_state": "fresh",
+        },
+        current_session=_current_session(
+            instruction="Tighten `dev/scripts/devctl/runtime/startup_context.py`.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/startup_context.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    claude_participant = next(row for row in session.participants if row.provider == "claude")
+    assert claude_participant.live is True
+    assert claude_participant.capture_mode == "remote-control"
+    assert claude_participant.launch_command == "https://claude.ai/code/session_state"
+    assert session.mutation_owner == "claude"
+    assert session.verification_owner == "codex"
+    claude_authority = next(
+        row for row in session.actor_authorities if row.actor_id == "claude"
+    )
+    assert any(
+        grant.capability == "repo.commit" and grant.granted
+        for grant in claude_authority.grants
+    )
+
+
+def test_build_collaboration_session_routes_single_agent_remote_dashboard_mutation_to_operator(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
@@ -383,7 +478,7 @@ def test_build_collaboration_session_collapses_single_agent_remote_dashboard_to_
     monkeypatch.setattr(
         collaboration_mod,
         "load_remote_control_attachments",
-        lambda *, output_root, active_only=False: (
+        lambda *, output_root, active_only=False, **_kwargs: (
             RemoteControlAttachmentState(
                 provider="claude",
                 role="operator",
@@ -440,11 +535,18 @@ def test_build_collaboration_session_collapses_single_agent_remote_dashboard_to_
     assert operator_assignment.provider == "claude"
     assert operator_assignment.live is True
     assert operator_assignment.source == "remote_control_attachment"
-    assert session.mutation_owner == "codex"
-    assert session.verification_owner == "claude"
+    assert session.mutation_owner == "claude"
+    assert session.verification_owner == "codex"
     assert session.verification_status == "live"
     assert session.watcher_owner == "claude"
     assert session.watcher_status == "live"
+    claude_authority = next(
+        row for row in session.actor_authorities if row.actor_id == "claude"
+    )
+    assert any(
+        grant.capability == "repo.commit" and grant.granted
+        for grant in claude_authority.grants
+    )
 
 
 def test_build_collaboration_session_carries_lane_identity_from_session_metadata(
@@ -570,7 +672,7 @@ def test_build_collaboration_session_promotes_fresh_local_single_agent_reviewer(
     monkeypatch.setattr(
         collaboration_mod,
         "load_remote_control_attachments",
-        lambda *, output_root, active_only=False: (
+        lambda *, output_root, active_only=False, **_kwargs: (
             RemoteControlAttachmentState(
                 provider="claude",
                 role="implementer",
@@ -659,7 +761,7 @@ def test_build_collaboration_session_promotes_recent_local_reviewer_packet_activ
     monkeypatch.setattr(
         collaboration_mod,
         "load_remote_control_attachments",
-        lambda *, output_root, active_only=False: (
+        lambda *, output_root, active_only=False, **_kwargs: (
             RemoteControlAttachmentState(
                 provider="claude",
                 role="implementer",
@@ -756,7 +858,7 @@ def test_build_collaboration_session_promotes_recent_local_reviewer_rollout_acti
     monkeypatch.setattr(
         collaboration_mod,
         "load_remote_control_attachments",
-        lambda *, output_root, active_only=False: (
+        lambda *, output_root, active_only=False, **_kwargs: (
             RemoteControlAttachmentState(
                 provider="claude",
                 role="implementer",
@@ -840,7 +942,7 @@ def test_build_collaboration_session_promotes_recent_packet_active_implementer(
     monkeypatch.setattr(
         collaboration_mod,
         "load_remote_control_attachments",
-        lambda *, output_root, active_only=False: (),
+        lambda *, output_root, active_only=False, **_kwargs: (),
     )
     monkeypatch.setattr(
         collaboration_mod,
@@ -909,7 +1011,7 @@ def test_build_collaboration_session_single_agent_ignores_stale_implementer_pack
     monkeypatch.setattr(
         collaboration_mod,
         "load_remote_control_attachments",
-        lambda *, output_root, active_only=False: (),
+        lambda *, output_root, active_only=False, **_kwargs: (),
     )
     monkeypatch.setattr(
         collaboration_mod,
@@ -977,7 +1079,7 @@ def test_build_collaboration_session_demotes_stale_implementer_assignment_when_a
     monkeypatch.setattr(
         collaboration_mod,
         "load_remote_control_attachments",
-        lambda *, output_root, active_only=False: (
+        lambda *, output_root, active_only=False, **_kwargs: (
             RemoteControlAttachmentState(
                 provider="claude",
                 role="operator",

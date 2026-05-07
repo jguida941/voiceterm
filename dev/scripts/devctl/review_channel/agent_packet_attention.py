@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 
 from ..runtime.reviewer_runtime_models import (
     PacketAttentionState,
@@ -13,6 +14,7 @@ from ..runtime.value_coercion import coerce_text as _text
 from .active_packet_authority import current_active_packet_for_agent
 from .agent_packet_focus import packet_by_id
 from .agent_sync_models import (
+    ACTIVE_LIFECYCLE_STATES,
     TERMINAL_NON_SUCCESS_STATES,
     TERMINAL_SUCCESS_STATES,
 )
@@ -24,6 +26,17 @@ _TERMINAL_LIFECYCLE_STATES = (
     TERMINAL_NON_SUCCESS_STATES | TERMINAL_SUCCESS_STATES
 )
 _PENDING_LIFECYCLES = frozenset({"", "pending", "delivery_pending"})
+
+
+@dataclass(frozen=True, slots=True)
+class _AttentionBuildInput:
+    actor: str
+    session: str
+    attention_packet: Mapping[str, object]
+    pending_packets: tuple[Mapping[str, object], ...]
+    fallback: Mapping[str, object]
+    agent_sync: Mapping[str, object]
+    packet_rows_authoritative: bool
 
 
 def packet_attention_for_agent(
@@ -47,6 +60,7 @@ def packet_attention_for_agent(
         return _fallback_attention(session_id=session_id, fallback=fallback)
 
     packet_rows = _packet_rows(review_state)
+    packet_rows_authoritative = isinstance(review_state.get("packets"), (list, tuple))
     pending_packets = _pending_packets_for_scope(
         packet_rows,
         actor=actor_id,
@@ -59,19 +73,22 @@ def packet_attention_for_agent(
         role=role_id,
         session=session_id,
     )
-    if _observer_legacy_action_request(active_packet, role=role_id):
+    if not _active_packet_visible_to_role(active_packet, role=role_id):
         active_packet = {}
     attention_packet = _best_attention_packet(
         active_packet=active_packet,
         pending_packets=pending_packets,
     )
     return _build_attention(
-        actor=actor_id,
-        session=session_id,
-        attention_packet=attention_packet,
-        pending_packets=pending_packets,
-        fallback=fallback,
-        agent_sync=_agent_sync_row(review_state, actor_id),
+        _AttentionBuildInput(
+            actor=actor_id,
+            session=session_id,
+            attention_packet=attention_packet,
+            pending_packets=pending_packets,
+            fallback=fallback,
+            agent_sync=_agent_sync_row(review_state, actor_id),
+            packet_rows_authoritative=packet_rows_authoritative,
+        )
     )
 
 
@@ -111,40 +128,45 @@ def _active_packet_for_scope(
     return packet_by_id(review_state, packet_id)
 
 
-def _build_attention(
-    *,
-    actor: str,
-    session: str,
-    attention_packet: Mapping[str, object],
-    pending_packets: tuple[Mapping[str, object], ...],
-    fallback: Mapping[str, object],
-    agent_sync: Mapping[str, object],
-) -> PacketAttentionState:
+def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
+    fallback = context.fallback
+    attention_packet = context.attention_packet
+    agent_sync = context.agent_sync
     last_observed = (
         _text(fallback.get("last_observed_event_id"))
         or _text(agent_sync.get("last_consumed_event_id_lower_bound"))
     )
-    latest_event_id = _latest_event_id(
-        _text(attention_packet.get("latest_event_id")),
-        _text(fallback.get("latest_inbox_event_id")),
-    )
-    pending_packet_count = len(pending_packets) or _agent_sync_pending_packet_count(
-        agent_sync
-    )
+    if context.packet_rows_authoritative:
+        latest_event_id = _text(attention_packet.get("latest_event_id"))
+        pending_packet_count = len(context.pending_packets)
+        fallback_attention_changed_at = ""
+        superseded_packet_id = ""
+    else:
+        latest_event_id = _latest_event_id(
+            _text(attention_packet.get("latest_event_id")),
+            _text(fallback.get("latest_inbox_event_id")),
+        )
+        pending_packet_count = len(
+            context.pending_packets
+        ) or _agent_sync_pending_packet_count(agent_sync)
+        fallback_attention_changed_at = _text(
+            fallback.get("latest_attention_changed_at_utc")
+        )
+        superseded_packet_id = _text(fallback.get("superseded_packet_id"))
     return build_packet_attention_state(
-        observation_actor_id=actor,
-        observation_session_id=session,
+        observation_actor_id=context.actor,
+        observation_session_id=context.session,
         latest_inbox_event_id=latest_event_id,
         latest_attention_packet_id=_text(attention_packet.get("packet_id")),
         latest_attention_changed_at_utc=(
             _text(attention_packet.get("posted_at"))
             or _text(attention_packet.get("latest_event_at_utc"))
-            or _text(fallback.get("latest_attention_changed_at_utc"))
+            or fallback_attention_changed_at
         ),
         last_observed_event_id=last_observed,
         last_observed_at_utc=_text(fallback.get("last_observed_at_utc")),
         pending_packet_count=pending_packet_count,
-        superseded_packet_id=_text(fallback.get("superseded_packet_id")),
+        superseded_packet_id=superseded_packet_id,
     )
 
 
@@ -219,6 +241,22 @@ def _pending_packet_visible_to_role(
         return False
     status = _text(packet.get("status"))
     return status in {"", "pending"} and lifecycle in _PENDING_LIFECYCLES
+
+
+def _active_packet_visible_to_role(
+    packet: Mapping[str, object],
+    *,
+    role: str,
+) -> bool:
+    if not packet:
+        return False
+    if _observer_legacy_action_request(packet, role=role):
+        return False
+    lifecycle = _text(packet.get("lifecycle_current_state"))
+    if lifecycle not in ACTIVE_LIFECYCLE_STATES:
+        return False
+    status = _text(packet.get("status"))
+    return status in {"", "pending", "acked", "acknowledged", "in_progress"}
 
 
 def _best_attention_packet(

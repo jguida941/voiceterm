@@ -220,6 +220,7 @@ class CheckRouterTests(unittest.TestCase):
             row["command"] for row in payload["planned_commands"]
         ]
         joined = "\n".join(planned_commands)
+        self.assertIn("check_devctl_cold_boot.py --format md", joined)
         self.assertIn("test-python --suite devctl", joined)
         self.assertIn("--timeout-seconds 420", joined)
         self.assertIn("--per-test-timeout-seconds 90", joined)

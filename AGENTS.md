@@ -29,6 +29,7 @@
 - `StartupContext`, `SessionResume`, `ContextGraphSnapshot`, `SystemCatalog`, `ProjectGovernance`, `MasterPlan`, `PlanRow`, contracts, receipts, and guard results are typed authority.
 - `AgentDispatchPacket` may recommend bounded next work, but it does not grant mutation authority by itself.
 - `TypedAction -> ActionResult -> RunRecord -> ValidationReceipt` is the proof chain for mutations.
+- A typed `AgentLoopOperatorOverride` can allow scoped edit-only repair when the operator explicitly approves it; it never authorizes staging, commit, push, or raw bypass.
 - `system-picture` is a composite reducer; use it after startup authority is known, not as the first hop.
 
 ## Projection-only surfaces
@@ -53,6 +54,7 @@
 - `python3 dev/scripts/devctl.py system-picture --format md`
 - `python3 dev/scripts/devctl.py platform-contracts --format md`
 - `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md`
+- `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md`
 - `python3 dev/scripts/devctl.py develop campaign --format md` (remote-control, exception debt, and push-proof posture)
 - `python3 dev/scripts/devctl.py develop show --slice-id <id> --format md`
 

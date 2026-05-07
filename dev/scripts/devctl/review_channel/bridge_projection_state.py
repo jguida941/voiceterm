@@ -89,6 +89,7 @@ def bridge_projection_state_from_review_state(
     review_state: Mapping[str, object],
 ) -> BridgeProjectionState:
     """Read the typed bridge render payload from `review_state.json`."""
+    review_state = _review_state_payload(review_state)
     compat = _mapping(review_state.get("_compat"))
     projection = _mapping(compat.get("bridge_projection"))
     metadata = _string_mapping(projection.get("metadata"))
@@ -131,6 +132,13 @@ def bridge_projection_state_from_review_state(
     )
     _validate_flat_bridge_sections(state.sections)
     return state
+
+
+def _review_state_payload(
+    review_state: Mapping[str, object],
+) -> Mapping[str, object]:
+    nested = review_state.get("review_state")
+    return nested if isinstance(nested, Mapping) else review_state
 
 
 def bridge_projection_metadata_lines(

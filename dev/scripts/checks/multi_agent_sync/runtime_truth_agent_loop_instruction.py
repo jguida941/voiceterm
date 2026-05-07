@@ -35,7 +35,17 @@ def instruction_authority_mismatch_errors(
         role=queue_scope[0],
         session=queue_scope[1],
     )
-    if active_packets and queue_packet and queue_packet not in active_packets:
+    if (
+        active_packets
+        and queue_packet
+        and queue_packet not in active_packets
+        and not _scope_has_executing_packet(
+            active_rows,
+            actor=queue_actor,
+            role=queue_scope[0],
+            session=queue_scope[1],
+        )
+    ):
         errors.append(
             "Queue-derived current instruction disagrees with typed "
             f"agent_loop_decision for {queue_actor}: queue={queue_packet}; "
@@ -67,7 +77,17 @@ def _packet_inbox_mismatch_errors(
             role=role,
             session=session,
         )
-        if active_packets and inbox_packet and inbox_packet not in active_packets:
+        if (
+            active_packets
+            and inbox_packet
+            and inbox_packet not in active_packets
+            and not _scope_has_executing_packet(
+                active_rows,
+                actor=actor,
+                role=role,
+                session=session,
+            )
+        ):
             errors.append(
                 "Packet inbox current instruction disagrees with typed "
                 f"agent_loop_decision for {actor}: inbox={inbox_packet}; "
@@ -91,6 +111,7 @@ def _active_packet_rows(
                 "role": _normalize_role(row.get("actor_role")),
                 "session": coerce_text(row.get("session_id")),
                 "packet_id": packet_id,
+                "executing_packet_id": coerce_text(row.get("executing_packet_id")),
             }
         )
     return tuple(rows)
@@ -118,6 +139,36 @@ def _active_packets_for_scope(
         if packet_id:
             packet_ids.add(packet_id)
     return frozenset(packet_ids)
+
+
+def _scope_has_executing_packet(
+    active_rows: tuple[Mapping[str, str], ...],
+    *,
+    actor: str,
+    role: str,
+    session: str,
+) -> bool:
+    """Return whether this role/session is already executing a packet.
+
+    In the role-neutral lifecycle model, "current instruction" can describe
+    the next pending packet while an older packet remains in execution. That is
+    a live lifecycle state, not an authority contradiction.
+    """
+    if not actor:
+        return False
+    scoped = bool(role or session)
+    for row in active_rows:
+        if row.get("actor") != actor:
+            continue
+        if session and row.get("session") == session and row.get("executing_packet_id"):
+            return True
+        if scoped and role and row.get("role") != role:
+            continue
+        if scoped and session and row.get("session") != session:
+            continue
+        if row.get("executing_packet_id"):
+            return True
+    return False
 
 
 def _packet_index(payload: Mapping[str, object]) -> dict[str, Mapping[str, object]]:

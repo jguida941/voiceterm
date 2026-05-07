@@ -153,6 +153,7 @@ def _typed_review_state(
     ack_state: str = "current",
     ack_revision: str = "56bcd5d01510",
     instruction_revision: str = "56bcd5d01510",
+    agent_loop_decisions: list[dict[str, object]] | None = None,
 ) -> SimpleNamespace:
     return SimpleNamespace(
         bridge=SimpleNamespace(
@@ -165,7 +166,31 @@ def _typed_review_state(
             implementer_ack_revision=ack_revision,
             current_instruction_revision=instruction_revision,
         ),
+        agent_loop_decisions=agent_loop_decisions or [],
     )
+
+
+def _role_progress_decision(
+    *,
+    actor_id: str = "codex",
+    actor_role: str = "implementer",
+    packet_id: str = "rev_pkt_role_progress",
+) -> dict[str, object]:
+    return {
+        "contract_id": "AgentLoopDecision",
+        "schema_version": 1,
+        "actor_id": actor_id,
+        "actor_role": actor_role,
+        "session_id": "session-role-progress",
+        "loop_state": "blocked",
+        "required_action": "triage_pending_packet",
+        "decision": "pivot_to_packet",
+        "target_kind": "packet",
+        "target_ref": packet_id,
+        "proof_state": "satisfied",
+        "active_packet_id": packet_id,
+        "reason": "packet advanced into typed role loop",
+    }
 
 
 class CheckReviewChannelBridgeTests(TestCase):
@@ -564,6 +589,68 @@ class CheckReviewChannelBridgeTests(TestCase):
             report = self.script.build_report()
         self.assertTrue(report["ok"])
         self.assertNotIn("metadata_errors", report["bridge"])
+
+    def test_build_report_accepts_role_neutral_packet_progress_for_stale_ack(self) -> None:
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script),
+        )
+        review_channel = self._temp_path(
+            "dev/active/review_channel.md",
+            _valid_review_channel_text(self.script),
+        )
+        with (
+            patch.object(self.script, "BRIDGE_PATH", bridge),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(
+                self.script._typed_bridge_state,
+                "load_typed_review_state",
+                return_value=_typed_review_state(
+                    ack_state="pending",
+                    ack_revision="",
+                    agent_loop_decisions=[_role_progress_decision(actor_id="codex")],
+                ),
+            ),
+        ):
+            report = self.script.build_report()
+        self.assertTrue(report["ok"])
+        self.assertTrue(report["bridge"]["role_packet_progress_current"])
+        self.assertNotIn("metadata_errors", report["bridge"])
+        self.assertNotIn("state_errors", report["bridge"])
+
+    def test_build_report_flags_stale_ack_without_role_neutral_progress(self) -> None:
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(self.script),
+        )
+        review_channel = self._temp_path(
+            "dev/active/review_channel.md",
+            _valid_review_channel_text(self.script),
+        )
+        with (
+            patch.object(self.script, "BRIDGE_PATH", bridge),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(
+                self.script._typed_bridge_state,
+                "load_typed_review_state",
+                return_value=_typed_review_state(
+                    ack_state="pending",
+                    ack_revision="",
+                ),
+            ),
+        ):
+            report = self.script.build_report()
+        self.assertFalse(report["ok"])
+        errors = "\n".join(
+            [
+                *report["bridge"].get("metadata_errors", []),
+                *report["bridge"].get("state_errors", []),
+            ]
+        )
+        self.assertIn("Assigned-role progress", errors)
+        self.assertNotIn("Typed implementer ACK", errors)
 
     def test_build_report_flags_invalid_worktree_hash(self) -> None:
         bridge = self._temp_path(

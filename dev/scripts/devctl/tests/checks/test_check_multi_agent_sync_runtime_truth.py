@@ -562,6 +562,201 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         "resolved_review_state_relative_path"
     )
     @patch("dev.scripts.checks.multi_agent_sync.runtime_truth.load_review_state_payload")
+    def test_runtime_truth_allows_executing_packet_with_pending_next_instruction(
+        self,
+        load_payload_mock,
+        relpath_mock,
+    ) -> None:
+        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        load_payload_mock.return_value = {
+            "collaboration": {
+                "participants": [],
+                "delegated_work": [],
+                "ready_gates": [],
+            },
+            "registry": {"agents": []},
+            "queue": {
+                "derived_next_instruction_source": {
+                    "packet_id": "rev_pkt_next",
+                    "to_agent": "claude",
+                    "target_role": "implementer",
+                    "target_session_id": "s-claude",
+                }
+            },
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "claude",
+                        "current_instruction_packet_id": "rev_pkt_next",
+                    }
+                ]
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_next",
+                    "to_agent": "claude",
+                    "target_role": "implementer",
+                    "target_session_id": "s-claude",
+                }
+            ],
+            "agent_sync": {
+                "agents": {
+                    "claude": {
+                        "pending_packets_to_me": ["rev_pkt_next"],
+                    }
+                }
+            },
+            "agent_work_board": {
+                "rows": [
+                    {
+                        "actor_id": "claude",
+                        "role": "implementer",
+                        "session_id": "s-claude",
+                        "active_packet_id": "rev_pkt_executing",
+                        "attention_packet_id": "rev_pkt_executing",
+                        "executing_packet_id": "rev_pkt_executing",
+                    }
+                ]
+            },
+            "agent_loop_decisions": [
+                {
+                    "actor_id": "claude",
+                    "actor_role": "implementer",
+                    "session_id": "s-claude",
+                    "active_packet_id": "rev_pkt_executing",
+                    "attention_packet_id": "rev_pkt_executing",
+                    "executing_packet_id": "rev_pkt_executing",
+                    "pending_packet_count": 1,
+                }
+            ],
+            "reviewer_runtime": {
+                "packet_attention": {
+                    "observation_actor_id": "",
+                    "pending_packet_count": 1,
+                    "wake_required": True,
+                    "stale_reason": "actor_identity_ambiguous_with_pending_wake",
+                }
+            },
+        }
+
+        result = runtime_truth.evaluate_runtime_truth(
+            repo_root=Path("/repo"),
+            planned_agent_ids=[],
+        )
+
+        self.assertTrue(result["checked"])
+        self.assertFalse(
+            any("current instruction disagrees" in err for err in result["errors"])
+        )
+
+    @patch(
+        "dev.scripts.checks.multi_agent_sync.runtime_truth."
+        "resolved_review_state_relative_path"
+    )
+    @patch("dev.scripts.checks.multi_agent_sync.runtime_truth.load_review_state_payload")
+    def test_runtime_truth_allows_same_session_execution_across_role_label(
+        self,
+        load_payload_mock,
+        relpath_mock,
+    ) -> None:
+        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        load_payload_mock.return_value = {
+            "collaboration": {
+                "participants": [],
+                "delegated_work": [],
+                "ready_gates": [],
+            },
+            "registry": {"agents": []},
+            "queue": {
+                "derived_next_instruction_source": {
+                    "packet_id": "rev_pkt_next",
+                    "to_agent": "claude",
+                    "target_role": "implementer",
+                    "target_session_id": "s-claude",
+                }
+            },
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "claude",
+                        "current_instruction_packet_id": "rev_pkt_next",
+                    }
+                ]
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_next",
+                    "to_agent": "claude",
+                    "target_role": "implementer",
+                    "target_session_id": "s-claude",
+                }
+            ],
+            "agent_sync": {"agents": {}},
+            "agent_work_board": {
+                "rows": [
+                    {
+                        "actor_id": "claude",
+                        "role": "reviewer",
+                        "session_id": "s-claude",
+                        "active_packet_id": "rev_pkt_executing",
+                        "attention_packet_id": "rev_pkt_executing",
+                        "executing_packet_id": "rev_pkt_executing",
+                    },
+                    {
+                        "actor_id": "claude",
+                        "role": "implementer",
+                        "session_id": "s-claude",
+                        "active_packet_id": "rev_pkt_executing",
+                        "attention_packet_id": "rev_pkt_executing",
+                        "executing_packet_id": "",
+                    },
+                ]
+            },
+            "agent_loop_decisions": [
+                {
+                    "actor_id": "claude",
+                    "actor_role": "reviewer",
+                    "session_id": "s-claude",
+                    "active_packet_id": "rev_pkt_executing",
+                    "attention_packet_id": "rev_pkt_executing",
+                    "executing_packet_id": "rev_pkt_executing",
+                    "pending_packet_count": 1,
+                },
+                {
+                    "actor_id": "claude",
+                    "actor_role": "implementer",
+                    "session_id": "s-claude",
+                    "active_packet_id": "rev_pkt_executing",
+                    "attention_packet_id": "rev_pkt_executing",
+                    "executing_packet_id": "",
+                    "pending_packet_count": 1,
+                },
+            ],
+            "reviewer_runtime": {
+                "packet_attention": {
+                    "observation_actor_id": "",
+                    "pending_packet_count": 1,
+                    "wake_required": True,
+                    "stale_reason": "actor_identity_ambiguous_with_pending_wake",
+                }
+            },
+        }
+
+        result = runtime_truth.evaluate_runtime_truth(
+            repo_root=Path("/repo"),
+            planned_agent_ids=[],
+        )
+
+        self.assertTrue(result["checked"])
+        self.assertFalse(
+            any("current instruction disagrees" in err for err in result["errors"])
+        )
+
+    @patch(
+        "dev.scripts.checks.multi_agent_sync.runtime_truth."
+        "resolved_review_state_relative_path"
+    )
+    @patch("dev.scripts.checks.multi_agent_sync.runtime_truth.load_review_state_payload")
     def test_runtime_truth_blocks_unscoped_agent_sync_attention_when_sessions_disagree(
         self,
         load_payload_mock,

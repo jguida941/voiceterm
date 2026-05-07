@@ -20,11 +20,11 @@ _VCS_COMMAND_ACTIONS = (
 
 
 def attach_runtime_readiness(report: dict[str, object]) -> None:
-    """Attach command-vs-runtime readiness and align top-level ok."""
+    """Attach command-vs-runtime readiness without conflating status health."""
     readiness = build_runtime_readiness(report)
     report["runtime_readiness"] = readiness
     report["command_ok"] = readiness["command_ok"]
-    report["ok"] = readiness["system_ok"]
+    report["ok"] = readiness["command_ok"]
 
 
 def build_runtime_readiness(

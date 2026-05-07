@@ -223,6 +223,55 @@ class PendingPacketInstructionRewriteGuardTests(unittest.TestCase):
         self.assertEqual(pending[0]["packet_id"], "rev_pkt_live")
         self.assertEqual(queue.stale_packet_count, 1)
 
+    def test_bound_expired_action_request_exits_stale_queue(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            now = datetime.now(timezone.utc)
+            _write_packet_events(
+                root,
+                packets=[
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0001",
+                        "packet_id": "rev_pkt_bound_action",
+                        "trace_id": "trace_bound_action",
+                        "event_type": "packet_posted",
+                        "status": "pending",
+                        "from_agent": "codex",
+                        "to_agent": "claude",
+                        "kind": "action_request",
+                        "summary": "Role-scoped checkpoint repair",
+                        "target_kind": "runtime",
+                        "target_ref": "devctl_commit:e3f17d25",
+                        "expires_at_utc": (
+                            now - timedelta(minutes=30)
+                        ).isoformat().replace("+00:00", "Z"),
+                    },
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0002",
+                        "packet_id": "rev_pkt_bound_action",
+                        "trace_id": "trace_bound_action",
+                        "event_type": "packet_creation_binding_recorded",
+                        "status": "pending",
+                        "packet_creation_binding": {
+                            "contract_id": "PacketCreationBinding",
+                            "status": "inserted",
+                            "reason": "packet_bound_to_plan_row_at_creation",
+                            "packet_id": "rev_pkt_bound_action",
+                            "binding_target_kind": "plan_row",
+                            "binding_target": "PKT-BIND-REV-PKT-BOUND-ACTION",
+                        },
+                    },
+                ],
+            )
+
+            queue = load_pending_packet_queue(root)
+
+        self.assertEqual(queue.pending_packets, ())
+        self.assertEqual(queue.stale_packet_count, 0)
+        self.assertEqual(queue.control_packets, ())
+
     def test_load_pending_queue_keeps_acked_action_request_as_control_packet(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

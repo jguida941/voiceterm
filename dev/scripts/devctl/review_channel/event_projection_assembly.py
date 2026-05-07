@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
+from collections.abc import Mapping
 from types import SimpleNamespace
 
 from ..runtime.agent_mind_projection_read import read_agent_mind_projection
@@ -169,6 +170,7 @@ def _build_projection_runtime(
             collaboration=collaboration,
             session_output_root=base.session_output_root,
             rollover_dir=base.projections_root.parent / "rollovers",
+            repo_root=base.repo_root,
             operator_interaction_mode=operator_interaction_mode,
             agent_mind=read_agent_mind_projection(base.repo_root, provider="codex"),
             events=tuple(getattr(context, "events", ()) or ()),

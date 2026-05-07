@@ -8,13 +8,17 @@ from pathlib import Path
 
 from ...approval_mode import auto_elevated_approval_mode, normalize_approval_mode
 from ...common import display_path
-from ...runtime.governance_scan import scan_repo_governance_safely
 from ...review_channel.core import (
     REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
 )
 from ...review_channel.current_session_projection import bridge_implementer_state_hash
 from ...review_channel.bridge_runtime_state import BridgeStateContext
 from .review_only_scope import is_reviewer_only_launch_scope
+from .bridge_interaction_mode import (
+    launch_interaction_mode_fallback,
+    normalize_visible_terminal_interaction_mode,
+    resolve_launch_interaction_mode,
+)
 from ...review_channel.handoff import extract_bridge_snapshot, handoff_bundle_to_dict
 from ...review_channel.launch import (
     build_launch_sessions,
@@ -289,43 +293,6 @@ def build_bridge_sessions(
         ),
         resolve_cli_path_fn=effective_resolve_cli_path,
     )
-
-
-def resolve_launch_interaction_mode(
-    *,
-    repo_root: Path,
-    args_fallback: str = "",
-) -> str:
-    """Delegate to the canonical reducer (rev_pkt_0463).
-
-    All operator_interaction_mode consumers share a single precedence
-    (governance → collaboration → reviewer_runtime → receipt → attachment
-    override → local_terminal) via
-    ``operator_context.derive_operator_interaction_mode`` so launcher,
-    startup, and read-model paths cannot silently diverge.
-    """
-    from ...runtime.operator_context import derive_operator_interaction_mode
-    from ...runtime.review_state_locator import load_current_review_state_payload
-
-    governance = scan_repo_governance_safely(repo_root)
-    try:
-        payload = load_current_review_state_payload(repo_root, governance=governance)
-    except Exception:  # broad-except: allow reason=launch-path must not crash on state read fallback=governance default
-        payload = None
-    reviewer_mode = ""
-    if isinstance(payload, dict):
-        bridge = payload.get("bridge")
-        if isinstance(bridge, dict):
-            reviewer_mode = str(bridge.get("reviewer_mode") or "")
-    mode = derive_operator_interaction_mode(
-        governance=governance,
-        review_state_payload=payload if isinstance(payload, dict) else None,
-        receipt=None,
-        reviewer_mode=reviewer_mode,
-    )
-    if mode and mode != "unresolved":
-        return mode
-    return args_fallback.strip() or ""
 
 
 def _resolve_cli_path_or_provider_name(provider: str) -> str:

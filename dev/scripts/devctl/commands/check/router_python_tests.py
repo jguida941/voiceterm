@@ -15,6 +15,19 @@ _FOCUSED_DEVCTL_TEST_TARGET_TIMEOUT_SECONDS = {
 def detect_python_test_addons(changed_paths: list[str]) -> list[dict]:
     """Select bounded Python tests from touched paths instead of static bundles."""
     addons: list[dict] = []
+    cold_boot_paths = _devctl_cold_boot_paths(changed_paths)
+    if cold_boot_paths:
+        addons.append(
+            {
+                "id": "devctl-cold-boot",
+                "label": "devctl cold-boot import smoke",
+                "matched_paths": cold_boot_paths,
+                "commands": [
+                    "python3 dev/scripts/checks/check_devctl_cold_boot.py --format md"
+                ],
+            }
+        )
+
     operator_paths = _operator_console_test_paths(changed_paths)
     if operator_paths:
         addons.append(
@@ -65,6 +78,22 @@ def _operator_console_test_paths(changed_paths: list[str]) -> list[str]:
     return [
         path
         for path in _matching_paths(changed_paths, ("app/operator_console/",))
+        if path.endswith(".py")
+    ]
+
+
+def _devctl_cold_boot_paths(changed_paths: list[str]) -> list[str]:
+    return [
+        path
+        for path in _matching_paths(
+            changed_paths,
+            (
+                "dev/scripts/devctl/cli.py",
+                "dev/scripts/devctl/commands/",
+                "dev/scripts/devctl/runtime/",
+                "dev/scripts/checks/check_devctl_cold_boot.py",
+            ),
+        )
         if path.endswith(".py")
     ]
 

@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import re
 
-from .packet_lifecycle import _has_creation_binding, project_packet_lifecycle
+from .packet_lifecycle import project_packet_lifecycle
+from .packet_lifecycle_binding import has_creation_binding
 from .packet_outcome_models import PacketOutcome, PacketOutcomeRecord
 
 
@@ -183,7 +184,7 @@ def _packet_needs_outcome(packet: Mapping[str, object]) -> bool:
 def _durable_archive_classification(packet: Mapping[str, object]) -> str:
     return (
         "expired_after_durable_binding"
-        if _has_creation_binding(packet)
+        if has_creation_binding(packet)
         else ""
     )
 

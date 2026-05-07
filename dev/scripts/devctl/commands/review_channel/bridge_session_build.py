@@ -12,6 +12,8 @@ from ...review_channel.launch import (
 from .bridge_action_support import (
     BridgeSessionContext,
     build_bridge_sessions,
+    launch_interaction_mode_fallback,
+    normalize_visible_terminal_interaction_mode,
     resolve_launch_interaction_mode,
 )
 
@@ -42,7 +44,11 @@ def build_sessions_for_bridge_action(
         build_launch_sessions_fn = default_build_launch_sessions
     interaction_mode = resolve_launch_interaction_mode(
         repo_root=context.repo_root,
-        args_fallback=str(getattr(args, "operator_interaction_mode", "") or ""),
+        args_fallback=launch_interaction_mode_fallback(args),
+    )
+    interaction_mode = normalize_visible_terminal_interaction_mode(
+        args,
+        interaction_mode,
     )
     sessions = build_bridge_sessions(
         args=args,

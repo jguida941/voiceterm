@@ -326,6 +326,97 @@ class CheckMultiAgentSyncTests(unittest.TestCase):
             any("Packet inbox current instruction disagrees" in err for err in errors)
         )
 
+    def test_executing_packet_can_coexist_with_next_instruction_packet(self) -> None:
+        payload = {
+            "queue": {
+                "derived_next_instruction_source": {
+                    "to_agent": "claude",
+                    "packet_id": "rev_pkt_next",
+                    "target_role": "implementer",
+                    "target_session_id": "session-live",
+                }
+            },
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "claude",
+                        "current_instruction_packet_id": "rev_pkt_next",
+                    }
+                ]
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_next",
+                    "to_agent": "claude",
+                    "target_role": "implementer",
+                    "target_session_id": "session-live",
+                }
+            ],
+        }
+        decisions = [
+            {
+                "actor_id": "claude",
+                "actor_role": "implementer",
+                "session_id": "session-live",
+                "active_packet_id": "rev_pkt_executing",
+                "attention_packet_id": "rev_pkt_executing",
+                "executing_packet_id": "rev_pkt_executing",
+                "pending_packet_count": 1,
+            }
+        ]
+
+        self.assertEqual(instruction_authority_mismatch_errors(payload, decisions), [])
+
+    def test_same_session_execution_can_cross_legacy_role_label(self) -> None:
+        payload = {
+            "queue": {
+                "derived_next_instruction_source": {
+                    "to_agent": "claude",
+                    "packet_id": "rev_pkt_next",
+                    "target_role": "implementer",
+                    "target_session_id": "session-live",
+                }
+            },
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "claude",
+                        "current_instruction_packet_id": "rev_pkt_next",
+                    }
+                ]
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_next",
+                    "to_agent": "claude",
+                    "target_role": "implementer",
+                    "target_session_id": "session-live",
+                }
+            ],
+        }
+        decisions = [
+            {
+                "actor_id": "claude",
+                "actor_role": "reviewer",
+                "session_id": "session-live",
+                "active_packet_id": "rev_pkt_executing",
+                "attention_packet_id": "rev_pkt_executing",
+                "executing_packet_id": "rev_pkt_executing",
+                "pending_packet_count": 1,
+            },
+            {
+                "actor_id": "claude",
+                "actor_role": "implementer",
+                "session_id": "session-live",
+                "active_packet_id": "rev_pkt_executing",
+                "attention_packet_id": "rev_pkt_executing",
+                "executing_packet_id": "",
+                "pending_packet_count": 1,
+            },
+        ]
+
+        self.assertEqual(instruction_authority_mismatch_errors(payload, decisions), [])
+
     def test_scoped_dashboard_instruction_ignores_subagent_active_packet(self) -> None:
         payload = {
             "queue": {

@@ -6,6 +6,7 @@ Extracted from bridge_launch_control.py to stay under the code-shape soft limit.
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 import time
 from dataclasses import dataclass
@@ -21,6 +22,7 @@ class HeadlessLaunchStatus(StrEnum):
     """Typed result of a headless session launch attempt."""
 
     ALIVE = "alive"                # PID confirmed alive after launch
+    PROVIDER_NOT_OBSERVED = "provider_not_observed"  # wrapper alive, provider absent
     DEAD_ON_ARRIVAL = "dead_on_arrival"  # PID died immediately
     SPAWN_FAILED = "spawn_failed"  # subprocess.Popen raised an error
     SCRIPT_MISSING = "script_missing"  # launch script not found
@@ -60,6 +62,12 @@ def launch_sessions_headless(
             warnings.append(
                 f"Headless launch proof-of-life failed: PID {result.pid} "
                 f"died immediately after spawn ({result.script_path})"
+            )
+        elif result.status == HeadlessLaunchStatus.PROVIDER_NOT_OBSERVED:
+            warnings.append(
+                "Headless launch proof-of-life failed: wrapper PID "
+                f"{result.pid} survived, but no provider process was observed "
+                f"under it ({result.script_path}). {result.detail}".strip()
             )
         elif result.status == HeadlessLaunchStatus.SPAWN_FAILED:
             warnings.append(
@@ -133,6 +141,14 @@ def spawn_one_headless_session(
         )
     # Proof-of-life: poll the PID to verify the process survived startup
     if _pid_survived_startup(process.pid):
+        provider = str(session.get("provider") or "").strip().lower()
+        if provider and not _provider_process_observed(process.pid, provider):
+            return HeadlessLaunchResult(
+                status=HeadlessLaunchStatus.PROVIDER_NOT_OBSERVED,
+                pid=process.pid,
+                script_path=script_path,
+                detail=f"expected_provider={provider}",
+            )
         return HeadlessLaunchResult(
             status=HeadlessLaunchStatus.ALIVE,
             pid=process.pid,
@@ -156,3 +172,72 @@ def _pid_survived_startup(pid: int) -> bool:
         except PermissionError:
             return True  # process exists but we lack permission to signal
     return True
+
+
+def _provider_process_observed(root_pid: int, provider: str) -> bool:
+    """Return True when the launched wrapper has a live provider descendant."""
+    if provider not in {"claude", "codex", "cursor"}:
+        return True
+    table = _process_table()
+    if not table:
+        return True
+    descendants = {root_pid, *_descendant_pids(root_pid, table)}
+    for pid in descendants:
+        command = table.get(pid, (0, ""))[1]
+        if _command_invokes_provider(command, provider):
+            return True
+    return False
+
+
+def _command_invokes_provider(command: str, provider: str) -> bool:
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        parts = command.split()
+    for part in parts:
+        if Path(part).name == provider:
+            return True
+    return False
+
+
+def _process_table() -> dict[int, tuple[int, str]]:
+    try:
+        result = subprocess.run(
+            ["ps", "-axo", "pid=,ppid=,command="],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return {}
+    if result.returncode != 0:
+        return {}
+    rows: dict[int, tuple[int, str]] = {}
+    for line in result.stdout.splitlines():
+        parts = line.strip().split(None, 2)
+        if len(parts) < 2:
+            continue
+        try:
+            pid = int(parts[0])
+            ppid = int(parts[1])
+        except ValueError:
+            continue
+        rows[pid] = (ppid, parts[2] if len(parts) > 2 else "")
+    return rows
+
+
+def _descendant_pids(
+    root_pid: int,
+    table: dict[int, tuple[int, str]],
+) -> set[int]:
+    descendants: set[int] = set()
+    frontier = [root_pid]
+    while frontier:
+        parent = frontier.pop()
+        for pid, (ppid, _command) in table.items():
+            if ppid != parent or pid in descendants:
+                continue
+            descendants.add(pid)
+            frontier.append(pid)
+    return descendants

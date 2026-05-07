@@ -30,6 +30,7 @@ class DaemonEventContext:
     artifact_paths: ReviewChannelArtifactPaths | object
     daemon_kind: str
     pid: int
+    invocation_provenance: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -198,6 +199,9 @@ def _build_daemon_event_row(
             reviewer_mode=request.reviewer_mode,
             snapshots_emitted=request.snapshots_emitted,
             stop_reason=request.stop_reason,
+            metadata={"invocation_provenance": context.invocation_provenance}
+            if context.invocation_provenance
+            else {},
         )
     )
     if not request.reviewer_mode:

@@ -148,7 +148,11 @@ def extract_attention_context(
     contract_errors: list[str] | None,
 ) -> BridgeAttentionContext:
     """Extract all fields needed for attention status classification."""
-    declared_reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
+    declared_reviewer_mode = str(
+        bridge_liveness.get("declared_reviewer_mode")
+        or bridge_liveness.get("reviewer_mode")
+        or ""
+    )
     effective_reviewer_mode = str(bridge_liveness.get("effective_reviewer_mode") or "")
     reviewer_mode_active = reviewer_mode_is_active(
         effective_reviewer_mode

@@ -8,19 +8,15 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 from .recovery_authority import derive_recovery_authority
-from .reviewer_runtime_models import (
-    has_active_remote_control_attachment,
-)
 
 if TYPE_CHECKING:
     from .review_state_models import ReviewState
 
 from .authority_snapshot import AuthoritySnapshot, project_authority_snapshot
-from .conductor_capability import authority_reviewer_mode, normalize_reviewer_mode
+from .authority_snapshot_actions import AuthorityModeInputs, authority_mode_projection
 from .control_topology import derive_startup_control_truth
 from .governance_scan import scan_repo_governance_safely
 from .key_surfaces import startup_key_surfaces
-from .operator_context import is_resolved, resolve_operator_interaction_mode
 from .packet_intent_anchor import (
     packet_intent_anchors_from_packets,
     plan_iteration_session_from_anchors,
@@ -135,47 +131,6 @@ def _detect_reviewer_gate_from_typed_state(
     return _detect_reviewer_gate_from_review_state(state, governance_mode=gov_mode)
 
 
-def _interaction_mode_from_reviewer_mode(
-    effective_mode: str,
-    governance_mode: str = "",
-    remote_control_attachment: RemoteControlAttachmentState | None = None,
-) -> str:
-    """Derive operator interaction mode; fails closed to 'unresolved'.
-
-    Per rev_pkt_3021 #3: ``governance_mode == "remote_control"`` alone is
-    NOT sufficient to promote operator location. Governance can DECLARE
-    intent, but typed attachment evidence is required to confirm it. The
-    prior shape (governance precedence without attachment proof) reopened
-    the cross-surface divergence operator_context.py and session_posture.py
-    already fail closed on, so startup-context now matches their semantics.
-
-    Other resolved governance values (local_direct, dashboard_remote, etc.)
-    are still trusted directly because they are not the contested promotion
-    path — only remote_control requires attachment evidence.
-    """
-    gov = (governance_mode or "").strip()
-    resolved = resolve_operator_interaction_mode(gov)
-    attachment_active = has_active_remote_control_attachment(remote_control_attachment)
-    resolved_value = resolved.value
-    if (
-        is_resolved(resolved_value)
-        and resolved_value not in {"local_terminal", "remote_control"}
-    ):
-        return resolved_value
-    if resolved_value == "remote_control" and attachment_active:
-        return "remote_control"
-    if attachment_active:
-        return "remote_control"
-    if gov == "local_terminal":
-        return "local_terminal"
-    normalized = normalize_reviewer_mode(effective_mode) if effective_mode else ""
-    if normalized == "active_dual_agent":
-        return "dual_agent"
-    if normalized == "single_agent":
-        return "single_agent"
-    return "unresolved"
-
-
 def _detect_reviewer_gate_from_review_state(
     state,
     governance_mode: str = "",
@@ -187,8 +142,37 @@ def _detect_reviewer_gate_from_review_state(
     current_session = state.current_session
     attention = state.attention
     assessment = state.recovery_assessment
-    mode = reviewer_runtime.reviewer_mode
-    effective_mode = str(reviewer_runtime.effective_reviewer_mode or "").strip() or mode
+    payload = state.to_dict() if hasattr(state, "to_dict") else {}
+    assessment_payload = payload.get("recovery_assessment")
+    assessment_mapping = (
+        assessment_payload if isinstance(assessment_payload, dict) else {}
+    )
+    mode_projection = authority_mode_projection(
+        AuthorityModeInputs(
+            payload=payload if isinstance(payload, dict) else {},
+            reviewer_gate={},
+            reviewer_runtime=(
+                payload.get("reviewer_runtime")
+                if isinstance(payload.get("reviewer_runtime"), dict)
+                else {}
+            ),
+            diagnosis=(
+                assessment_mapping.get("diagnosis")
+                if isinstance(assessment_mapping.get("diagnosis"), dict)
+                else {}
+            ),
+            attention=(
+                payload.get("attention")
+                if isinstance(payload.get("attention"), dict)
+                else {}
+            ),
+            doctor=(
+                payload.get("doctor") if isinstance(payload.get("doctor"), dict) else {}
+            ),
+            governance_mode=governance_mode,
+        )
+    )
+    effective_mode = mode_projection.effective_reviewer_mode
     review_accepted = reviewer_runtime.review_acceptance.review_accepted
     publish_clear = reviewer_runtime.publish_clear
     diagnosis_status = (
@@ -199,29 +183,13 @@ def _detect_reviewer_gate_from_review_state(
         if assessment is not None
         else ""
     )
-    attachment = reviewer_runtime.remote_control_attachment
     recovery_command = (
         str(assessment.decision.command or "").strip() if assessment is not None else ""
     )
-    interaction_mode = _interaction_mode_from_reviewer_mode(
-        effective_mode,
-        governance_mode=governance_mode,
-        remote_control_attachment=attachment,
-    )
-    posture = reviewer_runtime.session_posture
-    posture_has_runtime_truth = bool(
-        posture.actors
-        or posture.interaction_mode != "unresolved"
-        or posture.reviewer_mode != "single_agent"
-    )
-    if posture_has_runtime_truth:
-        mode = posture.reviewer_mode or mode
-        effective_mode = posture.effective_reviewer_mode or effective_mode
-    if posture.interaction_mode != "unresolved":
-        interaction_mode = posture.interaction_mode
-    declared_active = normalize_reviewer_mode(mode) == "active_dual_agent"
-    effective_active = normalize_reviewer_mode(effective_mode) == "active_dual_agent"
-    gate_mode = authority_reviewer_mode(mode, effective_mode)
+    interaction_mode = mode_projection.interaction_mode
+    declared_active = mode_projection.declared_active
+    effective_active = mode_projection.effective_active
+    gate_mode = mode_projection.gate_mode
     attention_status = str(getattr(attention, "status", "") or "").strip()
     implementation_blocked = reviewer_runtime.implementation_blocked
     implementation_block_reason = reviewer_runtime.implementation_block_reason

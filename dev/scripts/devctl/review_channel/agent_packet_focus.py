@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from ..runtime.value_coercion import coerce_mapping as _mapping
 from ..runtime.value_coercion import coerce_text as _text
 from .active_packet_authority import current_active_packet_for_agent
+from .agent_sync_models import ACTIVE_LIFECYCLE_STATES
 from .packet_contract import normalize_packet_route_role
 
 
@@ -46,6 +47,8 @@ def packet_focus_for_agent(
         target_role=role,
         target_session_id=session,
     )
+    if not _packet_id_is_focusable(review_state, active):
+        active = ""
     work_row = _work_board_row_for_scope(
         review_state,
         actor=actor,
@@ -59,6 +62,10 @@ def packet_focus_for_agent(
         or _text(attention.get("latest_attention_packet_id"))
     )
     executing = _text(work_row.get("executing_packet_id"))
+    if not _packet_id_is_focusable(review_state, attention_id):
+        attention_id = ""
+    if not _packet_id_is_focusable(review_state, executing):
+        executing = ""
     active_packet = packet_by_id(review_state, active)
     legacy_unscoped = ""
     if _role_is_observer(role) and active and not _text(active_packet.get("target_role")):
@@ -89,6 +96,27 @@ def packet_by_id(
         if isinstance(packet, Mapping) and _text(packet.get("packet_id")) == packet_id:
             return packet
     return {}
+
+
+def _packet_id_is_focusable(
+    review_state: Mapping[str, object],
+    packet_id: str,
+) -> bool:
+    if not packet_id:
+        return False
+    if not isinstance(review_state.get("packets"), (list, tuple)):
+        return True
+    return _packet_is_focusable(packet_by_id(review_state, packet_id))
+
+
+def _packet_is_focusable(packet: Mapping[str, object]) -> bool:
+    if not packet:
+        return False
+    lifecycle = _text(packet.get("lifecycle_current_state"))
+    if lifecycle not in ACTIVE_LIFECYCLE_STATES:
+        return False
+    status = _text(packet.get("status"))
+    return status in {"", "pending", "acked", "acknowledged", "in_progress"}
 
 
 def _work_board_row_for_scope(

@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
-from ...review_channel.core import bridge_is_active, filter_provider_lanes
+from ...review_channel.core import filter_provider_lanes
 from ...review_channel.events import event_state_exists
 from ...review_channel.event_store import (
     build_bridge_status_fallback_warning,
@@ -43,7 +43,12 @@ from .doctor_support import (
 from .status_runtime_projection import (
     refresh_report_runtime_snapshot as _refresh_report_runtime_snapshot,
 )
-from .status_readiness import attach_runtime_readiness
+from .status_action_support import (
+    auto_mode_prefers_markdown_bridge,
+    dry_run_stale_heartbeat_projection_sync_requested,
+    normalize_read_only_status_ok,
+    read_review_state_sync_payload,
+)
 from ..review_channel_command import (
     RuntimePaths,
     _coerce_runtime_paths,
@@ -114,6 +119,7 @@ def _run_bridge_status(
     recommended_command, command_source = resolve_status_recommended_command(report)
     report["recommended_command"] = recommended_command
     report["recommended_command_source"] = command_source
+    normalize_read_only_status_ok(report)
     return report, exit_code
 
 
@@ -145,6 +151,9 @@ def _refresh_bridge_status_report(
         return
     if review_channel_path is None or status_dir is None:
         return
+    prior_sync_review_state = read_review_state_sync_payload(
+        status_dir / "review_state.json"
+    )
 
     snapshot = refresh_status_snapshot(
         repo_root=repo_root,
@@ -163,12 +172,14 @@ def _refresh_bridge_status_report(
     )
     sync_warning = ""
     bridge_synced = False
-    if _bridge_current_session_drifted(
+    bridge_projection_sync_required = _bridge_current_session_drifted(
         snapshot.warnings,
         bridge_path=bridge_path,
         review_state_path=Path(snapshot.projection_paths.review_state_path),
+        review_state_payload=prior_sync_review_state,
         bridge_liveness=snapshot.bridge_liveness,
-    ):
+    ) or dry_run_stale_heartbeat_projection_sync_requested(args, snapshot)
+    if bridge_projection_sync_required:
         bridge_synced, sync_warning = _sync_bridge_from_typed_projection_if_needed(
             repo_root=repo_root,
             bridge_path=bridge_path,
@@ -218,33 +229,11 @@ def _refresh_bridge_status_report(
         report.get("errors"),
         snapshot.errors,
     )
-    _normalize_read_only_status_ok(report)
+    normalize_read_only_status_ok(report)
     if isinstance(snapshot.reviewer_worker, dict):
         report["review_needed"] = bool(snapshot.reviewer_worker.get("review_needed"))
     if report.get("errors"):
         report["ok"] = False
-
-
-def _normalize_read_only_status_ok(report: dict[str, object]) -> None:
-    """Keep read-only status command health separate from runtime attention."""
-    if str(report.get("action") or "").strip() != "status":
-        return
-    if report.get("errors"):
-        return
-    report["exit_ok"] = True
-    attach_runtime_readiness(report)
-def _auto_mode_prefers_markdown_bridge(paths: RuntimePaths) -> bool:
-    """Prefer bridge-backed status when the transitional bridge is active."""
-    bridge_path = paths.bridge_path
-    review_channel_path = paths.review_channel_path
-    if not isinstance(bridge_path, Path) or not isinstance(review_channel_path, Path):
-        return False
-    if not bridge_path.exists() or not review_channel_path.exists():
-        return False
-    try:
-        return bridge_is_active(review_channel_path.read_text(encoding="utf-8"))
-    except OSError:
-        return False
 
 
 def _run_status_action(
@@ -257,7 +246,7 @@ def _run_status_action(
     runtime_paths = _coerce_runtime_paths(paths)
     artifact_paths = runtime_paths.artifact_paths
     execution_mode = getattr(args, "execution_mode", "auto")
-    if execution_mode == "auto" and _auto_mode_prefers_markdown_bridge(runtime_paths):
+    if execution_mode == "auto" and auto_mode_prefers_markdown_bridge(runtime_paths):
         execution_mode = "markdown-bridge"
     fallback_warnings: list[str] = []
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 from ..runtime.agent_mind_projection_read import read_agent_mind_projection
@@ -18,6 +18,7 @@ from .current_session_projection import (
     instruction_revision_reuse_warning,
     resolve_current_session_authority,
 )
+from .current_session_support import compute_implementer_state_hash
 from .handoff import BridgeSnapshot
 from .recovery_assessment import (
     build_recovery_assessment,
@@ -29,7 +30,10 @@ from .reviewer_runtime_contract import (
 )
 from .status_projection_support import build_queue_state
 from ..runtime.operator_context import derive_operator_interaction_mode
-from ..runtime.review_state_semantics import is_missing_instruction
+from ..runtime.review_state_semantics import (
+    is_missing_instruction,
+    is_pending_implementer_state,
+)
 
 
 @dataclass
@@ -71,6 +75,10 @@ def build_status_authority(
     current_session = _normalize_current_session_from_packet_truth(
         current_session=current_session,
         review_state=authority_review_state,
+    )
+    current_session = _preserve_pending_bridge_implementer_reset(
+        current_session=current_session,
+        snapshot=inputs.bridge_snapshot,
     )
     _append_status_warning(
         inputs.merged_warnings,
@@ -115,6 +123,7 @@ def build_status_authority(
             rollover_dir=inputs.output_root.parent / "rollovers",
             bridge_text=inputs.bridge_text,
             prior_review_state=authority_review_state,
+            repo_root=inputs.repo_root,
             operator_interaction_mode=operator_interaction_mode,
             agent_mind=read_agent_mind_projection(inputs.repo_root, provider="codex"),
             reviewer_accepted_implementer_state_hash_override=(
@@ -237,6 +246,31 @@ def _overlay_packet_current_session(
     if is_missing_instruction(packet_session.current_instruction):
         return current_session
     return packet_session
+
+
+def _preserve_pending_bridge_implementer_reset(*, current_session, snapshot):
+    if str(current_session.implementer_ack_state or "").strip() == "current":
+        return current_session
+    status = str(snapshot.sections.get("Claude Status") or "").strip()
+    ack = str(snapshot.sections.get("Claude Ack") or "").strip()
+    if not is_pending_implementer_state(
+        implementer_status=status,
+        implementer_ack=ack,
+        implementer_ack_state="",
+    ):
+        return current_session
+    return replace(
+        current_session,
+        implementer_status=status,
+        implementer_ack=ack,
+        implementer_ack_revision="",
+        implementer_ack_state="pending",
+        implementer_state_hash=compute_implementer_state_hash(
+            implementer_status=status,
+            implementer_ack=ack,
+        ),
+    )
+
 
 def _apply_current_session_fields(
     *,

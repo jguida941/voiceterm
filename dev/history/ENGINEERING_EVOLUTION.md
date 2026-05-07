@@ -14625,3 +14625,34 @@ Evidence:
 - `dev/reports/governance/finding_reviews.jsonl`
 - `dev/active/ai_governance_platform.md`
 - `dev/active/review_channel.md`
+
+### 2026-05-07 - Launch recovery now records typed spawn provenance
+
+Remote-control launch-lockup recovery around `rev_pkt_3136` through
+`rev_pkt_3139` showed three related failures: launch orchestration had grown
+past code-shape budgets, `--reviewer-mode single_agent` could leave typed
+state stuck there even when the next launch requested `active_dual_agent`, and
+the repo-owned publisher could auto-spawn a Codex conductor without durable
+evidence explaining which supervisor triggered it.
+
+Change: launch orchestration is decomposed into focused bridge action, scope,
+stale-heartbeat, launcher-discipline, and parser argument helpers; explicit
+`--reviewer-mode active_dual_agent` now restores stale single-agent metadata;
+and detached publisher / reviewer-supervisor heartbeat plus daemon event rows
+carry `invocation_provenance` fields for parent pid, process pid, launchd
+label, daemon supervisor, trigger reason, and command line. The launchd
+publisher wrapper now stamps the `com.voiceterm.review-channel.publisher`
+label into that provenance so operators can audit why a background spawn
+occurred.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel/bridge_action_prepare.py`
+- `dev/scripts/devctl/commands/review_channel/bridge_scope.py`
+- `dev/scripts/devctl/commands/review_channel/bridge_stale_refresh.py`
+- `dev/scripts/devctl/commands/review_channel/launcher_discipline_enforcement.py`
+- `dev/scripts/devctl/review_channel/parser_launch_arguments.py`
+- `dev/scripts/devctl/review_channel/parser_types.py`
+- `dev/scripts/devctl/review_channel/lifecycle_state.py`
+- `dev/scripts/devctl/review_channel/follow_loop_support.py`
+- `dev/config/launchd/review_channel_publisher_service.py`

@@ -3,22 +3,11 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
-
-from ...approval_mode import normalize_approval_mode
 from ...review_channel.attach_auth_render import append_attach_auth_policy_markdown
-from ...review_channel.core import REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE
 from ...review_channel.doctor_markdown import append_doctor_markdown
-from ...review_channel.handoff import handoff_bundle_to_dict
-from ...review_channel.heartbeat import bridge_heartbeat_refresh_to_dict
-from ...review_channel.promotion import promotion_candidate_to_dict
 from ...review_channel.projection_markdown import append_push_markdown
-from ...review_channel.peer_liveness import OverallLivenessState
-from ...review_channel.reviewer_state import reviewer_state_write_to_dict
-from ...review_channel.runtime_counts import build_runtime_counts
-from ...review_channel.state import projection_paths_to_dict
-from ...time_utils import utc_timestamp
 from .bridge_wait_render import append_wait_state_markdown
+from .bridge_success_report import BridgeSuccessReportRequest, build_bridge_success_report
 from .bridge_render_sections import (
     _append_handoff_bundle,
     _append_promotion,
@@ -55,6 +44,9 @@ def render_bridge_md(
     lines.append(f"- await_ack_seconds: {report.get('await_ack_seconds')}")
     lines.append(f"- bridge_active: {report.get('bridge_active', False)}")
     lines.append(f"- launched: {report.get('launched', False)}")
+    lines.append(f"- typed_state_written: {report.get('typed_state_written', False)}")
+    lines.append(f"- process_alive: {report.get('process_alive', False)}")
+    lines.append(f"- bridge_attached: {report.get('bridge_attached', False)}")
     lines.append(f"- handoff_ack_required: {report.get('handoff_ack_required', False)}")
     lines.append(
         "- codex_requested_worker_budget: "
@@ -113,121 +105,6 @@ def render_bridge_md(
     _append_bridge_render(lines, report.get("bridge_render"))
     _append_sessions(lines, report.get("sessions"))
     return "\n".join(lines)
-
-
-def build_bridge_success_report(
-    *,
-    args,
-    bridge_liveness: dict[str, object],
-    attention: dict[str, object],
-    reviewer_worker: dict[str, object] | None,
-    collaboration: Mapping[str, object] | None = None,
-    codex_lanes: list,
-    claude_lanes: list,
-    terminal_profile_applied: str | None,
-    warnings: list[str],
-    sessions: list[dict[str, object]],
-    handoff_bundle,
-    projection_paths,
-    launched: bool,
-    handoff_ack_required: bool,
-    handoff_ack_observed: dict[str, bool] | None,
-    promotion=None,
-    bridge_heartbeat_refresh=None,
-    reviewer_state_write=None,
-    execution_mode_override: str | None = None,
-) -> tuple[dict, int]:
-    """Assemble the bridge-action success report dict."""
-    report_ok = str(bridge_liveness.get("overall_state") or "unknown") in {
-        OverallLivenessState.FRESH,
-        OverallLivenessState.INACTIVE,
-    }
-    report = {
-        "command": "review-channel",
-        "timestamp": utc_timestamp(),
-        "action": args.action,
-        "ok": report_ok,
-        "exit_ok": True,
-        "exit_code": 0,
-        "execution_mode": execution_mode_override
-        or (
-            "markdown-bridge"
-            if args.execution_mode in ("auto", "markdown-bridge")
-            else args.execution_mode
-        ),
-        "terminal": args.terminal,
-        "terminal_profile_requested": args.terminal_profile,
-        "terminal_profile_applied": terminal_profile_applied,
-        "approval_mode": normalize_approval_mode(
-            getattr(args, "approval_mode", None),
-            dangerous=bool(args.dangerous),
-        ),
-        "dangerous": bool(args.dangerous),
-        "rollover_threshold_pct": args.rollover_threshold_pct,
-        "rollover_trigger": (
-            args.rollover_trigger if args.action == "rollover" else None
-        ),
-        "await_ack_seconds": args.await_ack_seconds,
-        "bridge_active": True,
-        "launched": launched,
-        "handoff_ack_required": handoff_ack_required,
-        "handoff_ack_observed": handoff_ack_observed,
-        "codex_requested_worker_budget": args.codex_workers,
-        "claude_requested_worker_budget": args.claude_workers,
-        "retirement_note": REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
-        "runtime_counts": build_runtime_counts(
-            collaboration=collaboration,
-            bridge_liveness=bridge_liveness,
-            requested_worker_budgets={
-                "codex": args.codex_workers,
-                "claude": args.claude_workers,
-            },
-        ),
-        "warnings": warnings,
-        "errors": [],
-        "sessions": sessions,
-        "handoff_bundle": handoff_bundle_to_dict(handoff_bundle),
-        "bridge_liveness": bridge_liveness,
-        "attention": attention,
-        "reviewer_worker": reviewer_worker,
-        "projection_paths": projection_paths_to_dict(projection_paths),
-        "promotion": promotion_candidate_to_dict(promotion),
-        "bridge_heartbeat_refresh": bridge_heartbeat_refresh_to_dict(
-            bridge_heartbeat_refresh
-        ),
-        "reviewer_state_write": reviewer_state_write_to_dict(reviewer_state_write),
-    }
-    if isinstance(reviewer_worker, dict):
-        report["review_needed"] = bool(reviewer_worker.get("review_needed"))
-    if bridge_heartbeat_refresh is not None:
-        report["warnings"].append(
-            "Auto-refreshed the markdown-bridge reviewer heartbeat before "
-            f"{args.action} so the live launch contract could proceed."
-        )
-    if (
-        reviewer_state_write is not None
-        and getattr(reviewer_state_write, "reason", "") == "auto-demote-stale-bridge"
-    ):
-        report["warnings"].append(
-            "Auto-demoted the stale markdown bridge to `paused` because no live "
-            "reviewer runtime owner was detected."
-        )
-    if handoff_ack_required and handoff_ack_observed is not None:
-        missing = [
-            provider
-            for provider, observed in handoff_ack_observed.items()
-            if not observed
-        ]
-        if missing:
-            report["ok"] = False
-            report["exit_ok"] = False
-            report["exit_code"] = 1
-            report["errors"].append(
-                "Timed out waiting for fresh-conductor rollover ACK lines "
-                f"from: {', '.join(missing)}"
-            )
-            return report, 1
-    return report, 0
 
 
 def _append_bridge_liveness_lines(

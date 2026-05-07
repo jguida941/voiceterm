@@ -296,6 +296,13 @@ def build_report() -> dict:
     )
     if review_bridge_active and bridge.get("ok", False):
         bridge_text = BRIDGE_PATH.read_text(encoding="utf-8")
+        role_packet_progress_current = (
+            _typed_bridge_state.role_neutral_packet_progress_current(
+                typed_review_state,
+                target_roles=("implementer", "coder"),
+            )
+        )
+        bridge["role_packet_progress_current"] = role_packet_progress_current
         metadata_errors = _typed_bridge_state.validate_bridge_metadata(
             bridge_text,
             typed_review_state,
@@ -311,6 +318,7 @@ def build_report() -> dict:
                 if typed_review_state is not None
                 else None
             ),
+            role_packet_progress_current=role_packet_progress_current,
         )
         if state_errors:
             bridge["ok"] = False

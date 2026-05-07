@@ -34,8 +34,12 @@ def select_next_slice(
             slice_id = f"packet:{packet_id}"
         elif packet_attention.wake_reason == "expired_unresolved_packet":
             slice_id = "packet-debt-audit"
+        elif packet_attention.wake_reason == "review_loop_relaunch_required":
+            slice_id = "review-loop-relaunch-required"
         elif packet_attention.attention_status == "checkpoint_required":
             slice_id = "checkpoint-required"
+        elif packet_attention.attention_status == "blocked":
+            slice_id = "runtime-attention-blocked"
         else:
             slice_id = "packet-attention"
         return DevelopmentNextSlice(

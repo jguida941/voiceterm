@@ -42,6 +42,7 @@ from dev.scripts.devctl.commands.development.status_summary import (
 )
 from dev.scripts.devctl.commands.development.watcher.lease import watcher_lease_status
 from dev.scripts.devctl.runtime.master_plan_contract import PlanRow, SDLCStage
+from dev.scripts.devctl.runtime.master_plan_store import write_plan_rows_jsonl
 from dev.scripts.devctl.runtime.development_role_adapters import (
     build_develop_role_adapter_matrix,
 )
@@ -1142,6 +1143,129 @@ def test_develop_ingest_plan_packet_uses_packet_evidence(
     assert "Patch review body" in snapshots[0]["source_text"]
 
 
+def test_develop_ingest_plan_packet_falls_back_to_event_log(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(plan_intake, "REPO_ROOT", tmp_path)
+    events_path = tmp_path / "dev/reports/review_channel/events/trace.ndjson"
+    events_path.parent.mkdir(parents=True)
+    events_path.write_text(
+        json.dumps(
+            {
+                "event_id": "rev_evt_9002",
+                "event_type": "packet_posted",
+                "packet_id": "rev_pkt_9002",
+                "trace_id": "trace_9002",
+                "from_agent": "reviewer",
+                "to_agent": "codex",
+                "kind": "plan_patch_review",
+                "status": "pending",
+                "summary": "Event-backed packet plan row",
+                "body": "Event log fallback body",
+                "target_ref": "plan:MP-377",
+                "mutation_op": "append_progress_log",
+                "timestamp_utc": "2026-05-06T00:00:00Z",
+                "expires_at_utc": "2026-05-06T00:30:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    args = cli.build_parser().parse_args(
+        ["develop", "ingest-plan", "--packet-id", "rev_pkt_9002", "--format", "json"]
+    )
+
+    receipt = plan_intake.ingest_plan_intent(args, repo_root=tmp_path)
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "dev/state/plan_index.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+
+    assert receipt.status == "accepted"
+    assert receipt.packet_id == "rev_pkt_9002"
+    assert receipt.row_ids == ("PKT-BIND-REV-PKT-9002",)
+    assert rows[0]["sourced_from_packets"] == ["rev_pkt_9002"]
+    assert rows[0]["title"] == "Packet plan intent: Event-backed packet plan row"
+
+
+def test_develop_ingest_plan_merges_packet_evidence_into_existing_row(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(plan_intake, "REPO_ROOT", tmp_path)
+    store = tmp_path / "dev/state/plan_index.jsonl"
+    write_plan_rows_jsonl(
+        store,
+        (
+            PlanRow(
+                row_id="MP377-GUARDIR-V21-A5",
+                title="Existing universal lifecycle row",
+                status="in_progress",
+                sdlc_stage=SDLCStage.TEST,
+                anchor_refs=("packet:rev_pkt_3114",),
+                sourced_from_packets=("rev_pkt_3114",),
+                target_ref="MP377-P0-T22A",
+                work_evidence_ids=("packet:rev_pkt_3114",),
+            ),
+        ),
+    )
+    state_path = (
+        tmp_path / "dev/reports/review_channel/projections/latest/review_state.json"
+    )
+    state_path.parent.mkdir(parents=True)
+    state_path.write_text(
+        json.dumps(
+            {
+                "packets": [
+                    {
+                        "packet_id": "rev_pkt_3112",
+                        "kind": "instruction",
+                        "summary": "Universal GovernanceLifecycle correction",
+                        "body": "Fold this into MP377-GUARDIR-V21-A5.",
+                        "target_ref": "plan:MP-377",
+                        "requested_action": "review_only",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "ingest-plan",
+            "--packet-id",
+            "rev_pkt_3112",
+            "--plan-row-id",
+            "MP377-GUARDIR-V21-A5",
+            "--format",
+            "json",
+        ]
+    )
+
+    receipt = plan_intake.ingest_plan_intent(args, repo_root=tmp_path)
+    rows = [
+        json.loads(line)
+        for line in store.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+    assert receipt.status == "accepted"
+    assert receipt.row_ids == ("MP377-GUARDIR-V21-A5",)
+    assert receipt.store_statuses == ("updated",)
+    assert rows[0]["title"] == "Existing universal lifecycle row"
+    assert rows[0]["status"] == "in_progress"
+    assert rows[0]["sdlc_stage"] == "test"
+    assert rows[0]["target_ref"] == "MP377-P0-T22A"
+    assert rows[0]["sourced_from_packets"] == ["rev_pkt_3114", "rev_pkt_3112"]
+    assert "packet:rev_pkt_3114" in rows[0]["anchor_refs"]
+    assert "packet:rev_pkt_3112" in rows[0]["anchor_refs"]
+
+
 def test_develop_ingest_plan_rejects_unowned_chat_plan(
     tmp_path: Path,
     monkeypatch,
@@ -1544,6 +1668,124 @@ def test_develop_next_prefers_packet_attention_plan_row() -> None:
     assert "packet attention" in selected.reason.lower()
 
 
+def test_develop_next_returns_to_plan_after_packet_ingestion() -> None:
+    ordinary = PlanRow(
+        row_id="MP377-IN-PROGRESS",
+        title="Ordinary in-progress row",
+        status="in_progress",
+        sdlc_stage=SDLCStage.IMPL,
+    )
+    packet_row = PlanRow(
+        row_id="MP377-PACKET-FINDING",
+        title="Ingested packet finding",
+        status="queued",
+        sdlc_stage=SDLCStage.SPEC,
+        sourced_from_packets=("rev_pkt_9999",),
+        target_ref="plan:MP-377",
+    )
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_9999",
+                "to_agent": "codex",
+                "kind": "finding",
+                "status": "pending",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ]
+    }
+
+    attention = packet_attention_from_review_state(
+        review_state,
+        rows=(ordinary, packet_row),
+    )
+    selected = select_next_slice(
+        (ordinary, packet_row),
+        packet_attention=attention,
+    )
+
+    assert attention.attention_required is False
+    assert attention.latest_attention_packet_id == ""
+    assert attention.latest_finding_packet_id == ""
+    assert attention.pending_actionable_packet_ids == ()
+    assert attention.pending_delivery_packet_ids == ()
+    assert attention.summary.startswith("no pending attention")
+    assert selected.slice_id == "MP377-IN-PROGRESS"
+    assert "typed master-plan rows" in selected.reason
+
+
+def test_develop_next_treats_packet_anchor_as_ingested() -> None:
+    ordinary = PlanRow(
+        row_id="MP377-IN-PROGRESS",
+        title="Ordinary in-progress row",
+        status="in_progress",
+        sdlc_stage=SDLCStage.IMPL,
+    )
+    packet_row = PlanRow(
+        row_id="MP377-PACKET-FINDING",
+        title="Ingested packet finding",
+        status="queued",
+        sdlc_stage=SDLCStage.SPEC,
+        anchor_refs=("packet:rev_pkt_9999",),
+        target_ref="plan:MP-377",
+    )
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_9999",
+                "to_agent": "codex",
+                "kind": "finding",
+                "status": "pending",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ]
+    }
+
+    attention = packet_attention_from_review_state(
+        review_state,
+        rows=(ordinary, packet_row),
+    )
+    selected = select_next_slice(
+        (ordinary, packet_row),
+        packet_attention=attention,
+    )
+
+    assert attention.attention_required is False
+    assert selected.slice_id == "MP377-IN-PROGRESS"
+
+
+def test_ingested_action_request_still_requires_lifecycle_attention() -> None:
+    packet_row = PlanRow(
+        row_id="PKT-BIND-REV-PKT-9999",
+        title="Ingested action request",
+        status="queued",
+        sdlc_stage=SDLCStage.SPEC,
+        sourced_from_packets=("rev_pkt_9999",),
+        target_ref="runtime:commit",
+    )
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_9999",
+                "to_agent": "codex",
+                "kind": "action_request",
+                "requested_action": "stage_commit_pipeline",
+                "status": "pending",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ]
+    }
+
+    attention = packet_attention_from_review_state(
+        review_state,
+        rows=(packet_row,),
+    )
+
+    assert attention.attention_required is True
+    assert attention.latest_attention_packet_id == "rev_pkt_9999"
+    assert attention.pending_delivery_packet_ids == ("rev_pkt_9999",)
+
+
 def test_packet_attention_includes_latest_finding_as_actionable() -> None:
     review_state = {
         "packets": [
@@ -1586,6 +1828,149 @@ def test_packet_attention_empty_state_reports_no_pending_attention() -> None:
         "no pending attention; proceed with current slice or /develop "
         "dispatch-agent for next work"
     )
+
+
+def test_packet_attention_treats_plan_owned_clock_expired_packet_as_provenance() -> None:
+    packet_row = PlanRow(
+        row_id="MP377-P0-EXC-S1",
+        title="Governed exception receipt contracts",
+        status="in_progress",
+        sdlc_stage=SDLCStage.IMPL,
+        anchor_refs=("packet:rev_pkt_3111",),
+    )
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_3111",
+                "to_agent": "codex",
+                "kind": "finding",
+                "status": "expired",
+                "expires_at_utc": "2000-01-01T00:00:00Z",
+                "lifecycle_current_state": "archived",
+                "disposition": {
+                    "sink": "archived",
+                    "archive_classification": "clock_expired_without_disposition",
+                    "resolution_anchor": (
+                        "archive_classification:clock_expired_without_disposition"
+                    ),
+                },
+            }
+        ]
+    }
+
+    attention = packet_attention_from_review_state(review_state, rows=(packet_row,))
+    selected = select_next_slice((packet_row,), packet_attention=attention)
+
+    assert attention.attention_required is False
+    assert attention.expired_unresolved_count == 0
+    assert attention.required_command == ""
+    assert attention.summary.startswith("no pending attention")
+    assert selected.slice_id == "MP377-P0-EXC-S1"
+
+
+def test_packet_attention_keeps_unowned_clock_expired_packet_as_intake_debt() -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_unowned",
+                "to_agent": "codex",
+                "kind": "finding",
+                "status": "expired",
+                "expires_at_utc": "2000-01-01T00:00:00Z",
+                "lifecycle_current_state": "archived",
+                "disposition": {
+                    "sink": "archived",
+                    "archive_classification": "clock_expired_without_disposition",
+                    "resolution_anchor": (
+                        "archive_classification:clock_expired_without_disposition"
+                    ),
+                },
+            }
+        ]
+    }
+
+    attention = packet_attention_from_review_state(review_state, rows=())
+    selected = select_next_slice((), packet_attention=attention)
+
+    assert attention.attention_required is True
+    assert attention.expired_unresolved_count == 1
+    assert attention.required_command == (
+        "python3 dev/scripts/devctl.py develop audit-packets --format md"
+    )
+    assert attention.summary == "Packet debt audit requires 1 expired unresolved packet(s)."
+    assert selected.slice_id == "packet-debt-audit"
+
+
+def test_packet_attention_treats_class_owned_clock_expired_packet_as_plan_evidence() -> None:
+    packet_owner = PlanRow(
+        row_id="MP377-P0-PACKET-INTAKE-SCHEDULER-S1",
+        title="Make packet intake resolve before next-action selection",
+        status="in_progress",
+        sdlc_stage=SDLCStage.IMPL,
+        target_ref="plan:MP377-GUARDIR-PACKET-DURABLE-INGESTION",
+    )
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_3130",
+                "to_agent": "codex",
+                "kind": "finding",
+                "status": "expired",
+                "expires_at_utc": "2000-01-01T00:00:00Z",
+                "lifecycle_current_state": "archived",
+                "disposition": {
+                    "sink": "archived",
+                    "archive_classification": "clock_expired_without_disposition",
+                    "resolution_anchor": (
+                        "archive_classification:clock_expired_without_disposition"
+                    ),
+                },
+            }
+        ]
+    }
+
+    attention = packet_attention_from_review_state(review_state, rows=(packet_owner,))
+    selected = select_next_slice((packet_owner,), packet_attention=attention)
+
+    assert attention.attention_required is False
+    assert attention.expired_unresolved_count == 0
+    assert attention.required_command == ""
+    assert selected.slice_id == packet_owner.row_id
+
+
+def test_packet_attention_treats_terminal_plan_ingestion_receipt_as_provenance() -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_3121",
+                "to_agent": "codex",
+                "kind": "finding",
+                "status": "expired",
+                "expires_at_utc": "2000-01-01T00:00:00Z",
+                "lifecycle_current_state": "archived",
+                "disposition": {
+                    "sink": "archived",
+                    "archive_classification": "clock_expired_without_disposition",
+                    "resolution_anchor": (
+                        "archive_classification:clock_expired_without_disposition"
+                    ),
+                },
+            }
+        ]
+    }
+
+    attention = packet_attention_from_review_state(
+        review_state,
+        rows=(),
+        terminal_receipt_by_packet={"rev_pkt_3121": "obsolete"},
+    )
+    selected = select_next_slice((), packet_attention=attention)
+
+    assert attention.attention_required is False
+    assert attention.expired_unresolved_count == 0
+    assert attention.required_command == ""
+    assert attention.summary.startswith("no pending attention")
+    assert selected.slice_id != "packet-debt-audit"
 
 
 def test_packet_attention_treats_system_notice_as_delivery_wake() -> None:
@@ -1678,6 +2063,33 @@ def test_packet_attention_checkpoint_without_packet_is_not_debt_audit() -> None:
     assert attention.pending_delivery_packet_ids == ()
     assert attention.summary.startswith("Checkpoint attention requires")
     assert selected.slice_id == "checkpoint-required"
+
+
+def test_packet_attention_review_loop_relaunch_is_not_packet_debt() -> None:
+    review_state = {
+        "attention": {
+            "status": "review_loop_relaunch_required",
+            "recommended_command": (
+                "python3 dev/scripts/devctl.py review-channel --action launch "
+                "--terminal none --format json"
+            ),
+        },
+        "packets": [],
+    }
+
+    attention = packet_attention_from_review_state(
+        review_state,
+        rows=(),
+        agent="codex",
+    )
+    selected = select_next_slice((), packet_attention=attention)
+
+    assert attention.attention_required is True
+    assert attention.attention_status == "blocked"
+    assert attention.wake_reason == "review_loop_relaunch_required"
+    assert attention.expired_unresolved_count == 0
+    assert attention.summary.startswith("Review loop relaunch is required")
+    assert selected.slice_id == "review-loop-relaunch-required"
 
 
 def test_resolve_actor_prefers_single_packet_attention_over_stale_env(

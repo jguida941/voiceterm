@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -30,6 +30,7 @@ class PublisherHeartbeat:
     reviewer_mode: str
     stop_reason: str = ""
     stopped_at_utc: str = ""
+    invocation_provenance: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,7 @@ class ReviewerSupervisorHeartbeat:
     stop_reason: str = ""
     stopped_at_utc: str = ""
     recoverable: bool = False
+    invocation_provenance: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -61,6 +63,7 @@ class StoppedLifecycleHeartbeat:
     snapshots_emitted: int
     reviewer_mode: str
     stop_reason: str
+    invocation_provenance: dict[str, object] = field(default_factory=dict)
 
 
 def write_publisher_heartbeat(
@@ -270,6 +273,8 @@ def _heartbeat_state_from_data(
     state["stop_reason"] = stop_reason
     state["stopped_at_utc"] = stopped_at_utc
     state["recoverable"] = bool(data.get("recoverable"))
+    provenance = data.get("invocation_provenance")
+    state["invocation_provenance"] = provenance if isinstance(provenance, dict) else {}
     return state
 
 
@@ -295,6 +300,7 @@ def write_stopped_lifecycle_heartbeat(
             reviewer_mode=stopped_heartbeat.reviewer_mode,
             stop_reason=stopped_heartbeat.stop_reason,
             stopped_at_utc=stopped_at_utc,
+            invocation_provenance=stopped_heartbeat.invocation_provenance,
         ),
     )
 

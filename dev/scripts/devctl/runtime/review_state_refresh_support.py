@@ -83,6 +83,8 @@ def refresh_event_backed_review_state_payload(
         )
     except (OSError, ValueError):
         return None
+    if isinstance(bundle.review_state, dict):
+        return dict(bundle.review_state)
     return _load_payload_from_path(Path(bundle.projection_paths.review_state_path))
 
 

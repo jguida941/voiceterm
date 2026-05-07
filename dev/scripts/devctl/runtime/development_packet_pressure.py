@@ -8,6 +8,7 @@ from typing import Any
 
 from ..time_utils import parse_utc_timestamp
 from .development_collaboration_modes import PacketAttentionPressurePolicy
+from .development_packet_failure_owner import class_owner_by_packet_failure
 from .development_packet_pressure_classification import (
     classify_packet,
     has_durable_owner_gap,
@@ -15,6 +16,7 @@ from .development_packet_pressure_classification import (
     row_owner_by_packet,
     selected_packets,
 )
+from .development_packet_pressure_decision import packet_attention_ingestion_decision
 from .development_packet_pressure_models import (
     PACKET_ATTENTION_INGESTION_DECISION_CONTRACT_ID,
     PACKET_BACKLOG_PRESSURE_CONTRACT_ID,
@@ -40,19 +42,37 @@ def packet_pressure_report(
     rows: tuple[PlanRow, ...],
     actor: str,
     policy: PacketAttentionPressurePolicy | None = None,
+    terminal_receipt_by_packet: Mapping[str, str] | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
     """Return pressure, selected classifications, and ingestion decision."""
     pressure_policy = policy or PacketAttentionPressurePolicy()
+    terminal_receipts = terminal_receipt_by_packet or {}
     packets = _packet_rows(review_state.get("packets"))
     live_packets = [packet for packet in packets if is_live_pending(packet)]
-    expired_packets = [packet for packet in packets if is_expired_unresolved(packet)]
     durable_ids = set(durable_packet_ids_from_plan_rows(rows))
     debts = packet_carry_forward_debts(packets, durable_packet_ids=durable_ids)
     debt_ids = {debt.packet_id for debt in debts}
-    selected = selected_packets(live_packets, expired_packets, debt_ids)
     owners = row_owner_by_packet(rows)
+    class_owners = class_owner_by_packet_failure(rows)
+    expired_candidates = [packet for packet in packets if is_expired_unresolved(packet)]
+    expired_packets = [
+        packet
+        for packet in expired_candidates
+        if _expired_packet_requires_attention(
+            packet,
+            row_owner_by_packet=owners,
+            class_owner_by_failure=class_owners,
+            terminal_receipt_by_packet=terminal_receipts,
+        )
+    ]
+    selected = selected_packets(live_packets, expired_candidates, debt_ids)
     classifications = [
-        classify_packet(packet, row_owner_by_packet=owners)
+        classify_packet(
+            packet,
+            row_owner_by_packet=owners,
+            class_owner_by_failure=class_owners,
+            terminal_receipt_by_packet=terminal_receipts,
+        )
         for packet in selected
     ]
     pressure = _pressure(
@@ -62,7 +82,7 @@ def packet_pressure_report(
         debt_ids=debt_ids,
         policy=pressure_policy,
     )
-    decision = _decision(
+    decision = packet_attention_ingestion_decision(
         pressure=pressure,
         classifications=classifications,
         actor=actor,
@@ -72,6 +92,22 @@ def packet_pressure_report(
         [item.to_dict() for item in classifications],
         decision.to_dict(),
     )
+
+
+def _expired_packet_requires_attention(
+    packet: Mapping[str, object],
+    *,
+    row_owner_by_packet: Mapping[str, str],
+    class_owner_by_failure: Mapping[str, str],
+    terminal_receipt_by_packet: Mapping[str, str],
+) -> bool:
+    classification = classify_packet(
+        packet,
+        row_owner_by_packet=row_owner_by_packet,
+        class_owner_by_failure=class_owner_by_failure,
+        terminal_receipt_by_packet=terminal_receipt_by_packet,
+    )
+    return not (classification.durable_owner or classification.terminal_receipt)
 
 
 def _pressure(
@@ -87,7 +123,7 @@ def _pressure(
     ]
     actionable = [
         item for item in selected_classifications
-        if item.classification not in {"communication-only", "lifecycle-only"}
+        if _is_actionable_pressure_item(item)
     ]
     return PacketBacklogPressure(
         live_total=len(live_packets),
@@ -113,73 +149,10 @@ def _pressure(
     )
 
 
-def _decision(
-    *,
-    pressure: PacketBacklogPressure,
-    classifications: list[PacketIntentClassification],
-    actor: str,
-) -> PacketAttentionIngestionDecision:
-    packet_ids = tuple(item.packet_id for item in classifications)
-    if pressure.live_total >= pressure.hard_attention_budget:
-        return PacketAttentionIngestionDecision(
-            decision="fail_closed",
-            reason_code="hard_attention_budget_crossed",
-            required_action="classify_packets_before_continuing",
-            fail_closed=True,
-            selected_packet_ids=packet_ids,
-            next_command=_inbox_command(actor),
-        )
-    if any(item.classification == "manual-triage-required" for item in classifications):
-        return PacketAttentionIngestionDecision(
-            decision="request_operator_decision",
-            reason_code="manual_triage_required",
-            required_action="operator_packet_triage",
-            fail_closed=False,
-            selected_packet_ids=packet_ids,
-            next_command=_show_or_inbox_command(packet_ids, actor),
-        )
-    if any(has_durable_owner_gap(item) for item in classifications):
-        return PacketAttentionIngestionDecision(
-            decision="ingest_durable_intent",
-            reason_code="durable_owner_gap_detected",
-            required_action="write_typed_owner_or_terminal_receipt",
-            fail_closed=False,
-            selected_packet_ids=packet_ids,
-            next_command=_ingest_or_inbox_command(classifications, actor),
-        )
-    if any(_requires_packet_review(item) for item in classifications):
-        return PacketAttentionIngestionDecision(
-            decision="pivot_to_packet_review",
-            reason_code="pending_packet_requires_review",
-            required_action="review_selected_packets",
-            fail_closed=False,
-            selected_packet_ids=packet_ids,
-            next_command=_show_or_inbox_command(packet_ids, actor),
-        )
-    if (
-        pressure.live_total >= pressure.soft_attention_budget
-        or pressure.near_ttl_total
-        or pressure.expired_unresolved_total
-    ):
-        return PacketAttentionIngestionDecision(
-            decision="pivot_to_packet_review",
-            reason_code=pressure.pressure_state,
-            required_action="review_selected_packets",
-            fail_closed=False,
-            selected_packet_ids=packet_ids,
-            next_command=_show_or_inbox_command(packet_ids, actor),
-        )
-    return PacketAttentionIngestionDecision(
-        decision="continue_current_work",
-        reason_code="below_budget_no_durable_gap",
-        required_action="none",
-        fail_closed=False,
-        selected_packet_ids=packet_ids,
-    )
-
-
-def _requires_packet_review(item: PacketIntentClassification) -> bool:
-    return item.classification not in {"communication-only"}
+def _is_actionable_pressure_item(item: PacketIntentClassification) -> bool:
+    if item.durable_owner or item.terminal_receipt:
+        return False
+    return item.classification not in {"communication-only", "lifecycle-only"}
 
 
 def _pressure_state(
@@ -210,36 +183,6 @@ def _is_near_ttl(
         return False
     return expires_at <= datetime.now(timezone.utc) + timedelta(
         minutes=policy.near_ttl_minutes
-    )
-
-
-def _show_or_inbox_command(packet_ids: tuple[str, ...], actor: str) -> str:
-    if packet_ids:
-        return (
-            "python3 dev/scripts/devctl.py review-channel --action show "
-            f"--packet-id {packet_ids[0]} --terminal none --format md"
-        )
-    return _inbox_command(actor)
-
-
-def _ingest_or_inbox_command(
-    classifications: list[PacketIntentClassification],
-    actor: str,
-) -> str:
-    for item in classifications:
-        if has_durable_owner_gap(item):
-            return (
-                "python3 dev/scripts/devctl.py develop ingest-intent "
-                f"--packet-id {item.packet_id} --format md"
-            )
-    return _inbox_command(actor)
-
-
-def _inbox_command(actor: str) -> str:
-    target = _text(actor) or "codex"
-    return (
-        "python3 dev/scripts/devctl.py review-channel --action inbox "
-        f"--target {target} --actor {target} --status pending --terminal none --format md"
     )
 
 

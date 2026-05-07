@@ -8,6 +8,9 @@ from dev.scripts.devctl.runtime.development_packet_pressure import (
     packet_pressure_report,
 )
 from dev.scripts.devctl.runtime.master_plan_contract import PlanRow
+from dev.scripts.devctl.runtime.plan_intent_ingestion import (
+    terminal_packet_receipt_by_packet,
+)
 
 
 def test_below_budget_communication_continues_current_work() -> None:
@@ -113,6 +116,31 @@ def test_archived_expired_packets_do_not_drive_packet_pressure() -> None:
     assert decision["decision"] == "continue_current_work"
 
 
+def test_durable_archived_pending_packets_do_not_drive_packet_pressure() -> None:
+    packet = _packet(
+        "rev_pkt_durable_archive",
+        lifecycle_current_state="archived",
+        expires_at_utc=_stamp(minutes=-5),
+        disposition={
+            "sink": "archived",
+            "archive_classification": "expired_after_durable_binding",
+            "resolution_anchor": "archive_classification:expired_after_durable_binding",
+        },
+    )
+
+    pressure, classifications, decision = packet_pressure_report(
+        {"packets": [packet]},
+        rows=(),
+        actor="codex",
+    )
+
+    assert pressure["live_total"] == 0
+    assert pressure["actionable_total"] == 0
+    assert pressure["expired_unresolved_total"] == 0
+    assert classifications == []
+    assert decision["decision"] == "continue_current_work"
+
+
 def test_duplicate_and_obsolete_packets_are_terminal_classifications() -> None:
     packets = [
         _packet(
@@ -139,7 +167,7 @@ def test_duplicate_and_obsolete_packets_are_terminal_classifications() -> None:
         "obsolete",
     ]
     assert all(item["action_required"] is False for item in classifications)
-    assert decision["decision"] == "pivot_to_packet_review"
+    assert decision["decision"] == "continue_current_work"
 
 
 def test_existing_plan_row_owner_removes_durable_owner_gap() -> None:
@@ -167,7 +195,195 @@ def test_existing_plan_row_owner_removes_durable_owner_gap() -> None:
     assert pressure["durable_owner_gap_total"] == 0
     assert classifications[0]["durable_owner"] == "MP377-P0-T22AN-X"
     assert classifications[0]["action_required"] is False
+    assert decision["decision"] == "continue_current_work"
+
+
+def test_existing_anchor_owner_removes_packet_from_next_pressure() -> None:
+    packet = _packet(
+        "rev_pkt_51",
+        kind="plan_patch_review",
+        target_kind="plan",
+        target_ref="plan:MP-377",
+        expires_at_utc=_stamp(minutes=5),
+    )
+    row = PlanRow(
+        row_id="MP377-P0-T22AN-X",
+        title="Packet-aware develop closure",
+        status="in_progress",
+        sdlc_stage="impl",
+        anchor_refs=("packet:rev_pkt_51",),
+    )
+
+    pressure, classifications, decision = packet_pressure_report(
+        {"packets": [packet]},
+        rows=(row,),
+        actor="codex",
+    )
+
+    assert pressure["actionable_total"] == 0
+    assert classifications[0]["durable_owner"] == "MP377-P0-T22AN-X"
+    assert classifications[0]["action_required"] is False
+    assert decision["decision"] == "continue_current_work"
+
+
+def test_expired_archived_packet_with_plan_owner_is_provenance_not_pressure() -> None:
+    packet = _packet(
+        "rev_pkt_3111",
+        status="expired",
+        lifecycle_current_state="archived",
+        expires_at_utc=_stamp(minutes=-5),
+        disposition={
+            "sink": "archived",
+            "archive_classification": "clock_expired_without_disposition",
+            "resolution_anchor": "archive_classification:clock_expired_without_disposition",
+        },
+    )
+    row = PlanRow(
+        row_id="MP377-P0-EXC-S1",
+        title="Governed exception receipt contracts",
+        status="in_progress",
+        sdlc_stage="impl",
+        anchor_refs=("packet:rev_pkt_3111",),
+    )
+
+    pressure, classifications, decision = packet_pressure_report(
+        {"packets": [packet]},
+        rows=(row,),
+        actor="codex",
+    )
+
+    assert pressure["expired_unresolved_total"] == 0
+    assert classifications[0]["durable_owner"] == "MP377-P0-EXC-S1"
+    assert classifications[0]["action_required"] is False
+    assert decision["decision"] == "continue_current_work"
+
+
+def test_terminal_archived_action_request_is_provenance_not_attention() -> None:
+    packet = _packet(
+        "rev_pkt_action_archived",
+        kind="action_request",
+        status="expired",
+        lifecycle_current_state="archived",
+        expires_at_utc=_stamp(minutes=-5),
+        disposition={
+            "sink": "archived",
+            "archive_classification": "dismissed_with_actor",
+        },
+    )
+
+    pressure, classifications, decision = packet_pressure_report(
+        {"packets": [packet]},
+        rows=(),
+        actor="codex",
+    )
+
+    assert pressure["expired_unresolved_total"] == 0
+    assert classifications == []
+    assert decision["decision"] == "continue_current_work"
+
+
+def test_clock_expired_without_disposition_still_requires_intake_without_owner() -> None:
+    packet = _packet(
+        "rev_pkt_unowned_clock_expired",
+        status="expired",
+        lifecycle_current_state="archived",
+        expires_at_utc=_stamp(minutes=-5),
+        disposition={
+            "sink": "archived",
+            "archive_classification": "clock_expired_without_disposition",
+            "resolution_anchor": "archive_classification:clock_expired_without_disposition",
+        },
+    )
+
+    pressure, classifications, decision = packet_pressure_report(
+        {"packets": [packet]},
+        rows=(),
+        actor="codex",
+    )
+
+    assert pressure["expired_unresolved_total"] == 1
+    assert classifications[0]["terminal_receipt"] == ""
     assert decision["decision"] == "pivot_to_packet_review"
+
+
+def test_plan_ingestion_terminal_receipt_removes_expired_packet_pressure() -> None:
+    packet = _packet(
+        "rev_pkt_3121",
+        status="expired",
+        lifecycle_current_state="archived",
+        expires_at_utc=_stamp(minutes=-5),
+        disposition={
+            "sink": "archived",
+            "archive_classification": "clock_expired_without_disposition",
+            "resolution_anchor": "archive_classification:clock_expired_without_disposition",
+        },
+    )
+
+    pressure, classifications, decision = packet_pressure_report(
+        {"packets": [packet]},
+        rows=(),
+        actor="codex",
+        terminal_receipt_by_packet={"rev_pkt_3121": "obsolete"},
+    )
+
+    assert pressure["expired_unresolved_total"] == 0
+    assert classifications[0]["classification"] == "obsolete"
+    assert classifications[0]["terminal_receipt"] == "obsolete"
+    assert classifications[0]["action_required"] is False
+    assert decision["decision"] == "continue_current_work"
+
+
+def test_class_owner_removes_clock_expired_packet_pressure() -> None:
+    packet = _packet(
+        "rev_pkt_3130",
+        status="expired",
+        lifecycle_current_state="archived",
+        expires_at_utc=_stamp(minutes=-5),
+        disposition={
+            "sink": "archived",
+            "archive_classification": "clock_expired_without_disposition",
+            "resolution_anchor": "archive_classification:clock_expired_without_disposition",
+        },
+    )
+    row = PlanRow(
+        row_id="MP377-P0-PACKET-INTAKE-SCHEDULER-S1",
+        title="Make packet intake resolve before next-action selection",
+        status="in_progress",
+        sdlc_stage="impl",
+        target_ref="plan:MP377-GUARDIR-PACKET-DURABLE-INGESTION",
+    )
+
+    pressure, classifications, decision = packet_pressure_report(
+        {"packets": [packet]},
+        rows=(row,),
+        actor="codex",
+    )
+
+    assert pressure["expired_unresolved_total"] == 0
+    assert pressure["durable_owner_gap_total"] == 0
+    assert classifications[0]["durable_owner"] == row.row_id
+    assert classifications[0]["action_required"] is False
+    assert decision["decision"] == "continue_current_work"
+
+
+def test_plan_ingestion_receipt_index_uses_source_packet_terminal_status() -> None:
+    terminal = terminal_packet_receipt_by_packet(
+        (
+            {
+                "source_ref": "packet:rev_pkt_3121",
+                "status": "obsolete",
+                "target_kind": "terminal_receipt",
+                "terminal_status": "obsolete",
+            },
+            {
+                "packet_id": "rev_pkt_3155",
+                "status": "accepted",
+                "target_kind": "plan_row",
+            },
+        )
+    )
+
+    assert terminal == {"rev_pkt_3121": "obsolete"}
 
 
 def test_pending_action_request_pivots_even_with_durable_owner() -> None:
@@ -196,6 +412,38 @@ def test_pending_action_request_pivots_even_with_durable_owner() -> None:
     assert decision["decision"] == "pivot_to_packet_review"
     assert decision["reason_code"] == "pending_packet_requires_review"
     assert "review-channel --action show" in decision["next_command"]
+
+
+def test_expired_action_request_with_class_owner_is_not_live_review_pressure() -> None:
+    packet = _packet(
+        "rev_pkt_3138",
+        kind="action_request",
+        status="expired",
+        lifecycle_current_state="archived",
+        expires_at_utc=_stamp(minutes=-5),
+        disposition={
+            "sink": "archived",
+            "archive_classification": "clock_expired_without_disposition",
+            "resolution_anchor": "archive_classification:clock_expired_without_disposition",
+        },
+    )
+    row = PlanRow(
+        row_id="MP377-P0-PACKET-INTAKE-SCHEDULER-S1",
+        title="Make packet intake resolve before next-action selection",
+        status="in_progress",
+        sdlc_stage="impl",
+        target_ref="plan:MP377-GUARDIR-PACKET-DURABLE-INGESTION",
+    )
+
+    pressure, classifications, decision = packet_pressure_report(
+        {"packets": [packet]},
+        rows=(row,),
+        actor="codex",
+    )
+
+    assert pressure["pressure_state"] == "below_budget"
+    assert classifications[0]["durable_owner"] == row.row_id
+    assert decision["decision"] == "continue_current_work"
 
 
 def _packet(

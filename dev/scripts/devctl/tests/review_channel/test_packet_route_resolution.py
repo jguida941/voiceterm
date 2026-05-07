@@ -15,6 +15,7 @@ def _request(
     *,
     target_role: str = "",
     target_session_id: str = "",
+    requested_action: str = "review_only",
 ) -> PacketPostRequest:
     return PacketPostRequest(
         from_agent="codex",
@@ -22,6 +23,7 @@ def _request(
         kind="action_request",
         summary="Route work",
         body="Route work to one typed session.",
+        requested_action=requested_action,
         target=PacketTargetFields.from_values(
             target_kind="plan",
             target_ref="plan://MP-377/router",
@@ -93,6 +95,19 @@ def test_packet_route_resolution_scoped_role_must_resolve_to_one_fresh_session()
 
     assert resolved.target.target_role == "dashboard"
     assert resolved.target.target_session_id == "s2"
+
+
+def test_non_runtime_action_request_keeps_ambiguous_role_scope() -> None:
+    resolved = resolve_packet_post_route_scope(
+        _request(target_role="reviewer", requested_action="restore_reviewer_turn"),
+        review_state=_state(
+            _row(role="implementer", session_id="s1"),
+            _row(role="dashboard", session_id="s2"),
+        ),
+    )
+
+    assert resolved.target.target_role == "reviewer"
+    assert resolved.target.target_session_id == ""
 
 
 def test_packet_route_resolution_rejects_stale_or_wrong_session() -> None:

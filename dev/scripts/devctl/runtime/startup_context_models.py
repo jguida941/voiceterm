@@ -12,6 +12,7 @@ from .packet_intent_anchor import PacketIntentAnchor, PlanIterationSession
 from .project_governance import ProjectGovernance
 from .recovery_authority import RecoveryAuthorityState
 from .review_state_models import (
+    CollaborationSessionState,
     PacketInboxState,
     ReviewAttentionState,
     ReviewCurrentSessionState,
@@ -23,6 +24,20 @@ from .reviewer_runtime_models import (
 from .runtime_truth_snapshot import RuntimeTruthSnapshot
 from .session_posture import SessionPosture
 from .startup_blocker_decision import BlockerSnapshot
+from .startup_context_collaboration_output import (
+    startup_authority_snapshot_dict,
+    startup_collaboration_dict,
+    startup_collaboration_summary_dict,
+    startup_packet_intent_anchor_dict,
+)
+from .startup_context_compaction import (
+    compact_connectivity_registry,
+    compact_packet_carry_forward_debt,
+    compact_packet_continuity_index,
+    compact_product_thesis,
+    startup_interaction_mode,
+    startup_runtime_truth_dict,
+)
 from .startup_context_projections import (
     bounded_contract_ownership_map,
     startup_coordination_dict,
@@ -77,6 +92,7 @@ class StartupContext:
     work_intake: WorkIntakePacket | None = None
     coordination: CoordinationSnapshot | None = None
     authority_snapshot: AuthoritySnapshot | None = None
+    collaboration: CollaborationSessionState | None = None
     reviewer_runtime: ReviewerRuntimeContract | None = None
     session_posture: SessionPosture | None = None
     runtime_truth: RuntimeTruthSnapshot | None = None
@@ -116,16 +132,20 @@ class StartupContext:
         d["reason"] = self.advisory_reason
         d["advisory_action"] = self.advisory_action
         d["advisory_reason"] = self.advisory_reason
-        d["interaction_mode"] = _startup_interaction_mode(
-            runtime_truth=self.runtime_truth,
-            session_posture=self.session_posture,
-            reviewer_gate=self.reviewer_gate,
-        )
-        d["reviewer_mode"] = (
-            self.session_posture.reviewer_mode
-            if self.session_posture is not None
-            else self.reviewer_gate.reviewer_mode
-        )
+        if self.authority_snapshot is not None:
+            d["interaction_mode"] = self.authority_snapshot.interaction_mode
+            d["reviewer_mode"] = self.authority_snapshot.reviewer_mode
+        else:
+            d["interaction_mode"] = startup_interaction_mode(
+                runtime_truth=self.runtime_truth,
+                session_posture=self.session_posture,
+                reviewer_gate=self.reviewer_gate,
+            )
+            d["reviewer_mode"] = (
+                self.session_posture.reviewer_mode
+                if self.session_posture is not None
+                else self.reviewer_gate.reviewer_mode
+            )
         d["observed_control_topology"] = self.observed_control_topology
         d["implementation_permission"] = self.implementation_permission
         # Per Codex rev_pkt_2313/2326/2337/2352: surface typed
@@ -164,14 +184,14 @@ class StartupContext:
         d["contract_ownership_map"] = bounded_contract_ownership_map(
             self.contract_ownership_map
         )
-        d["connectivity_registry"] = _compact_connectivity_registry(
+        d["connectivity_registry"] = compact_connectivity_registry(
             self.connectivity_registry
         )
         d["runtime_spine_closure"] = dict(self.runtime_spine_closure)
-        d["packet_continuity_index"] = _compact_packet_continuity_index(
+        d["packet_continuity_index"] = compact_packet_continuity_index(
             self.packet_continuity_index
         )
-        d["packet_carry_forward_debt"] = _compact_packet_carry_forward_debt(
+        d["packet_carry_forward_debt"] = compact_packet_carry_forward_debt(
             self.packet_carry_forward_debt
         )
         d["continuity_attention"] = dict(self.continuity_attention)
@@ -179,7 +199,7 @@ class StartupContext:
         d["snapshot_id"] = self.snapshot_id
         d["zref"] = self.zref
         if self.product_thesis:
-            d["product_thesis"] = _compact_product_thesis(self.product_thesis)
+            d["product_thesis"] = compact_product_thesis(self.product_thesis)
         if self.governance is not None:
             d["governance"] = startup_governance_dict(self.governance)
         if self.work_intake is not None:
@@ -187,7 +207,16 @@ class StartupContext:
         if self.coordination is not None:
             d["coordination"] = startup_coordination_dict(self.coordination)
         if self.authority_snapshot is not None:
-            d["authority_snapshot"] = self.authority_snapshot.to_dict()
+            d["authority_snapshot"] = startup_authority_snapshot_dict(
+                self.authority_snapshot
+            )
+        if self.collaboration is not None:
+            if self.authority_snapshot is None:
+                d["collaboration"] = startup_collaboration_dict(self.collaboration)
+            else:
+                d["collaboration"] = startup_collaboration_summary_dict(
+                    self.collaboration
+                )
         if self.reviewer_runtime is not None:
             reviewer_runtime = asdict(self.reviewer_runtime)
             reviewer_runtime.pop("session_posture", None)
@@ -195,7 +224,7 @@ class StartupContext:
         if self.session_posture is not None:
             d["session_posture"] = self.session_posture.to_dict()
         if self.runtime_truth is not None:
-            d["runtime_truth"] = _startup_runtime_truth_dict(self.runtime_truth)
+            d["runtime_truth"] = startup_runtime_truth_dict(self.runtime_truth)
         if self.remote_control_attachment is not None:
             d["remote_control_attachment"] = asdict(self.remote_control_attachment)
         if self.attention is not None:
@@ -213,113 +242,6 @@ class StartupContext:
         if self.orphan_snapshot is not None:
             d["orphan_snapshot"] = startup_orphan_snapshot_dict(self.orphan_snapshot)
         return d
-
-
-def startup_packet_intent_anchor_dict(anchor: PacketIntentAnchor) -> dict[str, object]:
-    """Compact startup projection of a packet-derived plan anchor."""
-    return {
-        "packet_id": anchor.packet_id,
-        "target_plan": anchor.target_plan,
-        "anchor_refs": list(anchor.anchor_refs),
-        "lifecycle_state": anchor.lifecycle_state,
-    }
-
-
-def _startup_runtime_truth_dict(
-    runtime_truth: RuntimeTruthSnapshot,
-) -> dict[str, object]:
-    payload = runtime_truth.to_dict()
-    return {
-        key: payload.get(key)
-        for key in (
-            "contract_id",
-            "generated_at_utc",
-            "interaction_mode",
-            "reviewer_mode",
-            "effective_reviewer_mode",
-            "packet_attention_required",
-            "pending_packet_count",
-            "active_actor_count",
-            "remote_control_active",
-            "remote_control_method",
-            "remote_control_session_id",
-            "connectivity_contract_count",
-            "connectivity_warning_count",
-            "routing_decision",
-        )
-    }
-
-
-def _startup_interaction_mode(
-    *,
-    runtime_truth: RuntimeTruthSnapshot | None,
-    session_posture: SessionPosture | None,
-    reviewer_gate: ReviewerGateState,
-) -> str:
-    for value in (
-        runtime_truth.interaction_mode if runtime_truth is not None else "",
-        session_posture.interaction_mode if session_posture is not None else "",
-        reviewer_gate.operator_interaction_mode,
-    ):
-        text = str(value or "").strip()
-        if text and text != "unresolved":
-            return text
-    return "unresolved"
-
-
-def _compact_product_thesis(value: str, limit: int = 480) -> str:
-    text = str(value or "").strip()
-    if len(text) <= limit:
-        return text
-    return text[: limit - 3].rstrip() + "..."
-
-
-def _compact_connectivity_registry(
-    value: dict[str, object],
-    *,
-    contract_limit: int = 8,
-) -> dict[str, object]:
-    payload = dict(value)
-    contract_ids = [
-        str(item)
-        for item in (payload.get("connected_contract_ids") or ())
-        if str(item).strip()
-    ]
-    if len(contract_ids) <= contract_limit:
-        return payload
-    payload["connected_contract_ids"] = contract_ids[:contract_limit]
-    payload["connected_contract_ids_truncated"] = len(contract_ids) - contract_limit
-    return payload
-
-
-def _compact_packet_continuity_index(
-    value: dict[str, object],
-    *,
-    row_limit: int = 2,
-) -> dict[str, object]:
-    payload = dict(value)
-    rows = [dict(row) for row in (payload.get("rows") or ()) if isinstance(row, dict)]
-    if len(rows) <= row_limit:
-        return payload
-    payload["rows"] = rows[:row_limit]
-    payload["rows_truncated"] = len(rows) - row_limit
-    return payload
-
-
-def _compact_packet_carry_forward_debt(
-    rows: tuple[dict[str, object], ...],
-    *,
-    row_limit: int = 2,
-) -> list[dict[str, object]]:
-    bounded = [dict(row) for row in rows[:row_limit]]
-    if len(rows) > row_limit:
-        bounded.append(
-            {
-                "contract_id": "PacketCarryForwardDebtSummary",
-                "truncated_count": len(rows) - row_limit,
-            }
-        )
-    return bounded
 
 
 __all__ = [

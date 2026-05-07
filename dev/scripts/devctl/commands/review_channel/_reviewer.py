@@ -10,7 +10,10 @@ from types import SimpleNamespace
 from ...review_channel.core import filter_provider_lanes
 from ...review_channel.peer_liveness import reviewer_mode_is_active
 from ...review_channel.plan_resolution import resolve_promotion_plan_path
-from ..review_channel_bridge_render import build_bridge_success_report
+from ..review_channel_bridge_render import (
+    BridgeSuccessReportRequest,
+    build_bridge_success_report,
+)
 from ...review_channel.reviewer_state import (
     ReviewerCheckpointUpdate,
     reviewer_state_write_to_dict,
@@ -69,21 +72,23 @@ def build_reviewer_state_report(
     codex_lanes = filter_provider_lanes(status_snapshot.lanes, provider="codex")
     claude_lanes = filter_provider_lanes(status_snapshot.lanes, provider="claude")
     report, exit_code = build_bridge_success_report(
-        args=args,
-        bridge_liveness=status_snapshot.bridge_liveness,
-        attention=status_snapshot.attention,
-        reviewer_worker=status_snapshot.reviewer_worker,
-        collaboration=(
-            asdict(status_snapshot.review_state.collaboration)
-            if status_snapshot.review_state is not None
-            and status_snapshot.review_state.collaboration is not None
-            else None
-        ),
-        codex_lanes=codex_lanes,
-        claude_lanes=claude_lanes,
-        warnings=status_snapshot.warnings,
-        projection_paths=status_snapshot.projection_paths,
-        **REVIEWER_STATE_REPORT_DEFAULTS,
+        BridgeSuccessReportRequest(
+            args=args,
+            bridge_liveness=status_snapshot.bridge_liveness,
+            attention=status_snapshot.attention,
+            reviewer_worker=status_snapshot.reviewer_worker,
+            collaboration=(
+                asdict(status_snapshot.review_state.collaboration)
+                if status_snapshot.review_state is not None
+                and status_snapshot.review_state.collaboration is not None
+                else None
+            ),
+            codex_lanes=codex_lanes,
+            claude_lanes=claude_lanes,
+            warnings=status_snapshot.warnings,
+            projection_paths=status_snapshot.projection_paths,
+            **REVIEWER_STATE_REPORT_DEFAULTS,
+        )
     )
 
     _attach_backend_contract(report, repo_root=repo_root, paths=runtime_paths)

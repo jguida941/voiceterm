@@ -32,7 +32,7 @@ def test_runtime_readiness_marks_blocked_status_without_losing_command_ok() -> N
 
     readiness = report["runtime_readiness"]
     assert report["command_ok"] is True
-    assert report["ok"] is False
+    assert report["ok"] is True
     assert readiness["system_ok"] is False
     assert readiness["status"] == "blocked"
     assert readiness["safe_to_continue"] is False

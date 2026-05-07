@@ -31,7 +31,7 @@ def validate_live_launch_conflicts(
         load_conductor_sessions_fn = load_conductor_sessions
     if cleanup_terminal_session_fn is None:
         cleanup_terminal_session_fn = cleanup_terminal_session
-    if args.action != "launch" or args.terminal != "terminal-app" or args.dry_run:
+    if args.action != "launch" or args.dry_run:
         return
 
     reclaimable_sessions = _reclaimable_launch_sessions(
@@ -56,10 +56,10 @@ def validate_live_launch_conflicts(
     )
     if active_session_conflicts:
         raise ValueError(
-            "Live review-channel launch refused because existing session "
-            "artifacts still look active. Close the current conductor "
-            "windows or wait for the session traces to go stale before "
-            "launching again: "
+            "Live review-channel launch refused because existing same-repo "
+            "conductor artifacts still look active. Stop or attach to the "
+            "current conductor, or wait for the session traces to go stale "
+            "before launching again: "
             + summarize_active_session_conflicts_fn(active_session_conflicts)
         )
 

@@ -18,6 +18,8 @@ from .current_session_projection import (
 )
 from .session_probe import ConductorSessionRecord
 
+COMPLETED_HANDOFF_ORPHAN_RELEASE_SECONDS = 900
+
 
 @dataclass(frozen=True, slots=True)
 class CurrentSessionResolvers:
@@ -190,6 +192,8 @@ def _outcome_matches_current_session(
 
         if not _outcome_not_before_session(outcome, session):
             continue
+        if not _session_owner_live_or_recent(session):
+            continue
 
         token = _text(session.prepared_session_token)
         if outcome.prepared_session_token and token:
@@ -204,6 +208,16 @@ def _outcome_matches_current_session(
             return _same_path(outcome.metadata_path, metadata_path)
 
     return False
+
+
+def _session_owner_live_or_recent(session: ConductorSessionRecord) -> bool:
+    """Release completed handoffs whose owning session is dead and stale."""
+    if bool(getattr(session, "live", False)):
+        return True
+    age_seconds = getattr(session, "age_seconds", None)
+    if age_seconds is None:
+        return True
+    return int(age_seconds) <= COMPLETED_HANDOFF_ORPHAN_RELEASE_SECONDS
 
 
 def _outcome_not_before_session(

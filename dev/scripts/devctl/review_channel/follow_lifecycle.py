@@ -26,6 +26,7 @@ class FollowLifecycleContext:
     heartbeat_factory: Callable[..., object]
     daemon_context: DaemonEventContext
     utc_timestamp_fn: Callable[[], str]
+    invocation_provenance: dict[str, object]
 
 
 def record_follow_heartbeat(
@@ -47,6 +48,7 @@ def record_follow_heartbeat(
             last_heartbeat_utc=heartbeat_utc,
             snapshots_emitted=snapshots_emitted,
             reviewer_mode=reviewer_mode,
+            invocation_provenance=context.invocation_provenance,
         ),
     )
     append_daemon_heartbeat(
@@ -78,6 +80,7 @@ def record_follow_stop(
             snapshots_emitted=snapshots_emitted,
             reviewer_mode=reviewer_mode,
             stop_reason=stop_reason,
+            invocation_provenance=context.invocation_provenance,
         ),
         utc_timestamp_fn=context.utc_timestamp_fn,
     )

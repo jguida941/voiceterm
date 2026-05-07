@@ -15,12 +15,51 @@ import pytest
 
 from dev.scripts.devctl.commands.review_channel.launcher_discipline import (
     LauncherDisciplineVerdict,
+    resolve_launch_visibility,
     validate_trusted_visible_launch_root,
     validate_visible_launch_in_local_mode,
 )
 
 
 # ---------- Decision rule 1: malformed terminal_arg fails closed ----------
+
+
+def test_launch_visibility_defaults_headless_for_active_remote_attachment() -> None:
+    decision = resolve_launch_visibility(
+        interaction_mode="local_terminal",
+        requested_terminal=None,
+        attachment_active=True,
+    )
+
+    assert decision.terminal == "none"
+    assert decision.requested_session_visibility == "headless"
+    assert decision.reason == "remote_control_attachment_headless_default"
+    assert decision.explicit_terminal is False
+
+
+def test_launch_visibility_defaults_visible_for_local_operator() -> None:
+    decision = resolve_launch_visibility(
+        interaction_mode="local_terminal",
+        requested_terminal=None,
+        attachment_active=False,
+    )
+
+    assert decision.terminal == "terminal-app"
+    assert decision.requested_session_visibility == "visible"
+    assert decision.reason == "local_operator_visible_default"
+
+
+def test_launch_visibility_preserves_explicit_visible_override() -> None:
+    decision = resolve_launch_visibility(
+        interaction_mode="remote_control",
+        requested_terminal="terminal-app",
+        attachment_active=True,
+    )
+
+    assert decision.terminal == "terminal-app"
+    assert decision.requested_session_visibility == "visible"
+    assert decision.reason == "explicit_terminal_request"
+    assert decision.explicit_terminal is True
 
 
 def test_invalid_terminal_arg_returns_invalid_terminal_arg_denial() -> None:
@@ -281,6 +320,12 @@ from unittest.mock import patch
 from dev.scripts.devctl.commands.review_channel.bridge_launch_control import (
     LaunchSessionRequest,
     launch_sessions_if_requested,
+)
+from dev.scripts.devctl.commands.review_channel.bridge_launch_headless import (
+    launch_sessions_headless,
+)
+from dev.scripts.devctl.commands.review_channel.bridge_support import (
+    _maybe_apply_launch_reviewer_mode_override,
 )
 
 
@@ -600,3 +645,76 @@ def test_recover_visible_launch_refuses_transient_root() -> None:
             )
 
         assert "untrusted_visible_launch_root" in str(exc_info.value)
+
+
+def test_launch_reviewer_mode_override_updates_bridge_metadata(tmp_path: Path) -> None:
+    bridge_path = tmp_path / "bridge.md"
+    bridge_text = "\n".join(
+        [
+            "# Bridge",
+            "",
+            "- Last Codex poll: `2026-05-06T12:00:00Z`",
+            "- Last Codex poll (Local America/New_York): `2026-05-06 08:00:00 EDT`",
+            "- Reviewer mode: `active_dual_agent`",
+            f"- Last non-audit worktree hash: `{'a' * 64}`",
+            "- Current instruction revision: `rev-1`",
+            "",
+            "## Poll Status",
+            "",
+            "- fresh",
+        ]
+    )
+    bridge_path.write_text(bridge_text, encoding="utf-8")
+    args = SimpleNamespace(
+        reviewer_mode="single_agent",
+        reason="operator requested single-agent launch",
+    )
+
+    write = _maybe_apply_launch_reviewer_mode_override(
+        args=args,
+        repo_root=tmp_path,
+        bridge_path=bridge_path,
+        bridge_text=bridge_text,
+        worktree_hash="b" * 64,
+    )
+
+    assert write is not None
+    assert write.reviewer_mode == "single_agent"
+    updated = bridge_path.read_text(encoding="utf-8")
+    assert "- Reviewer mode: `single_agent`" in updated
+    assert "requested=single_agent" in updated
+
+
+def test_headless_launch_requires_provider_process_observed(tmp_path: Path) -> None:
+    script_path = tmp_path / "codex-conductor.sh"
+    script_path.write_text("#!/bin/zsh\nsleep 60\n", encoding="utf-8")
+    script_path.chmod(0o755)
+    warnings: list[str] = []
+    session = {"provider": "codex", "script_path": str(script_path)}
+
+    class FakeProcess:
+        pid = 4242
+
+    with (
+        patch(
+            "dev.scripts.devctl.commands.review_channel.bridge_launch_headless.subprocess.Popen",
+            return_value=FakeProcess(),
+        ),
+        patch(
+            "dev.scripts.devctl.commands.review_channel.bridge_launch_headless._pid_survived_startup",
+            return_value=True,
+        ),
+        patch(
+            "dev.scripts.devctl.commands.review_channel.bridge_launch_headless._process_table",
+            return_value={
+                4242: (1, f"/bin/zsh {script_path}"),
+                4243: (4242, f"/bin/zsh {script_path} __review_channel_inner"),
+            },
+        ),
+    ):
+        launched = launch_sessions_headless([session], warnings)
+
+    assert launched is False
+    assert session["headless_launch_status"] == "provider_not_observed"
+    assert warnings
+    assert "no provider process was observed" in warnings[0]

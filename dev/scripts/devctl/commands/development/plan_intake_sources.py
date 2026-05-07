@@ -8,6 +8,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ...repo_packs import active_path_config
+from ...review_channel.event_reducer import reduce_events
+from ...review_channel.event_reducer_inbox import packet_by_id
+from ...review_channel.event_reducer_lanes import load_lane_assignments
+from ...review_channel.event_store import load_events, resolve_artifact_paths
 from .plan_intake_support import text
 
 
@@ -114,6 +119,20 @@ def _packet_from_review_state(
     repo_root: Path,
     packet_id: str,
 ) -> Mapping[str, object]:
+    packet = _packet_from_review_state_projection(
+        repo_root=repo_root,
+        packet_id=packet_id,
+    )
+    if packet:
+        return packet
+    return _packet_from_event_log(repo_root=repo_root, packet_id=packet_id)
+
+
+def _packet_from_review_state_projection(
+    *,
+    repo_root: Path,
+    packet_id: str,
+) -> Mapping[str, object]:
     path = repo_root / "dev/reports/review_channel/projections/latest/review_state.json"
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -126,6 +145,32 @@ def _packet_from_review_state(
         if isinstance(packet, Mapping) and text(packet.get("packet_id")) == packet_id:
             return packet
     return {}
+
+
+def _packet_from_event_log(
+    *,
+    repo_root: Path,
+    packet_id: str,
+) -> Mapping[str, object]:
+    try:
+        artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+        events = load_events(Path(artifact_paths.event_log_path))
+    except (OSError, ValueError):
+        return {}
+    if not events:
+        return {}
+    review_channel_path = repo_root / active_path_config().review_channel_rel
+    try:
+        lanes = load_lane_assignments(review_channel_path)
+        review_state, _registry = reduce_events(
+            events=events,
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            lanes=lanes,
+        )
+    except (OSError, ValueError):
+        return {}
+    return packet_by_id(review_state, packet_id) or {}
 
 
 def _packet_text(packet: Mapping[str, object]) -> str:

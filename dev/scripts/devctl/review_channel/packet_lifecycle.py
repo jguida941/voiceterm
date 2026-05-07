@@ -5,9 +5,20 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 
-PACKET_LIFECYCLE_HISTORY_CONTRACT_ID = "PacketLifecycleHistory"
-PACKET_DISPOSITION_CONTRACT_ID = "PacketDisposition"
+from .packet_lifecycle_action_request import derive_action_request_lifecycle_fields
+from .packet_lifecycle_binding import (
+    has_creation_binding,
+)
+from .packet_lifecycle_clock import has_expired_durable_binding
+from .packet_lifecycle_disposition import (
+    PACKET_DISPOSITION_CONTRACT_ID,
+    PacketDisposition,
+    acted_on_disposition,
+    archive_disposition,
+)
+from .packet_lifecycle_state import current_state
 
+PACKET_LIFECYCLE_HISTORY_CONTRACT_ID = "PacketLifecycleHistory"
 _ACK_EVENT_TYPE = "packet_acked"
 _ACTION_BY_EVENT_TYPE = {
     "packet_applied": "applied",
@@ -39,21 +50,6 @@ class PacketLifecycleEvent:
 
 
 @dataclass(frozen=True, slots=True)
-class PacketDisposition:
-    """Typed disposition sink for a review packet."""
-
-    sink: str
-    status: str
-    resolution_anchor: str
-    reason: str
-    schema_version: int = 1
-    contract_id: str = PACKET_DISPOSITION_CONTRACT_ID
-    plan_target: str = ""
-    next_slice_target: str = ""
-    archive_classification: str = ""
-
-
-@dataclass(frozen=True, slots=True)
 class PacketLifecycleHistory:
     """Reduced lifecycle history attached to every packet row."""
 
@@ -76,13 +72,13 @@ def project_packet_lifecycle(
     row = dict(packet)
     acknowledged_events = _dict_rows(row.get("acknowledged_events"))
     acted_on_events = _dict_rows(row.get("acted_on_events"))
-    row = _derive_action_request_lifecycle_fields(
+    row = derive_action_request_lifecycle_fields(
         row,
         acknowledged_events=acknowledged_events,
         acted_on_events=acted_on_events,
     )
 
-    if stale_pending and not acted_on_events:
+    if (stale_pending or has_expired_durable_binding(row)) and not acted_on_events:
         acted_on_events = [_clock_expired_action(row)]
 
     disposition = _disposition_for_packet(
@@ -90,7 +86,7 @@ def project_packet_lifecycle(
         acted_on_events=acted_on_events,
         stale_pending=stale_pending,
     )
-    current_state = _current_state(
+    lifecycle_state = current_state(
         row,
         acknowledged_events=acknowledged_events,
         acted_on_events=acted_on_events,
@@ -99,20 +95,30 @@ def project_packet_lifecycle(
 
     row["acknowledged_events"] = acknowledged_events
     row["acted_on_events"] = acted_on_events
-    row["lifecycle_current_state"] = current_state
+    row["lifecycle_current_state"] = lifecycle_state
     row["resolution_anchor"] = resolution_anchor
     row["disposition"] = disposition
+    if _is_durable_archive_disposition(disposition):
+        row["status"] = "archived"
     row["lifecycle_history"] = asdict(
         PacketLifecycleHistory(
             posted_at=_text(row.get("posted_at")),
             posted_by=_text(row.get("from_agent")),
             acknowledged_events=acknowledged_events,
             acted_on_events=acted_on_events,
-            current_state=current_state,
+            current_state=lifecycle_state,
             resolution_anchor=resolution_anchor,
         )
     )
     return row
+
+
+def _is_durable_archive_disposition(disposition: Mapping[str, object]) -> bool:
+    return (
+        _text(disposition.get("sink")) == "archived"
+        and _text(disposition.get("archive_classification"))
+        == "expired_after_durable_binding"
+    )
 
 
 def apply_lifecycle_transition(
@@ -199,7 +205,7 @@ def _action_event(
 def _clock_expired_action(packet: Mapping[str, object]) -> dict[str, object]:
     classification = (
         "expired_after_durable_binding"
-        if _has_creation_binding(packet)
+        if has_creation_binding(packet)
         else "clock_expired_without_disposition"
     )
     return _drop_empty_fields(
@@ -224,11 +230,11 @@ def _disposition_for_packet(
 ) -> dict[str, object]:
     action_event = acted_on_events[-1] if acted_on_events else None
     if action_event is not None:
-        return _acted_on_disposition(packet, action_event)
+        return acted_on_disposition(packet, action_event)
 
     status = _text(packet.get("status")) or "pending"
     if status == "expired":
-        return _archive_disposition(
+        return archive_disposition(
             status="archived",
             classification="clock_expired_without_disposition",
             reason="Expired packet status is archived for audit until explicit resolution lands.",
@@ -238,7 +244,7 @@ def _disposition_for_packet(
         if recovery_disposition:
             return recovery_disposition
     if stale_pending:
-        return _archive_disposition(
+        return archive_disposition(
             status="archived",
             classification="clock_expired_without_disposition",
             reason="Clock-expired pending packet is archived for audit until explicit resolution lands.",
@@ -289,178 +295,13 @@ def _action_request_recovery_disposition(
     return {}
 
 
-def _acted_on_disposition(
-    packet: Mapping[str, object],
-    action_event: Mapping[str, object],
-) -> dict[str, object]:
-    action = _text(action_event.get("action"))
-    target_anchor = _text(action_event.get("target_anchor"))
-
-    if action == "failed":
-        return asdict(
-            PacketDisposition(
-                sink="recovery_required",
-                status="failed",
-                resolution_anchor=target_anchor or f"packet:{_text(packet.get('packet_id'))}",
-                reason=(
-                    _text(action_event.get("reason"))
-                    or "Action-request execution failed before resolution."
-                ),
-                next_slice_target="fresh_action_request",
-            )
-        )
-
-    if action == "apply_pending_after_execution":
-        return asdict(
-            PacketDisposition(
-                sink="recovery_required",
-                status="apply_pending_after_execution",
-                resolution_anchor=target_anchor or f"packet:{_text(packet.get('packet_id'))}",
-                reason=(
-                    _text(action_event.get("reason"))
-                    or "Commit execution completed but packet apply remains pending."
-                ),
-                next_slice_target="fresh_action_request_or_explicit_recovery",
-            )
-        )
-
-    if action == "applied" and _text(packet.get("target_kind")) == "plan":
-        plan_integration = _plan_ingestion_payload(packet)
-        integration_status = _text(plan_integration.get("status"))
-        integration_reason = _text(plan_integration.get("reason"))
-        if not _plan_integration_recorded(plan_integration):
-            return asdict(
-                PacketDisposition(
-                    sink="recovery_required",
-                    status="plan_ingestion_failed",
-                    resolution_anchor=target_anchor
-                    or f"packet:{_text(packet.get('packet_id'))}",
-                    plan_target=target_anchor,
-                    reason=(
-                        integration_reason
-                        or "Applied plan packet lacks durable typed plan ingestion evidence."
-                    ),
-                    next_slice_target="packet_plan_ingestion_repair",
-                    archive_classification=integration_status,
-                )
-            )
-        return asdict(
-            PacketDisposition(
-                sink="plan_integrated",
-                status="applied",
-                resolution_anchor=target_anchor,
-                plan_target=target_anchor,
-                reason="Applied packet targeted a canonical plan artifact.",
-            )
-        )
-
-    if action == "applied":
-        return _archive_disposition(
-            status="applied",
-            classification="applied_to_target",
-            reason="Packet was acted on and resolved against its target.",
-            anchor=target_anchor,
-        )
-
-    if action == "dismissed":
-        return _archive_disposition(
-            status="dismissed",
-            classification="dismissed_with_actor",
-            reason="Packet was explicitly dismissed by the addressed actor.",
-            anchor=target_anchor,
-        )
-
-    if action == "archived" and _has_creation_binding(packet):
-        return _archive_disposition(
-            status="archived",
-            classification="expired_after_durable_binding",
-            reason="Packet expired after typed creation binding recorded durable ownership.",
-            anchor=target_anchor,
-        )
-
-    return _archive_disposition(
-        status="archived",
-        classification="clock_expired_without_disposition",
-        reason="Packet entered archive because an expiry event was recorded.",
-        anchor=target_anchor,
-    )
-
-
-def _archive_disposition(
-    *,
-    status: str,
-    classification: str,
-    reason: str,
-    anchor: str = "",
-) -> dict[str, object]:
-    resolution_anchor = anchor or f"archive_classification:{classification}"
-    return asdict(
-        PacketDisposition(
-            sink="archived",
-            status=status,
-            resolution_anchor=resolution_anchor,
-            archive_classification=classification,
-            reason=reason,
-        )
-    )
-
-
-def _current_state(
-    packet: Mapping[str, object],
-    *,
-    acknowledged_events: list[dict[str, object]],
-    acted_on_events: list[dict[str, object]],
-) -> str:
-    if acted_on_events:
-        action = _text(acted_on_events[-1].get("action"))
-        if (
-            action == "applied"
-            and _text(packet.get("target_kind")) == "plan"
-            and not _plan_integration_recorded(_plan_ingestion_payload(packet))
-        ):
-            return "plan_ingestion_failed"
-        if action == "archived":
-            return "archived"
-        return action or _text(packet.get("status")) or "acted_on"
-    if _text(packet.get("status")) == "expired":
-        return "archived"
-    if _text(packet.get("kind")) == "action_request":
-        return _action_request_current_state(
-            packet,
-            acknowledged_events=acknowledged_events,
-        )
-    if acknowledged_events:
-        return "acknowledged"
-    return _text(packet.get("status")) or "pending"
-
-
-def _action_request_current_state(
-    packet: Mapping[str, object],
-    *,
-    acknowledged_events: list[dict[str, object]],
-) -> str:
-    if _text(packet.get("apply_pending_after_execution_at_utc")):
-        return "apply_pending_after_execution"
-    if _text(packet.get("execution_failed_at_utc")):
-        return "failed"
-    if _text(packet.get("applied_at_utc")) or _text(packet.get("status")) == "applied":
-        return "applied"
-    if _text(packet.get("execution_started_at_utc")):
-        return "in_progress"
-    if _text(packet.get("acked_at_utc")) or acknowledged_events:
-        return "acknowledged"
-    if _text(packet.get("delivery_observed_at_utc")):
-        return "execution_pending"
-    return "delivery_pending"
-
-
 def _target_anchor(*, action: str, packet: Mapping[str, object]) -> str:
     if action == "dismissed":
         return "archive_classification:dismissed_with_actor"
     if action == "archived":
         classification = (
             "expired_after_durable_binding"
-            if _has_creation_binding(packet)
+            if has_creation_binding(packet)
             else "clock_expired_without_disposition"
         )
         return f"archive_classification:{classification}"
@@ -525,78 +366,6 @@ def _guard_attestation(event: Mapping[str, object]) -> dict[str, object] | None:
     if not isinstance(attestation, Mapping):
         return None
     return dict(attestation)
-
-
-def _plan_integration_recorded(value: Mapping[str, object]) -> bool:
-    status = _text(value.get("status"))
-    return status in {"inserted", "updated", "already_present"}
-
-
-def _plan_ingestion_payload(packet: Mapping[str, object]) -> Mapping[str, object]:
-    payload = _mapping(packet.get("plan_ingestion"))
-    if payload:
-        return payload
-    return _mapping(packet.get("plan_integration"))
-
-
-def _has_creation_binding(packet: Mapping[str, object]) -> bool:
-    binding = _mapping(packet.get("packet_creation_binding"))
-    if not binding:
-        binding = _mapping(packet.get("packet_durable_ingestion_receipt"))
-    if not binding:
-        binding = _mapping(packet.get("durable_binding"))
-    status = _text(binding.get("status"))
-    target = _text(binding.get("binding_target"))
-    return bool(target and status in {"inserted", "updated", "already_present"})
-
-
-def _mapping(value: object) -> Mapping[str, object]:
-    return value if isinstance(value, Mapping) else {}
-
-
-def _derive_action_request_lifecycle_fields(
-    row: dict[str, object],
-    *,
-    acknowledged_events: list[dict[str, object]],
-    acted_on_events: list[dict[str, object]],
-) -> dict[str, object]:
-    if _text(row.get("kind")) != "action_request":
-        return row
-    derived = dict(row)
-    started = _last_event_with_action(acknowledged_events, "execution_started")
-    failed = _last_event_with_action(acted_on_events, "failed")
-    apply_pending = _last_event_with_action(
-        acted_on_events,
-        "apply_pending_after_execution",
-    )
-    if started:
-        derived["execution_started_at_utc"] = _text(started.get("at_utc"))
-        derived["execution_started_by"] = _text(started.get("by_agent"))
-    if failed:
-        derived["execution_failed_at_utc"] = _text(failed.get("at_utc"))
-        derived["execution_failed_by"] = _text(failed.get("by_agent"))
-        derived["execution_failed_reason"] = _text(failed.get("reason"))
-    if apply_pending:
-        derived["apply_pending_after_execution_at_utc"] = _text(
-            apply_pending.get("at_utc")
-        )
-        derived["apply_pending_after_execution_by"] = _text(
-            apply_pending.get("by_agent")
-        )
-        derived["apply_pending_after_execution_reason"] = _text(
-            apply_pending.get("reason")
-        )
-    return derived
-
-
-def _last_event_with_action(
-    events: list[dict[str, object]],
-    action: str,
-) -> dict[str, object]:
-    for event in reversed(events):
-        if _text(event.get("action")) == action or _text(event.get("event_kind")) == action:
-            return event
-    return {}
 
 
 def _dict_rows(value: object) -> list[dict[str, object]]:

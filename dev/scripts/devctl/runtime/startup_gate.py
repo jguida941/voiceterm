@@ -129,6 +129,12 @@ def _format_gate_failure(
     lines.append(
         "Run the repo's `startup-context` command before starting the next implementation or launcher slice."
     )
+    lines.append(
+        "If the operator explicitly approves bounded repair edits, use the typed "
+        "`agent-loop --operator-override --override-scope edit-only --override-reason "
+        "'<typed reason>' --plan <plan-id> --packet <packet-id>` path; it does not "
+        "authorize staging, commit, push, or raw bypass."
+    )
     if footer:
         lines.append(footer)
     return "\n".join(lines)

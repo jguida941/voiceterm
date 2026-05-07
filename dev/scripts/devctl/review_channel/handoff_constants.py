@@ -16,6 +16,9 @@ BRIDGE_METADATA_PATTERNS = {
         r"^- Last Codex poll \(Local [^)]+\):\s*`(?P<value>.+?)`\s*$"
     ),
     "reviewer_mode": re.compile(r"^- Reviewer mode:\s*`(?P<value>.+?)`\s*$"),
+    "declared_reviewer_mode": re.compile(
+        r"^- Declared reviewer mode:\s*`(?P<value>.+?)`\s*$"
+    ),
     "last_non_audit_worktree_hash": re.compile(
         r"^- Last non-audit worktree hash:\s*`(?P<value>.+?)`\s*$"
     ),

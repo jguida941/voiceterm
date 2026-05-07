@@ -107,6 +107,42 @@ def read_plan_intent_ingestion_receipts(
     return tuple(rows)
 
 
+def terminal_packet_receipt_by_packet(
+    receipts: tuple[dict[str, object], ...],
+) -> dict[str, str]:
+    """Return packet ids with terminal plan-intent receipts."""
+    terminal: dict[str, str] = {}
+    for receipt in receipts:
+        packet_id = _packet_id_for_receipt(receipt)
+        terminal_status = _terminal_status_for_receipt(receipt)
+        if packet_id and terminal_status:
+            terminal[packet_id] = terminal_status
+    return terminal
+
+
+def _packet_id_for_receipt(receipt: dict[str, object]) -> str:
+    packet_id = str(receipt.get("packet_id") or "").strip()
+    if packet_id:
+        return packet_id
+    source_ref = str(receipt.get("source_ref") or "").strip()
+    prefix = "packet:"
+    if source_ref.startswith(prefix):
+        return source_ref[len(prefix) :].strip()
+    return ""
+
+
+def _terminal_status_for_receipt(receipt: dict[str, object]) -> str:
+    status = str(receipt.get("terminal_status") or "").strip()
+    if status:
+        return status
+    if str(receipt.get("target_kind") or "").strip() != "terminal_receipt":
+        return ""
+    status = str(receipt.get("status") or "").strip()
+    if status in {"rejected", "duplicate", "obsolete"}:
+        return status
+    return ""
+
+
 __all__ = [
     "PLAN_INTENT_INGESTION_RECEIPT_CONTRACT_ID",
     "PLAN_INTENT_INGESTION_RECEIPT_STORE_REL",
@@ -115,4 +151,5 @@ __all__ = [
     "plan_intent_content_hash",
     "plan_intent_receipt_id",
     "read_plan_intent_ingestion_receipts",
+    "terminal_packet_receipt_by_packet",
 ]

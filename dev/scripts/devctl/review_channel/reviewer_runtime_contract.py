@@ -50,12 +50,12 @@ class ReviewerRuntimeInputs:
     rollover_state_override: Mapping[str, object] | None = None
     recovery_action_override: str | None = None
     prior_review_state: Mapping[str, object] | None = None
+    repo_root: Path | None = None
     operator_interaction_mode: str = ""
     agent_mind: Mapping[str, object] | None = None
     reviewer_accepted_implementer_state_hash_override: str | None = None
-    # Per rev_pkt_2498 (3): typed event log enables wake-evidence derivation
-    # via derive_wake_evidence_for_actor. Optional + defaults to None so
-    # callers without events still build a valid contract; when events ARE
+    # Per rev_pkt_2498 (3): typed event log enables wake-evidence derivation.
+    # Optional so callers without events still build a valid contract; when events ARE
     # passed, _packet_attention_for_caller derives latest_relevant_event_id
     # from events filtered by actor_id/session_id.
     events: tuple[Mapping[str, object], ...] = ()
@@ -116,7 +116,7 @@ def build_reviewer_runtime_contract(
         override=inputs.rollover_state_override,
     )
     remote_control_attachment = resolve_remote_control_attachment(
-        session_output_root=inputs.session_output_root
+        repo_root=inputs.repo_root, session_output_root=inputs.session_output_root
     )
     return ReviewerRuntimeContract(
         reviewer_mode=reviewer_mode,

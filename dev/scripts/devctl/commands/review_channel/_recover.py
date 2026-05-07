@@ -45,6 +45,8 @@ from .bridge_launch_headless import (
     launch_sessions_headless as _launch_sessions_headless,
 )
 from .bridge_action_support import (
+    launch_interaction_mode_fallback,
+    normalize_visible_terminal_interaction_mode,
     resolve_launch_interaction_mode,
 )
 
@@ -193,7 +195,11 @@ def _build_recover_sessions(
     assert isinstance(status_dir, Path)
     interaction_mode = resolve_launch_interaction_mode(
         repo_root=repo_root,
-        args_fallback=str(getattr(args, "operator_interaction_mode", "") or ""),
+        args_fallback=launch_interaction_mode_fallback(args),
+    )
+    interaction_mode = normalize_visible_terminal_interaction_mode(
+        args,
+        interaction_mode,
     )
     terminal = str(getattr(args, "terminal", "none") or "none")
     if terminal == "terminal-app":

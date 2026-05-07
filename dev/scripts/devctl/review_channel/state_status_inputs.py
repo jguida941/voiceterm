@@ -99,6 +99,11 @@ def _read_json_mapping(path: Path) -> dict[str, object] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def read_status_json_mapping(path: Path) -> dict[str, object] | None:
+    """Read a JSON object payload for status projection helpers."""
+    return _read_json_mapping(path)
+
+
 def build_reviewer_worker_snapshot(
     *,
     repo_root: Path,

@@ -12,14 +12,25 @@ def durable_packet_ids_from_plan_rows(
     """Return packet ids already promoted into typed plan rows."""
     packet_ids: list[str] = []
     for row in plan_rows:
-        for packet_id in _source_packet_ids(
-            row,
-            preferred_fields=("sourced_from_packets",),
-            fallback_text_fields=(),
-        ):
+        for packet_id in packet_ids_from_plan_row(row):
             if packet_id and packet_id not in packet_ids:
                 packet_ids.append(packet_id)
     return tuple(packet_ids)
+
+
+def packet_ids_from_plan_row(row: object) -> tuple[str, ...]:
+    """Return packet ids referenced by one typed plan row."""
+    return _source_packet_ids(
+        row,
+        preferred_fields=(
+            "sourced_from_packets",
+            "anchor_refs",
+            "work_evidence_ids",
+            "source_doc_path",
+            "target_ref",
+        ),
+        fallback_text_fields=(),
+    )
 
 
 def durable_packet_ids_from_finding_rows(
@@ -100,11 +111,18 @@ def _dedupe(values: list[str]) -> tuple[str, ...]:
 def _rows(value: object) -> list[str]:
     if not isinstance(value, (list, tuple)):
         return []
-    return [str(item).strip() for item in value if str(item).strip()]
+    packet_ids: list[str] = []
+    for item in value:
+        packet_ids.extend(_packet_ids_from_text(str(item or "").strip()))
+    return packet_ids
 
 
 def _text(value: object) -> str:
     return str(value or "").strip()
 
 
-__all__ = ["durable_packet_ids_from_finding_rows", "durable_packet_ids_from_plan_rows"]
+__all__ = [
+    "durable_packet_ids_from_finding_rows",
+    "durable_packet_ids_from_plan_rows",
+    "packet_ids_from_plan_row",
+]

@@ -97,6 +97,7 @@ def build_event_current_session(
     """Build typed current-session state from event-backed review state."""
     prior_session = prior_typed_current_session(prior_review_state)
     implementer_provider = coding_provider_from_review_state(review_state)
+    checkpoint_instruction = reviewer_checkpoint_instruction_preservation(review_state)
     current_instruction = event_current_instruction(review_state)
     packet_attention = implementer_packet_attention_for(review_state)
     clear_from_packet_truth = (
@@ -179,9 +180,18 @@ def build_event_current_session(
         _mapping(review_state.get("review")).get("plan_id") or ""
     )
     if reused_prior_instruction and prior_session is not None:
+        if not str(implementer_status or "").strip():
+            implementer_status = prior_session.implementer_status
         if open_findings == "none" and prior_session.open_findings:
             open_findings = prior_session.open_findings
         last_reviewed_scope = last_reviewed_scope or prior_session.last_reviewed_scope
+    if checkpoint_instruction is not None and current_instruction == checkpoint_instruction[0]:
+        if not str(implementer_status or "").strip():
+            implementer_status = "- pending"
+        if not str(implementer_ack or "").strip():
+            implementer_ack = "- pending"
+            implementer_ack_revision = ""
+            ack_current = False
     return ReviewCurrentSessionState(
         current_instruction=current_instruction,
         current_instruction_revision=current_instruction_revision,

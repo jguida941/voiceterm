@@ -25,19 +25,28 @@ def bridge_current_session_drifted(
     *,
     bridge_path: Path | None = None,
     review_state_path: Path | None = None,
+    review_state_payload: Mapping[str, object] | None = None,
     bridge_liveness: dict[str, object] | None = None,
 ) -> bool:
     warning_reported_drift = any(
         "typed `current_session` authority" in str(warning) for warning in warnings
     )
-    if bridge_path is None or review_state_path is None:
+    if bridge_path is None or (
+        review_state_path is None and review_state_payload is None
+    ):
         return warning_reported_drift
-    if not bridge_path.is_file() or not review_state_path.is_file():
+    if not bridge_path.is_file():
         return warning_reported_drift
     try:
-        prior_review_state = json.loads(review_state_path.read_text(encoding="utf-8"))
-        if not isinstance(prior_review_state, dict):
-            return warning_reported_drift
+        prior_review_state = review_state_payload
+        if prior_review_state is None:
+            if review_state_path is None or not review_state_path.is_file():
+                return warning_reported_drift
+            prior_review_state = json.loads(
+                review_state_path.read_text(encoding="utf-8")
+            )
+            if not isinstance(prior_review_state, dict):
+                return warning_reported_drift
         snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
     except (OSError, ValueError, json.JSONDecodeError):
         return warning_reported_drift
@@ -66,8 +75,6 @@ def reviewer_mode_projection_drifted(
     current = resolve_reported_reviewer_mode(
         {"reviewer_mode": snapshot_metadata.get("reviewer_mode")}
     )
-    if reviewer_mode_is_active(current) and not reviewer_mode_is_active(expected):
-        return False
     return current != expected
 
 
@@ -86,18 +93,22 @@ def sync_bridge_from_typed_projection_if_needed(
     repo_root: Path,
     bridge_path: Path,
     snapshot,
+    review_state_payload: Mapping[str, object] | None = None,
 ) -> tuple[bool, str]:
     review_state_path = Path(snapshot.projection_paths.review_state_path)
-    if not review_state_path.is_file():
+    if review_state_payload is None and not review_state_path.is_file():
         return (
             False,
             "Skipped `bridge.md` sync during status refresh because the typed "
             "review-state projection is missing.",
         )
     try:
-        review_state_payload = json.loads(review_state_path.read_text(encoding="utf-8"))
-        if not isinstance(review_state_payload, dict):
-            raise ValueError("Typed review-state projection must be a JSON object.")
+        if review_state_payload is None:
+            review_state_payload = json.loads(
+                review_state_path.read_text(encoding="utf-8")
+            )
+            if not isinstance(review_state_payload, dict):
+                raise ValueError("Typed review-state projection must be a JSON object.")
         current_bridge_text = bridge_path.read_text(encoding="utf-8")
         if reviewer_owned_bridge_state_is_newer(
             bridge_text=current_bridge_text,

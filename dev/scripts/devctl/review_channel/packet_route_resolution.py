@@ -10,6 +10,7 @@ from .packet_contract import (
     normalize_packet_route_role,
     packet_route_matches_scope,
 )
+from .packet_target_validation import RUNTIME_ACTION_REQUEST_ACTIONS
 
 
 def resolve_packet_post_route_scope(
@@ -62,6 +63,8 @@ def resolve_packet_post_route_scope(
                 target_role=_resolved_role(request.target.target_role, resolved),
                 target_session_id=str(resolved.get("session_id") or ""),
             )
+        if _non_runtime_action_request(request):
+            return request
         raise ValueError(
             "Packet target_role does not resolve to exactly one fresh "
             f"{request.to_agent} session; add --target-session-id."
@@ -78,6 +81,13 @@ def resolve_packet_post_route_scope(
     raise ValueError(
         f"Packet to-agent {request.to_agent!r} has multiple fresh sessions; "
         "add --target-role and --target-session-id."
+    )
+
+
+def _non_runtime_action_request(request: PacketPostRequest) -> bool:
+    return (
+        request.kind == "action_request"
+        and request.requested_action not in RUNTIME_ACTION_REQUEST_ACTIONS
     )
 
 

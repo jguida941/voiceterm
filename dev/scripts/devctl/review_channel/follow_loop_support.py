@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import time
 from dataclasses import dataclass
 from hashlib import sha256
@@ -35,6 +36,7 @@ class FollowLoopContext:
     started_at: str
     daemon_context: DaemonEventContext
     lifecycle_context: FollowLifecycleContext
+    invocation_provenance: dict[str, object]
 
 
 @dataclass(frozen=True)
@@ -72,11 +74,13 @@ def build_follow_loop_context(
     inputs: FollowLoopContextInputs,
 ) -> FollowLoopContext:
     started_at = inputs.utc_timestamp_fn()
+    invocation_provenance = build_invocation_provenance()
     daemon_context = DaemonEventContext(
         repo_root=inputs.repo_root,
         artifact_paths=inputs.artifact_paths,
         daemon_kind=inputs.daemon_kind,
         pid=os.getpid(),
+        invocation_provenance=invocation_provenance,
     )
     lifecycle_context = FollowLifecycleContext(
         output_root=inputs.status_dir,
@@ -84,6 +88,7 @@ def build_follow_loop_context(
         heartbeat_factory=inputs.heartbeat_factory,
         daemon_context=daemon_context,
         utc_timestamp_fn=inputs.utc_timestamp_fn,
+        invocation_provenance=invocation_provenance,
     )
     return FollowLoopContext(
         args=inputs.args,
@@ -91,6 +96,23 @@ def build_follow_loop_context(
         started_at=started_at,
         daemon_context=daemon_context,
         lifecycle_context=lifecycle_context,
+        invocation_provenance=invocation_provenance,
+    )
+
+
+def build_invocation_provenance() -> dict[str, object]:
+    """Return process/supervisor provenance for daemon lifecycle receipts."""
+    return dict(
+        (
+            ("contract_id", "InvocationProvenance"),
+            ("schema_version", 1),
+            ("parent_pid", os.getppid()),
+            ("process_pid", os.getpid()),
+            ("launchd_label", os.environ.get("DEVCTL_LAUNCHD_LABEL", "")),
+            ("daemon_supervisor", os.environ.get("DEVCTL_DAEMON_SUPERVISOR", "")),
+            ("trigger_reason", os.environ.get("DEVCTL_TRIGGER_REASON", "")),
+            ("command_line", list(sys.argv)),
+        )
     )
 
 

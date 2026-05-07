@@ -65,7 +65,7 @@ from dev.scripts.devctl.review_channel.core import (
     resolve_terminal_profile_name,
     summarize_active_session_conflicts,
 )
-from dev.scripts.devctl.review_channel.current_session_projection import (
+from dev.scripts.devctl.review_channel.current_session_support import (
     compute_implementer_state_hash,
 )
 from dev.scripts.devctl.review_channel.event_models import ReviewChannelEventBundle
@@ -524,12 +524,37 @@ class ReviewChannelParserTests(unittest.TestCase):
         self.assertEqual(args.execution_mode, "auto")
         self.assertEqual(args.terminal, "none")
         self.assertEqual(args.approval_mode, "balanced")
+        self.assertEqual(args.bypass_reason, "")
         self.assertEqual(args.terminal_profile, DEFAULT_TERMINAL_PROFILE)
         self.assertEqual(args.rollover_threshold_pct, DEFAULT_ROLLOVER_THRESHOLD_PCT)
         self.assertEqual(args.await_ack_seconds, DEFAULT_ROLLOVER_ACK_WAIT_SECONDS)
         self.assertTrue(args.refresh_bridge_heartbeat_if_stale)
         self.assertTrue(args.dangerous)
         self.assertTrue(args.dry_run)
+
+    def test_cli_accepts_review_channel_bypass_reason(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "review-channel",
+                "--action",
+                "launch",
+                "--terminal",
+                "none",
+                "--bypass-reason",
+                "operator approved recovery launch",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(args.bypass_reason, "operator approved recovery launch")
+
+    def test_cli_leaves_launch_terminal_unset_for_typed_visibility_default(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["review-channel", "--action", "launch"])
+
+        self.assertIsNone(args.terminal)
 
     def test_cli_accepts_review_channel_status_flags(self) -> None:
         parser = build_parser()
@@ -944,7 +969,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
             )
 
             with patch(
-                "dev.scripts.devctl.review_channel.session_probe._probe_script_pid",
+                "dev.scripts.devctl.review_channel.session_probe.probe_script_pid",
                 return_value=31337,
             ):
                 sessions = load_conductor_sessions(session_output_root=status_dir)
@@ -991,7 +1016,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
             with (
                 patch(
-                    "dev.scripts.devctl.review_channel.session_probe._probe_script_pid",
+                    "dev.scripts.devctl.review_channel.session_probe.probe_script_pid",
                     return_value=None,
                 ),
                 patch(
@@ -2628,7 +2653,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
             reviewer_prompt,
         )
         self.assertIn(
-            "`review-channel --action reviewer-wait` now includes the Codex-targeted pending-packet wake path",
+            "`review-channel --action reviewer-wait` now includes the Codex-targeted pending-packet attention path",
             reviewer_prompt,
         )
         self.assertIn(
@@ -5144,10 +5169,13 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         the same trigger key must queue a fresh packet instead of returning
         already_queued_in_process."""
         from dev.scripts.devctl.review_channel.reviewer_follow_packet_guard import (
-            ReviewerFollowPacketDeps,
             ReviewerFollowPacketRequest,
             ReviewerFollowTriggerState,
             maybe_queue_reviewer_follow_packet,
+        )
+        from dev.scripts.devctl.review_channel.events import transition_packet
+        from dev.scripts.devctl.review_channel.packet_contract import (
+            PacketTransitionRequest,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -5201,25 +5229,23 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             self.assertTrue(result1["queued"])
             first_packet_id = result1["packet_id"]
 
-            # Build a fake bundle loader that returns the packet as dismissed
-            bundle = load_or_refresh_event_bundle(
+            transition_packet(
                 repo_root=root,
                 review_channel_path=review_channel_path,
                 artifact_paths=artifact_paths,
+                request=PacketTransitionRequest(
+                    action="dismiss",
+                    packet_id=first_packet_id,
+                    actor="claude",
+                    session_id="test-session",
+                    plan_id="MP-355",
+                ),
             )
-            dismissed_state = json.loads(json.dumps(bundle.review_state))
-            for packet in dismissed_state["packets"]:
-                if packet.get("packet_id") == first_packet_id:
-                    packet["status"] = "dismissed"
-
-            def load_with_dismissed(**_kwargs):
-                return SimpleNamespace(review_state=dismissed_state)
 
             # Second call with same trigger key: should queue again, not suppress
             result2 = maybe_queue_reviewer_follow_packet(
                 request=request,
                 trigger_state=trigger_state,
-                deps=ReviewerFollowPacketDeps(load_bundle_fn=load_with_dismissed),
             )
             self.assertIsNotNone(result2)
             self.assertTrue(
@@ -8724,14 +8750,15 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
 
         self.assertEqual(exit_code, 0)
-        self.assertEqual(attach_calls["count"], 2)
-        self.assertEqual(
-            report["authority_snapshot"]["current_slice"], "typed snapshot slice"
+        self.assertEqual(attach_calls["count"], 1)
+        self.assertNotEqual(
+            report["authority_snapshot"]["current_slice"], "(missing)"
         )
         self.assertEqual(
             report["recommended_command"],
-            "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+            "python3 dev/scripts/devctl.py push --execute",
         )
+        self.assertEqual(report["recommended_command_source"], "push_decision")
 
     def test_ensure_requires_reviewer_supervisor_when_review_is_pending(self) -> None:
         args = SimpleNamespace(follow=False)
@@ -8796,6 +8823,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 sessions=[{"launch_command": "/bin/zsh /tmp/new-codex.sh"}],
                 handoff_bundle=None,
                 terminal_profile_applied="Pro",
+                interaction_mode="local_terminal",
                 status_snapshot=SimpleNamespace(
                     warnings=[],
                     bridge_liveness={"reviewer_mode": "active_dual_agent"},
@@ -9387,6 +9415,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     "dev.scripts.devctl.review_channel.reviewer_worker.compute_non_audit_worktree_hash",
                     return_value="a" * 64,
                 ),
+                patch(
+                    "dev.scripts.devctl.commands.review_channel.bridge_support.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
             ):
                 rc = review_channel_command.run(args)
 
@@ -9470,6 +9502,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 ),
                 patch(
                     "dev.scripts.devctl.review_channel.reviewer_worker.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.review_channel.bridge_support.compute_non_audit_worktree_hash",
                     return_value="a" * 64,
                 ),
             ):
@@ -10164,7 +10200,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             full["authority_snapshot"]["next_command"], authority["next_command"]
         )
 
-    def test_projection_bundle_authority_snapshot_prefers_checkpoint_command(
+    def test_projection_bundle_authority_snapshot_projects_read_only_checkpoint_command(
         self,
     ) -> None:
         from dev.scripts.devctl.review_channel.projection_bundle import (
@@ -10217,7 +10253,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
 
         self.assertEqual(
             compact["authority_snapshot"]["next_command"],
-            checkpoint_command,
+            "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
         )
 
     def test_projection_bundle_preserves_provenance_on_derived_surfaces(self) -> None:
@@ -11467,7 +11503,9 @@ class ReviewChannelCommandTests(unittest.TestCase):
 
             self.assertEqual(rc, 0)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
-            self.assertFalse(payload["ok"])
+            self.assertTrue(payload["ok"])
+            self.assertTrue(payload["command_ok"])
+            self.assertFalse(payload["runtime_readiness"]["system_ok"])
             self.assertIsNotNone(payload["bridge_heartbeat_refresh"])
             self.assertFalse(
                 any(
@@ -11568,9 +11606,11 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             self.assertEqual(
                 payload["bridge_liveness"]["effective_reviewer_mode"],
-                "active_dual_agent",
+                "tools_only",
             )
-            self.assertEqual(payload["bridge_liveness"]["launch_truth"], "live")
+            self.assertEqual(
+                payload["bridge_liveness"]["launch_truth"], "runtime_missing"
+            )
             self.assertIn(
                 "codex",
                 payload["bridge_liveness"]["active_runtime_providers"],
@@ -11703,7 +11743,9 @@ class ReviewChannelCommandTests(unittest.TestCase):
 
             self.assertEqual(rc, 0)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
-            self.assertFalse(payload["ok"])
+            self.assertTrue(payload["ok"])
+            self.assertTrue(payload["command_ok"])
+            self.assertFalse(payload["runtime_readiness"]["system_ok"])
             self.assertIsNone(payload["reviewer_state_write"])
             self.assertEqual(
                 payload["bridge_liveness"]["reviewer_mode"],
@@ -11785,7 +11827,11 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 )
             )
             self.assertIn(
-                "- Reviewer mode: `active_dual_agent`",
+                "- Reviewer mode: `tools_only`",
+                bridge_path.read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "- Declared reviewer mode: `active_dual_agent`",
                 bridge_path.read_text(encoding="utf-8"),
             )
 
@@ -11939,7 +11985,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 )
             )
 
-    def test_run_status_fails_closed_when_latest_poll_is_automation_only(self) -> None:
+    def test_run_status_refreshes_automation_poll_without_command_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             review_channel_path = root / "dev/active/review_channel.md"
@@ -11988,15 +12034,33 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 pipe_args=None,
             )
 
-            with patch.object(review_channel_command, "REPO_ROOT", root):
+            with (
+                patch.object(review_channel_command, "REPO_ROOT", root),
+                patch(
+                    "dev.scripts.devctl.review_channel.heartbeat.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.state.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.reviewer_worker.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+            ):
                 rc = review_channel_command.run(args)
 
             self.assertEqual(rc, 0)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
-            self.assertFalse(payload["ok"])
+            self.assertTrue(payload["ok"])
+            self.assertTrue(payload["command_ok"])
+            self.assertFalse(payload["runtime_readiness"]["system_ok"])
             self.assertTrue(payload["bridge_liveness"]["codex_conductor_active"])
             self.assertTrue(payload["bridge_liveness"]["claude_conductor_active"])
-            self.assertEqual(payload["attention"]["status"], "waiting_on_peer")
+            self.assertEqual(
+                payload["attention"]["status"], "review_follow_up_required"
+            )
             self.assertEqual(payload["bridge_liveness"]["launch_truth"], "live")
             self.assertFalse(payload["bridge_liveness"]["poll_status_automation_only"])
             self.assertEqual(payload["errors"], [])
@@ -12041,7 +12105,21 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 pipe_args=None,
             )
 
-            with patch.object(review_channel_command, "REPO_ROOT", root):
+            with (
+                patch.object(review_channel_command, "REPO_ROOT", root),
+                patch(
+                    "dev.scripts.devctl.review_channel.heartbeat.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.state.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.reviewer_worker.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+            ):
                 rc = review_channel_command.run(args)
 
             self.assertEqual(rc, 0)
@@ -12130,12 +12208,23 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 "cut_checkpoint",
             )
             self.assertIn(
-                "dev/scripts/devctl.py commit -m",
+                "review-channel --action status",
                 payload["authority_snapshot"]["next_command"],
             )
-            self.assertIn("vcs.stage", payload["authority_snapshot"]["allowed_actions"])
             self.assertIn(
-                "vcs.commit", payload["authority_snapshot"]["allowed_actions"]
+                "dev/scripts/devctl.py commit -m",
+                payload["authority_snapshot"]["packet_target"]["required_command"],
+            )
+            self.assertIn(
+                "dev/scripts/devctl.py commit -m",
+                payload["runtime_readiness"]["recommended_command"],
+            )
+            self.assertFalse(
+                payload["runtime_readiness"]["recommended_command_allowed"]
+            )
+            self.assertIn("vcs.stage", payload["authority_snapshot"]["blocked_actions"])
+            self.assertIn(
+                "vcs.commit", payload["authority_snapshot"]["blocked_actions"]
             )
             self.assertIn(
                 "implementation.edit",
@@ -14412,12 +14501,30 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 pipe_args=None,
             )
 
-            with patch.object(review_channel_command, "REPO_ROOT", root):
+            with (
+                patch.object(review_channel_command, "REPO_ROOT", root),
+                patch(
+                    "dev.scripts.devctl.review_channel.heartbeat.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.state.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.reviewer_worker.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.review_channel.bridge_support.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+            ):
                 rc = review_channel_command.run(args)
 
             self.assertEqual(rc, 0)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
-            self.assertTrue(payload["ok"])
+            self.assertTrue(payload["exit_ok"])
             self.assertIsNone(payload["promotion"])
 
     def test_run_promote_refuses_when_open_findings_are_unresolved(self) -> None:
@@ -15960,7 +16067,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
 
             self.assertEqual(rc, 0)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
-            self.assertFalse(payload["ok"])
+            self.assertTrue(payload["ok"])
+            self.assertTrue(payload["command_ok"])
+            self.assertFalse(payload["runtime_readiness"]["system_ok"])
+            self.assertEqual(payload["runtime_readiness"]["status"], "blocked")
             self.assertIn("waiting_on_peer", payload["warnings"][0])
 
             review_state_path = Path(payload["projection_paths"]["review_state_path"])
@@ -15970,7 +16080,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
 
             self.assertFalse(review_state["ok"])
             self.assertEqual(review_state["_compat"]["agents"][1]["status"], "waiting")
-            self.assertEqual(review_state["bridge"]["claude_status"], "(missing)")
+            self.assertEqual(review_state["bridge"]["claude_status"], "waiting")
             self.assertFalse(full_payload["ok"])
 
     def test_status_projection_surfaces_hard_error_for_blank_poll_status_and_stale_ack(
@@ -16027,12 +16137,12 @@ class ReviewChannelCommandTests(unittest.TestCase):
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertFalse(payload["ok"])
             self.assertTrue(
-                any("Poll Status" in error for error in payload["errors"]),
+                any(
+                    "no live repo-owned Codex or Claude conductor sessions"
+                    in error
+                    for error in payload["errors"]
+                ),
                 payload["errors"],
-            )
-            self.assertTrue(
-                any("waiting_on_peer" in warning for warning in payload["warnings"]),
-                payload["warnings"],
             )
 
     def test_status_projection_uses_shared_coordination_loader(self) -> None:

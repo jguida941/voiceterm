@@ -87,6 +87,7 @@ def _assemble_startup_context(spec: StartupContextAssemblyInput) -> StartupConte
         work_intake=spec.work_intake,
         coordination=spec.coordination_snapshot,
         coordination_state_projection=spec.coordination_state_projection,
+        collaboration=(review_state.collaboration if review_state is not None else None),
         reviewer_runtime=(
             review_state.reviewer_runtime if review_state is not None else None
         ),

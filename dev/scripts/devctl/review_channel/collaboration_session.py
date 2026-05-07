@@ -67,6 +67,7 @@ def build_collaboration_session(
 ) -> CollaborationSessionState:
     """Build the typed collaboration/session state for review-channel runtime."""
     session_records, remote_attachments = _load_runtime_session_rows(
+        repo_root=repo_root,
         session_output_root=session_output_root,
     )
     session_outcomes = _build_session_outcomes(
@@ -195,6 +196,7 @@ def build_collaboration_session(
 
 def _load_runtime_session_rows(
     *,
+    repo_root: Path | None,
     session_output_root: Path | None,
 ) -> tuple[tuple[object, ...], tuple[object, ...]]:
     if session_output_root is None:
@@ -204,6 +206,7 @@ def _load_runtime_session_rows(
         load_remote_control_attachments(
             output_root=session_output_root,
             active_only=True,
+            repo_root=repo_root,
         ),
     )
 
@@ -249,7 +252,9 @@ def _collaboration_owner_fields(
     reviewer_mode: str,
     timestamp: str,
 ) -> tuple[object, ...]:
-    mutation_owner = _agent_for_role(role_assignments, "coding_agent")
+    mutation_owner = _remote_control_mutation_owner(
+        participants=participants,
+    ) or _agent_for_role(role_assignments, "coding_agent")
     verification_owner = _verification_owner(
         role_assignments=role_assignments,
         mutation_owner=mutation_owner,
@@ -290,6 +295,23 @@ def _collaboration_owner_fields(
         watcher_status,
         authority_rows,
     )
+
+
+def _remote_control_mutation_owner(*, participants: object) -> str:
+    for participant in participants:
+        capture_mode = _text(getattr(participant, "capture_mode", ""))
+        if capture_mode != "remote-control":
+            continue
+        if not bool(getattr(participant, "live", False)):
+            continue
+        role = _text(getattr(participant, "role", "")).lower()
+        if role not in {"operator", "implementer"}:
+            continue
+        return (
+            _text(getattr(participant, "agent_id", ""))
+            or _text(getattr(participant, "provider", ""))
+        )
+    return ""
 
 
 def _sync_local_reviewer_test_hooks() -> None:

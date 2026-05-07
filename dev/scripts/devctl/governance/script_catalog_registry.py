@@ -53,6 +53,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("naming_consistency", "check_naming_consistency.py"),
     ("mobile_relay_protocol", "check_mobile_relay_protocol.py"),
     ("daemon_state_parity", "check_daemon_state_parity.py"),
+    ("devctl_cold_boot", "check_devctl_cold_boot.py"),
     (
         "orchestration_recommendation_closure",
         "check_orchestration_recommendation_closure.py",

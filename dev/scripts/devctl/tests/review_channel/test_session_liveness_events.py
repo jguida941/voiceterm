@@ -10,11 +10,21 @@ reducer must recognize the event type without raising
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
+from dev.scripts.devctl.runtime.agent_session_outcome import (
+    AGENT_SESSION_OUTCOME_COMPLETED_HANDOFF,
+    AGENT_SESSION_OUTCOME_CONTRACT_ID,
+    AGENT_SESSION_OUTCOME_SCHEMA_VERSION,
+    AgentSessionOutcomeState,
+)
 from dev.scripts.devctl.review_channel import event_reducer
 from dev.scripts.devctl.review_channel import session_liveness_events
 from dev.scripts.devctl.review_channel import status_projection_helpers
+from dev.scripts.devctl.review_channel.event_projection_current_session import (
+    completed_handoff_matches_current_context,
+)
 from dev.scripts.devctl.review_channel.event_store import (
     load_events,
     resolve_artifact_paths,
@@ -147,6 +157,72 @@ def test_status_tick_liveness_producer_dedups_repeat_polls(
         if event.get("event_type") == "participant_liveness_expired"
     ]
     assert len(expired) == 1
+
+
+def test_completed_handoff_releases_dead_stale_owner(tmp_path: Path) -> None:
+    stale_session = replace(
+        _dead_record("codex", "implementer"),
+        age_seconds=1200,
+        prepared_session_token="token-1",
+        metadata_path=str(tmp_path / "codex-conductor.json"),
+    )
+    outcome = _completed_handoff_outcome(
+        provider="codex",
+        prepared_session_token="token-1",
+    )
+
+    assert (
+        completed_handoff_matches_current_context(
+            outcome,
+            (stale_session,),
+            repo_root=tmp_path,
+            expected_target_revisions=(),
+        )
+        is False
+    )
+
+
+def test_completed_handoff_keeps_recent_dead_owner(tmp_path: Path) -> None:
+    recent_session = replace(
+        _dead_record("codex", "implementer"),
+        age_seconds=60,
+        prepared_session_token="token-1",
+        metadata_path=str(tmp_path / "codex-conductor.json"),
+    )
+    outcome = _completed_handoff_outcome(
+        provider="codex",
+        prepared_session_token="token-1",
+    )
+
+    assert completed_handoff_matches_current_context(
+        outcome,
+        (recent_session,),
+        repo_root=tmp_path,
+        expected_target_revisions=(),
+    )
+
+
+def _completed_handoff_outcome(
+    *,
+    provider: str,
+    prepared_session_token: str,
+) -> AgentSessionOutcomeState:
+    return AgentSessionOutcomeState(
+        schema_version=AGENT_SESSION_OUTCOME_SCHEMA_VERSION,
+        contract_id=AGENT_SESSION_OUTCOME_CONTRACT_ID,
+        outcome=AGENT_SESSION_OUTCOME_COMPLETED_HANDOFF,
+        reason="stage handoff requested",
+        provider=provider,
+        session_actor_id=provider,
+        session_actor_role="implementer",
+        session_id="session-1",
+        session_name=f"{provider}-conductor",
+        observed_at_utc="2026-05-06T12:30:00Z",
+        finished_at_utc="2026-05-06T12:30:00Z",
+        source="test",
+        handoff_requested_action="stage_commit_pipeline",
+        prepared_session_token=prepared_session_token,
+    )
 
 
 def test_reduce_events_tracks_liveness_expired(tmp_path: Path) -> None:

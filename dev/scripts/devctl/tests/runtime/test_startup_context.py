@@ -30,6 +30,9 @@ from dev.scripts.devctl.runtime.authority_snapshot import (
     build_authority_snapshot,
     summary_next_command,
 )
+from dev.scripts.devctl.runtime.authority_snapshot_actions import (
+    interaction_mode_from_reviewer_mode,
+)
 from dev.scripts.devctl.runtime.conductor_capability import (
     session_resume_command_for_role,
 )
@@ -74,7 +77,6 @@ from dev.scripts.devctl.runtime.startup_context import (
     _derive_advisory_action,
     _derive_push_decision,
     _detect_reviewer_gate,
-    _interaction_mode_from_reviewer_mode,
     _load_startup_review_state,
     blocks_new_implementation,
     build_startup_context,
@@ -135,6 +137,28 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertEqual(
             ctx.authority_snapshot.implementer_ack_state,
             ctx.current_session.implementer_ack_state,
+        )
+
+    def test_startup_mode_fields_match_authority_snapshot(self) -> None:
+        ctx = build_startup_context()
+
+        payload = ctx.to_dict()
+        snapshot = payload["authority_snapshot"]
+        reviewer_gate = payload["reviewer_gate"]
+
+        self.assertEqual(payload["reviewer_mode"], snapshot["reviewer_mode"])
+        self.assertEqual(payload["interaction_mode"], snapshot["interaction_mode"])
+        self.assertEqual(
+            reviewer_gate["reviewer_mode"],
+            snapshot["gate_mode"] or snapshot["reviewer_mode"],
+        )
+        self.assertEqual(
+            reviewer_gate["effective_reviewer_mode"],
+            snapshot["effective_reviewer_mode"],
+        )
+        self.assertEqual(
+            reviewer_gate["operator_interaction_mode"],
+            snapshot["interaction_mode"],
         )
 
     def test_authority_snapshot_carries_surface_provenance(self) -> None:
@@ -1016,7 +1040,7 @@ class TestStartupContextBuild(unittest.TestCase):
             repo_root,
             governance=None,
             review_status_dir=review_status_dir,
-            prefer_cached_projection=True,
+            prefer_cached_projection=False,
         )
         self.assertIs(result, sentinel)
 
@@ -1229,6 +1253,36 @@ class TestCLIRegistration(unittest.TestCase):
         self.assertIn("## Continuity Roots", rendered)
         self.assertIn("`.claude/memory`", rendered)
         self.assertIn("`dev/context`", rendered)
+
+    def test_checkpoint_blocker_projects_edit_only_operator_override_hint(self) -> None:
+        rendered = _render_markdown(
+            {
+                "advisory_action": "checkpoint_before_continue",
+                "advisory_reason": "staged_index_budget_exceeded",
+                "reviewer_gate": {},
+                "governance": {
+                    "repo_identity": {
+                        "repo_name": "test",
+                        "current_branch": "feature/x",
+                    },
+                },
+                "push_decision": {
+                    "action": "await_checkpoint",
+                    "reason": "staged_index_budget_exceeded",
+                },
+                "blocker": {
+                    "top_blocker": (
+                        "startup authority: staged_index_budget_exceeded"
+                    ),
+                },
+            }
+        )
+
+        self.assertIn("## Operator Override Discovery", rendered)
+        self.assertIn("--operator-override", rendered)
+        self.assertIn("--override-scope edit-only", rendered)
+        self.assertIn("MP377-P0-EXC-S1", rendered)
+        self.assertNotIn("typed_gate_failure", rendered)
 
     def test_markdown_renders_quality_signals(self) -> None:
         rendered = _render_markdown(
@@ -3870,29 +3924,29 @@ class TestPushExclusionPaths(unittest.TestCase):
 
 
 class TestInteractionModeFromReviewerMode(unittest.TestCase):
-    """Verify _interaction_mode_from_reviewer_mode maps reviewer modes correctly."""
+    """Verify interaction_mode_from_reviewer_mode maps reviewer modes correctly."""
 
     def test_active_dual_agent_maps_to_dual_agent(self) -> None:
         self.assertEqual(
-            _interaction_mode_from_reviewer_mode("active_dual_agent"),
+            interaction_mode_from_reviewer_mode("active_dual_agent"),
             "dual_agent",
         )
 
     def test_single_agent_maps_to_single_agent(self) -> None:
         self.assertEqual(
-            _interaction_mode_from_reviewer_mode("single_agent"),
+            interaction_mode_from_reviewer_mode("single_agent"),
             "single_agent",
         )
 
     def test_tools_only_maps_to_unresolved(self) -> None:
         self.assertEqual(
-            _interaction_mode_from_reviewer_mode("tools_only"),
+            interaction_mode_from_reviewer_mode("tools_only"),
             "unresolved",
         )
 
     def test_empty_string_fails_closed_to_unresolved(self) -> None:
         self.assertEqual(
-            _interaction_mode_from_reviewer_mode(""),
+            interaction_mode_from_reviewer_mode(""),
             "unresolved",
         )
 
@@ -3904,7 +3958,7 @@ class TestInteractionModeFromReviewerMode(unittest.TestCase):
         fail-closed semantics already in operator_context.py and
         session_posture.py.
         """
-        result = _interaction_mode_from_reviewer_mode(
+        result = interaction_mode_from_reviewer_mode(
             "single_agent",
             governance_mode="remote_control",
         )
@@ -3919,7 +3973,7 @@ class TestInteractionModeFromReviewerMode(unittest.TestCase):
         from datetime import datetime, timezone
 
         live_now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        result = _interaction_mode_from_reviewer_mode(
+        result = interaction_mode_from_reviewer_mode(
             "single_agent",
             governance_mode="remote_control",
             remote_control_attachment=RemoteControlAttachmentState(
@@ -3935,14 +3989,14 @@ class TestInteractionModeFromReviewerMode(unittest.TestCase):
 
     def test_governance_local_terminal_is_honored(self) -> None:
         # explicit local_terminal from governance is authoritative
-        result = _interaction_mode_from_reviewer_mode(
+        result = interaction_mode_from_reviewer_mode(
             "active_dual_agent",
             governance_mode="local_terminal",
         )
         self.assertEqual(result, "local_terminal")
 
     def test_governance_empty_falls_through(self) -> None:
-        result = _interaction_mode_from_reviewer_mode(
+        result = interaction_mode_from_reviewer_mode(
             "single_agent",
             governance_mode="",
         )
@@ -3957,7 +4011,7 @@ class TestInteractionModeFromReviewerMode(unittest.TestCase):
         from datetime import datetime, timezone
 
         live_now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        result = _interaction_mode_from_reviewer_mode(
+        result = interaction_mode_from_reviewer_mode(
             "single_agent",
             governance_mode="",
             remote_control_attachment=RemoteControlAttachmentState(

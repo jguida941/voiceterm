@@ -46,6 +46,7 @@ def attach_reviewer_runtime_contract(
                 else None
             ),
             bridge_text=bridge_text,
+            repo_root=bridge_path.parent,
             rollover_state_override=(
                 report.get("auto_rollover")
                 if isinstance(report.get("auto_rollover"), dict)

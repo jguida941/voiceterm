@@ -144,6 +144,7 @@ def spawn_follow_publisher(
             stdout=handle,
             stderr=handle,
             start_new_session=True,
+            env=_spawn_environment("devctl_review_channel_launch", "ensure_follow_publisher"),
         )
     return True, process.pid, str(log_path)
 
@@ -167,6 +168,10 @@ def verify_detached_start(
                 started_at_utc=utc_timestamp(),
                 last_heartbeat_utc=utc_timestamp(),
                 stopped_at_utc=utc_timestamp(),
+                invocation_provenance=_failed_start_invocation_provenance(
+                    pid=pid or 0,
+                    trigger_reason="ensure_follow_publisher_failed_start",
+                ),
                 **FAILED_START_HEARTBEAT_FIELDS,
             ),
         )
@@ -210,6 +215,10 @@ def verify_reviewer_supervisor_start(
                 last_heartbeat_utc=utc_timestamp(),
                 stopped_at_utc=utc_timestamp(),
                 reviewer_mode=reviewer_mode,
+                invocation_provenance=_failed_start_invocation_provenance(
+                    pid=pid or 0,
+                    trigger_reason="reviewer_supervisor_failed_start",
+                ),
                 **FAILED_SUPERVISOR_START_FIELDS,
             ),
         )
@@ -299,5 +308,40 @@ def spawn_reviewer_supervisor(
             stdout=handle,
             stderr=handle,
             start_new_session=True,
+            env=_spawn_environment("devctl_review_channel_launch", "reviewer_supervisor"),
         )
     return True, process.pid, str(log_path)
+
+
+def _spawn_environment(daemon_supervisor: str, trigger_reason: str) -> dict[str, str]:
+    env = dict(os.environ)
+    env["DEVCTL_DAEMON_SUPERVISOR"] = daemon_supervisor
+    env.setdefault("DEVCTL_LAUNCHD_LABEL", "")
+    env["DEVCTL_TRIGGER_REASON"] = trigger_reason
+    return env
+
+
+def _failed_start_invocation_provenance(
+    *,
+    pid: int,
+    trigger_reason: str,
+) -> dict[str, object]:
+    return dict(
+        (
+            ("contract_id", "InvocationProvenance"),
+            ("schema_version", 1),
+            ("parent_pid", os.getpid()),
+            ("process_pid", pid),
+            ("launchd_label", os.environ.get("DEVCTL_LAUNCHD_LABEL", "")),
+            ("daemon_supervisor", _daemon_supervisor_env()),
+            ("trigger_reason", trigger_reason),
+            ("command_line", []),
+        )
+    )
+
+
+def _daemon_supervisor_env() -> str:
+    return os.environ.get(
+        "DEVCTL_DAEMON_SUPERVISOR",
+        "devctl_review_channel_launch",
+    )

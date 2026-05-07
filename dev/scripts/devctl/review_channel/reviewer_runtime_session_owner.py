@@ -85,9 +85,13 @@ def resolve_reviewer_session_owner(
 
 def resolve_remote_control_attachment(
     *,
+    repo_root: Path | None = None,
     session_output_root: Path | None,
 ) -> RemoteControlAttachmentState | None:
     """Return the current external remote-control attachment when present."""
     if not isinstance(session_output_root, Path):
         return None
-    return load_remote_control_attachment(output_root=session_output_root)
+    return load_remote_control_attachment(
+        output_root=session_output_root,
+        repo_root=repo_root,
+    )

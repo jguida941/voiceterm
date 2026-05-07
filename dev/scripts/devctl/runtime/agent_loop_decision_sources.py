@@ -18,6 +18,7 @@ from .agent_loop_decision_grants import (
     lane_edit_allowed,
     may_actor_mutate,
     merged_actions,
+    reconcile_actions_with_capability_grants,
     scoped_session_mutation_mode_allows,
 )
 from .agent_loop_operator_override import (
@@ -107,6 +108,11 @@ def build_agent_loop_context(
     )
     allowed_actions = merged_actions(authority, action_routing, key="allowed_actions")
     blocked_actions = merged_actions(authority, action_routing, key="blocked_actions")
+    allowed_actions, blocked_actions = reconcile_actions_with_capability_grants(
+        allowed_actions=allowed_actions,
+        blocked_actions=blocked_actions,
+        granted_capabilities=grants,
+    )
     override = operator_override_from_request(
         requested=operator_override_requested,
         reason=operator_override_reason,

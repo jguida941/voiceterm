@@ -129,7 +129,7 @@ def _attach_phase_zero_parity_fields(
             getattr(current_session, "implementer_ack_state", "")
         )
 
-    write_reviewer_mode(report, reviewer_mode or effective_reviewer_mode)
+    write_reviewer_mode(report, effective_reviewer_mode or reviewer_mode)
     write_effective_reviewer_mode(
         report,
         effective_reviewer_mode

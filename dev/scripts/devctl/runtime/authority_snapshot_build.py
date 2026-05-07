@@ -9,9 +9,9 @@ from .action_routing import build_startup_action_routing
 from .advisory_next_action_role_filter import project_next_command_for_role
 from .authority_snapshot_actions import (
     AuthorityActionInputs,
+    AuthorityModeInputs,
     authority_actions,
-    authority_modes,
-    checkpoint_action_required,
+    authority_mode_projection,
     reviewer_provider_from_payload,
 )
 from .authority_snapshot_actor import authority_actor_identity, authority_actor_role
@@ -22,7 +22,6 @@ from .authority_snapshot_core import (
     _mapping,
     _safe_to_continue,
     _string_items,
-    summary_next_command,
 )
 from .authority_snapshot_instructions import (
     AuthorityInstructionInputs,
@@ -30,8 +29,12 @@ from .authority_snapshot_instructions import (
     instruction_requires_clear,
     resolved_coordination_current_slice,
 )
+from .authority_snapshot_next_command import resolved_next_command
 from .authority_snapshot_packet_target import select_packet_target
-from .authority_snapshot_provenance import authority_snapshot_provenance_kwargs
+from .authority_snapshot_result import (
+    AuthoritySnapshotResultInputs,
+    authority_snapshot_from_result,
+)
 from .review_state_semantics import is_missing_instruction
 
 
@@ -86,41 +89,6 @@ def _build_authority_context(payload: Mapping[str, object]) -> AuthorityBuildCon
     )
 
 
-def _resolved_next_command(
-    *,
-    payload: Mapping[str, object],
-    recovery_authority: Mapping[str, object],
-    doctor: Mapping[str, object],
-    decision: Mapping[str, object],
-    next_command: str,
-) -> str:
-    if checkpoint_action_required(payload):
-        checkpoint_command = (
-            next_command
-            or str(payload.get("next_command") or "").strip()
-            or str(decision.get("command") or "").strip()
-            or str(payload.get("recommended_command") or "").strip()
-        )
-        return checkpoint_command or summary_next_command(payload)
-    command = (
-        next_command
-        or str(recovery_authority.get("command") or "").strip()
-        or str(payload.get("next_command") or "").strip()
-        or str(doctor.get("decision_command") or "").strip()
-        or str(decision.get("command") or "").strip()
-        or str(payload.get("recommended_command") or "").strip()
-    )
-    if command:
-        return command
-    if (
-        "reviewer_gate" in payload
-        or "implementation_permission" in payload
-        or "push_decision" in payload
-    ):
-        return summary_next_command(payload)
-    return ""
-
-
 def _resolved_action_sets(
     *,
     payload: Mapping[str, object],
@@ -173,7 +141,7 @@ def build_authority_snapshot(
     """Reduce a startup/session/status payload into one compact authority object."""
     context = _build_authority_context(payload)
     collaboration = _mapping(payload.get("collaboration"))
-    command = _resolved_next_command(
+    command = resolved_next_command(
         payload=payload,
         recovery_authority=context.recovery_authority,
         doctor=context.doctor,
@@ -192,9 +160,7 @@ def build_authority_snapshot(
         coordination=context.coordination,
         actor_role=actor_role,
     )
-    current_instruction = str(
-        context.current_session.get("current_instruction") or ""
-    ).strip()
+    current_instruction = str(context.current_session.get("current_instruction") or "").strip()
     clear_from_packet_truth = instruction_requires_clear(
         AuthorityInstructionInputs(
             packet_inbox=context.packet_inbox,
@@ -216,14 +182,19 @@ def build_authority_snapshot(
             ).strip(),
         )
     )
-    reviewer_mode, reviewer_freshness, attention_status = authority_modes(
-        payload=payload,
-        reviewer_gate=context.reviewer_gate,
-        reviewer_runtime=context.reviewer_runtime,
-        diagnosis=context.diagnosis,
-        attention=context.attention,
-        doctor=context.doctor,
+    mode_projection = authority_mode_projection(
+        AuthorityModeInputs(
+            payload=payload,
+            reviewer_gate=context.reviewer_gate,
+            reviewer_runtime=context.reviewer_runtime,
+            diagnosis=context.diagnosis,
+            attention=context.attention,
+            doctor=context.doctor,
+        )
     )
+    reviewer_mode = mode_projection.gate_mode or mode_projection.reviewer_mode
+    reviewer_freshness = mode_projection.reviewer_freshness
+    attention_status = mode_projection.attention_status
     implementation_permission = _implementation_permission(payload, context.doctor)
     resync_required = bool(context.coordination.get("resync_required", False))
     current_instruction_revision = (
@@ -280,43 +251,34 @@ def build_authority_snapshot(
         collaboration=collaboration,
         actor_identity=actor_identity,
     )
-    return AuthoritySnapshot(
-        **authority_snapshot_provenance_kwargs(payload),
-        coordination_state=coordination_state,
-        root_cause=root_cause,
-        required_action=required_action,
-        next_command=command,
-        actor_role=actor_role,
-        actor_identity=actor_identity,
-        safe_to_continue=safe_to_continue,
-        reviewer_mode=reviewer_mode,
-        reviewer_freshness=reviewer_freshness,
-        attention_status=attention_status,
-        observed_control_topology=str(
-            payload.get("observed_control_topology")
-            or context.coordination.get("observed_topology")
-            or ""
-        ).strip(),
-        implementation_permission=implementation_permission,
-        current_instruction_revision=current_instruction_revision,
-        implementer_ack_state=implementer_ack_state,
-        resync_required=resync_required,
-        current_slice=str(
-            coordination_current_slice or current_instruction or ""
-        ).strip(),
-        active_target_path=str(active_target.get("plan_path") or "").strip(),
-        allowed_actions=allowed_actions,
-        blocked_actions=blocked_actions,
-        packet_target=context.packet_target,
-        mutation_owner=str(collaboration.get("mutation_owner") or "").strip(),
-        verification_owner=str(collaboration.get("verification_owner") or "").strip(),
-        verification_status=str(
-            collaboration.get("verification_status") or "inactive"
-        ).strip(),
-        watcher_owner=str(collaboration.get("watcher_owner") or "").strip(),
-        watcher_status=str(collaboration.get("watcher_status") or "inactive").strip(),
-        actor_capabilities=actor_capabilities,
-        actor_authorities=actor_authorities,
+    return authority_snapshot_from_result(
+        AuthoritySnapshotResultInputs(
+            payload=payload,
+            command=command,
+            actor_role=actor_role,
+            actor_identity=actor_identity,
+            safe_to_continue=safe_to_continue,
+            coordination_state=coordination_state,
+            root_cause=root_cause,
+            required_action=required_action,
+            reviewer_mode=reviewer_mode,
+            mode_projection=mode_projection,
+            reviewer_freshness=reviewer_freshness,
+            attention_status=attention_status,
+            implementation_permission=implementation_permission,
+            current_instruction_revision=current_instruction_revision,
+            implementer_ack_state=implementer_ack_state,
+            resync_required=resync_required,
+            coordination_current_slice=coordination_current_slice,
+            current_instruction=current_instruction,
+            active_target=active_target,
+            allowed_actions=allowed_actions,
+            blocked_actions=blocked_actions,
+            packet_target=context.packet_target,
+            collaboration=collaboration,
+            actor_capabilities=actor_capabilities,
+            actor_authorities=actor_authorities,
+        )
     )
 
 

@@ -11,6 +11,11 @@ from ...runtime.development_team import build_default_development_topology
 from ...runtime.dashboard_snapshot_authority import build_dashboard_snapshot
 from ...runtime.master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL
 from ...runtime.master_plan_store import read_plan_rows_jsonl
+from ...runtime.plan_intent_ingestion import (
+    PLAN_INTENT_INGESTION_RECEIPT_STORE_REL,
+    read_plan_intent_ingestion_receipts,
+    terminal_packet_receipt_by_packet,
+)
 from .actions import resolve_action
 from .actor_resolution import resolve_actor
 from .attention_commands import (
@@ -45,11 +50,17 @@ def build_report(args: Any) -> DevelopmentLoopReport:
     topology = build_default_development_topology()
     rows = read_plan_rows_jsonl(REPO_ROOT / DEFAULT_MASTER_PLAN_STORE_REL)
     review_state = review_state_payload(REPO_ROOT)
+    terminal_packet_receipts = terminal_packet_receipt_by_packet(
+        read_plan_intent_ingestion_receipts(
+            REPO_ROOT / PLAN_INTENT_INGESTION_RECEIPT_STORE_REL
+        )
+    )
     actor, actor_source = resolve_actor(args, review_state)
     packet_attention = packet_attention_from_review_state(
         review_state,
         rows=rows,
         agent=actor,
+        terminal_receipt_by_packet=terminal_packet_receipts,
     )
     blockers, warnings = _action_findings(action, args)
     base_next_commands = _next_commands(action)
@@ -84,6 +95,7 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         review_state,
         rows=rows,
         actor=actor,
+        terminal_receipt_by_packet=terminal_packet_receipts,
     )
     if action == "audit-packets":
         decision_command = str(ingestion_decision.get("next_command") or "").strip()

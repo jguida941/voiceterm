@@ -9,7 +9,12 @@ from .development_packet_pressure_models import (
     PacketIntentClassification,
     TERMINAL_PACKET_CLASSIFICATIONS,
 )
+from .development_packet_failure_owner import (
+    CLOCK_EXPIRED_WITHOUT_DISPOSITION,
+    packet_failure_class,
+)
 from .master_plan_contract import PlanRow
+from .packet_carry_forward_sources import packet_ids_from_plan_row
 from .packet_review_only import is_review_only_notice
 
 
@@ -17,14 +22,29 @@ def classify_packet(
     packet: Mapping[str, object],
     *,
     row_owner_by_packet: Mapping[str, str],
+    class_owner_by_failure: Mapping[str, str] | None = None,
+    terminal_receipt_by_packet: Mapping[str, str] | None = None,
 ) -> PacketIntentClassification:
     """Classify one packet without granting durable authority."""
+    terminal_receipts = terminal_receipt_by_packet or {}
     packet_id = _text(packet.get("packet_id"))
     kind = _text(packet.get("kind"))
     status = _text(packet.get("status"))
-    classification = _classification(packet, kind=kind, status=status)
-    durable_owner = _durable_owner(packet, row_owner_by_packet=row_owner_by_packet)
-    terminal_receipt = _terminal_receipt(packet, classification=classification)
+    receipt_terminal = _text(terminal_receipts.get(packet_id))
+    classification = (
+        receipt_terminal
+        if receipt_terminal in TERMINAL_PACKET_CLASSIFICATIONS
+        else _classification(packet, kind=kind, status=status)
+    )
+    durable_owner = _durable_owner(
+        packet,
+        row_owner_by_packet=row_owner_by_packet,
+        class_owner_by_failure=class_owner_by_failure or {},
+    )
+    terminal_receipt = receipt_terminal or _terminal_receipt(
+        packet,
+        classification=classification,
+    )
     return PacketIntentClassification(
         packet_id=packet_id,
         kind=kind,
@@ -70,7 +90,7 @@ def has_durable_owner_gap(item: PacketIntentClassification) -> bool:
 def row_owner_by_packet(rows: tuple[PlanRow, ...]) -> dict[str, str]:
     result: dict[str, str] = {}
     for row in rows:
-        for packet_id in row.sourced_from_packets:
+        for packet_id in packet_ids_from_plan_row(row):
             result[str(packet_id).strip()] = row.row_id
     return result
 
@@ -116,10 +136,14 @@ def _durable_owner(
     packet: Mapping[str, object],
     *,
     row_owner_by_packet: Mapping[str, str],
+    class_owner_by_failure: Mapping[str, str],
 ) -> str:
     packet_id = _text(packet.get("packet_id"))
     if row_owner_by_packet.get(packet_id):
         return row_owner_by_packet[packet_id]
+    failure_class = packet_failure_class(packet)
+    if failure_class and class_owner_by_failure.get(failure_class):
+        return class_owner_by_failure[failure_class]
     binding = packet.get("packet_durable_ingestion_receipt") or packet.get("durable_binding")
     if isinstance(binding, Mapping):
         return _text(binding.get("target_ref")) or _text(binding.get("contract_id"))
@@ -129,6 +153,8 @@ def _durable_owner(
 def _terminal_receipt(packet: Mapping[str, object], *, classification: str) -> str:
     if classification in TERMINAL_PACKET_CLASSIFICATIONS:
         return classification
+    if _has_unresolved_expired_archive_classification(packet):
+        return ""
     lifecycle = _text(packet.get("lifecycle_current_state"))
     if lifecycle in {"archived", "applied", "dismissed"}:
         return lifecycle
@@ -157,7 +183,7 @@ def _classification_reason(
     if classification == "lifecycle-only":
         return "packet belongs to packet/runtime lifecycle"
     if classification in TERMINAL_PACKET_CLASSIFICATIONS:
-        return "packet already has terminal classification"
+        return "packet already has terminal classification or typed terminal receipt"
     if _text(packet.get("target_ref")) or _text(packet.get("target_kind")) == "plan":
         return "packet carries typed target metadata"
     return "content or kind indicates durable intent"
@@ -176,11 +202,16 @@ def _rows(value: object) -> tuple[str, ...]:
     return tuple(str(item).strip() for item in value if str(item).strip())
 
 
+def _has_unresolved_expired_archive_classification(packet: Mapping[str, object]) -> bool:
+    return packet_failure_class(packet) == CLOCK_EXPIRED_WITHOUT_DISPOSITION
+
+
 def _text(value: object) -> str:
     return str(value or "").strip()
 
 
 __all__ = [
+    "CLOCK_EXPIRED_WITHOUT_DISPOSITION",
     "classify_packet",
     "has_durable_owner_gap",
     "role_for_packet",

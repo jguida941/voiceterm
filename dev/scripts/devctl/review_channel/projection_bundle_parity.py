@@ -16,16 +16,17 @@ def apply_phase_zero_parity_projection(
     bridge = _mapping(review_state_payload.get("bridge"))
     last_poll = _mapping(reviewer_runtime.get("last_poll"))
 
-    reviewer_mode = str(
-        authority_snapshot.get("reviewer_mode")
-        or reviewer_runtime.get("effective_reviewer_mode")
+    effective_reviewer_mode = str(
+        reviewer_runtime.get("effective_reviewer_mode")
+        or authority_snapshot.get("effective_reviewer_mode")
         or reviewer_runtime.get("reviewer_mode")
         or ""
     ).strip()
-    effective_reviewer_mode = str(
-        reviewer_runtime.get("effective_reviewer_mode")
+    reviewer_mode = str(
+        effective_reviewer_mode
+        or authority_snapshot.get("gate_mode")
+        or authority_snapshot.get("reviewer_mode")
         or reviewer_runtime.get("reviewer_mode")
-        or reviewer_mode
         or ""
     ).strip()
     if reviewer_mode:

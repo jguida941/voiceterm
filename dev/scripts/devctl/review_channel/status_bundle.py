@@ -30,6 +30,10 @@ from .promotion import derive_promotion_candidate
 from .status_projection import build_bridge_review_state
 from .status_projection_support import ReviewStateContext
 from .status_work_board_identity import refresh_preserved_work_board_runtime_identity
+from .event_projection_current_session_preserve import (
+    preserve_current_session_context_from_prior,
+)
+from .status_bundle_current_session_sync import sync_current_session_runtime_context
 from .topology import build_planned_topology
 from ..time_utils import utc_timestamp
 
@@ -270,6 +274,12 @@ def _preserve_typed_runtime_addenda(
     if not prior:
         return review_state
     merged = dict(review_state)
+    merged, current_session_preserved = preserve_current_session_context_from_prior(
+        merged,
+        prior,
+    )
+    if current_session_preserved:
+        sync_current_session_runtime_context(merged)
     prior_packets = prior.get("packets")
     if prior_packets and not merged.get("packets"):
         merged["packets"] = prior_packets

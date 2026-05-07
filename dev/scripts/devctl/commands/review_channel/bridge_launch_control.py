@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .bridge_launch_headless import launch_sessions_headless as _launch_sessions_headless
+from .bridge_launch_observe import observe_launch_state as _observe_launch_state
 from .launcher_discipline import (
     enforce_launch_request_discipline,
 )
@@ -16,13 +17,11 @@ from .launcher_discipline_receipts import persist_launcher_discipline_bypass_rec
 from ...review_channel.core import AUTO_DARK_TERMINAL_PROFILES, DEFAULT_TERMINAL_PROFILE
 from ...review_channel.handoff import (
     extract_bridge_snapshot,
-    summarize_bridge_liveness,
     wait_for_codex_poll_refresh,
     wait_for_rollover_ack,
     write_handoff_bundle,
 )
 from ...review_channel.heartbeat import compute_non_audit_worktree_hash
-from ...review_channel.launch_truth import build_launch_probe_state, classify_launch_truth
 from ...review_channel.lifecycle_state import read_publisher_state, read_reviewer_supervisor_state
 from ...review_channel.launch import launch_terminal_sessions
 from ...review_channel.session_probe import active_conductor_providers
@@ -252,6 +251,8 @@ def _render_launch_timeout_detail(
 
 def _should_recheck_live_launch_timeout(launch_poll: dict[str, object]) -> bool:
     """Retry once when launch-time typed state suggests the sessions are alive."""
+    if bool(launch_poll.get("poll_status_automation_only")):
+        return False
     launch_truth = str(launch_poll.get("launch_truth") or "").strip()
     return (
         launch_truth in {"live", "detached_runtime_only"}
@@ -317,33 +318,11 @@ def observe_launch_state(
     warnings: list[str],
     refresh_snapshot_fn: Callable[..., object],
 ) -> dict[str, object]:
-    """Project the post-launch liveness fields used by launch-time waiting."""
-    try:
-        snapshot = extract_bridge_snapshot(context.bridge_path.read_text(encoding="utf-8"))
-        bridge_liveness = summarize_bridge_liveness(snapshot)
-        active_providers = active_conductor_providers(
-            session_output_root=context.status_dir,
-        )
-
-        codex_active = "codex" in active_providers
-        claude_active = "claude" in active_providers
-        launch_state = build_launch_probe_state(
-            bridge_liveness, active_providers, context.status_dir,
-        )
-        truth = classify_launch_truth(launch_state).value
-        return {
-            "launch_truth": truth,
-            "codex_conductor_active": codex_active,
-            "claude_conductor_active": claude_active,
-        }
-    except OSError:
-        bridge_liveness = refresh_snapshot_fn(
-            args=args,
-            context=context,
-            warnings=warnings,
-        ).bridge_liveness
-    return {
-        "launch_truth": bridge_liveness.get("launch_truth"),
-        "codex_conductor_active": bridge_liveness.get("codex_conductor_active"),
-        "claude_conductor_active": bridge_liveness.get("claude_conductor_active"),
-    }
+    """Backward-compatible wrapper around the launch-observe helper."""
+    return _observe_launch_state(
+        args=args,
+        context=context,
+        warnings=warnings,
+        refresh_snapshot_fn=refresh_snapshot_fn,
+        active_conductor_providers_fn=active_conductor_providers,
+    )

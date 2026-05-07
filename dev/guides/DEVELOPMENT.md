@@ -737,12 +737,29 @@ Three quality layers matter in practice:
     `waiting_for_user_input` just because the terminal UI renders a prompt
     line while the conductor is still starting.
     Status/runtime
-    surfaces now also emit explicit visibility state
-    (`reviewer_runtime.conductor_visibility` and reviewer
-    `session_owner.session_visibility`) so operators and AI do not infer
-    headless vs visible sessions from raw `terminal_window_id`, and local
-    recovery guidance defaults back to visible `--terminal terminal-app`
-    unless governed `remote_control` mode keeps the session headless.
+  surfaces now also emit explicit visibility state
+  (`reviewer_runtime.conductor_visibility` and reviewer
+  `session_owner.session_visibility`) so operators and AI do not infer
+  headless vs visible sessions from raw `terminal_window_id`, and local
+  recovery guidance defaults back to visible `--terminal terminal-app`
+  unless governed `remote_control` mode keeps the session headless.
+- Review-channel launch code is split by contract boundary. Action preparation
+  lives in `dev/scripts/devctl/commands/review_channel/bridge_action_prepare.py`,
+  bridge scope/stale-heartbeat repair lives in `bridge_scope.py` and
+  `bridge_stale_refresh.py`, launcher override enforcement lives in
+  `launcher_discipline_enforcement.py`, and launch CLI argument registration
+  lives in `dev/scripts/devctl/review_channel/parser_launch_arguments.py` with
+  shared descriptors in `parser_types.py`. Keep new launch orchestration in
+  those helpers instead of growing `bridge_handler.py`, `bridge_support.py`,
+  `launcher_discipline.py`, or `parser.py` back into broad orchestration
+  modules.
+- An explicit launch `--reviewer-mode active_dual_agent` must restore typed
+  bridge metadata from a stale `single_agent` value; only an already-matching
+  mode is a no-op. Detached publisher and reviewer-supervisor lifecycle
+  heartbeats and daemon events now carry `invocation_provenance`
+  (`parent_pid`, `process_pid`, `launchd_label`, `daemon_supervisor`,
+  `trigger_reason`, and `command_line`) so an auto-spawned session can answer
+  why it started and which supervisor invoked it.
   - Before choosing launch or recovery posture, read the typed startup/runtime
     fields together: `startup-context.action`, `interaction_mode`,
     `reviewer_runtime.conductor_visibility`, and reviewer

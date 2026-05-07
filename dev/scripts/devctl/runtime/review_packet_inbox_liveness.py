@@ -5,6 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import datetime, timezone
 
+_UNRESOLVED_EXPIRED_ARCHIVE_CLASSIFICATIONS = {
+    "clock_expired_without_disposition",
+}
+
 
 def is_live_pending(packet: Mapping[str, object]) -> bool:
     """Return True when a packet is still pending and not expired."""
@@ -49,6 +53,8 @@ def is_active_acked_action_request(packet: Mapping[str, object]) -> bool:
 
 def is_expired_unresolved(packet: Mapping[str, object]) -> bool:
     """Return True when a packet is expired but unresolved."""
+    if _has_unresolved_expired_archive_classification(packet):
+        return True
     if _is_resolved_lifecycle(packet):
         return False
     status = _packet_status(packet)
@@ -80,6 +86,19 @@ def _is_resolved_lifecycle(packet: Mapping[str, object]) -> bool:
         "dismissed",
         "archived",
     }
+
+
+def _has_unresolved_expired_archive_classification(packet: Mapping[str, object]) -> bool:
+    disposition = packet.get("disposition")
+    if not isinstance(disposition, Mapping):
+        return False
+    classification = _normalized_text(disposition.get("archive_classification"))
+    if not classification:
+        resolution_anchor = _normalized_text(disposition.get("resolution_anchor"))
+        prefix = "archive_classification:"
+        if resolution_anchor.startswith(prefix):
+            classification = resolution_anchor[len(prefix) :]
+    return classification in _UNRESOLVED_EXPIRED_ARCHIVE_CLASSIFICATIONS
 
 
 def _normalized_text(value: object) -> str:

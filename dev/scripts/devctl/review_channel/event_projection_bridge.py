@@ -164,6 +164,8 @@ def _event_reviewer_mode(
 
 def _runtime_reviewer_mode(reviewer_runtime: Mapping[str, object] | None) -> str:
     runtime = reviewer_runtime if isinstance(reviewer_runtime, Mapping) else {}
+    if _runtime_reviewer_mode_is_placeholder(runtime):
+        return ""
     posture = _mapping(runtime.get("session_posture"))
     mode = str(
         posture.get("reviewer_mode")
@@ -173,6 +175,33 @@ def _runtime_reviewer_mode(reviewer_runtime: Mapping[str, object] | None) -> str
         or ""
     ).strip()
     return normalize_reviewer_mode(mode).value if mode else ""
+
+
+def _runtime_reviewer_mode_is_placeholder(runtime: Mapping[str, object]) -> bool:
+    mode = str(
+        runtime.get("reviewer_mode") or runtime.get("effective_reviewer_mode") or ""
+    ).strip()
+    if mode and normalize_reviewer_mode(mode).value != "single_agent":
+        return False
+    posture = _mapping(runtime.get("session_posture"))
+    actors = posture.get("actors")
+    if isinstance(actors, (list, tuple)) and actors:
+        return False
+    remote_control_attachment = runtime.get("remote_control_attachment")
+    if isinstance(remote_control_attachment, Mapping) and remote_control_attachment:
+        return False
+    for key in ("last_poll", "agent_runtime_clock", "packet_attention"):
+        if _meaningful_runtime_mapping(_mapping(runtime.get(key))):
+            return False
+    return True
+
+
+def _meaningful_runtime_mapping(value: Mapping[str, object]) -> bool:
+    return any(
+        str(item or "").strip()
+        for key, item in value.items()
+        if key not in {"schema_version", "contract_id"}
+    )
 
 
 def _bridge_snapshot_reviewer_mode(bridge_snapshot: object | None) -> str:

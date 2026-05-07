@@ -43,6 +43,7 @@ def validate_live_bridge_contract(
     snapshot,
     *,
     typed_current_session: ReviewCurrentSessionState | None = None,
+    role_packet_progress_current: bool = False,
 ) -> list[str]:
     """Return contract errors for the minimum live bridge state."""
     from .handoff import summarize_bridge_liveness as _summarize
@@ -55,7 +56,11 @@ def validate_live_bridge_contract(
         if typed_current_session is not None
         else False
     )
-    ack_current = typed_ack_current if typed_ack_known else liveness.claude_ack_current
+    ack_current = (
+        typed_ack_current or role_packet_progress_current
+        if typed_ack_known
+        else liveness.claude_ack_current or role_packet_progress_current
+    )
     reviewer_mode = liveness.reviewer_mode
     poll_status = snapshot.sections.get("Poll Status", "").strip()
     last_reviewed_scope = snapshot.sections.get("Last Reviewed Scope", "").strip()
@@ -99,9 +104,9 @@ def validate_live_bridge_contract(
     ):
         errors.append(
             "Active `active_dual_agent` bridge requires a substantive `Poll Status` "
-            "reviewer note when the implementer ACK (`Claude Ack` compatibility "
-            "heading) is stale or missing; blank or placeholder `Poll Status` is "
-            "a hard live-contract error."
+            "reviewer note when the assigned-role ACK/progress is stale or "
+            "missing; blank or placeholder `Poll Status` is a hard "
+            "live-contract error."
         )
 
     explicit_revision = (snapshot.metadata.get("current_instruction_revision") or "").strip()
@@ -113,15 +118,17 @@ def validate_live_bridge_contract(
             typed_revision = str(
                 getattr(typed_current_session, "current_instruction_revision", "") or ""
             ).strip()
-            if not typed_revision:
+            if not typed_revision and not role_packet_progress_current:
                 errors.append(
                     "Active bridge mode requires typed current-session instruction "
-                    "revision so implementer ACK freshness can be checked."
+                    "revision or role-neutral packet progress so assigned-role "
+                    "freshness can be checked."
                 )
-            elif not typed_ack_current:
+            elif not typed_ack_current and not role_packet_progress_current:
                 errors.append(
-                    "Typed implementer ACK revision does not match the current "
-                    "reviewer instruction revision."
+                    "Assigned-role progress does not match the current reviewer "
+                    "instruction revision; no typed ACK, packet advance, or typed "
+                    "blocker is recorded."
                 )
         elif not liveness.claude_ack_present:
             pass

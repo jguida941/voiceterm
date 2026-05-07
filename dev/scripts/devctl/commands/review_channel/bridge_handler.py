@@ -6,10 +6,6 @@ from dataclasses import asdict
 from functools import partial
 from pathlib import Path
 
-from ...review_channel.bridge_runtime_state import (
-    BridgeStateContext,
-    enforce_bridge_launch_attention,
-)
 from ...review_channel.core import (
     detect_active_session_conflicts,
     summarize_active_session_conflicts,
@@ -25,12 +21,16 @@ from ...review_channel.session_probe import load_conductor_sessions
 from ...review_channel.state import refresh_status_snapshot
 from .bridge_action_support import (
     BridgeLifecycleEventContext,
-    BridgePromotionContext,
     attach_service_identity,
+    launch_interaction_mode_fallback,
+    normalize_visible_terminal_interaction_mode,
     post_session_lifecycle_event,
     resolve_launch_interaction_mode,
-    resolve_promotion_and_terminal_state,
     validate_live_launch_conflicts,
+)
+from .bridge_action_prepare import (
+    BridgeActionPreparationRequest,
+    prepare_bridge_action,
 )
 from .bridge_contexts import (
     BridgeReportContext,
@@ -42,23 +42,23 @@ from .bridge_launch_control import (
     ensure_launch_runtime_daemons,
     launch_sessions_if_requested,
     observe_launch_state,
-    prepare_rollover_bundle,
     validate_launch_request_discipline,
 )
 from .launcher_discipline import enforce_launch_request_discipline
+from .launcher_discipline import resolve_launch_visibility
 from .launcher_discipline_receipts import persist_launcher_discipline_bypass_receipt
-from ..review_channel_bridge_render import build_bridge_success_report, render_bridge_md
-from .bridge_support import (
-    apply_scope_if_requested as apply_bridge_scope_if_requested,
+from ..review_channel_bridge_render import (
+    BridgeSuccessReportRequest,
+    build_bridge_success_report,
+    render_bridge_md,
 )
-from .bridge_support import (
-    bridge_launch_state,
-    build_bridge_guard_report,
-    resolve_launch_promotion_plan_path,
-)
+from .bridge_support import build_bridge_guard_report, resolve_launch_promotion_plan_path
 from .bridge_session_build import (
     BridgeSessionBuildContext,
     build_sessions_for_bridge_action,
+)
+from ...review_channel.remote_control_attachment_artifact import (
+    load_remote_control_attachments,
 )
 
 BRIDGE_ACTIONS = {"launch", "rollover", "promote"}
@@ -181,30 +181,32 @@ def _build_bridge_report(
 ) -> tuple[dict, int]:
     """Build one bridge-backed report and attach service identity."""
     report, exit_code = build_bridge_success_report(
-        args=args,
-        bridge_liveness=context.status_snapshot.bridge_liveness,
-        attention=context.status_snapshot.attention,
-        reviewer_worker=context.status_snapshot.reviewer_worker,
-        collaboration=(
-            asdict(context.status_snapshot.review_state.collaboration)
-            if context.status_snapshot.review_state is not None
-            and context.status_snapshot.review_state.collaboration is not None
-            else None
-        ),
-        codex_lanes=context.codex_lanes,
-        claude_lanes=context.claude_lanes,
-        terminal_profile_applied=context.terminal_profile_applied,
-        warnings=context.status_snapshot.warnings,
-        sessions=context.sessions,
-        handoff_bundle=context.handoff_bundle,
-        projection_paths=context.status_snapshot.projection_paths,
-        launched=context.launched,
-        handoff_ack_required=context.handoff_ack_required,
-        handoff_ack_observed=context.handoff_ack_observed,
-        promotion=context.promotion,
-        bridge_heartbeat_refresh=context.bridge_heartbeat_refresh,
-        reviewer_state_write=context.reviewer_state_write,
-        execution_mode_override=report_execution_mode,
+        BridgeSuccessReportRequest(
+            args=args,
+            bridge_liveness=context.status_snapshot.bridge_liveness,
+            attention=context.status_snapshot.attention,
+            reviewer_worker=context.status_snapshot.reviewer_worker,
+            collaboration=(
+                asdict(context.status_snapshot.review_state.collaboration)
+                if context.status_snapshot.review_state is not None
+                and context.status_snapshot.review_state.collaboration is not None
+                else None
+            ),
+            codex_lanes=context.codex_lanes,
+            claude_lanes=context.claude_lanes,
+            terminal_profile_applied=context.terminal_profile_applied,
+            warnings=context.status_snapshot.warnings,
+            sessions=context.sessions,
+            handoff_bundle=context.handoff_bundle,
+            projection_paths=context.status_snapshot.projection_paths,
+            launched=context.launched,
+            handoff_ack_required=context.handoff_ack_required,
+            handoff_ack_observed=context.handoff_ack_observed,
+            promotion=context.promotion,
+            bridge_heartbeat_refresh=context.bridge_heartbeat_refresh,
+            reviewer_state_write=context.reviewer_state_write,
+            execution_mode_override=report_execution_mode,
+        )
     )
     attach_service_identity(
         repo_root=context.repo_root,
@@ -229,7 +231,11 @@ def _maybe_enforce_terminal_app_launch_discipline(
         return
     interaction_mode = resolve_launch_interaction_mode(
         repo_root=repo_root,
-        args_fallback=str(getattr(args, "operator_interaction_mode", "") or ""),
+        args_fallback=launch_interaction_mode_fallback(args),
+    )
+    interaction_mode = normalize_visible_terminal_interaction_mode(
+        args,
+        interaction_mode,
     )
     receipt = enforce_launch_request_discipline(
         repo_root=repo_root,
@@ -241,6 +247,36 @@ def _maybe_enforce_terminal_app_launch_discipline(
         artifact_paths=artifact_paths,
         receipt=receipt,
     )
+
+
+def _apply_launch_visibility_defaults(
+    *,
+    args,
+    status_dir: Path,
+    interaction_mode: str,
+) -> dict[str, object] | None:
+    """Resolve omitted launch visibility from typed remote-control state."""
+    if args.action not in {"launch", "rollover"}:
+        return None
+    attachment_active = bool(
+        load_remote_control_attachments(output_root=status_dir, active_only=True)
+    )
+    decision = resolve_launch_visibility(
+        interaction_mode=interaction_mode,
+        requested_terminal=getattr(args, "terminal", None),
+        requested_session_visibility=getattr(args, "requested_session_visibility", None),
+        attachment_active=attachment_active,
+    )
+    setattr(args, "terminal", decision.terminal)
+    if not getattr(args, "requested_session_visibility", None):
+        setattr(
+            args,
+            "requested_session_visibility",
+            decision.requested_session_visibility,
+        )
+    payload = asdict(decision)
+    setattr(args, "launch_visibility", payload)
+    return payload
 
 
 def _run_bridge_action(
@@ -269,74 +305,57 @@ def _run_bridge_action(
         action=args.action,
     )
 
+    launch_interaction_mode = resolve_launch_interaction_mode(
+        repo_root=repo_root,
+        args_fallback=launch_interaction_mode_fallback(args),
+    )
+    launch_interaction_mode = normalize_visible_terminal_interaction_mode(
+        args,
+        launch_interaction_mode,
+    )
+    _apply_launch_visibility_defaults(
+        args=args,
+        status_dir=status_dir,
+        interaction_mode=launch_interaction_mode,
+    )
     validate_live_launch_conflicts(
         args=args,
         status_dir=status_dir,
         detect_active_session_conflicts_fn=detect_active_session_conflicts,
         summarize_active_session_conflicts_fn=summarize_active_session_conflicts,
     )
-    scope_promotion = apply_bridge_scope_if_requested(
-        args=args,
-        repo_root=repo_root,
-        bridge_path=bridge_path,
-    )
-    bridge_state = bridge_launch_state(
-        args=args,
-        context=BridgeStateContext(
+    preparation = prepare_bridge_action(
+        request=BridgeActionPreparationRequest(
+            args=args,
             repo_root=repo_root,
             review_channel_path=review_channel_path,
             bridge_path=bridge_path,
+            rollover_dir=rollover_dir,
             status_dir=status_dir,
-        ),
-        bridge_actions=LAUNCH_GUARDED_ACTIONS,
-        build_bridge_guard_report_fn=build_bridge_guard_report,
-    )
-    enforce_bridge_launch_attention(
-        action=args.action,
-        bridge_actions=LAUNCH_GUARDED_ACTIONS,
-        bridge_liveness=bridge_state.bridge_liveness,
-    )
-    _maybe_enforce_terminal_app_launch_discipline(args=args, repo_root=repo_root, artifact_paths=paths.get("artifact_paths"))
-    promotion, terminal_profile_applied, warnings = resolve_promotion_and_terminal_state(
-        args=args,
-        context=BridgePromotionContext(
-            repo_root=repo_root,
-            review_channel_path=review_channel_path,
-            bridge_path=bridge_path,
             promotion_plan_path=promotion_plan_path,
-            codex_lanes=bridge_state.codex_lanes,
-            claude_lanes=bridge_state.claude_lanes,
+            bridge_actions=LAUNCH_GUARDED_ACTIONS,
+            extra_warnings=extra_warnings,
         ),
+        build_bridge_guard_report_fn=build_bridge_guard_report,
         list_terminal_profiles_fn=list_terminal_profiles,
     )
-    if promotion is None and scope_promotion is not None:
-        promotion = scope_promotion
-    warnings = [*list(extra_warnings or []), *warnings]
-    if promotion_plan_path is None:
-        warnings.append(
-            "Scoped promotion plan unresolved; auto-promotion is disabled until bridge/tracker scope is set."
-        )
-    handoff_bundle, handoff_warnings = prepare_rollover_bundle(
+    _maybe_enforce_terminal_app_launch_discipline(
         args=args,
         repo_root=repo_root,
-        bridge_path=bridge_path,
-        review_channel_path=review_channel_path,
-        rollover_dir=rollover_dir,
-        lanes=bridge_state.lanes,
+        artifact_paths=paths.get("artifact_paths"),
     )
-    warnings.extend(handoff_warnings)
     launch_context = LaunchRefreshContext(
         repo_root=repo_root,
         review_channel_path=review_channel_path,
         bridge_path=bridge_path,
         status_dir=status_dir,
-        promotion_plan_path=promotion_plan_path,
+        promotion_plan_path=preparation.promotion_plan_path,
         artifact_paths=paths.get("artifact_paths"),
     )
     status_snapshot = _refresh_snapshot(
         args=args,
         context=launch_context,
-        warnings=warnings,
+        warnings=preparation.warnings,
     )
     retired_sessions = ()
     if args.action in {"launch", "rollover"} and not args.dry_run:
@@ -349,9 +368,9 @@ def _run_bridge_action(
             bridge_path=bridge_path,
             status_dir=status_dir,
             script_dir=script_dir,
-            promotion_plan_path=promotion_plan_path,
-            bridge_state=bridge_state,
-            handoff_bundle=handoff_bundle,
+            promotion_plan_path=preparation.promotion_plan_path,
+            bridge_state=preparation.bridge_state,
+            handoff_bundle=preparation.handoff_bundle,
         ),
         resolve_cli_path_fn=resolve_cli_path,
         build_launch_sessions_fn=build_launch_sessions,
@@ -361,8 +380,8 @@ def _run_bridge_action(
         context=launch_context,
         execution=LaunchExecutionContext(
             sessions=sessions,
-            handoff_bundle=handoff_bundle,
-            terminal_profile_applied=terminal_profile_applied,
+            handoff_bundle=preparation.handoff_bundle,
+            terminal_profile_applied=preparation.terminal_profile_applied,
             status_snapshot=status_snapshot,
             interaction_mode=interaction_mode,
             retired_sessions=tuple(retired_sessions),
@@ -376,17 +395,17 @@ def _run_bridge_action(
             bridge_path=bridge_path,
             status_dir=status_dir,
             status_snapshot=status_snapshot,
-            codex_lanes=bridge_state.codex_lanes,
-            claude_lanes=bridge_state.claude_lanes,
-            terminal_profile_applied=terminal_profile_applied,
+            codex_lanes=preparation.bridge_state.codex_lanes,
+            claude_lanes=preparation.bridge_state.claude_lanes,
+            terminal_profile_applied=preparation.terminal_profile_applied,
             sessions=sessions,
-            handoff_bundle=handoff_bundle,
+            handoff_bundle=preparation.handoff_bundle,
             launched=launched,
             handoff_ack_required=handoff_ack_required,
             handoff_ack_observed=handoff_ack_observed,
-            promotion=promotion,
-            bridge_heartbeat_refresh=bridge_state.bridge_heartbeat_refresh,
-            reviewer_state_write=bridge_state.reviewer_state_write,
+            promotion=preparation.promotion,
+            bridge_heartbeat_refresh=preparation.bridge_state.bridge_heartbeat_refresh,
+            reviewer_state_write=preparation.bridge_state.reviewer_state_write,
         ),
         report_execution_mode=report_execution_mode,
     )

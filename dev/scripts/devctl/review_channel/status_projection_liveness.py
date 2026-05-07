@@ -161,7 +161,11 @@ def _degrade_active_dual_agent_freshness(
 
 
 def hybrid_loop_errors(bridge_liveness: dict[str, object]) -> list[str]:
-    reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
+    reviewer_mode = str(
+        bridge_liveness.get("declared_reviewer_mode")
+        or bridge_liveness.get("reviewer_mode")
+        or ""
+    )
     if not reviewer_mode_is_active(reviewer_mode):
         return []
     launch_truth = str(

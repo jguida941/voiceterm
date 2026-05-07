@@ -36,6 +36,7 @@ def blocker_decision(ctx: AgentLoopContext, packets: PacketState) -> AgentLoopDe
         executing_packet_id=packets.executing_packet_id,
         legacy_unscoped_packet_id=packets.legacy_unscoped_packet_id,
         plan_target_ref=_text(packets.active_packet.get("target_ref")),
+        may_mutate=ctx.may_mutate,
     )
 
 

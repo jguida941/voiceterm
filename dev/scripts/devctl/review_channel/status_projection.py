@@ -107,6 +107,7 @@ def build_bridge_review_state(
             rollover_dir=context.output_root.parent / "rollovers",
             bridge_text=context.bridge_text,
             prior_review_state=context.prior_review_state,
+            repo_root=context.repo_root,
             operator_interaction_mode=str(
                 typed_bridge_liveness.get("operator_interaction_mode") or ""
             ),

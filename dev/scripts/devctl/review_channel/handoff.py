@@ -100,6 +100,8 @@ class BridgeLiveness:
     poll_status_reason: str = ""
     poll_status_automation_only: bool = False
     last_checkpoint_action: str = ""
+    declared_reviewer_mode: str = ""
+    effective_reviewer_mode: str = ""
 
 
 @dataclass(frozen=True)
@@ -165,7 +167,23 @@ def summarize_bridge_liveness(
         poll_status
     )
     poll_status_automation_only = poll_status_is_automation_only_refresh(poll_status)
-    reviewer_mode = ReviewerMode(resolve_reported_reviewer_mode(snapshot.metadata))
+    displayed_reviewer_mode = resolve_reported_reviewer_mode(
+        {"reviewer_mode": snapshot.metadata.get("reviewer_mode")}
+    )
+    raw_declared_reviewer_mode = str(
+        snapshot.metadata.get("declared_reviewer_mode") or ""
+    ).strip()
+    declared_reviewer_mode = (
+        resolve_reported_reviewer_mode(
+            {"reviewer_mode": raw_declared_reviewer_mode}
+        )
+        if raw_declared_reviewer_mode
+        else displayed_reviewer_mode
+    )
+    effective_reviewer_mode = (
+        displayed_reviewer_mode if raw_declared_reviewer_mode else ""
+    )
+    reviewer_mode = ReviewerMode(declared_reviewer_mode)
     last_codex_poll_utc = snapshot.metadata.get("last_codex_poll_utc")
     last_codex_poll_age_seconds = _timestamp_age_seconds(
         last_codex_poll_utc,
@@ -252,6 +270,8 @@ def summarize_bridge_liveness(
         last_checkpoint_action=(
             snapshot.metadata.get("last_checkpoint_action") or ""
         ),
+        declared_reviewer_mode=declared_reviewer_mode,
+        effective_reviewer_mode=effective_reviewer_mode,
     )
 
 

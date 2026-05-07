@@ -20,7 +20,10 @@ from ...review_channel.state import (
     build_service_identity,
     refresh_status_snapshot,
 )
-from ..review_channel_bridge_render import build_bridge_success_report
+from ..review_channel_bridge_render import (
+    BridgeSuccessReportRequest,
+    build_bridge_success_report,
+)
 
 
 def run_render_bridge_action(
@@ -90,30 +93,32 @@ def run_render_bridge_action(
         errors=[],
     )
     report, exit_code = build_bridge_success_report(
-        args=args,
-        bridge_liveness=snapshot.bridge_liveness,
-        attention=snapshot.attention,
-        reviewer_worker=snapshot.reviewer_worker,
-        collaboration=(
-            asdict(snapshot.review_state.collaboration)
-            if snapshot.review_state is not None
-            and snapshot.review_state.collaboration is not None
-            else None
-        ),
-        codex_lanes=filter_provider_lanes(snapshot.lanes, provider="codex"),
-        claude_lanes=filter_provider_lanes(snapshot.lanes, provider="claude"),
-        terminal_profile_applied=None,
-        warnings=snapshot.warnings,
-        sessions=[],
-        handoff_bundle=None,
-        projection_paths=snapshot.projection_paths,
-        launched=False,
-        handoff_ack_required=False,
-        handoff_ack_observed=None,
-        promotion=None,
-        bridge_heartbeat_refresh=None,
-        reviewer_state_write=None,
-        execution_mode_override="markdown-bridge",
+        BridgeSuccessReportRequest(
+            args=args,
+            bridge_liveness=snapshot.bridge_liveness,
+            attention=snapshot.attention,
+            reviewer_worker=snapshot.reviewer_worker,
+            collaboration=(
+                asdict(snapshot.review_state.collaboration)
+                if snapshot.review_state is not None
+                and snapshot.review_state.collaboration is not None
+                else None
+            ),
+            codex_lanes=filter_provider_lanes(snapshot.lanes, provider="codex"),
+            claude_lanes=filter_provider_lanes(snapshot.lanes, provider="claude"),
+            terminal_profile_applied=None,
+            warnings=snapshot.warnings,
+            sessions=[],
+            handoff_bundle=None,
+            projection_paths=snapshot.projection_paths,
+            launched=False,
+            handoff_ack_required=False,
+            handoff_ack_observed=None,
+            promotion=None,
+            bridge_heartbeat_refresh=None,
+            reviewer_state_write=None,
+            execution_mode_override="markdown-bridge",
+        )
     )
     report["bridge_render"] = bridge_render_result_to_dict(render_result)
     service_identity = build_service_identity(

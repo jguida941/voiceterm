@@ -61,6 +61,82 @@ class LauncherDisciplineVerdict:
     operator_message: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class LaunchVisibilityDecision:
+    """Resolved launch visibility from CLI request plus typed operator facts."""
+
+    terminal: str
+    requested_session_visibility: str
+    reason: str
+    explicit_terminal: bool
+    attachment_active: bool
+    interaction_mode: str
+
+
+def resolve_launch_visibility(
+    *,
+    interaction_mode: str,
+    requested_terminal: str | None,
+    requested_session_visibility: str | None = None,
+    attachment_active: bool = False,
+) -> LaunchVisibilityDecision:
+    """Resolve launch terminal mode before discipline or session construction.
+
+    The CLI parser leaves ``--terminal`` unset when the operator did not
+    explicitly choose a visibility mode. Remote-control attachments and other
+    typed remote modes then default to headless; local operator modes default
+    to a visible Terminal launch.
+    """
+    normalized_terminal = str(requested_terminal or "").strip()
+    normalized_visibility = str(requested_session_visibility or "").strip()
+    normalized_mode = str(interaction_mode or "").strip()
+    explicit_terminal = bool(normalized_terminal)
+    if normalized_terminal in {"terminal-app", "none"}:
+        visibility = normalized_visibility or (
+            "headless" if normalized_terminal == "none" else "visible"
+        )
+        return LaunchVisibilityDecision(
+            terminal=normalized_terminal,
+            requested_session_visibility=visibility,
+            reason="explicit_terminal_request",
+            explicit_terminal=True,
+            attachment_active=bool(attachment_active),
+            interaction_mode=normalized_mode,
+        )
+    if normalized_terminal:
+        return LaunchVisibilityDecision(
+            terminal=normalized_terminal,
+            requested_session_visibility=normalized_visibility,
+            reason="invalid_terminal_request",
+            explicit_terminal=True,
+            attachment_active=bool(attachment_active),
+            interaction_mode=normalized_mode,
+        )
+
+    policy = operator_mode_policy(normalized_mode)
+    if attachment_active or policy.headless_required or policy.remote_handoff_allowed:
+        return LaunchVisibilityDecision(
+            terminal="none",
+            requested_session_visibility=normalized_visibility or "headless",
+            reason=(
+                "remote_control_attachment_headless_default"
+                if attachment_active
+                else "remote_mode_headless_default"
+            ),
+            explicit_terminal=explicit_terminal,
+            attachment_active=bool(attachment_active),
+            interaction_mode=normalized_mode,
+        )
+    return LaunchVisibilityDecision(
+        terminal="terminal-app",
+        requested_session_visibility=normalized_visibility or "visible",
+        reason="local_operator_visible_default",
+        explicit_terminal=explicit_terminal,
+        attachment_active=bool(attachment_active),
+        interaction_mode=normalized_mode,
+    )
+
+
 def validate_visible_launch_in_local_mode(
     *,
     interaction_mode: str,
@@ -242,97 +318,14 @@ def _looks_like_repo_checkout(repo_root: Path) -> bool:
     return (repo_root / ".git").exists()
 
 
+from .launcher_discipline_enforcement import enforce_launch_request_discipline
+
+
 __all__ = [
     "LauncherDisciplineVerdict",
+    "LaunchVisibilityDecision",
     "enforce_launch_request_discipline",
+    "resolve_launch_visibility",
     "validate_trusted_visible_launch_root",
     "validate_visible_launch_in_local_mode",
 ]
-
-
-def enforce_launch_request_discipline(
-    *,
-    repo_root: Path | None,
-    interaction_mode: str,
-    terminal_arg: str,
-    bypass_reason: str = "",
-) -> dict[str, object] | None:
-    """Raise when a launch request violates visible/headless discipline.
-
-    When ``bypass_reason`` is a non-empty string, refused verdicts are
-    overridden and a typed ``LauncherDisciplineBypass`` receipt dict is
-    returned so the caller can log it to the event store. The bypass is
-    a development-mode escape hatch: the architecture should evolve to
-    not need it, and every bypass is durable evidence of which gate
-    refused + why the operator authorized override. Codex's
-    investigation agents read these receipts to prioritize architectural
-    fixes for the bypassed gates.
-    """
-    bypass_records: list[dict[str, object]] = []
-    trusted_root_verdict = validate_trusted_visible_launch_root(
-        repo_root=repo_root,
-        terminal_arg=terminal_arg,
-    )
-    if not trusted_root_verdict.allowed:
-        if not bypass_reason:
-            raise ValueError(
-                "Launcher discipline refused this launch: "
-                f"reason={trusted_root_verdict.denial_reason}. "
-                f"{trusted_root_verdict.operator_message}"
-            )
-        bypass_records.append(
-            _build_bypass_record(
-                verdict=trusted_root_verdict,
-                bypass_reason=bypass_reason,
-                terminal_arg=terminal_arg,
-                interaction_mode=interaction_mode,
-            )
-        )
-
-    discipline_verdict = validate_visible_launch_in_local_mode(
-        interaction_mode=interaction_mode,
-        terminal_arg=terminal_arg,
-    )
-    if not discipline_verdict.allowed:
-        if not bypass_reason:
-            raise ValueError(
-                "Launcher discipline refused this launch: "
-                f"reason={discipline_verdict.denial_reason}. "
-                f"{discipline_verdict.operator_message}"
-            )
-        bypass_records.append(
-            _build_bypass_record(
-                verdict=discipline_verdict,
-                bypass_reason=bypass_reason,
-                terminal_arg=terminal_arg,
-                interaction_mode=interaction_mode,
-            )
-        )
-
-    if not bypass_records:
-        return None
-    return dict(
-        schema_version=1,
-        contract_id="LauncherDisciplineBypass",
-        bypass_reason=bypass_reason,
-        terminal_arg=terminal_arg,
-        interaction_mode=interaction_mode,
-        bypassed_verdicts=bypass_records,
-    )
-
-
-def _build_bypass_record(
-    *,
-    verdict: LauncherDisciplineVerdict,
-    bypass_reason: str,
-    terminal_arg: str,
-    interaction_mode: str,
-) -> dict[str, object]:
-    """Typed record for one bypassed launcher-discipline verdict."""
-    return {
-        "denial_reason": verdict.denial_reason,
-        "operator_message": verdict.operator_message,
-        "bypass_reason": bypass_reason,
-        "terminal_arg": terminal_arg,
-        "interaction_mode": interaction_mode,
-    }

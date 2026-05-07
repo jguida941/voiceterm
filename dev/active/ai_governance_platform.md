@@ -118,6 +118,15 @@ Current ingestion status:
   projection also suppresses old reviewer checkpoint instructions when newer
   terminal instruction/action-request packet truth exists, so Claude remote
   control cannot be steered by stale bridge prose.
+- 2026-05-07 launch-lockup recovery authority: review-channel launch
+  orchestration is split into focused bridge action, scope, stale-heartbeat,
+  launcher-discipline, and parser argument helpers; explicit
+  `--reviewer-mode active_dual_agent` restores stale `single_agent` metadata;
+  and detached publisher / reviewer-supervisor heartbeat plus daemon events
+  carry `invocation_provenance` (`parent_pid`, `process_pid`, `launchd_label`,
+  `daemon_supervisor`, `trigger_reason`, and `command_line`). This closes the
+  immediate "why did this auto-spawn?" audit gap without making launchd labels
+  or provider names authority.
 - 2026-05-06 universal `GovernanceLifecycle` intake: `rev_pkt_3114` is
   accepted as a typed correction after narrowing. `MP377-GUARDIR-V21-A5`
   remains the packet/action-request lifecycle checkpoint and commit-seam proof;

@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 ACTIVE_REVIEWER_MODE = "active_dual_agent"
+LAUNCHD_LABEL = "com.voiceterm.review-channel.publisher"
 PUBLISHER_HEARTBEAT_REL = Path(
     "dev/reports/review_channel/latest/publisher_heartbeat.json"
 )
@@ -95,6 +97,15 @@ def follow_command(repo_root: Path) -> list[str]:
     ]
 
 
+def follow_environment() -> dict[str, str]:
+    """Return environment markers consumed by daemon invocation receipts."""
+    env = dict(os.environ)
+    env["DEVCTL_DAEMON_SUPERVISOR"] = "launchd"
+    env["DEVCTL_LAUNCHD_LABEL"] = LAUNCHD_LABEL
+    env["DEVCTL_TRIGGER_REASON"] = "review_channel_publisher_service"
+    return env
+
+
 def run_json_command(command: list[str], *, repo_root: Path) -> dict[str, object]:
     """Run one repo-owned JSON command and parse stdout when possible."""
     completed = subprocess.run(
@@ -150,6 +161,7 @@ def main(*, script_path: Path | None = None) -> int:
         capture_output=True,
         text=True,
         check=False,
+        env=follow_environment(),
     )
     final_state = publisher_state(repo_root)
     stop_reason = str(final_state.get("stop_reason") or "")

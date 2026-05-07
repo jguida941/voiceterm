@@ -12,7 +12,7 @@ from .events import (
     post_packet,
     resolve_artifact_paths,
 )
-from .packet_contract import PacketPostRequest
+from .packet_contract import PacketPostRequest, PacketTargetFields
 from .turn_authority import ReviewerTurnAuthority
 from .reviewer_follow_trigger_gate import (
     typed_report_trigger_available as _typed_report_trigger_available,
@@ -254,6 +254,7 @@ def _build_review_trigger_request(context: ReviewerFollowPacketContext) -> Packe
         plan_id=context.plan_id,
         controller_run_id=context.controller_run_id,
         expires_in_minutes=context.expires_in_minutes,
+        target=PacketTargetFields.from_values(target_role="reviewer"),
     )
 
 

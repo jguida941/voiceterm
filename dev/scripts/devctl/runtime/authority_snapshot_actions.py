@@ -6,6 +6,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from .authority_snapshot_core import _mapping
+from .operator_context import is_resolved, resolve_operator_interaction_mode
+from .remote_control_attachment_models import (
+    has_active_remote_control_attachment,
+    remote_control_attachment_from_mapping,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,6 +24,31 @@ class AuthorityActionInputs:
     recovery_authority: Mapping[str, object]
 
 
+@dataclass(frozen=True, slots=True)
+class AuthorityModeProjection:
+    """Canonical reviewer/operator mode projection for runtime authority."""
+
+    reviewer_mode: str = ""
+    effective_reviewer_mode: str = ""
+    reviewer_freshness: str = ""
+    attention_status: str = ""
+    interaction_mode: str = "unresolved"
+    gate_mode: str = ""
+    declared_active: bool = False
+    effective_active: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class AuthorityModeInputs:
+    payload: Mapping[str, object]
+    reviewer_gate: Mapping[str, object]
+    reviewer_runtime: Mapping[str, object]
+    diagnosis: Mapping[str, object]
+    attention: Mapping[str, object]
+    doctor: Mapping[str, object]
+    governance_mode: str = ""
+
+
 def authority_modes(
     *,
     payload: Mapping[str, object],
@@ -28,24 +58,163 @@ def authority_modes(
     attention: Mapping[str, object],
     doctor: Mapping[str, object],
 ) -> tuple[str, str, str]:
+    projection = authority_mode_projection(
+        AuthorityModeInputs(
+            payload=payload,
+            reviewer_gate=reviewer_gate,
+            reviewer_runtime=reviewer_runtime,
+            diagnosis=diagnosis,
+            attention=attention,
+            doctor=doctor,
+        )
+    )
+    return (
+        projection.gate_mode or projection.reviewer_mode,
+        projection.reviewer_freshness,
+        projection.attention_status,
+    )
+
+
+def authority_mode_projection(inputs: AuthorityModeInputs) -> AuthorityModeProjection:
+    """Project all mode/gate fields from one canonical reducer."""
+    from .conductor_capability import authority_reviewer_mode, normalize_reviewer_mode
+
+    payload = inputs.payload
+    reviewer_gate = inputs.reviewer_gate
+    reviewer_runtime = inputs.reviewer_runtime
+    diagnosis = inputs.diagnosis
+    attention = inputs.attention
+    doctor = inputs.doctor
     reviewer_mode = (
-        str(reviewer_gate.get("effective_reviewer_mode") or "").strip()
-        or str(reviewer_gate.get("reviewer_mode") or "").strip()
-        or str(reviewer_runtime.get("effective_reviewer_mode") or "").strip()
-        or str(reviewer_runtime.get("reviewer_mode") or "").strip()
-        or str(payload.get("reviewer_mode") or "").strip()
+        _text(reviewer_runtime.get("reviewer_mode"))
+        or _text(reviewer_gate.get("reviewer_mode"))
+        or _text(payload.get("reviewer_mode"))
     )
-    reviewer_freshness = (
-        str(reviewer_runtime.get("reviewer_freshness") or "").strip()
-        or str(payload.get("reviewer_freshness") or "").strip()
-        or str(payload.get("codex_poll_state") or "").strip()
+    effective_reviewer_mode = (
+        _text(reviewer_runtime.get("effective_reviewer_mode"))
+        or _text(reviewer_gate.get("effective_reviewer_mode"))
+        or reviewer_mode
     )
-    attention_status = (
-        str(diagnosis.get("status") or "").strip()
-        or str(attention.get("status") or "").strip()
-        or str(doctor.get("status") or "").strip()
+    posture = _mapping(payload.get("session_posture")) or _mapping(
+        reviewer_runtime.get("session_posture")
     )
-    return reviewer_mode, reviewer_freshness, attention_status
+    if _posture_has_runtime_truth(posture):
+        reviewer_mode = _text(posture.get("reviewer_mode")) or reviewer_mode
+        effective_reviewer_mode = (
+            _text(posture.get("effective_reviewer_mode")) or effective_reviewer_mode
+        )
+    interaction_mode = interaction_mode_from_reviewer_mode(
+        effective_reviewer_mode,
+        governance_mode=inputs.governance_mode or _governance_mode(payload),
+        payload=payload,
+        reviewer_runtime=reviewer_runtime,
+    )
+    posture_interaction_mode = _text(posture.get("interaction_mode"))
+    if posture_interaction_mode and posture_interaction_mode != "unresolved":
+        interaction_mode = posture_interaction_mode
+    declared_active = normalize_reviewer_mode(reviewer_mode) == "active_dual_agent"
+    effective_active = (
+        normalize_reviewer_mode(effective_reviewer_mode) == "active_dual_agent"
+    )
+    gate_mode = (
+        authority_reviewer_mode(reviewer_mode, effective_reviewer_mode)
+        if reviewer_mode or effective_reviewer_mode
+        else ""
+    )
+    return AuthorityModeProjection(
+        reviewer_mode=reviewer_mode,
+        effective_reviewer_mode=effective_reviewer_mode,
+        reviewer_freshness=(
+            _text(reviewer_runtime.get("reviewer_freshness"))
+            or _text(payload.get("reviewer_freshness"))
+            or _text(payload.get("codex_poll_state"))
+        ),
+        attention_status=(
+            _text(diagnosis.get("status"))
+            or _text(attention.get("status"))
+            or _text(doctor.get("status"))
+        ),
+        interaction_mode=interaction_mode,
+        gate_mode=gate_mode,
+        declared_active=declared_active,
+        effective_active=effective_active,
+    )
+
+
+def interaction_mode_from_reviewer_mode(
+    effective_mode: str,
+    *,
+    governance_mode: str = "",
+    remote_control_attachment: object | None = None,
+    payload: Mapping[str, object] | None = None,
+    reviewer_runtime: Mapping[str, object] | None = None,
+) -> str:
+    """Derive operator interaction mode; fails closed to ``unresolved``."""
+    from .conductor_capability import normalize_reviewer_mode
+
+    runtime = reviewer_runtime or {}
+    attachment = (
+        remote_control_attachment
+        or remote_control_attachment_from_mapping(runtime.get("remote_control_attachment"))
+        or remote_control_attachment_from_mapping(
+            _mapping(payload.get("remote_control_attachment")) if payload else {}
+        )
+    )
+    attachment_active = has_active_remote_control_attachment(attachment)
+    candidates = (
+        governance_mode,
+        _text(
+            _mapping((payload or {}).get("collaboration")).get(
+                "operator_interaction_mode"
+            )
+        ),
+        _text(runtime.get("operator_interaction_mode")),
+    )
+    saw_local_terminal = False
+    for candidate in candidates:
+        resolved = resolve_operator_interaction_mode(candidate)
+        if resolved.value == "remote_control" and not attachment_active:
+            continue
+        if (
+            is_resolved(resolved.value)
+            and resolved.value not in {"local_terminal", "remote_control"}
+        ):
+            return resolved.value
+        if resolved.value == "remote_control" and attachment_active:
+            return "remote_control"
+        if resolved.value == "local_terminal":
+            saw_local_terminal = True
+    if attachment_active:
+        return "remote_control"
+    if saw_local_terminal:
+        return "local_terminal"
+    normalized = normalize_reviewer_mode(effective_mode) if effective_mode else ""
+    if normalized == "active_dual_agent":
+        return "dual_agent"
+    if normalized == "single_agent":
+        return "single_agent"
+    return "unresolved"
+
+
+def _governance_mode(payload: Mapping[str, object]) -> str:
+    governance = _mapping(payload.get("governance"))
+    bridge_config = _mapping(governance.get("bridge_config"))
+    return _text(bridge_config.get("operator_interaction_mode"))
+
+
+def _posture_has_runtime_truth(posture: Mapping[str, object]) -> bool:
+    if not posture:
+        return False
+    return bool(
+        posture.get("actors")
+        or _text(posture.get("interaction_mode")) not in {"", "unresolved"}
+        or _text(posture.get("reviewer_mode")) not in {"", "single_agent"}
+    )
+
+
+def _text(value: object) -> str:
+    return str(value or "").strip()
+
 
 
 def authority_actions(inputs: AuthorityActionInputs) -> tuple[str, str]:

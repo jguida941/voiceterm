@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-import shlex
 from collections.abc import Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +31,7 @@ from .plan_intake_receipts import (
     build_receipt,
     receipt_status,
 )
+from .plan_intake_render import remediation_for_receipt, render_plan_intake_markdown
 from .plan_intake_rows import rows_from_source
 from .plan_intake_sources import source_from_args
 from .plan_intake_source_snapshots import (
@@ -57,12 +58,12 @@ def run_ingest_plan(args: Any) -> int:
         "ok": receipt.status in {"accepted", "duplicate", "obsolete", "preview"},
         "receipt": receipt.to_dict(),
     }
-    remediation = _remediation_for_receipt(args, receipt)
+    remediation = remediation_for_receipt(args, receipt)
     if remediation:
         payload["remediation"] = remediation
     output = json.dumps(payload, indent=2, sort_keys=True)
     if getattr(args, "format", "json") != "json":
-        output = _render_markdown(payload)
+        output = render_plan_intake_markdown(payload)
     return emit_output(
         output,
         output_path=getattr(args, "output", None),
@@ -161,6 +162,11 @@ def _write_or_preview_rows(
     receipt_path: Path,
     source_snapshot_path: Path,
 ) -> PlanIntentIngestionReceipt:
+    rows = _merge_rows_with_existing(
+        args,
+        rows=rows,
+        existing_rows=read_plan_rows_jsonl(store_path),
+    )
     if bool(getattr(args, "dry_run", False)):
         return build_receipt(
             context,
@@ -218,6 +224,79 @@ def _write_or_preview_rows(
     return append_plan_intent_ingestion_receipt(receipt_path, receipt)
 
 
+def _merge_rows_with_existing(
+    args: Any,
+    *,
+    rows: tuple[PlanRow, ...],
+    existing_rows: tuple[PlanRow, ...],
+) -> tuple[PlanRow, ...]:
+    existing_by_id = {row.row_id: row for row in existing_rows}
+    return tuple(
+        _merge_row_with_existing(args, row=row, existing=existing_by_id.get(row.row_id))
+        for row in rows
+    )
+
+
+def _merge_row_with_existing(
+    args: Any,
+    *,
+    row: PlanRow,
+    existing: PlanRow | None,
+) -> PlanRow:
+    if existing is None:
+        return row
+    return replace(
+        row,
+        title=row.title if text(getattr(args, "title", "")) else existing.title,
+        status=(
+            row.status
+            if _explicit_arg(args, "plan_status", default="queued")
+            else existing.status
+        ),
+        sdlc_stage=(
+            row.sdlc_stage
+            if _explicit_arg(args, "sdlc_stage", default="spec")
+            else existing.sdlc_stage
+        ),
+        target_ref=(
+            row.target_ref
+            if text(getattr(args, "target_ref", ""))
+            else existing.target_ref
+        ),
+        sourced_from_packets=_merged_refs(
+            existing.sourced_from_packets,
+            row.sourced_from_packets,
+        ),
+        work_evidence_ids=_merged_refs(
+            existing.work_evidence_ids,
+            row.work_evidence_ids,
+        ),
+        anchor_refs=_merged_refs(existing.anchor_refs, row.anchor_refs),
+        contradicts_packets=_merged_refs(
+            existing.contradicts_packets,
+            row.contradicts_packets,
+        ),
+    )
+
+
+def _explicit_arg(args: Any, name: str, *, default: str = "") -> bool:
+    value = text(getattr(args, name, ""))
+    return bool(value and value != default)
+
+
+def _merged_refs(
+    existing: tuple[str, ...],
+    incoming: tuple[str, ...],
+) -> tuple[str, ...]:
+    return tuple(
+        dict.fromkeys(
+            str(value or "").strip()
+            for value in (*existing, *incoming)
+            if str(value or "").strip()
+        )
+    )
+
+
 def _upsert_rows(
     store_path: Path,
     rows: tuple[PlanRow, ...],
@@ -241,82 +320,6 @@ def _store_receipt(
     if dry_run:
         return receipt
     return append_plan_intent_ingestion_receipt(path, receipt)
-
-
-def _render_markdown(payload: Mapping[str, object]) -> str:
-    receipt = payload.get("receipt")
-    data = receipt if isinstance(receipt, Mapping) else {}
-    rows = data.get("row_ids") if isinstance(data.get("row_ids"), list) else []
-    lines = [
-        "# Plan Intent Ingestion",
-        "",
-        f"- status: `{data.get('status') or 'unknown'}`",
-        f"- reason: `{data.get('reason') or ''}`",
-        f"- source: `{data.get('source_kind') or ''}` `{data.get('source_ref') or ''}`",
-        f"- target: `{data.get('target_kind') or ''}` `{data.get('target_ref') or ''}`",
-        f"- path: `{data.get('path') or ''}`",
-        f"- receipt_path: `{data.get('receipt_path') or ''}`",
-        f"- row_ids: {', '.join(f'`{row}`' for row in rows) if rows else '(none)'}",
-        f"- source_retention_status: `{data.get('source_retention_status') or ''}`",
-        f"- source_integrity_status: `{data.get('source_integrity_status') or ''}`",
-        f"- source_completeness_status: `{data.get('source_completeness_status') or ''}`",
-    ]
-    remediation = payload.get("remediation")
-    if isinstance(remediation, Mapping) and remediation:
-        lines.extend(
-            [
-                "",
-                "## Remediation",
-                "",
-                f"- reason: {remediation.get('reason') or ''}",
-                f"- required_authority: {remediation.get('required_authority') or ''}",
-                f"- corrected_command_shape: `{remediation.get('corrected_command_shape') or ''}`",
-            ]
-        )
-    return "\n".join(lines) + "\n"
-
-
-def _remediation_for_receipt(
-    args: Any,
-    receipt: PlanIntentIngestionReceipt,
-) -> Mapping[str, str]:
-    if receipt.reason != "missing_plan_row_or_checklist_authority":
-        return {}
-    return {
-        "reason": (
-            "Prose plan sources are evidence, not execution authority, until "
-            "they carry an explicit PlanRow id or markdown checklist row."
-        ),
-        "required_authority": (
-            "Add --plan-row-id <PlanRow id>, or provide a source/body-file "
-            "containing a checklist row shaped like '- [ ] `MP377-...` Title'."
-        ),
-        "corrected_command_shape": _corrected_command_shape(args),
-    }
-
-
-def _corrected_command_shape(args: Any) -> str:
-    command = [
-        "python3",
-        "dev/scripts/devctl.py",
-        "develop",
-        "ingest-plan",
-    ]
-    actor = text(getattr(args, "actor", ""))
-    if actor:
-        command.extend(("--actor", actor))
-    command.extend(("--plan-row-id", "<PLAN_ROW_ID>"))
-    source_kind = text(getattr(args, "source_kind", ""))
-    if source_kind:
-        command.extend(("--source-kind", source_kind))
-    source_ref = text(getattr(args, "source_ref", ""))
-    if source_ref:
-        command.extend(("--source-ref", source_ref))
-    target_ref = text(getattr(args, "target_ref", ""))
-    if target_ref:
-        command.extend(("--target-ref", target_ref))
-    command.extend(("--body", "<plan prose>"))
-    return " ".join(shlex.quote(part) for part in command)
 
 
 __all__ = ["ingest_plan_intent", "run_ingest_plan"]

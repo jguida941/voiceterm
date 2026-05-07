@@ -12,6 +12,7 @@ from .action_request_delivery import attach_action_request_delivery_receipts
 from .packet_lifecycle import (
     ACTION_REQUEST_LIFECYCLE_EVENT_TYPES,
     apply_lifecycle_transition,
+    project_packet_lifecycle,
 )
 from .pending_packet_core import partition_live_pending_packets
 from .pending_packet_models import PendingPacketQueueSnapshot
@@ -59,6 +60,14 @@ def load_pending_packet_queue(
             continue
         if event_type == "packet_posted":
             packets[packet_id] = _packet_post_snapshot(event)
+        elif event_type == "packet_creation_binding_recorded":
+            existing = packets.get(packet_id)
+            if existing is None:
+                continue
+            packets[packet_id] = _apply_packet_creation_binding_snapshot(
+                existing,
+                event,
+            )
         elif event_type in (
             "packet_acked",
             "packet_dismissed",
@@ -90,6 +99,20 @@ def load_pending_packet_queue(
         stale_packet_count=len(stale_packets),
         control_packets=tuple(control_packets),
     )
+
+
+def _apply_packet_creation_binding_snapshot(
+    packet: dict[str, object],
+    event: Mapping[str, object],
+) -> dict[str, object]:
+    updated = dict(packet)
+    binding = event.get("packet_creation_binding")
+    if isinstance(binding, Mapping):
+        updated["packet_creation_binding"] = dict(binding)
+    event_id = str(event.get("event_id") or "").strip()
+    if event_id:
+        updated["latest_event_id"] = event_id
+    return project_packet_lifecycle(updated)
 
 
 def _packet_post_snapshot(event: Mapping[str, object]) -> dict[str, object]:
