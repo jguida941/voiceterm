@@ -1479,6 +1479,32 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             self.assertEqual(pipeline.state, "commit_recorded")
             self.assertIn("tracked.txt", pipeline.intent.staged_paths)
 
+    def test_commit_retries_partially_staged_index_by_staging_unstaged_work(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            executor = _executor(repo_root, refresh_projections=False)
+            (repo_root / "tracked.txt").write_text("staged\n", encoding="utf-8")
+            _run_git(repo_root, "add", "tracked.txt")
+            (repo_root / "tracked.txt").write_text("unstaged\n", encoding="utf-8")
+            guard_runner = MagicMock(return_value=_mock_subprocess_result(0))
+
+            rc = run_commit(
+                _make_args(message="feat: retry partially staged index"),
+                repo_root=repo_root,
+                policy=_push_policy(),
+                executor=executor,
+                interaction_mode="local_terminal",
+                guard_runner=guard_runner,
+            )
+
+            pipeline = executor.load_pipeline()
+            committed = _run_git(repo_root, "show", "HEAD:tracked.txt")
+            self.assertEqual(rc, 0)
+            self.assertEqual(pipeline.state, "commit_recorded")
+            self.assertEqual(committed, "unstaged")
+
     def test_commit_paths_fail_closed_when_dirty_work_is_outside_scope(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")

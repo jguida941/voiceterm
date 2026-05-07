@@ -78,11 +78,11 @@ def _git_index_error_fields(
         retryable = True
     else:
         retryable = False
-    return {
-        "reason": reason,
-        "reason_chain": reason_chain,
-        "message": error,
-        "remediation": remediation,
-        "auto_executable": auto_executable,
-        "retryable": retryable,
-    }
+    fields: dict[str, object] = {}
+    fields["reason"] = reason
+    fields["reason_chain"] = reason_chain
+    fields["message"] = error
+    fields["remediation"] = remediation
+    fields["auto_executable"] = auto_executable
+    fields["retryable"] = retryable
+    return fields

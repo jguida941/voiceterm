@@ -40,6 +40,31 @@ def dirty_paths(repo_root: Path) -> list[str]:
     return result
 
 
+def unstaged_paths(repo_root: Path) -> list[str]:
+    """Return dirty paths not fully represented in the git index."""
+    code, output, error = run_git_capture(
+        ["status", "--porcelain", "--untracked-files=all"],
+        repo_root=repo_root,
+    )
+    if code != 0:
+        raise ValueError(error or "git status failed")
+    result: list[str] = []
+    ignored_prefixes = ignored_dirty_path_prefixes()
+    for line in output.splitlines():
+        if not line:
+            continue
+        status = line[:2]
+        if status[1:2] == " ":
+            continue
+        path = line[3:].strip()
+        if "->" in path:
+            path = path.split("->")[-1].strip()
+        if not path or path_is_ignored_for_dirty_paths(path, ignored_prefixes):
+            continue
+        result.append(path)
+    return result
+
+
 def staged_paths(repo_root: Path) -> list[str]:
     """Return paths currently staged in the git index."""
     code, output, error = run_git_capture(

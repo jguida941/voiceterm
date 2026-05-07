@@ -139,6 +139,9 @@ Current ingestion status:
   `MP377-P0-PACKET-DISPOSITION-LEDGER-S1`, and
   `MP377-P0-COMMAND-MANIFEST-LOOP-S1` carry the typed decision object,
   disposition ledger, command manifest, bypass, and retry policy expansion.
+  `MP377-P0-CHECKPOINT-STAGED-SNAPSHOT-RESTAGE-S1` closes the same checkpoint
+  owner gap where a guard-failure repair could leave stale partial index content
+  staged; governed retries must restage non-receipt unstaged work before commit.
 - 2026-05-06 universal `GovernanceLifecycle` intake: `rev_pkt_3114` is
   accepted as a typed correction after narrowing. `MP377-GUARDIR-V21-A5`
   remains the packet/action-request lifecycle checkpoint and commit-seam proof;

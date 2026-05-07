@@ -31,6 +31,7 @@ from .governed_executor_git import (
     dirty_paths,
     pipeline_is_stale_for_current_repo,
     staged_paths,
+    unstaged_paths,
 )
 from .governed_executor_stage_snapshot import non_receipt_artifact_paths
 from ...runtime.remote_commit_pipeline_state import BLOCKING_PIPELINE_STATES
@@ -196,9 +197,12 @@ def _reuse_staged_index(
     try:
         staged = staged_paths(repo_root)
         dirty = dirty_paths(repo_root)
+        unstaged = unstaged_paths(repo_root)
     except (OSError, ValueError):
         return True
     if dirty and not non_receipt_artifact_paths(repo_root=repo_root, paths=staged):
+        return False
+    if non_receipt_artifact_paths(repo_root=repo_root, paths=unstaged):
         return False
     return True
 

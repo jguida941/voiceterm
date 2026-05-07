@@ -90,6 +90,10 @@ Use docs like this:
   directly after disposition. Startup/lifecycle blockers that prevent governed
   progress must map to their owning repair rows before ordinary queued plan
   work is selected.
+- Governed checkpoint retries must not preserve a stale partial index after a
+  guard failure and repair. If non-receipt unstaged work remains, `devctl commit`
+  rebuilds the stage action so the checkpoint records the latest source state
+  instead of committing an older staged snapshot and leaving the fix dirty.
 - `devctl remote-control` owns the repo-local remote operator lifecycle:
   `start`, `enter`, `heartbeat`, `exit`, `hook`, `status`, `doctor`, and
   `dry-run` read or write `RemoteControlAttachmentState` under the governed

@@ -160,7 +160,9 @@
   `MP377-P0-COMMAND-MANIFEST-LOOP-S1`. The immediate implementation slice
   auto-includes managed projection dirt in governed checkpoint scope, preserves
   `.git/index.lock` as a retryable typed action result, and prevents
-  receipt-only staged indexes from hiding dirty source work.
+  receipt-only or stale partial staged indexes from hiding dirty source work.
+  `MP377-P0-CHECKPOINT-STAGED-SNAPSHOT-RESTAGE-S1` owns the same-file
+  staged-plus-unstaged retry case caught during dogfood checkpoint.
 - 2026-05-06 universal GovernanceLifecycle typed intake (MP-377):
   `rev_pkt_3114` was ingested as a narrowed typed correction, not a new
   top-level plan row. `MP377-GUARDIR-V21-A5` remains the packet/action-request

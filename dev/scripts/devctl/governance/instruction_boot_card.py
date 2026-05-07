@@ -147,6 +147,7 @@ def build_instruction_boot_card(
         "- For generated-surface changes, run `python3 dev/scripts/devctl.py render-surfaces --format md` and `python3 dev/scripts/checks/check_instruction_surface_sync.py --format md`.",
         "- For governance/runtime contract changes, run `python3 dev/scripts/devctl.py platform-contracts --format md` and `python3 dev/scripts/checks/check_platform_contract_closure.py --format md`.",
         "- The managed ReviewSnapshot hooks are time-bounded and fail-open; freshness guards remain the proof of current receipts.",
+        "- Governed checkpoint retries must restage non-receipt unstaged work instead of preserving stale partial indexes.",
         "- Governed push writes `dev/reports/push/latest_push_report.json`; legacy `latest.json` is only a read fallback.",
         "- For release or publication work, use `python3 dev/scripts/devctl.py push --execute`; raw publish proof is not a closure receipt.",
         "",

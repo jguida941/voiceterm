@@ -1302,6 +1302,9 @@ python3 dev/scripts/devctl.py relaunch-loop --action dispatch-once --dry-run --f
 # untriaged packet can block selection for intake, but it is not selected as
 # implementation work unless it has been ingested into typed plan/lifecycle
 # state.
+# `devctl commit` retries rebuild staging when non-receipt unstaged work exists,
+# including same-file partial-index repairs after a guard failure. This prevents
+# stale staged snapshots from committing while the actual fix remains dirty.
 # `/develop audit-packets` consumes PacketAttentionIngestionDecision.next_command
 # after classification so the controller advances to the selected packet action
 # instead of asking the caller to rerun the audit reducer.

@@ -14674,10 +14674,12 @@ next plan row, routing startup/checkpoint blockers to
 packet ids as provenance unless unresolved intake blocks authority. Governed
 checkpoint staging now expands explicit path selections with managed projection
 dirt from startup authority, marks index-lock write blocks as retryable typed
-action results, and avoids reusing receipt-only staged indexes when real source
-work remains dirty. The broader follow-up architecture is preserved in typed
-plan rows for selector decision records, packet disposition receipts, command
-manifests, and retryable action recovery.
+action results, avoids reusing receipt-only staged indexes when real source
+work remains dirty, and restages non-receipt unstaged source work after a
+guard-failure repair so a retry cannot commit a stale partial index. The broader
+follow-up architecture is preserved in typed plan rows for selector decision
+records, packet disposition receipts, command manifests, partial-index restage,
+and retryable action recovery.
 
 Evidence:
 
@@ -14686,6 +14688,7 @@ Evidence:
 - `dev/scripts/devctl/commands/vcs/governed_executor_managed_projection.py`
 - `dev/scripts/devctl/commands/vcs/governed_executor_phases.py`
 - `dev/scripts/devctl/commands/vcs/governed_executor_index_lock.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_git.py`
 - `dev/scripts/devctl/commands/vcs/commit_preflight_validators.py`
 - `dev/state/plan_index.jsonl`
 - `dev/scripts/devctl/tests/commands/test_development_command.py`
