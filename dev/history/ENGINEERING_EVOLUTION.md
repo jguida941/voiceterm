@@ -14694,3 +14694,34 @@ Evidence:
 - `dev/scripts/devctl/tests/commands/test_development_command.py`
 - `dev/scripts/devctl/tests/vcs/test_commit_gate.py`
 - `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+
+### 2026-05-07 - Dogfood trip-wires now feed guard smartness planning
+
+The checkpoint retry repair needed two commits against the same staged-index
+safety predicate: the first prevented receipt-only staged indexes, and the
+second added unstaged workdir detection after the guard-failure repair exposed
+a stale partial-index snapshot. Operator review correctly named the class as
+predicate fragmentation: focused tests proved the final behavior, but no guard
+noticed that repeated patches on one predicate family meant the typed primitive
+was incomplete.
+
+Change: the follow-up is now durable typed plan state instead of chat memory.
+`MP377-P0-CHECKPOINT-INDEX-REUSE-DECISION-S1` owns a fail-closed
+`IndexReuseDecision` for staged, dirty, unstaged, selected-path, grant, receipt,
+and observation-error inputs. `MP377-P0-GUARD-PREDICATE-TRIPWIRE-S1` owns the
+meta-guard / `GuardPromotionCandidate` path for repeated predicate repairs,
+disjunctive safety predicates, and failure-open observation fallbacks.
+`MP377-P0-COMMAND-RESULT-OBSERVABILITY-S1` owns the command-result output gap:
+commands should expose phase, terminal state, decisive artifacts, receipt SHAs,
+uncertainty, blocked/allowed actions, and recommended next commands so agents
+and operators do not infer completion state from raw logs.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/vcs/commit_preflight_validators.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_git.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_index_lock.py`
+- `dev/scripts/checks/review_probes/probe_command_result_contract.py`
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/active/MASTER_PLAN.md`
