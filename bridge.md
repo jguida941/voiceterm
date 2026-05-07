@@ -78,8 +78,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-07T18:58:29Z`
-- Last Codex poll (Local America/New_York): `2026-05-07 14:58:29 EDT`
+- Last Codex poll: `2026-05-07T19:17:40Z`
+- Last Codex poll (Local America/New_York): `2026-05-07 15:17:40 EDT`
 - Reviewer mode: `tools_only`
 - Last non-audit worktree hash: `62329868f5ca315ac53c1584ddf574956ff7db7372efa68e3cf91eb53c389d1e`
 - Current instruction revision: ``
@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-assigned
+- Status unavailable.
 
 ## Claude Questions
 
