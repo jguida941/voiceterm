@@ -11,6 +11,7 @@ from ..review_channel.agent_packet_focus import (
     packet_focus_for_agent,
 )
 from ..review_channel.packet_contract import normalize_packet_route_role
+from .agent_loop_checkpoint_repair import checkpoint_repair_next_action_for_review_state
 from .agent_loop_decision_grants import (
     action_routing_decision,
     authority_snapshot,
@@ -84,6 +85,21 @@ def build_agent_loop_context(
     session = _text(session_id)
     control_plane = _mapping(dashboard.get("control_plane"))
     now = _mapping(dashboard.get("now"))
+    top_blocker = _text(control_plane.get("top_blocker")) or _text(
+        now.get("top_blocker")
+    )
+    next_action = _text(control_plane.get("next_action")) or _text(
+        now.get("next_action")
+    )
+    next_command = _text(control_plane.get("next_command")) or _text(
+        dashboard.get("next_command")
+    )
+    next_action, next_command = checkpoint_repair_next_action_for_review_state(
+        review_state,
+        top_blocker=top_blocker,
+        next_action=next_action,
+        next_command=next_command,
+    )
     authority = authority_snapshot(review_state=review_state, dashboard=dashboard)
     action_routing = action_routing_decision(
         review_state=review_state,
@@ -162,12 +178,9 @@ def build_agent_loop_context(
             blocked_actions=blocked_actions,
             edit_allowed=edit_allowed,
         ),
-        top_blocker=_text(control_plane.get("top_blocker"))
-        or _text(now.get("top_blocker")),
-        next_action=_text(control_plane.get("next_action"))
-        or _text(now.get("next_action")),
-        next_command=_text(control_plane.get("next_command"))
-        or _text(dashboard.get("next_command")),
+        top_blocker=top_blocker,
+        next_action=next_action,
+        next_command=next_command,
         current_instruction_revision=current_instruction_revision(
             review_state=review_state,
             dashboard=dashboard,
@@ -240,17 +253,6 @@ def session_identity_required(ctx: AgentLoopContext) -> bool:
         and normalize_packet_route_role(row.get("role")) in {"implementer", "coder"}
     ]
     return len(matching) > 1
-
-
-def required_action_for_blocker(top_blocker: str) -> str:
-    blocker = top_blocker.lower()
-    if "startup authority" in blocker or "import_index_atomicity" in blocker:
-        return "repair_startup_authority"
-    if "checkpoint" in blocker:
-        return "cut_checkpoint"
-    if "review" in blocker:
-        return "wait_for_review"
-    return "resolve_blocker"
 
 
 def role_is_observer(role: str) -> bool:

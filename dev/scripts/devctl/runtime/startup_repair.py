@@ -5,11 +5,16 @@ from __future__ import annotations
 from .review_state_models import ReviewState
 from .startup_context import StartupContext
 from .startup_repair_authority import authority_follow_up_issue
+from .startup_repair_checkpoint import (
+    checkpoint_repair_issue,
+    checkpoint_repair_next_step,
+)
 from .startup_repair_models import (
     StartupRepairActionRecord,
     StartupRepairActionId,
     StartupRepairIssue,
     StartupRepairResult,
+    StartupRepairRuntimeInputs,
 )
 
 STARTUP_REPAIR_APPLY_COMMAND = (
@@ -34,21 +39,22 @@ def build_startup_repair_result(
     ctx: StartupContext,
     authority_report: dict[str, object],
     startup_receipt_path: str,
-    review_state: ReviewState | None = None,
-    review_error: str | None = None,
-    applied_actions: tuple[StartupRepairActionRecord, ...] = (),
+    runtime: StartupRepairRuntimeInputs | None = None,
 ) -> StartupRepairResult:
     """Classify startup state into approval, safe-repair, and manual issues."""
+    runtime = runtime or StartupRepairRuntimeInputs()
     checkpoint_required, safe_to_continue_editing = _push_state(ctx)
     approval_boundary_active = checkpoint_required or not safe_to_continue_editing
     issues = _classified_issues(
         ctx=ctx,
         authority_report=authority_report,
-        review_state=review_state,
-        review_error=review_error,
+        runtime=runtime,
         approval_boundary_active=approval_boundary_active,
     )
-    review_attention = _review_attention(review_state=review_state, review_error=review_error)
+    review_attention = _review_attention(
+        review_state=runtime.review_state,
+        review_error=runtime.review_error,
+    )
     next_action, next_reason, next_command = _next_step(
         ctx=ctx,
         issues=issues,
@@ -82,7 +88,12 @@ def build_startup_repair_result(
         repairable_issue_count=sum(1 for issue in issues if issue.repairable),
         safe_fix_available_count=sum(1 for issue in issues if issue.safe_to_apply_now),
         issues=issues,
-        applied_actions=applied_actions,
+        applied_actions=runtime.applied_actions,
+        checkpoint_repair_authority=(
+            runtime.checkpoint_repair_authority.to_dict()
+            if runtime.checkpoint_repair_authority is not None
+            else None
+        ),
         next_action=next_action,
         next_reason=next_reason,
         next_command=next_command,
@@ -122,17 +133,18 @@ def _classified_issues(
     *,
     ctx: StartupContext,
     authority_report: dict[str, object],
-    review_state: ReviewState | None,
-    review_error: str | None,
+    runtime: StartupRepairRuntimeInputs,
     approval_boundary_active: bool,
 ) -> tuple[StartupRepairIssue, ...]:
     issues: list[StartupRepairIssue] = []
     if approval_boundary_active:
         issues.append(_approval_boundary_issue(ctx))
+    if runtime.checkpoint_repair_authority is not None:
+        issues.append(checkpoint_repair_issue(runtime.checkpoint_repair_authority))
 
     review_issue = _review_issue(
-        review_state=review_state,
-        review_error=review_error,
+        review_state=runtime.review_state,
+        review_error=runtime.review_error,
         approval_boundary_active=approval_boundary_active,
     )
     if review_issue is not None:
@@ -350,6 +362,9 @@ def _next_step(
     issues: tuple[StartupRepairIssue, ...],
     approval_boundary_active: bool,
 ) -> tuple[str, str, str]:
+    repair_next_step = checkpoint_repair_next_step(issues)
+    if repair_next_step is not None:
+        return repair_next_step
     if approval_boundary_active:
         command = str(ctx.push_decision.next_step_command or "").strip()
         if not command:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from ..review_channel.agent_packet_focus import packet_by_id
+from .agent_loop_blocker_actions import required_action_for_blocker
 from .agent_loop_decision_models import AgentLoopDecision
 from .agent_loop_operator_override import operator_override_next_command
 from .agent_loop_policy import policy_for_turn
@@ -12,7 +13,6 @@ from .value_coercion import coerce_bool, coerce_int, coerce_text as _text
 from .agent_loop_decision_sources import (
     AgentLoopContext,
     PacketState,
-    required_action_for_blocker,
 )
 
 
@@ -28,7 +28,7 @@ def blocker_decision(ctx: AgentLoopContext, packets: PacketState) -> AgentLoopDe
     return decision(
         ctx,
         "blocked",
-        required_action_for_blocker(ctx.top_blocker),
+        required_action_for_blocker(ctx.top_blocker, next_action=ctx.next_action),
         ctx.top_blocker,
         should_continue_loop=True,
         active_packet_id=packets.active_packet_id,

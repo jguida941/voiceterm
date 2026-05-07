@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .contracts import ContractField, ContractSpec
+from .contracts import ContractField, ContractSpec, CrossLinkSpec
 
 
 PIPELINE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
@@ -187,6 +187,99 @@ PIPELINE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             "state",
             "approval_state",
             "blocked_reason",
+        ),
+    ),
+    ContractSpec(
+        contract_id="CheckpointRepairAuthority",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Receipt-bound lifecycle promotion that converts a prior checkpoint "
+            "guard failure plus fresh matching validation proof into authority "
+            "for the governed checkpoint commit path."
+        ),
+        required_fields=(
+            ContractField("pipeline_id", "str", "RemoteCommitPipelineContract id."),
+            ContractField(
+                "generation_id",
+                "str",
+                "Pipeline generation that owns the repaired guard proof.",
+            ),
+            ContractField(
+                "original_block_reason",
+                "str",
+                "Original checkpoint blocker, such as guard_bundle_failed.",
+            ),
+            ContractField("result", "str", "Repair classification result."),
+            ContractField(
+                "next_authorized_action",
+                "str",
+                "Next typed lifecycle action authorized by the receipt.",
+            ),
+            ContractField(
+                "source_action_id",
+                "str",
+                "ActionResult id for the passing guard bundle.",
+            ),
+            ContractField(
+                "validation_receipt_id",
+                "str",
+                "ValidationReceipt id bound to the staged tree hash.",
+            ),
+            ContractField(
+                "staged_tree_hash",
+                "str",
+                "Staged tree hash that the repair proof validates.",
+            ),
+            ContractField(
+                "selected_paths",
+                "tuple[str, ...]",
+                "Paths included in the repaired checkpoint intent.",
+            ),
+            ContractField(
+                "checkpoint_sufficient",
+                "bool",
+                "Whether validation proves the repaired checkpoint is sufficient.",
+            ),
+            ContractField(
+                "blocked_raw_actions",
+                "tuple[str, ...]",
+                "Raw actions still blocked; authority remains governed only.",
+            ),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.checkpoint_repair_authority:"
+            "CheckpointRepairAuthority"
+        ),
+        startup_surface_tokens=(
+            "original_block_reason",
+            "result",
+            "next_authorized_action",
+        ),
+        cross_links=(
+            CrossLinkSpec(
+                "pipeline_id",
+                "RemoteCommitPipelineContract",
+                "promotes_pipeline",
+                target_node_kind="remote_commit_pipeline",
+                target_resolver="pipeline_id",
+                required=True,
+            ),
+            CrossLinkSpec(
+                "source_action_id",
+                "ActionResult",
+                "proved_by",
+                target_node_kind="action_result",
+                target_resolver="action_id",
+                required=True,
+            ),
+            CrossLinkSpec(
+                "validation_receipt_id",
+                "ValidationReceipt",
+                "proved_by",
+                target_node_kind="validation_receipt",
+                target_resolver="receipt_id",
+                required=True,
+            ),
         ),
     ),
 )

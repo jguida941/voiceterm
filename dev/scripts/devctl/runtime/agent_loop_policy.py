@@ -7,12 +7,24 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from .agent_loop_operator_override import AgentLoopOperatorOverride
+from .agent_loop_policy_checkpoint import (
+    governed_checkpoint_policy_kwargs,
+    operator_override_edit_policy_kwargs,
+)
 from .agent_loop_policy_proof import AgentLoopProofGate, proof_gate_for_turn
+from .checkpoint_repair_authority import GOVERNED_CHECKPOINT_COMMIT
 
 
 _MUTATION_ACTIONS = frozenset(
     {
         "cut_checkpoint",
+        GOVERNED_CHECKPOINT_COMMIT,
+        "repair_startup_authority",
+    }
+)
+_EDIT_ONLY_BLOCKED_COMMANDS = frozenset(
+    {
+        GOVERNED_CHECKPOINT_COMMIT,
         "repair_startup_authority",
     }
 )
@@ -115,18 +127,12 @@ def policy_for_turn(
         )
     elif (
         ctx.operator_override.edit_allowed
-        and required_action == "repair_startup_authority"
+        and required_action in _EDIT_ONLY_BLOCKED_COMMANDS
     ):
         policy = AgentLoopPolicy(
-            loop_mode="operator_override_edit",
-            loop_driver_agent=driver,
-            loop_intent=ctx.loop_intent,
-            recommended_cadence_seconds=max(15, min(cadence, 60)),
-            can_run_next_command=False,
-            dogfood_record_allowed=True,
-            proof_gate=proof,
-            policy_reason="operator_override_edit_only_allows_scoped_implementation",
-            next_loop_command=command,
+            **operator_override_edit_policy_kwargs(
+                ctx, driver, cadence, proof, command, required_action
+            )
         )
     elif required_action in _MUTATION_ACTIONS and not ctx.may_mutate:
         policy = AgentLoopPolicy(
@@ -151,6 +157,10 @@ def policy_for_turn(
             proof_gate=proof,
             policy_reason="startup_repair_authorized_by_actor_capabilities",
             next_loop_command=command,
+        )
+    elif required_action == GOVERNED_CHECKPOINT_COMMIT and ctx.may_mutate:
+        policy = AgentLoopPolicy(
+            **governed_checkpoint_policy_kwargs(ctx, driver, cadence, proof, command)
         )
     elif required_action == "triage_pending_packet":
         policy = AgentLoopPolicy(

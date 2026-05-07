@@ -40,6 +40,7 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "SessionPosture" in contract_ids
     assert "PacketIntentAnchor" in contract_ids
     assert "RemoteCommitPipelineContract" in contract_ids
+    assert "CheckpointRepairAuthority" in contract_ids
     assert "PushAuthorizationRecord" in contract_ids
     assert "CheckResult" in contract_ids
     assert "Finding" in contract_ids
@@ -126,6 +127,9 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "approval_expires_at_utc" in contract_map["RemoteCommitPipelineContract"]
     assert "approved_target_identity" in contract_map["RemoteCommitPipelineContract"]
     assert "push_authorization" in contract_map["RemoteCommitPipelineContract"]
+    assert "next_authorized_action" in contract_map["CheckpointRepairAuthority"]
+    assert "validation_receipt_id" in contract_map["CheckpointRepairAuthority"]
+    assert "blocked_raw_actions" in contract_map["CheckpointRepairAuthority"]
     assert "authorized_head_sha" in contract_map["PushAuthorizationRecord"]
     assert "approval_mode" in contract_map["PushAuthorizationRecord"]
     assert "snapshot_id" in contract_map["RemoteCommitPipelineContract"]

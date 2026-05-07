@@ -19,6 +19,9 @@ from ...runtime.action_contracts import (
     build_action_result,
 )
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
+from ...runtime.checkpoint_repair_authority import (
+    build_checkpoint_repair_authority,
+)
 from ...runtime.startup_context import build_startup_context
 from . import governed_executor_push_result as push_result
 from .governed_executor_actions import (
@@ -115,19 +118,29 @@ class GovernedVcsExecutor:
             blocked_reason = guard_result.reason or f"guard_{guard_result.status}"
             approval_state = "not_requested"
 
+        validation_receipt = build_validation_receipt(
+            pipeline=pipeline,
+            guard_result=guard_result,
+            guard_action_id=guard_action_id,
+        )
         updated = replace(
             pipeline,
             state=next_state,
             guard_action_id=guard_action_id,
             guard_result=guard_result,
-            validation_receipt=build_validation_receipt(
-                pipeline=pipeline,
-                guard_result=guard_result,
-                guard_action_id=guard_action_id,
-            ),
+            validation_receipt=validation_receipt,
             approval_state=approval_state,
             blocked_reason=blocked_reason,
         )
+        checkpoint_repair = build_checkpoint_repair_authority(
+            previous_pipeline=pipeline,
+            repaired_pipeline=updated,
+        )
+        if checkpoint_repair is not None:
+            updated = replace(
+                updated,
+                push_failure_transition=checkpoint_repair.to_dict(),
+            )
         self._persist_pipeline(updated)
         return updated
 

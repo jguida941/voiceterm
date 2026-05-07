@@ -20,6 +20,9 @@ from dev.scripts.devctl.runtime.startup_repair import (
     build_startup_repair_result,
     select_safe_repair_action,
 )
+from dev.scripts.devctl.runtime.startup_repair_models import (
+    StartupRepairRuntimeInputs,
+)
 from dev.scripts.devctl.runtime.project_governance import (
     PROJECT_GOVERNANCE_CONTRACT_ID,
     PROJECT_GOVERNANCE_SCHEMA_VERSION,
@@ -233,12 +236,14 @@ class StartupRepairContractTests(unittest.TestCase):
             ctx=_ctx(),
             authority_report={"ok": True, "errors": [], "warnings": []},
             startup_receipt_path="dev/reports/startup/latest/receipt.json",
-            review_state=_review_state(
+            runtime=StartupRepairRuntimeInputs(
+                review_state=_review_state(
                 status="publisher_missing",
                 owner="system",
                 summary="Persistent heartbeat publisher is missing.",
                 recommended_action="Start the publisher.",
                 recommended_command="python3 dev/scripts/devctl.py review-channel --action ensure --start-publisher-if-missing --terminal none --format json",
+                ),
             ),
         )
 
@@ -274,12 +279,14 @@ class StartupRepairContractTests(unittest.TestCase):
             ),
             authority_report={"ok": False, "errors": ["checkpoint required"], "warnings": []},
             startup_receipt_path="dev/reports/startup/latest/receipt.json",
-            review_state=_review_state(
+            runtime=StartupRepairRuntimeInputs(
+                review_state=_review_state(
                 status="implementer_state_reset_required",
                 owner="codex",
                 summary="Stale implementer state must be reset.",
                 recommended_action="Reset implementer state.",
                 recommended_command="python3 dev/scripts/devctl.py review-channel --action reset-implementer-state --reviewer-mode active_dual_agent --reason stale-implementer-launch-block --terminal none --format json",
+                ),
             ),
         )
 
@@ -309,12 +316,14 @@ class StartupRepairContractTests(unittest.TestCase):
                 "warnings": [],
             },
             startup_receipt_path="dev/reports/startup/latest/receipt.json",
-            review_state=_review_state(
+            runtime=StartupRepairRuntimeInputs(
+                review_state=_review_state(
                 status="bridge_contract_error",
                 owner="codex",
                 summary="Bridge contract is inconsistent.",
                 recommended_action="Re-render the bridge.",
                 recommended_command="python3 dev/scripts/devctl.py review-channel --action render-bridge --terminal none --format json",
+                ),
             ),
         )
 
@@ -342,7 +351,8 @@ class StartupRepairContractTests(unittest.TestCase):
                 "warnings": [],
             },
             startup_receipt_path="dev/reports/startup/latest/receipt.json",
-            review_state=_review_state(
+            runtime=StartupRepairRuntimeInputs(
+                review_state=_review_state(
                 status="review_loop_relaunch_required",
                 owner="codex",
                 summary="Bridge contract is inconsistent.",
@@ -354,6 +364,7 @@ class StartupRepairContractTests(unittest.TestCase):
                 },
                 errors=(
                     "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or Claude conductor sessions are present.",
+                ),
                 ),
             ),
         )
@@ -426,12 +437,14 @@ class StartupRepairContractTests(unittest.TestCase):
             ),
             authority_report={"ok": True, "errors": [], "warnings": []},
             startup_receipt_path="dev/reports/startup/latest/receipt.json",
-            review_state=_review_state(
+            runtime=StartupRepairRuntimeInputs(
+                review_state=_review_state(
                 status="healthy",
                 owner="system",
                 summary="Review loop signals are fresh.",
                 recommended_action="Continue the scoped review/coding loop.",
                 recommended_command="",
+                ),
             ),
         )
 

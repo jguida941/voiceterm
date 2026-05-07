@@ -22,6 +22,7 @@ from .startup_context_advisory_coherence import (
     coerce_advisory_for_blockers,
 )
 from .startup_context_summary import summary_blockers as _summary_blockers
+from .startup_repair_commit_pipeline import collect_runtime_inputs
 
 _TRACKED_STATE_ACTIONS = {
     StartupRepairActionId.RENDER_BRIDGE.value,
@@ -72,9 +73,9 @@ def collect_state(
         ctx=ctx,
         authority_report=authority_report,
         startup_receipt_path=receipt_path,
-        review_state=review_state,
-        review_error=review_error,
-        applied_actions=applied_actions,
+        runtime=collect_runtime_inputs(
+            repo_root, ctx, review_state, review_error, applied_actions
+        ),
     )
     return CollectedStartupRepairState(result=result, runtime_paths=runtime_paths)
 

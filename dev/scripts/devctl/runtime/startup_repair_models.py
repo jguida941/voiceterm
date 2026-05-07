@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 
 from .enum_compat import StrEnum
+from .checkpoint_repair_authority import CheckpointRepairAuthority
+from .review_state_models import ReviewState
 
 
 class StartupRepairActionId(StrEnum):
@@ -52,6 +54,16 @@ class StartupRepairActionRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class StartupRepairRuntimeInputs:
+    """Optional runtime state used to classify startup repair."""
+
+    review_state: ReviewState | None = None
+    review_error: str | None = None
+    applied_actions: tuple[StartupRepairActionRecord, ...] = ()
+    checkpoint_repair_authority: CheckpointRepairAuthority | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class StartupRepairResult:
     """Typed report from one startup repair run."""
 
@@ -75,6 +87,7 @@ class StartupRepairResult:
     safe_fix_available_count: int = 0
     issues: tuple[StartupRepairIssue, ...] = ()
     applied_actions: tuple[StartupRepairActionRecord, ...] = ()
+    checkpoint_repair_authority: dict[str, object] | None = None
     next_action: str = "healthy"
     next_reason: str = ""
     next_command: str = ""

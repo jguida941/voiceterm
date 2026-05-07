@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from dev.scripts.devctl.runtime.checkpoint_repair_authority import (
+    CHECKPOINT_REPAIR_AUTHORITY_CONTRACT_ID,
+    GOVERNED_CHECKPOINT_COMMIT,
+    GOVERNED_CHECKPOINT_COMMIT_COMMAND,
+    REPAIR_VERIFIED,
+)
 from dev.scripts.devctl.runtime.agent_loop_decision import build_agent_loop_decision
 
 
@@ -44,6 +50,24 @@ def _state(*packets: dict[str, object]) -> dict[str, object]:
                 "snapshot_id": "agent-runtime-clock:rev_evt_100",
             }
         },
+    }
+
+
+def _checkpoint_repair_transition() -> dict[str, object]:
+    return {
+        "contract_id": CHECKPOINT_REPAIR_AUTHORITY_CONTRACT_ID,
+        "schema_version": 1,
+        "pipeline_id": "pipeline-guard-repair",
+        "generation_id": "generation-2",
+        "original_block_reason": "guard_bundle_failed",
+        "result": REPAIR_VERIFIED,
+        "next_authorized_action": GOVERNED_CHECKPOINT_COMMIT,
+        "source_action_id": "guard-action-2",
+        "validation_receipt_id": "validation-receipt-2",
+        "staged_tree_hash": "tree-2",
+        "selected_paths": ["dev/scripts/devctl/runtime/checkpoint_repair_authority.py"],
+        "checkpoint_sufficient": True,
+        "blocked_raw_actions": ["git.commit", "vcs.push"],
     }
 
 
@@ -737,6 +761,108 @@ def test_startup_repair_uses_stage_commit_capabilities_without_edit_permission()
     assert "vcs.commit" not in decision.blocked_actions
     assert "implementation.edit" in decision.blocked_actions
     assert "vcs.push" in decision.blocked_actions
+
+
+def test_agent_loop_promotes_verified_checkpoint_repair_to_governed_commit() -> None:
+    review_state = _state()
+    review_state["commit_pipeline"] = {
+        "push_failure_transition": _checkpoint_repair_transition(),
+    }
+    review_state["collaboration"] = {
+        "actor_authorities": [
+            {
+                "actor_id": "claude",
+                "provider": "claude",
+                "live": True,
+                "grants": [
+                    {"capability": "repo.stage", "granted": True},
+                    {"capability": "repo.commit", "granted": True},
+                ],
+            }
+        ]
+    }
+    review_state["action_routing"] = {
+        "allowed_actions": ["startup-context.summary", "review-channel.status"],
+        "blocked_actions": [
+            "implementation.edit",
+            "vcs.stage",
+            "vcs.commit",
+            "vcs.push",
+        ],
+        "agent_lane": {"edit_gate": {"edit_allowed": False}},
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={
+            "control_plane": {
+                "top_blocker": "startup authority: guard_bundle_failed",
+                "next_action": (
+                    "checkpoint_blocked_by_startup_authority:"
+                    "guard_bundle_failed"
+                ),
+                "next_command": "python3 dev/scripts/devctl.py startup-context --repair",
+            }
+        },
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="s1",
+    )
+
+    assert decision.loop_state == "blocked"
+    assert decision.required_action == GOVERNED_CHECKPOINT_COMMIT
+    assert decision.next_action == GOVERNED_CHECKPOINT_COMMIT
+    assert decision.next_command == GOVERNED_CHECKPOINT_COMMIT_COMMAND
+    assert decision.can_run_next_command is True
+    assert decision.loop_mode == GOVERNED_CHECKPOINT_COMMIT
+    assert (
+        decision.policy_reason
+        == "checkpoint_repair_receipts_authorize_governed_commit"
+    )
+    assert "vcs.commit" in decision.allowed_actions
+    assert "vcs.commit" not in decision.blocked_actions
+    assert "vcs.push" in decision.blocked_actions
+
+
+def test_agent_loop_edit_only_override_blocks_governed_checkpoint_commit() -> None:
+    review_state = _state()
+    review_state["commit_pipeline"] = {
+        "push_failure_transition": _checkpoint_repair_transition(),
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={
+            "control_plane": {
+                "top_blocker": "startup authority: guard_bundle_failed",
+                "next_action": (
+                    "checkpoint_blocked_by_startup_authority:"
+                    "guard_bundle_failed"
+                ),
+                "next_command": "python3 dev/scripts/devctl.py startup-context --repair",
+            }
+        },
+        actor_id="codex",
+        actor_role="implementer",
+        requested_plan_ref="MP377-P0-CHECKPOINT-FAILURE-CLASSIFICATION-S1",
+        operator_override_requested=True,
+        operator_override_reason="operator requested scoped repair work",
+    )
+
+    assert decision.required_action == GOVERNED_CHECKPOINT_COMMIT
+    assert decision.next_action == GOVERNED_CHECKPOINT_COMMIT
+    assert decision.loop_mode == "operator_override_edit"
+    assert decision.can_run_next_command is False
+    assert decision.next_command == ""
+    assert decision.operator_override.active is True
+    assert "implementation.edit" in decision.allowed_actions
+    assert "vcs.stage" in decision.blocked_actions
+    assert "vcs.commit" in decision.blocked_actions
+    assert "vcs.push" in decision.blocked_actions
+    assert (
+        decision.policy_reason
+        == "operator_override_edit_only_blocks_governed_checkpoint_commit"
+    )
 
 
 def test_remote_control_implementer_participant_grants_checkpoint_vcs_only() -> None:
