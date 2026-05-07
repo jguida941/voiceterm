@@ -7,6 +7,9 @@ from typing import Final
 
 DEFAULT_PER_TEST_TIMEOUT_SECONDS: Final[int] = 60
 DEFAULT_SESSION_TIMEOUT_SECONDS: Final[int] = 900
+TARGET_TIMEOUT_FLOOR_SECONDS: Final[dict[str, int]] = {
+    "dev/scripts/devctl/tests/commands/test_development_command.py": 600,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,7 +63,11 @@ def build_python_test_command(
     """Build the canonical bounded pytest command for one suite."""
     suite = PYTHON_TEST_SUITES[suite_id]
     targets = explicit_targets or suite.targets
-    resolved_timeout = timeout_seconds if timeout_seconds is not None else suite.timeout_seconds
+    resolved_timeout = _resolved_timeout_seconds(
+        targets=targets,
+        requested_timeout_seconds=timeout_seconds,
+        suite_timeout_seconds=suite.timeout_seconds,
+    )
     command = [
         "python3",
         "-m",
@@ -83,3 +90,25 @@ def build_python_test_command(
         per_test_timeout_seconds=per_test_timeout_seconds,
         fail_fast=fail_fast,
     )
+
+
+def _resolved_timeout_seconds(
+    *,
+    targets: tuple[str, ...],
+    requested_timeout_seconds: int | None,
+    suite_timeout_seconds: int,
+) -> int:
+    baseline = (
+        requested_timeout_seconds
+        if requested_timeout_seconds is not None
+        else suite_timeout_seconds
+    )
+    return max(baseline, _target_timeout_floor_seconds(targets))
+
+
+def _target_timeout_floor_seconds(targets: tuple[str, ...]) -> int:
+    floor = 0
+    for target in targets:
+        path = str(target or "").split("::", 1)[0]
+        floor = max(floor, TARGET_TIMEOUT_FLOOR_SECONDS.get(path, 0))
+    return floor

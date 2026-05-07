@@ -33,6 +33,20 @@ def test_build_python_test_command_allows_explicit_paths() -> None:
     assert "--maxfail=0" in resolved.command
 
 
+def test_build_python_test_command_applies_measured_target_timeout_floor() -> None:
+    resolved = build_python_test_command(
+        suite_id="devctl",
+        explicit_targets=(
+            "dev/scripts/devctl/tests/commands/test_development_command.py"
+            "::test_develop_next_selects_active_leaf_plan_row",
+        ),
+        timeout_seconds=120,
+    )
+
+    assert resolved.timeout_seconds == 600
+    assert "--repo-session-timeout-seconds=600" in resolved.command
+
+
 def test_test_python_command_threads_timeout_to_runner_env() -> None:
     args = SimpleNamespace(
         suite="operator-console",

@@ -50,9 +50,7 @@ def select_next_slice(
             status="attention_required",
             reason="Packet attention preempts ordinary typed plan-row selection.",
         )
-    selected = _first_row_with_status(rows, "in_progress")
-    if selected is None:
-        selected = _first_row_with_status(rows, "queued")
+    selected = _active_leaf_row(rows)
     if selected is None:
         return DevelopmentNextSlice(
             status="none",
@@ -64,7 +62,11 @@ def select_next_slice(
         title=selected.title,
         target_ref=selected.target_ref,
         status=selected.status,
-        reason="Selected from typed master-plan rows, preferring in-progress before queued.",
+        reason=(
+            "Selected from typed master-plan rows using active leaf rows; "
+            "active parent rows delegate to concrete child rows before "
+            "ordinary status ordering."
+        ),
     )
 
 
@@ -73,6 +75,43 @@ def _first_row_with_status(rows: tuple[PlanRow, ...], status: str) -> PlanRow | 
         if row.status == status:
             return row
     return None
+
+
+def _active_leaf_row(rows: tuple[PlanRow, ...]) -> PlanRow | None:
+    active_rows = tuple(
+        row for row in rows if row.status in {"in_progress", "queued"}
+    )
+    leaf_rows = tuple(
+        row for row in active_rows if not _has_active_child(row, active_rows)
+    )
+    selected = _first_row_with_status(leaf_rows, "in_progress")
+    if selected is not None:
+        return selected
+    selected = _first_row_with_status(leaf_rows, "queued")
+    if selected is not None:
+        return selected
+    selected = _first_row_with_status(rows, "in_progress")
+    if selected is not None:
+        return selected
+    return _first_row_with_status(rows, "queued")
+
+
+def _has_active_child(row: PlanRow, rows: tuple[PlanRow, ...]) -> bool:
+    row_refs = {row.row_id, f"plan:{row.row_id}"}
+    for candidate in rows:
+        if candidate.row_id == row.row_id:
+            continue
+        if _packet_binding_row(candidate):
+            continue
+        if row_refs.intersection(candidate.anchor_refs):
+            return True
+        if candidate.target_ref in row_refs:
+            return True
+    return False
+
+
+def _packet_binding_row(row: PlanRow) -> bool:
+    return row.row_id.startswith("PKT-BIND-")
 
 
 def _packet_attention_row(

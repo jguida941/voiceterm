@@ -1754,6 +1754,60 @@ def test_develop_next_treats_packet_anchor_as_ingested() -> None:
     assert selected.slice_id == "MP377-IN-PROGRESS"
 
 
+def test_develop_next_selects_active_leaf_plan_row() -> None:
+    parent = PlanRow(
+        row_id="MP377-GUARDIR-PACKET-DURABLE-INGESTION",
+        title="Durable packet ingestion parent",
+        status="in_progress",
+        sdlc_stage=SDLCStage.TEST,
+    )
+    scheduler = PlanRow(
+        row_id="MP377-P0-PACKET-INTAKE-SCHEDULER-S1",
+        title="Make packet intake resolve before next-action selection",
+        status="in_progress",
+        sdlc_stage=SDLCStage.SPEC,
+        anchor_refs=("MP377-GUARDIR-PACKET-DURABLE-INGESTION",),
+        target_ref="plan:MP377-GUARDIR-PACKET-DURABLE-INGESTION",
+    )
+    concrete = PlanRow(
+        row_id="MP377-P0-ACTIVE-WORK-ENVELOPE-S1",
+        title="Add canonical ActiveWorkEnvelope compiler for develop next",
+        status="queued",
+        sdlc_stage=SDLCStage.SPEC,
+        anchor_refs=(
+            "MP377-P0-PACKET-INTAKE-SCHEDULER-S1",
+            "MP377-GUARDIR-PACKET-DURABLE-INGESTION",
+        ),
+        target_ref="dev/scripts/devctl/commands/development/next_slice.py",
+    )
+
+    selected = select_next_slice((parent, scheduler, concrete))
+
+    assert selected.slice_id == "MP377-P0-ACTIVE-WORK-ENVELOPE-S1"
+    assert "active leaf rows" in selected.reason
+
+
+def test_develop_next_does_not_schedule_packet_binding_as_leaf_child() -> None:
+    parent = PlanRow(
+        row_id="MP377-P0-PACKET-INTAKE-SCHEDULER-S1",
+        title="Make packet intake resolve before next-action selection",
+        status="in_progress",
+        sdlc_stage=SDLCStage.SPEC,
+    )
+    packet_binding = PlanRow(
+        row_id="PKT-BIND-REV-PKT-3151",
+        title="Packet binding row",
+        status="queued",
+        sdlc_stage=SDLCStage.SPEC,
+        anchor_refs=("MP377-P0-PACKET-INTAKE-SCHEDULER-S1",),
+        sourced_from_packets=("rev_pkt_3151",),
+    )
+
+    selected = select_next_slice((parent, packet_binding))
+
+    assert selected.slice_id == "MP377-P0-PACKET-INTAKE-SCHEDULER-S1"
+
+
 def test_ingested_action_request_still_requires_lifecycle_attention() -> None:
     packet_row = PlanRow(
         row_id="PKT-BIND-REV-PKT-9999",
