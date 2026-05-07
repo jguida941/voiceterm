@@ -64,7 +64,6 @@ def build_report(args: Any) -> DevelopmentLoopReport:
     )
     blockers, warnings = _action_findings(action, args)
     base_next_commands = _next_commands(action)
-    next_slice = select_next_slice(rows, packet_attention=packet_attention)
     required_checks = _required_checks(action)
     runtime = runtime_snapshot_from_review_state(
         review_state,
@@ -73,18 +72,23 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         actor_source=actor_source,
     )
     dashboard = _orchestration_dashboard(REPO_ROOT)
+    orchestration = orchestration_snapshot(
+        REPO_ROOT,
+        review_state,
+        actor=actor,
+        dashboard=dashboard,
+    )
+    next_slice = select_next_slice(
+        rows,
+        packet_attention=packet_attention,
+        orchestration=orchestration,
+    )
     peer_minds = peer_mind_snapshots(REPO_ROOT, review_state, actor=actor)
     warnings = (*warnings, *peer_mind_alias_warnings(peer_minds))
     next_commands = next_commands_with_attention(
         base_next_commands,
         packet_attention=packet_attention,
         peer_minds=peer_minds,
-    )
-    orchestration = orchestration_snapshot(
-        REPO_ROOT,
-        review_state,
-        actor=actor,
-        dashboard=dashboard,
     )
     collaboration_mode = collaboration_mode_report(
         requested_mode=getattr(args, "collaboration_mode", ""),

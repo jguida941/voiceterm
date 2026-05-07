@@ -127,6 +127,18 @@ Current ingestion status:
   `daemon_supervisor`, `trigger_reason`, and `command_line`). This closes the
   immediate "why did this auto-spawn?" audit gap without making launchd labels
   or provider names authority.
+- 2026-05-07 authority-first next selector: dogfood confirmed the selector
+  must separate packets, typed authority, and selected work. Packets are
+  transport/intake events until they are dismissed, converted into receipts, or
+  ingested into plan/blocker/finding/lifecycle state. `/develop next` should
+  select active unbypassed lifecycle/startup blockers first, then packet intake
+  only when untriaged packets affect authority, then runnable typed plan rows.
+  The current repair routes startup checkpoint blockers to
+  `MP377-P0-CHECKPOINT-AUTOMATION-S1`; follow-up owner rows
+  `MP377-P0-DEVELOP-NEXT-DECISION-SCHEMA-S1`,
+  `MP377-P0-PACKET-DISPOSITION-LEDGER-S1`, and
+  `MP377-P0-COMMAND-MANIFEST-LOOP-S1` carry the typed decision object,
+  disposition ledger, command manifest, bypass, and retry policy expansion.
 - 2026-05-06 universal `GovernanceLifecycle` intake: `rev_pkt_3114` is
   accepted as a typed correction after narrowing. `MP377-GUARDIR-V21-A5`
   remains the packet/action-request lifecycle checkpoint and commit-seam proof;

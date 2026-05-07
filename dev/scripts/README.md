@@ -1296,6 +1296,12 @@ python3 dev/scripts/devctl.py relaunch-loop --action dispatch-once --dry-run --f
 # alone. Missing PacketBacklogPressure evidence fails closed to the watcher
 # report command; a stopped watcher closes only when pressure evidence exists
 # and all watched packet-pressure counts are zero.
+# `/develop next` selection is authority-first: active unbypassed startup,
+# lifecycle, or checkpoint blockers map to typed owner rows before runnable
+# plan rows. Packet ids are transport/provenance only after disposition; an
+# untriaged packet can block selection for intake, but it is not selected as
+# implementation work unless it has been ingested into typed plan/lifecycle
+# state.
 # `/develop audit-packets` consumes PacketAttentionIngestionDecision.next_command
 # after classification so the controller advances to the selected packet action
 # instead of asking the caller to rerun the audit reducer.

@@ -84,6 +84,12 @@ Use docs like this:
   or startup authority once, pass the same value into session preparation and
   the pre-spawn gate, and keep prepared script replay bound to current HEAD,
   instruction revision, and the typed `review_state.json` turn/session token.
+- `/develop next` is a typed controller decision, not a packet picker. Packets
+  are communication/intake events: they can require ingestion, produce
+  receipts, or remain provenance on a plan row, but they do not become next work
+  directly after disposition. Startup/lifecycle blockers that prevent governed
+  progress must map to their owning repair rows before ordinary queued plan
+  work is selected.
 - `devctl remote-control` owns the repo-local remote operator lifecycle:
   `start`, `enter`, `heartbeat`, `exit`, `hook`, `status`, `doctor`, and
   `dry-run` read or write `RemoteControlAttachmentState` under the governed

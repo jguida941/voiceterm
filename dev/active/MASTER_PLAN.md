@@ -147,6 +147,20 @@
   session before flagging packet-id drift. Remote-control packet truth remains
   fail-closed: stale TTLs do not promote remote-control mode, and current
   packet debt still requires checkpoint/repair before mutable fanout.
+- 2026-05-07 typed next-selector/checkpoint automation (MP-377):
+  `/develop next` is being tightened into an authority-first selector over
+  typed plan, lifecycle, blocker, and bypass state. Packets are communication
+  and provenance after disposition; unresolved packet intake can block
+  authoritative selection, but packet ids do not become implementation work
+  directly. Current owner rows are `MP377-P0-CHECKPOINT-AUTOMATION-S1`,
+  `MP377-P0-TOPOLOGY-NEUTRAL-NEXT-S1`,
+  `MP377-P0-NEXT-BLOCKER-LIFECYCLE-S1`,
+  `MP377-P0-DEVELOP-NEXT-DECISION-SCHEMA-S1`,
+  `MP377-P0-PACKET-DISPOSITION-LEDGER-S1`, and
+  `MP377-P0-COMMAND-MANIFEST-LOOP-S1`. The immediate implementation slice
+  auto-includes managed projection dirt in governed checkpoint scope, preserves
+  `.git/index.lock` as a retryable typed action result, and prevents
+  receipt-only staged indexes from hiding dirty source work.
 - 2026-05-06 universal GovernanceLifecycle typed intake (MP-377):
   `rev_pkt_3114` was ingested as a narrowed typed correction, not a new
   top-level plan row. `MP377-GUARDIR-V21-A5` remains the packet/action-request

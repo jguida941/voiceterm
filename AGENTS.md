@@ -23,6 +23,7 @@
    If it returns `continuation_required`, run its `next_step_command`.
    Packet audits advance through that typed next step instead of rerunning the same reducer.
    Archived packet-history rows are audit evidence, not live packet-attention blockers.
+   Selection comes from typed plan/lifecycle authority; packet ids are intake/provenance only unless unresolved intake blocks authority.
 
 ## Typed authority
 

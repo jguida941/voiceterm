@@ -14656,3 +14656,38 @@ Evidence:
 - `dev/scripts/devctl/review_channel/lifecycle_state.py`
 - `dev/scripts/devctl/review_channel/follow_loop_support.py`
 - `dev/config/launchd/review_channel_publisher_service.py`
+
+### 2026-05-07 - Develop next now routes blocker authority before packet salience
+
+Dogfood work on the Codex/Claude control loop showed that packet attention,
+typed plan authority, and selector output were still partially conflated.
+Packets are communication and intake evidence; after disposition or plan
+ingestion they should be provenance on typed state, not selectable work. The
+same session also exposed two checkpoint automation gaps: managed projection
+dirt could sit outside an explicit checkpoint path list, and `.git/index.lock`
+sandbox failures were retryable action results without a durable recovery
+decision.
+
+Change: `/develop next` now consumes orchestration blockers when selecting the
+next plan row, routing startup/checkpoint blockers to
+`MP377-P0-CHECKPOINT-AUTOMATION-S1` before ordinary runnable work and leaving
+packet ids as provenance unless unresolved intake blocks authority. Governed
+checkpoint staging now expands explicit path selections with managed projection
+dirt from startup authority, marks index-lock write blocks as retryable typed
+action results, and avoids reusing receipt-only staged indexes when real source
+work remains dirty. The broader follow-up architecture is preserved in typed
+plan rows for selector decision records, packet disposition receipts, command
+manifests, and retryable action recovery.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/next_slice.py`
+- `dev/scripts/devctl/commands/development/report.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_managed_projection.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_phases.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_index_lock.py`
+- `dev/scripts/devctl/commands/vcs/commit_preflight_validators.py`
+- `dev/state/plan_index.jsonl`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `dev/scripts/devctl/tests/vcs/test_commit_gate.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`

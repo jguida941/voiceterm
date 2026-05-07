@@ -38,6 +38,7 @@ from .governed_executor_stage_index import (
     stage_selected_paths as _stage_selected_paths,
     staged_tree_hash_or_failure,
 )
+from .governed_executor_managed_projection import include_managed_projection_paths
 
 ResultBuilder = Callable[..., ActionResult]
 PipelinePersister = Callable[[RemoteCommitPipelineContract], list[str]]
@@ -221,6 +222,7 @@ def execute_stage(
     allow_empty = bool_field(action.parameters, "allow_empty")
     worktree_dirty = dirty_paths(repo_root)
     selected_paths = normalize_paths(action.parameters.get("paths"))
+    stage_scope_warnings: list[str] = []
     if reuse_staged_index:
         failure, refresh_warnings, staged = _refresh_staged_snapshot(
             action,
@@ -255,6 +257,10 @@ def execute_stage(
             operator_guidance="Create or modify repo files before running `vcs.stage`.",
         )
     if not reuse_staged_index and selected_paths:
+        selected_paths, stage_scope_warnings = include_managed_projection_paths(
+            selected_paths=selected_paths,
+            startup_context=startup_context,
+        )
         outside_scope = sorted(set(worktree_dirty) - set(selected_paths))
         if outside_scope:
             return result_builder(
@@ -297,6 +303,7 @@ def execute_stage(
         )
         if failure is not None:
             return failure
+        refresh_warnings = [*stage_scope_warnings, *refresh_warnings]
 
     tree_hash, tree_failure = staged_tree_hash_or_failure(
         action,

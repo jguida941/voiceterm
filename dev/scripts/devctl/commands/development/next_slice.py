@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 from ...runtime.master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL, PlanRow
-from .models import DevelopmentNextSlice, DevelopmentPacketAttention
+from .models import (
+    DevelopmentNextSlice,
+    DevelopmentOrchestrationSnapshot,
+    DevelopmentPacketAttention,
+)
 
 
 def select_next_slice(
     rows: tuple[PlanRow, ...],
     *,
     packet_attention: DevelopmentPacketAttention | None = None,
+    orchestration: DevelopmentOrchestrationSnapshot | None = None,
 ) -> DevelopmentNextSlice:
     """Select the next bounded development row from typed state."""
     packet_row = _packet_attention_row(rows, packet_attention)
@@ -49,6 +54,20 @@ def select_next_slice(
             target_ref=packet_attention.required_command,
             status="attention_required",
             reason="Packet attention preempts ordinary typed plan-row selection.",
+        )
+    selected = _orchestration_blocker_row(rows, orchestration)
+    if selected is not None:
+        return DevelopmentNextSlice(
+            slice_id=selected.row_id,
+            source=selected.source_doc_path or DEFAULT_MASTER_PLAN_STORE_REL,
+            title=selected.title,
+            target_ref=selected.target_ref,
+            status=selected.status,
+            reason=(
+                "Selected from typed orchestration blockers mapped to active "
+                "plan rows; compatibility topology labels remain projection "
+                "vocabulary, not scheduling authority."
+            ),
         )
     selected = _active_leaf_row(rows)
     if selected is None:
@@ -112,6 +131,141 @@ def _has_active_child(row: PlanRow, rows: tuple[PlanRow, ...]) -> bool:
 
 def _packet_binding_row(row: PlanRow) -> bool:
     return row.row_id.startswith("PKT-BIND-")
+
+
+def _orchestration_blocker_row(
+    rows: tuple[PlanRow, ...],
+    orchestration: DevelopmentOrchestrationSnapshot | None,
+) -> PlanRow | None:
+    if orchestration is None or not orchestration.action_required_count:
+        return None
+    text = _orchestration_blocker_text(orchestration)
+    if not text:
+        return None
+    categories = _blocker_categories(text)
+    for category in categories:
+        selected = _first_active_row_by_id(rows, _CATEGORY_ROW_IDS[category])
+        if selected is not None:
+            return selected
+    return None
+
+
+def _orchestration_blocker_text(
+    orchestration: DevelopmentOrchestrationSnapshot,
+) -> str:
+    values: list[str] = []
+    for row in orchestration.agent_loop_decisions:
+        if row.safe_to_continue and not row.top_blocker:
+            continue
+        values.extend(
+            (
+                row.top_blocker,
+                row.required_action,
+                row.lifecycle_state,
+            )
+        )
+    for signal in orchestration.signals:
+        if signal.status not in {"action_required", "blocked", "stale"}:
+            continue
+        values.extend(
+            (
+                signal.summary,
+                signal.recommended_action,
+                signal.signal_id,
+            )
+        )
+    return " ".join(value for value in values if value).lower()
+
+
+def _blocker_categories(text: str) -> tuple[str, ...]:
+    categories: list[str] = []
+    if _has_any(
+        text,
+        (
+            "active_dual_agent",
+            "single_agent",
+            "tools_only",
+            "topology",
+            "no_live_agents",
+            "reviewer mode",
+            "live loop",
+            "coordination_resync",
+            "resync",
+            "inactive",
+        ),
+    ):
+        categories.append("topology")
+    if _has_any(
+        text,
+        (
+            "next selector",
+            "activeworkenvelope",
+            "active work envelope",
+            "develop next",
+        ),
+    ):
+        categories.append("selector")
+    if _has_any(
+        text,
+        (
+            "checkpoint",
+            "index.lock",
+            "git_index_write_blocked",
+            "import_index_atomicity",
+            "dirty_path_budget_exceeded",
+            "dirty_after_local_checkpoint",
+            "startup authority",
+            "startup_authority",
+            "managed projection",
+            "vcs.stage",
+        ),
+    ):
+        categories.append("checkpoint")
+    if _has_any(text, ("code-shape", "code shape", "pytest", "test execution")):
+        categories.append("test_policy")
+    return tuple(dict.fromkeys(categories))
+
+
+def _has_any(text: str, terms: tuple[str, ...]) -> bool:
+    return any(term in text for term in terms)
+
+
+_CATEGORY_ROW_IDS = {
+    "topology": (
+        "MP377-P0-TOPOLOGY-NEUTRAL-NEXT-S1",
+        "MP377-P0-ROLE-MATRIX-ROSTER-S1",
+        "MP377-P0-LIFECYCLE-ROLE-SIGNOFF-S1",
+        "MP377-P0-T22AN-L",
+    ),
+    "selector": (
+        "MP377-P0-TOPOLOGY-NEUTRAL-NEXT-S1",
+        "MP377-P0-ACTIVE-WORK-ENVELOPE-S1",
+        "MP377-P0-PACKET-INTAKE-SCHEDULER-S1",
+    ),
+    "checkpoint": (
+        "MP377-P0-CHECKPOINT-AUTOMATION-S1",
+        "MP377-P0-T22AN-AB",
+    ),
+    "test_policy": (
+        "MP377-P0-T22AN-AB",
+    ),
+}
+
+
+def _first_active_row_by_id(
+    rows: tuple[PlanRow, ...],
+    row_ids: tuple[str, ...],
+) -> PlanRow | None:
+    active_by_id = {
+        row.row_id: row
+        for row in rows
+        if row.status in {"in_progress", "queued"} and not _packet_binding_row(row)
+    }
+    for row_id in row_ids:
+        row = active_by_id.get(row_id)
+        if row is not None:
+            return row
+    return None
 
 
 def _packet_attention_row(

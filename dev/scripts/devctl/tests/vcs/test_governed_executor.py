@@ -111,6 +111,21 @@ def _actor_authority(
     )
 
 
+def _remote_control_attachment(
+    provider: str,
+    *,
+    role: str = "operator",
+) -> SimpleNamespace:
+    """Return a fresh identity-bound remote-control attachment fixture."""
+    return SimpleNamespace(
+        provider=provider,
+        role=role,
+        status="attached",
+        remote_session_id=f"remote-session-{provider}",
+        last_seen_utc="2999-01-01T00:00:00Z",
+    )
+
+
 def test_stage_action_persists_staged_snapshot_hash(tmp_path: Path) -> None:
     repo_root = _init_repo(tmp_path / "repo")
     (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
@@ -360,6 +375,7 @@ def test_stage_surfaces_write_tree_error_when_git_index_is_blocked(
     )
     assert result.remediation == "stage_commit_pipeline"
     assert result.auto_executable is False
+    assert result.retryable is True
     assert result.errors[0]["reason"] == "git_index_write_blocked"
     assert result.warnings == (
         "fatal: Unable to create '/tmp/repo/.git/index.lock': Operation not permitted",
@@ -402,9 +418,55 @@ def test_stage_surfaces_git_add_sandbox_block_as_index_write_blocked(
     )
     assert result.remediation == "stage_commit_pipeline"
     assert result.auto_executable is False
+    assert result.retryable is True
     assert result.errors[0]["reason"] == "git_index_write_blocked"
     assert result.warnings == (
         "fatal: Unable to create '/tmp/repo/.git/index.lock': Operation not permitted",
+    )
+
+
+def test_stage_auto_includes_startup_managed_projection_drift(
+    tmp_path: Path,
+) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    (repo_root / "bridge.md").write_text("initial bridge\n", encoding="utf-8")
+    _run_git(repo_root, "add", "bridge.md")
+    _run_git(repo_root, "commit", "-m", "add bridge projection")
+    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+    (repo_root / "bridge.md").write_text("updated bridge\n", encoding="utf-8")
+
+    def startup_context_fn(*, repo_root: Path) -> SimpleNamespace:
+        del repo_root
+        base = _startup_context(repo_root=Path("/unused"))
+        return SimpleNamespace(
+            **base.__dict__,
+            governance=SimpleNamespace(
+                push_enforcement=SimpleNamespace(
+                    managed_projection_dirty_paths=("bridge.md",)
+                )
+            ),
+        )
+
+    executor = _executor(repo_root, startup_context_fn=startup_context_fn)
+
+    result = executor.execute(
+        build_stage_action(
+            repo_pack_id="test-pack",
+            paths=("tracked.txt",),
+            commit_message_draft="feat: update tracked file",
+            push_requested=True,
+            guard_profile="bundle.tooling",
+            work_intake_ref="MP-377",
+        )
+    )
+
+    pipeline = executor.load_pipeline()
+    assert result.ok is True
+    assert "tracked.txt" in pipeline.intent.staged_paths
+    assert "bridge.md" in pipeline.intent.staged_paths
+    assert any(
+        warning == "managed_projection_paths_auto_included=bridge.md"
+        for warning in result.warnings
     )
 
 
@@ -1561,10 +1623,7 @@ def test_commit_execution_target_routes_remote_control_publication_to_implemente
             reviewer_mode="active_dual_agent",
         ),
         reviewer_runtime=SimpleNamespace(
-            remote_control_attachment=SimpleNamespace(
-                provider="claude",
-                status="attached",
-            )
+            remote_control_attachment=_remote_control_attachment("claude")
         ),
     )
 
@@ -1616,10 +1675,7 @@ def test_commit_execution_target_fails_closed_when_provider_is_live_as_operator_
             reviewer_mode="active_dual_agent",
         ),
         reviewer_runtime=SimpleNamespace(
-            remote_control_attachment=SimpleNamespace(
-                provider="claude",
-                status="attached",
-            )
+            remote_control_attachment=_remote_control_attachment("claude")
         ),
     )
 
@@ -1659,10 +1715,7 @@ def test_commit_stage_target_routes_remote_operator_attachment() -> None:
             reviewer_mode="single_agent",
         ),
         reviewer_runtime=SimpleNamespace(
-            remote_control_attachment=SimpleNamespace(
-                provider="claude",
-                status="attached",
-            )
+            remote_control_attachment=_remote_control_attachment("claude")
         ),
     )
 
@@ -1711,10 +1764,7 @@ def test_commit_stage_target_prefers_remote_attachment_over_local_executor() -> 
             reviewer_mode="single_agent",
         ),
         reviewer_runtime=SimpleNamespace(
-            remote_control_attachment=SimpleNamespace(
-                provider="claude",
-                status="attached",
-            )
+            remote_control_attachment=_remote_control_attachment("claude")
         ),
     )
 
@@ -1770,11 +1820,7 @@ def test_commit_stage_target_prefers_implementer_when_reviewer_is_attached() -> 
             reviewer_mode="active_dual_agent",
         ),
         reviewer_runtime=SimpleNamespace(
-            remote_control_attachment=SimpleNamespace(
-                provider="codex",
-                role="operator",
-                status="attached",
-            )
+            remote_control_attachment=_remote_control_attachment("codex")
         ),
     )
 
@@ -1830,10 +1876,9 @@ def test_commit_stage_target_reroutes_reviewer_role_attachment() -> None:
             reviewer_mode="active_dual_agent",
         ),
         reviewer_runtime=SimpleNamespace(
-            remote_control_attachment=SimpleNamespace(
-                provider="codex",
+            remote_control_attachment=_remote_control_attachment(
+                "codex",
                 role="reviewer",  # NOT "operator"; mirrors live session shape
-                status="attached",
             )
         ),
     )
@@ -1890,10 +1935,9 @@ def test_commit_stage_target_reroutes_to_actor_authority_mutation_owner() -> Non
             reviewer_mode="tools_only",
         ),
         reviewer_runtime=SimpleNamespace(
-            remote_control_attachment=SimpleNamespace(
-                provider="codex",
+            remote_control_attachment=_remote_control_attachment(
+                "codex",
                 role="reviewer",
-                status="attached",
             )
         ),
     )
@@ -1945,11 +1989,7 @@ def test_commit_stage_target_ignores_mismatched_capability_provider() -> None:
             reviewer_mode="single_agent",
         ),
         reviewer_runtime=SimpleNamespace(
-            remote_control_attachment=SimpleNamespace(
-                provider="codex",
-                role="operator",
-                status="attached",
-            )
+            remote_control_attachment=_remote_control_attachment("codex")
         ),
     )
 
@@ -2006,11 +2046,7 @@ def test_commit_stage_target_does_not_reroute_to_dead_implementer_lane() -> None
             reviewer_mode="single_agent",
         ),
         reviewer_runtime=SimpleNamespace(
-            remote_control_attachment=SimpleNamespace(
-                provider="codex",
-                role="operator",
-                status="attached",
-            )
+            remote_control_attachment=_remote_control_attachment("codex")
         ),
     )
 

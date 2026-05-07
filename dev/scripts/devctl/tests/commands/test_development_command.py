@@ -25,6 +25,7 @@ from dev.scripts.devctl.commands.development.models import (
 )
 from dev.scripts.devctl.commands.development.continuation import continuation_signal
 from dev.scripts.devctl.commands.development.orchestration_models import (
+    DevelopmentAgentLoopInput,
     DevelopmentContinuationRequiredSignal,
     DevelopmentOrchestrationSnapshot,
     DevelopmentWatcherLease,
@@ -1806,6 +1807,139 @@ def test_develop_next_does_not_schedule_packet_binding_as_leaf_child() -> None:
     selected = select_next_slice((parent, packet_binding))
 
     assert selected.slice_id == "MP377-P0-PACKET-INTAKE-SCHEDULER-S1"
+
+
+def test_develop_next_maps_topology_blocker_to_typed_repair_row() -> None:
+    active_general = PlanRow(
+        row_id="MP377-P0-T22AN-AB",
+        title="Bound Python test execution through typed validation policy",
+        status="in_progress",
+        sdlc_stage=SDLCStage.IMPL,
+    )
+    topology_repair = PlanRow(
+        row_id="MP377-P0-TOPOLOGY-NEUTRAL-NEXT-S1",
+        title="Make next selection topology-neutral and repair-oriented",
+        status="queued",
+        sdlc_stage=SDLCStage.SPEC,
+        anchor_refs=("MP377-P0-ACTIVE-WORK-ENVELOPE-S1",),
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        status="action_required",
+        action_required_count=1,
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="s1",
+                lifecycle_state="blocked",
+                required_action="resolve_blocker",
+                loop_mode="run_or_report_blocker",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="satisfied",
+                top_blocker=(
+                    "Reviewer mode active_dual_agent is inactive with "
+                    "observed topology no_live_agents"
+                ),
+            ),
+        ),
+    )
+
+    selected = select_next_slice(
+        (active_general, topology_repair),
+        orchestration=orchestration,
+    )
+
+    assert selected.slice_id == "MP377-P0-TOPOLOGY-NEUTRAL-NEXT-S1"
+    assert "compatibility topology labels" in selected.reason
+
+
+def test_develop_next_maps_checkpoint_blocker_to_checkpoint_automation_row() -> None:
+    active_general = PlanRow(
+        row_id="MP377-P0-T22AN-AB",
+        title="Bound Python test execution through typed validation policy",
+        status="in_progress",
+        sdlc_stage=SDLCStage.IMPL,
+    )
+    checkpoint_repair = PlanRow(
+        row_id="MP377-P0-CHECKPOINT-AUTOMATION-S1",
+        title="Automate governed checkpoint projection and sandbox recovery",
+        status="queued",
+        sdlc_stage=SDLCStage.SPEC,
+        anchor_refs=("MP377-P0-T22AN-AB",),
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        status="action_required",
+        action_required_count=1,
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="s1",
+                lifecycle_state="blocked",
+                required_action="resolve_blocker",
+                loop_mode="run_or_report_blocker",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="satisfied",
+                top_blocker="git_index_write_blocked while staging managed projection",
+            ),
+        ),
+    )
+
+    selected = select_next_slice(
+        (active_general, checkpoint_repair),
+        orchestration=orchestration,
+    )
+
+    assert selected.slice_id == "MP377-P0-CHECKPOINT-AUTOMATION-S1"
+
+
+def test_develop_next_maps_startup_checkpoint_blocker_to_checkpoint_row() -> None:
+    active_general = PlanRow(
+        row_id="MP377-P0-T22AN-AC",
+        title="Repair import index atomicity guard",
+        status="in_progress",
+        sdlc_stage=SDLCStage.IMPL,
+    )
+    checkpoint_repair = PlanRow(
+        row_id="MP377-P0-CHECKPOINT-AUTOMATION-S1",
+        title="Automate governed checkpoint projection and sandbox recovery",
+        status="queued",
+        sdlc_stage=SDLCStage.SPEC,
+        anchor_refs=("MP377-P0-T22AN-AB",),
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        status="action_required",
+        action_required_count=1,
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="s1",
+                lifecycle_state="blocked",
+                required_action="resolve_blocker",
+                loop_mode="run_or_report_blocker",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="satisfied",
+                top_blocker=(
+                    "startup authority: import_index_atomicity "
+                    "dirty_path_budget_exceeded"
+                ),
+            ),
+        ),
+    )
+
+    selected = select_next_slice(
+        (active_general, checkpoint_repair),
+        orchestration=orchestration,
+    )
+
+    assert selected.slice_id == "MP377-P0-CHECKPOINT-AUTOMATION-S1"
 
 
 def test_ingested_action_request_still_requires_lifecycle_attention() -> None:

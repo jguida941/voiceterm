@@ -46,6 +46,7 @@ def git_index_result_kwargs(
         "reason_chain": tuple(error_fields["reason_chain"]),
         "remediation": str(error_fields["remediation"]),
         "auto_executable": bool(error_fields["auto_executable"]),
+        "retryable": bool(error_fields["retryable"]),
     }
 
 
@@ -69,14 +70,19 @@ def _git_index_error_fields(
     if reason == "git_index_write_blocked":
         reason_chain.extend(["git_index_write_blocked", "sandbox_index_lock_denied"])
         remediation = "stage_commit_pipeline"
+        retryable = True
     elif reason == "git_index_lock_busy":
         reason_chain.extend(["git_index_lock_busy", "bounded_backoff_exhausted"])
         remediation = "retry_git_index_write_after_backoff"
         auto_executable = True
+        retryable = True
+    else:
+        retryable = False
     return {
         "reason": reason,
         "reason_chain": reason_chain,
         "message": error,
         "remediation": remediation,
         "auto_executable": auto_executable,
+        "retryable": retryable,
     }

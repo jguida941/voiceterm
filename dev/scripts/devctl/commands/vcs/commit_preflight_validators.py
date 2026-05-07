@@ -27,7 +27,12 @@ from .governed_executor_commit_runtime import (
     post_commit_execution_handoff,
     post_commit_stage_handoff,
 )
-from .governed_executor_git import pipeline_is_stale_for_current_repo
+from .governed_executor_git import (
+    dirty_paths,
+    pipeline_is_stale_for_current_repo,
+    staged_paths,
+)
+from .governed_executor_stage_snapshot import non_receipt_artifact_paths
 from ...runtime.remote_commit_pipeline_state import BLOCKING_PIPELINE_STATES
 
 _REUSABLE_PIPELINE_STATES = frozenset(
@@ -118,6 +123,7 @@ def prepare_pipeline(
                 guard_profile=GUARD_PROFILE,
                 work_intake_ref="devctl.commit",
                 reuse_staged_index=_reuse_staged_index(
+                    repo_root=repo_root,
                     selected_paths=selected_paths,
                     action_request_grant=action_request_grant,
                 ),
@@ -176,6 +182,7 @@ def _selected_stage_paths(args) -> tuple[str, ...]:
 
 def _reuse_staged_index(
     *,
+    repo_root: Path,
     selected_paths: tuple[str, ...],
     action_request_grant: object | None,
 ) -> bool:
@@ -185,6 +192,13 @@ def _reuse_staged_index(
     if _grant_has_capability(action_request_grant, "repo.stage"):
         return False
     if _grant_has_capability(action_request_grant, "repo.stage_handoff"):
+        return False
+    try:
+        staged = staged_paths(repo_root)
+        dirty = dirty_paths(repo_root)
+    except (OSError, ValueError):
+        return True
+    if dirty and not non_receipt_artifact_paths(repo_root=repo_root, paths=staged):
         return False
     return True
 

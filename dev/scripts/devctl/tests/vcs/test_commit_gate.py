@@ -208,7 +208,7 @@ def _persist_remote_operator_attachment(
             session_url=f"https://example.invalid/{provider}-session",
             status="attached",
             attached_at_utc="2026-04-18T14:00:00Z",
-            last_seen_utc="2026-04-18T14:00:01Z",
+            last_seen_utc="2999-01-01T00:00:00Z",
         ),
         output_root=repo_root / active_path_config().review_status_dir_rel,
     )
@@ -540,8 +540,7 @@ class TestStartupActionRouting(unittest.TestCase):
         self.assertEqual(captured["escalation_action"], "operator_resync_required")
         self.assertEqual(
             captured["next_command"],
-            "python3 dev/scripts/devctl.py review-channel --action status "
-            "--terminal none --format json",
+            'python3 dev/scripts/devctl.py commit -m "<descriptive message>"',
         )
 
     def test_prepare_pipeline_blocks_push_blocked_pipeline_with_exact_next_command(
@@ -1455,6 +1454,31 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             self.assertIn("tracked.txt", pipeline.intent.staged_paths)
             self.assertTrue(pipeline.commit_sha)
 
+    def test_commit_retries_receipt_only_index_by_staging_dirty_work(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            executor = _executor(repo_root, refresh_projections=False)
+            snapshot_path = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+            snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+            snapshot_path.write_text("receipt only\n", encoding="utf-8")
+            _run_git(repo_root, "add", "dev/audits/REVIEW_SNAPSHOT.md")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            guard_runner = MagicMock(return_value=_mock_subprocess_result(0))
+
+            rc = run_commit(
+                _make_args(message="feat: retry receipt-only index"),
+                repo_root=repo_root,
+                policy=_push_policy(),
+                executor=executor,
+                interaction_mode="local_terminal",
+                guard_runner=guard_runner,
+            )
+
+            pipeline = executor.load_pipeline()
+            self.assertEqual(rc, 0)
+            self.assertEqual(pipeline.state, "commit_recorded")
+            self.assertIn("tracked.txt", pipeline.intent.staged_paths)
+
     def test_commit_paths_fail_closed_when_dirty_work_is_outside_scope(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")
@@ -1745,7 +1769,7 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             self.assertEqual(captured["status"], "committed")
             authority = captured["action_request_authority"]
             self.assertEqual(authority["packet_id"], packet_id)
-            self.assertEqual(authority["granted_capabilities"], ["repo.stage_handoff"])
+            self.assertEqual(authority["granted_capabilities"], ["repo.stage", "repo.commit"])
             self.assertTrue(authority["execution_receipt_event_id"])
             self.assertEqual(authority["lifecycle_state"], "applied")
             self.assertEqual(pipeline.intent.staged_paths, ("tracked.txt",))
