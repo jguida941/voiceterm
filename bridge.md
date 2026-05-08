@@ -81,7 +81,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-05-08T09:57:40Z`
 - Last Codex poll (Local America/New_York): `2026-05-08 05:57:40 EDT`
 - Reviewer mode: `tools_only`
-- Last non-audit worktree hash: `b8d5ce4c18a420da434b7b38cc44a271815315f2be0f594a80af196f2f3d77ce`
+- Last non-audit worktree hash: `26f57bec5f4139cfa0e93b625653c36cf461a1d162a1d621aa6b27ed23e7aa63`
 - Current instruction revision: ``
 
 ## Protocol
@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-- Status unavailable.
+assigned
 
 ## Claude Questions
 

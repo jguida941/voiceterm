@@ -215,6 +215,12 @@ class PushCommandTests(unittest.TestCase):
         )
         self.sync_bridge_mock = self._sync_bridge_patcher.start()
         self.addCleanup(self._sync_bridge_patcher.stop)
+        self._worktree_identity_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push.worktree_identity_for_repo",
+            return_value="unit-worktree",
+        )
+        self.worktree_identity_mock = self._worktree_identity_patcher.start()
+        self.addCleanup(self._worktree_identity_patcher.stop)
         self._preflight_status_patcher = patch(
             "dev.scripts.devctl.commands.vcs.push_preflight_commit.collect_git_status",
             return_value={"changes": []},
@@ -1883,6 +1889,31 @@ class PushCommandTests(unittest.TestCase):
 
 class PushBridgeSyncTests(unittest.TestCase):
     def setUp(self) -> None:
+        self._orphan_advisory_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push.append_orphan_snapshot_advisory"
+        )
+        self.orphan_advisory_mock = self._orphan_advisory_patcher.start()
+        self.addCleanup(self._orphan_advisory_patcher.stop)
+        self._snapshot_refresh_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push_preflight_projection."
+            "refresh_review_snapshot_file",
+            return_value=[],
+        )
+        self.snapshot_refresh_mock = self._snapshot_refresh_patcher.start()
+        self.addCleanup(self._snapshot_refresh_patcher.stop)
+        self._worktree_identity_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push.worktree_identity_for_repo",
+            return_value="unit-worktree",
+        )
+        self.worktree_identity_mock = self._worktree_identity_patcher.start()
+        self.addCleanup(self._worktree_identity_patcher.stop)
+        self._pipeline_sync_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push."
+            "sync_commit_pipeline_with_push_report",
+            return_value=False,
+        )
+        self.pipeline_sync_mock = self._pipeline_sync_patcher.start()
+        self.addCleanup(self._pipeline_sync_patcher.stop)
         self._preflight_status_patcher = patch(
             "dev.scripts.devctl.commands.vcs.push_preflight_commit.collect_git_status",
             return_value={"changes": []},
@@ -2233,6 +2264,10 @@ class PushBridgeSyncTests(unittest.TestCase):
             ),
             patch(
                 "dev.scripts.devctl.commands.vcs.push.append_orphan_snapshot_advisory"
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push."
+                "_sync_bridge_projection_before_preflight"
             ),
             patch(
                 "dev.scripts.devctl.commands.vcs.push.refresh_managed_projections_before_preflight",
@@ -4542,6 +4577,17 @@ class PushBridgeSyncTests(unittest.TestCase):
             push_preflight_projection,
             "auto_commit_managed_projection_receipt",
             return_value={"ok": True, "committed": False, "paths": ()},
+        ), patch.object(
+            push_preflight_projection,
+            "refresh_stale_reviewer_heartbeat_before_publication",
+            return_value={
+                "step": "reviewer_heartbeat_refresh",
+                "status": "skipped",
+                "reason": "unit_test",
+            },
+        ), patch(
+            "dev.scripts.devctl.commands.vcs.push."
+            "_sync_bridge_projection_before_preflight"
         ):
             rc = push.run(make_args(execute=True, skip_post_push=True))
 
@@ -4628,6 +4674,10 @@ class PushBridgeSyncTests(unittest.TestCase):
                     "status": "skipped",
                     "reason": "unit_test",
                 },
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push."
+                "_sync_bridge_projection_before_preflight"
             ),
         ):
             rc = push.run(make_args(execute=True))
@@ -4724,6 +4774,10 @@ class PushBridgeSyncTests(unittest.TestCase):
                     "status": "skipped",
                     "reason": "unit_test",
                 },
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push."
+                "_sync_bridge_projection_before_preflight"
             ),
         ):
             rc = push.run(make_args(execute=True))
@@ -4868,6 +4922,10 @@ class PushBridgeSyncTests(unittest.TestCase):
                     "status": "skipped",
                     "reason": "unit_test",
                 },
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push."
+                "_sync_bridge_projection_before_preflight"
             ),
         ):
             rc = push.run(make_args(execute=True))

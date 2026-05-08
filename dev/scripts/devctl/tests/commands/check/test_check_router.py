@@ -281,14 +281,22 @@ class CheckRouterTests(unittest.TestCase):
         ]
         self.assertEqual(len(devctl_commands), 11)
         for command in devctl_commands:
-            self.assertEqual(command.count("--path "), 1)
             if "dev/scripts/devctl/tests/commands/test_development_command.py" in command:
+                self.assertEqual(command.count("--path "), 1)
                 self.assertIn("--timeout-seconds 900", command)
+                self.assertIn("--parallel-workers 1", command)
             elif "dev/scripts/devctl/tests/vcs/test_push.py" in command:
-                self.assertIn("--timeout-seconds 600", command)
+                self.assertEqual(command.count("--path "), 6)
+                self.assertIn(
+                    "dev/scripts/devctl/tests/vcs/test_push.py::PushBridgeSyncTests",
+                    command,
+                )
+                self.assertIn("--timeout-seconds 240", command)
+                self.assertIn("--parallel-workers 4", command)
             else:
+                self.assertEqual(command.count("--path "), 1)
                 self.assertIn("--timeout-seconds 420", command)
-            self.assertIn("--parallel-workers 1", command)
+                self.assertIn("--parallel-workers 1", command)
 
     @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")

@@ -54,8 +54,8 @@ def test_build_python_test_command_applies_push_target_timeout_floor() -> None:
         timeout_seconds=120,
     )
 
-    assert resolved.timeout_seconds == 600
-    assert "--repo-session-timeout-seconds=600" in resolved.command
+    assert resolved.timeout_seconds == 240
+    assert "--repo-session-timeout-seconds=240" in resolved.command
 
 
 def test_test_python_command_threads_timeout_to_runner_env() -> None:

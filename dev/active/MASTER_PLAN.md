@@ -6495,7 +6495,12 @@ become the main product surface.
     `test_development_command.py` passing in 435.45s only after a 600s typed
     session. The router now splits focused devctl targets into serial
     single-target sessions with a 420s measured floor plus target-specific
-    measured overrides.
+    measured overrides. 2026-05-08 push-preflight dogfood found
+    `test_push.py` passing its assertions but timing out as one serial 600s
+    target; the push tests now mock live repo-scale projection scans in unit
+    paths, `check-router` emits class-level pytest node-id shards for that
+    file with four `test-python` workers, and its typed target floor is reduced
+    to 240s from measured 80.48s serial / 48.31s sharded proof.
   - [ ] `MP377-P0-T22AN-AC` now owns fresh-session orientation automation:
     `devctl session` must run startup-context, session-resume, live
     review-channel status, and context-graph bootstrap before answering

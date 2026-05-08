@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-05-06
+**Last Updated:** 2026-05-08
 
 ## At a Glance
 
@@ -57,6 +57,27 @@ Evidence:
 - `AGENTS.md`
 - `dev/scripts/devctl/tests/governance/test_session_orientation.py`
 - `dev/scripts/devctl/tests/governance/test_render_surfaces.py`
+
+### 2026-05-08 - Push preflight pytest routing shards large devctl tests
+
+Dogfood push preflight exposed a bad validation shape: `test_push.py` was a
+unit-test file, but check-router treated it as one serial 600s pytest target.
+The tests passed their assertions and still timed out at the session ceiling,
+which made a larger budget look like the path of least resistance.
+
+Change: push-flow unit tests now mock live repo-scale projection scans unless
+the test is explicitly covering that projection behavior. Check-router routes
+`test_push.py` as class-level pytest node-id shards through `devctl
+test-python --parallel-workers 4`, and the typed target floor dropped from
+600s to 240s after measured proof: 80.48s serial and 48.31s sharded.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/check/router_python_tests.py`
+- `dev/scripts/devctl/runtime/python_test_contract.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/scripts/devctl/tests/commands/check/test_check_router.py`
+- `dev/scripts/devctl/tests/commands/test_python_tests.py`
 
 ### 2026-05-06 - Universal governance lifecycle is typed into existing rows
 

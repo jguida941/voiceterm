@@ -7,9 +7,20 @@ from ...config import REPO_ROOT
 _FOCUSED_DEVCTL_TEST_BASE_TIMEOUT_SECONDS = 420
 _FOCUSED_DEVCTL_TEST_PER_TEST_TIMEOUT_SECONDS = 90
 _FOCUSED_DEVCTL_TEST_PARALLEL_WORKERS = 1
+_FOCUSED_DEVCTL_TEST_SHARDED_PARALLEL_WORKERS = 4
 _FOCUSED_DEVCTL_TEST_TARGET_TIMEOUT_SECONDS = {
     "dev/scripts/devctl/tests/commands/test_development_command.py": 900,
-    "dev/scripts/devctl/tests/vcs/test_push.py": 600,
+    "dev/scripts/devctl/tests/vcs/test_push.py": 240,
+}
+_FOCUSED_DEVCTL_TEST_TARGET_SHARDS = {
+    "dev/scripts/devctl/tests/vcs/test_push.py": (
+        "dev/scripts/devctl/tests/vcs/test_push.py::PushParserTests",
+        "dev/scripts/devctl/tests/vcs/test_push.py::PushCommandTests",
+        "dev/scripts/devctl/tests/vcs/test_push.py::PushBridgeSyncTests",
+        "dev/scripts/devctl/tests/vcs/test_push.py::PushLiveExecutionTests",
+        "dev/scripts/devctl/tests/vcs/test_push.py::PushReceiptTests",
+        "dev/scripts/devctl/tests/vcs/test_push.py::PushPipelineStateSyncTests",
+    ),
 }
 
 
@@ -118,20 +129,43 @@ def _operator_console_test_command(matched_paths: list[str]) -> str:
 
 
 def _devctl_test_commands(test_paths: tuple[str, ...]) -> list[str]:
-    return [
-        _devctl_test_command(test_path)
-        for test_path in sorted(test_paths)
-    ]
+    commands: list[str] = []
+    for test_path in sorted(test_paths):
+        shard_targets = _FOCUSED_DEVCTL_TEST_TARGET_SHARDS.get(test_path)
+        if shard_targets:
+            commands.append(
+                _devctl_test_command_for_targets(
+                    shard_targets,
+                    timeout_seconds=_devctl_test_timeout_seconds(test_path),
+                    parallel_workers=_FOCUSED_DEVCTL_TEST_SHARDED_PARALLEL_WORKERS,
+                )
+            )
+            continue
+        commands.append(_devctl_test_command(test_path))
+    return commands
 
 
 def _devctl_test_command(test_path: str) -> str:
-    timeout_seconds = _devctl_test_timeout_seconds(test_path)
+    return _devctl_test_command_for_targets(
+        (test_path,),
+        timeout_seconds=_devctl_test_timeout_seconds(test_path),
+        parallel_workers=_FOCUSED_DEVCTL_TEST_PARALLEL_WORKERS,
+    )
+
+
+def _devctl_test_command_for_targets(
+    test_targets: tuple[str, ...],
+    *,
+    timeout_seconds: int,
+    parallel_workers: int,
+) -> str:
+    paths = " ".join(f"--path {test_target}" for test_target in test_targets)
     return (
         "python3 dev/scripts/devctl.py test-python --suite devctl "
-        f"--path {test_path} "
+        f"{paths} "
         f"--timeout-seconds {timeout_seconds} "
         f"--per-test-timeout-seconds {_FOCUSED_DEVCTL_TEST_PER_TEST_TIMEOUT_SECONDS} "
-        f"--parallel-workers {_FOCUSED_DEVCTL_TEST_PARALLEL_WORKERS}"
+        f"--parallel-workers {parallel_workers}"
     )
 
 
