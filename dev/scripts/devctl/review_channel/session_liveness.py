@@ -35,6 +35,21 @@ def build_session_liveness_evidence(
         terminal_window_open,
     )
 
+    if process_running is True:
+        if launch_authority_state == "stale":
+            reason = (
+                "existing conductor script process is still running; "
+                f"prepared launch authority is stale ({launch_authority_reason})"
+            )
+        else:
+            reason = "existing conductor script process is still running"
+        return SessionLivenessEvidence(
+            live=True,
+            reason=reason,
+            script_probe_state=script_probe_state,
+            terminal_window_state=terminal_window_state,
+        )
+
     if launch_authority_state == "stale":
         reason = launch_authority_reason or (
             "prepared launch authority is stale and the session is reclaimable"
@@ -46,14 +61,6 @@ def build_session_liveness_evidence(
         return SessionLivenessEvidence(
             live=False,
             reason=reason,
-            script_probe_state=script_probe_state,
-            terminal_window_state=terminal_window_state,
-        )
-
-    if process_running is True:
-        return SessionLivenessEvidence(
-            live=True,
-            reason="existing conductor script process is still running",
             script_probe_state=script_probe_state,
             terminal_window_state=terminal_window_state,
         )

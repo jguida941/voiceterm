@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from .collaboration_provider import coding_provider_from_review_state
+from .collaboration_provider import (
+    coding_provider_from_review_state,
+    reviewer_provider_from_review_state,
+)
 from .status_projection_helpers import clean_section
 
 _ROLE_ALIAS_PAIRS = (
@@ -28,10 +31,15 @@ def queue_current_instruction(review_state: Mapping[str, object]) -> str:
     derived = str(queue.get("derived_next_instruction") or "").strip()
     if not derived:
         return ""
-    if _source_is_action_request(source):
-        return derived
     target = str(source.get("to_agent") or "").strip().lower()
     target_role = _normalize_role(source.get("target_role"))
+    if _source_is_action_request(source):
+        return derived if _source_targets_current_session(
+            target=target,
+            target_role=target_role,
+            coding_provider=coding_provider_from_review_state(review_state),
+            reviewer_provider=reviewer_provider_from_review_state(review_state),
+        ) else ""
     if (
         target
         and target != coding_provider_from_review_state(review_state)
@@ -59,7 +67,14 @@ def queue_instruction_is_priority_action_request(
         derived,
     ):
         return False
-    return _source_is_action_request(source)
+    if not _source_is_action_request(source):
+        return False
+    return _source_targets_current_session(
+        target=str(source.get("to_agent") or "").strip().lower(),
+        target_role=_normalize_role(source.get("target_role")),
+        coding_provider=coding_provider_from_review_state(review_state),
+        reviewer_provider=reviewer_provider_from_review_state(review_state),
+    )
 
 
 def queue_instruction_is_dashboard_route(
@@ -110,6 +125,28 @@ def _source_is_action_request(source: Mapping[str, object]) -> bool:
         str(source.get("selection_policy") or "").strip()
         == "action_request_priority"
     )
+
+
+def _source_targets_current_session(
+    *,
+    target: str,
+    target_role: str,
+    coding_provider: str,
+    reviewer_provider: str,
+) -> bool:
+    if target_role == "dashboard":
+        return True
+    if target_role == "reviewer":
+        return False
+    if target_role == "implementer":
+        return True
+    if target:
+        return target != reviewer_provider and target in {
+            coding_provider,
+            "claude",
+            "cursor",
+        }
+    return True
 
 
 def _normalize_role(value: object) -> str:

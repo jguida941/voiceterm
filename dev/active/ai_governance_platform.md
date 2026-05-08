@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-29 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-05-08 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -127,6 +127,14 @@ Current ingestion status:
   `daemon_supervisor`, `trigger_reason`, and `command_line`). This closes the
   immediate "why did this auto-spawn?" audit gap without making launchd labels
   or provider names authority.
+- 2026-05-08 launcher-recursion liveness repair: `SessionLivenessEvidence`
+  now treats a running conductor script process as live even when prepared
+  launch authority is stale. Stale authority still makes dead/unprobeable
+  sessions reclaimable, but it cannot hide process truth and trigger recursive
+  replacement launches. This is the first bounded closure for
+  `MP377-GUARDIR-AUTO-STALE-PROCESS-EVIDENCE`; the broader role/session-scoped
+  launch identity and lifecycle-idempotency work remains on the existing MP-377
+  rows rather than a parallel launcher policy.
 - 2026-05-07 authority-first next selector: dogfood confirmed the selector
   must separate packets, typed authority, and selected work. Packets are
   transport/intake events until they are dismissed, converted into receipts, or

@@ -181,14 +181,18 @@ unknown dirty paths. The Step-0 summary now also carries bounded coordination
 truth
 (`coordination`, `safe_to_fanout`, `resync_required`, `current_slice`,
 `active_target`) and may direct the operator or launcher back to
-`review-channel --action status` when resync is required before a fresh
-implementation slice. When a typed `reviewer_runtime.remote_control_attachment`
-is present, remote-control launchers should treat that attachment as the live
-external Claude session record, elevate fallback interaction-mode reads to
-`remote_control`, and route commit-class mutations through governed
-`devctl commit` so the phone-steered session does not stall on a separate
-approval prompt.
-reviewer/implementer launch.
+    `review-channel --action status` when resync is required before a fresh
+    implementation slice. When a typed `reviewer_runtime.remote_control_attachment`
+    is present, remote-control launchers should treat that attachment as the live
+    external Claude session record, elevate fallback interaction-mode reads to
+    `remote_control`, and route commit-class mutations through governed
+    `devctl commit` so the phone-steered session does not stall on a separate
+    approval prompt. Review-channel relaunch checks must treat a running
+    conductor script process as live even when its prepared launch metadata is
+    stale; stale authority may reclaim only dead or unprobeable sessions, so one
+    stale typed-state classification cannot recursively spawn replacement
+    conductors.
+    reviewer/implementer launch.
 For plain-language CI lane docs, see `.github/workflows/README.md`.
 
 For workflow routing (what to run for a normal push vs tooling/process changes vs tagged release), follow `AGENTS.md` first.

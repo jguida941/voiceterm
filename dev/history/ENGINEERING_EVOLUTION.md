@@ -14794,3 +14794,27 @@ Evidence:
 - `dev/state/plan_index.jsonl`
 - `dev/state/plan_ingestion_receipts.jsonl`
 - `dev/active/MASTER_PLAN.md`
+
+### 2026-05-08 - Review-channel liveness now prevents launcher recursion
+
+Dogfood on the remote-control review loop exposed a launcher recursion failure:
+stale prepared launch metadata could make a still-running conductor look
+reclaimable, so follow/recovery automation could spawn replacement conductors
+while the original process remained alive. That confused typed-state repair with
+process death and let one stale review-loop classification repeat across new
+sessions.
+
+Change: session liveness now treats the conductor script process probe as
+stronger evidence than stale prepared-launch authority. Stale authority can still
+reclaim sessions with no live process evidence, but it no longer hides a running
+conductor from duplicate-launch conflict detection. Maintainer docs now call out
+this ordering so launch/recovery repairs compose with the typed liveness reducer
+instead of adding a parallel launch policy.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/session_liveness.py`
+- `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
+- `dev/scripts/devctl/governance/instruction_boot_card.py`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`

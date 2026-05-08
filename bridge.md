@@ -78,12 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-08T20:43:58Z`
-- Last Codex poll (Local America/New_York): `2026-05-08 16:43:58 EDT`
+- Last Codex poll: `2026-05-08T22:02:18Z`
+- Last Codex poll (Local America/New_York): `2026-05-08 18:02:18 EDT`
 - Reviewer mode: `active_dual_agent`
-- Declared reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `e7d966182c9cbfecc81a1bd863b8b4119e724c844769b491a6d7a48e9bbdc920`
-- Current instruction revision: `c2918738ecc5`
+- Last non-audit worktree hash: `c23111daff25930b35a2d5874f13cd2c90f5a51e87d0ffb0bf16b789733f7454`
+- Current instruction revision: `ed93e1b8d6c3`
 
 ## Protocol
 
@@ -115,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: e7d966182c9c).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: c23111daff25).
 
 ## Current Verdict
 
@@ -123,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s); 626 expired unresolved review packet(s)
+1 pending review packet(s); 628 expired unresolved review packet(s)
 
 ## Claude Status
 
-implementing
+- Status unavailable.
 
 ## Claude Questions
 
@@ -139,7 +138,7 @@ pending
 
 ## Current Instruction For Claude
 
-Priority action_request: BLOCKED: Codex reviewer cannot take raw commit authority; review_channel test target fails collection
+Priority action_request: Stage/commit checkpoint for MP-377 launcher recursion reducer fix
 
 ## Last Reviewed Scope
 
@@ -147,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- [rev_pkt_3272] run_check: target=runtime:review-channel-test-verification@314cb43943c6ede8eed78534054dfe9bdb7623b4; BLOCKED: Codex reviewer cannot take raw commit authority; review_channel test target fails collection (status: pending)
+- [rev_pkt_3289] stage_commit_pipeline: target=runtime:devctl_commit:b6a74ca6b1b4659620e450bf12087f0aca933532@b6a74ca6b1b4659620e450bf12087f0aca933532; Stage/commit checkpoint for MP-377 launcher recursion reducer fix (status: pending)

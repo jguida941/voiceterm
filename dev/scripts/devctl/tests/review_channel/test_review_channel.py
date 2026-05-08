@@ -1098,7 +1098,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertEqual(sessions[0].terminal_window_state, "open")
         self.assertIn("no longer matches", sessions[0].live_reason)
 
-    def test_load_conductor_sessions_stale_authority_beats_running_process(
+    def test_load_conductor_sessions_running_process_beats_stale_authority(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1154,11 +1154,15 @@ class ReviewChannelHelperTests(unittest.TestCase):
                 sessions = load_conductor_sessions(session_output_root=status_dir)
 
         self.assertEqual(len(sessions), 1)
-        self.assertFalse(sessions[0].live)
+        self.assertTrue(sessions[0].live)
         self.assertEqual(sessions[0].launch_authority_state, "stale")
         self.assertEqual(sessions[0].script_probe_state, "running")
         self.assertEqual(sessions[0].terminal_window_state, "open")
-        self.assertIn("no longer matches", sessions[0].live_reason)
+        self.assertIn(
+            "existing conductor script process is still running",
+            sessions[0].live_reason,
+        )
+        self.assertIn("prepared launch authority is stale", sessions[0].live_reason)
 
     def test_load_conductor_sessions_ignores_session_token_drift_after_launch(
         self,

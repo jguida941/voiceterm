@@ -19,6 +19,7 @@ from dev.scripts.devctl.review_channel.current_session_authority import (
 )
 from dev.scripts.devctl.review_channel.current_session_queue import (
     queue_instruction_is_dashboard_route,
+    queue_instruction_is_priority_action_request,
 )
 from dev.scripts.devctl.review_channel.current_session_support import (
     current_session_authority_drift_warning,
@@ -297,6 +298,62 @@ def test_build_event_current_session_ignores_non_claude_instruction_source() -> 
 
     assert state.current_instruction == ""
     assert state.open_findings == "1 pending review packet(s)"
+
+
+def test_build_event_current_session_ignores_reviewer_targeted_action_request() -> None:
+    review_state = {
+        "collaboration": {
+            "coding_agent": "claude",
+            "review_agent": "codex",
+        },
+        "review": {"plan_id": "MP-377"},
+        "queue": {
+            "pending_total": 1,
+            "pending_claude": 0,
+            "pending_codex": 1,
+            "derived_next_instruction": (
+                "Priority action_request: Codex should inspect launcher state"
+            ),
+            "derived_next_instruction_source": {
+                "packet_id": "rev_pkt_codex",
+                "packet_class": "action_request",
+                "kind": "action_request",
+                "from_agent": "claude",
+                "to_agent": "codex",
+                "target_role": "reviewer",
+                "selection_policy": "action_request_priority",
+            },
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_codex",
+                "status": "acked",
+                "summary": "Codex should inspect launcher state",
+                "body": "reviewer-only",
+                "kind": "action_request",
+                "from_agent": "claude",
+                "to_agent": "codex",
+                "target_role": "reviewer",
+                "requested_action": "review_only",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ],
+        "registry": {"agents": [{"agent_id": "claude", "job_state": "idle"}]},
+    }
+
+    state = build_event_current_session(
+        review_state=review_state,
+        bridge_liveness={
+            "current_instruction_revision": "",
+            "claude_ack_revision": "",
+            "claude_ack_current": False,
+        },
+    )
+
+    assert state.current_instruction == ""
+    assert state.current_instruction_revision == ""
+    assert state.implementer_ack_state == "missing"
+    assert not queue_instruction_is_priority_action_request(review_state)
 
 
 def test_build_event_current_session_surfaces_expired_unresolved_packets() -> None:
@@ -2071,6 +2128,75 @@ def test_normalize_current_session_from_packet_truth_preserves_priority_action_r
 
     assert normalized.current_instruction == _PRIORITY_ACTION_REQUEST_INSTRUCTION
     assert normalized.current_instruction_revision == "priority-rev"
+    assert normalized.implementer_ack_state == "missing"
+
+
+def test_normalize_current_session_from_packet_truth_clears_reviewer_action_request() -> None:
+    review_state = _priority_action_request_review_state(
+        latest_reviewer_checkpoint=False
+    )
+    review_state["collaboration"] = {
+        "coding_agent": "claude",
+        "review_agent": "codex",
+    }
+    review_state["queue"]["pending_codex"] = 1
+    review_state["queue"]["pending_claude"] = 0
+    review_state["queue"]["derived_next_instruction"] = (
+        "Priority action_request: Codex should inspect launcher state"
+    )
+    review_state["queue"]["derived_next_instruction_source"] = {
+        "packet_id": "rev_pkt_codex",
+        "packet_class": "action_request",
+        "kind": "action_request",
+        "from_agent": "claude",
+        "to_agent": "codex",
+        "target_role": "reviewer",
+        "selection_policy": "action_request_priority",
+    }
+    review_state["packet_inbox"]["agents"][0]["current_instruction_packet_id"] = (
+        "rev_pkt_codex"
+    )
+    review_state["packet_inbox"]["agents"][0]["pending_actionable_packet_ids"] = [
+        "rev_pkt_codex"
+    ]
+    review_state["packet_inbox"]["agents"][1]["current_instruction_packet_id"] = ""
+    review_state["packet_inbox"]["agents"][1]["pending_actionable_packet_ids"] = []
+    review_state["packets"] = [
+        {
+            "packet_id": "rev_pkt_codex",
+            "status": "acked",
+            "summary": "Codex should inspect launcher state",
+            "body": "reviewer-only",
+            "kind": "action_request",
+            "from_agent": "claude",
+            "to_agent": "codex",
+            "target_role": "reviewer",
+            "requested_action": "review_only",
+            "expires_at_utc": "2999-01-01T00:00:00Z",
+        }
+    ]
+
+    normalized = _normalize_current_session_from_packet_truth(
+        current_session=ReviewCurrentSessionState(
+            current_instruction=(
+                "Priority action_request: Codex should inspect launcher state"
+            ),
+            current_instruction_revision="codex-reviewer-rev",
+            implementer_status="",
+            implementer_ack="",
+            implementer_ack_revision="",
+            implementer_ack_state="missing",
+            implementer_state_hash="",
+            implementer_session_state="",
+            implementer_session_hint="",
+            open_findings="none",
+            last_reviewed_scope="MP-377",
+        ),
+        review_state=review_state,
+    )
+
+    assert normalized.current_instruction == ""
+    assert normalized.current_instruction_revision == ""
     assert normalized.implementer_ack_state == "missing"
 
 

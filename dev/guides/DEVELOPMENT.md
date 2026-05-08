@@ -84,6 +84,9 @@ Use docs like this:
   or startup authority once, pass the same value into session preparation and
   the pre-spawn gate, and keep prepared script replay bound to current HEAD,
   instruction revision, and the typed `review_state.json` turn/session token.
+  Session-liveness classification must use process and Terminal evidence before
+  reclaiming a stale prepared launch. Stale metadata can stop a dead session from
+  restarting, but it must not make a still-running conductor look replaceable.
 - `/develop next` is a typed controller decision, not a packet picker. Packets
   are communication/intake events: they can require ingestion, produce
   receipts, or remain provenance on a plan row, but they do not become next work
