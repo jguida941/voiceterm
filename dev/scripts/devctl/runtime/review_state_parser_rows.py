@@ -11,9 +11,11 @@ from .review_state_semantics import (
     normalize_instruction_markdown,
 )
 from .review_state_models import (
+    ReviewCurrentSessionState,
+)
+from .review_state_packet_models import (
     AgentRegistryEntryState,
     ContextPackRefState,
-    ReviewCurrentSessionState,
     ReviewPacketState,
 )
 from .review_state_parse_support import _bool, bridge_ack_state

@@ -6,6 +6,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
 from ..runtime.master_plan_contract import PlanProposal
+from ..runtime.session_termination_policy import SESSION_TERMINATION_PACKET_KINDS
 from .event_store import (
     DEFAULT_PACKET_TTL_MINUTES,
     DEFAULT_REVIEW_CHANNEL_PLAN_ID,
@@ -56,7 +57,7 @@ VALID_PACKET_KINDS = {
     "plan_patch_review",
     "plan_ready_gate",
     COMMIT_APPROVAL_PACKET_KIND,
-}
+} | SESSION_TERMINATION_PACKET_KINDS
 CARRIER_PACKET_KINDS = carrier_packet_kinds(VALID_PACKET_KINDS)
 VALID_POLICY_HINTS = {
     "review_only",

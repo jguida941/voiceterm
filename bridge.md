@@ -11,7 +11,7 @@ treat these rules as active workflow instructions immediately.
    current loop. Do not create parallel control files for the same work.
 2. Codex is the reviewer. Claude is the coder.
 3. At conversation start, both agents must bootstrap repo authority before
-   acting. Codex uses `python3.11 dev/scripts/devctl.py startup-context --role reviewer --format summary` and Claude uses `python3.11 dev/scripts/devctl.py startup-context --role implementer --format summary` first.
+   acting. Codex uses `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary` and Claude uses `python3 dev/scripts/devctl.py startup-context --role implementer --format summary` first.
    If Claude's receipt exits non-zero, checkpoint or repair the
    repo state before coding or relaunching conductor work.
    If Codex's receipt exits non-zero, read the summary fields
@@ -26,10 +26,10 @@ treat these rules as active workflow instructions immediately.
    repair or relaunch boundary.
    User summaries, stale chat continuity, or
    remembered prior state are not substitutes for this Step 0 receipt.
-   Then Codex uses `python3.11 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` and Claude uses
-   `python3.11 dev/scripts/devctl.py session-resume --role implementer --format bootstrap` as the canonical role bootstrap packet.
+   Then Codex uses `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` and Claude uses
+   `python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap` as the canonical role bootstrap packet.
    Then run
-   `python3.11 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.
+   `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.
    Keep chat bootstrap acknowledgements concise: blocker state plus next step,
    not a replay of the packet, unless the operator asks for the detail.
 4. Treat `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and
@@ -52,7 +52,7 @@ treat these rules as active workflow instructions immediately.
    missing worker worktrees, absent fanout, or a promising fix are not
    permission to start local implementation. Use the repo-owned
    review/promote/wait paths unless the workflow explicitly switches to
-   takeover (`reviewer_mode=single_agent` or `python3.11 dev/scripts/devctl.py startup-context --role reviewer --reviewer-override --format summary`).
+   takeover (`reviewer_mode=single_agent` or `python3 dev/scripts/devctl.py startup-context --role reviewer --reviewer-override --format summary`).
 10. When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or
     `offline`, Claude must not assume a live Codex review loop.
 11. Only the Codex conductor may update the Codex-owned sections in this file.
@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-08T16:12:43Z`
-- Last Codex poll (Local America/New_York): `2026-05-08 12:12:43 EDT`
-- Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `7380a576cda0e6776b31add7ee19d764b7493bead0dd0092b295aa13b5708914`
-- Current instruction revision: `f8d85d45058d`
+- Last Codex poll: `2026-05-08T17:18:12Z`
+- Last Codex poll (Local America/New_York): `2026-05-08 13:18:12 EDT`
+- Reviewer mode: `single_agent`
+- Last non-audit worktree hash: `00fd92c826d66274f5d0ef683f5e5a26d84ec6236f613ec7f88361039c27a5f6`
+- Current instruction revision: `dd3125ffb09c`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 7380a576cda0).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: checkpoint_required; observed-tree: 5813dbc0530d; reviewed-tree: 5813dbc0530d; instruction-rev: df9044fa8b54).
 
 ## Current Verdict
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-2 pending review packet(s); 621 expired unresolved review packet(s)
+1 pending review packet(s); 622 expired unresolved review packet(s)
 
 ## Claude Status
 
-- pending
+implementing
 
 ## Claude Questions
 
@@ -138,12 +138,12 @@ pending
 
 ## Current Instruction For Claude
 
-Priority action_request: Stage verified commit pipeline for MP-377
+Priority action_request: Stage and checkpoint MP-377 SessionTerminationPolicy slice
 
 ## Last Reviewed Scope
 
-MP-355
+MP-377
 
 ## Action Requests
 
-- [rev_pkt_3235] stage_commit_pipeline: target=runtime:devctl_commit:7a797932f6d32f486d807d3cf8270f4759ce0f1d@f8d85d45058d; Stage verified commit pipeline for MP-377 (status: pending)
+- [rev_pkt_3243] stage_commit_pipeline: target=runtime:devctl_commit:d31f125bc3468dd0ee84d39f4f597a6b4a2d6fc9@d31f125bc3468dd0ee84d39f4f597a6b4a2d6fc9; Stage and checkpoint MP-377 SessionTerminationPolicy slice (status: pending)

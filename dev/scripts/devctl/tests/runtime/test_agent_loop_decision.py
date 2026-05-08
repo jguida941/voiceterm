@@ -9,6 +9,10 @@ from dev.scripts.devctl.runtime.checkpoint_repair_authority import (
     REPAIR_VERIFIED,
 )
 from dev.scripts.devctl.runtime.agent_loop_decision import build_agent_loop_decision
+from dev.scripts.devctl.runtime.session_termination_policy import (
+    CONTINUATION_ANCHOR_PACKET_KIND,
+    SESSION_TERMINATION_MODE_KEEP_AWAKE_VIA_PACKETS,
+)
 
 
 def _packet(
@@ -682,7 +686,13 @@ def test_executing_packet_continues_current_execution() -> None:
 
 def test_startup_blocker_overrides_work_packet_but_keeps_loop_alive() -> None:
     decision = build_agent_loop_decision(
-        review_state=_state(_packet(packet_id="rev_pkt_1", lifecycle_current_state="applied", status="applied")),
+        review_state=_state(
+            _packet(
+                packet_id="rev_pkt_1",
+                lifecycle_current_state="applied",
+                status="applied",
+            )
+        ),
         dashboard={
             "control_plane": {
                 "top_blocker": "startup authority: import_index_atomicity",
@@ -1473,6 +1483,52 @@ def test_completed_handoff_pivots_when_new_packet_needs_attention() -> None:
     assert decision.latest_inbox_event_id == "rev_evt_101"
     assert decision.last_observed_event_id == "rev_evt_100"
     assert decision.loop_mode == "pivot_to_packet"
+
+
+def test_completed_handoff_continues_when_policy_anchor_is_active() -> None:
+    review_state = _state(
+        _packet(
+            packet_id="rev_pkt_anchor",
+            to_agent="claude",
+            kind=CONTINUATION_ANCHOR_PACKET_KIND,
+            target_role="implementer",
+            target_session_id="s1",
+        )
+    )
+    review_state["session_termination_policy"] = {
+        "mode": SESSION_TERMINATION_MODE_KEEP_AWAKE_VIA_PACKETS,
+        "target_session_id": "s1",
+        "anchor_packet_id": "rev_pkt_anchor",
+    }
+    review_state["collaboration"] = {
+        "session_outcomes": [
+            {
+                "outcome": "completed_handoff",
+                "provider": "claude",
+                "session_actor_id": "claude",
+                "session_actor_role": "implementer",
+                "session_id": "s1",
+                "source_event_id": "rev_evt_099",
+            }
+        ]
+    }
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="s1",
+    )
+    assert decision.loop_state == "work"
+    assert decision.required_action == "continue_from_continuation_anchor"
+    assert decision.lifecycle_state == "needs_attention"
+    assert decision.reason_code == "continuation_anchor_active"
+    assert decision.active_packet_id == "rev_pkt_anchor"
+    assert decision.next_command == (
+        "python3 dev/scripts/devctl.py develop next --actor claude --format md"
+    )
+    assert decision.loop_mode == "continue_from_continuation_anchor"
+    assert decision.can_run_next_command is True
     assert decision.can_run_next_command is True
 
 

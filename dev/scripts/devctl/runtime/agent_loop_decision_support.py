@@ -10,6 +10,7 @@ from .agent_loop_command import scoped_operator_override_command
 from .agent_loop_decision_models import AgentLoopDecision
 from .agent_loop_operator_override import operator_override_next_command
 from .agent_loop_policy import policy_for_turn
+from .session_termination_policy import TaskCompleteDecision
 from .value_coercion import coerce_bool, coerce_int, coerce_text as _text
 from .agent_loop_decision_sources import (
     AgentLoopContext,
@@ -96,6 +97,26 @@ def completed_decision(ctx: AgentLoopContext, outcome: Mapping[str, object]) -> 
         lifecycle_state="completed",
         decision_code="stop_no_work",
         reason_code="completed_handoff",
+    )
+
+
+def continuation_anchor_decision(
+    ctx: AgentLoopContext,
+    task_decision: TaskCompleteDecision,
+) -> AgentLoopDecision:
+    return decision(
+        ctx,
+        "work",
+        "continue_from_continuation_anchor",
+        task_decision.reason,
+        lifecycle_state="needs_attention",
+        decision_code="continue_from_continuation_anchor",
+        reason_code=task_decision.reason,
+        should_continue_loop=True,
+        safe_to_continue=True,
+        may_mutate=ctx.may_mutate,
+        active_packet_id=task_decision.anchor_packet_id,
+        next_command_override=task_decision.next_command,
     )
 
 
@@ -202,6 +223,7 @@ def decision(
     executing_packet_id: str = "",
     legacy_unscoped_packet_id: str = "",
     plan_target_ref: str = "",
+    next_command_override: str = "",
 ) -> AgentLoopDecision:
     resolved_lifecycle = lifecycle_state or lifecycle_from_loop_state(loop_state)
     resolved_decision = decision_code or decision_from_loop_state(loop_state)
@@ -222,7 +244,9 @@ def decision(
     )
     override_next = operator_override_next_command(ctx.operator_override)
     override_request_next = scoped_operator_override_command(ctx, reason=reason)
-    if override_next and required_action == "repair_startup_authority":
+    if next_command_override:
+        next_command = next_command_override
+    elif override_next and required_action == "repair_startup_authority":
         next_command = override_next
     elif (
         override_request_next
@@ -314,6 +338,7 @@ __all__ = [
     "blocker_decision",
     "communication_attention_decision",
     "completed_decision",
+    "continuation_anchor_decision",
     "executing_decision",
     "observer_decision",
     "session_identity_decision",

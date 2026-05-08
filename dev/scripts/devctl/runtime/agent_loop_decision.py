@@ -12,6 +12,7 @@ from .agent_loop_decision_support import (
     blocker_decision,
     communication_attention_decision,
     completed_decision,
+    continuation_anchor_decision,
     executing_decision,
     observer_decision,
     session_identity_decision,
@@ -26,6 +27,10 @@ from .agent_loop_decision_sources import (
     resolve_packet_state,
     role_is_observer,
     session_identity_required,
+)
+from .session_termination_policy import (
+    session_termination_policy_from_review_state,
+    task_complete_decision,
 )
 
 
@@ -77,6 +82,14 @@ def build_agent_loop_decision(
     outcome = latest_session_outcome(ctx)
     outcome_kind = str(outcome.get("outcome") or "").strip()
     if outcome_kind == "completed_handoff" and not packets.active_packet_id:
+        task_decision = task_complete_decision(
+            session_id=ctx.session,
+            packets=review_state.get("packets", ()),
+            policy=session_termination_policy_from_review_state(review_state),
+            actor=ctx.actor,
+        )
+        if not task_decision.terminate:
+            return continuation_anchor_decision(ctx, task_decision)
         return completed_decision(ctx, outcome)
     if outcome_kind in {"unresolved", "process_died"} and not packets.active_packet_id:
         return unresolved_decision(ctx, outcome)

@@ -606,6 +606,14 @@ Portability note:
   the guard posts the typed action_request to Claude before the supervised
   relaunch loop continues. The live Codex path should still post the packet
   before TASK_COMPLETE; the launcher guard is the crash/idle backup.
+- Session-end continuation must be typed, not inferred from packet body text.
+  `SessionTerminationPolicy` names whether a completed handoff should end on
+  `task_complete`, keep the actor awake through a pending
+  `continuation_anchor`, or stop when a `stop_anchor` is active.
+  `TaskCompleteDecision` records the final decision and the canonical
+  `develop next --actor <actor> --format md` next command. Anchor packet kinds
+  are valid review-channel records but are not actionable inbox packets and
+  should not be acked just to make prose "leave pending" semantics work.
 - Runtime liveness is projected through `SessionLivenessSignal` in
   `devctl.runtime` with the states `alive`, `degraded`,
   `detached_runtime_only`, and `dead`. Review-channel status emits

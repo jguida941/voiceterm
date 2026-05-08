@@ -187,6 +187,18 @@ def policy_for_turn(
             policy_reason="scoped_packet_requires_actor_work",
             next_loop_command=command,
         )
+    elif required_action == "continue_from_continuation_anchor":
+        policy = AgentLoopPolicy(
+            loop_mode="continue_from_continuation_anchor",
+            loop_driver_agent=driver,
+            loop_intent=ctx.loop_intent,
+            recommended_cadence_seconds=max(5, min(cadence, 30)),
+            can_run_next_command=True,
+            dogfood_record_allowed=True,
+            proof_gate=proof,
+            policy_reason="task_complete_continuation_anchor_active",
+            next_loop_command=command,
+        )
     elif required_action == "resume_or_recover_session":
         policy = AgentLoopPolicy(
             loop_mode="recover_or_relaunch",

@@ -108,6 +108,7 @@ def build_instruction_boot_card(
         "- `AgentDispatchPacket` may recommend bounded next work, but it does not grant mutation authority by itself.",
         "- `TypedAction -> ActionResult -> RunRecord -> ValidationReceipt` is the proof chain for mutations.",
         "- A typed `AgentLoopOperatorOverride` can allow scoped edit-only repair when the operator explicitly approves it; it never authorizes staging, commit, push, or raw bypass.",
+        "- Session continuation after `TASK_COMPLETE` must come from `SessionTerminationPolicy`, `TaskCompleteDecision`, and `continuation_anchor` / `stop_anchor` packets, not packet body prose.",
         "- `system-picture` is a composite reducer; use it after startup authority is known, not as the first hop.",
         "",
         "## Projection-only surfaces",

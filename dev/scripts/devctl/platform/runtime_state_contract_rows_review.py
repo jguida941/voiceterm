@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .contracts import ContractField, ContractSpec
 from .runtime_state_contract_rows_actor_authority import ACTOR_AUTHORITY_CONTRACTS
 from .runtime_state_contract_rows_packet_debt import PACKET_DEBT_CONTRACTS
@@ -9,6 +11,17 @@ from .runtime_state_contract_rows_review_core import REVIEW_CORE_STATE_CONTRACTS
 from .runtime_state_contract_rows_session_continuation import (
     AGENT_SESSION_CONTINUATION_CONTRACTS,
 )
+
+if TYPE_CHECKING:
+    from ..runtime.session_termination_policy import (
+        SessionTerminationPolicy,
+        TaskCompleteDecision,
+    )
+
+    _RUNTIME_MODEL_REFS: tuple[
+        type[SessionTerminationPolicy],
+        type[TaskCompleteDecision],
+    ]
 
 REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     *ACTOR_AUTHORITY_CONTRACTS,
@@ -202,6 +215,91 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             "AgentSessionOutcomeState"
         ),
         startup_surface_tokens=("outcome", "provider", "session_name"),
+    ),
+    ContractSpec(
+        contract_id="SessionTerminationPolicy",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed policy for whether an agent session stops on TASK_COMPLETE "
+            "or continues while a bounded continuation anchor packet remains live."
+        ),
+        required_fields=(
+            ContractField(
+                "mode",
+                "str",
+                (
+                    "end_on_task_complete, keep_awake_via_packets, or "
+                    "session_end_when_anchor_drained."
+                ),
+            ),
+            ContractField("set_by", "str", "Actor that selected the policy."),
+            ContractField("set_at_utc", "str", "UTC timestamp when the policy was set."),
+            ContractField(
+                "anchor_packet_id",
+                "str",
+                "Optional continuation_anchor packet id that bounds keep-awake mode.",
+            ),
+            ContractField(
+                "target_session_id",
+                "str",
+                "Exact provider/runtime session id scoped by the policy.",
+            ),
+            ContractField(
+                "expires_at_utc",
+                "str",
+                "UTC expiry after which the policy falls back to normal termination.",
+            ),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.session_termination_policy:"
+            "SessionTerminationPolicy"
+        ),
+        startup_surface_tokens=("mode", "anchor_packet_id", "target_session_id"),
+    ),
+    ContractSpec(
+        contract_id="TaskCompleteDecision",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed TASK_COMPLETE boundary decision, including the continuation "
+            "anchor and next command when the session should keep running."
+        ),
+        required_fields=(
+            ContractField(
+                "terminate",
+                "bool",
+                "Whether the TASK_COMPLETE event should terminate the session.",
+            ),
+            ContractField(
+                "reason",
+                "str",
+                "Machine-readable reason for terminate/continue.",
+            ),
+            ContractField(
+                "policy_mode",
+                "str",
+                "SessionTerminationPolicy mode used for the decision.",
+            ),
+            ContractField(
+                "anchor_packet_id",
+                "str",
+                "Active continuation_anchor packet that kept the session alive.",
+            ),
+            ContractField(
+                "target_session_id",
+                "str",
+                "Session id scoped by the decision.",
+            ),
+            ContractField(
+                "next_command",
+                "str",
+                "Bounded repo-owned command to run when terminate=false.",
+            ),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.session_termination_policy:"
+            "TaskCompleteDecision"
+        ),
+        startup_surface_tokens=("terminate", "reason", "anchor_packet_id"),
     ),
     *AGENT_SESSION_CONTINUATION_CONTRACTS,
     ContractSpec(

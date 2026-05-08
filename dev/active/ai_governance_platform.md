@@ -5437,6 +5437,7 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       depends_on: `MP377-P0-T22AD-E`, `MP377-P0-T22Y-B`, `MP377-P0-T22AI-D`
       scope: Ensure finish-scope pings, blocker pings, handoff packets, corrected completions, and action-request retries use the packet lifecycle predicate: pending, acknowledged, apply-pending-after-execution, and applied consume the semantic retry slot; dismissed, expired, and action-request-execution-failed open retry; non-packet rows stay strict duplicates.
       acceptance_criteria: Tests append real lifecycle events and prove `action_request_execution_failed` permits same-semantic retry, `action_request_apply_pending_after_execution` rejects blind retry, unrelated newer packets do not clear blockers, and duplicate reviewer pings are not emitted while an equivalent packet is pending/acked/applied.
+      progress: 2026-05-08 added typed session-continuation anchors to the same lifecycle/idempotency boundary: `continuation_anchor` and `stop_anchor` are valid review-channel packet kinds, but they do not become actionable inbox work and cannot rely on instruction body prose to hold a session open.
 - [ ] `MP377-P0-T22AI-H` Add optional worktree-backed lanes behind typed leases and orphan inventory.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`
@@ -5722,6 +5723,7 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       scope: Finish Plan r3 Slices 0-3 so `auto_executable`, `remediation`, `next_command`, `task_complete.last_agent_message`, and commit/push failure `ActionResult` envelopes feed `failure_packet_router` and existing `safe_auto_apply` instead of becoming prose-only operator guidance.
       acceptance_criteria: Deterministic allowlisted failures emit bounded `action_request` packets with runtime authority evidence and safe-auto-apply receipts; non-allowlisted failures remain fail-closed; tests cover commit failure routing, active-pipeline `mark_delivered_local`, task-complete next commands, and full-guard evidence requirements.
       progress: 2026-05-02 durable home for `rev_pkt_2769` Plan r3 Slice 3, `rev_pkt_2770` Plan r3 Slices 0-2, `rev_pkt_2785` Plan r3 Slices 0-2, `rev_pkt_2808` Plan r3 Slices 0-2, and the executable-remediation parts of `rev_pkt_2814` / `rev_pkt_2815`.
+      progress: 2026-05-08 added `SessionTerminationPolicy` and `TaskCompleteDecision` so a completed handoff can continue only through a matching pending `continuation_anchor` and the canonical `/develop next` command; `stop_anchor` cleanly overrides continuation, and ordinary instruction prose no longer carries keep-awake authority.
 - [ ] `MP377-P0-T22AN-I` Automate push/projection drift repair and projection-only commit routing.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`

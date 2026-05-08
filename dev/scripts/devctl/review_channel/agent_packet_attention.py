@@ -9,6 +9,7 @@ from ..runtime.reviewer_runtime_models import (
     PacketAttentionState,
     build_packet_attention_state,
 )
+from ..runtime.session_termination_policy import SESSION_TERMINATION_PACKET_KINDS
 from ..runtime.value_coercion import coerce_mapping as _mapping
 from ..runtime.value_coercion import coerce_text as _text
 from .active_packet_authority import current_active_packet_for_agent
@@ -238,6 +239,8 @@ def _pending_packet_visible_to_role(
     *,
     role: str,
 ) -> bool:
+    if _text(packet.get("kind")) in SESSION_TERMINATION_PACKET_KINDS:
+        return False
     lifecycle = _text(packet.get("lifecycle_current_state"))
     if lifecycle in _TERMINAL_LIFECYCLE_STATES:
         return False

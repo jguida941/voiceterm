@@ -37,6 +37,28 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-08 - TASK_COMPLETE continuation anchors become typed contracts
+
+Change: Codex session completion no longer depends on packet body prose such as
+"leave pending" to keep a conductor alive after `TASK_COMPLETE`.
+`SessionTerminationPolicy` names the allowed termination mode, session actor,
+optional anchor packet, and expiry; `TaskCompleteDecision` records whether the
+completed handoff should end the session or continue through the canonical
+`develop next --actor <actor>` command.
+
+Decision: `continuation_anchor` and `stop_anchor` packets are valid packet
+records but not actionable inbox work. The agent loop may continue after a
+completed handoff only when the typed policy is active, the continuation anchor
+is still pending for the same actor/session, and no stop anchor is active.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/session_termination_policy.py`
+- `dev/scripts/devctl/runtime/agent_loop_decision.py`
+- `dev/scripts/devctl/review_channel/packet_contract.py`
+- `dev/scripts/devctl/tests/runtime/test_session_termination_policy.py`
+- `dev/scripts/devctl/tests/runtime/test_agent_loop_decision.py`
+
 ### 2026-05-08 - Fresh sessions route through typed orientation first
 
 Change: promoted `devctl session` from an available helper to the generated

@@ -630,6 +630,13 @@ Three quality layers matter in practice:
     dirty coding lane.
     Human-facing shorthand is allowed on the CLI: `agents` normalizes to
     `active_dual_agent`, and `developer` normalizes to `single_agent`.
+  - A session that emits TASK_COMPLETE only continues when typed termination
+    policy allows it. Use `SessionTerminationPolicy` plus a pending
+    `continuation_anchor` packet for keep-awake behavior and `stop_anchor` for
+    explicit stop behavior; do not encode that control plane as prose like
+    "leave pending" in an ordinary instruction packet. When continuation is
+    valid, `TaskCompleteDecision.next_command` is
+    `python3 dev/scripts/devctl.py develop next --actor <actor> --format md`.
   - After a real review pass, advance review truth with
     `python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint ...`
     rather than hand-editing heartbeat/hash/verdict lines separately. Prefer

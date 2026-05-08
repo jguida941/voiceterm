@@ -189,11 +189,25 @@ def stranded_consumers(index: SourceIndex) -> tuple[StrandedContractFinding, ...
                 overlap_ratio=overlap_ratio,
                 shared_raw_keys=shared,
             )
-            if best is None or finding.overlap_ratio > best.overlap_ratio:
+            if best is None or _stranded_finding_better(finding, best):
                 best = finding
         if best is not None:
             findings.append(best)
     return tuple(findings)
+
+
+def _stranded_finding_better(
+    candidate: StrandedContractFinding,
+    current: StrandedContractFinding,
+) -> bool:
+    """Return whether candidate should win deterministic best-match selection."""
+    if candidate.overlap_ratio != current.overlap_ratio:
+        return candidate.overlap_ratio > current.overlap_ratio
+    return _stranded_choice_key(candidate) < _stranded_choice_key(current)
+
+
+def _stranded_choice_key(item: StrandedContractFinding) -> tuple[str, str]:
+    return (item.contract_module_path, item.contract_name)
 
 
 def layer_counts(

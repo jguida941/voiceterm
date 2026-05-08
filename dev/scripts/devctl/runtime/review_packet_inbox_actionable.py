@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 
 from .review_packet_inbox_lookup import packet_id as _packet_id, _parse_utc
+from .session_termination_policy import SESSION_TERMINATION_PACKET_KINDS
 
 
 def ordered_actionable_packets(
@@ -34,6 +35,8 @@ def is_action_request(packet: Mapping[str, object]) -> bool:
 
 def is_actionable(packet: Mapping[str, object]) -> bool:
     """Return True when one packet can drive the current instruction lane."""
+    if _packet_kind(packet) in SESSION_TERMINATION_PACKET_KINDS:
+        return False
     return is_action_request(packet) or _packet_kind(packet) == "instruction"
 
 

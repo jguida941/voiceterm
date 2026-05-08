@@ -163,6 +163,15 @@
   receipt-only or stale partial staged indexes from hiding dirty source work.
   `MP377-P0-CHECKPOINT-STAGED-SNAPSHOT-RESTAGE-S1` owns the same-file
   staged-plus-unstaged retry case caught during dogfood checkpoint.
+- 2026-05-08 typed TASK_COMPLETE continuation gate (MP-377):
+  the keep-awake behavior that had been expressed through packet body prose now
+  lives in `SessionTerminationPolicy`, `TaskCompleteDecision`,
+  `continuation_anchor`, and `stop_anchor`. This extends existing owner rows
+  `MP377-P0-T22AN-H`, `MP377-GUARDIR-LIFECYCLE-IDEMPOTENCY-AUTOMATION`, and
+  `MP377-P0-DEVELOP-NEXT-DECISION-SCHEMA-S1`; it does not create a new
+  top-level lane. The agent loop may continue after a completed handoff only
+  when the typed policy and pending anchor still match the actor/session, and
+  anchor packet kinds remain non-actionable inbox records.
 - 2026-05-06 universal GovernanceLifecycle typed intake (MP-377):
   `rev_pkt_3114` was ingested as a narrowed typed correction, not a new
   top-level plan row. `MP377-GUARDIR-V21-A5` remains the packet/action-request
@@ -7921,3 +7930,5 @@ This generated ledger projects packet creation bindings for humans. The typed ro
 - [ ] `PKT-BIND-REV-PKT-3225` Packet action request: Stage verified commit pipeline for MP-377 (source `rev_pkt_3225`; target `devctl_commit:7a797932f6d32f486d807d3cf8270f4759ce0f1d`; posted `2026-05-08T15:14:27.595937Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3233` Packet finding: bundle.tooling blocked for MP-377 stage_commit_pipeline (source `rev_pkt_3233`; target `plan:MP-377`; posted `2026-05-08T15:50:57.786043Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3235` Packet action request: Stage verified commit pipeline for MP-377 (source `rev_pkt_3235`; target `devctl_commit:7a797932f6d32f486d807d3cf8270f4759ce0f1d`; posted `2026-05-08T16:09:48.588822Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3241` Packet finding: Finding 7: claude-side ScheduleWakeup must fold into typed system (operator-named architectural gap); composes with current SessionTerminationPolicy slice as natural follow-on; extend AgentWorkBoardRow with monitor_cadenc... (source `rev_pkt_3241`; target `plan:MP-377`; posted `2026-05-08T17:09:06.210823Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3243` Packet action request: Stage and checkpoint MP-377 SessionTerminationPolicy slice (source `rev_pkt_3243`; target `devctl_commit:d31f125bc3468dd0ee84d39f4f597a6b4a2d6fc9`; posted `2026-05-08T17:18:11.220345Z`; binding `plan_row`).
