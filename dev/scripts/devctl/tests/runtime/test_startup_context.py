@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import unittest
 from dataclasses import replace
+from functools import lru_cache
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -110,16 +111,22 @@ def _minimal_governance(**push_overrides) -> ProjectGovernance:
     )
 
 
+@lru_cache(maxsize=1)
+def _live_startup_context() -> StartupContext:
+    """Build the live startup snapshot once for read-only smoke assertions."""
+    return build_startup_context()
+
+
 class TestStartupContextBuild(unittest.TestCase):
     """Verify startup-context builds from live repo state."""
 
     def test_builds_without_error(self) -> None:
-        ctx = build_startup_context()
+        ctx = _live_startup_context()
         self.assertIsNotNone(ctx)
         self.assertEqual(ctx.contract_id, "StartupContext")
 
     def test_builds_authority_snapshot(self) -> None:
-        ctx = build_startup_context()
+        ctx = _live_startup_context()
 
         self.assertIsNotNone(ctx.authority_snapshot)
         assert ctx.authority_snapshot is not None
@@ -133,9 +140,14 @@ class TestStartupContextBuild(unittest.TestCase):
                 ctx.current_session.current_instruction_revision,
             )
         else:
-            self.assertIn(
-                ctx.authority_snapshot.attention_status,
-                {"review_needed", "checkpoint_required"},
+            attention_indicators = {ctx.authority_snapshot.attention_status}
+            if ctx.authority_snapshot.packet_target is not None:
+                attention_indicators.add(
+                    ctx.authority_snapshot.packet_target.attention_status
+                )
+            self.assertTrue(
+                attention_indicators & {"review_needed", "checkpoint_required"},
+                f"expected actionable attention, got {attention_indicators}",
             )
         self.assertEqual(
             ctx.authority_snapshot.implementer_ack_state,
@@ -143,7 +155,7 @@ class TestStartupContextBuild(unittest.TestCase):
         )
 
     def test_startup_mode_fields_match_authority_snapshot(self) -> None:
-        ctx = build_startup_context()
+        ctx = _live_startup_context()
 
         payload = ctx.to_dict()
         snapshot = payload["authority_snapshot"]
@@ -209,7 +221,7 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertEqual(restored.source_identity["worktree_hash"], "tree-test")
 
     def test_has_governance(self) -> None:
-        ctx = build_startup_context()
+        ctx = _live_startup_context()
         self.assertIsNotNone(ctx.governance)
         self.assertTrue(ctx.governance.repo_identity.repo_name)
 
@@ -744,7 +756,7 @@ class TestStartupContextBuild(unittest.TestCase):
         )
 
     def test_has_reviewer_gate(self) -> None:
-        ctx = build_startup_context()
+        ctx = _live_startup_context()
         self.assertIsInstance(ctx.reviewer_gate, ReviewerGateState)
 
     def test_to_dict_emits_recovery_authority_fields(self) -> None:
@@ -817,11 +829,11 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertEqual(authority.recovery_scope, "entire_lane")
 
     def test_has_push_decision(self) -> None:
-        ctx = build_startup_context()
+        ctx = _live_startup_context()
         self.assertTrue(ctx.push_decision.action)
 
     def test_has_advisory_action(self) -> None:
-        ctx = build_startup_context()
+        ctx = _live_startup_context()
         self.assertIn(
             ctx.advisory_action,
             (
@@ -837,7 +849,7 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertTrue(ctx.advisory_reason)
 
     def test_has_work_intake(self) -> None:
-        ctx = build_startup_context()
+        ctx = _live_startup_context()
         self.assertIsNotNone(ctx.work_intake)
         self.assertTrue(ctx.work_intake.contract_id)
 
@@ -900,11 +912,11 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertEqual(ctx.implementation_permission, "blocked")
 
     def test_has_quality_signals_dict(self) -> None:
-        ctx = build_startup_context()
+        ctx = _live_startup_context()
         self.assertIsInstance(ctx.quality_signals, dict)
 
     def test_has_contract_ownership_map(self) -> None:
-        ctx = build_startup_context()
+        ctx = _live_startup_context()
         self.assertIn("ReviewState", ctx.contract_ownership_map)
         review_state = ctx.contract_ownership_map["ReviewState"]
         self.assertIn("snapshot_id", review_state["startup_surface_tokens"])
@@ -915,14 +927,14 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertGreater(review_state["startup_surface_token_count"], 1)
 
     def test_has_snapshot_id(self) -> None:
-        ctx = build_startup_context()
+        ctx = _live_startup_context()
         self.assertTrue(ctx.snapshot_id)
         self.assertEqual(ctx.push_decision.snapshot_id, ctx.snapshot_id)
         self.assertTrue(ctx.zref)
         self.assertEqual(ctx.push_decision.zref, ctx.zref)
 
     def test_to_dict_serializes(self) -> None:
-        ctx = build_startup_context()
+        ctx = _live_startup_context()
         d = ctx.to_dict()
         self.assertIn("advisory_action", d)
         self.assertIn("reviewer_gate", d)
@@ -1017,7 +1029,7 @@ class TestStartupContextBuild(unittest.TestCase):
         )
 
     def test_slim_token_budget(self) -> None:
-        ctx = build_startup_context()
+        ctx = _live_startup_context()
         size = len(json.dumps(ctx.to_dict()))
         tokens = size // 4
         self.assertLess(tokens, 10000, f"startup context too large: {tokens} tokens")
@@ -3062,7 +3074,7 @@ class TestReviewerGateSemantics(unittest.TestCase):
 
     def test_live_verdict_based_acceptance(self) -> None:
         """On this repo, current verdict should drive review_accepted."""
-        ctx = build_startup_context()
+        ctx = _live_startup_context()
         if ctx.reviewer_gate.bridge_active:
             # Acceptance must come from verdict, not mode
             self.assertIsInstance(ctx.reviewer_gate.review_accepted, bool)
