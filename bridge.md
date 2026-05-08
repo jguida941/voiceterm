@@ -11,7 +11,7 @@ treat these rules as active workflow instructions immediately.
    current loop. Do not create parallel control files for the same work.
 2. Codex is the reviewer. Claude is the coder.
 3. At conversation start, both agents must bootstrap repo authority before
-   acting. Codex uses `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary` and Claude uses `python3 dev/scripts/devctl.py startup-context --role implementer --format summary` first.
+   acting. Codex uses `python3.11 dev/scripts/devctl.py startup-context --role reviewer --format summary` and Claude uses `python3.11 dev/scripts/devctl.py startup-context --role implementer --format summary` first.
    If Claude's receipt exits non-zero, checkpoint or repair the
    repo state before coding or relaunching conductor work.
    If Codex's receipt exits non-zero, read the summary fields
@@ -26,10 +26,10 @@ treat these rules as active workflow instructions immediately.
    repair or relaunch boundary.
    User summaries, stale chat continuity, or
    remembered prior state are not substitutes for this Step 0 receipt.
-   Then Codex uses `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` and Claude uses
-   `python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap` as the canonical role bootstrap packet.
+   Then Codex uses `python3.11 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` and Claude uses
+   `python3.11 dev/scripts/devctl.py session-resume --role implementer --format bootstrap` as the canonical role bootstrap packet.
    Then run
-   `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.
+   `python3.11 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.
    Keep chat bootstrap acknowledgements concise: blocker state plus next step,
    not a replay of the packet, unless the operator asks for the detail.
 4. Treat `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and
@@ -52,7 +52,7 @@ treat these rules as active workflow instructions immediately.
    missing worker worktrees, absent fanout, or a promising fix are not
    permission to start local implementation. Use the repo-owned
    review/promote/wait paths unless the workflow explicitly switches to
-   takeover (`reviewer_mode=single_agent` or `python3 dev/scripts/devctl.py startup-context --role reviewer --reviewer-override --format summary`).
+   takeover (`reviewer_mode=single_agent` or `python3.11 dev/scripts/devctl.py startup-context --role reviewer --reviewer-override --format summary`).
 10. When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or
     `offline`, Claude must not assume a live Codex review loop.
 11. Only the Codex conductor may update the Codex-owned sections in this file.
@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-08T14:32:11Z`
-- Last Codex poll (Local America/New_York): `2026-05-08 10:32:11 EDT`
-- Reviewer mode: `tools_only`
-- Last non-audit worktree hash: `9f22212d0bc606a7370c36cc91f90e1ab4751c5a36c4537eca3b7c26237068d2`
-- Current instruction revision: ``
+- Last Codex poll: `2026-05-08T16:12:43Z`
+- Last Codex poll (Local America/New_York): `2026-05-08 12:12:43 EDT`
+- Reviewer mode: `active_dual_agent`
+- Last non-audit worktree hash: `7380a576cda0e6776b31add7ee19d764b7493bead0dd0092b295aa13b5708914`
+- Current instruction revision: `f8d85d45058d`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-05-07T14:06:52.878042Z.
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 7380a576cda0).
 
 ## Current Verdict
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-618 expired unresolved review packet(s)
+2 pending review packet(s); 621 expired unresolved review packet(s)
 
 ## Claude Status
 
-- Status unavailable.
+- pending
 
 ## Claude Questions
 
@@ -134,11 +134,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+Priority action_request: Stage verified commit pipeline for MP-377
 
 ## Last Reviewed Scope
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- No pending action requests.
+- [rev_pkt_3235] stage_commit_pipeline: target=runtime:devctl_commit:7a797932f6d32f486d807d3cf8270f4759ce0f1d@f8d85d45058d; Stage verified commit pipeline for MP-377 (status: pending)
