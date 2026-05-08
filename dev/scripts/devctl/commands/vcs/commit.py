@@ -32,6 +32,7 @@ from .commit_runtime_flow import (
     run_commit_pipeline_flow,
 )
 from .governed_executor import GovernedVcsExecutor
+from .progress import emit_vcs_progress
 # Per rev_pkt_2487 issue 2: re-export build_commit_action from this module
 # so the test patch seam `dev.scripts.devctl.commands.vcs.commit.build_commit_action`
 # stays valid without forcing the test to track the actual production import.
@@ -120,11 +121,13 @@ def run_commit(
     interaction_mode: str | None = None,
 ) -> int:
     """Run governed commit through the typed remote/local pipeline."""
+    emit_vcs_progress("commit.entry", "validating governed commit invocation")
     passthrough = _parse_passthrough(args)
     if passthrough.unsupported:
         _emit_report(args, _unsupported_passthrough_report(passthrough))
         return 1
 
+    emit_vcs_progress("commit.policy", "loading push policy and vcs executor")
     resolved_policy = policy or load_push_policy(repo_root=repo_root)
     vcs_executor = executor or GovernedVcsExecutor(
         repo_root=repo_root,
@@ -137,6 +140,7 @@ def run_commit(
     )
     if getattr(args, "action_request", None) and not action_request_interaction_mode:
         action_request_interaction_mode = resolve_interaction_mode(repo_root)
+    emit_vcs_progress("commit.action_request", "checking packet-scoped authority")
     action_request_grant = resolve_commit_action_request_grant(
         args=args,
         repo_root=repo_root,
@@ -153,6 +157,7 @@ def run_commit(
     if role_report is not None:
         _emit_report(args, role_report)
         return 1
+    emit_vcs_progress("commit.permission_gate", "checking startup commit authority")
     permission_report = _commit_permission_report(
         vcs_executor,
         action_request_grant=action_request_grant,
@@ -175,6 +180,7 @@ def run_commit(
                 ),
             )
             return 1
+    emit_vcs_progress("commit.pipeline_flow", "entering staged pipeline flow")
     return run_commit_pipeline_flow(
         args=args,
         repo_root=repo_root,

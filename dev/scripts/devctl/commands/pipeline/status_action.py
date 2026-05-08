@@ -16,6 +16,14 @@ from .head_movement import (
     head_movement_context,
     managed_receipt_parent_for_current_head,
 )
+from .status_git import git_reconcile_state
+from .status_push_report import (
+    load_pipeline_push_report,
+    push_report_view,
+)
+from .status_reconcile import (
+    operation_reconcile_state,
+)
 from .support import (
     PipelinePaths,
     authorization_is_expired,
@@ -35,11 +43,15 @@ def build_status_view(
     paths: PipelinePaths,
     *,
     now: datetime | None = None,
+    git_state_fn=None,
+    push_report_loader=None,
 ) -> dict[str, Any]:
     """Return the typed status dict without touching the filesystem twice."""
     payload = load_pipeline_payload(paths)
     current_head = resolve_current_head(repo_root=paths.repo_root)
     reference_now = now or datetime.now(timezone.utc)
+    git_state = (git_state_fn or git_reconcile_state)(paths.repo_root)
+    current_branch = str(git_state.get("current_branch") or "")
 
     pipeline_id = pipeline_id_of(payload)
     state = pipeline_state_of(payload)
@@ -61,8 +73,19 @@ def build_status_view(
         approved_at=approved_at,
         reference_now=reference_now,
     )
+    latest_push_report = (
+        push_report_loader(repo_root=paths.repo_root)
+        if push_report_loader is not None
+        else load_pipeline_push_report(paths.repo_root)
+    )
+    push_report_summary = push_report_view(
+        latest_push_report,
+        repo_root=paths.repo_root,
+        current_branch=current_branch,
+        current_head=current_head,
+    )
 
-    return {
+    view = {
         "ok": bool(payload),
         "pipeline_artifact_path": str(paths.pipeline_path),
         "pipeline_exists": bool(payload),
@@ -80,6 +103,25 @@ def build_status_view(
         "head_has_moved": head_movement.head_has_moved,
         "head_movement_classification": head_movement.classification,
         "managed_receipt_parent_sha": head_movement.managed_receipt_parent_sha,
+        "current_branch": current_branch,
+        "upstream_ref": str(git_state.get("upstream_ref") or ""),
+        "ahead_of_upstream_commits": git_state.get("ahead_of_upstream_commits"),
+        "behind_upstream_commits": git_state.get("behind_upstream_commits"),
+        "worktree_clean": git_state.get("worktree_clean"),
+        "latest_push_report_path": push_report_summary["path"],
+        "latest_push_report_exists": push_report_summary["exists"],
+        "latest_push_report_status": push_report_summary["status"],
+        "latest_push_report_reason": push_report_summary["reason"],
+        "latest_push_report_head_commit": push_report_summary["head_commit"],
+        "latest_push_report_branch": push_report_summary["branch"],
+        "latest_push_report_published_remote": push_report_summary["published_remote"],
+        "latest_push_report_post_push_green": push_report_summary["post_push_green"],
+        "latest_push_report_matches_current_head": push_report_summary[
+            "matches_current_head"
+        ],
+        "latest_push_report_matches_current_branch": push_report_summary[
+            "matches_current_branch"
+        ],
         "recommended_next_action": recommended_next_action(
             payload,
             current_head=current_head,
@@ -93,6 +135,13 @@ def build_status_view(
             now=reference_now,
         ),
     }
+    view["operation_reconcile_state"] = operation_reconcile_state(
+        view,
+        commit_sha=commit_sha,
+        current_head=current_head,
+        receipt_parent=head_movement.managed_receipt_parent_sha,
+    )
+    return view
 
 
 def _approved_at_of(payload: dict[str, Any]) -> str:
@@ -129,9 +178,23 @@ def render_status_markdown(view: dict[str, Any]) -> str:
         f"- artifact: `{view['pipeline_artifact_path']}`",
         f"- pipeline_id: `{view['pipeline_id']}`",
         f"- state: `{view['state']}`",
+        f"- operation_reconcile_state: `{view['operation_reconcile_state']}`",
         f"- commit_sha: `{view['commit_sha']}`",
         f"- authorized_head_sha: `{view['authorized_head_sha']}`",
         f"- current_head_sha: `{view['current_head_sha']}`",
+        f"- current_branch: `{view['current_branch']}`",
+        f"- upstream_ref: `{view['upstream_ref']}`",
+        f"- ahead_of_upstream_commits: `{view['ahead_of_upstream_commits']}`",
+        f"- behind_upstream_commits: `{view['behind_upstream_commits']}`",
+        f"- worktree_clean: `{view['worktree_clean']}`",
+        f"- latest_push_report: `{view['latest_push_report_path']}`",
+        f"- latest_push_report_exists: `{view['latest_push_report_exists']}`",
+        f"- latest_push_report_status: `{view['latest_push_report_status']}`",
+        f"- latest_push_report_reason: `{view['latest_push_report_reason']}`",
+        f"- latest_push_report_head_commit: `{view['latest_push_report_head_commit']}`",
+        f"- latest_push_report_matches_current_head: `{view['latest_push_report_matches_current_head']}`",
+        f"- latest_push_report_published_remote: `{view['latest_push_report_published_remote']}`",
+        f"- latest_push_report_post_push_green: `{view['latest_push_report_post_push_green']}`",
         f"- expires_at_utc: `{view['expires_at_utc']}`",
         f"- age_seconds: `{view['age_seconds']}`",
         f"- authorization_expired: `{view['authorization_expired']}`",

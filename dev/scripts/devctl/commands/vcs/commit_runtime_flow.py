@@ -21,6 +21,7 @@ from .commit_preflight import (
 )
 from .commit_visibility import commit_visibility_payload
 from .governed_executor_actions import _build_report, build_commit_action
+from .progress import emit_vcs_progress
 
 
 def run_commit_pipeline_flow(
@@ -48,6 +49,7 @@ def run_commit_pipeline_flow(
         )
         return 1
 
+    emit_vcs_progress("commit.prepare_pipeline", "staging snapshot and preflight inputs")
     pipeline, stage_warnings, preflight_report = _prepare_commit_pipeline(
         args=args,
         repo_root=repo_root,
@@ -67,6 +69,7 @@ def run_commit_pipeline_flow(
         )
         return 1
 
+    emit_vcs_progress("commit.guard_replay", "checking guard replay requirements")
     replay_report = _replay_guard_report(
         vcs_executor=vcs_executor,
         repo_root=repo_root,
@@ -86,6 +89,7 @@ def run_commit_pipeline_flow(
         return 1
     pipeline = vcs_executor.load_pipeline()
 
+    emit_vcs_progress("commit.approval", "resolving operator approval state")
     pipeline, resolved_mode, approval_report = _ensure_commit_approval(
         repo_root=repo_root,
         vcs_executor=vcs_executor,
@@ -105,6 +109,7 @@ def run_commit_pipeline_flow(
         )
         return 1
 
+    emit_vcs_progress("commit.execute", "running approved commit action")
     commit_result = vcs_executor.execute(
         build_commit_action(
             repo_pack_id=resolved_policy.repo_pack_id,
@@ -126,6 +131,7 @@ def run_commit_pipeline_flow(
             requested_by="devctl.commit",
         )
     )
+    emit_vcs_progress("commit.reconcile", "reloading pipeline and resolving receipt head")
     pipeline = vcs_executor.load_pipeline()
     commit_sha, receipt_commit_sha = report_commit_shas(
         repo_root=repo_root,
@@ -141,6 +147,7 @@ def run_commit_pipeline_flow(
         )
     )
     report_status = "committed" if commit_result.ok and action_request_ok else "blocked"
+    emit_vcs_progress("commit.report", f"emitting governed commit report status={report_status}")
     emit_report(
         args,
         _commit_report(

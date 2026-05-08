@@ -312,6 +312,77 @@ class PipelineStatusTests(unittest.TestCase):
         finally:
             fixture.close()
 
+    def test_status_reconciles_latest_push_report_against_current_head(self) -> None:
+        head = "deadbeef00000000000000000000000000000000"
+        fixture = _PipelineFixture(fake_head=head)
+        try:
+            fixture.write_payload(_sample_pipeline_payload())
+            view = build_status_view(
+                fixture.paths(),
+                git_state_fn=lambda repo_root: {
+                    "current_branch": "feature/demo",
+                    "upstream_ref": "origin/feature/demo",
+                    "ahead_of_upstream_commits": 0,
+                    "behind_upstream_commits": 0,
+                    "worktree_clean": True,
+                },
+                push_report_loader=lambda repo_root: {
+                    "status": "pass",
+                    "reason": "push_completed",
+                    "branch": "feature/demo",
+                    "head_commit": head,
+                    "published_remote": True,
+                    "post_push_green": True,
+                    "artifacts": {
+                        "push_report_json": "dev/reports/push/latest_push_report.json",
+                    },
+                },
+            )
+
+            self.assertEqual(
+                view["operation_reconcile_state"],
+                "published_post_push_green",
+            )
+            self.assertTrue(view["latest_push_report_matches_current_head"])
+            self.assertTrue(view["latest_push_report_matches_current_branch"])
+            self.assertTrue(view["latest_push_report_published_remote"])
+        finally:
+            fixture.close()
+
+    def test_status_exposes_stale_push_report_and_local_ahead_state(self) -> None:
+        head = "deadbeef00000000000000000000000000000000"
+        fixture = _PipelineFixture(fake_head=head)
+        try:
+            fixture.write_payload(_sample_pipeline_payload())
+            view = build_status_view(
+                fixture.paths(),
+                git_state_fn=lambda repo_root: {
+                    "current_branch": "feature/demo",
+                    "upstream_ref": "origin/feature/demo",
+                    "ahead_of_upstream_commits": 3,
+                    "behind_upstream_commits": 0,
+                    "worktree_clean": True,
+                },
+                push_report_loader=lambda repo_root: {
+                    "status": "blocked",
+                    "reason": "validation_failed",
+                    "branch": "feature/demo",
+                    "head_commit": "old-head",
+                    "published_remote": False,
+                    "post_push_green": False,
+                },
+            )
+
+            self.assertEqual(
+                view["operation_reconcile_state"],
+                "commit_landed_waiting_for_push",
+            )
+            self.assertEqual(view["ahead_of_upstream_commits"], 3)
+            self.assertFalse(view["latest_push_report_matches_current_head"])
+            self.assertEqual(view["latest_push_report_head_commit"], "old-head")
+        finally:
+            fixture.close()
+
     def test_status_recommends_refresh_when_authorization_expired(self) -> None:
         fixture = _PipelineFixture(fake_head="deadbeef00000000000000000000000000000000")
         try:
