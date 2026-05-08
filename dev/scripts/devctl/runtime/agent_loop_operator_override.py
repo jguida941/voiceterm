@@ -13,6 +13,9 @@ _READ_ACTIONS = (
 )
 _EDIT_ACTIONS = ("implementation.edit",)
 _BLOCKED_AFTER_EDIT_OVERRIDE = ("vcs.stage", "vcs.commit", "vcs.push")
+DEFAULT_OPERATOR_OVERRIDE_REASON = "operator requested scoped edit-only repair"
+EDIT_ONLY_OVERRIDE_SCOPE = "edit-only"
+OPERATOR_OVERRIDE_REQUESTOR = "operator"
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,20 +53,22 @@ def operator_override_from_request(
     *,
     requested: object = False,
     reason: object = "",
-    scope: object = "edit-only",
-    requested_by: object = "operator",
+    scope: object = EDIT_ONLY_OVERRIDE_SCOPE,
+    requested_by: object = OPERATOR_OVERRIDE_REQUESTOR,
     requested_plan_ref: object = "",
     requested_packet_id: object = "",
 ) -> AgentLoopOperatorOverride:
     """Build a typed, edit-only override from explicit loop input."""
     if not coerce_bool(requested):
         return AgentLoopOperatorOverride()
-    normalized_scope = coerce_text(scope).lower().replace("_", "-") or "edit-only"
+    normalized_scope = (
+        coerce_text(scope).lower().replace("_", "-") or EDIT_ONLY_OVERRIDE_SCOPE
+    )
     target_kind, target_ref = _target(
         requested_plan_ref=requested_plan_ref,
         requested_packet_id=requested_packet_id,
     )
-    if normalized_scope != "edit-only":
+    if normalized_scope != EDIT_ONLY_OVERRIDE_SCOPE:
         return _invalid(
             "unsupported_scope",
             scope=normalized_scope,
@@ -95,7 +100,7 @@ def operator_override_from_request(
         active=True,
         state="active",
         source="agent_loop_cli",
-        requested_by=coerce_text(requested_by) or "operator",
+        requested_by=coerce_text(requested_by) or OPERATOR_OVERRIDE_REQUESTOR,
         scope=normalized_scope,
         reason=coerce_text(reason),
         target_kind=target_kind,
@@ -166,7 +171,7 @@ def _invalid(
         active=False,
         state=state,
         source="agent_loop_cli",
-        requested_by=coerce_text(requested_by) or "operator",
+        requested_by=coerce_text(requested_by) or OPERATOR_OVERRIDE_REQUESTOR,
         scope=scope,
         reason=coerce_text(reason),
         target_kind=target_kind,
@@ -176,6 +181,9 @@ def _invalid(
 
 __all__ = [
     "AgentLoopOperatorOverride",
+    "DEFAULT_OPERATOR_OVERRIDE_REASON",
+    "EDIT_ONLY_OVERRIDE_SCOPE",
+    "OPERATOR_OVERRIDE_REQUESTOR",
     "apply_operator_override_actions",
     "operator_override_from_request",
     "operator_override_next_command",

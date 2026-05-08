@@ -6,6 +6,7 @@ from collections.abc import Mapping
 
 from ..review_channel.agent_packet_focus import packet_by_id
 from .agent_loop_blocker_actions import required_action_for_blocker
+from .agent_loop_command import scoped_operator_override_command
 from .agent_loop_decision_models import AgentLoopDecision
 from .agent_loop_operator_override import operator_override_next_command
 from .agent_loop_policy import policy_for_turn
@@ -220,8 +221,16 @@ def decision(
         and required_action == "repair_startup_authority"
     )
     override_next = operator_override_next_command(ctx.operator_override)
+    override_request_next = scoped_operator_override_command(ctx, reason=reason)
     if override_next and required_action == "repair_startup_authority":
         next_command = override_next
+    elif (
+        override_request_next
+        and loop_state == "blocked"
+        and not ctx.may_mutate
+        and not ctx.operator_override.requested
+    ):
+        next_command = override_request_next
     elif required_action == "stop_no_work" or not loop_policy.can_run_next_command:
         next_command = ""
     else:

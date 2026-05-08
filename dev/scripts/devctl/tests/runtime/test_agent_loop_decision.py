@@ -1197,6 +1197,42 @@ def test_operator_override_satisfies_plan_wake_proof_without_packet() -> None:
     assert "vcs.commit" in decision.blocked_actions
 
 
+def test_operator_override_request_command_surfaces_for_scoped_blocker() -> None:
+    decision = build_agent_loop_decision(
+        review_state=_state(),
+        dashboard={
+            "control_plane": {
+                "top_blocker": "613 expired unresolved review packet(s)",
+                "next_action": "run_devctl_push",
+            }
+        },
+        actor_id="codex",
+        actor_role="reviewer",
+        loop_intent="plan",
+        requested_plan_ref="MP-377",
+        master_plan={
+            "contract_id": "MasterPlan",
+            "rows": [
+                {
+                    "contract_id": "PlanRow",
+                    "row_id": "MP377-P0-T22AN-AC",
+                    "anchor_refs": ["MP-377"],
+                    "status": "in_progress",
+                }
+            ],
+        },
+    )
+
+    assert decision.required_action == "wait_for_review"
+    assert decision.loop_state == "blocked"
+    assert decision.may_mutate is False
+    assert decision.operator_override.requested is False
+    assert "--operator-override" in decision.next_command
+    assert "--override-scope edit-only" in decision.next_command
+    assert "--plan MP-377" in decision.next_command
+    assert "expired unresolved review packet" in decision.next_command
+
+
 def test_operator_override_requires_reason_and_scope_target() -> None:
     decision = build_agent_loop_decision(
         review_state=_state(),

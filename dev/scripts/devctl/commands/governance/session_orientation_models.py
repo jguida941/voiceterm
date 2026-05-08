@@ -51,6 +51,7 @@ class OrientationStepSpec:
 
     name: str
     command: tuple[str, ...]
+    suppress_artifact_writes: bool = True
 
 
 def mapping(value: object) -> dict[str, object]:
@@ -61,4 +62,3 @@ def mapping(value: object) -> dict[str, object]:
 def text(value: object) -> str:
     """Normalize optional JSON scalars into stripped text."""
     return str(value or "").strip()
-

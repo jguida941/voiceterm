@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .session_orientation_models import SessionOrientationStep, mapping, text
+from .session_orientation_next_command import fallback_next_command
 
 
 def summary_items(*items: tuple[str, object]) -> dict[str, object]:
@@ -175,7 +176,10 @@ def final_summary(
         elif authority_next_command:
             next_command = authority_next_command
     if not next_command:
-        next_command = fallback_next_command(payloads)
+        next_command = fallback_next_command(
+            payloads,
+            authority_allows_push=authority_allows_startup_push(authority),
+        )
         if next_command:
             source = "fallback"
     blocking_step = first_unparsed_step(steps)
@@ -289,20 +293,6 @@ def reviewer_runtime_summary(runtime: dict[str, object]) -> dict[str, object]:
         "packet_attention": mapping(runtime.get("packet_attention")),
         "remote_control_attachment": mapping(runtime.get("remote_control_attachment")),
     }
-
-
-def fallback_next_command(payloads: dict[str, dict[str, object]]) -> str:
-    """Return the next command from push decisions when authority omits one."""
-    review_status = payloads.get("review_status", {})
-    startup = payloads.get("startup", {})
-    return first_text(
-        {
-            "review_status": review_status,
-            "startup": startup,
-        },
-        ("review_status", "push_decision", "next_step_command"),
-        ("startup", "push_decision", "next_step_command"),
-    )
 
 
 def safe_to_fanout(payloads: dict[str, dict[str, object]]) -> object:

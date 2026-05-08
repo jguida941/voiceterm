@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import unittest
 from pathlib import Path
@@ -11,6 +12,11 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.commands.governance import session
 from dev.scripts.devctl.commands.governance import session_orientation
+from dev.scripts.devctl.cli_parser.artifact_suppression import ARTIFACT_WRITES_ENV
+from dev.scripts.devctl.commands.governance.session_orientation_command_classification import (
+    CommandClassification,
+    classify_devctl_command,
+)
 from dev.scripts.devctl.commands.governance import session_orientation_runner
 
 
@@ -103,7 +109,13 @@ class SessionOrientationTests(unittest.TestCase):
 
         calls: list[list[str]] = []
 
-        def fake_run(command, _repo_root, *, timeout_seconds):
+        def fake_run(
+            command,
+            _repo_root,
+            *,
+            timeout_seconds,
+            suppress_artifact_writes=False,
+        ):
             calls.append(command)
             payload = (startup, resume, status, graph)[len(calls) - 1]
             rc = 1 if len(calls) == 1 else 0
@@ -155,6 +167,58 @@ class SessionOrientationTests(unittest.TestCase):
 
         self.assertEqual(rc, 0)
         self.assertEqual(emit_mock.call_args.kwargs["role"], "observer")
+
+    def test_session_child_artifact_suppression_preserves_graph_freshness(self) -> None:
+        specs = session_orientation_runner._step_specs(_args(), "implementer")
+
+        self.assertEqual(
+            [(spec.name, spec.suppress_artifact_writes) for spec in specs],
+            [
+                ("startup", True),
+                ("session_resume", True),
+                ("review_status", True),
+                ("context_graph", False),
+            ],
+        )
+
+    def test_suppressed_session_child_sets_artifact_suppression_env(self) -> None:
+        completed = subprocess.CompletedProcess(
+            args=["python3"],
+            returncode=0,
+            stdout="{}",
+            stderr="",
+        )
+        with patch.dict(os.environ, {}, clear=True):
+            with patch.object(
+                session_orientation_runner.subprocess,
+                "run",
+                return_value=completed,
+            ) as run_mock:
+                session_orientation_runner._run_subprocess(
+                    ["python3", "dev/scripts/devctl.py", "startup-context"],
+                    Path("/repo"),
+                    timeout_seconds=1,
+                    suppress_artifact_writes=True,
+                )
+
+        self.assertEqual(run_mock.call_args.kwargs["env"][ARTIFACT_WRITES_ENV], "1")
+
+    def test_command_classifier_identifies_only_devctl_push_commands(self) -> None:
+        self.assertIs(
+            classify_devctl_command(
+                "PYTHONDONTWRITEBYTECODE=1 python3 "
+                "/repo/dev/scripts/devctl.py push --execute"
+            ),
+            CommandClassification.GOVERNED_PUSH,
+        )
+        self.assertIs(
+            classify_devctl_command("devctl push --execute"),
+            CommandClassification.GOVERNED_PUSH,
+        )
+        self.assertIs(
+            classify_devctl_command("echo devctl.py push --execute"),
+            CommandClassification.UNKNOWN,
+        )
 
     def test_startup_push_decision_beats_idle_status_command(self) -> None:
         """Fresh sessions should surface push when startup proves it is next."""
@@ -213,7 +277,13 @@ class SessionOrientationTests(unittest.TestCase):
 
         calls: list[list[str]] = []
 
-        def fake_run(command, _repo_root, *, timeout_seconds):
+        def fake_run(
+            command,
+            _repo_root,
+            *,
+            timeout_seconds,
+            suppress_artifact_writes=False,
+        ):
             calls.append(command)
             payload = (startup, resume, status, graph)[len(calls) - 1]
             return _completed(command, payload)
@@ -291,7 +361,13 @@ class SessionOrientationTests(unittest.TestCase):
 
         calls: list[list[str]] = []
 
-        def fake_run(command, _repo_root, *, timeout_seconds):
+        def fake_run(
+            command,
+            _repo_root,
+            *,
+            timeout_seconds,
+            suppress_artifact_writes=False,
+        ):
             calls.append(command)
             payload = (startup, resume, status, graph)[len(calls) - 1]
             return _completed(command, payload)
@@ -315,6 +391,73 @@ class SessionOrientationTests(unittest.TestCase):
                 "--action status --terminal none --format json"
             ),
         )
+        self.assertFalse(packet.final["safe_to_continue"])
+
+    def test_fallback_push_decision_does_not_override_blocking_authority(self) -> None:
+        """Push fallback cannot bypass a blocking preferred AuthoritySnapshot."""
+        startup = {
+            "command": "startup-context",
+            "authority_snapshot": {
+                "required_action": "continue_scoped_loop",
+                "next_command": "",
+                "safe_to_continue": True,
+            },
+            "push_decision": {
+                "action": "run_devctl_push",
+                "next_step_command": "python3 dev/scripts/devctl.py push --execute",
+            },
+        }
+        resume = {
+            "command": "session-resume",
+            "authority_snapshot": {
+                "required_action": "resume_live_review_loop",
+                "next_command": "",
+                "safe_to_continue": True,
+            },
+        }
+        status = {
+            "command": "review-channel",
+            "ok": True,
+            "attention": {"status": "inactive", "recommended_command": ""},
+            "authority_snapshot": {
+                "required_action": "resume_live_review_loop",
+                "next_command": "",
+                "safe_to_continue": False,
+                "root_cause": "review loop inactive",
+                "blocked_actions": ["vcs.push"],
+            },
+        }
+        graph = {
+            "command": "context-graph",
+            "snapshot": {"path": "dev/reports/graph_snapshots/example.json"},
+        }
+
+        calls: list[list[str]] = []
+
+        def fake_run(
+            command,
+            _repo_root,
+            *,
+            timeout_seconds,
+            suppress_artifact_writes=False,
+        ):
+            calls.append(command)
+            payload = (startup, resume, status, graph)[len(calls) - 1]
+            return _completed(command, payload)
+
+        with patch.object(
+            session_orientation_runner,
+            "_run_subprocess",
+            side_effect=fake_run,
+        ):
+            packet = session_orientation.build_session_orientation(
+                _args(),
+                Path("/repo"),
+                role="implementer",
+            )
+
+        self.assertEqual(packet.final["next_command_source"], "review_status")
+        self.assertEqual(packet.final["next_command"], "")
         self.assertFalse(packet.final["safe_to_continue"])
 
 

@@ -11,6 +11,7 @@ from typing import Any
 
 from ...common import resolve_repo_python_command
 from ...common_io import cmd_str
+from ...cli_parser.artifact_suppression import ARTIFACT_WRITES_ENV
 from ...time_utils import utc_timestamp
 from .session_orientation_models import (
     DEFAULT_TIMEOUT_SECONDS,
@@ -121,6 +122,7 @@ def _step_specs(args: Any, role: str) -> tuple[OrientationStepSpec, ...]:
                 "--format",
                 "json",
             ),
+            suppress_artifact_writes=False,
         )
     )
     return tuple(specs)
@@ -168,6 +170,7 @@ def _run_json_step(
             list(spec.command),
             repo_root,
             timeout_seconds=timeout_seconds,
+            suppress_artifact_writes=spec.suppress_artifact_writes,
         )
         output = completed.stdout or ""
         exit_code = completed.returncode
@@ -202,9 +205,12 @@ def _run_subprocess(
     repo_root: Path,
     *,
     timeout_seconds: int,
+    suppress_artifact_writes: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
+    if suppress_artifact_writes:
+        env[ARTIFACT_WRITES_ENV] = "1"
     return subprocess.run(
         resolve_repo_python_command(cmd, cwd=repo_root),
         cwd=str(repo_root),
@@ -245,4 +251,3 @@ def _timeout_seconds(args: Any) -> int:
 
 def _normalize_role(role: str) -> str:
     return "observer" if role == "dashboard" else role
-

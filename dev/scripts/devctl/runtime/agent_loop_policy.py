@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from .agent_loop_operator_override import AgentLoopOperatorOverride
+from .agent_loop_command import scoped_loop_command
 from .agent_loop_policy_checkpoint import (
     governed_checkpoint_policy_kwargs,
     operator_override_edit_policy_kwargs,
@@ -276,37 +277,6 @@ def observer_cadence(role: str, cadence: int) -> int:
     return cadence
 
 
-def scoped_loop_command(ctx: _LoopContext) -> str:
-    parts = [
-        "python3",
-        "dev/scripts/devctl.py",
-        "agent-loop",
-        "--format",
-        "json",
-        "--actor",
-        _shell_word(ctx.actor or "claude"),
-        "--role",
-        _shell_word(ctx.role or "dashboard"),
-    ]
-    if ctx.session:
-        parts.extend(("--session-id", _shell_word(ctx.session)))
-    if ctx.loop_intent and ctx.loop_intent != "auto":
-        parts.extend(("--mode", _shell_word(ctx.loop_intent)))
-    if ctx.requested_plan_ref:
-        parts.extend(("--plan", _shell_word(ctx.requested_plan_ref)))
-    if ctx.requested_packet_id:
-        parts.extend(("--packet", _shell_word(ctx.requested_packet_id)))
-    if ctx.operator_override.requested:
-        parts.append("--operator-override")
-        if ctx.operator_override.scope:
-            parts.extend(("--override-scope", _shell_word(ctx.operator_override.scope)))
-        if ctx.operator_override.reason:
-            parts.extend(("--override-reason", _shell_word(ctx.operator_override.reason)))
-        if ctx.operator_override.requested_by:
-            parts.extend(("--override-by", _shell_word(ctx.operator_override.requested_by)))
-    return " ".join(parts)
-
-
 def _clock_cadence(clock: object) -> int:
     if not isinstance(clock, Mapping):
         return 0
@@ -316,13 +286,8 @@ def _clock_cadence(clock: object) -> int:
         return 0
 
 
-def _shell_word(value: str) -> str:
-    text = str(value or "").strip()
-    if not text:
-        return "''"
-    if all(ch.isalnum() or ch in "._:-/" for ch in text):
-        return text
-    return "'" + text.replace("'", "'\"'\"'") + "'"
-
-
-__all__ = ["AgentLoopPolicy", "AgentLoopProofGate", "policy_for_turn"]
+__all__ = [
+    "AgentLoopPolicy",
+    "AgentLoopProofGate",
+    "policy_for_turn",
+]
