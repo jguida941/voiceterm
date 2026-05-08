@@ -6,6 +6,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
+from .session_route_scope import normalize_route_role, packet_matches_session_route
+
 SESSION_TERMINATION_POLICY_CONTRACT_ID = "SessionTerminationPolicy"
 SESSION_TERMINATION_POLICY_SCHEMA_VERSION = 1
 TASK_COMPLETE_DECISION_CONTRACT_ID = "TaskCompleteDecision"
@@ -123,6 +125,7 @@ def task_complete_decision(
     packets: Sequence[object] | object,
     policy: SessionTerminationPolicy,
     actor: str = "",
+    actor_role: str = "",
 ) -> TaskCompleteDecision:
     """Return the typed TASK_COMPLETE decision for one session boundary."""
     normalized_session = _text(session_id)
@@ -142,7 +145,15 @@ def task_complete_decision(
         )
 
     rows = _packet_rows(packets)
-    if _active_stop_anchor(rows, session_id=normalized_session) is not None:
+    normalized_actor = _text(actor)
+    normalized_role = normalize_route_role(actor_role)
+
+    if _active_stop_anchor(
+        rows,
+        session_id=normalized_session,
+        actor=normalized_actor,
+        actor_role=normalized_role,
+    ) is not None:
         return TaskCompleteDecision(
             reason="operator_stop_anchor",
             policy_mode=policy.mode,
@@ -153,6 +164,8 @@ def task_complete_decision(
         rows,
         policy=policy,
         session_id=normalized_session,
+        actor=normalized_actor,
+        actor_role=normalized_role,
     )
     if anchor is None:
         return TaskCompleteDecision(
@@ -188,13 +201,21 @@ def _active_continuation_anchor(
     *,
     policy: SessionTerminationPolicy,
     session_id: str,
+    actor: str,
+    actor_role: str,
 ) -> Mapping[str, object] | None:
     candidates = [
         packet
         for packet in packets
         if _text(packet.get("kind")) == CONTINUATION_ANCHOR_PACKET_KIND
         and _packet_is_active_anchor(packet)
-        and _packet_matches_policy(packet, policy=policy, session_id=session_id)
+        and _packet_matches_policy(
+            packet,
+            policy=policy,
+            session_id=session_id,
+            actor=actor,
+            actor_role=actor_role,
+        )
     ]
     if not candidates:
         return None
@@ -205,12 +226,19 @@ def _active_stop_anchor(
     packets: Sequence[Mapping[str, object]],
     *,
     session_id: str,
+    actor: str,
+    actor_role: str,
 ) -> Mapping[str, object] | None:
     candidates = [
         packet
         for packet in packets
         if _text(packet.get("kind")) == STOP_ANCHOR_PACKET_KIND
-        and _packet_matches_session(packet, session_id=session_id)
+        and packet_matches_session_route(
+            packet,
+            session_id=session_id,
+            actor=actor,
+            actor_role=actor_role,
+        )
         and not _expired(_text(packet.get("expires_at_utc")))
         and _text(packet.get("lifecycle_current_state")) != "dismissed"
     ]
@@ -232,19 +260,17 @@ def _packet_matches_policy(
     *,
     policy: SessionTerminationPolicy,
     session_id: str,
+    actor: str,
+    actor_role: str,
 ) -> bool:
     if policy.anchor_packet_id and _text(packet.get("packet_id")) != policy.anchor_packet_id:
         return False
-    return _packet_matches_session(packet, session_id=session_id)
-
-
-def _packet_matches_session(
-    packet: Mapping[str, object],
-    *,
-    session_id: str,
-) -> bool:
-    target_session = _text(packet.get("target_session_id"))
-    return not target_session or not session_id or target_session == session_id
+    return packet_matches_session_route(
+        packet,
+        session_id=session_id,
+        actor=actor,
+        actor_role=actor_role,
+    )
 
 
 def _packet_rows(packets: Sequence[object] | object) -> tuple[Mapping[str, object], ...]:

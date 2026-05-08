@@ -78,11 +78,12 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-08T17:18:12Z`
-- Last Codex poll (Local America/New_York): `2026-05-08 13:18:12 EDT`
-- Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `00fd92c826d66274f5d0ef683f5e5a26d84ec6236f613ec7f88361039c27a5f6`
-- Current instruction revision: `dd3125ffb09c`
+- Last Codex poll: `2026-05-08T20:43:58Z`
+- Last Codex poll (Local America/New_York): `2026-05-08 16:43:58 EDT`
+- Reviewer mode: `active_dual_agent`
+- Declared reviewer mode: `active_dual_agent`
+- Last non-audit worktree hash: `e7d966182c9cbfecc81a1bd863b8b4119e724c844769b491a6d7a48e9bbdc920`
+- Current instruction revision: `c2918738ecc5`
 
 ## Protocol
 
@@ -114,7 +115,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: checkpoint_required; observed-tree: 5813dbc0530d; reviewed-tree: 5813dbc0530d; instruction-rev: df9044fa8b54).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: e7d966182c9c).
 
 ## Current Verdict
 
@@ -122,7 +123,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s); 622 expired unresolved review packet(s)
+1 pending review packet(s); 626 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -138,12 +139,12 @@ pending
 
 ## Current Instruction For Claude
 
-Priority action_request: Stage and checkpoint MP-377 SessionTerminationPolicy slice
+Priority action_request: BLOCKED: Codex reviewer cannot take raw commit authority; review_channel test target fails collection
 
 ## Last Reviewed Scope
 
-MP-377
+MP-355
 
 ## Action Requests
 
-- [rev_pkt_3243] stage_commit_pipeline: target=runtime:devctl_commit:d31f125bc3468dd0ee84d39f4f597a6b4a2d6fc9@d31f125bc3468dd0ee84d39f4f597a6b4a2d6fc9; Stage and checkpoint MP-377 SessionTerminationPolicy slice (status: pending)
+- [rev_pkt_3272] run_check: target=runtime:review-channel-test-verification@314cb43943c6ede8eed78534054dfe9bdb7623b4; BLOCKED: Codex reviewer cannot take raw commit authority; review_channel test target fails collection (status: pending)

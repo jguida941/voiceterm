@@ -49,15 +49,20 @@ completed handoff should end the session or continue through the canonical
 Decision: `continuation_anchor` and `stop_anchor` packets are valid packet
 records but not actionable inbox work. The agent loop may continue after a
 completed handoff only when the typed policy is active, the continuation anchor
-is still pending for the same actor/session, and no stop anchor is active.
+is still pending for the same actor, normalized role, and target session, and no
+stop anchor is active. Shared packet-attention checks also ignore session
+termination packets so runtime sync guards do not demand ordinary inbox wake
+state for keep-awake anchors.
 
 Evidence:
 
 - `dev/scripts/devctl/runtime/session_termination_policy.py`
 - `dev/scripts/devctl/runtime/agent_loop_decision.py`
+- `dev/scripts/devctl/review_channel/packet_loop_attention.py`
 - `dev/scripts/devctl/review_channel/packet_contract.py`
 - `dev/scripts/devctl/tests/runtime/test_session_termination_policy.py`
 - `dev/scripts/devctl/tests/runtime/test_agent_loop_decision.py`
+- `dev/scripts/devctl/tests/checks/test_check_multi_agent_sync_runtime_truth.py`
 
 ### 2026-05-08 - Fresh sessions route through typed orientation first
 

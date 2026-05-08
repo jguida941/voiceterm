@@ -76,6 +76,27 @@ def test_keep_awake_policy_continues_with_active_anchor() -> None:
     )
 
 
+def test_keep_awake_policy_ignores_other_actor_anchor() -> None:
+    decision = task_complete_decision(
+        session_id="shared-session",
+        packets=(
+            _anchor(
+                to_agent="claude",
+                target_role="implementer",
+                target_session_id="shared-session",
+            ),
+        ),
+        policy=SessionTerminationPolicy(
+            mode=SESSION_TERMINATION_MODE_KEEP_AWAKE_VIA_PACKETS,
+            target_session_id="shared-session",
+        ),
+        actor="codex",
+        actor_role="reviewer",
+    )
+    assert decision.terminate is True
+    assert decision.reason == "no_active_anchor"
+
+
 def test_keep_awake_policy_ignores_expired_anchor() -> None:
     decision = task_complete_decision(
         session_id="session-1",

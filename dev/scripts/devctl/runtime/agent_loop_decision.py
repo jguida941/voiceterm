@@ -87,6 +87,7 @@ def build_agent_loop_decision(
             packets=review_state.get("packets", ()),
             policy=session_termination_policy_from_review_state(review_state),
             actor=ctx.actor,
+            actor_role=ctx.role,
         )
         if not task_decision.terminate:
             return continuation_anchor_decision(ctx, task_decision)

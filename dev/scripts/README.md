@@ -610,10 +610,13 @@ Portability note:
   `SessionTerminationPolicy` names whether a completed handoff should end on
   `task_complete`, keep the actor awake through a pending
   `continuation_anchor`, or stop when a `stop_anchor` is active.
-  `TaskCompleteDecision` records the final decision and the canonical
-  `develop next --actor <actor> --format md` next command. Anchor packet kinds
-  are valid review-channel records but are not actionable inbox packets and
-  should not be acked just to make prose "leave pending" semantics work.
+  Continuation and stop anchors are route-scoped by `to_agent`, normalized
+  `target_role`, and `target_session_id`, so one provider/role session cannot
+  keep a different provider/role session alive. `TaskCompleteDecision` records
+  the final decision and the canonical `develop next --actor <actor> --format md`
+  next command. Anchor packet kinds are valid review-channel records but are not
+  actionable inbox packets and should not be acked just to make prose "leave
+  pending" semantics work.
 - Runtime liveness is projected through `SessionLivenessSignal` in
   `devctl.runtime` with the states `alive`, `degraded`,
   `detached_runtime_only`, and `dead`. Review-channel status emits

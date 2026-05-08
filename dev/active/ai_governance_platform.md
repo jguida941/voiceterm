@@ -178,6 +178,14 @@ Current ingestion status:
   projection, and `check_multi_agent_sync.py` passing after each phase. Provider
   labels such as Codex and Claude are runtimes only; role and authority state
   decide allowed actions.
+- 2026-05-08 SessionTerminationPolicy hardening: continuation and stop anchors
+  now match the completing session by provider actor, normalized target role,
+  and target session id. `AgentLoopDecision` passes its route role into
+  `task_complete_decision()`, and shared packet-attention checks ignore
+  session-termination packet kinds so `check_multi_agent_sync.py` does not
+  require ordinary inbox wake state for keep-awake anchors. This closes the
+  `rev_pkt_3245` / `rev_pkt_3255` class where a Claude-addressed anchor could
+  keep a Codex reviewer TASK_COMPLETE alive.
 - Raw exception execution, request, repair/prove/close/import-manual commands,
   dashboard writes, bridge writes, slash command writes, and raw `git push
   --no-verify` paths are out of scope until later slices add proof and policy
