@@ -8,7 +8,8 @@ from typing import Final
 DEFAULT_PER_TEST_TIMEOUT_SECONDS: Final[int] = 60
 DEFAULT_SESSION_TIMEOUT_SECONDS: Final[int] = 900
 TARGET_TIMEOUT_FLOOR_SECONDS: Final[dict[str, int]] = {
-    "dev/scripts/devctl/tests/commands/test_development_command.py": 600,
+    "dev/scripts/devctl/tests/commands/test_development_command.py": 900,
+    "dev/scripts/devctl/tests/vcs/test_push.py": 600,
 }
 
 

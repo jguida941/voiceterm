@@ -22,7 +22,7 @@ def make_args(**overrides) -> SimpleNamespace:
         "no_parallel": False,
         "parallel_workers": 4,
         "command_timeout_seconds": 300,
-        "route_timeout_seconds": 1800,
+        "route_timeout_seconds": 3600,
         "format": "json",
         "output": None,
         "pipe_command": None,
@@ -261,6 +261,7 @@ class CheckRouterTests(unittest.TestCase):
                     "dev/scripts/devctl/tests/review_channel/test_event_render_typed_sections.py",
                     "dev/scripts/devctl/tests/review_channel/test_failure_packet_router.py",
                     "dev/scripts/devctl/tests/review_channel/test_follow_controller_reviewer_wake.py",
+                    "dev/scripts/devctl/tests/vcs/test_push.py",
                 )
             ]
         }
@@ -278,10 +279,12 @@ class CheckRouterTests(unittest.TestCase):
             for row in payload["planned_commands"]
             if "test-python --suite devctl" in row["command"]
         ]
-        self.assertEqual(len(devctl_commands), 10)
+        self.assertEqual(len(devctl_commands), 11)
         for command in devctl_commands:
             self.assertEqual(command.count("--path "), 1)
             if "dev/scripts/devctl/tests/commands/test_development_command.py" in command:
+                self.assertIn("--timeout-seconds 900", command)
+            elif "dev/scripts/devctl/tests/vcs/test_push.py" in command:
                 self.assertIn("--timeout-seconds 600", command)
             else:
                 self.assertIn("--timeout-seconds 420", command)

@@ -16,7 +16,7 @@ from .router_steps import dry_run_step_result, execute_router_row
 from .steps import run_step_specs
 
 DEFAULT_ROUTER_COMMAND_TIMEOUT_SECONDS = 300
-DEFAULT_ROUTER_ROUTE_TIMEOUT_SECONDS = 1800
+DEFAULT_ROUTER_ROUTE_TIMEOUT_SECONDS = 3600
 
 _EXPLICIT_TIMEOUT_RE = re.compile(r"--timeout-seconds\s+(\d+)")
 

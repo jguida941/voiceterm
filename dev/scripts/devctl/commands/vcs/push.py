@@ -57,6 +57,10 @@ from .push_preflight_projection import (
     refresh_managed_projections_before_preflight,
     repair_preflight_generated_changes_for_push,
 )
+from .push_preflight_timeout import (
+    PUSH_PREFLIGHT_TIMEOUT_SECONDS,
+    build_preflight_command_kwargs,
+)
 from .push_report import PushStageTruth
 from .push_report_context import (
     PushReportFinishInputs,
@@ -386,7 +390,7 @@ def _run_fetch_and_preflight(
     state.preflight_step = command_runner(
         "push-preflight",
         ["bash", "-lc", preflight_command],
-        cwd=repo_root,
+        **build_preflight_command_kwargs(command_runner, repo_root=repo_root),
     )
     if state.preflight_step["returncode"] != 0:
         state.errors.append("Configured push preflight failed.")

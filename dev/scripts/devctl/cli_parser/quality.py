@@ -94,10 +94,10 @@ def _add_check_router_parser(sub: argparse._SubParsersAction) -> None:
     router_cmd.add_argument(
         "--route-timeout-seconds",
         type=int,
-        default=1800,
+        default=3600,
         help=(
             "Overall routed execution budget before remaining commands become "
-            "typed timeout failures (default: 1800)"
+            "typed timeout failures (default: 3600)"
         ),
     )
     router_cmd.add_argument(

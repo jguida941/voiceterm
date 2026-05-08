@@ -1351,6 +1351,11 @@ class PushCommandTests(unittest.TestCase):
                 ],
             ],
         )
+        preflight_policy = run_cmd_mock.call_args_list[-1].kwargs["policy"]
+        self.assertEqual(
+            preflight_policy.timeout_seconds,
+            push.PUSH_PREFLIGHT_TIMEOUT_SECONDS,
+        )
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "validation_ready")
         self.assertEqual(

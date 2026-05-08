@@ -43,6 +43,17 @@ def test_build_python_test_command_applies_measured_target_timeout_floor() -> No
         timeout_seconds=120,
     )
 
+    assert resolved.timeout_seconds == 900
+    assert "--repo-session-timeout-seconds=900" in resolved.command
+
+
+def test_build_python_test_command_applies_push_target_timeout_floor() -> None:
+    resolved = build_python_test_command(
+        suite_id="devctl",
+        explicit_targets=("dev/scripts/devctl/tests/vcs/test_push.py",),
+        timeout_seconds=120,
+    )
+
     assert resolved.timeout_seconds == 600
     assert "--repo-session-timeout-seconds=600" in resolved.command
 
