@@ -257,6 +257,7 @@ def build_startup_action_routing(
             push=push,
             permission=permission,
             defer_publication=defer_publication,
+            caller_role=caller_role,
         )
     )
     if publication_defer.active:

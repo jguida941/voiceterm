@@ -13,6 +13,13 @@ DEFER_SAFE_CHECKPOINT_REASONS = frozenset(
         "staged_and_unstaged_worktree_present",
     }
 )
+DIRTY_EDIT_DEFER_TOPOLOGIES = frozenset(
+    {
+        "no_live_agents",
+        "implementer_without_reviewer",
+    }
+)
+DIRTY_EDIT_DEFER_REASONS = frozenset({"worktree_dirty"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +43,7 @@ class PublicationDeferInput:
     push: Mapping[str, object]
     permission: str
     defer_publication: bool
+    caller_role: object = ""
 
 
 def publication_defer_decision(
@@ -62,13 +70,88 @@ def _allows_implementation_edit(spec: PublicationDeferInput) -> bool:
         return False
     if "implementation.edit" not in spec.lane_permissions:
         return False
-    if spec.permission != "active":
+    if not _permission_allows_development_edit(spec):
         return False
     if not _checkpoint_deferable_for_editing(spec.push):
         return False
     return _publication_or_checkpoint_pending(
         spec.ctx_payload,
         push=spec.push,
+    )
+
+
+def _permission_allows_development_edit(spec: PublicationDeferInput) -> bool:
+    if spec.permission == "active":
+        return True
+    if spec.permission not in {"blocked", "suspended"}:
+        return False
+    return _inactive_tools_only_loop_allows_edit_deferral(
+        spec.ctx_payload,
+        push=spec.push,
+        caller_role=spec.caller_role,
+    )
+
+
+def _inactive_tools_only_loop_allows_edit_deferral(
+    ctx_payload: Mapping[str, object],
+    *,
+    push: Mapping[str, object],
+    caller_role: object,
+) -> bool:
+    """Allow edit-only build continuation when publication owns the stall.
+
+    This is deliberately narrower than a takeover policy: it only applies to a
+    bounded implementer lane while startup is in the transitional tools-only
+    loop and the blocker is publication/checkpoint cleanliness. Stage, commit,
+    and push remain blocked by the deferral decision.
+    """
+    if bool(push.get("checkpoint_required", False)):
+        return False
+    dirty = _worktree_has_edit_debt(push)
+    if not push_safe_to_continue(push) and not (
+        dirty and _dirty_edit_defer_context(ctx_payload, push=push)
+    ):
+        return False
+
+    topology = _observed_topology(ctx_payload)
+    if topology not in DIRTY_EDIT_DEFER_TOPOLOGIES:
+        return False
+    if topology == "implementer_without_reviewer" and _role(caller_role) != "implementer":
+        return False
+    if dirty and not _dirty_edit_defer_context(ctx_payload, push=push):
+        return False
+
+    mode = _effective_reviewer_mode(ctx_payload)
+    if mode not in {"tools_only", "single_agent"}:
+        return False
+
+    return True
+
+
+def _dirty_edit_defer_context(
+    ctx_payload: Mapping[str, object],
+    *,
+    push: Mapping[str, object],
+) -> bool:
+    if _safe_int(push.get("staged_path_count")) > 0:
+        return False
+    if _safe_int(push.get("untracked_path_count")) > 0:
+        return False
+    push_decision = _mapping(ctx_payload.get("push_decision"))
+    action = str(push_decision.get("action") or "").strip()
+    reason = str(
+        push_decision.get("reason") or push.get("checkpoint_reason") or ""
+    ).strip()
+    return action == "await_checkpoint" and reason in DIRTY_EDIT_DEFER_REASONS
+
+
+def _worktree_has_edit_debt(push: Mapping[str, object]) -> bool:
+    return (
+        bool(push.get("worktree_dirty", False))
+        or _safe_int(push.get("dirty_path_count")) > 0
+        or _safe_int(push.get("unstaged_path_count")) > 0
+        or _safe_int(push.get("untracked_path_count")) > 0
+        or _safe_int(push.get("staged_path_count")) > 0
     )
 
 
@@ -134,6 +217,22 @@ def _mapping(value: object) -> Mapping[str, object]:
     return value if isinstance(value, Mapping) else {}
 
 
+def _observed_topology(ctx_payload: Mapping[str, object]) -> str:
+    return str(ctx_payload.get("observed_control_topology") or "").strip()
+
+
+def _effective_reviewer_mode(ctx_payload: Mapping[str, object]) -> str:
+    return str(
+        ctx_payload.get("effective_reviewer_mode")
+        or ctx_payload.get("reviewer_mode")
+        or ""
+    ).strip()
+
+
+def _role(value: object) -> str:
+    return str(value or "").strip()
+
+
 def _safe_int(value: object) -> int:
     try:
         return int(value or 0)
@@ -143,6 +242,8 @@ def _safe_int(value: object) -> int:
 
 __all__ = [
     "DEFER_SAFE_CHECKPOINT_REASONS",
+    "DIRTY_EDIT_DEFER_REASONS",
+    "DIRTY_EDIT_DEFER_TOPOLOGIES",
     "PublicationDeferDecision",
     "PublicationDeferInput",
     "publication_defer_decision",

@@ -10,6 +10,7 @@ from dev.scripts.devctl.platform.system_map import (
     GENERATED_BLOCK_END,
     build_system_map_snapshot,
     render_system_map_document,
+    render_system_map_markdown,
 )
 from dev.scripts.devctl.platform.connectivity_registry import (
     CONNECTIVITY_REGISTRY_READER_IDS,
@@ -97,6 +98,16 @@ def test_system_map_registry_includes_governed_exception_contracts() -> None:
     assert "GovernedExceptionLifecycle" in contract_ids
     assert "ExceptionReceipt" in contract_ids
     assert "ResolutionReceipt" in contract_ids
+
+
+def test_system_map_markdown_surfaces_required_authority_contracts() -> None:
+    snapshot = build_system_map_snapshot()
+    rendered = render_system_map_markdown(snapshot)
+
+    assert "- rendered_contract_count:" in rendered
+    assert "- omitted_contract_count:" in rendered
+    assert "required authority contracts" in rendered
+    assert "`CheckpointRepairAuthority`" in rendered
 
 
 def test_system_map_registry_projects_governed_exception_cross_links() -> None:

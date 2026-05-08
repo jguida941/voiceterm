@@ -19,6 +19,9 @@ from dev.scripts.devctl.commands.governance.startup_context import (
     _render_markdown,
     _render_summary,
 )
+from dev.scripts.devctl.commands.governance.startup_context_defer import (
+    auto_defer_publication_for_development,
+)
 from dev.scripts.devctl.commands.listing import COMMANDS
 from dev.scripts.devctl.platform.coordination_snapshot_models import (
     CoordinationActorRecord,
@@ -1224,6 +1227,140 @@ class TestCLIRegistration(unittest.TestCase):
         )
         self.assertEqual(args.command, "startup-context")
         self.assertTrue(args.defer_publication)
+
+    def test_auto_defer_publication_when_implementer_hits_failed_push_loop(
+        self,
+    ) -> None:
+        ctx = SimpleNamespace(
+            governance=_minimal_governance(
+                checkpoint_required=False,
+                safe_to_continue_editing=True,
+                worktree_dirty=False,
+                dirty_path_count=0,
+                untracked_path_count=0,
+                staged_path_count=0,
+                pending_publication_commits=22,
+                latest_push_report_status="blocked",
+                latest_push_report_reason="validation_failed",
+            ),
+            push_decision=SimpleNamespace(
+                action="run_devctl_push",
+                publication_backlog=SimpleNamespace(
+                    pending_publication_commits=22,
+                    backlog_urgent=True,
+                ),
+            ),
+        )
+
+        self.assertTrue(
+            auto_defer_publication_for_development(
+                ctx=ctx,
+                caller_role="implementer",
+            )
+        )
+
+    def test_auto_defer_publication_when_worktree_dirty_blocks_only_publication(
+        self,
+    ) -> None:
+        ctx = SimpleNamespace(
+            observed_control_topology="implementer_without_reviewer",
+            reviewer_gate=ReviewerGateState(
+                reviewer_mode="tools_only",
+                effective_reviewer_mode="tools_only",
+            ),
+            governance=_minimal_governance(
+                checkpoint_required=False,
+                safe_to_continue_editing=True,
+                worktree_dirty=True,
+                worktree_clean=False,
+                dirty_path_count=7,
+                unstaged_path_count=7,
+                untracked_path_count=0,
+                staged_path_count=0,
+                pending_publication_commits=22,
+                latest_push_report_status="blocked",
+                latest_push_report_reason="validation_failed",
+            ),
+            push_decision=SimpleNamespace(
+                action="await_checkpoint",
+                reason="worktree_dirty",
+                publication_backlog=SimpleNamespace(
+                    pending_publication_commits=22,
+                    backlog_urgent=True,
+                ),
+            ),
+        )
+
+        self.assertTrue(
+            auto_defer_publication_for_development(
+                ctx=ctx,
+                caller_role="implementer",
+            )
+        )
+
+    def test_auto_defer_publication_does_not_apply_to_staged_index(
+        self,
+    ) -> None:
+        ctx = SimpleNamespace(
+            observed_control_topology="implementer_without_reviewer",
+            reviewer_gate=ReviewerGateState(
+                reviewer_mode="tools_only",
+                effective_reviewer_mode="tools_only",
+            ),
+            governance=_minimal_governance(
+                checkpoint_required=False,
+                safe_to_continue_editing=True,
+                worktree_dirty=True,
+                worktree_clean=False,
+                dirty_path_count=2,
+                unstaged_path_count=1,
+                staged_path_count=1,
+                pending_publication_commits=22,
+                latest_push_report_status="blocked",
+            ),
+            push_decision=SimpleNamespace(
+                action="await_checkpoint",
+                reason="worktree_dirty",
+                publication_backlog=SimpleNamespace(
+                    pending_publication_commits=22,
+                    backlog_urgent=True,
+                ),
+            ),
+        )
+
+        self.assertFalse(
+            auto_defer_publication_for_development(
+                ctx=ctx,
+                caller_role="implementer",
+            )
+        )
+
+    def test_auto_defer_publication_does_not_apply_to_checkpoint_pressure(
+        self,
+    ) -> None:
+        ctx = SimpleNamespace(
+            governance=_minimal_governance(
+                checkpoint_required=True,
+                safe_to_continue_editing=False,
+                checkpoint_reason="review_loop_relaunch_required",
+                pending_publication_commits=22,
+                latest_push_report_status="blocked",
+            ),
+            push_decision=SimpleNamespace(
+                action="run_devctl_push",
+                publication_backlog=SimpleNamespace(
+                    pending_publication_commits=22,
+                    backlog_urgent=True,
+                ),
+            ),
+        )
+
+        self.assertFalse(
+            auto_defer_publication_for_development(
+                ctx=ctx,
+                caller_role="implementer",
+            )
+        )
 
     def test_handler_registered(self) -> None:
         self.assertIn("startup-context", COMMAND_HANDLERS)

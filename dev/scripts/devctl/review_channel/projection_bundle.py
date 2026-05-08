@@ -137,6 +137,11 @@ def _atomic_write_text(path: Path, content: str, *, encoding: str = "utf-8") -> 
         raise
 
 
+def _json_artifact(payload: object) -> str:
+    """Return compact JSON for machine-read projection artifacts."""
+    return json.dumps(payload, separators=(",", ":"))
+
+
 def projection_paths_to_dict(
     paths: ReviewChannelProjectionPaths | Mapping[str, object] | None,
 ) -> dict[str, str] | None:
@@ -194,17 +199,17 @@ def write_projection_bundle(
     # the publication-complete marker.
     _atomic_write_text(
         review_state_path,
-        json.dumps(review_state_payload, indent=2),
+        _json_artifact(review_state_payload),
     )
-    _atomic_write_text(compact_path, json.dumps(compact, indent=2))
-    _atomic_write_text(full_path, json.dumps(full, indent=2))
-    _atomic_write_text(actions_path, json.dumps(actions, indent=2))
+    _atomic_write_text(compact_path, _json_artifact(compact))
+    _atomic_write_text(full_path, _json_artifact(full))
+    _atomic_write_text(actions_path, _json_artifact(actions))
     _atomic_write_text(trace_path, _render_trace_projection(trace_events or []))
     _atomic_write_text(latest_markdown_path, latest_markdown)
-    _atomic_write_text(agent_registry_path, json.dumps(agent_registry, indent=2))
+    _atomic_write_text(agent_registry_path, _json_artifact(agent_registry))
     _atomic_write_text(
         commit_pipeline_path,
-        json.dumps(review_state_payload.get("commit_pipeline", {}), indent=2),
+        _json_artifact(review_state_payload.get("commit_pipeline", {})),
     )
 
     return paths

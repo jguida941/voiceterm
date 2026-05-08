@@ -28,6 +28,7 @@ from .startup_context_recovery import (
 )
 from .startup_context_defer import (
     StartupRoutingOptions,
+    auto_defer_publication_for_development,
     defer_publication_requested,
 )
 from ...runtime.machine_output import (
@@ -353,6 +354,11 @@ def run(args) -> int:
     caller_role = getattr(args, "role", None)
     reviewer_override = getattr(args, "reviewer_override", False)
     defer_publication = defer_publication_requested(args)
+    if not defer_publication:
+        defer_publication = auto_defer_publication_for_development(
+            ctx=ctx,
+            caller_role=caller_role,
+        )
     routing_options = StartupRoutingOptions(
         caller_role=caller_role,
         reviewer_override=reviewer_override,

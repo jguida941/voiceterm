@@ -17,6 +17,7 @@ from .event_reducer import (
     filter_history_events,
     filter_inbox_packets,
     load_or_refresh_event_bundle,
+    load_projected_event_bundle,
     packet_by_id,
     reduce_events,
     refresh_event_bundle,
@@ -201,11 +202,17 @@ def transition_packet(
         )
 
     # Load current state and resolve the target packet
-    bundle = load_or_refresh_event_bundle(
+    bundle = _load_existing_bundle(
         repo_root=repo_root,
         review_channel_path=review_channel_path,
         artifact_paths=artifact_paths,
     )
+    if bundle is None:
+        bundle = load_or_refresh_event_bundle(
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            artifact_paths=artifact_paths,
+        )
 
     valid_agent_ids = set(packet_agent_ids_from_review_state(bundle.review_state))
     if request.actor not in valid_agent_ids:
@@ -453,6 +460,12 @@ def _load_existing_bundle(
     review_channel_path: Path,
     artifact_paths: ReviewChannelArtifactPaths,
 ) -> ReviewChannelEventBundle | None:
+    projected = load_projected_event_bundle(
+        artifact_paths=artifact_paths,
+        include_events=True,
+    )
+    if projected is not None:
+        return projected
     try:
         return load_or_refresh_event_bundle(
             repo_root=repo_root,

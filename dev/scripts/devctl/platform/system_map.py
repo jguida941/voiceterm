@@ -10,6 +10,7 @@ from typing import Any
 from ..common_io import display_path
 from ..config import REPO_ROOT
 from .connectivity_registry import build_connectivity_registry_snapshot
+from .connectivity_registry_models import ConnectivityContractRow
 from .policy_paths import resolve_repo_policy_path
 from .system_map_models import (
     SystemMapRootSummary,
@@ -28,6 +29,12 @@ REQUIRED_COMMANDS = (
     "python3 dev/scripts/devctl.py system-map --format md",
     "python3 dev/scripts/devctl.py render-surfaces --write --surface system_map_index --format md",
     "python3 dev/scripts/checks/check_instruction_surface_sync.py --format md",
+)
+CONNECTIVITY_REGISTRY_ROW_LIMIT = 12
+CONNECTIVITY_REGISTRY_REQUIRED_CONTRACT_IDS = frozenset(
+    {
+        "CheckpointRepairAuthority",
+    }
 )
 
 
@@ -102,10 +109,22 @@ def render_system_map_markdown(snapshot: SystemMapSnapshot) -> str:
     lines.append(f"- contract_id: `{registry.contract_id}`")
     lines.append(f"- source_contract_count: {registry.source_contract_count}")
     lines.append(f"- connected_contract_count: {len(registry.connected_contracts)}")
+    rendered_contracts = _connectivity_contracts_for_markdown(
+        registry.connected_contracts
+    )
+    omitted_count = max(0, len(registry.connected_contracts) - len(rendered_contracts))
+    lines.append(f"- rendered_contract_count: {len(rendered_contracts)}")
+    lines.append(f"- omitted_contract_count: {omitted_count}")
+    if omitted_count:
+        lines.append(
+            "- rendered_contract_policy: first "
+            f"{CONNECTIVITY_REGISTRY_ROW_LIMIT} contracts plus required authority "
+            "contracts"
+        )
     lines.append("")
     lines.append("| Contract | Owner | Fields | Writer | Consumers |")
     lines.append("|---|---|---:|---|---|")
-    for contract in registry.connected_contracts[:12]:
+    for contract in rendered_contracts:
         consumers = ", ".join(contract.projection_ids[:5]) or "none"
         lines.append(
             f"| `{contract.contract_id}` | `{contract.owner_layer}` | "
@@ -123,6 +142,26 @@ def render_system_map_markdown(snapshot: SystemMapSnapshot) -> str:
         for warning in snapshot.warnings:
             lines.append(f"- {warning}")
     return "\n".join(lines)
+
+
+def _connectivity_contracts_for_markdown(
+    contracts: tuple[ConnectivityContractRow, ...],
+) -> tuple[ConnectivityContractRow, ...]:
+    selected: list[ConnectivityContractRow] = []
+    selected_ids: set[str] = set()
+
+    def add(contract: ConnectivityContractRow) -> None:
+        if contract.contract_id in selected_ids:
+            return
+        selected.append(contract)
+        selected_ids.add(contract.contract_id)
+
+    for contract in contracts[:CONNECTIVITY_REGISTRY_ROW_LIMIT]:
+        add(contract)
+    for contract in contracts:
+        if contract.contract_id in CONNECTIVITY_REGISTRY_REQUIRED_CONTRACT_IDS:
+            add(contract)
+    return tuple(selected)
 
 
 def render_system_map_document(

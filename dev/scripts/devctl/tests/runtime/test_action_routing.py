@@ -186,6 +186,177 @@ def test_defer_publication_reallows_editing_when_publication_is_pending() -> Non
     ]
 
 
+def test_defer_publication_reallows_editing_when_tools_only_loop_is_inactive() -> None:
+    payload = {
+        "observed_control_topology": "no_live_agents",
+        "reviewer_mode": "tools_only",
+        "effective_reviewer_mode": "tools_only",
+        "advisory_action": "push_allowed",
+        "push_decision": {
+            "action": "run_devctl_push",
+            "next_step_command": "python3 dev/scripts/devctl.py push --execute",
+        },
+        "governance": {
+            "push_enforcement": {
+                "checkpoint_required": False,
+                "safe_to_continue_editing": True,
+                "worktree_dirty": False,
+                "dirty_path_count": 0,
+                "untracked_path_count": 0,
+                "ahead_of_upstream_commits": 22,
+                "recommended_action": "use_devctl_push",
+            }
+        },
+        "work_intake": {
+            "coordination": {
+                "authority_mode": "review_gated",
+                "work_ownership_mode": "exclusive_slice",
+                "sync_cadence_mode": "before_publish",
+                "implementation_permission": "blocked",
+                "resync_required": True,
+            }
+        },
+    }
+
+    decision = build_startup_action_routing(
+        payload,
+        next_command="python3 dev/scripts/devctl.py push --execute",
+        caller_role="implementer",
+        defer_publication=True,
+    )
+
+    assert decision.publication_deferred_active is True
+    assert decision.implementation_admissibility == "allowed"
+    assert "implementation.edit" in decision.allowed_actions
+    assert "implementation.edit" not in decision.blocked_actions
+    assert "vcs.stage" in decision.blocked_actions
+    assert "vcs.commit" in decision.blocked_actions
+    assert "vcs.push" in decision.blocked_actions
+
+
+def test_defer_publication_does_not_override_stale_active_dual_agent_loop() -> None:
+    payload = {
+        "observed_control_topology": "no_live_agents",
+        "reviewer_mode": "active_dual_agent",
+        "effective_reviewer_mode": "active_dual_agent",
+        "advisory_action": "push_allowed",
+        "push_decision": {"action": "run_devctl_push"},
+        "governance": {
+            "push_enforcement": {
+                "checkpoint_required": False,
+                "safe_to_continue_editing": True,
+                "ahead_of_upstream_commits": 3,
+            }
+        },
+        "work_intake": {
+            "coordination": {
+                "implementation_permission": "blocked",
+                "resync_required": True,
+            }
+        },
+    }
+
+    decision = build_startup_action_routing(
+        payload,
+        next_command="python3 dev/scripts/devctl.py push --execute",
+        caller_role="implementer",
+        defer_publication=True,
+    )
+
+    assert decision.publication_deferred_active is False
+    assert "implementation.edit" in decision.blocked_actions
+    assert "implementation.edit" not in decision.allowed_actions
+
+
+def test_defer_publication_reallows_dirty_edit_only_implementer_lane() -> None:
+    payload = {
+        "observed_control_topology": "implementer_without_reviewer",
+        "reviewer_mode": "tools_only",
+        "effective_reviewer_mode": "tools_only",
+        "advisory_action": "checkpoint_before_continue",
+        "push_decision": {
+            "action": "await_checkpoint",
+            "reason": "worktree_dirty",
+            "next_step_command": 'python3 dev/scripts/devctl.py commit -m "checkpoint"',
+        },
+        "governance": {
+            "push_enforcement": {
+                "checkpoint_required": False,
+                "safe_to_continue_editing": True,
+                "worktree_dirty": True,
+                "dirty_path_count": 7,
+                "unstaged_path_count": 7,
+                "untracked_path_count": 0,
+                "staged_path_count": 0,
+                "pending_publication_commits": 22,
+            }
+        },
+        "work_intake": {
+            "coordination": {
+                "authority_mode": "review_gated",
+                "work_ownership_mode": "exclusive_slice",
+                "sync_cadence_mode": "before_publish",
+                "implementation_permission": "suspended",
+                "resync_required": True,
+            }
+        },
+    }
+
+    decision = build_startup_action_routing(
+        payload,
+        next_command='python3 dev/scripts/devctl.py commit -m "checkpoint"',
+        caller_role="implementer",
+        defer_publication=True,
+    )
+
+    assert decision.publication_deferred_active is True
+    assert decision.implementation_admissibility == "allowed"
+    assert "implementation.edit" in decision.allowed_actions
+    assert "implementation.edit" not in decision.blocked_actions
+    assert "vcs.stage" in decision.blocked_actions
+    assert "vcs.commit" in decision.blocked_actions
+    assert "vcs.push" in decision.blocked_actions
+
+
+def test_defer_publication_blocks_dirty_edit_when_index_is_staged() -> None:
+    payload = {
+        "observed_control_topology": "implementer_without_reviewer",
+        "reviewer_mode": "tools_only",
+        "effective_reviewer_mode": "tools_only",
+        "push_decision": {
+            "action": "await_checkpoint",
+            "reason": "worktree_dirty",
+        },
+        "governance": {
+            "push_enforcement": {
+                "checkpoint_required": False,
+                "safe_to_continue_editing": True,
+                "worktree_dirty": True,
+                "dirty_path_count": 1,
+                "staged_path_count": 1,
+                "pending_publication_commits": 1,
+            }
+        },
+        "work_intake": {
+            "coordination": {
+                "implementation_permission": "suspended",
+                "resync_required": True,
+            }
+        },
+    }
+
+    decision = build_startup_action_routing(
+        payload,
+        next_command='python3 dev/scripts/devctl.py commit -m "checkpoint"',
+        caller_role="implementer",
+        defer_publication=True,
+    )
+
+    assert decision.publication_deferred_active is False
+    assert "implementation.edit" in decision.blocked_actions
+    assert "implementation.edit" not in decision.allowed_actions
+
+
 def test_defer_publication_does_not_override_checkpoint_gate() -> None:
     payload = {
         "implementation_permission": "active",

@@ -166,6 +166,13 @@ def load_or_refresh_event_bundle(
         Path(artifact_paths.projections_root)
     )
     if Path(artifact_paths.event_log_path).exists():
+        if artifact_writes_suppressed():
+            projected = load_projected_event_bundle(
+                artifact_paths=artifact_paths,
+                include_events=False,
+            )
+            if projected is not None:
+                return projected
         return refresh_event_bundle(
             repo_root=repo_root,
             review_channel_path=review_channel_path,
@@ -215,6 +222,27 @@ def load_or_refresh_event_bundle(
         review_state=review_state,
         agent_registry=agent_registry,
         events=[],
+    )
+
+
+def load_projected_event_bundle(
+    *,
+    artifact_paths: ReviewChannelArtifactPaths,
+    include_events: bool = False,
+) -> ReviewChannelEventBundle | None:
+    """Load the latest projection without reducing the full event log."""
+    projections_root = Path(artifact_paths.projections_root)
+    review_state = load_prior_projection_review_state(projections_root)
+    if review_state is None:
+        return None
+    event_log_path = Path(artifact_paths.event_log_path)
+    events = load_events(event_log_path) if include_events and event_log_path.exists() else []
+    return ReviewChannelEventBundle(
+        artifact_paths=artifact_paths,
+        projection_paths=projection_paths_for_root(projections_root),
+        review_state=review_state,
+        agent_registry=load_agent_registry(projections_root),
+        events=events,
     )
 
 
