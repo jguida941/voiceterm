@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `d5ba60689fe9` — Refresh external review snapshot for 6fac6d73
-- Tree hash: `d1e3166547b2`
-- Generation stamp: `snap-afc5c17274ae`
-- Generated at (UTC): 2026-05-08T09:58:51Z
+- HEAD: `c5f29ca653b9` — Refresh external review snapshot for d5ba6068
+- Tree hash: `dfe5ca436792`
+- Generation stamp: `snap-e731b890d81f`
+- Generated at (UTC): 2026-05-08T10:01:35Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 61 files, +3664/-1481
+- Delta since last snapshot: 24 commits, 43 files, +2682/-1412
 - Governance findings: 158 open / 88 fixed / 260 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,9 +30,9 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `d5ba60689fe9908df126562e2c936d2af3de1616`
+- HEAD SHA: `c5f29ca653b9b71636bc830025a4dd79fd57c598`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-08T05:52:29-04:00
+- HEAD timestamp (UTC): 2026-05-08T05:58:54-04:00
 
 ## 2. Governance state
 
@@ -48,7 +48,7 @@ probes, typed actions, deterministic policy resolution — is what m...
 - current_push_authorization: `push-auth-20260508T095037289825Z` (valid=True)
 - authorized_head_commit: `d5ba60689fe9908df126562e2c936d2af3de1616`
 - publication_backlog: urgent
-- publication_guidance: 40 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 41 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -68,53 +68,53 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `d5ba60689fe9`
+Range: last 24 commits ending at `c5f29ca653b9`
 
 - commits: 24
-- files changed: 61
-- insertions: +3664
-- deletions: -1481
+- files changed: 43
+- insertions: +2682
+- deletions: -1412
 - bundle classes touched: docs, tooling
-- authority surfaces touched: 4 file(s)
+- authority surfaces touched: 3 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `d5ba6068` | Refresh external review snapshot for 6fac6d73 | 2 | +69/-70 | docs |  |
-| 2 | `6fac6d73` | Route fresh sessions through typed orientation | 12 | +218/-73 | tooling |  |
-| 3 | `8c01e800` | Refresh external review snapshot for d4916261 | 2 | +62/-62 | docs |  |
-| 4 | `d4916261` | Expose governed VCS progress and status reconciliation | 10 | +361/-51 | tooling |  |
-| 5 | `28e2246a` | Refresh external review snapshot for 7e54661e | 2 | +57/-57 | docs |  |
-| 6 | `7e54661e` | Cache live startup context in tests | 3 | +80/-70 | tooling |  |
-| 7 | `7a4fe29a` | Refresh external review snapshot for b31a24aa | 2 | +55/-57 | docs |  |
-| 8 | `b31a24aa` | Refresh external review snapshot for 82b4bfd3 | 2 | +60/-61 | docs |  |
-| 9 | `82b4bfd3` | Refresh external review snapshot for d98a872c | 2 | +54/-56 | docs |  |
-| 10 | `d98a872c` | Refresh push preflight generated surfaces | 2 | +53/-51 | tooling |  |
-| 11 | `07a47a09` | Refresh external review snapshot for 14721847 | 2 | +63/-64 | docs |  |
-| 12 | `14721847` | Tune governed push preflight timeouts | 10 | +129/-59 | tooling |  |
-| 13 | `b12b368d` | Refresh external review snapshot for 783a42be | 2 | +43/-43 | docs |  |
-| 14 | `783a42be` | Refresh external review snapshot for fcd130a0 | 2 | +42/-40 | docs |  |
-| 15 | `fcd130a0` | Refresh external review snapshot for e44db441 | 2 | +85/-112 | docs |  |
-| 16 | `e44db441` | Checkpoint push preflight projections | 3 | +54/-53 | docs |  |
-| 17 | `9931921c` | Refresh external review snapshot for 590da1c5 | 2 | +62/-66 | docs |  |
-| 18 | `590da1c5` | Improve publication deferral and review projections | 17 | +833/-66 | tooling |  |
-| 19 | `91001cfe` | Refresh external review snapshot for 1c730de5 | 2 | +45/-46 | docs |  |
-| 20 | `1c730de5` | Refresh external review snapshot for 82b2ff19 | 2 | +42/-41 | docs |  |
-| 21 | `82b2ff19` | Refresh external review snapshot for d3be3f32 | 2 | +54/-57 | docs |  |
-| 22 | `d3be3f32` | Refresh generated governance surfaces | 3 | +55/-54 | docs |  |
-| 23 | `959994de` | Refresh external review snapshot for d7bd8e78 | 2 | +63/-63 | docs |  |
-| 24 | `d7bd8e78` | Add checkpoint repair authority lifecycle | 22 | +1025/-109 | tooling |  |
+| 1 | `c5f29ca6` | Refresh external review snapshot for d5ba6068 | 2 | +43/-40 | docs |  |
+| 2 | `d5ba6068` | Refresh external review snapshot for 6fac6d73 | 2 | +69/-70 | docs |  |
+| 3 | `6fac6d73` | Route fresh sessions through typed orientation | 12 | +218/-73 | tooling |  |
+| 4 | `8c01e800` | Refresh external review snapshot for d4916261 | 2 | +62/-62 | docs |  |
+| 5 | `d4916261` | Expose governed VCS progress and status reconciliation | 10 | +361/-51 | tooling |  |
+| 6 | `28e2246a` | Refresh external review snapshot for 7e54661e | 2 | +57/-57 | docs |  |
+| 7 | `7e54661e` | Cache live startup context in tests | 3 | +80/-70 | tooling |  |
+| 8 | `7a4fe29a` | Refresh external review snapshot for b31a24aa | 2 | +55/-57 | docs |  |
+| 9 | `b31a24aa` | Refresh external review snapshot for 82b4bfd3 | 2 | +60/-61 | docs |  |
+| 10 | `82b4bfd3` | Refresh external review snapshot for d98a872c | 2 | +54/-56 | docs |  |
+| 11 | `d98a872c` | Refresh push preflight generated surfaces | 2 | +53/-51 | tooling |  |
+| 12 | `07a47a09` | Refresh external review snapshot for 14721847 | 2 | +63/-64 | docs |  |
+| 13 | `14721847` | Tune governed push preflight timeouts | 10 | +129/-59 | tooling |  |
+| 14 | `b12b368d` | Refresh external review snapshot for 783a42be | 2 | +43/-43 | docs |  |
+| 15 | `783a42be` | Refresh external review snapshot for fcd130a0 | 2 | +42/-40 | docs |  |
+| 16 | `fcd130a0` | Refresh external review snapshot for e44db441 | 2 | +85/-112 | docs |  |
+| 17 | `e44db441` | Checkpoint push preflight projections | 3 | +54/-53 | docs |  |
+| 18 | `9931921c` | Refresh external review snapshot for 590da1c5 | 2 | +62/-66 | docs |  |
+| 19 | `590da1c5` | Improve publication deferral and review projections | 17 | +833/-66 | tooling |  |
+| 20 | `91001cfe` | Refresh external review snapshot for 1c730de5 | 2 | +45/-46 | docs |  |
+| 21 | `1c730de5` | Refresh external review snapshot for 82b2ff19 | 2 | +42/-41 | docs |  |
+| 22 | `82b2ff19` | Refresh external review snapshot for d3be3f32 | 2 | +54/-57 | docs |  |
+| 23 | `d3be3f32` | Refresh generated governance surfaces | 3 | +55/-54 | docs |  |
+| 24 | `959994de` | Refresh external review snapshot for d7bd8e78 | 2 | +63/-63 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +10/-9 |
-| `bridge.md` | docs | +60/-60 |
-| `dev/active/MASTER_PLAN.md` | tooling | +11/-0 |
+| `bridge.md` | docs | +56/-56 |
+| `dev/active/MASTER_PLAN.md` | tooling | +8/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +1/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1271/-1300 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1262/-1289 |
 | `dev/config/devctl_repo_policy.json` | tooling | +2/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +6/-1 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +10/-6 |
@@ -126,31 +126,31 @@ Range: last 24 commits ending at `d5ba60689fe9`
 | `dev/scripts/devctl/commands/governance/session_orientation_summary.py` | tooling | +16/-4 |
 | `dev/scripts/devctl/commands/governance/startup_context.py` | tooling | +6/-0 |
 | `dev/scripts/devctl/commands/governance/startup_context_defer.py` | tooling | +110/-1 |
-| `dev/scripts/devctl/commands/governance/startup_repair_commit_pipeline.py` | tooling | +73/-0 |
-| `dev/scripts/devctl/commands/governance/startup_repair_runtime.py` | tooling | +4/-3 |
 | `dev/scripts/devctl/commands/pipeline/status_action.py` | tooling | +64/-1 |
 | `dev/scripts/devctl/commands/pipeline/status_git.py` | tooling | +56/-0 |
 | `dev/scripts/devctl/commands/pipeline/status_push_report.py` | tooling | +60/-0 |
 | `dev/scripts/devctl/commands/pipeline/status_reconcile.py` | tooling | +47/-0 |
 | `dev/scripts/devctl/commands/vcs/commit.py` | tooling | +6/-0 |
 | `dev/scripts/devctl/commands/vcs/commit_runtime_flow.py` | tooling | +7/-0 |
-| `dev/scripts/devctl/commands/vcs/governed_executor.py` | tooling | +18/-5 |
 | `dev/scripts/devctl/commands/vcs/push.py` | tooling | +5/-1 |
 | `dev/scripts/devctl/commands/vcs/push_preflight_timeout.py` | tooling | +45/-0 |
 | `dev/scripts/devctl/governance/instruction_boot_card.py` | tooling | +11/-9 |
-| `dev/scripts/devctl/platform/runtime_state_contract_rows_pipeline.py` | tooling | +94/-1 |
 | `dev/scripts/devctl/platform/system_map.py` | tooling | +40/-1 |
 | `dev/scripts/devctl/review_channel/event_reducer.py` | tooling | +28/-0 |
 | `dev/scripts/devctl/review_channel/events.py` | tooling | +14/-1 |
 | `dev/scripts/devctl/review_channel/projection_bundle.py` | tooling | +11/-6 |
 | `dev/scripts/devctl/runtime/action_routing.py` | tooling | +1/-0 |
 | `dev/scripts/devctl/runtime/action_routing_publication_defer.py` | tooling | +102/-1 |
-| `dev/scripts/devctl/runtime/agent_loop_blocker_actions.py` | tooling | +22/-0 |
-| `dev/scripts/devctl/runtime/agent_loop_checkpoint_repair.py` | tooling | +81/-0 |
-| `dev/scripts/devctl/runtime/agent_loop_decision_sources.py` | tooling | +19/-17 |
-| `dev/scripts/devctl/runtime/agent_loop_decision_support.py` | tooling | +2/-2 |
-| `dev/scripts/devctl/runtime/agent_loop_policy.py` | tooling | +20/-10 |
-| _21 more files trimmed_ | | |
+| `dev/scripts/devctl/runtime/python_test_contract.py` | tooling | +2/-1 |
+| `dev/scripts/devctl/tests/commands/check/test_check_router.py` | tooling | +5/-2 |
+| `dev/scripts/devctl/tests/commands/test_pipeline_command.py` | tooling | +71/-0 |
+| `dev/scripts/devctl/tests/commands/test_python_tests.py` | tooling | +11/-0 |
+| `dev/scripts/devctl/tests/governance/test_render_surfaces.py` | tooling | +7/-0 |
+| `dev/scripts/devctl/tests/governance/test_session_orientation.py` | tooling | +82/-0 |
+| `dev/scripts/devctl/tests/platform/test_system_map.py` | tooling | +11/-0 |
+| `dev/scripts/devctl/tests/review_channel/test_projection_bundle.py` | tooling | +133/-0 |
+| `dev/scripts/devctl/tests/runtime/test_action_routing.py` | tooling | +171/-0 |
+| _3 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -202,10 +202,7 @@ Recent findings:
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/commands/check/test_check_router.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/governance/startup_context.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor.py`) — Review contract-level invariants for this file
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/python_test_contract.py`) — Commit 14721847 changed dev/scripts/devctl/runtime/python_test_contract.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/startup_repair_models.py`) — Commit d7bd8e78 changed dev/scripts/devctl/runtime/startup_repair_models.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/platform/test_platform_contracts.py`) — Commit d7bd8e78 changed dev/scripts/devctl/tests/platform/test_platform_contracts.py
 
 ### Suggested verification commands
 
@@ -219,6 +216,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`c5f29ca6`** — Refresh external review snapshot for d5ba6068
+  - evolution: Change: promoted `devctl session` from an available helper to the generated boot-card first step. The command emits a `SessionOrientationPacket` by running startup-context, session-resume, review-channel status, and con…
 - **`d5ba6068`** — Refresh external review snapshot for 6fac6d73
   - evolution: Change: promoted `devctl session` from an available helper to the generated boot-card first step. The command emits a `SessionOrientationPacket` by running startup-context, session-resume, review-channel status, and con…
 - **`6fac6d73`** — Route fresh sessions through typed orientation
@@ -248,7 +247,6 @@ Recent findings:
 - **`82b2ff19`** — Refresh external review snapshot for d3be3f32
 - **`d3be3f32`** — Refresh generated governance surfaces
 - **`959994de`** — Refresh external review snapshot for d7bd8e78
-- **`d7bd8e78`** — Add checkpoint repair authority lifecycle
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -287,4 +285,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-afc5c17274ae` binds this file to HEAD `d5ba60689fe9`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-e731b890d81f` binds this file to HEAD `c5f29ca653b9`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
