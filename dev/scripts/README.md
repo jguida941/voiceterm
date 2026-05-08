@@ -161,13 +161,16 @@ heartbeat/bridge refresh; reserve relaunch/repair for
 `action=repair_reviewer_loop`, checkpoint/budget blockers, or typed stale /
 non-live reviewer runtime. After that Step 0 receipt, the canonical role-bound
 starter command for a fresh Codex or Claude conversation is
-`python3 dev/scripts/devctl.py session --role reviewer|implementer|observer --format md`;
+`python3 dev/scripts/devctl.py session --role reviewer|implementer|observer --include-review-status always --format md`;
 `dashboard` is accepted as the user-facing alias for the same read-only
 observer lane. It emits a typed `SessionOrientationPacket` by running
 `startup-context`, `session-resume`, `review-channel --action status --terminal none`,
 and `context-graph --mode bootstrap` in order, then reducing the preferred
 `AuthoritySnapshot` into the next command. Use that repo-owned packet instead
 of hand-written mode prompts, manual git inspection, or operator memory.
+When that preferred authority is blocked or explicitly lists `vcs.push` in
+`blocked_actions`, the session packet must keep the authority/status next
+command instead of promoting a stale startup `run_devctl_push` hint.
 A fresh provider session can prove typed rehydration with
 `python3 dev/scripts/devctl.py session-resume --role <role> --format json --provider <provider> --write-resume-receipt`.
 That command records `AgentResumeReceipt`; its exit code only proves the

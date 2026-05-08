@@ -11,19 +11,20 @@
 
 ## Run in order
 
-1. `python3 dev/scripts/devctl.py startup-context --role <role> --format json`
-   Stop if `safe_to_continue_editing=false`, startup authority fails, or `next_command` requires checkpoint or repair.
-2. `python3 dev/scripts/devctl.py session-resume --role <role> --format bootstrap`
-   This is the human-readable role packet.
-3. review-channel status: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
-   Review-channel status is the typed runtime alignment check.
-4. `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`
-   Load bounded graph context before opening broad docs.
-5. `python3 dev/scripts/devctl.py develop next --actor <actor> --format md`
+1. `python3 dev/scripts/devctl.py session --role <role> --include-review-status always --format json`
+   Use `SessionOrientationPacket.final` as the first typed answer before replying or selecting work.
+   This runs `startup-context`, `session-resume`, review-channel status, and `context-graph --mode bootstrap` in order.
+   Stop if `final.safe_to_continue=false`, startup authority fails, or `final.next_command` requires checkpoint or repair.
+2. `python3 dev/scripts/devctl.py develop next --actor <actor> --format md`
    If it returns `continuation_required`, run its `next_step_command`.
    Packet audits advance through that typed next step instead of rerunning the same reducer.
    Archived packet-history rows are audit evidence, not live packet-attention blockers.
    Selection comes from typed plan/lifecycle authority; packet ids are intake/provenance only unless unresolved intake blocks authority.
+3. Diagnostic fallback commands, only when `devctl session` is unavailable or names a child command:
+   `python3 dev/scripts/devctl.py startup-context --role <role> --format json`
+   `python3 dev/scripts/devctl.py session-resume --role <role> --format bootstrap`
+   `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
+   `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`
 
 ## Typed authority
 

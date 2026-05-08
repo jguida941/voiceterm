@@ -166,12 +166,14 @@ def final_summary(
     next_command = review_status_attention_command(payloads)
     if next_command:
         source = "review_status.attention"
+    authority_next_command = text(authority.get("next_command"))
+    push_command = startup_push_command(payloads)
     if not next_command:
-        next_command = startup_push_command(payloads)
-        if next_command:
+        if push_command and authority_allows_startup_push(authority):
+            next_command = push_command
             source = "startup.push_decision"
-    if not next_command:
-        next_command = text(authority.get("next_command"))
+        elif authority_next_command:
+            next_command = authority_next_command
     if not next_command:
         next_command = fallback_next_command(payloads)
         if next_command:
@@ -227,6 +229,16 @@ def startup_push_command(payloads: dict[str, dict[str, object]]) -> str:
     if text(push_decision.get("action")) != "run_devctl_push":
         return ""
     return text(push_decision.get("next_step_command"))
+
+
+def authority_allows_startup_push(authority: dict[str, object]) -> bool:
+    """Return True when the preferred authority does not block publication."""
+    if authority.get("safe_to_continue") is not True:
+        return False
+    blocked_actions = authority.get("blocked_actions")
+    if isinstance(blocked_actions, list) and "vcs.push" in blocked_actions:
+        return False
+    return True
 
 
 def authority_reduced(authority: dict[str, object]) -> dict[str, object]:

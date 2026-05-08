@@ -873,11 +873,16 @@ Three quality layers matter in practice:
   - Fresh reviewer and implementer sessions should bootstrap from role-first
     receipts, not provider-local lore. For a new conversation or any
     "where are we / next steps / resume" request, run
-    `python3 dev/scripts/devctl.py session --role <reviewer|implementer|observer> --format md`.
+    `python3 dev/scripts/devctl.py session --role <reviewer|implementer|observer> --include-review-status always --format md`.
     It emits `SessionOrientationPacket` by running `startup-context`,
     `session-resume`, `review-channel --action status --terminal none`, and
     `context-graph --mode bootstrap` in order, so non-zero startup blockers
     are preserved as typed data instead of stopping later status/graph reads.
+    The orientation reducer must not surface `devctl push --execute` from a
+    startup push decision when the preferred live `AuthoritySnapshot` says
+    `safe_to_continue=false` or blocks `vcs.push`; keep the review/status
+    authority as the next command in that case so fresh sessions do not publish
+    through a stale or blocked controller state.
     Planned lane text and typed collaboration/runtime state decide which
     provider currently owns each role. For reviewer sessions, the bootstrap
     packet now prefers a frozen typed `review_candidate` when a bounded slice

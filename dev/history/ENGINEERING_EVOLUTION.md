@@ -37,6 +37,27 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-08 - Fresh sessions route through typed orientation first
+
+Change: promoted `devctl session` from an available helper to the generated
+boot-card first step. The command emits a `SessionOrientationPacket` by running
+startup-context, session-resume, review-channel status, and context-graph
+bootstrap in order before an agent answers "where are we" or selects next work.
+
+Decision: the session final reducer now treats the preferred live
+`AuthoritySnapshot` as the publication boundary. A startup `run_devctl_push`
+hint is surfaced only when that authority explicitly allows continuation and
+does not block `vcs.push`; blocked review/status authority remains the next
+command so fresh sessions do not publish through stale startup state.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/governance/session_orientation_summary.py`
+- `dev/scripts/devctl/governance/instruction_boot_card.py`
+- `AGENTS.md`
+- `dev/scripts/devctl/tests/governance/test_session_orientation.py`
+- `dev/scripts/devctl/tests/governance/test_render_surfaces.py`
+
 ### 2026-05-06 - Universal governance lifecycle is typed into existing rows
 
 Change: ingested Claude/operator `rev_pkt_3114` as a narrowed plan correction

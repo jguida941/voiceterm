@@ -235,6 +235,88 @@ class SessionOrientationTests(unittest.TestCase):
             "python3 dev/scripts/devctl.py push --execute",
         )
 
+    def test_startup_push_decision_does_not_override_blocking_authority(self) -> None:
+        """A fresh-session packet must not recommend push through a live blocker."""
+        startup = {
+            "command": "startup-context",
+            "advisory_action": "push_allowed",
+            "authority_snapshot": {
+                "required_action": "continue_scoped_loop",
+                "next_command": "python3 dev/scripts/devctl.py push --execute",
+                "safe_to_continue": True,
+                "root_cause": "worktree clean",
+            },
+            "startup_receipt": {"head_commit_sha": "abcdef123456"},
+            "push_decision": {
+                "action": "run_devctl_push",
+                "next_step_command": "python3 dev/scripts/devctl.py push --execute",
+                "reason": "push_preconditions_satisfied",
+            },
+        }
+        resume = {
+            "command": "session-resume",
+            "branch": "feature/session",
+            "head_sha": "abcdef123456",
+            "authority_snapshot": {
+                "required_action": "resume_live_review_loop",
+                "next_command": "python3 dev/scripts/devctl.py review-channel --action status",
+                "safe_to_continue": False,
+                "root_cause": "review loop inactive",
+                "blocked_actions": ["vcs.push"],
+            },
+        }
+        status = {
+            "command": "review-channel",
+            "ok": True,
+            "attention": {"status": "inactive", "recommended_command": ""},
+            "authority_snapshot": {
+                "required_action": "resume_live_review_loop",
+                "next_command": (
+                    "python3 dev/scripts/devctl.py review-channel "
+                    "--action status --terminal none --format json"
+                ),
+                "safe_to_continue": False,
+                "root_cause": "review loop inactive",
+                "blocked_actions": ["implementation.edit", "vcs.push"],
+            },
+        }
+        graph = {
+            "command": "context-graph",
+            "branch": "feature/session",
+            "snapshot": {
+                "path": "dev/reports/graph_snapshots/example.json",
+                "commit_hash": "abcdef123456",
+            },
+        }
+
+        calls: list[list[str]] = []
+
+        def fake_run(command, _repo_root, *, timeout_seconds):
+            calls.append(command)
+            payload = (startup, resume, status, graph)[len(calls) - 1]
+            return _completed(command, payload)
+
+        with patch.object(
+            session_orientation_runner,
+            "_run_subprocess",
+            side_effect=fake_run,
+        ):
+            packet = session_orientation.build_session_orientation(
+                _args(),
+                Path("/repo"),
+                role="implementer",
+            )
+
+        self.assertEqual(packet.final["next_command_source"], "review_status")
+        self.assertEqual(
+            packet.final["next_command"],
+            (
+                "python3 dev/scripts/devctl.py review-channel "
+                "--action status --terminal none --format json"
+            ),
+        )
+        self.assertFalse(packet.final["safe_to_continue"])
+
 
 if __name__ == "__main__":
     unittest.main()

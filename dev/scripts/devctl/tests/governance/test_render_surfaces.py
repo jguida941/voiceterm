@@ -146,6 +146,13 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
         for required_snippet in claude_surface.required_contains:
             self.assertIn(required_snippet, rendered_text)
         self.assertIn(
+            (
+                "python3 dev/scripts/devctl.py session --role implementer "
+                "--include-review-status always --format json"
+            ),
+            rendered_text,
+        )
+        self.assertIn(
             "python3 dev/scripts/devctl.py startup-context --role implementer --format json",
             rendered_text,
         )

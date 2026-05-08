@@ -6500,6 +6500,10 @@ become the main product surface.
     `devctl session` must run startup-context, session-resume, live
     review-channel status, and context-graph bootstrap before answering
     "where are we" or selecting next work.
+    2026-05-08 update: generated boot cards now route fresh sessions through
+    `devctl session` first, and the session reducer preserves a blocking
+    review/status `AuthoritySnapshot` instead of promoting startup
+    `run_devctl_push` through `safe_to_continue=false` or `vcs.push` blocks.
   - [ ] `MP377-P0-T22AN-AD` now owns Claude `rev_pkt_2863` slash-domain
     architecture: split canonical slash entry points by typed backend domain
     while keeping current `/develop` role presets as compatibility aliases
