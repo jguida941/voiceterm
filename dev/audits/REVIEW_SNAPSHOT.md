@@ -5,15 +5,15 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `a9a3cac3b1d8` — Refresh external review snapshot for e50e9e9d
-- Tree hash: `d3b62909aeff`
-- Generation stamp: `snap-d22de52cb478`
-- Generated at (UTC): 2026-05-09T16:33:31Z
+- HEAD: `884c56a429e9` — Refresh external review snapshot for a9a3cac3
+- Tree hash: `b9092c729187`
+- Generation stamp: `snap-12befcc9125f`
+- Generated at (UTC): 2026-05-09T16:44:24Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 228 files, +10013/-3448
-- Governance findings: 158 open / 62 fixed / 232 total
+- Delta since last snapshot: 25 commits, 219 files, +9245/-3406
+- Governance findings: 158 open / 61 fixed / 231 total
 - Probe hints: 0 total across 0 files scanned
 
 ## 1. Identity
@@ -30,9 +30,9 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `a9a3cac3b1d8129ee08ebd1f1aab4703b7e1c7cd`
+- HEAD SHA: `884c56a429e98765da2f43340af49ac5baed9340`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-09T12:30:34-04:00
+- HEAD timestamp (UTC): 2026-05-09T12:33:33-04:00
 
 ## 2. Governance state
 
@@ -48,7 +48,7 @@ probes, typed actions, deterministic policy resolution — is what m...
 - current_push_authorization: `push-auth-20260509T162906893033Z` (valid=True)
 - authorized_head_commit: `a9a3cac3b1d8129ee08ebd1f1aab4703b7e1c7cd`
 - publication_backlog: urgent
-- publication_guidance: 22 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 23 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `active_dual_agent`
@@ -68,12 +68,12 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `a9a3cac3b1d8`
+Range: last 25 commits ending at `884c56a429e9`
 
 - commits: 25
-- files changed: 228
-- insertions: +10013
-- deletions: -3448
+- files changed: 219
+- insertions: +9245
+- deletions: -3406
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 30 file(s)
 
@@ -81,53 +81,52 @@ Range: last 25 commits ending at `a9a3cac3b1d8`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `a9a3cac3` | Refresh external review snapshot for e50e9e9d | 2 | +67/-69 | docs |  |
-| 2 | `e50e9e9d` | Fix bridge alias and pipeline abandon recovery | 8 | +254/-80 | tooling |  |
-| 3 | `64d79b89` | Refresh external review snapshot for 499a6759 | 2 | +58/-58 | docs |  |
-| 4 | `499a6759` | Refresh external review snapshot for a7852e0c | 2 | +65/-66 | docs |  |
-| 5 | `a7852e0c` | Record unified packet synthesis binding | 4 | +52/-51 | tooling |  |
-| 6 | `c6ac3181` | Fix commit approval attestation fallback | 5 | +87/-72 | tooling |  |
-| 7 | `1dc06d7e` | Refresh external review snapshot for dda60185 | 2 | +72/-70 | docs |  |
-| 8 | `dda60185` | Fix role topology push preflight blockers | 13 | +211/-91 | tooling |  |
-| 9 | `6ebd631e` | Make review topology role-based | 41 | +1303/-421 | tooling |  |
-| 10 | `2164a20f` | Refresh external review snapshot for afafb9c1 | 2 | +54/-55 | docs |  |
-| 11 | `afafb9c1` | Refresh external review snapshot for 8845a49e | 2 | +68/-67 | docs |  |
-| 12 | `8845a49e` | Refresh external review snapshot for eb9a1578 | 2 | +54/-56 | docs |  |
-| 13 | `eb9a1578` | Sync generated surfaces for governed push | 3 | +58/-57 | docs |  |
-| 14 | `f5d30b58` | Refresh external review snapshot for d13e587e | 2 | +95/-86 | docs |  |
-| 15 | `d13e587e` | Checkpoint packet pressure and validation scope repair | 122 | +3531/-1229 | tooling |  |
-| 16 | `5ae52585` | Refresh system map after validation scope modules | 2 | +74/-71 | tooling |  |
-| 17 | `4dffbed7` | Thread validation scope through push preflight | 32 | +960/-204 | tooling |  |
-| 18 | `c2b8d6ec` | Fix push preflight scope propagation | 6 | +138/-68 | tooling |  |
-| 19 | `f8b8d50c` | Refresh policy-owned generated surfaces for f8ca0325 | 1 | +1/-1 | docs |  |
-| 20 | `f8ca0325` | Fix governed push validation scope | 16 | +918/-214 | tooling |  |
-| 21 | `18c1db4b` | Refresh policy-owned generated surfaces for 3ce8a67d | 1 | +5/-5 | docs |  |
-| 22 | `3ce8a67d` | Fix governed commit staged snapshot validation | 14 | +404/-72 | tooling |  |
-| 23 | `a196ba90` | Wire session-liveness running-process check + scope reviewe… | 14 | +324/-93 | tooling |  |
-| 24 | `b6a74ca6` | Wire actor-scope into TASK_COMPLETE + filter anchor kinds f… | 18 | +334/-97 | tooling |  |
-| 25 | `314cb439` | Add SessionTerminationPolicy + TaskCompleteDecision typed c… | 25 | +826/-95 | tooling |  |
+| 1 | `884c56a4` | Refresh external review snapshot for a9a3cac3 | 2 | +58/-53 | docs |  |
+| 2 | `a9a3cac3` | Refresh external review snapshot for e50e9e9d | 2 | +67/-69 | docs |  |
+| 3 | `e50e9e9d` | Fix bridge alias and pipeline abandon recovery | 8 | +254/-80 | tooling |  |
+| 4 | `64d79b89` | Refresh external review snapshot for 499a6759 | 2 | +58/-58 | docs |  |
+| 5 | `499a6759` | Refresh external review snapshot for a7852e0c | 2 | +65/-66 | docs |  |
+| 6 | `a7852e0c` | Record unified packet synthesis binding | 4 | +52/-51 | tooling |  |
+| 7 | `c6ac3181` | Fix commit approval attestation fallback | 5 | +87/-72 | tooling |  |
+| 8 | `1dc06d7e` | Refresh external review snapshot for dda60185 | 2 | +72/-70 | docs |  |
+| 9 | `dda60185` | Fix role topology push preflight blockers | 13 | +211/-91 | tooling |  |
+| 10 | `6ebd631e` | Make review topology role-based | 41 | +1303/-421 | tooling |  |
+| 11 | `2164a20f` | Refresh external review snapshot for afafb9c1 | 2 | +54/-55 | docs |  |
+| 12 | `afafb9c1` | Refresh external review snapshot for 8845a49e | 2 | +68/-67 | docs |  |
+| 13 | `8845a49e` | Refresh external review snapshot for eb9a1578 | 2 | +54/-56 | docs |  |
+| 14 | `eb9a1578` | Sync generated surfaces for governed push | 3 | +58/-57 | docs |  |
+| 15 | `f5d30b58` | Refresh external review snapshot for d13e587e | 2 | +95/-86 | docs |  |
+| 16 | `d13e587e` | Checkpoint packet pressure and validation scope repair | 122 | +3531/-1229 | tooling |  |
+| 17 | `5ae52585` | Refresh system map after validation scope modules | 2 | +74/-71 | tooling |  |
+| 18 | `4dffbed7` | Thread validation scope through push preflight | 32 | +960/-204 | tooling |  |
+| 19 | `c2b8d6ec` | Fix push preflight scope propagation | 6 | +138/-68 | tooling |  |
+| 20 | `f8b8d50c` | Refresh policy-owned generated surfaces for f8ca0325 | 1 | +1/-1 | docs |  |
+| 21 | `f8ca0325` | Fix governed push validation scope | 16 | +918/-214 | tooling |  |
+| 22 | `18c1db4b` | Refresh policy-owned generated surfaces for 3ce8a67d | 1 | +5/-5 | docs |  |
+| 23 | `3ce8a67d` | Fix governed commit staged snapshot validation | 14 | +404/-72 | tooling |  |
+| 24 | `a196ba90` | Wire session-liveness running-process check + scope reviewe… | 14 | +324/-93 | tooling |  |
+| 25 | `b6a74ca6` | Wire actor-scope into TASK_COMPLETE + filter anchor kinds f… | 18 | +334/-97 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `AGENTS.md` | docs | +4/-1 |
+| `AGENTS.md` | docs | +3/-1 |
 | `app/operator_console/state/bridge/bridge_heading_aliases.py` | tooling | +75/-0 |
 | `app/operator_console/state/bridge/lane_builder.py` | tooling | +31/-56 |
 | `app/operator_console/state/bridge/lane_live_trace.py` | tooling | +47/-0 |
 | `app/operator_console/state/sessions/session_builder.py` | tooling | +22/-4 |
 | `app/operator_console/state/snapshots/snapshot_builder.py` | tooling | +14/-6 |
 | `app/operator_console/tests/state/test_state_modules.py` | tooling | +1/-1 |
-| `bridge.md` | docs | +201/-201 |
+| `bridge.md` | docs | +191/-190 |
 | `dev/README.md` | docs | +1/-1 |
-| `dev/active/MASTER_PLAN.md` | tooling | +68/-1 |
-| `dev/active/ai_governance_platform.md` | tooling | +32/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1323/-1290 |
-| `dev/guides/DEVELOPMENT.md` | docs | +25/-3 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +16/-16 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +85/-1 |
-| `dev/scripts/README.md` | tooling | +32/-12 |
-| `dev/scripts/checks/contract_connectivity/findings.py` | tooling | +15/-1 |
+| `dev/active/MASTER_PLAN.md` | tooling | +57/-1 |
+| `dev/active/ai_governance_platform.md` | tooling | +30/-1 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1306/-1268 |
+| `dev/guides/DEVELOPMENT.md` | docs | +18/-3 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +12/-12 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +63/-1 |
+| `dev/scripts/README.md` | tooling | +24/-12 |
 | `dev/scripts/checks/multi_agent_sync/command.py` | tooling | +18/-0 |
 | `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop.py` | tooling | +6/-1 |
 | `dev/scripts/checks/platform_contract_closure/emitter_parity.py` | tooling | +7/-0 |
@@ -151,14 +150,15 @@ Range: last 25 commits ending at `a9a3cac3b1d8`
 | `dev/scripts/devctl/commands/check/commit_snapshot.py` | tooling | +35/-0 |
 | `dev/scripts/devctl/commands/check/router.py` | tooling | +43/-10 |
 | `dev/scripts/devctl/commands/check/router_plan.py` | tooling | +29/-11 |
-| _188 more files trimmed_ | | |
+| `dev/scripts/devctl/commands/check/router_python_tests.py` | tooling | +1/-0 |
+| _179 more files trimmed_ | | |
 
 ## 4. Quality signals
 
 ### Governance review
-- total findings: 232
+- total findings: 231
 - open: 158
-- fixed: 62
+- fixed: 61
 - false positives: 0
 
 Recent findings:
@@ -241,7 +241,6 @@ Recent findings:
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/review_state_packet_models.py`) — Commit d13e587e changed dev/scripts/devctl/runtime/review_state_packet_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/review_channel/test_ack_contract.py`) — Commit d13e587e changed dev/scripts/devctl/tests/review_channel/test_ack_contract.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`) — Commit 3ce8a67d changed dev/scripts/devctl/tests/checks/test_startup_authority_contract.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/review_channel/packet_contract.py`) — Commit 314cb439 changed dev/scripts/devctl/review_channel/packet_contract.py
 
 ### Suggested verification commands
 
@@ -255,6 +254,7 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`884c56a4`** — Refresh external review snapshot for a9a3cac3
 - **`a9a3cac3`** — Refresh external review snapshot for e50e9e9d
 - **`e50e9e9d`** — Fix bridge alias and pipeline abandon recovery
 - **`64d79b89`** — Refresh external review snapshot for 499a6759
@@ -285,11 +285,6 @@ Recent findings:
 - **`b6a74ca6`** — Wire actor-scope into TASK_COMPLETE + filter anchor kinds from loop attention
   - Closes rev_pkt_3245 (continuation_anchor actor-scope) and the kind-filter
   - bug demonstrated by claude refresh anchors being acked as transport-receipts.
-  - evolution: Change: Codex session completion no longer depends on packet body prose such as "leave pending" to keep a conductor alive after `TASK_COMPLETE`. `SessionTerminationPolicy` names the allowed termination mode, session act…
-- **`314cb439`** — Add SessionTerminationPolicy + TaskCompleteDecision typed contracts
-  - Defines the typed shapes that gate session-end behavior:
-  - - SessionTerminationPolicy with end_on_task_complete / keep_awake_via_packets / session_end_when_anchor_drained modes
-  - - TaskCompleteDecision recording termination intent + next_command + anchor reference
   - evolution: Change: Codex session completion no longer depends on packet body prose such as "leave pending" to keep a conductor alive after `TASK_COMPLETE`. `SessionTerminationPolicy` names the allowed termination mode, session act…
 ### Active MP scope (from MASTER_PLAN.md)
 
@@ -330,4 +325,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-d22de52cb478` binds this file to HEAD `a9a3cac3b1d8`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-12befcc9125f` binds this file to HEAD `884c56a429e9`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
