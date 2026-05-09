@@ -187,6 +187,31 @@ def _write_local_delivery_receipt(
     return receipt_path
 
 
+def _write_abandon_receipt(
+    fixture: _PipelineFixture,
+    *,
+    pipeline_id: str = "pipeline-test-0001",
+    previous_state: str = "push_blocked",
+    reason: str = "operator abandoned stale pipeline",
+) -> Path:
+    receipt = PipelineRecoveryReceipt(
+        action="abandon",
+        pipeline_id=pipeline_id,
+        previous_state=previous_state,
+        new_state="abandoned",
+        reason=reason,
+        operator_actor="operator",
+        generated_at_utc="2026-05-02T03:02:27.344040Z",
+        artifact_paths=(str(fixture.pipeline_root / PIPELINE_FILENAME),),
+    )
+    receipt_path = fixture.receipts_root / ABANDONED_RECEIPT_FILENAME
+    receipt_path.write_text(
+        json.dumps(receipt.to_dict(), indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return receipt_path
+
+
 class PipelineStatusTests(unittest.TestCase):
     def test_status_returns_current_pipeline_fields(self) -> None:
         fixture = _PipelineFixture(fake_head="deadbeef00000000000000000000000000000000")
@@ -502,6 +527,23 @@ class PipelineStatusTests(unittest.TestCase):
         finally:
             fixture.close()
 
+    def test_remote_contract_loader_applies_abandon_receipt(self) -> None:
+        fixture = _PipelineFixture(
+            fake_head="deadbeef00000000000000000000000000000000",
+        )
+        try:
+            fixture.write_payload(_sample_pipeline_payload(state="push_blocked"))
+            _write_abandon_receipt(fixture)
+
+            contract = load_remote_commit_pipeline_contract(
+                output_root=fixture.pipeline_root,
+                receipts_root=fixture.receipts_root,
+            )
+
+            self.assertEqual(contract.state, "abandoned")
+        finally:
+            fixture.close()
+
 
 class PipelineAbandonTests(unittest.TestCase):
     def test_abandon_requires_reason(self) -> None:
@@ -548,6 +590,22 @@ class PipelineAbandonTests(unittest.TestCase):
             self.assertEqual(receipt["action"], "abandon")
             self.assertEqual(receipt["previous_state"], "commit_recorded")
             self.assertEqual(receipt["new_state"], "abandoned")
+        finally:
+            fixture.close()
+
+    def test_load_pipeline_payload_applies_abandon_receipt(self) -> None:
+        fixture = _PipelineFixture(fake_head="deadbeef")
+        try:
+            fixture.write_payload(_sample_pipeline_payload(state="push_blocked"))
+            _write_abandon_receipt(fixture)
+
+            payload = load_pipeline_payload(fixture.paths())
+
+            self.assertEqual(payload["state"], "abandoned")
+            self.assertEqual(
+                payload["abandoned_reason"],
+                "operator abandoned stale pipeline",
+            )
         finally:
             fixture.close()
 

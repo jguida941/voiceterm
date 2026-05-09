@@ -117,8 +117,30 @@ def _missing_markers(text: str, required_markers: list[str]) -> list[str]:
     return [
         marker
         for marker in required_markers
-        if _normalize_marker_text(marker) not in normalized_text
+        if not any(
+            _normalize_marker_text(variant) in normalized_text
+            for variant in _marker_variants(marker)
+        )
     ]
+
+
+def _marker_variants(marker: str) -> tuple[str, ...]:
+    """Return accepted marker text variants during bridge role-label migration."""
+    variants = {str(marker)}
+    for canonical, alias in (
+        ("Current Instruction For Implementer", "Current Instruction For Claude"),
+        ("Implementer Status", "Claude Status"),
+        ("Implementer Questions", "Claude Questions"),
+        ("Implementer Ack", "Claude Ack"),
+        (
+            "the implementer ACK section (`Claude Ack`)",
+            "the implementer ACK section (`Claude Ack` compatibility heading)",
+        ),
+    ):
+        for value in tuple(variants):
+            if canonical in value:
+                variants.add(value.replace(canonical, alias))
+    return tuple(variants)
 
 
 def _bridge_role_names(text: str) -> tuple[str, str]:

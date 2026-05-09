@@ -14,6 +14,9 @@ from .value_coercion import coerce_string, coerce_string_items
 
 LOCAL_DELIVERY_RECEIPT_FILENAME = "pipeline_local_delivery_receipt.json"
 LOCAL_DELIVERY_ACTION = "mark-delivered-local"
+ABANDONED_RECEIPT_FILENAME = "pipeline_abandoned_receipt.json"
+ABANDON_ACTION = "abandon"
+ABANDONED_STATE = "abandoned"
 
 
 def apply_local_delivery_receipt(
@@ -22,14 +25,18 @@ def apply_local_delivery_receipt(
     receipts_root: Path,
     pipeline_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Overlay a matching local-delivery receipt onto a pipeline payload.
+    """Overlay matching out-of-band pipeline recovery receipts.
 
     Recovery actions write receipts outside the event stream. Projection
-    refreshes may later regenerate ``commit_pipeline.json`` from older event
-    state, so readers must treat a matching local-delivery receipt as the
-    newest durable pipeline lifecycle fact.
+    refreshes may later regenerate ``commit_pipeline.json`` from older
+    event state, so readers must treat matching recovery receipts as the
+    newest durable pipeline lifecycle facts.
     """
-    pipeline = dict(payload)
+    pipeline = _apply_abandoned_receipt(
+        dict(payload),
+        receipts_root=receipts_root,
+        pipeline_path=pipeline_path,
+    )
     receipt_path = receipts_root / LOCAL_DELIVERY_RECEIPT_FILENAME
     receipt = _load_receipt(receipt_path)
     if not _receipt_matches_pipeline(
@@ -46,6 +53,32 @@ def apply_local_delivery_receipt(
     pipeline["local_delivery_reason"] = coerce_string(receipt.get("reason"))
     pipeline["delivered_at_utc"] = coerce_string(receipt.get("generated_at_utc"))
     pipeline["delivered_by"] = coerce_string(receipt.get("operator_actor"))
+    return pipeline
+
+
+def _apply_abandoned_receipt(
+    payload: Mapping[str, object],
+    *,
+    receipts_root: Path,
+    pipeline_path: Path | None,
+) -> dict[str, Any]:
+    pipeline = dict(payload)
+    receipt_path = receipts_root / ABANDONED_RECEIPT_FILENAME
+    receipt = _load_receipt(receipt_path)
+    if not _abandon_receipt_matches_pipeline(
+        receipt,
+        pipeline=pipeline,
+        pipeline_path=pipeline_path,
+    ):
+        return pipeline
+
+    pipeline["state"] = ABANDONED_STATE
+    pipeline["blocked_reason"] = "pipeline_abandoned_by_operator"
+    pipeline["recovery_action_allowed"] = ""
+    pipeline["abandoned_receipt_path"] = str(receipt_path)
+    pipeline["abandoned_reason"] = coerce_string(receipt.get("reason"))
+    pipeline["abandoned_at_utc"] = coerce_string(receipt.get("generated_at_utc"))
+    pipeline["abandoned_by"] = coerce_string(receipt.get("operator_actor"))
     return pipeline
 
 
@@ -91,7 +124,42 @@ def _receipt_matches_pipeline(
     return not resolved_artifact_paths or expected_path in resolved_artifact_paths
 
 
+def _abandon_receipt_matches_pipeline(
+    receipt: Mapping[str, object],
+    *,
+    pipeline: Mapping[str, object],
+    pipeline_path: Path | None,
+) -> bool:
+    if not receipt:
+        return False
+    if coerce_string(receipt.get("contract_id")) != RECOVERY_RECEIPT_CONTRACT_ID:
+        return False
+    if coerce_string(receipt.get("action")) != ABANDON_ACTION:
+        return False
+    if coerce_string(receipt.get("new_state")) != ABANDONED_STATE:
+        return False
+    receipt_pipeline_id = coerce_string(receipt.get("pipeline_id"))
+    pipeline_id = coerce_string(pipeline.get("pipeline_id"))
+    if not receipt_pipeline_id or receipt_pipeline_id != pipeline_id:
+        return False
+    previous_state = coerce_string(receipt.get("previous_state"))
+    current_state = coerce_string(pipeline.get("state"))
+    if current_state == ABANDONED_STATE:
+        return True
+    if previous_state and current_state and previous_state != current_state:
+        return False
+    if pipeline_path is None:
+        return True
+    expected_path = str(pipeline_path.resolve())
+    artifact_paths = coerce_string_items(receipt.get("artifact_paths"))
+    resolved_artifact_paths = {str(Path(path).resolve()) for path in artifact_paths}
+    return not resolved_artifact_paths or expected_path in resolved_artifact_paths
+
+
 __all__ = [
+    "ABANDON_ACTION",
+    "ABANDONED_RECEIPT_FILENAME",
+    "ABANDONED_STATE",
     "LOCAL_DELIVERY_ACTION",
     "LOCAL_DELIVERY_RECEIPT_FILENAME",
     "apply_local_delivery_receipt",

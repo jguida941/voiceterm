@@ -441,6 +441,33 @@ class CheckReviewChannelBridgeTests(TestCase):
         self.assertTrue(report["ok"])
         self.assertEqual(report["bridge"]["missing_h2"], [])
 
+    def test_build_report_accepts_implementer_marker_aliases(self) -> None:
+        bridge_text = _valid_bridge_text(self.script)
+        bridge_text = bridge_text.replace(
+            "Current Instruction For Implementer",
+            "Current Instruction For Claude",
+        )
+        bridge_text = bridge_text.replace("Implementer Status", "Claude Status")
+        bridge_text = bridge_text.replace("Implementer Questions", "Claude Questions")
+        bridge_text = bridge_text.replace(
+            "the implementer ACK section (`Claude Ack`)",
+            "the implementer ACK section (`Claude Ack` compatibility heading)",
+        )
+        bridge = self._temp_path("bridge.md", bridge_text)
+        review_channel = self._temp_path(
+            "dev/active/review_channel.md",
+            _valid_review_channel_text(self.script),
+        )
+        with (
+            patch.object(self.script, "BRIDGE_PATH", bridge),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
+        ):
+            report = self.script.build_report()
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["bridge"]["missing_markers"], [])
+
     def test_build_report_flags_missing_review_channel_bridge_guard_marker(self) -> None:
         bridge = self._temp_path(
             "bridge.md",
