@@ -303,16 +303,18 @@ def _live_packet_ids_by_agent(
 ) -> dict[str, frozenset[str]]:
     by_agent: dict[str, set[str]] = {}
     for packet in _packet_rows(packets):
-        if not (
+        agent = str(packet.get("to_agent") or "").strip().lower()
+        packet_id = _packet_id(packet)
+        if not agent:
+            continue
+        live_ids = by_agent.setdefault(agent, set())
+        if not packet_id:
+            continue
+        if (
             _is_live_control_packet(packet)
             or _is_expired_unresolved_attention(packet)
         ):
-            continue
-        agent = str(packet.get("to_agent") or "").strip().lower()
-        packet_id = _packet_id(packet)
-        if not agent or not packet_id:
-            continue
-        by_agent.setdefault(agent, set()).add(packet_id)
+            live_ids.add(packet_id)
     return {agent: frozenset(packet_ids) for agent, packet_ids in by_agent.items()}
 
 

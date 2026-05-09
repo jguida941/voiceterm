@@ -307,6 +307,35 @@ def test_stage_replaces_cross_branch_active_pipeline(tmp_path: Path) -> None:
     assert pipeline.branch != "feature/other"
 
 
+def test_commit_approval_request_without_guard_result_has_typed_summary(
+    tmp_path: Path,
+) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+    executor = _executor(repo_root)
+
+    result = executor.execute(
+        build_stage_action(
+            repo_pack_id="test-pack",
+            paths=("tracked.txt",),
+            commit_message_draft="feat: approve staged pipeline",
+            push_requested=True,
+            guard_profile="bundle.tooling",
+            work_intake_ref="MP-377",
+        )
+    )
+
+    assert result.ok is True
+    request = build_commit_approval_request(executor.load_pipeline())
+    summary = json.loads(request.runtime_approval.guard_results_summary)
+    assert summary == {
+        "action_id": "quality.guard_bundle",
+        "reason": "guard_result_missing",
+        "status": "not_recorded",
+    }
+    validate_post_request(request)
+
+
 def test_stage_replaces_stale_same_branch_pipeline_with_old_commit_sha(
     tmp_path: Path,
 ) -> None:

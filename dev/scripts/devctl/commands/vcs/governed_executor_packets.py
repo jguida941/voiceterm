@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -12,9 +11,9 @@ from ...review_channel.packet_contract import (
     PacketRuntimeApprovalFields,
     PacketTargetFields,
 )
-from ...runtime import ActionResult
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
 from ...runtime.review_state_models import ReviewPacketState
+from .governed_executor_guard_summary import guard_results_summary
 
 
 def build_commit_approval_request(
@@ -337,14 +336,3 @@ def commit_stage_target_ref(head_sha: str) -> str:
     """Return the runtime packet target ref for pre-pipeline commit staging."""
     return f"devctl_commit:{str(head_sha or '').strip()}"
 
-
-def guard_results_summary(result: ActionResult | None) -> str:
-    """Return one compact JSON guard summary for approval packets."""
-    if result is None:
-        return ""
-    payload = {
-        "action_id": result.action_id,
-        "status": result.status,
-        "reason": result.reason,
-    }
-    return json.dumps(payload, sort_keys=True)

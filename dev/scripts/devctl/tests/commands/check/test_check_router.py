@@ -268,6 +268,7 @@ class CheckRouterTests(unittest.TestCase):
                     "dev/scripts/devctl/tests/review_channel/test_event_render_typed_sections.py",
                     "dev/scripts/devctl/tests/review_channel/test_failure_packet_router.py",
                     "dev/scripts/devctl/tests/review_channel/test_follow_controller_reviewer_wake.py",
+                    "dev/scripts/devctl/tests/review_channel/test_review_channel.py",
                     "dev/scripts/devctl/tests/vcs/test_push.py",
                 )
             ]
@@ -286,9 +287,13 @@ class CheckRouterTests(unittest.TestCase):
             for row in payload["planned_commands"]
             if "test-python --suite devctl" in row["command"]
         ]
-        self.assertEqual(len(devctl_commands), 11)
+        self.assertEqual(len(devctl_commands), 12)
         for command in devctl_commands:
             if "dev/scripts/devctl/tests/commands/test_development_command.py" in command:
+                self.assertEqual(command.count("--path "), 1)
+                self.assertIn("--timeout-seconds 900", command)
+                self.assertIn("--parallel-workers 1", command)
+            elif "dev/scripts/devctl/tests/review_channel/test_review_channel.py" in command:
                 self.assertEqual(command.count("--path "), 1)
                 self.assertIn("--timeout-seconds 900", command)
                 self.assertIn("--parallel-workers 1", command)

@@ -391,6 +391,47 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         "resolved_review_state_relative_path"
     )
     @patch("dev.scripts.checks.multi_agent_sync.runtime_truth.load_review_state_payload")
+    def test_runtime_truth_ignores_operator_pending_packets_without_packet_rows(
+        self,
+        load_payload_mock,
+        relpath_mock,
+    ) -> None:
+        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        load_payload_mock.return_value = {
+            "collaboration": {
+                "participants": [],
+                "delegated_work": [],
+                "ready_gates": [],
+            },
+            "registry": {"agents": []},
+            "agent_sync": {
+                "agents": {
+                    "operator": {
+                        "pending_packets_to_me": ["rev_pkt_missing_notice"],
+                    },
+                }
+            },
+            "packets": [],
+            "agent_work_board": {"rows": []},
+            "agent_loop_decisions": [],
+        }
+
+        result = runtime_truth.evaluate_runtime_truth(
+            repo_root=Path("/repo"),
+            planned_agent_ids=[],
+        )
+
+        self.assertTrue(result["checked"])
+        self.assertEqual(result["pending_packet_agents"], [])
+        self.assertFalse(
+            any("no pending count for: operator" in err for err in result["errors"])
+        )
+
+    @patch(
+        "dev.scripts.checks.multi_agent_sync.runtime_truth."
+        "resolved_review_state_relative_path"
+    )
+    @patch("dev.scripts.checks.multi_agent_sync.runtime_truth.load_review_state_payload")
     def test_runtime_truth_ignores_session_termination_packets_for_pending_work(
         self,
         load_payload_mock,

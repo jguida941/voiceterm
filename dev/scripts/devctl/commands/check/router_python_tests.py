@@ -10,6 +10,7 @@ _FOCUSED_DEVCTL_TEST_PARALLEL_WORKERS = 1
 _FOCUSED_DEVCTL_TEST_SHARDED_PARALLEL_WORKERS = 4
 _FOCUSED_DEVCTL_TEST_TARGET_TIMEOUT_SECONDS = {
     "dev/scripts/devctl/tests/commands/test_development_command.py": 900,
+    "dev/scripts/devctl/tests/review_channel/test_review_channel.py": 900,
     "dev/scripts/devctl/tests/vcs/test_push.py": 240,
 }
 _FOCUSED_DEVCTL_TEST_TARGET_SHARDS = {

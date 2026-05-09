@@ -16,6 +16,8 @@ from dev.scripts.devctl.review_channel.packet_loop_attention import (
     packet_requires_loop_attention,
 )
 
+_NON_AGENT_LOOP_TARGETS = frozenset({"operator", "system"})
+
 if __package__:
     from .runtime_truth_agent_loop_attention import (
         agent_sync_attention_scope_errors,
@@ -179,9 +181,12 @@ def pending_packet_agents(
     for agent_id, row in agents.items():
         if not isinstance(row, Mapping):
             continue
+        agent = coerce_text(agent_id)
+        if agent in _NON_AGENT_LOOP_TARGETS:
+            continue
         packet_ids = agent_sync_pending_packet_ids_from_row(row)
         if _has_runtime_attention_packet(packet_ids, packet_index):
-            pending.append(str(agent_id))
+            pending.append(agent)
     return sorted(pending)
 
 
