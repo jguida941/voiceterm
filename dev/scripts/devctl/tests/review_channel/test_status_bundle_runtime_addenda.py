@@ -229,6 +229,36 @@ def test_projection_canonicalize_keeps_typed_runtime_addenda() -> None:
     assert canonical["round_proofs"][0]["proof_id"] == "round-1"
 
 
+def test_projection_canonicalize_preserves_packet_durable_resolution_fields() -> None:
+    payload = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_bound",
+                "kind": "finding",
+                "from_agent": "claude",
+                "to_agent": "codex",
+                "summary": "Finding",
+                "body": "Body",
+                "status": "pending",
+                "durable_binding": {
+                    "status": "inserted",
+                    "binding_target_kind": "plan_row",
+                },
+                "packet_creation_binding": {
+                    "contract_id": "PacketCreationBinding",
+                    "status": "inserted",
+                },
+            }
+        ]
+    }
+
+    canonical = canonicalize_projection_review_state(payload)
+
+    packet = canonical["packets"][0]
+    assert packet["durable_binding"]["binding_target_kind"] == "plan_row"
+    assert packet["packet_creation_binding"]["contract_id"] == "PacketCreationBinding"
+
+
 def test_status_bundle_persists_agent_loop_decisions_from_work_board() -> None:
     payload = {
         "current_session": {"current_instruction_revision": "rev-current"},
@@ -337,10 +367,17 @@ def test_status_bundle_keeps_actor_pending_pressure_without_session_match() -> N
 
     projected = _attach_agent_loop_decisions(payload)
 
-    decision = projected["agent_loop_decisions"][0]
+    decision = next(
+        row
+        for row in projected["agent_loop_decisions"]
+        if row["required_action"] == "triage_pending_packet"
+    )
     assert decision["actor_id"] == "codex"
+    assert decision["actor_role"] == "reviewer"
+    assert decision["session_id"] == "s-codex-old"
     assert decision["required_action"] == "triage_pending_packet"
-    assert decision["active_packet_id"] == ""
+    assert decision["active_packet_id"] == "rev_pkt_reviewer"
+    assert decision["attention_packet_id"] == "rev_pkt_reviewer"
     assert decision["pending_packet_count"] == 1
     assert decision["wake_required"] is True
     assert decision["safe_to_continue"] is False

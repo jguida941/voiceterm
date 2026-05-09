@@ -70,14 +70,15 @@ def test_packet_inbox_drops_persisted_expired_ids_when_live_packets_are_gone() -
     assert codex.wake_reason == ""
 
 
-def test_packet_inbox_filters_persisted_expired_ids_to_live_packets() -> None:
+def test_packet_inbox_filters_persisted_expired_ids_to_runtime_transport_packets() -> None:
     review_state = {
         "packets": [
             {
                 "packet_id": "rev_pkt_live",
-                "kind": "instruction",
+                "kind": "action_request",
                 "status": "expired",
                 "to_agent": "codex",
+                "expires_at_utc": "2000-01-01T00:00:00Z",
             }
         ],
         "packet_inbox": {
@@ -195,7 +196,7 @@ def test_packet_inbox_does_not_treat_durable_archive_as_unresolved() -> None:
     assert codex.wake_reason == ""
 
 
-def test_packet_inbox_keeps_clock_expired_archive_as_unresolved_debt() -> None:
+def test_packet_inbox_does_not_treat_clock_expired_archive_as_attention() -> None:
     review_state = {
         "packets": [
             {
@@ -221,9 +222,64 @@ def test_packet_inbox_keeps_clock_expired_archive_as_unresolved_debt() -> None:
     assert packet_inbox is not None
     codex = packet_inbox.for_agent("codex")
     assert codex is not None
-    assert codex.expired_unresolved_packet_ids == ("rev_pkt_clock_expired",)
-    assert codex.attention_status == "review_needed"
-    assert codex.wake_reason == "expired_unresolved_packet"
+    assert codex.expired_unresolved_packet_ids == ()
+    assert codex.attention_status == "none"
+    assert codex.wake_reason == ""
+
+
+def test_packet_inbox_drops_persisted_clock_expired_archive_attention() -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_clock_expired",
+                "kind": "finding",
+                "status": "expired",
+                "to_agent": "codex",
+                "expires_at_utc": "2000-01-01T00:00:00Z",
+                "lifecycle_current_state": "archived",
+                "disposition": {
+                    "sink": "archived",
+                    "archive_classification": "clock_expired_without_disposition",
+                    "resolution_anchor": (
+                        "archive_classification:clock_expired_without_disposition"
+                    ),
+                },
+            },
+            {
+                "packet_id": "rev_pkt_cursor_live",
+                "kind": "instruction",
+                "status": "pending",
+                "to_agent": "cursor",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            },
+        ],
+        "packet_inbox": {
+            "attention_revision": "persisted-rev",
+            "agents": [
+                {
+                    "agent": "codex",
+                    "current_instruction_packet_id": "",
+                    "latest_finding_packet_id": "",
+                    "pending_actionable_packet_ids": [],
+                    "expired_unresolved_packet_ids": ["rev_pkt_clock_expired"],
+                    "attention_status": "review_needed",
+                    "wake_reason": "expired_unresolved_packet",
+                    "required_command": "python3 dev/scripts/devctl.py develop audit-packets --format md",
+                    "attention_revision": "codex-attention-rev",
+                    "delivery_state": "unseen",
+                }
+            ],
+        },
+    }
+
+    packet_inbox = packet_inbox_from_review_state(review_state)
+
+    assert packet_inbox is not None
+    codex = packet_inbox.for_agent("codex")
+    assert codex is not None
+    assert codex.expired_unresolved_packet_ids == ()
+    assert codex.attention_status == "none"
+    assert codex.wake_reason == ""
 
 
 def test_packet_inbox_does_not_revive_archived_rows_from_persisted_attention() -> None:

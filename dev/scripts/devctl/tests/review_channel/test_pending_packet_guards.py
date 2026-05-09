@@ -176,7 +176,7 @@ class PendingPacketInstructionRewriteGuardTests(unittest.TestCase):
         self.assertEqual(len(pending), 1)
         self.assertEqual(pending[0]["packet_id"], "rev_pkt_0001")
 
-    def test_load_pending_packets_ignores_expired_rows_and_tracks_stale_count(self) -> None:
+    def test_load_pending_packets_keeps_clock_elapsed_findings_live(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             now = datetime.now(timezone.utc)
@@ -219,11 +219,13 @@ class PendingPacketInstructionRewriteGuardTests(unittest.TestCase):
             pending = load_pending_packets(root)
             queue = load_pending_packet_queue(root)
 
-        self.assertEqual(len(pending), 1)
-        self.assertEqual(pending[0]["packet_id"], "rev_pkt_live")
-        self.assertEqual(queue.stale_packet_count, 1)
+        self.assertEqual(
+            tuple(packet["packet_id"] for packet in pending),
+            ("rev_pkt_live", "rev_pkt_expired"),
+        )
+        self.assertEqual(queue.stale_packet_count, 0)
 
-    def test_bound_expired_action_request_exits_stale_queue(self) -> None:
+    def test_bound_expired_action_request_stays_runtime_transport_stale(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             now = datetime.now(timezone.utc)
@@ -269,7 +271,7 @@ class PendingPacketInstructionRewriteGuardTests(unittest.TestCase):
             queue = load_pending_packet_queue(root)
 
         self.assertEqual(queue.pending_packets, ())
-        self.assertEqual(queue.stale_packet_count, 0)
+        self.assertEqual(queue.stale_packet_count, 1)
         self.assertEqual(queue.control_packets, ())
 
     def test_load_pending_queue_keeps_acked_action_request_as_control_packet(self) -> None:

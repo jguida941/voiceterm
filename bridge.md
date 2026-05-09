@@ -78,11 +78,12 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-08T22:02:18Z`
-- Last Codex poll (Local America/New_York): `2026-05-08 18:02:18 EDT`
+- Last Codex poll: `2026-05-09T09:35:26Z`
+- Last Codex poll (Local America/New_York): `2026-05-09 05:35:26 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `c23111daff25930b35a2d5874f13cd2c90f5a51e87d0ffb0bf16b789733f7454`
-- Current instruction revision: `ed93e1b8d6c3`
+- Declared reviewer mode: `active_dual_agent`
+- Last non-audit worktree hash: `f7921a8acc411b2e505cbf03c55d371cd326f1070387168713c8e370dd415697`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -114,7 +115,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: c23111daff25).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: f7921a8acc41).
 
 ## Current Verdict
 
@@ -122,11 +123,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s); 628 expired unresolved review packet(s)
+629 expired unresolved review packet(s)
 
 ## Claude Status
 
-- Status unavailable.
+assigned
 
 ## Claude Questions
 
@@ -134,11 +135,12 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
-Priority action_request: Stage/commit checkpoint for MP-377 launcher recursion reducer fix
+- Cut a checkpoint before continuing to edit.
+- Run `python3 dev/scripts/devctl.py commit -m "<descriptive message>"`.
 
 ## Last Reviewed Scope
 
@@ -146,4 +148,4 @@ MP-355
 
 ## Action Requests
 
-- [rev_pkt_3289] stage_commit_pipeline: target=runtime:devctl_commit:b6a74ca6b1b4659620e450bf12087f0aca933532@b6a74ca6b1b4659620e450bf12087f0aca933532; Stage/commit checkpoint for MP-377 launcher recursion reducer fix (status: pending)
+- No pending action requests.

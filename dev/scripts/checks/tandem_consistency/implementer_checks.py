@@ -36,7 +36,7 @@ def _typed_or_bridge_section(
     section: str,
 ) -> str:
     bridge_value = extract_section(bridge_text, section)
-    if section in {"Claude Status", "Claude Ack"} and is_pending_placeholder(
+    if section in {"Implementer Status", "Implementer Ack"} and is_pending_placeholder(
         bridge_value
     ):
         return bridge_value.strip()
@@ -87,19 +87,19 @@ def check_implementer_ack_freshness(
         cs,
         field="current_instruction",
         bridge_text=bridge_text,
-        section="Current Instruction For Claude",
+        section="Current Instruction For Implementer",
     )
     ack = _typed_or_bridge_section(
         cs,
         field="implementer_ack",
         bridge_text=bridge_text,
-        section="Claude Ack",
+        section="Implementer Ack",
     )
     status = _typed_or_bridge_section(
         cs,
         field="implementer_status",
         bridge_text=bridge_text,
-        section="Claude Status",
+        section="Implementer Status",
     )
     typed_ack_state = str(cs.get("implementer_ack_state") or "").strip().lower()
 
@@ -138,7 +138,12 @@ def check_implementer_ack_freshness(
             "Implementer status is empty — no active coding session visible.",
         )
 
-    aligned = is_implementer_ack_current(current_session_from_mapping(cs))
+    aligned = is_implementer_ack_current(current_session_from_mapping(cs)) or (
+        typed_ack_state in {"", "unknown"}
+        and bool(str(cs.get("current_instruction_revision") or "").strip())
+        and str(cs.get("current_instruction_revision") or "").strip()
+        == str(cs.get("implementer_ack_revision") or "").strip()
+    )
 
     return make_result(
         _CK,
@@ -205,10 +210,10 @@ def check_implementer_completion_stall(
     reviewer_mode = normalize_reviewer_mode(
         extract_metadata_value(bridge_text, "Reviewer mode:")
     )
-    instruction = extract_section(bridge_text, "Current Instruction For Claude")
+    instruction = extract_section(bridge_text, "Current Instruction For Implementer")
     poll_status = extract_section(bridge_text, "Poll Status")
-    ack = leading_section_excerpt(extract_section(bridge_text, "Claude Ack"))
-    status = leading_section_excerpt(extract_section(bridge_text, "Claude Status"))
+    ack = leading_section_excerpt(extract_section(bridge_text, "Implementer Ack"))
+    status = leading_section_excerpt(extract_section(bridge_text, "Implementer Status"))
     combined = f"{status}\n{ack}".strip()
 
     if not contains_any_marker(combined, STALL_MARKERS):

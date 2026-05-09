@@ -37,10 +37,10 @@ TRACKED_BRIDGE_SECTIONS = (
     "Poll Status",
     "Current Verdict",
     "Open Findings",
-    "Current Instruction For Claude",
-    "Claude Status",
-    "Claude Questions",
-    "Claude Ack",
+    "Current Instruction For Implementer",
+    "Implementer Status",
+    "Implementer Questions",
+    "Implementer Ack",
     "Last Reviewed Scope",
     "Action Requests",
 )
@@ -55,7 +55,7 @@ ROLLOVER_ACK_PREFIX = {
 }
 ROLLOVER_ACK_SECTION = {
     "codex": "Poll Status",
-    "claude": "Claude Ack",
+    "claude": "Implementer Ack",
 }
 BRIDGE_LIVENESS_KEYS = (
     "overall_state",

@@ -25,9 +25,9 @@ from ..runtime.review_state_semantics import (
 def bridge_implementer_state_hash(snapshot: BridgeSnapshot) -> str:
     """Return the implementer-state digest for one bridge snapshot."""
     return compute_implementer_state_hash(
-        implementer_status=_section_text(snapshot, "Claude Status"),
-        implementer_questions=_section_text(snapshot, "Claude Questions"),
-        implementer_ack=_section_text(snapshot, "Claude Ack"),
+        implementer_status=_section_text(snapshot, "Implementer Status"),
+        implementer_questions=_section_text(snapshot, "Implementer Questions"),
+        implementer_ack=_section_text(snapshot, "Implementer Ack"),
     )
 
 
@@ -38,10 +38,10 @@ def build_bridge_current_session(
     prior_review_state: Mapping[str, object] | None = None,
 ) -> ReviewCurrentSessionState:
     """Build typed current-session state from bridge sections."""
-    current_instruction = _section_text(snapshot, "Current Instruction For Claude")
-    implementer_status = _section_text(snapshot, "Claude Status")
-    implementer_questions = _section_text(snapshot, "Claude Questions")
-    implementer_ack = _section_text(snapshot, "Claude Ack")
+    current_instruction = _section_text(snapshot, "Current Instruction For Implementer")
+    implementer_status = _section_text(snapshot, "Implementer Status")
+    implementer_questions = _section_text(snapshot, "Implementer Questions")
+    implementer_ack = _section_text(snapshot, "Implementer Ack")
     current_instruction_revision = _resolve_instruction_revision(
         snapshot=snapshot,
         bridge_liveness=bridge_liveness,

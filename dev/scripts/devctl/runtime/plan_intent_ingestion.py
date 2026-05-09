@@ -120,6 +120,26 @@ def terminal_packet_receipt_by_packet(
     return terminal
 
 
+def plan_row_id_by_packet_receipt(
+    receipts: tuple[dict[str, object], ...],
+) -> dict[str, str]:
+    """Return packet ids whose accepted ingestion receipt names a plan row."""
+    row_ids_by_packet: dict[str, str] = {}
+    for receipt in receipts:
+        packet_id = _packet_id_for_receipt(receipt)
+        if not packet_id:
+            continue
+        if str(receipt.get("status") or "").strip() != "accepted":
+            continue
+        row_ids = receipt.get("row_ids")
+        if not isinstance(row_ids, (list, tuple)) or not row_ids:
+            continue
+        row_id = str(row_ids[0] or "").strip()
+        if row_id:
+            row_ids_by_packet[packet_id] = row_id
+    return row_ids_by_packet
+
+
 def _packet_id_for_receipt(receipt: dict[str, object]) -> str:
     packet_id = str(receipt.get("packet_id") or "").strip()
     if packet_id:
@@ -150,6 +170,7 @@ __all__ = [
     "append_plan_intent_ingestion_receipt",
     "plan_intent_content_hash",
     "plan_intent_receipt_id",
+    "plan_row_id_by_packet_receipt",
     "read_plan_intent_ingestion_receipts",
     "terminal_packet_receipt_by_packet",
 ]

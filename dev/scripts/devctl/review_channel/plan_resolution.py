@@ -14,6 +14,7 @@ from ..runtime.plan_registry_projection import (
     scope_cell_matches,
 )
 from ..repo_packs import active_path_config
+from .bridge_heading_aliases import normalize_bridge_sections
 
 _BACKTICK_PATH_RE = re.compile(r"`(?P<path>[^`]+?\.md)`")
 _PLAIN_PATH_RE = re.compile(r"\bdev/active/[A-Za-z0-9._/-]+\.md\b")
@@ -81,8 +82,8 @@ def _resolve_from_bridge(
         bridge_text = bridge_path.read_text(encoding="utf-8")
     except OSError as exc:
         return PlanResolution(path=None, source="bridge_read_error", detail=str(exc))
-    sections = parse_markdown_sections(bridge_text)
-    current_instruction = sections.get("Current Instruction For Claude", "")
+    sections = normalize_bridge_sections(parse_markdown_sections(bridge_text))
+    current_instruction = sections.get("Current Instruction For Implementer", "")
     instruction_match = _NEXT_SCOPED_RE.search(current_instruction)
     if instruction_match is not None:
         candidate = _normalize_repo_path(

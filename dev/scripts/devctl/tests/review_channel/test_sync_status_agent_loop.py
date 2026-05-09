@@ -406,18 +406,21 @@ def test_sync_status_queue_reports_target_scoped_stale_count() -> None:
             {
                 "packet_id": "rev_pkt_live",
                 "to_agent": "codex",
+                "kind": "action_request",
                 "status": "pending",
                 "expires_at_utc": "2999-01-01T00:00:00Z",
             },
             {
                 "packet_id": "rev_pkt_stale",
                 "to_agent": "codex",
+                "kind": "action_request",
                 "status": "pending",
                 "expires_at_utc": "2000-01-01T00:00:00Z",
             },
             {
                 "packet_id": "rev_pkt_other",
                 "to_agent": "claude",
+                "kind": "action_request",
                 "status": "pending",
                 "expires_at_utc": "2000-01-01T00:00:00Z",
             },

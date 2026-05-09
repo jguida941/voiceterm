@@ -36,7 +36,7 @@ def compute_implementer_state_hash(
     implementer_questions: str = "",
     implementer_ack: str,
 ) -> str:
-    """Return a stable digest for Claude-owned live bridge state."""
+    """Return a stable digest for implementer-owned live bridge state."""
     normalized = (
         clean_section(implementer_status),
         clean_section(implementer_questions),
@@ -155,9 +155,9 @@ def current_session_authority_drift_warning(
 
     drifted: list[str] = []
     section_pairs = (
-        ("Current Instruction For Claude", prior_session.current_instruction),
-        ("Claude Status", prior_session.implementer_status),
-        ("Claude Ack", prior_session.implementer_ack),
+        ("Current Instruction For Implementer", prior_session.current_instruction),
+        ("Implementer Status", prior_session.implementer_status),
+        ("Implementer Ack", prior_session.implementer_ack),
         ("Open Findings", prior_session.open_findings),
         ("Last Reviewed Scope", prior_session.last_reviewed_scope),
     )
@@ -165,7 +165,7 @@ def current_session_authority_drift_warning(
         live_value = _section_text(snapshot, heading)
         normalized_typed = (
             _normalize_instruction_body(typed_value)
-            if heading == "Current Instruction For Claude"
+            if heading == "Current Instruction For Implementer"
             else clean_section(typed_value)
         )
         if _bridge_placeholder_matches_missing_typed_value(
@@ -201,15 +201,15 @@ def _bridge_placeholder_matches_missing_typed_value(
     typed_missing = typed in {"", "(missing)", "missing", "none"}
     if not typed_missing:
         return False
-    if heading == "Current Instruction For Claude":
+    if heading == "Current Instruction For Implementer":
         return live in {
             "await reviewer instruction refresh",
             "stop at a safe boundary",
             "relaunch before compaction",
         }
-    if heading == "Claude Status":
+    if heading == "Implementer Status":
         return live in {"status unavailable", "missing"}
-    if heading == "Claude Ack":
+    if heading == "Implementer Ack":
         return live in {"missing"}
     return False
 
@@ -226,9 +226,9 @@ def _bridge_current_session_from_snapshot(
     *,
     bridge_liveness: Mapping[str, object] | None = None,
 ) -> ReviewCurrentSessionState:
-    current_instruction = _section_text(snapshot, "Current Instruction For Claude")
-    implementer_status = _section_text(snapshot, "Claude Status")
-    implementer_ack = _section_text(snapshot, "Claude Ack")
+    current_instruction = _section_text(snapshot, "Current Instruction For Implementer")
+    implementer_status = _section_text(snapshot, "Implementer Status")
+    implementer_ack = _section_text(snapshot, "Implementer Ack")
     implementer_ack_revision = (
         str((bridge_liveness or {}).get("implementer_ack_revision") or "").strip()
         or extract_implementer_ack_revision(implementer_ack)
@@ -292,8 +292,8 @@ def event_claude_ack(queue: Mapping[str, object]) -> str:
 
     Packet delivery/ack/apply lifecycle is not the implementer ACK contract.
     The event queue may show that an implementer still needs to act, but an
-    empty queue must not synthesize `Claude Ack` or mark the current instruction
-    acknowledged.
+    empty queue must not synthesize `Implementer Ack` or mark the current
+    instruction acknowledged.
     """
     pending_claude = int(queue.get("pending_claude") or 0)
     return "pending" if pending_claude else ""

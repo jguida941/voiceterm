@@ -28,6 +28,11 @@ def reviewer_loop_block_state(
         return False, ""
     if str(inputs.current_instruction or "").strip() in {"", "(missing)"}:
         return False, ""
+    ack_state = str(inputs.implementer_ack_state or "").strip().lower()
+    if ack_state == "current":
+        return False, ""
+    if ack_state in {"pending", "reset"}:
+        return False, ""
     if inputs.implementer_ack_current:
         return False, ""
     if is_pending_implementer_state(

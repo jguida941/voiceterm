@@ -20,8 +20,6 @@ from ...review_channel.events import (
     load_or_refresh_event_bundle,
     refresh_event_bundle,
 )
-from ...review_channel.bridge_projection import render_bridge_projection
-from ...review_channel.heartbeat import compute_non_audit_worktree_hash
 from ...review_channel.follow_stream import (
     build_follow_completion_report,
     build_follow_output_error_report,
@@ -43,14 +41,15 @@ from ...time_utils import utc_timestamp
 from .event_action_support import (
     EventActionContext,
     run_inbox_like_action,
-    run_packet_transition_action,
-    run_post_action,
+)
+from .event_handler_side_effects import (
+    run_implementer_ack_with_bridge_sync,
+    run_post_action_with_side_effects,
 )
 from .event_history_outcomes import attach_history_outcomes_if_requested
 from .event_expire_packets_action import run_expire_packets_action
+from .event_packet_transition_action import run_packet_transition_action
 from .event_queue_report import queue_for_event_report
-from .event_post_bridge_sync import sync_bridge_after_posted_current_instruction
-from .event_post_wake import maybe_wake_posted_reviewer_packet
 from .sync_status_action import run_sync_status_action
 from .event_watch_support import load_target_packets, watch_snapshot_signature
 from .watch_follow import WatchFollowDeps, run_watch_follow
@@ -160,31 +159,14 @@ def _run_event_action(
             repo_root=repo_root,
             review_channel_path=review_channel_path,
             artifact_paths=artifact_paths,
-    )
+        )
     if args.action == "post":
-        report, exit_code, review_state_payload = run_post_action(context=context)
-        packet = report.get("packet")
-        if isinstance(packet, dict):
-            bridge_sync = sync_bridge_after_posted_current_instruction(
-                repo_root=repo_root,
-                paths=paths,
-                packet=packet,
-                review_state_payload=review_state_payload,
-                compute_worktree_hash_fn=compute_non_audit_worktree_hash,
-                render_bridge_projection_fn=render_bridge_projection,
-            )
-            if bridge_sync is not None:
-                report["post_bridge_sync"] = bridge_sync
-            reviewer_wake = maybe_wake_posted_reviewer_packet(
-                args=args,
-                repo_root=repo_root,
-                paths=paths,
-                packet=packet,
-                posted_review_state_payload=review_state_payload,
-            )
-            if reviewer_wake is not None:
-                report["packet_attention"] = reviewer_wake
-                report["reviewer_wake"] = reviewer_wake
+        report, exit_code, _review_state_payload = run_post_action_with_side_effects(
+            context=context,
+            args=args,
+            repo_root=repo_root,
+            paths=paths,
+        )
         if getattr(args, "follow", False) and exit_code == 0:
             return _run_watch_follow(
                 args=_post_follow_watch_args(args),
@@ -193,6 +175,12 @@ def _run_event_action(
                 artifact_paths=artifact_paths,
             )
         return report, exit_code
+    if args.action == "implementer-ack":
+        return run_implementer_ack_with_bridge_sync(
+            context=context,
+            repo_root=repo_root,
+            paths=paths,
+        )
     if args.action in {"ack", "dismiss", "apply"}:
         return run_packet_transition_action(context=context)
     bundle = load_or_refresh_event_bundle(
@@ -200,11 +188,20 @@ def _run_event_action(
         review_channel_path=review_channel_path,
         artifact_paths=artifact_paths,
     )
+    return _run_loaded_bundle_action(args=args, context=context, bundle=bundle)
+
+
+def _run_loaded_bundle_action(
+    *,
+    args,
+    context: EventActionContext,
+    bundle,
+) -> tuple[dict, int]:
     if args.action == "status":
         bundle = refresh_event_bundle(
-            repo_root=repo_root,
-            review_channel_path=review_channel_path,
-            artifact_paths=artifact_paths,
+            repo_root=context.repo_root,
+            review_channel_path=context.review_channel_path,
+            artifact_paths=context.artifact_paths,
         )
         return _build_event_report(args=args, bundle=bundle)
     if args.action == "inbox":
@@ -219,9 +216,9 @@ def _run_event_action(
         )
     if args.action == "sync-status":
         bundle = refresh_event_bundle(
-            repo_root=repo_root,
-            review_channel_path=review_channel_path,
-            artifact_paths=artifact_paths,
+            repo_root=context.repo_root,
+            review_channel_path=context.review_channel_path,
+            artifact_paths=context.artifact_paths,
         )
         return run_sync_status_action(args=args, bundle=bundle)
     if args.action == "expire-packets":

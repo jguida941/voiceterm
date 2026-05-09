@@ -14,7 +14,7 @@ from dev.scripts.devctl.runtime.plan_intent_ingestion import (
 
 
 def test_below_budget_communication_continues_current_work() -> None:
-    pressure, classifications, decision = packet_pressure_report(
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
         {"packets": [_packet("rev_pkt_1", kind="system_notice")]},
         rows=(),
         actor="codex",
@@ -30,7 +30,7 @@ def test_below_budget_communication_continues_current_work() -> None:
 def test_soft_budget_pivots_to_packet_review() -> None:
     packets = [_packet(f"rev_pkt_{index}") for index in range(12)]
 
-    pressure, _classifications, decision = packet_pressure_report(
+    pressure, _classifications, decision, _packet_ingest_decisions = packet_pressure_report(
         {"packets": packets},
         rows=(),
         actor="codex",
@@ -45,7 +45,7 @@ def test_soft_budget_pivots_to_packet_review() -> None:
 def test_hard_budget_fails_closed() -> None:
     packets = [_packet(f"rev_pkt_{index}") for index in range(15)]
 
-    pressure, _classifications, decision = packet_pressure_report(
+    pressure, _classifications, decision, _packet_ingest_decisions = packet_pressure_report(
         {"packets": packets},
         rows=(),
         actor="claude",
@@ -57,7 +57,7 @@ def test_hard_budget_fails_closed() -> None:
     assert decision["fail_closed"] is True
 
 
-def test_near_ttl_durable_intent_requests_ingestion_receipt() -> None:
+def test_durable_intent_requests_ingestion_receipt_without_ttl_pressure() -> None:
     packet = _packet(
         "rev_pkt_20",
         kind="plan_patch_review",
@@ -66,32 +66,38 @@ def test_near_ttl_durable_intent_requests_ingestion_receipt() -> None:
         expires_at_utc=_stamp(minutes=5),
     )
 
-    pressure, classifications, decision = packet_pressure_report(
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
         {"packets": [packet]},
         rows=(),
         actor="codex",
     )
 
-    assert pressure["near_ttl_total"] == 1
+    assert pressure["near_ttl_total"] == 0
     assert pressure["durable_owner_gap_total"] == 1
     assert classifications[0]["classification"] == "durable plan"
     assert classifications[0]["action_required"] is True
     assert decision["decision"] == "ingest_durable_intent"
     assert "develop ingest-intent --packet-id rev_pkt_20" in decision["next_command"]
+    assert packet_ingest_decisions[0]["decision"] == "ingest"
+    assert (
+        "develop ingest-intent --packet-id rev_pkt_20"
+        in packet_ingest_decisions[0]["next_command"]
+    )
 
 
-def test_expired_unresolved_communication_pivots_without_autodrain() -> None:
+def test_clock_elapsed_communication_continues_current_work() -> None:
     packet = _packet("rev_pkt_30", expires_at_utc=_stamp(minutes=-5))
 
-    pressure, classifications, decision = packet_pressure_report(
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
         {"packets": [packet]},
         rows=(),
         actor="codex",
     )
 
-    assert pressure["expired_unresolved_total"] == 1
+    assert pressure["expired_unresolved_total"] == 0
     assert classifications[0]["classification"] == "communication-only"
-    assert decision["decision"] == "pivot_to_packet_review"
+    assert decision["decision"] == "continue_current_work"
+    assert packet_ingest_decisions[0]["decision"] == "ack"
 
 
 def test_archived_expired_packets_do_not_drive_packet_pressure() -> None:
@@ -103,7 +109,7 @@ def test_archived_expired_packets_do_not_drive_packet_pressure() -> None:
         disposition={"sink": "archived"},
     )
 
-    pressure, classifications, decision = packet_pressure_report(
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
         {"packets": [packet]},
         rows=(),
         actor="codex",
@@ -128,7 +134,7 @@ def test_durable_archived_pending_packets_do_not_drive_packet_pressure() -> None
         },
     )
 
-    pressure, classifications, decision = packet_pressure_report(
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
         {"packets": [packet]},
         rows=(),
         actor="codex",
@@ -155,7 +161,7 @@ def test_duplicate_and_obsolete_packets_are_terminal_classifications() -> None:
         ),
     ]
 
-    pressure, classifications, decision = packet_pressure_report(
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
         {"packets": packets},
         rows=(),
         actor="codex",
@@ -186,7 +192,7 @@ def test_existing_plan_row_owner_removes_durable_owner_gap() -> None:
         sourced_from_packets=("rev_pkt_50",),
     )
 
-    pressure, classifications, decision = packet_pressure_report(
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
         {"packets": [packet]},
         rows=(row,),
         actor="codex",
@@ -214,7 +220,7 @@ def test_existing_anchor_owner_removes_packet_from_next_pressure() -> None:
         anchor_refs=("packet:rev_pkt_51",),
     )
 
-    pressure, classifications, decision = packet_pressure_report(
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
         {"packets": [packet]},
         rows=(row,),
         actor="codex",
@@ -229,6 +235,7 @@ def test_existing_anchor_owner_removes_packet_from_next_pressure() -> None:
 def test_expired_archived_packet_with_plan_owner_is_provenance_not_pressure() -> None:
     packet = _packet(
         "rev_pkt_3111",
+        kind="action_request",
         status="expired",
         lifecycle_current_state="archived",
         expires_at_utc=_stamp(minutes=-5),
@@ -246,7 +253,7 @@ def test_expired_archived_packet_with_plan_owner_is_provenance_not_pressure() ->
         anchor_refs=("packet:rev_pkt_3111",),
     )
 
-    pressure, classifications, decision = packet_pressure_report(
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
         {"packets": [packet]},
         rows=(row,),
         actor="codex",
@@ -271,7 +278,7 @@ def test_terminal_archived_action_request_is_provenance_not_attention() -> None:
         },
     )
 
-    pressure, classifications, decision = packet_pressure_report(
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
         {"packets": [packet]},
         rows=(),
         actor="codex",
@@ -285,6 +292,7 @@ def test_terminal_archived_action_request_is_provenance_not_attention() -> None:
 def test_clock_expired_without_disposition_still_requires_intake_without_owner() -> None:
     packet = _packet(
         "rev_pkt_unowned_clock_expired",
+        kind="action_request",
         status="expired",
         lifecycle_current_state="archived",
         expires_at_utc=_stamp(minutes=-5),
@@ -295,7 +303,7 @@ def test_clock_expired_without_disposition_still_requires_intake_without_owner()
         },
     )
 
-    pressure, classifications, decision = packet_pressure_report(
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
         {"packets": [packet]},
         rows=(),
         actor="codex",
@@ -309,6 +317,7 @@ def test_clock_expired_without_disposition_still_requires_intake_without_owner()
 def test_plan_ingestion_terminal_receipt_removes_expired_packet_pressure() -> None:
     packet = _packet(
         "rev_pkt_3121",
+        kind="action_request",
         status="expired",
         lifecycle_current_state="archived",
         expires_at_utc=_stamp(minutes=-5),
@@ -319,7 +328,7 @@ def test_plan_ingestion_terminal_receipt_removes_expired_packet_pressure() -> No
         },
     )
 
-    pressure, classifications, decision = packet_pressure_report(
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
         {"packets": [packet]},
         rows=(),
         actor="codex",
@@ -336,6 +345,7 @@ def test_plan_ingestion_terminal_receipt_removes_expired_packet_pressure() -> No
 def test_class_owner_removes_clock_expired_packet_pressure() -> None:
     packet = _packet(
         "rev_pkt_3130",
+        kind="action_request",
         status="expired",
         lifecycle_current_state="archived",
         expires_at_utc=_stamp(minutes=-5),
@@ -353,7 +363,7 @@ def test_class_owner_removes_clock_expired_packet_pressure() -> None:
         target_ref="plan:MP377-GUARDIR-PACKET-DURABLE-INGESTION",
     )
 
-    pressure, classifications, decision = packet_pressure_report(
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
         {"packets": [packet]},
         rows=(row,),
         actor="codex",
@@ -401,7 +411,7 @@ def test_pending_action_request_pivots_even_with_durable_owner() -> None:
         sourced_from_packets=("rev_pkt_60",),
     )
 
-    pressure, classifications, decision = packet_pressure_report(
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
         {"packets": [packet]},
         rows=(row,),
         actor="claude",
@@ -435,7 +445,7 @@ def test_expired_action_request_with_class_owner_is_not_live_review_pressure() -
         target_ref="plan:MP377-GUARDIR-PACKET-DURABLE-INGESTION",
     )
 
-    pressure, classifications, decision = packet_pressure_report(
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
         {"packets": [packet]},
         rows=(row,),
         actor="codex",

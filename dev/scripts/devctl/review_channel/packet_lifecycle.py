@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 
+from ..runtime.packet_transport_expiry import packet_uses_transport_expiry
 from .packet_lifecycle_action_request import derive_action_request_lifecycle_fields
 from .packet_lifecycle_binding import (
     has_creation_binding,
@@ -205,7 +206,7 @@ def _action_event(
 def _clock_expired_action(packet: Mapping[str, object]) -> dict[str, object]:
     classification = (
         "expired_after_durable_binding"
-        if has_creation_binding(packet)
+        if has_creation_binding(packet) and not packet_uses_transport_expiry(packet)
         else "clock_expired_without_disposition"
     )
     return _drop_empty_fields(

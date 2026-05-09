@@ -111,7 +111,7 @@ def assert_expected_instruction_revision(
     snapshot = extract_bridge_snapshot(bridge_text)
     effective_revision = _normalized_instruction_revision(
         _normalize_instruction_body(
-            snapshot.sections.get("Current Instruction For Claude", "")
+            snapshot.sections.get("Current Instruction For Implementer", "")
         )
     )
     if effective_revision == expected:

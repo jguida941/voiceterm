@@ -236,9 +236,7 @@ def test_bound_stale_packet_expires_without_carry_forward_debt(
     packet = review_state["packets"][0]
 
     assert review_state["queue"]["stale_packet_count"] == 0
-    assert packet["status"] == "archived"
-    assert packet["lifecycle_current_state"] == "archived"
-    assert packet["disposition"]["archive_classification"] == (
-        "expired_after_durable_binding"
-    )
+    assert packet["status"] == "pending"
+    assert packet["lifecycle_current_state"] == "pending"
+    assert packet["disposition"]["sink"] == "queued"
     assert packet_carry_forward_debts([packet]) == ()

@@ -283,7 +283,7 @@ def validate_reviewer_checkpoint_sections(
     section_bodies = (
         ("Current Verdict", current_verdict),
         ("Open Findings", open_findings),
-        ("Current Instruction For Claude", current_instruction),
+        ("Current Instruction For Implementer", current_instruction),
         ("Last Reviewed Scope", reviewed_scope_body),
     )
     for heading, body in section_bodies:
@@ -301,5 +301,4 @@ def validate_reviewer_checkpoint_sections(
                 "Reviewer checkpoint rejected embedded markdown headings in "
                 f"`{heading}`: {quoted}"
             )
-
 

@@ -53,7 +53,9 @@ def instruction_revision_reuse_warning(
     prior_review_state: Mapping[str, object] | None,
 ) -> str:
     """Return a warning when reviewer instruction text changed under one revision."""
-    current_instruction = clean_section(snapshot.sections.get("Current Instruction For Claude", ""))
+    current_instruction = clean_section(
+        snapshot.sections.get("Current Instruction For Implementer", "")
+    )
     explicit_revision = str(
         snapshot.metadata.get("current_instruction_revision")
         or bridge_liveness.get("current_instruction_revision")

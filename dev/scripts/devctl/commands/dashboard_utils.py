@@ -13,7 +13,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ..markdown_sections import parse_markdown_sections
 from ..repo_packs import active_path_config
+from ..review_channel.bridge_heading_aliases import bridge_section_text
 
 
 def _paths() -> dict[str, str]:
@@ -150,22 +152,21 @@ def _parse_bridge(path: Path) -> dict[str, str]:
             fields["last_poll_utc"] = raw_poll
         elif stripped.startswith("- Reviewer mode:"):
             fields["reviewer_mode"] = stripped.split(":", 1)[1].strip().strip("`")
+    sections = parse_markdown_sections(text)
     for section_key, heading in (
-        ("instruction", "## Current Instruction For Claude"),
-        ("verdict", "## Current Verdict"),
-        ("findings_raw", "## Open Findings"),
-        ("reviewed_scope_raw", "## Last Reviewed Scope"),
+        ("instruction", "Current Instruction For Implementer"),
+        ("verdict", "Current Verdict"),
+        ("findings_raw", "Open Findings"),
+        ("reviewed_scope_raw", "Last Reviewed Scope"),
     ):
-        match = re.search(
-            re.escape(heading) + r"\s*\n(.*?)(?=\n## |\Z)", text, re.DOTALL,
-        )
-        if match:
-            raw = match.group(1).strip()
-            if section_key == "instruction":
-                fields["instruction"] = raw[:120] + ("..." if len(raw) > 120 else "")
-                fields["instruction_full"] = raw
-            else:
-                fields[section_key] = raw
+        raw = bridge_section_text(sections, heading).strip()
+        if not raw:
+            continue
+        if section_key == "instruction":
+            fields["instruction"] = raw[:120] + ("..." if len(raw) > 120 else "")
+            fields["instruction_full"] = raw
+        else:
+            fields[section_key] = raw
     return fields
 
 

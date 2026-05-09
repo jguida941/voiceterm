@@ -178,6 +178,8 @@ def _packet_pressure_lines(payload) -> list[str]:
         return []
     classifications = payload.get("selected_packet_classifications")
     selected = classifications if isinstance(classifications, list) else []
+    ingest_decisions = payload.get("packet_ingest_decisions")
+    per_packet_decisions = ingest_decisions if isinstance(ingest_decisions, list) else []
     lines = ["", "## Packet Pressure", ""]
     lines.append(f"- pressure_state: {pressure.get('pressure_state') or '(none)'}")
     lines.append(f"- live_total: {pressure.get('live_total')}")
@@ -196,6 +198,13 @@ def _packet_pressure_lines(payload) -> list[str]:
             f"- {item.get('packet_id')}: {item.get('classification')} "
             f"owner={item.get('durable_owner') or '(none)'} "
             f"terminal={item.get('terminal_receipt') or '(none)'}"
+        )
+    for item in per_packet_decisions[:10]:
+        if not isinstance(item, dict):
+            continue
+        lines.append(
+            f"- decision {item.get('packet_id')}: {item.get('decision')} "
+            f"action={item.get('required_action') or '(none)'}"
         )
     return lines
 

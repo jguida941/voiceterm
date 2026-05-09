@@ -6,6 +6,7 @@ from dev.scripts.devctl.review_channel.handoff import (
     extract_bridge_snapshot,
     summarize_bridge_liveness,
 )
+from dev.scripts.devctl.review_channel.bridge_heading_aliases import bridge_section_text
 from dev.scripts.devctl.review_channel.launch_truth import (
     LaunchTruthState,
     classify_launch_truth,
@@ -40,8 +41,8 @@ def check_launch_truth(
     typed_overall = str(bridge_block.get("overall_state") or "").strip()
     typed_launch_truth = str(bridge_block.get("launch_truth") or "").strip()
     snapshot = extract_bridge_snapshot(bridge_text)
-    bridge_claude_status = snapshot.sections.get("Claude Status", "")
-    bridge_claude_ack = snapshot.sections.get("Claude Ack", "")
+    bridge_claude_status = bridge_section_text(snapshot.sections, "Implementer Status")
+    bridge_claude_ack = bridge_section_text(snapshot.sections, "Implementer Ack")
 
     if typed_overall:
         overall_state = typed_overall
@@ -81,7 +82,8 @@ def check_launch_truth(
         reviewer_mode = liveness.reviewer_mode
         codex_poll_state = liveness.codex_poll_state
         current_instruction = str(
-            snapshot.sections.get("Current Instruction For Claude", "") or ""
+            bridge_section_text(snapshot.sections, "Current Instruction For Implementer")
+            or ""
         ).strip()
         claude_status_present = liveness.claude_status_present
         claude_ack_present = liveness.claude_ack_present

@@ -13,6 +13,7 @@ from ...runtime.development_collaboration_modes import (
 from ...runtime.development_packet_pressure_models import (
     PacketAttentionIngestionDecision,
     PacketBacklogPressure,
+    PacketIngestDecision,
     PacketIntentClassification,
 )
 from dev.scripts.devctl.runtime.development_team import DevelopmentScalingContract
@@ -38,6 +39,7 @@ CollaborationRolePresetPayload = DevelopRolePresetSpec | Mapping[str, object]
 PacketPressurePayload = PacketBacklogPressure | Mapping[str, object]
 PacketClassificationPayload = PacketIntentClassification | Mapping[str, object]
 PacketIngestionDecisionPayload = PacketAttentionIngestionDecision | Mapping[str, object]
+PacketIngestDecisionPayload = PacketIngestDecision | Mapping[str, object]
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +121,9 @@ class DevelopmentPacketAttention:
     expired_unresolved_count: int = 0
     required_command: str = ""
     durable_plan_row_id: str = ""
+    packet_kind: str = ""
+    requested_action: str = ""
+    authority_affecting: bool = False
     summary: str = (
         "no pending attention; proceed with current slice or /develop "
         "dispatch-agent for next work"
@@ -286,6 +291,7 @@ class DevelopmentLoopReport:
     packet_pressure: PacketPressurePayload
     selected_packet_classifications: tuple[PacketClassificationPayload, ...]
     packet_ingestion_decision: PacketIngestionDecisionPayload
+    packet_ingest_decisions: tuple[PacketIngestDecisionPayload, ...]
     watcher_lease: DevelopmentWatcherLease
     continuation: DevelopmentContinuationRequiredSignal
     learning: DevelopmentLearningSnapshot

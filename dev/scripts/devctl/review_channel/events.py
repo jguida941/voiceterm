@@ -10,6 +10,7 @@ from pathlib import Path
 from ..runtime.review_state_collaboration_models import (
     granted_capabilities_from_row as _granted_capabilities,
 )
+from ..runtime.packet_transport_expiry import packet_uses_transport_expiry
 from ..runtime.review_state_locator import load_current_review_state_payload
 from .event_models import ReviewChannelEventBundle
 from .event_reducer import (
@@ -158,13 +159,17 @@ def post_packet(
         "status": "pending",
         "idempotency_key": "",
         "nonce": secrets.token_hex(12),
-        "expires_at_utc": future_utc_timestamp(minutes=request.expires_in_minutes),
+        "expires_at_utc": "",
         "metadata": (
             {"runtime_authority_evidence": authority_evidence}
             if authority_evidence
             else {}
         ),
     }
+    if packet_uses_transport_expiry(event):
+        event["expires_at_utc"] = future_utc_timestamp(
+            minutes=request.expires_in_minutes
+        )
 
     # Persist event and refresh reduced state
     written_event = append_event(

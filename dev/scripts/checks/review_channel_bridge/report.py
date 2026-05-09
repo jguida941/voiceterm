@@ -45,10 +45,10 @@ REQUIRED_BRIDGE_H2 = [
     "Poll Status",
     "Current Verdict",
     "Open Findings",
-    "Claude Status",
-    "Claude Questions",
-    "Claude Ack",
-    "Current Instruction For Claude",
+    "Implementer Status",
+    "Implementer Questions",
+    "Implementer Ack",
+    "Current Instruction For Implementer",
     "Last Reviewed Scope",
 ]
 
@@ -69,7 +69,7 @@ REQUIRED_BRIDGE_MARKERS = [
     "operator-visible chat update",
     "When `Reviewer mode` is `active_dual_agent`, this file is the live",
     "When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or",
-    "If `Current Instruction For Claude` or `Poll Status` says `hold steady`,",
+    "If `Current Instruction For Implementer` or `Poll Status` says `hold steady`,",
     "status/ack updates must be substantive",
     "Do not use raw shell sleep loops such as `sleep 60`",
     "Specialist workers should wake on owned-path changes",
@@ -143,7 +143,7 @@ def _reviewer_owned_sections_marker(reviewer_name: str) -> str:
 def _implementer_owned_sections_marker(implementer_name: str) -> str:
     return (
         f"Only the {implementer_name} conductor may update the implementer-owned "
-        "compatibility sections (`Claude Status`, `Claude Questions`, `Claude Ack`)"
+        "compatibility sections (`Implementer Status`, `Implementer Questions`, `Implementer Ack`)"
     )
 
 
@@ -156,7 +156,7 @@ def _required_bridge_markers(text: str) -> list[str]:
                 f"{reviewer_name} is the reviewer. {implementer_name} is the coder.",
                 (
                     f"{reviewer_name} should start from `Poll Status`, `Current "
-                    "Verdict`, `Open Findings`, `Current Instruction For Claude`, "
+                    "Verdict`, `Open Findings`, `Current Instruction For Implementer`, "
                     "and `Last Reviewed Scope`."
                 ),
                 (

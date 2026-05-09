@@ -43,7 +43,7 @@ def render_latest_markdown(
     lines.append(f"- pending_total: {queue.get('pending_total')}")
     lines.append(
         "- stale_packet_count: "
-        f"{queue.get('stale_packet_count')} (expired pending packets)"
+        f"{queue.get('stale_packet_count')} (expired runtime transport packets)"
     )
     lines.append(
         f"- last_codex_poll_utc: {bridge.get('last_codex_poll_utc') or 'n/a'}"
@@ -246,20 +246,22 @@ def _append_packet_queue_reconciliation(
     lines.append("## Packet Queue Reconciliation")
     lines.append(f"- live_pending_total: {reconciliation.live_pending_total}")
     lines.append(f"- history_total: {reconciliation.history_total}")
-    lines.append(f"- expired_pending_total: {reconciliation.stale_pending_total}")
+    lines.append(
+        f"- expired_runtime_transport_total: {reconciliation.stale_pending_total}"
+    )
     lines.append(f"- queue_pending_total: {reconciliation.queue_pending_total}")
     lines.append(f"- queue_stale_total: {reconciliation.queue_stale_total}")
     lines.append(
-        "- expired_pending_hidden_from_inbox_total: "
+        "- expired_runtime_transport_hidden_from_inbox_total: "
         f"{reconciliation.stale_pending_hidden_from_inbox_total}"
     )
     lines.append(f"- history_shown_total: {reconciliation.history_shown_total}")
     lines.append(f"- history_truncated: {reconciliation.history_truncated}")
     if reconciliation.stale_pending_hidden_from_inbox_total:
         lines.append(
-            "- note: expired pending packets are archived audit rows whose TTL "
-            "elapsed; they stay in history with disposition evidence and are "
-            "intentionally excluded from the live inbox until they are reissued"
+            "- note: expired runtime transport packets are archived audit rows "
+            "whose TTL elapsed; they stay in history with disposition evidence "
+            "and are intentionally excluded from the live inbox until reissued"
         )
 
 

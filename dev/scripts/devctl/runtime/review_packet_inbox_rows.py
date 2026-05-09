@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 
 from .review_packet_inbox_lookup import packet_id as _packet_id
 from .review_packet_inbox_liveness import (
-    is_expired_unresolved as _is_expired_unresolved,
+    is_expired_unresolved_attention as _is_expired_unresolved_attention,
     is_live_control_packet as _is_live_control_packet,
 )
 
@@ -18,7 +18,10 @@ def live_packet_ids(packets: Sequence[object] | object) -> frozenset[str]:
         for packet_id in (
             _packet_id(packet)
             for packet in _packet_rows(packets)
-            if _is_live_control_packet(packet) or _is_expired_unresolved(packet)
+            if (
+                _is_live_control_packet(packet)
+                or _is_expired_unresolved_attention(packet)
+            )
         )
         if packet_id
     )

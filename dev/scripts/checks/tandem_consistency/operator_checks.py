@@ -217,7 +217,10 @@ def check_promotion_state(
         }
 
     # Prefer typed current_instruction
-    instruction = str(cs.get("current_instruction") or "").strip() or extract_section(bridge_text, "Current Instruction For Claude")
+    instruction = str(cs.get("current_instruction") or "").strip() or extract_section(
+        bridge_text,
+        "Current Instruction For Implementer",
+    )
 
     if not instruction.strip():
         return {

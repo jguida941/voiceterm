@@ -170,6 +170,16 @@ DEVELOPMENT_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 ),
             ),
             ContractField(
+                "packet_ingest_decisions",
+                "tuple[PacketIngestDecision, ...]",
+                (
+                    "Per-packet typed ingest/ack decisions over selected "
+                    "PacketIntentClassification rows; these reuse existing "
+                    "ingest-intent, terminal receipt, and review-channel packet "
+                    "transition paths instead of creating a parallel lifecycle."
+                ),
+            ),
+            ContractField(
                 "watcher_lease",
                 "DevelopmentWatcherLease",
                 "Typed watcher lease/status for pending packet observation.",

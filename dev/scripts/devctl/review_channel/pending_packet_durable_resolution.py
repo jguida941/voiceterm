@@ -11,7 +11,7 @@ def has_durable_resolution(packet: object) -> bool:
     kind = str(_packet_value(packet, "kind") or "").strip()
     if kind in {"action_request", "approval_request", "commit_approval"}:
         return False
-    return bool(_packet_value(packet, "durable_binding"))
+    return _has_effective_durable_binding(packet)
 
 
 def _has_durable_archive(packet: object) -> bool:
@@ -25,6 +25,17 @@ def _has_durable_archive(packet: object) -> bool:
         and str(disposition.get("archive_classification") or "").strip()
         == "expired_after_durable_binding"
     )
+
+
+def _has_effective_durable_binding(packet: object) -> bool:
+    binding = _packet_value(packet, "durable_binding")
+    if not isinstance(binding, Mapping):
+        return False
+    if str(binding.get("status") or "").strip() == "skipped":
+        return False
+    if str(binding.get("binding_target_kind") or "").strip() == "communication_only":
+        return False
+    return True
 
 
 def _packet_value(packet: object, field_name: str) -> object:

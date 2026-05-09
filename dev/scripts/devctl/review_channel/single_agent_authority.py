@@ -21,6 +21,8 @@ def single_agent_lane_has_live_typed_authority(
         return True
     if bool(bridge_liveness.get("claude_conductor_active")):
         return True
+    if str(bridge_liveness.get("implementer_ack_state") or "").strip().lower() == "current":
+        return bool(bridge_liveness.get("claude_status_present"))
     return bool(bridge_liveness.get("claude_status_present")) and bool(
         bridge_liveness.get("claude_ack_current")
     )

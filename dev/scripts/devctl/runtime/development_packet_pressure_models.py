@@ -8,6 +8,7 @@ from typing import Any
 PACKET_BACKLOG_PRESSURE_CONTRACT_ID = "PacketBacklogPressure"
 PACKET_INTENT_CLASSIFICATION_CONTRACT_ID = "PacketIntentClassification"
 PACKET_ATTENTION_INGESTION_DECISION_CONTRACT_ID = "PacketAttentionIngestionDecision"
+PACKET_INGEST_DECISION_CONTRACT_ID = "PacketIngestDecision"
 
 DURABLE_PACKET_CLASSIFICATIONS = {
     "durable plan",
@@ -86,13 +87,36 @@ class PacketAttentionIngestionDecision:
         return payload
 
 
+@dataclass(frozen=True, slots=True)
+class PacketIngestDecision:
+    """Per-packet typed ingest/ack decision over a packet classification."""
+
+    packet_id: str
+    classification: str
+    decision: str
+    reason_code: str
+    required_action: str
+    next_command: str
+    target_kind: str = ""
+    target_ref: str = ""
+    terminal_status: str = ""
+    fail_closed: bool = False
+    schema_version: int = 1
+    contract_id: str = PACKET_INGEST_DECISION_CONTRACT_ID
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 __all__ = [
     "DURABLE_PACKET_CLASSIFICATIONS",
     "PACKET_ATTENTION_INGESTION_DECISION_CONTRACT_ID",
     "PACKET_BACKLOG_PRESSURE_CONTRACT_ID",
+    "PACKET_INGEST_DECISION_CONTRACT_ID",
     "PACKET_INTENT_CLASSIFICATION_CONTRACT_ID",
     "PacketAttentionIngestionDecision",
     "PacketBacklogPressure",
+    "PacketIngestDecision",
     "PacketIntentClassification",
     "TERMINAL_PACKET_CLASSIFICATIONS",
 ]

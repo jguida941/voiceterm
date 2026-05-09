@@ -29,7 +29,7 @@ from .peer_liveness import (
 _REVIEWER_OWNED_VALIDATION_SECTIONS = (
     "Current Verdict",
     "Open Findings",
-    "Current Instruction For Claude",
+    "Current Instruction For Implementer",
     "Last Reviewed Scope",
 )
 _WAITING_INSTRUCTION_MARKERS = (
@@ -70,15 +70,17 @@ def validate_live_bridge_contract(
             "keep the reviewed path set current."
         )
 
-    current_instruction = snapshot.sections.get("Current Instruction For Claude", "").strip()
+    current_instruction = snapshot.sections.get(
+        "Current Instruction For Implementer", ""
+    ).strip()
     if not current_instruction:
         errors.append(
-            "Missing live next action in `Current Instruction For Claude`; the "
+            "Missing live next action in `Current Instruction For Implementer`; the "
             "bridge must always expose the current coding queue."
         )
     elif any(marker in current_instruction.lower() for marker in IDLE_NEXT_ACTION_MARKERS):
         errors.append(
-            "`Current Instruction For Claude` must point at the live next task, "
+            "`Current Instruction For Implementer` must point at the live next task, "
             "not an idle placeholder."
         )
     elif any(
@@ -86,7 +88,7 @@ def validate_live_bridge_contract(
         for marker in GENERIC_NEXT_ACTION_MARKERS
     ):
         errors.append(
-            "`Current Instruction For Claude` is generic; reviewer must promote "
+            "`Current Instruction For Implementer` is generic; reviewer must promote "
             "a concrete scoped checklist item with file-targeted steps."
         )
     else:
@@ -141,7 +143,7 @@ def validate_live_bridge_contract(
             errors.append(ack_revision_requirement_message())
         elif not liveness.claude_ack_current:
             errors.append(
-                "Live implementer ACK (`Claude Ack` compatibility heading) revision "
+                "Live implementer ACK (`Implementer Ack`) revision "
                 "does not match the current reviewer instruction revision."
             )
 
@@ -151,7 +153,7 @@ def validate_live_bridge_contract(
     ):
         errors.append(
             "Resolved bridge verdicts must promote the next scoped task in "
-            "`Current Instruction For Claude` instead of echoing a completed state."
+            "`Current Instruction For Implementer` instead of echoing a completed state."
         )
 
     conflicting_poll_status_modes = [
@@ -197,8 +199,8 @@ def validate_launch_bridge_state(
     errors = validate_live_bridge_contract(snapshot)
     effective_liveness = liveness or _summarize(snapshot)
     pending_implementer_state = is_pending_implementer_state(
-        implementer_status=snapshot.sections.get("Claude Status", ""),
-        implementer_ack=snapshot.sections.get("Claude Ack", ""),
+        implementer_status=snapshot.sections.get("Implementer Status", ""),
+        implementer_ack=snapshot.sections.get("Implementer Ack", ""),
     )
 
     if reviewer_mode_is_active(effective_liveness.reviewer_mode):
@@ -214,12 +216,12 @@ def validate_launch_bridge_state(
             )
     if not effective_liveness.claude_status_present and not pending_implementer_state:
         errors.append(
-            "Missing live implementer status compatibility section (`Claude Status`); "
+            "Missing live implementer status section (`Implementer Status`); "
             "fresh launch requires implementer status before bootstrap."
         )
     if not effective_liveness.claude_ack_present and not pending_implementer_state:
         errors.append(
-            "Missing live implementer ACK compatibility section (`Claude Ack`); "
+            "Missing live implementer ACK section (`Implementer Ack`); "
             "fresh launch requires a current implementer ACK before bootstrap."
         )
     return errors

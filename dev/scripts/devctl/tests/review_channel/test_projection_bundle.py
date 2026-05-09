@@ -54,7 +54,7 @@ def test_projection_bundle_writes_machine_json_compactly(tmp_path: Path) -> None
         assert isinstance(json.loads(text), dict)
 
 
-def test_read_only_event_bundle_prefers_existing_projection(
+def test_read_only_event_bundle_reduces_event_log_without_artifact_writes(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -102,8 +102,8 @@ def test_read_only_event_bundle_prefers_existing_projection(
         artifact_paths=artifact_paths,
     )
 
-    assert bundle.review_state["queue"]["pending_total"] == 99
-    assert bundle.events == []
+    assert bundle.review_state["queue"]["pending_total"] == 1
+    assert bundle.events[0]["packet_id"] == "rev_pkt_event_only"
 
 
 def test_projected_event_bundle_can_load_raw_events_for_post_ids(

@@ -14,7 +14,7 @@ _OPEN_FINDINGS_HEADING = "Open Findings"
 def current_instruction_body_from_bridge_text(bridge_text: str) -> str:
     match = re.search(
         SECTION_RE_TEMPLATE.format(
-            heading=re.escape("Current Instruction For Claude"),
+            heading=re.escape("Current Instruction For Implementer"),
         ),
         bridge_text,
         re.MULTILINE | re.DOTALL,

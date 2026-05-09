@@ -187,6 +187,17 @@ def _validate_args(
         _validate_required_args(args, POST_REQUIRED_ARGS)
         if bool(getattr(args, "body", None)) == bool(getattr(args, "body_file", None)):
             raise ValueError("Review-channel post requires exactly one of --body or --body-file.")
+    elif normalized_action is ReviewChannelAction.IMPLEMENTER_ACK:
+        _require_present(
+            args,
+            "actor",
+            "--actor is required for review-channel implementer-ack.",
+        )
+        _require_present(
+            args,
+            "revision",
+            "--revision is required for review-channel implementer-ack.",
+        )
     elif normalized_action is ReviewChannelAction.ATTACH_REMOTE_CONTROL:
         attachment_status = str(
             getattr(args, "attachment_status", "attached") or "attached"

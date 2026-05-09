@@ -21,6 +21,5 @@ def append_event_queue_summary(lines: list[str], queue: dict) -> None:
         lines.append(f"- filtered_pending_note: {queue.get('filtered_pending_note')}")
     lines.append(
         "- stale_packet_count: "
-        f"{queue.get('stale_packet_count', 0)} (expired pending packets)"
+        f"{queue.get('stale_packet_count', 0)} (expired runtime transport packets)"
     )
-

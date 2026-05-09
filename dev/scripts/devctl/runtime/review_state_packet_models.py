@@ -213,6 +213,13 @@ class ReviewPacketState:
     expires_at_utc: str = ""
     semantic_zref: str = ""
     source_identity: dict[str, str] = field(default_factory=dict)
+    plan_proposal: dict[str, object] | None = None
+    packet_creation_binding: dict[str, object] | None = None
+    packet_durable_ingestion_receipt: dict[str, object] | None = None
+    durable_binding: dict[str, object] | None = None
+    plan_ingestion: dict[str, object] | None = None
+    plan_integration: dict[str, object] | None = None
+    reviewer_wake: dict[str, object] | None = None
     acknowledged_events: tuple[dict[str, object], ...] = ()
     acted_on_events: tuple[dict[str, object], ...] = ()
     lifecycle_current_state: str = ""

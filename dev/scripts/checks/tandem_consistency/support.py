@@ -10,6 +10,7 @@ from dev.scripts.devctl.review_channel.peer_liveness import (
     IMPLEMENTER_STALL_MARKERS,
     REVIEWER_WAIT_STATE_MARKERS,
 )
+from dev.scripts.devctl.review_channel.bridge_heading_aliases import bridge_heading_aliases
 
 
 def current_utc() -> datetime:
@@ -23,13 +24,16 @@ def skip_live_freshness() -> bool:
 
 
 def extract_section(text: str, heading: str) -> str:
-    """Extract a markdown section body by heading."""
-    pattern = re.compile(
-        rf"^## {re.escape(heading)}\s*$\n(.*?)(?=^## |\Z)",
-        re.MULTILINE | re.DOTALL,
-    )
-    match = pattern.search(text)
-    return match.group(1).strip() if match else ""
+    """Extract a markdown section body by canonical heading or legacy alias."""
+    for candidate in bridge_heading_aliases(heading):
+        pattern = re.compile(
+            rf"^## {re.escape(candidate)}\s*$\n(.*?)(?=^## |\Z)",
+            re.MULTILINE | re.DOTALL,
+        )
+        match = pattern.search(text)
+        if match:
+            return match.group(1).strip()
+    return ""
 
 
 def extract_metadata_value(text: str, prefix: str) -> str:

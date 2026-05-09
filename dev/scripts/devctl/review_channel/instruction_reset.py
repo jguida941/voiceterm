@@ -5,9 +5,9 @@ from __future__ import annotations
 from .reviewer_state_support import _replace_section
 
 _IMPLEMENTER_RESET_BODIES = (
-    ("Claude Status", "- pending"),
-    ("Claude Questions", "- None recorded."),
-    ("Claude Ack", "- pending"),
+    ("Implementer Status", "- pending"),
+    ("Implementer Questions", "- None recorded."),
+    ("Implementer Ack", "- pending"),
 )
 
 

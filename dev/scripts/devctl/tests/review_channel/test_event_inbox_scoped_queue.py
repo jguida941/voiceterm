@@ -132,6 +132,68 @@ def test_targeted_inbox_surfaces_agent_sync_pending_when_filter_is_empty() -> No
     assert "outside the actionable inbox filter" in report["queue"]["filtered_pending_note"]
 
 
+def test_targeted_inbox_hides_agent_sync_ids_without_live_packet_rows() -> None:
+    args = SimpleNamespace(
+        action="inbox",
+        target="codex",
+        status="pending",
+        limit=20,
+        terminal_profile=None,
+        approval_mode=None,
+    )
+    bundle = SimpleNamespace(
+        review_state={
+            "warnings": [],
+            "errors": [],
+            "queue": {"pending_total": 0, "stale_packet_count": 0},
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_bound",
+                    "to_agent": "codex",
+                    "from_agent": "claude",
+                    "kind": "finding",
+                    "status": "pending",
+                    "lifecycle_current_state": "pending",
+                    "durable_binding": {
+                        "status": "inserted",
+                        "binding_target_kind": "plan_row",
+                    },
+                }
+            ],
+            "agent_sync": {
+                "agents": {
+                    "codex": {
+                        "pending_packets_to_me": ["rev_pkt_bound"],
+                    }
+                }
+            },
+        },
+        projection_paths=ReviewChannelProjectionPaths(
+            root_dir="",
+            review_state_path="",
+            compact_path="",
+            full_path="",
+            actions_path="",
+            trace_path="",
+            latest_markdown_path="",
+            agent_registry_path="",
+            commit_pipeline_path="",
+        ),
+        artifact_paths=ReviewChannelArtifactPaths(
+            artifact_root="",
+            event_log_path="",
+            state_path="",
+            projections_root="",
+        ),
+    )
+
+    report, exit_code = _build_event_report(args=args, bundle=bundle, packets=[])
+
+    assert exit_code == 0
+    assert report["queue"]["pending_total"] == 0
+    assert "agent_sync_pending_total" not in report["queue"]
+
+
 def test_inbox_filter_honors_session_scope_when_present() -> None:
     review_state = {
         "packets": [

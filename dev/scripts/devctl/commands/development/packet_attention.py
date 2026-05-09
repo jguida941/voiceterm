@@ -6,6 +6,7 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
+from ...runtime.peer_attention_window import _BLOCKING_KINDS
 from ...runtime.master_plan_contract import PlanRow
 from ...runtime.inbox_command_template import inbox_command_for_agent
 from ...runtime.development_packet_failure_owner import class_owner_by_packet_failure
@@ -28,6 +29,7 @@ from .packet_attention_support import (
     required_command_for_record,
     wake_reason_for_packet,
 )
+from .packet_attention_lifecycle import packet_by_id
 
 _ATTENTION_REQUIRED_STATUSES = {
     "wake_required",
@@ -42,6 +44,7 @@ def packet_attention_from_review_state(
     rows: tuple[PlanRow, ...],
     agent: str = "codex",
     terminal_receipt_by_packet: Mapping[str, str] | None = None,
+    durable_row_id_by_packet: Mapping[str, str] | None = None,
 ) -> DevelopmentPacketAttention:
     """Return packet-driven wake state for a development controller actor."""
     terminal_receipts = terminal_receipt_by_packet or {}
@@ -77,7 +80,6 @@ def packet_attention_from_review_state(
             packet_id=delivery_packet_ids[0],
         )
         required_command = inbox_command_for_agent(agent)
-    durable_row_id = durable_row_id_for_packet(rows, packet_id)
     pending_packet_ids = pending_actionable_packet_ids(
         record.pending_actionable_packet_ids,
         exit_context=exit_context,
@@ -90,12 +92,26 @@ def packet_attention_from_review_state(
         pending_actionable_packet_ids=pending_packet_ids,
         pending_delivery_packet_ids=delivery_packet_ids,
     )
+    attention_packet = packet_by_id(review_state, latest_packet_id)
+    durable_row_id = durable_row_id_for_packet(
+        rows,
+        latest_packet_id,
+        durable_row_id_by_packet=durable_row_id_by_packet,
+        packet=attention_packet,
+    )
     attention_required = (
         bool(pending_packet_ids)
         or bool(delivery_packet_ids)
         or bool(expired_unresolved_ids)
         or (
             status in _ATTENTION_REQUIRED_STATUSES
+            and not _packet_specific_attention_without_packet(
+                wake_reason=wake_reason,
+                latest_finding_packet_id=packet_id,
+                pending_packet_ids=pending_packet_ids,
+                pending_delivery_packet_ids=delivery_packet_ids,
+                expired_unresolved_packet_ids=expired_unresolved_ids,
+            )
             and not (
                 wake_reason == "expired_unresolved_packet"
                 and not expired_unresolved_ids
@@ -130,6 +146,13 @@ def packet_attention_from_review_state(
         expired_unresolved_count=len(expired_unresolved_ids),
         required_command=required_command,
         durable_plan_row_id=durable_row_id,
+        packet_kind=_packet_text(attention_packet, "kind"),
+        requested_action=_packet_text(attention_packet, "requested_action"),
+        authority_affecting=_authority_affecting_packet(
+            attention_packet,
+            durable_row_id=durable_row_id,
+            rows=rows,
+        ),
         summary=packet_attention_summary(
             PacketAttentionSummaryInput(
                 record=record,
@@ -141,6 +164,53 @@ def packet_attention_from_review_state(
                 pending_actionable_packet_ids=pending_packet_ids,
             )
         ),
+    )
+
+
+def _authority_affecting_packet(
+    packet: Mapping[str, object],
+    *,
+    durable_row_id: str,
+    rows: tuple[PlanRow, ...],
+) -> bool:
+    kind = _packet_text(packet, "kind")
+    requested_action = _packet_text(packet, "requested_action")
+    if kind in _BLOCKING_KINDS:
+        return True
+    if kind == "instruction" and requested_action != "review_only":
+        return True
+    return _active_plan_row_bound(rows, durable_row_id)
+
+
+def _active_plan_row_bound(rows: tuple[PlanRow, ...], row_id: str) -> bool:
+    normalized = str(row_id or "").strip()
+    if not normalized:
+        return False
+    return any(
+        row.row_id == normalized and row.status in {"in_progress", "queued"}
+        for row in rows
+    )
+
+
+def _packet_text(packet: Mapping[str, object], field: str) -> str:
+    return str(packet.get(field) or "").strip()
+
+
+def _packet_specific_attention_without_packet(
+    *,
+    wake_reason: str,
+    latest_finding_packet_id: str,
+    pending_packet_ids: tuple[str, ...],
+    pending_delivery_packet_ids: tuple[str, ...],
+    expired_unresolved_packet_ids: tuple[str, ...],
+) -> bool:
+    if wake_reason not in {"finding_pending", "expired_unresolved_packet"}:
+        return False
+    return not (
+        latest_finding_packet_id
+        or pending_packet_ids
+        or pending_delivery_packet_ids
+        or expired_unresolved_packet_ids
     )
 
 

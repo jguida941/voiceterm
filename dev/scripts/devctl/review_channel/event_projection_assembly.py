@@ -451,15 +451,19 @@ def _resolve_current_session(
     *,
     bridge_snapshot=None,
 ):
-    current_session = deps.build_event_current_session(
-        review_state=review_state,
-        bridge_liveness=bridge_liveness,
-        prior_review_state=context.prior_review_state,
-    )
-    current_session = preserve_reducer_implementer_ack(
-        current_session,
-        review_state,
-    )
+    review_state["_events"] = tuple(getattr(context, "events", ()) or ())
+    try:
+        current_session = deps.build_event_current_session(
+            review_state=review_state,
+            bridge_liveness=bridge_liveness,
+            prior_review_state=context.prior_review_state,
+        )
+        current_session = preserve_reducer_implementer_ack(
+            current_session,
+            review_state,
+        )
+    finally:
+        review_state.pop("_events", None)
     if codex_packet_attention_requires_clear(review_state):
         preserved = reviewer_checkpoint_instruction_preservation(review_state)
         if preserved is not None:

@@ -103,6 +103,10 @@ def _classification(packet: Mapping[str, object], *, kind: str, status: str) -> 
     terminal = _terminal_marker(packet, status=status)
     if terminal in TERMINAL_PACKET_CLASSIFICATIONS:
         return terminal
+    if kind in {"action_request", "approval_request", "commit_approval"}:
+        return "lifecycle-only"
+    if kind == "decision" and not _has_plan_shape(packet, kind=kind):
+        return "lifecycle-only"
     if _has_plan_shape(packet, kind=kind):
         return "durable plan"
     if kind == "finding":
@@ -112,7 +116,7 @@ def _classification(packet: Mapping[str, object], *, kind: str, status: str) -> 
         return "guard"
     if any(token in text for token in ("knowledge", "pattern", "research")):
         return "knowledge"
-    if kind in {"action_request", "approval_request", "commit_approval", "decision"}:
+    if kind == "decision":
         return "lifecycle-only"
     if kind in {"system_notice", "question", "instruction"}:
         return "communication-only"

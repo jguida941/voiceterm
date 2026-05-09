@@ -17,6 +17,7 @@ from .development_packet_pressure_classification import (
     selected_packets,
 )
 from .development_packet_pressure_decision import packet_attention_ingestion_decision
+from .development_packet_ingest_decision import packet_ingest_decisions
 from .development_packet_pressure_models import (
     PACKET_ATTENTION_INGESTION_DECISION_CONTRACT_ID,
     PACKET_BACKLOG_PRESSURE_CONTRACT_ID,
@@ -30,6 +31,7 @@ from .packet_carry_forward import (
     durable_packet_ids_from_plan_rows,
     packet_carry_forward_debts,
 )
+from .packet_transport_expiry import packet_uses_transport_expiry
 from .review_packet_inbox_liveness import (
     is_expired_unresolved,
     is_live_pending,
@@ -43,8 +45,8 @@ def packet_pressure_report(
     actor: str,
     policy: PacketAttentionPressurePolicy | None = None,
     terminal_receipt_by_packet: Mapping[str, str] | None = None,
-) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
-    """Return pressure, selected classifications, and ingestion decision."""
+) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any], list[dict[str, Any]]]:
+    """Return pressure, classifications, aggregate decision, and packet decisions."""
     pressure_policy = policy or PacketAttentionPressurePolicy()
     terminal_receipts = terminal_receipt_by_packet or {}
     packets = _packet_rows(review_state.get("packets"))
@@ -87,10 +89,15 @@ def packet_pressure_report(
         classifications=classifications,
         actor=actor,
     )
+    per_packet_decisions = packet_ingest_decisions(
+        classifications,
+        actor=actor,
+    )
     return (
         pressure.to_dict(),
         [item.to_dict() for item in classifications],
         decision.to_dict(),
+        [item.to_dict() for item in per_packet_decisions],
     )
 
 
@@ -178,6 +185,8 @@ def _is_near_ttl(
     *,
     policy: PacketAttentionPressurePolicy,
 ) -> bool:
+    if not packet_uses_transport_expiry(packet):
+        return False
     expires_at = _parse_utc(packet.get("expires_at_utc"))
     if expires_at is None:
         return False

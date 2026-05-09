@@ -8,6 +8,7 @@ from .models import (
     DevelopmentOrchestrationSnapshot,
     DevelopmentPacketAttention,
 )
+from .next_slice_blockers import blocker_categories, category_row_ids
 
 
 def select_next_slice(
@@ -18,44 +19,19 @@ def select_next_slice(
 ) -> DevelopmentNextSlice:
     """Select the next bounded development row from typed state."""
     packet_row = _packet_attention_row(rows, packet_attention)
-    if packet_row is not None:
-        return DevelopmentNextSlice(
-            slice_id=packet_row.row_id,
-            source=packet_row.source_doc_path or DEFAULT_MASTER_PLAN_STORE_REL,
-            title=packet_row.title,
-            target_ref=packet_row.target_ref,
-            status=packet_row.status,
-            reason=(
-                "Selected because packet attention requires this durable packet-owned "
-                "plan row before ordinary /develop work can continue."
-            ),
-        )
-    if packet_attention is not None and packet_attention.attention_required:
-        packet_id = (
-            packet_attention.latest_attention_packet_id
-            or packet_attention.latest_finding_packet_id
-        )
-        if packet_id:
-            slice_id = f"packet:{packet_id}"
-        elif packet_attention.wake_reason == "expired_unresolved_packet":
-            slice_id = "packet-debt-audit"
-        elif packet_attention.wake_reason == "review_loop_relaunch_required":
-            slice_id = "review-loop-relaunch-required"
-        elif packet_attention.attention_status == "checkpoint_required":
-            slice_id = "checkpoint-required"
-        elif packet_attention.attention_status == "blocked":
-            slice_id = "runtime-attention-blocked"
-        else:
-            slice_id = "packet-attention"
-        return DevelopmentNextSlice(
-            slice_id=slice_id,
-            source="ReviewState.packet_inbox",
-            title=packet_attention.summary,
-            target_ref=packet_attention.required_command,
-            status="attention_required",
-            reason="Packet attention preempts ordinary typed plan-row selection.",
-        )
     selected = _orchestration_blocker_row(rows, orchestration)
+    if _packet_attention_closes_orchestration_blocker(
+        packet_attention,
+        orchestration,
+    ):
+        return _packet_attention_slice(packet_attention, packet_row)
+    if (
+        selected is None
+        and packet_attention is not None
+        and packet_attention.attention_required
+        and packet_attention.authority_affecting
+    ):
+        return _packet_attention_slice(packet_attention, packet_row)
     if selected is not None:
         return DevelopmentNextSlice(
             slice_id=selected.row_id,
@@ -69,6 +45,8 @@ def select_next_slice(
                 "vocabulary, not scheduling authority."
             ),
         )
+    if packet_attention is not None and packet_attention.attention_required:
+        return _packet_attention_slice(packet_attention, packet_row)
     selected = _active_leaf_row(rows)
     if selected is None:
         return DevelopmentNextSlice(
@@ -142,9 +120,8 @@ def _orchestration_blocker_row(
     text = _orchestration_blocker_text(orchestration)
     if not text:
         return None
-    categories = _blocker_categories(text)
-    for category in categories:
-        selected = _first_active_row_by_id(rows, _CATEGORY_ROW_IDS[category])
+    for category in blocker_categories(text):
+        selected = _first_active_row_by_id(rows, category_row_ids(category))
         if selected is not None:
             return selected
     return None
@@ -175,106 +152,6 @@ def _orchestration_blocker_text(
             )
         )
     return " ".join(value for value in values if value).lower()
-
-
-def _blocker_categories(text: str) -> tuple[str, ...]:
-    categories: list[str] = []
-    if _has_any(
-        text,
-        (
-            "active_dual_agent",
-            "single_agent",
-            "tools_only",
-            "topology",
-            "no_live_agents",
-            "reviewer mode",
-            "live loop",
-            "coordination_resync",
-            "resync",
-            "inactive",
-        ),
-    ):
-        categories.append("topology")
-    if _has_any(
-        text,
-        (
-            "next selector",
-            "activeworkenvelope",
-            "active work envelope",
-            "develop next",
-        ),
-    ):
-        categories.append("selector")
-    if _has_any(
-        text,
-        (
-            "push_preflight_running",
-            "run_devctl_push",
-            "check-router",
-            "check router",
-            "route budget",
-            "route timeout",
-            "guard cadence",
-            "guard deferral",
-            "long-running",
-            "long running",
-            "code-shape",
-            "code shape",
-        ),
-    ):
-        categories.append("guard_scheduler")
-    if _has_any(
-        text,
-        (
-            "checkpoint",
-            "index.lock",
-            "git_index_write_blocked",
-            "import_index_atomicity",
-            "dirty_path_budget_exceeded",
-            "dirty_after_local_checkpoint",
-            "startup authority",
-            "startup_authority",
-            "managed projection",
-            "vcs.stage",
-        ),
-    ):
-        categories.append("checkpoint")
-    if _has_any(text, ("code-shape", "code shape", "pytest", "test execution")):
-        categories.append("test_policy")
-    return tuple(dict.fromkeys(categories))
-
-
-def _has_any(text: str, terms: tuple[str, ...]) -> bool:
-    return any(term in text for term in terms)
-
-
-_CATEGORY_ROW_IDS = {
-    "guard_scheduler": (
-        "MP377-P0-SMART-CHECK-DEFERRAL-S1",
-        "MP377-P0-GUARD-CADENCE-S1",
-        "MP377-P0-GUARD-DEFERRAL-S1",
-        "MP377-P0-COMMAND-RESULT-OBSERVABILITY-S1",
-        "MP377-P0-T22AN-AB",
-    ),
-    "topology": (
-        "MP377-P0-TOPOLOGY-NEUTRAL-NEXT-S1",
-        "MP377-P0-ROLE-MATRIX-ROSTER-S1",
-        "MP377-P0-LIFECYCLE-ROLE-SIGNOFF-S1",
-        "MP377-P0-T22AN-L",
-    ),
-    "selector": (
-        "MP377-P0-TOPOLOGY-NEUTRAL-NEXT-S1",
-        "MP377-P0-ACTIVE-WORK-ENVELOPE-S1",
-        "MP377-P0-PACKET-INTAKE-SCHEDULER-S1",
-    ),
-    "checkpoint": (
-        "MP377-P0-CHECKPOINT-AUTOMATION-S1",
-        "MP377-P0-T22AN-AB",
-    ),
-    "test_policy": (
-        "MP377-P0-T22AN-AB",
-    ),
-}
 
 
 def _first_active_row_by_id(
@@ -313,6 +190,66 @@ def _packet_attention_row(
         if packet_id in row.sourced_from_packets:
             return row
     return None
+
+
+def _packet_attention_slice(
+    packet_attention: DevelopmentPacketAttention,
+    packet_row: PlanRow | None,
+) -> DevelopmentNextSlice:
+    if packet_row is not None:
+        return DevelopmentNextSlice(
+            slice_id=packet_row.row_id,
+            source=packet_row.source_doc_path or DEFAULT_MASTER_PLAN_STORE_REL,
+            title=packet_row.title,
+            target_ref=packet_row.target_ref,
+            status=packet_row.status,
+            reason=(
+                "Selected because packet attention requires this durable packet-owned "
+                "plan row before ordinary /develop work can continue."
+            ),
+        )
+    packet_id = (
+        packet_attention.latest_attention_packet_id
+        or packet_attention.latest_finding_packet_id
+    )
+    if packet_attention.wake_reason == "expired_unresolved_packet":
+        slice_id = "packet-debt-audit"
+    elif packet_attention.wake_reason == "review_loop_relaunch_required":
+        slice_id = "review-loop-relaunch-required"
+    elif packet_attention.attention_status == "checkpoint_required":
+        slice_id = "checkpoint-required"
+    elif packet_attention.attention_status == "blocked":
+        slice_id = "runtime-attention-blocked"
+    elif packet_id:
+        slice_id = "communication-packet-attention"
+    else:
+        slice_id = "packet-attention"
+    return DevelopmentNextSlice(
+        slice_id=slice_id,
+        source="ReviewState.packet_inbox",
+        title=packet_attention.summary,
+        target_ref=packet_attention.required_command,
+        status="attention_required",
+        reason=(
+            "Communication-only packet attention has no durable plan row; "
+            "the packet remains visible in Packet Attention without becoming "
+            "an active slice id."
+        ),
+    )
+
+
+def _packet_attention_closes_orchestration_blocker(
+    packet_attention: DevelopmentPacketAttention | None,
+    orchestration: DevelopmentOrchestrationSnapshot | None,
+) -> bool:
+    if packet_attention is None or not packet_attention.attention_required:
+        return False
+    if packet_attention.packet_kind != "action_request":
+        return False
+    if packet_attention.requested_action != "stage_commit_pipeline":
+        return False
+    text = _orchestration_blocker_text(orchestration) if orchestration else ""
+    return "checkpoint" in blocker_categories(text)
 
 
 __all__ = ["select_next_slice"]

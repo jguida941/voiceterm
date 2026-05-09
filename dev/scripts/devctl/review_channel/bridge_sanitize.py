@@ -15,7 +15,7 @@ from .action_request import (
     render_action_requests_section,
     SECTION_LINE_LIMIT as _ACTION_REQUEST_LINE_LIMIT,
 )
-from .bridge_heading_aliases import canonical_bridge_heading
+from .bridge_heading_aliases import bridge_heading_aliases, canonical_bridge_heading
 from .bridge_section_validation import find_embedded_markdown_headings
 from .bridge_text_cleanup import (
     collapse_blank_lines,
@@ -36,18 +36,20 @@ BRIDGE_ALLOWED_CANONICAL_H2 = (
     "Poll Status",
     "Current Verdict",
     "Open Findings",
-    "Claude Status",
-    "Claude Questions",
-    "Claude Ack",
-    "Current Instruction For Claude",
+    "Implementer Status",
+    "Implementer Questions",
+    "Implementer Ack",
+    "Current Instruction For Implementer",
     "Last Reviewed Scope",
     "Action Requests",
 )
 BRIDGE_ALLOWED_H2 = (
     *BRIDGE_ALLOWED_CANONICAL_H2,
-    "Implementer Status",
-    "Implementer Questions",
-    "Implementer Ack",
+    *tuple(
+        alias
+        for heading in BRIDGE_ALLOWED_CANONICAL_H2
+        for alias in bridge_heading_aliases(heading)[1:]
+    ),
 )
 BRIDGE_REQUIRED_H2 = (
     "Start-Of-Conversation Rules",
@@ -55,20 +57,20 @@ BRIDGE_REQUIRED_H2 = (
     "Poll Status",
     "Current Verdict",
     "Open Findings",
-    "Claude Status",
-    "Claude Questions",
-    "Claude Ack",
-    "Current Instruction For Claude",
+    "Implementer Status",
+    "Implementer Questions",
+    "Implementer Ack",
+    "Current Instruction For Implementer",
     "Last Reviewed Scope",
 )
 _BRIDGE_SECTION_LINE_LIMIT_ITEMS = (
     ("Poll Status", 6),
     ("Current Verdict", 8),
     ("Open Findings", 16),
-    ("Claude Status", 40),
-    ("Claude Questions", 8),
-    ("Claude Ack", 16),
-    ("Current Instruction For Claude", 12),
+    ("Implementer Status", 40),
+    ("Implementer Questions", 8),
+    ("Implementer Ack", 16),
+    ("Current Instruction For Implementer", 12),
     ("Last Reviewed Scope", 16),
     ("Action Requests", 12),
 )
@@ -180,25 +182,25 @@ def sanitize_bridge_sections(
         max_items=6,
         max_lines=section_line_limits["Open Findings"],
     )
-    sanitized["Current Instruction For Claude"] = _sanitize_simple_section(
-        sections.get("Current Instruction For Claude", ""),
+    sanitized["Current Instruction For Implementer"] = _sanitize_simple_section(
+        sections.get("Current Instruction For Implementer", ""),
         default="- Await reviewer instruction refresh.",
         max_items=4,
-        max_lines=section_line_limits["Current Instruction For Claude"],
+        max_lines=section_line_limits["Current Instruction For Implementer"],
     )
-    sanitized["Claude Status"] = _sanitize_claude_status(
-        sections.get("Claude Status", ""),
-        max_lines=section_line_limits["Claude Status"],
+    sanitized["Implementer Status"] = _sanitize_implementer_status(
+        sections.get("Implementer Status", ""),
+        max_lines=section_line_limits["Implementer Status"],
     )
-    sanitized["Claude Questions"] = _sanitize_simple_section(
-        sections.get("Claude Questions", ""),
+    sanitized["Implementer Questions"] = _sanitize_simple_section(
+        sections.get("Implementer Questions", ""),
         default=_QUESTION_DEFAULT,
         max_items=3,
-        max_lines=section_line_limits["Claude Questions"],
+        max_lines=section_line_limits["Implementer Questions"],
     )
-    sanitized["Claude Ack"] = _sanitize_claude_ack(
-        sections.get("Claude Ack", ""),
-        max_lines=section_line_limits["Claude Ack"],
+    sanitized["Implementer Ack"] = _sanitize_implementer_ack(
+        sections.get("Implementer Ack", ""),
+        max_lines=section_line_limits["Implementer Ack"],
     )
     sanitized["Last Reviewed Scope"] = _sanitize_simple_section(
         sections.get("Last Reviewed Scope", ""),
@@ -235,7 +237,7 @@ def _sanitize_simple_section(
     return "\n".join(kept) if kept else default
 
 
-def _sanitize_claude_status(raw: str, *, max_lines: int) -> str:
+def _sanitize_implementer_status(raw: str, *, max_lines: int) -> str:
     blocks = _sanitize_blocks(_split_markdown_items(raw))
     kept: list[str] = []
     for block in blocks:
@@ -247,7 +249,7 @@ def _sanitize_claude_status(raw: str, *, max_lines: int) -> str:
     return "\n".join(kept) if kept else "- Status unavailable."
 
 
-def _sanitize_claude_ack(raw: str, *, max_lines: int) -> str:
+def _sanitize_implementer_ack(raw: str, *, max_lines: int) -> str:
     blocks = _sanitize_blocks(_split_markdown_items(raw))
     if not blocks:
         return "- missing"

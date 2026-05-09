@@ -13,7 +13,10 @@ def next_commands_with_attention(
 ) -> tuple[str, ...]:
     commands = list(base_commands)
     if packet_attention.attention_required and packet_attention.required_command:
-        commands.insert(0, packet_attention.required_command)
+        if getattr(packet_attention, "authority_affecting", False):
+            commands.insert(0, packet_attention.required_command)
+        else:
+            commands.append(packet_attention.required_command)
     for peer in peer_minds:
         command = str(getattr(peer, "suggested_command", "") or "").strip()
         hint = peer_attention_hint(peer)

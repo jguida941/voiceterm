@@ -439,7 +439,7 @@ class StateModuleTests(unittest.TestCase):
             )
 
         self.assertIn("Poll Status", snapshot.codex_panel_text)
-        self.assertIn("Claude Status", snapshot.claude_panel_text)
+        self.assertIn("Implementer Status", snapshot.claude_panel_text)
         self.assertIn("Pending approvals:", snapshot.operator_panel_text)
         self.assertIn("\n1\n", snapshot.operator_panel_text)
         self.assertEqual(snapshot.last_codex_poll, "2026-03-08T20:00:00Z")

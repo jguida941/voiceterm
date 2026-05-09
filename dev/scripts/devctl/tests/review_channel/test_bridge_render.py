@@ -160,8 +160,8 @@ def _bridge_text() -> str:
             "Then Codex uses `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` and Claude uses `python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap` as the canonical role bootstrap packet.",
             "Then run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` for slim startup context.",
             "Keep chat bootstrap acknowledgements concise: blocker state plus next step, not a replay of the packet, unless the operator asks for the detail.",
-            "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
-            "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.",
+            "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Implementer`, and `Last Reviewed Scope`.",
+            "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Implementer`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Implementer Ack` before coding.",
             "Claude must read `Last Codex poll` / `Poll Status` first on each repoll.",
             "When `Reviewer mode` is `active_dual_agent`, this file is the live reviewer/coder authority. Codex stays reviewer-only by default: missing worker worktrees, absent fanout, or a promising fix are not permission to start local implementation.",
             "When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or `offline`, Claude must not assume a live Codex review loop.",
@@ -208,7 +208,7 @@ def _bridge_text() -> str:
             "- M1: keep this slice bounded.",
             "- M2: rerun focused validation after the patch.",
             "",
-            "## Claude Status",
+            "## Implementer Status",
             "",
             "- **Current slice — DONE, needs-review**",
             "- 42 tests green.",
@@ -217,18 +217,18 @@ def _bridge_text() -> str:
             "\u001b[?2026hraw terminal noise",
             "test writer::state::tests::foo ... ok",
             "",
-            "## Claude Questions",
+            "## Implementer Questions",
             "",
             "- None recorded.",
             "",
-            "## Claude Ack",
+            "## Implementer Ack",
             "",
             "- acknowledged; instruction-rev: `45f861225f52`",
             "- Current bounded slice complete.",
             "- acknowledged; instruction-rev: `olderrev123456`",
             "- Historical ack that should be dropped.",
             "",
-            "## Current Instruction For Claude",
+            "## Current Instruction For Implementer",
             "",
             "- Implement the bounded bridge cleanup slice.",
             "",
@@ -277,13 +277,13 @@ def _write_pending_packet(root: Path) -> None:
 
 def test_sanitize_bridge_sections_rewrites_live_state_sections() -> None:
     sections = {
-        "Claude Status": "\n".join(
+        "Implementer Status": "\n".join(
             [
                 "- current slice is clean",
                 "- prior slice that should be dropped",
             ]
         ),
-        "Claude Ack": "\n".join(
+        "Implementer Ack": "\n".join(
             [
                 "- acknowledged; instruction-rev: `abc123`",
                 "- prior slice that should be dropped",
@@ -296,10 +296,10 @@ def test_sanitize_bridge_sections_rewrites_live_state_sections() -> None:
         section_line_limits=BRIDGE_SECTION_LINE_LIMITS,
     )
 
-    assert sanitized["Claude Status"] == "- current slice is clean"
-    assert sanitized["Claude Ack"] == "- acknowledged; instruction-rev: `abc123`"
-    assert "Claude Status" in mutated
-    assert "Claude Ack" in mutated
+    assert sanitized["Implementer Status"] == "- current slice is clean"
+    assert sanitized["Implementer Ack"] == "- acknowledged; instruction-rev: `abc123`"
+    assert "Implementer Status" in mutated
+    assert "Implementer Ack" in mutated
 
 
 def test_render_bridge_projection_drops_transcript_noise_and_extra_sections() -> None:
@@ -309,8 +309,8 @@ def test_render_bridge_projection_drops_transcript_noise_and_extra_sections() ->
     )
 
     assert "Coverage" in result.dropped_headings
-    assert "Claude Status" in result.sanitized_sections
-    assert "Claude Ack" in result.sanitized_sections
+    assert "Implementer Status" in result.sanitized_sections
+    assert "Implementer Ack" in result.sanitized_sections
     assert "## Coverage" not in rendered
     assert "raw terminal noise" not in rendered
     assert "test writer::state::tests::foo ... ok" not in rendered
@@ -536,9 +536,9 @@ def test_render_bridge_projection_overrides_stale_compat_sections_with_typed_aut
         }
     }
     compat_sections = review_state["_compat"]["bridge_projection"]["sections"]
-    compat_sections["Current Instruction For Claude"] = "- stale compat instruction"
-    compat_sections["Claude Status"] = "- stale compat status"
-    compat_sections["Claude Ack"] = "- stale compat ack"
+    compat_sections["Current Instruction For Implementer"] = "- stale compat instruction"
+    compat_sections["Implementer Status"] = "- stale compat status"
+    compat_sections["Implementer Ack"] = "- stale compat ack"
     compat_sections["Open Findings"] = "- stale compat finding"
 
     rendered, _ = render_bridge_projection(
@@ -548,11 +548,11 @@ def test_render_bridge_projection_overrides_stale_compat_sections_with_typed_aut
     snapshot = extract_bridge_snapshot(rendered)
 
     assert (
-        snapshot.sections["Current Instruction For Claude"]
+        snapshot.sections["Current Instruction For Implementer"]
         == "- typed authority instruction"
     )
-    assert snapshot.sections["Claude Status"] == "- typed status"
-    assert snapshot.sections["Claude Ack"] == "- typed ack"
+    assert snapshot.sections["Implementer Status"] == "- typed status"
+    assert snapshot.sections["Implementer Ack"] == "- typed ack"
     assert snapshot.sections["Open Findings"] == "- typed finding"
     assert snapshot.sections["Last Reviewed Scope"] == "- typed/scope.py"
 
@@ -581,7 +581,7 @@ def test_render_bridge_projection_preserves_nested_instruction_bullets() -> None
     )
     snapshot = extract_bridge_snapshot(rendered)
 
-    assert snapshot.sections["Current Instruction For Claude"] == instruction
+    assert snapshot.sections["Current Instruction For Implementer"] == instruction
     assert f"- Current instruction revision: `{revision}`" in rendered
 
 
@@ -601,7 +601,7 @@ def test_render_bridge_projection_clears_stale_claude_status_when_typed_status_m
     )
     snapshot = extract_bridge_snapshot(rendered)
 
-    assert snapshot.sections["Claude Status"] == "- Status unavailable."
+    assert snapshot.sections["Implementer Status"] == "- Status unavailable."
 
 
 def test_render_bridge_projection_clears_stale_instruction_when_typed_instruction_missing() -> (
@@ -615,7 +615,7 @@ def test_render_bridge_projection_clears_stale_instruction_when_typed_instructio
         "last_reviewed_scope": "- typed/scope.py",
     }
     compat_sections = review_state["_compat"]["bridge_projection"]["sections"]
-    compat_sections["Current Instruction For Claude"] = "- stale compat instruction"
+    compat_sections["Current Instruction For Implementer"] = "- stale compat instruction"
 
     rendered, _ = render_bridge_projection(
         review_state=review_state,
@@ -623,7 +623,7 @@ def test_render_bridge_projection_clears_stale_instruction_when_typed_instructio
     )
     snapshot = extract_bridge_snapshot(rendered)
 
-    assert snapshot.sections["Current Instruction For Claude"] == (
+    assert snapshot.sections["Current Instruction For Implementer"] == (
         "- Await reviewer instruction refresh."
     )
     assert (
@@ -648,7 +648,7 @@ def test_render_bridge_projection_clears_revision_for_missing_instruction_placeh
     )
     snapshot = extract_bridge_snapshot(rendered)
 
-    assert snapshot.sections["Current Instruction For Claude"] == (
+    assert snapshot.sections["Current Instruction For Implementer"] == (
         "- Await reviewer instruction refresh."
     )
     assert snapshot.metadata.get("current_instruction_revision", "") == ""
@@ -669,7 +669,7 @@ def test_render_bridge_projection_uses_checkpoint_instruction_when_attention_req
         'python3 dev/scripts/devctl.py commit -m "<descriptive message>"'
     )
     compat_sections = review_state["_compat"]["bridge_projection"]["sections"]
-    compat_sections["Current Instruction For Claude"] = "- stale compat instruction"
+    compat_sections["Current Instruction For Implementer"] = "- stale compat instruction"
 
     rendered, _ = render_bridge_projection(
         review_state=review_state,
@@ -679,19 +679,19 @@ def test_render_bridge_projection_uses_checkpoint_instruction_when_attention_req
 
     assert (
         "Await reviewer instruction refresh"
-        not in snapshot.sections["Current Instruction For Claude"]
+        not in snapshot.sections["Current Instruction For Implementer"]
     )
     assert (
         "Cut a checkpoint before continuing to edit."
-        in snapshot.sections["Current Instruction For Claude"]
+        in snapshot.sections["Current Instruction For Implementer"]
     )
     assert (
         'python3 dev/scripts/devctl.py commit -m "<descriptive message>"'
-        in snapshot.sections["Current Instruction For Claude"]
+        in snapshot.sections["Current Instruction For Implementer"]
     )
     assert (
         "stale compat instruction"
-        not in snapshot.sections["Current Instruction For Claude"]
+        not in snapshot.sections["Current Instruction For Implementer"]
     )
     assert snapshot.metadata.get("current_instruction_revision", "") == ""
 
@@ -718,7 +718,7 @@ def test_render_bridge_projection_tracks_swapped_reviewer_and_implementer() -> N
     ) in rendered
     assert (
         "Only the Codex conductor may update the implementer-owned compatibility "
-        "sections (`Claude Status`, `Claude Questions`, `Claude Ack`) in this"
+        "sections (`Implementer Status`, `Implementer Questions`, `Implementer Ack`) in this"
     ) in rendered
 
 
@@ -772,7 +772,7 @@ def test_find_embedded_markdown_headings_detects_flat_bridge_contract_violation(
 def test_instruction_rewrite_rejects_embedded_markdown_headings() -> None:
     with pytest.raises(
         ValueError,
-        match="embedded markdown headings in `Current Instruction For Claude`",
+        match="embedded markdown headings in `Current Instruction For Implementer`",
     ):
         rewrite_instruction_and_metadata(
             bridge_text=_bridge_text(),
@@ -801,8 +801,8 @@ def test_instruction_rewrite_rejects_stale_implementer_state_hash() -> None:
     ):
         rewrite_instruction_and_metadata(
             bridge_text=baseline_bridge.replace(
-                "## Claude Questions\n\n- None recorded.",
-                "## Claude Questions\n\n- New blocker from Claude.",
+                "## Implementer Questions\n\n- None recorded.",
+                "## Implementer Questions\n\n- New blocker from Claude.",
             ),
             instruction="- Next scoped task.",
             context=InstructionRewriteContext(
@@ -822,7 +822,7 @@ def test_render_bridge_projection_rejects_embedded_markdown_headings_in_typed_se
 ):
     review_state = _typed_review_state(_bridge_text())
     review_state["_compat"]["bridge_projection"]["sections"][
-        "Current Instruction For Claude"
+        "Current Instruction For Implementer"
     ] = "\n".join(
         [
             "- Next scoped task.",
@@ -907,8 +907,8 @@ def test_review_channel_render_bridge_action_rewrites_live_bridge(
     rewritten = bridge_path.read_text(encoding="utf-8")
     assert rc == 0
     assert "Coverage" in payload["bridge_render"]["dropped_headings"]
-    assert "Claude Status" in payload["bridge_render"]["sanitized_sections"]
-    assert "Claude Ack" in payload["bridge_render"]["sanitized_sections"]
+    assert "Implementer Status" in payload["bridge_render"]["sanitized_sections"]
+    assert "Implementer Ack" in payload["bridge_render"]["sanitized_sections"]
     assert "## Coverage" not in rewritten
     assert "olderrev123456" not in rewritten
     assert "test writer::state::tests::foo ... ok" not in rewritten
@@ -1131,7 +1131,7 @@ def test_status_bridge_sync_clears_stale_instruction_when_typed_projection_is_bl
     snapshot = extract_bridge_snapshot(rewritten)
     assert synced is True
     assert warning == ""
-    assert snapshot.sections["Current Instruction For Claude"] == (
+    assert snapshot.sections["Current Instruction For Implementer"] == (
         "- Await reviewer instruction refresh."
     )
     assert snapshot.metadata.get("current_instruction_revision", "") == ""

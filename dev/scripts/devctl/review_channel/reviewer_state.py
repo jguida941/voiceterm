@@ -268,7 +268,7 @@ def _replace_reviewer_checkpoint_sections(
     )
     text = _replace_section(
         text,
-        heading="Current Instruction For Claude",
+        heading="Current Instruction For Implementer",
         body=checkpoint.current_instruction.strip(),
     )
     return _replace_section(

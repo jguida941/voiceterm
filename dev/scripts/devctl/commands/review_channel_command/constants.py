@@ -87,6 +87,7 @@ class ReviewChannelAction(StrEnum):
     STOP = "stop"
     REVIEWER_HEARTBEAT = "reviewer-heartbeat"
     REVIEWER_CHECKPOINT = "reviewer-checkpoint"
+    IMPLEMENTER_ACK = "implementer-ack"
     RESET_IMPLEMENTER_STATE = "reset-implementer-state"
     PROMOTE = "promote"
     POST = "post"
@@ -113,6 +114,7 @@ EVENT_ACTION_SET = frozenset(
         ReviewChannelAction.OPERATOR_INBOX,
         ReviewChannelAction.SYNC_STATUS,
         ReviewChannelAction.EXPIRE_PACKETS,
+        ReviewChannelAction.IMPLEMENTER_ACK,
         ReviewChannelAction.ACK,
         ReviewChannelAction.DISMISS,
         ReviewChannelAction.APPLY,

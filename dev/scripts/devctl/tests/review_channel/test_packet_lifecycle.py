@@ -228,6 +228,7 @@ def test_compact_packet_continuity_prioritizes_latest_live_packets() -> None:
 def test_stale_pending_packet_gets_archived_disposition(tmp_path: Path) -> None:
     posted = _posted_packet(
         packet_id="rev_pkt_stale",
+        kind="action_request",
         expires_at_utc="2000-01-01T00:00:00Z",
     )
 

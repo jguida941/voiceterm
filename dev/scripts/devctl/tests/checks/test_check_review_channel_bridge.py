@@ -43,11 +43,11 @@ def _valid_bridge_text(
     reviewer_owned_sections: str = "the Codex-owned sections",
     implementer_owned_sections: str = (
         "the implementer-owned compatibility sections "
-        "(`Claude Status`, `Claude Questions`, `Claude Ack`)"
+        "(`Implementer Status`, `Implementer Questions`, `Implementer Ack`)"
     ),
-    implementer_status_heading: str = "Claude Status",
-    implementer_questions_heading: str = "Claude Questions",
-    implementer_ack_heading: str = "Claude Ack",
+    implementer_status_heading: str = "Implementer Status",
+    implementer_questions_heading: str = "Implementer Questions",
+    implementer_ack_heading: str = "Implementer Ack",
 ) -> str:
     lines = [
         "# Review Bridge",
@@ -63,16 +63,16 @@ def _valid_bridge_text(
         f"{reviewer_name} must poll non-`bridge.md` worktree changes every 2-3 minutes while code is moving.",
         f"{reviewer_name} must exclude `bridge.md` itself when computing the reviewed worktree hash.",
         "Each meaningful review must include an operator-visible chat update.",
-        f"{reviewer_name} should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
-        f"{implementer_name} should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in the implementer ACK section (`Claude Ack` compatibility heading) before coding.",
+        f"{reviewer_name} should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Implementer`, and `Last Reviewed Scope`.",
+        f"{implementer_name} should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Implementer`, and `Last Reviewed Scope`, then acknowledge the active instruction in the implementer ACK section (`Implementer Ack`) before coding.",
         f"When the structured review queue is available, {implementer_name} must also poll `review-channel --action inbox --target claude --status pending --format json` or the equivalent watch surface on the same cadence so Codex-targeted packets are not missed.",
         f"{implementer_name} must read `Last Codex poll` / `Poll Status` first on each repoll.",
         "When `Reviewer mode` is `active_dual_agent`, this file is the live reviewer/coder authority.",
         f"{reviewer_name} stays reviewer-only by default: missing worker worktrees, absent fanout, or a promising fix are not permission to start local implementation.",
         f"When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or `offline`, {implementer_name} must not assume a live {reviewer_name} review loop.",
-        f'When the current slice is accepted and scoped plan work remains, {reviewer_name} must derive the next highest-priority unchecked plan item from the active-plan chain and rewrite `Current Instruction For Claude` for the next slice instead of idling at "all green so far."',
-        f"If `Current Instruction For Claude` or `Poll Status` says `hold steady`, `waiting for reviewer promotion`, `{reviewer_name} committing/pushing`, or similar wait-state language, {implementer_name} must not mine plan docs for side work or self-promote the next slice. Keep polling until a reviewer-owned section changes.",
-        f"If `Current Instruction For Claude` still contains active work and there is no explicit reviewer-owned wait state, implementer status/ack updates must be substantive: name concrete files, subsystems, findings, or one concrete blocker/question. `No change. Continuing.`, `instruction unchanged`, and `{reviewer_name} should review` are contract violations.",
+        f'When the current slice is accepted and scoped plan work remains, {reviewer_name} must derive the next highest-priority unchecked plan item from the active-plan chain and rewrite `Current Instruction For Implementer` for the next slice instead of idling at "all green so far."',
+        f"If `Current Instruction For Implementer` or `Poll Status` says `hold steady`, `waiting for reviewer promotion`, `{reviewer_name} committing/pushing`, or similar wait-state language, {implementer_name} must not mine plan docs for side work or self-promote the next slice. Keep polling until a reviewer-owned section changes.",
+        f"If `Current Instruction For Implementer` still contains active work and there is no explicit reviewer-owned wait state, implementer status/ack updates must be substantive: name concrete files, subsystems, findings, or one concrete blocker/question. `No change. Continuing.`, `instruction unchanged`, and `{reviewer_name} should review` are contract violations.",
         "Do not use raw shell sleep loops such as `sleep 60` or `bash -lc 'sleep 60'` to represent waiting. Use the repo-owned `review-channel --action implementer-wait` path only under an explicit reviewer-owned wait state.",
         f"Only the {reviewer_name} conductor may update {reviewer_owned_sections} in this file.",
         f"Only the {implementer_name} conductor may update {implementer_owned_sections} in this file.",
@@ -91,7 +91,7 @@ def _valid_bridge_text(
         lines.append("")
         if heading == "Poll Status":
             lines.append("- reviewer waiting on Claude progress; live loop healthy.")
-        elif heading == "Current Instruction For Claude":
+        elif heading == "Current Instruction For Implementer":
             lines.append("- continue with the next scoped task")
         elif heading == implementer_status_heading:
             lines.append("- implementing the current bounded slice")
@@ -423,9 +423,9 @@ class CheckReviewChannelBridgeTests(TestCase):
             implementer_questions_heading="Implementer Questions",
             implementer_ack_heading="Implementer Ack",
         )
-        bridge_text = bridge_text.replace("## Claude Status", "## Implementer Status")
-        bridge_text = bridge_text.replace("## Claude Questions", "## Implementer Questions")
-        bridge_text = bridge_text.replace("## Claude Ack", "## Implementer Ack")
+        bridge_text = bridge_text.replace("## Implementer Status", "## Claude Status")
+        bridge_text = bridge_text.replace("## Implementer Questions", "## Claude Questions")
+        bridge_text = bridge_text.replace("## Implementer Ack", "## Claude Ack")
         bridge = self._temp_path("bridge.md", bridge_text)
         review_channel = self._temp_path(
             "dev/active/review_channel.md",

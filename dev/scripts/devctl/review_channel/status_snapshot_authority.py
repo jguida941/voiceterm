@@ -251,8 +251,8 @@ def _overlay_packet_current_session(
 def _preserve_pending_bridge_implementer_reset(*, current_session, snapshot):
     if str(current_session.implementer_ack_state or "").strip() == "current":
         return current_session
-    status = str(snapshot.sections.get("Claude Status") or "").strip()
-    ack = str(snapshot.sections.get("Claude Ack") or "").strip()
+    status = str(snapshot.sections.get("Implementer Status") or "").strip()
+    ack = str(snapshot.sections.get("Implementer Ack") or "").strip()
     if not is_pending_implementer_state(
         implementer_status=status,
         implementer_ack=ack,

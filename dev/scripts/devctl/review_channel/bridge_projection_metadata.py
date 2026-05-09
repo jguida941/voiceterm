@@ -57,7 +57,9 @@ def projection_metadata(
     current_session: Mapping[str, object],
     bridge_state: Mapping[str, object],
 ) -> dict[str, str]:
-    current_instruction = str(sections.get("Current Instruction For Claude", "")).strip()
+    current_instruction = str(
+        sections.get("Current Instruction For Implementer", "")
+    ).strip()
     typed_instruction_cleared = _typed_instruction_explicitly_cleared(
         current_session,
         projected_instruction=current_instruction,

@@ -58,6 +58,7 @@ from .daemon_reducer import (
 )
 from .agent_session_outcome_events import AGENT_SESSION_OUTCOME_EVENT_TYPES
 from .reviewer_authority_events import REVIEWER_AUTHORITY_EVENT_TYPES
+from .implementer_ack_events import IMPLEMENTER_AUTHORITY_EVENT_TYPES
 from .packet_lifecycle import ACTION_REQUEST_LIFECYCLE_EVENT_TYPES
 from .packet_creation_binding import PACKET_CREATION_BINDING_EVENT_TYPES
 from .packet_debt_remediation_contracts import PACKET_DURABLE_INGESTION_EVENT_TYPES
@@ -166,13 +167,6 @@ def load_or_refresh_event_bundle(
         Path(artifact_paths.projections_root)
     )
     if Path(artifact_paths.event_log_path).exists():
-        if artifact_writes_suppressed():
-            projected = load_projected_event_bundle(
-                artifact_paths=artifact_paths,
-                include_events=False,
-            )
-            if projected is not None:
-                return projected
         return refresh_event_bundle(
             repo_root=repo_root,
             review_channel_path=review_channel_path,
@@ -351,11 +345,15 @@ def reduce_events(
             latest_timestamp = _event_timestamp(event, latest_timestamp)
             continue
 
-        if event_type in REVIEWER_AUTHORITY_EVENT_TYPES:
+        if (
+            event_type in REVIEWER_AUTHORITY_EVENT_TYPES
+            or event_type in IMPLEMENTER_AUTHORITY_EVENT_TYPES
+        ):
             # Per rev_pkt_2546 (Plan 4.1 Scope 1): reviewer heartbeat /
-            # reviewer checkpoint events do not carry packet_id; they
-            # populate typed current_session/liveness via downstream
-            # projection helpers consuming the event stream directly.
+            # reviewer checkpoint events and role-keyed implementer ACK
+            # events do not carry packet_id; they populate typed
+            # current_session/liveness via downstream projection helpers
+            # consuming the event stream directly.
             latest_timestamp = _event_timestamp(event, latest_timestamp)
             continue
 
@@ -385,7 +383,7 @@ def reduce_events(
     packet_rows, pending_counts, stale_packet_count = summarize_packets(packets_by_id)
     if stale_packet_count:
         warnings.append(
-            "One or more pending review packets are past their expiry timestamp."
+            "One or more pending runtime-transport review packets are past their expiry timestamp."
         )
 
     hydrate_provider_job_state(provider_state, pending_counts)

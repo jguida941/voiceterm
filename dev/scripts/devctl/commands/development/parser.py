@@ -186,6 +186,19 @@ def _add_design_preflight_options(cmd: argparse.ArgumentParser) -> None:
         default=False,
         help="Append a GroundTruthProbeRunReceipt for design-preflight evidence.",
     )
+    cmd.add_argument(
+        "--since-ref",
+        default="",
+        help=(
+            "Optional base ref for commit-range design-preflight evidence; "
+            "matches check_ground_truth_probe_gate --since-ref."
+        ),
+    )
+    cmd.add_argument(
+        "--head-ref",
+        default="HEAD",
+        help="Head ref for commit-range design-preflight evidence.",
+    )
 
 
 def _add_ingest_options(cmd: argparse.ArgumentParser) -> None:

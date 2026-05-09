@@ -20,6 +20,7 @@ from .event_store import (
     parse_utc,
 )
 from .state import project_id_for_repo
+from ..runtime.packet_transport_expiry import packet_uses_transport_expiry
 from ..time_utils import utc_timestamp
 
 
@@ -115,6 +116,8 @@ def _expired_pending_candidates(
         if not packet_id or packet_id in expired_event_packet_ids:
             continue
         if _text(packet.get("status")) != "pending":
+            continue
+        if not packet_uses_transport_expiry(packet):
             continue
         expires_at = parse_utc(_text(packet.get("expires_at_utc")))
         if expires_at is None or expires_at.astimezone(timezone.utc) > now:
@@ -237,4 +240,3 @@ def _source_identity(packet: Mapping[str, object]) -> dict[str, object]:
 
 def _text(value: object) -> str:
     return str(value or "").strip()
-

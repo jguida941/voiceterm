@@ -225,7 +225,7 @@ def test_build_event_current_session_does_not_promote_findings_to_instruction() 
                     "status": "pending",
                     "summary": "Dashboard dogfood: 6 critical issues",
                     "body": "Finding only.",
-                    "kind": "finding",
+                    "kind": "action_request",
                     "from_agent": "claude",
                     "to_agent": "codex",
                     "requested_action": "review_only",
@@ -430,7 +430,7 @@ def test_event_bridge_liveness_marks_expired_unresolved_open_findings() -> None:
                     "status": "pending",
                     "summary": "Expired unresolved finding",
                     "body": "Still needs reviewer attention.",
-                    "kind": "finding",
+                    "kind": "action_request",
                     "from_agent": "claude",
                     "to_agent": "codex",
                     "requested_action": "review_only",
@@ -491,9 +491,9 @@ def test_current_session_drift_warning_keeps_fresh_bridge_checkpoint_authority()
         snapshot=BridgeSnapshot(
             metadata={"current_instruction_revision": "freshrev1234"},
             sections={
-                "Current Instruction For Claude": "- Fresh reviewer instruction.",
-                "Claude Status": "- Status unavailable.",
-                "Claude Ack": "- missing",
+                "Current Instruction For Implementer": "- Fresh reviewer instruction.",
+                "Implementer Status": "- Status unavailable.",
+                "Implementer Ack": "- missing",
                 "Open Findings": "- none",
                 "Last Reviewed Scope": "- MP-355",
             },
@@ -521,9 +521,9 @@ def test_current_session_drift_warning_ignores_generated_idle_placeholders() -> 
         snapshot=BridgeSnapshot(
             metadata={"current_instruction_revision": ""},
             sections={
-                "Current Instruction For Claude": "- Await reviewer instruction refresh.",
-                "Claude Status": "- Status unavailable.",
-                "Claude Ack": "- missing",
+                "Current Instruction For Implementer": "- Await reviewer instruction refresh.",
+                "Implementer Status": "- Status unavailable.",
+                "Implementer Ack": "- missing",
                 "Open Findings": "none",
                 "Last Reviewed Scope": "MP-355",
             },
@@ -692,7 +692,7 @@ def test_event_projection_does_not_fall_back_to_bridge_instruction_when_packet_f
                 [
                     "# Review Channel",
                     "",
-                    "## Current Instruction For Claude",
+                    "## Current Instruction For Implementer",
                     "",
                     "- stale bridge instruction",
                     "",
@@ -755,7 +755,7 @@ def test_event_projection_uses_persisted_packet_inbox_when_live_packets_are_part
                 [
                     "# Review Channel",
                     "",
-                    "## Current Instruction For Claude",
+                    "## Current Instruction For Implementer",
                     "",
                     "- Await reviewer instruction refresh.",
                     "",
@@ -866,7 +866,7 @@ def test_event_projection_current_session_does_not_fallback_to_bridge_instructio
                 [
                     "# Review Channel",
                     "",
-                    "## Current Instruction For Claude",
+                    "## Current Instruction For Implementer",
                     "",
                     "- stale bridge instruction",
                     "",
@@ -907,7 +907,7 @@ def test_event_projection_enrichment_does_not_fallback_to_bridge_instruction_whe
                 [
                     "# Review Channel",
                     "",
-                    "## Current Instruction For Claude",
+                    "## Current Instruction For Implementer",
                     "",
                     "- stale bridge instruction",
                     "",
@@ -948,7 +948,7 @@ def test_event_projection_assembly_does_not_fallback_to_bridge_instruction_when_
                 [
                     "# Review Channel",
                     "",
-                    "## Current Instruction For Claude",
+                    "## Current Instruction For Implementer",
                     "",
                     "- stale bridge instruction",
                     "",
@@ -983,7 +983,7 @@ def test_event_projection_assembly_does_not_fallback_to_bridge_instruction_when_
 def test_build_event_current_session_canonicalizes_instruction_markdown_revision() -> None:
     raw_instruction = "\n".join(
         [
-            "Current-instruction authority now converged; stale Claude Status remains",
+            "Current-instruction authority now converged; stale Implementer Status remains",
             "- Context packet: trigger `review-channel-event`; query terms: `bridge.md`, `review_state.json`",
             "- Canonical refs:",
             "  - `dev/active/loop_chat_bridge.md`",
@@ -1097,15 +1097,15 @@ def test_enrich_event_review_state_does_not_recover_bridge_instruction_when_type
                     "- Last Codex poll: `2026-04-13T00:00:00Z`",
                     "- Current instruction revision: `bridge-rev-123`",
                     "",
-                    "## Current Instruction For Claude",
+                    "## Current Instruction For Implementer",
                     "",
                     "- Recover the bridge-backed instruction.",
                     "",
-                    "## Claude Status",
+                    "## Implementer Status",
                     "",
                     "- waiting for review",
                     "",
-                    "## Claude Ack",
+                    "## Implementer Ack",
                     "",
                     "- acknowledged current instruction revision: bridge-rev-123",
                     "",
@@ -1167,10 +1167,10 @@ def test_event_path_does_not_synthesize_ack_from_empty_packet_queue() -> None:
         snapshot=BridgeSnapshot(
             metadata={},
             sections={
-                "Current Instruction For Claude": "Fix the layout bug.",
-                "Claude Status": "working on layout",
-                "Claude Questions": "",
-                "Claude Ack": "Acknowledged: working on layout",
+                "Current Instruction For Implementer": "Fix the layout bug.",
+                "Implementer Status": "working on layout",
+                "Implementer Questions": "",
+                "Implementer Ack": "Acknowledged: working on layout",
                 "Open Findings": "none",
                 "Last Reviewed Scope": "MP-400",
             },
@@ -1259,10 +1259,10 @@ def test_build_bridge_current_session_rederives_revision_when_instruction_change
         snapshot=BridgeSnapshot(
             metadata={"current_instruction_revision": "abc123def456"},
             sections={
-                "Current Instruction For Claude": current_instruction,
-                "Claude Status": "working on the current slice",
-                "Claude Questions": "",
-                "Claude Ack": "Acknowledged instruction revision `abc123def456`",
+                "Current Instruction For Implementer": current_instruction,
+                "Implementer Status": "working on the current slice",
+                "Implementer Questions": "",
+                "Implementer Ack": "Acknowledged instruction revision `abc123def456`",
                 "Open Findings": "none",
                 "Last Reviewed Scope": "MP-355",
             },
@@ -1312,10 +1312,10 @@ def test_build_bridge_current_session_clears_revision_when_instruction_missing()
         snapshot=BridgeSnapshot(
             metadata={"current_instruction_revision": "rev-abc"},
             sections={
-                "Current Instruction For Claude": "",
-                "Claude Status": "",
-                "Claude Questions": "",
-                "Claude Ack": "",
+                "Current Instruction For Implementer": "",
+                "Implementer Status": "",
+                "Implementer Questions": "",
+                "Implementer Ack": "",
                 "Open Findings": "none",
                 "Last Reviewed Scope": "MP-400",
             },
@@ -1336,10 +1336,10 @@ def test_build_bridge_current_session_clears_ack_for_refresh_placeholder() -> No
         snapshot=BridgeSnapshot(
             metadata={"current_instruction_revision": "rev-abc"},
             sections={
-                "Current Instruction For Claude": "- Await reviewer instruction refresh.",
-                "Claude Status": "working",
-                "Claude Questions": "",
-                "Claude Ack": "Acknowledged instruction revision `rev-abc`",
+                "Current Instruction For Implementer": "- Await reviewer instruction refresh.",
+                "Implementer Status": "working",
+                "Implementer Questions": "",
+                "Implementer Ack": "Acknowledged instruction revision `rev-abc`",
                 "Open Findings": "none",
                 "Last Reviewed Scope": "MP-400",
             },
@@ -1559,10 +1559,10 @@ def test_resolve_current_session_authority_prefers_live_bridge_checkpoint() -> N
         snapshot=BridgeSnapshot(
             metadata={"current_instruction_revision": "bridge-rev-123"},
             sections={
-                "Current Instruction For Claude": "Implement the live bridge checkpoint.",
-                "Claude Status": "waiting for review",
-                "Claude Questions": "",
-                "Claude Ack": "Acknowledged instruction revision `bridge-rev-123`",
+                "Current Instruction For Implementer": "Implement the live bridge checkpoint.",
+                "Implementer Status": "waiting for review",
+                "Implementer Questions": "",
+                "Implementer Ack": "Acknowledged instruction revision `bridge-rev-123`",
                 "Open Findings": "- F1: keep reviewer checkpoint visible",
                 "Last Reviewed Scope": "MP-355",
             },
@@ -1597,10 +1597,10 @@ def test_resolve_current_session_authority_keeps_prior_typed_session_when_bridge
         snapshot=BridgeSnapshot(
             metadata={"current_instruction_revision": "bridge-rev-123"},
             sections={
-                "Current Instruction For Claude": "Implement the stale bridge checkpoint.",
-                "Claude Status": "waiting for review",
-                "Claude Questions": "",
-                "Claude Ack": "Acknowledged instruction revision `bridge-rev-123`",
+                "Current Instruction For Implementer": "Implement the stale bridge checkpoint.",
+                "Implementer Status": "waiting for review",
+                "Implementer Questions": "",
+                "Implementer Ack": "Acknowledged instruction revision `bridge-rev-123`",
                 "Open Findings": "- stale bridge findings",
                 "Last Reviewed Scope": "bridge.md",
             },
@@ -1636,10 +1636,10 @@ def test_resolve_current_session_authority_prefers_active_packet_instruction_ove
         snapshot=BridgeSnapshot(
             metadata={},
             sections={
-                "Current Instruction For Claude": "- Await reviewer instruction refresh.",
-                "Claude Status": "",
-                "Claude Questions": "",
-                "Claude Ack": "",
+                "Current Instruction For Implementer": "- Await reviewer instruction refresh.",
+                "Implementer Status": "",
+                "Implementer Questions": "",
+                "Implementer Ack": "",
                 "Open Findings": "1 pending review packet(s)",
                 "Last Reviewed Scope": "MP-355",
             },
@@ -1695,10 +1695,10 @@ def test_resolve_current_session_authority_recovers_bridge_session_when_prior_is
         snapshot=BridgeSnapshot(
             metadata={"current_instruction_revision": "bridge-rev-123"},
             sections={
-                "Current Instruction For Claude": "- Recover the live bridge checkpoint.",
-                "Claude Status": "- waiting for review",
-                "Claude Questions": "",
-                "Claude Ack": "- Acknowledged instruction revision `bridge-rev-123`",
+                "Current Instruction For Implementer": "- Recover the live bridge checkpoint.",
+                "Implementer Status": "- waiting for review",
+                "Implementer Questions": "",
+                "Implementer Ack": "- Acknowledged instruction revision `bridge-rev-123`",
                 "Open Findings": "- none",
                 "Last Reviewed Scope": "- MP-355",
             },
@@ -1733,10 +1733,10 @@ def test_resolve_current_session_authority_ignores_bridge_wait_placeholder() -> 
         snapshot=BridgeSnapshot(
             metadata={"current_instruction_revision": "bridge-rev-123"},
             sections={
-                "Current Instruction For Claude": "- Await reviewer instruction refresh.",
-                "Claude Status": "- waiting for review",
-                "Claude Questions": "",
-                "Claude Ack": "- pending",
+                "Current Instruction For Implementer": "- Await reviewer instruction refresh.",
+                "Implementer Status": "- waiting for review",
+                "Implementer Questions": "",
+                "Implementer Ack": "- pending",
                 "Open Findings": "193 expired unresolved review packet(s)",
                 "Last Reviewed Scope": "- MP-355",
             },
@@ -1895,12 +1895,12 @@ def test_resolve_current_session_authority_does_not_restore_bridge_after_newer_t
     snapshot = BridgeSnapshot(
         metadata={},
         sections={
-            "Current Instruction For Claude": (
+            "Current Instruction For Implementer": (
                 "Codex: read rev_pkt_2922 + rev_pkt_2923."
             ),
             "Open Findings": "725 expired unresolved review packet(s)",
-            "Claude Status": "assigned",
-            "Claude Ack": "",
+            "Implementer Status": "assigned",
+            "Implementer Ack": "",
             "Last Reviewed Scope": "MP-377",
         },
     )
@@ -1959,12 +1959,12 @@ def test_resolve_current_session_authority_uses_continuity_index_to_suppress_old
     snapshot = BridgeSnapshot(
         metadata={},
         sections={
-            "Current Instruction For Claude": (
+            "Current Instruction For Implementer": (
                 "Codex: read rev_pkt_2922 + rev_pkt_2923."
             ),
             "Open Findings": "725 expired unresolved review packet(s)",
-            "Claude Status": "assigned",
-            "Claude Ack": "",
+            "Implementer Status": "assigned",
+            "Implementer Ack": "",
             "Last Reviewed Scope": "MP-377",
         },
     )

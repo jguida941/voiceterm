@@ -29,7 +29,7 @@ from .write_preconditions import (
     assert_expected_instruction_revision,
 )
 
-CURRENT_INSTRUCTION_SECTION = "Current Instruction For Claude"
+CURRENT_INSTRUCTION_SECTION = "Current Instruction For Implementer"
 CURRENT_INSTRUCTION_SECTION_RE = re.compile(
     rf"(^## {re.escape(CURRENT_INSTRUCTION_SECTION)}\s*$\n)(.*?)(?=^##\s+|\Z)",
     re.MULTILINE | re.DOTALL,
@@ -120,7 +120,7 @@ def validate_promotion_ready(snapshot: BridgeSnapshot) -> list[str]:
         or instruction_needs_plan_promotion(current_instruction)
     ):
         errors.append(
-            "`Current Instruction For Claude` still looks live; refuse to "
+            "`Current Instruction For Implementer` still looks live; refuse to "
             "overwrite an active instruction."
         )
 

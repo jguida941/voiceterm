@@ -177,6 +177,7 @@ def build_reduced_review_state(
         latest_reviewer_checkpoint_payload,
         latest_reviewer_heartbeat_payload,
     )
+    from .implementer_ack_events import latest_implementer_ack_payload
 
     checkpoint_payload = latest_reviewer_checkpoint_payload(inputs.events)
     if checkpoint_payload:
@@ -184,6 +185,9 @@ def build_reduced_review_state(
     heartbeat_payload = latest_reviewer_heartbeat_payload(inputs.events)
     if heartbeat_payload:
         review_state["latest_reviewer_heartbeat"] = dict(heartbeat_payload)
+    implementer_ack_payload = latest_implementer_ack_payload(inputs.events)
+    if implementer_ack_payload:
+        review_state["latest_implementer_ack"] = dict(implementer_ack_payload)
     review_state["_compat"] = _compat_payload(inputs)
     return review_state
 

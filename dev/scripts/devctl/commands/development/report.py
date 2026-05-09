@@ -8,14 +8,8 @@ from ...config import REPO_ROOT
 from ...runtime.development_collaboration_modes import collaboration_mode_report
 from ...runtime.development_packet_pressure import packet_pressure_report
 from ...runtime.development_team import build_default_development_topology
-from ...runtime.dashboard_snapshot_authority import build_dashboard_snapshot
 from ...runtime.master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL
 from ...runtime.master_plan_store import read_plan_rows_jsonl
-from ...runtime.plan_intent_ingestion import (
-    PLAN_INTENT_INGESTION_RECEIPT_STORE_REL,
-    read_plan_intent_ingestion_receipts,
-    terminal_packet_receipt_by_packet,
-)
 from .actions import resolve_action
 from .actor_resolution import resolve_actor
 from .attention_commands import (
@@ -36,9 +30,14 @@ from .models import (
 )
 from .next_slice import select_next_slice
 from .orchestration_inputs import orchestration_snapshot
-from .packet_attention import packet_attention_from_review_state, review_state_payload
+from .packet_attention import review_state_payload
 from .packet_debt import packet_debt_payload
 from .peer_mind import peer_mind_snapshots
+from .report_context import (
+    orchestration_dashboard as _orchestration_dashboard,
+    packet_attention_context,
+    packet_ingestion_next_command,
+)
 from .runtime_snapshot import runtime_snapshot_from_review_state
 from .snapshots import discovery_snapshot, learning_snapshot
 from .status_summary import status_for_report, summary_for_action
@@ -50,17 +49,11 @@ def build_report(args: Any) -> DevelopmentLoopReport:
     topology = build_default_development_topology()
     rows = read_plan_rows_jsonl(REPO_ROOT / DEFAULT_MASTER_PLAN_STORE_REL)
     review_state = review_state_payload(REPO_ROOT)
-    terminal_packet_receipts = terminal_packet_receipt_by_packet(
-        read_plan_intent_ingestion_receipts(
-            REPO_ROOT / PLAN_INTENT_INGESTION_RECEIPT_STORE_REL
-        )
-    )
     actor, actor_source = resolve_actor(args, review_state)
-    packet_attention = packet_attention_from_review_state(
+    terminal_packet_receipts, packet_attention = packet_attention_context(
         review_state,
         rows=rows,
         agent=actor,
-        terminal_receipt_by_packet=terminal_packet_receipts,
     )
     blockers, warnings = _action_findings(action, args)
     base_next_commands = _next_commands(action)
@@ -85,26 +78,31 @@ def build_report(args: Any) -> DevelopmentLoopReport:
     )
     peer_minds = peer_mind_snapshots(REPO_ROOT, review_state, actor=actor)
     warnings = (*warnings, *peer_mind_alias_warnings(peer_minds))
-    next_commands = next_commands_with_attention(
-        base_next_commands,
-        packet_attention=packet_attention,
-        peer_minds=peer_minds,
-    )
-    collaboration_mode = collaboration_mode_report(
-        requested_mode=getattr(args, "collaboration_mode", ""),
-        requested_role_preset=getattr(args, "role_preset", ""),
-        max_workers=int(getattr(args, "max_workers", 0) or 0),
-    )
-    packet_pressure, classifications, ingestion_decision = packet_pressure_report(
+    packet_pressure_result = packet_pressure_report(
         review_state,
         rows=rows,
         actor=actor,
         terminal_receipt_by_packet=terminal_packet_receipts,
     )
-    if action == "audit-packets":
+    packet_pressure, classifications, ingestion_decision = packet_pressure_result[:3]
+    packet_ingest_decisions = (
+        packet_pressure_result[3] if len(packet_pressure_result) > 3 else ()
+    )
+    next_commands = next_commands_with_attention(
+        base_next_commands,
+        packet_attention=packet_attention,
+        peer_minds=peer_minds,
+    )
+    decision_command = packet_ingestion_next_command(ingestion_decision)
+    if not decision_command and action == "audit-packets":
         decision_command = str(ingestion_decision.get("next_command") or "").strip()
-        if decision_command:
-            next_commands = tuple(dict.fromkeys((decision_command, *next_commands)))
+    if decision_command:
+        next_commands = tuple(dict.fromkeys((decision_command, *next_commands)))
+    collaboration_mode = collaboration_mode_report(
+        requested_mode=getattr(args, "collaboration_mode", ""),
+        requested_role_preset=getattr(args, "role_preset", ""),
+        max_workers=int(getattr(args, "max_workers", 0) or 0),
+    )
     design_preflight = build_design_preflight(
         args=args,
         repo_root=REPO_ROOT,
@@ -148,6 +146,7 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         packet_pressure=packet_pressure,
         selected_packet_classifications=tuple(classifications),
         packet_ingestion_decision=ingestion_decision,
+        packet_ingest_decisions=tuple(packet_ingest_decisions),
         watcher_lease=watcher_lease,
         continuation=continuation,
         learning=learning_snapshot(REPO_ROOT),
@@ -156,7 +155,10 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         next_commands=next_commands,
         next_step_command=continuation.next_required_command
         or _next_step_command(
-            packet_attention_required=packet_attention.attention_required,
+            packet_attention_required=(
+                packet_attention.attention_required
+                and packet_attention.authority_affecting
+            ),
             packet_attention_command=packet_attention.required_command,
             next_commands=next_commands,
         ),
@@ -185,18 +187,6 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         ),
     )
 
-
-def _orchestration_dashboard(repo_root) -> dict[str, Any]:
-    """Return the dashboard-backed blocker view used by agent-loop, if available."""
-    try:
-        return build_dashboard_snapshot(
-            repo_root=repo_root,
-            view="overview",
-            role="dashboard",
-            include_review_state=False,
-        )
-    except Exception:  # broad-except: allow reason=dashboard snapshot is advisory context for /develop fallback=omit orchestration dashboard
-        return {}
 
 def _controller_state(action: str, args: Any) -> str:
     if action in LIFECYCLE_ACTIONS:

@@ -128,8 +128,8 @@ def build_claude_progress_token(
         return ""
 
     snapshot = extract_bridge_snapshot(bridge_text)
-    claude_status = snapshot.sections.get("Claude Status", "").strip()
-    claude_ack = snapshot.sections.get("Claude Ack", "").strip()
+    claude_status = snapshot.sections.get("Implementer Status", "").strip()
+    claude_ack = snapshot.sections.get("Implementer Ack", "").strip()
     try:
         current_worktree_hash = compute_non_audit_worktree_hash(
             repo_root=repo_root,

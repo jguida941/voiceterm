@@ -431,3 +431,54 @@ def test_agent_sync_inventory_includes_session_targeted_pending_packet() -> None
     claude = projection["agents"]["claude"]
     assert "rev_pkt_session" in claude["pending_packets_to_me"]
     assert claude["attention_packet_id"] == ""
+
+
+def test_agent_sync_inventory_uses_canonical_live_pending_predicate() -> None:
+    """Agent sync must agree with queue/lifecycle pending truth."""
+    projection = build_agent_sync_projection(
+        events=[
+            {"event_id": "rev_evt_10", "event_type": "packet_posted"},
+            {"event_id": "rev_evt_11", "event_type": "packet_posted"},
+            {"event_id": "rev_evt_12", "event_type": "packet_posted"},
+        ],
+        packet_rows=[
+            {
+                "packet_id": "rev_pkt_durable",
+                "latest_event_id": "rev_evt_10",
+                "to_agent": "codex",
+                "from_agent": "claude",
+                "kind": "finding",
+                "status": "pending",
+                "lifecycle_current_state": "pending",
+                "durable_binding": {
+                    "status": "inserted",
+                    "binding_target_kind": "plan_row",
+                },
+            },
+            {
+                "packet_id": "rev_pkt_expired_transport",
+                "latest_event_id": "rev_evt_11",
+                "to_agent": "codex",
+                "from_agent": "claude",
+                "kind": "continuation_anchor",
+                "status": "pending",
+                "lifecycle_current_state": "pending",
+                "expires_at_utc": "2000-01-01T00:00:00Z",
+            },
+            {
+                "packet_id": "rev_pkt_live_notice",
+                "latest_event_id": "rev_evt_12",
+                "to_agent": "codex",
+                "from_agent": "claude",
+                "kind": "system_notice",
+                "status": "pending",
+                "lifecycle_current_state": "pending",
+            },
+        ],
+        registered_agent_ids=["codex", "claude"],
+        refresh_seq=1,
+        refreshed_at_utc="2026-05-09T00:45:00Z",
+    )
+
+    codex = projection["agents"]["codex"]
+    assert codex["pending_packets_to_me"] == ["rev_pkt_live_notice"]

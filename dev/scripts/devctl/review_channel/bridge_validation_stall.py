@@ -34,7 +34,7 @@ def _implementer_completion_stall_error(
 ) -> str | None:
     if not reviewer_mode_is_active(reviewer_mode):
         return None
-    instruction = snapshot.sections.get("Current Instruction For Claude", "")
+    instruction = snapshot.sections.get("Current Instruction For Implementer", "")
     poll_status = snapshot.sections.get("Poll Status", "")
     if _contains_any_marker(
         instruction,
@@ -44,15 +44,19 @@ def _implementer_completion_stall_error(
         REVIEWER_WAIT_STATE_MARKERS,
     ):
         return None
-    claude_status = _leading_section_excerpt(snapshot.sections.get("Claude Status", ""))
-    claude_ack = _leading_section_excerpt(snapshot.sections.get("Claude Ack", ""))
+    claude_status = _leading_section_excerpt(
+        snapshot.sections.get("Implementer Status", "")
+    )
+    claude_ack = _leading_section_excerpt(
+        snapshot.sections.get("Implementer Ack", "")
+    )
     combined = f"{claude_status}\n{claude_ack}".strip()
     if not _contains_any_marker(combined, IMPLEMENTER_STALL_MARKERS):
         return None
     return (
-        "Implementer status/ack compatibility sections (`Claude Status` / "
-        "`Claude Ack`) show completion-stall language while "
-        "`Current Instruction For Claude` still assigns active work. Resume the "
+        "Implementer status/ack sections (`Implementer Status` / "
+        "`Implementer Ack`) show completion-stall language while "
+        "`Current Instruction For Implementer` still assigns active work. Resume the "
         "active slice or record one concrete blocker/question instead of "
         "parking on reviewer polling."
     )

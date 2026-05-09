@@ -102,7 +102,7 @@ def _append_queue_reconciliation(lines: list[str], reconciliation: object) -> No
     )
     lines.append(f"- queue_stale_total: {reconciliation.get('queue_stale_total', 0)}")
     lines.append(
-        "- expired_pending_hidden_from_inbox_total: "
+        "- expired_runtime_transport_hidden_from_inbox_total: "
         f"{reconciliation.get('stale_pending_hidden_from_inbox_total', 0)}"
     )
     lines.append(
@@ -113,9 +113,9 @@ def _append_queue_reconciliation(lines: list[str], reconciliation: object) -> No
     )
     if reconciliation.get("stale_pending_hidden_from_inbox_total"):
         lines.append(
-            "- note: expired pending packets are archived audit rows whose TTL "
-            "elapsed; they stay in history with disposition evidence and are "
-            "intentionally excluded from the live inbox until they are reissued"
+            "- note: expired runtime transport packets are archived audit rows "
+            "whose TTL elapsed; they stay in history with disposition evidence "
+            "and are intentionally excluded from the live inbox until reissued"
         )
     if reconciliation.get("history_truncated"):
         lines.append(

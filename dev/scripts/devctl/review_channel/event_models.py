@@ -42,6 +42,11 @@ class ReviewPacketRow(TypedDict):
     guard_results_summary: object
     full_guard_bundle_evidence: object
     plan_proposal: object
+    packet_creation_binding: dict[str, object]
+    packet_durable_ingestion_receipt: dict[str, object]
+    durable_binding: dict[str, object]
+    plan_ingestion: dict[str, object]
+    plan_integration: dict[str, object]
     semantic_zref: object
     source_identity: dict[str, object]
     status: object

@@ -13,7 +13,7 @@ from .review_packet_inbox_actionable import (
 )
 from .review_packet_inbox_lookup import latest_packet as _latest_packet, packet_id as _packet_id
 from .review_packet_inbox_liveness import (
-    is_expired_unresolved as _is_expired_unresolved,
+    is_expired_unresolved_attention as _is_expired_unresolved_attention,
     is_live_control_packet as _is_live_control_packet,
     is_live_pending as _is_live_pending,
 )
@@ -123,16 +123,16 @@ def _build_agent_attention_payload(
     live_control = [packet for packet in targeted if _is_live_control_packet(packet)]
     active_actionable = _actionable_packets(live_control)
     pending_actionable = _actionable_packets(live_pending)
+    live_finding_packets = _finding_packets(live_pending)
     selected_actionable = _select_actionable_packet(active_actionable)
     current_instruction_packet_id = _packet_id(selected_actionable)
-    latest_finding_packet_id = _packet_id(_latest_packet(_finding_packets(targeted)))
+    latest_finding_packet_id = _packet_id(_latest_packet(live_finding_packets))
     pending_actionable_packet_ids = _packet_ids(
         _ordered_actionable_packets(pending_actionable)
     )
     expired_unresolved_packet_ids = _packet_ids(
         _expired_unresolved_packets(targeted)
     )
-    live_finding_packets = _finding_packets(live_pending)
     attention_status, wake_reason, required_command = _agent_attention_state(
         agent=agent,
         selected_actionable=selected_actionable,
@@ -216,7 +216,11 @@ def _actionable_packets(
 def _expired_unresolved_packets(
     packet_rows: list[dict[str, object]],
 ) -> list[dict[str, object]]:
-    return [packet for packet in packet_rows if _is_expired_unresolved(packet)]
+    return [
+        packet
+        for packet in packet_rows
+        if _is_expired_unresolved_attention(packet)
+    ]
 
 
 def _packet_ids(packet_rows: Sequence[Mapping[str, object]]) -> tuple[str, ...]:
@@ -299,6 +303,11 @@ def _live_packet_ids_by_agent(
 ) -> dict[str, frozenset[str]]:
     by_agent: dict[str, set[str]] = {}
     for packet in _packet_rows(packets):
+        if not (
+            _is_live_control_packet(packet)
+            or _is_expired_unresolved_attention(packet)
+        ):
+            continue
         agent = str(packet.get("to_agent") or "").strip().lower()
         packet_id = _packet_id(packet)
         if not agent or not packet_id:

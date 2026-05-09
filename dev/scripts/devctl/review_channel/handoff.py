@@ -152,12 +152,14 @@ def summarize_bridge_liveness(
     current_worktree_hash: str | None = None,
 ) -> BridgeLiveness:
     """Reduce current bridge state into a small machine-readable liveness summary."""
-    current_instruction = snapshot.sections.get("Current Instruction For Claude", "").strip()
+    current_instruction = snapshot.sections.get(
+        "Current Instruction For Implementer", ""
+    ).strip()
     open_findings = snapshot.sections.get("Open Findings", "").strip()
     last_reviewed_scope = snapshot.sections.get("Last Reviewed Scope", "").strip()
     poll_status = snapshot.sections.get("Poll Status", "").strip()
-    claude_status = snapshot.sections.get("Claude Status", "").strip()
-    claude_ack = snapshot.sections.get("Claude Ack", "").strip()
+    claude_status = snapshot.sections.get("Implementer Status", "").strip()
+    claude_ack = snapshot.sections.get("Implementer Ack", "").strip()
     from .bridge_validation import (
         extract_poll_status_write_context,
         poll_status_is_automation_only_refresh,
@@ -283,13 +285,13 @@ def _instruction_revision(text: str) -> str:
 
 
 def _extract_claude_ack_revision(text: str) -> str:
-    """Extract the latest Claude ACK revision from the Claude Ack section.
+    """Extract the latest implementer ACK revision from the implementer ACK section.
 
     Contract: the FIRST recognized instruction-revision reference is the
     current/latest ACK.
-    Claude should rewrite the current ACK at the top of the section and keep
-    stale historical revision references out of the live bridge so the first
-    recognized match stays equal to the true current revision.
+    The implementer should rewrite the current ACK at the top of the section
+    and keep stale historical revision references out of the live bridge so the
+    first recognized match stays equal to the true current revision.
     """
     return extract_implementer_ack_revision(text or "")
 
@@ -384,7 +386,7 @@ def build_handoff_resume_state(
             snapshot.sections.get("Open Findings", "")
         ),
         "next_action": _first_markdown_item(
-            snapshot.sections.get("Current Instruction For Claude", "")
+            snapshot.sections.get("Current Instruction For Implementer", "")
         ),
         "reviewed_worktree_hash": snapshot.metadata.get("last_non_audit_worktree_hash"),
         "owned_lanes": _group_owned_lanes(lane_assignments or []),

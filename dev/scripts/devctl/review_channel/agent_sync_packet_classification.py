@@ -10,6 +10,7 @@ from .agent_sync_models import (
 from .agent_packet_ranking import max_packet_event_rank
 from .event_models import event_id_rank as _event_id_rank
 from .packet_contract import packet_route_matches_scope
+from .pending_packets import live_pending_packets
 
 _TERMINAL_LIFECYCLE_STATES: frozenset[str] = (
     TERMINAL_NON_SUCCESS_STATES | TERMINAL_SUCCESS_STATES
@@ -89,6 +90,7 @@ def _classify_inbound_packets(
 ) -> tuple[list[str], list[str]]:
     """Return pending inventory and unscoped active action-request ids."""
     head_rank = max_packet_event_rank(packet_rows)
+    live_pending_ids = _live_pending_packet_ids(packet_rows)
     pending: list[str] = []
     active: list[str] = []
     for row in packet_rows:
@@ -100,12 +102,14 @@ def _classify_inbound_packets(
             continue
         status = str(row.get("status") or "").strip()
         kind = str(row.get("kind") or "")
-        if status == "pending" or (
-            status == "" and lifecycle in ("", "pending", "delivery_pending")
-        ):
+        if packet_id in live_pending_ids:
             pending.append(packet_id)
             if kind != "action_request":
                 continue
+        elif status == "pending" or (
+            status == "" and lifecycle in ("", "pending", "delivery_pending")
+        ):
+            continue
         if not packet_route_matches_scope(row):
             continue
         if kind == "action_request" and lifecycle in ACTIVE_LIFECYCLE_STATES:
@@ -159,4 +163,12 @@ def _is_stale_rank(head_rank: int, row_rank: int) -> bool:
         head_rank > 0
         and row_rank > 0
         and (head_rank - row_rank) > _STALE_ACTIVE_PACKET_RANK_GAP
+    )
+
+
+def _live_pending_packet_ids(packet_rows: list[dict[str, object]]) -> frozenset[str]:
+    return frozenset(
+        str(packet.get("packet_id") or "").strip()
+        for packet in live_pending_packets(packet_rows)
+        if isinstance(packet, dict) and str(packet.get("packet_id") or "").strip()
     )

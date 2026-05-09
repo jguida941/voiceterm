@@ -158,6 +158,7 @@ def test_next_commands_with_attention_uses_registered_peer_hints() -> None:
         packet_attention=DevelopmentPacketAttention(
             attention_required=True,
             required_command="python3 dev/scripts/devctl.py review-channel --action show --packet-id rev_pkt_1 --terminal none --format md",
+            authority_affecting=True,
         ),
         peer_minds=(
             DevelopmentPeerMindSnapshot(
@@ -179,6 +180,23 @@ def test_next_commands_with_attention_uses_registered_peer_hints() -> None:
         "python3 dev/scripts/devctl.py review-channel --action show --packet-id rev_pkt_1 --terminal none --format md",
         "python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1",
         "python3 dev/scripts/devctl.py agent-mind --agent claude --since-cursor --project --format md --limit 20",
+    )
+
+
+def test_next_commands_routes_communication_packet_as_advisory() -> None:
+    commands = development_report._next_commands_with_attention(
+        ("python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1",),
+        packet_attention=DevelopmentPacketAttention(
+            attention_required=True,
+            required_command="python3 dev/scripts/devctl.py review-channel --action show --packet-id rev_pkt_1 --terminal none --format md",
+            authority_affecting=False,
+        ),
+        peer_minds=(),
+    )
+
+    assert commands == (
+        "python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1",
+        "python3 dev/scripts/devctl.py review-channel --action show --packet-id rev_pkt_1 --terminal none --format md",
     )
 
 
@@ -661,17 +679,7 @@ def test_develop_audit_packets_report_promotes_packet_decision_command(
         "python3 dev/scripts/devctl.py review-channel --action show "
         "--packet-id rev_pkt_3087 --terminal none --format md"
     )
-    review_state = {
-        "packets": [
-            {
-                "packet_id": "rev_pkt_3087",
-                "to_agent": "codex",
-                "kind": "instruction",
-                "status": "pending",
-                "expires_at_utc": "2000-01-01T00:00:00Z",
-            }
-        ]
-    }
+    review_state = {"packets": []}
 
     def fake_packet_pressure(*_args, **_kwargs):
         return (
@@ -690,7 +698,27 @@ def test_develop_audit_packets_report_promotes_packet_decision_command(
     monkeypatch.setattr(development_report, "read_plan_rows_jsonl", lambda _path: ())
     monkeypatch.setattr(development_report, "review_state_payload", lambda _repo: review_state)
     monkeypatch.setattr(development_report, "_orchestration_dashboard", lambda _repo: {})
+    monkeypatch.setattr(
+        development_report,
+        "orchestration_snapshot",
+        lambda *_args, **_kwargs: DevelopmentOrchestrationSnapshot(
+            status="action_required",
+            signal_count=1,
+            action_required_count=1,
+        ),
+    )
     monkeypatch.setattr(development_report, "packet_pressure_report", fake_packet_pressure)
+    monkeypatch.setattr(
+        development_report,
+        "watcher_lease_status",
+        lambda *_args, **_kwargs: DevelopmentWatcherLease(
+            watched_actor="claude",
+            status="live",
+            next_report_command=(
+                "python3 dev/scripts/devctl.py review-channel --action watch"
+            ),
+        ),
+    )
     args = cli.build_parser().parse_args(
         ["develop", "audit-packets", "--actor", "codex", "--format", "json"]
     )
@@ -1984,6 +2012,110 @@ def test_develop_next_maps_startup_checkpoint_blocker_to_checkpoint_row() -> Non
     assert selected.slice_id == "MP377-P0-CHECKPOINT-AUTOMATION-S1"
 
 
+def test_develop_next_prefers_orchestration_blocker_over_communication_packet() -> None:
+    active_general = PlanRow(
+        row_id="MP377-P0-T22AN-AB",
+        title="Bound Python test execution through typed validation policy",
+        status="in_progress",
+        sdlc_stage=SDLCStage.IMPL,
+    )
+    topology_repair = PlanRow(
+        row_id="MP377-P0-TOPOLOGY-NEUTRAL-NEXT-S1",
+        title="Make next selection topology-neutral and repair-oriented",
+        status="queued",
+        sdlc_stage=SDLCStage.SPEC,
+    )
+    attention = DevelopmentPacketAttention(
+        attention_required=True,
+        attention_status="wake_required",
+        wake_reason="system_notice_pending",
+        latest_attention_packet_id="rev_pkt_notice",
+        required_command=(
+            "python3 dev/scripts/devctl.py review-channel --action show "
+            "--packet-id rev_pkt_notice --terminal none --format md"
+        ),
+        packet_kind="system_notice",
+        authority_affecting=False,
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        status="action_required",
+        action_required_count=1,
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="s1",
+                lifecycle_state="blocked",
+                required_action="resolve_blocker",
+                loop_mode="run_or_report_blocker",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="satisfied",
+                top_blocker="review_loop_relaunch_required with no_live_agents",
+            ),
+        ),
+    )
+
+    selected = select_next_slice(
+        (active_general, topology_repair),
+        packet_attention=attention,
+        orchestration=orchestration,
+    )
+
+    assert selected.slice_id == "MP377-P0-TOPOLOGY-NEUTRAL-NEXT-S1"
+
+
+def test_develop_next_lets_action_request_close_checkpoint_blocker() -> None:
+    checkpoint_repair = PlanRow(
+        row_id="MP377-P0-CHECKPOINT-AUTOMATION-S1",
+        title="Automate governed checkpoint projection and sandbox recovery",
+        status="queued",
+        sdlc_stage=SDLCStage.SPEC,
+    )
+    attention = DevelopmentPacketAttention(
+        attention_required=True,
+        attention_status="wake_required",
+        wake_reason="action_request_pending",
+        latest_attention_packet_id="rev_pkt_stage",
+        required_command=(
+            "python3 dev/scripts/devctl.py review-channel --action show "
+            "--packet-id rev_pkt_stage --terminal none --format md"
+        ),
+        packet_kind="action_request",
+        requested_action="stage_commit_pipeline",
+        authority_affecting=True,
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        status="action_required",
+        action_required_count=1,
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="s1",
+                lifecycle_state="blocked",
+                required_action="resolve_blocker",
+                loop_mode="run_or_report_blocker",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="satisfied",
+                top_blocker="checkpoint_required dirty_path_budget_exceeded vcs.stage",
+            ),
+        ),
+    )
+
+    selected = select_next_slice(
+        (checkpoint_repair,),
+        packet_attention=attention,
+        orchestration=orchestration,
+    )
+
+    assert selected.slice_id == "communication-packet-attention"
+    assert selected.target_ref.endswith("--packet-id rev_pkt_stage --terminal none --format md")
+
+
 def test_ingested_action_request_still_requires_lifecycle_attention() -> None:
     packet_row = PlanRow(
         row_id="PKT-BIND-REV-PKT-9999",
@@ -2014,6 +2146,9 @@ def test_ingested_action_request_still_requires_lifecycle_attention() -> None:
     assert attention.attention_required is True
     assert attention.latest_attention_packet_id == "rev_pkt_9999"
     assert attention.pending_delivery_packet_ids == ("rev_pkt_9999",)
+    assert attention.packet_kind == "action_request"
+    assert attention.requested_action == "stage_commit_pipeline"
+    assert attention.authority_affecting is True
 
 
 def test_packet_attention_includes_latest_finding_as_actionable() -> None:
@@ -2098,23 +2233,15 @@ def test_packet_attention_treats_plan_owned_clock_expired_packet_as_provenance()
     assert selected.slice_id == "MP377-P0-EXC-S1"
 
 
-def test_packet_attention_keeps_unowned_clock_expired_packet_as_intake_debt() -> None:
+def test_packet_attention_keeps_unowned_expired_transport_as_runtime_debt() -> None:
     review_state = {
         "packets": [
             {
                 "packet_id": "rev_pkt_unowned",
                 "to_agent": "codex",
-                "kind": "finding",
-                "status": "expired",
+                "kind": "action_request",
+                "status": "pending",
                 "expires_at_utc": "2000-01-01T00:00:00Z",
-                "lifecycle_current_state": "archived",
-                "disposition": {
-                    "sink": "archived",
-                    "archive_classification": "clock_expired_without_disposition",
-                    "resolution_anchor": (
-                        "archive_classification:clock_expired_without_disposition"
-                    ),
-                },
             }
         ]
     }
@@ -2234,7 +2361,8 @@ def test_packet_attention_treats_system_notice_as_delivery_wake() -> None:
         "--status pending --terminal none --format md"
     )
     selected = select_next_slice((), packet_attention=attention)
-    assert selected.slice_id == "packet:rev_pkt_2757"
+    assert selected.slice_id == "communication-packet-attention"
+    assert "without becoming an active slice id" in selected.reason
 
 
 def test_packet_attention_delivery_still_requires_attention_under_checkpoint() -> None:
@@ -2424,7 +2552,7 @@ def test_resolve_actor_keeps_environment_when_packet_attention_is_ambiguous(
     assert actor_source == "caller_environment"
 
 
-def test_packet_attention_does_not_revive_acked_latest_finding() -> None:
+def test_packet_attention_keeps_unacked_older_finding_live_when_newer_is_acked() -> None:
     review_state = {
         "packets": [
             {
@@ -2458,12 +2586,106 @@ def test_packet_attention_does_not_revive_acked_latest_finding() -> None:
     selected = select_next_slice((packet_row,), packet_attention=attention)
 
     assert attention.attention_required is True
-    assert attention.wake_reason == "expired_unresolved_packet"
-    assert attention.latest_finding_packet_id == ""
-    assert attention.pending_actionable_packet_ids == ()
+    assert attention.wake_reason == "finding_pending"
+    assert attention.latest_finding_packet_id == "rev_pkt_old"
+    assert attention.pending_actionable_packet_ids == ("rev_pkt_old",)
     assert attention.durable_plan_row_id == ""
     assert attention.required_command == (
-        "python3 dev/scripts/devctl.py develop audit-packets --format md"
+        "python3 dev/scripts/devctl.py review-channel --action show "
+        "--packet-id rev_pkt_old --terminal none --format md"
     )
-    assert "Packet debt audit" in attention.summary
-    assert selected.slice_id == "packet-debt-audit"
+    assert "rev_pkt_old" in attention.summary
+    assert selected.slice_id == "communication-packet-attention"
+
+
+def test_unlinked_packet_attention_does_not_select_arbitrary_active_plan_row() -> None:
+    ordinary = PlanRow(
+        row_id="MP377-IN-PROGRESS",
+        title="Ordinary in-progress row",
+        status="in_progress",
+        sdlc_stage=SDLCStage.IMPL,
+    )
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_review_only",
+                "to_agent": "codex",
+                "kind": "finding",
+                "status": "pending",
+                "posted_at": "2999-01-01T00:00:00Z",
+                "expires_at_utc": "2999-01-01T00:30:00Z",
+            }
+        ]
+    }
+
+    attention = packet_attention_from_review_state(review_state, rows=(ordinary,))
+    selected = select_next_slice((ordinary,), packet_attention=attention)
+
+    assert attention.attention_required is True
+    assert attention.latest_finding_packet_id == "rev_pkt_review_only"
+    assert attention.durable_plan_row_id == ""
+    assert selected.slice_id == "communication-packet-attention"
+    assert "without becoming an active slice id" in selected.reason
+
+
+def test_packet_attention_uses_packet_target_ref_plan_row() -> None:
+    linked = PlanRow(
+        row_id="MP377-LINKED",
+        title="Targeted packet owner",
+        status="queued",
+        sdlc_stage=SDLCStage.SPEC,
+    )
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_linked",
+                "to_agent": "codex",
+                "kind": "finding",
+                "status": "pending",
+                "target_ref": "plan:MP377-LINKED",
+                "posted_at": "2999-01-01T00:00:00Z",
+                "expires_at_utc": "2999-01-01T00:30:00Z",
+            }
+        ]
+    }
+
+    attention = packet_attention_from_review_state(review_state, rows=(linked,))
+    selected = select_next_slice((linked,), packet_attention=attention)
+
+    assert attention.attention_required is True
+    assert attention.latest_finding_packet_id == "rev_pkt_linked"
+    assert attention.durable_plan_row_id == "MP377-LINKED"
+    assert selected.slice_id == "MP377-LINKED"
+
+
+def test_packet_attention_uses_plan_ingestion_receipt_row_id() -> None:
+    linked = PlanRow(
+        row_id="MP377-LINKED",
+        title="Receipt packet owner",
+        status="queued",
+        sdlc_stage=SDLCStage.SPEC,
+    )
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_receipted",
+                "to_agent": "codex",
+                "kind": "finding",
+                "status": "pending",
+                "posted_at": "2999-01-01T00:00:00Z",
+                "expires_at_utc": "2999-01-01T00:30:00Z",
+            }
+        ]
+    }
+
+    attention = packet_attention_from_review_state(
+        review_state,
+        rows=(linked,),
+        durable_row_id_by_packet={"rev_pkt_receipted": "MP377-LINKED"},
+    )
+    selected = select_next_slice((linked,), packet_attention=attention)
+
+    assert attention.attention_required is True
+    assert attention.latest_finding_packet_id == "rev_pkt_receipted"
+    assert attention.durable_plan_row_id == "MP377-LINKED"
+    assert selected.slice_id == "MP377-LINKED"

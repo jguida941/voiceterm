@@ -210,6 +210,17 @@ def packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
                         mapping.get("source_identity")
                     ).items()
                 },
+                plan_proposal=_optional_mapping(mapping.get("plan_proposal")),
+                packet_creation_binding=_optional_mapping(
+                    mapping.get("packet_creation_binding")
+                ),
+                packet_durable_ingestion_receipt=_optional_mapping(
+                    mapping.get("packet_durable_ingestion_receipt")
+                ),
+                durable_binding=_optional_mapping(mapping.get("durable_binding")),
+                plan_ingestion=_optional_mapping(mapping.get("plan_ingestion")),
+                plan_integration=_optional_mapping(mapping.get("plan_integration")),
+                reviewer_wake=_optional_mapping(mapping.get("reviewer_wake")),
                 acknowledged_events=_mapping_rows(mapping.get("acknowledged_events")),
                 acted_on_events=_mapping_rows(mapping.get("acted_on_events")),
                 lifecycle_current_state=_string(
@@ -221,6 +232,11 @@ def packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
             )
         )
     return tuple(packets)
+
+
+def _optional_mapping(value: object) -> dict[str, object] | None:
+    mapping = _mapping(value)
+    return dict(mapping) if mapping else None
 
 
 def _mapping_rows(value: object) -> tuple[dict[str, object], ...]:

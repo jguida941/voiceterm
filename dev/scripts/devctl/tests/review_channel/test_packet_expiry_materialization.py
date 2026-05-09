@@ -20,7 +20,12 @@ def _review_channel_path(root: Path) -> Path:
     return path
 
 
-def _posted_event(packet_id: str, *, expires_at_utc: str) -> dict[str, object]:
+def _posted_event(
+    packet_id: str,
+    *,
+    expires_at_utc: str,
+    kind: str = "action_request",
+) -> dict[str, object]:
     return {
         "schema_version": 1,
         "event_id": f"rev_evt_{int(packet_id.rsplit('_', 1)[-1]):04d}",
@@ -35,7 +40,7 @@ def _posted_event(packet_id: str, *, expires_at_utc: str) -> dict[str, object]:
         "event_type": "packet_posted",
         "from_agent": "codex",
         "to_agent": "claude",
-        "kind": "finding",
+        "kind": kind,
         "summary": f"Expired packet {packet_id}",
         "body": "This packet should archive through an explicit event.",
         "evidence_refs": [],
@@ -45,7 +50,7 @@ def _posted_event(packet_id: str, *, expires_at_utc: str) -> dict[str, object]:
         "requested_action": "review_only",
         "policy_hint": "review_only",
         "approval_required": False,
-        "target_kind": "packet",
+        "target_kind": "runtime" if kind == "action_request" else "packet",
         "target_ref": packet_id,
         "target_revision": "",
         "target_role": "implementer",
@@ -109,6 +114,38 @@ def test_materialize_expired_packet_events_appends_lifecycle_event(
     assert packet["lifecycle_current_state"] == "archived"
     assert packet["acted_on_events"][0]["event_id"] == "rev_evt_0002"
     assert packet["disposition"]["sink"] == "archived"
+
+
+def test_materialize_expired_packet_events_ignores_durable_content_ttl(
+    tmp_path: Path,
+) -> None:
+    review_channel_path = _review_channel_path(tmp_path)
+    artifact_paths = resolve_artifact_paths(repo_root=tmp_path)
+    _write_events(
+        Path(artifact_paths.event_log_path),
+        [
+            _posted_event(
+                "rev_pkt_0001",
+                kind="finding",
+                expires_at_utc="2000-01-01T00:00:00Z",
+            )
+        ],
+    )
+
+    bundle, materialization = materialize_expired_packet_events(
+        repo_root=tmp_path,
+        review_channel_path=review_channel_path,
+        artifact_paths=artifact_paths,
+    )
+
+    events = load_events(Path(artifact_paths.event_log_path))
+    packet = bundle.review_state["packets"][0]
+
+    assert materialization.materialized_packet_count == 0
+    assert [event["event_type"] for event in events] == ["packet_posted"]
+    assert bundle.review_state["queue"]["stale_packet_count"] == 0
+    assert packet["status"] == "pending"
+    assert packet["lifecycle_current_state"] == "pending"
 
 
 def test_materialize_expired_packet_events_is_idempotent(tmp_path: Path) -> None:

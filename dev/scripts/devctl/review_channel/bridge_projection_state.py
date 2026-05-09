@@ -148,7 +148,9 @@ def bridge_projection_metadata_lines(
 ) -> list[str]:
     """Render bridge metadata lines from typed projection state."""
     metadata = projection_state.metadata
-    current_instruction = projection_state.sections["Current Instruction For Claude"]
+    current_instruction = projection_state.sections[
+        "Current Instruction For Implementer"
+    ]
     current_revision = metadata.get("current_instruction_revision", "").strip()
     typed_instruction_cleared = (
         metadata.get("current_instruction_explicitly_cleared", "").strip().lower()

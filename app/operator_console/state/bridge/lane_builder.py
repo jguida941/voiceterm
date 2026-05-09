@@ -5,10 +5,16 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .bridge_heading_aliases import bridge_section_text
 from .lane_attention import (
     attention_status_hint,
     operator_state_label,
     prefer_status_hint,
+)
+from .lane_live_trace import (
+    live_trace_label,
+    live_trace_raw_parts,
+    live_trace_status,
 )
 from ..core.models import AgentLaneData, ApprovalRequest
 from ..sessions.session_trace_reader import SessionTraceSnapshot
@@ -27,7 +33,7 @@ def build_codex_lane(
     poll_status = sections.get("Poll Status", "(missing)")
     verdict = sections.get("Current Verdict", "(missing)")
     findings = sections.get("Open Findings", "(missing)")
-    live_status = _live_trace_status(live_trace)
+    live_status = live_trace_status(live_trace)
     status_hint = prefer_status_hint(
         _lane_status_hint(_codex_status_hint(poll_status, last_codex_poll), live_status),
         attention_status_hint(attention_status),
@@ -39,7 +45,7 @@ def build_codex_lane(
     raw_parts = [
         f"Last Codex poll: {last_codex_poll or '(unknown)'}",
         f"Last worktree hash: {last_worktree_hash or '(unknown)'}",
-        *( _live_trace_raw_parts(live_trace) ),
+        *live_trace_raw_parts(live_trace),
         f"\nPoll Status:\n{poll_status}",
         f"\nCurrent Verdict:\n{verdict}",
         f"\nOpen Findings:\n{findings}",
@@ -52,7 +58,7 @@ def build_codex_lane(
     if live_trace is not None:
         rows.extend(
             [
-                ("Session", _live_trace_label(live_trace)),
+                ("Session", live_trace_label(live_trace)),
                 ("Updated", live_trace.updated_at or "(unknown)"),
             ]
         )
@@ -86,24 +92,28 @@ def build_claude_lane(
     live_trace: SessionTraceSnapshot | None = None,
 ) -> AgentLaneData:
     """Build structured Claude implementer lane data from parsed sections."""
-    status = sections.get("Claude Status", "(missing)")
-    questions = sections.get("Claude Questions", "(missing)")
-    ack = sections.get("Claude Ack", "(missing)")
-    live_status = _live_trace_status(live_trace)
+    status = bridge_section_text(sections, "Implementer Status", default="(missing)")
+    questions = bridge_section_text(
+        sections,
+        "Implementer Questions",
+        default="(missing)",
+    )
+    ack = bridge_section_text(sections, "Implementer Ack", default="(missing)")
+    live_status = live_trace_status(live_trace)
     status_hint = _lane_status_hint(_claude_status_hint(status), live_status)
     state_label = _claude_state_label(status, ack)
 
     raw_parts = [
-        *( _live_trace_raw_parts(live_trace) ),
-        f"Claude Status:\n{status}",
-        f"\nClaude Questions:\n{questions}",
-        f"\nClaude Ack:\n{ack}",
+        *live_trace_raw_parts(live_trace),
+        f"Implementer Status:\n{status}",
+        f"\nImplementer Questions:\n{questions}",
+        f"\nImplementer Ack:\n{ack}",
     ]
     rows = [("State", state_label)]
     if live_trace is not None:
         rows.extend(
             [
-                ("Session", _live_trace_label(live_trace)),
+                ("Session", live_trace_label(live_trace)),
                 ("Updated", live_trace.updated_at or "(unknown)"),
             ]
         )
@@ -133,7 +143,11 @@ def build_operator_lane(
     attention_summary: str | None = None,
 ) -> AgentLaneData:
     """Build structured operator lane data from parsed sections."""
-    instruction = sections.get("Current Instruction For Claude", "(missing)")
+    instruction = bridge_section_text(
+        sections,
+        "Current Instruction For Implementer",
+        default="(missing)",
+    )
     scope = sections.get("Last Reviewed Scope", "(missing)")
     approval_count = len(pending_approvals)
     status_hint = prefer_status_hint(
@@ -147,7 +161,7 @@ def build_operator_lane(
     )
 
     raw_parts = [
-        f"Current Instruction For Claude:\n{instruction}",
+        f"Current Instruction For Implementer:\n{instruction}",
         f"\nLast Reviewed Scope:\n{scope}",
         f"\nReview state: {review_state_path or '(not found)'}",
         f"Pending approvals: {approval_count}",
@@ -185,7 +199,7 @@ def build_cursor_lane(
     """Build structured Cursor editor lane data from parsed sections."""
     status = sections.get("Cursor Status", "(missing)")
     focus = sections.get("Cursor Focus", sections.get("Cursor Instruction", "(missing)"))
-    live_status = _live_trace_status(live_trace)
+    live_status = live_trace_status(live_trace)
     status_hint = _lane_status_hint(
         _cursor_status_hint(status, has_live_trace=live_trace is not None),
         live_status,
@@ -195,7 +209,7 @@ def build_cursor_lane(
     if live_trace is not None:
         rows.extend(
             [
-                ("Session", _live_trace_label(live_trace)),
+                ("Session", live_trace_label(live_trace)),
                 ("Updated", live_trace.updated_at or "(unknown)"),
             ]
         )
@@ -206,7 +220,7 @@ def build_cursor_lane(
         ]
     )
     raw_parts = [
-        *(_live_trace_raw_parts(live_trace)),
+        *live_trace_raw_parts(live_trace),
         f"Cursor Status:\n{status}",
         f"\nCursor Focus:\n{focus}",
     ]
@@ -356,42 +370,3 @@ def _lane_status_hint(
     if bridge_status != "idle" or live_status is None:
         return bridge_status
     return live_status[0]
-
-def _live_trace_status(
-    live_trace: SessionTraceSnapshot | None,
-    *,
-    max_age_seconds: int = 300,
-    active_age_seconds: int = 120,
-) -> tuple[str, str] | None:
-    if live_trace is None or live_trace.updated_at is None:
-        return None
-    age_seconds = _timestamp_age_seconds(live_trace.updated_at)
-    if age_seconds is None or age_seconds > max_age_seconds:
-        return None
-    if age_seconds <= active_age_seconds:
-        return ("active", "live")
-    return ("warning", "recent")
-
-
-def _live_trace_label(live_trace: SessionTraceSnapshot) -> str:
-    freshness = _live_trace_status(live_trace)
-    freshness_label = freshness[1] if freshness is not None else "captured"
-    return f"{live_trace.session_name} [{freshness_label}]"
-
-
-def _live_trace_raw_parts(live_trace: SessionTraceSnapshot | None) -> tuple[str, ...]:
-    if live_trace is None:
-        return ()
-    return (
-        f"Live session trace: {live_trace.session_name}",
-        f"Live session updated: {live_trace.updated_at or '(unknown)'}",
-        f"Live session log: {live_trace.log_path}",
-    )
-
-
-def _timestamp_age_seconds(iso_timestamp: str) -> float | None:
-    try:
-        parsed = datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
-    except (ValueError, TypeError):
-        return None
-    return (datetime.now(tz=timezone.utc) - parsed).total_seconds()

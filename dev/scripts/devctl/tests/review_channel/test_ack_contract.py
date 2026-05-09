@@ -168,13 +168,13 @@ def test_build_bridge_projection_state_prefers_typed_current_session_sections() 
 
     assert projection_state.sections["Current Verdict"] == "- Typed verdict wins."
     assert projection_state.sections["Open Findings"] == "- Typed findings win."
-    assert projection_state.sections["Claude Status"] == "- Typed status wins."
+    assert projection_state.sections["Implementer Status"] == "- Typed status wins."
     assert (
-        projection_state.sections["Claude Ack"]
+        projection_state.sections["Implementer Ack"]
         == f"- Acknowledged instruction revision `{revision}`"
     )
     assert (
-        projection_state.sections["Current Instruction For Claude"]
+        projection_state.sections["Current Instruction For Implementer"]
         == "- Typed instruction wins."
     )
     assert projection_state.sections["Last Reviewed Scope"] == "- typed/scope.py"

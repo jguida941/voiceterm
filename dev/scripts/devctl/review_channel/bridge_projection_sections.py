@@ -45,17 +45,17 @@ def projection_sections(
             ),
         ),
         (
-            "Claude Status",
+            "Implementer Status",
             _typed_section_override(current_session.get("implementer_status")),
             "implementer_status" in current_session,
         ),
         (
-            "Claude Ack",
+            "Implementer Ack",
             _typed_section_override(current_session.get("implementer_ack")),
             "implementer_ack" in current_session,
         ),
         (
-            "Current Instruction For Claude",
+            "Current Instruction For Implementer",
             _typed_section_override(current_session.get("current_instruction")),
             "current_instruction" in current_session,
         ),
@@ -121,16 +121,16 @@ def with_fallback_sections(
     )
     _set_missing(
         result,
-        "Claude Status",
+        "Implementer Status",
         _section_text(
             current_session.get("implementer_status"),
             default="- Status unavailable.",
         ),
     )
-    _set_missing(result, "Claude Questions", "- None recorded.")
+    _set_missing(result, "Implementer Questions", "- None recorded.")
     _set_missing(
         result,
-        "Claude Ack",
+        "Implementer Ack",
         _section_text(current_session.get("implementer_ack"), default="- missing"),
     )
     instruction_fallback = _current_instruction_fallback(review_state)
@@ -140,7 +140,7 @@ def with_fallback_sections(
             current_instruction = ""
         _set_missing(
             result,
-            "Current Instruction For Claude",
+            "Current Instruction For Implementer",
             _section_text(
                 current_instruction,
                 default=instruction_fallback,
@@ -149,7 +149,7 @@ def with_fallback_sections(
     else:
         _set_missing(
             result,
-            "Current Instruction For Claude",
+            "Current Instruction For Implementer",
             instruction_fallback,
         )
     _replace_wait_placeholder_with_typed_fallback(
@@ -240,13 +240,13 @@ def _replace_wait_placeholder_with_typed_fallback(
     instruction_fallback: str,
 ) -> None:
     current_instruction = str(
-        sections.get("Current Instruction For Claude") or ""
+        sections.get("Current Instruction For Implementer") or ""
     ).strip()
     if current_instruction != "- Await reviewer instruction refresh.":
         return
     if instruction_fallback == "- Await reviewer instruction refresh.":
         return
-    sections["Current Instruction For Claude"] = instruction_fallback
+    sections["Current Instruction For Implementer"] = instruction_fallback
 
 
 def _section_text(*values: object, default: str) -> str:

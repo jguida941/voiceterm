@@ -50,7 +50,9 @@ def _group_owned_lanes(
 
 def _derive_current_atomic_step(snapshot) -> str | None:
     return (
-        _first_markdown_item(snapshot.sections.get("Claude Status", ""))
-        or _first_markdown_item(snapshot.sections.get("Current Instruction For Claude", ""))
+        _first_markdown_item(snapshot.sections.get("Implementer Status", ""))
+        or _first_markdown_item(
+            snapshot.sections.get("Current Instruction For Implementer", "")
+        )
         or _first_markdown_item(snapshot.sections.get("Last Reviewed Scope", ""))
     )

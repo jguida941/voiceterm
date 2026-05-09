@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from datetime import datetime, timezone
 
+from ..runtime.packet_transport_expiry import packet_transport_expired
 from .pending_packet_approval_resolution import (
     approval_resolution_key,
     is_applied_approval_decision,
@@ -19,10 +19,9 @@ def partition_live_pending_packets(
 ) -> tuple[list[object], list[object]]:
     """Split packets into live pending work and stale/history rows.
 
-    Only packets with ``status == "pending"`` and a future expiry remain in the
-    live actionable queue. Everything else stays in the history bucket so
-    operator-facing projections can render it separately instead of mixing it
-    back into the current work queue.
+    Only runtime-transport packets can become stale because a TTL elapsed.
+    Durable-content and communication packets remain live until typed ingestion,
+    dismissal, supersession, or another explicit lifecycle action resolves them.
     """
     packet_list = list(packets)
     live_packets: list[object] = []
@@ -33,10 +32,11 @@ def partition_live_pending_packets(
         if is_applied_approval_decision(packet)
         and any(approval_resolution_key(packet))
     }
-    now = datetime.now(timezone.utc)
     for packet in packet_list:
         status = _packet_value(packet, "status")
         if str(status or "").strip() != "pending":
+            continue
+        if _is_resolved_lifecycle(packet):
             continue
         if _has_terminal_action_request_receipt(packet):
             continue
@@ -47,10 +47,7 @@ def partition_live_pending_packets(
             and approval_resolution_key(packet) in resolved_approval_keys
         ):
             continue
-        expires_at = _parse_utc(
-            str(_packet_value(packet, "expires_at_utc") or "").strip()
-        )
-        if expires_at is not None and expires_at <= now:
+        if isinstance(packet, Mapping) and packet_transport_expired(packet):
             stale_packets.append(packet)
             continue
         live_packets.append(packet)
@@ -146,6 +143,20 @@ def _has_terminal_action_request_receipt(packet: object) -> bool:
     )
 
 
+def _is_resolved_lifecycle(packet: object) -> bool:
+    lifecycle = str(_packet_value(packet, "lifecycle_current_state") or "").strip()
+    if lifecycle in {"applied", "dismissed", "archived"}:
+        return True
+    disposition = _packet_value(packet, "disposition")
+    if not isinstance(disposition, Mapping):
+        return False
+    return str(disposition.get("sink") or "").strip() in {
+        "applied",
+        "dismissed",
+        "archived",
+    }
+
+
 def _coerce_int(value: object, *, default: int) -> int:
     if value is None:
         return default
@@ -157,15 +168,6 @@ def _coerce_int(value: object, *, default: int) -> int:
         return int(str(value).strip())
     except (TypeError, ValueError):
         return default
-
-
-def _parse_utc(raw_value: str) -> datetime | None:
-    if not raw_value:
-        return None
-    try:
-        return datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
 
 
 def _packet_value(packet: object, field_name: str) -> object:

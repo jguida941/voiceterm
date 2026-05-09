@@ -19,12 +19,20 @@ def next_required_command(
     fallback_commands: tuple[str, ...],
 ) -> str:
     """Return the concrete command that keeps the controller moving."""
+    ingestion_command = _packet_ingestion_command(fallback_commands)
+    if ingestion_command:
+        return ingestion_command
+    packet_is_authority = getattr(packet_attention, "authority_affecting", False)
     if _packet_attention_command_is_current_action(
         packet_attention,
         current_action=current_action,
     ):
         return fallback_commands[0] if fallback_commands else packet_attention.required_command
-    if packet_attention.attention_required and packet_attention.required_command:
+    if (
+        packet_is_authority
+        and packet_attention.attention_required
+        and packet_attention.required_command
+    ):
         return packet_attention.required_command
     if watcher_report_needed(
         packet_attention=packet_attention,
@@ -35,7 +43,16 @@ def next_required_command(
     for signal in orchestration.signals:
         if signal.suggested_command:
             return signal.suggested_command
+    if packet_attention.attention_required and packet_attention.required_command:
+        return packet_attention.required_command
     return fallback_commands[0] if fallback_commands else ""
+
+
+def _packet_ingestion_command(commands: tuple[str, ...]) -> str:
+    for command in commands:
+        if "devctl.py develop ingest-intent" in command:
+            return command
+    return ""
 
 
 def watcher_report_needed(

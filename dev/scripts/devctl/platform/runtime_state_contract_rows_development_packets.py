@@ -84,6 +84,32 @@ DEVELOPMENT_PACKET_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         ),
         startup_surface_tokens=("decision", "reason_code", "next_command"),
     ),
+    ContractSpec(
+        contract_id="PacketIngestDecision",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Per-packet typed reducer decision that maps one "
+            "PacketIntentClassification to the existing ingest-intent, "
+            "terminal-receipt, review-channel ACK, defer, or operator-triage path."
+        ),
+        required_fields=(
+            ContractField("packet_id", "str", "Review-channel packet id."),
+            ContractField("classification", "str", "PacketIntentClassification value."),
+            ContractField("decision", "str", "ingest, ack, terminal receipt, defer, or operator."),
+            ContractField("reason_code", "str", "Machine-readable decision reason."),
+            ContractField("required_action", "str", "Required next action."),
+            ContractField("next_command", "str", "Existing command path for the decision."),
+            ContractField("target_kind", "str", "Typed target kind when known."),
+            ContractField("target_ref", "str", "Typed target reference when present."),
+            ContractField("terminal_status", "str", "Terminal status receipt value when applicable."),
+            ContractField("fail_closed", "bool", "Whether packet triage must stop ordinary work."),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.development_packet_pressure_models:"
+            "PacketIngestDecision"
+        ),
+        startup_surface_tokens=("packet_id", "decision", "next_command"),
+    ),
 )
 
 __all__ = ["DEVELOPMENT_PACKET_STATE_CONTRACTS"]

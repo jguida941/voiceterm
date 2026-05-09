@@ -62,6 +62,58 @@ def sync_bridge_after_posted_current_instruction(
     }
 
 
+def sync_bridge_after_implementer_ack(
+    *,
+    repo_root: Path,
+    paths: dict[str, object],
+    event: dict[str, object],
+    review_state_payload: dict[str, object],
+    compute_worktree_hash_fn=compute_non_audit_worktree_hash,
+    render_bridge_projection_fn=render_bridge_projection,
+) -> dict[str, object] | None:
+    """Converge the compatibility bridge after a typed implementer ACK."""
+    if not event:
+        return None
+    bridge_path = paths.get("bridge_path")
+    if not isinstance(bridge_path, Path):
+        bridge_path = repo_root / DEFAULT_BRIDGE_REL
+    if not bridge_path.is_file():
+        return {
+            "synced": False,
+            "reason": "bridge_missing",
+            "event_id": str(event.get("event_id") or ""),
+        }
+    try:
+        bridge_rel = str(bridge_path.relative_to(repo_root))
+    except ValueError:
+        bridge_rel = DEFAULT_BRIDGE_REL
+    try:
+        worktree_hash = compute_worktree_hash_fn(
+            repo_root=repo_root,
+            excluded_rel_paths=(bridge_rel,),
+        )
+
+        def transform(_bridge_text: str) -> str:
+            rendered, _metadata = render_bridge_projection_fn(
+                review_state=review_state_payload,
+                last_worktree_hash=worktree_hash,
+            )
+            return rendered
+
+        rewrite_bridge_markdown(bridge_path, transform=transform)
+    except (OSError, ValueError) as exc:
+        return {
+            "synced": False,
+            "reason": f"sync_failed:{exc}",
+            "event_id": str(event.get("event_id") or ""),
+        }
+    return {
+        "synced": True,
+        "reason": "implementer_ack",
+        "event_id": str(event.get("event_id") or ""),
+    }
+
+
 def _posted_packet_drives_current_instruction(
     packet: dict[str, object],
     review_state_payload: dict[str, object],

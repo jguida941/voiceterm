@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from dev.scripts.devctl.runtime import ReviewState
 
+from ..bridge.bridge_heading_aliases import bridge_section_text
 from ..core.models import AgentLaneData
 from .session_trace_reader import SessionTraceSnapshot
 from .session_builder_support import (
@@ -95,11 +96,28 @@ def build_claude_session_surface(
         terminal_blocks=(
             (
                 "current_instruction",
-                sections.get("Current Instruction For Claude", "(missing)"),
+                bridge_section_text(
+                    sections,
+                    "Current Instruction For Implementer",
+                    default="(missing)",
+                ),
             ),
-            ("claude_status", sections.get("Claude Status", "(missing)")),
-            ("claude_questions", sections.get("Claude Questions", "(missing)")),
-            ("claude_ack", sections.get("Claude Ack", "(missing)")),
+            (
+                "claude_status",
+                bridge_section_text(sections, "Implementer Status", default="(missing)"),
+            ),
+            (
+                "claude_questions",
+                bridge_section_text(
+                    sections,
+                    "Implementer Questions",
+                    default="(missing)",
+                ),
+            ),
+            (
+                "claude_ack",
+                bridge_section_text(sections, "Implementer Ack", default="(missing)"),
+            ),
         ),
         stats_lines=(),
     )

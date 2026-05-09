@@ -30,7 +30,8 @@ from ...runtime.runtime_truth_snapshot import (
     build_runtime_truth_snapshot,
 )
 from ...runtime.startup_signals import load_startup_quality_signals
-from ...time_utils import utc_timestamp
+from .design_preflight_probe import ground_truth_probe
+from .design_preflight_provider import provider_session_state_probe
 from .models import DevelopmentDesignPreflight, DevelopmentGroundTruthProbe
 
 _REQUIRED_PROBES = (
@@ -68,7 +69,13 @@ def build_design_preflight(
         quality_signals=quality_signals,
     )
     runtime_truth_payload = _runtime_truth_payload(runtime_truth)
-    changed_paths = _changed_paths(repo_root=repo_root)
+    since_ref = str(getattr(args, "since_ref", "") or "").strip()
+    head_ref = str(getattr(args, "head_ref", "") or "HEAD").strip() or "HEAD"
+    changed_paths = _changed_paths(
+        repo_root=repo_root,
+        since_ref=since_ref or None,
+        head_ref=head_ref,
+    )
     trigger_paths = detect_ground_truth_trigger_paths(
         repo_root=repo_root,
         changed_paths=changed_paths,
@@ -92,8 +99,8 @@ def build_design_preflight(
             design_ids=(topic or "design-preflight", routing_decision),
             required_probe_ids=_REQUIRED_PROBES,
             observed_probe_ids=observed_probe_ids,
-            base_ref=str(getattr(args, "since_ref", "") or ""),
-            head_ref="HEAD",
+            base_ref=since_ref,
+            head_ref=head_ref,
             probe_report_path="devctl develop design-preflight",
             probe_report_sha256=_preflight_digest(probes),
             warnings=runtime_truth.warnings,
@@ -121,8 +128,17 @@ def build_design_preflight(
     )
 
 
-def _changed_paths(*, repo_root: Path) -> tuple[str, ...]:
-    payload = collect_git_status(repo_root=repo_root)
+def _changed_paths(
+    *,
+    repo_root: Path,
+    since_ref: str | None = None,
+    head_ref: str = "HEAD",
+) -> tuple[str, ...]:
+    payload = collect_git_status(
+        since_ref=since_ref,
+        head_ref=head_ref,
+        repo_root=repo_root,
+    )
     rows = payload.get("changes")
     if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
         return ()
@@ -152,96 +168,49 @@ def _probe_rows(
     quality_signals: Mapping[str, object],
 ) -> tuple[DevelopmentGroundTruthProbe, ...]:
     return (
-        _probe(
+        ground_truth_probe(
             "runtime_truth_snapshot",
             "present" if runtime_truth else "missing",
             "Reduced current ReviewState-centered runtime truth.",
             "RuntimeTruthSnapshot",
             ("interaction_mode", "remote_control_active", "live_actor_ids"),
         ),
-        _probe(
+        ground_truth_probe(
             "agent_mind",
             "present" if runtime_truth.get("agent_mind_providers") else "missing",
             "Provider-latest reasoning projections checked.",
             ",".join(_strings(runtime_truth.get("agent_mind_providers"))),
             ("session_id", "latest_events"),
         ),
-        _provider_session_state_probe(repo_root=repo_root, topic=topic),
-        _probe(
+        provider_session_state_probe(repo_root=repo_root, topic=topic),
+        ground_truth_probe(
             "connectivity_registry",
             "present" if connectivity else "missing",
             "Typed contract writer/reader registry checked.",
             str(connectivity.get("contract_id") or ""),
             ("connected_contracts", "reader_ids"),
         ),
-        _probe(
+        ground_truth_probe(
             "command_registry",
             "present",
             "Registered guard/probe command catalogs checked.",
             f"checks={len(CHECK_SCRIPT_RELATIVE_PATHS)} probes={len(PROBE_SCRIPT_RELATIVE_PATHS)}",
             ("CHECK_SCRIPT_RELATIVE_PATHS", "PROBE_SCRIPT_RELATIVE_PATHS"),
         ),
-        _probe(
+        ground_truth_probe(
             "startup_quality_signals",
             "present" if quality_signals else "missing",
             "Startup quality-signal summaries checked.",
             ",".join(sorted(quality_signals)),
             tuple(sorted(quality_signals)),
         ),
-        _probe(
+        ground_truth_probe(
             "existing_contracts",
             "present" if _contract_ids(connectivity) else "missing",
             "Existing platform contract ids checked before adding a new one.",
             ",".join(_matching_contract_ids(topic, connectivity)[:5]),
             ("contract_id", "runtime_model"),
         ),
-    )
-
-
-def _provider_session_state_probe(
-    *,
-    repo_root: Path,
-    topic: str,
-) -> DevelopmentGroundTruthProbe:
-    if "remote" not in topic.lower() and "claude" not in topic.lower():
-        return _probe(
-            "provider_session_state",
-            "not_applicable",
-            "No provider-native state keyword in the topic.",
-            "",
-            (),
-        )
-    try:
-        from ..remote_control._session_state_proof import (
-            resolve_latest_live_session_state_bridge_proof,
-        )
-    except ImportError:
-        return _probe(
-            "provider_session_state",
-            "missing",
-            "Claude session-state reader is unavailable.",
-            "",
-            (),
-        )
-    proof = resolve_latest_live_session_state_bridge_proof(
-        now_utc=utc_timestamp(),
-        expected_cwd=repo_root,
-        max_age_seconds=900,
-    )
-    if proof is None:
-        return _probe(
-            "provider_session_state",
-            "absent",
-            "Claude session-state was checked; no fresh bridgeSessionId proof is active for this repo.",
-            "~/.claude/sessions/*.json",
-            ("bridgeSessionId", "updatedAt", "pid", "cwd"),
-        )
-    return _probe(
-        "provider_session_state",
-        "present",
-        "Fresh Claude bridgeSessionId proof found.",
-        str(proof.path),
-        ("bridgeSessionId", "updatedAt", "pid", "cwd"),
     )
 
 
@@ -293,22 +262,6 @@ def _next_commands(*, topic: str, receipt_recorded: bool) -> tuple[str, ...]:
         "python3 dev/scripts/checks/check_ground_truth_probe_gate.py --format md"
     )
     return tuple(commands)
-
-
-def _probe(
-    probe_id: str,
-    status: str,
-    summary: str,
-    evidence_ref: str,
-    fields: tuple[str, ...],
-) -> DevelopmentGroundTruthProbe:
-    return DevelopmentGroundTruthProbe(
-        probe_id=probe_id,
-        status=status,
-        summary=summary,
-        evidence_ref=evidence_ref,
-        observed_fields=fields,
-    )
 
 
 def _contract_ids(connectivity: Mapping[str, object]) -> tuple[str, ...]:

@@ -169,8 +169,8 @@ def _render_start_rules_body(
         else "the reviewer-owned sections, including the `Last Codex poll` compatibility heartbeat"
     )
     implementer_owned_sections = (
-        "the implementer-owned compatibility sections (`Claude Status`, "
-        "`Claude Questions`, `Claude Ack`)"
+        "the implementer-owned compatibility sections (`Implementer Status`, "
+        "`Implementer Questions`, `Implementer Ack`)"
     )
     lines = [
         (
@@ -214,21 +214,20 @@ def _render_start_rules_body(
         "5. Start from the live sections in this file:",
         (
             f"   - {reviewer_name} should start from `Poll Status`, `Current Verdict`, "
-            "`Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`."
+            "`Open Findings`, `Current Instruction For Implementer`, and `Last Reviewed Scope`."
         ),
         (
             f"   - {implementer_name} should start from `Poll Status`, `Current Verdict`, "
-            "`Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, "
+            "`Open Findings`, `Current Instruction For Implementer`, and `Last Reviewed Scope`, "
             "then acknowledge the active instruction in the implementer ACK section "
-            "(`Claude Ack` compatibility heading) before coding."
+            "(`Implementer Ack`) before coding."
         ),
         (
             "   - `Last Codex poll` remains the reviewer-heartbeat compatibility field "
-            "and the implementer-owned compatibility sections (`Claude Status`, "
-            "`Claude Ack`) remain aliases until native role-labeled bridge headings "
-            "land."
+            "and the old provider-labeled implementer sections remain readable aliases "
+            "until the bridge compatibility projection is retired."
         ),
-        "   - The implementer ACK section (`Claude Ack` compatibility heading) must acknowledge the current instruction revision with a machine-readable line such as `- acknowledged current instruction revision: <rev>` or `- acknowledged; instruction-rev: <rev>`.",
+        "   - The implementer ACK section (`Implementer Ack`) must acknowledge the current instruction revision with a machine-readable line such as `- acknowledged current instruction revision: <rev>` or `- acknowledged; instruction-rev: <rev>`.",
         f"   {packet_ack_is_transport_lifecycle_line()}",
         f"   - {implementer_name} must read `Last Codex poll` / `Poll Status` first on each repoll.",
         f"6. {reviewer_name} must poll non-`bridge.md` worktree changes every 2-3 minutes while",
@@ -256,9 +255,9 @@ def _render_start_rules_body(
         "    turning it into a transcript dump.",
         f"16. When the current slice is accepted and scoped plan work remains, {reviewer_name} must",
         "    promote the next bounded task instead of idling.",
-        "17. If `Current Instruction For Claude` or `Poll Status` says `hold steady`,",
+        "17. If `Current Instruction For Implementer` or `Poll Status` says `hold steady`,",
         f"    {implementer_name} must stay in polling mode until the reviewer-owned sections change.",
-        "18. If `Current Instruction For Claude` still contains active work and there is",
+        "18. If `Current Instruction For Implementer` still contains active work and there is",
         "    no explicit reviewer-owned wait state, implementer status/ack updates",
         "    must be substantive: name concrete files, subsystems, findings, or one concrete",
         "    blocker/question. `No change. Continuing.`, `instruction unchanged`, and",

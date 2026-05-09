@@ -10,6 +10,10 @@ from ..bridge.bridge_sections import (
     extract_bridge_metadata,
     parse_markdown_sections,
 )
+from ..bridge.bridge_heading_aliases import (
+    bridge_section_text,
+    normalize_bridge_sections,
+)
 from ..bridge.lane_builder import (
     build_claude_lane,
     build_codex_lane,
@@ -51,7 +55,7 @@ def build_operator_console_snapshot(
         raw_bridge_text = ""
         warnings.append(f"Bridge file is missing: {bridge_path}")
 
-    sections = parse_markdown_sections(raw_bridge_text)
+    sections = normalize_bridge_sections(parse_markdown_sections(raw_bridge_text))
     metadata = extract_bridge_metadata(raw_bridge_text)
 
     resolved_review_state = review_state_path or find_review_state_path(repo_root)
@@ -196,9 +200,9 @@ def _build_panel_texts(
     claude = _format_panel(
         "Claude Lane",
         [
-            ("Claude Status", sections.get("Claude Status", "(missing)")),
-            ("Claude Questions", sections.get("Claude Questions", "(missing)")),
-            ("Claude Ack", sections.get("Claude Ack", "(missing)")),
+            ("Implementer Status", bridge_section_text(sections, "Implementer Status", default="(missing)")),
+            ("Implementer Questions", bridge_section_text(sections, "Implementer Questions", default="(missing)")),
+            ("Implementer Ack", bridge_section_text(sections, "Implementer Ack", default="(missing)")),
         ],
     )
     cursor = _format_panel(
@@ -287,8 +291,12 @@ def _format_operator_panel(
 ) -> str:
     rows = [
         (
-            "Current Instruction For Claude",
-            sections.get("Current Instruction For Claude", "(missing)"),
+            "Current Instruction For Implementer",
+            bridge_section_text(
+                sections,
+                "Current Instruction For Implementer",
+                default="(missing)",
+            ),
         ),
         ("Last Reviewed Scope", sections.get("Last Reviewed Scope", "(missing)")),
         (

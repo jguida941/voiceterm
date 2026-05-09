@@ -5,9 +5,10 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 
 _IMPLEMENTER_HEADING_ALIASES: dict[str, tuple[str, ...]] = {
-    "Claude Status": ("Implementer Status",),
-    "Claude Questions": ("Implementer Questions",),
-    "Claude Ack": ("Implementer Ack",),
+    "Implementer Status": ("Claude Status",),
+    "Implementer Questions": ("Claude Questions",),
+    "Implementer Ack": ("Claude Ack",),
+    "Current Instruction For Implementer": ("Current Instruction For Claude",),
 }
 
 _ALIAS_TO_CANONICAL = {
@@ -32,6 +33,19 @@ def bridge_heading_aliases(heading: str) -> tuple[str, ...]:
         if mapped_heading == canonical
     )
     return (canonical, *aliases)
+
+
+def bridge_section_text(
+    sections: Mapping[str, str],
+    heading: str,
+    *,
+    default: str = "",
+) -> str:
+    """Read one canonical bridge section with legacy aliases as fallbacks."""
+    for candidate in bridge_heading_aliases(heading):
+        if candidate in sections:
+            return str(sections.get(candidate) or "")
+    return default
 
 
 def normalize_bridge_headings(headings: Iterable[str]) -> list[str]:
