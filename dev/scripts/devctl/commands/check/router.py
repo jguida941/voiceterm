@@ -57,16 +57,16 @@ def _resolve_router_git_scope(
     *,
     since_ref: str | None,
     head_ref: str,
+    range_scope_only: bool = False,
 ) -> tuple[dict[str, object], dict[str, object]]:
     range_info = collect_git_status(since_ref, head_ref)
-    scope = {
-        "source": str(range_info.get("mode") or ""),
-        "requested_since_ref": since_ref,
-        "requested_head_ref": head_ref,
-        "range_changed_paths_count": len(_changed_paths(range_info)),
-        "used_worktree_dirty_paths": False,
-    }
-    if not since_ref or "error" in range_info:
+    scope = _router_change_scope(
+        range_info,
+        since_ref=since_ref,
+        head_ref=head_ref,
+        range_scope_only=range_scope_only,
+    )
+    if not since_ref or range_scope_only or "error" in range_info:
         return range_info, scope
 
     worktree_info = collect_git_status(None, head_ref)
@@ -79,6 +79,23 @@ def _resolve_router_git_scope(
     return range_info, scope
 
 
+def _router_change_scope(
+    range_info: dict[str, object],
+    *,
+    since_ref: str | None,
+    head_ref: str,
+    range_scope_only: bool,
+) -> dict[str, object]:
+    scope: dict[str, object] = {}
+    scope["source"] = str(range_info.get("mode") or "")
+    scope["requested_since_ref"] = since_ref
+    scope["requested_head_ref"] = head_ref
+    scope["range_scope_only"] = range_scope_only
+    scope["range_changed_paths_count"] = len(_changed_paths(range_info))
+    scope["used_worktree_dirty_paths"] = False
+    return scope
+
+
 def run(args) -> int:
     """Route and optionally execute the required check lane."""
     since_ref = getattr(args, "since_ref", None)
@@ -89,6 +106,7 @@ def run(args) -> int:
     git_info, change_scope = _resolve_router_git_scope(
         since_ref=since_ref,
         head_ref=head_ref,
+        range_scope_only=bool(getattr(args, "range_scope_only", False)),
     )
     if "error" in git_info:
         report = {

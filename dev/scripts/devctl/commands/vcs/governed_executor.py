@@ -224,6 +224,7 @@ class GovernedVcsExecutor:
             policy=self.push_policy,
             emit_output_report=False,
             build_post_push_commands_fn=self.build_post_push_commands_fn,
+            commit_pipeline=pending,
         )
         self.last_push_report = dict(report)
         projection = push_result.project_push_report(

@@ -31,16 +31,7 @@ def auto_commit_preflight_generated_changes(
     This function detects preflight-generated changes and auto-commits
     them with a machine-generated message so the push can proceed.
     """
-    try:
-        git = collect_git_status(repo_root=repo_root)
-    except (OSError, FileNotFoundError):
-        return
-    changes = git.get("changes", [])
-    exclusions = (
-        *managed_projection_receipt_paths(policy, repo_root=repo_root),
-        *policy.checkpoint.advisory_context_paths,
-    )
-    dirty = blocking_dirty_paths(changes, exclude_paths=exclusions)
+    dirty = list(preflight_blocking_dirty_paths(policy, repo_root=repo_root))
     if not dirty:
         return
     _commit_preflight_paths(
@@ -59,23 +50,16 @@ def auto_commit_selected_preflight_generated_changes(
     allowed_paths: tuple[str, ...],
     repo_root: Path = REPO_ROOT,
     commit_subject_prefix: str = GENERATED_SURFACE_RECEIPT_SUBJECT_PREFIX,
+    baseline_dirty_paths: tuple[str, ...] = (),
 ) -> dict[str, object]:
     """Auto-commit only selected generated paths while preserving staged intent."""
     allowed = {str(path).strip() for path in allowed_paths if str(path).strip()}
     if not allowed:
         return {"ok": True, "committed": False, "paths": ()}
-    try:
-        git = collect_git_status(repo_root=repo_root)
-    except (OSError, FileNotFoundError):
-        return {"ok": True, "committed": False, "paths": ()}
-    changes = git.get("changes", [])
-    exclusions = (
-        *managed_projection_receipt_paths(policy, repo_root=repo_root),
-        *policy.checkpoint.advisory_context_paths,
-    )
-    dirty = blocking_dirty_paths(changes, exclude_paths=exclusions)
+    dirty = list(preflight_blocking_dirty_paths(policy, repo_root=repo_root))
     selected = [path for path in dirty if path in allowed]
-    unexpected = [path for path in dirty if path not in allowed]
+    baseline = {str(path) for path in baseline_dirty_paths}
+    unexpected = [path for path in dirty if path not in allowed and path not in baseline]
     if unexpected:
         state.errors.append(
             _auto_commit_failure_message(
@@ -125,6 +109,23 @@ def auto_commit_selected_preflight_generated_changes(
         "commit_sha": str(commit_result.get("commit_sha", "") or ""),
         "paths": tuple(selected),
     }
+
+
+def preflight_blocking_dirty_paths(
+    policy,
+    *,
+    repo_root: Path = REPO_ROOT,
+) -> tuple[str, ...]:
+    try:
+        git = collect_git_status(repo_root=repo_root)
+    except (OSError, FileNotFoundError):
+        return ()
+    changes = git.get("changes", [])
+    exclusions = (
+        *managed_projection_receipt_paths(policy, repo_root=repo_root),
+        *policy.checkpoint.advisory_context_paths,
+    )
+    return tuple(blocking_dirty_paths(changes, exclude_paths=exclusions))
 
 
 def _commit_preflight_paths(

@@ -18,10 +18,7 @@ from ...governance.push_routing import (
     resolve_preflight_since_ref,
 )
 from ...governance.push_state import current_head_commit_sha, current_upstream_ref
-from ...repo_packs import active_path_config
-from ...review_channel.core import bridge_is_active
 from ...review_channel.service_identity import worktree_identity_for_repo
-from ...review_channel.state import refresh_status_snapshot
 from ...runtime import TypedAction
 from ...runtime.push_authorization import publication_authorization_decision
 from ...runtime.vcs import (
@@ -30,12 +27,12 @@ from ...runtime.vcs import (
     remote_exists,
     run_git_capture,
 )
-from ..review_channel.status_bridge_sync import (
-    sync_bridge_from_typed_projection_if_needed as _sync_bridge_from_typed_projection_if_needed,
-)
 from . import push_flow
 from .governed_executor_actions import build_push_action
 from .orphan_snapshot_advisory import append_orphan_snapshot_advisory
+from .push_bridge_sync import (
+    sync_bridge_projection_before_preflight as _sync_bridge_projection_before_preflight,
+)
 from .push_executor_routing import maybe_run_executor_routed_push
 from .push_findings import (
     APPROVED_TARGET_IDENTITY_VIOLATION,
@@ -52,6 +49,10 @@ from .push_flow import (
 )
 from .push_git_status import collect_git_status_for_repo
 from .push_pipeline_state_sync import sync_commit_pipeline_with_push_report
+from .push_pipeline_scope import (
+    authorized_head_sha,
+    commit_pipeline_authorizes_publication_scope,
+)
 from .push_preflight_commit import run_post_validation_auto_commit_repair_phase
 from .push_preflight_projection import (
     refresh_managed_projections_before_preflight,
@@ -102,6 +103,7 @@ class PushRunState:
     approved_worktree_identity: str = ""
     push_authorization_id: str = ""
     push_authorization_mode: str = ""
+    push_authorization_head_commit: str = ""
     remote_head_after: str = ""
     pre_validation_managed_projection_sync: dict[str, Any] = field(default_factory=dict)
     pre_validation_recovery_loop_repair: dict[str, Any] = field(default_factory=dict)
@@ -117,6 +119,7 @@ def _load_run_state(
     args,
     *,
     repo_root: Path = REPO_ROOT,
+    commit_pipeline: Any = None,
 ) -> PushRunState:
     state = PushRunState()
     state.repo_root = str(repo_root)
@@ -154,9 +157,21 @@ def _load_run_state(
         git.get("changes", []),
         exclude_paths=push_exclusion_paths(policy, repo_root=repo_root),
     )
+    pipeline_authorizes_publication = commit_pipeline_authorizes_publication_scope(
+        commit_pipeline,
+        state=state,
+        repo_root=repo_root,
+    )
+    if pipeline_authorizes_publication:
+        state.push_authorization_head_commit = authorized_head_sha(commit_pipeline)
     if state.branch == "HEAD":
         state.errors.append("Detached HEAD is not supported. Check out a branch first.")
-    if state.dirty_paths:
+    if state.dirty_paths and pipeline_authorizes_publication:
+        state.warnings.append(
+            "Ignoring unrelated worktree dirt because the active governed commit "
+            "pipeline owns the current branch and authorized HEAD."
+        )
+    elif state.dirty_paths:
         state.errors.append(
             "Working tree has uncommitted changes. Commit or stash before push."
         )
@@ -226,6 +241,9 @@ def _append_publication_authorization_errors(
             ).strip()
             state.push_authorization_id = authorization.authorization_id
             state.push_authorization_mode = authorization.approval_mode
+            state.push_authorization_head_commit = str(
+                getattr(authorization, "authorized_head_sha", "") or ""
+            ).strip()
             append_approved_identity_errors(
                 state,
                 authorization=authorization,
@@ -253,59 +271,6 @@ def _protected_branch_errors(branch: str, policy) -> list[str]:
             f"Branch `{branch}` is release-only. Use `devctl ship` for release/tag pushes."
         ]
     return [f"Direct pushes to protected branch `{branch}` are blocked by repo policy."]
-
-
-def _sync_bridge_projection_before_preflight(
-    state: PushRunState,
-    *,
-    repo_root: Path = REPO_ROOT,
-) -> None:
-    """Refresh `bridge.md` from typed review state before routed preflight runs."""
-    config = active_path_config()
-    bridge_path = repo_root / config.bridge_rel
-    review_channel_path = repo_root / config.review_channel_rel
-    status_dir = repo_root / config.review_status_dir_rel
-    if not bridge_path.is_file() or not review_channel_path.is_file():
-        return
-    try:
-        review_channel_text = review_channel_path.read_text(encoding="utf-8")
-    except OSError as exc:
-        state.warnings.append(
-            f"push preflight skipped bridge sync because review-channel state could not be read: {exc}"
-        )
-        return
-
-    if not bridge_is_active(review_channel_text):
-        return
-
-    try:
-        snapshot = refresh_status_snapshot(
-            repo_root=repo_root,
-            bridge_path=bridge_path,
-            review_channel_path=review_channel_path,
-            output_root=status_dir,
-            execution_mode="markdown-bridge",
-            warnings=[],
-            errors=[],
-        )
-        bridge_synced, sync_warning = _sync_bridge_from_typed_projection_if_needed(
-            repo_root=repo_root,
-            bridge_path=bridge_path,
-            snapshot=snapshot,
-        )
-    except (OSError, ValueError) as exc:
-        state.warnings.append(
-            "push preflight skipped bridge sync because the typed review "
-            f"projection could not be refreshed: {exc}"
-        )
-        return
-
-    if sync_warning:
-        state.warnings.append(sync_warning)
-    if bridge_synced:
-        state.warnings.append(
-            "Synchronized `bridge.md` from typed review-state before push preflight."
-        )
 
 
 def _run_fetch_and_preflight(
@@ -386,6 +351,8 @@ def _run_fetch_and_preflight(
         remote=state.remote,
         route_state=route_state,
         quality_policy_path=getattr(args, "quality_policy", None),
+        head_ref=state.push_authorization_head_commit or "HEAD",
+        range_scope_only=bool(state.push_authorization_head_commit),
     )
     state.preflight_step = command_runner(
         "push-preflight",
@@ -441,15 +408,14 @@ def run_push_action(
     publication_authorization_fn=None,
     writer=None,
     piper=None,
+    commit_pipeline: Any = None,
 ) -> tuple[int, dict[str, Any]]:
     resolved_policy = policy or load_push_policy(
         repo_root=repo_root,
         policy_path=getattr(args, "quality_policy", None),
     )
     state = _load_run_state(
-        resolved_policy,
-        args,
-        repo_root=repo_root,
+        resolved_policy, args, repo_root=repo_root, commit_pipeline=commit_pipeline
     )
     head_commit = current_head_commit_sha(repo_root=repo_root)
     if bool(args.execute) and not state.errors:
@@ -590,16 +556,17 @@ def run(args) -> int:
         repo_root=REPO_ROOT,
         policy_path=getattr(args, "quality_policy", None),
     )
-    state = _load_run_state(
-        resolved_policy,
-        args,
-        repo_root=REPO_ROOT,
-    )
     executor = GovernedVcsExecutor(
         repo_root=REPO_ROOT,
         push_policy=resolved_policy,
     )
     pipeline = executor.load_pipeline()
+    state = _load_run_state(
+        resolved_policy,
+        args,
+        repo_root=REPO_ROOT,
+        commit_pipeline=pipeline,
+    )
     routed_exit = maybe_run_executor_routed_push(
         args=args,
         resolved_policy=resolved_policy,

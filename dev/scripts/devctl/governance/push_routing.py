@@ -27,6 +27,8 @@ def build_preflight_shell_command(
     remote: str,
     route_state: PushRefRoutingState | None = None,
     quality_policy_path: str | None = None,
+    head_ref: str = "HEAD",
+    range_scope_only: bool = False,
 ) -> str:
     """Build the non-mutating or execution-ready preflight shell command."""
     resolved_route = route_state or PushRefRoutingState()
@@ -44,6 +46,10 @@ def build_preflight_shell_command(
         "--since-ref",
         since_ref,
     ]
+    if head_ref and head_ref != "HEAD":
+        args.extend(["--head-ref", head_ref])
+    if range_scope_only:
+        args.append("--range-scope-only")
     if policy.preflight.execute:
         args.append("--execute")
         args.append("--keep-going")

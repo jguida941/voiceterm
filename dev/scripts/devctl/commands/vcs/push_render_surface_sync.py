@@ -6,7 +6,10 @@ import sys
 from pathlib import Path
 
 from ...governance.surfaces import load_surface_policy
-from .push_preflight_commit import auto_commit_selected_preflight_generated_changes
+from .push_preflight_commit import (
+    auto_commit_selected_preflight_generated_changes,
+    preflight_blocking_dirty_paths,
+)
 
 POLICY_RENDER_SURFACE_SYNC = "policy_render_surface_sync"
 
@@ -29,6 +32,7 @@ def refresh_policy_owned_render_surfaces_before_preflight(
             status="skipped",
             reason="no_tracked_surfaces",
         )
+    baseline_dirty_paths = preflight_blocking_dirty_paths(policy, repo_root=repo_root)
     command = [
         sys.executable,
         "dev/scripts/devctl.py",
@@ -57,6 +61,7 @@ def refresh_policy_owned_render_surfaces_before_preflight(
         policy,
         allowed_paths=surface_paths,
         repo_root=repo_root,
+        baseline_dirty_paths=baseline_dirty_paths,
     )
     committed = bool(commit_result.get("committed"))
     commit_sha = str(commit_result.get("commit_sha", "") or "")

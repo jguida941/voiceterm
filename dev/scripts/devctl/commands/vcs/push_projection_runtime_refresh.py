@@ -6,8 +6,6 @@ import sys
 from pathlib import Path
 
 from ...repo_packs import active_path_config
-from ...review_channel.event_reducer import load_or_refresh_event_bundle
-from ...review_channel.event_store import resolve_artifact_paths
 from ...review_channel.handoff import (
     extract_bridge_snapshot,
     summarize_bridge_liveness,
@@ -16,11 +14,19 @@ from ...review_channel.peer_liveness import (
     CODEX_POLL_STALE_AFTER_SECONDS,
     reviewer_mode_is_active,
 )
-from ...review_channel.state import refresh_status_snapshot
+from .push_projection_bundle_refresh import (
+    refresh_review_channel_projection_bundle_after_projection_receipt as _refresh_review_channel_projection_bundle_after_projection_receipt,
+)
+from .push_recovery_loop_payload import (
+    startup_context_step_needs_recovery,
+)
+from .push_recovery_loop_checkpoint import (
+    defer_startup_context_checkpoint_gate,
+    startup_context_step_is_checkpoint_gate,
+)
 from .push_recovery_loop_repair import (
     PRE_VALIDATION_RECOVERY_LOOP_REPAIR,
     mark_recovery_required_from_startup_context_step,
-    startup_context_step_needs_recovery,
 )
 
 
@@ -180,6 +186,13 @@ def refresh_runtime_surfaces_after_projection_receipt(
                     next_step_label=next_step_label,
                 )
                 continue
+            if label == "startup-context" and startup_context_step_is_checkpoint_gate(step):
+                defer_startup_context_checkpoint_gate(
+                    state,
+                    step,
+                    next_step_label=next_step_label,
+                )
+                continue
             if label == "startup-context":
                 retry_step = _retry_startup_context_refresh_after_reviewer_follow(
                     state,
@@ -193,6 +206,14 @@ def refresh_runtime_surfaces_after_projection_receipt(
                     continue
                 if startup_context_step_needs_recovery(retry_step):
                     _defer_startup_context_recovery(
+                        state,
+                        retry_step,
+                        next_step_label=next_step_label,
+                        after_reviewer_follow=True,
+                    )
+                    continue
+                if startup_context_step_is_checkpoint_gate(retry_step):
+                    defer_startup_context_checkpoint_gate(
                         state,
                         retry_step,
                         next_step_label=next_step_label,
@@ -263,53 +284,6 @@ def _retry_startup_context_refresh_after_reviewer_follow(
         list(STARTUP_CONTEXT_REFRESH_COMMAND),
         cwd=repo_root,
     )
-
-
-def _refresh_review_channel_projection_bundle_after_projection_receipt(
-    state,
-    *,
-    repo_root: Path,
-    next_step_label: str,
-) -> bool:
-    """Keep review-state sibling projections on the same proof tick as HEAD."""
-    config = active_path_config()
-    review_channel_path = repo_root / config.review_channel_rel
-    if not review_channel_path.is_file():
-        return True
-    try:
-        artifact_paths = resolve_artifact_paths(repo_root=repo_root)
-        event_log_path = Path(artifact_paths.event_log_path)
-        state_path = Path(artifact_paths.state_path)
-        if event_log_path.exists() or state_path.exists():
-            load_or_refresh_event_bundle(
-                repo_root=repo_root,
-                review_channel_path=review_channel_path,
-                artifact_paths=artifact_paths,
-            )
-            state.warnings.append(
-                "Refreshed review-channel projections after managed projection "
-                f"receipt before {next_step_label}."
-            )
-            return True
-        bridge_path = repo_root / config.bridge_rel
-        if bridge_path.is_file():
-            refresh_status_snapshot(
-                repo_root=repo_root,
-                bridge_path=bridge_path,
-                review_channel_path=review_channel_path,
-                output_root=repo_root / config.review_status_dir_rel,
-            )
-            state.warnings.append(
-                "Refreshed bridge-backed review projections after managed "
-                f"projection receipt before {next_step_label}."
-            )
-    except (OSError, ValueError) as exc:
-        state.errors.append(
-            "Managed projection receipt moved HEAD, but review-channel "
-            f"projection refresh failed before {next_step_label}: {exc}"
-        )
-        return False
-    return True
 
 
 __all__ = [

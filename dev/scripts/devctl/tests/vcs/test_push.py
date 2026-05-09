@@ -15,6 +15,7 @@ from dev.scripts.devctl.commands.vcs import (
     push,
     push_preflight_commit,
     push_preflight_projection,
+    push_projection_bundle_refresh,
     push_projection_receipt,
     push_projection_runtime_refresh,
     push_recovery_loop_handoff,
@@ -53,6 +54,7 @@ from dev.scripts.devctl.review_channel.remote_commit_pipeline_artifact import (
     persist_remote_commit_pipeline_contract,
 )
 from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
+    PushAuthorizationRecord,
     RemoteCommitPipelineContract,
 )
 from dev.scripts.devctl.runtime.push_authorization import (
@@ -206,6 +208,242 @@ class PushParserTests(unittest.TestCase):
 
         self.assertFalse(policy.bypass.allow_skip_preflight)
         self.assertFalse(policy.bypass.allow_skip_post_push)
+
+
+class PushAuthorizedPipelineDirtyWorktreeTests(unittest.TestCase):
+    def test_governed_push_publishes_authorized_head_with_unrelated_dirty_worktree(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root, _remote_root, branch = self._create_repo_with_ahead_commit(
+                Path(tmp_dir),
+                branch="feature/authorized-dirty",
+            )
+            remote_before = _run_git(repo_root, "rev-parse", f"origin/{branch}")
+            (repo_root / "scratch.txt").write_text("uncommitted\n", encoding="utf-8")
+            head = push.current_head_commit_sha(repo_root=repo_root)
+            pipeline = self._pipeline_for_head(repo_root, branch=branch, head=head)
+
+            with patch(
+                "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                return_value="git status --short",
+            ) as build_preflight_mock:
+                rc, report = push.run_push_action(
+                    make_args(execute=True),
+                    repo_root=repo_root,
+                    policy=make_policy(development_branch=branch),
+                    emit_output_report=False,
+                    run_cmd_fn=push.run_cmd,
+                    build_post_push_commands_fn=lambda _policy, **_kwargs: [],
+                    publication_authorization_fn=lambda **_kwargs: SimpleNamespace(
+                        authorized=True,
+                        reason="push_authorization_current",
+                        summary="Publication is authorized for the current HEAD.",
+                        push_authorization=pipeline.push_authorization,
+                    ),
+                    commit_pipeline=pipeline,
+                )
+
+            self.assertEqual(build_preflight_mock.call_args.kwargs["head_ref"], head)
+            self.assertTrue(build_preflight_mock.call_args.kwargs["range_scope_only"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(report["status"], "post_push_green")
+            self.assertEqual(report["reason"], "push_completed")
+            self.assertIn(
+                "Ignoring unrelated worktree dirt", "\n".join(report["warnings"])
+            )
+            self.assertEqual(report["push_step"]["returncode"], 0)
+            remote_after = _run_git(repo_root, "rev-parse", f"origin/{branch}")
+            self.assertNotEqual(remote_before, remote_after)
+            self.assertEqual(remote_after, head)
+
+    def test_dirty_worktree_without_commit_pipeline_still_blocks_push(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root, _remote_root, branch = self._create_repo_with_ahead_commit(
+                Path(tmp_dir),
+                branch="feature/no-pipeline-dirty",
+            )
+            remote_before = _run_git(repo_root, "rev-parse", f"origin/{branch}")
+            (repo_root / "scratch.txt").write_text("uncommitted\n", encoding="utf-8")
+
+            with patch(
+                "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                return_value="git status --short",
+            ) as build_preflight_mock:
+                rc, report = push.run_push_action(
+                    make_args(execute=True),
+                    repo_root=repo_root,
+                    policy=make_policy(development_branch=branch),
+                    emit_output_report=False,
+                    run_cmd_fn=push.run_cmd,
+                    build_post_push_commands_fn=lambda _policy, **_kwargs: [],
+                    publication_authorization_fn=lambda **_kwargs: _publication_authorization(
+                        approved_target_identity="devctl_commit:"
+                        + push.current_head_commit_sha(repo_root=repo_root),
+                    ),
+                )
+
+            self.assertEqual(rc, 1)
+            self.assertEqual(report["status"], "blocked")
+            self.assertIn("Working tree has uncommitted changes", report["errors"][0])
+            self.assertEqual(
+                _run_git(repo_root, "rev-parse", f"origin/{branch}"),
+                remote_before,
+            )
+
+    def test_dirty_worktree_with_pipeline_head_mismatch_still_blocks_push(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root, _remote_root, branch = self._create_repo_with_ahead_commit(
+                Path(tmp_dir),
+                branch="feature/pipeline-head-mismatch",
+            )
+            remote_before = _run_git(repo_root, "rev-parse", f"origin/{branch}")
+            (repo_root / "scratch.txt").write_text("uncommitted\n", encoding="utf-8")
+            head = push.current_head_commit_sha(repo_root=repo_root)
+            pipeline = self._pipeline_for_head(
+                repo_root,
+                branch=branch,
+                head="0" * 40,
+            )
+
+            with patch(
+                "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                return_value="git status --short",
+            ) as build_preflight_mock:
+                rc, report = push.run_push_action(
+                    make_args(execute=True),
+                    repo_root=repo_root,
+                    policy=make_policy(development_branch=branch),
+                    emit_output_report=False,
+                    run_cmd_fn=push.run_cmd,
+                    build_post_push_commands_fn=lambda _policy, **_kwargs: [],
+                    publication_authorization_fn=lambda **_kwargs: _publication_authorization(
+                        approved_target_identity=f"devctl_commit:{head}",
+                    ),
+                    commit_pipeline=pipeline,
+                )
+
+            self.assertEqual(rc, 1)
+            self.assertEqual(report["status"], "blocked")
+            self.assertIn("Working tree has uncommitted changes", report["errors"][0])
+            self.assertEqual(
+                _run_git(repo_root, "rev-parse", f"origin/{branch}"),
+                remote_before,
+            )
+
+    def test_governed_push_allows_managed_receipt_child_of_authorized_head(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root, _remote_root, branch = self._create_repo_with_ahead_commit(
+                Path(tmp_dir),
+                branch="feature/authorized-receipt",
+            )
+            remote_before = _run_git(repo_root, "rev-parse", f"origin/{branch}")
+            authorized_head = push.current_head_commit_sha(repo_root=repo_root)
+            (repo_root / "surface.md").write_text("receipt\n", encoding="utf-8")
+            _run_git(repo_root, "add", "surface.md")
+            _run_git(
+                repo_root,
+                "commit",
+                "-m",
+                f"Refresh policy-owned generated surfaces for {authorized_head[:8]}",
+            )
+            receipt_head = push.current_head_commit_sha(repo_root=repo_root)
+            (repo_root / "scratch.txt").write_text("uncommitted\n", encoding="utf-8")
+            pipeline = self._pipeline_for_head(
+                repo_root,
+                branch=branch,
+                head=authorized_head,
+            )
+
+            with patch(
+                "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                return_value="git status --short",
+            ) as build_preflight_mock:
+                rc, report = push.run_push_action(
+                    make_args(execute=True),
+                    repo_root=repo_root,
+                    policy=make_policy(development_branch=branch),
+                    emit_output_report=False,
+                    run_cmd_fn=push.run_cmd,
+                    build_post_push_commands_fn=lambda _policy, **_kwargs: [],
+                    publication_authorization_fn=lambda **_kwargs: SimpleNamespace(
+                        authorized=True,
+                        reason="push_authorization_snapshot_receipt_current",
+                        summary="Publication is authorized through a managed receipt.",
+                        push_authorization=pipeline.push_authorization,
+                        authorized_via_managed_receipt_chain=True,
+                    ),
+                    commit_pipeline=pipeline,
+                )
+
+            self.assertEqual(
+                build_preflight_mock.call_args.kwargs["head_ref"],
+                authorized_head,
+            )
+            self.assertTrue(build_preflight_mock.call_args.kwargs["range_scope_only"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(report["status"], "post_push_green")
+            self.assertEqual(
+                _run_git(repo_root, "rev-parse", f"origin/{branch}"),
+                receipt_head,
+            )
+            self.assertNotEqual(remote_before, receipt_head)
+
+    def _create_repo_with_ahead_commit(
+        self,
+        tmp_root: Path,
+        *,
+        branch: str,
+    ) -> tuple[Path, Path, str]:
+        repo_root = tmp_root / "repo"
+        remote_root = tmp_root / "remote.git"
+        _run_git(tmp_root, "init", "--bare", str(remote_root))
+        _run_git(tmp_root, "init", str(repo_root))
+        _run_git(repo_root, "config", "user.email", "test@example.com")
+        _run_git(repo_root, "config", "user.name", "Test User")
+        _run_git(repo_root, "checkout", "-b", branch)
+        (repo_root / "tracked.txt").write_text("initial\n", encoding="utf-8")
+        _run_git(repo_root, "add", "tracked.txt")
+        _run_git(repo_root, "commit", "-m", "initial")
+        _run_git(repo_root, "remote", "add", "origin", str(remote_root))
+        _run_git(repo_root, "push", "-u", "origin", branch)
+        (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+        _run_git(repo_root, "commit", "-am", "update tracked file")
+        return repo_root, remote_root, branch
+
+    def _pipeline_for_head(
+        self,
+        repo_root: Path,
+        *,
+        branch: str,
+        head: str,
+        state: str = "commit_recorded",
+    ) -> RemoteCommitPipelineContract:
+        target_identity = f"devctl_commit:{head}"
+        return RemoteCommitPipelineContract(
+            pipeline_id="pipeline-test",
+            state=state,
+            branch=branch,
+            remote="origin",
+            commit_sha=head,
+            approved_target_identity=target_identity,
+            push_authorization=PushAuthorizationRecord(
+                authorization_id="push-auth-test",
+                pipeline_id="pipeline-test",
+                authorized_head_sha=head,
+                approved_target_identity=target_identity,
+                review_verdict="approved",
+                approval_mode="commit_pipeline_approval",
+                guard_status="pass",
+                approved_by="claude",
+                approved_at_utc="2999-01-01T00:00:00Z",
+                expires_at_utc="2999-01-01T00:30:00Z",
+                worktree_identity=push.worktree_identity_for_repo(repo_root),
+            ),
+            worktree_identity=push.worktree_identity_for_repo(repo_root),
+        )
 
 
 class PushCommandTests(unittest.TestCase):
@@ -2880,7 +3118,7 @@ class PushBridgeSyncTests(unittest.TestCase):
 
             with (
                 patch.object(
-                    push_projection_runtime_refresh,
+                    push_projection_bundle_refresh,
                     "active_path_config",
                     return_value=SimpleNamespace(
                         review_channel_rel="dev/active/review_channel.md",
@@ -2889,7 +3127,7 @@ class PushBridgeSyncTests(unittest.TestCase):
                     ),
                 ),
                 patch.object(
-                    push_projection_runtime_refresh,
+                    push_projection_bundle_refresh,
                     "resolve_artifact_paths",
                     return_value=SimpleNamespace(
                         event_log_path=str(event_log_path),
@@ -2898,7 +3136,7 @@ class PushBridgeSyncTests(unittest.TestCase):
                     ),
                 ),
                 patch.object(
-                    push_projection_runtime_refresh,
+                    push_projection_bundle_refresh,
                     "load_or_refresh_event_bundle",
                     side_effect=_load_or_refresh_event_bundle,
                 ),
@@ -2984,6 +3222,78 @@ class PushBridgeSyncTests(unittest.TestCase):
                 "Managed projection receipt moved HEAD, but startup-context "
                 "refresh failed before push preflight."
             ],
+        )
+
+    def test_refresh_managed_projections_defers_checkpoint_gate_after_receipt(
+        self,
+    ) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+        calls: list[str] = []
+
+        def _runner(name, cmd, cwd=None, env=None):
+            del cmd, cwd, env
+            calls.append(name)
+            result = {
+                "name": name,
+                "cmd": [],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+            if name == "push-refresh-startup-context":
+                result["returncode"] = 1
+                result["failure_output"] = "startup-context refresh failed"
+            if name == "push-refresh-startup-context-retry":
+                result["returncode"] = 1
+                result["failure_output"] = (
+                    "action=checkpoint_before_continue\n"
+                    "reason=dirty_and_untracked_budget_exceeded\n"
+                    "attention_status=checkpoint_required\n"
+                    "next=python3 dev/scripts/devctl.py commit -m \"msg\""
+                )
+            return result
+
+        with (
+            patch.object(
+                push_preflight_projection,
+                "refresh_review_snapshot_file",
+                return_value=[],
+            ),
+            patch.object(
+                push_preflight_projection,
+                "auto_commit_managed_projection_receipt",
+                return_value={"ok": True, "committed": True, "paths": ("bridge.md",)},
+            ),
+        ):
+            push_preflight_projection.refresh_managed_projections_before_preflight(
+                state,
+                policy,
+                repo_root=Path("/tmp/repo"),
+                command_runner=_runner,
+            )
+
+        self.assertEqual(
+            calls,
+            [
+                "push-refresh-startup-context",
+                "push-refresh-review-channel-ensure-follow",
+                "push-refresh-startup-context-retry",
+                "push-refresh-context-graph",
+                "push-refresh-review-snapshot-receipt",
+            ],
+        )
+        self.assertEqual(state.errors, [])
+        self.assertTrue(
+            state.pre_validation_managed_projection_sync[
+                "startup_context_checkpoint_gate_deferred"
+            ]
+        )
+        self.assertIn(
+            "Managed projection receipt moved HEAD and startup-context reported "
+            "the live checkpoint gate after reviewer follow",
+            "\n".join(state.warnings),
         )
 
     def test_refresh_managed_projections_recovers_plain_startup_refresh_failure_once(
@@ -3967,7 +4277,7 @@ class PushBridgeSyncTests(unittest.TestCase):
 
             with (
                 patch(
-                    "dev.scripts.devctl.commands.vcs.push.active_path_config",
+                    "dev.scripts.devctl.commands.vcs.push_bridge_sync.active_path_config",
                     return_value=SimpleNamespace(
                         bridge_rel="bridge.md",
                         review_channel_rel="dev/active/review_channel.md",
@@ -3975,11 +4285,11 @@ class PushBridgeSyncTests(unittest.TestCase):
                     ),
                 ),
                 patch(
-                    "dev.scripts.devctl.commands.vcs.push.bridge_is_active",
+                    "dev.scripts.devctl.commands.vcs.push_bridge_sync.bridge_is_active",
                     return_value=True,
                 ),
                 patch(
-                    "dev.scripts.devctl.commands.vcs.push.refresh_status_snapshot",
+                    "dev.scripts.devctl.commands.vcs.push_bridge_sync.refresh_status_snapshot",
                     return_value=SimpleNamespace(
                         warnings=[],
                         projection_paths=SimpleNamespace(
@@ -3988,7 +4298,7 @@ class PushBridgeSyncTests(unittest.TestCase):
                     ),
                 ),
                 patch(
-                    "dev.scripts.devctl.commands.vcs.push._sync_bridge_from_typed_projection_if_needed",
+                    "dev.scripts.devctl.commands.vcs.push_bridge_sync._sync_bridge_from_typed_projection_if_needed",
                     return_value=(True, ""),
                 ) as sync_mock,
             ):
@@ -4207,6 +4517,50 @@ class PushBridgeSyncTests(unittest.TestCase):
             ],
             "1",
         )
+        self.assertEqual(state.errors, [])
+
+    @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.collect_git_status")
+    def test_selected_generated_surface_commit_ignores_baseline_dirty_paths(
+        self,
+        collect_git_status_mock,
+        run_git_capture_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [
+                {
+                    "path": "dev/guides/SYSTEM_MAP.md",
+                    "status": "M",
+                    "raw_status": " M",
+                    "index_status": " ",
+                    "worktree_status": "M",
+                },
+                {
+                    "path": "source.py",
+                    "status": "M",
+                    "raw_status": " M",
+                    "index_status": " ",
+                    "worktree_status": "M",
+                },
+            ]
+        }
+        run_git_capture_mock.side_effect = [
+            (0, "abc1234", ""),
+            (0, "", ""),
+            (0, "", ""),
+            (0, "surface-receipt", ""),
+        ]
+        state = SimpleNamespace(errors=[])
+
+        result = push_preflight_commit.auto_commit_selected_preflight_generated_changes(
+            state,
+            make_policy(),
+            allowed_paths=("dev/guides/SYSTEM_MAP.md",),
+            baseline_dirty_paths=("source.py",),
+        )
+
+        self.assertTrue(result["committed"])
+        self.assertEqual(result["paths"], ("dev/guides/SYSTEM_MAP.md",))
         self.assertEqual(state.errors, [])
 
     @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.run_git_capture")
@@ -5051,6 +5405,27 @@ class PushBridgeSyncTests(unittest.TestCase):
         )
 
         self.assertIn("--since-ref origin/feature/demo", command)
+
+    def test_build_preflight_shell_command_can_use_authorized_publication_scope(
+        self,
+    ) -> None:
+        policy = make_policy()
+
+        command = push.build_preflight_shell_command(
+            policy,
+            remote="origin",
+            route_state=push.PushRefRoutingState(
+                current_branch="feature/demo",
+                upstream_ref="origin/feature/demo",
+                branch_has_remote=True,
+            ),
+            head_ref="authorized-sha",
+            range_scope_only=True,
+        )
+
+        self.assertIn("--since-ref origin/feature/demo", command)
+        self.assertIn("--head-ref authorized-sha", command)
+        self.assertIn("--range-scope-only", command)
 
     def test_build_post_push_commands_rewrites_since_ref_for_runtime_scope(
         self,

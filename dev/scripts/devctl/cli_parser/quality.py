@@ -51,6 +51,14 @@ def _add_check_router_parser(sub: argparse._SubParsersAction) -> None:
         help="Range-mode head ref used with --since-ref (default: HEAD)",
     )
     router_cmd.add_argument(
+        "--range-scope-only",
+        action="store_true",
+        help=(
+            "Use the requested --since-ref/--head-ref range even when the live "
+            "worktree has unrelated dirty paths"
+        ),
+    )
+    router_cmd.add_argument(
         "--execute",
         action="store_true",
         help="Execute the selected AGENTS bundle commands plus detected risk add-ons",

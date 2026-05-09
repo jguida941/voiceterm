@@ -121,6 +121,10 @@ def refresh_managed_projections_before_preflight(
             next_step_label="push preflight generated-surface receipt",
             repo_pack_id=str(getattr(policy, "repo_pack_id", "") or ""),
         )
+    _merge_existing_phase_state(
+        result,
+        getattr(state, "pre_validation_managed_projection_sync", {}),
+    )
     recovery_record = getattr(
         state,
         "pre_validation_recovery_loop_repair_startup",
@@ -308,6 +312,20 @@ def _record_phase_state(state, attr: str, result: dict[str, object]) -> None:
         setattr(state, attr, dict(result))
     except (AttributeError, TypeError):
         return
+
+
+def _merge_existing_phase_state(
+    result: dict[str, object],
+    existing: object,
+) -> None:
+    if not isinstance(existing, dict):
+        return
+    for key in (
+        "startup_context_checkpoint_gate_deferred",
+        "startup_context_checkpoint_gate",
+    ):
+        if key in existing:
+            result[key] = existing[key]
 
 
 __all__ = [

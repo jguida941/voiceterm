@@ -16,6 +16,7 @@ def make_args(**overrides) -> SimpleNamespace:
     defaults = {
         "since_ref": None,
         "head_ref": "HEAD",
+        "range_scope_only": False,
         "execute": False,
         "dry_run": False,
         "keep_going": False,
@@ -44,6 +45,7 @@ class CheckRouterTests(unittest.TestCase):
                 "origin/develop",
                 "--head-ref",
                 "HEAD",
+                "--range-scope-only",
                 "--execute",
                 "--dry-run",
                 "--keep-going",
@@ -61,6 +63,7 @@ class CheckRouterTests(unittest.TestCase):
         self.assertEqual(args.command, "check-router")
         self.assertEqual(args.since_ref, "origin/develop")
         self.assertEqual(args.head_ref, "HEAD")
+        self.assertTrue(args.range_scope_only)
         self.assertTrue(args.execute)
         self.assertTrue(args.dry_run)
         self.assertTrue(args.keep_going)
@@ -911,6 +914,36 @@ class CheckRouterTests(unittest.TestCase):
             payload["changed_paths"],
             ["dev/scripts/devctl/commands/check.py"],
         )
+
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_range_scope_only_keeps_branch_range_despite_dirty_worktree(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "mode": "commit-range",
+            "changes": [{"status": "M", "path": "rust/Cargo.toml"}],
+        }
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/checks/check_function_duplication.py"],
+            None,
+        )
+
+        rc = check_router.run(
+            make_args(since_ref="origin/develop", range_scope_only=True)
+        )
+
+        self.assertEqual(rc, 0)
+        collect_git_status_mock.assert_called_once_with("origin/develop", "HEAD")
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(payload["change_scope"]["source"], "commit-range")
+        self.assertTrue(payload["change_scope"]["range_scope_only"])
+        self.assertFalse(payload["change_scope"]["used_worktree_dirty_paths"])
+        self.assertEqual(payload["changed_paths"], ["rust/Cargo.toml"])
 
     @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
