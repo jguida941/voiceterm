@@ -64,7 +64,9 @@ def _live_packet_ids_for_agent(
         return live_packet_ids
     if live_packet_ids_by_agent is None:
         return live_packet_ids
-    return live_packet_ids_by_agent.get(agent, frozenset())
+    if agent in live_packet_ids_by_agent:
+        return live_packet_ids_by_agent[agent]
+    return None
 
 
 def sanitize_persisted_record(
@@ -93,8 +95,10 @@ def sanitize_persisted_record(
             for packet_id in record.pending_actionable_packet_ids
             if packets_missing or packet_id in live_packet_ids
         ),
-        expired_unresolved_packet_ids=(
-            record.expired_unresolved_packet_ids
+        expired_unresolved_packet_ids=tuple(
+            packet_id
+            for packet_id in record.expired_unresolved_packet_ids
+            if packets_missing or packet_id in live_packet_ids
         ),
         attention_status=record.attention_status,
         wake_reason=record.wake_reason,
@@ -157,7 +161,11 @@ def _merge_agent_attention_records(
         ),
         expired_unresolved_packet_ids=(
             rebuilt_record.expired_unresolved_packet_ids
-            or persisted_record.expired_unresolved_packet_ids
+            if rebuilt_packet_refs_authoritative
+            else (
+                rebuilt_record.expired_unresolved_packet_ids
+                or persisted_record.expired_unresolved_packet_ids
+            )
         ),
         attention_status=driver.attention_status,
         wake_reason=driver.wake_reason,

@@ -260,8 +260,11 @@ def _dry_run_can_defer_state_error(error: object) -> bool:
 
 
 _IMPLEMENTER_OWNED_LAUNCH_ERROR_PREFIXES = (
+    "Missing live implementer status section",
     "Missing live implementer status compatibility section",
+    "Missing live implementer ACK section",
     "Missing live implementer ACK compatibility section",
+    "Live implementer ACK (`Implementer Ack`)",
     "Live implementer ACK (`Claude Ack` compatibility heading)",
     "Implementer status/ack compatibility sections (`Claude Status` / ",
     "Typed implementer ACK is not current",

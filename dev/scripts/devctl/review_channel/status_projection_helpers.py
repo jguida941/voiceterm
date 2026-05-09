@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..runtime.reviewer_mode_projection import write_effective_reviewer_mode
+from ..runtime.role_topology import resolve_role_topology
 from . import status_projection_liveness as _liveness
 from .core import active_conductor_providers as _active_conductor_providers
 from .reviewer_runtime_session_owner import (
@@ -70,6 +71,15 @@ def attach_conductor_session_state(
     bridge_liveness["active_conductor_providers"] = list(active_providers)
     bridge_liveness["codex_conductor_active"] = "codex" in active_providers
     bridge_liveness["claude_conductor_active"] = "claude" in active_providers
+    topology = resolve_role_topology(bridge_liveness)
+    bridge_liveness["reviewer_conductor_active"] = topology.live_reviewer
+    bridge_liveness["implementer_conductor_active"] = topology.live_implementer
+    bridge_liveness["active_reviewer_providers"] = list(
+        topology.live_reviewer_providers
+    )
+    bridge_liveness["active_implementer_providers"] = list(
+        topology.live_implementer_providers
+    )
     bridge_liveness["active_runtime_providers"] = presence.active_runtime_providers
     bridge_liveness["remote_control_active_providers"] = (
         presence.remote_control_active_providers

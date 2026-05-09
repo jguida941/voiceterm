@@ -15,8 +15,11 @@ from .attention_helpers import (
     blocking_contract_errors,
     claude_session_hint_state,
     implementer_state_pending,
-    is_resettable_implementer_error,
     relaunch_required_contract_error,
+)
+from .conductor_authority import (
+    conductor_signal_present,
+    live_implementer_conductor_present,
 )
 from .attention_implementer_relaunch import classify_implementer_relaunch
 from .attention_recovery_projection import project_recover_ineligible_status
@@ -54,7 +57,6 @@ class BridgeAttentionContext:
     launch_truth: str
     publisher_running: bool
     reviewer_runtime_running: bool
-    resettable_error_seen: bool
     session_hint_state: str
     active_contract_errors: list[str] | None
     bridge_verdict_accepted: bool
@@ -102,6 +104,7 @@ def _checkpoint_preempts_runtime_recovery(ctx: BridgeAttentionContext) -> bool:
         return False
     if ctx.launch_truth in {
         LaunchTruthState.DETACHED_RUNTIME_ONLY.value,
+        LaunchTruthState.IMPLEMENTER_WITHOUT_REVIEWER.value,
         LaunchTruthState.HYBRID_CLAUDE_ONLY.value,
     }:
         return True
@@ -118,6 +121,7 @@ def _requires_implementer_state_reset(ctx: BridgeAttentionContext) -> bool:
         return False
     if ctx.launch_truth in {
         LaunchTruthState.DETACHED_RUNTIME_ONLY.value,
+        LaunchTruthState.IMPLEMENTER_WITHOUT_REVIEWER.value,
         LaunchTruthState.HYBRID_CLAUDE_ONLY.value,
         LaunchTruthState.AUTOMATION_ONLY.value,
     }:
@@ -131,13 +135,16 @@ def _requires_implementer_state_reset(ctx: BridgeAttentionContext) -> bool:
         or ctx.implementer_completion_stall
         or ctx.session_hint_state in RESETTABLE_IMPLEMENTER_SESSION_STATES
     )
-    if not implementer_state_invalid or not ctx.resettable_error_seen:
+    if not implementer_state_invalid:
         return False
 
     return (
         ctx.session_hint_state in RESETTABLE_IMPLEMENTER_SESSION_STATES
         or bool(ctx.bridge_liveness.get("poll_status_automation_only"))
-        or not bool(ctx.bridge_liveness.get("claude_conductor_active"))
+        or (
+            conductor_signal_present(ctx.bridge_liveness)
+            and not live_implementer_conductor_present(ctx.bridge_liveness)
+        )
     )
 
 
@@ -196,9 +203,6 @@ def extract_attention_context(
         launch_truth=launch_truth,
         publisher_running=publisher_running,
         reviewer_runtime_running=supervisor_running or publisher_running,
-        resettable_error_seen=any(
-            is_resettable_implementer_error(e) for e in raw_errors
-        ),
         session_hint_state=claude_session_hint_state(bridge_liveness),
         active_contract_errors=active_contract_errors_for_mode(
             contract_errors,
@@ -320,6 +324,7 @@ def _classify_startup_attention(ctx: BridgeAttentionContext) -> str | None:
         return AttentionStatus.RUNTIME_MISSING
     if ctx.launch_truth in {
         LaunchTruthState.DETACHED_RUNTIME_ONLY.value,
+        LaunchTruthState.IMPLEMENTER_WITHOUT_REVIEWER.value,
         LaunchTruthState.HYBRID_CLAUDE_ONLY.value,
     }:
         return AttentionStatus.REVIEW_LOOP_RELAUNCH_REQUIRED

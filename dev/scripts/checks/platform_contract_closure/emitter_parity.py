@@ -130,6 +130,13 @@ def _check_artifact_packets(
             "delivery_observed_by",
             "execution_started_at_utc",
             "execution_started_by",
+            "durable_binding",
+            "packet_creation_binding",
+            "packet_durable_ingestion_receipt",
+            "plan_ingestion",
+            "plan_integration",
+            "plan_proposal",
+            "reviewer_wake",
         }
     )
     packets = on_disk.get("packets")

@@ -43,6 +43,7 @@ _DETACHED_PUBLICATION_ONLY_REASONS: frozenset[str] = frozenset({
     "detached_runtime_only",
     "manual_reviewer_approval",
     "automation_only",
+    "implementer_without_reviewer",
     "hybrid_claude_only",
 })
 

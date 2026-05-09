@@ -205,6 +205,12 @@ def _duty_proof_from_mapping(value: object) -> ReviewerDutyProof:
         last_diff_review_at_utc=_string(payload.get("last_diff_review_at_utc")),
         semantic_review_source=_string(payload.get("semantic_review_source")),
         semantic_review_claimed=_bool(payload.get("semantic_review_claimed")),
+        review_conflict_class=_string(payload.get("review_conflict_class")),
+        review_conflict_reasons=tuple(
+            _string(row)
+            for row in (payload.get("review_conflict_reasons") or ())
+            if _string(row)
+        ),
         state=_string(payload.get("state")) or "unknown",
         stale_reasons=tuple(_string(row) for row in (payload.get("stale_reasons") or ()) if _string(row)),
     )

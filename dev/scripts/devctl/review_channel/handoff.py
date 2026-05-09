@@ -44,7 +44,7 @@ from .handoff_constants import (
     _RESOLVED_ECHO_RE,
     _is_substantive_text,
 )
-from .bridge_heading_aliases import normalize_bridge_sections
+from .bridge_heading_aliases import bridge_section_text, normalize_bridge_sections
 
 # validate_launch_bridge_state and validate_live_bridge_contract moved to
 # bridge_validation.py. Import from there directly.
@@ -554,7 +554,10 @@ def observe_rollover_ack_state(
             )
         )
         in _extract_markdown_items(
-            sections.get(expected_rollover_ack_section(provider=provider), "")
+            bridge_section_text(
+                sections,
+                expected_rollover_ack_section(provider=provider),
+            )
         )
         for provider in ROLLOVER_ACK_PREFIX
     }

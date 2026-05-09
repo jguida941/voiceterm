@@ -245,18 +245,18 @@ def _build_bridge_text(
             "Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while code is moving.",
             "Codex must exclude `bridge.md` itself when computing the reviewed worktree hash.",
             "Each meaningful review must include an operator-visible chat update.",
-            "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
-            "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.",
+            "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Implementer`, and `Last Reviewed Scope`.",
+            "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Implementer`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Implementer Ack` before coding.",
             "When the structured review queue is available, Claude must also poll `review-channel --action inbox --target claude --status pending --format json` or the equivalent watch surface on the same cadence so Codex-targeted packets are not missed.",
             "Claude must read `Last Codex poll` / `Poll Status` first on each repoll. If the reviewer-owned timestamp and the reviewer-owned sections are unchanged after Claude already finished the current bounded work, treat that as a live wait state, wait on cadence, and reread the full reviewer-owned block instead of hammering one fixed offset/line.",
             "When `Reviewer mode` is `active_dual_agent`, this file is the live reviewer/coder authority. Codex stays reviewer-only by default: missing worker worktrees, absent fanout, or a promising fix are not permission to start local implementation. Claude must keep polling it instead of waiting for the operator to restate the process in chat.",
             "When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or `offline`, Claude must not assume a live Codex review loop. Treat this file as context unless a reviewer-owned section explicitly reactivates the bridge or the operator asks for dual-agent mode.",
-            'When the current slice is accepted and scoped plan work remains, Codex must derive the next highest-priority unchecked plan item from the active-plan chain and rewrite `Current Instruction For Claude` for the next slice instead of idling at "all green so far."',
-            "If `Current Instruction For Claude` or `Poll Status` says `hold steady`, `waiting for reviewer promotion`, `Codex committing/pushing`, or similar wait-state language, Claude must not mine plan docs for side work or self-promote the next slice. Keep polling until a reviewer-owned section changes.",
+            'When the current slice is accepted and scoped plan work remains, Codex must derive the next highest-priority unchecked plan item from the active-plan chain and rewrite `Current Instruction For Implementer` for the next slice instead of idling at "all green so far."',
+            "If `Current Instruction For Implementer` or `Poll Status` says `hold steady`, `waiting for reviewer promotion`, `Codex committing/pushing`, or similar wait-state language, Claude must not mine plan docs for side work or self-promote the next slice. Keep polling until a reviewer-owned section changes.",
             "If `Current Instruction For Claude` still contains active work and there is no explicit reviewer-owned wait state, Claude status/ack updates must be substantive: name concrete files, subsystems, findings, or one concrete blocker/question. `No change. Continuing.`, `instruction unchanged`, and `Codex should review` are contract violations.",
             "Do not use raw shell sleep loops such as `sleep 60` or `bash -lc 'sleep 60'` to represent waiting. Use the repo-owned `review-channel --action implementer-wait` path only under an explicit reviewer-owned wait state.",
             "Only the Codex conductor may update the Codex-owned sections in this file.",
-            "Only the Claude conductor may update the implementer-owned compatibility sections (`Claude Status`, `Claude Questions`, `Claude Ack`).",
+            "Only the Claude conductor may update the implementer-owned compatibility sections (`Implementer Status`, `Implementer Questions`, `Implementer Ack`).",
             "Specialist workers should wake on owned-path changes or explicit conductor request instead of every worker polling the full tree blindly on the same cadence.",
             "Codex must emit an operator-visible heartbeat every 5 minutes while code is moving, even when the blocker set is unchanged.",
             "",
@@ -1656,7 +1656,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
             liveness=summarize_bridge_liveness(snapshot),
         )
 
-        self.assertTrue(any("Claude Status" in error for error in errors))
+        self.assertTrue(any("Implementer Status" in error for error in errors))
 
     def test_validate_launch_bridge_state_requires_claude_ack(self) -> None:
         snapshot = extract_bridge_snapshot(_build_bridge_text(claude_ack=""))
@@ -1666,7 +1666,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
             liveness=summarize_bridge_liveness(snapshot),
         )
 
-        self.assertTrue(any("Claude Ack" in error for error in errors))
+        self.assertTrue(any("Implementer Ack" in error for error in errors))
 
     def test_validate_launch_bridge_state_accepts_pending_reset_state(self) -> None:
         snapshot = extract_bridge_snapshot(
@@ -10003,7 +10003,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
         self.assertEqual(status_snapshot.push_decision["action"], "await_checkpoint")
         self.assertTrue(
             any(
-                "no live repo-owned Codex or Claude conductor sessions are present"
+                "no live repo-owned reviewer or implementer conductor sessions are present"
                 in error
                 for error in status_snapshot.errors
             )
@@ -12136,7 +12136,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             self.assertTrue(
                 any(
-                    "no live repo-owned Codex or Claude conductor sessions are present"
+                    "no live repo-owned reviewer or implementer conductor sessions are present"
                     in error
                     for error in payload["errors"]
                 )
@@ -12487,7 +12487,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 payload["errors"][0],
             )
             self.assertIn(
-                "Current Instruction For Claude",
+                "Current Instruction For Implementer",
                 payload["errors"][0],
             )
             self.assertEqual(
@@ -13225,14 +13225,14 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertIn(updated_instruction, updated_bridge)
             snapshot = extract_bridge_snapshot(updated_bridge)
             self.assertEqual(
-                snapshot.sections.get("Claude Status", "").strip(), "- pending"
+                snapshot.sections.get("Implementer Status", "").strip(), "- pending"
             )
             self.assertEqual(
-                snapshot.sections.get("Claude Questions", "").strip(),
+                snapshot.sections.get("Implementer Questions", "").strip(),
                 "- None recorded.",
             )
             self.assertEqual(
-                snapshot.sections.get("Claude Ack", "").strip(), "- pending"
+                snapshot.sections.get("Implementer Ack", "").strip(), "- pending"
             )
             review_state = json.loads(
                 (status_dir / "review_state.json").read_text(encoding="utf-8")
@@ -13747,14 +13747,14 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 "2026-01-01T00:00:00Z",
             )
             self.assertEqual(
-                snapshot.sections.get("Claude Status", "").strip(), "- pending"
+                snapshot.sections.get("Implementer Status", "").strip(), "- pending"
             )
             self.assertEqual(
-                snapshot.sections.get("Claude Questions", "").strip(),
+                snapshot.sections.get("Implementer Questions", "").strip(),
                 "- None recorded.",
             )
             self.assertEqual(
-                snapshot.sections.get("Claude Ack", "").strip(), "- pending"
+                snapshot.sections.get("Implementer Ack", "").strip(), "- pending"
             )
 
     def test_run_promote_accepts_reviewer_wait_state_instruction(self) -> None:
@@ -14837,7 +14837,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             self.assertEqual(
                 resume_state["launch_ack_state"]["claude"]["required_section"],
-                "Claude Ack",
+                "Implementer Ack",
             )
             self.assertIn("Codex rollover ack:", handoff_md.read_text(encoding="utf-8"))
             self.assertIn("## Resume State", handoff_md.read_text(encoding="utf-8"))
@@ -15264,7 +15264,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(rc, 1)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertFalse(payload["ok"])
-            self.assertIn("Claude Ack", payload["errors"][0])
+            self.assertIn("Implementer Ack", payload["errors"][0])
             self.assertIsNone(payload["bridge_heartbeat_refresh"])
 
     def test_run_launch_fails_closed_when_next_action_is_idle(self) -> None:
@@ -15311,7 +15311,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(rc, 1)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertFalse(payload["ok"])
-            self.assertIn("Current Instruction For Claude", payload["errors"][0])
+            self.assertIn("Current Instruction For Implementer", payload["errors"][0])
 
     def test_run_launch_fails_closed_when_last_reviewed_scope_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -16142,7 +16142,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertFalse(payload["ok"])
             self.assertTrue(
                 any(
-                    "no live repo-owned Codex or Claude conductor sessions"
+                    "no live repo-owned reviewer or implementer conductor sessions"
                     in error
                     for error in payload["errors"]
                 ),
@@ -16258,7 +16258,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(rc, 1)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertFalse(payload["ok"])
-            self.assertIn("Claude Ack", payload["errors"][0])
+            self.assertIn("Implementer Ack", payload["errors"][0])
 
     def test_run_warns_when_requested_terminal_profile_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -16539,7 +16539,7 @@ class TestLaunchCommandInterpreter(unittest.TestCase):
 
 
 class TestPlaceholderStatusDetection(unittest.TestCase):
-    """Verify placeholder Claude Status/Ack text is rejected as non-present."""
+    """Verify placeholder implementer status/ACK text is rejected as non-present."""
 
     def test_none_is_placeholder(self) -> None:
         self.assertFalse(_is_substantive_text("- none"))
@@ -16660,10 +16660,12 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
             claude_ack="- n/a",
         )
         errors = validate_launch_bridge_state(snapshot)
-        status_errors = [e for e in errors if "Claude Status" in e]
-        ack_errors = [e for e in errors if "Claude Ack" in e]
-        self.assertTrue(len(status_errors) > 0, "must reject placeholder Claude Status")
-        self.assertTrue(len(ack_errors) > 0, "must reject placeholder Claude Ack")
+        status_errors = [e for e in errors if "Implementer Status" in e]
+        ack_errors = [e for e in errors if "Implementer Ack" in e]
+        self.assertTrue(
+            len(status_errors) > 0, "must reject placeholder Implementer Status"
+        )
+        self.assertTrue(len(ack_errors) > 0, "must reject placeholder Implementer Ack")
 
     def test_reviewed_hash_current_true_when_hashes_match(self) -> None:
         stored_hash = "a" * 64
@@ -17171,7 +17173,7 @@ class TestDaemonEventReducer(unittest.TestCase):
                 "plan_id": "MP-377",
                 "from_agent": "codex",
                 "to_agent": "claude",
-                "kind": "instruction",
+                "kind": "action_request",
                 "summary": "review finding",
                 "body": "fix this",
                 "status": "pending",
@@ -17222,7 +17224,7 @@ class TestDaemonEventReducer(unittest.TestCase):
                 "plan_id": "MP-355",
                 "from_agent": "claude",
                 "to_agent": "codex",
-                "kind": "instruction",
+                "kind": "action_request",
                 "summary": "real packet",
                 "body": "real body",
                 "status": "pending",
@@ -17269,7 +17271,7 @@ class TestDaemonEventReducer(unittest.TestCase):
                 "plan_id": "MP-358",
                 "from_agent": "codex",
                 "to_agent": "claude",
-                "kind": "instruction",
+                "kind": "action_request",
                 "summary": "live follow-up",
                 "body": "take the current slice",
                 "status": "pending",
@@ -17285,7 +17287,7 @@ class TestDaemonEventReducer(unittest.TestCase):
                 "plan_id": "MP-358",
                 "from_agent": "codex",
                 "to_agent": "claude",
-                "kind": "instruction",
+                "kind": "action_request",
                 "summary": "expired stale slice",
                 "body": "ignore this expired slice",
                 "status": "pending",
@@ -17312,10 +17314,9 @@ class TestDaemonEventReducer(unittest.TestCase):
 
         self.assertEqual(review_state["queue"]["pending_total"], 1)
         self.assertEqual(review_state["queue"]["stale_packet_count"], 1)
-        self.assertTrue(
-            review_state["queue"]["derived_next_instruction"].startswith(
-                "live follow-up"
-            )
+        self.assertIn(
+            "live follow-up",
+            review_state["queue"]["derived_next_instruction"],
         )
         self.assertEqual(
             [packet["packet_id"] for packet in pending_packets],
@@ -17345,7 +17346,7 @@ class TestDaemonEventReducer(unittest.TestCase):
                 "plan_id": "MP-358",
                 "from_agent": "codex",
                 "to_agent": "claude",
-                "kind": "instruction",
+                "kind": "action_request",
                 "summary": "live follow-up",
                 "body": "take the current slice",
                 "status": "pending",
@@ -17361,7 +17362,7 @@ class TestDaemonEventReducer(unittest.TestCase):
                 "plan_id": "MP-358",
                 "from_agent": "codex",
                 "to_agent": "claude",
-                "kind": "instruction",
+                "kind": "action_request",
                 "summary": "expired stale slice",
                 "body": "surface this expired slice",
                 "status": "pending",

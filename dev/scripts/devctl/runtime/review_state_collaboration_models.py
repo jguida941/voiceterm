@@ -35,6 +35,7 @@ class ActorAuthorityState:
     status: str
     source: str
     grants: tuple[CapabilityGrantState, ...] = ()
+    session_id: str = ""
     source_contract: str = "CollaborationSession"
     source_identity: dict[str, str] = field(default_factory=dict)
     snapshot_id: str = ""
@@ -205,6 +206,7 @@ def actor_authorities_from_value(value: object) -> tuple[ActorAuthorityState, ..
                 status=_text(mapping.get("status")) or "unknown",
                 source=_text(mapping.get("source")),
                 grants=capability_grants_from_value(mapping.get("grants")),
+                session_id=_text(mapping.get("session_id")),
                 source_contract=(
                     _text(mapping.get("source_contract")) or "CollaborationSession"
                 ),

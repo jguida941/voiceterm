@@ -18,6 +18,7 @@ from .peer_liveness import (
     normalize_reviewer_mode,
     reviewer_mode_is_active,
 )
+from ..runtime.role_topology import resolve_role_topology
 
 
 class LaunchTruthState(StrEnum):
@@ -27,6 +28,7 @@ class LaunchTruthState(StrEnum):
     LIVE = "live"
     RUNTIME_MISSING = "runtime_missing"
     DETACHED_RUNTIME_ONLY = "detached_runtime_only"
+    IMPLEMENTER_WITHOUT_REVIEWER = "implementer_without_reviewer"
     HYBRID_CLAUDE_ONLY = "hybrid_claude_only"
     AUTOMATION_ONLY = "automation_only"
 
@@ -41,8 +43,6 @@ def classify_launch_truth(bridge_liveness: dict[str, object]) -> LaunchTruthStat
         ):
             return LaunchTruthState.LIVE
         return LaunchTruthState.INACTIVE
-    if _typed_dual_agent_runtime_is_live(bridge_liveness):
-        return LaunchTruthState.LIVE
     if not (
         bool(bridge_liveness.get("publisher_running"))
         or bool(bridge_liveness.get("reviewer_supervisor_running"))
@@ -50,13 +50,16 @@ def classify_launch_truth(bridge_liveness: dict[str, object]) -> LaunchTruthStat
         return LaunchTruthState.RUNTIME_MISSING
     if not conductor_signal_present(bridge_liveness):
         return LaunchTruthState.LIVE
-    codex_conductor_active = live_reviewer_conductor_present(bridge_liveness)
-    claude_conductor_active = bool(bridge_liveness.get("claude_conductor_active"))
-    if not codex_conductor_active and not claude_conductor_active:
+    topology = resolve_role_topology(bridge_liveness)
+    reviewer_conductor_active = topology.live_reviewer or live_reviewer_conductor_present(
+        bridge_liveness
+    )
+    implementer_conductor_active = topology.live_implementer
+    if not reviewer_conductor_active and not implementer_conductor_active:
         return LaunchTruthState.DETACHED_RUNTIME_ONLY
-    if claude_conductor_active and not codex_conductor_active:
-        return LaunchTruthState.HYBRID_CLAUDE_ONLY
-    if codex_conductor_active and bool(
+    if implementer_conductor_active and not reviewer_conductor_active:
+        return LaunchTruthState.IMPLEMENTER_WITHOUT_REVIEWER
+    if reviewer_conductor_active and bool(
         bridge_liveness.get("poll_status_automation_only")
     ):
         return LaunchTruthState.AUTOMATION_ONLY
@@ -66,42 +69,8 @@ def classify_launch_truth(bridge_liveness: dict[str, object]) -> LaunchTruthStat
 def _typed_dual_agent_runtime_is_live(
     bridge_liveness: Mapping[str, object],
 ) -> bool:
-    providers = set(_string_values(bridge_liveness.get("active_runtime_providers")))
-    remote_control_providers = set(
-        _string_values(bridge_liveness.get("remote_control_active_providers"))
-    )
-    providers.update(remote_control_providers)
-    providers.update(
-        _string_values(bridge_liveness.get("packet_activity_active_providers"))
-    )
-    reviewer_authority_providers = set(
-        _string_values(bridge_liveness.get("active_conductor_providers"))
-    )
-    reviewer_authority_providers.update(remote_control_providers)
-    reviewer_provider = (
-        capability_provider(bridge_liveness, "reviewer_capability") or "codex"
-    )
-    if (
-        _declared_reviewer_mode(bridge_liveness) == ReviewerMode.TOOLS_ONLY.value
-        and bool(bridge_liveness.get("reviewer_activity_active"))
-    ):
-        reviewer_activity_provider = str(
-            bridge_liveness.get("reviewer_activity_provider") or ""
-        ).strip().lower()
-        if reviewer_activity_provider:
-            reviewer_authority_providers.add(reviewer_activity_provider)
-    implementer_provider = (
-        capability_provider(bridge_liveness, "implementer_capability") or "claude"
-    )
-    if reviewer_provider not in reviewer_authority_providers:
-        return False
-    reviewer_live = bool(bridge_liveness.get("reviewer_activity_active")) or (
-        reviewer_provider in providers
-    )
-    implementer_live = implementer_provider in providers or bool(
-        _string_values(bridge_liveness.get("remote_control_active_providers"))
-    )
-    if not reviewer_live or not implementer_live:
+    topology = resolve_role_topology(bridge_liveness, include_runtime_presence=True)
+    if not topology.live_reviewer or not topology.live_implementer:
         return False
     freshness = str(bridge_liveness.get("reviewer_freshness") or "").strip()
     poll_state = str(bridge_liveness.get("codex_poll_state") or "").strip()
@@ -157,6 +126,16 @@ def build_launch_probe_state(
         active_conductor_providers=list(active_providers),
         codex_conductor_active="codex" in active_providers,
         claude_conductor_active="claude" in active_providers,
+        reviewer_conductor_active=bool(
+            resolve_role_topology(
+                {"active_conductor_providers": list(active_providers)}
+            ).live_reviewer
+        ),
+        implementer_conductor_active=bool(
+            resolve_role_topology(
+                {"active_conductor_providers": list(active_providers)}
+            ).live_implementer
+        ),
     )
 
 

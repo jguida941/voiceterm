@@ -25,6 +25,7 @@ from .bridge_validation_acceptance import review_acceptance_projection
 from .handoff import BridgeSnapshot
 from .peer_liveness import reviewer_mode_is_active
 from .peer_recovery import STALE_PEER_RECOVERY
+from .reviewer_runtime_duty_proof import build_reviewer_duty_proof
 from .reviewer_runtime_doctor import build_reviewer_doctor_surface
 from .reviewer_runtime_rollover import resolve_reviewer_rollover_state
 from .reviewer_runtime_session_owner import (
@@ -59,6 +60,17 @@ class ReviewerRuntimeInputs:
     # passed, _packet_attention_for_caller derives latest_relevant_event_id
     # from events filtered by actor_id/session_id.
     events: tuple[Mapping[str, object], ...] = ()
+
+
+@dataclass(frozen=True)
+class PublishClearInputs:
+    reviewer_mode: str
+    effective_reviewer_mode: str
+    reviewer_freshness: str
+    stale_reason: str
+    review_accepted: bool
+    rollover_ack_pending: bool
+    duty_proof: ReviewerDutyProof
 
 
 def reviewer_runtime_contract_to_dict(
@@ -118,6 +130,12 @@ def build_reviewer_runtime_contract(
     remote_control_attachment = resolve_remote_control_attachment(
         repo_root=inputs.repo_root, session_output_root=inputs.session_output_root
     )
+    duty_proof = build_reviewer_duty_proof(
+        bridge_liveness=bridge_liveness,
+        collaboration=inputs.collaboration,
+        agent_mind=inputs.agent_mind,
+        stale_reason=stale_reason,
+    )
     return ReviewerRuntimeContract(
         reviewer_mode=reviewer_mode,
         effective_reviewer_mode=effective_mode,
@@ -157,12 +175,15 @@ def build_reviewer_runtime_contract(
         ),
         review_acceptance=review_acceptance,
         publish_clear=_publish_clear(
-            reviewer_mode=reviewer_mode,
-            effective_reviewer_mode=effective_mode,
-            reviewer_freshness=reviewer_freshness,
-            stale_reason=stale_reason,
-            rollover=rollover,
-            review_accepted=review_acceptance.review_accepted,
+            PublishClearInputs(
+                reviewer_mode=reviewer_mode,
+                effective_reviewer_mode=effective_mode,
+                reviewer_freshness=reviewer_freshness,
+                stale_reason=stale_reason,
+                rollover_ack_pending=rollover.ack_pending,
+                review_accepted=review_acceptance.review_accepted,
+                duty_proof=duty_proof,
+            )
         ),
         remote_control_attachment=remote_control_attachment,
         session_posture=build_session_posture(
@@ -173,13 +194,7 @@ def build_reviewer_runtime_contract(
             remote_control_attachment=remote_control_attachment,
             agent_mind=inputs.agent_mind,
         ),
-        duty_proof=_duty_proof_state(
-            bridge_liveness=bridge_liveness,
-            current_session=inputs.current_session,
-            collaboration=inputs.collaboration,
-            agent_mind=inputs.agent_mind,
-            stale_reason=stale_reason,
-        ),
+        duty_proof=duty_proof,
         inbox_observation=_inbox_observation_for_caller(
             bridge_liveness=bridge_liveness,
             collaboration=inputs.collaboration,
@@ -344,24 +359,18 @@ def _recovery_action_allowed(
     return str(recovery.get("recommended_command") or "").strip()
 
 
-def _publish_clear(
-    *,
-    reviewer_mode: str,
-    effective_reviewer_mode: str,
-    reviewer_freshness: str,
-    stale_reason: str,
-    review_accepted: bool,
-    rollover: ReviewerRolloverState,
-) -> bool:
-    if not reviewer_mode_is_active(reviewer_mode):
+def _publish_clear(inputs: PublishClearInputs) -> bool:
+    if not reviewer_mode_is_active(inputs.reviewer_mode):
         return True
-    if not reviewer_mode_is_active(effective_reviewer_mode):
+    if not reviewer_mode_is_active(inputs.effective_reviewer_mode):
+        return False
+    if inputs.duty_proof.review_conflict_class == "self_attested":
         return False
     return (
-        review_accepted
-        and reviewer_freshness == "fresh"
-        and not stale_reason
-        and not rollover.ack_pending
+        inputs.review_accepted
+        and inputs.reviewer_freshness == "fresh"
+        and not inputs.stale_reason
+        and not inputs.rollover_ack_pending
     )
 
 
@@ -380,180 +389,8 @@ def _stale_reason(
     return status
 
 
-def _duty_proof_state(
-    *,
-    bridge_liveness: Mapping[str, object],
-    current_session: ReviewCurrentSessionState,
-    collaboration: CollaborationSessionState | None,
-    agent_mind: Mapping[str, object] | None,
-    stale_reason: str,
-) -> ReviewerDutyProof:
-    """Build typed reviewer-duty proof from typed inputs available at this layer.
-
-    Per rev_pkt_2475 Scope C: a healthy reviewer_mode requires both
-    packet-inbox-current AND semantic-diff-reviewed proof. This builder
-    composes what's reachable from the existing reviewer-runtime input set;
-    deeper signals (live worktree hash, reviewed_diff_hash) come from the
-    reviewer-loop layer (reviewer-heartbeat, doctor) which has repo_root.
-
-    Per rev_pkt_2475 Scope D: env-declared caller identity
-    (``DEVCTL_CALLER_AGENT`` + ``DEVCTL_CALLER_SESSION_ID``) is checked
-    against the proof's expected reviewer actor/session. A dashboard-role
-    session that lacks proper caller identity cannot stamp
-    ``semantic_review_claimed=True`` for an implementer/reviewer role actor;
-    the proof is downgraded with ``actor_session_mismatch`` stale_reason.
-    """
-    import os as _os
-    pending_packet_count = int(
-        _mapping(bridge_liveness.get("pending_packet_count")).get("total")  # type: ignore[arg-type]
-        or bridge_liveness.get("pending_packet_count")
-        or 0
-    )
-    last_packet_event_id = str(
-        bridge_liveness.get("last_packet_event_id")
-        or bridge_liveness.get("last_packet_id")
-        or ""
-    )
-    last_packet_observed_at_utc = str(
-        bridge_liveness.get("last_packet_observed_at_utc")
-        or bridge_liveness.get("last_codex_poll_utc")
-        or ""
-    )
-    current_head_sha = str(
-        bridge_liveness.get("head_at_push_time")
-        or bridge_liveness.get("current_head_commit")
-        or ""
-    )
-    # Per rev_pkt_2485 fix #1: bridge_liveness.reviewed_hash_current is a
-    # BOOLEAN, not a tree hash. Do not fall back to it. Leave empty when no
-    # typed staged_tree_hash exists; deeper layers (reviewer-heartbeat with
-    # repo_root) will populate it.
-    staged_tree_hash = str(bridge_liveness.get("staged_tree_hash") or "")
-    # Per rev_pkt_2485 fix #3: a claim bit alone cannot satisfy semantic
-    # review. Require concrete reviewed_diff_hash + last_diff_review_at_utc
-    # signals before honoring semantic_review_claimed for the healthy state.
-    reviewed_diff_hash = str((agent_mind or {}).get("reviewed_diff_hash") or "")
-    reviewed_diff_base = str((agent_mind or {}).get("reviewed_diff_base") or "")
-    reviewed_path_count = int((agent_mind or {}).get("reviewed_path_count") or 0)
-    last_diff_review_at_utc = str(
-        (agent_mind or {}).get("last_diff_review_at_utc") or ""
-    )
-    semantic_review_claimed = bool((agent_mind or {}).get("semantic_review_claimed"))
-    has_concrete_diff_review_evidence = bool(
-        reviewed_diff_hash and last_diff_review_at_utc and reviewed_path_count > 0
-    )
-    semantic_review_source = _semantic_review_source(
-        reviewed_diff_hash=reviewed_diff_hash,
-        reviewed_diff_base=reviewed_diff_base,
-        reviewed_path_count=reviewed_path_count,
-        last_diff_review_at_utc=last_diff_review_at_utc,
-        semantic_review_claimed=semantic_review_claimed,
-    )
-    # Per rev_pkt_2485 fix #4: reviewer_actor_id MUST come from typed
-    # collaboration.actor_authorities (or session_posture / authority_snapshot).
-    # implementer_ack is not reviewer identity. Leave absent and fail closed
-    # when no typed authority record names a reviewer.
-    reviewer_actor_id = ""
-    reviewer_session_id = ""
-    if collaboration is not None:
-        for authority in collaboration.actor_authorities or ():
-            if str(authority.role or "").lower() == "reviewer":
-                reviewer_actor_id = str(authority.actor_id or authority.provider or "")
-                reviewer_session_id = str(getattr(authority, "session_id", "") or "")
-                break
-    stale_reasons: list[str] = []
-    if pending_packet_count > 0:
-        stale_reasons.append("pending_packet_inbox_not_consumed")
-    if not semantic_review_claimed:
-        stale_reasons.append("semantic_review_not_claimed")
-    elif not has_concrete_diff_review_evidence:
-        # Per rev_pkt_2485 fix #3: claim bit alone is not sufficient.
-        stale_reasons.append("semantic_review_evidence_missing")
-    elif semantic_review_source == "agent_mind_auxiliary":
-        stale_reasons.append("semantic_review_source_auxiliary")
-    if stale_reason:
-        stale_reasons.append(f"stale_reason:{stale_reason}")
-    # Per rev_pkt_2475 Scope D: env-declared caller must match the proof's
-    # expected reviewer actor/session before semantic_review_claimed is
-    # accepted. Dashboard-claude posing as coder-claude (or vice versa)
-    # cannot cross this fence.
-    caller_agent = str(_os.environ.get("DEVCTL_CALLER_AGENT", "")).strip()
-    caller_session = str(_os.environ.get("DEVCTL_CALLER_SESSION_ID", "")).strip()
-    actor_session_mismatch = False
-    if reviewer_actor_id and caller_agent and caller_agent != reviewer_actor_id:
-        actor_session_mismatch = True
-    if reviewer_session_id and caller_session and caller_session != reviewer_session_id:
-        actor_session_mismatch = True
-    if actor_session_mismatch:
-        stale_reasons.append("actor_session_mismatch")
-        # Refuse to honor the semantic_review claim from a non-matching caller.
-        semantic_review_claimed = False
-    state = "healthy"
-    if actor_session_mismatch:
-        state = "actor_session_mismatch"
-    elif not semantic_review_claimed:
-        state = "review_incomplete"
-    elif not has_concrete_diff_review_evidence:
-        # Per rev_pkt_2485 fix #3: a claim bit without reviewed_diff_hash +
-        # last_diff_review_at_utc + reviewed_path_count > 0 is incomplete.
-        state = "review_incomplete"
-    elif (
-        staged_tree_hash
-        and reviewed_diff_hash
-        and staged_tree_hash != reviewed_diff_hash
-    ):
-        # Per rev_pkt_2485 fix #2: compare staged_tree_hash to the reviewed
-        # diff's hash (same shape), NOT to current_head_sha (commit SHA).
-        # Live tree advanced past where reviewer claimed semantic review.
-        state = "reviewer_diff_stale"
-    elif pending_packet_count > 0:
-        state = "review_incomplete"
-    elif stale_reasons:
-        state = "review_incomplete"
-    return ReviewerDutyProof(
-        reviewer_actor_id=reviewer_actor_id,
-        reviewer_session_id=reviewer_session_id,
-        last_packet_event_id=last_packet_event_id,
-        last_packet_observed_at_utc=last_packet_observed_at_utc,
-        pending_packet_count=pending_packet_count,
-        current_head_sha=current_head_sha,
-        staged_tree_hash=staged_tree_hash,
-        worktree_hash=str((agent_mind or {}).get("worktree_hash") or ""),
-        changed_path_count=int((agent_mind or {}).get("changed_path_count") or 0),
-        reviewed_diff_hash=reviewed_diff_hash,
-        reviewed_diff_base=reviewed_diff_base,
-        reviewed_path_count=reviewed_path_count,
-        last_diff_review_at_utc=last_diff_review_at_utc,
-        semantic_review_source=semantic_review_source,
-        semantic_review_claimed=semantic_review_claimed,
-        state=state,
-        stale_reasons=tuple(stale_reasons),
-    )
-
-
 def _mapping(value: object) -> Mapping[str, object]:
     return value if isinstance(value, Mapping) else {}
-
-
-def _semantic_review_source(
-    *,
-    reviewed_diff_hash: str,
-    reviewed_diff_base: str,
-    reviewed_path_count: int,
-    last_diff_review_at_utc: str,
-    semantic_review_claimed: bool,
-) -> str:
-    if any(
-        (
-            reviewed_diff_hash,
-            reviewed_diff_base,
-            reviewed_path_count,
-            last_diff_review_at_utc,
-            semantic_review_claimed,
-        )
-    ):
-        return "agent_mind_auxiliary"
-    return ""
 
 
 def _inbox_observation_for_caller(

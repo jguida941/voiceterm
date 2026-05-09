@@ -162,7 +162,7 @@ def _required_bridge_markers(text: str) -> list[str]:
                 (
                     f"{implementer_name} should start from `Poll Status`, "
                     "`Current Verdict`, `Open Findings`, `Current Instruction For "
-                    "Claude`, and `Last Reviewed Scope`"
+                    "Implementer`, and `Last Reviewed Scope`"
                 ),
                 (
                     f"{implementer_name} must read `Last Codex poll` / "

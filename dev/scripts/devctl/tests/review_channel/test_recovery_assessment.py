@@ -65,7 +65,7 @@ def test_attach_conductor_session_state_degrades_freshness_without_live_reviewer
             output_root=tmp_path,
         )
 
-    assert bridge_liveness["launch_truth"] == "hybrid_claude_only"
+    assert bridge_liveness["launch_truth"] == "implementer_without_reviewer"
     assert bridge_liveness["overall_state"] == "stale"
     assert bridge_liveness["codex_poll_state"] == "stale"
     assert bridge_liveness["reviewer_freshness"] == "stale"

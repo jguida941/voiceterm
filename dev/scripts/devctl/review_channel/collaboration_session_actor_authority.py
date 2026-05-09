@@ -53,6 +53,7 @@ def actor_authorities(
                 status=context.status,
                 source=_authority_source(context),
                 grants=authority_grants(context),
+                session_id=_authority_session_id(context),
                 source_identity={
                     "reviewer_mode": inputs.reviewer_mode,
                     "mutation_owner": inputs.mutation_owner,
@@ -126,3 +127,11 @@ def _authority_source(context: _ActorAuthorityContext) -> str:
     if context.assignment is not None:
         return context.assignment.source
     return "collaboration_session"
+
+
+def _authority_session_id(context: _ActorAuthorityContext) -> str:
+    if context.participant is not None:
+        return context.participant.session_name
+    if context.assignment is not None:
+        return context.assignment.session_name
+    return ""

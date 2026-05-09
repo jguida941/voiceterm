@@ -578,3 +578,136 @@ def test_duty_proof_dashboard_caller_cannot_satisfy_coder_reviewer() -> None:
     # agent_mind reported it, the env caller doesn't match the proof's expected
     # reviewer, so semantic_review_claimed is downgraded to False.
     assert contract.duty_proof.semantic_review_claimed is False
+
+
+def test_duty_proof_same_session_self_review_blocks_publish_clear() -> None:
+    """A live review claim from the same concrete mutation session is
+    self-attested, not independent review proof.
+    """
+    from dataclasses import dataclass
+
+    @dataclass(frozen=True)
+    class _StubAuthority:
+        actor_id: str = ""
+        provider: str = ""
+        role: str = ""
+        session_id: str = ""
+        worktree_identity: str = ""
+
+    @dataclass(frozen=True)
+    class _StubCollaboration:
+        mutation_owner: str = ""
+        actor_authorities: tuple = ()
+
+    collab = _StubCollaboration(
+        mutation_owner="codex",
+        actor_authorities=(
+            _StubAuthority(
+                actor_id="codex",
+                provider="codex",
+                role="reviewer",
+                session_id="session-one",
+                worktree_identity="/repo",
+            ),
+            _StubAuthority(
+                actor_id="codex",
+                provider="codex",
+                role="implementer",
+                session_id="session-one",
+                worktree_identity="/repo",
+            ),
+        ),
+    )
+
+    contract = build_reviewer_runtime_contract(
+        ReviewerRuntimeInputs(
+            snapshot=None,
+            bridge_liveness={
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "active_dual_agent",
+                "reviewer_freshness": "fresh",
+                "pending_packet_count": 0,
+            },
+            current_session=_empty_current_session(),
+            collaboration=collab,
+            agent_mind=_full_review_evidence(),
+            prior_review_state={
+                "reviewer_runtime": {
+                    "review_acceptance": {
+                        "review_accepted": True,
+                        "reviewer_accepted_implementer_state_hash": "impl-hash",
+                    }
+                }
+            },
+        )
+    )
+
+    assert contract.duty_proof.review_conflict_class == "self_attested"
+    assert "same_session" in contract.duty_proof.review_conflict_reasons
+    assert "same_worktree" in contract.duty_proof.review_conflict_reasons
+    assert "self_review_requires_independent_or_override" in (
+        contract.duty_proof.stale_reasons
+    )
+    assert contract.duty_proof.state == "self_review_blocked"
+    assert contract.publish_clear is False
+
+
+def test_duty_proof_same_provider_distinct_runtime_is_not_self_attested() -> None:
+    """A provider can occupy both roles when typed actors/runtimes differ."""
+    from dataclasses import dataclass
+
+    @dataclass(frozen=True)
+    class _StubAuthority:
+        actor_id: str = ""
+        provider: str = ""
+        role: str = ""
+        session_id: str = ""
+        worktree_identity: str = ""
+
+    @dataclass(frozen=True)
+    class _StubCollaboration:
+        mutation_owner: str = ""
+        actor_authorities: tuple = ()
+
+    collab = _StubCollaboration(
+        mutation_owner="coder-claude",
+        actor_authorities=(
+            _StubAuthority(
+                actor_id="reviewer-claude",
+                provider="claude",
+                role="reviewer",
+                session_id="review-session",
+                worktree_identity="/repo-review",
+            ),
+            _StubAuthority(
+                actor_id="coder-claude",
+                provider="claude",
+                role="implementer",
+                session_id="code-session",
+                worktree_identity="/repo-code",
+            ),
+        ),
+    )
+
+    contract = build_reviewer_runtime_contract(
+        ReviewerRuntimeInputs(
+            snapshot=None,
+            bridge_liveness={
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "active_dual_agent",
+                "reviewer_freshness": "fresh",
+                "pending_packet_count": 0,
+            },
+            current_session=_empty_current_session(),
+            collaboration=collab,
+            agent_mind=_full_review_evidence(),
+        )
+    )
+
+    assert (
+        contract.duty_proof.review_conflict_class
+        == "same_provider_distinct_runtime"
+    )
+    assert "self_review_requires_independent_or_override" not in (
+        contract.duty_proof.stale_reasons
+    )

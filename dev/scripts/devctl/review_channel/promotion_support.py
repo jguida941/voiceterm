@@ -7,6 +7,7 @@ import hashlib
 import re
 from pathlib import Path
 
+from .bridge_heading_aliases import bridge_heading_aliases
 from .bridge_section_validation import find_embedded_markdown_headings
 from .handoff import (
     IDLE_FINDING_MARKERS,
@@ -30,10 +31,6 @@ from .write_preconditions import (
 )
 
 CURRENT_INSTRUCTION_SECTION = "Current Instruction For Implementer"
-CURRENT_INSTRUCTION_SECTION_RE = re.compile(
-    rf"(^## {re.escape(CURRENT_INSTRUCTION_SECTION)}\s*$\n)(.*?)(?=^##\s+|\Z)",
-    re.MULTILINE | re.DOTALL,
-)
 _GENERIC_PROGRESS_MARKERS = (
     "next unchecked",
     "continue checklist",
@@ -137,16 +134,25 @@ def rewrite_current_instruction(
     def replacement(match: re.Match[str]) -> str:
         return f"{match.group(1)}\n{instruction.strip()}\n\n"
 
-    rewritten, count = CURRENT_INSTRUCTION_SECTION_RE.subn(
-        replacement,
-        bridge_text,
-        count=1,
-    )
-    if count != 1:
-        raise ValueError(
-            f"Unable to locate `{CURRENT_INSTRUCTION_SECTION}` in the markdown bridge."
+    for heading in bridge_heading_aliases(CURRENT_INSTRUCTION_SECTION):
+        section_re = _section_re(heading)
+        rewritten, count = section_re.subn(
+            replacement,
+            bridge_text,
+            count=1,
         )
-    return rewritten
+        if count == 1:
+            return rewritten
+    raise ValueError(
+        f"Unable to locate `{CURRENT_INSTRUCTION_SECTION}` in the markdown bridge."
+    )
+
+
+def _section_re(heading: str) -> re.Pattern[str]:
+    return re.compile(
+        rf"(^## {re.escape(heading)}\s*$\n)(.*?)(?=^##\s+|\Z)",
+        re.MULTILINE | re.DOTALL,
+    )
 
 
 def rewrite_instruction_and_metadata(

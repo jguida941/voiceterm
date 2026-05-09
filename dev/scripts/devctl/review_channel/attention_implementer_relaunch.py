@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .attention_helpers import RESETTABLE_IMPLEMENTER_SESSION_STATES
+from .conductor_authority import live_implementer_conductor_present
 from .peer_liveness import AttentionStatus, CodexPollState, OverallLivenessState
 
 
@@ -12,7 +13,13 @@ def classify_implementer_relaunch(ctx) -> str | None:
         return None
     if (
         ctx.overall_state == OverallLivenessState.WAITING_ON_PEER
-        and not bool(ctx.bridge_liveness.get("claude_conductor_active"))
+        and not live_implementer_conductor_present(ctx.bridge_liveness)
+        and ctx.implementer_state_pending
+    ):
+        return AttentionStatus.IMPLEMENTER_RELAUNCH_REQUIRED
+    if (
+        ctx.overall_state == OverallLivenessState.WAITING_ON_PEER
+        and not live_implementer_conductor_present(ctx.bridge_liveness)
         and (not ctx.claude_status_present or not ctx.claude_ack_present)
     ):
         return AttentionStatus.IMPLEMENTER_RELAUNCH_REQUIRED

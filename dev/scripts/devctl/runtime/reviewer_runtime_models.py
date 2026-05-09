@@ -158,6 +158,8 @@ class ReviewerDutyProof:
     last_diff_review_at_utc: str = ""
     semantic_review_source: str = ""
     semantic_review_claimed: bool = False
+    review_conflict_class: str = ""
+    review_conflict_reasons: tuple[str, ...] = ()
     state: str = "unknown"
     stale_reasons: tuple[str, ...] = ()
 

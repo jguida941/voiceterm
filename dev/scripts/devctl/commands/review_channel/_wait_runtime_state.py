@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 _WAIT_BRIDGE_NON_FATAL_ERROR_PREFIXES = (
     ACK_REVISION_REQUIREMENT_PREFIX,
+    "Live implementer ACK (`Implementer Ack`) revision does not match the current reviewer instruction revision.",
     "Live implementer ACK (`Claude Ack` compatibility heading) revision does not match the current reviewer instruction revision.",
 )
 

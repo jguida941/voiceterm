@@ -14,6 +14,7 @@ from ..runtime.session_liveness_builder import (
     build_session_liveness_signals,
     session_liveness_rows,
 )
+from ..runtime.role_topology import resolve_role_topology
 from .collaboration_session_local_reviewer import local_reviewer_activity_is_fresh
 from .launch_truth import (
     LaunchTruthState,
@@ -144,7 +145,7 @@ def _degrade_active_dual_agent_freshness(
     ):
         bridge_liveness["overall_state"] = OverallLivenessState.STALE
 
-    if bool(bridge_liveness.get("codex_conductor_active")):
+    if resolve_role_topology(bridge_liveness).live_reviewer:
         return
 
     poll_state = str(bridge_liveness.get("codex_poll_state") or "").strip()
@@ -174,8 +175,8 @@ def hybrid_loop_errors(bridge_liveness: dict[str, object]) -> list[str]:
     )
     if launch_truth == LaunchTruthState.DETACHED_RUNTIME_ONLY.value:
         return [
-            "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or "
-            "Claude conductor sessions are present. Do not trust detached "
+            "Reviewer mode is `active_dual_agent` but no live repo-owned reviewer "
+            "or implementer conductor sessions are present. Do not trust detached "
             "publisher/supervisor heartbeats as proof the review loop is live; "
             "relaunch with `review-channel --action launch` or "
             "`review-channel --action rollover` before continuing."
@@ -189,9 +190,12 @@ def hybrid_loop_errors(bridge_liveness: dict[str, object]) -> list[str]:
             "live loop as started until `Poll Status` advances through a real "
             "Codex reviewer action."
         ]
-    if launch_truth == LaunchTruthState.HYBRID_CLAUDE_ONLY.value:
+    if launch_truth in {
+        LaunchTruthState.IMPLEMENTER_WITHOUT_REVIEWER.value,
+        LaunchTruthState.HYBRID_CLAUDE_ONLY.value,
+    }:
         return [
-            "Repo-owned Claude conductor is active but no live repo-owned Codex conductor session is present. Hybrid chat/terminal review loops are not trusted; relaunch with `review-channel --action launch` or `review-channel --action rollover` instead of relying on Claude-only recover."
+            "A repo-owned implementer conductor is active but no live repo-owned reviewer conductor session is present. Hybrid chat/terminal review loops are not trusted; relaunch with `review-channel --action launch` or `review-channel --action rollover` instead of relying on implementer-only recover."
         ]
     return []
 

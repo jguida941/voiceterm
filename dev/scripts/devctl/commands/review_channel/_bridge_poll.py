@@ -23,6 +23,7 @@ from ._bridge_poll_support import (
 
 _ACK_ONLY_ERROR_PREFIXES = (
     ACK_REVISION_REQUIREMENT_PREFIX,
+    "Live implementer ACK (`Implementer Ack`) revision does not match the current reviewer instruction revision.",
     "Live `Claude Ack` revision does not match the current reviewer instruction revision.",
 )
 

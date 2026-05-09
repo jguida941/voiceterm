@@ -72,6 +72,11 @@ ACTOR_AUTHORITY_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("provider", "str", "Concrete provider backing the actor."),
             ContractField("role", "str", "Typed runtime role for this authority row."),
             ContractField(
+                "session_id",
+                "str",
+                "Runtime session id that scopes role authority when available.",
+            ),
+            ContractField(
                 "live",
                 "bool",
                 "Whether the actor is live under typed runtime evidence.",
@@ -122,6 +127,6 @@ ACTOR_AUTHORITY_CONTRACTS: tuple[ContractSpec, ...] = (
             "dev.scripts.devctl.runtime.review_state_collaboration_models:"
             "ActorAuthorityState"
         ),
-        startup_surface_tokens=("actor_id", "role", "grants"),
+        startup_surface_tokens=("actor_id", "role", "session_id", "grants"),
     ),
 )

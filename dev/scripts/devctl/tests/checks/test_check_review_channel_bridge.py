@@ -316,7 +316,7 @@ class CheckReviewChannelBridgeTests(TestCase):
         bridge = self._temp_path(
             "bridge.md",
             _valid_bridge_text(self.script).replace(
-                "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.\n",
+                "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Implementer`, and `Last Reviewed Scope`.\n",
                 "",
             ),
         )
@@ -338,7 +338,7 @@ class CheckReviewChannelBridgeTests(TestCase):
             report = self.script.build_report()
         self.assertFalse(report["ok"])
         self.assertIn(
-            "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
+            "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Implementer`, and `Last Reviewed Scope`.",
             report["bridge"]["missing_markers"],
         )
 
@@ -717,7 +717,7 @@ class CheckReviewChannelBridgeTests(TestCase):
         self.assertFalse(report["ok"])
         self.assertIn("state_errors", report["bridge"])
         self.assertTrue(
-            any("Current Instruction For Claude" in error for error in report["bridge"]["state_errors"])
+            any("Current Instruction For Implementer" in error for error in report["bridge"]["state_errors"])
         )
 
     def test_build_report_flags_suspicious_terminal_text_in_instruction(self) -> None:

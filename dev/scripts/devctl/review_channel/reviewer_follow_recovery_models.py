@@ -39,6 +39,7 @@ AUTO_RELAUNCH_LAUNCH_TRUTHS = frozenset(
     {
         "runtime_missing",
         "detached_runtime_only",
+        "implementer_without_reviewer",
         "hybrid_claude_only",
     }
 )

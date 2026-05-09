@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ..runtime.review_state_semantics import is_pending_implementer_state
 from .ack_contract import ACK_REVISION_REQUIREMENT_PREFIX
 
 _NON_REVIEWER_CONTRACT_ERROR_PREFIXES = (
@@ -85,7 +86,23 @@ def claude_session_hint_state(bridge_liveness: dict[str, object]) -> str:
 
 def implementer_state_pending(bridge_liveness: dict[str, object]) -> bool:
     """Return True when typed bridge state already shows canonical pending reset."""
-    return bool(bridge_liveness.get("implementer_state_pending"))
+    if bool(bridge_liveness.get("implementer_state_pending")):
+        return True
+    return is_pending_implementer_state(
+        implementer_status=str(
+            bridge_liveness.get("implementer_status")
+            or bridge_liveness.get("claude_status")
+            or ""
+        ),
+        implementer_ack=str(
+            bridge_liveness.get("implementer_ack")
+            or bridge_liveness.get("claude_ack")
+            or ""
+        ),
+        implementer_ack_state=str(
+            bridge_liveness.get("implementer_ack_state") or ""
+        ),
+    )
 
 
 def is_resettable_implementer_error(error: str) -> bool:

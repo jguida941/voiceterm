@@ -38,7 +38,12 @@ def typed_report_trigger_met(report: dict[str, object]) -> bool:
     coordination = report.get("coordination")
     if isinstance(coordination, dict):
         launch_truth = str(coordination.get("launch_truth") or "").strip()
-        if launch_truth in {"detached_runtime_only", "automation_only", "hybrid_claude_only"}:
+        if launch_truth in {
+            "detached_runtime_only",
+            "automation_only",
+            "implementer_without_reviewer",
+            "hybrid_claude_only",
+        }:
             return True
     return False
 
@@ -68,6 +73,11 @@ def legacy_trigger_met(
     if attention_status == "review_loop_relaunch_required":
         return True
     launch_truth = str(bridge_liveness.get("launch_truth") or "").strip()
-    if launch_truth in {"detached_runtime_only", "automation_only", "hybrid_claude_only"}:
+    if launch_truth in {
+        "detached_runtime_only",
+        "automation_only",
+        "implementer_without_reviewer",
+        "hybrid_claude_only",
+    }:
         return True
     return bool(bridge_liveness.get("poll_status_automation_only"))

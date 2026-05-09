@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 
+from .bridge_heading_aliases import bridge_heading_aliases
 from .handoff import extract_bridge_snapshot, summarize_bridge_liveness
 
 SECTION_RE_TEMPLATE = r"^(## {heading}\s*\n)(.*?)(?=^## |\Z)"
@@ -12,16 +13,15 @@ _OPEN_FINDINGS_HEADING = "Open Findings"
 
 
 def current_instruction_body_from_bridge_text(bridge_text: str) -> str:
-    match = re.search(
-        SECTION_RE_TEMPLATE.format(
-            heading=re.escape("Current Instruction For Implementer"),
-        ),
-        bridge_text,
-        re.MULTILINE | re.DOTALL,
-    )
-    if match is None:
-        return ""
-    return normalize_instruction_body(match.group(2))
+    for heading in bridge_heading_aliases("Current Instruction For Implementer"):
+        match = re.search(
+            SECTION_RE_TEMPLATE.format(heading=re.escape(heading)),
+            bridge_text,
+            re.MULTILINE | re.DOTALL,
+        )
+        if match is not None:
+            return normalize_instruction_body(match.group(2))
+    return ""
 
 
 def normalize_instruction_body(text: str) -> str:

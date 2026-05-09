@@ -20,7 +20,6 @@ from .reviewer_state_support import (
     ReviewerStateWrite,
     _format_markdown_list,
     _normalize_open_findings_for_live_state,
-    _replace_section,
     _rewrite_reviewer_metadata,
     current_instruction_revision_from_bridge_text,
     current_reviewed_hash,
@@ -39,6 +38,10 @@ from .peer_liveness import ReviewerMode, normalize_reviewer_mode
 from .reviewer_head_tracking import (
     compute_review_range as compute_review_range,
     current_head_sha as _current_head_sha,
+)
+from .reviewer_state_sections import (
+    ReviewerCheckpointSections,
+    replace_reviewer_checkpoint_sections,
 )
 REVIEWER_MODE_RE = re.compile(r"(?m)^- Reviewer mode:\s*`.*?`\s*$")
 DECLARED_REVIEWER_MODE_RE = re.compile(
@@ -205,10 +208,14 @@ def write_reviewer_checkpoint(
                 ),
             ),
         )
-        updated_text = _replace_reviewer_checkpoint_sections(
+        updated_text = replace_reviewer_checkpoint_sections(
             updated_text,
-            checkpoint=checkpoint,
-            reviewed_scope_body=reviewed_scope_body,
+            ReviewerCheckpointSections(
+                current_verdict=checkpoint.current_verdict,
+                open_findings=checkpoint.open_findings,
+                current_instruction=checkpoint.current_instruction,
+                reviewed_scope_body=reviewed_scope_body,
+            ),
         )
         return reset_implementer_sections_on_instruction_change(
             updated_text,
@@ -248,34 +255,6 @@ def write_reviewer_checkpoint(
         bridge_path=bridge_path,
     )
     return write
-
-
-def _replace_reviewer_checkpoint_sections(
-    text: str,
-    *,
-    checkpoint: ReviewerCheckpointUpdate,
-    reviewed_scope_body: str,
-) -> str:
-    text = _replace_section(
-        text,
-        heading="Current Verdict",
-        body=checkpoint.current_verdict.strip(),
-    )
-    text = _replace_section(
-        text,
-        heading="Open Findings",
-        body=checkpoint.open_findings.strip(),
-    )
-    text = _replace_section(
-        text,
-        heading="Current Instruction For Implementer",
-        body=checkpoint.current_instruction.strip(),
-    )
-    return _replace_section(
-        text,
-        heading="Last Reviewed Scope",
-        body=reviewed_scope_body,
-    )
 
 
 def _append_typed_reviewer_checkpoint_event(

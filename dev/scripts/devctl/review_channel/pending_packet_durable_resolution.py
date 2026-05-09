@@ -31,6 +31,8 @@ def _has_effective_durable_binding(packet: object) -> bool:
     binding = _packet_value(packet, "durable_binding")
     if not isinstance(binding, Mapping):
         return False
+    if not binding:
+        return False
     if str(binding.get("status") or "").strip() == "skipped":
         return False
     if str(binding.get("binding_target_kind") or "").strip() == "communication_only":
