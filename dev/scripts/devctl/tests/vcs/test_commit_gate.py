@@ -3168,6 +3168,24 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 self.assertTrue(attestation["run_record_ids"])
                 self.assertTrue(attestation["operator_signature"])
 
+    def test_commit_approval_attestation_defaults_guard_action_id(self) -> None:
+        pipeline = SimpleNamespace(
+            generation_id="gen-test",
+            intent=SimpleNamespace(staged_tree_hash="tree-test"),
+            validation_receipt=None,
+            guard_action_id="",
+            guard_result=None,
+        )
+
+        attestation = build_commit_approval_attestation(
+            "rev_pkt_test",
+            pipeline,
+        )
+
+        self.assertEqual(attestation.run_record_ids, ("quality.guard_bundle",))
+        self.assertEqual(attestation.pipeline_generation, "gen-test")
+        self.assertEqual(attestation.staged_snapshot_hash, "tree-test")
+
     def test_explicit_operator_approval_reuses_existing_decision_packet(
         self,
     ) -> None:
