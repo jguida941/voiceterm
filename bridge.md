@@ -35,10 +35,10 @@ treat these rules as active workflow instructions immediately.
 4. Treat `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and
    `dev/active/review_channel.md` as the canonical authority chain.
 5. Start from the live sections in this file:
-   - Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.
-   - Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in the implementer ACK section (`Claude Ack` compatibility heading) before coding.
-   - `Last Codex poll` remains the reviewer-heartbeat compatibility field and the implementer-owned compatibility sections (`Claude Status`, `Claude Ack`) remain aliases until native role-labeled bridge headings land.
-   - The implementer ACK section (`Claude Ack` compatibility heading) must acknowledge the current instruction revision with a machine-readable line such as `- acknowledged current instruction revision: <rev>` or `- acknowledged; instruction-rev: <rev>`.
+   - Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Implementer`, and `Last Reviewed Scope`.
+   - Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Implementer`, and `Last Reviewed Scope`, then acknowledge the active instruction in the implementer ACK section (`Implementer Ack`) before coding.
+   - `Last Codex poll` remains the reviewer-heartbeat compatibility field and the old provider-labeled implementer sections remain readable aliases until the bridge compatibility projection is retired.
+   - The implementer ACK section (`Implementer Ack`) must acknowledge the current instruction revision with a machine-readable line such as `- acknowledged current instruction revision: <rev>` or `- acknowledged; instruction-rev: <rev>`.
    - Packet `ack`/`apply`/`dismiss` is transport lifecycle only; it does not satisfy implementer ACK, does not write `Claude Ack`, and does not make `implementer_ack_state=current`.
    - Claude must read `Last Codex poll` / `Poll Status` first on each repoll.
 6. Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while
@@ -56,7 +56,7 @@ treat these rules as active workflow instructions immediately.
 10. When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or
     `offline`, Claude must not assume a live Codex review loop.
 11. Only the Codex conductor may update the Codex-owned sections in this file.
-12. Only the Claude conductor may update the implementer-owned compatibility sections (`Claude Status`, `Claude Questions`, `Claude Ack`) in this
+12. Only the Claude conductor may update the implementer-owned compatibility sections (`Implementer Status`, `Implementer Questions`, `Implementer Ack`) in this
     file.
 13. Specialist workers should wake on owned-path changes instead of polling
     the full tree blindly.
@@ -66,9 +66,9 @@ treat these rules as active workflow instructions immediately.
     turning it into a transcript dump.
 16. When the current slice is accepted and scoped plan work remains, Codex must
     promote the next bounded task instead of idling.
-17. If `Current Instruction For Claude` or `Poll Status` says `hold steady`,
+17. If `Current Instruction For Implementer` or `Poll Status` says `hold steady`,
     Claude must stay in polling mode until the reviewer-owned sections change.
-18. If `Current Instruction For Claude` still contains active work and there is
+18. If `Current Instruction For Implementer` still contains active work and there is
     no explicit reviewer-owned wait state, implementer status/ack updates
     must be substantive: name concrete files, subsystems, findings, or one concrete
     blocker/question. `No change. Continuing.`, `instruction unchanged`, and
@@ -78,8 +78,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-09T09:53:44Z`
-- Last Codex poll (Local America/New_York): `2026-05-09 05:53:44 EDT`
+- Last Codex poll: `2026-05-09T09:56:03Z`
+- Last Codex poll (Local America/New_York): `2026-05-09 05:56:03 EDT`
 - Reviewer mode: `tools_only`
 - Declared reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `cc8cf78aa2d8af90106d9353c4f6155360f940aaa5bb729a4553d16b300b6ab8`
@@ -115,7 +115,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-05-09T09:54:13.394302Z.
+- Reviewer state rebuilt from typed review-state projection at 2026-05-09T09:56:03.186857Z.
 
 ## Current Verdict
 
@@ -125,19 +125,19 @@ treat these rules as active workflow instructions immediately.
 
 20 pending review packet(s)
 
-## Claude Status
+## Implementer Status
 
-implementing
+- Status unavailable.
 
-## Claude Questions
+## Implementer Questions
 
 - None recorded.
 
-## Claude Ack
+## Implementer Ack
 
 - missing
 
-## Current Instruction For Claude
+## Current Instruction For Implementer
 
 - Await reviewer instruction refresh.
 
