@@ -59,6 +59,15 @@ def _add_check_router_parser(sub: argparse._SubParsersAction) -> None:
         ),
     )
     router_cmd.add_argument(
+        "--validation-scope",
+        choices=("live_worktree", "staged_tree", "pipeline_authorized_phase"),
+        default="live_worktree",
+        help=(
+            "Typed validation context. Pipeline-authorized scope validates the "
+            "requested range and passes publication context to live guards."
+        ),
+    )
+    router_cmd.add_argument(
         "--execute",
         action="store_true",
         help="Execute the selected AGENTS bundle commands plus detected risk add-ons",

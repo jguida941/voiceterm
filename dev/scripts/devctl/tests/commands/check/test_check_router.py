@@ -17,6 +17,7 @@ def make_args(**overrides) -> SimpleNamespace:
         "since_ref": None,
         "head_ref": "HEAD",
         "range_scope_only": False,
+        "validation_scope": "live_worktree",
         "execute": False,
         "dry_run": False,
         "keep_going": False,
@@ -46,6 +47,8 @@ class CheckRouterTests(unittest.TestCase):
                 "--head-ref",
                 "HEAD",
                 "--range-scope-only",
+                "--validation-scope",
+                "pipeline_authorized_phase",
                 "--execute",
                 "--dry-run",
                 "--keep-going",
@@ -64,6 +67,7 @@ class CheckRouterTests(unittest.TestCase):
         self.assertEqual(args.since_ref, "origin/develop")
         self.assertEqual(args.head_ref, "HEAD")
         self.assertTrue(args.range_scope_only)
+        self.assertEqual(args.validation_scope, "pipeline_authorized_phase")
         self.assertTrue(args.execute)
         self.assertTrue(args.dry_run)
         self.assertTrue(args.keep_going)
@@ -957,6 +961,99 @@ class CheckRouterTests(unittest.TestCase):
         self.assertTrue(payload["change_scope"]["range_scope_only"])
         self.assertFalse(payload["change_scope"]["used_worktree_dirty_paths"])
         self.assertEqual(payload["changed_paths"], ["rust/Cargo.toml"])
+
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_publication_validation_scope_threads_live_projection_guards(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "mode": "commit-range",
+            "changes": [
+                {
+                    "status": "M",
+                    "path": "dev/scripts/devctl/commands/vcs/push.py",
+                }
+            ],
+        }
+        extract_bundle_mock.return_value = (
+            [
+                "python3 dev/scripts/devctl.py docs-check --strict-tooling",
+                "python3 dev/scripts/checks/check_ground_truth_probe_gate.py",
+                "python3 dev/scripts/checks/check_startup_authority_contract.py",
+                "python3 dev/scripts/checks/check_tandem_consistency.py",
+            ],
+            None,
+        )
+
+        rc = check_router.run(
+            make_args(
+                since_ref="origin/develop",
+                range_scope_only=True,
+                validation_scope="pipeline_authorized_phase",
+            )
+        )
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        planned = "\n".join(row["command"] for row in payload["planned_commands"])
+        self.assertIn("docs-check --strict-tooling", planned)
+        self.assertIn("check_ground_truth_probe_gate.py", planned)
+        self.assertIn(
+            "check_startup_authority_contract.py --validation-scope pipeline_authorized_phase",
+            planned,
+        )
+        self.assertIn(
+            "check_tandem_consistency.py --validation-scope pipeline_authorized_phase",
+            planned,
+        )
+        self.assertIn(
+            "docs-check --strict-tooling --since-ref origin/develop --head-ref HEAD --validation-scope pipeline_authorized_phase",
+            planned,
+        )
+        self.assertEqual(payload["scoped_out_commands"], [])
+        self.assertEqual(
+            payload["validation_scope"]["kind"],
+            "pipeline_authorized_phase",
+        )
+
+    @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
+    @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
+    @patch("dev.scripts.devctl.commands.check_router.collect_git_status")
+    def test_standalone_validation_scope_keeps_live_projection_guards(
+        self,
+        collect_git_status_mock,
+        extract_bundle_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "mode": "commit-range",
+            "changes": [
+                {
+                    "status": "M",
+                    "path": "dev/scripts/devctl/commands/vcs/push.py",
+                }
+            ],
+        }
+        extract_bundle_mock.return_value = (
+            ["python3 dev/scripts/checks/check_startup_authority_contract.py"],
+            None,
+        )
+
+        rc = check_router.run(
+            make_args(since_ref="origin/develop", range_scope_only=True)
+        )
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        planned = "\n".join(row["command"] for row in payload["planned_commands"])
+        self.assertIn("check_startup_authority_contract.py", planned)
+        self.assertEqual(payload["scoped_out_commands"], [])
+        self.assertEqual(payload["validation_scope"]["kind"], "live_worktree")
 
     @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")

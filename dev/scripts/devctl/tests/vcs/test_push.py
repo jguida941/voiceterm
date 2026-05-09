@@ -246,6 +246,10 @@ class PushAuthorizedPipelineDirtyWorktreeTests(unittest.TestCase):
 
             self.assertEqual(build_preflight_mock.call_args.kwargs["head_ref"], head)
             self.assertTrue(build_preflight_mock.call_args.kwargs["range_scope_only"])
+            self.assertEqual(
+                build_preflight_mock.call_args.kwargs["validation_scope"],
+                "pipeline_authorized_phase",
+            )
             self.assertEqual(rc, 0)
             self.assertEqual(report["status"], "post_push_green")
             self.assertEqual(report["reason"], "push_completed")
@@ -383,6 +387,10 @@ class PushAuthorizedPipelineDirtyWorktreeTests(unittest.TestCase):
                 receipt_head,
             )
             self.assertTrue(build_preflight_mock.call_args.kwargs["range_scope_only"])
+            self.assertEqual(
+                build_preflight_mock.call_args.kwargs["validation_scope"],
+                "pipeline_authorized_phase",
+            )
             self.assertIn(
                 "Managed projection receipt moved HEAD",
                 "\n".join(report["warnings"]),
@@ -5423,13 +5431,17 @@ class PushBridgeSyncTests(unittest.TestCase):
                 upstream_ref="origin/feature/demo",
                 branch_has_remote=True,
             ),
-            head_ref="authorized-sha",
-            range_scope_only=True,
+            validation_routing=push.PushValidationRouting(
+                head_ref="authorized-sha",
+                range_scope_only=True,
+                validation_scope="pipeline_authorized_phase",
+            ),
         )
 
         self.assertIn("--since-ref origin/feature/demo", command)
         self.assertIn("--head-ref authorized-sha", command)
         self.assertIn("--range-scope-only", command)
+        self.assertIn("--validation-scope pipeline_authorized_phase", command)
 
     def test_build_post_push_commands_rewrites_since_ref_for_runtime_scope(
         self,

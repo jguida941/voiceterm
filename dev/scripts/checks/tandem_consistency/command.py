@@ -20,10 +20,16 @@ def main() -> int:
         sys.path.insert(0, str(REPO_ROOT))
 
     from dev.scripts.devctl.governance.draft import scan_repo_governance
+    from dev.scripts.devctl.runtime.validation_scope import (
+        add_validation_scope_argument,
+        apply_validation_scope_to_report,
+        validation_scope_from_args,
+    )
     from tandem_consistency.report import build_report, render_md
 
     parser = argparse.ArgumentParser(description="Tandem-consistency guard.")
     parser.add_argument("--format", choices=("md", "json"), default="md")
+    add_validation_scope_argument(parser)
     parser.add_argument("--ci-bundle", action="store_true", help="Relax hash enforcement for bundled CI runs")
     args = parser.parse_args()
 
@@ -36,6 +42,14 @@ def main() -> int:
         else None
     )
     report = build_report(bridge_text=bridge_text, repo_root=REPO_ROOT, ci_bundle=args.ci_bundle)
+    report = apply_validation_scope_to_report(
+        report,
+        validation_scope_from_args(args),
+        reason=(
+            "tandem consistency is live collaboration freshness; governed "
+            "publication validation records it as advisory evidence."
+        ),
+    )
     output = json.dumps(report, indent=2) if args.format == "json" else render_md(report)
     print(output)
     return 0 if report.get("ok", False) else 1

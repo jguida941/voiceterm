@@ -21,6 +21,12 @@ _SCRIPTS_ROOT = REPO_ROOT / "dev" / "scripts"
 if str(_SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_ROOT))
 
+from dev.scripts.devctl.runtime.validation_scope import (
+    add_validation_scope_argument,
+    apply_validation_scope_to_report,
+    validation_scope_from_args,
+)
+
 _REQUIRED_CURRENT_SECTIONS = frozenset({"startup", "graph"})
 
 
@@ -134,6 +140,7 @@ def _render_report(report: dict[str, object]) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--format", choices=("md", "json"), default="md")
+    add_validation_scope_argument(parser)
     args = parser.parse_args()
     try:
         report = build_report()
@@ -143,6 +150,14 @@ def main() -> int:
             "ok": False,
             "errors": [str(exc)],
         }
+    report = apply_validation_scope_to_report(
+        report,
+        validation_scope_from_args(args),
+        reason=(
+            "SystemPicture freshness is a live projection check; governed "
+            "publication validation records it as advisory evidence."
+        ),
+    )
     if args.format == "json":
         print(json.dumps(report, indent=2, sort_keys=True))
     else:

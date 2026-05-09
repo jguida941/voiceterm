@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import shlex
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 from ..common_io import inject_quality_policy_command, normalize_repo_python_shell_command
 
@@ -21,17 +21,25 @@ class PushRefRoutingState:
     branch_has_remote: bool | None = None
 
 
+class PushValidationRouting(NamedTuple):
+    """Validation refs used by push preflight routing."""
+
+    head_ref: str = "HEAD"
+    range_scope_only: bool = False
+    validation_scope: str = ""
+
+
 def build_preflight_shell_command(
     policy: "PushPolicy",
     *,
     remote: str,
     route_state: PushRefRoutingState | None = None,
     quality_policy_path: str | None = None,
-    head_ref: str = "HEAD",
-    range_scope_only: bool = False,
+    validation_routing: PushValidationRouting | None = None,
 ) -> str:
     """Build the non-mutating or execution-ready preflight shell command."""
     resolved_route = route_state or PushRefRoutingState()
+    resolved_validation = validation_routing or PushValidationRouting()
     since_ref = resolve_preflight_since_ref(
         remote=remote,
         development_branch=policy.development_branch,
@@ -46,10 +54,12 @@ def build_preflight_shell_command(
         "--since-ref",
         since_ref,
     ]
-    if head_ref and head_ref != "HEAD":
-        args.extend(["--head-ref", head_ref])
-    if range_scope_only:
+    if resolved_validation.head_ref and resolved_validation.head_ref != "HEAD":
+        args.extend(["--head-ref", resolved_validation.head_ref])
+    if resolved_validation.range_scope_only:
         args.append("--range-scope-only")
+    if resolved_validation.validation_scope:
+        args.extend(["--validation-scope", resolved_validation.validation_scope])
     if policy.preflight.execute:
         args.append("--execute")
         args.append("--keep-going")

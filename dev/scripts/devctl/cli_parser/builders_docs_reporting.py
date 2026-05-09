@@ -35,6 +35,15 @@ def add_docs_check_parser(sub: argparse._SubParsersAction) -> None:
         help="Range-mode head ref used with --since-ref (default: HEAD)",
     )
     docs_cmd.add_argument(
+        "--validation-scope",
+        choices=("live_worktree", "staged_tree", "pipeline_authorized_phase"),
+        default="live_worktree",
+        help=(
+            "Typed validation context. Pipeline-authorized scope keeps live "
+            "projection subgates visible without making them publication blocking."
+        ),
+    )
+    docs_cmd.add_argument(
         "--quality-policy",
         help=(
             "Optional repo policy JSON file used to resolve repo-governance docs rules "

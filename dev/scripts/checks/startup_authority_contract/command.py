@@ -26,6 +26,14 @@ try:
 except ModuleNotFoundError:
     from dev.scripts.checks.check_bootstrap import REPO_ROOT, import_repo_module
 
+_validation_scope_mod = import_repo_module(
+    "dev.scripts.devctl.runtime.validation_scope",
+    repo_root=REPO_ROOT,
+)
+add_validation_scope_argument = _validation_scope_mod.add_validation_scope_argument
+apply_validation_scope_to_report = _validation_scope_mod.apply_validation_scope_to_report
+validation_scope_from_args = _validation_scope_mod.validation_scope_from_args
+
 _COMMAND = "check_startup_authority_contract"
 
 def _load_governance(root: Path, *, governance=None):
@@ -301,12 +309,21 @@ def _render_md(report: dict) -> str:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--format", choices=("md", "json"), default="md")
+    add_validation_scope_argument(parser)
     return parser
 
 
 def main() -> int:
     args = _build_parser().parse_args()
     report = _build_report()
+    report = apply_validation_scope_to_report(
+        report,
+        validation_scope_from_args(args),
+        reason=(
+            "startup authority includes live worktree/session authority checks; "
+            "governed publication validation records them as advisory evidence."
+        ),
+    )
 
     if args.format == "json":
         print(json.dumps(report, indent=2))

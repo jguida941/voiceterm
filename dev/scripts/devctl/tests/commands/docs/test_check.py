@@ -12,9 +12,17 @@ from dev.scripts.devctl.config import REPO_ROOT, get_repo_root, set_repo_root
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.docs import check as docs_check
 from dev.scripts.devctl.commands import docs_check_policy
-from dev.scripts.devctl.commands.docs.check_runtime import StrictToolingGateState
+from dev.scripts.devctl.commands.docs.check_runtime import (
+    StrictToolingGateFns,
+    StrictToolingGateState,
+    collect_strict_tooling_gates,
+)
 from dev.scripts.devctl.governance.governed_doc_routing import GovernedDocRouting
 from dev.scripts.devctl.quality_scan_mode import ADOPTION_BASE_REF, WORKTREE_HEAD_REF
+from dev.scripts.devctl.runtime.validation_scope import (
+    ValidationScope,
+    ValidationScopeKind,
+)
 
 
 class CollectGitStatusTests(unittest.TestCase):
@@ -159,6 +167,72 @@ class DocsCheckCommandTests(unittest.TestCase):
         self.assertEqual(args.command, "docs-check")
         self.assertTrue(args.user_facing)
         self.assertTrue(args.strict_release)
+
+    def test_cli_accepts_validation_scope_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "docs-check",
+                "--strict-tooling",
+                "--validation-scope",
+                "pipeline_authorized_phase",
+            ]
+        )
+
+        self.assertEqual(args.command, "docs-check")
+        self.assertEqual(args.validation_scope, "pipeline_authorized_phase")
+
+    def test_pipeline_authorized_docs_check_scopes_live_projection_subgates(
+        self,
+    ) -> None:
+        multi_agent_extra_args = []
+
+        def _ok_gate() -> dict:
+            return {"ok": True}
+
+        def _multi_agent_gate(*, extra_args=()) -> dict:
+            multi_agent_extra_args.extend(extra_args)
+            return {"ok": False, "errors": ["AGENT-2 mismatch"]}
+
+        gate_state = collect_strict_tooling_gates(
+            StrictToolingGateFns(
+                active_plan_sync_fn=lambda: {
+                    "ok": False,
+                    "errors": ["plan projection drift"],
+                },
+                multi_agent_sync_fn=_multi_agent_gate,
+                legacy_path_audit_fn=_ok_gate,
+                markdown_metadata_header_fn=_ok_gate,
+                workflow_shell_hygiene_fn=_ok_gate,
+                bundle_workflow_parity_fn=_ok_gate,
+                agents_bundle_render_fn=_ok_gate,
+                guide_contract_sync_fn=_ok_gate,
+                instruction_surface_sync_fn=lambda: {
+                    "ok": False,
+                    "errors": ["surface drift"],
+                },
+            ),
+            strict_tooling=True,
+            validation_scope=ValidationScope(
+                kind=ValidationScopeKind.PIPELINE_AUTHORIZED_PHASE,
+                since_ref="origin/feature/demo",
+                head_ref="abc123",
+                range_scope_only=True,
+            ),
+        )
+
+        self.assertTrue(gate_state.active_plan_sync_ok)
+        self.assertTrue(gate_state.multi_agent_sync_ok)
+        self.assertTrue(gate_state.instruction_surface_sync_ok)
+        self.assertEqual(
+            gate_state.multi_agent_sync_report["validation_scope"]["kind"],
+            "pipeline_authorized_phase",
+        )
+        self.assertFalse(gate_state.multi_agent_sync_report["live_worktree_ok"])
+        self.assertEqual(
+            tuple(multi_agent_extra_args),
+            ("--validation-scope", "pipeline_authorized_phase"),
+        )
 
     @patch("dev.scripts.devctl.commands.docs.check.write_output")
     @patch(

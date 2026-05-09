@@ -14,17 +14,36 @@ def main() -> int:
     if str(checks_dir) not in sys.path:
         sys.path.insert(0, str(checks_dir))
 
-    from check_bootstrap import emit_runtime_error
+    from check_bootstrap import REPO_ROOT, emit_runtime_error
+
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+
+    from dev.scripts.devctl.runtime.validation_scope import (
+        add_validation_scope_argument,
+        apply_validation_scope_to_report,
+        validation_scope_from_args,
+    )
     from review_channel_bridge.report import build_report, render_md
 
     parser = argparse.ArgumentParser(description=__doc__ or "")
     parser.add_argument("--format", choices=("md", "json"), default="md")
+    add_validation_scope_argument(parser)
     args = parser.parse_args()
 
     try:
         report = build_report()
     except (ImportError, AttributeError, RuntimeError, TypeError, ValueError) as exc:
         return emit_runtime_error("check_review_channel_bridge", args.format, str(exc))
+    report = apply_validation_scope_to_report(
+        report,
+        validation_scope_from_args(args),
+        reason=(
+            "review-channel bridge validation reads live compatibility and "
+            "session projection state; governed publication validation records "
+            "it as advisory evidence."
+        ),
+    )
 
     output = json.dumps(report, indent=2) if args.format == "json" else render_md(report)
     print(output)

@@ -14,6 +14,7 @@ from ...config import REPO_ROOT
 from ...governance.push_policy import build_post_push_commands, load_push_policy
 from ...governance.push_routing import (
     PushRefRoutingState,
+    PushValidationRouting,
     build_preflight_shell_command,
     resolve_preflight_since_ref,
 )
@@ -358,8 +359,11 @@ def _run_fetch_and_preflight(
         remote=state.remote,
         route_state=route_state,
         quality_policy_path=getattr(args, "quality_policy", None),
-        head_ref=state.push_authorization_head_commit or "HEAD",
-        range_scope_only=bool(state.push_authorization_head_commit),
+        validation_routing=PushValidationRouting(
+            head_ref=state.push_authorization_head_commit or "HEAD",
+            range_scope_only=bool(state.push_authorization_head_commit),
+            validation_scope="pipeline_authorized_phase",
+        ),
     )
     state.preflight_step = command_runner(
         "push-preflight",

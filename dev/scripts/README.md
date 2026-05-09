@@ -491,6 +491,11 @@ Portability note:
 - `check-router`, `docs-check`, and `render-surfaces` all accept
   `--quality-policy <path>` so another repo can replace those repo-owned
   contracts without patching command code.
+- `check-router` and `docs-check` also accept `--validation-scope`. Normal
+  standalone runs stay strict under `live_worktree`; governed publication uses
+  `pipeline_authorized_phase` so docs-check and live projection guards remain
+  planned evidence while unrelated live-worktree failures become annotated
+  advisory data for the authorized push phase.
 - Path-scoped docs-governance helpers are expected to reuse one resolved
   docs/policy contract per repo + policy path. If `docs-check --since-ref ...`
   starts rescanning governance inside per-file loops, treat that as a bug in

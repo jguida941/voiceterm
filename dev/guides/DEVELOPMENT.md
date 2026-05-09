@@ -574,6 +574,12 @@ Three quality layers matter in practice:
   per-path loops. If commit-range docs-governance suddenly becomes slow or
   hangs, treat that as a real tooling regression, not as normal validation
   cost.
+- `check-router` and `docs-check` carry typed `ValidationScope` through
+  publication preflight. Standalone invocations default to strict
+  `live_worktree`; governed push uses `pipeline_authorized_phase` so live
+  projection guards still run and preserve their original failures as advisory
+  evidence instead of hiding the guard or blocking an already-authorized commit
+  range for unrelated worktree dirt.
 - When a policy-backed slice needs a simpler human-facing entrypoint, prefer a
   short wrapper command over asking maintainers to remember raw policy paths.
   Current examples: `python3 dev/scripts/devctl.py launcher-check`,
@@ -1802,7 +1808,11 @@ Workflow permissions note:
    post-push follow-up" rather than "push again." Interactive runs also emit
    progress notices when publication is recorded and before each post-push
    command so a slow post-push bundle is visibly "published but still
-   auditing," not "still waiting to push." If a later rerun fetches the
+   auditing," not "still waiting to push." Routed preflight invokes
+   `check-router --validation-scope pipeline_authorized_phase`, which keeps
+   docs-check and live projection guards planned while treating unrelated live
+   worktree failures as advisory evidence for the authorized publication phase.
+   If a later rerun fetches the
    tracked branch and proves `ahead == 0`, `devctl push` now returns the
    existing already-published receipt before router preflight instead of
    defaulting zero changed paths into the docs lane. That no-op receipt is

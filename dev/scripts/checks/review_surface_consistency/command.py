@@ -10,6 +10,11 @@ from typing import Any
 
 from dev.scripts.devctl.runtime.startup_context import build_startup_context
 from dev.scripts.devctl.runtime.review_state_parser import review_state_from_payload
+from dev.scripts.devctl.runtime.validation_scope import (
+    add_validation_scope_argument,
+    apply_validation_scope_to_report,
+    validation_scope_from_args,
+)
 
 from .models import ConvergencePassResult
 from .parity import (
@@ -274,6 +279,7 @@ def _render_report(report: dict[str, object]) -> str:
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--format", choices=("md", "json"), default="md")
+    add_validation_scope_argument(parser)
     return parser.parse_args(argv)
 
 
@@ -287,6 +293,14 @@ def _emit_report(report: dict[str, object], *, output_format: str) -> None:
 def main() -> int:
     args = _parse_args()
     report = build_report()
+    report = apply_validation_scope_to_report(
+        report,
+        validation_scope_from_args(args),
+        reason=(
+            "review-surface consistency compares live projection proof ticks; "
+            "governed publication validation records it as advisory evidence."
+        ),
+    )
     _emit_report(report, output_format=args.format)
     return 0 if report.get("ok", False) else 1
 

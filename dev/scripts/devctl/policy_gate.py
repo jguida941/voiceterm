@@ -11,7 +11,12 @@ from .common import resolve_repo_python_command
 from .config import REPO_ROOT
 
 
-def run_json_policy_gate(script_path: Path, gate_label: str) -> dict:
+def run_json_policy_gate(
+    script_path: Path,
+    gate_label: str,
+    *,
+    extra_args: list[str] | tuple[str, ...] | None = None,
+) -> dict:
     """Run a policy script with `--format json` and parse its report."""
     if not script_path.exists():
         return {
@@ -22,8 +27,11 @@ def run_json_policy_gate(script_path: Path, gate_label: str) -> dict:
     try:
         env = dict(os.environ)
         env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
+        argv = ["python3", str(script_path), "--format", "json"]
+        if extra_args:
+            argv.extend(str(arg) for arg in extra_args)
         cmd = resolve_repo_python_command(
-            ["python3", str(script_path), "--format", "json"],
+            argv,
             cwd=REPO_ROOT,
         )
         completed = subprocess.run(

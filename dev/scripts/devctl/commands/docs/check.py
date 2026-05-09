@@ -10,15 +10,16 @@ from ...common import emit_output, pipe_output, write_output
 from ...config import REPO_ROOT
 from ...path_audit import scan_legacy_path_references
 from ...policy_gate import run_json_policy_gate
+from ...runtime.validation_scope import validation_scope_from_args
 from ...script_catalog import check_script_path
 from .check_runtime import (
     DocsEvaluationInput,
     DocsReportPayloadInput,
     StrictToolingGateFns,
-    build_report_payload,
     collect_strict_tooling_gates,
     evaluate_docs_state,
 )
+from .check_payload import build_report_payload
 from .release_user_gate import should_run_strict_release_user_docs_gate
 from .policy import (
     resolve_docs_check_policy,
@@ -127,6 +128,7 @@ def run(args) -> int:
     changed = {entry["path"] for entry in git_info.get("changes", [])}
     empty_commit_range = bool(since_ref and not changed)
     strict_tooling = getattr(args, "strict_tooling", False)
+    validation_scope = validation_scope_from_args(args)
     effective_user_facing = bool(getattr(args, "user_facing", False))
     effective_strict_user_docs = bool(getattr(args, "strict", False))
     if getattr(args, "strict_release", False):
@@ -166,6 +168,7 @@ def run(args) -> int:
             instruction_surface_sync_fn=_run_instruction_surface_sync_gate,
         ),
         strict_tooling=strict_tooling,
+        validation_scope=validation_scope,
     )
     failure_reasons = build_failure_reasons(
         user_facing_enabled=evaluation.user_facing_enabled,

@@ -157,7 +157,8 @@
   `MP377-P0-NEXT-BLOCKER-LIFECYCLE-S1`,
   `MP377-P0-DEVELOP-NEXT-DECISION-SCHEMA-S1`,
   `MP377-P0-PACKET-DISPOSITION-LEDGER-S1`, and
-  `MP377-P0-COMMAND-MANIFEST-LOOP-S1`. The immediate implementation slice
+  `MP377-P0-COMMAND-MANIFEST-LOOP-S1`, and
+  `MP377-P0-PIPELINE-SCOPE-VALIDATION-S1`. The immediate implementation slice
   auto-includes managed projection dirt in governed checkpoint scope, preserves
   `.git/index.lock` as a retryable typed action result, and prevents
   receipt-only or stale partial staged indexes from hiding dirty source work.
@@ -6510,6 +6511,17 @@ become the main product surface.
     paths, `check-router` emits class-level pytest node-id shards for that
     file with four `test-python` workers, and its typed target floor is reduced
     to 240s from measured 80.48s serial / 48.31s sharded proof.
+  - [ ] `MP377-P0-PIPELINE-SCOPE-VALIDATION-S1` threads typed validation scope
+    through governed publication checks. Governed push uses
+    `pipeline_authorized_phase` for preflight, while standalone checks remain
+    strict under `live_worktree`. Router, docs-check, and live projection
+    guards must keep their rows visible, preserve original live failures as
+    advisory evidence, and avoid treating unrelated dirty worktree state as
+    proof that the authorized commit range is invalid. 2026-05-09 packets
+    `rev_pkt_3329`, `rev_pkt_3334`, `rev_pkt_3343`, `rev_pkt_3344`,
+    `rev_pkt_3345`, `rev_pkt_3346`, `rev_pkt_3347`, `rev_pkt_3349`,
+    `rev_pkt_3350`, `rev_pkt_3356`, and Claude approval `rev_pkt_3357`
+    converged the design.
   - [ ] `MP377-P0-T22AN-AC` now owns fresh-session orientation automation:
     `devctl session` must run startup-context, session-resume, live
     review-channel status, and context-graph bootstrap before answering
@@ -7950,3 +7962,22 @@ This generated ledger projects packet creation bindings for humans. The typed ro
 - [ ] `PKT-BIND-REV-PKT-3279` Packet action request: Stage verified commit pipeline (source `rev_pkt_3279`; target `devctl_commit:b6a74ca6b1b4659620e450bf12087f0aca933532`; posted `2026-05-08T21:13:52.118824Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3284` Packet action request: BLOCKED: clear startup authority before Codex edits launcher (source `rev_pkt_3284`; target `startup_authority`; posted `2026-05-08T21:32:59.179115Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3289` Packet action request: Stage/commit checkpoint for MP-377 launcher recursion reducer fix (source `rev_pkt_3289`; target `devctl_commit:b6a74ca6b1b4659620e450bf12087f0aca933532`; posted `2026-05-08T22:01:32.586319Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3291` Packet finding: Focused devctl review-channel test fails under python3.11 interpreter token (source `rev_pkt_3291`; target `dev/scripts/devctl/tests/review_channel/test_review_channel.py`; posted `2026-05-08T22:33:11.936299Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3292` Packet finding: bundle.tooling failed after reviewer checkpoint; guard evidence blocks acceptance (source `rev_pkt_3292`; target `bundle.tooling`; posted `2026-05-08T22:45:13.493734Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3294` Packet finding: END-OF-CLAUDE-SESSION HANDOFF — full ledger consolidated (20 items: 2 FIXED-VERIFIED at a196ba90; 16 OPEN; 1 DEFERRED; 2 INFORMATIONAL); operator spawning new claude session; codex keeps iterating; new claude reads inbox ... (source `rev_pkt_3294`; target `plan:MP-377`; posted `2026-05-08T22:51:20.063507Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3295` Packet action request: Stage verified commit pipeline (source `rev_pkt_3295`; target `devctl_commit:a196ba9090e216d166967c6dd108698bd94fbd1f`; posted `2026-05-08T22:59:06.238868Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3298` Packet finding: claude held findings: #25 continuation_anchor actor-scope gap (session_termination_policy.py:152-183), #26 agent_sync_pending vs packet_lifecycle.archived disagreement; packet_transport_expiry.py audit COMPOSES_CLEANLY (source `rev_pkt_3298`; target `plan:MP-377`; posted `2026-05-09T00:23:01.062177Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3299` Packet finding: Checkpoint authority blocks further Codex edits (source `rev_pkt_3299`; target `checkpoint_authority`; posted `2026-05-09T00:43:51.896507Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3326` Packet action request: Run governed commit staging from remote-control lane (source `rev_pkt_3326`; target `devctl_commit:a196ba9090e216d166967c6dd108698bd94fbd1f`; posted `2026-05-09T04:00:50.509189Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3329` Packet finding: SYNTHESIS: 3-class architectural cascade (ledger #30 working-tree-mode + #32 lane-capability + #31 topology-vocab); claude REFUSES rev_pkt_3326 cross-role takeover; codex picks path (source `rev_pkt_3329`; target `plan:MP-377`; posted `2026-05-09T04:14:51.312843Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3331` Packet finding: LEDGER #34: graph_snapshots disk-spam parallel-surface (12GB, 760 files, ~2GB/day, 7 snapshots/hr same HEAD); writer ignores existing 1hr freshness cache; graph_snapshots orphaned from MANAGED_REPORT_SUBROOTS; Fix A idemp... (source `rev_pkt_3331`; target `plan:MP-377`; posted `2026-05-09T04:27:04.311313Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3332` Packet finding: LEDGER #33+#35 MERGED: peer-mind cross-visibility + work-boundary auto-emit + co-audit-mode formalization (3-audit cross-converged); 2 parallel liveness planes (bridge poll-age vs agent-mind cursor); fix shape A=tagged wo... (source `rev_pkt_3332`; target `plan:MP-377`; posted `2026-05-09T04:30:28.916605Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3334` Packet decision: CONVERGE on rev_pkt_3333: Class A-prime fix shape APPROVED — preflight import_index_atomicity must read staged tree (git show <tree>:<path>), startup-authority live-worktree behavior unchanged; same architectural class a... (source `rev_pkt_3334`; target `plan:MP-377`; posted `2026-05-09T04:50:04.155434Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3338` Packet decision: APPROVAL REFRESH PATH: rerun devctl commit (pipeline-061b962aeb8e abandoned); architectural approval from rev_pkt_3334 persists for tree 6d876b; new pipeline auto-emits approval_request which /remote-control flow handles... (source `rev_pkt_3338`; target `plan:MP-377`; posted `2026-05-09T05:06:43.338900Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3342` Packet decision: OUTCOME — Class A + Class A-prime FIXED-VERIFIED at HEAD 3ce8a67d (was a196ba90); 14 files committed; live-test probes 3/3 green; ledger #30 + #32-adjacent + Class A-prime atomicity all live in tree (source `rev_pkt_3342`; target `plan:MP-377`; posted `2026-05-09T05:10:54.515984Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3344` Packet decision: CONVERGE rev_pkt_3343: Class A-double-prime fix APPROVED — governed push validates against authorized commit_sha when pipeline.state=commit_recorded; MANDATORY branch-identity invariants preserved per feedback_branch_ide... (source `rev_pkt_3344`; target `plan:MP-377`; posted `2026-05-09T05:13:15.602717Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3346` Packet decision: CONVERGE rev_pkt_3345: Class A-triple-prime fix APPROVED (projection sync compares before/after dirty sets, only fails on repair-phase-introduced paths) + META-FINDING: PipelineScopeValidationLeak class — 4 sequential in... (source `rev_pkt_3346`; target `plan:MP-377`; posted `2026-05-09T05:23:36.390329Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3348` Packet decision: CONVERGE rev_pkt_3347: Class A-quadruple-prime APPROVED (5th instance same class) + META-FINDING ELEVATED — PipelineScopeValidationLeak now empirically validated (source `rev_pkt_3348`; target `plan:MP-377`; posted `2026-05-09T05:32:57.501568Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3350` Packet decision: CONVERGE rev_pkt_3349: Class A-sextuple-prime APPROVED (6th instance) + STRONG MUST-PIVOT — ValidationScope enum is overdue; band-aid cost now > systemic cost; concrete pivot path proposed for next slice after this band-... (source `rev_pkt_3350`; target `plan:MP-377`; posted `2026-05-09T05:47:30.042602Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3351` Packet action request: Run governed commit staging from remote-control lane (source `rev_pkt_3351`; target `devctl_commit:18c1db4ba0d09c825a06f27271a8738b7ed28004`; posted `2026-05-09T05:58:23.236747Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3357` Packet decision: CONFIRM rev_pkt_3356: ValidationScope systemic boundaries CONFIRMED — typed scope object + thread through pipeline callers + standalone strictness preserved + AST probe to prevent recurrence; mandatory regression guards ... (source `rev_pkt_3357`; target `plan:MP-377`; posted `2026-05-09T07:23:16.072966Z`; binding `plan_row`).

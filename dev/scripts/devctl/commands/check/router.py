@@ -17,11 +17,13 @@ from .router_execution import (
     router_execution_policy,
     router_execution_summary,
 )
+from .router_plan import RouterCommandScope, scope_planned_rows
 from .router_render import render_markdown
 from .router_support import classify_lane as _classify_lane
 from .router_support import dedupe_commands as _dedupe_commands
 from .router_support import detect_python_test_addons as _detect_python_test_addons
 from .router_support import detect_risk_addons as _detect_risk_addons
+from ...runtime.validation_scope import ValidationContext, validation_scope_from_args
 
 
 def _extract_bundle_commands(bundle_name: str) -> tuple[list[str], str | None]:
@@ -142,6 +144,13 @@ def run(args) -> int:
         *_detect_risk_addons(changed_paths, policy_path=policy_path),
         *_detect_python_test_addons(changed_paths),
     ]
+    validation_scope = validation_scope_from_args(args)
+    validation_context = ValidationContext(scope=validation_scope)
+    command_scope = RouterCommandScope(
+        since_ref=since_ref,
+        head_ref=head_ref,
+        validation_scope=validation_scope,
+    )
 
     planned_rows = _dedupe_commands(
         build_planned_rows(
@@ -149,9 +158,12 @@ def run(args) -> int:
             bundle_commands=bundle_commands,
             risk_addons=risk_addons,
             policy_path=policy_path,
-            since_ref=since_ref,
-            head_ref=head_ref,
+            command_scope=command_scope,
         )
+    )
+    planned_rows, scoped_out_commands = scope_planned_rows(
+        planned_rows,
+        validation_scope=validation_scope,
     )
     steps, ok = execute_planned_rows(
         planned_rows=planned_rows,
@@ -187,7 +199,10 @@ def run(args) -> int:
         "rejected_rule_traces": classification.get("rejected_rule_traces", []),
         "risk_addons": risk_addons,
         "planned_commands": planned_rows,
+        "scoped_out_commands": scoped_out_commands,
         "steps": steps,
+        "validation_scope": validation_scope.to_dict(),
+        "validation_context": validation_context.to_dict(),
         "execute": execute,
         "keep_going": keep_going,
         "parallel_enabled": parallel_enabled,

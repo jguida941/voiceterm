@@ -14818,3 +14818,36 @@ Evidence:
 - `dev/scripts/devctl/governance/instruction_boot_card.py`
 - `dev/guides/DEVELOPMENT.md`
 - `dev/scripts/README.md`
+
+### 2026-05-09 - Governed push validation now carries typed publication scope
+
+Dogfood on the governed push lane exposed a validation-scope leak: preflight
+had to validate the authorized commit range, but live projection guards could
+still hard-block publication because the working tree contained unrelated
+in-progress state. The fix is a typed `ValidationScope` / `ValidationContext`
+contract that defaults standalone checks to strict `live_worktree` and lets
+governed publication run under `pipeline_authorized_phase`.
+
+Change: `devctl push --execute` threads `pipeline_authorized_phase` into
+`check-router`, `docs-check`, and the live guard CLIs. Router plans keep
+docs-check and live projection guards visible instead of moving them into a
+skip list. In the publication phase, affected guards preserve original
+`live_worktree_ok`, errors, and advisory scope metadata while returning an
+allowed result for the already-authorized commit range. Standalone invocations
+remain fail-closed by default. Claude packet `rev_pkt_3357` approved this
+architecture as the validation-scope slice under
+`MP377-P0-PIPELINE-SCOPE-VALIDATION-S1`.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/validation_scope.py`
+- `dev/scripts/devctl/commands/check/router.py`
+- `dev/scripts/devctl/commands/check/router_range.py`
+- `dev/scripts/devctl/commands/check/router_plan.py`
+- `dev/scripts/devctl/commands/docs/check_runtime.py`
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/governance/push_routing.py`
+- `dev/scripts/checks/*/command.py`
+- `dev/scripts/devctl/tests/commands/check/test_check_router.py`
+- `dev/scripts/devctl/tests/commands/docs/test_check.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`

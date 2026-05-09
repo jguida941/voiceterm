@@ -2,7 +2,18 @@
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
+from ...runtime.validation_scope import ValidationScope
 from .router_range import normalize_router_command
+
+
+class RouterCommandScope(NamedTuple):
+    """Refs and validation scope applied to planned router commands."""
+
+    since_ref: str | None
+    head_ref: str
+    validation_scope: ValidationScope | None = None
 
 _SERIAL_REQUIRED_COMMAND_MARKERS: tuple[tuple[str, str], ...] = (
     (
@@ -78,16 +89,14 @@ def build_planned_rows(
     bundle_commands: list[str],
     risk_addons: list[dict],
     policy_path: str | None,
-    since_ref: str | None,
-    head_ref: str,
+    command_scope: RouterCommandScope,
 ) -> list[dict[str, str]]:
     planned_rows = [
         _planned_row(
             source=bundle_name,
             command=command,
             policy_path=policy_path,
-            since_ref=since_ref,
-            head_ref=head_ref,
+            command_scope=command_scope,
         )
         for command in bundle_commands
     ]
@@ -97,12 +106,21 @@ def build_planned_rows(
                 source=addon["id"],
                 command=command,
                 policy_path=policy_path,
-                since_ref=since_ref,
-                head_ref=head_ref,
+                command_scope=command_scope,
             )
             for command in addon["commands"]
         )
     return planned_rows
+
+
+def scope_planned_rows(
+    planned_rows: list[dict[str, str]],
+    *,
+    validation_scope: ValidationScope | None,
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """Keep the planned command set visible for typed validation scopes."""
+    _ = validation_scope
+    return planned_rows, []
 
 
 def _planned_row(
@@ -110,14 +128,14 @@ def _planned_row(
     source: str,
     command: str,
     policy_path: str | None,
-    since_ref: str | None,
-    head_ref: str,
+    command_scope: RouterCommandScope,
 ) -> dict[str, str]:
     normalized_command = normalize_router_command(
         command,
         policy_path,
-        since_ref=since_ref,
-        head_ref=head_ref,
+        since_ref=command_scope.since_ref,
+        head_ref=command_scope.head_ref,
+        validation_scope=command_scope.validation_scope,
     )
     safety, reason = _parallel_safety_for_command(normalized_command)
     return {
@@ -135,4 +153,4 @@ def _parallel_safety_for_command(command: str) -> tuple[str, str]:
     return "parallel_safe", "independent guard/probe command"
 
 
-__all__ = ["build_planned_rows"]
+__all__ = ["RouterCommandScope", "build_planned_rows", "scope_planned_rows"]
