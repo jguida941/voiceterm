@@ -747,7 +747,7 @@ class TestStartupActionRouting(unittest.TestCase):
                 return_value=(("dev/scripts/devctl/mobile/phone_views.py",), None),
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.commit_preflight_atomicity.collect_import_index_atomicity_findings",
+                "dev.scripts.devctl.commands.vcs.commit_preflight_atomicity.collect_staged_import_index_atomicity_findings",
                 return_value=([violation], []),
             ),
         ):
@@ -1317,6 +1317,11 @@ class TestGuardBundleRunner(unittest.TestCase):
         self.assertIn("check", cmd_str)
         self.assertIn("--profile", cmd_str)
         self.assertIn("quick", cmd_str)
+        self.assertIn("--commit-snapshot", cmd)
+        self.assertIn("--since-ref", cmd)
+        self.assertIn("HEAD", cmd)
+        self.assertIn("--head-ref", cmd)
+        self.assertIn("tree-123", cmd)
         env = call_args[1]["env"]
         self.assertEqual(env["DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY"], "1")
 
@@ -1326,6 +1331,8 @@ class TestGuardBundleRunner(unittest.TestCase):
         rc = _run_guard_bundle(runner=mock_runner)
 
         self.assertEqual(rc, 0)
+        cmd = mock_runner.call_args[0][0]
+        self.assertNotIn("--commit-snapshot", cmd)
         env = mock_runner.call_args[1]["env"]
         self.assertNotIn("DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY", env)
 
@@ -1342,6 +1349,8 @@ class TestGuardBundleRunner(unittest.TestCase):
         rc = _run_guard_bundle(runner=mock_runner, pipeline=pipeline)
 
         self.assertEqual(rc, 0)
+        cmd = mock_runner.call_args[0][0]
+        self.assertIn("--commit-snapshot", cmd)
         env = mock_runner.call_args[1]["env"]
         self.assertEqual(env["DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY"], "1")
 
@@ -1479,7 +1488,7 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             self.assertEqual(pipeline.state, "commit_recorded")
             self.assertIn("tracked.txt", pipeline.intent.staged_paths)
 
-    def test_commit_retries_partially_staged_index_by_staging_unstaged_work(
+    def test_commit_preserves_partially_staged_index_with_unstaged_work(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1501,9 +1510,12 @@ class TestGovernedCommitPipeline(unittest.TestCase):
 
             pipeline = executor.load_pipeline()
             committed = _run_git(repo_root, "show", "HEAD:tracked.txt")
+            worktree_text = (repo_root / "tracked.txt").read_text(encoding="utf-8")
             self.assertEqual(rc, 0)
             self.assertEqual(pipeline.state, "commit_recorded")
-            self.assertEqual(committed, "unstaged")
+            self.assertEqual(tuple(pipeline.intent.staged_paths), ("tracked.txt",))
+            self.assertEqual(committed, "staged")
+            self.assertEqual(worktree_text, "unstaged\n")
 
     def test_commit_paths_fail_closed_when_dirty_work_is_outside_scope(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

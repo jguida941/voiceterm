@@ -72,6 +72,31 @@ def _read_committed_file(
     return result.stdout, None
 
 
+def _read_index_file(
+    repo_root: Path,
+    relative: Path,
+) -> tuple[str | None, str | None]:
+    """Read a file's content from the git index, ignoring live worktree dirt."""
+    try:
+        result = subprocess.run(
+            ["git", "show", f":{relative.as_posix()}"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return None, f"{relative.as_posix()}: unable to read staged source ({exc})"
+    if result.returncode != 0:
+        stderr = (
+            str(getattr(result, "stderr", "") or "").strip()
+            or "git show :<path> failed"
+        )
+        return None, f"{relative.as_posix()}: unable to read staged source ({stderr})"
+    return result.stdout, None
+
+
 def _list_staged_python_paths(repo_root: Path) -> tuple[set[str], str | None]:
     """Return Python paths present in the git index."""
     try:

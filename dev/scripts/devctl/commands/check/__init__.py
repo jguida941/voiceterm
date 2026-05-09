@@ -32,6 +32,7 @@ from ...runtime.check_result_render import (
 )
 from ...steps import enrich_steps_for_json, format_steps_md, format_steps_text
 from . import phases as check_phases_module
+from .commit_snapshot import apply_commit_snapshot_mode, policy_for_commit_snapshot
 from .phases import (
     CheckContext,
     run_probe_phase,
@@ -300,11 +301,17 @@ def run(args) -> int:
         set_repo_root(Path(repo_path))
     try:
         _warn_profile_conflicts(args)
+        commit_snapshot_error = apply_commit_snapshot_mode(args)
+        if commit_snapshot_error:
+            print(f"[check] error: {commit_snapshot_error}", file=sys.stderr)
+            return 2
         scan_mode = _resolve_scan_mode_or_exit(args)
         if scan_mode is None:
             return 2
 
         quality_policy = _resolve_quality_policy_with_warnings(args)
+        if getattr(args, "commit_snapshot", False):
+            quality_policy = policy_for_commit_snapshot(quality_policy)
         _apply_external_repo_rust_capability(args, repo_path, quality_policy)
         ctx = _build_check_context(args, quality_policy, scan_mode)
         process_sweep_cleanup, host_process_cleanup = _resolve_cleanup_flags(args, repo_path)

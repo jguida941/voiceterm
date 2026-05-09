@@ -200,6 +200,8 @@ def _reuse_staged_index(
         unstaged = unstaged_paths(repo_root)
     except (OSError, ValueError):
         return True
+    if non_receipt_artifact_paths(repo_root=repo_root, paths=staged):
+        return True
     if dirty and not non_receipt_artifact_paths(repo_root=repo_root, paths=staged):
         return False
     if non_receipt_artifact_paths(repo_root=repo_root, paths=unstaged):

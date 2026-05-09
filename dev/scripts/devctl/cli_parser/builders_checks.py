@@ -108,6 +108,7 @@ def add_check_parser(
         default="HEAD",
         help="Head ref used with --since-ref for AI-guard checks (default: HEAD).",
     )
+    _add_commit_snapshot_argument(check_cmd)
     check_cmd.add_argument(
         "--quality-policy",
         help=(
@@ -153,6 +154,21 @@ def add_check_parser(
         action="store_true",
         help="Disable the default host-side cleanup/verify step for quick/fast profiles",
     )
+    _add_repo_path_argument(check_cmd)
+
+
+def _add_commit_snapshot_argument(check_cmd: argparse.ArgumentParser) -> None:
+    check_cmd.add_argument(
+        "--commit-snapshot",
+        action="store_true",
+        help=(
+            "Validate a governed commit snapshot: requires --since-ref and runs "
+            "only commit-range-capable guards against --head-ref."
+        ),
+    )
+
+
+def _add_repo_path_argument(check_cmd: argparse.ArgumentParser) -> None:
     check_cmd.add_argument(
         "--repo-path",
         help="Run checks against an external repo instead of the current worktree.",

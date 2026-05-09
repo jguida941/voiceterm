@@ -12,6 +12,9 @@ from unittest.mock import patch
 import pytest
 
 from dev.scripts.checks.startup_authority_contract.command import _build_report
+from dev.scripts.checks.startup_authority_contract.runtime_import_staged import (
+    collect_staged_import_index_atomicity_findings,
+)
 from dev.scripts.checks.startup_authority_contract.runtime_checks import (
     collect_concurrent_writer_errors,
     collect_import_index_atomicity_findings,
@@ -1183,7 +1186,7 @@ def test_import_index_atomicity_flags_repo_local_worktree_only_module(
     )
 
     with patch(
-        "dev.scripts.checks.startup_authority_contract.runtime_checks.resolve_quality_scope_roots",
+        "dev.scripts.checks.startup_authority_contract.runtime_import_staged.resolve_quality_scope_roots",
         return_value=(Path("dev"),),
     ):
         errors, warnings = collect_import_index_atomicity_findings(tmp_path)
@@ -1261,6 +1264,43 @@ def test_import_index_atomicity_allows_staged_atomic_split_with_existing_head(
     # Committed layer: HEAD content has "import os" only, no startup_signals ref -> passes
     assert errors == []
     assert warnings == []
+
+
+def test_staged_import_atomicity_ignores_unstaged_importer_dirt(
+    tmp_path: Path,
+) -> None:
+    """Commit preflight validates the index snapshot, not dirty worktree imports."""
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    importer = tmp_path / "dev" / "testpkg" / "importer.py"
+    importer.parent.mkdir(parents=True)
+    importer.write_text("import os\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "dev/testpkg/importer.py"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+    _git_commit(tmp_path, "initial importer without target import")
+
+    importer.write_text("import os\nfrom . import startup_signals\n", encoding="utf-8")
+    (tmp_path / "dev" / "testpkg" / "commit_snapshot.py").write_text(
+        "VALUE = 1\n", encoding="utf-8"
+    )
+    subprocess.run(
+        ["git", "add", "dev/testpkg/commit_snapshot.py"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+
+    with patch(
+        "dev.scripts.checks.startup_authority_contract.runtime_checks.resolve_quality_scope_roots",
+        return_value=(Path("dev"),),
+    ):
+        errors, warnings = collect_staged_import_index_atomicity_findings(tmp_path)
+
+    assert warnings == []
+    assert errors == []
 
 
 def test_import_index_atomicity_accepts_atomic_staged_split(

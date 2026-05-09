@@ -57,6 +57,7 @@ def make_args(profile: str) -> SimpleNamespace:
         since_ref=None,
         adoption_scan=False,
         head_ref="HEAD",
+        commit_snapshot=False,
         keep_going=False,
         no_parallel=False,
         parallel_workers=4,
@@ -78,7 +79,7 @@ def make_args(profile: str) -> SimpleNamespace:
 def make_success_run_cmd_recorder(calls: list[dict[str, object]]):
     """Return a `run_cmd` side effect that records successful invocations."""
 
-    def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False):
+    def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False, **kwargs):
         calls.append(
             {
                 "name": name,
@@ -86,6 +87,7 @@ def make_success_run_cmd_recorder(calls: list[dict[str, object]]):
                 "cwd": cwd,
                 "env": env,
                 "dry_run": dry_run,
+                "kwargs": kwargs,
             }
         )
         return {
@@ -617,7 +619,7 @@ class CheckProfileTests(TestCase):
     ) -> None:
         mock_build_env.return_value = {}
 
-        def fake_step_run(name, cmd, cwd=None, env=None, dry_run=False):
+        def fake_step_run(name, cmd, cwd=None, env=None, dry_run=False, **kwargs):
             if name == "code-shape-guard":
                 return {
                     "name": name,
@@ -742,6 +744,49 @@ class CheckProfileTests(TestCase):
         self.assertNotIn("--since-ref", compat_matrix_cmd)
         self.assertNotIn("--since-ref", compat_matrix_smoke_cmd)
         self.assertNotIn("--since-ref", naming_consistency_cmd)
+
+    @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
+    @patch("dev.scripts.devctl.commands.check.build_env")
+    def test_commit_snapshot_runs_only_range_capable_guards(
+        self,
+        mock_build_env,
+        mock_run_cmd,
+    ) -> None:
+        mock_build_env.return_value = {}
+        calls = []
+
+        mock_run_cmd.side_effect = make_success_run_cmd_recorder(calls)
+        args = make_args("quick")
+        args.commit_snapshot = True
+        args.since_ref = "HEAD"
+        args.head_ref = "tree-123"
+
+        rc = check.run(args)
+        self.assertEqual(rc, 0)
+
+        names = {str(call["name"]) for call in calls}
+        self.assertIn("code-shape-guard", names)
+        self.assertIn("python-cyclic-imports-guard", names)
+        self.assertNotIn("fmt-check", names)
+        self.assertNotIn("clippy", names)
+        self.assertNotIn("startup-authority-contract-guard", names)
+        self.assertNotIn("platform-contract-closure-guard", names)
+        self.assertNotIn("tandem-consistency-guard", names)
+        self.assertNotIn("host-process-cleanup-post", names)
+        code_shape_cmd = next(call["cmd"] for call in calls if call["name"] == "code-shape-guard")
+        self.assertIn("--since-ref", code_shape_cmd)
+        self.assertIn("HEAD", code_shape_cmd)
+        self.assertIn("--head-ref", code_shape_cmd)
+        self.assertIn("tree-123", code_shape_cmd)
+
+    def test_commit_snapshot_requires_since_ref(self) -> None:
+        args = make_args("quick")
+        args.commit_snapshot = True
+        args.since_ref = None
+
+        rc = check.run(args)
+
+        self.assertEqual(rc, 2)
 
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
@@ -1115,7 +1160,7 @@ class CheckProcessSweepTests(TestCase):
 class CheckParallelHelperTests(TestCase):
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     def test_parallel_runner_preserves_declared_step_order(self, mock_run_cmd) -> None:
-        def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False):
+        def fake_run_cmd(name, cmd, cwd=None, env=None, dry_run=False, **kwargs):
             if name == "fmt-check":
                 time.sleep(0.05)
             return {
@@ -1401,7 +1446,7 @@ class CheckProgressFeedbackTests(TestCase):
     ) -> None:
         """With --no-parallel, each step gets [N/M] progress on stderr."""
         mock_build_env.return_value = {}
-        mock_run_cmd.side_effect = lambda name, cmd, cwd=None, env=None, dry_run=False: {
+        mock_run_cmd.side_effect = lambda name, cmd, cwd=None, env=None, dry_run=False, **kwargs: {
             "name": name,
             "cmd": cmd,
             "cwd": str(cwd),
@@ -1433,7 +1478,7 @@ class CheckProgressFeedbackTests(TestCase):
     ) -> None:
         """With parallel enabled, batched steps show range progress on stderr."""
         mock_build_env.return_value = {}
-        mock_run_cmd.side_effect = lambda name, cmd, cwd=None, env=None, dry_run=False: {
+        mock_run_cmd.side_effect = lambda name, cmd, cwd=None, env=None, dry_run=False, **kwargs: {
             "name": name,
             "cmd": cmd,
             "cwd": str(cwd),

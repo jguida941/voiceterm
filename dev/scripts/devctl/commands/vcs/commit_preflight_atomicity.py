@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from dev.scripts.checks.startup_authority_contract.runtime_import_atomicity import (
-    collect_import_index_atomicity_findings,
+from dev.scripts.checks.startup_authority_contract.runtime_import_staged import (
+    collect_staged_import_index_atomicity_findings,
 )
 from dev.scripts.checks.startup_authority_contract.runtime_import_git import (
     list_staged_new_python_module_paths,
@@ -31,7 +31,9 @@ def preflight_import_index_atomicity(
     if not staged_new_module_paths:
         return warnings, None
 
-    errors, atomicity_warnings = collect_import_index_atomicity_findings(repo_root)
+    errors, atomicity_warnings = collect_staged_import_index_atomicity_findings(
+        repo_root
+    )
     warnings.extend(atomicity_warnings)
     if not errors:
         return warnings, None

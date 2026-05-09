@@ -17,6 +17,10 @@ from ...runtime.action_contracts import (
     ACTION_RESULT_SCHEMA_VERSION,
     ActionOutcome,
 )
+from .commit_guard_snapshot import (
+    guard_check_args_for_pipeline,
+    pipeline_has_checkpoint_snapshot,
+)
 
 GUARD_PROFILE = "quick"
 DEVCTL_SCRIPT = "dev/scripts/devctl.py"
@@ -141,6 +145,7 @@ def _run_guard_check(
         GUARD_PROFILE,
         "--format",
         "json",
+        *guard_check_args_for_pipeline(pipeline),
     ]
     child_env = os.environ.copy()
     if pipeline_has_checkpoint_snapshot(pipeline):

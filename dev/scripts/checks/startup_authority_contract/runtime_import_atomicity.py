@@ -28,6 +28,7 @@ class ImportAtomicityContext:
     index_python_paths: set[str]
     top_level_packages: set[str]
     layer: str
+    allow_disk_modules: bool = True
 
 
 def collect_import_index_atomicity_findings(
@@ -311,7 +312,7 @@ def _module_exists_on_disk_or_index(
     for candidate in _module_candidates(module_base):
         if candidate in context.index_python_paths:
             return True
-        if (context.repo_root / candidate).is_file():
+        if context.allow_disk_modules and (context.repo_root / candidate).is_file():
             return True
     return False
 
