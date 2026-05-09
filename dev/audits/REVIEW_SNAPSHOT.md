@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `c6ac3181f181` — Fix commit approval attestation fallback
-- Tree hash: `6434e6574ced`
-- Generation stamp: `snap-c1796da62dbf`
-- Generated at (UTC): 2026-05-09T15:35:50Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `a7852e0cfeec` — Record unified packet synthesis binding
+- Tree hash: `e96d95720351`
+- Generation stamp: `snap-c62901a9a45e`
+- Generated at (UTC): 2026-05-09T15:40:23Z
+- Push decision: `await_review` — review_loop_relaunch_required
 - Reviewer mode: `tools_only` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 234 files, +10224/-3424
+- Delta since last snapshot: 24 commits, 234 files, +10235/-3435
 - Governance findings: 158 open / 63 fixed / 233 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,23 +30,23 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `c6ac3181f181c53ee47f5dd481e2375c428164fe`
+- HEAD SHA: `a7852e0cfeec90218bbac5f3bd87c6671ba85fcb`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-09T11:23:09-04:00
+- HEAD timestamp (UTC): 2026-05-09T11:39:40-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_present
+- action: `await_review`
+- reason: review_loop_relaunch_required
 - push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 2
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 17 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 18 local commit(s) waiting for governed push once review is accepted.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -63,16 +63,16 @@ probes, typed actions, deterministic policy resolution — is what m...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
+- advisory: `repair_reviewer_loop` — review_loop_relaunch_required
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `c6ac3181f181`
+Range: last 24 commits ending at `a7852e0cfeec`
 
 - commits: 24
 - files changed: 234
-- insertions: +10224
-- deletions: -3424
+- insertions: +10235
+- deletions: -3435
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 30 file(s)
 
@@ -80,30 +80,30 @@ Range: last 24 commits ending at `c6ac3181f181`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `c6ac3181` | Fix commit approval attestation fallback | 5 | +87/-72 | tooling |  |
-| 2 | `1dc06d7e` | Refresh external review snapshot for dda60185 | 2 | +72/-70 | docs |  |
-| 3 | `dda60185` | Fix role topology push preflight blockers | 13 | +211/-91 | tooling |  |
-| 4 | `6ebd631e` | Make review topology role-based | 41 | +1303/-421 | tooling |  |
-| 5 | `2164a20f` | Refresh external review snapshot for afafb9c1 | 2 | +54/-55 | docs |  |
-| 6 | `afafb9c1` | Refresh external review snapshot for 8845a49e | 2 | +68/-67 | docs |  |
-| 7 | `8845a49e` | Refresh external review snapshot for eb9a1578 | 2 | +54/-56 | docs |  |
-| 8 | `eb9a1578` | Sync generated surfaces for governed push | 3 | +58/-57 | docs |  |
-| 9 | `f5d30b58` | Refresh external review snapshot for d13e587e | 2 | +95/-86 | docs |  |
-| 10 | `d13e587e` | Checkpoint packet pressure and validation scope repair | 122 | +3531/-1229 | tooling |  |
-| 11 | `5ae52585` | Refresh system map after validation scope modules | 2 | +74/-71 | tooling |  |
-| 12 | `4dffbed7` | Thread validation scope through push preflight | 32 | +960/-204 | tooling |  |
-| 13 | `c2b8d6ec` | Fix push preflight scope propagation | 6 | +138/-68 | tooling |  |
-| 14 | `f8b8d50c` | Refresh policy-owned generated surfaces for f8ca0325 | 1 | +1/-1 | docs |  |
-| 15 | `f8ca0325` | Fix governed push validation scope | 16 | +918/-214 | tooling |  |
-| 16 | `18c1db4b` | Refresh policy-owned generated surfaces for 3ce8a67d | 1 | +5/-5 | docs |  |
-| 17 | `3ce8a67d` | Fix governed commit staged snapshot validation | 14 | +404/-72 | tooling |  |
-| 18 | `a196ba90` | Wire session-liveness running-process check + scope reviewe… | 14 | +324/-93 | tooling |  |
-| 19 | `b6a74ca6` | Wire actor-scope into TASK_COMPLETE + filter anchor kinds f… | 18 | +334/-97 | tooling |  |
-| 20 | `314cb439` | Add SessionTerminationPolicy + TaskCompleteDecision typed c… | 25 | +826/-95 | tooling |  |
-| 21 | `d31f125b` | Refresh plan_index + MASTER_PLAN bindings + bridge typed-st… | 4 | +79/-67 | tooling |  |
-| 22 | `7a797932` | Refresh external review snapshot for 7f4f1eac | 2 | +74/-75 | docs |  |
-| 23 | `7f4f1eac` | Land T22AN-AC: typed wake-packet observations (CommandClass… | 14 | +513/-118 | tooling |  |
-| 24 | `0fb675ca` | Refresh external review snapshot for a1cb556e | 2 | +41/-40 | docs |  |
+| 1 | `a7852e0c` | Record unified packet synthesis binding | 4 | +52/-51 | tooling |  |
+| 2 | `c6ac3181` | Fix commit approval attestation fallback | 5 | +87/-72 | tooling |  |
+| 3 | `1dc06d7e` | Refresh external review snapshot for dda60185 | 2 | +72/-70 | docs |  |
+| 4 | `dda60185` | Fix role topology push preflight blockers | 13 | +211/-91 | tooling |  |
+| 5 | `6ebd631e` | Make review topology role-based | 41 | +1303/-421 | tooling |  |
+| 6 | `2164a20f` | Refresh external review snapshot for afafb9c1 | 2 | +54/-55 | docs |  |
+| 7 | `afafb9c1` | Refresh external review snapshot for 8845a49e | 2 | +68/-67 | docs |  |
+| 8 | `8845a49e` | Refresh external review snapshot for eb9a1578 | 2 | +54/-56 | docs |  |
+| 9 | `eb9a1578` | Sync generated surfaces for governed push | 3 | +58/-57 | docs |  |
+| 10 | `f5d30b58` | Refresh external review snapshot for d13e587e | 2 | +95/-86 | docs |  |
+| 11 | `d13e587e` | Checkpoint packet pressure and validation scope repair | 122 | +3531/-1229 | tooling |  |
+| 12 | `5ae52585` | Refresh system map after validation scope modules | 2 | +74/-71 | tooling |  |
+| 13 | `4dffbed7` | Thread validation scope through push preflight | 32 | +960/-204 | tooling |  |
+| 14 | `c2b8d6ec` | Fix push preflight scope propagation | 6 | +138/-68 | tooling |  |
+| 15 | `f8b8d50c` | Refresh policy-owned generated surfaces for f8ca0325 | 1 | +1/-1 | docs |  |
+| 16 | `f8ca0325` | Fix governed push validation scope | 16 | +918/-214 | tooling |  |
+| 17 | `18c1db4b` | Refresh policy-owned generated surfaces for 3ce8a67d | 1 | +5/-5 | docs |  |
+| 18 | `3ce8a67d` | Fix governed commit staged snapshot validation | 14 | +404/-72 | tooling |  |
+| 19 | `a196ba90` | Wire session-liveness running-process check + scope reviewe… | 14 | +324/-93 | tooling |  |
+| 20 | `b6a74ca6` | Wire actor-scope into TASK_COMPLETE + filter anchor kinds f… | 18 | +334/-97 | tooling |  |
+| 21 | `314cb439` | Add SessionTerminationPolicy + TaskCompleteDecision typed c… | 25 | +826/-95 | tooling |  |
+| 22 | `d31f125b` | Refresh plan_index + MASTER_PLAN bindings + bridge typed-st… | 4 | +79/-67 | tooling |  |
+| 23 | `7a797932` | Refresh external review snapshot for 7f4f1eac | 2 | +74/-75 | docs |  |
+| 24 | `7f4f1eac` | Land T22AN-AC: typed wake-packet observations (CommandClass… | 14 | +513/-118 | tooling |  |
 
 ### Files
 
@@ -116,11 +116,11 @@ Range: last 24 commits ending at `c6ac3181f181`
 | `app/operator_console/state/sessions/session_builder.py` | tooling | +22/-4 |
 | `app/operator_console/state/snapshots/snapshot_builder.py` | tooling | +14/-6 |
 | `app/operator_console/tests/state/test_state_modules.py` | tooling | +1/-1 |
-| `bridge.md` | docs | +162/-161 |
+| `bridge.md` | docs | +166/-165 |
 | `dev/README.md` | docs | +1/-1 |
-| `dev/active/MASTER_PLAN.md` | tooling | +78/-1 |
+| `dev/active/MASTER_PLAN.md` | tooling | +79/-1 |
 | `dev/active/ai_governance_platform.md` | tooling | +32/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1289/-1245 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1294/-1252 |
 | `dev/guides/DEVELOPMENT.md` | docs | +25/-3 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +16/-16 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +85/-1 |
@@ -254,6 +254,7 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`a7852e0c`** — Record unified packet synthesis binding
 - **`c6ac3181`** — Fix commit approval attestation fallback
 - **`1dc06d7e`** — Refresh external review snapshot for dda60185
 - **`dda60185`** — Fix role topology push preflight blockers
@@ -291,8 +292,6 @@ Recent findings:
   - evolution: Change: Codex session completion no longer depends on packet body prose such as "leave pending" to keep a conductor alive after `TASK_COMPLETE`. `SessionTerminationPolicy` names the allowed termination mode, session act…
 - **`7f4f1eac`** — Land T22AN-AC: typed wake-packet observations (CommandClassification + scoped_operator_override_command + override-vocab constants + suppress_artifact_writes default)
   - evolution: Change: Codex session completion no longer depends on packet body prose such as "leave pending" to keep a conductor alive after `TASK_COMPLETE`. `SessionTerminationPolicy` names the allowed termination mode, session act…
-- **`0fb675ca`** — Refresh external review snapshot for a1cb556e
-  - evolution: Change: Codex session completion no longer depends on packet body prose such as "leave pending" to keep a conductor alive after `TASK_COMPLETE`. `SessionTerminationPolicy` names the allowed termination mode, session act…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -311,10 +310,10 @@ Recent findings:
 - open governance findings: 158
 
 ### Startup advisories
-- checkpoint_before_continue: dirty_after_local_checkpoint
+- repair_reviewer_loop: review_loop_relaunch_required
 
 ### Stale warnings
-- Relaunch the reviewer loop immediately.
+- Cut a checkpoint before doing anything else.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/governance/orchestrate_watch.py`): dogfood.command.orchestrate-watch: Auto-ingested devctl finalization failure rc=1.
@@ -331,4 +330,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-c1796da62dbf` binds this file to HEAD `c6ac3181f181`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-c62901a9a45e` binds this file to HEAD `a7852e0cfeec`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
