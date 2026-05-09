@@ -5,15 +5,31 @@ from __future__ import annotations
 import shlex
 
 from ...common import inject_quality_policy_command, normalize_repo_python_shell_command
-
-ROUTER_RANGE_AWARE_SCRIPT_FRAGMENTS = frozenset(
-    {
-        "dev/scripts/checks/check_python_broad_except.py",
-        "dev/scripts/checks/check_command_source_validation.py",
-        "dev/scripts/checks/check_structural_complexity.py",
-        "dev/scripts/checks/check_duplicate_types.py",
-    }
+from ...governance.script_catalog_registry import (
+    CHECK_SCRIPT_RELATIVE_PATHS,
+    PROBE_SCRIPT_RELATIVE_PATHS,
 )
+from ...quality_policy import AI_GUARD_REGISTRY, REVIEW_PROBE_REGISTRY
+
+
+def _range_aware_script_fragments() -> frozenset[str]:
+    fragments: set[str] = {
+        "dev/scripts/devctl.py docs-check",
+    }
+    fragments.update(
+        CHECK_SCRIPT_RELATIVE_PATHS[script_id]
+        for script_id, spec in AI_GUARD_REGISTRY.items()
+        if spec.supports_commit_range and spec.script_id in CHECK_SCRIPT_RELATIVE_PATHS
+    )
+    fragments.update(
+        PROBE_SCRIPT_RELATIVE_PATHS[script_id]
+        for script_id, spec in REVIEW_PROBE_REGISTRY.items()
+        if spec.supports_commit_range and spec.script_id in PROBE_SCRIPT_RELATIVE_PATHS
+    )
+    return frozenset(fragments)
+
+
+ROUTER_RANGE_AWARE_SCRIPT_FRAGMENTS = _range_aware_script_fragments()
 
 
 def normalize_router_command(

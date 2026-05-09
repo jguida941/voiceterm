@@ -52,6 +52,7 @@ from .push_pipeline_state_sync import sync_commit_pipeline_with_push_report
 from .push_pipeline_scope import (
     authorized_head_sha,
     commit_pipeline_authorizes_publication_scope,
+    refresh_authorized_preflight_head_after_managed_receipts,
 )
 from .push_preflight_commit import run_post_validation_auto_commit_repair_phase
 from .push_preflight_projection import (
@@ -280,6 +281,7 @@ def _run_fetch_and_preflight(
     *,
     repo_root: Path = REPO_ROOT,
     run_cmd_fn=None,
+    commit_pipeline: Any = None,
 ) -> None:
     if state.errors:
         return
@@ -346,6 +348,11 @@ def _run_fetch_and_preflight(
     )
     if state.errors:
         return
+    refresh_authorized_preflight_head_after_managed_receipts(
+        state,
+        commit_pipeline=commit_pipeline,
+        repo_root=repo_root,
+    )
     preflight_command = build_preflight_shell_command(
         policy,
         remote=state.remote,
@@ -361,7 +368,6 @@ def _run_fetch_and_preflight(
     )
     if state.preflight_step["returncode"] != 0:
         state.errors.append("Configured push preflight failed.")
-
 
 def _record_divergence(
     state: PushRunState,
@@ -441,7 +447,9 @@ def run_push_action(
         args,
         repo_root=repo_root,
         run_cmd_fn=run_cmd_fn,
+        commit_pipeline=commit_pipeline,
     )
+    head_commit = current_head_commit_sha(repo_root=repo_root) or head_commit
     if run_cmd_fn is None:
         run_post_validation_auto_commit_repair_phase(
             state,
@@ -450,8 +458,7 @@ def run_push_action(
             repair_fn=repair_preflight_generated_changes_for_push,
             validation_passed=not state.errors,
         )
-        if not state.errors:
-            head_commit = current_head_commit_sha(repo_root=repo_root)
+    head_commit = current_head_commit_sha(repo_root=repo_root) or head_commit
     _append_publication_authorization_errors(
         state,
         repo_root=repo_root,

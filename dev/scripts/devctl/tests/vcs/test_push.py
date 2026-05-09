@@ -380,9 +380,13 @@ class PushAuthorizedPipelineDirtyWorktreeTests(unittest.TestCase):
 
             self.assertEqual(
                 build_preflight_mock.call_args.kwargs["head_ref"],
-                authorized_head,
+                receipt_head,
             )
             self.assertTrue(build_preflight_mock.call_args.kwargs["range_scope_only"])
+            self.assertIn(
+                "Managed projection receipt moved HEAD",
+                "\n".join(report["warnings"]),
+            )
             self.assertEqual(rc, 0)
             self.assertEqual(report["status"], "post_push_green")
             self.assertEqual(

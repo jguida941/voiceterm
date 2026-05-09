@@ -55,6 +55,34 @@ def authorized_head_sha(pipeline: Any) -> str:
     return str(getattr(authorization, "authorized_head_sha", "") or "").strip()
 
 
+def refresh_authorized_preflight_head_after_managed_receipts(
+    state: Any,
+    *,
+    commit_pipeline: Any = None,
+    repo_root: Path = REPO_ROOT,
+) -> None:
+    """Bind push preflight to the current publishable HEAD after receipt commits."""
+    if not getattr(state, "push_authorization_head_commit", "") or commit_pipeline is None:
+        return
+    current_head = current_head_commit_sha(repo_root=repo_root)
+    if (
+        not current_head
+        or current_head == state.push_authorization_head_commit
+        or not commit_pipeline_authorizes_publication_scope(
+            commit_pipeline,
+            state=state,
+            repo_root=repo_root,
+        )
+    ):
+        return
+    state.warnings.append(
+        "Managed projection receipt moved HEAD; validating the current "
+        f"publication head {current_head[:12]} instead of the authorized content "
+        f"head {state.push_authorization_head_commit[:12]}."
+    )
+    state.push_authorization_head_commit = current_head
+
+
 def _head_matches_pipeline_publication(
     current_head: str,
     commit_sha: str,
@@ -102,4 +130,5 @@ def _head_is_managed_projection_receipt_for(
 __all__ = [
     "authorized_head_sha",
     "commit_pipeline_authorizes_publication_scope",
+    "refresh_authorized_preflight_head_after_managed_receipts",
 ]

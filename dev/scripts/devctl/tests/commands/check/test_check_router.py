@@ -535,9 +535,11 @@ class CheckRouterTests(unittest.TestCase):
         ]
         extract_bundle_mock.return_value = (
             [
+                "python3 dev/scripts/devctl.py docs-check --strict-tooling",
                 "python3 dev/scripts/checks/check_python_broad_except.py",
                 "python3 dev/scripts/checks/check_command_source_validation.py",
                 "python3 dev/scripts/checks/check_code_shape.py",
+                "python3 dev/scripts/checks/check_parameter_count.py",
             ],
             None,
         )
@@ -555,7 +557,18 @@ class CheckRouterTests(unittest.TestCase):
             "--since-ref origin/feature/demo --head-ref HEAD",
             commands[1],
         )
-        self.assertNotIn("--since-ref origin/feature/demo", commands[2])
+        self.assertIn(
+            "--since-ref origin/feature/demo --head-ref HEAD",
+            commands[2],
+        )
+        self.assertIn(
+            "--since-ref origin/feature/demo --head-ref HEAD",
+            commands[3],
+        )
+        self.assertIn(
+            "--since-ref origin/feature/demo --head-ref HEAD",
+            commands[4],
+        )
 
     @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check.router_execution.run_cmd")
