@@ -120,6 +120,7 @@ class AttentionStatus(StrEnum):
     IMPLEMENTER_STATE_RESET_REQUIRED = "implementer_state_reset_required"
     IMPLEMENTER_RELAUNCH_REQUIRED = "implementer_relaunch_required"
     REVIEW_LOOP_RELAUNCH_REQUIRED = "review_loop_relaunch_required"
+    VERIFICATION_CAPABILITY_MISSING = "verification_capability_missing"
     REVIEWER_SUPERVISOR_REQUIRED = "reviewer_supervisor_required"
     WAITING_ON_PEER = "waiting_on_peer"
     CHECKPOINT_REQUIRED = "checkpoint_required"

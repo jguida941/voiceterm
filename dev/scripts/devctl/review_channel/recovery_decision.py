@@ -50,6 +50,7 @@ def build_decision_state(
         requires_approval=action_id in {
             "cut_checkpoint",
             "recover_implementer",
+            "rebind_verification_capability",
             "resume_live_review_loop",
         },
         next_expected_state="healthy",
@@ -67,6 +68,9 @@ _STATUS_TO_ACTION_ID: Mapping[str, str] = {
     AttentionStatus.REVIEWER_HEARTBEAT_STALE.value: "relaunch_review_loop",
     AttentionStatus.REVIEWER_OVERDUE.value: "relaunch_review_loop",
     AttentionStatus.REVIEW_LOOP_RELAUNCH_REQUIRED.value: "relaunch_review_loop",
+    AttentionStatus.VERIFICATION_CAPABILITY_MISSING.value: (
+        "rebind_verification_capability"
+    ),
     AttentionStatus.REVIEWER_POLL_DUE.value: "refresh_review_status",
     AttentionStatus.WAITING_ON_PEER.value: "refresh_review_status",
     AttentionStatus.REVIEWER_SUPERVISOR_REQUIRED.value: "start_reviewer_follow_loop",
@@ -135,6 +139,8 @@ def resolve_blocked_alternatives(*, status: str) -> tuple[str, ...]:
         AttentionStatus.REVIEWER_OVERDUE.value,
     }:
         return ("treat_detached_or_stale_runtime_as_live",)
+    if status == AttentionStatus.VERIFICATION_CAPABILITY_MISSING.value:
+        return ("relaunch_provider_pair_for_verification_gap",)
     if status == AttentionStatus.IMPLEMENTER_STATE_RESET_REQUIRED.value:
         return ("launch_or_recover_claude_without_clearing_stale_state",)
     if status == AttentionStatus.BRIDGE_CONTRACT_ERROR.value:

@@ -21,6 +21,7 @@ from .current_session_attention import (
     reviewer_checkpoint_instruction_preservation,
 )
 from .current_session_projection import current_session_payload
+from .collaboration_authority_liveness import apply_collaboration_authority_liveness
 from .event_projection_context import (
     EventProjectionBaseState,
     EventProjectionIdentityState,
@@ -138,6 +139,20 @@ def _build_projection_runtime(
     )
     governance = scan_repo_governance_safely(base.repo_root)
     operator_interaction_mode = deps.operator_interaction_mode(governance)
+    authority_collaboration = deps.build_collaboration_session(
+        timestamp=str(review_state.get("timestamp") or ""),
+        plan_id=base.plan_id,
+        session_id=base.session_id,
+        bridge_liveness=bridge_liveness,
+        current_session=current_session,
+        attention=None,
+        repo_root=base.repo_root,
+        session_output_root=base.session_output_root,
+    )
+    apply_collaboration_authority_liveness(
+        bridge_liveness,
+        authority_collaboration,
+    )
     recovery_assessment = deps.build_recovery_assessment(
         bridge_liveness=bridge_liveness,
         current_session=current_session,

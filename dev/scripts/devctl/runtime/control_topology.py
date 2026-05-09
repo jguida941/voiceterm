@@ -45,13 +45,27 @@ def derive_observed_control_topology(
         supervised_conductor_count_value=supervised_conductor_count,
         runtime_counts=counts,
     )
+    control_presence_count = max(
+        active_conductors,
+        count(counts, "runtime_present_count", "runtime_present_participant_total"),
+    )
     reviewer_count = max(
         int_value(live_reviewer_count),
         count(counts, "live_reviewer_count", "live_reviewer_total"),
+        count(
+            counts,
+            "runtime_present_reviewer_count",
+            "runtime_present_reviewer_total",
+        ),
     )
     implementer_count = max(
         int_value(live_implementer_count),
         count(counts, "live_implementer_count", "live_implementer_total"),
+        count(
+            counts,
+            "runtime_present_implementer_count",
+            "runtime_present_implementer_total",
+        ),
     )
     if not typed_participant_evidence:
         reviewer_count = max(
@@ -65,10 +79,10 @@ def derive_observed_control_topology(
             int(boolish(bridge.get("claude_conductor_active"))),
         )
 
-    if active_conductors <= 0:
+    if control_presence_count <= 0:
         reviewer_count = 0
-    elif reviewer_count > active_conductors:
-        reviewer_count = active_conductors
+    elif reviewer_count > control_presence_count:
+        reviewer_count = control_presence_count
 
     if implementer_count >= 2:
         return "dual_implementer"
@@ -85,9 +99,9 @@ def derive_observed_control_topology(
         bridge_liveness=bridge,
     ):
         return "no_live_agents"
-    if active_conductors >= 2:
+    if control_presence_count >= 2:
         return "single_implementer_single_reviewer"
-    if active_conductors == 1:
+    if control_presence_count == 1:
         return "reviewer_only"
     return "no_live_agents"
 

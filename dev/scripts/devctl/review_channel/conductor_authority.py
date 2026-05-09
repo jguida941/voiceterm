@@ -50,6 +50,18 @@ def live_implementer_conductor_present(
     return resolve_role_topology(bridge_liveness).live_implementer
 
 
+def live_implementer_runtime_present(
+    bridge_liveness: Mapping[str, object],
+) -> bool:
+    """Return True when typed runtime evidence proves an implementer is present."""
+    if live_implementer_conductor_present(bridge_liveness):
+        return True
+    return resolve_role_topology(
+        bridge_liveness,
+        include_runtime_presence=True,
+    ).live_implementer
+
+
 def conductor_signal_present(bridge_liveness: Mapping[str, object]) -> bool:
     """Return True when conductor liveness was probed for this snapshot."""
     return any(

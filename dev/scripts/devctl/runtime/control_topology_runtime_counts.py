@@ -10,6 +10,7 @@ from .control_topology_bridge_counts import (
     boolish,
     bridge_role_counts,
 )
+from .role_topology import resolve_role_topology
 from .runtime_count_roles import participant_role_provider_ids
 from .runtime_count_roles import provider_has_only_non_tandem_presence
 
@@ -31,6 +32,7 @@ def startup_runtime_counts(
         role_assignments=role_assignments,
         live_participants=live_participants,
     )
+    runtime_presence_counts = _runtime_presence_counts(bridge_liveness)
     if participants:
         live_reviewer_total = typed_role_totals["live_reviewer_total"]
         live_implementer_total = typed_role_totals["live_implementer_total"]
@@ -54,6 +56,18 @@ def startup_runtime_counts(
     counts["live_participant_count"] = live_participant_total
     counts["live_reviewer_count"] = live_reviewer_total
     counts["live_implementer_count"] = live_implementer_total
+    counts["runtime_present_participant_total"] = max(
+        live_participant_total,
+        runtime_presence_counts["live_participants_total"],
+    )
+    counts["runtime_present_reviewer_total"] = max(
+        live_reviewer_total,
+        runtime_presence_counts["live_reviewer_total"],
+    )
+    counts["runtime_present_implementer_total"] = max(
+        live_implementer_total,
+        runtime_presence_counts["live_implementer_total"],
+    )
     return counts
 
 
@@ -125,5 +139,36 @@ def _live_role_totals(
         "live_implementer_total": len(implementer_ids),
         "derived_from_typed_roles": bool(role_assignments),
     }
+
+
+def _runtime_presence_counts(bridge_liveness: Mapping[str, object]) -> dict[str, int]:
+    if not _has_runtime_presence_evidence(bridge_liveness):
+        return {
+            "live_participants_total": 0,
+            "live_reviewer_total": 0,
+            "live_implementer_total": 0,
+        }
+    return resolve_role_topology(
+        bridge_liveness,
+        include_runtime_presence=True,
+    ).role_counts()
+
+
+def _has_runtime_presence_evidence(bridge_liveness: Mapping[str, object]) -> bool:
+    if bridge_liveness.get("session_liveness_signals") or bridge_liveness.get(
+        "participant_liveness"
+    ):
+        return True
+    for field_name in (
+        "active_runtime_providers",
+        "remote_control_active_providers",
+        "packet_activity_active_providers",
+    ):
+        value = bridge_liveness.get(field_name)
+        if isinstance(value, (list, tuple)) and value:
+            return True
+    return boolish(bridge_liveness.get("reviewer_activity_active"))
+
+
 def _text(value: object) -> str:
     return str(value or "").strip().lower()

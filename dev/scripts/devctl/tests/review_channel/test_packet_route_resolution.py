@@ -97,6 +97,16 @@ def test_packet_route_resolution_scoped_role_must_resolve_to_one_fresh_session()
     assert resolved.target.target_session_id == "s2"
 
 
+def test_packet_route_resolution_session_id_wins_when_role_label_drifted() -> None:
+    resolved = resolve_packet_post_route_scope(
+        _request(target_role="dashboard", target_session_id="s1"),
+        review_state=_state(_row(role="implementer", session_id="s1")),
+    )
+
+    assert resolved.target.target_role == "implementer"
+    assert resolved.target.target_session_id == "s1"
+
+
 def test_non_runtime_action_request_keeps_ambiguous_role_scope() -> None:
     resolved = resolve_packet_post_route_scope(
         _request(target_role="reviewer", requested_action="restore_reviewer_turn"),

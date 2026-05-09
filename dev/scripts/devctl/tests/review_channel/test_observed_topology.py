@@ -12,6 +12,9 @@ from dev.scripts.devctl.runtime.control_topology import (
     derive_observed_control_topology,
     derive_startup_control_truth,
 )
+from dev.scripts.devctl.runtime.control_topology_runtime_counts import (
+    startup_runtime_counts,
+)
 
 
 @pytest.mark.parametrize(
@@ -61,6 +64,63 @@ def test_derive_observed_control_topology_uses_bridge_runtime_evidence() -> None
     )
 
     assert topology == "single_implementer_single_reviewer"
+
+
+def test_startup_runtime_counts_tracks_detached_runtime_presence_separately() -> None:
+    review_state = SimpleNamespace(
+        bridge={
+            "active_runtime_providers": ["claude", "codex"],
+            "session_liveness_signals": [
+                {
+                    "provider": "claude",
+                    "role": "implementer",
+                    "state": "detached_runtime_only",
+                },
+                {
+                    "provider": "codex",
+                    "role": "reviewer",
+                    "state": "detached_runtime_only",
+                },
+            ],
+        },
+        collaboration={"participants": (), "role_assignments": ()},
+    )
+
+    counts = startup_runtime_counts(review_state, bridge_liveness=review_state.bridge)
+
+    assert counts["active_conductor_count"] == 0
+    assert counts["live_reviewer_total"] == 0
+    assert counts["live_implementer_total"] == 0
+    assert counts["runtime_present_reviewer_total"] == 1
+    assert counts["runtime_present_implementer_total"] == 1
+
+
+def test_startup_control_truth_uses_detached_runtime_presence_for_topology() -> None:
+    review_state = SimpleNamespace(
+        bridge={
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
+            "active_runtime_providers": ["claude", "codex"],
+            "session_liveness_signals": [
+                {
+                    "provider": "claude",
+                    "role": "implementer",
+                    "state": "detached_runtime_only",
+                },
+                {
+                    "provider": "codex",
+                    "role": "reviewer",
+                    "state": "detached_runtime_only",
+                },
+            ],
+        },
+        collaboration={"participants": (), "role_assignments": ()},
+    )
+
+    topology, permission = derive_startup_control_truth(review_state)
+
+    assert topology == "single_implementer_single_reviewer"
+    assert permission == "active"
 
 
 @pytest.mark.parametrize(

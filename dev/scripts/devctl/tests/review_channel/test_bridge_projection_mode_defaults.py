@@ -345,7 +345,7 @@ def test_projection_metadata_treats_checkpoint_placeholder_as_cleared_instructio
         snapshot=BridgeSnapshot(metadata={}, sections={}),
         bridge_liveness={},
         sections={
-            "Current Instruction For Claude": (
+            "Current Instruction For Implementer": (
                 "- Cut a checkpoint before continuing to edit."
             )
         },
@@ -361,7 +361,7 @@ def test_bridge_projection_metadata_lines_fail_closed_to_tools_only() -> None:
     lines = bridge_projection_metadata_lines(
         BridgeProjectionState(
             metadata={},
-            sections={"Current Instruction For Claude": ""},
+            sections={"Current Instruction For Implementer": ""},
             lines_before=0,
             bytes_before=0,
             dropped_headings=(),

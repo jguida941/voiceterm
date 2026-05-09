@@ -42,13 +42,22 @@ def resolve_packet_post_route_scope(
         )
     )
     if request.target.target_session_id:
-        if len(scoped_matches) != 1:
+        session_matches = tuple(
+            node
+            for node in nodes
+            if str(node.get("session_id") or "").strip()
+            == request.target.target_session_id
+        )
+        if len(session_matches) != 1:
             raise ValueError(
                 "Packet target_session_id does not resolve to one fresh "
                 f"{request.to_agent} session: {request.target.target_session_id}"
             )
-        resolved = scoped_matches[0]
-        role = _resolved_role(request.target.target_role, resolved)
+        resolved = session_matches[0]
+        role = str(resolved.get("actor_role") or "").strip() or _resolved_role(
+            request.target.target_role,
+            resolved,
+        )
         return _replace_route_scope(
             request,
             target_role=role,

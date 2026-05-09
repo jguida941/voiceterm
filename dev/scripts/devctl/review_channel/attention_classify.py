@@ -8,6 +8,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ..runtime.review_state_collaboration_models import (
+    actor_authorities_from_value,
+    actor_authority_for_capability,
+)
 from ..runtime.review_state_semantics import is_missing_instruction
 from .attention_helpers import (
     RESETTABLE_IMPLEMENTER_SESSION_STATES,
@@ -20,6 +24,7 @@ from .attention_helpers import (
 from .conductor_authority import (
     conductor_signal_present,
     live_implementer_conductor_present,
+    live_implementer_runtime_present,
 )
 from .attention_implementer_relaunch import classify_implementer_relaunch
 from .attention_recovery_projection import project_recover_ineligible_status
@@ -143,7 +148,7 @@ def _requires_implementer_state_reset(ctx: BridgeAttentionContext) -> bool:
         or bool(ctx.bridge_liveness.get("poll_status_automation_only"))
         or (
             conductor_signal_present(ctx.bridge_liveness)
-            and not live_implementer_conductor_present(ctx.bridge_liveness)
+            and not live_implementer_runtime_present(ctx.bridge_liveness)
         )
     )
 
@@ -308,6 +313,62 @@ def _classify_publisher_state(ctx: BridgeAttentionContext) -> str | None:
     return AttentionStatus.PUBLISHER_MISSING
 
 
+def _classify_verification_capability_missing(
+    ctx: BridgeAttentionContext,
+) -> str | None:
+    if not ctx.reviewer_mode_active:
+        return None
+    authorities = actor_authorities_from_value(
+        ctx.bridge_liveness.get("actor_authorities")
+    )
+    if not authorities:
+        return None
+    if _live_verification_authority(authorities) is not None:
+        return None
+    if _live_mutation_authority(ctx, authorities) is None:
+        return None
+    if not _verification_owner_configured(ctx.bridge_liveness):
+        return None
+    return AttentionStatus.VERIFICATION_CAPABILITY_MISSING
+
+
+def _live_mutation_authority(ctx: BridgeAttentionContext, authorities):
+    owner = str(ctx.bridge_liveness.get("mutation_owner") or "").strip()
+    if owner:
+        authority = actor_authority_for_capability(
+            authorities,
+            "repo.commit",
+            preferred_actor=owner,
+            alternate_capabilities=("repo.stage",),
+        )
+        if authority is not None:
+            return authority
+    return actor_authority_for_capability(
+        authorities,
+        "repo.commit",
+        alternate_capabilities=("repo.stage",),
+    )
+
+
+def _live_verification_authority(authorities):
+    return actor_authority_for_capability(
+        authorities,
+        "review.checkpoint",
+        alternate_capabilities=("review.finding",),
+    )
+
+
+def _verification_owner_configured(bridge_liveness: dict[str, object]) -> bool:
+    if str(bridge_liveness.get("verification_owner") or "").strip():
+        return True
+    return str(bridge_liveness.get("verification_status") or "").strip() in {
+        "configured",
+        "offline",
+        "stale",
+        "missing",
+    }
+
+
 def _classify_startup_attention(ctx: BridgeAttentionContext) -> str | None:
     if not ctx.reviewer_mode_active:
         if ctx.overall_state == OverallLivenessState.SINGLE_AGENT_ACTIVE:
@@ -317,6 +378,9 @@ def _classify_startup_attention(ctx: BridgeAttentionContext) -> str | None:
         return AttentionStatus.CHECKPOINT_REQUIRED
     if _requires_implementer_state_reset(ctx):
         return AttentionStatus.IMPLEMENTER_STATE_RESET_REQUIRED
+    verification_status = _classify_verification_capability_missing(ctx)
+    if verification_status is not None:
+        return verification_status
     if (
         ctx.overall_state == OverallLivenessState.RUNTIME_MISSING
         or not ctx.reviewer_runtime_running

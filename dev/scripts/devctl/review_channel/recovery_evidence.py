@@ -32,6 +32,15 @@ def build_supporting_causes(
         causes.append("implementer_completion_stall")
     if ctx.session_hint_state:
         causes.append(f"implementer_session_hint:{ctx.session_hint_state}")
+    if status == AttentionStatus.VERIFICATION_CAPABILITY_MISSING.value:
+        if ctx.bridge_liveness.get("mutation_owner"):
+            causes.append(f"mutation_owner:{ctx.bridge_liveness.get('mutation_owner')}")
+        if ctx.bridge_liveness.get("verification_owner"):
+            causes.append(
+                f"verification_owner:{ctx.bridge_liveness.get('verification_owner')}"
+            )
+        causes.append("mutation_capability_live")
+        causes.append("verification_capability_missing")
 
     if not bool(ctx.bridge_liveness.get("codex_conductor_active")) and status in {
         AttentionStatus.REVIEW_LOOP_RELAUNCH_REQUIRED.value,
@@ -130,6 +139,7 @@ def build_evidence_rows(
         AttentionStatus.REVIEW_LOOP_RELAUNCH_REQUIRED.value,
         AttentionStatus.BRIDGE_CONTRACT_ERROR.value,
         AttentionStatus.RUNTIME_MISSING.value,
+        AttentionStatus.VERIFICATION_CAPABILITY_MISSING.value,
     }:
         rows.append(
             RecoveryEvidenceState(
@@ -138,6 +148,32 @@ def build_evidence_rows(
                 field="launch_truth",
                 value=str(ctx.launch_truth or ""),
                 detail="Launch-truth classification for the dual-agent runtime.",
+            )
+        )
+    if status == AttentionStatus.VERIFICATION_CAPABILITY_MISSING.value:
+        rows.extend(
+            (
+                RecoveryEvidenceState(
+                    code="mutation_owner",
+                    surface="bridge_liveness",
+                    field="mutation_owner",
+                    value=str(ctx.bridge_liveness.get("mutation_owner") or ""),
+                    detail="Actor currently holding repo mutation authority.",
+                ),
+                RecoveryEvidenceState(
+                    code="verification_owner",
+                    surface="bridge_liveness",
+                    field="verification_owner",
+                    value=str(ctx.bridge_liveness.get("verification_owner") or ""),
+                    detail="Configured actor expected to hold verification authority.",
+                ),
+                RecoveryEvidenceState(
+                    code="verification_status",
+                    surface="bridge_liveness",
+                    field="verification_status",
+                    value=str(ctx.bridge_liveness.get("verification_status") or ""),
+                    detail="Liveness state for the configured verification owner.",
+                ),
             )
         )
     if status in {

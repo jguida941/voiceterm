@@ -216,6 +216,17 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
         ),
         "recommended_command": REVIEW_CHANNEL_LIVE_RELAUNCH_COMMAND,
     }),
+    ("verification_capability_missing", {
+        "guard_behavior": "block_loop",
+        "owner": "system",
+        "summary": (
+            "Live mutation authority is present, but the configured verification capability is offline or missing."
+        ),
+        "recovery": (
+            "Rebind or start the verification owner/capability before review or checkpoint output. Do not relaunch a hardcoded provider pair for this capability gap."
+        ),
+        "recommended_command": REVIEW_CHANNEL_STATUS_INSPECT_COMMAND,
+    }),
     ("reviewer_supervisor_required", {
         "guard_behavior": "block_loop",
         "owner": "codex",

@@ -288,6 +288,120 @@ def test_cached_live_launch_truth_projects_pair_relaunch_when_recover_ineligible
     assert "recover" not in assessment.decision.command
 
 
+def test_runtime_present_implementer_does_not_force_pair_relaunch() -> None:
+    assessment = build_recovery_assessment(
+        bridge_liveness={
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
+            "overall_state": "waiting_on_peer",
+            "codex_poll_state": "fresh",
+            "reviewer_freshness": "fresh",
+            "launch_truth": "live",
+            "publisher_running": True,
+            "reviewer_supervisor_running": True,
+            "active_conductor_providers": [],
+            "codex_conductor_active": False,
+            "claude_conductor_active": False,
+            "reviewer_conductor_active": False,
+            "implementer_conductor_active": False,
+            "active_runtime_providers": ["claude", "codex"],
+            "remote_control_active_providers": ["claude"],
+            "session_liveness_signals": [
+                {
+                    "provider": "claude",
+                    "role": "implementer",
+                    "state": "detached_runtime_only",
+                },
+                {
+                    "provider": "codex",
+                    "role": "reviewer",
+                    "state": "detached_runtime_only",
+                },
+            ],
+            "claude_status_present": True,
+            "claude_ack_present": False,
+            "claude_ack_current": False,
+            "review_needed": False,
+            "reviewed_hash_current": True,
+            "current_instruction": "Continue GAP 2 topology repair.",
+            "current_instruction_revision": "rev-456",
+            "last_reviewed_scope_present": True,
+        },
+        current_session=_current_session(),
+    )
+
+    assert assessment.diagnosis.status == "claude_ack_missing"
+    assert assessment.decision.action_id == "acknowledge_current_instruction"
+    assert "review-channel --action launch" not in assessment.decision.command
+
+
+def test_live_mutation_with_missing_verification_rebinds_capability() -> None:
+    assessment = build_recovery_assessment(
+        bridge_liveness={
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
+            "overall_state": "stale",
+            "codex_poll_state": "stale",
+            "reviewer_freshness": "stale",
+            "launch_truth": "detached_runtime_only",
+            "publisher_running": False,
+            "reviewer_supervisor_running": True,
+            "active_conductor_providers": [],
+            "codex_conductor_active": False,
+            "claude_conductor_active": False,
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": True,
+            "review_needed": False,
+            "reviewed_hash_current": True,
+            "current_instruction": "Continue GAP 2 topology repair.",
+            "current_instruction_revision": "rev-789",
+            "last_reviewed_scope_present": True,
+            "mutation_owner": "claude",
+            "verification_owner": "codex",
+            "verification_status": "configured",
+            "actor_authorities": [
+                {
+                    "actor_id": "codex",
+                    "provider": "codex",
+                    "role": "reviewer",
+                    "live": False,
+                    "status": "configured",
+                    "source": "session_metadata",
+                    "grants": [
+                        {"capability": "review.checkpoint", "granted": False},
+                        {"capability": "review.finding", "granted": False},
+                    ],
+                },
+                {
+                    "actor_id": "claude",
+                    "provider": "claude",
+                    "role": "implementer",
+                    "live": True,
+                    "status": "live",
+                    "source": "remote_control_attachment",
+                    "grants": [
+                        {"capability": "repo.stage", "granted": True},
+                        {"capability": "repo.commit", "granted": True},
+                        {"capability": "approval.commit", "granted": True},
+                        {"capability": "runtime.observe", "granted": True},
+                    ],
+                },
+            ],
+        },
+        current_session=_current_session(),
+        operator_interaction_mode="remote_control",
+    )
+
+    assert assessment.diagnosis.status == "verification_capability_missing"
+    assert assessment.decision.action_id == "rebind_verification_capability"
+    assert "review-channel --action launch" not in assessment.decision.command
+    assert "recover" not in assessment.decision.command
+    assert "relaunch_provider_pair_for_verification_gap" in (
+        assessment.decision.blocked_alternatives
+    )
+
+
 def test_single_agent_warning_mentions_typed_authority_when_lane_is_live() -> None:
     warnings = bridge_liveness_warnings(
         {

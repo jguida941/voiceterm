@@ -19,6 +19,8 @@ from .current_session_projection import (
     resolve_current_session_authority,
 )
 from .current_session_support import compute_implementer_state_hash
+from .collaboration_authority_liveness import apply_collaboration_authority_liveness
+from .collaboration_session import build_collaboration_session
 from .handoff import BridgeSnapshot
 from .recovery_assessment import (
     build_recovery_assessment,
@@ -100,6 +102,23 @@ def build_status_authority(
         bridge_liveness=inputs.bridge_liveness,
         current_session=current_session,
     )
+    authority_collaboration = build_collaboration_session(
+        timestamp=_review_state_text(authority_review_state, "timestamp"),
+        plan_id=_review_state_text(authority_review_state, "plan_id") or "review",
+        session_id=(
+            _review_state_text(authority_review_state, "session_id")
+            or "review-channel"
+        ),
+        bridge_liveness=inputs.bridge_liveness,
+        current_session=current_session,
+        attention=None,
+        repo_root=inputs.repo_root,
+        session_output_root=inputs.output_root,
+    )
+    apply_collaboration_authority_liveness(
+        inputs.bridge_liveness,
+        authority_collaboration,
+    )
     operator_interaction_mode = _operator_interaction_mode(
         inputs.repo_root,
         review_state_payload=authority_review_state,
@@ -178,6 +197,20 @@ def _bridge_has_remote_control_attachment(bridge_liveness: dict[str, object]) ->
 def _append_status_warning(warnings: list[str], warning: str) -> None:
     if warning and warning not in warnings:
         warnings.append(warning)
+
+
+def _review_state_text(
+    review_state: dict[str, object] | None,
+    field: str,
+) -> str:
+    review = review_state.get("review") if isinstance(review_state, dict) else {}
+    if isinstance(review, dict):
+        value = review.get(field)
+        if value:
+            return str(value).strip()
+    if isinstance(review_state, dict):
+        return str(review_state.get(field) or "").strip()
+    return ""
 
 
 def _review_state_with_packet_truth(

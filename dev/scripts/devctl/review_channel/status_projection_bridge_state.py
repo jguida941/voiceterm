@@ -17,6 +17,7 @@ from ..runtime.review_state_models import (
 )
 from ..runtime.review_state_semantics import is_pending_implementer_state
 from ..runtime.role_profile import TandemRole, default_provider_for_role
+from .collaboration_authority_liveness import apply_collaboration_authority_liveness
 from .collaboration_provider import collaboration_provider
 from .handoff import BridgeSnapshot
 from .launch_truth import classify_launch_truth, effective_reviewer_mode
@@ -58,6 +59,7 @@ def build_typed_bridge_liveness(
     reviewer_mode = resolve_reported_reviewer_mode(typed)
     live_provider_ids = _live_participant_providers(collaboration)
     if collaboration is not None:
+        apply_collaboration_authority_liveness(typed, collaboration)
         typed["active_conductor_providers"] = list(live_provider_ids)
         typed["codex_conductor_active"] = "codex" in live_provider_ids
         typed["claude_conductor_active"] = "claude" in live_provider_ids
@@ -237,6 +239,10 @@ def build_review_bridge_state(
             provider=implementer_provider,
             reviewer_mode=effective_mode,
         ),
+        session_liveness_signals=_mapping_rows(
+            bridge_liveness.get("session_liveness_signals")
+            or bridge_liveness.get("participant_liveness")
+        ),
     )
 
 
@@ -250,3 +256,9 @@ def _compute_review_accepted(
     if reviewer_runtime is None:
         return False
     return bool(reviewer_runtime.review_acceptance.review_accepted)
+
+
+def _mapping_rows(value: object) -> tuple[dict[str, object], ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(dict(row) for row in value if isinstance(row, Mapping))

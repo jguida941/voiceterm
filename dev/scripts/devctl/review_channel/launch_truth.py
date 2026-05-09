@@ -43,6 +43,8 @@ def classify_launch_truth(bridge_liveness: dict[str, object]) -> LaunchTruthStat
         ):
             return LaunchTruthState.LIVE
         return LaunchTruthState.INACTIVE
+    if _typed_dual_agent_runtime_is_live(bridge_liveness):
+        return LaunchTruthState.LIVE
     if not (
         bool(bridge_liveness.get("publisher_running"))
         or bool(bridge_liveness.get("reviewer_supervisor_running"))
