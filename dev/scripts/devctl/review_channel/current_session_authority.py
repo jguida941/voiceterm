@@ -29,6 +29,11 @@ def prefer_bridge_current_session(
     bridge_key = _current_session_authority_key(bridge_session)
     if _bridge_rollover_fallback_instruction(bridge_session.current_instruction):
         return False
+    if (
+        str((bridge_liveness or {}).get("last_checkpoint_action") or "").strip()
+        == "reviewer-checkpoint"
+    ):
+        return bridge_key != _current_session_authority_key(prior_session)
     reviewer_freshness = str(
         (bridge_liveness or {}).get("reviewer_freshness") or ""
     ).strip()

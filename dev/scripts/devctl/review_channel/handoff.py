@@ -27,6 +27,7 @@ from ..markdown_sections import parse_markdown_sections as extract_bridge_sectio
 from ..runtime.role_profile import role_for_provider
 from ..time_utils import utc_timestamp
 from .ack_contract import extract_implementer_ack_revision
+from .bridge_heading_aliases import bridge_section_text
 from .handoff_constants import (
     BRIDGE_LIVENESS_KEYS,
     BRIDGE_METADATA_PATTERNS,
@@ -152,14 +153,18 @@ def summarize_bridge_liveness(
     current_worktree_hash: str | None = None,
 ) -> BridgeLiveness:
     """Reduce current bridge state into a small machine-readable liveness summary."""
-    current_instruction = snapshot.sections.get(
-        "Current Instruction For Implementer", ""
+    current_instruction = bridge_section_text(
+        snapshot.sections,
+        "Current Instruction For Implementer",
     ).strip()
-    open_findings = snapshot.sections.get("Open Findings", "").strip()
-    last_reviewed_scope = snapshot.sections.get("Last Reviewed Scope", "").strip()
-    poll_status = snapshot.sections.get("Poll Status", "").strip()
-    claude_status = snapshot.sections.get("Implementer Status", "").strip()
-    claude_ack = snapshot.sections.get("Implementer Ack", "").strip()
+    open_findings = bridge_section_text(snapshot.sections, "Open Findings").strip()
+    last_reviewed_scope = bridge_section_text(
+        snapshot.sections,
+        "Last Reviewed Scope",
+    ).strip()
+    poll_status = bridge_section_text(snapshot.sections, "Poll Status").strip()
+    claude_status = bridge_section_text(snapshot.sections, "Implementer Status").strip()
+    claude_ack = bridge_section_text(snapshot.sections, "Implementer Ack").strip()
     from .bridge_validation import (
         extract_poll_status_write_context,
         poll_status_is_automation_only_refresh,
@@ -175,6 +180,9 @@ def summarize_bridge_liveness(
     raw_declared_reviewer_mode = str(
         snapshot.metadata.get("declared_reviewer_mode") or ""
     ).strip()
+    raw_effective_reviewer_mode = str(
+        snapshot.metadata.get("effective_reviewer_mode") or ""
+    ).strip()
     declared_reviewer_mode = (
         resolve_reported_reviewer_mode(
             {"reviewer_mode": raw_declared_reviewer_mode}
@@ -183,7 +191,13 @@ def summarize_bridge_liveness(
         else displayed_reviewer_mode
     )
     effective_reviewer_mode = (
-        displayed_reviewer_mode if raw_declared_reviewer_mode else ""
+        resolve_reported_reviewer_mode(
+            {"reviewer_mode": raw_effective_reviewer_mode}
+        )
+        if raw_effective_reviewer_mode
+        else displayed_reviewer_mode
+        if raw_declared_reviewer_mode
+        else ""
     )
     reviewer_mode = ReviewerMode(declared_reviewer_mode)
     last_codex_poll_utc = snapshot.metadata.get("last_codex_poll_utc")

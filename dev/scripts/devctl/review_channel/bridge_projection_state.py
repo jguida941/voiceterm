@@ -184,4 +184,7 @@ def bridge_projection_metadata_lines(
     declared_mode = metadata.get("declared_reviewer_mode", "").strip()
     if declared_mode and declared_mode != reviewer_mode:
         lines.insert(3, f"- Declared reviewer mode: `{declared_mode}`")
+    effective_mode = metadata.get("effective_reviewer_mode", "").strip()
+    if effective_mode and effective_mode != reviewer_mode:
+        lines.insert(3, f"- Effective reviewer mode: `{effective_mode}`")
     return lines

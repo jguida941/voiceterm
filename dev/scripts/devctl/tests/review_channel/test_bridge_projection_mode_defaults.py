@@ -329,7 +329,7 @@ def test_projection_metadata_uses_effective_mode_when_declared_mode_missing() ->
     assert metadata["reviewer_mode"] == "tools_only"
 
 
-def test_projection_metadata_prefers_effective_mode_over_declared_mode() -> None:
+def test_projection_metadata_preserves_declared_mode_with_separate_effective_mode() -> None:
     metadata = projection_metadata(
         snapshot=BridgeSnapshot(
             metadata={"reviewer_mode": "active_dual_agent"},
@@ -341,7 +341,9 @@ def test_projection_metadata_prefers_effective_mode_over_declared_mode() -> None
         bridge_state={"effective_reviewer_mode": "tools_only"},
     )
 
-    assert metadata["reviewer_mode"] == "tools_only"
+    assert metadata["reviewer_mode"] == "active_dual_agent"
+    assert metadata["declared_reviewer_mode"] == "active_dual_agent"
+    assert metadata["effective_reviewer_mode"] == "tools_only"
 
 
 def test_projection_metadata_treats_checkpoint_placeholder_as_cleared_instruction() -> None:

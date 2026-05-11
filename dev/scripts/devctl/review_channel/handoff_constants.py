@@ -19,6 +19,9 @@ BRIDGE_METADATA_PATTERNS = {
     "declared_reviewer_mode": re.compile(
         r"^- Declared reviewer mode:\s*`(?P<value>.+?)`\s*$"
     ),
+    "effective_reviewer_mode": re.compile(
+        r"^- Effective reviewer mode:\s*`(?P<value>.+?)`\s*$"
+    ),
     "last_non_audit_worktree_hash": re.compile(
         r"^- Last non-audit worktree hash:\s*`(?P<value>.+?)`\s*$"
     ),

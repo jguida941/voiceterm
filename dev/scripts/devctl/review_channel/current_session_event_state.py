@@ -189,9 +189,13 @@ def build_event_current_session(
         if not str(implementer_status or "").strip():
             implementer_status = "- pending"
         if not str(implementer_ack or "").strip():
-            implementer_ack = "- pending"
-            implementer_ack_revision = ""
-            ack_current = False
+            bridge_ack = _bridge_liveness_implementer_ack(bridge_liveness)
+            if ack_current and bridge_ack:
+                implementer_ack = bridge_ack
+            else:
+                implementer_ack = "- pending"
+                implementer_ack_revision = ""
+                ack_current = False
     return ReviewCurrentSessionState(
         current_instruction=current_instruction,
         current_instruction_revision=current_instruction_revision,
@@ -218,3 +222,14 @@ def build_event_current_session(
 
 def _mapping(value: object) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
+
+
+def _bridge_liveness_implementer_ack(
+    bridge_liveness: Mapping[str, object],
+) -> str:
+    for field in ("implementer_ack", "claude_ack"):
+        raw = bridge_liveness.get(field)
+        value = clean_section(str(raw or ""))
+        if value and _is_substantive_text(value):
+            return value
+    return ""

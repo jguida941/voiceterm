@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
 from ...review_channel.core import filter_provider_lanes
 from ...review_channel.peer_liveness import reviewer_mode_is_active
+from ...review_channel.lifecycle_state import (
+    read_publisher_state,
+    read_reviewer_supervisor_state,
+)
 from ...review_channel.plan_resolution import resolve_promotion_plan_path
 from ..review_channel_bridge_render import (
     BridgeSuccessReportRequest,
@@ -33,6 +37,15 @@ from ..review_channel_command.reviewer_support import resolve_checkpoint_payload
 from ._stop import run_stop_action as _run_stop_action
 from .reviewer_runtime_snapshot import attach_reviewer_runtime_snapshot
 from .status import _attach_backend_contract
+
+
+@dataclass(frozen=True)
+class _CheckpointWriteInputs:
+    verdict_body: str
+    open_findings_body: str
+    checkpoint_instruction: str
+    reviewed_scope_items: tuple[str, ...]
+    auto_instruction_candidate: object | None
 
 
 def build_reviewer_state_report(
@@ -115,7 +128,7 @@ def run_reviewer_state_action(
     """Run one reviewer heartbeat/checkpoint write."""
     action = _coerce_action(args.action)
     runtime_paths = _coerce_runtime_paths(paths)
-    auto_instruction_candidate = None
+    checkpoint_inputs: _CheckpointWriteInputs | None = None
 
     if (
         action is ReviewChannelAction.REVIEWER_HEARTBEAT
@@ -128,55 +141,23 @@ def run_reviewer_state_action(
         )
 
     assert runtime_paths.bridge_path is not None
+    state_write_reviewer_mode = _state_write_reviewer_mode(
+        requested_mode=getattr(args, "reviewer_mode", ""),
+        runtime_paths=runtime_paths,
+    )
 
     if action is ReviewChannelAction.REVIEWER_HEARTBEAT:
         state_write = write_reviewer_heartbeat(
             repo_root=repo_root,
             bridge_path=runtime_paths.bridge_path,
-            reviewer_mode=args.reviewer_mode,
+            reviewer_mode=state_write_reviewer_mode,
             reason=args.reason,
         )
     else:
-        checkpoint_payload_file = getattr(args, "checkpoint_payload_file", None)
-        if checkpoint_payload_file:
-            payload = resolve_checkpoint_payload_file(
-                repo_root=repo_root,
-                file_value=checkpoint_payload_file,
-            )
-            verdict_body = payload.verdict
-            open_findings_body = payload.open_findings
-            instruction_body = payload.instruction
-            reviewed_scope_items = payload.reviewed_scope_items
-        else:
-            verdict_body = resolve_checkpoint_body(
-                repo_root=repo_root,
-                inline_value=getattr(args, "verdict", None),
-                file_value=getattr(args, "verdict_file", None),
-                inline_flag="--verdict",
-                file_flag="--verdict-file",
-            )
-            open_findings_body = resolve_checkpoint_body(
-                repo_root=repo_root,
-                inline_value=getattr(args, "open_findings", None),
-                file_value=getattr(args, "open_findings_file", None),
-                inline_flag="--open-findings",
-                file_flag="--open-findings-file",
-            )
-            instruction_body = resolve_checkpoint_body(
-                repo_root=repo_root,
-                inline_value=getattr(args, "instruction", None),
-                file_value=getattr(args, "instruction_file", None),
-                inline_flag="--instruction",
-                file_flag="--instruction-file",
-            )
-            reviewed_scope_items = tuple(args.reviewed_scope_item)
-        checkpoint_instruction, auto_instruction_candidate = (
-            resolve_checkpoint_instruction(
-                repo_root=repo_root,
-                bridge_path=runtime_paths.bridge_path,
-                promotion_plan_path=runtime_paths.promotion_plan_path,
-                instruction=instruction_body,
-            )
+        checkpoint_inputs = _resolve_checkpoint_write_inputs(
+            args=args,
+            repo_root=repo_root,
+            runtime_paths=runtime_paths,
         )
         # Reviewer actor defaults to Codex (the canonical reviewer in this
         # repo-pack). Explicit `--actor claude` selects the symmetric Claude
@@ -186,13 +167,13 @@ def run_reviewer_state_action(
         state_write = write_reviewer_checkpoint(
             repo_root=repo_root,
             bridge_path=runtime_paths.bridge_path,
-            reviewer_mode=args.reviewer_mode,
+            reviewer_mode=state_write_reviewer_mode,
             reason=args.reason,
             checkpoint=ReviewerCheckpointUpdate(
-                current_verdict=verdict_body,
-                open_findings=open_findings_body,
-                current_instruction=checkpoint_instruction,
-                reviewed_scope_items=reviewed_scope_items,
+                current_verdict=checkpoint_inputs.verdict_body,
+                open_findings=checkpoint_inputs.open_findings_body,
+                current_instruction=checkpoint_inputs.checkpoint_instruction,
+                reviewed_scope_items=checkpoint_inputs.reviewed_scope_items,
                 rotate_instruction_revision=bool(
                     getattr(args, "rotate_instruction_revision", False)
                 ),
@@ -232,13 +213,14 @@ def run_reviewer_state_action(
     if lifecycle_stop_report is not None:
         report["lifecycle_stop"] = lifecycle_stop_report
     if action is ReviewChannelAction.REVIEWER_CHECKPOINT:
+        assert checkpoint_inputs is not None
         report["instruction_auto_promoted"] = bool(
-            auto_instruction_candidate is not None
+            checkpoint_inputs.auto_instruction_candidate is not None
         )
-        if auto_instruction_candidate is not None:
+        if checkpoint_inputs.auto_instruction_candidate is not None:
             report["instruction_auto_promoted_source"] = {
-                "source_path": auto_instruction_candidate.source_path,
-                "checklist_item": auto_instruction_candidate.checklist_item,
+                "source_path": checkpoint_inputs.auto_instruction_candidate.source_path,
+                "checklist_item": checkpoint_inputs.auto_instruction_candidate.checklist_item,
             }
     if lifecycle_stop_exit_code != 0:
         errors = list(report.get("errors") or [])
@@ -253,6 +235,92 @@ def run_reviewer_state_action(
         report["exit_code"] = 1
         return report, 1
     return report, exit_code
+
+
+def _resolve_checkpoint_write_inputs(
+    *,
+    args,
+    repo_root: Path,
+    runtime_paths: RuntimePaths,
+) -> _CheckpointWriteInputs:
+    checkpoint_payload_file = getattr(args, "checkpoint_payload_file", None)
+    if checkpoint_payload_file:
+        payload = resolve_checkpoint_payload_file(
+            repo_root=repo_root,
+            file_value=checkpoint_payload_file,
+        )
+        verdict_body = payload.verdict
+        open_findings_body = payload.open_findings
+        instruction_body = payload.instruction
+        reviewed_scope_items = payload.reviewed_scope_items
+    else:
+        verdict_body = resolve_checkpoint_body(
+            repo_root=repo_root,
+            inline_value=getattr(args, "verdict", None),
+            file_value=getattr(args, "verdict_file", None),
+            inline_flag="--verdict",
+            file_flag="--verdict-file",
+        )
+        open_findings_body = resolve_checkpoint_body(
+            repo_root=repo_root,
+            inline_value=getattr(args, "open_findings", None),
+            file_value=getattr(args, "open_findings_file", None),
+            inline_flag="--open-findings",
+            file_flag="--open-findings-file",
+        )
+        instruction_body = resolve_checkpoint_body(
+            repo_root=repo_root,
+            inline_value=getattr(args, "instruction", None),
+            file_value=getattr(args, "instruction_file", None),
+            inline_flag="--instruction",
+            file_flag="--instruction-file",
+        )
+        reviewed_scope_items = tuple(args.reviewed_scope_item)
+    checkpoint_instruction, auto_instruction_candidate = (
+        resolve_checkpoint_instruction(
+            repo_root=repo_root,
+            bridge_path=runtime_paths.bridge_path,
+            promotion_plan_path=runtime_paths.promotion_plan_path,
+            instruction=instruction_body,
+        )
+    )
+    return _CheckpointWriteInputs(
+        verdict_body=verdict_body,
+        open_findings_body=open_findings_body,
+        checkpoint_instruction=checkpoint_instruction,
+        reviewed_scope_items=reviewed_scope_items,
+        auto_instruction_candidate=auto_instruction_candidate,
+    )
+
+
+def _state_write_reviewer_mode(
+    *,
+    requested_mode: object,
+    runtime_paths: RuntimePaths,
+) -> str:
+    """Resolve the reviewer mode to persist for a reviewer-owned write.
+
+    A `tools_only` heartbeat normally stays passive, but if a live follow
+    runtime exists and the reviewer write stops it, the write is a local
+    single-agent takeover. Persisting `single_agent` keeps the bridge and typed
+    liveness from reporting a stopped dual-agent runtime as passive tools-only.
+    """
+    mode = str(requested_mode or "").strip()
+    if mode != "tools_only" or not _has_live_review_runtime(runtime_paths):
+        return mode
+    return "single_agent"
+
+
+def _has_live_review_runtime(runtime_paths: RuntimePaths) -> bool:
+    status_dir = runtime_paths.status_dir
+    if status_dir is None:
+        return False
+    try:
+        publisher = read_publisher_state(status_dir)
+        supervisor = read_reviewer_supervisor_state(status_dir)
+    except (OSError, ValueError):
+        return False
+    return bool(publisher.get("running") or supervisor.get("running"))
 
 
 def _maybe_stop_detached_review_runtime(

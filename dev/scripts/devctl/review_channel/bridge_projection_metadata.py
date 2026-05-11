@@ -123,7 +123,7 @@ def projection_metadata(
             )
         }
     )
-    reviewer_mode = effective_reviewer_mode or declared_reviewer_mode
+    reviewer_mode = declared_reviewer_mode or effective_reviewer_mode
     metadata: dict[str, str] = {}
     metadata["last_codex_poll_utc"] = last_codex_poll_utc
     metadata["last_codex_poll_local"] = last_codex_poll_local

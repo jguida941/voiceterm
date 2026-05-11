@@ -14,6 +14,23 @@ from dev.scripts.devctl.review_channel.reviewer_state_support import (
 
 
 class ReviewerFollowHeartbeatGuardTests(unittest.TestCase):
+    def test_ensure_follow_does_not_call_bridge_writer(self) -> None:
+        def forbidden_writer(**_kwargs) -> EnsureHeartbeatResult:
+            raise AssertionError("ensure-follow automation rewrote bridge.md")
+
+        result = maybe_refresh_automation_reviewer_heartbeat(
+            repo_root=Path("/tmp/missing-repo"),
+            bridge_path=Path("/tmp/missing-repo/bridge.md"),
+            reason="ensure-follow",
+            requested_reviewer_mode="active_dual_agent",
+            ensure_reviewer_heartbeat_fn=forbidden_writer,
+        )
+
+        self.assertFalse(result.refreshed)
+        self.assertTrue(result.suppressed)
+        self.assertEqual(result.reviewer_mode, "active_dual_agent")
+        self.assertIsNone(result.state_write)
+
     def test_reviewer_follow_does_not_call_bridge_writer(self) -> None:
         def forbidden_writer(**_kwargs) -> EnsureHeartbeatResult:
             raise AssertionError("automation follow heartbeat rewrote bridge.md")

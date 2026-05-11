@@ -12,6 +12,7 @@ from .current_session_bridge_state import (
     build_bridge_current_session,
 )
 from .current_session_bridge_fallback import merge_bridge_session_event_fallback
+from .current_session_bridge_fallback import merge_event_session_bridge_ack
 from .current_session_event_state import (
     build_event_current_session,
     event_current_session_candidate,
@@ -52,6 +53,10 @@ def resolve_current_session_authority(
         bridge_liveness,
         prior_review_state=prior_review_state,
     )
+    event_session = merge_event_session_bridge_ack(
+        event_session=event_session,
+        bridge_session=bridge_session,
+    )
     bridge_session = merge_bridge_session_event_fallback(
         bridge_session=bridge_session,
         event_session=event_session,
@@ -61,9 +66,16 @@ def resolve_current_session_authority(
         prior_session = event_session
     if prior_session is None:
         return bridge_session
-    if event_session_clears_packet_truth(
-        review_state=prior_review_state,
-        event_session=event_session,
+    checkpoint_bridge_authoritative = (
+        str(bridge_liveness.get("last_checkpoint_action") or "").strip()
+        == "reviewer-checkpoint"
+    )
+    if (
+        not checkpoint_bridge_authoritative
+        and event_session_clears_packet_truth(
+            review_state=prior_review_state,
+            event_session=event_session,
+        )
     ):
         return event_session
     if event_session_has_active_instruction(event_session):

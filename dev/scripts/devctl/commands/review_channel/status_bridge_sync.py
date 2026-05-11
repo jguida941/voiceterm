@@ -69,7 +69,7 @@ def reviewer_mode_projection_drifted(
     snapshot_metadata: Mapping[str, object],
     review_state_payload: Mapping[str, object],
 ) -> bool:
-    expected = _typed_effective_reviewer_mode(review_state_payload)
+    expected = _typed_declared_reviewer_mode(review_state_payload)
     if not expected:
         return False
     current = resolve_reported_reviewer_mode(
@@ -175,13 +175,14 @@ def _typed_last_codex_poll_utc(payload: Mapping[str, object]) -> str:
     return str(metadata.get("last_codex_poll_utc") or "").strip()
 
 
-def _typed_effective_reviewer_mode(payload: Mapping[str, object]) -> str:
+def _typed_declared_reviewer_mode(payload: Mapping[str, object]) -> str:
     bridge = _mapping(payload.get("bridge"))
     if bridge:
         mode = resolve_reported_reviewer_mode(
             {
                 "reviewer_mode": (
-                    bridge.get("effective_reviewer_mode") or bridge.get("reviewer_mode")
+                    bridge.get("declared_reviewer_mode")
+                    or bridge.get("reviewer_mode")
                 )
             }
         )

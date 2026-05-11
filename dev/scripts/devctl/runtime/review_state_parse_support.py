@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from .conductor_capability import authority_reviewer_mode, normalize_reviewer_mode
+from .conductor_capability import normalize_reviewer_mode
 from .review_state_models import (
     ConductorCapabilityState,
     RecoveryAssessmentState,
@@ -124,10 +124,7 @@ def review_bridge_state_from_payload(
         codex_poll_state=_string(bridge_liveness.get("codex_poll_state")) or "unknown",
         reviewer_freshness=_string(bridge_liveness.get("reviewer_freshness"))
         or "unknown",
-        reviewer_mode=authority_reviewer_mode(
-            reviewer_mode,
-            effective_reviewer_mode,
-        ),
+        reviewer_mode=declared_reviewer_mode or reviewer_mode,
         last_codex_poll_utc=_string(bridge.get("last_codex_poll_utc")),
         last_codex_poll_age_seconds=_int(
             bridge_liveness.get("last_codex_poll_age_seconds")

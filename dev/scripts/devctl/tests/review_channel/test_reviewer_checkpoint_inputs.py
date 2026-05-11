@@ -655,7 +655,7 @@ def test_write_reviewer_checkpoint_accepts_effective_instruction_revision(
 
     effective_revision = hashlib.sha256(
         extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
-        .sections["Current Instruction For Claude"]
+        .sections["Current Instruction For Implementer"]
         .strip()
         .encode("utf-8")
     ).hexdigest()[:12]

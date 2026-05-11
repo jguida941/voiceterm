@@ -103,6 +103,7 @@ from dev.scripts.devctl.review_channel.plan_resolution import (
 )
 from dev.scripts.devctl.review_channel.projection_bundle import (
     ReviewChannelProjectionPaths,
+    canonical_projection_root_for_status_root,
 )
 from dev.scripts.devctl.review_channel.status_models import ReviewChannelStatusSnapshot
 
@@ -3665,25 +3666,9 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         emit_output_mock.assert_not_called()
 
-    def test_ensure_follow_emits_heartbeat_status_frames(self) -> None:
+    def test_ensure_follow_emits_status_frames_without_bridge_heartbeat_write(self) -> None:
         args = self._build_ensure_follow_args(max_follow_snapshots=2)
         frames: list[dict[str, object]] = []
-        write = ReviewerStateWrite(
-            bridge_path="bridge.md",
-            action="reviewer-heartbeat",
-            reviewer_mode="active_dual_agent",
-            reason="ensure-follow",
-            last_codex_poll_utc="2026-03-16T07:00:00Z",
-            last_codex_poll_local="2026-03-16 03:00:00 EDT",
-            last_worktree_hash="a" * 64,
-        )
-        ensure_result = EnsureHeartbeatResult(
-            refreshed=True,
-            reviewer_mode="active_dual_agent",
-            reason="ensure-follow",
-            state_write=write,
-            error=None,
-        )
         status_report = {
             "command": "review-channel",
             "action": "status",
@@ -3712,8 +3697,10 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             patch.object(
                 review_channel_follow_runtime,
                 "ensure_reviewer_heartbeat",
-                return_value=ensure_result,
-            ),
+                side_effect=AssertionError(
+                    "ensure-follow automation must not rewrite reviewer heartbeat state"
+                ),
+            ) as ensure_heartbeat,
             patch.object(
                 review_channel_follow_runtime,
                 "_run_status_action",
@@ -3755,15 +3742,14 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         self.assertEqual(frames[0]["snapshot_seq"], 0)
         self.assertEqual(frames[1]["snapshot_seq"], 1)
         self.assertTrue(all(frame["follow"] for frame in frames))
-        self.assertIn("reviewer_state_write", frames[0])
-        rsw = frames[0]["reviewer_state_write"]
-        reason = rsw["reason"] if isinstance(rsw, dict) else rsw.reason
-        self.assertEqual(reason, "ensure-follow")
-        self.assertTrue(frames[0]["ensure_refreshed"])
+        self.assertNotIn("reviewer_state_write", frames[0])
+        self.assertFalse(frames[0]["ensure_refreshed"])
+        self.assertTrue(frames[0]["reviewer_heartbeat_suppressed"])
         self.assertIn("publisher", frames[0])
         self.assertTrue(frames[0]["publisher"]["running"])
         self.assertEqual(frames[0]["reviewer_worker"]["state"], "up_to_date")
         self.assertFalse(frames[0]["reviewer_worker"]["review_needed"])
+        ensure_heartbeat.assert_not_called()
 
     def test_ensure_follow_restarts_missing_reviewer_supervisor(self) -> None:
         args = self._build_ensure_follow_args(max_follow_snapshots=1)
@@ -11193,7 +11179,12 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     },
                 }
             }
-            (status_dir / "review_state.json").write_text(
+            projection_review_state_path = (
+                canonical_projection_root_for_status_root(status_dir)
+                / "review_state.json"
+            )
+            projection_review_state_path.parent.mkdir(parents=True, exist_ok=True)
+            projection_review_state_path.write_text(
                 json.dumps(prior_review_state),
                 encoding="utf-8",
             )
@@ -11610,14 +11601,14 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertIsNotNone(payload["bridge_heartbeat_refresh"])
             self.assertEqual(
                 payload["bridge_liveness"]["reviewer_mode"],
-                "active_dual_agent",
+                "tools_only",
             )
             self.assertEqual(
                 payload["bridge_liveness"]["effective_reviewer_mode"],
                 "tools_only",
             )
             self.assertEqual(
-                payload["bridge_liveness"]["launch_truth"], "runtime_missing"
+                payload["bridge_liveness"]["launch_truth"], "inactive"
             )
             self.assertIn(
                 "codex",
@@ -11629,7 +11620,9 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             refreshed_bridge = bridge_path.read_text(encoding="utf-8")
             self.assertNotIn("2000-01-01T00:00:00Z", refreshed_bridge)
-            self.assertIn("- Reviewer mode: `active_dual_agent`", refreshed_bridge)
+            self.assertIn("- Reviewer mode: `tools_only`", refreshed_bridge)
+            self.assertNotIn("- Declared reviewer mode:", refreshed_bridge)
+            self.assertNotIn("- Effective reviewer mode:", refreshed_bridge)
 
     def test_run_status_dry_run_does_not_refresh_stale_bridge_heartbeat(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -11835,11 +11828,11 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 )
             )
             self.assertIn(
-                "- Reviewer mode: `tools_only`",
+                "- Reviewer mode: `active_dual_agent`",
                 bridge_path.read_text(encoding="utf-8"),
             )
-            self.assertIn(
-                "- Declared reviewer mode: `active_dual_agent`",
+            self.assertNotIn(
+                "- Effective reviewer mode:",
                 bridge_path.read_text(encoding="utf-8"),
             )
 
@@ -13100,7 +13093,9 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 "healthy",
             )
             review_state = json.loads(
-                (status_dir / "review_state.json").read_text(encoding="utf-8")
+                Path(payload["projection_paths"]["review_state_path"]).read_text(
+                    encoding="utf-8"
+                )
             )
             self.assertEqual(
                 review_state["reviewer_runtime"]["review_acceptance"][
@@ -13239,7 +13234,9 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 snapshot.sections.get("Implementer Ack", "").strip(), "- pending"
             )
             review_state = json.loads(
-                (status_dir / "review_state.json").read_text(encoding="utf-8")
+                Path(payload["projection_paths"]["review_state_path"]).read_text(
+                    encoding="utf-8"
+                )
             )
             self.assertEqual(
                 review_state["current_session"]["implementer_ack_state"],

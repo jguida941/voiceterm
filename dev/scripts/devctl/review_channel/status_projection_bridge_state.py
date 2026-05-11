@@ -5,10 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict
 
-from ..runtime.conductor_capability import (
-    authority_reviewer_mode,
-    build_conductor_capability_state,
-)
+from ..runtime.conductor_capability import build_conductor_capability_state
 from ..runtime.review_state_models import (
     CollaborationSessionState,
     ReviewBridgeState,
@@ -93,7 +90,6 @@ def build_typed_bridge_liveness(
     typed["launch_truth"] = classify_launch_truth(typed).value
     typed["effective_reviewer_mode"] = effective_reviewer_mode(typed)
     effective_mode = str(typed.get("effective_reviewer_mode") or reviewer_mode)
-    typed["reviewer_mode"] = authority_reviewer_mode(reviewer_mode, effective_mode)
     reviewer_provider = collaboration_provider(
         collaboration,
         role_id="review_agent",
@@ -159,7 +155,7 @@ def build_review_bridge_state(
     effective_mode = str(
         bridge_liveness.get("effective_reviewer_mode") or declared_mode
     )
-    reviewer_mode = authority_reviewer_mode(declared_mode, effective_mode)
+    reviewer_mode = declared_mode
     reviewer_provider = collaboration_provider(
         collaboration,
         role_id="review_agent",

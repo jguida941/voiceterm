@@ -1085,7 +1085,7 @@ def test_status_bridge_sync_does_not_reverse_newer_reviewer_heartbeat(
     assert "- Last Codex poll: `2026-04-24T17:05:00Z`" in rewritten
 
 
-def test_reviewer_mode_drift_demotes_active_bridge_to_effective_tools_only() -> None:
+def test_reviewer_mode_drift_preserves_declared_active_when_effective_tools_only() -> None:
     drifted = reviewer_mode_projection_drifted(
         snapshot_metadata={"reviewer_mode": "active_dual_agent"},
         review_state_payload={
@@ -1096,10 +1096,10 @@ def test_reviewer_mode_drift_demotes_active_bridge_to_effective_tools_only() -> 
         },
     )
 
-    assert drifted is True
+    assert drifted is False
 
 
-def test_reviewer_mode_drift_promotes_remote_control_effective_mode() -> None:
+def test_reviewer_mode_drift_preserves_declared_tools_when_effective_live() -> None:
     drifted = reviewer_mode_projection_drifted(
         snapshot_metadata={"reviewer_mode": "tools_only"},
         review_state_payload={
@@ -1110,7 +1110,7 @@ def test_reviewer_mode_drift_promotes_remote_control_effective_mode() -> None:
         },
     )
 
-    assert drifted is True
+    assert drifted is False
 
 
 def test_status_bridge_sync_clears_stale_instruction_when_typed_projection_is_blank(
@@ -1181,11 +1181,11 @@ def test_status_bridge_sync_does_not_demote_active_bridge_mode_from_effective_st
     rewritten = bridge_path.read_text(encoding="utf-8")
     assert synced is True
     assert warning == ""
-    assert "- Reviewer mode: `tools_only`" in rewritten
-    assert "- Declared reviewer mode: `active_dual_agent`" in rewritten
+    assert "- Reviewer mode: `active_dual_agent`" in rewritten
+    assert "- Effective reviewer mode: `tools_only`" in rewritten
 
 
-def test_status_bridge_sync_projects_effective_live_mode_over_stale_tools_only(
+def test_status_bridge_sync_preserves_declared_tools_only_with_effective_live_mode(
     tmp_path: Path,
 ) -> None:
     root = tmp_path
@@ -1217,8 +1217,8 @@ def test_status_bridge_sync_projects_effective_live_mode_over_stale_tools_only(
     rewritten = bridge_path.read_text(encoding="utf-8")
     assert synced is True
     assert warning == ""
-    assert "- Reviewer mode: `active_dual_agent`" in rewritten
-    assert "- Reviewer mode: `tools_only`" not in rewritten
+    assert "- Reviewer mode: `tools_only`" in rewritten
+    assert "- Effective reviewer mode: `active_dual_agent`" in rewritten
 
 
 def test_build_bridge_success_report_uses_typed_collaboration_runtime_counts() -> None:

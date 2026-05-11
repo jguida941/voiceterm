@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from .ack_contract import extract_implementer_ack_revision
+from .bridge_heading_aliases import bridge_section_text
 from .collaboration_provider import coding_provider_from_review_state
 from .current_session_support import (
     _canonicalize_instruction_state,
@@ -101,5 +102,5 @@ def build_bridge_current_session(
 
 
 def _section_text(snapshot: BridgeSnapshot, section: str) -> str:
-    raw = snapshot.sections.get(section, "")
+    raw = bridge_section_text(snapshot.sections, section)
     return clean_section(raw)
