@@ -1826,6 +1826,11 @@ Workflow permissions note:
    check-router is invoked without `--keep-going`, so the first blocking route
    stops before `git push` starts. Audit-all-checks behavior must be an
    explicit repo-policy opt-in.
+   Startup/work-intake projections use the same contract: generated next-step
+   commands must not append `--keep-going` unless repo policy explicitly marks
+   the preflight as audit mode. A projected publish command that asks for broad
+   audit behavior by default is stale authority and should be fixed at the
+   reducer, not worked around by manually rerunning checks.
    If a later rerun fetches the
    tracked branch and proves `ahead == 0`, `devctl push` now returns the
    existing already-published receipt before router preflight instead of
@@ -1884,7 +1889,7 @@ Workflow permissions note:
    decision exists. Queue truth is apply-bound too: only applied
    `commit_approval` decisions clear the live approval request, not `acked`
    packets or stale packet history.
-6. If you are not using `devctl push`, run `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute --keep-going` or the matching bundle manually (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`) before `git push`, then run `bundle.post-push`.
+6. If you are not using `devctl push`, run `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute` or the matching bundle manually (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`) before `git push`, then run `bundle.post-push`. Add `--keep-going` only for an explicit audit/full-report pass, not for the default publication preflight.
 7. If you add or rename a `devctl` command, update the CLI inventory (`devctl list`) and the maintainer command docs in the same change so discovery stays truthful.
 8. Merge to `develop` only after review and green checks.
 

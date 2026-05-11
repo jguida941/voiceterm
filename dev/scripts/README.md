@@ -1995,7 +1995,7 @@ Machine-first output note:
   - The shared `AGENTS.md` boot card and ignored local `CLAUDE.md` peer
     projection render from the same typed authority in
     `dev/scripts/devctl/governance/task_router_contract.py`.
-  - `--execute` runs the routed bundle commands plus add-ons from `bundle_registry.py`; use `--keep-going` for publish/preflight proof so later guards still run after an early failure. Reports include a typed `CheckRouterGuardCoverageReceipt` plus `GuardRemediationAction` rows, and `execution_plan` separates serial-required projection/status commands from parallel-safe guard rows so automation can prove both safety and coverage.
+  - `--execute` runs the routed bundle commands plus add-ons from `bundle_registry.py`; publication preflight omits `--keep-going` by default so the first blocking route stops before `git push` starts. Use `--keep-going` only for explicit audit/full-report proof when repo policy or an operator command asks for it. Reports include a typed `CheckRouterGuardCoverageReceipt` plus `GuardRemediationAction` rows, and `execution_plan` separates serial-required projection/status commands from parallel-safe guard rows so automation can prove both safety and coverage.
 - `progress-status`: read-only view of typed `StageProgressEvent` artifacts
   written by long-running `run_cmd` child processes and governed VCS phases.
   Use it when a guard/preflight appears quiet; it reports the latest command
@@ -2041,6 +2041,12 @@ Machine-first output note:
 - `process-audit`: read-only host-side Activity Monitor equivalent for repo-related process trees; reports matched roots plus descendants, includes repo-cwd runtime/tooling helpers that would otherwise look generic in Activity Monitor, fails fast when `ps` access is unavailable, preserves registered supervised review-channel conductors as visible non-blocking rows only while their embedded resume/review-state `head_sha` matches current `HEAD`, and `--strict` turns leftover runtime/test trees or stale/orphaned repo-related helpers into a blocking failure before handoff
 - `publication-sync`: tracked external publication report/record surface that compares watched repo paths against the last synced source commit for papers/sites and records a new baseline after external publish
 - `push`: policy-driven guarded push wrapper for the current branch; resolves branch/remote rules from `repo_governance.push`, runs the configured preflight path, defaults to non-mutating validation, and uses the configured post-push bundle after `--execute`. Static bundle authority still advertises the template `--since-ref` values, but the governed runtime rewrites diff-sensitive post-push commands to the exact preflight-resolved base for the current branch. When an active compatibility bridge exists, preflight now refreshes typed review status and reprojects `bridge.md` before the blocking checks run, then auto-commits a managed projection receipt if the only remaining dirty paths are governed receipt/projection artifacts, so stale role-marker bridge text does not strand an otherwise valid push or leave a green push with tracked projection drift.
+  Startup/work-intake next-step projections consume the same push-preflight
+  policy and only append `--keep-going` for explicit audit mode
+  (`audit_mode=true` or legacy `fail_fast_on_blocker=false`). Managed
+  projection receipt commits also no-op when `HEAD` is already a managed
+  ReviewSnapshot/generated-surface receipt, so generated-surface cleanup cannot
+  create a receipt-on-receipt chain.
 - `path-audit`: stale-reference scan for legacy check-script paths (skips `dev/archive/`)
 - `path-rewrite`: auto-rewrite legacy check-script paths to canonical registry targets (use `--dry-run` first)
 - `sync`: guarded branch-sync workflow (clean-tree preflight, remote/local ref checks, `--ff-only` pull, optional `--push` for ahead branches, and start-branch restore)

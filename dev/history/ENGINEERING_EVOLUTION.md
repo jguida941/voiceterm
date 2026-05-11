@@ -14986,3 +14986,27 @@ Evidence:
 - `.github/workflows/release_preflight.yml`
 - `dev/scripts/devctl/tests/governance/test_bundle_registry.py`
 - `dev/scripts/devctl/tests/commands/check/test_check.py`
+
+### 2026-05-11 - Startup push preflight projections now share publication semantics
+
+Dogfood exposed a remaining split after governed push itself moved to
+fail-fast publication preflight: startup/work-intake still projected
+`check-router --execute --keep-going`. That told agents to rerun the old broad
+audit path and made publication look like another silent long-running
+validation loop.
+
+Change: `work_intake_routing` now treats broad `--keep-going` as explicit
+audit mode only (`audit_mode=true` or legacy
+`fail_fast_on_blocker=false`). The default projected push preflight omits
+`--keep-going`, matching governed push policy. Managed projection receipt
+cleanup also refuses to create another managed receipt commit when `HEAD` is
+already a ReviewSnapshot/generated-surface receipt, so generated-surface
+cleanup cannot form receipt-on-receipt chains.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/work_intake_routing.py`
+- `dev/scripts/devctl/commands/vcs/push_projection_receipt.py`
+- `dev/scripts/devctl/tests/runtime/test_work_intake.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
