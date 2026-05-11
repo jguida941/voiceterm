@@ -6,7 +6,12 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 
-from .governed_executor_git import head_commit, pipeline_is_stale_for_current_repo
+from .commit_action_request_pipeline import (
+    pipeline_binding_required,
+    pipeline_generation as _pipeline_generation,
+    pipeline_hash as _pipeline_hash,
+)
+from .governed_executor_git import head_commit
 
 SUPPORTED_REQUEST_ACTION = "stage_commit_pipeline"
 SAFE_POLICY_HINT = "safe_auto_apply"
@@ -66,13 +71,6 @@ def derive_pipeline_evidence(
         derived_fields=unique(derived_fields),
         derivation_sources=unique(derivation_sources),
     )
-
-
-def pipeline_binding_required(*, repo_root: Path, pipeline: object | None) -> bool:
-    """Return whether the current pipeline is live enough to bind this packet."""
-    if not (_pipeline_generation(pipeline) or _pipeline_hash(pipeline)):
-        return False
-    return not pipeline_is_stale_for_current_repo(pipeline, repo_root=repo_root)
 
 
 def policy_denial(*, packet: Mapping[str, object], grant: object) -> str:
@@ -246,15 +244,6 @@ def unique(values: object) -> tuple[str, ...]:
         if text and text not in rows:
             rows.append(text)
     return tuple(rows)
-
-
-def _pipeline_generation(pipeline: object | None) -> str:
-    return _text(getattr(pipeline, "generation_id", ""))
-
-
-def _pipeline_hash(pipeline: object | None) -> str:
-    intent = getattr(pipeline, "intent", None)
-    return _text(getattr(intent, "staged_tree_hash", ""))
 
 
 def _packet_head_pin_matches(*, packet: Mapping[str, object], repo_root: Path) -> bool:

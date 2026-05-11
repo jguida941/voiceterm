@@ -149,10 +149,10 @@ def write_pipeline_payload(
     so concurrent readers (``check_review_surface_consistency``) never
     observe a half-written file.
     """
-    from ...review_channel.projection_bundle import _atomic_write_text
+    from ...review_channel.projection_bundle_io import atomic_write_text
 
     paths.pipeline_path.parent.mkdir(parents=True, exist_ok=True)
-    _atomic_write_text(
+    atomic_write_text(
         paths.pipeline_path,
         json.dumps(payload, indent=2) + "\n",
     )

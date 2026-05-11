@@ -249,12 +249,12 @@ def write_projection_bundle(
     # every projection writer. phone_views may share projection_dir with
     # canonical review-channel projections; racing with sync-status would
     # otherwise produce mismatched snapshot_id/zref between siblings.
-    from ..review_channel.projection_bundle import _atomic_write_text
+    from ..review_channel.projection_bundle_io import atomic_write_text
 
-    _atomic_write_text(full_path, json.dumps(payload, indent=2))
-    _atomic_write_text(compact_path, json.dumps(compact_payload, indent=2))
-    _atomic_write_text(actions_path, json.dumps(actions_payload, indent=2))
-    _atomic_write_text(
+    atomic_write_text(full_path, json.dumps(payload, indent=2))
+    atomic_write_text(compact_path, json.dumps(compact_payload, indent=2))
+    atomic_write_text(actions_path, json.dumps(actions_payload, indent=2))
+    atomic_write_text(
         latest_md_path,
         _render_view_markdown(compact_payload, PhoneStatusView.COMPACT.value),
     )

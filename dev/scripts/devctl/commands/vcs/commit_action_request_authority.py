@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
-from datetime import datetime, timezone
 from pathlib import Path
 
 from ...repo_packs import active_path_config
@@ -31,17 +29,18 @@ from .commit_action_request_evidence import (
     derive_pipeline_evidence,
     invalid_evidence_fields,
     missing_evidence_fields,
-    pipeline_binding_required,
     policy_denial,
     target_actor_has_action_authority,
 )
+from .commit_action_request_lifecycle_gate import lifecycle_status_block
+from .commit_action_request_pipeline import pipeline_binding_block
+from .commit_action_request_revision import target_revision_freshness_block
 
 _CALLER_AGENT_ENV_VARS = ("DEVCTL_CALLER_AGENT", "REVIEW_CHANNEL_CALLER_AGENT")
 _CALLER_ROLE_ENV_VARS = ("DEVCTL_CALLER_ROLE", "REVIEW_CHANNEL_CALLER_ROLE")
 _SUPPORTED_REQUEST_ACTION = "stage_commit_pipeline"
 _STAGE_HANDOFF_CAPABILITIES = ("repo.stage_handoff",)
 _COMMIT_CAPABILITIES = ("repo.stage", "repo.commit")
-_ACTIONABLE_PACKET_STATUSES = frozenset({"pending", "acked"})
 _ACTION_REQUEST_INTERACTION_MODES = frozenset({"remote_control", "dual_agent"})
 
 
@@ -308,26 +307,6 @@ def action_request_execution_receipt_report(
     }
 
 
-def _lifecycle_status_block(packet: Mapping[str, object]) -> str:
-    if _text(packet.get("kind")) != "action_request":
-        return "action_request_kind_mismatch"
-    # Per rev_pkt_2487 commit-gate review: terminal lifecycle states
-    # (execution_failed, apply_pending_after_execution) must be detected
-    # BEFORE the generic actionability check, otherwise a packet that has
-    # transitioned past the actionable statuses returns the less-informative
-    # "action_request_not_actionable" reason instead of preserving the
-    # specific terminal lifecycle detail consumers depend on for retry/replay.
-    if _text(packet.get("execution_failed_at_utc")):
-        return "action_request_execution_failed"
-    if _text(packet.get("apply_pending_after_execution_at_utc")):
-        return "action_request_apply_pending_after_execution"
-    if _text(packet.get("status")) not in _ACTIONABLE_PACKET_STATUSES:
-        return "action_request_not_actionable"
-    if _is_expired(packet):
-        return "action_request_expired"
-    return ""
-
-
 def _caller_identity_block(grant: CommitActionRequestGrant) -> str:
     if grant.caller_agent and grant.target_agent != grant.caller_agent:
         return "action_request_target_mismatch"
@@ -362,42 +341,6 @@ def _grant_attestation_block(
         return "action_request_target_ref_mismatch"
     if not grant.full_guard_bundle_evidence:
         return "action_request_guard_evidence_missing"
-    return ""
-
-
-def _target_revision_freshness_block(
-    *,
-    repo_root: Path,
-    grant: CommitActionRequestGrant,
-) -> str:
-    head = _current_head(repo_root)
-    target_ref_revision = grant.target_ref.removeprefix("devctl_commit:")
-    if grant.target_revision and grant.target_revision != head:
-        return "action_request_target_revision_stale"
-    if target_ref_revision and target_ref_revision != head:
-        return "action_request_target_ref_stale"
-    return ""
-
-
-def _pipeline_binding_block(
-    *,
-    repo_root: Path,
-    grant: CommitActionRequestGrant,
-    pipeline: object | None,
-) -> str:
-    if not pipeline_binding_required(repo_root=repo_root, pipeline=pipeline):
-        return ""
-    pipeline_generation = _pipeline_generation(pipeline)
-    pipeline_hash = _pipeline_hash(pipeline)
-    if pipeline_generation or pipeline_hash:
-        if not grant.pipeline_generation:
-            return "action_request_pipeline_generation_missing"
-        if not grant.staged_snapshot_hash:
-            return "action_request_staged_snapshot_missing"
-    if grant.pipeline_generation and grant.pipeline_generation != pipeline_generation:
-        return "action_request_pipeline_generation_mismatch"
-    if grant.staged_snapshot_hash and grant.staged_snapshot_hash != pipeline_hash:
-        return "action_request_staged_snapshot_mismatch"
     return ""
 
 
@@ -451,14 +394,14 @@ def _deny_reason(
     # typed packet-attention (rev_pkt_2498 durable authority) before the
     # legacy env pivot fallback, attestations/freshness before pipeline.
     return (
-        _lifecycle_status_block(packet)
+        lifecycle_status_block(packet)
         or _caller_identity_block(grant)
         or _target_discriminator_block(packet, grant)
         or _typed_packet_attention_block(repo_root=repo_root)
         or _env_pivot_block()
         or _grant_attestation_block(packet, grant)
-        or _target_revision_freshness_block(repo_root=repo_root, grant=grant)
-        or _pipeline_binding_block(
+        or target_revision_freshness_block(repo_root=repo_root, grant=grant)
+        or pipeline_binding_block(
             repo_root=repo_root, grant=grant, pipeline=pipeline
         )
     )
@@ -472,7 +415,7 @@ def _identity_authority(
     """Return actor-authority evidence for the target packet executor."""
     for payload in (
         _load_review_state(repo_root),
-        _load_review_state_from_path_config(repo_root),
+        *_load_review_state_payloads_from_path_config(repo_root),
     ):
         authority = _identity_authority_from_payload(payload, grant=grant)
         if authority[0]:
@@ -642,7 +585,7 @@ def _caller_agent_from_review_state(*, repo_root: Path, role: str) -> str:
 def _review_state_payloads(repo_root: Path) -> tuple[Mapping[str, object], ...]:
     return (
         _load_review_state(repo_root),
-        _load_review_state_from_path_config(repo_root),
+        *_load_review_state_payloads_from_path_config(repo_root),
     )
 
 
@@ -666,14 +609,23 @@ def _load_review_state(repo_root: Path) -> dict[str, object]:
 
 
 def _load_review_state_from_path_config(repo_root: Path) -> dict[str, object]:
+    payloads = _load_review_state_payloads_from_path_config(repo_root)
+    return dict(payloads[0]) if payloads else {}
+
+
+def _load_review_state_payloads_from_path_config(
+    repo_root: Path,
+) -> tuple[dict[str, object], ...]:
     config = active_path_config()
     candidates = [
         *(
             repo_root / candidate
             for candidate in config.review_state_candidates
         ),
+        repo_root / config.review_status_dir_rel / "review_state.json",
         repo_root / config.review_state_json_rel,
     ]
+    payloads: list[dict[str, object]] = []
     for path in candidates:
         try:
             if path.is_file():
@@ -683,42 +635,8 @@ def _load_review_state_from_path_config(repo_root: Path) -> dict[str, object]:
         except (OSError, json.JSONDecodeError):
             continue
         if isinstance(candidate_payload, dict):
-            return candidate_payload
-    return {}
-
-
-def _current_head(repo_root: Path) -> str:
-    result = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=repo_root,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    return result.stdout.strip() if result.returncode == 0 else ""
-
-
-def _is_expired(packet: Mapping[str, object]) -> bool:
-    raw = _text(packet.get("expires_at_utc"))
-    if not raw:
-        return False
-    try:
-        expires_at = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError:
-        return False
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-    return expires_at.astimezone(timezone.utc) <= datetime.now(timezone.utc)
-
-
-def _pipeline_generation(pipeline: object | None) -> str:
-    return _text(getattr(pipeline, "generation_id", ""))
-
-
-def _pipeline_hash(pipeline: object | None) -> str:
-    intent = getattr(pipeline, "intent", None)
-    return _text(getattr(intent, "staged_tree_hash", ""))
+            payloads.append(candidate_payload)
+    return tuple(payloads)
 
 
 def _rows(value: object) -> tuple[Mapping[str, object], ...]:

@@ -2,21 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass
 from pathlib import Path
 
 from ..runtime.review_state_locator import (
     load_current_review_state_payload,
     load_review_state_payload,
 )
-from ..runtime.review_state_models import RecoveryAssessmentState, ReviewState
 from . import state_status_inputs as _state_status_inputs_mod
 from .attach_auth_policy import build_attach_auth_policy
 from .bridge_validation import validate_live_bridge_contract
 from .bridge_validation_acceptance import review_acceptance_projection
 from .collaboration_provider import reviewer_provider_from_review_state
-from .core import LaneAssignment, project_id_for_repo
+from .core import project_id_for_repo
 from .daemon_reducer import build_lifecycle_runtime_state
 from .handoff import extract_bridge_snapshot
 from .lifecycle_state import (
@@ -50,12 +47,6 @@ from .state_status_inputs import (
 from .state_status_inputs import load_lifecycle_states as _load_lifecycle_states
 from .state_status_inputs import load_prior_review_state as _load_prior_review_state
 from .state_status_inputs import load_status_lanes as _load_status_lanes
-from .status_bundle import (
-    StatusProjectionBundleResult,
-    StatusProjectionContext,
-    StatusProjectionPayload,
-    write_status_projection_bundle,
-)
 from .status_models import ReviewChannelStatusSnapshot
 from .status_projection_helpers import (
     attach_conductor_session_state,
@@ -64,35 +55,14 @@ from .status_projection_helpers import (
     hybrid_loop_errors,
 )
 from .status_push_decision import build_status_push_decision
+from .status_snapshot_bundle_writer import (
+    SnapshotBundleInputs,
+    write_snapshot_bundle,
+)
 from .status_snapshot_authority import (
     StatusAuthorityInputs,
     build_status_authority,
 )
-
-
-@dataclass(frozen=True)
-class SnapshotBundleInputs:
-    """Grouped inputs for writing the status projection bundle."""
-
-    repo_root: Path
-    bridge_path: Path
-    review_channel_path: Path
-    output_root: Path
-    promotion_plan_path: Path | None
-    lanes: list[LaneAssignment]
-    bridge_liveness: dict[str, object]
-    attention: dict[str, object] | None
-    current_session: object
-    recovery_assessment: RecoveryAssessmentState | None
-    prior_review_state: Mapping[str, object] | None
-    reviewer_accepted_implementer_state_hash_override: str | None
-    reviewer_worker: dict[str, object]
-    push_decision: dict[str, object]
-    service_identity: dict[str, object]
-    attach_auth_policy: dict[str, object]
-    warnings: list[str]
-    errors: list[str]
-    reduced_runtime: dict[str, object]
 
 
 compute_non_audit_worktree_hash = (
@@ -188,19 +158,10 @@ def refresh_status_snapshot(
             )
         )
     )
-    push_decision_bridge_liveness = dict(bridge_liveness)
-    push_decision_bridge_liveness["review_accepted"] = (
-        reviewer_runtime.review_acceptance.review_accepted
-    )
-    push_decision_bridge_liveness["publish_clear"] = reviewer_runtime.publish_clear
-    push_decision = build_status_push_decision(
-        bridge_liveness=push_decision_bridge_liveness,
+    push_decision = _build_push_decision(
+        bridge_liveness=bridge_liveness,
         reviewer_runtime=reviewer_runtime,
     )
-    bridge_liveness["review_accepted"] = (
-        reviewer_runtime.review_acceptance.review_accepted
-    )
-    bridge_liveness["publish_clear"] = reviewer_runtime.publish_clear
     service_identity = build_service_identity(
         repo_root=repo_root,
         bridge_path=bridge_path,
@@ -212,7 +173,7 @@ def refresh_status_snapshot(
         publisher_state=publisher_state,
         reviewer_supervisor_state=reviewer_supervisor_state,
     )
-    bundle_result, review_state = _write_snapshot_bundle(
+    bundle_result, review_state = write_snapshot_bundle(
         SnapshotBundleInputs(
             repo_root=repo_root,
             bridge_path=bridge_path,
@@ -253,39 +214,25 @@ def refresh_status_snapshot(
     )
 
 
-def _write_snapshot_bundle(
-    inputs: SnapshotBundleInputs,
-) -> tuple[StatusProjectionBundleResult, ReviewState | None]:
-    bundle_result = write_status_projection_bundle(
-        context=StatusProjectionContext(
-            repo_root=inputs.repo_root,
-            bridge_path=inputs.bridge_path,
-            review_channel_path=inputs.review_channel_path,
-            output_root=inputs.output_root,
-            promotion_plan_path=inputs.promotion_plan_path,
-            lanes=inputs.lanes,
-            bridge_liveness=inputs.bridge_liveness,
-            attention=inputs.attention,
-            current_session=inputs.current_session,
-            recovery_assessment=inputs.recovery_assessment,
-            prior_review_state=inputs.prior_review_state,
-            reviewer_accepted_implementer_state_hash_override=(
-                inputs.reviewer_accepted_implementer_state_hash_override
-            ),
-        ),
-        payload=StatusProjectionPayload(
-            reviewer_worker=inputs.reviewer_worker,
-            push_decision=inputs.push_decision,
-            service_identity=inputs.service_identity,
-            attach_auth_policy=inputs.attach_auth_policy,
-            warnings=inputs.warnings,
-            errors=inputs.errors,
-            reduced_runtime=inputs.reduced_runtime,
-        ),
+def _build_push_decision(
+    *,
+    bridge_liveness: dict[str, object],
+    reviewer_runtime,
+) -> dict[str, object]:
+    push_bridge_liveness = dict(bridge_liveness)
+    push_bridge_liveness["review_accepted"] = (
+        reviewer_runtime.review_acceptance.review_accepted
     )
-    from ..runtime.review_state_parser import review_state_from_payload
-
-    return bundle_result, review_state_from_payload(bundle_result.review_state)
+    push_bridge_liveness["publish_clear"] = reviewer_runtime.publish_clear
+    push_decision = build_status_push_decision(
+        bridge_liveness=push_bridge_liveness,
+        reviewer_runtime=reviewer_runtime,
+    )
+    bridge_liveness["review_accepted"] = (
+        reviewer_runtime.review_acceptance.review_accepted
+    )
+    bridge_liveness["publish_clear"] = reviewer_runtime.publish_clear
+    return push_decision
 
 
 def _attach_session_state_hints(

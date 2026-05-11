@@ -2,24 +2,22 @@
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 from ...common import run_cmd
 from ...config import REPO_ROOT
 from ...runtime.review_snapshot_refresh import refresh_review_snapshot_file
-from ...runtime.vcs import run_git_capture
 from .push_preflight_commit import auto_commit_preflight_generated_changes
+from .push_preflight_snapshot_receipt import (
+    auto_commit_review_snapshot_freshness_receipt,
+    current_head_sha,
+)
 from .push_projection_runtime_refresh import (
     refresh_stale_reviewer_heartbeat_before_publication,
     refresh_runtime_surfaces_after_projection_receipt,
 )
 from .push_projection_receipt import auto_commit_managed_projection_receipt
-from .push_receipt_failure import review_snapshot_receipt_failure_detail
 from .push_recovery_loop_repair import run_pre_validation_recovery_loop_repair_phase
-from .push_review_snapshot_receipt_guard import (
-    current_head_is_managed_review_snapshot_receipt,
-)
 from .push_render_surface_sync import (
     POLICY_RENDER_SURFACE_SYNC,
     refresh_policy_owned_render_surfaces_before_preflight,
@@ -186,65 +184,6 @@ def auto_commit_managed_projection_receipt_before_authorization(
     return receipt_result
 
 
-def auto_commit_review_snapshot_freshness_receipt(
-    state,
-    *,
-    command_runner=run_cmd,
-    repo_root: Path,
-    next_step_label: str,
-) -> dict[str, object]:
-    """Run the governed snapshot receipt command after managed HEAD movement."""
-    if current_head_is_managed_review_snapshot_receipt(repo_root=repo_root):
-        return {
-            "ok": True,
-            "committed": False,
-            "commit_sha": "",
-            "reason": "already_managed_review_snapshot_receipt",
-        }
-    before_head = _current_head_sha(repo_root=repo_root)
-    step = command_runner(
-        "push-refresh-review-snapshot-receipt",
-        [
-            sys.executable,
-            "dev/scripts/devctl.py",
-            "review-snapshot",
-            "--write",
-            "--receipt-commit",
-            "--format",
-            "json",
-        ],
-        cwd=repo_root,
-    )
-    if step.get("returncode", 1) != 0:
-        detail = review_snapshot_receipt_failure_detail(step)
-        message = f"ReviewSnapshot receipt refresh failed before {next_step_label}"
-        if detail:
-            message = f"{message}: {detail}"
-        state.errors.append(message)
-        return {
-            "ok": False,
-            "committed": False,
-            "step": step,
-            "returncode": step.get("returncode"),
-            "error": message,
-            "error_detail": detail,
-        }
-
-    after_head = _current_head_sha(repo_root=repo_root)
-    committed = bool(after_head and after_head != before_head)
-    if committed:
-        state.warnings.append(
-            "Committed ReviewSnapshot freshness receipt "
-            f"{after_head[:12]} before {next_step_label}."
-        )
-    return {
-        "ok": True,
-        "committed": committed,
-        "commit_sha": after_head if committed else "",
-        "step": step,
-    }
-
-
 def refresh_preflight_generated_changes_before_authorization(
     state,
     policy,
@@ -253,11 +192,11 @@ def refresh_preflight_generated_changes_before_authorization(
     command_runner=run_cmd,
 ) -> None:
     """Commit preflight-generated drift and refresh projection receipts."""
-    before_generated_commit = _current_head_sha(repo_root=repo_root)
+    before_generated_commit = current_head_sha(repo_root=repo_root)
     auto_commit_preflight_generated_changes(state, policy, repo_root=repo_root)
     generated_commit_moved_head = (
         bool(before_generated_commit)
-        and _current_head_sha(repo_root=repo_root) != before_generated_commit
+        and current_head_sha(repo_root=repo_root) != before_generated_commit
     )
     receipt_result = auto_commit_managed_projection_receipt_before_authorization(
         state,
@@ -310,11 +249,6 @@ def _base_pre_validation_result(
     result["allowed"] = True
     result.update(render_surface_pre_validation_fields(render_result))
     return result
-
-
-def _current_head_sha(*, repo_root: Path) -> str:
-    code, stdout, _ = run_git_capture(["rev-parse", "HEAD"], repo_root=repo_root)
-    return stdout.strip() if code == 0 else ""
 
 
 def _record_phase_state(state, attr: str, result: dict[str, object]) -> None:

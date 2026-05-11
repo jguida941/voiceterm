@@ -384,10 +384,10 @@ def refresh_event_bundle(
         # write_projection_bundle outputs below. Plain Path.write_text races those
         # bundle writes and produces snapshot/zref drift in the cross-surface check.
         # Multi-file bundle transactionality (rev_pkt_2417 Tier 2) is the broader fix.
-        from .projection_bundle import _atomic_write_text
+        from .projection_bundle_io import atomic_write_text
 
         state_path = Path(artifact_paths.state_path)
-        _atomic_write_text(state_path, json.dumps(review_state, indent=2))
+        atomic_write_text(state_path, json.dumps(review_state, indent=2))
         projection_paths = write_projection_bundle(
             output_root=projections_root,
             review_state=review_state,

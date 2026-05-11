@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ..repo_packs import active_path_config, active_path_config_is_overridden
 from ..repo_packs.review_cache import cache_is_fresh
+from . import review_state_locator_candidates as _candidate_paths
 from .review_state_contract_drift import (
     cached_projection_has_bridge_contract_drift as _cached_projection_has_bridge_contract_drift,
+)
+from .review_state_locator_projection import (
+    is_event_backed_projection,
+    prefer_newer_typed_candidate,
 )
 from .review_state_refresh_support import (
     refresh_event_backed_review_state_payload,
@@ -27,23 +32,9 @@ def review_state_relative_candidates(
     governance: "ProjectGovernance | None" = None,
 ) -> tuple[str, ...]:
     """Return repo-relative review-state candidates in lookup order."""
-    candidates: list[str] = []
-    if governance is not None:
-        review_root = str(governance.artifact_roots.review_root or "").strip()
-        if review_root:
-            _append_projection_sibling_candidate(candidates, review_root)
-            if not _legacy_review_status_root(review_root):
-                _append_candidate(
-                    candidates,
-                    f"{review_root.rstrip('/')}/review_state.json",
-                )
-        elif active_path_config_is_overridden():
-            for candidate in active_path_config().review_state_candidates:
-                _append_candidate(candidates, candidate)
-    elif active_path_config_is_overridden():
-        for candidate in active_path_config().review_state_candidates:
-            _append_candidate(candidates, candidate)
-    return tuple(candidates)
+    _candidate_paths.active_path_config = active_path_config
+    _candidate_paths.active_path_config_is_overridden = active_path_config_is_overridden
+    return _candidate_paths.review_state_relative_candidates(governance=governance)
 
 
 def resolve_review_state_path(
@@ -122,7 +113,7 @@ def load_current_review_state_payload(
     )
     typed_path = candidate_paths[0] if candidate_paths else None
     typed_payload = _load_payload_from_path(typed_path)
-    typed_path, typed_payload = _prefer_newer_typed_candidate(
+    typed_path, typed_payload = prefer_newer_typed_candidate(
         candidate_paths,
         preferred_path=typed_path,
         preferred_payload=typed_payload,
@@ -132,7 +123,7 @@ def load_current_review_state_payload(
         repo_root,
         governance=resolved_governance,
     )
-    if typed_payload is not None and _is_event_backed_projection(
+    if typed_payload is not None and is_event_backed_projection(
         typed_path,
         typed_payload,
         repo_root=repo_root,
@@ -232,33 +223,6 @@ def load_current_review_state(
     return review_state_from_payload(payload)
 
 
-def _append_candidate(candidates: list[str], candidate: Any) -> None:
-    text = str(candidate or "").strip()
-    if text and text not in candidates:
-        candidates.append(text)
-
-
-def _append_projection_sibling_candidate(
-    candidates: list[str],
-    review_root: str,
-) -> None:
-    """Route governed `latest` roots to the canonical projections sibling.
-
-    The governed `.../latest` root carries runtime heartbeat/session artifacts.
-    It is not a review-state projection authority.
-    """
-    root_path = Path(str(review_root).strip())
-    if root_path.name != "latest" or root_path.parent.name == "projections":
-        return
-    projection_root = root_path.parent / "projections" / root_path.name
-    _append_candidate(candidates, projection_root.as_posix() + "/review_state.json")
-
-
-def _legacy_review_status_root(review_root: str) -> bool:
-    root_path = Path(str(review_root).strip())
-    return root_path.name == "latest" and root_path.parent.name != "projections"
-
-
 def _load_payload_from_path(path: Path | None) -> dict[str, object] | None:
     if path is None:
         return None
@@ -280,58 +244,6 @@ def _existing_candidate_paths(
         if path.is_file():
             paths.append(path)
     return tuple(paths)
-
-
-def _prefer_newer_typed_candidate(
-    candidate_paths: tuple[Path, ...],
-    *,
-    preferred_path: Path | None,
-    preferred_payload: dict[str, object] | None,
-    repo_root: Path,
-) -> tuple[Path | None, dict[str, object] | None]:
-    """Preserve the event-backed bundle as canonical review-state authority.
-
-    A legacy bridge-refreshed compatibility mirror may be newer on disk, but
-    it must not outrank the governed `projections/latest` payload for canonical
-    runtime reads. Loader freshness and explicit event refresh are the only
-    supported ways to advance the event-backed authority path.
-    """
-    del candidate_paths
-    if preferred_path is None or preferred_payload is None:
-        return preferred_path, preferred_payload
-    if not _is_event_backed_projection(
-        preferred_path,
-        preferred_payload,
-        repo_root=repo_root,
-    ):
-        return preferred_path, preferred_payload
-    return preferred_path, preferred_payload
-
-
-def _payload_timestamp(payload: dict[str, object] | None) -> str:
-    if not isinstance(payload, dict):
-        return ""
-    return str(payload.get("timestamp") or "").strip()
-
-
-def _is_event_backed_projection(
-    path: Path | None,
-    payload: dict[str, object] | None,
-    *,
-    repo_root: Path,
-) -> bool:
-    if path is None:
-        return False
-    try:
-        relative = path.relative_to(repo_root).as_posix()
-    except ValueError:
-        return False
-    if not relative.endswith("/projections/latest/review_state.json"):
-        return False
-    review = payload.get("review") if isinstance(payload, dict) else None
-    if not isinstance(review, dict):
-        return False
-    return str(review.get("surface_mode") or "").strip() == "event-backed"
 
 
 def _resolve_governance(

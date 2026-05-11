@@ -315,5 +315,3 @@ def _source_identity(packet: Mapping[str, object]) -> dict[str, object]:
 
 def _grant_actor(grant: object) -> str:
     return _field(grant, "caller_agent") or _field(grant, "target_agent")
-
-
