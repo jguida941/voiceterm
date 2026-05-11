@@ -175,10 +175,12 @@ fn assign_section(artifact: &mut ReviewArtifact, section_name: &str, content: St
         "Poll Status" => artifact.poll_status = content,
         "Current Verdict" => artifact.verdict = content,
         "Open Findings" => artifact.findings = content,
-        "Current Instruction For Claude" => artifact.instruction = content,
-        "Claude Ack" => artifact.claude_ack = content,
-        "Claude Status" => artifact.claude_status = content,
-        "Claude Questions" => artifact.claude_questions = content,
+        "Current Instruction For Implementer" | "Current Instruction For Claude" => {
+            artifact.instruction = content
+        }
+        "Implementer Ack" | "Claude Ack" => artifact.claude_ack = content,
+        "Implementer Status" | "Claude Status" => artifact.claude_status = content,
+        "Implementer Questions" | "Claude Questions" => artifact.claude_questions = content,
         "Last Reviewed Scope" => artifact.last_reviewed_scope = content,
         _ => {}
     }

@@ -67,9 +67,17 @@ fn bridge_critical_parse_extracts_handoff_sections() {
 
 - Blocker one.
 
-## Claude Questions
+## Implementer Questions
 
 - Do we keep the cached bridge state on read failure?
+
+## Implementer Ack
+
+- acknowledged
+
+## Current Instruction For Implementer
+
+1. Continue the governed push repair.
 
 ## Last Reviewed Scope
 
@@ -81,6 +89,8 @@ fn bridge_critical_parse_extracts_handoff_sections() {
     let artifact = state.artifact().expect("artifact should parse");
     assert!(artifact.findings.contains("Blocker one"));
     assert!(artifact.claude_questions.contains("cached bridge state"));
+    assert!(artifact.claude_ack.contains("acknowledged"));
+    assert!(artifact.instruction.contains("governed push repair"));
     assert!(artifact
         .last_reviewed_scope
         .contains("rust/src/bin/voiceterm/dev_command/review_artifact.rs"));
