@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `e4f6713d8d52` — Refine package layout debt enforcement
-- Tree hash: `8f5a7283ab42`
-- Generation stamp: `snap-312c331ce5fd`
-- Generated at (UTC): 2026-05-11T06:26:55Z
+- HEAD: `7a094406a5d8` — Refresh policy-owned generated surfaces for 77b19aac
+- Tree hash: `0c2ee74c5a3f`
+- Generation stamp: `snap-62bfd262d905`
+- Generated at (UTC): 2026-05-11T06:29:28Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `tools_only` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 74 files, +2218/-1825
+- Delta since last snapshot: 24 commits, 74 files, +2166/-1775
 - Governance findings: 60 open / 10 fixed / 70 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,9 +30,9 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `e4f6713d8d5221d9f467544e792d71b6773dd044`
+- HEAD SHA: `7a094406a5d85b992817d48affcfa98c91a33da7`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-11T02:20:35-04:00
+- HEAD timestamp (UTC): 2026-05-11T02:28:20-04:00
 
 ## 2. Governance state
 
@@ -44,9 +44,9 @@ probes, typed actions, deterministic policy resolution — is what m...
 - staged_path_count: 0
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
-- latest_push_report_state: `blocked` (validation_failed)
+- latest_push_report_state: `blocked` (push_preflight_running)
 - publication_backlog: urgent
-- publication_guidance: 26 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 28 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -66,43 +66,43 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `e4f6713d8d52`
+Range: last 24 commits ending at `7a094406a5d8`
 
 - commits: 24
 - files changed: 74
-- insertions: +2218
-- deletions: -1825
-- bundle classes touched: tooling, docs, runtime
+- insertions: +2166
+- deletions: -1775
+- bundle classes touched: docs, tooling, runtime
 - authority surfaces touched: 3 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `e4f6713d` | Refine package layout debt enforcement | 5 | +365/-270 | tooling |  |
-| 2 | `d5d39f76` | Refresh external review snapshot for 19755d06 | 1 | +43/-44 | tooling |  |
-| 3 | `19755d06` | Refresh external review snapshot for e450826a | 2 | +93/-120 | docs |  |
-| 4 | `e450826a` | Refresh ground-truth probe receipt | 1 | +1/-0 | tooling |  |
-| 5 | `76a552d9` | Refresh external review snapshot for 95fdd129 | 1 | +46/-45 | tooling |  |
-| 6 | `95fdd129` | Refresh external review snapshot for e4eb2de9 | 2 | +56/-55 | docs |  |
-| 7 | `e4eb2de9` | Parse provider-neutral review artifact headings | 2 | +17/-5 | runtime |  |
-| 8 | `ce6ab928` | Refresh external review snapshot for ef60471d | 2 | +46/-47 | docs |  |
-| 9 | `ef60471d` | Refresh external review snapshot for 5a4818e9 | 2 | +56/-56 | docs |  |
-| 10 | `5a4818e9` | Use shared managed receipt prefixes | 10 | +51/-19 | tooling |  |
-| 11 | `92846684` | Refresh external review snapshot for b7383d1c | 2 | +66/-65 | docs |  |
-| 12 | `b7383d1c` | Enforce bridge projection guard lanes | 14 | +53/-3 | tooling |  |
-| 13 | `5cf35cf1` | Refresh external review snapshot for 0298211f | 2 | +47/-47 | docs |  |
-| 14 | `0298211f` | Refresh external review snapshot for 999920f3 | 2 | +46/-47 | docs |  |
-| 15 | `999920f3` | Refresh external review snapshot for c574a584 | 2 | +59/-77 | docs |  |
-| 16 | `c574a584` | Keep pre-commit hooks read-only | 9 | +88/-179 | tooling |  |
-| 17 | `119dfed6` | Refresh external review snapshot for d6e6b253 | 2 | +70/-67 | docs |  |
-| 18 | `d6e6b253` | Unify review projections and fail fast push preflight | 55 | +584/-327 | tooling |  |
-| 19 | `267ccfd6` | Refresh external review snapshot for 7070ef7f | 2 | +43/-43 | docs |  |
-| 20 | `7070ef7f` | Refresh external review snapshot for 7abb92dc | 2 | +44/-42 | docs |  |
-| 21 | `7abb92dc` | Refresh external review snapshot for 469e8316 | 2 | +62/-64 | docs |  |
-| 22 | `469e8316` | Stop review follow projection churn | 15 | +170/-93 | tooling |  |
-| 23 | `1c619b33` | Refresh external review snapshot for 61fae6c9 | 2 | +45/-45 | docs |  |
-| 24 | `61fae6c9` | Refresh external review snapshot for 09c341a4 | 2 | +67/-65 | docs |  |
+| 1 | `7a094406` | Refresh policy-owned generated surfaces for 77b19aac | 1 | +1/-1 | docs |  |
+| 2 | `77b19aac` | Refresh external review snapshot for e4f6713d | 2 | +59/-59 | docs |  |
+| 3 | `e4f6713d` | Refine package layout debt enforcement | 5 | +365/-270 | tooling |  |
+| 4 | `d5d39f76` | Refresh external review snapshot for 19755d06 | 1 | +43/-44 | tooling |  |
+| 5 | `19755d06` | Refresh external review snapshot for e450826a | 2 | +93/-120 | docs |  |
+| 6 | `e450826a` | Refresh ground-truth probe receipt | 1 | +1/-0 | tooling |  |
+| 7 | `76a552d9` | Refresh external review snapshot for 95fdd129 | 1 | +46/-45 | tooling |  |
+| 8 | `95fdd129` | Refresh external review snapshot for e4eb2de9 | 2 | +56/-55 | docs |  |
+| 9 | `e4eb2de9` | Parse provider-neutral review artifact headings | 2 | +17/-5 | runtime |  |
+| 10 | `ce6ab928` | Refresh external review snapshot for ef60471d | 2 | +46/-47 | docs |  |
+| 11 | `ef60471d` | Refresh external review snapshot for 5a4818e9 | 2 | +56/-56 | docs |  |
+| 12 | `5a4818e9` | Use shared managed receipt prefixes | 10 | +51/-19 | tooling |  |
+| 13 | `92846684` | Refresh external review snapshot for b7383d1c | 2 | +66/-65 | docs |  |
+| 14 | `b7383d1c` | Enforce bridge projection guard lanes | 14 | +53/-3 | tooling |  |
+| 15 | `5cf35cf1` | Refresh external review snapshot for 0298211f | 2 | +47/-47 | docs |  |
+| 16 | `0298211f` | Refresh external review snapshot for 999920f3 | 2 | +46/-47 | docs |  |
+| 17 | `999920f3` | Refresh external review snapshot for c574a584 | 2 | +59/-77 | docs |  |
+| 18 | `c574a584` | Keep pre-commit hooks read-only | 9 | +88/-179 | tooling |  |
+| 19 | `119dfed6` | Refresh external review snapshot for d6e6b253 | 2 | +70/-67 | docs |  |
+| 20 | `d6e6b253` | Unify review projections and fail fast push preflight | 55 | +584/-327 | tooling |  |
+| 21 | `267ccfd6` | Refresh external review snapshot for 7070ef7f | 2 | +43/-43 | docs |  |
+| 22 | `7070ef7f` | Refresh external review snapshot for 7abb92dc | 2 | +44/-42 | docs |  |
+| 23 | `7abb92dc` | Refresh external review snapshot for 469e8316 | 2 | +62/-64 | docs |  |
+| 24 | `469e8316` | Stop review follow projection churn | 15 | +170/-93 | tooling |  |
 
 ### Files
 
@@ -113,15 +113,15 @@ Range: last 24 commits ending at `e4f6713d8d52`
 | `AGENTS.md` | docs | +5/-1 |
 | `System_Connection_Flowchart.md` | docs | +1/-1 |
 | `app/operator_console/tests/state/test_state_modules.py` | tooling | +7/-7 |
-| `bridge.md` | docs | +50/-53 |
+| `bridge.md` | docs | +45/-48 |
 | `dev/active/MASTER_PLAN.md` | tooling | +44/-23 |
 | `dev/active/ai_governance_platform.md` | tooling | +23/-11 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1032/-1082 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +984/-1036 |
 | `dev/config/devctl_repo_policy.json` | tooling | +2/-1 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +8/-131 |
 | `dev/config/quality_presets/voiceterm.json` | tooling | +2/-1 |
 | `dev/guides/DEVELOPMENT.md` | docs | +24/-9 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +1/-1 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +2/-2 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +105/-3 |
 | `dev/scripts/README.md` | tooling | +26/-15 |
 | `dev/scripts/checks/package_layout/baseline_debt.py` | tooling | +43/-11 |
@@ -215,6 +215,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`7a094406`** — Refresh policy-owned generated surfaces for 77b19aac
+- **`77b19aac`** — Refresh external review snapshot for e4f6713d
 - **`e4f6713d`** — Refine package layout debt enforcement
 - **`d5d39f76`** — Refresh external review snapshot for 19755d06
 - **`19755d06`** — Refresh external review snapshot for e450826a
@@ -237,8 +239,6 @@ Recent findings:
 - **`7070ef7f`** — Refresh external review snapshot for 7abb92dc
 - **`7abb92dc`** — Refresh external review snapshot for 469e8316
 - **`469e8316`** — Stop review follow projection churn
-- **`1c619b33`** — Refresh external review snapshot for 61fae6c9
-- **`61fae6c9`** — Refresh external review snapshot for 09c341a4
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -277,4 +277,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-312c331ce5fd` binds this file to HEAD `e4f6713d8d52`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-62bfd262d905` binds this file to HEAD `7a094406a5d8`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
