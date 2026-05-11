@@ -4780,10 +4780,6 @@ class PushBridgeSyncTests(unittest.TestCase):
         "dev.scripts.devctl.commands.vcs.push_projection_receipt.current_head_is_managed_review_snapshot_receipt",
         return_value=False,
     )
-    @patch(
-        "dev.scripts.devctl.commands.vcs.push_projection_receipt.current_head_is_managed_review_snapshot_receipt",
-        return_value=False,
-    )
     @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_staging.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_status.run_git_capture")
@@ -4797,6 +4793,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         status_git_mock,
         staging_git_mock,
         receipt_git_mock,
+        _head_receipt_mock,
     ) -> None:
         status_git_mock.return_value = (0, "M dev/audits/REVIEW_SNAPSHOT.md", "")
         staging_git_mock.side_effect = [
@@ -4829,10 +4826,6 @@ class PushBridgeSyncTests(unittest.TestCase):
             ],
         )
 
-    @patch(
-        "dev.scripts.devctl.commands.vcs.push_projection_receipt.current_head_is_managed_review_snapshot_receipt",
-        return_value=False,
-    )
     @patch(
         "dev.scripts.devctl.commands.vcs.push_projection_receipt.current_head_is_managed_review_snapshot_receipt",
         return_value=False,
