@@ -193,6 +193,13 @@ def _detect_reviewer_gate_from_review_state(
     attention_status = str(getattr(attention, "status", "") or "").strip()
     implementation_blocked = reviewer_runtime.implementation_blocked
     implementation_block_reason = reviewer_runtime.implementation_block_reason
+    if declared_active and not effective_active:
+        gate_mode = mode_projection.reviewer_mode or gate_mode
+        if not implementation_blocked:
+            implementation_blocked = True
+            implementation_block_reason = (
+                attention_status or reviewer_runtime.stale_reason or "review_loop_not_live"
+            )
     if (
         declared_active
         and effective_active

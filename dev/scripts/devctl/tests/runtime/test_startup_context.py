@@ -146,7 +146,8 @@ class TestStartupContextBuild(unittest.TestCase):
                     ctx.authority_snapshot.packet_target.attention_status
                 )
             self.assertTrue(
-                attention_indicators & {"review_needed", "checkpoint_required"},
+                attention_indicators
+                & {"review_needed", "checkpoint_required", "wake_required"},
                 f"expected actionable attention, got {attention_indicators}",
             )
         self.assertEqual(
@@ -3509,9 +3510,22 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
             )
         )
         (repo_root / "bridge.md").write_text(bridge_text, encoding="utf-8")
+        (repo_root / "dev" / "reports" / "review_channel" / "latest").mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
-        # Create the typed state projection directory
-        state_dir = repo_root / "dev" / "reports" / "review_channel" / "latest"
+        # Create the canonical typed state projection directory. The legacy
+        # latest root remains session artifact storage, not review-state
+        # authority for startup gating.
+        state_dir = (
+            repo_root
+            / "dev"
+            / "reports"
+            / "review_channel"
+            / "projections"
+            / "latest"
+        )
         state_dir.mkdir(parents=True, exist_ok=True)
         # Compute review_accepted the same way the projection does:
         # verdict must match accepted patterns AND findings must be clear.
@@ -3547,6 +3561,10 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
         )
 
         state_payload = {
+            "review": {
+                "surface_mode": "event-backed",
+                "bridge_path": "bridge.md",
+            },
             "bridge": {
                 "reviewer_mode": reviewer_mode,
                 "effective_reviewer_mode": (
@@ -3783,6 +3801,7 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
                     / "dev"
                     / "reports"
                     / "review_channel"
+                    / "projections"
                     / "latest"
                     / "review_state.json"
                 ).read_text(encoding="utf-8"),
@@ -3793,6 +3812,7 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
                 / "dev"
                 / "reports"
                 / "review_channel"
+                / "projections"
                 / "latest"
                 / "review_state.json"
             ).unlink()
@@ -3828,6 +3848,7 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
                 / "dev"
                 / "reports"
                 / "review_channel"
+                / "projections"
                 / "latest"
                 / "review_state.json"
             )

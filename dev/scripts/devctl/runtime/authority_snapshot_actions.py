@@ -83,16 +83,21 @@ def authority_mode_projection(inputs: AuthorityModeInputs) -> AuthorityModeProje
     payload = inputs.payload
     reviewer_gate = inputs.reviewer_gate
     reviewer_runtime = inputs.reviewer_runtime
+    bridge = _mapping(payload.get("bridge"))
     diagnosis = inputs.diagnosis
     attention = inputs.attention
     doctor = inputs.doctor
     reviewer_mode = (
-        _text(reviewer_runtime.get("reviewer_mode"))
+        _text(reviewer_runtime.get("declared_reviewer_mode"))
+        or _text(bridge.get("declared_reviewer_mode"))
+        or _text(bridge.get("reviewer_mode"))
+        or _text(reviewer_runtime.get("reviewer_mode"))
         or _text(reviewer_gate.get("reviewer_mode"))
         or _text(payload.get("reviewer_mode"))
     )
     effective_reviewer_mode = (
         _text(reviewer_runtime.get("effective_reviewer_mode"))
+        or _text(bridge.get("effective_reviewer_mode"))
         or _text(reviewer_gate.get("effective_reviewer_mode"))
         or reviewer_mode
     )
@@ -185,6 +190,8 @@ def interaction_mode_from_reviewer_mode(
         return "remote_control"
     if saw_local_terminal:
         return "local_terminal"
+    if not _text(effective_mode):
+        return "unresolved"
     if reviewer_mode_is_active(effective_mode):
         return "dual_agent"
     if reviewer_mode_is_single_agent(effective_mode):
@@ -204,7 +211,7 @@ def _posture_has_runtime_truth(posture: Mapping[str, object]) -> bool:
     return bool(
         posture.get("actors")
         or _text(posture.get("interaction_mode")) not in {"", "unresolved"}
-        or _text(posture.get("reviewer_mode")) not in {"", "single_agent"}
+        or _text(posture.get("reviewer_mode")) not in {"", "single_agent", "tools_only"}
     )
 
 
