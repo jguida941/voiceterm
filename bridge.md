@@ -81,7 +81,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-05-11T01:48:35Z`
 - Last Codex poll (Local America/New_York): `2026-05-10 21:48:35 EDT`
 - Reviewer mode: `tools_only`
-- Last non-audit worktree hash: `28949d4e946324bf1b7a43a8e23ecce8f8211b14b6630b47942d7b4a771b8668`
+- Last non-audit worktree hash: `34cf3ebb04f08cf976fe15fa5233b08949e4e01a77416a263376103564c694c5`
 - Current instruction revision: `253f20e51d60`
 
 ## Protocol
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-56 pending review packet(s)
+57 pending review packet(s)
 
 ## Implementer Status
 
-- pending
+implementing
 
 ## Implementer Questions
 
@@ -134,7 +134,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Implementer Ack
 
-- missing
+pending
 
 ## Current Instruction For Implementer
 
