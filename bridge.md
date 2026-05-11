@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Implementer Status
 
-- Status unavailable.
+implementing
 
 ## Implementer Questions
 
@@ -134,7 +134,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Implementer Ack
 
-- missing
+pending
 
 ## Current Instruction For Implementer
 
