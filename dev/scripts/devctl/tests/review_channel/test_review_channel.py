@@ -583,7 +583,7 @@ class ReviewChannelParserTests(unittest.TestCase):
                 "--action",
                 "reviewer-heartbeat",
                 "--reviewer-mode",
-                "developer",
+                "tools_only",
                 "--reason",
                 "local-tools-pass",
                 "--terminal",
@@ -595,7 +595,7 @@ class ReviewChannelParserTests(unittest.TestCase):
 
         self.assertEqual(args.command, "review-channel")
         self.assertEqual(args.action, "reviewer-heartbeat")
-        self.assertEqual(args.reviewer_mode, "developer")
+        self.assertEqual(args.reviewer_mode, "tools_only")
         self.assertEqual(args.reason, "local-tools-pass")
 
     def test_cli_accepts_reviewer_checkpoint_rotation_flag(self) -> None:
@@ -4123,15 +4123,12 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         self.assertEqual(frames[0]["snapshot_seq"], 0)
         self.assertEqual(frames[1]["snapshot_seq"], 1)
         self.assertTrue(all(frame["follow"] for frame in frames))
-        self.assertTrue(frames[0]["reviewer_heartbeat_refreshed"])
-        self.assertEqual(
-            frames[0]["reviewer_state_write"]["reason"],
-            "reviewer-follow",
-        )
+        self.assertFalse(frames[0]["reviewer_heartbeat_refreshed"])
+        self.assertNotIn("reviewer_state_write", frames[0])
         self.assertEqual(frames[0]["reviewer_worker"]["state"], "review_needed")
         self.assertTrue(frames[0]["review_needed"])
         self.assertFalse(frames[0]["reviewer_worker"]["semantic_review_claimed"])
-        self.assertFalse(frames[0]["reviewer_heartbeat_suppressed"])
+        self.assertTrue(frames[0]["reviewer_heartbeat_suppressed"])
 
     def test_reviewer_follow_frame_surfaces_latest_claude_packet(self) -> None:
         args = self._build_reviewer_follow_args(max_follow_snapshots=1)
@@ -4344,7 +4341,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             self.assertTrue(frames[0]["reviewer_heartbeat_suppressed"])
             self.assertNotIn("reviewer_state_write", frames[0])
 
-    def test_reviewer_follow_reactivates_paused_bridge_when_requested_active(
+    def test_reviewer_follow_suppresses_paused_bridge_reactivation_churn(
         self,
     ) -> None:
         args = self._build_reviewer_follow_args(max_follow_snapshots=1)
@@ -4412,13 +4409,11 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertEqual(report["snapshots_emitted"], 1)
             self.assertEqual(len(frames), 1)
-            self.assertTrue(frames[0]["reviewer_heartbeat_refreshed"])
-            self.assertEqual(
-                frames[0]["reviewer_state_write"]["reviewer_mode"],
-                "active_dual_agent",
-            )
+            self.assertFalse(frames[0]["reviewer_heartbeat_refreshed"])
+            self.assertTrue(frames[0]["reviewer_heartbeat_suppressed"])
+            self.assertNotIn("reviewer_state_write", frames[0])
             self.assertIn(
-                "\n- Reviewer mode: `active_dual_agent`\n",
+                "\n- Reviewer mode: `paused`\n",
                 bridge_path.read_text(encoding="utf-8"),
             )
 
