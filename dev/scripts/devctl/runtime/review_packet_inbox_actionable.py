@@ -43,6 +43,8 @@ def is_action_request(packet: Mapping[str, object]) -> bool:
 
 def is_actionable(packet: Mapping[str, object]) -> bool:
     """Return True when one packet can drive the current instruction lane."""
+    if _packet_is_communication_only(packet):
+        return False
     if _packet_kind(packet) in SESSION_TERMINATION_PACKET_KINDS:
         return False
     return (
@@ -111,6 +113,16 @@ def _action_request_state(packet: Mapping[str, object]) -> str:
 
 def _packet_kind(packet: Mapping[str, object]) -> str:
     return _normalized_text(packet.get("kind"))
+
+
+def _packet_is_communication_only(packet: Mapping[str, object]) -> bool:
+    for key in ("durable_binding", "packet_creation_binding"):
+        binding = packet.get(key)
+        if not isinstance(binding, Mapping):
+            continue
+        if _normalized_text(binding.get("binding_target_kind")) == "communication_only":
+            return True
+    return False
 
 
 def _event_id_rank(event_id: str) -> int:

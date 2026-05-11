@@ -326,6 +326,37 @@ class CheckMultiAgentSyncTests(unittest.TestCase):
             any("Packet inbox current instruction disagrees" in err for err in errors)
         )
 
+    def test_communication_only_packet_is_not_instruction_authority(self) -> None:
+        payload = {
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "codex",
+                        "current_instruction_packet_id": "rev_pkt_review_accept",
+                    }
+                ]
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_review_accept",
+                    "kind": "review_accepted",
+                    "to_agent": "codex",
+                    "durable_binding": {
+                        "binding_target_kind": "communication_only",
+                    },
+                }
+            ],
+        }
+        decisions = [
+            {
+                "actor_id": "codex",
+                "active_packet_id": "rev_pkt_finding",
+                "attention_packet_id": "rev_pkt_finding",
+            }
+        ]
+
+        self.assertEqual(instruction_authority_mismatch_errors(payload, decisions), [])
+
     def test_executing_packet_can_coexist_with_next_instruction_packet(self) -> None:
         payload = {
             "queue": {

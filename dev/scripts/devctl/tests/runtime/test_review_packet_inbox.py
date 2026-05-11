@@ -140,6 +140,36 @@ def test_packet_inbox_treats_urgent_attention_metadata_as_actionable() -> None:
     assert codex.wake_reason == "urgent_attention"
 
 
+def test_packet_inbox_keeps_communication_only_review_receipts_out_of_instruction_lane() -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_review_accept",
+                "kind": "review_accepted",
+                "status": "pending",
+                "lifecycle_current_state": "review_accepted",
+                "to_agent": "codex",
+                "attention_urgency": "urgent",
+                "attention_class": "review",
+                "latest_event_id": "rev_evt_review_accept",
+                "posted_at": "2026-05-11T07:37:50Z",
+                "durable_binding": {
+                    "binding_target_kind": "communication_only",
+                },
+            }
+        ]
+    }
+
+    packet_inbox = packet_inbox_from_review_state(review_state)
+
+    assert packet_inbox is not None
+    codex = packet_inbox.for_agent("codex")
+    assert codex is not None
+    assert codex.current_instruction_packet_id == ""
+    assert codex.pending_actionable_packet_ids == ()
+    assert codex.attention_status == "none"
+
+
 def test_packet_inbox_does_not_treat_archived_pending_as_expired_unresolved() -> None:
     review_state = {
         "packets": [

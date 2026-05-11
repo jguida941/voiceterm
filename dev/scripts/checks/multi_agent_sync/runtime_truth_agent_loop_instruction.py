@@ -28,6 +28,7 @@ def instruction_authority_mismatch_errors(
     source = coerce_mapping(queue.get("derived_next_instruction_source"))
     queue_actor = coerce_text(source.get("to_agent"))
     queue_packet = coerce_text(source.get("packet_id"))
+    queue_packet_record = packet_index.get(queue_packet)
     queue_scope = _packet_scope(source, packet_index.get(queue_packet))
     active_packets = _active_packets_for_scope(
         active_rows,
@@ -39,6 +40,7 @@ def instruction_authority_mismatch_errors(
         active_packets
         and queue_packet
         and queue_packet not in active_packets
+        and not _packet_is_communication_only(queue_packet_record)
         and not _scope_has_executing_packet(
             active_rows,
             actor=queue_actor,
@@ -70,7 +72,8 @@ def _packet_inbox_mismatch_errors(
             continue
         actor = coerce_text(record.get("agent"))
         inbox_packet = coerce_text(record.get("current_instruction_packet_id"))
-        role, session = _packet_scope(record, packet_index.get(inbox_packet))
+        inbox_packet_record = packet_index.get(inbox_packet)
+        role, session = _packet_scope(record, inbox_packet_record)
         active_packets = _active_packets_for_scope(
             active_rows,
             actor=actor,
@@ -81,6 +84,7 @@ def _packet_inbox_mismatch_errors(
             active_packets
             and inbox_packet
             and inbox_packet not in active_packets
+            and not _packet_is_communication_only(inbox_packet_record)
             and not _scope_has_executing_packet(
                 active_rows,
                 actor=actor,
@@ -183,6 +187,18 @@ def _packet_index(payload: Mapping[str, object]) -> dict[str, Mapping[str, objec
         if packet_id:
             indexed[packet_id] = row
     return indexed
+
+
+def _packet_is_communication_only(packet: Mapping[str, object] | None) -> bool:
+    if not packet:
+        return False
+    for key in ("durable_binding", "packet_creation_binding"):
+        binding = packet.get(key)
+        if not isinstance(binding, Mapping):
+            continue
+        if coerce_text(binding.get("binding_target_kind")) == "communication_only":
+            return True
+    return False
 
 
 def _packet_scope(
