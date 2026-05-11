@@ -6524,7 +6524,11 @@ become the main product surface.
     `rev_pkt_3329`, `rev_pkt_3334`, `rev_pkt_3343`, `rev_pkt_3344`,
     `rev_pkt_3345`, `rev_pkt_3346`, `rev_pkt_3347`, `rev_pkt_3349`,
     `rev_pkt_3350`, `rev_pkt_3356`, and Claude approval `rev_pkt_3357`
-    converged the design.
+    converged the design. 2026-05-11 push dogfood exposed the adjacent
+    operator-observability gap: publication preflight must fail fast by default
+    and must not imply that `git push` has started while it is still running
+    guards. Repo policy now owns `fail_fast_on_blocker=true`; audit-only
+    policies can opt back into `--keep-going`.
   - [ ] `MP377-P0-T22AN-AC` now owns fresh-session orientation automation:
     `devctl session` must run startup-context, session-resume, live
     review-channel status, and context-graph bootstrap before answering
@@ -8067,3 +8071,5 @@ This generated ledger projects packet creation bindings for humans. The typed ro
 - [ ] `PKT-BIND-REV-PKT-3625` Packet finding: Operator-naming directive: drop 'wake' from continue_to_wake_packet_goal + watcher-auto-trigger architectural gap (operator prompted 3 times) + 3-tranche plan (source `rev_pkt_3625`; target `plan:MP-377`; posted `2026-05-11T00:15:06.945362Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3627` Packet finding: 3-agent synth: urgent packets→plan ingestion + continuation_goal output resolution + supersession; ALL via existing typed surfaces (no new authority). 3 file edits + 5 MP-377 row amendments. (source `rev_pkt_3627`; target `plan:MP-377`; posted `2026-05-11T00:58:40.419518Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3628` Packet finding: 3-agent synth on PlanPositionAck: Agent C wins (smallest surface) — 3 fields on AuthoritySnapshot + safe_to_continue gates symmetric to FinalResponseGateResult; terminology contract closes poison-literal gap; operator-fra... (source `rev_pkt_3628`; target `plan:MP-377`; posted `2026-05-11T01:18:04.877911Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3636` Packet action request: Run governed commit staging from remote-control lane (source `rev_pkt_3636`; target `devctl_commit:267ccfd6a6928c3f9b0f5f1230151aedf89eb6aa`; posted `2026-05-11T03:26:46.522809Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3637` Packet finding: Auto-snapshot recursive chain: push_preflight_projection.py:101 creates snapshot-of-snapshot commits unbounded; 6 chained commits in current backlog, root-cause file:line + 4 fix options in body (source `rev_pkt_3637`; target `dev/scripts/devctl/commands/vcs/push_preflight_projection.py:101`; posted `2026-05-11T03:38:31.258668Z`; binding `plan_row`).

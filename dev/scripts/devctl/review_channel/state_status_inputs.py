@@ -11,6 +11,7 @@ from .core import LaneAssignment, ensure_launcher_prereqs
 from .handoff import bridge_liveness_to_dict, summarize_bridge_liveness
 from .heartbeat import bridge_excluded_rel_paths, compute_non_audit_worktree_hash
 from .lifecycle_state import read_publisher_state, read_reviewer_supervisor_state
+from .projection_bundle import canonical_projection_root_for_status_root
 from .reviewer_worker import check_review_needed, reviewer_worker_tick_to_dict
 
 
@@ -76,7 +77,8 @@ def load_prior_review_state(
         prefer_cached_projection=False,
         allow_live_refresh=False,
     )
-    local_payload = _read_json_mapping(output_root / "review_state.json")
+    projection_root = canonical_projection_root_for_status_root(output_root)
+    local_payload = _read_json_mapping(projection_root / "review_state.json")
     state_payload = _read_json_mapping(output_root.parent / "state" / "latest.json")
     if isinstance(canonical_payload, dict) and isinstance(state_payload, dict):
         canonical_payload = _merge_prior_review_state(canonical_payload, state_payload)

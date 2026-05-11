@@ -39,14 +39,12 @@ class RepoPathConfig:
     # Structured review-state JSON candidates (tried in order)
     review_state_candidates: tuple[str, ...] = (
         "dev/reports/review_channel/projections/latest/review_state.json",
-        "dev/reports/review_channel/latest/review_state.json",
         "dev/reports/review_channel/review_state.json",
     )
 
     # Full review-channel projection candidates (tried in order)
     review_full_candidates: tuple[str, ...] = (
         "dev/reports/review_channel/projections/latest/full.json",
-        "dev/reports/review_channel/latest/full.json",
     )
 
     # Session trace directory candidates (tried in order)

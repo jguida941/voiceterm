@@ -401,11 +401,11 @@ class TestDashboardSnapshotSections(unittest.TestCase):
     def test_dashboard_snapshot_has_required_sections(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             _write_artifact(root, "dev/reports/push/latest.json", _minimal_push())
             _write_artifact(root, "dev/reports/startup/latest/receipt.json", _minimal_receipt())
-            _write_artifact(root, "dev/reports/review_channel/latest/registry/agents.json", _minimal_agents())
-            _write_artifact(root, "dev/reports/review_channel/latest/commit_pipeline.json", _minimal_pipeline())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/registry/agents.json", _minimal_agents())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/commit_pipeline.json", _minimal_pipeline())
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
 
@@ -489,11 +489,11 @@ class TestDashboardSnapshotSections(unittest.TestCase):
     def test_now_section_populated(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             _write_artifact(root, "dev/reports/push/latest.json", _minimal_push())
             _write_artifact(root, "dev/reports/startup/latest/receipt.json", _minimal_receipt())
-            _write_artifact(root, "dev/reports/review_channel/latest/registry/agents.json", _minimal_agents())
-            _write_artifact(root, "dev/reports/review_channel/latest/commit_pipeline.json", _minimal_pipeline())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/registry/agents.json", _minimal_agents())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/commit_pipeline.json", _minimal_pipeline())
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
 
@@ -511,10 +511,10 @@ class TestDashboardSnapshotSections(unittest.TestCase):
     def test_plan_section_populated(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             _write_artifact(root, "dev/reports/push/latest.json", _minimal_push())
             _write_artifact(root, "dev/reports/startup/latest/receipt.json", _minimal_receipt())
-            _write_artifact(root, "dev/reports/review_channel/latest/registry/agents.json", _minimal_agents())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/registry/agents.json", _minimal_agents())
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
 
@@ -532,7 +532,7 @@ class TestDashboardSnapshotSections(unittest.TestCase):
     def test_plan_section_prefers_typed_startup_routing_and_backlog_counts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
             startup_context = {
@@ -630,8 +630,8 @@ class TestDashboardSnapshotSections(unittest.TestCase):
     def test_workers_have_enriched_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
-            _write_artifact(root, "dev/reports/review_channel/latest/registry/agents.json", _minimal_agents())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/registry/agents.json", _minimal_agents())
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
 
@@ -650,7 +650,7 @@ class TestDashboardSnapshotSections(unittest.TestCase):
     def test_publication_has_target_match(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             _write_artifact(root, "dev/reports/push/latest.json", _minimal_push())
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
@@ -671,7 +671,7 @@ class TestDashboardSnapshotSections(unittest.TestCase):
     def test_quality_has_extended_gates(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             _write_artifact(root, "dev/reports/push/latest.json", _minimal_push())
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
@@ -689,7 +689,7 @@ class TestDashboardSnapshotSections(unittest.TestCase):
     def test_coordination_compact_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             _write_artifact(root, "dev/reports/startup/latest/receipt.json", _minimal_receipt())
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
@@ -950,7 +950,7 @@ class TestDashboardEnrichments(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             _write_artifact(root, "dev/reports/push/latest.json", _minimal_push())
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
 
@@ -968,7 +968,7 @@ class TestDashboardEnrichments(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             _write_artifact(root, "dev/reports/governance/latest/review_summary.json", _minimal_governance_review())
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
 
@@ -987,7 +987,7 @@ class TestDashboardEnrichments(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             _write_artifact(root, "dev/reports/probes/latest/summary.json", _minimal_probe_summary())
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
 
@@ -1007,7 +1007,7 @@ class TestDashboardEnrichments(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             _write_artifact(root, "dev/reports/push/latest.json", _minimal_push())
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
 
@@ -1026,7 +1026,7 @@ class TestDashboardEnrichments(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             _write_artifact(root, "dev/reports/data_science/latest/summary.json", _minimal_data_science())
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
 
@@ -1131,7 +1131,7 @@ class TestReviewerActivitySection(unittest.TestCase):
         """Rich bridge text produces populated reviewer_activity fields."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             bridge = root / "bridge.md"
             bridge.write_text(_rich_bridge_text(), encoding="utf-8")
 
@@ -1151,7 +1151,7 @@ class TestReviewerActivitySection(unittest.TestCase):
         """Minimal bridge with no reviewer sections degrades to defaults."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
 
@@ -1374,7 +1374,7 @@ class TestHealthSection(unittest.TestCase):
             )
             _write_artifact(
                 root,
-                "dev/reports/review_channel/latest/full.json",
+                "dev/reports/review_channel/projections/latest/full.json",
                 {"attention": {"status": "reviewer_overdue", "summary": "Codex reviewer is overdue"}},
             )
 
@@ -1732,7 +1732,7 @@ class TestGitStateDetails(unittest.TestCase):
     def test_snapshot_repo_has_git_state_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
 
@@ -1936,7 +1936,7 @@ class TestSessionDuration(unittest.TestCase):
     def test_snapshot_repo_has_session(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             _write_artifact(
                 root,
                 "dev/reports/review_channel/latest/publisher_heartbeat.json",
@@ -1962,7 +1962,7 @@ class TestSessionDuration(unittest.TestCase):
     def test_coordination_has_session_age(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             _write_artifact(
                 root,
                 "dev/reports/review_channel/latest/publisher_heartbeat.json",
@@ -2083,7 +2083,7 @@ class TestFindingsInSnapshot(unittest.TestCase):
             root = Path(tmp)
             _write_artifact(
                 root,
-                "dev/reports/review_channel/latest/compact.json",
+                "dev/reports/review_channel/projections/latest/compact.json",
                 _minimal_compact(),
             )
             bridge = root / "bridge.md"
@@ -2106,7 +2106,7 @@ class TestFindingsInSnapshot(unittest.TestCase):
             root = Path(tmp)
             _write_artifact(
                 root,
-                "dev/reports/review_channel/latest/compact.json",
+                "dev/reports/review_channel/projections/latest/compact.json",
                 _minimal_compact(),
             )
             bridge = root / "bridge.md"
@@ -2163,7 +2163,7 @@ class TestFindingsInSnapshot(unittest.TestCase):
             root = Path(tmp)
             _write_artifact(
                 root,
-                "dev/reports/review_channel/latest/compact.json",
+                "dev/reports/review_channel/projections/latest/compact.json",
                 _minimal_compact(),
             )
 
@@ -2284,10 +2284,10 @@ class TestSummaryCompilation(unittest.TestCase):
     def test_snapshot_includes_summary_section(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
             _write_artifact(root, "dev/reports/push/latest.json", _minimal_push())
             _write_artifact(root, "dev/reports/startup/latest/receipt.json", _minimal_receipt())
-            _write_artifact(root, "dev/reports/review_channel/latest/registry/agents.json", _minimal_agents())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/registry/agents.json", _minimal_agents())
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
 
@@ -2307,16 +2307,16 @@ class TestSummaryCompilation(unittest.TestCase):
     def test_dashboard_role_filters_mutating_control_plane_command(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", {})
-            _write_artifact(root, "dev/reports/review_channel/latest/full.json", {})
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", {})
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/full.json", {})
             _write_artifact(
                 root,
-                "dev/reports/review_channel/latest/registry/agents.json",
+                "dev/reports/review_channel/projections/latest/registry/agents.json",
                 {},
             )
             _write_artifact(
                 root,
-                "dev/reports/review_channel/latest/commit_pipeline.json",
+                "dev/reports/review_channel/projections/latest/commit_pipeline.json",
                 {},
             )
             _write_artifact(root, "dev/reports/push/latest.json", {})
@@ -2731,7 +2731,7 @@ class TestTypedReviewState(unittest.TestCase):
             )
             _write_artifact(
                 root,
-                "dev/reports/review_channel/latest/compact.json",
+                "dev/reports/review_channel/projections/latest/compact.json",
                 {"current_session": {"current_instruction_revision": "old_compact_rev"}},
             )
             bridge = root / "bridge.md"
@@ -3396,7 +3396,7 @@ class TestTypedReviewState(unittest.TestCase):
             )
             _write_artifact(
                 root,
-                "dev/reports/review_channel/latest/compact.json",
+                "dev/reports/review_channel/projections/latest/compact.json",
                 {
                     "current_session": {
                         "current_instruction_revision": "stale_compact_rev",
@@ -3471,7 +3471,7 @@ class TestTypedReviewState(unittest.TestCase):
             root = Path(tmp)
             _write_artifact(
                 root,
-                "dev/reports/review_channel/latest/compact.json",
+                "dev/reports/review_channel/projections/latest/compact.json",
                 _minimal_compact(),
             )
             bridge = root / "bridge.md"
@@ -3837,7 +3837,7 @@ class TestTypedBridgePath(unittest.TestCase):
             bridge_path.write_text(_rich_bridge_text(), encoding="utf-8")
             _write_artifact(
                 root,
-                "dev/reports/review_channel/latest/compact.json",
+                "dev/reports/review_channel/projections/latest/compact.json",
                 _minimal_compact(),
             )
 
@@ -4104,7 +4104,7 @@ class TestTypedVerdictExtraction(unittest.TestCase):
                 "current_session": {},
             }
             _write_artifact(root, "dev/reports/review_channel/state/latest.json", review_state)
-            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            _write_artifact(root, "dev/reports/review_channel/projections/latest/compact.json", _minimal_compact())
 
             with patch.object(dashboard, "_git_short", return_value={
                 "branch": "main", "head": "abc", "dirty": "CLEAN",

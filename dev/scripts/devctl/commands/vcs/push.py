@@ -439,9 +439,9 @@ def run_push_action(
             ),
             reason="push_preflight_running",
             operator_guidance=(
-                "Governed push started. Preflight and publication checks are running; "
-                "wait for the managed latest push report or command completion before "
-                "starting another push."
+                "No git push has started. Governed publication is in preflight "
+                "validation for the current HEAD; remote publication can only start "
+                "after validation_ready=true."
             ),
             stages=PushStageTruth(),
         )

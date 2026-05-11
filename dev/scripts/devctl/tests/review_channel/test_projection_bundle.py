@@ -61,7 +61,7 @@ def test_projection_bundle_writes_machine_json_compactly(tmp_path: Path) -> None
         assert isinstance(json.loads(text), dict)
 
 
-def test_projection_bundle_mirror_uses_single_canonical_snapshot(
+def test_projection_bundle_writes_only_requested_root(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -84,9 +84,8 @@ def test_projection_bundle_mirror_uses_single_canonical_snapshot(
         canonicalize_once_per_publication,
     )
 
-    projection_bundle_mod.write_projection_bundle_mirrors(
+    projection_bundle_mod.write_projection_bundle(
         output_root=tmp_path / "projections/latest",
-        mirror_roots=(tmp_path / "latest",),
         review_state=_minimal_review_state(),
         agent_registry={"schema_version": 1, "agents": []},
         action="status",
@@ -95,14 +94,11 @@ def test_projection_bundle_mirror_uses_single_canonical_snapshot(
     canonical_compact = json.loads(
         (tmp_path / "projections/latest/compact.json").read_text(encoding="utf-8")
     )
-    mirror_compact = json.loads(
-        (tmp_path / "latest/compact.json").read_text(encoding="utf-8")
-    )
 
     assert calls == 1
     assert canonical_compact["snapshot_id"] == "snap-1"
-    assert mirror_compact["snapshot_id"] == "snap-1"
-    assert canonical_compact == mirror_compact
+    assert not (tmp_path / "latest/review_state.json").exists()
+    assert not (tmp_path / "latest/compact.json").exists()
 
 
 def test_prepare_projection_bundle_applies_work_board_posture_once(

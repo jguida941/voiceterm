@@ -55,6 +55,12 @@ from dev.scripts.devctl.review_channel.reviewer_state_normalize import (
 )
 
 
+def _projection_review_state_path(status_dir: Path) -> Path:
+    if status_dir.name == "latest" and status_dir.parent.name != "projections":
+        status_dir = status_dir.parent / "projections" / status_dir.name
+    return status_dir / "review_state.json"
+
+
 def _bridge_report_args() -> SimpleNamespace:
     return SimpleNamespace(
         action="status",
@@ -873,7 +879,9 @@ def test_review_channel_render_bridge_action_rewrites_live_bridge(
     bridge_path.write_text(_bridge_text(), encoding="utf-8")
     status_dir = root / "dev/reports/review_channel/latest"
     status_dir.mkdir(parents=True, exist_ok=True)
-    (status_dir / "review_state.json").write_text(
+    review_state_path = _projection_review_state_path(status_dir)
+    review_state_path.parent.mkdir(parents=True, exist_ok=True)
+    review_state_path.write_text(
         json.dumps(_typed_review_state(_bridge_text()), indent=2),
         encoding="utf-8",
     )
@@ -927,7 +935,9 @@ def test_review_channel_render_bridge_fails_closed_with_pending_reviewer_packets
     bridge_path.write_text(original, encoding="utf-8")
     status_dir = root / "dev/reports/review_channel/latest"
     status_dir.mkdir(parents=True, exist_ok=True)
-    (status_dir / "review_state.json").write_text(
+    review_state_path = _projection_review_state_path(status_dir)
+    review_state_path.parent.mkdir(parents=True, exist_ok=True)
+    review_state_path.write_text(
         json.dumps(_typed_review_state(original), indent=2),
         encoding="utf-8",
     )
@@ -973,7 +983,8 @@ def test_status_bridge_sync_reprojects_bridge_even_with_pending_packets(
     bridge_path.write_text(original, encoding="utf-8")
     status_dir = root / "dev/reports/review_channel/latest"
     status_dir.mkdir(parents=True, exist_ok=True)
-    review_state_path = status_dir / "review_state.json"
+    review_state_path = _projection_review_state_path(status_dir)
+    review_state_path.parent.mkdir(parents=True, exist_ok=True)
     review_state_path.write_text(
         json.dumps(_typed_review_state(original), indent=2),
         encoding="utf-8",
@@ -1004,7 +1015,8 @@ def test_status_bridge_sync_does_not_reverse_fresh_bridge_checkpoint(
     bridge_path.write_text(_bridge_text(), encoding="utf-8")
     status_dir = root / "dev/reports/review_channel/latest"
     status_dir.mkdir(parents=True, exist_ok=True)
-    review_state_path = status_dir / "review_state.json"
+    review_state_path = _projection_review_state_path(status_dir)
+    review_state_path.parent.mkdir(parents=True, exist_ok=True)
     review_state_path.write_text(
         json.dumps(
             {
@@ -1054,7 +1066,8 @@ def test_status_bridge_sync_does_not_reverse_newer_reviewer_heartbeat(
     review_state["_compat"]["bridge_projection"]["metadata"][
         "last_codex_poll_utc"
     ] = "2026-04-24T17:00:00Z"
-    review_state_path = status_dir / "review_state.json"
+    review_state_path = _projection_review_state_path(status_dir)
+    review_state_path.parent.mkdir(parents=True, exist_ok=True)
     review_state_path.write_text(json.dumps(review_state, indent=2), encoding="utf-8")
 
     synced, warning = sync_bridge_from_typed_projection_if_needed(
@@ -1116,7 +1129,8 @@ def test_status_bridge_sync_clears_stale_instruction_when_typed_projection_is_bl
         "open_findings": "193 expired unresolved review packet(s)",
         "last_reviewed_scope": "- typed/scope.py",
     }
-    review_state_path = status_dir / "review_state.json"
+    review_state_path = _projection_review_state_path(status_dir)
+    review_state_path.parent.mkdir(parents=True, exist_ok=True)
     review_state_path.write_text(json.dumps(review_state, indent=2), encoding="utf-8")
 
     synced, warning = sync_bridge_from_typed_projection_if_needed(
@@ -1152,7 +1166,8 @@ def test_status_bridge_sync_does_not_demote_active_bridge_mode_from_effective_st
         "reviewer_mode": "active_dual_agent",
         "effective_reviewer_mode": "tools_only",
     }
-    review_state_path = status_dir / "review_state.json"
+    review_state_path = _projection_review_state_path(status_dir)
+    review_state_path.parent.mkdir(parents=True, exist_ok=True)
     review_state_path.write_text(json.dumps(review_state, indent=2), encoding="utf-8")
 
     synced, warning = sync_bridge_from_typed_projection_if_needed(
@@ -1187,7 +1202,8 @@ def test_status_bridge_sync_projects_effective_live_mode_over_stale_tools_only(
         "reviewer_mode": "tools_only",
         "effective_reviewer_mode": "active_dual_agent",
     }
-    review_state_path = status_dir / "review_state.json"
+    review_state_path = _projection_review_state_path(status_dir)
+    review_state_path.parent.mkdir(parents=True, exist_ok=True)
     review_state_path.write_text(json.dumps(review_state, indent=2), encoding="utf-8")
 
     synced, warning = sync_bridge_from_typed_projection_if_needed(

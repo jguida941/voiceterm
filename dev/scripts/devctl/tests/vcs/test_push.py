@@ -208,6 +208,7 @@ class PushParserTests(unittest.TestCase):
 
         self.assertFalse(policy.bypass.allow_skip_preflight)
         self.assertFalse(policy.bypass.allow_skip_post_push)
+        self.assertTrue(policy.preflight.fail_fast_on_blocker)
 
 
 class PushAuthorizedPipelineDirtyWorktreeTests(unittest.TestCase):
@@ -2969,6 +2970,37 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertIn("stderr=receipt chain overflow", state.errors[0])
         self.assertNotIn("x" * 80, state.errors[0])
 
+    def test_review_snapshot_receipt_does_not_stack_on_external_snapshot_receipt(
+        self,
+    ) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        runner = MagicMock()
+        with patch.object(
+            push_preflight_projection,
+            "current_head_is_external_review_snapshot_receipt",
+            return_value=True,
+        ):
+            result = (
+                push_preflight_projection.auto_commit_review_snapshot_freshness_receipt(
+                    state,
+                    command_runner=runner,
+                    repo_root=Path("/tmp/repo"),
+                    next_step_label="push preflight",
+                )
+            )
+
+        self.assertEqual(
+            result,
+            {
+                "ok": True,
+                "committed": False,
+                "commit_sha": "",
+                "reason": "already_external_review_snapshot_receipt",
+            },
+        )
+        runner.assert_not_called()
+        self.assertEqual(state.errors, [])
+
     def test_review_snapshot_receipt_failure_truncates_raw_output(
         self,
     ) -> None:
@@ -5442,6 +5474,26 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertIn("--head-ref authorized-sha", command)
         self.assertIn("--range-scope-only", command)
         self.assertIn("--validation-scope pipeline_authorized_phase", command)
+        self.assertNotIn("--keep-going", command)
+
+    def test_build_preflight_shell_command_only_keeps_going_for_audit_mode(
+        self,
+    ) -> None:
+        policy = make_policy(
+            preflight=PushPreflightPolicy(fail_fast_on_blocker=False),
+        )
+
+        command = push.build_preflight_shell_command(
+            policy,
+            remote="origin",
+            route_state=push.PushRefRoutingState(
+                current_branch="feature/demo",
+                upstream_ref="origin/feature/demo",
+                branch_has_remote=True,
+            ),
+        )
+
+        self.assertIn("--keep-going", command)
 
     def test_build_post_push_commands_rewrites_since_ref_for_runtime_scope(
         self,

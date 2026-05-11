@@ -14909,3 +14909,33 @@ Evidence:
 - `dev/scripts/devctl/platform/runtime_state_contract_rows_development.py`
 - `dev/scripts/devctl/platform/runtime_state_contract_rows_development_campaign.py`
 - `dev/scripts/devctl/platform/runtime_state_contract_rows_review.py`
+
+### 2026-05-11 - Governed push preflight fails fast and stops receipt stacking
+
+Governed-push dogfood exposed that the publication path was still using
+audit-style `--keep-going` router behavior. That made a publish attempt keep
+running checks after the first blocking preflight failure and left the
+operator-facing latest-push report saying "push running" before `git push`
+had actually started. The same loop could also stack
+`Refresh external review snapshot for ...` commits on top of prior external
+snapshot receipts.
+
+Change: repo push policy now carries semantic
+`preflight.fail_fast_on_blocker`, and this repo enables it by default. Routed
+publication preflight still uses `pipeline_authorized_phase`, but no longer
+adds `--keep-going` unless a repo policy explicitly opts into audit mode.
+Push progress heartbeats and the in-flight latest-push report now state that
+preflight validation is running and `git_push_started=false`. The external
+ReviewSnapshot freshness receipt helper now no-ops when HEAD is already an
+external ReviewSnapshot receipt, preventing snapshot-of-snapshot churn.
+
+Evidence:
+
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/devctl/governance/push_policy.py`
+- `dev/scripts/devctl/governance/push_policy_parse.py`
+- `dev/scripts/devctl/governance/push_routing.py`
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/commands/vcs/push_preflight_projection.py`
+- `dev/scripts/devctl/runtime/command_progress.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`

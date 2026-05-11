@@ -515,6 +515,68 @@ def test_status_bundle_clears_agent_sync_attention_when_sessions_disagree() -> N
     assert claude_sync["attention_scope_state"] == "session_ambiguous"
 
 
+def test_status_bundle_keeps_work_board_attention_over_stale_urgent_packet() -> None:
+    payload = {
+        "current_session": {"current_instruction_revision": "rev-current"},
+        "attention": {"status": "ok"},
+        "reviewer_runtime": {
+            "agent_runtime_clock": {
+                "source_latest_event_id": "rev_evt_20",
+                "snapshot_id": "agent-runtime-clock:rev_evt_20",
+            },
+            "packet_attention": {},
+        },
+        "agent_sync": {
+            "agents": {
+                "claude": {
+                    "attention_packet_id": "rev_pkt_old",
+                    "pending_packets_to_me": ["rev_pkt_old", "rev_pkt_new"],
+                }
+            }
+        },
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "claude",
+                    "role": "implementer",
+                    "session_id": "s-live",
+                    "active_packet_id": "rev_pkt_new",
+                    "attention_packet_id": "rev_pkt_new",
+                    "status": "working",
+                    "source_event_id": "rev_evt_20",
+                },
+            ]
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_old",
+                "to_agent": "claude",
+                "kind": "task_produced",
+                "status": "pending",
+                "lifecycle_current_state": "task_produced",
+                "latest_event_id": "rev_evt_10",
+                "target_role": "implementer",
+                "target_session_id": "s-live",
+                "attention_urgency": "urgent",
+            },
+            {
+                "packet_id": "rev_pkt_new",
+                "to_agent": "claude",
+                "kind": "action_request",
+                "status": "pending",
+                "lifecycle_current_state": "delivery_pending",
+                "latest_event_id": "rev_evt_20",
+            },
+        ],
+    }
+
+    projected = _attach_agent_loop_decisions(payload)
+
+    decision = projected["agent_loop_decisions"][0]
+    assert decision["active_packet_id"] == "rev_pkt_new"
+    assert decision["attention_packet_id"] == "rev_pkt_new"
+
+
 def test_status_bundle_adds_queue_targeted_agent_loop_decision() -> None:
     payload = {
         "current_session": {"current_instruction_revision": "rev-current"},

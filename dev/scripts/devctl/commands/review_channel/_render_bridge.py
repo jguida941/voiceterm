@@ -135,7 +135,7 @@ def run_render_bridge_action(
 
 
 def _load_typed_review_state(status_dir: Path) -> dict[str, object]:
-    review_state_path = status_dir / "review_state.json"
+    review_state_path = _projection_root_for_status_root(status_dir) / "review_state.json"
     try:
         payload = json.loads(review_state_path.read_text(encoding="utf-8"))
     except FileNotFoundError as exc:
@@ -155,3 +155,9 @@ def _load_typed_review_state(status_dir: Path) -> dict[str, object]:
             "rebuilding `bridge.md`."
         )
     return payload
+
+
+def _projection_root_for_status_root(status_dir: Path) -> Path:
+    if status_dir.name == "latest" and status_dir.parent.name != "projections":
+        return status_dir.parent / "projections" / status_dir.name
+    return status_dir

@@ -201,15 +201,21 @@ def load_typed_poll_authority(
 def _read_last_known_review_state(
     status_dir: Path | None,
 ) -> dict[str, object] | None:
-    """Read the last-known-good review_state.json from the status directory."""
+    """Read the last-known-good canonical review_state.json projection."""
     if status_dir is None or not isinstance(status_dir, Path):
         return None
-    review_state_path = status_dir / "review_state.json"
+    review_state_path = _projection_root_for_status_root(status_dir) / "review_state.json"
     try:
         payload = json.loads(review_state_path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
     return payload if isinstance(payload, dict) else None
+
+
+def _projection_root_for_status_root(status_dir: Path) -> Path:
+    if status_dir.name == "latest" and status_dir.parent.name != "projections":
+        return status_dir.parent / "projections" / status_dir.name
+    return status_dir
 
 
 def _build_turn_state_token(

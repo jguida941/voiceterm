@@ -60,7 +60,8 @@ def _existing_projection_payload(
     freshness_paths: tuple[Path, ...],
 ) -> tuple[dict[str, Any], dict[str, str] | None, Path | None, list[str]]:
     """Return the existing full projection bundle when it is already present."""
-    full_path = review_status_dir / "full.json"
+    projection_root = _projection_root_for_status_root(review_status_dir)
+    full_path = projection_root / "full.json"
     if not cache_is_fresh(full_path, freshness_paths=freshness_paths):
         return {}, None, None, ["review status projection is stale"]
     payload, errors = _load_payload_from_path(
@@ -70,15 +71,15 @@ def _existing_projection_payload(
     if errors:
         return {}, None, None, errors
     projection_files = {
-        "root_dir": str(review_status_dir),
-        "review_state_path": str(review_status_dir / "review_state.json"),
-        "compact_path": str(review_status_dir / "compact.json"),
+        "root_dir": str(projection_root),
+        "review_state_path": str(projection_root / "review_state.json"),
+        "compact_path": str(projection_root / "compact.json"),
         "full_path": str(full_path),
-        "actions_path": str(review_status_dir / "actions.json"),
-        "trace_path": str(review_status_dir / "trace.ndjson"),
-        "latest_markdown_path": str(review_status_dir / "latest.md"),
-        "agent_registry_path": str(review_status_dir / "registry" / "agents.json"),
-        "commit_pipeline_path": str(review_status_dir / "commit_pipeline.json"),
+        "actions_path": str(projection_root / "actions.json"),
+        "trace_path": str(projection_root / "trace.ndjson"),
+        "latest_markdown_path": str(projection_root / "latest.md"),
+        "agent_registry_path": str(projection_root / "registry" / "agents.json"),
+        "commit_pipeline_path": str(projection_root / "commit_pipeline.json"),
     }
     return payload, projection_files, full_path, []
 
@@ -89,7 +90,8 @@ def _existing_review_state_payload(
     freshness_paths: tuple[Path, ...],
 ) -> tuple[dict[str, Any], dict[str, str] | None, Path | None, list[str]]:
     """Return the existing typed review-state payload when it is already present."""
-    review_state_path = review_status_dir / "review_state.json"
+    projection_root = _projection_root_for_status_root(review_status_dir)
+    review_state_path = projection_root / "review_state.json"
     if not cache_is_fresh(review_state_path, freshness_paths=freshness_paths):
         return {}, None, None, ["typed review_state projection is stale"]
     payload, errors = _load_payload_from_path(
@@ -99,7 +101,7 @@ def _existing_review_state_payload(
     if errors:
         return {}, None, None, ["typed review_state projection unavailable"]
     projection_files = {
-        "root_dir": str(review_status_dir),
+        "root_dir": str(projection_root),
         "review_state_path": str(review_state_path),
         "compact_path": "",
         "full_path": str(review_state_path),
@@ -114,6 +116,15 @@ def _existing_review_state_payload(
         "bridge_liveness": payload.get("bridge", {}),
     }
     return review_payload, projection_files, review_state_path, []
+
+
+def _projection_root_for_status_root(review_status_dir: Path) -> Path:
+    if (
+        review_status_dir.name == "latest"
+        and review_status_dir.parent.name != "projections"
+    ):
+        return review_status_dir.parent / "projections" / review_status_dir.name
+    return review_status_dir
 
 
 def _review_freshness_paths(

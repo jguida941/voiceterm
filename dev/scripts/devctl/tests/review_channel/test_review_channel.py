@@ -9885,6 +9885,15 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 status_snapshot.projection_paths.latest_markdown_path
             ).read_text(encoding="utf-8")
 
+            canonical_projection_dir = (
+                root / "dev/reports/review_channel/projections/latest"
+            )
+            self.assertEqual(
+                Path(status_snapshot.projection_paths.root_dir),
+                canonical_projection_dir,
+            )
+            self.assertFalse((status_dir / "review_state.json").exists())
+
         runtime = review_state["_compat"]["runtime"]
         self.assertEqual(runtime["active_daemons"], 2)
         self.assertEqual(runtime["last_daemon_event_utc"], reviewer_heartbeat_at)
@@ -16828,10 +16837,12 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
                 review_channel_path=review_channel_path,
                 artifact_paths=artifact_paths,
             )
+            legacy_projection_root = root / "dev/reports/review_channel/latest"
             self.assertIsInstance(bundle, ReviewChannelEventBundle)
             self.assertEqual(len(bundle.events), 1)
             self.assertEqual(bundle.review_state["queue"]["pending_total"], 1)
             self.assertTrue(Path(bundle.projection_paths.review_state_path).exists())
+            self.assertFalse((legacy_projection_root / "review_state.json").exists())
             review_state = json.loads(
                 Path(bundle.projection_paths.review_state_path).read_text(
                     encoding="utf-8"

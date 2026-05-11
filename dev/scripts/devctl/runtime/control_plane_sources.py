@@ -37,7 +37,8 @@ def artifact_paths(
         return _artifact_path_mapping(
             repo_root=repo_root,
             status_root=status_root,
-            review_state_path=status_root / "review_state.json",
+            review_state_path=_projection_root_for_status_root(status_root)
+            / "review_state.json",
             push_report_path=_push_report_path(repo_root),
         )
     try:
@@ -141,6 +142,7 @@ def _artifact_path_mapping(
     review_state_path: Path,
     push_report_path: Path,
 ) -> dict[str, Path]:
+    projection_root = _projection_root_for_status_root(status_root)
     paths: dict[str, Path] = {
         "receipt": repo_root / "dev/reports/startup/latest/receipt.json",
         "review_state": review_state_path,
@@ -150,9 +152,15 @@ def _artifact_path_mapping(
     }
     paths["codex_conductor"] = status_root / "sessions" / "codex-conductor.json"
     paths["claude_conductor"] = status_root / "sessions" / "claude-conductor.json"
-    paths["full_json"] = status_root / "full.json"
-    paths["compact_json"] = status_root / "compact.json"
+    paths["full_json"] = projection_root / "full.json"
+    paths["compact_json"] = projection_root / "compact.json"
     return paths
+
+
+def _projection_root_for_status_root(status_root: Path) -> Path:
+    if status_root.name == "latest" and status_root.parent.name != "projections":
+        return status_root.parent / "projections" / status_root.name
+    return status_root
 
 
 def _push_report_path(repo_root: Path) -> Path:

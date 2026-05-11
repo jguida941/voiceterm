@@ -205,7 +205,8 @@
       "preflight": {
         "command": "check-router",
         "since_ref_template": "{remote}/{development_branch}",
-        "execute": true
+        "execute": true,
+        "fail_fast_on_blocker": true
       },
       "bypass": {
         "allow_skip_preflight": false,

@@ -116,6 +116,13 @@ def projection_paths_for_root(output_root: Path) -> ReviewChannelProjectionPaths
     )
 
 
+def canonical_projection_root_for_status_root(output_root: Path) -> Path:
+    """Return the canonical review-state projection root for a status root."""
+    if output_root.name == "latest" and output_root.parent.name != "projections":
+        return output_root.parent / "projections" / output_root.name
+    return output_root
+
+
 def _atomic_write_text(path: Path, content: str, *, encoding: str = "utf-8") -> None:
     """Atomically replace ``path`` with ``content``.
 
@@ -225,40 +232,6 @@ def write_projection_bundle(
             output_root=output_root,
             contents=contents,
         )
-
-
-def write_projection_bundle_mirrors(
-    *,
-    output_root: Path,
-    mirror_roots: tuple[Path, ...] = (),
-    review_state: dict[str, object],
-    agent_registry: dict[str, object],
-    action: str,
-    trace_events: list[dict[str, object]] | None = None,
-    full_extras: dict[str, object] | None = None,
-) -> ReviewChannelProjectionPaths:
-    """Write canonical and mirror roots from one prepared projection payload."""
-    contents = prepare_projection_bundle_contents(
-        review_state=review_state,
-        agent_registry=agent_registry,
-        action=action,
-        trace_events=trace_events,
-        full_extras=full_extras,
-    )
-    with projection_bundle_lock(output_root, *mirror_roots):
-        paths = write_prepared_projection_bundle(
-            output_root=output_root,
-            contents=contents,
-        )
-        canonical_root = output_root.resolve()
-        for mirror_root in mirror_roots:
-            if mirror_root.resolve() == canonical_root:
-                continue
-            write_prepared_projection_bundle(
-                output_root=mirror_root,
-                contents=contents,
-            )
-    return paths
 
 
 def prepare_projection_bundle_contents(

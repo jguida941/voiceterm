@@ -7,7 +7,6 @@ from dataclasses import replace
 from pathlib import Path
 
 from ...governance.push_state_support import is_expired
-from ...repo_packs import active_path_config
 from ...review_channel.event_reducer import refresh_event_bundle, reduce_events
 from ...review_channel.event_reducer_lanes import load_lane_assignments
 from ...review_channel.event_store import resolve_artifact_paths
@@ -185,9 +184,6 @@ def persist_pipeline_contract_only(
 ) -> None:
     """Write the pipeline contract without refreshing review projections."""
     persist_remote_commit_pipeline_contract(pipeline, output_root=projections_root)
-    legacy_root = repo_root / active_path_config().review_status_dir_rel
-    if legacy_root.resolve() != projections_root.resolve():
-        persist_remote_commit_pipeline_contract(pipeline, output_root=legacy_root)
 
 
 def refresh_review_projections(

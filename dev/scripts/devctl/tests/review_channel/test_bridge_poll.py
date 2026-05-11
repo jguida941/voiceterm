@@ -1053,13 +1053,15 @@ def test_bridge_poll_fallback_reads_last_known_review_state(tmp_path: Path) -> N
 
     status_dir = tmp_path / "dev" / "reports" / "review_channel" / "latest"
     status_dir.mkdir(parents=True, exist_ok=True)
+    projection_dir = status_dir.parent / "projections" / status_dir.name
+    projection_dir.mkdir(parents=True, exist_ok=True)
 
     typed_state = _typed_review_state(
         effective_reviewer_mode="tools_only",
         launch_truth="detached_runtime_only",
         attention_status="review_loop_relaunch_required",
     )
-    (status_dir / "review_state.json").write_text(
+    (projection_dir / "review_state.json").write_text(
         json.dumps(typed_state), encoding="utf-8"
     )
 

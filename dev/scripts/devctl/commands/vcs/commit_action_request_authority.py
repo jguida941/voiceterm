@@ -668,7 +668,6 @@ def _load_review_state(repo_root: Path) -> dict[str, object]:
 def _load_review_state_from_path_config(repo_root: Path) -> dict[str, object]:
     config = active_path_config()
     candidates = [
-        repo_root / config.review_status_dir_rel / "review_state.json",
         *(
             repo_root / candidate
             for candidate in config.review_state_candidates

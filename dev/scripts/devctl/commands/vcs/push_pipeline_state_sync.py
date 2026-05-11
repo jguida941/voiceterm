@@ -7,7 +7,6 @@ from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 
-from ...repo_packs import active_path_config
 from ...review_channel.event_store import resolve_artifact_paths
 from ...review_channel.remote_commit_pipeline_artifact import (
     load_remote_commit_pipeline_contract,
@@ -163,9 +162,6 @@ def _persist_pipeline_contract(
     pipeline: RemoteCommitPipelineContract,
 ) -> None:
     persist_remote_commit_pipeline_contract(pipeline, output_root=projections_root)
-    legacy_root = repo_root / active_path_config().review_status_dir_rel
-    if legacy_root.resolve() != projections_root.resolve():
-        persist_remote_commit_pipeline_contract(pipeline, output_root=legacy_root)
 
 
 def _attach_pipeline_surface_identity(

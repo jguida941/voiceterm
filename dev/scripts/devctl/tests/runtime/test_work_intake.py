@@ -334,7 +334,7 @@ def test_build_work_intake_packet_prefers_mp_scoped_spec_and_reconciles_review_s
     _write(tmp_path / "dev/active/MASTER_PLAN.md", "# Tracker\n")
     _write(tmp_path / "dev/active/platform_authority_loop.md", "# Authority Loop\n")
     _write(
-        tmp_path / "dev/reports/review_channel/latest/review_state.json",
+        tmp_path / "dev/reports/review_channel/projections/latest/review_state.json",
         json.dumps(
             {
                 "bridge": {"reviewer_mode": "active_dual_agent"},
@@ -373,7 +373,7 @@ def test_build_work_intake_packet_prefers_mp_scoped_spec_and_reconciles_review_s
         "dev/active/MASTER_PLAN.md",
     )
     assert "AGENTS.md" in packet.warm_refs
-    assert "dev/reports/review_channel/latest/review_state.json" in packet.warm_refs
+    assert "dev/reports/review_channel/projections/latest/review_state.json" in packet.warm_refs
     assert "bridge.md" not in packet.warm_refs
 
 
@@ -467,7 +467,7 @@ def test_build_work_intake_packet_uses_develop_base_for_dirty_worktree_preflight
     _write(tmp_path / "dev/active/MASTER_PLAN.md", "# Tracker\n")
     _write(tmp_path / "dev/active/platform_authority_loop.md", "# Authority Loop\n")
     _write(
-        tmp_path / "dev/reports/review_channel/latest/review_state.json",
+        tmp_path / "dev/reports/review_channel/projections/latest/review_state.json",
         json.dumps(
             {
                 "bridge": {"reviewer_mode": "active_dual_agent"},
@@ -537,7 +537,7 @@ def test_build_work_intake_packet_suppresses_lane_specific_plan_refs_from_defaul
     _write(tmp_path / "dev/active/MASTER_PLAN.md", "# Tracker\n")
     _write(tmp_path / "dev/active/review_channel.md", "# Review Channel\n")
     _write(
-        tmp_path / "dev/reports/review_channel/latest/review_state.json",
+        tmp_path / "dev/reports/review_channel/projections/latest/review_state.json",
         json.dumps(
             {
                 "bridge": {"reviewer_mode": "active_dual_agent"},
@@ -634,7 +634,7 @@ def test_build_work_intake_packet_surfaces_shared_backlog_refs_and_sink(
     _write(tmp_path / "dev/active/MASTER_PLAN.md", "# Tracker\n")
     _write(tmp_path / "dev/active/platform_authority_loop.md", "# Authority Loop\n")
     _write(
-        tmp_path / "dev/reports/review_channel/latest/review_state.json",
+        tmp_path / "dev/reports/review_channel/projections/latest/review_state.json",
         json.dumps(
             {
                 "bridge": {"reviewer_mode": "active_dual_agent"},
@@ -1086,7 +1086,7 @@ def _write_review_state(
 ) -> None:
     """Drop a review_state.json projection with the requested resume fields."""
     _write(
-        tmp_path / "dev/reports/review_channel/latest/review_state.json",
+        tmp_path / "dev/reports/review_channel/projections/latest/review_state.json",
         json.dumps(
             {
                 "bridge": {"reviewer_mode": "active_dual_agent"},
@@ -1372,7 +1372,7 @@ def test_build_work_intake_packet_marks_concurrent_writer_activity_for_outside_s
 ) -> None:
     _seed_minimal_repo(tmp_path)
     _write(
-        tmp_path / "dev/reports/review_channel/latest/review_state.json",
+        tmp_path / "dev/reports/review_channel/projections/latest/review_state.json",
         json.dumps(
             {
                 "bridge": {
@@ -1449,7 +1449,7 @@ def test_build_work_intake_packet_marks_multi_agent_orchestrated_when_live_worke
 ) -> None:
     _seed_minimal_repo(tmp_path)
     _write(
-        tmp_path / "dev/reports/review_channel/latest/review_state.json",
+        tmp_path / "dev/reports/review_channel/projections/latest/review_state.json",
         json.dumps(
             {
                 "bridge": {
@@ -1521,7 +1521,7 @@ def test_build_work_intake_packet_flags_duplicate_delegated_worktrees_before_dir
 ) -> None:
     _seed_minimal_repo(tmp_path)
     _write(
-        tmp_path / "dev/reports/review_channel/latest/review_state.json",
+        tmp_path / "dev/reports/review_channel/projections/latest/review_state.json",
         json.dumps(
             {
                 "bridge": {

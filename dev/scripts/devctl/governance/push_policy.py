@@ -35,6 +35,7 @@ class PushPreflightPolicy:
     command: str = "check-router"
     since_ref_template: str = "{remote}/{development_branch}"
     execute: bool = True
+    fail_fast_on_blocker: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,6 +192,7 @@ def build_push_command_routing_defaults(policy: PushPolicy) -> dict[str, object]
         "command": policy.preflight.command,
         "since_ref_template": policy.preflight.since_ref_template,
         "execute": policy.preflight.execute,
+        "fail_fast_on_blocker": policy.preflight.fail_fast_on_blocker,
     }
     push_defaults["post_push"] = {"bundle": policy.post_push.bundle}
     push_defaults["bypass"] = {

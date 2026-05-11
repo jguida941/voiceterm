@@ -157,7 +157,13 @@ def test_load_current_review_state_payload_prefers_fresh_existing_typed_projecti
     review_channel_path.parent.mkdir(parents=True, exist_ok=True)
     review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
     review_state_path = (
-        tmp_path / "dev" / "reports" / "review_channel" / "latest" / "review_state.json"
+        tmp_path
+        / "dev"
+        / "reports"
+        / "review_channel"
+        / "projections"
+        / "latest"
+        / "review_state.json"
     )
     _write_review_state(
         review_state_path,
@@ -203,6 +209,7 @@ def test_load_current_review_state_payload_prefers_event_backed_projection_over_
     _write_review_state(
         projection_path,
         payload={
+            "review": {"surface_mode": "event-backed"},
             "bridge": {"review_accepted": True},
             "current_session": {"current_instruction": "event-backed slice"},
         },
@@ -255,6 +262,7 @@ def test_load_current_review_state_payload_keeps_event_bundle_authoritative_when
     _write_review_state(
         projection_path,
         payload={
+            "review": {"surface_mode": "event-backed"},
             "timestamp": "2026-04-13T20:00:00Z",
             "bridge": {"review_accepted": True},
             "current_session": {"current_instruction": "older event-backed slice"},
@@ -314,6 +322,7 @@ def test_load_current_review_state_payload_refreshes_event_backed_projection_for
     _write_review_state(
         projection_path,
         payload={
+            "review": {"surface_mode": "event-backed"},
             "bridge": {"review_accepted": True},
             "current_session": {"current_instruction": "event-backed slice"},
             "coordination": {"current_slice": "MP-355"},
@@ -420,7 +429,13 @@ def test_load_current_review_state_payload_refreshes_contract_drifted_bridge_pro
     tmp_path: Path,
 ) -> None:
     review_state_path = (
-        tmp_path / "dev" / "reports" / "review_channel" / "latest" / "review_state.json"
+        tmp_path
+        / "dev"
+        / "reports"
+        / "review_channel"
+        / "projections"
+        / "latest"
+        / "review_state.json"
     )
     _write_review_state(
         review_state_path,
@@ -490,6 +505,7 @@ def test_load_current_review_state_payload_keeps_event_projection_authoritative_
     _write_review_state(
         projection_path,
         payload={
+            "review": {"surface_mode": "event-backed"},
             "attention": {"status": "inactive"},
             "bridge": {"reviewer_mode": "tools_only"},
             "reviewer_runtime": {

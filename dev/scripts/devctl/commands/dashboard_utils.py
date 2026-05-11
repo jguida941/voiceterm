@@ -27,17 +27,23 @@ def _paths() -> dict[str, str]:
     """
     cfg = active_path_config()
     status_dir = cfg.review_status_dir_rel
+    projection_dir = (
+        str(Path(status_dir).parent / "projections" / Path(status_dir).name)
+        if Path(status_dir).name == "latest"
+        and Path(status_dir).parent.name != "projections"
+        else status_dir
+    )
 
     return {
-        "compact_json": f"{status_dir}/compact.json",
-        "full_json": f"{status_dir}/full.json",
+        "compact_json": f"{projection_dir}/compact.json",
+        "full_json": f"{projection_dir}/full.json",
         "review_state_json": cfg.review_state_json_rel,
         "push_json": cfg.push_report_rel,
         # TODO: migrate receipt_json to RepoPathConfig
         "receipt_json": "dev/reports/startup/latest/receipt.json",
-        "agents_json": f"{status_dir}/registry/agents.json",
+        "agents_json": f"{projection_dir}/registry/agents.json",
         # TODO: migrate pipeline_json to RepoPathConfig
-        "pipeline_json": f"{status_dir}/commit_pipeline.json",
+        "pipeline_json": f"{projection_dir}/commit_pipeline.json",
         # TODO: migrate publisher_hb to RepoPathConfig
         "publisher_hb": f"{status_dir}/publisher_heartbeat.json",
         # TODO: migrate supervisor_hb to RepoPathConfig

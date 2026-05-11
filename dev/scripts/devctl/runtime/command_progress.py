@@ -50,6 +50,11 @@ def emit_live_progress_heartbeat(
     """Emit a flushed heartbeat for a live child that has produced no output."""
     elapsed = max(0.0, now - started_monotonic)
     detail = f"still running pid={process.pid} elapsed={elapsed:.0f}s"
+    if name == "push-preflight":
+        detail = (
+            f"preflight validation still running; git_push_started=false "
+            f"pid={process.pid} elapsed={elapsed:.0f}s"
+        )
     if os.environ.get("DEVCTL_NO_PROGRESS") != "1":
         print(
             f"[devctl progress] command={name} status=running detail={detail}",

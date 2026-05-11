@@ -296,7 +296,7 @@ def test_build_system_picture_snapshot_reads_typed_sources() -> None:
             ),
             patch(
                 "dev.scripts.devctl.platform.system_picture.resolve_review_state_path",
-                return_value=repo_root / "dev/reports/review_channel/latest/review_state.json",
+                return_value=repo_root / "dev/reports/review_channel/projections/latest/review_state.json",
             ),
             patch(
                 "dev.scripts.devctl.platform.system_picture.load_current_review_state",

@@ -1818,6 +1818,11 @@ Workflow permissions note:
    `check-router --validation-scope pipeline_authorized_phase`, which keeps
    docs-check and live projection guards planned while treating unrelated live
    worktree failures as advisory evidence for the authorized publication phase.
+   Publication preflight is fail-fast by default:
+   `repo_governance.push.preflight.fail_fast_on_blocker=true` means
+   check-router is invoked without `--keep-going`, so the first blocking route
+   stops before `git push` starts. Audit-all-checks behavior must be an
+   explicit repo-policy opt-in.
    If a later rerun fetches the
    tracked branch and proves `ahead == 0`, `devctl push` now returns the
    existing already-published receipt before router preflight instead of

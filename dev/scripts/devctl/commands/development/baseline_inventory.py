@@ -250,7 +250,7 @@ _DUPLICATE_SYSTEM_CLUSTERS = (
         evidence_refs=(
             "dev.scripts.devctl.review_channel.event_store:append_event",
             "dev.scripts.devctl.review_channel.event_reducer:refresh_event_bundle",
-            "dev.scripts.devctl.review_channel.projection_bundle:write_projection_bundle_mirrors",
+            "dev.scripts.devctl.review_channel.projection_bundle:write_projection_bundle",
         ),
     ),
 )

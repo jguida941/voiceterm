@@ -14,7 +14,6 @@ from .packet_post_idempotency import (
     is_idempotency_consumed_by,
     packet_posted_idempotency_key,
 )
-from .state import DEFAULT_REVIEW_STATUS_DIR_REL
 
 DEFAULT_REVIEW_ARTIFACT_ROOT_REL = active_path_config().review_artifact_root_rel
 DEFAULT_REVIEW_EVENT_LOG_REL = active_path_config().review_event_log_rel
@@ -252,18 +251,6 @@ def load_agent_registry(projections_root: Path) -> dict[str, object]:
         "command": "review-channel",
         "agents": [],
     }
-
-
-def legacy_projection_mirror_root(
-    *,
-    repo_root: Path,
-    canonical_projections_root: Path,
-) -> Path | None:
-    """Return the legacy projection mirror root when it differs from canonical."""
-    legacy_root = (repo_root / DEFAULT_REVIEW_STATUS_DIR_REL).resolve()
-    if legacy_root == canonical_projections_root.resolve():
-        return None
-    return legacy_root
 
 
 def next_event_id(events: list[dict[str, object]]) -> str:

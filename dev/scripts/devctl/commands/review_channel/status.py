@@ -16,6 +16,9 @@ from ...review_channel.event_store import (
     summarize_review_state_errors,
 )
 from ...repo_packs import active_path_config
+from ...review_channel.projection_bundle import (
+    canonical_projection_root_for_status_root,
+)
 from ...review_channel.state import (
     projection_paths_to_dict,
     read_publisher_state,
@@ -151,8 +154,9 @@ def _refresh_bridge_status_report(
         return
     if review_channel_path is None or status_dir is None:
         return
+    projection_root = canonical_projection_root_for_status_root(status_dir)
     prior_sync_review_state = read_review_state_sync_payload(
-        status_dir / "review_state.json"
+        projection_root / "review_state.json"
     )
 
     snapshot = refresh_status_snapshot(

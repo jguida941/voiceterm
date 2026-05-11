@@ -31,8 +31,9 @@ def resolve_source_paths(
     reports_root = config.reports_root_rel
     receipt_rel = Path(reports_root) / _RECEIPT_ARTIFACT_SUBPATH
     status_dir = _governed_review_status_dir(governance, fallback=config.review_status_dir_rel)
-    review_state_rel = Path(status_dir) / "review_state.json"
-    compact_rel = Path(status_dir) / "compact.json"
+    projection_dir = _review_projection_dir(status_dir)
+    review_state_rel = projection_dir / "review_state.json"
+    compact_rel = projection_dir / "compact.json"
     return {
         "receipt": receipt_rel,
         "review_state": review_state_rel,
@@ -51,6 +52,13 @@ def _governed_review_status_dir(
         if review_root:
             return review_root
     return fallback
+
+
+def _review_projection_dir(status_dir: str) -> Path:
+    root = Path(status_dir)
+    if root.name == "latest" and root.parent.name != "projections":
+        return root.parent / "projections" / root.name
+    return root
 
 
 def get_review_state_mtime(

@@ -357,7 +357,7 @@ class StateModuleTests(unittest.TestCase):
             canonical = (
                 root / "dev/reports/review_channel/projections/latest/review_state.json"
             )
-            legacy = root / "dev/reports/review_channel/latest/review_state.json"
+            legacy = root / "dev/reports/review_channel/projections/latest/review_state.json"
             canonical.parent.mkdir(parents=True, exist_ok=True)
             legacy.parent.mkdir(parents=True, exist_ok=True)
             canonical.write_text(json.dumps(_review_state_json()), encoding="utf-8")
@@ -371,7 +371,7 @@ class StateModuleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             canonical = root / "dev/reports/review_channel/projections/latest/full.json"
-            legacy = root / "dev/reports/review_channel/latest/full.json"
+            legacy = root / "dev/reports/review_channel/projections/latest/full.json"
             canonical.parent.mkdir(parents=True, exist_ok=True)
             legacy.parent.mkdir(parents=True, exist_ok=True)
             canonical.write_text("{}", encoding="utf-8")
@@ -392,7 +392,7 @@ class StateModuleTests(unittest.TestCase):
                 json.dumps(_review_state_json()),
                 encoding="utf-8",
             )
-            full_path = root / "dev/reports/review_channel/latest/full.json"
+            full_path = root / "dev/reports/review_channel/projections/latest/full.json"
             full_path.parent.mkdir(parents=True, exist_ok=True)
             full_path.write_text(
                 json.dumps(
@@ -465,7 +465,7 @@ class StateModuleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
-            full_path = root / "dev/reports/review_channel/latest/full.json"
+            full_path = root / "dev/reports/review_channel/projections/latest/full.json"
             full_path.parent.mkdir(parents=True, exist_ok=True)
             full_path.write_text(
                 json.dumps(
@@ -533,7 +533,7 @@ class StateModuleTests(unittest.TestCase):
                 json.dumps(_review_state_json()),
                 encoding="utf-8",
             )
-            full_path = root / "dev/reports/review_channel/latest/full.json"
+            full_path = root / "dev/reports/review_channel/projections/latest/full.json"
             sessions_dir = full_path.parent / "sessions"
             sessions_dir.mkdir(parents=True, exist_ok=True)
             full_path.write_text(
@@ -599,7 +599,7 @@ class StateModuleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             (root / "bridge.md").write_text(_bridge_text(), encoding="utf-8")
-            full_path = root / "dev/reports/review_channel/latest/full.json"
+            full_path = root / "dev/reports/review_channel/projections/latest/full.json"
             full_path.parent.mkdir(parents=True, exist_ok=True)
             full_path.write_text(
                 json.dumps(
@@ -663,7 +663,7 @@ class StateModuleTests(unittest.TestCase):
                 json.dumps(_review_state_json()),
                 encoding="utf-8",
             )
-            full_path = root / "dev/reports/review_channel/latest/full.json"
+            full_path = root / "dev/reports/review_channel/projections/latest/full.json"
             sessions_dir = full_path.parent / "sessions"
             sessions_dir.mkdir(parents=True, exist_ok=True)
             full_path.write_text("{}", encoding="utf-8")

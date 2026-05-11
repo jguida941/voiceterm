@@ -40,19 +40,18 @@ from .event_reducer_lanes import (
 )
 from .agent_sync_projection import build_agent_sync_projection
 from .agent_work_board_projection import build_agent_work_board_projection
+from .agent_loop_decision_projection import attach_agent_loop_decision_projections
 from .event_reducer_state import ReducedReviewStateInputs, build_reduced_review_state
 from .event_store import (
     DEFAULT_REVIEW_CHANNEL_PLAN_ID,
     DEFAULT_REVIEW_CHANNEL_SESSION_ID,
     ReviewChannelArtifactPaths,
-    legacy_projection_mirror_root,
     load_agent_registry,
     load_events,
 )
 from .instruction_transitions import maybe_record_instruction_transition
 from .state import (
     write_projection_bundle,
-    write_projection_bundle_mirrors,
 )
 from .projection_bundle import artifact_writes_suppressed, projection_paths_for_root
 from .daemon_reducer import (
@@ -300,6 +299,7 @@ def load_or_refresh_event_bundle(
             prior_review_state=prior_review_state,
         ),
     )
+    review_state = attach_agent_loop_decision_projections(review_state)
     agent_registry = load_agent_registry(Path(artifact_paths.projections_root))
     projections_root = Path(artifact_paths.projections_root)
     if artifact_writes_suppressed():
@@ -374,6 +374,7 @@ def refresh_event_bundle(
         prior_review_state=prior_review_state,
         review_state=review_state,
     )
+    review_state = attach_agent_loop_decision_projections(review_state)
     projections_root = Path(artifact_paths.projections_root)
     if artifact_writes_suppressed():
         projection_paths = projection_paths_for_root(projections_root)
@@ -387,14 +388,8 @@ def refresh_event_bundle(
 
         state_path = Path(artifact_paths.state_path)
         _atomic_write_text(state_path, json.dumps(review_state, indent=2))
-        legacy_root = legacy_projection_mirror_root(
-            repo_root=repo_root,
-            canonical_projections_root=projections_root,
-        )
-        mirror_roots = (legacy_root,) if legacy_root is not None else ()
-        projection_paths = write_projection_bundle_mirrors(
+        projection_paths = write_projection_bundle(
             output_root=projections_root,
-            mirror_roots=mirror_roots,
             review_state=review_state,
             agent_registry=agent_registry,
             action="status",

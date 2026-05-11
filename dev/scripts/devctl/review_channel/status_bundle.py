@@ -14,16 +14,16 @@ from ..runtime.review_state_models import (
 from .core import LaneAssignment, project_id_for_repo
 from .handoff import extract_bridge_snapshot
 from .agent_loop_decision_projection import (
-    agent_loop_decisions_for_work_board,
-    apply_scoped_attention_to_ambiguous_packet_attention,
+    attach_agent_loop_decision_projections,
 )
 from .agent_work_board_posture import apply_work_board_session_posture
 from .projection_bundle import (
     ReviewChannelProjectionPaths,
     artifact_writes_suppressed,
+    canonical_projection_root_for_status_root,
     canonicalize_projection_review_state,
     projection_paths_for_root,
-    write_projection_bundle_mirrors,
+    write_projection_bundle,
 )
 from .pending_packets import load_pending_packet_queue
 from .promotion import derive_promotion_candidate
@@ -112,14 +112,12 @@ def write_status_projection_bundle(
     snapshot_id = str(review_state.get("snapshot_id") or "").strip()
     zref = str(review_state.get("zref") or "").strip()
     agent_registry = _status_agent_registry(review_state)
+    projection_root = canonical_projection_root_for_status_root(context.output_root)
     if artifact_writes_suppressed():
-        projection_paths = projection_paths_for_root(context.output_root)
+        projection_paths = projection_paths_for_root(projection_root)
     else:
-        mirror_root = _projection_mirror_root(context.output_root)
-        mirror_roots = (mirror_root,) if mirror_root is not None else ()
-        projection_paths = write_projection_bundle_mirrors(
-            output_root=context.output_root,
-            mirror_roots=mirror_roots,
+        projection_paths = write_projection_bundle(
+            output_root=projection_root,
             review_state=review_state,
             agent_registry=agent_registry,
             action="status",
@@ -217,31 +215,7 @@ def _build_status_review_state(
 def _attach_agent_loop_decisions(
     review_state: dict[str, object],
 ) -> dict[str, object]:
-    from .agent_loop_decision_projection import (
-        apply_agent_sync_session_attention_disambiguation,
-    )
-
-    work_board = review_state.get("agent_work_board")
-    if not isinstance(work_board, Mapping):
-        return review_state
-    with_decisions = dict(review_state)
-    with_decisions["agent_loop_decisions"] = agent_loop_decisions_for_work_board(
-        review_state=with_decisions,
-        work_board=work_board,
-    )
-    with_decisions = apply_agent_sync_session_attention_disambiguation(with_decisions)
-    with_decisions = apply_scoped_attention_to_ambiguous_packet_attention(
-        with_decisions
-    )
-    from ..runtime.peer_attention_window import build_attention_window_projection
-    with_decisions["attention_windows"] = build_attention_window_projection(
-        with_decisions
-    ).to_dict()
-    from ..runtime.agent_dispatch_router import build_agent_dispatch_router
-    with_decisions["agent_dispatch_router"] = build_agent_dispatch_router(
-        review_state=with_decisions,
-    ).to_dict()
-    return with_decisions
+    return attach_agent_loop_decision_projections(review_state)
 
 
 def _preserve_typed_runtime_addenda(
@@ -319,15 +293,6 @@ def _runtime_field_missing(value: object, key: str) -> bool:
     if key == "inbox_observation":
         return not str(value.get("last_inbox_event_id") or "").strip()
     return False
-
-
-def _projection_mirror_root(output_root: Path) -> Path | None:
-    """Mirror bridge-backed status bundles into the sibling projections root."""
-    if output_root.name != "latest":
-        return None
-    if output_root.parent.name == "projections":
-        return None
-    return output_root.parent / "projections" / output_root.name
 
 
 def _status_agent_registry(review_state: dict[str, object]) -> dict[str, object]:

@@ -39,7 +39,7 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         ]
         runtime_truth_mock.return_value = {
             "checked": True,
-            "review_state_path": "dev/reports/review_channel/latest/review_state.json",
+            "review_state_path": "dev/reports/review_channel/projections/latest/review_state.json",
             "coordination_topology": "multi_agent_active",
             "legacy_reviewer_mode": "single_agent",
             "active_runtime_providers": ["codex", "claude"],
@@ -64,7 +64,7 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         self.assertTrue(report["runtime_truth_checked"])
         self.assertEqual(
             report["runtime_review_state_path"],
-            "dev/reports/review_channel/latest/review_state.json",
+            "dev/reports/review_channel/projections/latest/review_state.json",
         )
         self.assertEqual(report["runtime_coordination_topology"], "multi_agent_active")
         self.assertEqual(report["runtime_legacy_reviewer_mode"], "single_agent")
@@ -97,7 +97,7 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         load_payload_mock,
         relpath_mock,
     ) -> None:
-        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        relpath_mock.return_value = "dev/reports/review_channel/projections/latest/review_state.json"
         load_payload_mock.return_value = {
             "collaboration": {
                 "participants": [],
@@ -179,7 +179,7 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         load_payload_mock,
         relpath_mock,
     ) -> None:
-        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        relpath_mock.return_value = "dev/reports/review_channel/projections/latest/review_state.json"
         load_payload_mock.return_value = {
             "collaboration": {
                 "participants": [],
@@ -263,7 +263,7 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         load_payload_mock,
         relpath_mock,
     ) -> None:
-        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        relpath_mock.return_value = "dev/reports/review_channel/projections/latest/review_state.json"
         load_payload_mock.return_value = {
             "collaboration": {
                 "participants": [],
@@ -333,7 +333,7 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         load_payload_mock,
         relpath_mock,
     ) -> None:
-        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        relpath_mock.return_value = "dev/reports/review_channel/projections/latest/review_state.json"
         load_payload_mock.return_value = {
             "collaboration": {
                 "participants": [],
@@ -396,7 +396,7 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         load_payload_mock,
         relpath_mock,
     ) -> None:
-        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        relpath_mock.return_value = "dev/reports/review_channel/projections/latest/review_state.json"
         load_payload_mock.return_value = {
             "collaboration": {
                 "participants": [],
@@ -437,7 +437,7 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         load_payload_mock,
         relpath_mock,
     ) -> None:
-        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        relpath_mock.return_value = "dev/reports/review_channel/projections/latest/review_state.json"
         load_payload_mock.return_value = {
             "collaboration": {
                 "participants": [],
@@ -507,7 +507,7 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         load_payload_mock,
         relpath_mock,
     ) -> None:
-        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        relpath_mock.return_value = "dev/reports/review_channel/projections/latest/review_state.json"
         load_payload_mock.return_value = {
             "collaboration": {
                 "participants": [],
@@ -595,7 +595,7 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         load_payload_mock,
         relpath_mock,
     ) -> None:
-        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        relpath_mock.return_value = "dev/reports/review_channel/projections/latest/review_state.json"
         load_payload_mock.return_value = {
             "collaboration": {
                 "participants": [],
@@ -672,7 +672,7 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         load_payload_mock,
         relpath_mock,
     ) -> None:
-        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        relpath_mock.return_value = "dev/reports/review_channel/projections/latest/review_state.json"
         load_payload_mock.return_value = {
             "collaboration": {
                 "participants": [],
@@ -766,7 +766,7 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         load_payload_mock,
         relpath_mock,
     ) -> None:
-        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        relpath_mock.return_value = "dev/reports/review_channel/projections/latest/review_state.json"
         load_payload_mock.return_value = {
             "collaboration": {
                 "participants": [],
@@ -858,7 +858,7 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         load_payload_mock,
         relpath_mock,
     ) -> None:
-        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        relpath_mock.return_value = "dev/reports/review_channel/projections/latest/review_state.json"
         load_payload_mock.return_value = {
             "collaboration": {
                 "participants": [],
@@ -961,7 +961,7 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         load_payload_mock,
         relpath_mock,
     ) -> None:
-        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        relpath_mock.return_value = "dev/reports/review_channel/projections/latest/review_state.json"
         load_payload_mock.return_value = {
             "collaboration": {
                 "participants": [],
@@ -1046,7 +1046,7 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         load_payload_mock,
         relpath_mock,
     ) -> None:
-        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        relpath_mock.return_value = "dev/reports/review_channel/projections/latest/review_state.json"
         load_payload_mock.return_value = {
             "collaboration": {
                 "participants": [],
@@ -1095,7 +1095,7 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         load_payload_mock,
         relpath_mock,
     ) -> None:
-        relpath_mock.return_value = "dev/reports/review_channel/latest/review_state.json"
+        relpath_mock.return_value = "dev/reports/review_channel/projections/latest/review_state.json"
         load_payload_mock.return_value = {
             "collaboration": {
                 "participants": [],

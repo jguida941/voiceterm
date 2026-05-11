@@ -15,6 +15,35 @@ from .agent_loop_decision_attention import (
 from .agent_loop_decision_queue_targets import queue_target_decisions
 
 
+def attach_agent_loop_decision_projections(
+    review_state: Mapping[str, object],
+) -> dict[str, object]:
+    """Attach the shared agent-loop projections to one ReviewState payload."""
+    work_board = review_state.get("agent_work_board")
+    if not isinstance(work_board, Mapping):
+        return dict(review_state)
+    with_decisions: dict[str, object] = dict(review_state)
+    with_decisions["agent_loop_decisions"] = agent_loop_decisions_for_work_board(
+        review_state=with_decisions,
+        work_board=work_board,
+    )
+    with_decisions = apply_agent_sync_session_attention_disambiguation(with_decisions)
+    with_decisions = apply_scoped_attention_to_ambiguous_packet_attention(
+        with_decisions
+    )
+    from ..runtime.peer_attention_window import build_attention_window_projection
+
+    with_decisions["attention_windows"] = build_attention_window_projection(
+        with_decisions
+    ).to_dict()
+    from ..runtime.agent_dispatch_router import build_agent_dispatch_router
+
+    with_decisions["agent_dispatch_router"] = build_agent_dispatch_router(
+        review_state=with_decisions,
+    ).to_dict()
+    return with_decisions
+
+
 def agent_loop_decisions_for_work_board(
     *,
     review_state: Mapping[str, object],
@@ -173,6 +202,7 @@ def _int(value: object) -> int:
 
 
 __all__ = [
+    "attach_agent_loop_decision_projections",
     "agent_loop_decisions_for_work_board",
     "apply_scoped_attention_to_ambiguous_packet_attention",
     "apply_agent_sync_session_attention_disambiguation",

@@ -2,11 +2,9 @@ use std::path::{Path, PathBuf};
 
 use super::format::truncate_hash;
 
-const EVENT_REVIEW_ARTIFACT_CANDIDATES: [&str; 4] = [
+const EVENT_REVIEW_ARTIFACT_CANDIDATES: [&str; 2] = [
     "dev/reports/review_channel/projections/latest/full.json",
     "dev/reports/review_channel/state/latest.json",
-    "dev/reports/review_channel/latest/full.json",
-    "dev/reports/review_channel/latest/review_state.json",
 ];
 const EVENT_REVIEW_SENTINELS: [&str; 2] = [
     "dev/reports/review_channel/events/trace.ndjson",

@@ -160,7 +160,7 @@ class StartupReceiptProblemTests(unittest.TestCase):
     )
     @patch(
         "dev.scripts.devctl.runtime.startup_receipt_freshness._changed_paths_since",
-        return_value=(Path("dev/reports/review_channel/latest/review_state.json"),),
+        return_value=(Path("dev/reports/review_channel/projections/latest/review_state.json"),),
     )
     @patch(
         "dev.scripts.devctl.runtime.startup_receipt_freshness._git_stdout",

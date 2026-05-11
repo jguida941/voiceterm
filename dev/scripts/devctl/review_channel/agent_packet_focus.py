@@ -16,6 +16,12 @@ from .packet_contract import normalize_packet_route_role
 
 _FOCUSABLE_LIFECYCLE_STATES = ACTIVE_LIFECYCLE_STATES | frozenset(
     {
+        "delivery_pending",
+        "execution_pending",
+        "apply_pending_after_execution",
+        "acknowledged",
+        "pending",
+        "in_progress",
         "task_started",
         "task_progress",
         "task_produced",
@@ -75,7 +81,8 @@ def packet_focus_for_agent(
         or active
         or selected_attention_id
     )
-    attention_id = (
+    explicit_work_board_attention = _text(work_row.get("attention_packet_id"))
+    attention_id = explicit_work_board_attention or (
         selected_attention_id
         if _attention_packet_preempts(
             review_state,

@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-11T02:54:32Z`
-- Last Codex poll (Local America/New_York): `2026-05-10 22:54:32 EDT`
+- Last Codex poll: `2026-05-11T04:07:05Z`
+- Last Codex poll (Local America/New_York): `2026-05-11 00:07:05 EDT`
 - Reviewer mode: `tools_only`
-- Last non-audit worktree hash: `2e34e137e1880a8133f2d67c0d22445f31f1f011e3389e46d5a31c514030bb64`
-- Current instruction revision: `253f20e51d60`
+- Last non-audit worktree hash: `cc0ff64471ba5bc85a4ef1ad1dd60c24a6a4a0059047aff9ce8e93c7b4c76e37`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Implementer Status
 
-- pending
+- Status unavailable.
 
 ## Implementer Questions
 
@@ -138,10 +138,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Implementer
 
-- Redirect to the Slice C projection-producer implementation now; do not accept, stage, commit, or push this slice until `bundle.tooling` is green.
-- Treat `rev_pkt_3428` as evidence that the remaining blocker is real tooling debt, not as approval to bypass it. No exception path is authorized in this session.
-- Implement the smallest targeted fix that makes `refresh_status_snapshot`, event-backed review-state projection, compact projection, and `commit_pipeline.json` share one producer tick for `snapshot_id`, `zref`, attention/doctor decision, and `ownership_status`.
-- Start from `dev/scripts/devctl/review_channel/state.py`, `dev/scripts/devctl/review_channel/status_projection.py`, `dev/scripts/devctl/review_channel/event_reducer*.py`, `dev/scripts/devctl/runtime/review_state_locator.py`, `dev/scripts/devctl/runtime/review_state_refresh_support.py`, `dev/scripts/devctl/runtime/startup_context*.py`, and the commit-pipeline projection writer/load path.
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 

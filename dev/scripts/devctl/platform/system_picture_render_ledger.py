@@ -71,7 +71,7 @@ def render_claim_boundary_and_matrix() -> list[str]:
         "|---|---|---|---|",
         "| Self-hosting repo-local AI governance runtime exists in code today | proved | `dev/scripts/devctl/runtime/project_governance_contract.py`, `dev/scripts/devctl/runtime/startup_context.py`, `dev/scripts/devctl/runtime/work_intake.py`, `dev/scripts/devctl/runtime/review_state_models.py` | keep the typed/runtime surfaces green under `MP-377` |",
         "| Startup, review, and governed commit/push use typed contracts instead of prompt-only policy | proved | `dev/scripts/devctl/runtime/startup_context.py`, `dev/scripts/devctl/runtime/reviewer_runtime_models.py`, `dev/scripts/devctl/runtime/action_contracts.py`, `dev/scripts/devctl/runtime/remote_commit_pipeline_models.py` | finish the remaining authority-loop closure tracked in `dev/active/platform_authority_loop.md` |",
-        "| Fail-closed startup/review/checkpoint behavior is live, not just planned | proved | `python3 dev/scripts/devctl.py startup-context --format summary`, `python3 dev/scripts/devctl.py review-channel --action doctor --terminal none --format json`, `dev/reports/review_channel/latest/review_state.json` | keep the fail-closed receipts stable as bridge/projection authority narrows |",
+        "| Fail-closed startup/review/checkpoint behavior is live, not just planned | proved | `python3 dev/scripts/devctl.py startup-context --format summary`, `python3 dev/scripts/devctl.py review-channel --action doctor --terminal none --format json`, `dev/reports/review_channel/projections/latest/review_state.json` | keep the fail-closed receipts stable as bridge/projection authority narrows |",
         "| Cross-repo adoption proof exists for guard/probe/adoption-scan paths | proved but scoped | `dev/reports/audits/2026-03-14-portable-governance-pilot-rerun.md`, `dev/reports/audits/portable_governance_pilot_2026-03-14.json`, `dev/reports/governance/external_pilot_findings.jsonl`, `dev/active/portable_code_governance.md` | extend the proof from adoption-scan surfaces into stronger startup/push portability |",
         "| External auditors using GitHub-connected review flows or ChatGPT-style repo review can audit the system from tracked docs and evidence surfaces | supported now | this ledger, `dev/guides/AI_GOVERNANCE_PLATFORM.md`, `dev/guides/PORTABLE_CODE_GOVERNANCE.md`, `dev/audits/2026-03-24-chatgpt-integration-intake.md` | keep routing accepted external findings into owner plans instead of leaving them as standalone audit prose |",
         "| Broad any-repo startup/push portability is complete | not proved | `dev/active/platform_authority_loop.md`, `dev/active/portable_code_governance.md` | close repo-pack / Step-0 / push-authority portability gaps |",
@@ -157,10 +157,10 @@ def render_evidence_sections() -> list[str]:
         "- `dev/scripts/devctl/runtime/review_state_models.py`",
         "- `dev/scripts/devctl/runtime/reviewer_runtime_models.py`",
         "- `dev/scripts/devctl/runtime/review_state_parser.py`",
-        "- `dev/reports/review_channel/latest/review_state.json`",
-        "- `dev/reports/review_channel/latest/commit_pipeline.json`",
-        "- `dev/reports/review_channel/latest/compact.json`",
-        "- `dev/reports/review_channel/latest/full.json`",
+        "- `dev/reports/review_channel/projections/latest/review_state.json`",
+        "- `dev/reports/review_channel/projections/latest/commit_pipeline.json`",
+        "- `dev/reports/review_channel/projections/latest/compact.json`",
+        "- `dev/reports/review_channel/projections/latest/full.json`",
         "",
         "### 3. Governed commit/push execution",
         "",
@@ -305,5 +305,4 @@ def render_market_and_proof_log(
         "- \"Any-repo startup/push portability is complete.\"",
         "",
     ]
-
 

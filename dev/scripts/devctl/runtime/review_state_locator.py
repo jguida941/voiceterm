@@ -32,7 +32,11 @@ def review_state_relative_candidates(
         review_root = str(governance.artifact_roots.review_root or "").strip()
         if review_root:
             _append_projection_sibling_candidate(candidates, review_root)
-            _append_candidate(candidates, f"{review_root.rstrip('/')}/review_state.json")
+            if not _legacy_review_status_root(review_root):
+                _append_candidate(
+                    candidates,
+                    f"{review_root.rstrip('/')}/review_state.json",
+                )
         elif active_path_config_is_overridden():
             for candidate in active_path_config().review_state_candidates:
                 _append_candidate(candidates, candidate)
@@ -128,8 +132,9 @@ def load_current_review_state_payload(
         repo_root,
         governance=resolved_governance,
     )
-    if typed_payload is not None and _is_event_backed_projection_path(
+    if typed_payload is not None and _is_event_backed_projection(
         typed_path,
+        typed_payload,
         repo_root=repo_root,
     ):
         if allow_live_refresh and not prefer_cached_projection:
@@ -237,19 +242,21 @@ def _append_projection_sibling_candidate(
     candidates: list[str],
     review_root: str,
 ) -> None:
-    """Prefer the event-backed projections root when governance points at `latest`.
+    """Route governed `latest` roots to the canonical projections sibling.
 
-    Portable repo packs still expose legacy `.../latest` compatibility roots in
-    some trees, while the freshest typed ReviewState now lives under the sibling
-    `.../projections/latest` bundle. Add that sibling first so live consumers
-    read the event-backed projection when both paths exist, but keep the
-    governed `review_root/review_state.json` path as a fallback for older repos.
+    The governed `.../latest` root carries runtime heartbeat/session artifacts.
+    It is not a review-state projection authority.
     """
     root_path = Path(str(review_root).strip())
     if root_path.name != "latest" or root_path.parent.name == "projections":
         return
     projection_root = root_path.parent / "projections" / root_path.name
     _append_candidate(candidates, projection_root.as_posix() + "/review_state.json")
+
+
+def _legacy_review_status_root(review_root: str) -> bool:
+    root_path = Path(str(review_root).strip())
+    return root_path.name == "latest" and root_path.parent.name != "projections"
 
 
 def _load_payload_from_path(path: Path | None) -> dict[str, object] | None:
@@ -292,7 +299,11 @@ def _prefer_newer_typed_candidate(
     del candidate_paths
     if preferred_path is None or preferred_payload is None:
         return preferred_path, preferred_payload
-    if not _is_event_backed_projection_path(preferred_path, repo_root=repo_root):
+    if not _is_event_backed_projection(
+        preferred_path,
+        preferred_payload,
+        repo_root=repo_root,
+    ):
         return preferred_path, preferred_payload
     return preferred_path, preferred_payload
 
@@ -303,14 +314,24 @@ def _payload_timestamp(payload: dict[str, object] | None) -> str:
     return str(payload.get("timestamp") or "").strip()
 
 
-def _is_event_backed_projection_path(path: Path | None, *, repo_root: Path) -> bool:
+def _is_event_backed_projection(
+    path: Path | None,
+    payload: dict[str, object] | None,
+    *,
+    repo_root: Path,
+) -> bool:
     if path is None:
         return False
     try:
         relative = path.relative_to(repo_root).as_posix()
     except ValueError:
         return False
-    return relative.endswith("/projections/latest/review_state.json")
+    if not relative.endswith("/projections/latest/review_state.json"):
+        return False
+    review = payload.get("review") if isinstance(payload, dict) else None
+    if not isinstance(review, dict):
+        return False
+    return str(review.get("surface_mode") or "").strip() == "event-backed"
 
 
 def _resolve_governance(
