@@ -18,6 +18,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("agents_contract", "check_agents_contract.py"),
     ("agents_bundle_render", "check_agents_bundle_render.py"),
     ("bootstrap", "check_bootstrap.py"),
+    ("bridge_projection_only", "check_bridge_projection_only.py"),
     ("bundle_registry_dry", "check_bundle_registry_dry.py"),
     ("bundle_workflow_parity", "check_bundle_workflow_parity.py"),
     ("check_cli_test_parity", "check_check_cli_test_parity.py"),

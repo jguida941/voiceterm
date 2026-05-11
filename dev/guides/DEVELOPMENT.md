@@ -758,6 +758,12 @@ Three quality layers matter in practice:
     `ControlPlaneReadModel`, it must route governance and frozen review-state
     through `ControlPlaneReadModelOptions` instead of legacy direct keyword
     arguments.
+    Automation-only reviewer follow loops (`reviewer-follow` and
+    `ensure-follow`) are typed runtime evidence only: they may emit follow
+    frames and restore-turn packets, but they must not rewrite tracked
+    `bridge.md` heartbeat projection state. Use explicit reviewer heartbeat,
+    checkpoint, status, or render actions when the compatibility projection
+    actually needs a semantic refresh.
     Live Terminal.app
     launch now
     records the returned `terminal_window_id` in conductor session metadata,

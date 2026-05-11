@@ -509,11 +509,14 @@ Portability note:
   lane and risk add-ons through `check-router`, runs the routed bundle, then
   re-runs final bridge/tandem guards so Codex/Claude sessions do not rely on a
   hand-maintained checklist.
-- The `reviewer_follow_guard` module suppresses automation heartbeats when a
-  real review follow-up is pending and queues typed `restore_reviewer_turn`
-  packets through the existing `PacketPostRequest` pipeline. The dedupe is
-  disk-based (`_existing_pending_trigger_packet_id`) so dismissed/applied
-  packets allow re-queuing without a process restart.
+- The `reviewer_follow_guard` module treats `reviewer-follow` and
+  `ensure-follow` as automation-only evidence. Those follow loops emit typed
+  frames and queue `restore_reviewer_turn` packets through the existing
+  `PacketPostRequest` pipeline, but they do not rewrite tracked `bridge.md`
+  heartbeat projection state. Manual/semantic heartbeat and checkpoint actions
+  remain the repo-owned projection writers. The dedupe is disk-based
+  (`_existing_pending_trigger_packet_id`) so dismissed/applied packets allow
+  re-queuing without a process restart.
 - `review-channel --action post` now also carries the remote commit-pipeline
   approval path as a typed packet instead of bridge prose. Use
   `--kind commit_approval --target-kind runtime --target-ref remote_commit_pipeline:<pipeline_id>`
@@ -1886,6 +1889,12 @@ summary over the selected snapshot window.
 | `dev/scripts/checks/check_guard_enforcement_inventory.py` | Guard enforcement inventory gate | Verifies cataloged quality scripts still have a real enforcement lane through bundle/workflow invocation or an explicit helper/manual/advisory exemption. The guard recognizes the current `docs-check --strict-tooling` family, the AI-guard family owned by `devctl check`, and the review-probe family owned by `devctl check` / `devctl probe-report`, and keeps manual-only/report-only surfaces explicit instead of letting catalog drift silently. When a guard graduates into the shared hard-guard family, wire the same script into typed quality-policy plus bundle/workflow parity in the same change. |
 | `dev/scripts/checks/check_devctl_cold_boot.py` | Devctl cold-boot import smoke guard | Runs a fresh Python interpreter import smoke for `devctl.cli.main` so CLI/runtime import regressions are caught by the tooling workflow and by path-aware `check-router` devctl add-ons. |
 | `dev/scripts/checks/check_registry_path_integrity.py` | Script registry path integrity gate | Fails when the canonical script catalog, quality-policy defaults, or top-level `check_*.py` / `probe_*.py` entrypoints drift apart. This catches missing registered files, quality-policy references to unknown script ids, and public probe/check shims that exist on disk but are invisible to `check` / `probe-report`. |
+| `dev/scripts/checks/check_bridge_projection_only.py` | Bridge projection-only guard | Blocks repaired bridge/current-session/status projection compatibility surfaces from becoming backend authority again. It scans the known review-channel bridge projection seams for bridge-as-authority regressions, ACK compatibility literal misuse, and bridge-poll fallback violations. |
+| `dev/scripts/checks/check_check_cli_test_parity.py` | Check CLI/test parity guard | Verifies managed check CLI entrypoints and their focused tests share one evaluator contract so guard behavior cannot drift between command output and test fixtures. |
+| `dev/scripts/checks/check_schema_fixture_handshake.py` | Schema fixture handshake guard | Verifies registered platform contracts have fixture roots with valid and invalid JSON examples, including required invalid cases for missing fields and schema-version mismatch. |
+| `dev/scripts/checks/check_schema_migration_spine.py` | Schema migration spine guard | Validates durable state contracts declare migration/store-authority policy before later governance rows can treat schema and rollback semantics as authoritative. |
+| `dev/scripts/checks/check_schema_version_monotonic.py` | Schema version monotonicity guard | Ensures registered schema fixture paths end in the registered schema version and reuse the fixture-handshake coverage so schema bumps cannot silently bypass fixtures. |
+| `dev/scripts/checks/check_state_store_authority.py` | State-store authority guard | Validates registered durable stores route through the declared state-store authority writer instead of ad hoc JSON/JSONL writes. Planned policies remain visible without blocking until their owning row promotes them. |
 | `dev/scripts/checks/check_provider_list_parity_graph.py` | Provider-list parity graph gate | Fails when agent-facing CLI flags such as `--agent` hardcode a provider `choices=[...]` list instead of using the shared provider registry and syntax validation. This keeps `agent-mind`, `monitor`, and future provider-aware commands from splitting their provider vocabularies. |
 | `dev/scripts/checks/check_system_picture_freshness.py` | SystemPicture freshness gate | Fails stale generated `SystemPicture` sections and requires the startup and graph sections to be current before publication; refresh with `startup-context` plus `context-graph --mode bootstrap` when HEAD moves. |
 | `dev/scripts/checks/check_orchestration_recommendation_closure.py` | Orchestration recommendation-closure guard | Fails when `/develop` orchestration signals carry action recommendations without structured `source_surface`, `severity`, `recommended_action`, and `closure_check_command` fields, so agents can verify closure instead of relying on prose. Pilot/manual until orchestration writers graduate. |

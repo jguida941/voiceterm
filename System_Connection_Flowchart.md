@@ -507,7 +507,7 @@ flowchart LR
 ### 8.3 Bridge
 
 - `bridge.md` at repo root is **projection only** (rule 4 of bridge.md itself: "treat AGENTS.md/MASTER_PLAN.md as canonical").
-- `dev/scripts/remote-bridge-loop.sh`, `dev/scripts/remote_bridge_prompt.md`, `dev/scripts/workflow_bridge/`, `dev/scripts/workflow_shell_bridge.py` — bridge tooling.
+- `dev/scripts/remote-bridge-loop.sh`, `dev/scripts/remote_bridge_prompt.md`, `dev/scripts/workflow_bridge/`, `dev/scripts/workflow_bridge/shell.py` — bridge tooling.
 - Generation: `commands/review_channel_bridge_render*.py` (3 files) and `commands/review_channel/bridge_render*/` (subdir) — note possible parallel paths (§11/D-BridgeRender).
 
 ### 8.4 Packets command surface

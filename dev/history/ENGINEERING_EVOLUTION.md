@@ -14884,3 +14884,28 @@ Evidence:
 - `dev/scripts/devctl/tests/commands/check/test_check_router.py`
 - `dev/scripts/devctl/tests/commands/docs/test_check.py`
 - `dev/scripts/devctl/tests/vcs/test_push.py`
+
+### 2026-05-11 - Reviewer-follow automation no longer dirties bridge projection
+
+Governed-push dogfood exposed that watcher/progress follow loops were still
+rewriting tracked `bridge.md` heartbeat projection rows while trying to keep
+Claude/Codex lanes observable. That made projection churn look like authored
+work and forced manual staging of compatibility surfaces.
+
+Change: `reviewer_follow_guard` now treats `reviewer-follow` and
+`ensure-follow` as automation-only evidence. Those paths can emit typed follow
+frames and restore-turn packets, but they no longer call the bridge heartbeat
+writer. Manual or semantic reviewer heartbeat/checkpoint/status/render actions
+remain the projection writers. The platform contract rows now include the
+runtime fields already emitted by develop/session termination models, and the
+bridge projection-only guard is registered in the canonical script catalog.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/reviewer_follow_heartbeat_guard.py`
+- `dev/scripts/devctl/tests/review_channel/test_reviewer_follow_heartbeat_guard.py`
+- `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
+- `dev/scripts/devctl/governance/script_catalog_registry.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_development.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_development_campaign.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_review.py`

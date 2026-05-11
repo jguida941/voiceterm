@@ -5478,9 +5478,12 @@ become the main product surface.
   an invented Codex-only recover command. The same 2026-04-02 review pass also
   closed the false-fresh reviewer daemon gap: `ensure --follow` and
   `reviewer-heartbeat --follow` now suppress automation-only reviewer heartbeat
-  writes while review is pending and queue a Claude-targeted restore-turn
-  packet through the existing review-channel event path instead of pretending
-  detached automation is live reviewer work. A follow-on 2026-04-02 recovery
+  writes and queue a Claude-targeted restore-turn packet through the existing
+  review-channel event path instead of pretending detached automation is live
+  reviewer work. A 2026-05-11 hardening pass made that suppression unconditional
+  for `reviewer-follow` / `ensure-follow` reasons so watcher/progress loops can
+  stay live without dirtying the tracked `bridge.md` compatibility projection.
+  A follow-on 2026-04-02 recovery
   slice now lets that same reviewer-follow loop auto-trigger the repo-owned
   `review-channel --action rollover` path for repeated unchanged stale
   reviewer/runtime states, reusing the structured handoff bundle plus visible

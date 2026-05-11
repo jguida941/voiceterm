@@ -144,6 +144,16 @@ DEVELOPMENT_CAMPAIGN_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("active_packet_id", "str", "Active packet for the lane."),
             ContractField("may_mutate", "bool", "Agent-loop mutation decision."),
             ContractField("required_action", "str", "Agent-loop required action."),
+            ContractField(
+                "user_action",
+                "str",
+                "Operator-readable action label derived from required_action.",
+            ),
+            ContractField(
+                "continuation_goal",
+                "str",
+                "Readable goal summary when the lane must continue instead of stop.",
+            ),
             ContractField("proof_state", "str", "Agent-loop proof state."),
             ContractField("blocker", "str", "Current blocker."),
             ContractField("next_command", "str", "Role-scoped next command."),

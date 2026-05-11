@@ -196,6 +196,15 @@ DEVELOPMENT_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 ),
             ),
             ContractField(
+                "final_response_gate",
+                "Any",
+                (
+                    "Final-response boundary gate result consumed by the "
+                    "develop report as runtime authority for whether a handoff "
+                    "may stop or must continue."
+                ),
+            ),
+            ContractField(
                 "learning",
                 "DevelopmentLearningSnapshot",
                 "Guard/probe and prevention-loop inputs visible to the controller.",

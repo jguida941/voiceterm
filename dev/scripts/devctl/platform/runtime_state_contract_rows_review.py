@@ -304,6 +304,21 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "str",
                 "Bounded error classification when keep-awake prerequisites are missing.",
             ),
+            ContractField(
+                "pending_packet_count",
+                "int",
+                "Number of scoped packets still preventing terminal completion.",
+            ),
+            ContractField(
+                "wake_required",
+                "bool",
+                "Internal loop-control flag indicating the agent must remain active.",
+            ),
+            ContractField(
+                "pivot_required",
+                "bool",
+                "Internal loop-control flag indicating the next action must change focus.",
+            ),
         ),
         runtime_model=(
             "dev.scripts.devctl.runtime.session_termination_policy:"

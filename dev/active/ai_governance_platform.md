@@ -13444,6 +13444,12 @@ Execution order for this section:
   truth for that supervisor path so it can stay alive and observable outside
   the current terminal/chat session before widening into semantic-review
   automation or Rust/VoiceTerm host ownership.
+- 2026-05-11: Hardened that reviewer-follow seam after governed-push dogfood
+  exposed tracked `bridge.md` churn from automation-only watcher/progress loops.
+  `reviewer-follow` and `ensure-follow` now remain typed runtime evidence only:
+  they emit follow frames and restore-turn packets through review-channel state,
+  but do not rewrite the bridge heartbeat projection. Semantic projection writes
+  stay with explicit heartbeat, checkpoint, status, and render actions.
 - 2026-03-16: Recorded the real reviewer-lane failure class explicitly: the
   current Claude implementer path can behave like a persistent worker, but the
   Codex reviewer path still is not a repo-owned persistent worker/service and
