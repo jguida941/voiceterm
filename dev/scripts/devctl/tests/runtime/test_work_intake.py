@@ -98,6 +98,7 @@ def _governance(
     review_root: str = "dev/reports/review_channel/latest",
     include_shared_backlog: bool = False,
     include_system_map: bool = False,
+    preflight_audit_mode: bool = False,
 ) -> ProjectGovernance:
     tracker_entry = PlanRegistryEntry(
         path="dev/active/MASTER_PLAN.md",
@@ -278,6 +279,8 @@ def _governance(
                     "command": "check-router",
                     "since_ref_template": "{remote}/{development_branch}",
                     "execute": True,
+                    "audit_mode": preflight_audit_mode,
+                    "fail_fast_on_blocker": not preflight_audit_mode,
                 },
                 "post_push": {"bundle": "bundle.post-push"},
                 "bypass": {
@@ -366,7 +369,7 @@ def test_build_work_intake_packet_prefers_mp_scoped_spec_and_reconciles_review_s
     assert packet.routing.rejected_rule_traces
     assert (
         packet.routing.preflight_command
-        == "python3 dev/scripts/devctl.py check-router --since-ref origin/feature/demo --execute --keep-going"
+        == "python3 dev/scripts/devctl.py check-router --since-ref origin/feature/demo --execute"
     )
     assert packet.writeback_sinks == (
         "dev/active/platform_authority_loop.md",
@@ -524,7 +527,45 @@ def test_build_work_intake_packet_uses_develop_base_for_dirty_worktree_preflight
 
     assert (
         packet.routing.preflight_command
-        == "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute --keep-going"
+        == "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute"
+    )
+
+
+def test_build_work_intake_packet_keeps_going_only_for_audit_preflight(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path / "AGENTS.md", "# Agents\n")
+    _write(tmp_path / "bridge.md", "# Bridge\n")
+    _write(tmp_path / "dev/active/INDEX.md", "# Index\n")
+    _write(tmp_path / "dev/active/MASTER_PLAN.md", "# Tracker\n")
+    _write(tmp_path / "dev/active/platform_authority_loop.md", "# Authority Loop\n")
+    _write(
+        tmp_path / "dev/reports/review_channel/projections/latest/review_state.json",
+        json.dumps(
+            {
+                "bridge": {"reviewer_mode": "active_dual_agent"},
+                "review": {"plan_id": "MP-377"},
+                "current_session": {
+                    "last_reviewed_scope": "MP-377",
+                    "current_instruction": "Run bundle.tooling and inspect failures.",
+                    "open_findings": "none",
+                    "implementer_status": "coding",
+                    "implementer_ack_state": "current",
+                },
+            }
+        ),
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=_governance(preflight_audit_mode=True),
+        advisory_action="continue_editing",
+        advisory_reason="clean_worktree",
+    )
+
+    assert (
+        packet.routing.preflight_command
+        == "python3 dev/scripts/devctl.py check-router --since-ref origin/feature/demo --execute --keep-going"
     )
 
 

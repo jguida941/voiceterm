@@ -1551,7 +1551,7 @@ class TestCLIRegistration(unittest.TestCase):
                     },
                     "routing": {
                         "selected_workflow_profile": "bundle.tooling",
-                        "preflight_command": "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute --keep-going",
+                        "preflight_command": "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
                         "rule_summary": "Selected bundle.tooling for edit-first work.",
                         "match_evidence": [
                             {

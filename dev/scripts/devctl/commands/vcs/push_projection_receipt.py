@@ -9,6 +9,9 @@ from ...runtime.vcs import run_git_capture
 from .push_projection_paths import managed_projection_receipt_paths
 from .push_projection_staging import stage_managed_projection_paths
 from .push_projection_status import dirty_managed_projection_paths
+from .push_review_snapshot_receipt_guard import (
+    current_head_is_managed_review_snapshot_receipt,
+)
 
 
 def auto_commit_managed_projection_receipt(
@@ -59,6 +62,13 @@ def _commit_projection_receipt_if_needed(
         return {"ok": True, "reason": "non_projection_dirty_paths_present", "paths": ()}
     if not dirty_paths:
         return {"ok": True, "reason": "no_projection_drift", "paths": ()}
+    if current_head_is_managed_review_snapshot_receipt(repo_root=repo_root):
+        return {
+            "ok": True,
+            "reason": "already_managed_review_snapshot_receipt",
+            "paths": dirty_paths,
+            "committed": False,
+        }
 
     staged_result = stage_managed_projection_paths(
         dirty_paths=dirty_paths,

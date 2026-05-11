@@ -227,8 +227,18 @@ def _preflight_command(
     ]
     if bool(preflight.get("execute")):
         command_parts.append("--execute")
-        command_parts.append("--keep-going")
+        if _preflight_audit_mode_requested(preflight):
+            command_parts.append("--keep-going")
     return " ".join(command_parts)
+
+
+def _preflight_audit_mode_requested(preflight: dict[str, object]) -> bool:
+    """Return true only when policy explicitly asks for broad audit behavior."""
+    if "audit_mode" in preflight:
+        return bool(preflight.get("audit_mode"))
+    if "fail_fast_on_blocker" in preflight:
+        return not bool(preflight.get("fail_fast_on_blocker"))
+    return False
 
 
 def _mapping(value: object) -> dict[str, object]:

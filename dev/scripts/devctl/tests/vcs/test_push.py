@@ -4717,6 +4717,10 @@ class PushBridgeSyncTests(unittest.TestCase):
             ],
         )
 
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_projection_receipt.current_head_is_managed_review_snapshot_receipt",
+        return_value=False,
+    )
     @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_staging.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_status.run_git_capture")
@@ -4730,6 +4734,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         status_git_mock,
         staging_git_mock,
         receipt_git_mock,
+        _head_receipt_mock,
     ) -> None:
         status_git_mock.return_value = (0, " M bridge.md", "")
         staging_git_mock.side_effect = [(0, "", ""), (0, "", ""), (0, "bridge.md", "")]
@@ -4771,6 +4776,14 @@ class PushBridgeSyncTests(unittest.TestCase):
             ],
         )
 
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_projection_receipt.current_head_is_managed_review_snapshot_receipt",
+        return_value=False,
+    )
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_projection_receipt.current_head_is_managed_review_snapshot_receipt",
+        return_value=False,
+    )
     @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_staging.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_status.run_git_capture")
@@ -4816,6 +4829,14 @@ class PushBridgeSyncTests(unittest.TestCase):
             ],
         )
 
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_projection_receipt.current_head_is_managed_review_snapshot_receipt",
+        return_value=False,
+    )
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_projection_receipt.current_head_is_managed_review_snapshot_receipt",
+        return_value=False,
+    )
     @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_staging.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_status.run_git_capture")
@@ -4829,6 +4850,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         status_git_mock,
         staging_git_mock,
         receipt_git_mock,
+        _head_receipt_mock,
     ) -> None:
         status_git_mock.return_value = (
             0,
@@ -4869,6 +4891,45 @@ class PushBridgeSyncTests(unittest.TestCase):
             ],
         )
 
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_projection_receipt.current_head_is_managed_review_snapshot_receipt",
+        return_value=True,
+    )
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_staging.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_status.run_git_capture")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_projection_paths.scan_repo_governance_safely",
+        return_value=None,
+    )
+    def test_projection_receipt_does_not_stack_on_managed_receipt_head(
+        self,
+        _scan_governance_mock,
+        status_git_mock,
+        staging_git_mock,
+        receipt_git_mock,
+        head_receipt_mock,
+    ) -> None:
+        status_git_mock.return_value = (0, " M bridge.md", "")
+        state = SimpleNamespace(errors=[], warnings=[])
+
+        result = push_projection_receipt.auto_commit_managed_projection_receipt(
+            state,
+            make_policy(
+                checkpoint=PushCheckpointPolicy(
+                    compatibility_projection_paths=("bridge.md",),
+                )
+            ),
+        )
+
+        self.assertEqual(state.errors, [])
+        self.assertEqual(state.warnings, [])
+        self.assertEqual(result["reason"], "already_managed_review_snapshot_receipt")
+        self.assertFalse(result["committed"])
+        head_receipt_mock.assert_called_once()
+        self.assertEqual(staging_git_mock.call_count, 0)
+        self.assertEqual(receipt_git_mock.call_count, 0)
+
     @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_staging.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_status.run_git_capture")
@@ -4901,6 +4962,10 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertEqual(staging_git_mock.call_count, 0)
         self.assertEqual(receipt_git_mock.call_count, 0)
 
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_projection_receipt.current_head_is_managed_review_snapshot_receipt",
+        return_value=False,
+    )
     @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_staging.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_projection_status.run_git_capture")
@@ -4914,6 +4979,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         status_git_mock,
         staging_git_mock,
         receipt_git_mock,
+        _head_receipt_mock,
     ) -> None:
         status_git_mock.return_value = (0, " M bridge.md\nM  next_commit.py", "")
         staging_git_mock.side_effect = [
