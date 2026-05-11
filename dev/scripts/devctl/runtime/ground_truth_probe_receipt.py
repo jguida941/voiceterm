@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from ..time_utils import utc_timestamp
+from .state_store_authority import append_json_mapping
 
 GROUND_TRUTH_PROBE_RUN_RECEIPT_CONTRACT_ID = "GroundTruthProbeRunReceipt"
 GROUND_TRUTH_PROBE_RUN_RECEIPT_SCHEMA_VERSION = 1
@@ -124,9 +125,11 @@ def append_ground_truth_probe_receipt(
 ) -> Path:
     """Append one receipt row to the repo-local typed state ledger."""
     path = _receipt_path(repo_root, receipt_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(receipt.to_dict(), sort_keys=True) + "\n")
+    append_json_mapping(
+        path,
+        receipt.to_dict(),
+        store_id="ground_truth_probe_receipts",
+    )
     return path
 
 

@@ -44,7 +44,8 @@ def resolve_control_plane_loop_wake(
             loop_driver_agent="multi_lane",
             loop_autonomy_ok=False,
             loop_gap_summary=(
-                "active_dual_agent loop has no shared typed loop-autonomy contract yet."
+                "compatibility active reviewer loop has no shared typed "
+                "attention-continuity contract yet."
             ),
         )
 
@@ -104,7 +105,7 @@ def resolve_control_plane_loop_wake(
         loop_driver_agent="",
         loop_autonomy_ok=False,
         loop_gap_summary=(
-            f"{normalized_mode} loop has no typed wake-capable owner or scheduler."
+            f"{normalized_mode} loop has no typed attention-capable owner or scheduler."
         ),
     )
 

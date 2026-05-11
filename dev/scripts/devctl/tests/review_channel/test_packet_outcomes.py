@@ -57,6 +57,31 @@ def test_packet_outcome_ledger_classifies_commit_delivery_evidence() -> None:
     assert ledger.records[0].evidence_ref == "commit:62ad3234"
 
 
+def test_packet_outcome_ledger_classifies_workflow_receipt_evidence() -> None:
+    packet = _expired_packet("rev_pkt_100")
+    events = [
+        {
+            "event_id": "evt_task_produced",
+            "event_type": "packet_posted",
+            "packet_id": "rev_pkt_101",
+            "timestamp_utc": "2026-04-25T01:00:00Z",
+            "kind": "task_produced",
+            "summary": "Task receipt for rev_pkt_100",
+            "body": "rev_pkt_100 produced reviewable evidence.",
+        }
+    ]
+
+    ledger = build_packet_outcome_ledger(
+        packets=[packet],
+        events=events,
+        generated_at_utc="2026-04-25T02:00:00Z",
+        source="test",
+    )
+
+    assert ledger.records[0].outcome == PacketOutcome.DELIVERED_VIA_COMMIT
+    assert ledger.records[0].evidence_ref == "event:evt_task_produced"
+
+
 def test_packet_outcome_ledger_classifies_superseding_packet() -> None:
     packet = _expired_packet("rev_pkt_100")
     events = [

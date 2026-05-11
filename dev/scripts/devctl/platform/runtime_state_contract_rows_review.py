@@ -285,6 +285,11 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Active continuation_anchor packet that kept the session alive.",
             ),
             ContractField(
+                "blocking_packet_id",
+                "str",
+                "Blocking packet id when TASK_COMPLETE must wait for review work.",
+            ),
+            ContractField(
                 "target_session_id",
                 "str",
                 "Session id scoped by the decision.",
@@ -293,6 +298,11 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "next_command",
                 "str",
                 "Bounded repo-owned command to run when terminate=false.",
+            ),
+            ContractField(
+                "error_kind",
+                "str",
+                "Bounded error classification when keep-awake prerequisites are missing.",
             ),
         ),
         runtime_model=(

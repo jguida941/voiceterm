@@ -14819,6 +14819,39 @@ Evidence:
 - `dev/guides/DEVELOPMENT.md`
 - `dev/scripts/README.md`
 
+### 2026-05-09 - Provider-neutral verification-capability extraction in review-channel attention
+
+Dogfood on the dual-agent attention pipeline showed that bridge-attention
+classification still consulted role/capability lookups inline across multiple
+projection modules (`event_projection_assembly`, `status_projection_bridge_state`,
+`status_snapshot_authority`), each rebuilding the same actor-authority extraction
+pattern. The duplication risked drift between live mutation/verification authority
+checks and the recovery-decision routing, especially when reviewer-only roles needed
+to detect missing verification capability without blocking the implementer relaunch
+path.
+
+Change: extracted `collaboration_authority_liveness.py` (50 lines) as a single
+typed helper that consolidates `actor_authorities_from_value` + capability lookups
+behind one `apply_collaboration_authority_liveness()` overlay. The 3 prior
+projection callsites now consume this overlay; `attention_implementer_relaunch.py`
+no longer gates on `claude_conductor_active`; recovery_decision now maps
+`AttentionStatus.VERIFICATION_CAPABILITY_MISSING` → `rebind_verification_capability`
+instead of `relaunch_provider_pair_for_verification_gap`. Composes with
+`runtime/role_topology.py:resolve_role_topology()` and the existing actor-authority
+contract; no new typed-authority models added.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/collaboration_authority_liveness.py`
+- `dev/scripts/devctl/review_channel/event_projection_assembly.py`
+- `dev/scripts/devctl/review_channel/status_projection_bridge_state.py`
+- `dev/scripts/devctl/review_channel/status_snapshot_authority.py`
+- `dev/scripts/devctl/review_channel/attention_implementer_relaunch.py`
+- `dev/scripts/devctl/review_channel/conductor_authority.py`
+- `dev/scripts/devctl/review_channel/recovery_decision.py`
+- `dev/scripts/devctl/tests/review_channel/test_observed_topology.py`
+- `dev/scripts/devctl/tests/review_channel/test_recovery_assessment.py`
+
 ### 2026-05-09 - Governed push validation now carries typed publication scope
 
 Dogfood on the governed push lane exposed a validation-scope leak: preflight

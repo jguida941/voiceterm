@@ -40,7 +40,7 @@ def satisfied_proofs(
     ):
         satisfied.add("plan_target")
     if wake_or_attention_satisfied(ctx, active_packet_id=active_packet_id):
-        satisfied.add("wake_or_attention_evidence")
+        satisfied.add("packet_attention_evidence")
     if completed_handoff_satisfied(ctx, target_ref=target_ref):
         satisfied.add("implementer_handoff")
     if guard_evidence_satisfied(ctx, target_ref=target_ref):

@@ -10,6 +10,7 @@ from typing import Any
 
 from .config import REPO_ROOT
 from .repo_packs import active_path_config
+from .runtime.state_store_authority import append_json_mapping
 
 POLICY_PATH = REPO_ROOT / "dev/config/control_plane_policy.json"
 POLICY_KEY = "audit_metrics"
@@ -177,7 +178,8 @@ def emit_devctl_audit_event(
         machine_output=machine_output,
     )
     output_path = resolve_event_log_path()
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(payload, sort_keys=True))
-        handle.write("\n")
+    append_json_mapping(
+        output_path,
+        payload,
+        store_id="devctl_audit_events",
+    )

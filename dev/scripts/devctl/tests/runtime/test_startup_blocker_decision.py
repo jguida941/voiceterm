@@ -72,6 +72,25 @@ class DeriveBlockerDecisionTests(unittest.TestCase):
 
         self.assertEqual(kind, "staged_index_budget_exceeded")
 
+    def test_startup_authority_classifier_reads_structured_import_atomicity_record(
+        self,
+    ) -> None:
+        kind = startup_authority_blocker_kind(
+            {
+                "ok": False,
+                "import_index_atomicity_finding_records": [
+                    {
+                        "contract_id": "ImportIndexAtomicityFinding",
+                        "finding_kind": "import_index_atomicity_missing_module",
+                        "importer_path": "dev/testpkg/importer.py",
+                    }
+                ],
+                "errors": [],
+            }
+        )
+
+        self.assertEqual(kind, "import_index_atomicity")
+
     def test_last_guard_ok_false_with_check_details(self) -> None:
         snapshot = derive_blocker_decision(
             quality={

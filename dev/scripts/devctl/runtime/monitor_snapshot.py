@@ -28,6 +28,7 @@ from .monitor_snapshot_support import (
     load_monitor_review_state,
     monitor_output_root,
 )
+from .reviewer_mode import reviewer_mode_is_active
 from .implementation_admissibility import derive_implementation_admissibility
 from .startup_context import build_startup_context
 
@@ -257,7 +258,7 @@ def _self_audit_reasons(startup, model, coordination, verdict_presence: dict[str
         "reviewed_hash_current"
     ) is False
     remote_control = _field(model, "operator_interaction_mode") == "remote_control"
-    dual_agent = _field(model, "reviewer_mode") == "active_dual_agent"
+    dual_agent = reviewer_mode_is_active(_field(model, "reviewer_mode"))
     live_conductors = _field(model, "codex_conductor_alive", cast=bool) or _field(
         model,
         "claude_conductor_alive",

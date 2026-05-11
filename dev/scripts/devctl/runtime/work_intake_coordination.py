@@ -8,6 +8,7 @@ from .conductor_capability import normalize_reviewer_mode
 from .control_topology import derive_startup_control_truth
 from .project_governance import ProjectGovernance
 from .review_state_models import ReviewState
+from .reviewer_mode import reviewer_mode_is_active
 from .work_intake_coordination_status import (
     active_implementation_owner,
     resync_required,
@@ -268,7 +269,7 @@ def _collaboration_topology(
     normalized_mode = normalize_reviewer_mode(
         effective_reviewer_mode or reviewer_mode
     )
-    if participant_count == 1 and normalized_mode == "active_dual_agent":
+    if participant_count == 1 and reviewer_mode_is_active(normalized_mode):
         return "observer_plus_implementer"
     if (
         participant_count >= 2
@@ -303,10 +304,7 @@ def _authority_mode(
         return "push_locked"
     if review_state is not None and review_state.queue.pending_total > 0:
         return "packet_gated"
-    if bridge_active or (
-        normalize_reviewer_mode(effective_reviewer_mode or reviewer_mode)
-        == "active_dual_agent"
-    ):
+    if bridge_active or reviewer_mode_is_active(effective_reviewer_mode or reviewer_mode):
         return "reviewer_gated"
     return "self_directed"
 

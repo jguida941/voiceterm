@@ -146,6 +146,7 @@ class ReviewBridgeState:
     implementer_capability: ConductorCapabilityState | None = None
     session_liveness_signals: tuple[dict[str, object], ...] = ()
     pending_total: int = 0
+    declared_reviewer_mode: str = ""
 
 
 @dataclass(frozen=True, slots=True)

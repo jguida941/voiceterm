@@ -9,9 +9,28 @@ from dev.scripts.devctl.runtime.checkpoint_repair_authority import (
     REPAIR_VERIFIED,
 )
 from dev.scripts.devctl.runtime.agent_loop_decision import build_agent_loop_decision
+from dev.scripts.devctl.runtime.agent_loop_blocker_actions import (
+    required_action_for_blocker,
+)
+from dev.scripts.devctl.runtime.agent_loop_operator_override import (
+    AgentLoopOperatorOverride,
+    EDIT_ONLY_AUTHORITY_SOURCE,
+    EDIT_ONLY_EFFECTIVE_ROLE,
+    EDIT_ONLY_EFFECTIVE_WORKSTREAM,
+    EDIT_ONLY_OVERRIDE_SCOPE,
+    OPERATOR_OVERRIDE_REQUESTOR,
+    OPERATOR_OVERRIDE_SOURCE,
+    apply_operator_override_actions,
+)
 from dev.scripts.devctl.runtime.session_termination_policy import (
+    CONTINUATION_ANCHOR_MISSING_ERROR,
     CONTINUATION_ANCHOR_PACKET_KIND,
+    PACKET_ATTENTION_PENDING_ERROR,
+    PENDING_REVIEW_PACKET_ERROR,
     SESSION_TERMINATION_MODE_KEEP_AWAKE_VIA_PACKETS,
+)
+from dev.scripts.devctl.runtime.startup_blocker_decision import (
+    STARTUP_AUTHORITY_NEXT_ACTION_PREFIX,
 )
 
 
@@ -26,8 +45,10 @@ def _packet(
     target_role: str = "",
     target_session_id: str = "",
     target_ref: str = "",
+    attention_urgency: str = "",
+    attention_class: str = "",
 ) -> dict[str, object]:
-    return {
+    row = {
         "packet_id": packet_id,
         "to_agent": to_agent,
         "kind": kind,
@@ -38,6 +59,11 @@ def _packet(
         "target_session_id": target_session_id,
         "target_ref": target_ref,
     }
+    if attention_urgency:
+        row["attention_urgency"] = attention_urgency
+    if attention_class:
+        row["attention_class"] = attention_class
+    return row
 
 
 def _state(*packets: dict[str, object]) -> dict[str, object]:
@@ -73,6 +99,15 @@ def _checkpoint_repair_transition() -> dict[str, object]:
         "checkpoint_sufficient": True,
         "blocked_raw_actions": ["git.commit", "vcs.push"],
     }
+
+
+def test_blocker_action_prefers_typed_startup_authority_next_action() -> None:
+    required_action = required_action_for_blocker(
+        "human text changed",
+        next_action=f"{STARTUP_AUTHORITY_NEXT_ACTION_PREFIX}import_index_atomicity",
+    )
+
+    assert required_action == "repair_startup_authority"
 
 
 def test_dashboard_loop_observes_legacy_unscoped_packet_without_claiming_work() -> None:
@@ -174,7 +209,7 @@ def test_scoped_implementer_loop_claims_matching_packet() -> None:
     assert decision.loop_state == "work"
     assert decision.required_action == "execute_active_packet"
     assert decision.lifecycle_state == "needs_attention"
-    assert decision.decision == "pivot_to_packet"
+    assert decision.decision == "continue_to_goal"
     assert decision.active_packet_id == "rev_pkt_scoped"
     assert decision.attention_packet_id == "rev_pkt_scoped"
     assert decision.plan_target_ref == "MP377-P0-T21"
@@ -182,14 +217,14 @@ def test_scoped_implementer_loop_claims_matching_packet() -> None:
     assert decision.granted_capabilities == ("repo.stage",)
     assert decision.current_instruction_revision == "rev_current"
     assert decision.source_latest_event_id == "rev_evt_100"
-    assert decision.loop_mode == "pivot_to_packet"
+    assert decision.loop_mode == "continue_to_goal"
     assert decision.can_run_next_command is True
     assert decision.recommended_cadence_seconds == 30
     assert decision.proof_state == "satisfied"
     assert decision.required_proofs == (
         "typed_runtime_clock",
         "scoped_packet_target",
-        "wake_or_attention_evidence",
+        "packet_attention_evidence",
     )
 
 
@@ -321,7 +356,7 @@ def test_dashboard_session_surfaces_unroutable_role_scoped_packet() -> None:
     )
 
     assert decision.loop_state == "work"
-    assert decision.required_action == "pivot_to_attention_packet"
+    assert decision.required_action == "continue_to_goal"
     assert decision.attention_packet_id == "rev_pkt_stale_role"
     assert decision.pending_packet_count == 1
     assert decision.may_mutate is False
@@ -412,8 +447,8 @@ def test_plan_wake_proof_uses_reported_scoped_attention() -> None:
     )
 
     assert decision.pivot_required is True
-    assert "wake_or_attention_evidence" in decision.satisfied_proofs
-    assert "wake_or_attention_evidence" not in decision.missing_proofs
+    assert "packet_attention_evidence" in decision.satisfied_proofs
+    assert "packet_attention_evidence" not in decision.missing_proofs
 
 
 def test_actor_loop_attention_uses_typed_packet_rows_over_ambiguous_singleton() -> None:
@@ -461,6 +496,112 @@ def test_actor_loop_attention_uses_typed_packet_rows_over_ambiguous_singleton() 
     assert decision.pivot_required is True
     assert decision.wake_required is True
     assert decision.lifecycle_state == "needs_attention"
+
+
+def test_actor_loop_attention_prefers_urgent_peer_packet_over_stale_active_focus() -> None:
+    review_state = _state(
+        _packet(
+            packet_id="rev_pkt_old",
+            to_agent="codex",
+            kind="task_progress",
+            lifecycle_current_state="task_progress",
+            latest_event_id="rev_evt_101",
+            target_role="reviewer",
+            target_session_id="s1",
+        ),
+        _packet(
+            packet_id="rev_pkt_urgent",
+            to_agent="codex",
+            kind="task_progress",
+            lifecycle_current_state="task_progress",
+            latest_event_id="rev_evt_103",
+            target_role="observer",
+            target_session_id="s1",
+            attention_urgency="urgent",
+            attention_class="decision",
+        ),
+    )
+    review_state["agent_work_board"] = {
+        "rows": [
+            {
+                "actor_id": "codex",
+                "role": "reviewer",
+                "session_id": "s1",
+                "active_packet_id": "rev_pkt_old",
+                "attention_packet_id": "rev_pkt_old",
+                "source_event_id": "rev_evt_101",
+                "mutation_mode": "read_only",
+                "granted_capabilities": [],
+            }
+        ]
+    }
+    review_state["agent_sync"] = {
+        "agents": {
+            "codex": {
+                "last_consumed_event_id_lower_bound": "rev_evt_100",
+            }
+        }
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="codex",
+        actor_role="reviewer",
+        session_id="s1",
+    )
+
+    assert decision.required_action == "continue_to_goal"
+    assert decision.continuation_goal == "rev_pkt_urgent"
+    assert decision.active_packet_id == "rev_pkt_urgent"
+    assert decision.attention_packet_id == "rev_pkt_urgent"
+    assert decision.latest_inbox_event_id == "rev_evt_103"
+    assert decision.pending_packet_count == 2
+    assert decision.wake_required is True
+    assert decision.pivot_required is True
+
+
+def test_actor_loop_attention_prefers_newer_collaboration_packet_over_old_finding() -> None:
+    review_state = _state(
+        _packet(
+            packet_id="rev_pkt_old_finding",
+            to_agent="codex",
+            kind="finding",
+            lifecycle_current_state="pending",
+            latest_event_id="rev_evt_101",
+            target_role="reviewer",
+            target_session_id="s1",
+        ),
+        _packet(
+            packet_id="rev_pkt_new_progress",
+            to_agent="codex",
+            kind="task_progress",
+            lifecycle_current_state="task_progress",
+            latest_event_id="rev_evt_103",
+            target_role="reviewer",
+            target_session_id="s1",
+        ),
+    )
+    review_state["agent_sync"] = {
+        "agents": {
+            "codex": {
+                "last_consumed_event_id_lower_bound": "rev_evt_100",
+            }
+        }
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="codex",
+        actor_role="reviewer",
+        session_id="s1",
+    )
+
+    assert decision.required_action == "continue_to_goal"
+    assert decision.continuation_goal == "rev_pkt_new_progress"
+    assert decision.active_packet_id == "rev_pkt_new_progress"
+    assert decision.attention_packet_id == "rev_pkt_new_progress"
 
 
 def test_actor_loop_attention_respects_role_and_session_scope() -> None:
@@ -711,7 +852,11 @@ def test_startup_blocker_overrides_work_packet_but_keeps_loop_alive() -> None:
     assert decision.should_continue_loop is True
     assert decision.safe_to_continue is False
     assert decision.may_mutate is False
-    assert decision.next_command == ""
+    assert decision.next_loop_command == (
+        "python3 dev/scripts/devctl.py agent-loop --format json "
+        "--actor claude --role implementer --session-id s1"
+    )
+    assert decision.next_command == decision.next_loop_command
     assert decision.loop_mode == "observer_wait"
     assert decision.can_run_next_command is False
     assert decision.policy_reason == "repair_startup_authority_requires_mutation_authority"
@@ -862,8 +1007,12 @@ def test_agent_loop_edit_only_override_blocks_governed_checkpoint_commit() -> No
     assert decision.required_action == GOVERNED_CHECKPOINT_COMMIT
     assert decision.next_action == GOVERNED_CHECKPOINT_COMMIT
     assert decision.loop_mode == "operator_override_edit"
+    assert decision.actor_role == "implementer"
+    assert decision.effective_actor_role == "implementer"
+    assert decision.effective_workstream_id == "builder"
+    assert decision.effective_authority_source == "operator_override_edit_only_repair"
     assert decision.can_run_next_command is False
-    assert decision.next_command == ""
+    assert decision.next_command == decision.next_loop_command
     assert decision.operator_override.active is True
     assert "implementation.edit" in decision.allowed_actions
     assert "vcs.stage" in decision.blocked_actions
@@ -1115,11 +1264,11 @@ def test_packet_attention_preempts_startup_blocker_without_mutation() -> None:
     )
 
     assert decision.loop_state == "blocked"
-    assert decision.required_action == "triage_pending_packet"
+    assert decision.required_action == "continue_to_goal"
     assert decision.lifecycle_state == "needs_attention"
-    assert decision.decision == "pivot_to_packet"
-    assert decision.loop_mode == "pivot_to_packet"
-    assert decision.policy_reason == "packet_attention_triage_preempts_blocked_mutation"
+    assert decision.decision == "continue_to_goal"
+    assert decision.loop_mode == "continue_to_goal"
+    assert decision.policy_reason == "continue_to_goal_preempts_terminal_response"
     assert decision.safe_to_continue is False
     assert decision.may_mutate is False
     assert decision.can_run_next_command is False
@@ -1145,6 +1294,10 @@ def test_operator_override_allows_scoped_edit_without_publication() -> None:
         operator_override_reason="operator directed architecture repair",
     )
     assert decision.loop_state == "blocked"
+    assert decision.actor_role == "reviewer"
+    assert decision.effective_actor_role == "implementer"
+    assert decision.effective_workstream_id == "builder"
+    assert decision.effective_authority_source == "operator_override_edit_only_repair"
     assert decision.safe_to_continue is False
     assert decision.may_mutate is True
     assert decision.loop_mode == "operator_override_edit"
@@ -1160,6 +1313,87 @@ def test_operator_override_allows_scoped_edit_without_publication() -> None:
     assert "do not stage, commit, or push" in decision.next_command
     assert "--operator-override" in decision.next_loop_command
     assert "--packet rev_pkt_1" in decision.next_loop_command
+
+
+def test_operator_override_without_effective_role_does_not_grant_edit() -> None:
+    override = AgentLoopOperatorOverride(
+        requested=True,
+        active=True,
+        state="active",
+        allowed_actions=("implementation.edit",),
+        blocked_actions=("vcs.stage", "vcs.commit", "vcs.push"),
+    )
+
+    allowed, blocked = apply_operator_override_actions(
+        allowed_actions=(),
+        blocked_actions=("implementation.edit", "vcs.stage"),
+        operator_override=override,
+    )
+
+    assert override.edit_allowed is False
+    assert "implementation.edit" not in allowed
+    assert "implementation.edit" in blocked
+
+
+def test_operator_override_without_receipt_shape_does_not_grant_edit() -> None:
+    override = AgentLoopOperatorOverride(
+        requested=True,
+        active=True,
+        state="active",
+        source=OPERATOR_OVERRIDE_SOURCE,
+        requested_by=OPERATOR_OVERRIDE_REQUESTOR,
+        scope=EDIT_ONLY_OVERRIDE_SCOPE,
+        reason="operator repair",
+        target_kind="packet",
+        target_ref="rev_pkt_1",
+        effective_actor_role=EDIT_ONLY_EFFECTIVE_ROLE,
+        effective_workstream_id=EDIT_ONLY_EFFECTIVE_WORKSTREAM,
+        allowed_actions=("implementation.edit",),
+        blocked_actions=("vcs.stage", "vcs.commit", "vcs.push"),
+    )
+
+    assert override.edit_allowed is False
+
+
+def test_operator_override_without_target_does_not_grant_edit() -> None:
+    override = AgentLoopOperatorOverride(
+        requested=True,
+        active=True,
+        state="active",
+        source=OPERATOR_OVERRIDE_SOURCE,
+        requested_by=OPERATOR_OVERRIDE_REQUESTOR,
+        scope=EDIT_ONLY_OVERRIDE_SCOPE,
+        reason="operator repair",
+        effective_actor_role=EDIT_ONLY_EFFECTIVE_ROLE,
+        effective_workstream_id=EDIT_ONLY_EFFECTIVE_WORKSTREAM,
+        effective_authority_source=EDIT_ONLY_AUTHORITY_SOURCE,
+        allowed_actions=("implementation.edit",),
+        blocked_actions=("vcs.stage", "vcs.commit", "vcs.push"),
+    )
+
+    assert override.edit_allowed is False
+
+
+def test_operator_override_packet_target_requires_typed_packet_evidence() -> None:
+    decision = build_agent_loop_decision(
+        review_state=_state(),
+        dashboard={
+            "control_plane": {
+                "top_blocker": "startup authority: dirty_and_untracked_budget_exceeded",
+            }
+        },
+        actor_id="codex",
+        actor_role="reviewer",
+        loop_intent="packet",
+        requested_packet_id="rev_pkt_1",
+        operator_override_requested=True,
+        operator_override_reason="operator directed architecture repair",
+    )
+
+    assert decision.operator_override.edit_allowed is True
+    assert decision.proof_state == "missing"
+    assert "scoped_packet_target" not in decision.satisfied_proofs
+    assert "scoped_packet_target" in decision.missing_proofs
 
 
 def test_operator_override_satisfies_plan_wake_proof_without_packet() -> None:
@@ -1195,6 +1429,9 @@ def test_operator_override_satisfies_plan_wake_proof_without_packet() -> None:
     )
 
     assert decision.loop_mode == "operator_override_edit"
+    assert decision.actor_role == "reviewer"
+    assert decision.effective_actor_role == "implementer"
+    assert decision.effective_workstream_id == "builder"
     assert decision.may_mutate is True
     assert decision.can_run_next_command is False
     assert decision.safe_to_continue is False
@@ -1202,7 +1439,7 @@ def test_operator_override_satisfies_plan_wake_proof_without_packet() -> None:
     assert decision.target_ref == "MP-377"
     assert decision.proof_state == "satisfied"
     assert "plan_target" in decision.satisfied_proofs
-    assert "wake_or_attention_evidence" in decision.satisfied_proofs
+    assert "packet_attention_evidence" in decision.satisfied_proofs
     assert decision.missing_proofs == ()
     assert "vcs.commit" in decision.blocked_actions
 
@@ -1263,7 +1500,7 @@ def test_operator_override_requires_reason_and_scope_target() -> None:
     assert decision.operator_override.state == "reason_required"
 
 
-def test_completed_handoff_stops_when_no_new_work_arrived() -> None:
+def test_completed_handoff_waits_when_round_proof_is_missing() -> None:
     review_state = _state()
     review_state["collaboration"] = {
         "session_outcomes": [
@@ -1289,13 +1526,17 @@ def test_completed_handoff_stops_when_no_new_work_arrived() -> None:
     assert decision.lifecycle_state == "completed"
     assert decision.decision == "stop_no_work"
     assert decision.required_action == "stop_no_work"
-    assert decision.should_continue_loop is False
+    assert decision.should_continue_loop is True
     assert decision.safe_to_continue is False
     assert decision.loop_mode == "await_round_proof"
     assert decision.recommended_cadence_seconds == 30
     assert decision.proof_state == "missing"
     assert "guard_bundle_or_attestation" in decision.missing_proofs
     assert "reviewer_semantic_review" in decision.missing_proofs
+    assert decision.next_command == decision.next_loop_command
+    assert "agent-loop --format json --actor claude --role implementer --session-id s1" in (
+        decision.next_command
+    )
 
 
 def test_completed_handoff_stops_only_when_round_proofs_are_satisfied() -> None:
@@ -1332,6 +1573,8 @@ def test_completed_handoff_stops_only_when_round_proofs_are_satisfied() -> None:
         loop_intent="iterate",
     )
     assert decision.loop_mode == "await_round_proof"
+    assert decision.should_continue_loop is True
+    assert decision.next_command == decision.next_loop_command
     assert decision.advance_allowed is False
     assert decision.proof_state == "missing"
     assert decision.missing_proofs == ("round_proof",)
@@ -1428,6 +1671,8 @@ def test_completed_handoff_stops_after_authoritative_round_proof() -> None:
         loop_intent="iterate",
     )
     assert decision.loop_mode == "stopped"
+    assert decision.should_continue_loop is False
+    assert decision.next_command == ""
     assert decision.advance_allowed is True
     assert decision.proof_state == "satisfied"
     assert decision.missing_proofs == ()
@@ -1474,15 +1719,230 @@ def test_completed_handoff_pivots_when_new_packet_needs_attention() -> None:
         session_id="s1",
     )
     assert decision.lifecycle_state == "needs_attention"
-    assert decision.decision == "pivot_to_packet"
-    assert decision.required_action == "pivot_to_attention_packet"
+    assert decision.decision == "continue_to_goal"
+    assert decision.required_action == "continue_to_goal"
+    assert decision.reason_code == PACKET_ATTENTION_PENDING_ERROR
     assert decision.active_packet_id == "rev_pkt_new"
     assert decision.wake_required is True
     assert decision.pivot_required is True
     assert decision.pending_packet_count == 1
     assert decision.latest_inbox_event_id == "rev_evt_101"
     assert decision.last_observed_event_id == "rev_evt_100"
-    assert decision.loop_mode == "pivot_to_packet"
+    assert decision.loop_mode == "continue_to_goal"
+
+
+def test_completed_handoff_cannot_stop_with_unobserved_packet_attention() -> None:
+    review_state = _state()
+    review_state.pop("packets")
+    review_state["reviewer_runtime"]["packet_attention"] = {
+        "observation_actor_id": "claude",
+        "observation_session_id": "s1",
+        "latest_inbox_event_id": "rev_evt_101",
+        "latest_attention_packet_id": "rev_pkt_wake",
+        "last_observed_event_id": "rev_evt_100",
+        "wake_required": True,
+        "pivot_required": True,
+        "stale_reason": "wake_required",
+    }
+    review_state["collaboration"] = {
+        "session_outcomes": [
+            {
+                "outcome": "completed_handoff",
+                "provider": "claude",
+                "session_actor_id": "claude",
+                "session_actor_role": "implementer",
+                "session_id": "s1",
+                "source_event_id": "rev_evt_099",
+            }
+        ]
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="s1",
+    )
+
+    assert decision.loop_state == "blocked"
+    assert decision.required_action == "continue_to_goal"
+    assert decision.reason_code == PACKET_ATTENTION_PENDING_ERROR
+    assert decision.active_packet_id == "rev_pkt_wake"
+    assert decision.should_continue_loop is True
+    assert decision.safe_to_continue is False
+    assert decision.wake_required is True
+    assert decision.pivot_required is True
+    assert decision.next_command == (
+        "python3 dev/scripts/devctl.py develop next --actor claude --format md"
+    )
+    assert decision.decision != "stop_no_work"
+
+
+def test_completed_handoff_requires_continuation_anchor_for_keep_awake_policy() -> None:
+    review_state = _state()
+    review_state["session_termination_policy"] = {
+        "mode": SESSION_TERMINATION_MODE_KEEP_AWAKE_VIA_PACKETS,
+        "target_session_id": "s1",
+    }
+    review_state["collaboration"] = {
+        "session_outcomes": [
+            {
+                "outcome": "completed_handoff",
+                "provider": "claude",
+                "session_actor_id": "claude",
+                "session_actor_role": "implementer",
+                "session_id": "s1",
+                "source_event_id": "rev_evt_099",
+            }
+        ]
+    }
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="s1",
+    )
+    assert decision.loop_state == "blocked"
+    assert decision.required_action == "post_continuation_anchor"
+    assert decision.reason_code == CONTINUATION_ANCHOR_MISSING_ERROR
+    assert decision.should_continue_loop is True
+    assert decision.safe_to_continue is False
+    assert decision.next_command == (
+        "python3 dev/scripts/devctl.py develop next --actor claude --format md"
+    )
+
+
+def test_completed_handoff_pivots_when_review_packet_is_pending_in_default_policy() -> None:
+    review_state = _state(
+        _packet(
+            packet_id="rev_pkt_review",
+            to_agent="claude",
+            kind="review_started",
+            lifecycle_current_state="review_in_progress",
+            target_session_id="s1",
+        )
+    )
+    review_state["collaboration"] = {
+        "session_outcomes": [
+            {
+                "outcome": "completed_handoff",
+                "provider": "claude",
+                "session_actor_id": "claude",
+                "session_actor_role": "implementer",
+                "session_id": "s1",
+                "source_event_id": "rev_evt_099",
+            }
+        ]
+    }
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="s1",
+    )
+    assert decision.loop_state == "blocked"
+    assert decision.required_action == "continue_to_goal"
+    assert decision.reason_code == PENDING_REVIEW_PACKET_ERROR
+    assert decision.should_continue_loop is True
+    assert decision.safe_to_continue is False
+    assert decision.active_packet_id == "rev_pkt_review"
+    assert decision.next_command == (
+        "python3 dev/scripts/devctl.py develop next --actor claude --format md"
+    )
+
+
+def test_completed_handoff_does_not_stop_when_action_request_is_pending() -> None:
+    review_state = _state(
+        _packet(
+            packet_id="rev_pkt_action",
+            to_agent="claude",
+            kind="action_request",
+            lifecycle_current_state="delivery_pending",
+            target_role="implementer",
+            target_session_id="s1",
+        )
+    )
+    review_state["collaboration"] = {
+        "session_outcomes": [
+            {
+                "outcome": "completed_handoff",
+                "provider": "claude",
+                "session_actor_id": "claude",
+                "session_actor_role": "implementer",
+                "session_id": "s1",
+                "source_event_id": "rev_evt_099",
+            }
+        ]
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="s1",
+    )
+
+    assert decision.loop_state == "blocked"
+    assert decision.required_action == "continue_to_goal"
+    assert decision.reason_code == PACKET_ATTENTION_PENDING_ERROR
+    assert decision.active_packet_id == "rev_pkt_action"
+    assert decision.should_continue_loop is True
+    assert decision.safe_to_continue is False
+    assert decision.wake_required is True
+
+
+def test_agent_loop_invalidates_cache_on_continuation_anchor_posted() -> None:
+    review_state = _state(
+        _packet(
+            packet_id="rev_pkt_anchor",
+            to_agent="claude",
+            kind=CONTINUATION_ANCHOR_PACKET_KIND,
+            target_role="implementer",
+            target_session_id="s1",
+            latest_event_id="rev_evt_102",
+        )
+    )
+    review_state["session_termination_policy"] = {
+        "mode": SESSION_TERMINATION_MODE_KEEP_AWAKE_VIA_PACKETS,
+        "target_session_id": "s1",
+        "anchor_packet_id": "rev_pkt_anchor",
+    }
+    review_state["agent_loop_decisions"] = [
+        {
+            "actor_id": "claude",
+            "actor_role": "implementer",
+            "session_id": "s1",
+            "lifecycle_state": "completed",
+            "required_action": "stop_no_work",
+            "should_continue_loop": False,
+        }
+    ]
+    review_state["collaboration"] = {
+        "session_outcomes": [
+            {
+                "outcome": "completed_handoff",
+                "provider": "claude",
+                "session_actor_id": "claude",
+                "session_actor_role": "implementer",
+                "session_id": "s1",
+                "source_event_id": "rev_evt_099",
+            }
+        ]
+    }
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="s1",
+    )
+    assert decision.required_action == "continue_from_continuation_anchor"
+    assert decision.active_packet_id == "rev_pkt_anchor"
+    assert decision.should_continue_loop is True
 
 
 def test_completed_handoff_continues_when_policy_anchor_is_active() -> None:

@@ -30,6 +30,15 @@ def agent_loop_input(
         top_blocker=_text(row.get("top_blocker") or row.get("reason")),
         next_loop_command=_text(row.get("next_loop_command")),
         missing_proofs=_text_tuple(row.get("missing_proofs")),
+        active_packet_id=_text(row.get("active_packet_id")),
+        attention_packet_id=_text(row.get("attention_packet_id")),
+        user_action=_text(row.get("user_action")),
+        continuation_goal=_text(row.get("continuation_goal")),
+        why_not_done=_text(row.get("why_not_done")),
+        user_continue_state=_text(row.get("user_continue_state")),
+        new_peer_input=bool(row.get("new_peer_input")),
+        switch_to_packet_goal=bool(row.get("switch_to_packet_goal")),
+        continue_before_final=bool(row.get("continue_before_final")),
     )
 
 

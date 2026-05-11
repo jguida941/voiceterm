@@ -8,6 +8,7 @@ import json
 
 from .inbox_command_template import inbox_command_for_agent as _inbox_command_for_agent
 from .review_packet_inbox_actionable import (
+    attention_urgency as _attention_urgency,
     ordered_actionable_packets as _ordered_actionable_packets,
     select_actionable_packet as _select_actionable_packet,
 )
@@ -242,6 +243,9 @@ def _agent_attention_state(
     inbox_command = _inbox_command_for_agent(agent)
     if selected_actionable is not None:
         kind = str(selected_actionable.get("kind") or "").strip() or "packet"
+        urgency = _attention_urgency(selected_actionable)
+        if urgency in {"urgent", "blocking"}:
+            return "wake_required", f"{urgency}_attention", inbox_command
         return "wake_required", f"{kind}_pending", inbox_command
     if live_finding_packets:
         return "review_needed", "finding_pending", inbox_command
@@ -310,10 +314,7 @@ def _live_packet_ids_by_agent(
         live_ids = by_agent.setdefault(agent, set())
         if not packet_id:
             continue
-        if (
-            _is_live_control_packet(packet)
-            or _is_expired_unresolved_attention(packet)
-        ):
+        if _is_live_pending(packet) or _is_expired_unresolved_attention(packet):
             live_ids.add(packet_id)
     return {agent: frozenset(packet_ids) for agent, packet_ids in by_agent.items()}
 

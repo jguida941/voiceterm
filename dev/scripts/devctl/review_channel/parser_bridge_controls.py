@@ -36,9 +36,7 @@ def build_bridge_control_arguments(
             default=default_reviewer_mode,
             help=(
                 "Reviewer operating mode recorded in bridge metadata and liveness "
-                "projections. Canonical values are persisted; human-facing aliases "
-                "such as `agents` -> `active_dual_agent` and `developer` -> "
-                "`single_agent` are accepted for convenience."
+                "projections. Only canonical reviewer-mode values are accepted."
             ),
         ),
         arg_builder(

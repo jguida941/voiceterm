@@ -16,6 +16,9 @@ class AgentLoopDecision:
     actor_id: str = ""
     actor_role: str = ""
     session_id: str = ""
+    effective_actor_role: str = ""
+    effective_workstream_id: str = ""
+    effective_authority_source: str = ""
     loop_state: str = "blocked"
     required_action: str = "provide_actor_identity"
     lifecycle_state: str = "blocked"
@@ -44,6 +47,13 @@ class AgentLoopDecision:
     next_command: str = ""
     next_action: str = ""
     top_blocker: str = ""
+    user_action: str = ""
+    continuation_goal: str = ""
+    why_not_done: str = ""
+    user_continue_state: str = ""
+    new_peer_input: bool = False
+    switch_to_packet_goal: bool = False
+    continue_before_final: bool = False
     active_packet_id: str = ""
     attention_packet_id: str = ""
     executing_packet_id: str = ""
@@ -71,6 +81,9 @@ class AgentLoopDecision:
             "actor_id": self.actor_id,
             "actor_role": self.actor_role,
             "session_id": self.session_id,
+            "effective_actor_role": self.effective_actor_role,
+            "effective_workstream_id": self.effective_workstream_id,
+            "effective_authority_source": self.effective_authority_source,
             "loop_state": self.loop_state,
             "required_action": self.required_action,
             "lifecycle_state": self.lifecycle_state,
@@ -99,6 +112,13 @@ class AgentLoopDecision:
             "next_command": self.next_command,
             "next_action": self.next_action,
             "top_blocker": self.top_blocker,
+            "user_action": self.user_action,
+            "continuation_goal": self.continuation_goal,
+            "why_not_done": self.why_not_done,
+            "user_continue_state": self.user_continue_state,
+            "new_peer_input": self.new_peer_input,
+            "switch_to_packet_goal": self.switch_to_packet_goal,
+            "continue_before_final": self.continue_before_final,
             "active_packet_id": self.active_packet_id,
             "attention_packet_id": self.attention_packet_id,
             "executing_packet_id": self.executing_packet_id,

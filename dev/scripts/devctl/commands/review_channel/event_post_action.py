@@ -7,6 +7,7 @@ from pathlib import Path
 from ...review_channel.context_refs import resolve_context_pack_refs
 from ...review_channel.events import post_packet
 from ...review_channel.packet_contract import (
+    PacketAttentionFields,
     PacketGuardBundleEvidenceFields,
     PacketPostRequest,
     PacketRuntimeApprovalFields,
@@ -70,6 +71,10 @@ def _post_request(context: EventActionContext) -> PacketPostRequest:
         target=_target_fields(args),
         runtime_approval=_runtime_approval_fields(args),
         guard_bundle_evidence=_guard_bundle_evidence_fields(args),
+        attention=PacketAttentionFields.from_values(
+            attention_urgency=getattr(args, "attention_urgency", None),
+            attention_class=getattr(args, "attention_class", None),
+        ),
     )
 
 

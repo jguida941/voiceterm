@@ -23,6 +23,7 @@ from .current_session_render import (
     current_focus_line,
 )
 from .current_session_support import (
+    compute_implementer_state_hash,
     current_session_authority_drift_warning,
     event_agent_status,
     event_claude_ack,

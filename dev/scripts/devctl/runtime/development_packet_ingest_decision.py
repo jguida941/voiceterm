@@ -48,13 +48,13 @@ def packet_ingest_decision(
                 terminal_status=classification.classification,
             ),
         )
-    if classification.classification == "manual-triage-required":
+    if classification.classification in {"manual-review-required", "manual-triage-required"}:
         return _decision(
             classification,
             _DecisionFields(
-                decision="operator_triage",
-                reason_code="manual_triage_required",
-                required_action="operator_packet_triage",
+                decision="operator_review",
+                reason_code="manual_review_required",
+                required_action="operator_packet_review",
                 next_command=_show_command(classification),
                 fail_closed=True,
             ),
@@ -92,9 +92,9 @@ def packet_ingest_decision(
     return _decision(
         classification,
         _DecisionFields(
-            decision="operator_triage",
+            decision="operator_review",
             reason_code="unhandled_packet_classification",
-            required_action="operator_packet_triage",
+            required_action="operator_packet_review",
             next_command=_show_command(classification),
             fail_closed=True,
         ),

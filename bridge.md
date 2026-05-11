@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-09T20:19:37Z`
-- Last Codex poll (Local America/New_York): `2026-05-09 16:19:37 EDT`
-- Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `4877c0f35d3b7f5e97d640019a40d3bf989280130a20fffea1c5a6e1a6a81dc6`
-- Current instruction revision: ``
+- Last Codex poll: `2026-05-11T01:47:11Z`
+- Last Codex poll (Local America/New_York): `2026-05-10 21:47:11 EDT`
+- Reviewer mode: `tools_only`
+- Last non-audit worktree hash: `28949d4e946324bf1b7a43a8e23ecce8f8211b14b6630b47942d7b4a771b8668`
+- Current instruction revision: `253f20e51d60`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-05-09T20:17:24.728375Z.
+- Reviewer state rebuilt from typed review-state projection at 2026-05-11T01:47:11.396850Z.
 
 ## Current Verdict
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-19 pending review packet(s)
+56 pending review packet(s)
 
 ## Implementer Status
 
-- Status unavailable.
+- pending
 
 ## Implementer Questions
 
@@ -138,7 +138,10 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Implementer
 
-- Await reviewer instruction refresh.
+- Redirect to the Slice C projection-producer implementation now; do not accept, stage, commit, or push this slice until `bundle.tooling` is green.
+- Treat `rev_pkt_3428` as evidence that the remaining blocker is real tooling debt, not as approval to bypass it. No exception path is authorized in this session.
+- Implement the smallest targeted fix that makes `refresh_status_snapshot`, event-backed review-state projection, compact projection, and `commit_pipeline.json` share one producer tick for `snapshot_id`, `zref`, attention/doctor decision, and `ownership_status`.
+- Start from `dev/scripts/devctl/review_channel/state.py`, `dev/scripts/devctl/review_channel/status_projection.py`, `dev/scripts/devctl/review_channel/event_reducer*.py`, `dev/scripts/devctl/runtime/review_state_locator.py`, `dev/scripts/devctl/runtime/review_state_refresh_support.py`, `dev/scripts/devctl/runtime/startup_context*.py`, and the commit-pipeline projection writer/load path.
 
 ## Last Reviewed Scope
 

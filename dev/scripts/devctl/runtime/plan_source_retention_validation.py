@@ -3,8 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
 
-from .master_plan_contract import PlanRow
+from .master_plan_contract import IngestionDrift, PlanRow
+from .plan_intent_ingestion import (
+    PLAN_INTENT_RECEIPT_REF_PREFIX,
+    TYPED_ACTION_REF_PREFIX,
+    plan_intent_content_hash,
+)
 from .plan_source_retention_anchors import (
     REQUIRED_FULL_PLAN_ANCHORS_BY_ROW_ID,
     missing_required_plan_source_anchors,
@@ -78,6 +84,94 @@ def validate_current_plan_source_retention(
     )
     errors.extend(_current_receipt_metadata_errors(receipt, current_snapshots))
     return tuple(dict.fromkeys(errors))
+
+
+def validate_plan_row_ingestion_bindings(
+    row: PlanRow,
+    snapshots: tuple[PlanSourceSnapshot, ...],
+    receipts: tuple[Mapping[str, object], ...],
+) -> tuple[str, ...]:
+    """Validate bidirectional receipt/source/action bindings for the latest ingest."""
+    receipt = latest_accepted_plan_source_receipt(row.row_id, receipts)
+    if receipt is None:
+        return ("missing_latest_accepted_plan_ingestion_receipt",)
+
+    errors: list[str] = []
+    receipt_id = coerce_string(receipt.get("receipt_id"))
+    if receipt_id and receipt_id not in _receipt_ids_from_row(row):
+        errors.append(f"plan_row_missing_latest_plan_intent_receipt_ref:{receipt_id}")
+    action_id = coerce_string(receipt.get("action_id"))
+    if action_id and action_id not in _action_ids_from_row(row):
+        errors.append(f"plan_row_missing_latest_typed_action_ref:{action_id}")
+
+    current_snapshots, current_errors = _current_receipt_snapshots(
+        row,
+        snapshots,
+        receipt,
+    )
+    errors.extend(current_errors)
+    if not current_snapshots:
+        return tuple(dict.fromkeys(errors))
+
+    for snapshot in current_snapshots:
+        if receipt_id and snapshot.receipt_id != receipt_id:
+            errors.append(
+                f"latest_source_snapshot_receipt_binding_mismatch:{snapshot.snapshot_id}"
+            )
+        if action_id and snapshot.action_id != action_id:
+            errors.append(
+                f"latest_source_snapshot_action_binding_mismatch:{snapshot.snapshot_id}"
+            )
+
+    receipt_packet_id = coerce_string(receipt.get("packet_id"))
+    if receipt_packet_id and row.sourced_from_packets and receipt_packet_id not in set(
+        row.sourced_from_packets
+    ):
+        errors.append(f"latest_receipt_packet_binding_mismatch:{receipt_packet_id}")
+    if receipt_packet_id and not any(
+        snapshot.source_packet_id == receipt_packet_id for snapshot in current_snapshots
+    ):
+        errors.append(
+            f"latest_source_snapshot_packet_binding_mismatch:{receipt_packet_id}"
+        )
+    return tuple(dict.fromkeys(errors))
+
+
+def detect_plan_row_ingestion_drifts(
+    row: PlanRow,
+    snapshots: tuple[PlanSourceSnapshot, ...],
+    receipts: tuple[Mapping[str, object], ...],
+    *,
+    repo_root: Path | None = None,
+) -> tuple[IngestionDrift, ...]:
+    """Return typed ingestion-drift records for one PlanRow."""
+    latest_receipt = latest_accepted_plan_source_receipt(row.row_id, receipts)
+    current_snapshots: tuple[PlanSourceSnapshot, ...] = ()
+    if latest_receipt is not None:
+        current_snapshots, _ = _current_receipt_snapshots(row, snapshots, latest_receipt)
+    drifts: list[IngestionDrift] = []
+    expected_hash = _drift_expected_hash(row, latest_receipt)
+    observed_hash = _drift_observed_hash(latest_receipt, current_snapshots)
+    source_doc_path = row.source_doc_path
+    for reason in dict.fromkeys(
+        (
+            *validate_current_plan_source_retention(row, snapshots, receipts),
+            *validate_plan_row_ingestion_bindings(row, snapshots, receipts),
+        )
+    ):
+        drifts.append(
+            IngestionDrift(
+                row_id=row.row_id,
+                source_doc_path=source_doc_path,
+                expected_hash=expected_hash,
+                observed_hash=observed_hash,
+                reason=reason,
+            )
+        )
+    owner_doc_drift = _active_owner_doc_hash_drift(row, repo_root=repo_root)
+    if owner_doc_drift is not None:
+        drifts.append(owner_doc_drift)
+    return tuple(drifts)
 
 
 def latest_accepted_plan_source_receipt(
@@ -205,9 +299,101 @@ def _snapshot_ids_from_row(row: PlanRow) -> set[str]:
     }
 
 
+def _receipt_ids_from_row(row: PlanRow) -> set[str]:
+    return {
+        item[len(PLAN_INTENT_RECEIPT_REF_PREFIX) :]
+        for item in row.work_evidence_ids
+        if item.startswith(PLAN_INTENT_RECEIPT_REF_PREFIX)
+        and item[len(PLAN_INTENT_RECEIPT_REF_PREFIX) :]
+    }
+
+
+def _action_ids_from_row(row: PlanRow) -> set[str]:
+    return {
+        item[len(TYPED_ACTION_REF_PREFIX) :]
+        for item in row.work_evidence_ids
+        if item.startswith(TYPED_ACTION_REF_PREFIX)
+        and item[len(TYPED_ACTION_REF_PREFIX) :]
+    }
+
+
+def _drift_expected_hash(
+    row: PlanRow,
+    receipt: Mapping[str, object] | None,
+) -> str:
+    if row.provenance.source_hash:
+        return row.provenance.source_hash
+    if row.content_hash:
+        return row.content_hash
+    if receipt is not None:
+        return coerce_string(receipt.get("canonical_source_hash"))
+    return ""
+
+
+def _drift_observed_hash(
+    receipt: Mapping[str, object] | None,
+    snapshots: tuple[PlanSourceSnapshot, ...],
+) -> str:
+    if receipt is not None:
+        receipt_hash = coerce_string(receipt.get("canonical_source_hash"))
+        if receipt_hash:
+            return receipt_hash
+    for snapshot in snapshots:
+        if snapshot.body_hash:
+            return snapshot.body_hash
+        if snapshot.source_hash:
+            return snapshot.source_hash
+    return ""
+
+
+def _active_owner_doc_hash_drift(
+    row: PlanRow,
+    *,
+    repo_root: Path | None,
+) -> IngestionDrift | None:
+    if not row.provenance.source_hash:
+        return None
+    doc_path = _resolve_source_doc_path(row.source_doc_path, repo_root=repo_root)
+    if doc_path is None or not _is_active_owner_doc(doc_path) or not doc_path.exists():
+        return None
+    observed_hash = plan_intent_content_hash(doc_path.read_text(encoding="utf-8"))
+    if observed_hash == row.provenance.source_hash:
+        return None
+    return IngestionDrift(
+        row_id=row.row_id,
+        source_doc_path=str(doc_path),
+        expected_hash=row.provenance.source_hash,
+        observed_hash=observed_hash,
+        reason="active_owner_doc_hash_drift",
+    )
+
+
+def _resolve_source_doc_path(
+    source_doc_path: str,
+    *,
+    repo_root: Path | None,
+) -> Path | None:
+    raw = coerce_string(source_doc_path)
+    if not raw:
+        return None
+    path = Path(raw)
+    if path.is_absolute():
+        return path
+    if repo_root is None:
+        return None
+    return repo_root / path
+
+
+def _is_active_owner_doc(path: Path) -> bool:
+    parts = path.as_posix()
+    return parts.startswith("dev/active/") or "/dev/active/" in parts
+
+
 __all__ = [
     "ACCEPTED_PLAN_SOURCE_RECEIPT_STATUSES",
+    "detect_plan_row_ingestion_drifts",
     "latest_accepted_plan_source_receipt",
     "validate_current_plan_source_retention",
+    "validate_plan_row_ingestion_bindings",
     "validate_plan_row_source_retention",
 ]

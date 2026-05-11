@@ -14,9 +14,17 @@ def ordered_actionable_packets(
     """Return actionable packets in delivery/execution priority order."""
     action_requests = [packet for packet in packets if is_action_request(packet)]
     instructions = [packet for packet in packets if _packet_kind(packet) == "instruction"]
+    attention_packets = [
+        packet
+        for packet in packets
+        if attention_urgency(packet) in {"urgent", "blocking"}
+        and not is_action_request(packet)
+        and _packet_kind(packet) != "instruction"
+    ]
     return (
         *sorted(action_requests, key=_action_request_priority_key),
         *sorted(instructions, key=_latest_sort_key, reverse=True),
+        *sorted(attention_packets, key=_attention_priority_key),
     )
 
 
@@ -37,7 +45,21 @@ def is_actionable(packet: Mapping[str, object]) -> bool:
     """Return True when one packet can drive the current instruction lane."""
     if _packet_kind(packet) in SESSION_TERMINATION_PACKET_KINDS:
         return False
-    return is_action_request(packet) or _packet_kind(packet) == "instruction"
+    return (
+        is_action_request(packet)
+        or _packet_kind(packet) == "instruction"
+        or attention_urgency(packet) in {"urgent", "blocking"}
+    )
+
+
+def attention_urgency(packet: Mapping[str, object]) -> str:
+    explicit = _normalized_text(packet.get("attention_urgency")).lower()
+    if explicit in {"ambient", "urgent", "blocking"}:
+        return explicit
+    legacy = _normalized_text(packet.get("urgency")).lower()
+    if legacy in {"ambient", "urgent", "blocking"}:
+        return legacy
+    return "ambient"
 
 
 def _action_request_priority_key(packet: Mapping[str, object]) -> tuple[object, ...]:
@@ -60,6 +82,16 @@ def _action_request_priority_key(packet: Mapping[str, object]) -> tuple[object, 
 
 def _latest_sort_key(packet: Mapping[str, object]) -> tuple[object, ...]:
     return (
+        _parse_utc(packet.get("posted_at")),
+        _packet_id(packet),
+    )
+
+
+def _attention_priority_key(packet: Mapping[str, object]) -> tuple[object, ...]:
+    urgency_rank = {"blocking": 0, "urgent": 1, "ambient": 2}
+    return (
+        urgency_rank.get(attention_urgency(packet), 9),
+        -_event_id_rank(str(packet.get("latest_event_id") or "")),
         _parse_utc(packet.get("posted_at")),
         _packet_id(packet),
     )

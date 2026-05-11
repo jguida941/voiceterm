@@ -136,6 +136,9 @@ def _orchestration_blocker_text(
             continue
         values.extend(
             (
+                row.why_not_done,
+                row.continuation_goal,
+                row.user_action,
                 row.top_blocker,
                 row.required_action,
                 row.lifecycle_state,

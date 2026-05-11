@@ -6,6 +6,10 @@ import json
 from pathlib import Path
 
 from ..common import display_path
+from ..runtime.collaboration_packet_kinds import (
+    REVIEW_ACCEPTED_PACKET_KIND,
+    REVIEW_STARTED_PACKET_KIND,
+)
 from .context_refs import normalize_context_pack_refs
 from .event_models import ReviewChannelEventBundle, ReviewPacketRow
 from .event_reducer_support import (
@@ -41,13 +45,14 @@ from .event_store import (
     DEFAULT_REVIEW_CHANNEL_PLAN_ID,
     DEFAULT_REVIEW_CHANNEL_SESSION_ID,
     ReviewChannelArtifactPaths,
+    legacy_projection_mirror_root,
     load_agent_registry,
     load_events,
-    write_legacy_projection_mirror,
 )
 from .instruction_transitions import maybe_record_instruction_transition
 from .state import (
     write_projection_bundle,
+    write_projection_bundle_mirrors,
 )
 from .projection_bundle import artifact_writes_suppressed, projection_paths_for_root
 from .daemon_reducer import (
@@ -137,7 +142,11 @@ def _apply_packet_event(
     errors: list[str],
 ) -> None:
     if event_type == "packet_posted":
-        packets_by_id[packet_id] = packet_from_event(event)
+        posted_event = _event_with_review_started_evidence(
+            event=event,
+            packets=packets_by_id.values(),
+        )
+        packets_by_id[packet_id] = packet_from_event(posted_event)
         return
 
     packet = packets_by_id.get(packet_id)
@@ -154,6 +163,100 @@ def _apply_packet_event(
         expired_packet["latest_event_id"] = event.get("event_id")
         expired_packet["status"] = "expired"
         packets_by_id[packet_id] = apply_packet_transition(expired_packet, event)
+
+
+def _event_with_review_started_evidence(
+    *,
+    event: dict[str, object],
+    packets,
+) -> dict[str, object]:
+    if _text(event.get("kind")) != REVIEW_ACCEPTED_PACKET_KIND:
+        return event
+    if _has_review_started_ref(event):
+        return event
+    match = _matching_review_started_packet(event=event, packets=packets)
+    if match is None:
+        return event
+    packet_id = _text(match.get("packet_id"))
+    if not packet_id:
+        return event
+    enriched = dict(event)
+    refs = [
+        *_rows(event.get("evidence_refs")),
+        f"packet:{packet_id}#review_in_progress",
+    ]
+    enriched["evidence_refs"] = _dedupe(refs)
+    return enriched
+
+
+def _matching_review_started_packet(
+    *,
+    event: dict[str, object],
+    packets,
+) -> dict[str, object] | None:
+    candidates = [
+        packet
+        for packet in packets
+        if _text(packet.get("kind")) == REVIEW_STARTED_PACKET_KIND
+        and _text(packet.get("plan_id")) == _text(event.get("plan_id"))
+        and _review_scope_matches(packet=packet, event=event)
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda packet: _text(packet.get("posted_at")))
+
+
+def _review_scope_matches(
+    *,
+    packet: dict[str, object],
+    event: dict[str, object],
+) -> bool:
+    packet_target_ref = _text(packet.get("target_ref"))
+    event_target_ref = _text(event.get("target_ref"))
+    if packet_target_ref and event_target_ref and packet_target_ref == event_target_ref:
+        return True
+    shared_anchors = set(_rows(packet.get("anchor_refs"))) & set(
+        _rows(event.get("anchor_refs"))
+    )
+    if shared_anchors:
+        return True
+    packet_session_id = _text(packet.get("target_session_id"))
+    event_session_id = _text(event.get("target_session_id"))
+    if not packet_session_id or packet_session_id != event_session_id:
+        return False
+    packet_role = _text(packet.get("target_role"))
+    event_role = _text(event.get("target_role"))
+    return bool(packet_role and event_role and packet_role == event_role)
+
+
+def _has_review_started_ref(event: dict[str, object]) -> bool:
+    refs = (
+        *_rows(event.get("evidence_refs")),
+        *_rows(event.get("guidance_refs")),
+        *_rows(event.get("anchor_refs")),
+    )
+    return any(
+        "review_started" in ref or "review_in_progress" in ref
+        for ref in refs
+    )
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    return list(dict.fromkeys(value for value in values if value))
+
+
+def _rows(value: object) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(
+        str(item or "").strip()
+        for item in value
+        if str(item or "").strip()
+    )
+
+
+def _text(value: object) -> str:
+    return str(value or "").strip()
 
 
 def load_or_refresh_event_bundle(
@@ -284,20 +387,19 @@ def refresh_event_bundle(
 
         state_path = Path(artifact_paths.state_path)
         _atomic_write_text(state_path, json.dumps(review_state, indent=2))
-        projection_paths = write_projection_bundle(
+        legacy_root = legacy_projection_mirror_root(
+            repo_root=repo_root,
+            canonical_projections_root=projections_root,
+        )
+        mirror_roots = (legacy_root,) if legacy_root is not None else ()
+        projection_paths = write_projection_bundle_mirrors(
             output_root=projections_root,
+            mirror_roots=mirror_roots,
             review_state=review_state,
             agent_registry=agent_registry,
             action="status",
             trace_events=events,
             full_extras=full_extras,
-        )
-        write_legacy_projection_mirror(
-            repo_root=repo_root,
-            canonical_projections_root=projections_root,
-            review_state=review_state,
-            agent_registry=agent_registry,
-            trace_events=events,
         )
     return ReviewChannelEventBundle(
         artifact_paths=artifact_paths,

@@ -353,7 +353,7 @@ def derive_wake_evidence_for_actor(
             if target_role != actor_role and target_role != actor_id:
                 continue
         target_session_id = str(event.get("target_session_id") or "").strip()
-        if target_session_id and session_id and target_session_id != session_id:
+        if target_session_id and target_session_id != session_id:
             continue
         latest = event
         latest_kind = (

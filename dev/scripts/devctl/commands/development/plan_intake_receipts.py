@@ -6,8 +6,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ...runtime.plan_ingestion_phase0_models import (
+    CommandManifestProof,
+    GuardMaturityRecord,
+    PlanCompositionDispositionEntry,
+    ReceiptCoverageInventory,
+    RepoStateFingerprint,
+)
 from ...runtime.plan_intent_ingestion import (
     PlanIntentIngestionReceipt,
+    plan_intent_action_id,
     plan_intent_receipt_id,
 )
 from .plan_intake_sources import PlanIntentSource
@@ -46,6 +54,42 @@ class ReceiptOutcome:
     source_matched_anchor_count: int = 0
     source_missing_required_anchors: tuple[str, ...] = ()
     source_integrity_checked_at_utc: str = ""
+    composition_disposition_matrix: tuple[PlanCompositionDispositionEntry, ...] = ()
+    command_manifest_proofs: tuple[CommandManifestProof, ...] = ()
+    guard_maturity_records: tuple[GuardMaturityRecord, ...] = ()
+    repo_state_fingerprint: RepoStateFingerprint | None = None
+    receipt_coverage_inventory: ReceiptCoverageInventory | None = None
+    schema_limit_warning: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ReceiptBindingIds:
+    """Deterministic ids shared by row, receipt, and snapshot bindings."""
+
+    receipt_id: str
+    action_id: str
+    target_ref: str
+
+
+def receipt_binding_ids(context: ReceiptBuildContext) -> ReceiptBindingIds:
+    """Return deterministic receipt/action ids for one ingestion attempt."""
+    target_ref = target_ref_from_source(context.args, context.source)
+    return ReceiptBindingIds(
+        receipt_id=plan_intent_receipt_id(
+            source_kind=context.source.kind,
+            source_ref=context.source.ref,
+            source_hash=context.source_hash,
+            recorded_at_utc=context.observed_at,
+        ),
+        action_id=plan_intent_action_id(
+            source_kind=context.source.kind,
+            source_ref=context.source.ref,
+            source_hash=context.source_hash,
+            target_ref=target_ref,
+            recorded_at_utc=context.observed_at,
+        ),
+        target_ref=target_ref,
+    )
 
 
 def build_receipt(
@@ -55,20 +99,16 @@ def build_receipt(
     """Build a typed plan-intent ingestion receipt."""
     source = context.source
     packet = source.packet_payload
-    receipt_id = plan_intent_receipt_id(
-        source_kind=source.kind,
-        source_ref=source.ref,
-        source_hash=context.source_hash,
-        recorded_at_utc=context.observed_at,
-    )
+    binding_ids = receipt_binding_ids(context)
     return PlanIntentIngestionReceipt(
-        receipt_id=receipt_id,
+        receipt_id=binding_ids.receipt_id,
+        action_id=binding_ids.action_id,
         source_kind=source.kind,
         source_ref=source.ref,
         status=outcome.status,
         reason=outcome.reason,
         target_kind=outcome.target_kind,
-        target_ref=target_ref_from_source(context.args, source),
+        target_ref=binding_ids.target_ref,
         row_ids=outcome.row_ids,
         store_statuses=outcome.store_statuses,
         terminal_status=outcome.terminal_status,
@@ -86,6 +126,12 @@ def build_receipt(
         source_matched_anchor_count=outcome.source_matched_anchor_count,
         source_missing_required_anchors=outcome.source_missing_required_anchors,
         source_integrity_checked_at_utc=outcome.source_integrity_checked_at_utc,
+        composition_disposition_matrix=outcome.composition_disposition_matrix,
+        command_manifest_proofs=outcome.command_manifest_proofs,
+        guard_maturity_records=outcome.guard_maturity_records,
+        repo_state_fingerprint=outcome.repo_state_fingerprint,
+        receipt_coverage_inventory=outcome.receipt_coverage_inventory,
+        schema_limit_warning=outcome.schema_limit_warning,
         recorded_at_utc=context.observed_at,
         dry_run=bool(getattr(context.args, "dry_run", False)),
     )
@@ -100,4 +146,11 @@ def receipt_status(statuses: tuple[str, ...]) -> tuple[str, str, str]:
     return "rejected", "plan_rows_not_written", "rejected"
 
 
-__all__ = ["ReceiptBuildContext", "ReceiptOutcome", "build_receipt", "receipt_status"]
+__all__ = [
+    "ReceiptBindingIds",
+    "ReceiptBuildContext",
+    "ReceiptOutcome",
+    "build_receipt",
+    "receipt_binding_ids",
+    "receipt_status",
+]

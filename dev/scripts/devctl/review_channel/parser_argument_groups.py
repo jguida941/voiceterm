@@ -10,6 +10,8 @@ from .events import (
     DEFAULT_REVIEW_CHANNEL_SESSION_ID,
 )
 from .packet_contract import (
+    VALID_ATTENTION_CLASSES,
+    VALID_ATTENTION_URGENCIES,
     VALID_PACKET_KINDS,
     VALID_PLAN_MUTATION_OPS,
     VALID_TARGET_KINDS,
@@ -64,6 +66,21 @@ def build_packet_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             "--approval-required",
             action="store_true",
             help="Mark packet as requiring explicit operator approval",
+        ),
+        arg_builder(
+            "--attention-urgency",
+            choices=sorted(VALID_ATTENTION_URGENCIES),
+            default="auto",
+            help=(
+                "Typed attention urgency for the target lane; urgent/blocking "
+                "draw peer attention without launching sessions."
+            ),
+        ),
+        arg_builder(
+            "--attention-class",
+            choices=sorted(VALID_ATTENTION_CLASSES),
+            default="auto",
+            help="Typed attention class for packet routing and status surfaces",
         ),
         arg_builder(
             "--context-pack-ref",
@@ -147,20 +164,20 @@ def _packet_target_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
         arg_builder(
             "--target-role",
             help=(
-                "Optional role discriminator for the target agent (e.g. "
-                "`coder`, `dashboard`). Per rev_pkt_2472: when an agent name "
-                "like `claude` is shared by multiple session-roles, this "
-                "narrows the packet to exactly one of them. Consumers fail "
-                "closed on mismatch when the field is set."
+                "Optional role discriminator for the target lane, such as "
+                "`implementer`, `reviewer`, `dashboard`, or another typed "
+                "role. When one delivery endpoint hosts multiple role "
+                "sessions, this narrows the packet to exactly one role lane. "
+                "Consumers fail closed on mismatch when the field is set."
             ),
         ),
         arg_builder(
             "--target-session-id",
             help=(
                 "Optional session-id discriminator for the target agent. "
-                "Per rev_pkt_2472: pins the packet to one specific provider "
-                "session so a dashboard role and implementer role on the same "
-                "provider cannot both consume the same packet. "
+                "Per rev_pkt_2472: pins the packet to one specific typed "
+                "session so two roles on the same delivery endpoint cannot "
+                "both consume the same packet. "
                 "Consumers fail closed on mismatch when the field is set."
             ),
         ),
@@ -216,8 +233,9 @@ def _agent_packet_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
         arg_builder(
             "--to-agent",
             help=(
-                "Target agent id for packet writes; validated against typed "
-                "collaboration/runtime state"
+                "Legacy delivery endpoint id for packet writes; validated "
+                "against typed collaboration/runtime state. Routing authority "
+                "comes from role/session scope when present."
             ),
         ),
     ]

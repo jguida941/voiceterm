@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
 
 from ..governance.draft import scan_repo_governance
@@ -14,11 +15,11 @@ from ..review_channel.remote_commit_pipeline_artifact import (
 )
 from ..review_channel.service_identity import worktree_identity_for_repo
 from .action_contracts import ActionOutcome
-from .conductor_capability import normalize_reviewer_mode
 from .remote_commit_pipeline_models import (
     PushAuthorizationRecord,
     RemoteCommitPipelineContract,
 )
+from .role_topology import resolve_role_topology
 from .review_snapshot_refresh import (
     receipt_commit_ancestor_shas,
     receipt_commit_parent_sha,
@@ -267,7 +268,7 @@ def _authorization_required(
     current_head: str,
     snapshot_receipt_ancestors: tuple[str, ...],
 ) -> bool:
-    if _active_dual_agent_review(review_state):
+    if _live_multi_agent_review(review_state):
         return True
     if pipeline.pipeline_id or pipeline.push_authorization is not None:
         return _pipeline_targets_current_publication(
@@ -278,15 +279,25 @@ def _authorization_required(
     return False
 
 
-def _active_dual_agent_review(review_state) -> bool:
+def _live_multi_agent_review(review_state) -> bool:
     if review_state is None:
         return False
-    runtime = getattr(review_state, "reviewer_runtime", None)
-    declared_mode = normalize_reviewer_mode(getattr(runtime, "reviewer_mode", ""))
-    effective_mode = normalize_reviewer_mode(
-        getattr(runtime, "effective_reviewer_mode", "")
-    )
-    return declared_mode == "active_dual_agent" or effective_mode == "active_dual_agent"
+    topology = resolve_role_topology(_review_state_bridge_liveness(review_state))
+    return topology.live_reviewer and topology.live_implementer
+
+
+def _review_state_bridge_liveness(review_state) -> Mapping[str, object]:
+    bridge = getattr(review_state, "bridge", None)
+    if bridge is None:
+        return {}
+    if isinstance(bridge, Mapping):
+        return bridge
+    if is_dataclass(bridge):
+        return asdict(bridge)
+    values = getattr(bridge, "__dict__", None)
+    if isinstance(values, Mapping):
+        return values
+    return {}
 
 
 def _pipeline_targets_current_publication(

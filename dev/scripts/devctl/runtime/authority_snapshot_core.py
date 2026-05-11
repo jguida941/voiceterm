@@ -22,6 +22,7 @@ from .review_state_packet_models import (
     AgentAttentionRecord,
     agent_attention_record_from_mapping,
 )
+from .reviewer_mode import reviewer_mode_is_active, reviewer_mode_is_single_agent
 from .surface_provenance import attach_surface_provenance, surface_provenance_kwargs
 
 @dataclass(frozen=True, slots=True)
@@ -198,7 +199,7 @@ def _coordination_state(
     if resync_required:
         return "resync_required"
     if (
-        reviewer_mode == "active_dual_agent"
+        reviewer_mode_is_active(reviewer_mode)
         and current_instruction_revision
         and implementer_ack_state == "stale"
     ):
@@ -213,7 +214,7 @@ def _coordination_state(
         "runtime_missing",
     }:
         return "degraded"
-    if reviewer_mode == "single_agent":
+    if reviewer_mode_is_single_agent(reviewer_mode):
         if "dual-agent heartbeat enforcement is suspended" in root_cause:
             return "single_agent_authoritative"
         return "single_agent"

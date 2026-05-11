@@ -151,8 +151,8 @@ def wake_continuity_contract(
         verification_wake_mode,
         watcher_wake_mode,
         False,
-        "active_dual_agent requires continuous wake-capable mutation, verification, "
-        "and watcher lanes: " + "; ".join(gaps),
+        "compatibility active reviewer mode requires continuous attention-capable "
+        "mutation, verification, and watcher lanes: " + "; ".join(gaps),
     )
 
 
@@ -221,7 +221,7 @@ def loop_autonomy_contract(
                 loop_driver_agent="multi_lane",
                 loop_autonomy_ok=False,
                 loop_gap_summary=(
-                    "active_dual_agent loop lacks autonomous wake coverage: "
+                    "compatibility active reviewer loop lacks autonomous attention coverage: "
                     + "; ".join(blockers)
                 ),
             )

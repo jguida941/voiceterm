@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ..render_vocabulary import action_label, reason_label
+
 
 def runtime_lines(runtime) -> list[str]:
     """Render typed runtime/work-board context."""
@@ -111,7 +113,7 @@ def _peer_lines(peer: dict[str, object]) -> list[str]:
             f"{peer.get('confidence') or '(unknown)'} "
             f"age={peer.get('age_seconds')}s "
             f"events={peer.get('event_count')} "
-            f"attention_hint={attention_hint} "
+            f"attention_hint={reason_label(attention_hint)} "
             f"sessions={peer.get('covered_session_count', 0)}/"
             f"{peer.get('known_session_count', 0)} "
             f"omitted={peer.get('omitted_session_count', 0)}"
@@ -157,7 +159,7 @@ def _signal_details(row: dict[str, object]) -> str:
     if row.get("severity"):
         parts.append(f"severity={row.get('severity')}")
     if row.get("recommended_action"):
-        parts.append(f"action={row.get('recommended_action')}")
+        parts.append(f"action={action_label(row.get('recommended_action'))}")
     if row.get("source_surface"):
         parts.append(f"surface={row.get('source_surface')}")
     if row.get("closure_check_command"):
@@ -168,16 +170,22 @@ def _signal_details(row: dict[str, object]) -> str:
 
 
 def _agent_loop_row_text(row: dict[str, object]) -> str:
+    user_action = action_label(
+        row.get("user_action") or row.get("required_action")
+    ) or "(none)"
+    goal = row.get("continuation_goal") or row.get("attention_packet_id") or row.get("active_packet_id")
+    why = row.get("why_not_done") or row.get("top_blocker")
     return (
         f"- agent-loop {row.get('actor_id') or '(actor)'}:"
         f"{row.get('actor_role') or '(role)'} "
         f"session={_short(row.get('session_id')) or 'unscoped'} "
-        f"state={row.get('lifecycle_state') or '(none)'} "
-        f"action={row.get('required_action') or '(none)'} "
+        f"state={reason_label(row.get('lifecycle_state')) or '(none)'} "
+        f"action={user_action} "
+        f"goal={_clip(goal, limit=80) or '(none)'} "
         f"safe={row.get('safe_to_continue')} "
         f"mutate={row.get('may_mutate')} "
         f"proof={row.get('proof_state') or '(none)'} "
-        f"blocker={_clip(row.get('top_blocker'), limit=120) or '(none)'}"
+        f"why={reason_label(_clip(why, limit=120)) or '(none)'}"
     )
 
 

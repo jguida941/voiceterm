@@ -2,9 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 from ...config import REPO_ROOT
+from ...review_channel.event_store import load_events, resolve_artifact_paths
+from ...runtime.development_collaboration_profiles import (
+    AgentCollaborationProfile,
+    CollaborationRoleCountRequest,
+    CollaborationStopAnchorRequest,
+    build_agent_collaboration_profile,
+)
 from ...runtime.development_collaboration_modes import collaboration_mode_report
 from ...runtime.development_packet_pressure import packet_pressure_report
 from ...runtime.development_team import build_default_development_topology
@@ -19,6 +28,7 @@ from .attention_commands import (
 from .campaign import campaign_report
 from .continuation import continuation_signal, watcher_lease_status
 from .design_preflight import build_design_preflight
+from .final_response_gate import enforce_final_response_gate
 from .lifecycle import LIFECYCLE_ACTIONS
 from .lifecycle import lifecycle_next_commands, lifecycle_plan
 from .models import (
@@ -103,6 +113,42 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         requested_role_preset=getattr(args, "role_preset", ""),
         max_workers=int(getattr(args, "max_workers", 0) or 0),
     )
+    collaboration_profile = build_agent_collaboration_profile(
+        profile_id=getattr(args, "profile", ""),
+        selected_mode_id=str(collaboration_mode.get("selected_mode_id") or "solo"),
+        selected_role_preset_id=str(
+            collaboration_mode.get("selected_role_preset_id") or "dashboard"
+        ),
+        providers=tuple(getattr(args, "provider", ()) or ()),
+        role_bindings=tuple(getattr(args, "role_binding", ()) or ()),
+        role_counts=tuple(getattr(args, "role_count", ()) or ()),
+        agent_mind_providers=tuple(getattr(args, "agent_mind_provider", ()) or ()),
+        remote_provider=getattr(args, "remote_provider", ""),
+        architecture_agent_count=int(getattr(args, "architecture_agents", 0) or 0),
+        review_agent_count=int(getattr(args, "review_agents", 0) or 0),
+        source_packet_id=getattr(args, "source_packet_id", ""),
+        target_packet_id=getattr(args, "target_packet_id", ""),
+        stop_at_packet_id=getattr(args, "stop_at_packet", ""),
+        stop_at_mp_row_id=getattr(args, "stop_at_mp_row", ""),
+        source_ref=getattr(args, "source_ref", ""),
+        target_ref=getattr(args, "target_ref", ""),
+        max_workers=int(getattr(args, "max_workers", 0) or 0),
+        emit_template=bool(getattr(args, "emit_profile_template", False)),
+        review_state=review_state,
+        events=_review_channel_events(REPO_ROOT),
+        plan_rows=rows,
+    )
+    collaboration_mode["profile"] = collaboration_profile.to_dict()
+    collaboration_mode["profile_contract_refs"] = _profile_contract_refs(
+        collaboration_profile
+    )
+    warnings = (*warnings, *collaboration_profile.validation_warnings)
+    if (
+        action == "collaboration-profile"
+        and bool(getattr(args, "validate_profile", False))
+        and not collaboration_profile.ok
+    ):
+        blockers = (*blockers, *collaboration_profile.validation_errors)
     design_preflight = build_design_preflight(
         args=args,
         repo_root=REPO_ROOT,
@@ -120,6 +166,11 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         packet_pressure=packet_pressure,
         current_action=action,
         fallback_commands=next_commands,
+    )
+    final_response_gate = enforce_final_response_gate(
+        continuation,
+        packet_attention=packet_attention,
+        orchestration=orchestration,
     )
 
     status = status_for_report(blockers=blockers, continuation=continuation)
@@ -149,6 +200,7 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         packet_ingest_decisions=tuple(packet_ingest_decisions),
         watcher_lease=watcher_lease,
         continuation=continuation,
+        final_response_gate=final_response_gate,
         learning=learning_snapshot(REPO_ROOT),
         discovery=discovery_snapshot(REPO_ROOT),
         required_checks=required_checks,
@@ -188,6 +240,23 @@ def build_report(args: Any) -> DevelopmentLoopReport:
     )
 
 
+def _profile_contract_refs(profile: AgentCollaborationProfile) -> dict[str, object]:
+    role_count_requests: tuple[CollaborationRoleCountRequest, ...] = (
+        profile.role_count_requests
+    )
+    stop_anchor_request: CollaborationStopAnchorRequest | None = (
+        profile.stop_anchor_request
+    )
+    return {
+        "profile_contract_id": profile.contract_id,
+        "role_count_request_count": len(role_count_requests),
+        "role_count_request_roles": [row.role for row in role_count_requests],
+        "stop_anchor_status": (
+            stop_anchor_request.status if stop_anchor_request is not None else ""
+        ),
+    }
+
+
 def _controller_state(action: str, args: Any) -> str:
     if action in LIFECYCLE_ACTIONS:
         return f"read_only_{action}_preview"
@@ -199,6 +268,10 @@ def _controller_state(action: str, args: Any) -> str:
         return "read_only_design_preflight"
     if action == "campaign":
         return "read_only_remote_control_campaign"
+    if action == "collaboration-profile":
+        if bool(getattr(args, "validate_profile", False)):
+            return "read_only_collaboration_profile_validation"
+        return "read_only_collaboration_profile"
     if action in {"pause", "resume"}:
         return f"read_only_{action}_preview"
     if action == "audit-guards":
@@ -268,6 +341,10 @@ def _action_findings(action: str, args: Any) -> tuple[tuple[str, ...], tuple[str
         blockers.append("--max-cycles must be at least 1.")
     if max_workers < 0:
         blockers.append("--max-workers cannot be negative.")
+    if int(getattr(args, "architecture_agents", 0) or 0) < 0:
+        blockers.append("--architecture-agents cannot be negative.")
+    if int(getattr(args, "review_agents", 0) or 0) < 0:
+        blockers.append("--review-agents cannot be negative.")
     if bool(getattr(args, "drain_packets", False)) and action != "audit-packets":
         blockers.append("--drain-packets is only valid with audit-packets.")
     if (
@@ -308,6 +385,7 @@ def _required_checks(action: str) -> tuple[str, ...]:
         "launch",
         "design-preflight",
         "campaign",
+        "collaboration-profile",
     }:
         checks.append("python3 dev/scripts/devctl.py probe-report --format md")
         checks.append("python3 dev/scripts/devctl.py governance-quality-feedback --format md")
@@ -351,7 +429,26 @@ def _next_commands(action: str) -> tuple[str, ...]:
             "--target claude --actor claude --status pending --terminal none --format md",
             "python3 dev/scripts/devctl.py develop next --actor codex --format md",
         )
+    if action == "collaboration-profile":
+        return (
+            "python3 dev/scripts/devctl.py develop collaboration-profile "
+            "--collaboration-mode agent_sync --role-preset architect "
+            "--role-binding implementer=claude --role-binding reviewer=codex "
+            "--role-binding architect=codex --role-binding watcher=claude "
+            "--role-count architect=3 --role-count researcher=2 "
+            "--agent-mind-provider claude --agent-mind-provider codex "
+            "--architecture-agents 3 --validate-profile --format md",
+        )
     return ("python3 dev/scripts/devctl.py develop next --format md",)
+
+
+def _review_channel_events(repo_root: Path) -> tuple[Mapping[str, object], ...]:
+    artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+    try:
+        rows = load_events(Path(artifact_paths.event_log_path))
+    except (OSError, ValueError):
+        return ()
+    return tuple(row for row in rows if isinstance(row, Mapping))
 
 
 def _next_step_command(

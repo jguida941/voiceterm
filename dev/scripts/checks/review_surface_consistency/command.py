@@ -9,7 +9,12 @@ from pathlib import Path
 from typing import Any
 
 from dev.scripts.devctl.runtime.startup_context import build_startup_context
+from dev.scripts.devctl.review_channel.projection_bundle import projection_bundle_lock
+from dev.scripts.devctl.runtime.governance_scan import scan_repo_governance_safely
 from dev.scripts.devctl.runtime.review_state_parser import review_state_from_payload
+from dev.scripts.devctl.runtime.review_state_refresh_support import (
+    refresh_bridge_backed_review_state_payload,
+)
 from dev.scripts.devctl.runtime.validation_scope import (
     add_validation_scope_argument,
     apply_validation_scope_to_report,
@@ -60,7 +65,12 @@ def build_report(
     if payload_overrides:
         unexpected = ", ".join(sorted(payload_overrides))
         raise TypeError(f"unexpected payload override(s): {unexpected}")
-    review_state = review_state_payload or load_review_state_payload(repo_root)
+    with projection_bundle_lock(surface_path(repo_root, "review_state.json").parent):
+        review_state = review_state_payload or _load_fresh_review_state_payload(repo_root)
+        compact = compact_payload or _load_json(surface_path(repo_root, "compact.json"))
+        commit_pipeline = commit_pipeline_payload or _load_json(
+            surface_path(repo_root, "commit_pipeline.json")
+        )
     startup = startup_payload
     if startup is None:
         typed_review_state = (
@@ -73,10 +83,6 @@ def build_report(
             review_state=typed_review_state,
             caller_role="observer",
         ).to_dict()
-    compact = compact_payload or _load_json(surface_path(repo_root, "compact.json"))
-    commit_pipeline = commit_pipeline_payload or _load_json(
-        surface_path(repo_root, "commit_pipeline.json")
-    )
     bridge_poll = bridge_poll_payload or load_bridge_poll_payload(
         repo_root=repo_root,
         review_state_payload=review_state,
@@ -228,6 +234,17 @@ def _payload_override(
 ) -> dict[str, object] | None:
     value = payload_overrides.pop(key, None)
     return value if isinstance(value, dict) else None
+
+
+def _load_fresh_review_state_payload(repo_root: Path) -> dict[str, object]:
+    governance = scan_repo_governance_safely(repo_root)
+    refreshed = refresh_bridge_backed_review_state_payload(
+        repo_root,
+        governance=governance,
+    )
+    if isinstance(refreshed, dict) and refreshed:
+        return refreshed
+    return load_review_state_payload(repo_root)
 
 
 def _disk_turn_authority_parity_errors(

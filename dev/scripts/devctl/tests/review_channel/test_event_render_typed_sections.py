@@ -164,11 +164,11 @@ def test_render_event_md_renders_packet_wake_receipt() -> None:
 
     text = render_event_md(report)
 
-    assert "## Packet Wake" in text
+    assert "## Packet Attention" in text
     assert "- attempted: True" in text
-    assert "- woke: True" in text
+    assert "- runtime_dispatch_succeeded: True" in text
     assert "- reason: launched" in text
-    assert "- wake_method: spawn_fresh" in text
+    assert "- dispatch_method: spawn_fresh" in text
     assert "- target_agent: claude" in text
     assert "- target_role: dashboard" in text
     assert "- target_session_id: session-visible" in text
@@ -193,9 +193,9 @@ def test_render_event_md_renders_packet_attention_without_wake() -> None:
 
     assert "## Packet Attention" in text
     assert "- attempted: False" in text
-    assert "- woke: False" in text
+    assert "- runtime_dispatch_succeeded: False" in text
     assert "- attention_recorded: True" in text
-    assert "- wake_method: none" in text
+    assert "- dispatch_method: none" in text
     assert "- packet_id: rev_pkt_attention" in text
 
 
@@ -268,11 +268,11 @@ def test_render_event_md_renders_headless_delegate_wake_receipt() -> None:
 
     text = render_event_md(report)
 
-    assert "- woke: False" in text
-    assert "- visible_session_woke: False" in text
+    assert "- runtime_dispatch_succeeded: False" in text
+    assert "- visible_session_started: False" in text
     assert "- delegated: True" in text
     assert "- reason: headless_delegate_launched" in text
-    assert "- wake_method: headless_delegate" in text
+    assert "- dispatch_method: headless_delegate" in text
     assert "- dashboard_session_id: session-visible" in text
     assert "- spawned_pids: 4242" in text
     assert "- delivered_to_pids: 4242" in text

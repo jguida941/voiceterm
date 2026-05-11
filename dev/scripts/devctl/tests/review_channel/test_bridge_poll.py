@@ -334,7 +334,7 @@ def test_bridge_poll_reports_changed_since_last_ack(tmp_path: Path) -> None:
     assert rc == 1
     assert payload["ok"] is False
     assert payload["errors"] == [
-        "Live implementer ACK (`Claude Ack` compatibility heading) revision does not match the current reviewer instruction revision."
+        "Live implementer ACK (`Implementer Ack`) revision does not match the current reviewer instruction revision."
     ]
     assert payload["claude_ack_current"] is False
     assert payload["changed_since_last_ack"] is True
@@ -379,7 +379,12 @@ def test_bridge_poll_surfaces_typed_revision_reuse_warning(tmp_path: Path) -> No
         typed_review_state=typed_review_state,
     )
 
-    assert rc == 0
+    assert rc == 1
+    assert any(
+        "Assigned-role progress does not match the current reviewer instruction revision"
+        in error
+        for error in payload["errors"]
+    )
     assert payload["warnings"] == [
         "Current reviewer instruction text changed while `Current instruction revision` stayed at `c5d49df4cfd1`."
     ]
@@ -443,9 +448,9 @@ def test_bridge_poll_prefers_typed_runtime_authority_for_dead_dual_agent_loop() 
         result.recovery_action_allowed
         == "python3 dev/scripts/devctl.py review-channel --action launch"
     )
-    assert result.next_turn_required is True
-    assert result.next_turn_role == "reviewer"
-    assert result.next_turn_reason == "review_loop_relaunch_required"
+    assert result.next_turn_required is False
+    assert result.next_turn_role == ""
+    assert result.next_turn_reason == "inactive"
     assert result.turn_state_token
 
 
@@ -479,8 +484,8 @@ def test_bridge_poll_command_uses_typed_turn_authority_projection(
     assert payload["effective_reviewer_mode"] == "tools_only"
     assert payload["launch_truth"] == "detached_runtime_only"
     assert payload["attention_status"] == "review_loop_relaunch_required"
-    assert payload["next_turn_role"] == "reviewer"
-    assert payload["next_turn_reason"] == "review_loop_relaunch_required"
+    assert payload["next_turn_role"] == ""
+    assert payload["next_turn_reason"] == "inactive"
 
 
 def test_write_reviewer_heartbeat_rewrites_poll_status_immediately_under_heading(
@@ -1271,6 +1276,6 @@ def test_bridge_poll_partial_typed_state_with_lifecycle_derives_authority() -> N
     assert authority.launch_truth == "detached_runtime_only"
     assert authority.effective_reviewer_mode == "tools_only"
     assert authority.attention_status == "review_loop_relaunch_required"
-    assert authority.next_turn_required is True
-    assert authority.next_turn_role == "reviewer"
-    assert authority.next_turn_reason == "review_loop_relaunch_required"
+    assert authority.next_turn_required is False
+    assert authority.next_turn_role == ""
+    assert authority.next_turn_reason == "inactive"

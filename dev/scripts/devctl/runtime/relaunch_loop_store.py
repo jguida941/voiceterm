@@ -2,22 +2,23 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from .jsonl_support import parse_json_line_dict
 from .relaunch_loop_models import AgentRelaunchTrigger, SliceClosureEvent
+from .state_store_authority import append_json_mapping
 
 
 def append_jsonl(path: Path, payload: Mapping[str, object]) -> int:
     """Append one JSON object and return the byte offset used."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    offset = path.stat().st_size if path.exists() else 0
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(payload, sort_keys=True) + "\n")
-    return offset
+    result = append_json_mapping(
+        path,
+        payload,
+        store_id=path.name,
+    )
+    return result.byte_offset
 
 
 def load_slice_closure_events(path: Path) -> tuple[SliceClosureEvent, ...]:

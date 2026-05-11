@@ -23,10 +23,10 @@ def apply_phase_zero_parity_projection(
         or ""
     ).strip()
     reviewer_mode = str(
-        effective_reviewer_mode
-        or authority_snapshot.get("gate_mode")
+        authority_snapshot.get("gate_mode")
         or authority_snapshot.get("reviewer_mode")
         or reviewer_runtime.get("reviewer_mode")
+        or effective_reviewer_mode
         or ""
     ).strip()
     if reviewer_mode:

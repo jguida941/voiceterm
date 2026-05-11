@@ -68,6 +68,26 @@ class CommitPreflightDeps:
     post_commit_stage_handoff_fn: object = post_commit_stage_handoff
 
 
+@dataclass(frozen=True, slots=True)
+class IndexReuseDecision:
+    """Typed authority for whether governed staging preserves the current index."""
+
+    reuse_staged_index: bool
+    reason: str
+    evidence: tuple[str, ...] = ()
+    contract_id: str = "IndexReuseDecision"
+    schema_version: int = 1
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "contract_id": self.contract_id,
+            "schema_version": self.schema_version,
+            "reuse_staged_index": self.reuse_staged_index,
+            "reason": self.reason,
+            "evidence": list(self.evidence),
+        }
+
+
 def prepare_pipeline(
     *,
     args,
@@ -115,6 +135,11 @@ def prepare_pipeline(
         or pipeline.state not in _REUSABLE_PIPELINE_STATES
         or stale_pipeline
     ):
+        index_reuse_decision = resolve_index_reuse_decision(
+            repo_root=repo_root,
+            selected_paths=selected_paths,
+            action_request_grant=action_request_grant,
+        )
         stage_result = vcs_executor.execute(
             build_stage_action(
                 repo_pack_id=resolved_policy.repo_pack_id,
@@ -123,11 +148,8 @@ def prepare_pipeline(
                 push_requested=False,
                 guard_profile=GUARD_PROFILE,
                 work_intake_ref="devctl.commit",
-                reuse_staged_index=_reuse_staged_index(
-                    repo_root=repo_root,
-                    selected_paths=selected_paths,
-                    action_request_grant=action_request_grant,
-                ),
+                reuse_staged_index=index_reuse_decision.reuse_staged_index,
+                index_reuse_decision=index_reuse_decision.to_dict(),
                 allow_empty=bool(
                     getattr(args, "passthrough", ())
                     and "--allow-empty" in getattr(args, "passthrough", ())
@@ -188,25 +210,75 @@ def _reuse_staged_index(
     action_request_grant: object | None,
 ) -> bool:
     """Return whether stage should preserve an already-staged user index."""
+    return resolve_index_reuse_decision(
+        repo_root=repo_root,
+        selected_paths=selected_paths,
+        action_request_grant=action_request_grant,
+    ).reuse_staged_index
+
+
+def resolve_index_reuse_decision(
+    *,
+    repo_root: Path,
+    selected_paths: tuple[str, ...],
+    action_request_grant: object | None,
+) -> IndexReuseDecision:
+    """Return typed evidence for the governed index reuse decision."""
     if selected_paths:
-        return False
+        return IndexReuseDecision(
+            reuse_staged_index=False,
+            reason="explicit_selected_paths",
+            evidence=(f"selected_path_count={len(selected_paths)}",),
+        )
     if _grant_has_capability(action_request_grant, "repo.stage"):
-        return False
+        return IndexReuseDecision(
+            reuse_staged_index=False,
+            reason="repo_stage_capability_granted",
+            evidence=("capability=repo.stage",),
+        )
     if _grant_has_capability(action_request_grant, "repo.stage_handoff"):
-        return False
+        return IndexReuseDecision(
+            reuse_staged_index=False,
+            reason="repo_stage_handoff_capability_granted",
+            evidence=("capability=repo.stage_handoff",),
+        )
     try:
         staged = staged_paths(repo_root)
         dirty = dirty_paths(repo_root)
         unstaged = unstaged_paths(repo_root)
-    except (OSError, ValueError):
-        return True
-    if non_receipt_artifact_paths(repo_root=repo_root, paths=staged):
-        return True
-    if dirty and not non_receipt_artifact_paths(repo_root=repo_root, paths=staged):
-        return False
-    if non_receipt_artifact_paths(repo_root=repo_root, paths=unstaged):
-        return False
-    return True
+    except (OSError, ValueError) as exc:
+        return IndexReuseDecision(
+            reuse_staged_index=True,
+            reason="git_index_state_unavailable",
+            evidence=(f"error={type(exc).__name__}",),
+        )
+    staged_non_receipt = non_receipt_artifact_paths(repo_root=repo_root, paths=staged)
+    if staged_non_receipt:
+        return IndexReuseDecision(
+            reuse_staged_index=True,
+            reason="preserve_user_staged_artifacts",
+            evidence=(f"staged_non_receipt_count={len(staged_non_receipt)}",),
+        )
+    if dirty:
+        return IndexReuseDecision(
+            reuse_staged_index=False,
+            reason="dirty_worktree_requires_restage",
+            evidence=(f"dirty_path_count={len(dirty)}",),
+        )
+    unstaged_non_receipt = non_receipt_artifact_paths(
+        repo_root=repo_root,
+        paths=unstaged,
+    )
+    if unstaged_non_receipt:
+        return IndexReuseDecision(
+            reuse_staged_index=False,
+            reason="unstaged_artifacts_require_restage",
+            evidence=(f"unstaged_non_receipt_count={len(unstaged_non_receipt)}",),
+        )
+    return IndexReuseDecision(
+        reuse_staged_index=True,
+        reason="preserve_existing_index",
+    )
 
 
 def _grant_has_capability(grant: object | None, capability: str) -> bool:

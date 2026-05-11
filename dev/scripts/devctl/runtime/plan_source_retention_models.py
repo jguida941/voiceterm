@@ -32,6 +32,8 @@ class PlanSourceSnapshot:
     source_hash: str
     body_hash: str
     captured_at_utc: str
+    receipt_id: str = ""
+    action_id: str = ""
     source_packet_id: str = ""
     packet_expires_at_utc: str = ""
     retention_status: str = "snapshotted"
@@ -40,6 +42,14 @@ class PlanSourceSnapshot:
     required_anchor_count: int = 0
     matched_anchor_count: int = 0
     missing_required_anchors: tuple[str, ...] = ()
+    composition_disposition: str = ""
+    owning_mp_family: str = ""
+    existing_owner_row_refs: tuple[str, ...] = ()
+    packet_binding_refs: tuple[str, ...] = ()
+    why_not_duplicate: str = ""
+    phase_allowed_to_block: str = ""
+    phase_allowed_to_mutate: str = ""
+    schema_limit_warning: str = ""
     source_text: str = ""
     source_summary: str = ""
     snapshot_path: str = ""
@@ -60,6 +70,8 @@ class PlanSourceSnapshot:
             source_hash=coerce_string(mapping.get("source_hash")),
             body_hash=coerce_string(mapping.get("body_hash")),
             captured_at_utc=coerce_string(mapping.get("captured_at_utc")),
+            receipt_id=coerce_string(mapping.get("receipt_id")),
+            action_id=coerce_string(mapping.get("action_id")),
             source_packet_id=coerce_string(mapping.get("source_packet_id")),
             packet_expires_at_utc=coerce_string(mapping.get("packet_expires_at_utc")),
             retention_status=coerce_string(mapping.get("retention_status"))
@@ -77,6 +89,24 @@ class PlanSourceSnapshot:
             missing_required_anchors=coerce_string_items(
                 mapping.get("missing_required_anchors")
             ),
+            composition_disposition=coerce_string(
+                mapping.get("composition_disposition")
+            ),
+            owning_mp_family=coerce_string(mapping.get("owning_mp_family")),
+            existing_owner_row_refs=coerce_string_items(
+                mapping.get("existing_owner_row_refs")
+            ),
+            packet_binding_refs=coerce_string_items(
+                mapping.get("packet_binding_refs")
+            ),
+            why_not_duplicate=coerce_string(mapping.get("why_not_duplicate")),
+            phase_allowed_to_block=coerce_string(
+                mapping.get("phase_allowed_to_block")
+            ),
+            phase_allowed_to_mutate=coerce_string(
+                mapping.get("phase_allowed_to_mutate")
+            ),
+            schema_limit_warning=coerce_string(mapping.get("schema_limit_warning")),
             source_text=_coerce_source_text(mapping.get("source_text")),
             source_summary=coerce_string(mapping.get("source_summary")),
             snapshot_path=coerce_string(mapping.get("snapshot_path")),
@@ -94,8 +124,18 @@ class PlanSourceSnapshotInput(NamedTuple):
     source_hash: str
     source_text: str
     captured_at_utc: str
+    receipt_id: str = ""
+    action_id: str = ""
     source_packet_id: str = ""
     packet_expires_at_utc: str = ""
+    composition_disposition: str = ""
+    owning_mp_family: str = ""
+    existing_owner_row_refs: tuple[str, ...] = ()
+    packet_binding_refs: tuple[str, ...] = ()
+    why_not_duplicate: str = ""
+    phase_allowed_to_block: str = ""
+    phase_allowed_to_mutate: str = ""
+    schema_limit_warning: str = ""
 
     @classmethod
     def from_kwargs(cls, values: Mapping[str, object]) -> "PlanSourceSnapshotInput":
@@ -106,8 +146,24 @@ class PlanSourceSnapshotInput(NamedTuple):
             source_hash=coerce_string(values.get("source_hash")),
             source_text=_coerce_source_text(values.get("source_text")),
             captured_at_utc=coerce_string(values.get("captured_at_utc")),
+            receipt_id=coerce_string(values.get("receipt_id")),
+            action_id=coerce_string(values.get("action_id")),
             source_packet_id=coerce_string(values.get("source_packet_id")),
             packet_expires_at_utc=coerce_string(values.get("packet_expires_at_utc")),
+            composition_disposition=coerce_string(
+                values.get("composition_disposition")
+            ),
+            owning_mp_family=coerce_string(values.get("owning_mp_family")),
+            existing_owner_row_refs=coerce_string_items(
+                values.get("existing_owner_row_refs")
+            ),
+            packet_binding_refs=coerce_string_items(values.get("packet_binding_refs")),
+            why_not_duplicate=coerce_string(values.get("why_not_duplicate")),
+            phase_allowed_to_block=coerce_string(values.get("phase_allowed_to_block")),
+            phase_allowed_to_mutate=coerce_string(
+                values.get("phase_allowed_to_mutate")
+            ),
+            schema_limit_warning=coerce_string(values.get("schema_limit_warning")),
         )
 
 
@@ -154,6 +210,8 @@ def build_plan_source_snapshot(**kwargs: object) -> PlanSourceSnapshot:
         source_hash=values.source_hash,
         body_hash=body_hash,
         captured_at_utc=values.captured_at_utc,
+        receipt_id=values.receipt_id,
+        action_id=values.action_id,
         source_packet_id=values.source_packet_id,
         packet_expires_at_utc=values.packet_expires_at_utc,
         retention_status=retention_status,
@@ -162,6 +220,14 @@ def build_plan_source_snapshot(**kwargs: object) -> PlanSourceSnapshot:
         required_anchor_count=anchor_status.required_count,
         matched_anchor_count=anchor_status.matched_count,
         missing_required_anchors=anchor_status.missing_anchors,
+        composition_disposition=values.composition_disposition,
+        owning_mp_family=values.owning_mp_family,
+        existing_owner_row_refs=values.existing_owner_row_refs,
+        packet_binding_refs=values.packet_binding_refs,
+        why_not_duplicate=values.why_not_duplicate,
+        phase_allowed_to_block=values.phase_allowed_to_block,
+        phase_allowed_to_mutate=values.phase_allowed_to_mutate,
+        schema_limit_warning=values.schema_limit_warning,
         source_text=values.source_text,
         source_summary=_source_summary(values.source_text),
     )

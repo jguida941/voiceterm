@@ -4556,6 +4556,69 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
 	      scoped source, links affected PlanRows, includes an explain-back of
 	      what changed and why, and blocks affected-scope closure while an
 	      unresolved operator-correction intake row remains open.
+	- [ ] `MP377-GRAPH-INFORMED-PLAN-COMPOSER-S1` Add the graph-informed plan
+	      composer compiler pass as a typed evidence consumer before plan
+	      mutation.
+	      owner_doc: `dev/active/ai_governance_platform.md`
+	      status: `queued`
+	      depends_on: `MP377-P0-T22AE-C`, `MP377-P0-T22AD-I`, `MP377-P0-T22AD-C`, `MP377-P0-T22AG-G`
+	      disposition_sources: `claude:cycle-126-graph-informed-plan-composer-verdict`, `codesmell:#039`, `codesmell:#040`, `codesmell:#041`
+	      scope: Add a typed composer action that consumes current graph
+	      evidence, plan authority, plan-source snapshots, receipts, packet
+	      bindings, guard maturity, and command/catalog evidence before proposing
+	      graph-informed plan rows. Fold `ArchitecturalPlanProjection` into the
+	      composer output rather than creating a separate plan authority. Any
+	      projection fields that name guards, receipts, or follow-up work must be
+	      informational (`suggested_*`, `observed_*`, or `evidence_*`) unless they
+	      are routed through the normal `TypedAction -> ActionResult -> RunRecord
+	      -> ValidationReceipt` authority path.
+	      acceptance_criteria: The composer emits a projection/explanation only,
+	      never direct plan authority; it cites the exact graph snapshot/version,
+	      plan rows, source snapshots, receipts, checks, and packet refs it
+	      consumed; output field names cannot prescribe required guards or
+	      receipts from a projection-only contract; proposed rows still enter
+	      durable authority only through plan-intent ingestion with receipts,
+	      rollback, source snapshots, and drift detection.
+	- [ ] `MP377-GRAPH-CONTEXT-SELECTION-POLICY-S1` Add deterministic graph
+	      context selection for graph-informed plan composition.
+	      owner_doc: `dev/active/ai_governance_platform.md`
+	      status: `queued`
+	      depends_on: `MP377-GRAPH-INFORMED-PLAN-COMPOSER-S1`, `MP377-P0-T22AD-C`, `MP377-P0-T22AG-G`
+	      disposition_sources: `claude:cycle-126-graph-informed-plan-composer-verdict`, `codesmell:#039`, `codesmell:#040`
+	      scope: Define how graph-informed planning selects, ranks, and bounds
+	      graph nodes and edges for plan composition, including PlanRow,
+	      PlanSourceSnapshot, PlanIntentIngestionReceipt, contract, check, packet,
+	      command, and receipt-proof nodes. `GraphPlanContext` evidence must be
+	      immutable/frozen (`tuple`, `frozenset`, or frozen dataclasses) and
+	      labeled as read-only evidence, not mutable authority.
+	      acceptance_criteria: Context selection is deterministic for a given
+	      graph snapshot and target ref; selected nodes/edges carry source ids,
+	      confidence/staleness, and why-selected rationale; stale or missing
+	      evidence is surfaced as uncertainty instead of silently omitted; tests
+	      prove selected context is immutable and cannot mutate plan authority or
+	      receipt state by itself.
+	- [ ] `MP377-GRAPH-PLAN-RECEIPT-S1` Compose graph-informed plan receipts with
+	      the existing plan-intent receipt spine.
+	      owner_doc: `dev/active/ai_governance_platform.md`
+	      status: `queued`
+	      depends_on: `MP377-P0-T22AE-C`, `MP377-P0-T22AD-G`, `MP377-P0-T22AN-W`, `MP377-GRAPH-INFORMED-PLAN-COMPOSER-S1`
+	      disposition_sources: `claude:cycle-126-graph-informed-plan-composer-verdict`, `codesmell:#041`
+	      scope: Do not add a parallel `GraphPlanReceipt` binding such as a
+	      standalone `plan_projection_ref`. Reuse the existing
+	      `PlanIntentIngestionReceipt` `action_id` / `receipt_id` pattern,
+	      `plan_intent_receipt:` refs, `typed_action:` refs, source snapshots,
+	      and state-store authority writer. Add graph-specific evidence as
+	      fields/refs on the same receipt spine: actor, source command,
+	      correlation id, causation id, run id, guard maturity records, graph
+	      snapshot id, selected graph node/edge refs, and `EDGE_KIND_RECEIPT_PROVES`
+	      links back to the matched graph nodes.
+	      acceptance_criteria: A graph-informed plan proposal can be replayed
+	      from `TypedAction`, `PlanRow`, `PlanIntentIngestionReceipt`,
+	      `PlanSourceSnapshot`, and graph evidence in either direction; no second
+	      receipt chain exists for the same mutation; missing actor, source
+	      command, guard maturity, correlation, or graph proof evidence blocks
+	      closure; all writes go through `state_store_authority` and focused
+	      Codex/Claude dogfood verifies the binding before row completion.
 - [ ] `MP377-P0-T09` Add `CodexAgentPollLoop` as the consumer loop for Codex-targeted packets: poll `review-channel inbox --target codex --status pending` on cadence, handle findings at slice-boundary/non-critical cadence, route action_requests through typed preconditions, emit dogfood rows per tick, and write superseded outcomes for satisfied asks through the Slice B reducer.
       owner_doc: `dev/active/remote_control_runtime.md`
       status: `queued`
@@ -14259,3 +14322,28 @@ Evidence:
 - `dev/scripts/devctl/commands/vcs/governed_executor_commit_targets.py`
 - `dev/scripts/devctl/tests/review_channel/test_action_request.py`
 - `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+
+## 2026-05-09 — Scope-path parser recognizes `.jsonl` plus `.json` (startup-authority concurrent-writer fix)
+
+The startup-authority concurrent-writer contract reads instruction and
+reviewed-scope text through `extract_scope_paths()` in
+`dev/scripts/devctl/runtime/scope_path_claims.py`, which feeds
+`path_matches_scope_claim()` for outside-scope detection. The `_PATH_RE`
+regex previously accepted `.json` but not `.jsonl`, so typed-state files
+like `dev/state/plan_index.jsonl` claimed in instruction text were
+silently dropped. That broke scope-claim parity any time an instruction
+referenced the typed plan index, leaving legitimate codex/claude writes
+flagged as outside-scope concurrent writer activity by
+`check_startup_authority_contract.py`.
+
+Change: `_PATH_RE` now matches `jsonl?` (covers both `.json` and
+`.jsonl`) using the same pattern style as the existing `ya?ml` rule.
+`extract_scope_paths()`, `normalize_scope_path()`, and
+`path_matches_scope_claim()` are unchanged behaviorally beyond now
+recognizing `.jsonl` paths. Focused regression coverage exercises
+`.json` + `.jsonl` + mixed sets + dedup + scope-claim matching.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/scope_path_claims.py`
+- `dev/scripts/devctl/tests/runtime/test_scope_path_claims.py`

@@ -9,6 +9,12 @@ from dev.scripts.devctl.review_channel.packet_plan_integration import (
     maybe_append_packet_plan_row,
 )
 from dev.scripts.devctl.review_channel.packet_lifecycle import project_packet_lifecycle
+from dev.scripts.devctl.review_channel.packet_lifecycle_state import (
+    WORKFLOW_LIFECYCLE_STATE_BY_KIND,
+)
+from dev.scripts.devctl.runtime.collaboration_packet_kinds import (
+    REVIEW_ACCEPTED_PACKET_KIND,
+)
 from dev.scripts.devctl.runtime.packet_continuity import (
     build_packet_continuity_index,
     compact_packet_continuity_index,
@@ -302,6 +308,174 @@ def test_review_packet_state_parser_preserves_lifecycle_fields(
     assert states[0].lifecycle_current_state == "acknowledged"
     assert states[0].acknowledged_events[0]["by_agent"] == "claude"
     assert states[0].disposition["sink"] == "queued"
+
+
+def test_workflow_packet_kinds_project_typed_lifecycle_states() -> None:
+    cases = {
+        "task_started": "task_started",
+        "task_progress": "task_progress",
+        "task_produced": "task_produced",
+        "task_blocked": "task_blocked",
+        "review_started": "review_in_progress",
+        "review_failed": "review_failed",
+        "operator_routed": "operator_routed",
+    }
+
+    for kind, expected_state in cases.items():
+        packet = project_packet_lifecycle(_posted_packet(kind=kind))
+
+        assert packet["lifecycle_current_state"] == expected_state
+
+
+def test_review_accepted_is_registered_in_workflow_state_vocabulary() -> None:
+    assert (
+        WORKFLOW_LIFECYCLE_STATE_BY_KIND[REVIEW_ACCEPTED_PACKET_KIND]
+        == "review_accepted"
+    )
+
+
+def test_review_accepted_requires_review_started_evidence() -> None:
+    packet = project_packet_lifecycle(_posted_packet(kind="review_accepted"))
+
+    assert (
+        packet["lifecycle_current_state"]
+        == "review_accepted_missing_review_started"
+    )
+
+
+def test_review_accepted_with_review_started_evidence_can_complete_task(
+    tmp_path: Path,
+) -> None:
+    posted = _posted_packet(
+        kind="review_accepted",
+        evidence_refs=["packet:rev_pkt_review_started"],
+    )
+    applied = {
+        **posted,
+        "event_id": "rev_evt_review_accepted_applied",
+        "event_type": "packet_applied",
+        "timestamp_utc": "2026-04-29T01:10:00Z",
+        "status": "applied",
+        "metadata": {"actor": "claude"},
+    }
+
+    review_state, _ = reduce_events(
+        events=[posted, applied],
+        repo_root=tmp_path,
+        review_channel_path=_review_channel_path(tmp_path),
+    )
+
+    packet = review_state["packets"][0]
+
+    assert packet["lifecycle_current_state"] == "task_complete"
+    assert packet["acted_on_events"][0]["action"] == "applied"
+
+
+def test_review_accepted_with_review_started_evidence_waits_for_apply() -> None:
+    packet = project_packet_lifecycle(
+        _posted_packet(
+            kind="review_accepted",
+            evidence_refs=["packet:rev_pkt_review_started"],
+        )
+    )
+
+    assert packet["lifecycle_current_state"] == "review_accepted"
+
+
+def test_review_accepted_can_use_prior_scoped_review_started_packet(
+    tmp_path: Path,
+) -> None:
+    review_started = _posted_packet(
+        packet_id="rev_pkt_review_started",
+        kind="review_started",
+        plan_id="MP-377",
+        target_session_id="session-claude",
+        target_role="implementer",
+    )
+    review_accepted = _posted_packet(
+        packet_id="rev_pkt_review_accepted",
+        kind="review_accepted",
+        plan_id="MP-377",
+        target_session_id="session-claude",
+        target_role="implementer",
+    )
+    applied = {
+        **review_accepted,
+        "event_id": "rev_evt_review_accepted_applied",
+        "event_type": "packet_applied",
+        "timestamp_utc": "2026-04-29T01:10:00Z",
+        "status": "applied",
+        "metadata": {"actor": "claude"},
+    }
+
+    review_state, _ = reduce_events(
+        events=[review_started, review_accepted, applied],
+        repo_root=tmp_path,
+        review_channel_path=_review_channel_path(tmp_path),
+    )
+
+    packet = next(
+        row
+        for row in review_state["packets"]
+        if row["packet_id"] == "rev_pkt_review_accepted"
+    )
+
+    assert packet["lifecycle_current_state"] == "task_complete"
+    assert "packet:rev_pkt_review_started#review_in_progress" in packet["evidence_refs"]
+
+
+def test_mismatched_review_started_packet_does_not_unlock_review_accept(
+    tmp_path: Path,
+) -> None:
+    review_started = _posted_packet(
+        packet_id="rev_pkt_review_started",
+        kind="review_started",
+        plan_id="MP-377",
+        target_session_id="session-other",
+        target_role="implementer",
+    )
+    review_accepted = _posted_packet(
+        packet_id="rev_pkt_review_accepted",
+        kind="review_accepted",
+        plan_id="MP-377",
+        target_session_id="session-claude",
+        target_role="implementer",
+    )
+
+    review_state, _ = reduce_events(
+        events=[review_started, review_accepted],
+        repo_root=tmp_path,
+        review_channel_path=_review_channel_path(tmp_path),
+    )
+
+    packet = next(
+        row
+        for row in review_state["packets"]
+        if row["packet_id"] == "rev_pkt_review_accepted"
+    )
+
+    assert (
+        packet["lifecycle_current_state"]
+        == "review_accepted_missing_review_started"
+    )
+
+
+def test_workflow_packet_terminal_transitions_still_win() -> None:
+    dismissed = project_packet_lifecycle(
+        {
+            **_posted_packet(kind="review_accepted"),
+            "acted_on_events": [{"action": "dismissed"}],
+        }
+    )
+    archived = project_packet_lifecycle(
+        {
+            **_posted_packet(kind="task_produced"),
+            "acted_on_events": [{"action": "archived"}],
+        }
+    )
+
+    assert dismissed["lifecycle_current_state"] == "dismissed"
+    assert archived["lifecycle_current_state"] == "archived"
 
 
 def test_action_request_execution_start_reduces_through_lifecycle_history(

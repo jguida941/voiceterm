@@ -121,7 +121,7 @@ def test_build_review_bridge_state_prefers_typed_activity_poll_over_metadata() -
     assert state.last_codex_poll_utc == "2026-04-24T17:03:43Z"
 
 
-def test_typed_reviewer_activity_and_remote_control_keep_dual_agent_live(
+def test_typed_reviewer_activity_and_remote_control_do_not_prove_dual_agent_live(
     tmp_path,
 ) -> None:
     observed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -166,15 +166,15 @@ def test_typed_reviewer_activity_and_remote_control_keep_dual_agent_live(
 
     assert bridge_liveness["reviewer_activity_source"] == "reviewer_heartbeat"
     assert bridge_liveness["reviewer_activity_active"] is True
-    assert bridge_liveness["launch_truth"] == "live"
-    assert bridge_liveness["effective_reviewer_mode"] == "active_dual_agent"
-    assert bridge_liveness["reviewer_freshness"] == "fresh"
-    assert bridge_liveness["codex_poll_state"] == "fresh"
+    assert bridge_liveness["launch_truth"] == "runtime_missing"
+    assert bridge_liveness["effective_reviewer_mode"] == "tools_only"
+    assert bridge_liveness["reviewer_freshness"] == "stale"
+    assert bridge_liveness["codex_poll_state"] == "stale"
     assert bridge_liveness["active_conductor_providers"] == []
     assert set(bridge_liveness["active_runtime_providers"]) == {"codex", "claude"}
 
 
-def test_typed_activity_promotes_stale_tools_only_bridge_to_effective_dual_agent(
+def test_typed_activity_promotes_stale_tools_only_bridge_metadata_only(
     tmp_path,
 ) -> None:
     observed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -237,11 +237,13 @@ def test_typed_activity_promotes_stale_tools_only_bridge_to_effective_dual_agent
 
     assert bridge_liveness["reviewer_mode"] == "tools_only"
     assert bridge_liveness["reviewer_activity_source"] == "typed_packet_activity"
-    assert bridge_liveness["launch_truth"] == "live"
-    assert bridge_liveness["effective_reviewer_mode"] == "active_dual_agent"
+    assert bridge_liveness["launch_truth"] == "inactive"
+    assert bridge_liveness["effective_reviewer_mode"] == "tools_only"
+    assert "bridge_metadata_reviewer_mode" not in bridge_liveness
     assert set(bridge_liveness["active_runtime_providers"]) == {"codex", "claude"}
-    assert state.reviewer_mode == "active_dual_agent"
-    assert state.effective_reviewer_mode == "active_dual_agent"
+    assert state.reviewer_mode == "tools_only"
+    assert state.effective_reviewer_mode == "tools_only"
+    assert not hasattr(state, "bridge_metadata_reviewer_mode")
 
 
 def test_fresh_codex_heartbeat_promotes_tools_only_bridge_when_remote_control_live(
@@ -289,12 +291,14 @@ def test_fresh_codex_heartbeat_promotes_tools_only_bridge_when_remote_control_li
 
     assert bridge_liveness["reviewer_activity_source"] == "reviewer_heartbeat"
     assert bridge_liveness["reviewer_activity_active"] is True
-    assert bridge_liveness["launch_truth"] == "live"
-    assert bridge_liveness["effective_reviewer_mode"] == "active_dual_agent"
+    assert bridge_liveness["reviewer_mode"] == "tools_only"
+    assert bridge_liveness["launch_truth"] == "inactive"
+    assert bridge_liveness["effective_reviewer_mode"] == "tools_only"
+    assert "bridge_metadata_reviewer_mode" not in bridge_liveness
     assert set(bridge_liveness["active_runtime_providers"]) == {"codex", "claude"}
 
 
-def test_typed_bridge_liveness_projects_promoted_mode_as_authority() -> None:
+def test_typed_bridge_liveness_keeps_promoted_runtime_presence_out_of_authority() -> None:
     bridge_liveness = build_typed_bridge_liveness(
         bridge_liveness={
             "reviewer_mode": "tools_only",
@@ -309,8 +313,8 @@ def test_typed_bridge_liveness_projects_promoted_mode_as_authority() -> None:
     )
 
     assert bridge_liveness["declared_reviewer_mode"] == "tools_only"
-    assert bridge_liveness["effective_reviewer_mode"] == "active_dual_agent"
-    assert bridge_liveness["reviewer_mode"] == "active_dual_agent"
+    assert bridge_liveness["effective_reviewer_mode"] == "tools_only"
+    assert bridge_liveness["reviewer_mode"] == "tools_only"
 
 
 def test_projection_metadata_uses_effective_mode_when_declared_mode_missing() -> None:

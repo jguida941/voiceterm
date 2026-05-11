@@ -90,7 +90,14 @@ def _apply_attestation_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
 
 def _query_filter_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
     return [
-        arg_builder("--target", help="Target agent id filter for inbox/watch"),
+        arg_builder(
+            "--target",
+            help=(
+                "Legacy delivery endpoint id filter for inbox/watch. Prefer "
+                "`--target-role` and `--target-session-id` for typed lane "
+                "routing."
+            ),
+        ),
         arg_builder(
             "--status",
             choices=["pending", "acked", "dismissed", "applied", "expired"],
@@ -156,8 +163,8 @@ def _follow_control_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             type=int,
             default=3600,
             help=(
-                "Maximum Claude-side inactivity window for follow-enabled "
-                "review-channel actions. The loop keeps polling until Claude has "
+                "Maximum peer-side inactivity window for follow-enabled "
+                "review-channel actions. The loop keeps polling until the peer has "
                 "shown no progress for this many seconds."
             ),
         ),

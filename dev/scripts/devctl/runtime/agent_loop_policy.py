@@ -163,19 +163,26 @@ def policy_for_turn(
         policy = AgentLoopPolicy(
             **governed_checkpoint_policy_kwargs(ctx, driver, cadence, proof, command)
         )
-    elif required_action == "triage_pending_packet":
+    elif required_action in {
+        "triage_pending_packet",
+        "continue_to_goal",
+    }:
         policy = AgentLoopPolicy(
-            loop_mode="pivot_to_packet",
+            loop_mode="continue_to_goal",
             loop_driver_agent=driver,
             loop_intent=ctx.loop_intent,
             recommended_cadence_seconds=max(5, min(cadence, 30)),
-            can_run_next_command=False,
+            can_run_next_command=safe_to_continue,
             dogfood_record_allowed=True,
             proof_gate=proof,
-            policy_reason="packet_attention_triage_preempts_blocked_mutation",
+            policy_reason="continue_to_goal_preempts_terminal_response",
             next_loop_command=command,
         )
-    elif decision_code in {"pivot_to_packet", "continue_current_execution"}:
+    elif decision_code in {
+        "pivot_to_packet",
+        "continue_current_execution",
+        "continue_to_goal",
+    }:
         policy = AgentLoopPolicy(
             loop_mode=decision_code,
             loop_driver_agent=driver,

@@ -6,6 +6,8 @@ Canonical maintainer control plane:
 python3 dev/scripts/devctl.py ...
 ```
 
+Runtime scope-path parsing (`dev/scripts/devctl/runtime/scope_path_claims.py`) recognizes both `.json` and `.jsonl` extensions in the `_PATH_RE` regex, so typed-state files such as `dev/state/plan_index.jsonl` referenced in instruction or reviewed-scope text are matched by `extract_scope_paths()` and `path_matches_scope_claim()`. Focused regression coverage lives in `dev/scripts/devctl/tests/runtime/test_scope_path_claims.py`.
+
 Runtime note:
 - Repo-owned Python subprocesses launched by `devctl` now inherit the
   interpreter used to start `dev/scripts/devctl.py`. On machines where

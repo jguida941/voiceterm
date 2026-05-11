@@ -17,6 +17,8 @@ from .agent_loop_decision_sources import (
     PacketState,
 )
 
+CONTINUE_TO_GOAL_ACTION = "continue_to_goal"
+
 
 def actor_identity_decision(ctx: AgentLoopContext) -> AgentLoopDecision:
     return decision(ctx, "blocked", "provide_actor_identity", "actor_identity_required")
@@ -51,11 +53,11 @@ def communication_attention_decision(
     return decision(
         ctx,
         "blocked",
-        "triage_pending_packet",
-        _text(ctx.attention.get("stale_reason")) or "packet_attention_before_blocker",
+        CONTINUE_TO_GOAL_ACTION,
+        _attention_reason(ctx) or "packet_attention_before_blocker",
         lifecycle_state="needs_attention",
-        decision_code="pivot_to_packet",
-        reason_code="packet_attention_before_blocker",
+        decision_code=CONTINUE_TO_GOAL_ACTION,
+        reason_code="peer_input_before_blocker",
         should_continue_loop=True,
         safe_to_continue=False,
         may_mutate=False,
@@ -73,11 +75,11 @@ def attention_decision(ctx: AgentLoopContext, packets: PacketState) -> AgentLoop
     return decision(
         ctx,
         "work",
-        "pivot_to_attention_packet",
-        _text(ctx.attention.get("stale_reason")) or "wake_required",
+        CONTINUE_TO_GOAL_ACTION,
+        _attention_reason(ctx) or "peer_input_required",
         lifecycle_state="needs_attention",
-        decision_code="pivot_to_packet",
-        reason_code="wake_required",
+        decision_code=CONTINUE_TO_GOAL_ACTION,
+        reason_code="peer_input_required",
         should_continue_loop=True,
         safe_to_continue=True,
         may_mutate=ctx.may_mutate,
@@ -116,6 +118,69 @@ def continuation_anchor_decision(
         safe_to_continue=True,
         may_mutate=ctx.may_mutate,
         active_packet_id=task_decision.anchor_packet_id,
+        next_command_override=task_decision.next_command,
+    )
+
+
+def continuation_anchor_missing_decision(
+    ctx: AgentLoopContext,
+    task_decision: TaskCompleteDecision,
+) -> AgentLoopDecision:
+    return decision(
+        ctx,
+        "blocked",
+        "post_continuation_anchor",
+        task_decision.reason,
+        lifecycle_state="blocked",
+        decision_code="run_next_command",
+        reason_code=task_decision.error_kind or task_decision.reason,
+        should_continue_loop=True,
+        safe_to_continue=False,
+        may_mutate=False,
+        next_command_override=task_decision.next_command,
+    )
+
+
+def pending_review_packet_decision(
+    ctx: AgentLoopContext,
+    task_decision: TaskCompleteDecision,
+) -> AgentLoopDecision:
+    packet_id = task_decision.blocking_packet_id
+    return decision(
+        ctx,
+        "blocked",
+        CONTINUE_TO_GOAL_ACTION,
+        task_decision.reason,
+        lifecycle_state="needs_attention",
+        decision_code=CONTINUE_TO_GOAL_ACTION,
+        reason_code=task_decision.error_kind or task_decision.reason,
+        should_continue_loop=True,
+        safe_to_continue=False,
+        may_mutate=False,
+        active_packet_id=packet_id,
+        attention_packet_id=packet_id,
+        next_command_override=task_decision.next_command,
+    )
+
+
+def packet_attention_pending_decision(
+    ctx: AgentLoopContext,
+    task_decision: TaskCompleteDecision,
+) -> AgentLoopDecision:
+    packet_id = task_decision.blocking_packet_id
+    return decision(
+        ctx,
+        "blocked",
+        CONTINUE_TO_GOAL_ACTION,
+        task_decision.reason,
+        lifecycle_state="needs_attention",
+        decision_code=CONTINUE_TO_GOAL_ACTION,
+        reason_code=task_decision.error_kind or task_decision.reason,
+        should_continue_loop=True,
+        safe_to_continue=False,
+        may_mutate=False,
+        active_packet_id=packet_id,
+        attention_packet_id=packet_id,
         next_command_override=task_decision.next_command,
     )
 
@@ -160,7 +225,7 @@ def active_packet_decision(ctx: AgentLoopContext, packets: PacketState) -> Agent
         "execute_active_packet",
         "active_packet",
         lifecycle_state="needs_attention",
-        decision_code="pivot_to_packet",
+        decision_code=CONTINUE_TO_GOAL_ACTION,
         reason_code="active_packet",
         should_continue_loop=True,
         safe_to_continue=True,
@@ -238,31 +303,38 @@ def decision(
         active_packet_id=active_packet_id,
         plan_target_ref=plan_target_ref,
     )
+    effective_should_continue_loop = should_continue_loop or (
+        required_action == "stop_no_work" and not loop_policy.advance_allowed
+    )
     effective_may_mutate = may_mutate or (
         ctx.operator_override.edit_allowed
         and required_action == "repair_startup_authority"
     )
-    override_next = operator_override_next_command(ctx.operator_override)
-    override_request_next = scoped_operator_override_command(ctx, reason=reason)
-    if next_command_override:
-        next_command = next_command_override
-    elif override_next and required_action == "repair_startup_authority":
-        next_command = override_next
-    elif (
-        override_request_next
-        and loop_state == "blocked"
-        and not ctx.may_mutate
-        and not ctx.operator_override.requested
-    ):
-        next_command = override_request_next
-    elif required_action == "stop_no_work" or not loop_policy.can_run_next_command:
-        next_command = ""
-    else:
-        next_command = ctx.next_command
+    next_command = next_command_for_turn(
+        ctx=ctx,
+        loop_policy=loop_policy,
+        loop_state=loop_state,
+        required_action=required_action,
+        should_continue_loop=effective_should_continue_loop,
+        reason=reason,
+        next_command_override=next_command_override,
+    )
+    readable = readable_decision_fields(
+        required_action=required_action,
+        reason=reason,
+        active_packet_id=active_packet_id,
+        attention_packet_id=attention_packet_id,
+        plan_target_ref=plan_target_ref,
+        should_continue_loop=effective_should_continue_loop,
+        next_command=next_command,
+    )
     return AgentLoopDecision(
         actor_id=ctx.actor,
         actor_role=ctx.role,
         session_id=ctx.session,
+        effective_actor_role=ctx.operator_override.effective_actor_role or ctx.role,
+        effective_workstream_id=ctx.operator_override.effective_workstream_id,
+        effective_authority_source=ctx.operator_override.effective_authority_source,
         loop_state=loop_state,
         required_action=required_action,
         lifecycle_state=resolved_lifecycle,
@@ -284,13 +356,20 @@ def decision(
         missing_proofs=loop_policy.missing_proofs,
         policy_reason=loop_policy.policy_reason,
         next_loop_command=loop_policy.next_loop_command,
-        should_continue_loop=should_continue_loop,
+        should_continue_loop=effective_should_continue_loop,
         safe_to_continue=safe_to_continue,
         may_mutate=effective_may_mutate,
         reason=reason,
         next_command=next_command,
         next_action=ctx.next_action,
         top_blocker=ctx.top_blocker,
+        user_action=readable["user_action"],
+        continuation_goal=readable["continuation_goal"],
+        why_not_done=readable["why_not_done"],
+        user_continue_state=readable["user_continue_state"],
+        new_peer_input=coerce_bool(ctx.attention.get("wake_required")),
+        switch_to_packet_goal=coerce_bool(ctx.attention.get("pivot_required")),
+        continue_before_final=effective_should_continue_loop,
         active_packet_id=active_packet_id,
         attention_packet_id=attention_packet_id,
         executing_packet_id=executing_packet_id,
@@ -321,14 +400,119 @@ def lifecycle_from_loop_state(loop_state: str) -> str:
     }.get(loop_state, "blocked")
 
 
+def next_command_for_turn(
+    *,
+    ctx: object,
+    loop_policy: object,
+    loop_state: str,
+    required_action: str,
+    should_continue_loop: bool,
+    reason: str,
+    next_command_override: str = "",
+) -> str:
+    """Return the command a simple loop driver should run next."""
+    override_next = operator_override_next_command(ctx.operator_override)
+    override_request_next = scoped_operator_override_command(ctx, reason=reason)
+    if next_command_override:
+        return next_command_override
+    if override_next and required_action == "repair_startup_authority":
+        return override_next
+    if (
+        override_request_next
+        and loop_state == "blocked"
+        and not ctx.may_mutate
+        and not ctx.operator_override.requested
+    ):
+        return override_request_next
+    if required_action == "stop_no_work":
+        if (
+            should_continue_loop
+            and not loop_policy.advance_allowed
+            and loop_policy.next_loop_command
+        ):
+            return loop_policy.next_loop_command
+        return ""
+    if loop_policy.can_run_next_command:
+        return ctx.next_command
+    if should_continue_loop and loop_policy.next_loop_command:
+        return loop_policy.next_loop_command
+    return ""
+
+
 def decision_from_loop_state(loop_state: str) -> str:
     return {
         "blocked": "run_next_command",
-        "work": "pivot_to_packet",
+        "work": CONTINUE_TO_GOAL_ACTION,
         "observe": "wait",
         "wait": "wait",
         "done": "stop_no_work",
     }.get(loop_state, "run_next_command")
+
+
+def _attention_reason(ctx: AgentLoopContext) -> str:
+    reason = _text(ctx.attention.get("stale_reason"))
+    if reason == "wake_required":
+        return "peer_input_required"
+    if reason == "actor_identity_ambiguous_with_pending_wake":
+        return "actor_identity_ambiguous_with_pending_peer_input"
+    return reason
+
+
+def readable_decision_fields(
+    *,
+    required_action: str,
+    reason: str,
+    active_packet_id: str,
+    attention_packet_id: str,
+    plan_target_ref: str,
+    should_continue_loop: bool,
+    next_command: str,
+) -> dict[str, str]:
+    packet_id = attention_packet_id or active_packet_id
+    goal = plan_target_ref or packet_id or "typed controller goal"
+    if required_action == CONTINUE_TO_GOAL_ACTION:
+        return {
+            "user_action": "Continue to the typed goal",
+            "continuation_goal": goal,
+            "why_not_done": (
+                "A scoped packet is pending, so final response is denied "
+                "until the loop handles that packet's typed goal."
+            ),
+            "user_continue_state": "must_continue",
+        }
+    if required_action == "post_continuation_anchor":
+        return {
+            "user_action": "Post continuation anchor before stopping",
+            "continuation_goal": goal,
+            "why_not_done": (
+                "The termination policy requires a scoped continuation anchor "
+                "before this session can close."
+            ),
+            "user_continue_state": "must_continue",
+        }
+    if required_action == "continue_from_continuation_anchor":
+        return {
+            "user_action": "Continue from live continuation anchor",
+            "continuation_goal": goal,
+            "why_not_done": (
+                "A scoped continuation anchor is active, so the session must "
+                "keep working until a matching stop anchor or closure proof exists."
+            ),
+            "user_continue_state": "must_continue",
+        }
+    if should_continue_loop:
+        return {
+            "user_action": "Continue loop",
+            "continuation_goal": goal,
+            "why_not_done": reason or next_command or "Typed controller still has work.",
+            "user_continue_state": "must_continue",
+        }
+    return {
+        "user_action": required_action,
+        "continuation_goal": goal if required_action != "stop_no_work" else "",
+        "why_not_done": "" if required_action == "stop_no_work" else reason,
+        "user_continue_state": "may_stop" if required_action == "stop_no_work" else "must_continue",
+    }
 
 
 __all__ = [
@@ -338,10 +522,15 @@ __all__ = [
     "blocker_decision",
     "communication_attention_decision",
     "completed_decision",
+    "CONTINUE_TO_GOAL_ACTION",
     "continuation_anchor_decision",
+    "continuation_anchor_missing_decision",
     "executing_decision",
     "observer_decision",
+    "packet_attention_pending_decision",
+    "pending_review_packet_decision",
     "session_identity_decision",
+    "next_command_for_turn",
     "unresolved_decision",
     "wait_decision",
 ]

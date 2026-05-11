@@ -12,6 +12,7 @@ from ...runtime.conductor_capability import (
 from ...runtime.startup_continuity_render import (
     append_continuity_attention_lines as _append_continuity_attention_lines,
 )
+from ..render_vocabulary import reason_label
 from .startup_context_connectivity_render import (
     append_connectivity_registry as _append_connectivity_registry,
 )
@@ -131,9 +132,9 @@ def _append_pending_inbox(lines: list[str], ctx_dict: dict) -> None:
         ).strip()
         pending_actionable_total = int(agent.get("pending_actionable_total") or 0)
         expired_unresolved_total = int(agent.get("expired_unresolved_total") or 0)
-        details = [f"attention={attention_status}"]
+        details = [f"attention={reason_label(attention_status)}"]
         if wake_reason:
-            details.append(f"wake_reason={wake_reason}")
+            details.append(f"attention_reason={reason_label(wake_reason)}")
         if delivery_state:
             details.append(f"delivery={delivery_state}")
         if current_instruction_packet_id:

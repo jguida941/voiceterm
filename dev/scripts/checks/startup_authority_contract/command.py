@@ -15,7 +15,7 @@ from pathlib import Path
 from .runtime_checks import (
     collect_checkpoint_budget_errors,
     collect_concurrent_writer_errors,
-    collect_import_index_atomicity_findings,
+    collect_import_index_atomicity_finding_records,
     collect_post_checkpoint_dirty_worktree_errors,
     collect_push_decision_contract_errors,
     collect_reviewer_loop_block_errors,
@@ -133,7 +133,7 @@ def _runtime_authority_checks(
     *,
     intent: str,
     reviewer_gate=None,
-) -> tuple[list[str], list[str], int, int, bool, bool, list[str]]:
+) -> tuple[list[str], list[str], int, int, bool, bool, list[str], list[dict]]:
     errors: list[str] = []
     warnings: list[str] = []
     checks_run = 0
@@ -180,9 +180,12 @@ def _runtime_authority_checks(
         checks_passed += 1
 
     checks_run += 1
-    import_atomicity_errors, import_atomicity_warnings = (
-        collect_import_index_atomicity_findings(root)
+    import_atomicity_records, import_atomicity_warnings = (
+        collect_import_index_atomicity_finding_records(root)
     )
+    import_atomicity_errors = [
+        record.to_message() for record in import_atomicity_records
+    ]
     warnings.extend(import_atomicity_warnings)
     if import_atomicity_errors:
         errors.extend(import_atomicity_errors)
@@ -206,6 +209,7 @@ def _runtime_authority_checks(
         and bool(strict_reviewer_loop_errors)
         and not reviewer_loop_errors,
         list(import_atomicity_errors),
+        [record.to_dict() for record in import_atomicity_records],
     )
 
 
@@ -228,6 +232,7 @@ def _build_report(
         reviewer_loop_blocked,
         reviewer_loop_bootstrap_allowed,
         import_index_atomicity_findings,
+        import_index_atomicity_finding_records,
     ) = _runtime_authority_checks(
         root,
         gov,
@@ -262,6 +267,9 @@ def _build_report(
         "reviewer_loop_bootstrap_allowed": reviewer_loop_bootstrap_allowed,
         "import_index_atomicity_violations": len(import_index_atomicity_findings),
         "import_index_atomicity_findings": list(import_index_atomicity_findings),
+        "import_index_atomicity_finding_records": list(
+            import_index_atomicity_finding_records
+        ),
     }
 
 
@@ -291,6 +299,13 @@ def _render_md(report: dict) -> str:
         lines.append(
             "- import_index_atomicity_first_violation: "
             f"{report['import_index_atomicity_findings'][0]}"
+        )
+    if report["import_index_atomicity_finding_records"]:
+        first_record = report["import_index_atomicity_finding_records"][0]
+        lines.append(
+            "- import_index_atomicity_first_record: "
+            f"{first_record.get('importer_path', 'unknown')} "
+            f"missing_from={first_record.get('missing_from', 'unknown')}"
         )
     lines.append(f"- reviewer_loop_blocked: {report['reviewer_loop_blocked']}")
     if report["errors"]:

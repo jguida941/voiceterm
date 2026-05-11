@@ -23,7 +23,7 @@ from .projection_bundle import (
     artifact_writes_suppressed,
     canonicalize_projection_review_state,
     projection_paths_for_root,
-    write_projection_bundle,
+    write_projection_bundle_mirrors,
 )
 from .pending_packets import load_pending_packet_queue
 from .promotion import derive_promotion_candidate
@@ -115,8 +115,11 @@ def write_status_projection_bundle(
     if artifact_writes_suppressed():
         projection_paths = projection_paths_for_root(context.output_root)
     else:
-        projection_paths = write_projection_bundle(
+        mirror_root = _projection_mirror_root(context.output_root)
+        mirror_roots = (mirror_root,) if mirror_root is not None else ()
+        projection_paths = write_projection_bundle_mirrors(
             output_root=context.output_root,
+            mirror_roots=mirror_roots,
             review_state=review_state,
             agent_registry=agent_registry,
             action="status",
@@ -128,21 +131,6 @@ def write_status_projection_bundle(
                 zref=zref,
             ),
         )
-        mirror_root = _projection_mirror_root(context.output_root)
-        if mirror_root is not None:
-            write_projection_bundle(
-                output_root=mirror_root,
-                review_state=review_state,
-                agent_registry=agent_registry,
-                action="status",
-                trace_events=[],
-                full_extras=_status_full_extras(
-                    context=context,
-                    payload=payload,
-                    snapshot_id=snapshot_id,
-                    zref=zref,
-                ),
-            )
     return StatusProjectionBundleResult(
         projection_paths=projection_paths,
         review_state=review_state,

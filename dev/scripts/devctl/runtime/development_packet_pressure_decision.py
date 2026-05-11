@@ -21,7 +21,7 @@ def packet_attention_ingestion_decision(
     manual_packet_ids = tuple(
         item.packet_id
         for item in classifications
-        if item.classification == "manual-triage-required"
+        if item.classification in {"manual-review-required", "manual-triage-required"}
         and not (item.durable_owner or item.terminal_receipt)
     )
     review_packet_ids = tuple(
@@ -44,8 +44,8 @@ def packet_attention_ingestion_decision(
     if manual_packet_ids:
         return _decision(
             decision="request_operator_decision",
-            reason_code="manual_triage_required",
-            required_action="operator_packet_triage",
+            reason_code="manual_review_required",
+            required_action="operator_packet_review",
             selected_packet_ids=packet_ids,
             next_command=_show_or_inbox_command(manual_packet_ids, actor),
         )
@@ -59,7 +59,7 @@ def packet_attention_ingestion_decision(
         )
     if review_packet_ids:
         return _decision(
-            decision="pivot_to_packet_review",
+            decision="continue_to_packet_review",
             reason_code="pending_packet_requires_review",
             required_action="review_selected_packets",
             selected_packet_ids=packet_ids,
@@ -67,7 +67,7 @@ def packet_attention_ingestion_decision(
         )
     if _pressure_requires_review(pressure, classifications):
         return _decision(
-            decision="pivot_to_packet_review",
+            decision="continue_to_packet_review",
             reason_code=pressure.pressure_state,
             required_action="review_selected_packets",
             selected_packet_ids=packet_ids,

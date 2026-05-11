@@ -159,6 +159,68 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         startup_surface_tokens=("status", "reason", "finding"),
     ),
     ContractSpec(
+        contract_id="PlatformContractRegistryRow",
+        owner_layer="governance_core",
+        purpose=(
+            "Repo-owned registry row that records shared-contract ownership, "
+            "schema-version, planned fixture root, and parity command without "
+            "replacing the blueprint as authority."
+        ),
+        required_fields=(
+            ContractField(
+                "registered_contract_id",
+                "str",
+                "Shared contract or artifact-schema id named by the registry row.",
+            ),
+            ContractField(
+                "entry_kind",
+                "str",
+                "shared_contract or artifact_schema.",
+            ),
+            ContractField(
+                "python_owner_path",
+                "str",
+                "Canonical Python owner path for the registered contract family.",
+            ),
+            ContractField(
+                "rust_owner_path",
+                "str",
+                "Canonical Rust owner path when present, otherwise empty.",
+            ),
+            ContractField(
+                "fixture_path",
+                "str",
+                "Canonical schema-fixture root planned for the registered family.",
+            ),
+            ContractField(
+                "registered_schema_version",
+                "int",
+                "Current schema version advertised by the canonical owner.",
+            ),
+            ContractField(
+                "ownership_mode",
+                "str",
+                "python_only, rust_only, shared, or rust_primary.",
+            ),
+            ContractField(
+                "parity_command",
+                "str",
+                "Guard command expected to validate this registered family.",
+            ),
+            ContractField(
+                "registry_path",
+                "str",
+                "Repo-owned JSONL registry path containing this row.",
+            ),
+        ),
+        runtime_model="dev.scripts.devctl.platform.contract_registry_models:ContractRegistryRow",
+        startup_surface_tokens=(
+            "registered_contract_id",
+            "entry_kind",
+            "ownership_mode",
+        ),
+    ),
+    ContractSpec(
         contract_id="CheckResult",
         owner_layer="governance_runtime",
         purpose="Typed check-output envelope carrying step results, enriched status, and ViolationRecords for renderers and downstream consumers.",

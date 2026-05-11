@@ -14,6 +14,7 @@ from .packet_carry_forward_sources import (
     durable_packet_ids_from_finding_rows,
     durable_packet_ids_from_plan_rows,
 )
+from .collaboration_packet_kinds import COLLABORATION_LIFECYCLE_PACKET_KINDS
 from .packet_review_only import is_review_only_notice
 
 
@@ -167,6 +168,8 @@ def _status_carry_forward_reason(
 
 def _packet_has_durable_intent(packet: Mapping[str, object]) -> bool:
     kind = _text(packet.get("kind"))
+    if kind in COLLABORATION_LIFECYCLE_PACKET_KINDS:
+        return False
     if is_review_only_notice(packet, kind=kind):
         return False
     if kind in _COMMUNICATION_ONLY_KINDS:

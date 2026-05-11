@@ -21,6 +21,15 @@ def packet_target_satisfied(
         return bool(active_packet_id)
     if active_packet_id == target_ref:
         return True
+    if (
+        ctx.operator_override.edit_allowed
+        and ctx.operator_override.target_kind == "packet"
+        and ctx.operator_override.target_ref == target_ref
+    ):
+        return any(
+            coerce_text(packet.get("packet_id")) == target_ref
+            for packet in packet_rows(ctx)
+        )
     for packet in packet_rows(ctx):
         if coerce_text(packet.get("packet_id")) == target_ref:
             return packet_scoped_to_actor(ctx, packet)

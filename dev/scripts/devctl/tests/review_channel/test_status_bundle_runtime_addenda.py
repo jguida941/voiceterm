@@ -370,15 +370,18 @@ def test_status_bundle_keeps_actor_pending_pressure_without_session_match() -> N
     decision = next(
         row
         for row in projected["agent_loop_decisions"]
-        if row["required_action"] == "triage_pending_packet"
+        if row["required_action"] == "continue_to_goal"
     )
     assert decision["actor_id"] == "codex"
     assert decision["actor_role"] == "reviewer"
     assert decision["session_id"] == "s-codex-old"
-    assert decision["required_action"] == "triage_pending_packet"
+    assert decision["required_action"] == "continue_to_goal"
+    assert decision["user_action"] == "Continue to the typed goal"
+    assert decision["continuation_goal"] == "rev_pkt_reviewer"
     assert decision["active_packet_id"] == "rev_pkt_reviewer"
     assert decision["attention_packet_id"] == "rev_pkt_reviewer"
     assert decision["pending_packet_count"] == 1
+    assert decision["new_peer_input"] is True
     assert decision["wake_required"] is True
     assert decision["safe_to_continue"] is False
 

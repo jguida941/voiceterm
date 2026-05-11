@@ -15,7 +15,7 @@ DURABLE_PACKET_CLASSIFICATIONS = {
     "finding",
     "guard",
     "knowledge",
-    "manual-triage-required",
+    "manual-review-required",
 }
 TERMINAL_PACKET_CLASSIFICATIONS = {"duplicate", "obsolete", "rejected"}
 

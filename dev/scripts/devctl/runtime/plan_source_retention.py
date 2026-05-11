@@ -18,11 +18,15 @@ from .plan_source_retention_models import (
 from .plan_source_retention_store import (
     append_plan_source_snapshot,
     read_plan_source_snapshots,
+    upsert_plan_source_snapshots,
+    write_plan_source_snapshots_jsonl,
 )
 from .plan_source_retention_validation import (
     ACCEPTED_PLAN_SOURCE_RECEIPT_STATUSES,
+    detect_plan_row_ingestion_drifts,
     latest_accepted_plan_source_receipt,
     validate_current_plan_source_retention,
+    validate_plan_row_ingestion_bindings,
     validate_plan_row_source_retention,
 )
 
@@ -34,12 +38,16 @@ __all__ = [
     "PlanSourceSnapshot",
     "append_plan_source_snapshot",
     "build_plan_source_snapshot",
+    "detect_plan_row_ingestion_drifts",
     "full_plan_anchor_status",
     "latest_accepted_plan_source_receipt",
     "missing_required_plan_source_anchors",
     "plan_source_body_hash",
     "plan_source_snapshot_id",
     "read_plan_source_snapshots",
+    "upsert_plan_source_snapshots",
     "validate_current_plan_source_retention",
+    "validate_plan_row_ingestion_bindings",
     "validate_plan_row_source_retention",
+    "write_plan_source_snapshots_jsonl",
 ]

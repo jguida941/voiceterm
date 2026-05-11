@@ -44,6 +44,8 @@ BlockerSource = Literal[
     "session",
     "none",
 ]
+IMPORT_INDEX_ATOMICITY_BLOCKER_KIND = "import_index_atomicity"
+STARTUP_AUTHORITY_NEXT_ACTION_PREFIX = "checkpoint_blocked_by_startup_authority:"
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,10 +141,12 @@ def startup_authority_blocker_kind(startup_authority: object) -> str:
     errors = _string_items(authority.get("errors")) or _string_items(
         authority.get("startup_authority_errors")
     )
-    if _int_value(authority.get("import_index_atomicity_violations")) > 0 or any(
-        _is_import_index_atomicity_error(error) for error in errors
+    if (
+        _int_value(authority.get("import_index_atomicity_violations")) > 0
+        or _has_import_index_atomicity_finding_records(authority)
+        or any(_is_import_index_atomicity_error(error) for error in errors)
     ):
-        return "import_index_atomicity"
+        return IMPORT_INDEX_ATOMICITY_BLOCKER_KIND
     if bool(authority.get("checkpoint_required")) or (
         "safe_to_continue_editing" in authority
         and not bool(authority.get("safe_to_continue_editing"))
@@ -178,6 +182,24 @@ def _string_items(value: object) -> tuple[str, ...]:
     if not isinstance(value, (list, tuple)):
         return ()
     return tuple(str(item).strip() for item in value if str(item).strip())
+
+
+def _has_import_index_atomicity_finding_records(authority: Mapping[str, Any]) -> bool:
+    records = authority.get("import_index_atomicity_finding_records")
+    if not isinstance(records, (list, tuple)):
+        return False
+    return any(_is_import_index_atomicity_finding_record(record) for record in records)
+
+
+def _is_import_index_atomicity_finding_record(record: object) -> bool:
+    payload = _mapping(record)
+    if not payload:
+        return False
+    contract_id = str(payload.get("contract_id") or "").strip()
+    finding_kind = str(payload.get("finding_kind") or "").strip()
+    return contract_id == "ImportIndexAtomicityFinding" or (
+        finding_kind == "import_index_atomicity_missing_module"
+    )
 
 
 def _int_value(value: object) -> int:
@@ -243,7 +265,7 @@ def derive_blocker_decision(
         evidence.append(f"startup_authority.blocker_kind={startup_kind}")
         return BlockerSnapshot(
             top_blocker=f"startup authority: {startup_kind}",
-            next_action=f"checkpoint_blocked_by_startup_authority:{startup_kind}",
+            next_action=f"{STARTUP_AUTHORITY_NEXT_ACTION_PREFIX}{startup_kind}",
             blocker_source="startup_authority",
             derivation_evidence=tuple(evidence),
         )

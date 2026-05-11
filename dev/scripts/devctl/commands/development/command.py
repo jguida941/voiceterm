@@ -7,6 +7,7 @@ from typing import Any
 
 from ...common import emit_output, write_output
 from .actions import resolve_action
+from .baseline_inventory import run_baseline_inventory
 from .parser import DEVELOP_ACTIONS, add_parser
 from .plan_intake import run_ingest_plan
 from .report import build_report
@@ -15,6 +16,8 @@ from .render import render_markdown
 
 def run(args: Any) -> int:
     """Render a read-only DevelopmentLoopReport."""
+    if resolve_action(args) == "baseline-inventory":
+        return run_baseline_inventory(args)
     if resolve_action(args) in {"ingest-plan", "ingest-intent"}:
         return run_ingest_plan(args)
     report = build_report(args)
@@ -22,12 +25,26 @@ def run(args: Any) -> int:
     if args.format != "json":
         output = render_markdown(report)
 
-    return emit_output(
+    emit_rc = emit_output(
         output,
         output_path=getattr(args, "output", None),
         pipe_command=getattr(args, "pipe_command", None),
         pipe_args=getattr(args, "pipe_args", None),
         writer=write_output,
     )
+    if emit_rc:
+        return emit_rc
+    if (
+        resolve_action(args) == "collaboration-profile"
+        and bool(getattr(args, "validate_profile", False))
+        and not report.ok
+    ):
+        return 1
+    if (
+        bool(getattr(args, "enforce_final_response_gate", False))
+        and not report.final_response_gate.allow_final_response
+    ):
+        return 1
+    return 0
 
 __all__ = ["DEVELOP_ACTIONS", "add_parser", "build_report", "run"]

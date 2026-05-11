@@ -57,13 +57,16 @@ def build_typed_bridge_liveness(
     )
     implementer_ack = str(typed.get("implementer_ack") or typed.get("claude_ack") or "")
     reviewer_mode = resolve_reported_reviewer_mode(typed)
+    declared_reviewer_mode = resolve_reported_reviewer_mode(
+        {"reviewer_mode": typed.get("declared_reviewer_mode") or reviewer_mode}
+    )
     live_provider_ids = _live_participant_providers(collaboration)
     if collaboration is not None:
         apply_collaboration_authority_liveness(typed, collaboration)
         typed["active_conductor_providers"] = list(live_provider_ids)
         typed["codex_conductor_active"] = "codex" in live_provider_ids
         typed["claude_conductor_active"] = "claude" in live_provider_ids
-    typed["declared_reviewer_mode"] = reviewer_mode
+    typed["declared_reviewer_mode"] = declared_reviewer_mode
     typed["reviewer_mode"] = reviewer_mode
     typed["reviewer_poll_state"] = reviewer_poll_state
     typed["codex_poll_state"] = reviewer_poll_state
@@ -243,6 +246,9 @@ def build_review_bridge_state(
             bridge_liveness.get("session_liveness_signals")
             or bridge_liveness.get("participant_liveness")
         ),
+        declared_reviewer_mode=str(
+            bridge_liveness.get("declared_reviewer_mode") or declared_mode
+        ).strip(),
     )
 
 

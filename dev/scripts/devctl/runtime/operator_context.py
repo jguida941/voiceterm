@@ -224,7 +224,7 @@ def derive_operator_interaction_mode(
         has_active_remote_control_attachment,
         remote_control_attachment_from_mapping,
     )
-    from .conductor_capability import normalize_reviewer_mode
+    from .reviewer_mode import reviewer_mode_is_active, reviewer_mode_is_single_agent
 
     attachment = remote_control_attachment_from_mapping(
         _nested_get(review_state_payload, "reviewer_runtime", "remote_control_attachment")
@@ -252,9 +252,8 @@ def derive_operator_interaction_mode(
     if saw_local_terminal:
         return "local_terminal"
 
-    normalized = normalize_reviewer_mode(reviewer_mode)
-    if normalized == "active_dual_agent":
+    if reviewer_mode_is_active(reviewer_mode):
         return "dual_agent"
-    if normalized == "single_agent":
+    if reviewer_mode_is_single_agent(reviewer_mode):
         return "single_agent"
     return "unresolved"

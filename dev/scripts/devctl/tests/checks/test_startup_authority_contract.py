@@ -12,7 +12,12 @@ from unittest.mock import patch
 import pytest
 
 from dev.scripts.checks.startup_authority_contract.command import _build_report
+from dev.scripts.checks.startup_authority_contract.runtime_import_atomicity import (
+    ImportIndexAtomicityFinding,
+    collect_import_index_atomicity_finding_records,
+)
 from dev.scripts.checks.startup_authority_contract.runtime_import_staged import (
+    collect_staged_import_index_atomicity_finding_records,
     collect_staged_import_index_atomicity_findings,
 )
 from dev.scripts.checks.startup_authority_contract.runtime_checks import (
@@ -262,7 +267,7 @@ def test_startup_authority_fails_when_checkpoint_budget_is_exceeded(
             return_value=fake_module,
         ),
         patch(
-            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_findings",
+            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_finding_records",
             return_value=([], []),
         ),
     ):
@@ -299,7 +304,7 @@ def test_startup_authority_fails_when_local_checkpoint_leaves_dirty_worktree(
             return_value=fake_module,
         ),
         patch(
-            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_findings",
+            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_finding_records",
             return_value=([], []),
         ),
     ):
@@ -336,7 +341,7 @@ def test_startup_authority_allows_pre_checkpoint_dirty_worktree(
             return_value=fake_module,
         ),
         patch(
-            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_findings",
+            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_finding_records",
             return_value=([], []),
         ),
     ):
@@ -355,13 +360,17 @@ def test_startup_authority_reports_first_import_atomicity_violation(
     fake_module = SimpleNamespace(
         scan_repo_governance=lambda _root: _fake_governance(tmp_path)
     )
-    violation = (
-        "app/operator_console/state/snapshots/phone_status_snapshot.py: "
-        "`from dev.scripts.devctl.phone_status_views import compact_view` "
-        "resolves to module candidates `dev/scripts/devctl/phone_status_views.py`, "
-        "`dev/scripts/devctl/phone_status_views/__init__.py` missing from git "
-        "index (staged)."
+    violation_record = ImportIndexAtomicityFinding(
+        importer_path="app/operator_console/state/snapshots/phone_status_snapshot.py",
+        import_ref="from dev.scripts.devctl.phone_status_views import compact_view",
+        module_candidates=(
+            "dev/scripts/devctl/phone_status_views.py",
+            "dev/scripts/devctl/phone_status_views/__init__.py",
+        ),
+        source_layer="staged",
+        missing_from="git index (staged)",
     )
+    violation = violation_record.to_message()
 
     with (
         patch(
@@ -369,8 +378,8 @@ def test_startup_authority_reports_first_import_atomicity_violation(
             return_value=fake_module,
         ),
         patch(
-            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_findings",
-            return_value=([violation], []),
+            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_finding_records",
+            return_value=([violation_record], []),
         ),
     ):
         report = _build_report(repo_root=tmp_path)
@@ -378,6 +387,9 @@ def test_startup_authority_reports_first_import_atomicity_violation(
     assert report["ok"] is False
     assert report["import_index_atomicity_violations"] == 1
     assert report["import_index_atomicity_findings"] == [violation]
+    assert report["import_index_atomicity_finding_records"] == [
+        violation_record.to_dict()
+    ]
 
 
 def test_collect_concurrent_writer_errors_when_outside_scope_dirty_paths_overlap_live_agents(
@@ -726,7 +738,7 @@ def test_startup_authority_integration_allows_dirty_when_live_pipeline_parked(
             return_value=fake_module,
         ),
         patch(
-            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_findings",
+            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_finding_records",
             return_value=([], []),
         ),
         patch(
@@ -1081,7 +1093,7 @@ def test_startup_authority_uses_preloaded_governance_and_reviewer_gate(
             "dev.scripts.checks.startup_authority_contract.command.import_repo_module",
         ) as import_repo_module,
         patch(
-            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_findings",
+            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_finding_records",
             return_value=([], []),
         ),
         patch(
@@ -1116,7 +1128,7 @@ def test_startup_authority_fails_when_push_contract_is_incoherent(
             return_value=fake_module,
         ),
         patch(
-            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_findings",
+            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_finding_records",
             return_value=([], []),
         ),
         patch(
@@ -1186,7 +1198,8 @@ def test_import_index_atomicity_flags_repo_local_worktree_only_module(
     )
 
     with patch(
-        "dev.scripts.checks.startup_authority_contract.runtime_import_staged.resolve_quality_scope_roots",
+        "dev.scripts.checks.startup_authority_contract.runtime_import_staged"
+        ".resolve_quality_scope_roots",
         return_value=(Path("dev"),),
     ):
         errors, warnings = collect_import_index_atomicity_findings(tmp_path)
@@ -1222,6 +1235,44 @@ def test_import_index_atomicity_flags_committed_importer_with_broken_import(
 
     assert warnings == []
     assert any("startup_signals.py" in e and "committed" in e for e in errors)
+
+
+def test_import_index_atomicity_finding_records_are_structured(
+    tmp_path: Path,
+) -> None:
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    importer = tmp_path / "dev" / "testpkg" / "importer.py"
+    importer.parent.mkdir(parents=True)
+    importer.write_text("from . import startup_signals\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "dev/testpkg/importer.py"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+    _git_commit(tmp_path, "commit importer referencing missing module")
+    (tmp_path / "dev" / "testpkg" / "startup_signals.py").write_text(
+        "VALUE = 1\n",
+        encoding="utf-8",
+    )
+
+    with patch(
+        "dev.scripts.checks.startup_authority_contract.runtime_import_atomicity.resolve_quality_scope_roots",
+        return_value=(Path("dev"),),
+    ):
+        records, warnings = collect_import_index_atomicity_finding_records(tmp_path)
+
+    assert warnings == []
+    record = next(record for record in records if record.source_layer == "committed")
+    assert record.importer_path == "dev/testpkg/importer.py"
+    assert record.import_ref == "from . import startup_signals"
+    assert record.module_candidates == (
+        "dev/testpkg/startup_signals.py",
+        "dev/testpkg/startup_signals/__init__.py",
+    )
+    assert record.source_layer == "committed"
+    assert record.to_dict()["missing_from"] == "committed tree (HEAD)"
+    assert record.to_dict()["message"] == record.to_message()
 
 
 def test_import_index_atomicity_allows_staged_atomic_split_with_existing_head(
@@ -1301,6 +1352,38 @@ def test_staged_import_atomicity_ignores_unstaged_importer_dirt(
 
     assert warnings == []
     assert errors == []
+
+
+def test_staged_import_index_atomicity_finding_records_are_structured(
+    tmp_path: Path,
+) -> None:
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    importer = tmp_path / "dev" / "testpkg" / "importer.py"
+    importer.parent.mkdir(parents=True)
+    importer.write_text("import dev.testpkg.startup_signals\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "dev/testpkg/importer.py"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+
+    with patch(
+        "dev.scripts.checks.startup_authority_contract.runtime_import_staged"
+        ".resolve_quality_scope_roots",
+        return_value=(Path("dev"),),
+    ):
+        records, warnings = collect_staged_import_index_atomicity_finding_records(
+            tmp_path
+        )
+
+    assert warnings == []
+    assert len(records) == 1
+    record = records[0]
+    assert record.importer_path == "dev/testpkg/importer.py"
+    assert record.import_ref == "import dev.testpkg.startup_signals"
+    assert record.source_layer == "staged"
+    assert record.to_dict()["missing_from"] == "git index (staged)"
 
 
 def test_import_index_atomicity_accepts_atomic_staged_split(

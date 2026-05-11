@@ -230,6 +230,158 @@ def test_inbox_filter_honors_session_scope_when_present() -> None:
     assert [packet["packet_id"] for packet in packets] == ["rev_pkt_s1"]
 
 
+def test_inbox_filter_honors_role_scope_without_delivery_target() -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_impl_a",
+                "to_agent": "delivery-a",
+                "status": "pending",
+                "target_role": "implementer",
+                "target_session_id": "s1",
+            },
+            {
+                "packet_id": "rev_pkt_impl_b",
+                "to_agent": "delivery-b",
+                "status": "pending",
+                "target_role": "implementer",
+                "target_session_id": "s2",
+            },
+            {
+                "packet_id": "rev_pkt_review",
+                "to_agent": "delivery-a",
+                "status": "pending",
+                "target_role": "reviewer",
+                "target_session_id": "s3",
+            },
+            {
+                "packet_id": "rev_pkt_legacy",
+                "to_agent": "delivery-a",
+                "status": "pending",
+            },
+        ]
+    }
+
+    packets = filter_inbox_packets(
+        review_state,
+        target_role="implementer",
+        status="pending",
+    )
+
+    assert [packet["packet_id"] for packet in packets] == [
+        "rev_pkt_impl_a",
+        "rev_pkt_impl_b",
+    ]
+
+
+def test_role_scoped_inbox_queue_uses_role_filtered_packets() -> None:
+    args = SimpleNamespace(
+        action="inbox",
+        target="",
+        target_role="implementer",
+        target_session_id="",
+        status="pending",
+        limit=20,
+        terminal_profile=None,
+        approval_mode=None,
+    )
+    bundle = SimpleNamespace(
+        review_state={
+            "warnings": [],
+            "errors": [],
+            "queue": {
+                "pending_total": 2,
+                "pending_codex": 1,
+                "pending_claude": 1,
+                "stale_packet_count": 0,
+            },
+        },
+        projection_paths=ReviewChannelProjectionPaths(
+            root_dir="",
+            review_state_path="",
+            compact_path="",
+            full_path="",
+            actions_path="",
+            trace_path="",
+            latest_markdown_path="",
+            agent_registry_path="",
+            commit_pipeline_path="",
+        ),
+        artifact_paths=ReviewChannelArtifactPaths(
+            artifact_root="",
+            event_log_path="",
+            state_path="",
+            projections_root="",
+        ),
+    )
+
+    report, exit_code = _build_event_report(
+        args=args,
+        bundle=bundle,
+        packets=[
+            {
+                "packet_id": "rev_pkt_impl_a",
+                "status": "pending",
+                "kind": "task_progress",
+                "summary": "Implementer lane packet",
+                "to_agent": "delivery-a",
+                "target_role": "implementer",
+            }
+        ],
+    )
+
+    assert exit_code == 0
+    assert report["target_role"] == "implementer"
+    assert report["queue"]["pending_total"] == 1
+    assert report["queue"]["pending_role_implementer"] == 1
+    assert report["queue"]["pending_codex"] == 0
+    assert report["queue"]["pending_claude"] == 0
+    assert report["queue"]["filtered_scope"] == {
+        "target": "",
+        "target_role": "implementer",
+        "target_session_id": "",
+        "scope_key": "role_implementer",
+    }
+
+
+def test_load_target_packets_accepts_role_scope_without_delivery_target() -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_dashboard",
+                "to_agent": "delivery-a",
+                "from_agent": "system",
+                "kind": "instruction",
+                "status": "pending",
+                "target_role": "dashboard",
+                "target_session_id": "session-dashboard",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ]
+    }
+
+    _, packets = load_target_packets(
+        context=EventWatchContext(
+            args=SimpleNamespace(
+                target="",
+                target_role="dashboard",
+                target_session_id="",
+                status="pending",
+                limit=20,
+            ),
+            bundle=SimpleNamespace(review_state=review_state),
+            repo_root=Path("/tmp/repo"),
+            review_channel_path=Path("/tmp/repo/dev/active/review_channel.md"),
+            artifact_paths=SimpleNamespace(
+                artifact_root="/tmp/repo/dev/reports/review_channel"
+            ),
+        ),
+        observe_action_requests=False,
+    )
+
+    assert [packet["packet_id"] for packet in packets] == ["rev_pkt_dashboard"]
+
+
 def test_targeted_inbox_visibility_does_not_depend_on_actor_flag() -> None:
     review_state = {
         "packets": [

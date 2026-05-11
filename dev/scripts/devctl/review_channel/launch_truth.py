@@ -71,7 +71,7 @@ def classify_launch_truth(bridge_liveness: dict[str, object]) -> LaunchTruthStat
 def _typed_dual_agent_runtime_is_live(
     bridge_liveness: Mapping[str, object],
 ) -> bool:
-    topology = resolve_role_topology(bridge_liveness, include_runtime_presence=True)
+    topology = resolve_role_topology(bridge_liveness, include_runtime_presence=False)
     if not topology.live_reviewer or not topology.live_implementer:
         return False
     freshness = str(bridge_liveness.get("reviewer_freshness") or "").strip()

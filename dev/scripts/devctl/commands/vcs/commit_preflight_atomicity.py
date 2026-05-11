@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from dev.scripts.checks.startup_authority_contract.runtime_import_staged import (
-    collect_staged_import_index_atomicity_findings,
+    collect_staged_import_index_atomicity_finding_records,
 )
 from dev.scripts.checks.startup_authority_contract.runtime_import_git import (
     list_staged_new_python_module_paths,
@@ -31,13 +31,14 @@ def preflight_import_index_atomicity(
     if not staged_new_module_paths:
         return warnings, None
 
-    errors, atomicity_warnings = collect_staged_import_index_atomicity_findings(
-        repo_root
+    finding_records, atomicity_warnings = (
+        collect_staged_import_index_atomicity_finding_records(repo_root)
     )
     warnings.extend(atomicity_warnings)
-    if not errors:
+    if not finding_records:
         return warnings, None
 
+    errors = [record.to_message() for record in finding_records]
     guidance = (
         "Fix the staged import/index atomicity violations before rerunning "
         "`devctl commit`."
@@ -54,6 +55,9 @@ def preflight_import_index_atomicity(
         **commit_visibility_payload(pipeline),
         staged_new_python_module_paths=list(staged_new_module_paths),
         import_index_atomicity_findings=list(errors),
+        import_index_atomicity_finding_records=[
+            record.to_dict() for record in finding_records
+        ],
         operator_guidance=guidance,
         warnings=warnings,
     )

@@ -21,9 +21,11 @@ DEVELOP_ACTIONS = (
     "audit-guards",
     "audit-packets",
     "design-preflight",
+    "baseline-inventory",
     "ingest-intent",
     "ingest-plan",
     "campaign",
+    "collaboration-profile",
     "launch",
 )
 
@@ -35,6 +37,7 @@ COLLABORATION_MODE_CHOICES = (
     "research_fanout",
     "review_fanout",
     "watcher_fanout",
+    "agent_sync",
     "isolated_builder_fanout",
     "dogfood_campaign",
 )
@@ -110,6 +113,15 @@ def _add_controller_options(cmd: argparse.ArgumentParser) -> None:
         default=0,
         help="Requested worker budget for future fanout planning.",
     )
+    cmd.add_argument(
+        "--enforce-final-response-gate",
+        action="store_true",
+        default=False,
+        help=(
+            "Return nonzero when typed controller state says a final response "
+            "is not allowed."
+        ),
+    )
 
 
 def _add_collaboration_options(cmd: argparse.ArgumentParser) -> None:
@@ -120,7 +132,7 @@ def _add_collaboration_options(cmd: argparse.ArgumentParser) -> None:
         default="",
         help=(
             "Requested read-model collaboration mode, such as pair_review, "
-            "dashboard_led, intake_fanout, or dogfood_campaign."
+            "dashboard_led, agent_sync, intake_fanout, or dogfood_campaign."
         ),
     )
     cmd.add_argument(
@@ -131,6 +143,110 @@ def _add_collaboration_options(cmd: argparse.ArgumentParser) -> None:
             "Requested read-only/mutation-filtered role preset, such as "
             "dashboard, implementer, reviewer, intake, tester, or operator."
         ),
+    )
+    cmd.add_argument(
+        "--profile",
+        default="",
+        help="Portable collaboration profile id or path label for report output.",
+    )
+    cmd.add_argument(
+        "--provider",
+        action="append",
+        default=[],
+        help="Repeatable provider id participating in the collaboration profile.",
+    )
+    cmd.add_argument(
+        "--role-binding",
+        action="append",
+        default=[],
+        help=(
+            "Repeatable role=provider or role=provider:session binding, for "
+            "example implementer=claude or reviewer=codex:session_id."
+        ),
+    )
+    cmd.add_argument(
+        "--role-count",
+        action="append",
+        default=[],
+        help=(
+            "Repeatable role=n request for collaboration-profile fanout, for "
+            "example architect=3, researcher=2, watcher=1, or tester=4."
+        ),
+    )
+    cmd.add_argument(
+        "--agent-mind-provider",
+        action="append",
+        default=[],
+        help="Repeatable provider id whose AgentMindSlice should be polled.",
+    )
+    cmd.add_argument(
+        "--remote-provider",
+        default="",
+        help="Provider that owns remote-control lifecycle for this profile.",
+    )
+    cmd.add_argument(
+        "--architecture-agents",
+        "--architecture-agent-count",
+        dest="architecture_agents",
+        type=int,
+        default=0,
+        help=(
+            "Deprecated shortcut for --role-count architect=n in "
+            "collaboration-profile fanout; prefer --role-count architect=n."
+        ),
+    )
+    cmd.add_argument(
+        "--review-agents",
+        "--review-agent-count",
+        dest="review_agents",
+        type=int,
+        default=0,
+        help=(
+            "Deprecated shortcut for --role-count reviewer=n in "
+            "collaboration-profile fanout; prefer --role-count reviewer=n."
+        ),
+    )
+    cmd.add_argument(
+        "--source-packet-id",
+        default="",
+        help="Packet id the collaboration profile starts from.",
+    )
+    cmd.add_argument(
+        "--target-packet-id",
+        default="",
+        help="Packet id the collaboration profile should route toward.",
+    )
+    cmd.add_argument(
+        "--stop-at-packet",
+        "--stop-at-packet-id",
+        dest="stop_at_packet",
+        default="",
+        help=(
+            "Packet id whose ack/apply state should trigger the agent_sync "
+            "stop-anchor path."
+        ),
+    )
+    cmd.add_argument(
+        "--stop-at-mp-row",
+        "--stop-at-plan-row",
+        dest="stop_at_mp_row",
+        default="",
+        help=(
+            "Master-plan row id whose completed state should trigger the "
+            "agent_sync stop-anchor path."
+        ),
+    )
+    cmd.add_argument(
+        "--emit-profile-template",
+        action="store_true",
+        default=False,
+        help="Embed a starter portable collaboration profile template.",
+    )
+    cmd.add_argument(
+        "--validate-profile",
+        action="store_true",
+        default=False,
+        help="Fail the report when collaboration profile validation has errors.",
     )
 
 
@@ -300,9 +416,17 @@ def _action_flags() -> tuple[tuple[str, str], ...]:
             "design-preflight",
             "Probe ground truth before adding architecture/proof surfaces.",
         ),
+        (
+            "baseline-inventory",
+            "Capture the current governed authority substrate before refactors.",
+        ),
         ("ingest-intent", "Ingest packet/chat/file intent into typed state."),
         ("ingest-plan", "Ingest a plan packet/file/body into typed plan authority."),
         ("campaign", "Show the remote-control Codex/Claude campaign state."),
+        (
+            "collaboration-profile",
+            "Render a provider-neutral collaboration profile over existing typed surfaces.",
+        ),
         ("launch", "Run one read-only controller cycle report."),
     )
 

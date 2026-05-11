@@ -38,10 +38,12 @@ def agent_loop_signal_id(row: DevelopmentAgentLoopInput) -> str:
 
 
 def agent_loop_summary(row: DevelopmentAgentLoopInput) -> str:
-    blocker = _top_blocker(row) or row.required_action or row.lifecycle_state
+    blocker = row.why_not_done or _top_blocker(row) or row.required_action or row.lifecycle_state
+    action = row.user_action or row.required_action or "attention"
+    goal = f"; goal={row.continuation_goal}" if row.continuation_goal else ""
     return (
         f"{row.actor_id or 'actor'} {row.actor_role or 'role'} "
-        f"requires {row.required_action or 'attention'}; "
+        f"requires {action}{goal}; "
         f"safe={row.safe_to_continue}; may_mutate={row.may_mutate}; "
         f"blocker={blocker or 'none'}"
     )

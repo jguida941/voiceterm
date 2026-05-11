@@ -24,6 +24,7 @@ _BRIDGE_STATE_EXPECTED_TYPES: dict[str, type] = {
     "overall_state": str,
     "codex_poll_state": str,
     "reviewer_mode": str,
+    "declared_reviewer_mode": str,
     "last_codex_poll_utc": str,
     "last_codex_poll_age_seconds": int,
     "last_worktree_hash": str,

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from .contracts import ContractField, ContractSpec
+from .runtime_state_contract_rows_baseline_inventory import (
+    BASELINE_INVENTORY_STATE_CONTRACTS,
+)
 from .runtime_state_contract_rows_development_campaign import (
     DEVELOPMENT_CAMPAIGN_STATE_CONTRACTS,
 )
@@ -317,6 +320,7 @@ DEVELOPMENT_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     *DEVELOPMENT_ROLE_STATE_CONTRACTS,
     *DEVELOPMENT_PACKET_STATE_CONTRACTS,
     *GROUND_TRUTH_STATE_CONTRACTS,
+    *BASELINE_INVENTORY_STATE_CONTRACTS,
     *PLAN_INTAKE_STATE_CONTRACTS,
 )
 

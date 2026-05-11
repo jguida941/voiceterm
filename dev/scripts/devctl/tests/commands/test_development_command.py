@@ -10,12 +10,15 @@ from types import SimpleNamespace
 
 from dev.scripts.devctl import cli
 from dev.scripts.devctl.commands import development
+from dev.scripts.devctl.commands.development import command as development_command
 from dev.scripts.devctl.commands.development import (
+    baseline_inventory as baseline_inventory_module,
     design_preflight as design_preflight_module,
     orchestration_system_picture as orchestration_system_picture_module,
 )
 from dev.scripts.devctl.commands.development import packet_debt as development_packet_debt
 from dev.scripts.devctl.commands.development import plan_intake
+from dev.scripts.devctl.commands.development import plan_intake_phase0
 from dev.scripts.devctl.commands.development import report as development_report
 from dev.scripts.devctl.commands.development.actor_resolution import resolve_actor
 from dev.scripts.devctl.commands.development.campaign import campaign_report
@@ -24,6 +27,9 @@ from dev.scripts.devctl.commands.development.models import (
     DevelopmentPeerMindSnapshot,
 )
 from dev.scripts.devctl.commands.development.continuation import continuation_signal
+from dev.scripts.devctl.commands.development.final_response_gate import (
+    enforce_final_response_gate,
+)
 from dev.scripts.devctl.commands.development.orchestration_models import (
     DevelopmentAgentLoopInput,
     DevelopmentContinuationRequiredSignal,
@@ -43,7 +49,15 @@ from dev.scripts.devctl.commands.development.status_summary import (
 )
 from dev.scripts.devctl.commands.development.watcher.lease import watcher_lease_status
 from dev.scripts.devctl.runtime.master_plan_contract import PlanRow, SDLCStage
+from dev.scripts.devctl.runtime.baseline_authority_inventory import (
+    DEFAULT_BASELINE_AUTHORITY_INVENTORY_REL,
+    read_baseline_authority_inventory_receipts,
+)
 from dev.scripts.devctl.runtime.master_plan_store import write_plan_rows_jsonl
+from dev.scripts.devctl.runtime.plan_intent_ingestion import (
+    plan_intent_receipt_ref,
+    typed_action_ref,
+)
 from dev.scripts.devctl.runtime.development_role_adapters import (
     build_develop_role_adapter_matrix,
 )
@@ -246,6 +260,212 @@ def test_develop_status_accepts_collaboration_mode_and_role_preset(capsys) -> No
     assert collaboration["mutable_fanout_status"] == "blocked_by_read_model_mode"
 
 
+def test_develop_collaboration_profile_accepts_agent_sync_role_counts(
+    capsys,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        development_report,
+        "review_state_payload",
+        lambda _repo: {
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_target",
+                    "status": "acked",
+                    "lifecycle_current_state": "acknowledged",
+                }
+            ],
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "claude",
+                        "attention_status": "wake_required",
+                        "wake_reason": "packet_arrival",
+                        "pending_actionable_packet_ids": ["rev_pkt_wake"],
+                    }
+                ]
+            },
+            "collaboration": {
+                "contract_id": "CollaborationSession",
+                "session_id": "cmd-collab-session",
+                "status": "active",
+                "topology_mode": "paired_remote_control",
+                "mutation_owner": "claude",
+                "verification_owner": "codex",
+                "watcher_owner": "claude",
+                "peer_review": {
+                    "current_instruction": "full instruction text omitted",
+                    "current_instruction_revision": "cmd-rev-1",
+                    "open_findings": "0",
+                    "implementer_status": "active",
+                    "implementer_ack_state": "current",
+                },
+                "arbitration": {
+                    "status": "clear",
+                    "owner": "system",
+                },
+                "ready_gates": [
+                    {
+                        "gate_id": "runtime_truth",
+                        "status": "ready",
+                        "summary": "typed state loaded",
+                    }
+                ],
+            },
+        },
+    )
+    monkeypatch.setattr(
+        development_report,
+        "_review_channel_events",
+        lambda _repo: (
+            {
+                "event_type": "packet_posted",
+                "event_id": "evt-wake",
+                "timestamp_utc": "2026-05-10T05:50:00Z",
+                "to_agent": "claude",
+                "target_role": "implementer",
+                "target_session_id": "impl-session",
+                "packet_id": "rev_pkt_wake",
+            },
+        ),
+    )
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "collaboration-profile",
+            "--collaboration-mode",
+            "agent_sync",
+            "--role-preset",
+            "architect",
+            "--profile",
+            "agent-sync",
+            "--provider",
+            "codex",
+            "--provider",
+            "claude",
+            "--role-binding",
+            "implementer=claude:impl-session",
+            "--role-binding",
+            "reviewer=codex",
+            "--role-binding",
+            "architect=codex",
+            "--role-count",
+            "architect=3",
+            "--role-count",
+            "researcher=2",
+            "--role-count",
+            "watcher=1",
+            "--role-count",
+            "tester=4",
+            "--agent-mind-provider",
+            "claude",
+            "--remote-provider",
+            "claude",
+            "--source-packet-id",
+            "rev_pkt_source",
+            "--target-packet-id",
+            "rev_pkt_target",
+            "--stop-at-packet",
+            "rev_pkt_target",
+            "--emit-profile-template",
+            "--validate-profile",
+            "--format",
+            "json",
+        ]
+    )
+
+    rc = cli.COMMAND_HANDLERS[args.command](args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    profile = payload["collaboration_mode"]["profile"]
+    budgets = {row["role"]: row for row in profile["resolved_role_budgets"]}
+    assert payload["action"] == "collaboration-profile"
+    assert payload["controller_state"] == "read_only_collaboration_profile_validation"
+    assert profile["contract_id"] == "AgentCollaborationProfile"
+    assert profile["selected_mode_id"] == "agent_sync"
+    assert profile["selected_role_preset_id"] == "architect"
+    assert profile["providers"] == ["codex", "claude"]
+    assert profile["agent_mind_providers"] == ["claude"]
+    assert profile["remote_provider"] == "claude"
+    assert profile["stop_at_packet_id"] == "rev_pkt_target"
+    assert profile["stop_anchor_request"]["stop_at_packet_id"] == "rev_pkt_target"
+    assert profile["stop_anchor_request"]["stop_packet_kind"] == "stop_anchor"
+    assert profile["collaboration_session"]["contract_id"] == "CollaborationSession"
+    assert profile["collaboration_session"]["owners"]["mutation_owner"] == "claude"
+    assert profile["collaboration_session"]["peer_review"][
+        "current_instruction_revision"
+    ] == "cmd-rev-1"
+    assert "current_instruction" not in profile["collaboration_session"][
+        "peer_review"
+    ]
+    assert "full instruction text omitted" not in json.dumps(
+        profile["collaboration_session"]
+    )
+    assert profile["advisory_wake_evidence"][0]["latest_relevant_packet_id"] == (
+        "rev_pkt_wake"
+    )
+    assert any(
+        "--action inbox --target claude --actor claude" in command
+        for command in profile["command_plan"]
+    )
+    assert any(
+        "--actor claude --role implementer --session-id impl-session "
+        "--packet rev_pkt_wake" in command
+        for command in profile["command_plan"]
+    )
+    assert profile["coordination_surfaces"] == [
+        "AgentMindSlice",
+        "PacketInboxState",
+        "ReviewPacketState",
+        "AgentWorkBoardProjection",
+        "AgentLoopDecision",
+        "CollaborationSessionState",
+    ]
+    assert budgets["architect"]["resolved_count"] == 3
+    assert budgets["researcher"]["resolved_count"] == 2
+    assert budgets["watcher"]["resolved_count"] == 1
+    assert budgets["tester"]["resolved_count"] == 4
+    assert "never grant mutation" in profile["authority_policy"]
+    assert profile["ok"] is True
+    assert profile["validation_errors"] == []
+    assert "python3 dev/scripts/devctl.py probe-report --format md" in (
+        payload["required_checks"]
+    )
+
+
+def test_develop_collaboration_profile_validate_profile_fails_invalid_stop_target(
+    capsys,
+) -> None:
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "collaboration-profile",
+            "--collaboration-mode",
+            "solo",
+            "--role-preset",
+            "dashboard",
+            "--stop-at-packet",
+            "rev_pkt_done",
+            "--validate-profile",
+            "--format",
+            "json",
+        ]
+    )
+
+    rc = cli.COMMAND_HANDLERS[args.command](args)
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    profile = payload["collaboration_mode"]["profile"]
+    assert payload["ok"] is False
+    assert payload["status"] == "blocked"
+    assert profile["ok"] is False
+    assert profile["stop_anchor_request"]["status"] == "invalid_stop_anchor_target"
+    assert "packet_ack_or_apply" in profile["validation_errors"][0]
+    assert all("--kind stop_anchor" not in command for command in profile["command_plan"])
+
+
 def test_develop_campaign_parser_action_is_read_only() -> None:
     args = cli.build_parser().parse_args(["develop", "campaign", "--format", "json"])
 
@@ -326,7 +546,7 @@ def test_develop_campaign_pending_packet_blocks_review_claim() -> None:
         ),
     )
 
-    assert report.status == "blocked_pending_packet_triage"
+    assert report.status == "blocked_pending_packet_goal"
     assert report.pending_packet_id == "rev_pkt_3096"
     assert report.fail_closed is True
     assert report.claude_next_command.endswith("--format md")
@@ -672,6 +892,48 @@ def test_stopped_watcher_blocks_when_live_packet_pressure_exists() -> None:
     assert signal.next_required_command.endswith("review-channel --action watch")
 
 
+def test_continuation_signal_requires_packet_post_command_for_anchor() -> None:
+    signal = continuation_signal(
+        packet_attention=DevelopmentPacketAttention(),
+        orchestration=DevelopmentOrchestrationSnapshot(
+            status="action_required",
+            signal_count=1,
+            action_required_count=1,
+            agent_loop_decisions=(
+                DevelopmentAgentLoopInput(
+                    actor_id="codex",
+                    actor_role="reviewer",
+                    session_id="session-1",
+                    lifecycle_state="blocked",
+                    required_action="post_continuation_anchor",
+                    loop_mode="blocked",
+                    should_continue_loop=True,
+                    safe_to_continue=False,
+                    may_mutate=False,
+                    proof_state="missing",
+                ),
+            ),
+        ),
+        watcher_lease=DevelopmentWatcherLease(status="live"),
+        packet_pressure=_packet_pressure(live_total=0, actionable_total=0),
+        current_action="next",
+        fallback_commands=("python3 dev/scripts/devctl.py develop next --format md",),
+    )
+
+    parts = shlex.split(signal.required_packet_command)
+
+    assert signal.required_packet_kind == "continuation_anchor"
+    assert signal.required_final_response_action == "post_continuation"
+    assert parts[:5] == ["python3", "dev/scripts/devctl.py", "review-channel", "--action", "post"]
+    assert "--kind" in parts
+    assert parts[parts.index("--kind") + 1] == "continuation_anchor"
+    assert "--target-role" in parts
+    assert parts[parts.index("--target-role") + 1] == "reviewer"
+    assert "--target-session-id" in parts
+    assert parts[parts.index("--target-session-id") + 1] == "session-1"
+    assert signal.next_required_command.endswith("develop next --format md")
+
+
 def test_develop_audit_packets_report_promotes_packet_decision_command(
     monkeypatch,
 ) -> None:
@@ -686,7 +948,7 @@ def test_develop_audit_packets_report_promotes_packet_decision_command(
             _packet_pressure(live_total=0, actionable_total=1).to_dict(),
             [],
             PacketAttentionIngestionDecision(
-                decision="pivot_to_packet_review",
+                decision="continue_to_goal_review",
                 reason_code="expired_unresolved",
                 required_action="review_selected_packets",
                 fail_closed=False,
@@ -757,6 +1019,250 @@ def test_develop_report_status_does_not_render_ready_when_continuation_required(
         blockers=(),
         continuation=continuation,
         lifecycle_actions=frozenset(),
+    )
+
+
+def test_develop_final_response_gate_returns_nonzero_when_continuation_required(
+    monkeypatch,
+    capsys,
+) -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=True,
+        status="continue_required",
+        final_response_allowed=False,
+        final_response_gate_allowed=False,
+        required_final_response_action="run_next_command",
+        reasons=("orchestration_action_required:1",),
+        next_required_command=(
+            "python3 dev/scripts/devctl.py agent-loop --format json "
+            "--actor codex --role reviewer --session-id s1"
+        ),
+        stop_policy="stop_only_when_typed_controller_closed",
+    )
+    report = SimpleNamespace(
+        ok=True,
+        continuation=continuation,
+        final_response_gate=enforce_final_response_gate(continuation),
+        to_dict=lambda: {
+            "command": "develop",
+            "continuation": {
+                "continuation_required": True,
+                "final_response_allowed": False,
+                "final_response_gate_allowed": False,
+                "required_final_response_action": "run_next_command",
+                "next_required_command": continuation.next_required_command,
+            },
+        },
+    )
+    monkeypatch.setattr(development_command, "build_report", lambda _args: report)
+    args = cli.build_parser().parse_args(
+        ["develop", "next", "--enforce-final-response-gate", "--format", "json"]
+    )
+
+    rc = development_command.run(args)
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["continuation"]["final_response_allowed"] is False
+    assert payload["continuation"]["final_response_gate_allowed"] is False
+    assert payload["continuation"]["next_required_command"].endswith(
+        "--session-id s1"
+    )
+
+
+def test_develop_final_response_gate_uses_live_packet_attention(
+    monkeypatch,
+    capsys,
+) -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=False,
+        final_response_allowed=True,
+        final_response_gate_allowed=True,
+    )
+    packet_attention = DevelopmentPacketAttention(
+        attention_required=True,
+        wake_reason="task_progress_pending",
+        latest_attention_packet_id="rev_pkt_3617",
+        required_command=(
+            "python3 dev/scripts/devctl.py review-channel --action inbox "
+            "--target codex --actor codex --status pending --terminal none --format md"
+        ),
+    )
+    report = SimpleNamespace(
+        ok=True,
+        continuation=continuation,
+        packet_attention=packet_attention,
+        orchestration=DevelopmentOrchestrationSnapshot(),
+        final_response_gate=enforce_final_response_gate(
+            continuation,
+            packet_attention=packet_attention,
+            orchestration=DevelopmentOrchestrationSnapshot(),
+        ),
+        to_dict=lambda: {
+            "command": "develop",
+            "continuation": {
+                "continuation_required": False,
+                "final_response_allowed": True,
+                "final_response_gate_allowed": True,
+            },
+            "packet_attention": {
+                "attention_required": True,
+                "latest_attention_packet_id": "rev_pkt_3617",
+            },
+        },
+    )
+    monkeypatch.setattr(development_command, "build_report", lambda _args: report)
+    args = cli.build_parser().parse_args(
+        ["develop", "next", "--enforce-final-response-gate", "--format", "json"]
+    )
+
+    rc = development_command.run(args)
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["continuation"]["final_response_allowed"] is True
+    assert payload["packet_attention"]["latest_attention_packet_id"] == "rev_pkt_3617"
+
+
+def test_final_response_gate_requires_next_command_when_controller_is_not_closed() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=True,
+        status="continue_required",
+        final_response_allowed=False,
+        final_response_gate_allowed=False,
+        required_final_response_action="post_continuation",
+        required_packet_kind="continuation_anchor",
+        required_packet_command=(
+            "python3 dev/scripts/devctl.py review-channel --action post "
+            "--from-agent codex --to-agent codex --kind continuation_anchor"
+        ),
+        reasons=("orchestration_action_required:1",),
+        next_required_command=(
+            "python3 dev/scripts/devctl.py develop next --actor codex --format md"
+        ),
+    )
+
+    result = enforce_final_response_gate(continuation)
+
+    assert result.allow_final_response is False
+    assert result.action == "post_continuation"
+    assert result.required_packet_kind == "continuation_anchor"
+    assert "review-channel --action post" in result.required_packet_command
+    assert result.next_required_command.endswith("--actor codex --format md")
+
+
+def test_final_response_gate_denies_live_packet_attention_when_cached_closed() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=False,
+        final_response_allowed=True,
+        final_response_gate_allowed=True,
+    )
+    packet_attention = DevelopmentPacketAttention(
+        attention_required=True,
+        wake_reason="task_progress_pending",
+        latest_attention_packet_id="rev_pkt_3617",
+        required_command=(
+            "python3 dev/scripts/devctl.py review-channel --action inbox "
+            "--target codex --actor codex --status pending --terminal none --format md"
+        ),
+    )
+
+    result = enforce_final_response_gate(
+        continuation,
+        packet_attention=packet_attention,
+        orchestration=DevelopmentOrchestrationSnapshot(),
+    )
+
+    assert result.allow_final_response is False
+    assert result.action == "continue_to_goal"
+    assert result.reason == "packet_attention:task_progress_pending"
+    assert result.blocking_packet_id == "rev_pkt_3617"
+    assert "review-channel --action inbox" in result.next_required_command
+
+
+def test_final_response_gate_denies_live_agent_loop_when_cached_closed() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=False,
+        final_response_allowed=True,
+        final_response_gate_allowed=True,
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="session-1",
+                lifecycle_state="blocked",
+                required_action="post_continuation_anchor",
+                loop_mode="blocked",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="missing",
+                next_loop_command=(
+                    "python3 dev/scripts/devctl.py develop next "
+                    "--actor codex --format md"
+                ),
+            ),
+        ),
+    )
+
+    result = enforce_final_response_gate(
+        continuation,
+        orchestration=orchestration,
+    )
+
+    assert result.allow_final_response is False
+    assert result.action == "post_continuation"
+    assert result.reason == "agent_loop:post_continuation_anchor"
+    assert result.required_packet_kind == "continuation_anchor"
+    assert result.next_required_command.endswith("--actor codex --format md")
+
+
+def test_final_response_gate_denies_dict_packet_attention_fields() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=False,
+        final_response_allowed=True,
+        final_response_gate_allowed=True,
+    )
+
+    result = enforce_final_response_gate(
+        continuation,
+        packet_attention={
+            "pending_packet_count": 1,
+            "wake_required": True,
+            "latest_attention_packet_id": "rev_pkt_3617",
+            "required_command": (
+                "python3 dev/scripts/devctl.py review-channel --action inbox "
+                "--target codex --actor codex --status pending --terminal none --format md"
+            ),
+        },
+    )
+
+    assert result.allow_final_response is False
+    assert result.source == "packet_attention"
+    assert result.blocking_packet_id == "rev_pkt_3617"
+    assert "review-channel --action inbox" in result.next_required_command
+
+
+def test_final_response_gate_default_continuation_fails_closed() -> None:
+    result = enforce_final_response_gate(DevelopmentContinuationRequiredSignal())
+
+    assert result.allow_final_response is False
+    assert result.reason == "continuation_signal_missing"
+    assert result.action == "run_next_command"
+
+
+def test_develop_report_embeds_materialized_final_response_gate() -> None:
+    args = cli.build_parser().parse_args(["develop", "next", "--format", "json"])
+
+    report = development_report.build_report(args)
+    payload = report.to_dict()
+
+    assert "final_response_gate" in payload
+    assert payload["final_response_gate"]["contract_id"] == "FinalResponseGateResult"
+    assert payload["final_response_gate"]["stop_policy"] == (
+        "stop_only_when_typed_controller_closed"
     )
 
 
@@ -957,12 +1463,21 @@ def test_develop_ingest_plan_body_writes_row_and_receipt(
     assert receipt["contract_id"] == "PlanIntentIngestionReceipt"
     assert receipt["status"] == "accepted"
     assert receipt["row_ids"] == ["MP377-P0-T22AN-W"]
+    assert receipt["action_id"].startswith("plan-intent-action-")
     assert rows[0]["row_id"] == "MP377-P0-T22AN-W"
     assert rows[0]["provenance"]["source_kind"] == "PlanIntentIngestion:chat"
+    assert receipt["schema_limit_warning"]
+    assert receipt["repo_state_fingerprint"]["worktree_identity"] == str(
+        tmp_path.resolve()
+    )
+    assert receipt["receipt_coverage_inventory"]["total_mp377_rows"] == 0
+    assert receipt["composition_disposition_matrix"][0]["row_id"] == "MP377-P0-T22AN-W"
     assert any(
         ref.startswith("plan_source_snapshot:")
         for ref in rows[0]["work_evidence_ids"]
     )
+    assert plan_intent_receipt_ref(receipt["receipt_id"]) in rows[0]["work_evidence_ids"]
+    assert typed_action_ref(receipt["action_id"]) in rows[0]["work_evidence_ids"]
     snapshots = [
         json.loads(line)
         for line in (tmp_path / "dev/state/plan_source_snapshots.jsonl").read_text(
@@ -971,6 +1486,10 @@ def test_develop_ingest_plan_body_writes_row_and_receipt(
         if line.strip()
     ]
     assert snapshots[0]["plan_row_id"] == "MP377-P0-T22AN-W"
+    assert snapshots[0]["receipt_id"] == receipt["receipt_id"]
+    assert snapshots[0]["action_id"] == receipt["action_id"]
+    assert snapshots[0]["composition_disposition"] == "new_closure_row"
+    assert snapshots[0]["schema_limit_warning"]
     assert snapshots[0]["source_text"] == (
         "Any agent-authored plan must reach typed plan authority."
     )
@@ -1053,6 +1572,443 @@ def test_develop_ingest_plan_file_accepts_checklist_rows(
     assert receipt.row_ids == ("MP377-P0-T22AN-X",)
     assert rows[0]["title"] == "File-backed planning row"
     assert rows[0]["target_ref"] == "plan:MP-377"
+
+
+def test_develop_ingest_plan_file_accepts_rows_to_ingest_section(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(plan_intake, "REPO_ROOT", tmp_path)
+    source = tmp_path / "plan.md"
+    source.write_text(
+        "\n".join(
+            (
+                "# MP-377 Consolidation Repair Plan",
+                "",
+                "Required existing-row composition anchors:",
+                "",
+                "- `MP377-P0-EXC-S1`, `MP377-P0-CHECKPOINT-AUTOMATION-S1`, `MP377-P0-DEVELOP-NEXT-DECISION-SCHEMA-S1`, `MP377-P0-GUARD-CADENCE-S1`",
+                "",
+                "Required packet-binding citations:",
+                "",
+                "- `PKT-BIND-REV-PKT-3505`",
+                "",
+                "Rows to ingest from this plan:",
+                "",
+                "- `MP377-CONSOLIDATION-PLAN-INGEST-S1` Ingest the consolidated repair plan.",
+                "- `MP377-FINAL-AUDIT-MT-COMPOSITION-S1` Fold the audit amendments into typed authority.",
+                "",
+                "Existing today:",
+                "",
+                "```bash",
+                "python3 dev/scripts/devctl.py develop ingest-plan --dry-run --source <plan> --target-ref plan:MP-377 --format json",
+                "```",
+                "",
+                "Aspirational until implemented by the named phases:",
+                "",
+                "```bash",
+                "python3 dev/scripts/checks/check_plan_composition_disposition.py --format json",
+                "```",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "ingest-plan",
+            "--source",
+            str(source),
+            "--target-ref",
+            "plan:MP-377",
+            "--format",
+            "json",
+        ]
+    )
+
+    receipt = plan_intake.ingest_plan_intent(args, repo_root=tmp_path)
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "dev/state/plan_index.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+    snapshots = [
+        json.loads(line)
+        for line in (tmp_path / "dev/state/plan_source_snapshots.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+
+    assert receipt.status == "accepted"
+    assert receipt.row_ids == (
+        "MP377-CONSOLIDATION-PLAN-INGEST-S1",
+        "MP377-FINAL-AUDIT-MT-COMPOSITION-S1",
+    )
+    assert receipt.source_kind == "markdown_plan_file"
+    assert receipt.repo_state_fingerprint.worktree_identity == str(tmp_path.resolve())
+    assert receipt.receipt_coverage_inventory.total_mp377_rows == 0
+    assert receipt.composition_disposition_matrix[0].row_id == (
+        "MP377-CONSOLIDATION-PLAN-INGEST-S1"
+    )
+    assert receipt.composition_disposition_matrix[1].disposition == (
+        "amends_existing_owner_row"
+    )
+    assert receipt.command_manifest_proofs[0].proof_status == "registered_command"
+    assert receipt.command_manifest_proofs[1].proof_status == "planned"
+    assert receipt.guard_maturity_records[0].maturity == "planned"
+    assert {
+        row["row_id"] for row in rows
+    } == {
+        "MP377-CONSOLIDATION-PLAN-INGEST-S1",
+        "MP377-FINAL-AUDIT-MT-COMPOSITION-S1",
+    }
+    assert snapshots[0]["existing_owner_row_refs"]
+    assert snapshots[0]["packet_binding_refs"] == ["PKT-BIND-REV-PKT-3505"]
+    assert snapshots[1]["composition_disposition"] == "amends_existing_owner_row"
+
+
+def test_develop_ingest_plan_marks_existing_rows_as_amendments(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(plan_intake, "REPO_ROOT", tmp_path)
+    store = tmp_path / "dev/state/plan_index.jsonl"
+    write_plan_rows_jsonl(
+        store,
+        (
+            PlanRow(
+                row_id="MP377-STALE-EVIDENCE-POLICY-GUARD-S1",
+                title="Existing stale evidence policy row",
+                status="queued",
+                sdlc_stage=SDLCStage.SPEC,
+                target_ref="plan:MP-377",
+            ),
+        ),
+    )
+    source = tmp_path / "codesmell-plan.md"
+    source.write_text(
+        "\n".join(
+            (
+                "# MP-377 Codesmell Intake",
+                "",
+                "Required packet-binding citations:",
+                "",
+                "- `PKT-BIND-REV-PKT-3596`",
+                "",
+                "Rows to ingest from this plan:",
+                "",
+                "- `MP377-STALE-EVIDENCE-POLICY-GUARD-S1` Amend stale projection race evidence.",
+                "- `MP377-CHECK-CLI-TEST-PARITY-S1` Add CLI/test parity closure.",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "ingest-plan",
+            "--dry-run",
+            "--source",
+            str(source),
+            "--target-ref",
+            "plan:MP-377",
+            "--format",
+            "json",
+        ]
+    )
+
+    receipt = plan_intake.ingest_plan_intent(args, repo_root=tmp_path)
+    matrix = {
+        entry.row_id: entry for entry in receipt.composition_disposition_matrix
+    }
+
+    assert receipt.status == "preview"
+    assert (
+        matrix["MP377-STALE-EVIDENCE-POLICY-GUARD-S1"].disposition
+        == "amends_existing_owner_row"
+    )
+    assert matrix["MP377-STALE-EVIDENCE-POLICY-GUARD-S1"].existing_owner_row_refs == (
+        "MP377-STALE-EVIDENCE-POLICY-GUARD-S1",
+    )
+    assert (
+        matrix["MP377-CHECK-CLI-TEST-PARITY-S1"].disposition
+        == "new_closure_row"
+    )
+
+
+def test_phase0_validation_rejects_existing_row_as_new_closure() -> None:
+    rows = (
+        PlanRow(
+            row_id="MP377-STALE-EVIDENCE-POLICY-GUARD-S1",
+            title="Stale evidence policy",
+            status="queued",
+            sdlc_stage=SDLCStage.SPEC,
+            target_ref="plan:MP-377",
+        ),
+    )
+    metadata = plan_intake_phase0.Phase0IntakeMetadata(
+        composition_disposition_matrix=(
+            plan_intake_phase0.PlanCompositionDispositionEntry(
+                row_id="MP377-STALE-EVIDENCE-POLICY-GUARD-S1",
+                disposition="new_closure_row",
+                owning_mp_family="MP-377",
+                existing_owner_row_refs=(
+                    "MP377-STALE-EVIDENCE-POLICY-GUARD-S1",
+                ),
+            ),
+        ),
+        command_manifest_proofs=(),
+        guard_maturity_records=(),
+        repo_state_fingerprint=plan_intake_phase0.RepoStateFingerprint(),
+        receipt_coverage_inventory=plan_intake_phase0.ReceiptCoverageInventory(),
+    )
+
+    try:
+        plan_intake_phase0.validate_phase0_metadata(
+            rows=rows,
+            metadata=metadata,
+            sections=plan_intake_phase0.ParsedPlanAuthoritySections(
+                rows_section_present=True,
+                rows_to_ingest=(
+                    plan_intake_phase0.ParsedPlanAuthorityRow(
+                        row_id="MP377-STALE-EVIDENCE-POLICY-GUARD-S1",
+                        title="Stale evidence policy",
+                        source_line=1,
+                    ),
+                ),
+            ),
+            existing_rows=rows,
+        )
+    except plan_intake_phase0.PlanIntakePhase0ValidationError as exc:
+        assert str(exc) == "phase0_existing_owner_row_marked_new_closure"
+    else:
+        raise AssertionError("existing plan row was allowed as new_closure_row")
+
+
+def test_develop_ingest_plan_rolls_back_rows_when_snapshot_write_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(plan_intake, "REPO_ROOT", tmp_path)
+    source = tmp_path / "plan.md"
+    source.write_text(
+        "# MP-377\n\n- [ ] `MP377-P0-TXN-S1` Transaction rollback proof row\n",
+        encoding="utf-8",
+    )
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "ingest-plan",
+            "--source",
+            str(source),
+            "--target-ref",
+            "plan:MP-377",
+            "--format",
+            "json",
+        ]
+    )
+
+    def _raise_snapshot_failure(*_args, **_kwargs):
+        raise RuntimeError("simulated snapshot write failure")
+
+    monkeypatch.setattr(plan_intake, "write_source_snapshots", _raise_snapshot_failure)
+
+    receipt = plan_intake.ingest_plan_intent(args, repo_root=tmp_path)
+    receipt_rows = [
+        json.loads(line)
+        for line in (
+            tmp_path / "dev/state/plan_ingestion_receipts.jsonl"
+        ).read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+    assert receipt.status == "rejected"
+    assert receipt.reason == "plan_ingestion_rolled_back_after_source_snapshot_failure"
+    assert receipt.store_statuses == ("rolled_back:inserted",)
+    assert receipt.row_ids == ("MP377-P0-TXN-S1",)
+    assert not (tmp_path / "dev/state/plan_index.jsonl").exists()
+    assert not (tmp_path / "dev/state/plan_source_snapshots.jsonl").exists()
+    assert receipt_rows[-1]["reason"] == receipt.reason
+    assert receipt_rows[-1]["store_statuses"] == list(receipt.store_statuses)
+
+
+def test_develop_ingest_plan_rolls_back_existing_row_when_snapshot_write_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(plan_intake, "REPO_ROOT", tmp_path)
+    store = tmp_path / "dev/state/plan_index.jsonl"
+    write_plan_rows_jsonl(
+        store,
+        (
+            PlanRow(
+                row_id="MP377-P0-TXN-S2",
+                title="Original transaction row",
+                status="queued",
+                sdlc_stage=SDLCStage.SPEC,
+                target_ref="plan:MP-377",
+            ),
+        ),
+    )
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "ingest-plan",
+            "--plan-row-id",
+            "MP377-P0-TXN-S2",
+            "--title",
+            "Updated transaction row",
+            "--body",
+            "This update must roll back if the snapshot stage fails.",
+            "--source-kind",
+            "chat",
+            "--source-ref",
+            "chat://rollback-existing",
+            "--target-ref",
+            "plan:MP-377",
+            "--format",
+            "json",
+        ]
+    )
+
+    def _raise_snapshot_failure(*_args, **_kwargs):
+        raise RuntimeError("simulated snapshot write failure")
+
+    monkeypatch.setattr(plan_intake, "write_source_snapshots", _raise_snapshot_failure)
+
+    receipt = plan_intake.ingest_plan_intent(args, repo_root=tmp_path)
+    rows = [
+        json.loads(line)
+        for line in store.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+    assert receipt.status == "rejected"
+    assert receipt.reason == "plan_ingestion_rolled_back_after_source_snapshot_failure"
+    assert receipt.store_statuses == ("rolled_back:updated",)
+    assert rows[0]["row_id"] == "MP377-P0-TXN-S2"
+    assert rows[0]["title"] == "Original transaction row"
+    assert rows[0]["status"] == "queued"
+    assert rows[0]["sdlc_stage"] == "spec"
+    assert not (tmp_path / "dev/state/plan_source_snapshots.jsonl").exists()
+
+
+def test_phase0_supported_state_vocab_matches_plan() -> None:
+    assert plan_intake_phase0.SUPPORTED_PLAN_DISPOSITIONS == {
+        "new_closure_row",
+        "amends_existing_owner_row",
+        "existing_owner_citation_only",
+        "adjacent_mp_dependency",
+        "portability_blocker",
+        "security_blocker",
+        "aspirational_until_implemented",
+        "deferred_followup",
+        "do_not_ingest",
+    }
+    assert plan_intake_phase0.SUPPORTED_GUARD_MATURITY_STATES == {
+        "planned",
+        "implemented_unregistered",
+        "registered_advisory",
+        "registered_blocking",
+        "retired",
+    }
+
+
+def test_develop_baseline_inventory_writes_typed_receipt(tmp_path: Path) -> None:
+    writer_path = tmp_path / "dev/scripts/devctl/runtime/demo_store.py"
+    writer_path.parent.mkdir(parents=True, exist_ok=True)
+    writer_path.write_text(
+        "\n".join(
+            (
+                "from pathlib import Path",
+                "",
+                "def write_demo(path: Path) -> None:",
+                "    path.write_text('ok', encoding='utf-8')",
+                "",
+                "def read_demo(path: Path) -> str:",
+                "    return path.read_text(encoding='utf-8')",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "dev/state").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "dev/state/plan_index.jsonl").write_text("", encoding="utf-8")
+    workflow_path = tmp_path / ".github/workflows/ci.yml"
+    workflow_path.parent.mkdir(parents=True, exist_ok=True)
+    workflow_path.write_text("name: ci\n", encoding="utf-8")
+
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "baseline-inventory",
+            "--format",
+            "json",
+        ]
+    )
+
+    exit_code = baseline_inventory_module.run_baseline_inventory(args, repo_root=tmp_path)
+    receipts = read_baseline_authority_inventory_receipts(
+        tmp_path / DEFAULT_BASELINE_AUTHORITY_INVENTORY_REL
+    )
+
+    assert exit_code == 0
+    assert len(receipts) == 1
+    receipt = receipts[0]
+    assert receipt.contract_id == "BaselineAuthorityInventoryReceipt"
+    assert receipt.status == "accepted"
+    assert "dev/state/plan_index.jsonl" in receipt.state_files
+    assert ".github/workflows/ci.yml" in receipt.workflow_surfaces
+    assert any(site.path == "dev/scripts/devctl/runtime/demo_store.py" for site in receipt.direct_write_sites)
+    assert any(site.path == "dev/scripts/devctl/runtime/demo_store.py" for site in receipt.direct_read_sites)
+    assert "build_system_catalog()" in receipt.search_patterns
+
+
+def test_develop_ingest_plan_rejects_unparseable_rows_to_ingest_section(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(plan_intake, "REPO_ROOT", tmp_path)
+    source = tmp_path / "plan.md"
+    source.write_text(
+        "\n".join(
+            (
+                "# MP-377 Consolidation Repair Plan",
+                "",
+                "Rows to ingest from this plan:",
+                "",
+                "- `MP377-CONSOLIDATION-PLAN-INGEST-S1` Ingest the consolidated repair plan.",
+                "- not-a-typed-row This bullet must fail instead of silently disappearing.",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "ingest-plan",
+            "--dry-run",
+            "--source",
+            str(source),
+            "--target-ref",
+            "plan:MP-377",
+            "--format",
+            "json",
+        ]
+    )
+
+    receipt = plan_intake.ingest_plan_intent(args, repo_root=tmp_path)
+
+    assert receipt.status == "rejected"
+    assert receipt.terminal_status == "rejected"
+    assert receipt.reason == "rows_to_ingest_contains_unparseable_bullets"
+    assert not (tmp_path / "dev/state/plan_index.jsonl").exists()
 
 
 def test_develop_ingest_intent_source_defaults_to_markdown_plan_file(
@@ -1148,6 +2104,7 @@ def test_develop_ingest_plan_packet_uses_packet_evidence(
     assert receipt.status == "accepted"
     assert receipt.packet_id == "rev_pkt_9001"
     assert receipt.row_ids == ("PKT-BIND-REV-PKT-9001",)
+    assert receipt.action_id.startswith("plan-intent-action-")
     assert receipt.source_retention_status == "snapshotted"
     assert receipt.source_integrity_status == "ok"
     assert receipt.source_packet_expires_at_utc == "2026-05-06T00:00:00Z"
@@ -1159,6 +2116,8 @@ def test_develop_ingest_plan_packet_uses_packet_evidence(
         ref.startswith("plan_source_snapshot:")
         for ref in rows[0]["work_evidence_ids"]
     )
+    assert plan_intent_receipt_ref(receipt.receipt_id) in rows[0]["work_evidence_ids"]
+    assert typed_action_ref(receipt.action_id) in rows[0]["work_evidence_ids"]
     snapshots = [
         json.loads(line)
         for line in (tmp_path / "dev/state/plan_source_snapshots.jsonl").read_text(
@@ -1167,6 +2126,8 @@ def test_develop_ingest_plan_packet_uses_packet_evidence(
         if line.strip()
     ]
     assert snapshots[0]["plan_row_id"] == "PKT-BIND-REV-PKT-9001"
+    assert snapshots[0]["receipt_id"] == receipt.receipt_id
+    assert snapshots[0]["action_id"] == receipt.action_id
     assert snapshots[0]["source_packet_id"] == "rev_pkt_9001"
     assert snapshots[0]["packet_expires_at_utc"] == "2026-05-06T00:00:00Z"
     assert "Patch review body" in snapshots[0]["source_text"]
@@ -1408,6 +2369,8 @@ def test_develop_orchestration_inputs_consume_existing_surfaces(tmp_path) -> Non
                 "may_mutate": False,
                 "proof_state": "satisfied",
                 "top_blocker": "655 expired unresolved review packet(s)",
+                "active_packet_id": "rev_pkt_anchor",
+                "attention_packet_id": "rev_pkt_attention",
                 "next_loop_command": (
                     "python3 dev/scripts/devctl.py agent-loop --format json"
                 ),
@@ -1435,6 +2398,8 @@ def test_develop_orchestration_inputs_consume_existing_surfaces(tmp_path) -> Non
         "python3 dev/scripts/devctl.py agent-loop --format json"
     )
     assert snapshot.agent_loop_decisions[0].top_blocker.startswith("655 expired")
+    assert snapshot.agent_loop_decisions[0].active_packet_id == "rev_pkt_anchor"
+    assert snapshot.agent_loop_decisions[0].attention_packet_id == "rev_pkt_attention"
 
 
 def test_develop_orchestration_treats_idle_observer_wait_as_current(

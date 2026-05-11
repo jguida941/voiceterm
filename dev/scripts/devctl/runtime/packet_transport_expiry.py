@@ -12,6 +12,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 
 from ..time_utils import parse_utc_timestamp
+from .collaboration_packet_kinds import COLLABORATION_LIFECYCLE_PACKET_KINDS
 
 ALWAYS_TRANSPORT_EXPIRING_PACKET_KINDS = frozenset(
     {
@@ -35,6 +36,7 @@ DURABLE_INTENT_PACKET_KINDS = frozenset(
 NON_TRANSPORT_EXPIRING_PACKET_KINDS = frozenset(
     {
         *DURABLE_INTENT_PACKET_KINDS,
+        *COLLABORATION_LIFECYCLE_PACKET_KINDS,
         "instruction",
         "question",
         "system_notice",

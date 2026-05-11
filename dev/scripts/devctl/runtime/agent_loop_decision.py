@@ -13,8 +13,11 @@ from .agent_loop_decision_support import (
     communication_attention_decision,
     completed_decision,
     continuation_anchor_decision,
+    continuation_anchor_missing_decision,
     executing_decision,
     observer_decision,
+    packet_attention_pending_decision,
+    pending_review_packet_decision,
     session_identity_decision,
     unresolved_decision,
     wait_decision,
@@ -72,26 +75,35 @@ def build_agent_loop_decision(
         return session_identity_decision(ctx)
 
     packets = resolve_packet_state(ctx)
+    outcome = latest_session_outcome(ctx)
+    outcome_kind = str(outcome.get("outcome") or "").strip()
     if blocker_active(ctx) and attention_requires_pivot(ctx, packets):
         return communication_attention_decision(ctx, packets)
     if blocker_active(ctx):
         return blocker_decision(ctx, packets)
-    if attention_requires_pivot(ctx, packets):
-        return attention_decision(ctx, packets)
 
-    outcome = latest_session_outcome(ctx)
-    outcome_kind = str(outcome.get("outcome") or "").strip()
-    if outcome_kind == "completed_handoff" and not packets.active_packet_id:
+    if outcome_kind == "completed_handoff":
         task_decision = task_complete_decision(
             session_id=ctx.session,
             packets=review_state.get("packets", ()),
             policy=session_termination_policy_from_review_state(review_state),
             actor=ctx.actor,
             actor_role=ctx.role,
+            packet_attention=ctx.attention,
         )
+        if task_decision.packet_attention_pending:
+            return packet_attention_pending_decision(ctx, task_decision)
+        if task_decision.pending_review_packet:
+            return pending_review_packet_decision(ctx, task_decision)
+        if packets.active_packet_id:
+            return active_packet_decision(ctx, packets)
+        if task_decision.continuation_anchor_missing:
+            return continuation_anchor_missing_decision(ctx, task_decision)
         if not task_decision.terminate:
             return continuation_anchor_decision(ctx, task_decision)
         return completed_decision(ctx, outcome)
+    if attention_requires_pivot(ctx, packets):
+        return attention_decision(ctx, packets)
     if outcome_kind in {"unresolved", "process_died"} and not packets.active_packet_id:
         return unresolved_decision(ctx, outcome)
     if packets.executing_packet_id:

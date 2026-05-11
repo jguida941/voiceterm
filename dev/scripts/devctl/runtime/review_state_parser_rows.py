@@ -147,6 +147,10 @@ def packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
                     or _string(mapping.get("_sort_timestamp"))
                 ),
                 plan_id=_string(mapping.get("plan_id")),
+                attention_urgency=(
+                    _string(mapping.get("attention_urgency")) or "auto"
+                ),
+                attention_class=_string(mapping.get("attention_class")) or "auto",
                 evidence_refs=_string_rows(mapping.get("evidence_refs")),
                 context_pack_refs=context_pack_refs_from_value(
                     mapping.get("context_pack_refs")

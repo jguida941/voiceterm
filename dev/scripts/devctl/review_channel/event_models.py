@@ -28,6 +28,8 @@ class ReviewPacketRow(TypedDict):
     requested_action: object
     policy_hint: object
     approval_required: bool
+    attention_urgency: object
+    attention_class: object
     target_kind: object
     target_ref: object
     target_revision: object

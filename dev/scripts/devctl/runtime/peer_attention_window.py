@@ -255,6 +255,11 @@ def _relevance_score(packet: Mapping[str, object], reasons: Sequence[str]) -> in
 
 
 def _packet_urgency(packet: Mapping[str, object]) -> str:
+    explicit = _text(packet.get("attention_urgency")).lower()
+    if explicit == "auto":
+        explicit = ""
+    if explicit in {"blocking", "urgent", "ambient"}:
+        return explicit
     explicit = _text(packet.get("urgency")).lower()
     if explicit in {"blocking", "urgent", "ambient"}:
         return explicit

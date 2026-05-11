@@ -177,7 +177,7 @@ def _recommended_action(packet: Mapping[str, object]) -> str:
         return "ingest_plan_row"
     if _text(packet.get("kind")) in {"approval_request", "commit_approval", "question"}:
         return "link_lifecycle_owner"
-    return "manual_triage_required"
+    return "manual_review_required"
 
 
 def _should_ingest_plan_row(packet: Mapping[str, object]) -> bool:

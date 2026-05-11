@@ -1136,7 +1136,7 @@ def test_build_collaboration_session_demotes_stale_implementer_assignment_when_a
     assert runtime_gate.status == "blocked"
     assert (
         runtime_gate.summary
-        == "Active dual-agent mode still requires live reviewer and implementer conductor sessions."
+        == "Compatibility active reviewer mode still requires live reviewer and implementer conductor sessions."
     )
 
 

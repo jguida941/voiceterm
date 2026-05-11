@@ -75,7 +75,9 @@ def test_reviewer_wake_target_uses_agent_loop_decision_when_packet_inbox_is_stal
             {
                 "actor_id": "codex",
                 "actor_role": "reviewer",
-                "loop_mode": "pivot_to_packet",
+                "loop_mode": "continue_to_goal",
+                "user_action": "Continue to goal",
+                "continuation_goal": "pkt-loop",
                 "wake_required": True,
                 "attention_packet_id": "pkt-loop",
             }

@@ -35,6 +35,9 @@ from .peer_liveness import (
 from .pending_packets import load_pending_packet_queue
 from .projection_bundle import projection_paths_to_dict as projection_paths_to_dict
 from .projection_bundle import write_projection_bundle as write_projection_bundle
+from .projection_bundle import (
+    write_projection_bundle_mirrors as write_projection_bundle_mirrors,
+)
 from .service_identity import build_service_identity
 from .session_liveness_events import (
     emit_status_tick_participant_liveness_events,

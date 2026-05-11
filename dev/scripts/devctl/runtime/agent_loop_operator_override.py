@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
+from .development_core_workstreams import BUILDER_WORKSTREAM
 from .value_coercion import coerce_bool, coerce_text
 
 _READ_ACTIONS = (
@@ -16,6 +17,10 @@ _BLOCKED_AFTER_EDIT_OVERRIDE = ("vcs.stage", "vcs.commit", "vcs.push")
 DEFAULT_OPERATOR_OVERRIDE_REASON = "operator requested scoped edit-only repair"
 EDIT_ONLY_OVERRIDE_SCOPE = "edit-only"
 OPERATOR_OVERRIDE_REQUESTOR = "operator"
+OPERATOR_OVERRIDE_SOURCE = "agent_loop_cli"
+EDIT_ONLY_EFFECTIVE_ROLE = BUILDER_WORKSTREAM.runtime_role
+EDIT_ONLY_EFFECTIVE_WORKSTREAM = BUILDER_WORKSTREAM.workstream_id
+EDIT_ONLY_AUTHORITY_SOURCE = "operator_override_edit_only_repair"
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +38,9 @@ class AgentLoopOperatorOverride:
     reason: str = ""
     target_kind: str = ""
     target_ref: str = ""
+    effective_actor_role: str = ""
+    effective_workstream_id: str = ""
+    effective_authority_source: str = ""
     allowed_actions: tuple[str, ...] = ()
     blocked_actions: tuple[str, ...] = ()
     expires_after_turn: bool = True
@@ -40,7 +48,21 @@ class AgentLoopOperatorOverride:
 
     @property
     def edit_allowed(self) -> bool:
-        return self.active and "implementation.edit" in self.allowed_actions
+        return (
+            self.requested
+            and self.active
+            and self.state == "active"
+            and self.source == OPERATOR_OVERRIDE_SOURCE
+            and self.requested_by == OPERATOR_OVERRIDE_REQUESTOR
+            and self.scope == EDIT_ONLY_OVERRIDE_SCOPE
+            and bool(self.reason)
+            and bool(self.target_kind)
+            and bool(self.target_ref)
+            and "implementation.edit" in self.allowed_actions
+            and self.effective_actor_role == EDIT_ONLY_EFFECTIVE_ROLE
+            and self.effective_workstream_id == EDIT_ONLY_EFFECTIVE_WORKSTREAM
+            and self.effective_authority_source == EDIT_ONLY_AUTHORITY_SOURCE
+        )
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
@@ -99,12 +121,15 @@ def operator_override_from_request(
         requested=True,
         active=True,
         state="active",
-        source="agent_loop_cli",
+        source=OPERATOR_OVERRIDE_SOURCE,
         requested_by=coerce_text(requested_by) or OPERATOR_OVERRIDE_REQUESTOR,
         scope=normalized_scope,
         reason=coerce_text(reason),
         target_kind=target_kind,
         target_ref=target_ref,
+        effective_actor_role=EDIT_ONLY_EFFECTIVE_ROLE,
+        effective_workstream_id=EDIT_ONLY_EFFECTIVE_WORKSTREAM,
+        effective_authority_source=EDIT_ONLY_AUTHORITY_SOURCE,
         allowed_actions=(*_READ_ACTIONS, *_EDIT_ACTIONS),
         blocked_actions=_BLOCKED_AFTER_EDIT_OVERRIDE,
     )
@@ -170,7 +195,7 @@ def _invalid(
         requested=True,
         active=False,
         state=state,
-        source="agent_loop_cli",
+        source=OPERATOR_OVERRIDE_SOURCE,
         requested_by=coerce_text(requested_by) or OPERATOR_OVERRIDE_REQUESTOR,
         scope=scope,
         reason=coerce_text(reason),
@@ -183,7 +208,11 @@ __all__ = [
     "AgentLoopOperatorOverride",
     "DEFAULT_OPERATOR_OVERRIDE_REASON",
     "EDIT_ONLY_OVERRIDE_SCOPE",
+    "EDIT_ONLY_AUTHORITY_SOURCE",
+    "EDIT_ONLY_EFFECTIVE_ROLE",
+    "EDIT_ONLY_EFFECTIVE_WORKSTREAM",
     "OPERATOR_OVERRIDE_REQUESTOR",
+    "OPERATOR_OVERRIDE_SOURCE",
     "apply_operator_override_actions",
     "operator_override_from_request",
     "operator_override_next_command",

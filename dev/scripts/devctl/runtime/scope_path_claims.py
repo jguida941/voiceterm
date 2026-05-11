@@ -6,7 +6,7 @@ import re
 from collections.abc import Iterable
 
 _PATH_RE = re.compile(
-    r"(?P<path>[A-Za-z0-9_./-]+\.(?:py|rs|md|json|ya?ml|toml|txt|tsx?|jsx?|sh))"
+    r"(?P<path>[A-Za-z0-9_./-]+\.(?:py|rs|md|jsonl?|ya?ml|toml|txt|tsx?|jsx?|sh))"
 )
 
 

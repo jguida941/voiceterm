@@ -378,9 +378,6 @@ def _classify_startup_attention(ctx: BridgeAttentionContext) -> str | None:
         return AttentionStatus.CHECKPOINT_REQUIRED
     if _requires_implementer_state_reset(ctx):
         return AttentionStatus.IMPLEMENTER_STATE_RESET_REQUIRED
-    verification_status = _classify_verification_capability_missing(ctx)
-    if verification_status is not None:
-        return verification_status
     if (
         ctx.overall_state == OverallLivenessState.RUNTIME_MISSING
         or not ctx.reviewer_runtime_running
@@ -392,6 +389,9 @@ def _classify_startup_attention(ctx: BridgeAttentionContext) -> str | None:
         LaunchTruthState.HYBRID_CLAUDE_ONLY.value,
     }:
         return AttentionStatus.REVIEW_LOOP_RELAUNCH_REQUIRED
+    verification_status = _classify_verification_capability_missing(ctx)
+    if verification_status is not None:
+        return verification_status
     return _classify_reviewer_freshness(ctx)
 
 

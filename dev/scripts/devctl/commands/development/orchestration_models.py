@@ -40,6 +40,15 @@ class DevelopmentAgentLoopInput:
     top_blocker: str = ""
     next_loop_command: str = ""
     missing_proofs: tuple[str, ...] = ()
+    active_packet_id: str = ""
+    attention_packet_id: str = ""
+    user_action: str = ""
+    continuation_goal: str = ""
+    why_not_done: str = ""
+    user_continue_state: str = ""
+    new_peer_input: bool = False
+    switch_to_packet_goal: bool = False
+    continue_before_final: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,13 +88,21 @@ class DevelopmentWatcherLease:
 class DevelopmentContinuationRequiredSignal:
     """Stop/continue decision derived from typed controller state."""
 
-    continuation_required: bool = False
-    status: str = "closed"
-    final_response_allowed: bool = True
-    reasons: tuple[str, ...] = ()
+    continuation_required: bool = True
+    status: str = "controller_state_missing"
+    final_response_allowed: bool = False
+    final_response_gate_allowed: bool = False
+    user_continue_state: str = "must_continue"
+    user_action: str = "Compute typed continuation state"
+    continuation_goal: str = "typed controller goal"
+    why_not_done: str = "Typed controller closure has not been computed."
+    required_final_response_action: str = "run_next_command"
+    required_packet_kind: str = ""
+    required_packet_command: str = ""
+    reasons: tuple[str, ...] = ("continuation_signal_missing",)
     next_required_command: str = ""
     stop_policy: str = "stop_only_when_typed_controller_closed"
-    summary: str = "Typed controller closure allows a terminal response."
+    summary: str = "Typed controller closure has not been computed."
 
 
 __all__ = [

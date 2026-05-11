@@ -35,6 +35,8 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "AgentDispatchRouter" in contract_ids
     assert "DevelopmentModeTopology" in contract_ids
     assert "DevelopmentLoopReport" in contract_ids
+    assert "BaselineAuthorityInventoryReceipt" in contract_ids
+    assert "PlatformContractRegistryRow" in contract_ids
     assert "PlanSourceSnapshot" in contract_ids
     assert "ReviewerRuntimeContract" in contract_ids
     assert "SessionPosture" in contract_ids
@@ -58,10 +60,15 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "AutoRepairReceipt" in contract_ids
     assert "ManualBypassImportReceipt" in contract_ids
     assert len(blueprint.artifact_schemas) >= 1
+    artifact_ids = [schema.contract_id for schema in blueprint.artifact_schemas]
+    assert "PlatformContractRegistry" in artifact_ids
 
 
 def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> None:
     blueprint = build_platform_blueprint()
+    contracts_by_id = {
+        contract.contract_id: contract for contract in blueprint.shared_contracts
+    }
     contract_map = {
         contract.contract_id: {field.name for field in contract.required_fields}
         for contract in blueprint.shared_contracts
@@ -104,14 +111,35 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "runtime" in contract_map["DevelopmentLoopReport"]
     assert "peer_minds" in contract_map["DevelopmentLoopReport"]
     assert "packet_debt_remediation" in contract_map["DevelopmentLoopReport"]
+    assert "repo_state_fingerprint" in contract_map["BaselineAuthorityInventoryReceipt"]
+    assert "state_store_entries" in contract_map["BaselineAuthorityInventoryReceipt"]
+    assert "direct_write_sites" in contract_map["BaselineAuthorityInventoryReceipt"]
+    assert "duplicate_system_clusters" in contract_map["BaselineAuthorityInventoryReceipt"]
+    assert "registered_contract_id" in contract_map["PlatformContractRegistryRow"]
+    assert "entry_kind" in contract_map["PlatformContractRegistryRow"]
+    assert "registered_schema_version" in contract_map["PlatformContractRegistryRow"]
+    assert "ownership_mode" in contract_map["PlatformContractRegistryRow"]
+    assert "action_id" in contract_map["PlanIntentIngestionReceipt"]
     assert "source_snapshot_ids" in contract_map["PlanIntentIngestionReceipt"]
     assert "source_integrity_status" in contract_map["PlanIntentIngestionReceipt"]
     assert "source_completeness_status" in contract_map["PlanIntentIngestionReceipt"]
     assert "source_missing_required_anchors" in contract_map["PlanIntentIngestionReceipt"]
+    assert "composition_disposition_matrix" in contract_map["PlanIntentIngestionReceipt"]
+    assert "command_manifest_proofs" in contract_map["PlanIntentIngestionReceipt"]
+    assert "guard_maturity_records" in contract_map["PlanIntentIngestionReceipt"]
+    assert "repo_state_fingerprint" in contract_map["PlanIntentIngestionReceipt"]
+    assert "receipt_coverage_inventory" in contract_map["PlanIntentIngestionReceipt"]
+    assert "schema_limit_warning" in contract_map["PlanIntentIngestionReceipt"]
     assert "source_text" in contract_map["PlanSourceSnapshot"]
+    assert "receipt_id" in contract_map["PlanSourceSnapshot"]
+    assert "action_id" in contract_map["PlanSourceSnapshot"]
     assert "retention_status" in contract_map["PlanSourceSnapshot"]
     assert "source_completeness_status" in contract_map["PlanSourceSnapshot"]
     assert "missing_required_anchors" in contract_map["PlanSourceSnapshot"]
+    assert "composition_disposition" in contract_map["PlanSourceSnapshot"]
+    assert "existing_owner_row_refs" in contract_map["PlanSourceSnapshot"]
+    assert "packet_binding_refs" in contract_map["PlanSourceSnapshot"]
+    assert "schema_limit_warning" in contract_map["PlanSourceSnapshot"]
     assert "authority_snapshot" in contract_map["SessionCachePacket"]
     assert "session_posture" in contract_map["SessionCachePacket"]
     assert "packet_intent_anchors" in contract_map["SessionCachePacket"]
@@ -138,6 +166,18 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "remote_ref_verified" in contract_map["ExceptionReceipt"]
     assert "validation_receipt_id" in contract_map["ResolutionReceipt"]
     assert "forbidden_exception_classes" in contract_map["ExceptionPolicy"]
+
+    receipt_links = {
+        (link.source_field, link.target_contract, link.edge_kind)
+        for link in contracts_by_id["PlanIntentIngestionReceipt"].cross_links
+    }
+    snapshot_links = {
+        (link.source_field, link.target_contract, link.edge_kind)
+        for link in contracts_by_id["PlanSourceSnapshot"].cross_links
+    }
+    assert ("action_id", "TypedAction", "receipt_proves") in receipt_links
+    assert ("receipt_id", "PlanIntentIngestionReceipt", "related_to") in snapshot_links
+    assert ("action_id", "TypedAction", "related_to") in snapshot_links
 
 
 def test_governed_exception_contracts_declare_semantic_cross_links() -> None:

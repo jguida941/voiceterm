@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
+from ...runtime.provider_registry import is_valid_provider_id, normalize_provider_id
 from .runtime_rows_common import text, work_board_rows
-
-_AGENT_MIND_PROVIDER_IDS = frozenset(("codex", "claude", "cursor"))
 
 
 def provider_session_counts(review_state: Mapping[str, object]) -> dict[str, int]:
@@ -37,9 +36,9 @@ def agent_loop_rows(
 
 
 def append_provider(providers: list[str], provider: str) -> None:
-    """Append a supported provider id once."""
-    normalized = provider.strip().lower()
-    if normalized in _AGENT_MIND_PROVIDER_IDS and normalized not in providers:
+    """Append a syntactically valid provider id once."""
+    normalized = normalize_provider_id(provider)
+    if is_valid_provider_id(normalized) and normalized not in providers:
         providers.append(normalized)
 
 
@@ -49,8 +48,8 @@ def _add_session(
     provider: str,
     session_id: str,
 ) -> None:
-    normalized = provider.strip().lower()
-    if normalized not in _AGENT_MIND_PROVIDER_IDS or not session_id:
+    normalized = normalize_provider_id(provider)
+    if not is_valid_provider_id(normalized) or not session_id:
         return
     sessions.setdefault(normalized, set()).add(session_id)
 

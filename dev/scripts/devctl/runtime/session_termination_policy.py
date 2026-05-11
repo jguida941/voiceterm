@@ -12,6 +12,16 @@ SESSION_TERMINATION_POLICY_CONTRACT_ID = "SessionTerminationPolicy"
 SESSION_TERMINATION_POLICY_SCHEMA_VERSION = 1
 TASK_COMPLETE_DECISION_CONTRACT_ID = "TaskCompleteDecision"
 TASK_COMPLETE_DECISION_SCHEMA_VERSION = 1
+CONTINUATION_ANCHOR_MISSING_ERROR = "continuation_anchor_missing"
+PENDING_REVIEW_PACKET_ERROR = "pending_review_packet"
+PACKET_ATTENTION_PENDING_ERROR = "packet_attention_pending"
+TASK_COMPLETE_BLOCKING_PACKET_KINDS = frozenset(
+    {
+        "action_request",
+        "approval_request",
+        "instruction",
+    }
+)
 
 SESSION_TERMINATION_MODE_END_ON_TASK_COMPLETE = "end_on_task_complete"
 SESSION_TERMINATION_MODE_KEEP_AWAKE_VIA_PACKETS = "keep_awake_via_packets"
@@ -68,11 +78,28 @@ class TaskCompleteDecision:
     reason: str = "policy_default"
     policy_mode: str = SESSION_TERMINATION_MODE_END_ON_TASK_COMPLETE
     anchor_packet_id: str = ""
+    blocking_packet_id: str = ""
     target_session_id: str = ""
     next_command: str = ""
+    error_kind: str = ""
+    pending_packet_count: int = 0
+    wake_required: bool = False
+    pivot_required: bool = False
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
+
+    @property
+    def continuation_anchor_missing(self) -> bool:
+        return self.error_kind == CONTINUATION_ANCHOR_MISSING_ERROR
+
+    @property
+    def pending_review_packet(self) -> bool:
+        return self.error_kind == PENDING_REVIEW_PACKET_ERROR
+
+    @property
+    def packet_attention_pending(self) -> bool:
+        return self.error_kind == PACKET_ATTENTION_PENDING_ERROR
 
 
 def session_termination_policy_from_mapping(
@@ -126,11 +153,10 @@ def task_complete_decision(
     policy: SessionTerminationPolicy,
     actor: str = "",
     actor_role: str = "",
+    packet_attention: Mapping[str, object] | None = None,
 ) -> TaskCompleteDecision:
     """Return the typed TASK_COMPLETE decision for one session boundary."""
     normalized_session = _text(session_id)
-    if policy.mode == SESSION_TERMINATION_MODE_END_ON_TASK_COMPLETE:
-        return TaskCompleteDecision(policy_mode=policy.mode)
     if policy.target_session_id and normalized_session != policy.target_session_id:
         return TaskCompleteDecision(
             reason="policy_session_mismatch",
@@ -160,30 +186,83 @@ def task_complete_decision(
             target_session_id=policy.target_session_id,
         )
 
-    anchor = _active_continuation_anchor(
+    attention = packet_attention if isinstance(packet_attention, Mapping) else {}
+    if _packet_attention_blocks_task_complete(attention):
+        return TaskCompleteDecision(
+            terminate=False,
+            reason=PACKET_ATTENTION_PENDING_ERROR,
+            policy_mode=policy.mode,
+            blocking_packet_id=_text(attention.get("latest_attention_packet_id")),
+            target_session_id=(
+                _text(attention.get("observation_session_id"))
+                or policy.target_session_id
+            ),
+            next_command=continuation_anchor_next_command(
+                {},
+                actor=actor,
+            ),
+            error_kind=PACKET_ATTENTION_PENDING_ERROR,
+            pending_packet_count=_int(attention.get("pending_packet_count")),
+            wake_required=_truthy(attention.get("wake_required")),
+            pivot_required=_truthy(attention.get("pivot_required")),
+        )
+
+    pending_review = _active_pending_review_packet(
+        rows,
+        session_id=normalized_session,
+        actor=normalized_actor,
+        actor_role=normalized_role,
+    )
+    if pending_review is not None:
+        return TaskCompleteDecision(
+            terminate=False,
+            reason=PENDING_REVIEW_PACKET_ERROR,
+            policy_mode=policy.mode,
+            blocking_packet_id=_text(pending_review.get("packet_id")),
+            target_session_id=policy.target_session_id,
+            next_command=continuation_anchor_next_command(
+                pending_review,
+                actor=actor,
+            ),
+            error_kind=PENDING_REVIEW_PACKET_ERROR,
+        )
+
+    if policy.mode == SESSION_TERMINATION_MODE_END_ON_TASK_COMPLETE:
+        return TaskCompleteDecision(policy_mode=policy.mode)
+
+    default_anchor = _active_continuation_anchor(
         rows,
         policy=policy,
         session_id=normalized_session,
         actor=normalized_actor,
         actor_role=normalized_role,
     )
-    if anchor is None:
+    if default_anchor is not None:
+        anchor_id = _text(default_anchor.get("packet_id"))
         return TaskCompleteDecision(
-            reason="no_active_anchor",
+            terminate=False,
+            reason="continuation_anchor_active",
+            policy_mode=policy.mode,
+            anchor_packet_id=anchor_id,
+            target_session_id=(
+                _text(default_anchor.get("target_session_id"))
+                or policy.target_session_id
+            ),
+            next_command=continuation_anchor_next_command(default_anchor, actor=actor),
+        )
+
+    if default_anchor is None:
+        return TaskCompleteDecision(
+            terminate=False,
+            reason=CONTINUATION_ANCHOR_MISSING_ERROR,
             policy_mode=policy.mode,
             target_session_id=policy.target_session_id,
+            next_command=continuation_anchor_next_command(
+                {},
+                actor=actor,
+            ),
+            error_kind=CONTINUATION_ANCHOR_MISSING_ERROR,
         )
-    anchor_id = _text(anchor.get("packet_id"))
-    return TaskCompleteDecision(
-        terminate=False,
-        reason="continuation_anchor_active",
-        policy_mode=policy.mode,
-        anchor_packet_id=anchor_id,
-        target_session_id=(
-            _text(anchor.get("target_session_id")) or policy.target_session_id
-        ),
-        next_command=continuation_anchor_next_command(anchor, actor=actor),
-    )
 
 
 def continuation_anchor_next_command(
@@ -192,7 +271,9 @@ def continuation_anchor_next_command(
     actor: str = "",
 ) -> str:
     """Return the bounded next command for an active continuation anchor."""
-    target_actor = _text(actor) or _text(anchor.get("to_agent")) or "codex"
+    target_actor = _text(actor) or _text(anchor.get("to_agent"))
+    if not target_actor:
+        return ""
     return f"python3 dev/scripts/devctl.py develop next --actor {target_actor} --format md"
 
 
@@ -220,6 +301,41 @@ def _active_continuation_anchor(
     if not candidates:
         return None
     return sorted(candidates, key=_packet_sort_key, reverse=True)[0]
+
+
+def _active_pending_review_packet(
+    packets: Sequence[Mapping[str, object]],
+    *,
+    session_id: str,
+    actor: str,
+    actor_role: str,
+) -> Mapping[str, object] | None:
+    candidates = [
+        packet
+        for packet in packets
+        if _packet_blocks_task_complete(packet)
+        and _packet_is_active_anchor(packet)
+        and packet_matches_session_route(
+            packet,
+            session_id=session_id,
+            actor=actor,
+            actor_role=actor_role,
+        )
+    ]
+    return sorted(candidates, key=_packet_sort_key, reverse=True)[0] if candidates else None
+
+
+def _packet_blocks_task_complete(packet: Mapping[str, object]) -> bool:
+    kind = _text(packet.get("kind"))
+    return kind.startswith("review_") or kind in TASK_COMPLETE_BLOCKING_PACKET_KINDS
+
+
+def _packet_attention_blocks_task_complete(attention: Mapping[str, object]) -> bool:
+    return (
+        _int(attention.get("pending_packet_count")) > 0
+        or _truthy(attention.get("wake_required"))
+        or _truthy(attention.get("pivot_required"))
+    )
 
 
 def _active_stop_anchor(
@@ -318,8 +434,17 @@ def _int(value: object) -> int:
         return 0
 
 
+def _truthy(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    return _text(value).lower() in {"1", "true", "yes", "on"}
+
+
 __all__ = [
     "CONTINUATION_ANCHOR_PACKET_KIND",
+    "CONTINUATION_ANCHOR_MISSING_ERROR",
+    "PACKET_ATTENTION_PENDING_ERROR",
+    "PENDING_REVIEW_PACKET_ERROR",
     "SESSION_TERMINATION_MODE_END_ON_TASK_COMPLETE",
     "SESSION_TERMINATION_MODE_END_WHEN_ANCHOR_DRAINED",
     "SESSION_TERMINATION_MODE_KEEP_AWAKE_VIA_PACKETS",

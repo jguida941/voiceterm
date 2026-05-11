@@ -166,12 +166,12 @@ RUNTIME_WATCHER_WORKSTREAM = DevelopmentWorkstreamSpec(
     aliases=("watcher", "observer", "dashboard"),
     runtime_role="dashboard",
     plain_language="watches packets, sync status, stale actors, and drift",
-    phases=("observe", "wake", "blocker_detection"),
+    phases=("observe", "attention", "blocker_detection"),
     mutation_policy="read_only",
     authority=DevelopmentAuthorityRequirement(capabilities=("runtime.observe", "packet.observe")),
     evidence=DevelopmentEvidenceContract(
         reads=("AgentSyncProjection", "ControlPlaneReadModel", "DashboardSnapshot"),
-        writes=("stale_state_report", "wake_recommendation"),
+        writes=("stale_state_report", "attention_recommendation"),
         emits_packets=("blocked", "question", "system_notice"),
         visible_in=("sync-status", "dashboard", "mobile", "develop status"),
     ),
@@ -181,7 +181,7 @@ RUNTIME_WATCHER_WORKSTREAM = DevelopmentWorkstreamSpec(
         dispatch_contracts=("AgentSyncProjection", "NextLaneGate"),
         fail_closed_when=("actor activity is inferred only from partner wait state",),
     ),
-    allowed_actions=("observe_delta", "recommend_wake", "report_stale"),
+    allowed_actions=("observe_delta", "recommend_attention", "report_stale"),
     blocked_actions=("infer_activity_from_partner_wait",),
 )
 

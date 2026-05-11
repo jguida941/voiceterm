@@ -72,6 +72,8 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         requested_action=event.get("requested_action"),
         policy_hint=event.get("policy_hint"),
         approval_required=bool(event.get("approval_required")),
+        attention_urgency=event.get("attention_urgency"),
+        attention_class=event.get("attention_class"),
         target_kind=event.get("target_kind"),
         target_ref=event.get("target_ref"),
         target_revision=event.get("target_revision"),

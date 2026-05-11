@@ -2,12 +2,33 @@
 
 from __future__ import annotations
 
+from .contract_registry_models import (
+    CONTRACT_REGISTRY_CONTRACT_ID,
+    CONTRACT_REGISTRY_SCHEMA_VERSION,
+)
 from .contracts import ArtifactSchemaSpec
 
 
 def artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
     """Return the durable artifact schema matrix for already-real platform families."""
     return (
+        ArtifactSchemaSpec(
+            contract_id=CONTRACT_REGISTRY_CONTRACT_ID,
+            owner_layer="governance_runtime",
+            purpose=(
+                "Repo-owned JSONL registry of shared runtime contracts and artifact "
+                "schemas, including owner paths, schema versions, fixture roots, "
+                "and parity commands."
+            ),
+            schema_version=CONTRACT_REGISTRY_SCHEMA_VERSION,
+            emitter_path="dev/scripts/devctl/platform/contract_registry.py",
+            constants_module="dev.scripts.devctl.platform.contract_registry_models",
+            contract_id_attr="CONTRACT_REGISTRY_CONTRACT_ID",
+            schema_version_attr="CONTRACT_REGISTRY_SCHEMA_VERSION",
+            compatibility_window="stable for repo-owned registry rows; additive fields only",
+            migration_path="Add registry fields additively and update registry closure plus fixture expectations before changing consumers.",
+            rollback_path="Restore prior registry row shape and closure expectations before removing consumer support.",
+        ),
         ArtifactSchemaSpec(
             contract_id="ProbeReport",
             owner_layer="governance_core",

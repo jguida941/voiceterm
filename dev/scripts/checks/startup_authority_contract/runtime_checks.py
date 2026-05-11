@@ -59,7 +59,10 @@ except ModuleNotFoundError:
         resolve_quality_scope_roots,
     )
 
-from .runtime_import_atomicity import collect_import_index_atomicity_findings
+from .runtime_import_atomicity import (
+    collect_import_index_atomicity_finding_records,
+    collect_import_index_atomicity_findings,
+)
 from .runtime_push_checks import collect_push_decision_contract_errors
 from .runtime_reviewer_loop import collect_reviewer_loop_block_errors
 
@@ -317,5 +320,4 @@ def collect_concurrent_writer_errors(
             f"delegated_agents={delegated_agents}."
         ]
     return []
-
 

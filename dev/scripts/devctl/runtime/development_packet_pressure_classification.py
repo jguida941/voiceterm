@@ -13,6 +13,7 @@ from .development_packet_failure_owner import (
     CLOCK_EXPIRED_WITHOUT_DISPOSITION,
     packet_failure_class,
 )
+from .collaboration_packet_kinds import COLLABORATION_LIFECYCLE_PACKET_KINDS
 from .master_plan_contract import PlanRow
 from .packet_carry_forward_sources import packet_ids_from_plan_row
 from .packet_review_only import is_review_only_notice
@@ -103,6 +104,8 @@ def _classification(packet: Mapping[str, object], *, kind: str, status: str) -> 
     terminal = _terminal_marker(packet, status=status)
     if terminal in TERMINAL_PACKET_CLASSIFICATIONS:
         return terminal
+    if kind in COLLABORATION_LIFECYCLE_PACKET_KINDS:
+        return "lifecycle-only"
     if kind in {"action_request", "approval_request", "commit_approval"}:
         return "lifecycle-only"
     if kind == "decision" and not _has_plan_shape(packet, kind=kind):
@@ -120,7 +123,7 @@ def _classification(packet: Mapping[str, object], *, kind: str, status: str) -> 
         return "lifecycle-only"
     if kind in {"system_notice", "question", "instruction"}:
         return "communication-only"
-    return "manual-triage-required"
+    return "manual-review-required"
 
 
 def _has_plan_shape(packet: Mapping[str, object], *, kind: str) -> bool:

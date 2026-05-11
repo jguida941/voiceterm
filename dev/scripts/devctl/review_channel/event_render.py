@@ -127,19 +127,20 @@ def _append_packet_attention(lines: list[str], wake: object) -> None:
     if not isinstance(wake, dict) or not wake:
         return
     lines.append("")
-    heading = "## Packet Wake" if bool(wake.get("attempted")) else "## Packet Attention"
-    lines.append(heading)
+    lines.append("## Packet Attention")
     lines.append(f"- attempted: {bool(wake.get('attempted'))}")
-    lines.append(f"- woke: {bool(wake.get('woke'))}")
+    lines.append(f"- runtime_dispatch_succeeded: {bool(wake.get('woke'))}")
     if "attention_recorded" in wake:
         lines.append(f"- attention_recorded: {bool(wake.get('attention_recorded'))}")
     if "visible_session_woke" in wake:
-        lines.append(f"- visible_session_woke: {bool(wake.get('visible_session_woke'))}")
+        lines.append(
+            f"- visible_session_started: {bool(wake.get('visible_session_woke'))}"
+        )
     if "delegated" in wake:
         lines.append(f"- delegated: {bool(wake.get('delegated'))}")
     lines.append(f"- reason: {wake.get('reason') or '(none)'}")
     if wake.get("wake_method"):
-        lines.append(f"- wake_method: {wake.get('wake_method')}")
+        lines.append(f"- dispatch_method: {wake.get('wake_method')}")
     if wake.get("target_agent"):
         lines.append(f"- target_agent: {wake.get('target_agent')}")
     if wake.get("target_role"):

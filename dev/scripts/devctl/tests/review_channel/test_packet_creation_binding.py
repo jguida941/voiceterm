@@ -160,6 +160,26 @@ def test_post_packet_records_communication_only_classification(
     assert not (tmp_path / "dev/state/plan_index.jsonl").exists()
 
 
+def test_workflow_receipt_with_plan_words_does_not_create_carry_forward_debt() -> None:
+    packet = {
+        "packet_id": "rev_pkt_task_produced",
+        "kind": "task_produced",
+        "status": "acked",
+        "lifecycle_current_state": "acknowledged",
+        "from_agent": "codex",
+        "to_agent": "claude",
+        "summary": "Fix produced for MP-377 plan review",
+        "body": "The bug fix shipped with evidence and review notes.",
+        "plan_id": "MP-377",
+        "anchor_refs": ["section:MP-377"],
+        "intake_ref": "work_intake://plan_target/abc123",
+        "requested_action": "review_only",
+        "policy_hint": "review_only",
+    }
+
+    assert packet_carry_forward_debts([packet]) == ()
+
+
 def test_system_notice_with_plan_target_binds_to_plan_row(tmp_path: Path) -> None:
     _master_plan(tmp_path)
     artifact_paths = resolve_artifact_paths(repo_root=tmp_path)

@@ -24,7 +24,7 @@ def resolve_reviewer_wake_target(
     report: dict[str, object],
     operator_interaction_mode: str,
 ) -> tuple[dict[str, object] | None, dict[str, object] | None]:
-    """Select one pending codex wake packet for wake, or None."""
+    """Select one pending codex attention packet for dispatch, or None."""
     if not _reviewer_wake_allowed(
         report=report,
         operator_interaction_mode=operator_interaction_mode,
@@ -96,6 +96,7 @@ def _agent_loop_decision_wants_reviewer_wake(
 ) -> bool:
     loop_mode = str(decision.get("loop_mode") or "").strip()
     if loop_mode not in {
+        "continue_to_goal",
         "pivot_to_packet",
         "continue_current_execution",
         "recover_or_relaunch",
@@ -133,7 +134,7 @@ def resolve_reviewer_wake_paths(
 def _selected_codex_wake_packet_typed(
     report: dict[str, object],
 ) -> dict[str, object] | None:
-    """Select a codex wake packet from typed packet_inbox when present."""
+    """Select a codex attention packet from typed packet_inbox when present."""
     packet_inbox = report.get("packet_inbox")
     if not isinstance(packet_inbox, dict):
         return None

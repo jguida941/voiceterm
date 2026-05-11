@@ -11,6 +11,7 @@ from .remote_control_attachment_models import (
     has_active_remote_control_attachment,
     remote_control_attachment_from_mapping,
 )
+from .reviewer_mode import reviewer_mode_is_active, reviewer_mode_is_single_agent
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,7 +78,7 @@ def authority_modes(
 
 def authority_mode_projection(inputs: AuthorityModeInputs) -> AuthorityModeProjection:
     """Project all mode/gate fields from one canonical reducer."""
-    from .conductor_capability import authority_reviewer_mode, normalize_reviewer_mode
+    from .conductor_capability import authority_reviewer_mode
 
     payload = inputs.payload
     reviewer_gate = inputs.reviewer_gate
@@ -112,10 +113,8 @@ def authority_mode_projection(inputs: AuthorityModeInputs) -> AuthorityModeProje
     posture_interaction_mode = _text(posture.get("interaction_mode"))
     if posture_interaction_mode and posture_interaction_mode != "unresolved":
         interaction_mode = posture_interaction_mode
-    declared_active = normalize_reviewer_mode(reviewer_mode) == "active_dual_agent"
-    effective_active = (
-        normalize_reviewer_mode(effective_reviewer_mode) == "active_dual_agent"
-    )
+    declared_active = reviewer_mode_is_active(reviewer_mode)
+    effective_active = reviewer_mode_is_active(effective_reviewer_mode)
     gate_mode = (
         authority_reviewer_mode(reviewer_mode, effective_reviewer_mode)
         if reviewer_mode or effective_reviewer_mode
@@ -150,8 +149,6 @@ def interaction_mode_from_reviewer_mode(
     reviewer_runtime: Mapping[str, object] | None = None,
 ) -> str:
     """Derive operator interaction mode; fails closed to ``unresolved``."""
-    from .conductor_capability import normalize_reviewer_mode
-
     runtime = reviewer_runtime or {}
     attachment = (
         remote_control_attachment
@@ -188,10 +185,9 @@ def interaction_mode_from_reviewer_mode(
         return "remote_control"
     if saw_local_terminal:
         return "local_terminal"
-    normalized = normalize_reviewer_mode(effective_mode) if effective_mode else ""
-    if normalized == "active_dual_agent":
+    if reviewer_mode_is_active(effective_mode):
         return "dual_agent"
-    if normalized == "single_agent":
+    if reviewer_mode_is_single_agent(effective_mode):
         return "single_agent"
     return "unresolved"
 

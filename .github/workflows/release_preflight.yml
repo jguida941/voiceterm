@@ -197,6 +197,11 @@ jobs:
           python3 dev/scripts/checks/check_typed_enum_connectivity.py
           python3 dev/scripts/checks/check_platform_contract_sync.py
           python3 dev/scripts/checks/check_review_channel_bridge.py
+          python3 dev/scripts/checks/check_schema_fixture_handshake.py
+          python3 dev/scripts/checks/check_schema_migration_spine.py
+          python3 dev/scripts/checks/check_schema_version_monotonic.py
+          python3 dev/scripts/checks/check_state_store_authority.py
+          python3 dev/scripts/checks/check_check_cli_test_parity.py
           python3 dev/scripts/checks/check_orchestration_recommendation_closure.py
           python3 dev/scripts/checks/check_startup_authority_contract.py
           python3 dev/scripts/checks/check_review_surface_consistency.py

@@ -27,6 +27,24 @@ def test_below_budget_communication_continues_current_work() -> None:
     assert decision["decision"] == "continue_current_work"
 
 
+def test_workflow_receipts_are_lifecycle_only_even_with_plan_words() -> None:
+    packet = _packet("rev_pkt_receipt", kind="task_produced")
+    packet["summary"] = "Fix produced for MP-377"
+    packet["body"] = "The task produced reviewable evidence for a plan fix."
+
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
+        {"packets": [packet]},
+        rows=(),
+        actor="codex",
+    )
+
+    assert pressure["durable_owner_gap_total"] == 0
+    assert classifications[0]["classification"] == "lifecycle-only"
+    assert classifications[0]["action_required"] is False
+    assert decision["decision"] == "continue_current_work"
+    assert packet_ingest_decisions[0]["decision"] == "ack"
+
+
 def test_soft_budget_pivots_to_packet_review() -> None:
     packets = [_packet(f"rev_pkt_{index}") for index in range(12)]
 
@@ -38,7 +56,7 @@ def test_soft_budget_pivots_to_packet_review() -> None:
 
     assert pressure["live_total"] == 12
     assert pressure["pressure_state"] == "soft_attention_budget_crossed"
-    assert decision["decision"] == "pivot_to_packet_review"
+    assert decision["decision"] == "continue_to_packet_review"
     assert "review-channel --action show" in decision["next_command"]
 
 
@@ -311,7 +329,7 @@ def test_clock_expired_without_disposition_still_requires_intake_without_owner()
 
     assert pressure["expired_unresolved_total"] == 1
     assert classifications[0]["terminal_receipt"] == ""
-    assert decision["decision"] == "pivot_to_packet_review"
+    assert decision["decision"] == "continue_to_packet_review"
 
 
 def test_plan_ingestion_terminal_receipt_removes_expired_packet_pressure() -> None:
@@ -419,7 +437,7 @@ def test_pending_action_request_pivots_even_with_durable_owner() -> None:
 
     assert pressure["pressure_state"] == "below_budget"
     assert classifications[0]["durable_owner"] == "PKT-BIND-REV-PKT-60"
-    assert decision["decision"] == "pivot_to_packet_review"
+    assert decision["decision"] == "continue_to_packet_review"
     assert decision["reason_code"] == "pending_packet_requires_review"
     assert "review-channel --action show" in decision["next_command"]
 

@@ -86,11 +86,13 @@ def _remediation_lines(remediation: Mapping[str, object]) -> list[str]:
 
 _MISSING_PLAN_AUTHORITY_REASON = (
     "Prose plan sources are evidence, not execution authority, until "
-    "they carry an explicit PlanRow id or markdown checklist row."
+    "they carry an explicit PlanRow id, markdown checklist row, or the bounded "
+    "'Rows to ingest from this plan' authority section."
 )
 _MISSING_PLAN_AUTHORITY_REQUIREMENT = (
     "Add --plan-row-id <PlanRow id>, or provide a source/body-file "
-    "containing a checklist row shaped like '- [ ] `MP377-...` Title'."
+    "containing a checklist row shaped like '- [ ] `MP377-...` Title' or a "
+    "bounded 'Rows to ingest from this plan' bullet list."
 )
 
 

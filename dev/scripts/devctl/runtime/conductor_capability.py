@@ -3,6 +3,15 @@
 from __future__ import annotations
 
 from .devctl_interpreter import devctl_interpreter
+from .reviewer_mode import (
+    ReviewerMode,
+    authority_reviewer_mode,
+    normalize_reviewer_mode,
+    normalize_reviewer_mode_value,
+    resolve_reviewer_mode,
+    reviewer_mode_allows_implementer,
+    reviewer_mode_allows_reviewer_mutation,
+)
 from .review_state_models import ConductorCapabilityState
 from .role_profile import TandemRole, normalize_tandem_role, role_for_provider
 
@@ -18,16 +27,6 @@ _SESSION_RESUME_BASE_COMMAND = (
     f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py session-resume"
 )
 _CONTEXT_GRAPH_BOOTSTRAP_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py context-graph --mode bootstrap --format md"
-_DEFAULT_REVIEWER_MODE = "tools_only"
-_KNOWN_REVIEWER_MODES = {
-    "active_dual_agent",
-    "single_agent",
-    "tools_only",
-    "paused",
-    "offline",
-}
-
-
 def startup_context_command_for_role(role: str) -> str:
     """Return the canonical startup receipt command for one role."""
     return f"{_STARTUP_CONTEXT_BASE_COMMAND} --role {role} --format summary"
@@ -59,7 +58,10 @@ def build_conductor_capability_state(
 ) -> ConductorCapabilityState:
     """Return the typed execution capability for one conductor."""
     resolved_role = (normalize_tandem_role(role) or role_for_provider(provider)).value
-    normalized_mode = normalize_reviewer_mode(reviewer_mode)
+    normalized_mode = normalize_reviewer_mode_value(
+        reviewer_mode,
+        default=ReviewerMode.TOOLS_ONLY,
+    )
     if resolved_role == TandemRole.REVIEWER.value:
         return _reviewer_capability(
             provider=provider,
@@ -81,38 +83,12 @@ def reviewer_local_implementation_allowed(
         return True
     capability = _reviewer_capability(
         provider="codex",
-        reviewer_mode=normalize_reviewer_mode(reviewer_mode),
+        reviewer_mode=normalize_reviewer_mode_value(
+            reviewer_mode,
+            default=ReviewerMode.TOOLS_ONLY,
+        ),
     )
     return capability.may_edit_repo
-
-
-def normalize_reviewer_mode(reviewer_mode: str) -> str:
-    """Normalize reviewer mode without importing review-channel modules."""
-    normalized = str(reviewer_mode or "").strip().lower()
-    if normalized in _KNOWN_REVIEWER_MODES:
-        return normalized
-    return _DEFAULT_REVIEWER_MODE
-
-
-def resolve_reviewer_mode(*values: object) -> str:
-    """Resolve reviewer mode from ordered values and fail closed."""
-    for value in values:
-        raw = str(value or "").strip()
-        if raw:
-            return normalize_reviewer_mode(raw)
-    return _DEFAULT_REVIEWER_MODE
-
-
-def authority_reviewer_mode(
-    reviewer_mode: str,
-    effective_reviewer_mode: str = "",
-) -> str:
-    """Return the reviewer mode that typed authority consumers should trust."""
-    mode = normalize_reviewer_mode(reviewer_mode)
-    effective_mode = normalize_reviewer_mode(effective_reviewer_mode)
-    if effective_mode == "active_dual_agent":
-        return effective_mode
-    return mode
 
 
 def _reviewer_capability(
@@ -122,7 +98,7 @@ def _reviewer_capability(
 ) -> ConductorCapabilityState:
     startup_command = startup_context_command_for_role(TandemRole.REVIEWER.value)
     takeover_command = reviewer_takeover_command()
-    if reviewer_mode == "active_dual_agent":
+    if reviewer_mode_allows_implementer(reviewer_mode):
         return ConductorCapabilityState(
             provider=provider,
             role=TandemRole.REVIEWER.value,
@@ -137,7 +113,7 @@ def _reviewer_capability(
                 "is explicit."
             ),
         )
-    if reviewer_mode == "single_agent":
+    if reviewer_mode_allows_reviewer_mutation(reviewer_mode):
         return ConductorCapabilityState(
             provider=provider,
             role=TandemRole.REVIEWER.value,
@@ -169,7 +145,7 @@ def _implementer_capability(
     reviewer_mode: str,
 ) -> ConductorCapabilityState:
     startup_command = startup_context_command_for_role(TandemRole.IMPLEMENTER.value)
-    if reviewer_mode == "active_dual_agent":
+    if reviewer_mode_allows_implementer(reviewer_mode):
         return ConductorCapabilityState(
             provider=provider,
             role=TandemRole.IMPLEMENTER.value,

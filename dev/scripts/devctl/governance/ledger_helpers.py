@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from collections import deque
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from ..runtime.state_store_authority import append_json_mappings
 
 def optional_text(value: object) -> str | None:
     """Normalize a value to stripped text or None."""
@@ -107,8 +107,8 @@ def append_ledger_rows(
     """Append one or more rows to a JSONL ledger."""
     if not rows:
         return
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    with log_path.open("a", encoding="utf-8") as handle:
-        for row in rows:
-            handle.write(json.dumps(row, sort_keys=True))
-            handle.write("\n")
+    append_json_mappings(
+        log_path,
+        tuple(rows),
+        store_id=log_path.name,
+    )

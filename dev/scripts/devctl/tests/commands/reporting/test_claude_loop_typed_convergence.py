@@ -208,7 +208,7 @@ def test_render_markdown_surfaces_proof_evidence_near_decision() -> None:
     payload["proof_evidence"] = {
         "proof_state": "missing",
         "satisfied_proofs": ["typed_runtime_clock", "plan_target"],
-        "missing_proofs": ["wake_or_attention_evidence"],
+        "missing_proofs": ["packet_attention_evidence"],
         "runtime_clock": {
             "state": "satisfied",
             "source_latest_event_id": "rev_evt_48184",
@@ -628,7 +628,7 @@ def test_loop_proof_evidence_has_entry_for_every_required_proof() -> None:
         "typed_runtime_clock",
         "plan_target",
         "scoped_packet_target",
-        "wake_or_attention_evidence",
+        "packet_attention_evidence",
         "implementer_handoff",
         "guard_bundle_or_attestation",
         "reviewer_semantic_review",
@@ -700,8 +700,8 @@ def test_wake_proof_evidence_names_operator_override_source() -> None:
         loop_decision={
             "target_ref": "MP-377",
             "proof_state": "satisfied",
-            "required_proofs": ["wake_or_attention_evidence"],
-            "satisfied_proofs": ["wake_or_attention_evidence"],
+            "required_proofs": ["packet_attention_evidence"],
+            "satisfied_proofs": ["packet_attention_evidence"],
             "missing_proofs": [],
             "operator_override": {
                 "active": True,
@@ -714,7 +714,7 @@ def test_wake_proof_evidence_names_operator_override_source() -> None:
         review_state={},
     )
 
-    evidence = proof["proofs"]["wake_or_attention_evidence"]["evidence"]
+    evidence = proof["proofs"]["packet_attention_evidence"]["evidence"]
     assert evidence["operator_override_active"] is True
     assert evidence["operator_override_source"] == "agent_loop_cli"
     assert evidence["operator_override_target_kind"] == "plan"

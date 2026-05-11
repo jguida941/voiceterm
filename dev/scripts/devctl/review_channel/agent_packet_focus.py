@@ -5,11 +5,24 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
+from ..runtime.review_packet_inbox_actionable import attention_urgency
 from ..runtime.value_coercion import coerce_mapping as _mapping
 from ..runtime.value_coercion import coerce_text as _text
 from .active_packet_authority import current_active_packet_for_agent
+from .event_models import event_id_rank as _event_id_rank
 from .agent_sync_models import ACTIVE_LIFECYCLE_STATES
 from .packet_contract import normalize_packet_route_role
+
+
+_FOCUSABLE_LIFECYCLE_STATES = ACTIVE_LIFECYCLE_STATES | frozenset(
+    {
+        "task_started",
+        "task_progress",
+        "task_produced",
+        "task_blocked",
+        "operator_routed",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,10 +69,20 @@ def packet_focus_for_agent(
         session=session,
         active_packet_id=active,
     )
-    attention_id = (
+    selected_attention_id = _text(attention.get("latest_attention_packet_id"))
+    default_attention_id = (
         _text(work_row.get("attention_packet_id"))
         or active
-        or _text(attention.get("latest_attention_packet_id"))
+        or selected_attention_id
+    )
+    attention_id = (
+        selected_attention_id
+        if _attention_packet_preempts(
+            review_state,
+            selected_attention_id,
+            default_attention_id,
+        )
+        else default_attention_id
     )
     executing = _text(work_row.get("executing_packet_id"))
     if not _packet_id_is_focusable(review_state, attention_id):
@@ -113,10 +136,47 @@ def _packet_is_focusable(packet: Mapping[str, object]) -> bool:
     if not packet:
         return False
     lifecycle = _text(packet.get("lifecycle_current_state"))
-    if lifecycle not in ACTIVE_LIFECYCLE_STATES:
+    if lifecycle not in _FOCUSABLE_LIFECYCLE_STATES:
         return False
     status = _text(packet.get("status"))
     return status in {"", "pending", "acked", "acknowledged", "in_progress"}
+
+
+def _attention_packet_preempts(
+    review_state: Mapping[str, object],
+    candidate_id: str,
+    current_id: str,
+) -> bool:
+    if not candidate_id or candidate_id == current_id:
+        return False
+    candidate = packet_by_id(review_state, candidate_id)
+    if not _packet_is_focusable(candidate):
+        return False
+    current = packet_by_id(review_state, current_id)
+    if not _packet_is_focusable(current):
+        return True
+    return _attention_priority_key(candidate) > _attention_priority_key(current)
+
+
+def _attention_priority_key(packet: Mapping[str, object]) -> tuple[int, int, int, int]:
+    urgency_rank = {"blocking": 5, "urgent": 4, "ambient": 0}
+    command_lane_rank = {
+        "action_request": 3,
+        "instruction": 3,
+        "approval_request": 3,
+    }
+    kind_rank = {
+        "review_failed": 2,
+        "finding": 2,
+        "decision": 2,
+        "task_progress": 1,
+    }
+    return (
+        urgency_rank.get(attention_urgency(packet), 0),
+        command_lane_rank.get(_text(packet.get("kind")).lower(), 0),
+        _event_id_rank(_text(packet.get("latest_event_id"))),
+        kind_rank.get(_text(packet.get("kind")).lower(), 0),
+    )
 
 
 def _work_board_row_for_scope(

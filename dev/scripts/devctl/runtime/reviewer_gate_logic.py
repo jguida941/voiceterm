@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .conductor_capability import normalize_reviewer_mode
+from .reviewer_mode import reviewer_mode_is_active
 from .review_state_semantics import is_pending_implementer_state
 
 
@@ -24,7 +24,7 @@ def reviewer_loop_block_state(
     inputs: ReviewerRuntimeBlockInputs,
 ) -> tuple[bool, str]:
     """Return whether the active reviewer loop is blocked on implementer state."""
-    if normalize_reviewer_mode(inputs.reviewer_mode) != "active_dual_agent":
+    if not reviewer_mode_is_active(inputs.reviewer_mode):
         return False, ""
     if str(inputs.current_instruction or "").strip() in {"", "(missing)"}:
         return False, ""
@@ -49,12 +49,10 @@ def reviewer_runtime_block_state(
     inputs: ReviewerRuntimeBlockInputs,
 ) -> tuple[bool, str]:
     """Return the typed reviewer-runtime implementation block state."""
-    if normalize_reviewer_mode(inputs.reviewer_mode) != "active_dual_agent":
+    if not reviewer_mode_is_active(inputs.reviewer_mode):
         return False, ""
-    effective_mode = normalize_reviewer_mode(
-        inputs.effective_reviewer_mode or inputs.reviewer_mode
-    )
-    if effective_mode != "active_dual_agent":
+    effective_mode = inputs.effective_reviewer_mode or inputs.reviewer_mode
+    if not reviewer_mode_is_active(effective_mode):
         return True, inputs.attention_status or "review_loop_not_live"
     return reviewer_loop_block_state(
         ReviewerRuntimeBlockInputs(

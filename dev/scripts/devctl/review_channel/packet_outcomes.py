@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import re
 
+from ..runtime.collaboration_packet_kinds import (
+    COLLABORATION_LIFECYCLE_PACKET_KINDS,
+)
 from .packet_lifecycle import project_packet_lifecycle
 from .packet_lifecycle_binding import has_creation_binding
 from .packet_outcome_models import PacketOutcome, PacketOutcomeRecord
@@ -231,7 +234,8 @@ def _classify_evidence(
     if "withdraw" in evidence_text or "dismiss" in evidence_text:
         return PacketOutcome.WITHDRAWN_BY_REVIEWER
     if (
-        kind == "system_notice"
+        kind in COLLABORATION_LIFECYCLE_PACKET_KINDS
+        or kind == "system_notice"
         or "commit" in evidence_text
         or "landed" in evidence_text
         or "delivered" in evidence_text

@@ -144,7 +144,7 @@ WATCHER_FANOUT_MODE = DevelopmentScaleModeSpec(
     purpose="track stale packets, sync drift, process drift, and queue pressure",
     pressure_signals=("stale_packet_count", "actor_stale_seconds", "inter_agent_communication_lag", "fanout_command_latency"),
     capacity_effect="adds read-only watcher lanes with bounded packets",
-    evidence_outputs=("stale_state_report", "wake_recommendation"),
+    evidence_outputs=("stale_state_report", "attention_recommendation"),
     blocked_when=("watcher infers activity from partner wait state only",),
 )
 ISOLATED_BUILDER_FANOUT_MODE = DevelopmentScaleModeSpec(

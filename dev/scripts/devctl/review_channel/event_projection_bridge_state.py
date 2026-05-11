@@ -11,6 +11,7 @@ from ..runtime.conductor_capability import (
 )
 from ..runtime.review_state_models import ReviewerRuntimeContract
 from .current_session_projection import current_session_mapping
+from .peer_liveness import resolve_reported_reviewer_mode
 
 
 def build_event_bridge_state_projection(
@@ -143,6 +144,9 @@ def _base_bridge_state(
     reviewer_mode: str,
     effective_mode: str,
 ) -> dict[str, object]:
+    declared_reviewer_mode = resolve_reported_reviewer_mode(
+        {"reviewer_mode": bridge_liveness.get("declared_reviewer_mode") or reviewer_mode}
+    )
     return {
         "overall_state": str(bridge_liveness.get("overall_state") or "unknown"),
         "codex_poll_state": str(
@@ -152,6 +156,7 @@ def _base_bridge_state(
             bridge_liveness.get("reviewer_freshness") or "missing"
         ),
         "reviewer_mode": reviewer_mode,
+        "declared_reviewer_mode": declared_reviewer_mode,
         "last_codex_poll_utc": str(review_state.get("timestamp") or ""),
         "last_codex_poll_age_seconds": int(
             bridge_liveness.get("last_codex_poll_age_seconds") or 0

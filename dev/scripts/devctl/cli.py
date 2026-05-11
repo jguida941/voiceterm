@@ -10,6 +10,7 @@ import sys
 
 from .commands.python_test_runner import command as python_test_command
 from .commands.reporting import dogfood, progress_status
+from .commands import demo as demo_command
 from .commands.development import command as development_command
 from .commands.governance import (
     exceptions as governance_exceptions,
@@ -22,6 +23,7 @@ from .cli_parser import entrypoint as _impl
 # Keep the compatibility shim visible to static command-surface guards.
 COMMAND_HANDLER_ROWS = (
     ("develop", development_command.run),
+    ("demo", demo_command.run),
     ("dogfood", dogfood.run),
     ("exceptions", governance_exceptions.run),
     ("progress-status", progress_status.run),

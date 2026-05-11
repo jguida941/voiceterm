@@ -177,6 +177,8 @@ class ReviewPacketState:
     approval_required: bool
     posted_at: str
     plan_id: str = ""
+    attention_urgency: str = "auto"
+    attention_class: str = "auto"
     evidence_refs: tuple[str, ...] = ()
     context_pack_refs: tuple[ContextPackRefState, ...] = ()
     trace_id: str = ""

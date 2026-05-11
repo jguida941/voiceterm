@@ -8,33 +8,21 @@ from dataclasses import replace
 from pathlib import Path
 
 from .master_plan_contract import PlanRow
-from .master_plan_parse import plan_row_from_mapping
+from .plan_index_authority import (
+    read_plan_index_rows,
+    upsert_plan_index_row,
+    write_plan_index_rows,
+)
 
 
 def read_plan_rows_jsonl(path: Path) -> tuple[PlanRow, ...]:
     """Read typed plan rows from a JSONL authority file."""
-    if not path.exists():
-        return ()
-    rows: list[PlanRow] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        payload = json.loads(stripped)
-        if isinstance(payload, dict):
-            rows.append(plan_row_from_mapping(payload))
-    return tuple(rows)
+    return read_plan_index_rows(path)
 
 
 def write_plan_rows_jsonl(path: Path, rows: tuple[PlanRow, ...]) -> None:
     """Write a complete JSONL plan-row snapshot sorted by row id."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    ordered = sorted(rows, key=lambda row: row.row_id)
-    payload = "\n".join(
-        json.dumps(row.to_dict(), sort_keys=True, separators=(",", ":"))
-        for row in ordered
-    )
-    path.write_text(f"{payload}\n" if payload else "", encoding="utf-8")
+    write_plan_index_rows(path, rows)
 
 
 def upsert_plan_row_jsonl(path: Path, row: PlanRow) -> tuple[str, PlanRow]:
@@ -43,25 +31,40 @@ def upsert_plan_row_jsonl(path: Path, row: PlanRow) -> tuple[str, PlanRow]:
     Returns `(status, stored_row)`, where status is `inserted`, `updated`, or
     `already_present`.
     """
-    rows = list(read_plan_rows_jsonl(path))
-    next_rows: list[PlanRow] = []
-    status = "inserted"
-    stored = row
-    for existing in rows:
-        if existing.row_id != row.row_id:
-            next_rows.append(existing)
-            continue
-        if existing.to_dict() == row.to_dict():
+    result = upsert_plan_index_row(path, row)
+    return result.status, result.stored_row
+
+
+def upsert_plan_rows_jsonl(
+    path: Path,
+    rows: tuple[PlanRow, ...],
+) -> tuple[tuple[PlanRow, ...], tuple[str, ...]]:
+    """Insert or replace multiple rows via one locked plan-index write."""
+    current_rows = list(read_plan_rows_jsonl(path))
+    current_by_id = {row.row_id: row for row in current_rows}
+    current_index = {row.row_id: index for index, row in enumerate(current_rows)}
+    stored_rows: list[PlanRow] = []
+    statuses: list[str] = []
+    for row in rows:
+        with_revision = with_plan_revision(row, tuple(current_rows))
+        existing = current_by_id.get(row.row_id)
+        if existing is None:
+            status = "inserted"
+            stored = with_revision
+            current_index[row.row_id] = len(current_rows)
+            current_rows.append(stored)
+        elif existing.to_dict() == with_revision.to_dict():
             status = "already_present"
             stored = existing
         else:
             status = "updated"
-            stored = row
-        next_rows.append(stored)
-    if status == "inserted":
-        next_rows.append(row)
-    write_plan_rows_jsonl(path, tuple(next_rows))
-    return status, stored
+            stored = with_revision
+            current_rows[current_index[row.row_id]] = stored
+        current_by_id[row.row_id] = stored
+        stored_rows.append(stored)
+        statuses.append(status)
+    write_plan_rows_jsonl(path, tuple(current_rows))
+    return tuple(stored_rows), tuple(statuses)
 
 
 def plan_revision_for_rows(rows: tuple[PlanRow, ...]) -> str:
@@ -86,6 +89,7 @@ __all__ = [
     "plan_revision_for_rows",
     "read_plan_rows_jsonl",
     "upsert_plan_row_jsonl",
+    "upsert_plan_rows_jsonl",
     "with_plan_revision",
     "write_plan_rows_jsonl",
 ]

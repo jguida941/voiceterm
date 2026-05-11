@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from textwrap import dedent
 from unittest.mock import patch
@@ -12,6 +13,9 @@ from dev.scripts.checks.platform_contract_closure import (
 )
 from dev.scripts.checks.platform_contract_closure.connectivity_registry_closure import (
     check_connectivity_registry_closure,
+)
+from dev.scripts.checks.platform_contract_closure.contract_registry_closure import (
+    check_contract_registry_closure,
 )
 from dev.scripts.checks.platform_contract_closure.emitter_parity import (
     check_review_state_emitter_parity as _check_review_state_emitter_parity,
@@ -29,6 +33,7 @@ from dev.scripts.devctl.governance.surfaces import (
     SurfaceSpec,
 )
 from dev.scripts.devctl.platform.blueprint import build_platform_blueprint
+from dev.scripts.devctl.platform.contract_registry import build_contract_registry_rows
 from dev.scripts.devctl.platform.connectivity_registry_models import (
     ConnectivityContractRow,
     ConnectivityFieldRow,
@@ -116,6 +121,38 @@ def test_platform_contract_closure_checks_connectivity_registry_consumers() -> N
         assert reader_id in row["observed_reader_ids"]
         assert reader_id in row["row_reader_ids"]
     assert row["reader_verification_violation_count"] == 0
+
+
+def test_contract_registry_closure_flags_missing_registry_row() -> None:
+    blueprint = build_platform_blueprint()
+    rows = build_contract_registry_rows(blueprint)[1:]
+
+    coverage, violations = check_contract_registry_closure(
+        blueprint=blueprint,
+        rows=rows,
+    )
+
+    assert coverage["ok"] is False
+    assert any(
+        violation["rule"] == "missing-registry-row" for violation in violations
+    )
+
+
+def test_contract_registry_closure_flags_stale_registry_row() -> None:
+    blueprint = build_platform_blueprint()
+    rows = list(build_contract_registry_rows(blueprint))
+    rows[0] = replace(rows[0], ownership_mode="shared")
+
+    coverage, violations = check_contract_registry_closure(
+        blueprint=blueprint,
+        rows=tuple(rows),
+    )
+
+    assert coverage["ok"] is False
+    stale = next(
+        violation for violation in violations if violation["rule"] == "stale-registry-row"
+    )
+    assert "ownership_mode" in stale["stale_fields"]
 
 
 def test_connectivity_registry_closure_flags_sampled_aspirational_gaps() -> None:

@@ -2924,6 +2924,10 @@ See `scripts/README.md` for full script documentation.
 
 ## Local development tips
 
+**Scope-path parser recognizes `.jsonl` plus `.json`:**
+
+The runtime scope-path parser at `dev/scripts/devctl/runtime/scope_path_claims.py:_PATH_RE` recognizes both `.json` and `.jsonl` extensions, so typed-state files such as `dev/state/plan_index.jsonl` referenced in instruction or reviewed-scope text are correctly matched by `extract_scope_paths()` and `path_matches_scope_claim()`. This keeps the startup-authority concurrent-writer contract from flagging legitimate typed-state writes as outside-scope. Focused regression coverage: `dev/scripts/devctl/tests/runtime/test_scope_path_claims.py`.
+
 **Test with different backends:**
 
 ```bash

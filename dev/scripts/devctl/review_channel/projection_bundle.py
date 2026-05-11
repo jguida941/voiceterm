@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
+from contextlib import contextmanager
 from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import asdict, dataclass
@@ -62,6 +63,7 @@ _TYPED_REVIEW_STATE_KEYS = (
     "snapshot_id",
     "zref",
 )
+_PROJECTION_BUNDLE_LOCK_DEPTH = 0
 
 
 @dataclass(frozen=True)
@@ -77,6 +79,20 @@ class ReviewChannelProjectionPaths:
     latest_markdown_path: str
     agent_registry_path: str
     commit_pipeline_path: str = ""
+
+
+@dataclass(frozen=True)
+class ReviewChannelProjectionBundleContents:
+    """Prepared projection file contents for one review-state snapshot."""
+
+    review_state_json: str
+    compact_json: str
+    full_json: str
+    actions_json: str
+    trace_text: str
+    latest_markdown: str
+    agent_registry_json: str
+    commit_pipeline_json: str
 
 
 def artifact_writes_suppressed() -> bool:
@@ -152,6 +168,41 @@ def projection_paths_to_dict(
         return {str(key): str(value) for key, value in paths.items()}
     return asdict(paths)
 
+
+@contextmanager
+def projection_bundle_lock(*roots: Path):
+    """Serialize sibling projection-root readers and writers."""
+    global _PROJECTION_BUNDLE_LOCK_DEPTH
+    if _PROJECTION_BUNDLE_LOCK_DEPTH > 0:
+        yield
+        return
+    lock_dir = _projection_bundle_lock_dir(tuple(roots))
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = lock_dir / ".projection_bundle.lock"
+    try:
+        import fcntl
+    except ImportError:
+        yield
+        return
+    with open(lock_path, "a", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        _PROJECTION_BUNDLE_LOCK_DEPTH += 1
+        try:
+            yield
+        finally:
+            _PROJECTION_BUNDLE_LOCK_DEPTH -= 1
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def _projection_bundle_lock_dir(roots: tuple[Path, ...]) -> Path:
+    resolved = tuple(root.resolve() for root in roots if root is not None)
+    if not resolved:
+        return Path(".").resolve()
+    common = Path(os.path.commonpath([str(root) for root in resolved]))
+    while common.name in {"latest", "projections"} and common.parent != common:
+        common = common.parent
+    return common
+
 def write_projection_bundle(
     *,
     output_root: Path,
@@ -162,9 +213,64 @@ def write_projection_bundle(
     full_extras: dict[str, object] | None = None,
 ) -> ReviewChannelProjectionPaths:
     """Write a projection bundle from one reduced review-state snapshot."""
+    contents = prepare_projection_bundle_contents(
+        review_state=review_state,
+        agent_registry=agent_registry,
+        action=action,
+        trace_events=trace_events,
+        full_extras=full_extras,
+    )
+    with projection_bundle_lock(output_root):
+        return write_prepared_projection_bundle(
+            output_root=output_root,
+            contents=contents,
+        )
+
+
+def write_projection_bundle_mirrors(
+    *,
+    output_root: Path,
+    mirror_roots: tuple[Path, ...] = (),
+    review_state: dict[str, object],
+    agent_registry: dict[str, object],
+    action: str,
+    trace_events: list[dict[str, object]] | None = None,
+    full_extras: dict[str, object] | None = None,
+) -> ReviewChannelProjectionPaths:
+    """Write canonical and mirror roots from one prepared projection payload."""
+    contents = prepare_projection_bundle_contents(
+        review_state=review_state,
+        agent_registry=agent_registry,
+        action=action,
+        trace_events=trace_events,
+        full_extras=full_extras,
+    )
+    with projection_bundle_lock(output_root, *mirror_roots):
+        paths = write_prepared_projection_bundle(
+            output_root=output_root,
+            contents=contents,
+        )
+        canonical_root = output_root.resolve()
+        for mirror_root in mirror_roots:
+            if mirror_root.resolve() == canonical_root:
+                continue
+            write_prepared_projection_bundle(
+                output_root=mirror_root,
+                contents=contents,
+            )
+    return paths
+
+
+def prepare_projection_bundle_contents(
+    *,
+    review_state: dict[str, object],
+    agent_registry: dict[str, object],
+    action: str,
+    trace_events: list[dict[str, object]] | None = None,
+    full_extras: dict[str, object] | None = None,
+) -> ReviewChannelProjectionBundleContents:
+    """Build all projection files from one canonicalized review-state snapshot."""
     review_state_payload = canonicalize_projection_review_state(review_state)
-    from .agent_work_board_posture import apply_work_board_session_posture
-    review_state_payload = apply_work_board_session_posture(review_state_payload)
     compact = _build_compact_projection(review_state_payload)
     actions = build_actions_projection(review_state_payload)
     full = build_full_projection(
@@ -176,9 +282,26 @@ def write_projection_bundle(
         full.update(full_extras)
     latest_markdown = render_latest_markdown(review_state_payload, agent_registry)
 
-    registry_dir = output_root / "registry"
-    registry_dir.mkdir(parents=True, exist_ok=True)
+    return ReviewChannelProjectionBundleContents(
+        review_state_json=_json_artifact(review_state_payload),
+        compact_json=_json_artifact(compact),
+        full_json=_json_artifact(full),
+        actions_json=_json_artifact(actions),
+        trace_text=_render_trace_projection(trace_events or []),
+        latest_markdown=latest_markdown,
+        agent_registry_json=_json_artifact(agent_registry),
+        commit_pipeline_json=_json_artifact(
+            review_state_payload.get("commit_pipeline", {})
+        ),
+    )
 
+
+def write_prepared_projection_bundle(
+    *,
+    output_root: Path,
+    contents: ReviewChannelProjectionBundleContents,
+) -> ReviewChannelProjectionPaths:
+    """Atomically publish prepared projection contents into one root."""
     paths = projection_paths_for_root(output_root)
     review_state_path = Path(paths.review_state_path)
     compact_path = Path(paths.compact_path)
@@ -199,17 +322,17 @@ def write_projection_bundle(
     # the publication-complete marker.
     _atomic_write_text(
         review_state_path,
-        _json_artifact(review_state_payload),
+        contents.review_state_json,
     )
-    _atomic_write_text(compact_path, _json_artifact(compact))
-    _atomic_write_text(full_path, _json_artifact(full))
-    _atomic_write_text(actions_path, _json_artifact(actions))
-    _atomic_write_text(trace_path, _render_trace_projection(trace_events or []))
-    _atomic_write_text(latest_markdown_path, latest_markdown)
-    _atomic_write_text(agent_registry_path, _json_artifact(agent_registry))
+    _atomic_write_text(compact_path, contents.compact_json)
+    _atomic_write_text(full_path, contents.full_json)
+    _atomic_write_text(actions_path, contents.actions_json)
+    _atomic_write_text(trace_path, contents.trace_text)
+    _atomic_write_text(latest_markdown_path, contents.latest_markdown)
+    _atomic_write_text(agent_registry_path, contents.agent_registry_json)
     _atomic_write_text(
         commit_pipeline_path,
-        _json_artifact(review_state_payload.get("commit_pipeline", {})),
+        contents.commit_pipeline_json,
     )
 
     return paths

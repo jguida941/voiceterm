@@ -10,6 +10,7 @@ from .review_state_collaboration_models import (
     actor_authorities_from_value,
     granted_capabilities_for_actor,
 )
+from .reviewer_mode import ReviewerMode, reviewer_mode_is_active
 
 
 class CollaborationWakeFields(NamedTuple):
@@ -64,7 +65,7 @@ def apply_wake_continuity_gate(
     required_action: str,
     wake_fields: CollaborationWakeFields,
 ) -> tuple[str, str, str]:
-    if reviewer_mode != "active_dual_agent":
+    if not reviewer_mode_is_active(reviewer_mode, default=ReviewerMode.SINGLE_AGENT):
         return coordination_state, root_cause, required_action
     if wake_fields.wake_continuity_present and wake_fields.wake_continuity_ok:
         return coordination_state, root_cause, required_action
@@ -147,7 +148,10 @@ def build_snapshot_result(
         wake_continuity_ok=(
             wake_fields.wake_continuity_ok
             if wake_fields.wake_continuity_present
-            else reviewer_mode != "active_dual_agent"
+            else not reviewer_mode_is_active(
+                reviewer_mode,
+                default=ReviewerMode.SINGLE_AGENT,
+            )
         ),
         wake_gap_summary=wake_fields.wake_gap_summary,
         loop_wake_mode=wake_fields.loop_wake_mode,

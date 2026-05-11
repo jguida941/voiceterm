@@ -9,6 +9,7 @@ EVENT_BRIDGE_CANONICAL_FIELDS = frozenset(
         "reviewer_poll_state",
         "reviewer_freshness",
         "reviewer_mode",
+        "declared_reviewer_mode",
         "last_codex_poll_utc",
         "last_reviewer_poll_utc",
         "last_codex_poll_age_seconds",

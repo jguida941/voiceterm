@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from .relaunch_loop_models import (
     DEFAULT_RELAUNCH_WINDOW_SECONDS,
@@ -152,7 +152,12 @@ def build_relaunch_trigger(
 
 def utc_now() -> str:
     """Return current UTC timestamp in whole-second Z form."""
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def _has_existing_trigger(
@@ -197,7 +202,7 @@ def _window_start(
     epoch_seconds = int(observed.timestamp())
     window_epoch = epoch_seconds - (epoch_seconds % window_seconds)
     return (
-        datetime.fromtimestamp(window_epoch, UTC)
+        datetime.fromtimestamp(window_epoch, timezone.utc)
         .replace(microsecond=0)
         .isoformat()
         .replace("+00:00", "Z")
@@ -216,16 +221,16 @@ def _expires_at(value: str, *, minutes: int) -> str:
 def _parse_utc(value: str) -> datetime:
     text = value.strip()
     if not text:
-        return datetime.now(UTC).replace(microsecond=0)
+        return datetime.now(timezone.utc).replace(microsecond=0)
     if text.endswith("Z"):
         text = text[:-1] + "+00:00"
     try:
         parsed = datetime.fromisoformat(text)
     except ValueError:
-        return datetime.now(UTC).replace(microsecond=0)
+        return datetime.now(timezone.utc).replace(microsecond=0)
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=UTC)
-    return parsed.astimezone(UTC)
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _role_for_actor(actor: str) -> str:

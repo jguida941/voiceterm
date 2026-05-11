@@ -25,11 +25,17 @@ from dev.scripts.devctl.review_channel.packet_contract import (
     PacketRuntimeApprovalFields,
     PacketTargetFields,
     PacketTransitionRequest,
+    VALID_PACKET_KINDS,
     packet_kind_schema,
+    plan_proposal_for_request,
     validate_post_request,
 )
 from dev.scripts.devctl.review_channel.packet_attestation import (
     PacketGuardAttestation,
+    validate_packet_apply_attestation,
+)
+from dev.scripts.devctl.runtime.collaboration_packet_kinds import (
+    COLLABORATION_LIFECYCLE_PACKET_KINDS,
 )
 from dev.scripts.devctl.runtime.master_plan_contract import PlanProposal
 
@@ -94,21 +100,57 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
             )
 
     def test_carrier_packet_rejects_plan_proposal(self) -> None:
-        with self.assertRaisesRegex(ValueError, "Carrier packet kinds"):
-            validate_post_request(
-                PacketPostRequest(
+        for kind in ("system_notice", "task_produced", "review_accepted"):
+            with self.subTest(kind=kind):
+                with self.assertRaisesRegex(ValueError, "Carrier packet kinds"):
+                    validate_post_request(
+                        PacketPostRequest(
+                            from_agent="codex",
+                            to_agent="claude",
+                            kind=kind,
+                            summary="Carrier cannot mutate plan",
+                            body="This notice must remain communication-only.",
+                            plan_proposal=PlanProposal(
+                                target_ref="plan://MP-377/platform_authority_loop",
+                                mutation_op="update_status",
+                            ),
+                        ),
+                        valid_agent_ids=("codex", "claude"),
+                    )
+
+    def test_workflow_packet_kinds_validate_as_carriers(self) -> None:
+        for kind in sorted(COLLABORATION_LIFECYCLE_PACKET_KINDS):
+            with self.subTest(kind=kind):
+                self.assertIn(kind, VALID_PACKET_KINDS)
+                self.assertTrue(packet_kind_schema(kind).body_required)
+                validate_post_request(
+                    PacketPostRequest(
+                        from_agent="codex",
+                        to_agent="claude",
+                        kind=kind,
+                        summary=f"{kind} receipt",
+                        body="Typed agent-sync workflow receipt.",
+                    ),
+                    valid_agent_ids=("codex", "claude"),
+                )
+
+    def test_workflow_packet_kinds_do_not_derive_plan_proposals(self) -> None:
+        for kind in sorted(COLLABORATION_LIFECYCLE_PACKET_KINDS):
+            with self.subTest(kind=kind):
+                request = PacketPostRequest(
                     from_agent="codex",
                     to_agent="claude",
-                    kind="system_notice",
-                    summary="Carrier cannot mutate plan",
-                    body="This notice must remain communication-only.",
-                    plan_proposal=PlanProposal(
-                        target_ref="plan://MP-377/platform_authority_loop",
-                        mutation_op="update_status",
+                    kind=kind,
+                    summary="Review receipt for MP-377 fix",
+                    body="The fix is reviewed; this remains receipt evidence.",
+                    target=PacketTargetFields.from_values(
+                        anchor_refs=["section:MP-377"],
+                        intake_ref="work_intake://plan_target/abc123",
                     ),
-                ),
-                valid_agent_ids=("codex", "claude"),
-            )
+                )
+                validate_post_request(request, valid_agent_ids=("codex", "claude"))
+
+                self.assertFalse(plan_proposal_for_request(request).has_values())
 
     def test_instruction_packets_allow_route_discriminators(self) -> None:
         validate_post_request(
@@ -367,6 +409,31 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
             ["checklist:phase_2a", "progress:finding_closure_gate"],
         )
         self.assertEqual(args.intake_ref, "intake://session-2026-03-19")
+
+    def test_cli_accepts_workflow_packet_kinds(self) -> None:
+        parser = build_parser()
+
+        for kind in ("task_produced", "review_accepted"):
+            with self.subTest(kind=kind):
+                args = parser.parse_args(
+                    [
+                        "review-channel",
+                        "--action",
+                        "post",
+                        "--from-agent",
+                        "codex",
+                        "--to-agent",
+                        "claude",
+                        "--kind",
+                        kind,
+                        "--summary",
+                        f"{kind} receipt",
+                        "--body",
+                        "Typed workflow receipt.",
+                    ]
+                )
+
+                self.assertEqual(args.kind, kind)
 
     def test_cli_accepts_runtime_commit_approval_fields(self) -> None:
         parser = build_parser()
@@ -670,6 +737,24 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                         actor="claude",
                     ),
                 )
+
+    def test_workflow_receipts_allow_minimal_apply_attestation(self) -> None:
+        attestation = validate_packet_apply_attestation(
+            packet={
+                "packet_id": "rev_pkt_task_produced",
+                "kind": "task_produced",
+                "to_agent": "claude",
+            },
+            event={
+                "event_type": "packet_applied",
+                "timestamp_utc": "2026-05-10T00:00:00Z",
+                "metadata": {"actor": "claude"},
+            },
+        )
+
+        self.assertEqual(attestation.packet_id, "rev_pkt_task_produced")
+        self.assertEqual(attestation.attestation_kind, "carrier_timestamp_actor")
+        self.assertEqual(attestation.attested_by, "claude")
 
     def test_commit_approval_packets_preserve_runtime_fields_through_apply(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1243,34 +1328,28 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                     "artifact_paths": artifact_paths,
                 },
             )
-            target_role, target_session_id = _first_fresh_agent_session(
-                repo_root=root,
-                review_channel_path=review_channel_path,
-                artifact_paths=artifact_paths,
-                actor_id="codex",
-            )
-            post_packet(
-                repo_root=root,
-                review_channel_path=review_channel_path,
-                artifact_paths=artifact_paths,
-                request=PacketPostRequest(
-                    from_agent="claude",
-                    to_agent="codex",
-                    kind="instruction",
-                    summary="Later commentary packet",
-                    body="narrative update",
-                    evidence_refs=(),
-                    context_pack_refs=(),
-                    confidence=1.0,
-                    requested_action="review_only",
-                    policy_hint="review_only",
-                    approval_required=False,
-                    target=PacketTargetFields.from_values(
-                        target_role=target_role,
-                        target_session_id=target_session_id,
+            with mock.patch(
+                "dev.scripts.devctl.review_channel.events.resolve_packet_post_route_scope",
+                side_effect=lambda request, review_state: request,
+            ):
+                post_packet(
+                    repo_root=root,
+                    review_channel_path=review_channel_path,
+                    artifact_paths=artifact_paths,
+                    request=PacketPostRequest(
+                        from_agent="claude",
+                        to_agent="codex",
+                        kind="instruction",
+                        summary="Later commentary packet",
+                        body="narrative update",
+                        evidence_refs=(),
+                        context_pack_refs=(),
+                        confidence=1.0,
+                        requested_action="review_only",
+                        policy_hint="review_only",
+                        approval_required=False,
                     ),
-                ),
-            )
+                )
 
             bundle = refresh_event_bundle(
                 repo_root=root,

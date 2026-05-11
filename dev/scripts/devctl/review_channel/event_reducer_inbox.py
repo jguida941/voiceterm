@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from ..runtime.review_packet_inbox_liveness import is_expired_unresolved
 
-from .packet_contract import packet_route_matches_scope
 from .pending_packets import live_pending_packets, partition_live_packet_queue
+from .packet_route_scope import normalize_packet_route_role
+from .packet_text_fields import clean_optional_text
 from .timestamp_parse import parse_utc_value as _parse_utc
 
 
@@ -36,7 +37,7 @@ def filter_inbox_packets(
         if target_role or target_session_id:
             if not _packet_has_route_scope(packet):
                 continue
-            if not packet_route_matches_scope(
+            if not _packet_matches_inbox_scope(
                 packet,
                 target_role=target_role,
                 target_session_id=target_session_id,
@@ -126,3 +127,31 @@ def _packet_matches_inbox_status(packet: dict[str, object], status: str) -> bool
 
 def _packet_has_route_scope(packet: dict[str, object]) -> bool:
     return bool(packet.get("target_role") or packet.get("target_session_id"))
+
+
+def _packet_matches_inbox_scope(
+    packet: dict[str, object],
+    *,
+    target_role: str | None,
+    target_session_id: str | None,
+) -> bool:
+    """Return whether a packet is visible in one typed role/session inbox.
+
+    Visibility is intentionally broader than consumption authority. A role-only
+    query must surface session-pinned packets for that role so a lane watcher or
+    operator can discover pending work without knowing the elected session id in
+    advance. A session-specific query remains exact for packets pinned only by
+    session.
+    """
+    scope_role = normalize_packet_route_role(target_role)
+    scope_session = clean_optional_text(target_session_id) or ""
+    packet_role = normalize_packet_route_role(packet.get("target_role"))
+    packet_session = clean_optional_text(packet.get("target_session_id")) or ""
+
+    if scope_role:
+        if packet_role != scope_role:
+            return False
+        return not scope_session or not packet_session or packet_session == scope_session
+    if scope_session:
+        return packet_session == scope_session
+    return False

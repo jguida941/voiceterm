@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +60,7 @@ class StageActionInputs:
     work_intake_ref: str = ""
     remote: str = "origin"
     reuse_staged_index: bool = False
+    index_reuse_decision: dict[str, object] = field(default_factory=dict)
     allow_empty: bool = False
     requested_by: str = "remote_commit_pipeline"
 
@@ -108,10 +109,11 @@ def build_stage_action(
             kwargs,
             "repo_pack_id paths commit_message_draft push_requested guard_profile "
             "risk_addons proof_level work_intake_ref remote reuse_staged_index "
-            "allow_empty requested_by",
+            "index_reuse_decision allow_empty requested_by",
         )
         if unexpected:
             raise TypeError(f"Unexpected stage action inputs: {', '.join(unexpected)}")
+        raw_index_reuse_decision = kwargs.get("index_reuse_decision") or {}
         resolved = StageActionInputs(
             repo_pack_id=str(kwargs["repo_pack_id"]),
             paths=tuple(str(path) for path in kwargs.get("paths", ()) or ()),
@@ -125,6 +127,11 @@ def build_stage_action(
             work_intake_ref=str(kwargs.get("work_intake_ref", "")),
             remote=str(kwargs.get("remote", "origin")),
             reuse_staged_index=bool(kwargs.get("reuse_staged_index", False)),
+            index_reuse_decision=(
+                dict(raw_index_reuse_decision)
+                if isinstance(raw_index_reuse_decision, dict)
+                else {}
+            ),
             allow_empty=bool(kwargs.get("allow_empty", False)),
             requested_by=str(kwargs.get("requested_by", "remote_commit_pipeline")),
         )
@@ -140,6 +147,8 @@ def build_stage_action(
     parameters["work_intake_ref"] = resolved.work_intake_ref
     parameters["remote"] = resolved.remote
     parameters["reuse_staged_index"] = bool(resolved.reuse_staged_index)
+    if resolved.index_reuse_decision:
+        parameters["index_reuse_decision"] = dict(resolved.index_reuse_decision)
     parameters["allow_empty"] = bool(resolved.allow_empty)
     return TypedAction(
         schema_version=1,

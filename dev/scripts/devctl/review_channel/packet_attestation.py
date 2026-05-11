@@ -5,6 +5,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 
+from ..runtime.collaboration_packet_kinds import (
+    COLLABORATION_LIFECYCLE_PACKET_KINDS,
+)
 from ..runtime.value_coercion import coerce_mapping, coerce_string, coerce_string_items
 
 PACKET_GUARD_ATTESTATION_CONTRACT_ID = "PacketGuardAttestation"
@@ -18,7 +21,7 @@ _MINIMAL_ATTESTATION_KINDS = {
     "draft",
     "plan_gap_review",
     "plan_ready_gate",
-}
+} | COLLABORATION_LIFECYCLE_PACKET_KINDS
 
 
 @dataclass(frozen=True, slots=True)

@@ -66,11 +66,12 @@ def test_existing_owner_defers_to_existing_proof() -> None:
 
 def test_manual_triage_fails_closed_to_operator_packet_review() -> None:
     decision = packet_ingest_decision(
-        _classification(classification="manual-triage-required", packet_id="rev_pkt_5"),
+        _classification(classification="manual-review-required", packet_id="rev_pkt_5"),
         actor="codex",
     )
 
-    assert decision.decision == "operator_triage"
+    assert decision.decision == "operator_review"
+    assert decision.required_action == "operator_packet_review"
     assert decision.fail_closed is True
     assert "review-channel --action show --packet-id rev_pkt_5" in decision.next_command
 

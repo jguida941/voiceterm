@@ -14,7 +14,7 @@ from .packet_post_idempotency import (
     is_idempotency_consumed_by,
     packet_posted_idempotency_key,
 )
-from .state import DEFAULT_REVIEW_STATUS_DIR_REL, write_projection_bundle
+from .state import DEFAULT_REVIEW_STATUS_DIR_REL
 
 DEFAULT_REVIEW_ARTIFACT_ROOT_REL = active_path_config().review_artifact_root_rel
 DEFAULT_REVIEW_EVENT_LOG_REL = active_path_config().review_event_log_rel
@@ -254,25 +254,16 @@ def load_agent_registry(projections_root: Path) -> dict[str, object]:
     }
 
 
-def write_legacy_projection_mirror(
+def legacy_projection_mirror_root(
     *,
     repo_root: Path,
     canonical_projections_root: Path,
-    review_state: dict[str, object],
-    agent_registry: dict[str, object],
-    trace_events: list[dict[str, object]],
-) -> None:
-    """Keep legacy `dev/reports/review_channel/latest` consumers alive."""
+) -> Path | None:
+    """Return the legacy projection mirror root when it differs from canonical."""
     legacy_root = (repo_root / DEFAULT_REVIEW_STATUS_DIR_REL).resolve()
     if legacy_root == canonical_projections_root.resolve():
-        return
-    write_projection_bundle(
-        output_root=legacy_root,
-        review_state=review_state,
-        agent_registry=agent_registry,
-        action="status",
-        trace_events=trace_events,
-    )
+        return None
+    return legacy_root
 
 
 def next_event_id(events: list[dict[str, object]]) -> str:

@@ -12,6 +12,7 @@ from dev.scripts.devctl.platform.contracts import (
     PlatformBlueprint,
 )
 from . import field_routes
+from .contract_registry_closure import check_contract_registry_closure
 from .connectivity_registry_closure import check_connectivity_registry_closure
 from .field_route_families import check_field_route_families
 
@@ -211,6 +212,12 @@ def evaluate_platform_contract_closure(
     coverage, surface_violations = _check_startup_surfaces(surface_policy)
     coverage_rows.append(coverage)
     violations.extend(surface_violations)
+
+    contract_registry_coverage, contract_registry_violations = (
+        check_contract_registry_closure(blueprint=blueprint)
+    )
+    coverage_rows.append(contract_registry_coverage)
+    violations.extend(contract_registry_violations)
 
     registry_coverage, registry_violations = check_connectivity_registry_closure(
         surface_policy

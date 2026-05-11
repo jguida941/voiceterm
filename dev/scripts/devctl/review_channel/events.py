@@ -148,6 +148,7 @@ def post_packet(
         "requested_action": request.requested_action.strip() or "review_only",
         "policy_hint": request.policy_hint,
         "approval_required": request.approval_required,
+        **request.attention.to_event_fields(),
         **request.target.to_event_fields(),
         **request.runtime_approval.to_event_fields(),
         **request.guard_bundle_evidence.to_event_fields(),

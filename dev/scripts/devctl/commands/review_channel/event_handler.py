@@ -130,6 +130,8 @@ def _build_event_report(
         "packet_expiry_materialization": packet_expiry_materialization,
         "event": event,
         "target": getattr(args, "target", None),
+        "target_role": getattr(args, "target_role", None),
+        "target_session_id": getattr(args, "target_session_id", None),
         "status_filter": getattr(args, "status", None),
         "limit": getattr(args, "limit", None),
     }

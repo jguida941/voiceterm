@@ -56,6 +56,23 @@ class DevelopRolePresetSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class RoleCountBudget:
+    """Per-role fanout budget for one collaboration mode."""
+
+    role: str
+    default_count: int = 0
+    max_count: int = 1
+    mutable_lane_limit: int = 0
+    budget_kind: str = "read_only"
+    required_gates: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["required_gates"] = list(payload["required_gates"])
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
 class DevelopCollaborationModeSpec:
     mode_id: str
     display_name: str
@@ -66,6 +83,16 @@ class DevelopCollaborationModeSpec:
     required_gates: tuple[str, ...] = ()
     durable_outputs: tuple[str, ...] = ()
     blocked_when: tuple[str, ...] = ()
+    coordination_surfaces: tuple[str, ...] = ()
+    peer_polling_policy: str = ""
+    role_count_policy: str = ""
+    role_count_budgets: tuple[RoleCountBudget, ...] = ()
+    audit_role: str = ""
+    default_audit_agent_count: int = 0
+    max_audit_agent_count: int = 0
+    stop_anchor_policy: str = ""
+    stop_anchor_targets: tuple[str, ...] = ()
+    stop_anchor_packet_kinds: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -74,8 +101,14 @@ class DevelopCollaborationModeSpec:
             "required_gates",
             "durable_outputs",
             "blocked_when",
+            "coordination_surfaces",
+            "stop_anchor_targets",
+            "stop_anchor_packet_kinds",
         ):
             payload[key] = list(payload[key])
+        payload["role_count_budgets"] = [
+            item.to_dict() for item in self.role_count_budgets
+        ]
         return payload
 
 
@@ -173,7 +206,7 @@ ROLE_PRESETS = (
         workstreams=("runtime_watcher",),
         mutation_policy="read_only",
         authority_requirements=("runtime_read", "packet_read"),
-        durable_outputs=("stale_state_report", "wake_recommendation"),
+        durable_outputs=("stale_state_report", "attention_recommendation"),
         blocked_authority=("repo.stage", "repo.commit"),
     ),
     DevelopRolePresetSpec(
@@ -233,9 +266,110 @@ COLLABORATION_MODES = (
     DevelopCollaborationModeSpec(
         mode_id="watcher_fanout",
         display_name="Watcher Fanout",
-        purpose="watchers track stale packets, wake gaps, process drift, and runtime drift",
+        purpose="watchers track stale packets, attention gaps, process drift, and runtime drift",
         participant_roles=("watcher",),
-        durable_outputs=("stale_state_report", "wake_recommendation"),
+        durable_outputs=("stale_state_report", "attention_recommendation"),
+    ),
+    DevelopCollaborationModeSpec(
+        mode_id="agent_sync",
+        display_name="Agent Sync",
+        purpose=(
+            "any supported development role can be bound to a provider, "
+            "counted, watched through agent-mind, and routed through typed packets"
+        ),
+        participant_roles=(
+            "dashboard",
+            "implementer",
+            "reviewer",
+            "architect",
+            "researcher",
+            "intake",
+            "tester",
+            "watcher",
+            "operator",
+        ),
+        required_gates=(
+            "AgentMindSlice fresh for watched providers",
+            "PacketInboxState fresh",
+            "role counts within repo-pack policy",
+            "mutable lanes require safe_to_fanout, registered worktrees, and leases",
+        ),
+        durable_outputs=(
+            "PlanRow",
+            "FindingReview",
+            "PacketDisposition",
+            "ResearchEvidenceBundle",
+            "PlanProposal",
+            "RunRecord",
+            "GuardSmartnessReport",
+            "stale_state_report",
+            "approval_receipt",
+        ),
+        blocked_when=(
+            "agent_mind_claim_used_as_authority",
+            "self_accepted_review",
+            "unbounded_role_fanout",
+            "provider_label_grants_mutation",
+        ),
+        coordination_surfaces=(
+            "AgentMindSlice",
+            "PacketInboxState",
+            "ReviewPacketState",
+            "AgentWorkBoardProjection",
+            "AgentLoopDecision",
+            "CollaborationSessionState",
+        ),
+        peer_polling_policy=(
+            "agent-mind polling is advisory attention context only; packets, "
+            "session posture, authority snapshots, and leases remain authority"
+        ),
+        role_count_policy=(
+            "role counts are request metadata; repo-pack policy and runtime "
+            "authority decide whether each lane can run, mutate, or remain read-only"
+        ),
+        stop_anchor_policy=(
+            "stop-at flags are typed stop-anchor readiness metadata; session "
+            "termination only happens through continuation_anchor / stop_anchor "
+            "packets and SessionTerminationPolicy, never chat prose"
+        ),
+        stop_anchor_targets=("packet_ack_or_apply", "plan_row_completed"),
+        stop_anchor_packet_kinds=("continuation_anchor", "stop_anchor"),
+        role_count_budgets=(
+            RoleCountBudget(role="dashboard", max_count=1, budget_kind="read_only"),
+            RoleCountBudget(
+                role="implementer",
+                max_count=3,
+                budget_kind="mutable_requires_lease",
+                required_gates=(
+                    "AgentDispatchRouter.safe_to_fanout=true for fanout",
+                    "registered worktree for isolated mutation",
+                    "session-bound MutationLease before live-tree mutation",
+                ),
+            ),
+            RoleCountBudget(role="reviewer", max_count=5, budget_kind="read_only"),
+            RoleCountBudget(
+                role="architect",
+                max_count=3,
+                budget_kind="typed_plan_proposals_only",
+            ),
+            RoleCountBudget(
+                role="researcher",
+                max_count=3,
+                budget_kind="evidence_only",
+                required_gates=("ResearchRouteGrant for web/vendor/library work",),
+            ),
+            RoleCountBudget(
+                role="intake",
+                max_count=3,
+                budget_kind="typed_state_only",
+            ),
+            RoleCountBudget(role="tester", max_count=4, budget_kind="evidence_only"),
+            RoleCountBudget(role="watcher", max_count=4, budget_kind="read_only"),
+            RoleCountBudget(role="operator", max_count=1, budget_kind="approval_only"),
+        ),
+        audit_role="architect",
+        default_audit_agent_count=0,
+        max_audit_agent_count=3,
     ),
     DevelopCollaborationModeSpec(
         mode_id="isolated_builder_fanout",
@@ -343,4 +477,14 @@ def _mutable_fanout_status(
     return "blocked_by_read_model_mode"
 
 
-__all__ = ["COLLABORATION_MODE_CONTRACT_ID", "COLLABORATION_MODE_SCHEMA_VERSION", "CollaborationModeTopology", "DevelopCollaborationModeSpec", "DevelopRolePresetSpec", "PacketAttentionPressurePolicy", "build_default_collaboration_mode_topology", "collaboration_mode_report"]
+__all__ = [
+    "COLLABORATION_MODE_CONTRACT_ID",
+    "COLLABORATION_MODE_SCHEMA_VERSION",
+    "CollaborationModeTopology",
+    "DevelopCollaborationModeSpec",
+    "DevelopRolePresetSpec",
+    "PacketAttentionPressurePolicy",
+    "RoleCountBudget",
+    "build_default_collaboration_mode_topology",
+    "collaboration_mode_report",
+]

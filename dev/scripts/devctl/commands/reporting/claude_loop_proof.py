@@ -236,7 +236,7 @@ def _proof_evidence_ref(
             "attention_packet_id": str(loop_decision.get("attention_packet_id") or ""),
             "executing_packet_id": str(loop_decision.get("executing_packet_id") or ""),
         }
-    if proof_id == "wake_or_attention_evidence":
+    if proof_id in {"packet_attention_evidence", "wake_or_attention_evidence"}:
         operator_override = _operator_override(loop_decision)
         return {
             "wake_required": bool(loop_decision.get("wake_required")),

@@ -219,6 +219,8 @@ class DevelopmentCampaignRoleState:
     active_packet_id: str = ""
     may_mutate: bool = False
     required_action: str = ""
+    user_action: str = ""
+    continuation_goal: str = ""
     proof_state: str = ""
     blocker: str = ""
     next_command: str = ""
@@ -294,6 +296,7 @@ class DevelopmentLoopReport:
     packet_ingest_decisions: tuple[PacketIngestDecisionPayload, ...]
     watcher_lease: DevelopmentWatcherLease
     continuation: DevelopmentContinuationRequiredSignal
+    final_response_gate: Any
     learning: DevelopmentLearningSnapshot
     discovery: DevelopmentDiscoverySnapshot
     required_checks: tuple[str, ...]

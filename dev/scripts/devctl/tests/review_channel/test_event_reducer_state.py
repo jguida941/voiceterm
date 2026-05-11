@@ -160,6 +160,49 @@ def test_packet_wake_attempt_projects_reviewer_wake_without_closing_packet() -> 
     assert wake["requested_session_visibility"] == "dashboard_only"
 
 
+def test_packet_attention_metadata_reduces_into_packet_row() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo_root = Path(tmpdir)
+        review_state, _ = reduce_events(
+            events=[
+                {
+                    "event_id": "rev_evt_1",
+                    "event_type": "packet_posted",
+                    "timestamp_utc": "2026-05-11T00:00:00Z",
+                    "source": "review_channel",
+                    "packet_id": "rev_pkt_attention",
+                    "trace_id": "trace-attention",
+                    "session_id": "local-review",
+                    "plan_id": "MP-377",
+                    "project_id": "project-1",
+                    "from_agent": "claude",
+                    "to_agent": "codex",
+                    "kind": "task_progress",
+                    "summary": "Architecture decision requires attention",
+                    "body": "Continue this goal before final response.",
+                    "evidence_refs": [],
+                    "guidance_refs": [],
+                    "context_pack_refs": [],
+                    "confidence": 1.0,
+                    "requested_action": "review_only",
+                    "policy_hint": "review_only",
+                    "approval_required": False,
+                    "attention_urgency": "blocking",
+                    "attention_class": "decision",
+                    "status": "pending",
+                    "metadata": {},
+                }
+            ],
+            repo_root=repo_root,
+            review_channel_path=repo_root / "dev/active/review_channel.md",
+            lanes=[],
+        )
+
+    packet = review_state["packets"][0]
+    assert packet["attention_urgency"] == "blocking"
+    assert packet["attention_class"] == "decision"
+
+
 def _stage_commit_events(*, outcome_provider: str = "codex") -> list[dict[str, object]]:
     packet_fields = {
         "packet_id": "rev_pkt_2097",

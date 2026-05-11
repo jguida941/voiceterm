@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ...review_channel.ack_contract import packet_ack_is_transport_lifecycle_line
+from ..render_vocabulary import reason_label
 
 if TYPE_CHECKING:
     from .session_resume_support import SessionCachePacket
@@ -22,9 +23,9 @@ def packet_inbox_lines(packet: "SessionCachePacket") -> list[str]:
     if packet_inbox.attention_revision:
         lines.append(f"- **attention_revision**: `{packet_inbox.attention_revision}`")
     for record in packet_inbox.agents:
-        details = [f"attention={record.attention_status or 'none'}"]
+        details = [f"attention={reason_label(record.attention_status) or 'none'}"]
         if record.wake_reason:
-            details.append(f"wake_reason={record.wake_reason}")
+            details.append(f"attention_reason={reason_label(record.wake_reason)}")
         if record.delivery_state:
             details.append(f"delivery={record.delivery_state}")
         if record.current_instruction_packet_id:

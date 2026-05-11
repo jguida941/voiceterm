@@ -35,7 +35,7 @@ PRIMARY_MODE_ID = "dashboard_led"
 PROOF_REQUIREMENTS = (
     "RemoteControlAttachmentState attached and identity-bound",
     "CollaborationSession / SessionPosture agree on remote-control posture",
-    "current Claude dashboard/reviewer packet debt triaged through typed state",
+    "current Claude dashboard/reviewer packet goal continued through typed state",
     "GovernedExceptionLifecycle has no open publication exception debt",
     "bypass publication transport retired only after devctl push --execute proof",
     "Pass-C role-matrix dogfood starts from AGENTS.md and records typed evidence",
@@ -200,7 +200,20 @@ def _campaign_roles(
                 or _text(row.get("attention_packet_id"))
                 or _text(row.get("executing_packet_id")),
                 may_mutate=bool(decision.get("may_mutate")),
-                required_action=_text(decision.get("required_action")),
+                required_action=_normalized_required_action(
+                    _text(decision.get("required_action"))
+                ),
+                user_action=(
+                    _text(decision.get("user_action"))
+                    or _user_action_for_required_action(
+                        _text(decision.get("required_action"))
+                    )
+                ),
+                continuation_goal=(
+                    _text(decision.get("continuation_goal"))
+                    or _text(decision.get("attention_packet_id"))
+                    or _text(decision.get("active_packet_id"))
+                ),
                 proof_state=_text(decision.get("proof_state")),
                 blocker=_text(decision.get("top_blocker")),
                 next_command=_text(decision.get("next_loop_command")),
@@ -232,7 +245,7 @@ def _campaign_status(
     mutation_allowed: bool,
 ) -> str:
     if pending_packet_id:
-        return "blocked_pending_packet_triage"
+        return "blocked_pending_packet_goal"
     if remote_stale:
         return "blocked_remote_control_stale"
     if mode_drift:
@@ -246,7 +259,7 @@ def _campaign_status(
 
 def _current_phase(status: str) -> str:
     phases = {
-        "blocked_pending_packet_triage": "claude_dashboard_ack_triage",
+        "blocked_pending_packet_goal": "claude_packet_goal_required",
         "blocked_remote_control_stale": "remote_control_heartbeat_required",
         "blocked_mode_drift": "typed_mode_resync_required",
         "blocked_governed_exception_debt": "governed_exception_repair",
@@ -256,8 +269,8 @@ def _current_phase(status: str) -> str:
 
 
 def _summary(status: str) -> str:
-    if status == "blocked_pending_packet_triage":
-        return "Claude must triage the active packet before Codex claims review proof."
+    if status == "blocked_pending_packet_goal":
+        return "Claude/Codex must continue the active packet goal before claiming review proof."
     if status == "blocked_remote_control_stale":
         return "Remote-control transport exists but lacks fresh typed attachment proof."
     if status == "blocked_mode_drift":
@@ -289,6 +302,19 @@ def _next_command_for(
         if role.actor_id == actor_id and role.next_command:
             return role.next_command
     return ""
+
+
+def _normalized_required_action(value: str) -> str:
+    if value in {"triage_pending_packet", "triage_packet", "pivot_to_packet"}:
+        return "continue_to_goal"
+    return value
+
+
+def _user_action_for_required_action(value: str) -> str:
+    normalized = _normalized_required_action(value)
+    if normalized == "continue_to_goal":
+        return "Continue to goal"
+    return normalized
 
 
 def _attachment_field(attachment: object, field_name: str) -> str:

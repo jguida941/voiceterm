@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ..render_vocabulary import action_label, reason_label
+
 
 def campaign_lines(campaign) -> list[str]:
     if not isinstance(campaign, dict):
@@ -10,8 +12,8 @@ def campaign_lines(campaign) -> list[str]:
     lines.append(f"- contract_id: {campaign.get('contract_id')}")
     lines.append(f"- plan_row_id: {campaign.get('plan_row_id')}")
     lines.append(f"- mode_id: {campaign.get('mode_id')}")
-    lines.append(f"- status: {campaign.get('status')}")
-    lines.append(f"- current_phase: {campaign.get('current_phase')}")
+    lines.append(f"- status: {reason_label(campaign.get('status'))}")
+    lines.append(f"- current_phase: {reason_label(campaign.get('current_phase'))}")
     lines.append(f"- summary: {campaign.get('summary')}")
     lines.extend(_transport_lines(campaign))
     lines.extend(_proof_lines(campaign))
@@ -32,9 +34,11 @@ def _transport_lines(campaign: dict[str, object]) -> list[str]:
         f"session={campaign.get('remote_control_session_id') or '(none)'}",
         "- typed_mode: "
         f"topology={campaign.get('coordination_topology') or '(none)'} "
-        f"legacy={campaign.get('legacy_reviewer_mode') or '(none)'} "
-        f"effective={campaign.get('effective_reviewer_mode') or '(none)'} "
+        f"compatibility_legacy={campaign.get('legacy_reviewer_mode') or '(none)'} "
+        f"compatibility_effective={campaign.get('effective_reviewer_mode') or '(none)'} "
         f"operator={campaign.get('operator_interaction_mode') or '(none)'}",
+        "- topology_note: compatibility reviewer modes are drift evidence; "
+        "workstreams, leases, packets, and authority snapshots decide runtime work",
         f"- mode_drift: {campaign.get('mode_drift')}",
         f"- fail_closed: {campaign.get('fail_closed')}",
         f"- mutation_allowed: {campaign.get('mutation_allowed')}",
@@ -95,7 +99,8 @@ def _role_lines(campaign: dict[str, object]) -> list[str]:
         lines.append(
             f"- {role.get('actor_id')}:{role.get('role')} "
             f"status={role.get('status')} mutate={role.get('may_mutate')} "
-            f"action={role.get('required_action') or '(none)'} "
+            f"action={action_label(role.get('user_action') or role.get('required_action')) or '(none)'} "
+            f"goal={role.get('continuation_goal') or '(none)'} "
             f"packet={role.get('active_packet_id') or '(none)'} "
             f"blocker={_clip(role.get('blocker'), limit=120) or '(none)'}"
         )

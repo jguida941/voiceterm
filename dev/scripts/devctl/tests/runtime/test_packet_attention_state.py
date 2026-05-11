@@ -212,6 +212,28 @@ def test_wake_evidence_respects_target_session_id_discriminator() -> None:
     assert dashboard_evidence.latest_relevant_event_id == ""
 
 
+def test_wake_evidence_requires_session_for_session_targeted_event() -> None:
+    events = [
+        {
+            "event_type": "packet_posted",
+            "event_id": "evt-101",
+            "timestamp_utc": "2026-04-30T15:00:00Z",
+            "to_agent": "claude",
+            "target_session_id": "session-coder",
+            "packet_id": "rev_pkt_coder_only",
+        },
+    ]
+
+    evidence = derive_wake_evidence_for_actor(
+        events=events,
+        actor_id="claude",
+        session_id="",
+    )
+
+    assert evidence.latest_relevant_event_id == ""
+    assert evidence.latest_relevant_packet_id == ""
+
+
 def test_wake_evidence_empty_actor_id_fails_closed() -> None:
     """Per rev_pkt_2498 (5): empty actor_id is ambiguous; derivation MUST
     return empty WakeEvidence so the PacketAttentionState consumer marks

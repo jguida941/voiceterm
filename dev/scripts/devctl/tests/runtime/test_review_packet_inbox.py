@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dev.scripts.devctl.runtime.review_packet_inbox import (
     _inbox_command_for_agent,
+    _live_packet_ids_by_agent,
     packet_inbox_from_review_state,
     summarize_packet_attention_open_findings,
 )
@@ -109,6 +110,34 @@ def test_packet_inbox_filters_persisted_expired_ids_to_runtime_transport_packets
     codex = packet_inbox.for_agent("codex")
     assert codex is not None
     assert codex.expired_unresolved_packet_ids == ("rev_pkt_live",)
+
+
+def test_packet_inbox_treats_urgent_attention_metadata_as_actionable() -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_arch",
+                "kind": "task_progress",
+                "status": "pending",
+                "lifecycle_current_state": "pending",
+                "to_agent": "codex",
+                "attention_urgency": "urgent",
+                "attention_class": "decision",
+                "latest_event_id": "rev_evt_urgent",
+                "posted_at": "2026-05-11T00:00:00Z",
+            }
+        ]
+    }
+
+    packet_inbox = packet_inbox_from_review_state(review_state)
+
+    assert packet_inbox is not None
+    codex = packet_inbox.for_agent("codex")
+    assert codex is not None
+    assert codex.current_instruction_packet_id == "rev_pkt_arch"
+    assert codex.pending_actionable_packet_ids == ("rev_pkt_arch",)
+    assert codex.attention_status == "wake_required"
+    assert codex.wake_reason == "urgent_attention"
 
 
 def test_packet_inbox_does_not_treat_archived_pending_as_expired_unresolved() -> None:
@@ -443,6 +472,35 @@ def test_packet_inbox_keeps_acked_action_request_active_while_executing() -> Non
     assert claude.current_instruction_packet_id == "rev_pkt_1818"
     assert claude.pending_actionable_packet_ids == ()
     assert claude.delivery_state == "seen"
+
+
+def test_per_agent_live_packet_merge_uses_pending_truth_not_control_activity() -> None:
+    """Persisted inbox merge should not let acked control rows mask pending packets."""
+    live_by_agent = _live_packet_ids_by_agent(
+        [
+            {
+                "packet_id": "rev_pkt_pending_finding",
+                "kind": "finding",
+                "status": "pending",
+                "to_agent": "claude",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            },
+            {
+                "packet_id": "rev_pkt_executing_action",
+                "kind": "action_request",
+                "status": "acked",
+                "to_agent": "claude",
+                "requested_action": "run_checkpoint",
+                "delivery_observed_at_utc": "2026-04-25T02:22:03Z",
+                "delivery_observed_by": "claude",
+                "execution_started_at_utc": "2026-04-25T02:23:03Z",
+                "execution_started_by": "claude",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            },
+        ]
+    )
+
+    assert live_by_agent["claude"] == frozenset({"rev_pkt_pending_finding"})
 
 
 def test_failed_pending_action_request_does_not_drive_inbox() -> None:

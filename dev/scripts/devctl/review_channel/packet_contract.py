@@ -6,6 +6,9 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
 from ..runtime.master_plan_contract import PlanProposal
+from ..runtime.collaboration_packet_kinds import (
+    COLLABORATION_LIFECYCLE_PACKET_KINDS,
+)
 from ..runtime.session_termination_policy import SESSION_TERMINATION_PACKET_KINDS
 from .event_store import (
     DEFAULT_PACKET_TTL_MINUTES,
@@ -57,7 +60,7 @@ VALID_PACKET_KINDS = {
     "plan_patch_review",
     "plan_ready_gate",
     COMMIT_APPROVAL_PACKET_KIND,
-} | SESSION_TERMINATION_PACKET_KINDS
+} | SESSION_TERMINATION_PACKET_KINDS | COLLABORATION_LIFECYCLE_PACKET_KINDS
 CARRIER_PACKET_KINDS = carrier_packet_kinds(VALID_PACKET_KINDS)
 VALID_POLICY_HINTS = {
     "review_only",
@@ -65,6 +68,20 @@ VALID_POLICY_HINTS = {
     "operator_approval_required",
     "safe_auto_apply",
 }
+VALID_ATTENTION_URGENCIES = frozenset({"auto", "ambient", "urgent", "blocking"})
+VALID_ATTENTION_CLASSES = frozenset(
+    {
+        "auto",
+        "info",
+        "question",
+        "review",
+        "decision",
+        "handoff",
+        "approval",
+        "execution",
+        "system",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,6 +181,32 @@ class PacketTargetFields:
 
 
 @dataclass(frozen=True, slots=True)
+class PacketAttentionFields:
+    """Typed packet attention metadata; never grants mutation authority."""
+
+    attention_urgency: str = "auto"
+    attention_class: str = "auto"
+
+    @classmethod
+    def from_values(
+        cls,
+        *,
+        attention_urgency: str | None = None,
+        attention_class: str | None = None,
+    ) -> "PacketAttentionFields":
+        return cls(
+            attention_urgency=_clean_optional_text(attention_urgency) or "auto",
+            attention_class=_clean_optional_text(attention_class) or "auto",
+        )
+
+    def to_event_fields(self) -> dict[str, object]:
+        return {
+            "attention_urgency": self.attention_urgency,
+            "attention_class": self.attention_class,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class PacketPostRequest:
     """Validated review-packet post request."""
 
@@ -192,6 +235,7 @@ class PacketPostRequest:
     guard_bundle_evidence: PacketGuardBundleEvidenceFields = field(
         default_factory=PacketGuardBundleEvidenceFields
     )
+    attention: PacketAttentionFields = field(default_factory=PacketAttentionFields)
     plan_proposal: PlanProposal = field(default_factory=PlanProposal)
 
 
@@ -234,6 +278,16 @@ def validate_post_request(
     if request.policy_hint not in VALID_POLICY_HINTS:
         raise ValueError(
             f"Unsupported review-channel policy hint: {request.policy_hint}"
+        )
+    if request.attention.attention_urgency not in VALID_ATTENTION_URGENCIES:
+        raise ValueError(
+            "Unsupported review-channel attention urgency: "
+            f"{request.attention.attention_urgency}"
+        )
+    if request.attention.attention_class not in VALID_ATTENTION_CLASSES:
+        raise ValueError(
+            "Unsupported review-channel attention class: "
+            f"{request.attention.attention_class}"
         )
     if request.expires_in_minutes <= 0:
         raise ValueError("--expires-in-minutes must be greater than zero.")

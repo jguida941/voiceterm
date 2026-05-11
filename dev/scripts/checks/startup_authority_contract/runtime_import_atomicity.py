@@ -31,10 +31,65 @@ class ImportAtomicityContext:
     allow_disk_modules: bool = True
 
 
+@dataclass(frozen=True)
+class ImportIndexAtomicityFinding:
+    """Structured import/index atomicity finding for startup authority reports."""
+
+    importer_path: str
+    import_ref: str
+    module_candidates: tuple[str, ...]
+    source_layer: str
+    missing_from: str
+    finding_kind: str = "import_index_atomicity_missing_module"
+    severity: str = "high"
+    contract_id: str = "ImportIndexAtomicityFinding"
+    schema_version: int = 1
+
+    def identity_key(self) -> tuple[str, str, tuple[str, ...], str]:
+        return (
+            self.importer_path,
+            self.import_ref,
+            self.module_candidates,
+            self.source_layer,
+        )
+
+    def to_message(self) -> str:
+        candidates = ", ".join(f"`{candidate}`" for candidate in self.module_candidates)
+        return (
+            f"{self.importer_path}: `{self.import_ref}` resolves to module "
+            f"candidates {candidates} missing from {self.missing_from}."
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "contract_id": self.contract_id,
+            "schema_version": self.schema_version,
+            "finding_kind": self.finding_kind,
+            "severity": self.severity,
+            "importer_path": self.importer_path,
+            "import_ref": self.import_ref,
+            "module_candidates": list(self.module_candidates),
+            "source_layer": self.source_layer,
+            "missing_from": self.missing_from,
+            "message": self.to_message(),
+            "repair_hint": _repair_hint_for_layer(self.source_layer),
+        }
+
+
 def collect_import_index_atomicity_findings(
     repo_root: Path,
 ) -> tuple[list[str], list[str]]:
     """Return repo-local import atomicity errors plus non-fatal warnings."""
+    # DEPRECATED: use collect_import_index_atomicity_finding_records().
+    # Kept for legacy report surfaces until typed consumers are migrated.
+    records, warnings = collect_import_index_atomicity_finding_records(repo_root)
+    return [record.to_message() for record in records], warnings
+
+
+def collect_import_index_atomicity_finding_records(
+    repo_root: Path,
+) -> tuple[list[ImportIndexAtomicityFinding], list[str]]:
+    """Return structured repo-local import atomicity findings plus warnings."""
     staged_paths, staged_warning = _list_staged_python_paths(repo_root)
     committed_paths, committed_warning = _list_committed_python_paths(repo_root)
     local_python_paths, local_warning = _list_local_python_paths(repo_root)
@@ -47,7 +102,7 @@ def collect_import_index_atomicity_findings(
         warnings.append(local_warning)
 
     target_roots = resolve_quality_scope_roots("python_guard", repo_root=repo_root)
-    errors: list[str] = []
+    records: list[ImportIndexAtomicityFinding] = []
 
     if staged_paths:
         staged_top_packages = {Path(path).parts[0] for path in staged_paths if Path(path).parts}
@@ -68,8 +123,8 @@ def collect_import_index_atomicity_findings(
             except (OSError, SyntaxError) as exc:
                 warnings.append(f"{relative}: skipped staged import scan ({exc})")
                 continue
-            errors.extend(
-                _collect_file_atomicity_errors(
+            records.extend(
+                _collect_file_atomicity_finding_records(
                     tree=tree,
                     importer=importer,
                     context=ImportAtomicityContext(
@@ -111,8 +166,8 @@ def collect_import_index_atomicity_findings(
             except SyntaxError as exc:
                 warnings.append(f"{relative}: skipped committed import scan ({exc})")
                 continue
-            errors.extend(
-                _collect_file_atomicity_errors(
+            records.extend(
+                _collect_file_atomicity_finding_records(
                     tree=tree,
                     importer=importer,
                     context=ImportAtomicityContext(
@@ -124,7 +179,7 @@ def collect_import_index_atomicity_findings(
                 )
             )
 
-    return sorted(set(errors)), warnings
+    return _dedupe_finding_records(records), warnings
 
 
 def _local_committed_scope_dirs(
@@ -157,11 +212,27 @@ def _collect_file_atomicity_errors(
     importer: Path,
     context: ImportAtomicityContext,
 ) -> list[str]:
-    errors: list[str] = []
+    return [
+        record.to_message()
+        for record in _collect_file_atomicity_finding_records(
+            tree=tree,
+            importer=importer,
+            context=context,
+        )
+    ]
+
+
+def _collect_file_atomicity_finding_records(
+    *,
+    tree: ast.AST,
+    importer: Path,
+    context: ImportAtomicityContext,
+) -> list[ImportIndexAtomicityFinding]:
+    records: list[ImportIndexAtomicityFinding] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
-            errors.extend(
-                _import_from_errors(
+            records.extend(
+                _import_from_finding_records(
                     node=node,
                     importer=importer,
                     context=context,
@@ -174,7 +245,7 @@ def _collect_file_atomicity_errors(
                 if not module_name:
                     continue
                 if _absolute_module_in_repo(module_name, context.top_level_packages):
-                    errors.extend(
+                    records.extend(
                         _require_module_in_index(
                             importer=importer,
                             import_ref=f"import {module_name}",
@@ -182,15 +253,15 @@ def _collect_file_atomicity_errors(
                             context=context,
                         )
                     )
-    return errors
+    return records
 
 
-def _import_from_errors(
+def _import_from_finding_records(
     *,
     node: ast.ImportFrom,
     importer: Path,
     context: ImportAtomicityContext,
-) -> list[str]:
+) -> list[ImportIndexAtomicityFinding]:
     names = [
         str(alias.name or "").strip()
         for alias in node.names
@@ -224,7 +295,7 @@ def _relative_import_errors(
     imported_names: list[str],
     level: int,
     context: ImportAtomicityContext,
-) -> list[str]:
+) -> list[ImportIndexAtomicityFinding]:
     base_dir = importer.parent
     for _ in range(max(level - 1, 0)):
         if base_dir == Path("."):
@@ -247,8 +318,8 @@ def _module_and_alias_errors(
     module_base: Path,
     imported_names: list[str],
     context: ImportAtomicityContext,
-) -> list[str]:
-    errors: list[str] = []
+) -> list[ImportIndexAtomicityFinding]:
+    records: list[ImportIndexAtomicityFinding] = []
     alias_checked = False
     alias_base_root = module_base if module_base != Path() else importer.parent
     for name in imported_names:
@@ -258,7 +329,7 @@ def _module_and_alias_errors(
             context=context,
         ):
             alias_checked = True
-            errors.extend(
+            records.extend(
                 _require_module_in_index(
                     importer=importer,
                     import_ref=import_ref,
@@ -267,7 +338,7 @@ def _module_and_alias_errors(
                 )
             )
     if alias_checked or module_base == Path():
-        return errors
+        return records
     return _require_module_in_index(
         importer=importer,
         import_ref=import_ref,
@@ -282,19 +353,18 @@ def _require_module_in_index(
     import_ref: str,
     module_base: Path,
     context: ImportAtomicityContext,
-) -> list[str]:
+) -> list[ImportIndexAtomicityFinding]:
     candidates = _module_candidates(module_base)
     if any(candidate in context.index_python_paths for candidate in candidates):
         return []
-    layer_label = (
-        "committed tree (HEAD)"
-        if context.layer == "committed"
-        else "git index (staged)"
-    )
     return [
-        f"{importer.as_posix()}: `{import_ref}` resolves to module "
-        f"candidates {', '.join(f'`{candidate}`' for candidate in candidates)} "
-        f"missing from {layer_label}."
+        ImportIndexAtomicityFinding(
+            importer_path=importer.as_posix(),
+            import_ref=import_ref,
+            module_candidates=candidates,
+            source_layer=context.layer,
+            missing_from=_missing_from_for_layer(context.layer),
+        )
     ]
 
 
@@ -328,3 +398,22 @@ def _render_import_from(module_name: str, imported_names: list[str]) -> str:
     if module_name:
         return f"from {module_name} import {names}"
     return f"from . import {names}"
+
+
+def _missing_from_for_layer(layer: str) -> str:
+    if layer == "committed":
+        return "committed tree (HEAD)"
+    return "git index (staged)"
+
+
+def _repair_hint_for_layer(layer: str) -> str:
+    if layer == "committed":
+        return "Commit the missing module with the importer or remove the committed import."
+    return "Stage the missing module in the same checkpoint or remove the staged import."
+
+
+def _dedupe_finding_records(
+    records: list[ImportIndexAtomicityFinding],
+) -> list[ImportIndexAtomicityFinding]:
+    by_identity = {record.identity_key(): record for record in records}
+    return [by_identity[key] for key in sorted(by_identity)]

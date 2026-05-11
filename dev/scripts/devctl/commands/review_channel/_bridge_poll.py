@@ -6,13 +6,13 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from ...approval_mode import normalize_approval_mode
-from ...review_channel.ack_contract import ACK_REVISION_REQUIREMENT_PREFIX
 from ...review_channel.bridge_validation import validate_live_bridge_contract
 from ...review_channel.handoff import (
     BridgeSnapshot,
     extract_bridge_snapshot,
 )
 from ...review_channel.heartbeat import compute_non_audit_worktree_hash
+from ...runtime.review_state_parser import review_state_from_payload
 from ...time_utils import utc_timestamp
 from ..review_channel_command import RuntimePaths, _coerce_runtime_paths
 from ._bridge_poll_support import (
@@ -20,13 +20,6 @@ from ._bridge_poll_support import (
     build_bridge_poll_result,
     load_typed_poll_authority,
 )
-
-_ACK_ONLY_ERROR_PREFIXES = (
-    ACK_REVISION_REQUIREMENT_PREFIX,
-    "Live implementer ACK (`Implementer Ack`) revision does not match the current reviewer instruction revision.",
-    "Live `Claude Ack` revision does not match the current reviewer instruction revision.",
-)
-
 
 def run_bridge_poll_action(
     *,
@@ -116,15 +109,23 @@ def _bridge_poll_errors(
     *,
     typed_review_state: Mapping[str, object] | None = None,
 ) -> list[str]:
-    errors = [
-        error
-        for error in validate_live_bridge_contract(snapshot)
-        if not error.startswith(_ACK_ONLY_ERROR_PREFIXES)
-    ]
+    errors = list(
+        validate_live_bridge_contract(
+            snapshot,
+            typed_current_session=_typed_current_session(typed_review_state),
+        )
+    )
     for error in _typed_messages(typed_review_state, field_name="errors"):
         if error not in errors:
             errors.append(error)
     return errors
+
+
+def _typed_current_session(typed_review_state: Mapping[str, object] | None):
+    if not isinstance(typed_review_state, Mapping):
+        return None
+    parsed = review_state_from_payload(typed_review_state)
+    return None if parsed is None else parsed.current_session
 
 
 def _bridge_poll_warnings(

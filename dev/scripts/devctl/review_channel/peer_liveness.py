@@ -9,9 +9,16 @@ plan item.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-
 from ..runtime.enum_compat import StrEnum
+from ..runtime.reviewer_mode import (
+    ACTIVE_REVIEWER_MODES,
+    INACTIVE_REVIEWER_MODES,
+    REVIEWER_MODE_CLI_CHOICES,
+    ReviewerMode,
+    normalize_reviewer_mode,
+    resolve_reported_reviewer_mode,
+    reviewer_mode_is_active,
+)
 
 # ---------------------------------------------------------------------------
 # Peer-heartbeat state enums
@@ -34,28 +41,6 @@ class OverallLivenessState(StrEnum):
     STALE = "stale"
     WAITING_ON_PEER = "waiting_on_peer"
     FRESH = "fresh"
-
-class ReviewerMode(StrEnum):
-    """Top-level reviewer operating modes for the bridge-backed loop."""
-
-    ACTIVE_DUAL_AGENT = "active_dual_agent"
-    SINGLE_AGENT = "single_agent"
-    TOOLS_ONLY = "tools_only"
-    PAUSED = "paused"
-    OFFLINE = "offline"
-
-REVIEWER_MODE_ALIASES: dict[str, ReviewerMode] = {
-    "agents": ReviewerMode.ACTIVE_DUAL_AGENT,
-    "developer": ReviewerMode.SINGLE_AGENT,
-    "dev": ReviewerMode.SINGLE_AGENT,
-    "tools": ReviewerMode.TOOLS_ONLY,
-}
-"""Human-facing shorthand accepted by CLI surfaces and normalized on write."""
-
-REVIEWER_MODE_CLI_CHOICES = tuple(mode.value for mode in ReviewerMode) + tuple(
-    REVIEWER_MODE_ALIASES.keys()
-)
-"""Allowed CLI values for reviewer-mode arguments."""
 
 IMPLEMENTER_STALL_MARKERS = (
     "instruction unchanged",
@@ -148,16 +133,6 @@ CODEX_POLL_STALE_AFTER_SECONDS = 300
 CODEX_POLL_OVERDUE_AFTER_SECONDS = 900
 """Reviewer is 'overdue' when age exceeds the controller escalation threshold."""
 
-ACTIVE_REVIEWER_MODES = frozenset({ReviewerMode.ACTIVE_DUAL_AGENT})
-INACTIVE_REVIEWER_MODES = frozenset(
-    {
-        ReviewerMode.SINGLE_AGENT,
-        ReviewerMode.TOOLS_ONLY,
-        ReviewerMode.PAUSED,
-        ReviewerMode.OFFLINE,
-    }
-)
-
 def classify_reviewer_freshness(
     poll_age_seconds: int | float | None,
     *,
@@ -175,35 +150,6 @@ def classify_reviewer_freshness(
     if poll_age_seconds >= due_after:
         return ReviewerFreshness.POLL_DUE
     return ReviewerFreshness.FRESH
-
-
-def normalize_reviewer_mode(value: str | None) -> ReviewerMode:
-    """Normalize metadata text into one canonical reviewer mode."""
-    raw = (value or "").strip().lower()
-    alias = REVIEWER_MODE_ALIASES.get(raw)
-    if alias is not None:
-        return alias
-    for mode in ReviewerMode:
-        if raw == mode.value:
-            return mode
-    return ReviewerMode.ACTIVE_DUAL_AGENT
-
-
-def resolve_reported_reviewer_mode(source: Mapping[str, object] | None) -> str:
-    """Resolve the declared reviewer mode without inventing active dual-agent state."""
-    if source is None:
-        return ReviewerMode.TOOLS_ONLY.value
-    raw_mode = str(source.get("reviewer_mode") or "").strip()
-    if raw_mode:
-        return normalize_reviewer_mode(raw_mode).value
-    raw_mode = str(source.get("effective_reviewer_mode") or "").strip()
-    if raw_mode:
-        return normalize_reviewer_mode(raw_mode).value
-    return ReviewerMode.TOOLS_ONLY.value
-
-def reviewer_mode_is_active(value: str | None) -> bool:
-    """Return True only when the bridge declares an actively enforced dual-agent loop."""
-    return normalize_reviewer_mode(value) in ACTIVE_REVIEWER_MODES
 
 from .peer_recovery import (
     ATTENTION_OWNER_ROLE,

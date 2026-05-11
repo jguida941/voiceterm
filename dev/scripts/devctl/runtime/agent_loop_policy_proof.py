@@ -104,7 +104,7 @@ def required_proofs_for_intent(
             ]
         )
     elif intent in {"wake", "packet", "plan"} or loop_state == "work":
-        base.append("wake_or_attention_evidence")
+        base.append("packet_attention_evidence")
     return tuple(dict.fromkeys(base))
 
 

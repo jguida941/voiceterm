@@ -108,6 +108,12 @@ def review_bridge_state_from_payload(
         "reviewer_mode",
         "effective_reviewer_mode",
     )
+    declared_reviewer_mode = _resolved_reviewer_mode(
+        bridge,
+        "declared_reviewer_mode",
+        "reviewer_mode",
+        "effective_reviewer_mode",
+    )
     effective_reviewer_mode = _resolved_reviewer_mode(
         bridge,
         "effective_reviewer_mode",
@@ -183,6 +189,7 @@ def review_bridge_state_from_payload(
             or bridge.get("participant_liveness")
         ),
         pending_total=_int(bridge.get("pending_total")),
+        declared_reviewer_mode=declared_reviewer_mode,
     )
 
 

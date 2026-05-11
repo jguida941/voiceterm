@@ -17,7 +17,7 @@ def test_orchestration_recommendation_closure_passes_complete_signal() -> None:
                         "signal_id": "codex:dashboard",
                         "source_surface": "agent-loop",
                         "severity": "high",
-                        "recommended_action": "triage_pending_packet",
+                        "recommended_action": "continue_to_goal",
                         "closure_check_command": (
                             "python3 dev/scripts/devctl.py agent-loop --format json"
                         ),
@@ -49,4 +49,3 @@ def test_orchestration_recommendation_closure_fails_missing_fields() -> None:
     assert report["ok"] is False
     assert report["violations"][0]["reason"] == "missing_required_signal_fields"
     assert "closure_check_command" in report["violations"][0]["missing_fields"]
-

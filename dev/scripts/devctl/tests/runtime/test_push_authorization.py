@@ -26,6 +26,20 @@ from dev.scripts.devctl.runtime.review_snapshot_refresh import (
 
 def _review_state() -> SimpleNamespace:
     return SimpleNamespace(
+        bridge=SimpleNamespace(
+            session_liveness_signals=(
+                {
+                    "provider": "codex",
+                    "role": "reviewer",
+                    "state": "alive",
+                },
+                {
+                    "provider": "claude",
+                    "role": "implementer",
+                    "state": "alive",
+                },
+            )
+        ),
         reviewer_runtime=SimpleNamespace(
             reviewer_mode="active_dual_agent",
             effective_reviewer_mode="active_dual_agent",
@@ -37,6 +51,7 @@ def _review_state() -> SimpleNamespace:
 
 def _single_agent_review_state() -> SimpleNamespace:
     return SimpleNamespace(
+        bridge=SimpleNamespace(session_liveness_signals=()),
         reviewer_runtime=SimpleNamespace(
             reviewer_mode="single_agent",
             effective_reviewer_mode="single_agent",
@@ -48,6 +63,7 @@ def _single_agent_review_state() -> SimpleNamespace:
 
 def _tools_only_review_state() -> SimpleNamespace:
     return SimpleNamespace(
+        bridge=SimpleNamespace(session_liveness_signals=()),
         reviewer_runtime=SimpleNamespace(
             reviewer_mode="active_dual_agent",
             effective_reviewer_mode="tools_only",
@@ -428,9 +444,9 @@ def test_publication_authorization_ignores_declared_dual_agent_when_effective_mo
 
     decision = publication_authorization_decision(repo_root=Path("/tmp/repo"))
 
-    assert decision.authorized is False
-    assert decision.authorization_required is True
-    assert decision.reason == "push_authorization_missing"
+    assert decision.authorized is True
+    assert decision.authorization_required is False
+    assert decision.reason == "authorization_not_required"
 
 
 @patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")

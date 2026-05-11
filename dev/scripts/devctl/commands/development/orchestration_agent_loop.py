@@ -49,7 +49,7 @@ def agent_loop_signals(
                 summary=agent_loop_summary(row),
                 source_surface="agent-loop",
                 severity=agent_loop_severity(row, status),
-                recommended_action=row.required_action or "inspect_agent_loop",
+                recommended_action=row.user_action or row.required_action or "inspect_agent_loop",
                 closure_check_command=(
                     row.next_loop_command
                     or "python3 dev/scripts/devctl.py agent-loop --format json"

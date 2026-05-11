@@ -16,21 +16,26 @@ def queue_for_event_report(
     """Return the queue summary for one event-backed action report."""
     queue = bundle.review_state.get("queue", {})
     target = str(getattr(args, "target", "") or "").strip()
+    target_role = str(getattr(args, "target_role", "") or "").strip()
+    target_session_id = str(getattr(args, "target_session_id", "") or "").strip()
     status_filter = str(getattr(args, "status", "") or "").strip()
     if (
         args.action not in {"inbox", "watch", "operator-inbox"}
-        or not target
+        or not (target or target_role or target_session_id)
         or packets is None
         or status_filter not in {"", "pending"}
     ):
         return queue
-    pending_counts = {
-        "codex": 0,
-        "claude": 0,
-        "cursor": 0,
-        "operator": 0,
-    }
-    pending_counts[target] = len(packets)
+    scope_key = _filtered_scope_key(
+        target=target,
+        target_role=target_role,
+        target_session_id=target_session_id,
+    )
+    pending_counts = _filtered_pending_counts(
+        queue=queue,
+        scope_key=scope_key,
+        packet_count=len(packets),
+    )
     stale_count = 0
     if isinstance(queue, dict):
         stale_count = int(queue.get("stale_packet_count") or 0)
@@ -39,6 +44,12 @@ def queue_for_event_report(
         stale_count,
         packets=packets,
     )
+    summary["filtered_scope"] = {
+        "target": target,
+        "target_role": target_role,
+        "target_session_id": target_session_id,
+        "scope_key": scope_key,
+    }
     pending_ids = _canonical_agent_sync_pending_ids(
         review_state=bundle.review_state,
         target=target,
@@ -52,6 +63,63 @@ def queue_for_event_report(
                 "actionable inbox filter"
             )
     return summary
+
+
+def _filtered_pending_counts(
+    *,
+    queue: object,
+    scope_key: str,
+    packet_count: int,
+) -> dict[str, int]:
+    keys = set(_existing_pending_count_keys(queue))
+    if scope_key:
+        keys.add(scope_key)
+    return {
+        key: packet_count if key == scope_key else 0
+        for key in sorted(keys)
+        if key
+    }
+
+
+def _existing_pending_count_keys(queue: object) -> tuple[str, ...]:
+    if not isinstance(queue, dict):
+        return ()
+    keys = []
+    for key in queue:
+        if not isinstance(key, str):
+            continue
+        if key == "pending_total" or not key.startswith("pending_"):
+            continue
+        suffix = key.removeprefix("pending_").strip()
+        if suffix:
+            keys.append(suffix)
+    return tuple(keys)
+
+
+def _filtered_scope_key(
+    *,
+    target: str,
+    target_role: str,
+    target_session_id: str,
+) -> str:
+    if target:
+        return _queue_key(target)
+    if target_role and target_session_id:
+        return f"role_{_queue_key(target_role)}_session_{_queue_key(target_session_id)}"
+    if target_role:
+        return f"role_{_queue_key(target_role)}"
+    if target_session_id:
+        return f"session_{_queue_key(target_session_id)}"
+    return ""
+
+
+def _queue_key(value: str) -> str:
+    normalized = "".join(
+        character.lower() if character.isalnum() else "_"
+        for character in str(value or "").strip()
+    )
+    normalized = "_".join(part for part in normalized.split("_") if part)
+    return normalized or "scope"
 
 
 def _canonical_agent_sync_pending_ids(

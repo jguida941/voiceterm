@@ -49,6 +49,7 @@ from dev.scripts.devctl.commands.vcs.commit_preflight_approval_packets import (
 from dev.scripts.devctl.commands.vcs.commit_preflight_validators import (
     CommitPreflightDeps,
     prepare_pipeline as prepare_pipeline_with_deps,
+    resolve_index_reuse_decision,
 )
 from dev.scripts.devctl.commands.vcs.commit_preflight_support import (
     build_commit_approval_authority,
@@ -105,6 +106,9 @@ from dev.scripts.devctl.runtime.work_intake_models import (
     WorkIntakePacket,
 )
 from dev.scripts.devctl.tests.vcs._git_helpers import _run_git
+from dev.scripts.checks.startup_authority_contract.runtime_import_atomicity import (
+    ImportIndexAtomicityFinding,
+)
 from dev.scripts.devctl.tests.vcs._push_policy_helpers import build_test_push_policy
 
 
@@ -707,6 +711,21 @@ class TestStartupActionRouting(unittest.TestCase):
         )
         execute_action = executor.execute.call_args.args[0]
         self.assertTrue(execute_action.parameters["reuse_staged_index"])
+        index_reuse_decision = execute_action.parameters["index_reuse_decision"]
+        self.assertEqual(index_reuse_decision["contract_id"], "IndexReuseDecision")
+        self.assertTrue(index_reuse_decision["reuse_staged_index"])
+        self.assertEqual(index_reuse_decision["reason"], "git_index_state_unavailable")
+
+    def test_index_reuse_decision_records_explicit_path_reason(self) -> None:
+        decision = resolve_index_reuse_decision(
+            repo_root=Path("/tmp/repo"),
+            selected_paths=("dev/a.py",),
+            action_request_grant=None,
+        )
+
+        self.assertFalse(decision.reuse_staged_index)
+        self.assertEqual(decision.reason, "explicit_selected_paths")
+        self.assertEqual(decision.to_dict()["contract_id"], "IndexReuseDecision")
 
     def test_prepare_pipeline_blocks_on_import_index_atomicity_violation(
         self,
@@ -729,13 +748,17 @@ class TestStartupActionRouting(unittest.TestCase):
         executor = MagicMock()
         executor.load_pipeline.side_effect = [empty_pipeline, staged_pipeline]
         executor.execute.return_value = stage_result
-        violation = (
-            "app/operator_console/state/snapshots/phone_status_snapshot.py: "
-            "`from dev.scripts.devctl.phone_status_views import compact_view` "
-            "resolves to module candidates `dev/scripts/devctl/phone_status_views.py`, "
-            "`dev/scripts/devctl/phone_status_views/__init__.py` missing from git "
-            "index (staged)."
+        violation_record = ImportIndexAtomicityFinding(
+            importer_path="app/operator_console/state/snapshots/phone_status_snapshot.py",
+            import_ref="from dev.scripts.devctl.phone_status_views import compact_view",
+            module_candidates=(
+                "dev/scripts/devctl/phone_status_views.py",
+                "dev/scripts/devctl/phone_status_views/__init__.py",
+            ),
+            source_layer="staged",
+            missing_from="git index (staged)",
         )
+        violation = violation_record.to_message()
 
         with (
             patch(
@@ -747,8 +770,8 @@ class TestStartupActionRouting(unittest.TestCase):
                 return_value=(("dev/scripts/devctl/mobile/phone_views.py",), None),
             ),
             patch(
-                "dev.scripts.devctl.commands.vcs.commit_preflight_atomicity.collect_staged_import_index_atomicity_findings",
-                return_value=([violation], []),
+                "dev.scripts.devctl.commands.vcs.commit_preflight_atomicity.collect_staged_import_index_atomicity_finding_records",
+                return_value=([violation_record], []),
             ),
         ):
             returned_pipeline, warnings, report = prepare_pipeline(
@@ -766,6 +789,10 @@ class TestStartupActionRouting(unittest.TestCase):
             ["dev/scripts/devctl/mobile/phone_views.py"],
         )
         self.assertEqual(report["import_index_atomicity_findings"], [violation])
+        self.assertEqual(
+            report["import_index_atomicity_finding_records"],
+            [violation_record.to_dict()],
+        )
         self.assertIn("phone_status_views.py", report["operator_guidance"])
 
     def test_prepare_pipeline_consults_orphan_snapshot_advisory(self) -> None:
