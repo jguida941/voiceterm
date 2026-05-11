@@ -4,22 +4,24 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ...runtime.review_snapshot_refresh import _RECEIPT_SUBJECT_PREFIXES
 from ...runtime.vcs import run_git_capture
 
-EXTERNAL_REVIEW_SNAPSHOT_RECEIPT_PREFIX = "Refresh external review snapshot for "
+MANAGED_REVIEW_SNAPSHOT_RECEIPT_PREFIXES = _RECEIPT_SUBJECT_PREFIXES
 
 
-def current_head_is_external_review_snapshot_receipt(*, repo_root: Path) -> bool:
+def current_head_is_managed_review_snapshot_receipt(*, repo_root: Path) -> bool:
     code, subject, _ = run_git_capture(
         ["show", "-s", "--format=%s", "HEAD"],
         repo_root=repo_root,
     )
-    return code == 0 and str(subject or "").startswith(
-        EXTERNAL_REVIEW_SNAPSHOT_RECEIPT_PREFIX
+    subject_text = str(subject or "")
+    return code == 0 and subject_text.startswith(
+        MANAGED_REVIEW_SNAPSHOT_RECEIPT_PREFIXES
     )
 
 
 __all__ = [
-    "EXTERNAL_REVIEW_SNAPSHOT_RECEIPT_PREFIX",
-    "current_head_is_external_review_snapshot_receipt",
+    "MANAGED_REVIEW_SNAPSHOT_RECEIPT_PREFIXES",
+    "current_head_is_managed_review_snapshot_receipt",
 ]

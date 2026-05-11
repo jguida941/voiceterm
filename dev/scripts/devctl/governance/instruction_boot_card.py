@@ -157,6 +157,7 @@ def build_instruction_boot_card(
         "- Scope-path extraction in `dev/scripts/devctl/runtime/scope_path_claims.py:_PATH_RE` recognizes both `.json` and `.jsonl` extensions, so typed-state paths such as `dev/state/plan_index.jsonl` referenced in instruction or reviewed-scope text are matched by `extract_scope_paths()` and `path_matches_scope_claim()` for the startup-authority concurrent-writer contract.",
         "- For governance/runtime contract changes, run `python3 dev/scripts/devctl.py platform-contracts --format md` and `python3 dev/scripts/checks/check_platform_contract_closure.py --format md`.",
         "- The managed pre-commit hook is a read-only commit-permission gate; post-commit ReviewSnapshot receipt hooks are time-bounded and fail-open.",
+        "- Managed ReviewSnapshot/generated-surface receipt detection uses the shared receipt-prefix registry; do not add per-command receipt-prefix forks.",
         "- Governed checkpoint retries must restage non-receipt unstaged work instead of preserving stale partial indexes.",
         "- Governed push writes `dev/reports/push/latest_push_report.json`; legacy `latest.json` is only a read fallback.",
         "- For release or publication work, use `python3 dev/scripts/devctl.py push --execute`; raw publish proof is not a closure receipt.",

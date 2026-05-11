@@ -14946,9 +14946,11 @@ Change: repo push policy now carries semantic
 publication preflight still uses `pipeline_authorized_phase`, but no longer
 adds `--keep-going` unless a repo policy explicitly opts into audit mode.
 Push progress heartbeats and the in-flight latest-push report now state that
-preflight validation is running and `git_push_started=false`. The external
-ReviewSnapshot freshness receipt helper now no-ops when HEAD is already an
-external ReviewSnapshot receipt, preventing snapshot-of-snapshot churn.
+preflight validation is running and `git_push_started=false`. The managed
+ReviewSnapshot freshness receipt helper now no-ops when HEAD is already a
+managed receipt using the shared ReviewSnapshot receipt-prefix registry,
+including external-review snapshots and policy-owned generated-surface
+receipts, preventing receipt-of-receipt churn.
 
 Evidence:
 
@@ -14958,6 +14960,7 @@ Evidence:
 - `dev/scripts/devctl/governance/push_routing.py`
 - `dev/scripts/devctl/commands/vcs/push.py`
 - `dev/scripts/devctl/commands/vcs/push_preflight_projection.py`
+- `dev/scripts/devctl/commands/vcs/push_review_snapshot_receipt_guard.py`
 - `dev/scripts/devctl/runtime/command_progress.py`
 - `dev/scripts/devctl/tests/vcs/test_push.py`
 

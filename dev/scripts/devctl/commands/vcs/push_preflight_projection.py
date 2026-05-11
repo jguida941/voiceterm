@@ -18,7 +18,7 @@ from .push_projection_receipt import auto_commit_managed_projection_receipt
 from .push_receipt_failure import review_snapshot_receipt_failure_detail
 from .push_recovery_loop_repair import run_pre_validation_recovery_loop_repair_phase
 from .push_review_snapshot_receipt_guard import (
-    current_head_is_external_review_snapshot_receipt,
+    current_head_is_managed_review_snapshot_receipt,
 )
 from .push_render_surface_sync import (
     POLICY_RENDER_SURFACE_SYNC,
@@ -194,12 +194,12 @@ def auto_commit_review_snapshot_freshness_receipt(
     next_step_label: str,
 ) -> dict[str, object]:
     """Run the governed snapshot receipt command after managed HEAD movement."""
-    if current_head_is_external_review_snapshot_receipt(repo_root=repo_root):
+    if current_head_is_managed_review_snapshot_receipt(repo_root=repo_root):
         return {
             "ok": True,
             "committed": False,
             "commit_sha": "",
-            "reason": "already_external_review_snapshot_receipt",
+            "reason": "already_managed_review_snapshot_receipt",
         }
     before_head = _current_head_sha(repo_root=repo_root)
     step = command_runner(

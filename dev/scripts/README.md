@@ -1186,7 +1186,9 @@ Portability note:
   artifacts dirty, parses trimmed `git status --porcelain` rows so an
   unstaged managed artifact is still receipted when the shared git helper
   strips its leading status column, runs
-  `review-snapshot --write --receipt-commit` when that batch moves `HEAD`,
+  `review-snapshot --write --receipt-commit` when that batch moves `HEAD`
+  unless `HEAD` is already a managed ReviewSnapshot/generated-surface receipt
+  recognized through the shared receipt-prefix registry,
   refreshes the event-backed review-channel projection bundle plus
   startup/context-graph surfaces after managed receipt movement, and then runs
   the routed guard bundle against the committed freshness state. Selected

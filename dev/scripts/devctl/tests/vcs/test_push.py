@@ -18,6 +18,7 @@ from dev.scripts.devctl.commands.vcs import (
     push_projection_bundle_refresh,
     push_projection_receipt,
     push_projection_runtime_refresh,
+    push_review_snapshot_receipt_guard,
     push_recovery_loop_handoff,
     push_recovery_loop_repair,
     push_render_surface_sync,
@@ -2970,14 +2971,14 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertIn("stderr=receipt chain overflow", state.errors[0])
         self.assertNotIn("x" * 80, state.errors[0])
 
-    def test_review_snapshot_receipt_does_not_stack_on_external_snapshot_receipt(
+    def test_review_snapshot_receipt_does_not_stack_on_managed_snapshot_receipt(
         self,
     ) -> None:
         state = push.PushRunState(branch="feature/demo", remote="origin")
         runner = MagicMock()
         with patch.object(
             push_preflight_projection,
-            "current_head_is_external_review_snapshot_receipt",
+            "current_head_is_managed_review_snapshot_receipt",
             return_value=True,
         ):
             result = (
@@ -2995,11 +2996,30 @@ class PushBridgeSyncTests(unittest.TestCase):
                 "ok": True,
                 "committed": False,
                 "commit_sha": "",
-                "reason": "already_external_review_snapshot_receipt",
+                "reason": "already_managed_review_snapshot_receipt",
             },
         )
         runner.assert_not_called()
         self.assertEqual(state.errors, [])
+
+    def test_review_snapshot_receipt_guard_uses_shared_managed_prefixes(
+        self,
+    ) -> None:
+        with patch.object(
+            push_review_snapshot_receipt_guard,
+            "run_git_capture",
+            return_value=(
+                0,
+                "Refresh policy-owned generated surfaces for abc1234",
+                "",
+            ),
+        ):
+            guarded = (
+                push_review_snapshot_receipt_guard.current_head_is_managed_review_snapshot_receipt(
+                    repo_root=Path("/tmp/repo")
+                )
+            )
+            self.assertTrue(guarded)
 
     def test_review_snapshot_receipt_failure_truncates_raw_output(
         self,

@@ -858,8 +858,10 @@
   commit path they are meant to protect.
 - 2026-04-26 Plan 4.1 Slice 0 governed-push closeout (MP-377):
   `devctl push` now treats a contiguous chain of managed bridge/ReviewSnapshot
-  receipt commits as authorized movement when any ancestor matches the
-  `PushAuthorizationRecord` commit, and refreshes event-backed
+  and generated-surface receipt commits as authorized movement when any
+  ancestor matches the `PushAuthorizationRecord` commit, skips new
+  ReviewSnapshot receipts when HEAD already matches the shared managed
+  receipt-prefix registry, and refreshes event-backed
   review-channel projections after receipt commits before preflight or
   publication authorization reads them. This closes the live
   `head_changed_after_authorization` / proof-tick zref cascade that left the
