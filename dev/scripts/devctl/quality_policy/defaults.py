@@ -202,6 +202,12 @@ DEFAULT_AI_GUARD_SPECS = (
         extra_args=("--ci-bundle",),
         supports_commit_range=False,
     ),
+    QualityStepSpec(
+        "bridge-projection-only-guard",
+        "bridge_projection_only",
+        languages=("python",),
+        supports_commit_range=False,
+    ),
 )
 
 DEFAULT_REVIEW_PROBE_SPECS = (

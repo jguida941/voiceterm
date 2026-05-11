@@ -14960,3 +14960,26 @@ Evidence:
 - `dev/scripts/devctl/commands/vcs/push_preflight_projection.py`
 - `dev/scripts/devctl/runtime/command_progress.py`
 - `dev/scripts/devctl/tests/vcs/test_push.py`
+
+### 2026-05-11 - Bridge projection-only guard is now enforced, not catalog-only
+
+Governed-push dogfood exposed a real one-system drift: the bridge
+projection-only guard was registered in the script catalog, but not present
+in the resolved enforcement lanes. That meant `check_guard_enforcement_inventory`
+could block publication because a repaired bridge/status/current-session
+authority regression guard existed without bundle/workflow execution.
+
+Change: `check_bridge_projection_only.py` now runs through quality-policy
+defaults, `bundle.tooling`, `bundle.release`, `tooling_control_plane.yml`, and
+`release_preflight.yml`. The bundle registry tests assert the tooling and
+release bundle entries, and the docs now state that the guard is hard
+enforcement rather than advisory catalog state.
+
+Evidence:
+
+- `dev/scripts/devctl/quality_policy/defaults.py`
+- `dev/scripts/devctl/bundles/registry.py`
+- `.github/workflows/tooling_control_plane.yml`
+- `.github/workflows/release_preflight.yml`
+- `dev/scripts/devctl/tests/governance/test_bundle_registry.py`
+- `dev/scripts/devctl/tests/commands/check/test_check.py`

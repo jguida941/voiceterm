@@ -5819,6 +5819,7 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       scope: Add typed fast paths for managed projection drift: changed-path classification, artifact-shape guard subsets, push validation failure auto-replay, and receipt-chain refresh that avoids full unrelated bundles for generated projection-only commits.
       acceptance_criteria: A drift-only commit path runs the artifact/projection guard subset rather than the full code bundle, records a bypass-free receipt, and proves that bridge / `MASTER_PLAN.md` / `REVIEW_SNAPSHOT.md` / `plan_index.jsonl` changes cannot race or self-invalidate push validation; full bundles still run when source paths are in scope.
       progress: 2026-05-02 durable home for `rev_pkt_2778`, `rev_pkt_2779`, `rev_pkt_2813`, `rev_pkt_2815` Gap F, and `rev_pkt_2816` Gap I; slice homes are Plan r3 Slice 1, Slice 2, and T22AN-D flow probes.
+      progress: 2026-05-11 `check_bridge_projection_only.py` is now enforced as a shared hard guard through quality-policy defaults, `bundle.tooling`, `bundle.release`, `tooling_control_plane.yml`, and `release_preflight.yml`; bridge/status/current-session compatibility projections remain display-only and cannot slip back into backend authority as catalog-only advisory coverage.
 - [ ] `MP377-P0-T22AN-J` Coordinate publisher and governed VCS windows with typed locks.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`

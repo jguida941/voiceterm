@@ -425,6 +425,9 @@ jobs:
       - name: Run review-channel bridge guard
         run: python3 dev/scripts/checks/check_review_channel_bridge.py
 
+      - name: Run bridge projection-only guard
+        run: python3 dev/scripts/checks/check_bridge_projection_only.py
+
       - name: Run schema fixture handshake guard
         run: python3 dev/scripts/checks/check_schema_fixture_handshake.py
 

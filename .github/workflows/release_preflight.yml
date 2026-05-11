@@ -197,6 +197,7 @@ jobs:
           python3 dev/scripts/checks/check_typed_enum_connectivity.py
           python3 dev/scripts/checks/check_platform_contract_sync.py
           python3 dev/scripts/checks/check_review_channel_bridge.py
+          python3 dev/scripts/checks/check_bridge_projection_only.py
           python3 dev/scripts/checks/check_schema_fixture_handshake.py
           python3 dev/scripts/checks/check_schema_migration_spine.py
           python3 dev/scripts/checks/check_schema_version_monotonic.py

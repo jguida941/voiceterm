@@ -151,6 +151,7 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
     check_script_shell_command("typed_enum_connectivity"),
     check_script_shell_command("platform_contract_sync"),
     check_script_shell_command("review_channel_bridge"),
+    check_script_shell_command("bridge_projection_only"),
     check_script_shell_command("schema_fixture_handshake"),
     check_script_shell_command("schema_migration_spine"),
     check_script_shell_command("schema_version_monotonic"),

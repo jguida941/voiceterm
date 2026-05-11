@@ -415,6 +415,7 @@ class CheckProfileTests(TestCase):
         self.assertIn("rust-runtime-panic-policy-guard", names)
         self.assertIn("rust-audit-patterns-guard", names)
         self.assertIn("rust-security-footguns-guard", names)
+        self.assertIn("bridge-projection-only-guard", names)
         release_gate_commands = check.build_release_gate_commands()
         ci_status_call = next(call for call in calls if call["name"] == "ci-status-gate")
         self.assertEqual(ci_status_call["cmd"], release_gate_commands[0])
@@ -540,6 +541,7 @@ class CheckProfileTests(TestCase):
         self.assertIn("rust-runtime-panic-policy-guard", names)
         self.assertIn("rust-audit-patterns-guard", names)
         self.assertIn("rust-security-footguns-guard", names)
+        self.assertIn("bridge-projection-only-guard", names)
 
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")

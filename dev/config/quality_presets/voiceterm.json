@@ -15,7 +15,8 @@
     "platform_contract_closure",
     "platform_contract_sync",
     "startup_authority_contract",
-    "tandem_consistency"
+    "tandem_consistency",
+    "bridge_projection_only"
   ],
   "guard_configs": {
     "package_layout": {

@@ -6238,6 +6238,13 @@ become the main product surface.
   when the remaining dirty paths are only governed projection artifacts,
   refreshes the pushed HEAD for authorization/reporting, and lets pipeline
   state sync match that receipt HEAD back to the approved content commit.
+  Latest guard-enforcement follow-up (2026-05-11): the bridge projection-only
+  regression guard is no longer catalog-only. `check_bridge_projection_only.py`
+  is enforced through quality-policy defaults, `bundle.tooling`,
+  `bundle.release`, `tooling_control_plane.yml`, and `release_preflight.yml`
+  so bridge/status/current-session compatibility projections remain
+  display-only and cannot regain backend authority through an unenforced
+  script entry.
   Latest proof-surface follow-up (2026-04-04): `system-picture` now has a
   live repo-owned command path and the tracked proof ledger is a generated
   writeback from that snapshot, not a second execution tracker.

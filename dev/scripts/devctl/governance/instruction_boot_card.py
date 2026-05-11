@@ -118,6 +118,7 @@ def build_instruction_boot_card(
         "- `AGENTS.md` is the shared generated boot card; local peer projections route agents to typed state without overriding it.",
         "- Remote-control/dashboard handoffs must remain typed packets or plan rows; provider labels and bridge text are never authority.",
         "- Automation-only review-channel follow loops emit typed frames and packets; they must not rewrite `bridge.md` heartbeat projection state.",
+        "- `check_bridge_projection_only.py` is enforced through quality policy, tooling/release bundles, and CI workflows so bridge projections cannot regain backend authority.",
         "- Launcher/recovery decisions must consume typed session-liveness evidence; stale prepared metadata alone is not proof that a live conductor can be replaced.",
         "- Refresh generated surfaces with `python3 dev/scripts/devctl.py render-surfaces --write --format md`.",
         "- Check projection drift with `python3 dev/scripts/devctl.py docs-check --strict-tooling --format json`.",
