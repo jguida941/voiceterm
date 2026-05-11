@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `da712f39bd9e` — Refresh external review snapshot for c1d6f59f
-- Tree hash: `108d5d2f39c4`
-- Generation stamp: `snap-00a0468fb7a2`
-- Generated at (UTC): 2026-05-11T10:01:22Z
-- Push decision: `no_push_needed` — governed_push_in_progress
+- HEAD: `bc5bc45d89c2` — Refresh external review snapshot for da712f39
+- Tree hash: `c86199f82296`
+- Generation stamp: `snap-313b2bb39331`
+- Generated at (UTC): 2026-05-11T10:49:09Z
+- Push decision: `await_checkpoint` — staged_index_present
 - Reviewer mode: `tools_only` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 63 files, +2835/-2189
+- Delta since last snapshot: 24 commits, 63 files, +2821/-2176
 - Governance findings: 43 open / 0 fixed / 43 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,22 +30,23 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `da712f39bd9e626bf196fa48e8be417460fa10a0`
+- HEAD SHA: `bc5bc45d89c2c0e7eb856688f2e63c1786f87677`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-11T05:54:55-04:00
+- HEAD timestamp (UTC): 2026-05-11T06:01:26-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `no_push_needed`
-- reason: governed_push_in_progress
+- action: `await_checkpoint`
+- reason: staged_index_present
 - push_eligible_now: False
-- worktree_clean: True
-- staged_path_count: 0
+- worktree_clean: False
+- staged_path_count: 4
 - unstaged_path_count: 0
 - next_step_command: `n/a`
 - latest_push_report_state: `blocked` (push_preflight_running)
 - publication_backlog: urgent
+- publication_guidance: 40 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -61,57 +62,57 @@ probes, typed actions, deterministic policy resolution — is what m...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `da712f39bd9e`
+Range: last 24 commits ending at `bc5bc45d89c2`
 
 - commits: 24
 - files changed: 63
-- insertions: +2835
-- deletions: -2189
-- bundle classes touched: docs, tooling, runtime
+- insertions: +2821
+- deletions: -2176
+- bundle classes touched: tooling, docs, runtime
 - authority surfaces touched: 5 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `da712f39` | Refresh external review snapshot for c1d6f59f | 2 | +46/-47 | docs |  |
-| 2 | `c1d6f59f` | Refresh external review snapshot for 35002759 | 2 | +72/-71 | docs |  |
-| 3 | `35002759` | Fix review-channel declared mode authority | 21 | +378/-180 | tooling |  |
-| 4 | `9318cfd0` | Refresh external review snapshot for d555dc0f | 1 | +54/-55 | tooling |  |
-| 5 | `d555dc0f` | Refresh external review snapshot for df64f077 | 2 | +62/-62 | docs |  |
-| 6 | `df64f077` | Keep communication-only packets out of instruction authority | 5 | +172/-85 | tooling |  |
-| 7 | `f14b9338` | Refresh external review snapshot for 827ffafb | 2 | +45/-45 | docs |  |
-| 8 | `827ffafb` | Refresh policy-owned generated surfaces for c82c610b | 1 | +1/-1 | docs |  |
-| 9 | `c82c610b` | Refresh external review snapshot for 3c067775 | 2 | +70/-71 | docs |  |
-| 10 | `3c067775` | Split review-state and push authority responsibilities | 24 | +992/-743 | tooling |  |
-| 11 | `87f8b2dd` | Refresh external review snapshot for 7a094406 | 1 | +43/-43 | tooling |  |
-| 12 | `7a094406` | Refresh policy-owned generated surfaces for 77b19aac | 1 | +1/-1 | docs |  |
-| 13 | `77b19aac` | Refresh external review snapshot for e4f6713d | 2 | +59/-59 | docs |  |
-| 14 | `e4f6713d` | Refine package layout debt enforcement | 5 | +365/-270 | tooling |  |
-| 15 | `d5d39f76` | Refresh external review snapshot for 19755d06 | 1 | +43/-44 | tooling |  |
-| 16 | `19755d06` | Refresh external review snapshot for e450826a | 2 | +93/-120 | docs |  |
-| 17 | `e450826a` | Refresh ground-truth probe receipt | 1 | +1/-0 | tooling |  |
-| 18 | `76a552d9` | Refresh external review snapshot for 95fdd129 | 1 | +46/-45 | tooling |  |
-| 19 | `95fdd129` | Refresh external review snapshot for e4eb2de9 | 2 | +56/-55 | docs |  |
-| 20 | `e4eb2de9` | Parse provider-neutral review artifact headings | 2 | +17/-5 | runtime |  |
-| 21 | `ce6ab928` | Refresh external review snapshot for ef60471d | 2 | +46/-47 | docs |  |
-| 22 | `ef60471d` | Refresh external review snapshot for 5a4818e9 | 2 | +56/-56 | docs |  |
-| 23 | `5a4818e9` | Use shared managed receipt prefixes | 10 | +51/-19 | tooling |  |
-| 24 | `92846684` | Refresh external review snapshot for b7383d1c | 2 | +66/-65 | docs |  |
+| 1 | `bc5bc45d` | Refresh external review snapshot for da712f39 | 1 | +52/-52 | tooling |  |
+| 2 | `da712f39` | Refresh external review snapshot for c1d6f59f | 2 | +46/-47 | docs |  |
+| 3 | `c1d6f59f` | Refresh external review snapshot for 35002759 | 2 | +72/-71 | docs |  |
+| 4 | `35002759` | Fix review-channel declared mode authority | 21 | +378/-180 | tooling |  |
+| 5 | `9318cfd0` | Refresh external review snapshot for d555dc0f | 1 | +54/-55 | tooling |  |
+| 6 | `d555dc0f` | Refresh external review snapshot for df64f077 | 2 | +62/-62 | docs |  |
+| 7 | `df64f077` | Keep communication-only packets out of instruction authority | 5 | +172/-85 | tooling |  |
+| 8 | `f14b9338` | Refresh external review snapshot for 827ffafb | 2 | +45/-45 | docs |  |
+| 9 | `827ffafb` | Refresh policy-owned generated surfaces for c82c610b | 1 | +1/-1 | docs |  |
+| 10 | `c82c610b` | Refresh external review snapshot for 3c067775 | 2 | +70/-71 | docs |  |
+| 11 | `3c067775` | Split review-state and push authority responsibilities | 24 | +992/-743 | tooling |  |
+| 12 | `87f8b2dd` | Refresh external review snapshot for 7a094406 | 1 | +43/-43 | tooling |  |
+| 13 | `7a094406` | Refresh policy-owned generated surfaces for 77b19aac | 1 | +1/-1 | docs |  |
+| 14 | `77b19aac` | Refresh external review snapshot for e4f6713d | 2 | +59/-59 | docs |  |
+| 15 | `e4f6713d` | Refine package layout debt enforcement | 5 | +365/-270 | tooling |  |
+| 16 | `d5d39f76` | Refresh external review snapshot for 19755d06 | 1 | +43/-44 | tooling |  |
+| 17 | `19755d06` | Refresh external review snapshot for e450826a | 2 | +93/-120 | docs |  |
+| 18 | `e450826a` | Refresh ground-truth probe receipt | 1 | +1/-0 | tooling |  |
+| 19 | `76a552d9` | Refresh external review snapshot for 95fdd129 | 1 | +46/-45 | tooling |  |
+| 20 | `95fdd129` | Refresh external review snapshot for e4eb2de9 | 2 | +56/-55 | docs |  |
+| 21 | `e4eb2de9` | Parse provider-neutral review artifact headings | 2 | +17/-5 | runtime |  |
+| 22 | `ce6ab928` | Refresh external review snapshot for ef60471d | 2 | +46/-47 | docs |  |
+| 23 | `ef60471d` | Refresh external review snapshot for 5a4818e9 | 2 | +56/-56 | docs |  |
+| 24 | `5a4818e9` | Use shared managed receipt prefixes | 10 | +51/-19 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +1/-0 |
-| `bridge.md` | docs | +43/-43 |
+| `bridge.md` | docs | +40/-40 |
 | `dev/active/MASTER_PLAN.md` | tooling | +11/-2 |
 | `dev/active/ai_governance_platform.md` | tooling | +1/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1080/-1106 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1069/-1096 |
 | `dev/guides/DEVELOPMENT.md` | docs | +1/-1 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +2/-2 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +6/-3 |
@@ -216,6 +217,7 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`bc5bc45d`** — Refresh external review snapshot for da712f39
 - **`da712f39`** — Refresh external review snapshot for c1d6f59f
 - **`c1d6f59f`** — Refresh external review snapshot for 35002759
 - **`35002759`** — Fix review-channel declared mode authority
@@ -239,7 +241,6 @@ Recent findings:
 - **`ce6ab928`** — Refresh external review snapshot for ef60471d
 - **`ef60471d`** — Refresh external review snapshot for 5a4818e9
 - **`5a4818e9`** — Use shared managed receipt prefixes
-- **`92846684`** — Refresh external review snapshot for b7383d1c
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -258,10 +259,10 @@ Recent findings:
 - open governance findings: 43
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: dirty_after_local_checkpoint
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Relaunch the reviewer loop immediately.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/integrations_import.py`): dogfood.command.integrations-import: Auto-ingested devctl finalization failure rc=1.
@@ -278,4 +279,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-00a0468fb7a2` binds this file to HEAD `da712f39bd9e`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-313b2bb39331` binds this file to HEAD `bc5bc45d89c2`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

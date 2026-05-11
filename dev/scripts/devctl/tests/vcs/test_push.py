@@ -15,6 +15,8 @@ from dev.scripts.devctl.commands.vcs import (
     push,
     push_preflight_commit,
     push_preflight_projection,
+    push_preflight_report,
+    push_preflight_snapshot_receipt,
     push_projection_bundle_refresh,
     push_projection_receipt,
     push_projection_runtime_refresh,
@@ -246,10 +248,13 @@ class PushAuthorizedPipelineDirtyWorktreeTests(unittest.TestCase):
                     commit_pipeline=pipeline,
                 )
 
-            self.assertEqual(build_preflight_mock.call_args.kwargs["head_ref"], head)
-            self.assertTrue(build_preflight_mock.call_args.kwargs["range_scope_only"])
+            validation_routing = build_preflight_mock.call_args.kwargs[
+                "validation_routing"
+            ]
+            self.assertEqual(validation_routing.head_ref, head)
+            self.assertTrue(validation_routing.range_scope_only)
             self.assertEqual(
-                build_preflight_mock.call_args.kwargs["validation_scope"],
+                validation_routing.validation_scope,
                 "pipeline_authorized_phase",
             )
             self.assertEqual(rc, 0)
@@ -384,13 +389,13 @@ class PushAuthorizedPipelineDirtyWorktreeTests(unittest.TestCase):
                     commit_pipeline=pipeline,
                 )
 
+            validation_routing = build_preflight_mock.call_args.kwargs[
+                "validation_routing"
+            ]
+            self.assertEqual(validation_routing.head_ref, receipt_head)
+            self.assertTrue(validation_routing.range_scope_only)
             self.assertEqual(
-                build_preflight_mock.call_args.kwargs["head_ref"],
-                receipt_head,
-            )
-            self.assertTrue(build_preflight_mock.call_args.kwargs["range_scope_only"])
-            self.assertEqual(
-                build_preflight_mock.call_args.kwargs["validation_scope"],
+                validation_routing.validation_scope,
                 "pipeline_authorized_phase",
             )
             self.assertIn(
@@ -2418,7 +2423,7 @@ class PushBridgeSyncTests(unittest.TestCase):
             patch(
                 "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
                 return_value="python3 dev/scripts/devctl.py check-router --execute",
-            ),
+            ) as build_preflight_mock,
         ):
             push._run_fetch_and_preflight(
                 state,
@@ -2438,6 +2443,10 @@ class PushBridgeSyncTests(unittest.TestCase):
                 "managed-projection-refresh",
                 "push-preflight",
             ],
+        )
+        self.assertEqual(
+            build_preflight_mock.call_args.kwargs["report_routing"].output_path,
+            push.PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
         )
 
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
@@ -2905,8 +2914,8 @@ class PushBridgeSyncTests(unittest.TestCase):
                 return_value={"ok": True, "committed": True, "paths": ("bridge.md",)},
             ),
             patch.object(
-                push_preflight_projection,
-                "_current_head_sha",
+                push_preflight_snapshot_receipt,
+                "current_head_sha",
                 side_effect=["receipt-before", "snapshot-receipt"],
             ),
         ):
@@ -2951,8 +2960,8 @@ class PushBridgeSyncTests(unittest.TestCase):
             }
 
         with patch.object(
-            push_preflight_projection,
-            "_current_head_sha",
+            push_preflight_snapshot_receipt,
+            "current_head_sha",
             return_value="before-head",
         ):
             result = (
@@ -2977,7 +2986,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         state = push.PushRunState(branch="feature/demo", remote="origin")
         runner = MagicMock()
         with patch.object(
-            push_preflight_projection,
+            push_preflight_snapshot_receipt,
             "current_head_is_managed_review_snapshot_receipt",
             return_value=True,
         ):
@@ -3035,8 +3044,8 @@ class PushBridgeSyncTests(unittest.TestCase):
             }
 
         with patch.object(
-            push_preflight_projection,
-            "_current_head_sha",
+            push_preflight_snapshot_receipt,
+            "current_head_sha",
             return_value="before-head",
         ):
             result = (
@@ -3088,13 +3097,16 @@ class PushBridgeSyncTests(unittest.TestCase):
             ),
             patch.object(
                 push_preflight_projection,
-                "_current_head_sha",
+                "current_head_sha",
                 side_effect=[
                     "before-generated",
                     "after-generated",
-                    "after-generated",
-                    "snapshot-receipt",
                 ],
+            ),
+            patch.object(
+                push_preflight_snapshot_receipt,
+                "current_head_sha",
+                side_effect=["after-generated", "snapshot-receipt"],
             ),
         ):
             push_preflight_projection.refresh_preflight_generated_changes_before_authorization(
@@ -5496,6 +5508,70 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertIn("--validation-scope pipeline_authorized_phase", command)
         self.assertNotIn("--keep-going", command)
 
+    def test_build_preflight_shell_command_can_write_report_artifact(
+        self,
+    ) -> None:
+        policy = make_policy()
+
+        command = push.build_preflight_shell_command(
+            policy,
+            remote="origin",
+            route_state=push.PushRefRoutingState(
+                current_branch="feature/demo",
+                upstream_ref="origin/feature/demo",
+                branch_has_remote=True,
+            ),
+            report_routing=push.PushPreflightReportRouting(
+                output_path=push.PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
+            ),
+        )
+
+        self.assertIn("--format json", command)
+        self.assertIn(
+            f"--output {push.PUSH_PREFLIGHT_CHECK_ROUTER_REPORT}",
+            command,
+        )
+
+    def test_preflight_failure_summary_reads_report_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report_path = Path(tmp) / "preflight.json"
+            report_path.write_text(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "steps": [
+                            {
+                                "name": "router-04",
+                                "source": "hygiene",
+                                "returncode": 1,
+                                "failure_output": "stale report directory",
+                            },
+                            {
+                                "name": "router-05",
+                                "source": "docs-check",
+                                "returncode": 0,
+                            },
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            step = {"name": "push-preflight", "returncode": 1}
+
+            push_preflight_report.annotate_preflight_step(
+                step,
+                report_path=report_path,
+            )
+
+        self.assertEqual(
+            step["report_path"],
+            push.PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
+        )
+        self.assertEqual(
+            step["failure_output"],
+            "FAIL hygiene -- stale report directory",
+        )
+
     def test_build_preflight_shell_command_only_keeps_going_for_audit_mode(
         self,
     ) -> None:
@@ -6077,17 +6153,10 @@ class PushPipelineStateSyncTests(unittest.TestCase):
             persisted = load_remote_commit_pipeline_contract(
                 output_root=projections_root
             )
-            legacy = load_remote_commit_pipeline_contract(
-                output_root=repo_root / "dev/reports/review_channel/latest"
-            )
             self.assertEqual(persisted.state, "push_completed")
-            self.assertEqual(legacy.state, "push_completed")
             self.assertEqual(persisted.push_report_path, "dev/reports/push/latest.json")
-            self.assertEqual(legacy.push_report_path, "dev/reports/push/latest.json")
             self.assertIsNotNone(persisted.push_result)
-            self.assertIsNotNone(legacy.push_result)
             self.assertEqual(persisted.push_result.reason, "push_completed")
-            self.assertEqual(legacy.push_result.reason, "push_completed")
             self.assertEqual(
                 persisted.push_pipeline_phases[
                     "pre_validation_managed_projection_sync"
@@ -6095,16 +6164,14 @@ class PushPipelineStateSyncTests(unittest.TestCase):
                 "completed",
             )
             self.assertEqual(
-                legacy.push_pipeline_phases["post_validation_auto_commit_repair"][
+                persisted.push_pipeline_phases["post_validation_auto_commit_repair"][
                     "status"
                 ],
                 "completed",
             )
             self.assertTrue(persisted.snapshot_id.startswith("snap-"))
             self.assertNotEqual(persisted.snapshot_id, "snap-stale")
-            self.assertEqual(legacy.snapshot_id, persisted.snapshot_id)
             self.assertTrue(persisted.zref.endswith("_abc123"))
-            self.assertEqual(legacy.zref, persisted.zref)
 
     def test_sync_commit_pipeline_auto_transitions_non_destructive_push_failure(
         self,
@@ -6150,15 +6217,8 @@ class PushPipelineStateSyncTests(unittest.TestCase):
             persisted = load_remote_commit_pipeline_contract(
                 output_root=projections_root
             )
-            legacy = load_remote_commit_pipeline_contract(
-                output_root=repo_root / "dev/reports/review_channel/latest"
-            )
             self.assertEqual(
                 persisted.state,
-                STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
-            )
-            self.assertEqual(
-                legacy.state,
                 STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
             )
             self.assertEqual(persisted.blocked_reason, "")
@@ -6410,23 +6470,13 @@ class PushPipelineStateSyncTests(unittest.TestCase):
             persisted = load_remote_commit_pipeline_contract(
                 output_root=projections_root
             )
-            legacy = load_remote_commit_pipeline_contract(
-                output_root=repo_root / "dev/reports/review_channel/latest"
-            )
             self.assertEqual(
                 persisted.state,
                 STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
             )
-            self.assertEqual(
-                legacy.state,
-                STATE_DELIVERED_LOCALLY_PENDING_PUBLISH,
-            )
             self.assertIsNotNone(persisted.push_result)
-            self.assertIsNotNone(legacy.push_result)
             self.assertEqual(persisted.push_result.reason, "branch_already_pushed")
-            self.assertEqual(legacy.push_result.reason, "branch_already_pushed")
             self.assertTrue(persisted.push_result.partial_progress)
-            self.assertTrue(legacy.push_result.partial_progress)
             self.assertEqual(
                 persisted.push_failure_transition["classification"],
                 PUSH_FAILURE_CLASSIFICATION_NON_DESTRUCTIVE,

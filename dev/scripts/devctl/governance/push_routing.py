@@ -29,6 +29,13 @@ class PushValidationRouting(NamedTuple):
     validation_scope: str = ""
 
 
+class PushPreflightReportRouting(NamedTuple):
+    """Optional check-router report artifact routing for push preflight."""
+
+    output_path: str = ""
+    format: str = "json"
+
+
 def build_preflight_shell_command(
     policy: "PushPolicy",
     *,
@@ -36,10 +43,12 @@ def build_preflight_shell_command(
     route_state: PushRefRoutingState | None = None,
     quality_policy_path: str | None = None,
     validation_routing: PushValidationRouting | None = None,
+    report_routing: PushPreflightReportRouting | None = None,
 ) -> str:
     """Build the non-mutating or execution-ready preflight shell command."""
     resolved_route = route_state or PushRefRoutingState()
     resolved_validation = validation_routing or PushValidationRouting()
+    resolved_report = report_routing or PushPreflightReportRouting()
     since_ref = resolve_preflight_since_ref(
         remote=remote,
         development_branch=policy.development_branch,
@@ -60,6 +69,10 @@ def build_preflight_shell_command(
         args.append("--range-scope-only")
     if resolved_validation.validation_scope:
         args.extend(["--validation-scope", resolved_validation.validation_scope])
+    if resolved_report.output_path:
+        args.extend(
+            ["--format", resolved_report.format, "--output", resolved_report.output_path]
+        )
     if policy.preflight.execute:
         args.append("--execute")
         if not bool(getattr(policy.preflight, "fail_fast_on_blocker", True)):

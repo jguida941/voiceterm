@@ -13,6 +13,7 @@ from ...common import pipe_output, run_cmd, write_output
 from ...config import REPO_ROOT
 from ...governance.push_policy import build_post_push_commands, load_push_policy
 from ...governance.push_routing import (
+    PushPreflightReportRouting,
     PushRefRoutingState,
     PushValidationRouting,
     build_preflight_shell_command,
@@ -63,6 +64,10 @@ from .push_preflight_projection import (
 from .push_preflight_timeout import (
     PUSH_PREFLIGHT_TIMEOUT_SECONDS,
     build_preflight_command_kwargs,
+)
+from .push_preflight_report import (
+    PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
+    annotate_preflight_step,
 )
 from .push_report import PushStageTruth
 from .push_report_context import (
@@ -364,14 +369,22 @@ def _run_fetch_and_preflight(
             range_scope_only=bool(state.push_authorization_head_commit),
             validation_scope="pipeline_authorized_phase",
         ),
+        report_routing=PushPreflightReportRouting(
+            output_path=PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
+        ),
     )
     state.preflight_step = command_runner(
         "push-preflight",
         ["bash", "-lc", preflight_command],
         **build_preflight_command_kwargs(command_runner, repo_root=repo_root),
     )
+    annotate_preflight_step(
+        state.preflight_step,
+        report_path=repo_root / PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
+    )
     if state.preflight_step["returncode"] != 0:
         state.errors.append("Configured push preflight failed.")
+
 
 def _record_divergence(
     state: PushRunState,
