@@ -11,6 +11,9 @@ from ...review_channel.state import refresh_status_snapshot
 from ..review_channel.status_bridge_sync import (
     sync_bridge_from_typed_projection_if_needed as _sync_bridge_from_typed_projection_if_needed,
 )
+from .push_review_snapshot_receipt_guard import (
+    current_head_is_managed_review_snapshot_receipt,
+)
 
 
 def sync_bridge_projection_before_preflight(
@@ -19,6 +22,8 @@ def sync_bridge_projection_before_preflight(
     repo_root: Path = REPO_ROOT,
 ) -> None:
     """Refresh `bridge.md` from typed review state before routed preflight runs."""
+    if current_head_is_managed_review_snapshot_receipt(repo_root=repo_root):
+        return
     config = active_path_config()
     bridge_path = repo_root / config.bridge_rel
     review_channel_path = repo_root / config.review_channel_rel

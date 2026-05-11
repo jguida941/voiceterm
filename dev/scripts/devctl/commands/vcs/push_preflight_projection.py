@@ -12,6 +12,9 @@ from .push_preflight_snapshot_receipt import (
     auto_commit_review_snapshot_freshness_receipt,
     current_head_sha,
 )
+from .push_review_snapshot_receipt_guard import (
+    current_head_is_managed_review_snapshot_receipt,
+)
 from .push_projection_runtime_refresh import (
     refresh_stale_reviewer_heartbeat_before_publication,
     refresh_runtime_surfaces_after_projection_receipt,
@@ -51,6 +54,15 @@ def refresh_managed_projections_before_preflight(
         _record_phase_state(state, PRE_VALIDATION_MANAGED_PROJECTION_SYNC, result)
         return result
     result = _base_pre_validation_result(render_result=render_result)
+    if current_head_is_managed_review_snapshot_receipt(repo_root=repo_root):
+        result["status"] = "completed"
+        result["ok"] = True
+        result["reason"] = "managed_review_snapshot_receipt_head"
+        result["receipt_committed"] = False
+        result["paths"] = ()
+        result["snapshot_warning_count"] = 0
+        _record_phase_state(state, PRE_VALIDATION_MANAGED_PROJECTION_SYNC, result)
+        return result
     heartbeat_result = refresh_stale_reviewer_heartbeat_before_publication(
         state,
         command_runner=runner,

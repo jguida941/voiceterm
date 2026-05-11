@@ -2627,6 +2627,51 @@ class PushBridgeSyncTests(unittest.TestCase):
             "pre_validation_managed_projection_sync",
         )
 
+    def test_refresh_managed_projections_does_not_rewrite_receipt_head(self) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+
+        with (
+            patch.object(
+                push_preflight_projection,
+                "current_head_is_managed_review_snapshot_receipt",
+                return_value=True,
+            ),
+            patch.object(
+                push_preflight_projection,
+                "refresh_stale_reviewer_heartbeat_before_publication",
+            ) as heartbeat_mock,
+            patch.object(
+                push_preflight_projection,
+                "refresh_review_snapshot_file",
+            ) as refresh_snapshot_mock,
+            patch.object(
+                push_preflight_projection,
+                "auto_commit_managed_projection_receipt",
+            ) as projection_receipt_mock,
+        ):
+            result = (
+                push_preflight_projection.refresh_managed_projections_before_preflight(
+                    state,
+                    policy,
+                    repo_root=Path("/tmp/repo"),
+                )
+            )
+
+        heartbeat_mock.assert_not_called()
+        refresh_snapshot_mock.assert_not_called()
+        projection_receipt_mock.assert_not_called()
+        self.assertEqual(result["status"], "completed")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["reason"], "managed_review_snapshot_receipt_head")
+        self.assertFalse(result["receipt_committed"])
+        self.assertEqual(result["paths"], ())
+        self.assertEqual(result["snapshot_warning_count"], 0)
+        self.assertEqual(
+            state.pre_validation_managed_projection_sync["reason"],
+            "managed_review_snapshot_receipt_head",
+        )
+
     def test_refresh_managed_projections_runs_render_surfaces_before_preflight(
         self,
     ) -> None:
@@ -4388,6 +4433,29 @@ class PushBridgeSyncTests(unittest.TestCase):
             "Synchronized `bridge.md` from typed review-state before push preflight.",
             state.warnings,
         )
+
+    def test_sync_bridge_projection_before_preflight_skips_receipt_head(self) -> None:
+        state = push.PushRunState()
+        with (
+            patch(
+                "dev.scripts.devctl.commands.vcs.push_bridge_sync.current_head_is_managed_review_snapshot_receipt",
+                return_value=True,
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push_bridge_sync.refresh_status_snapshot",
+            ) as refresh_mock,
+            patch(
+                "dev.scripts.devctl.commands.vcs.push_bridge_sync._sync_bridge_from_typed_projection_if_needed",
+            ) as sync_mock,
+        ):
+            push._sync_bridge_projection_before_preflight(
+                state,
+                repo_root=Path("/tmp/repo"),
+            )
+
+        refresh_mock.assert_not_called()
+        sync_mock.assert_not_called()
+        self.assertEqual(state.warnings, [])
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
