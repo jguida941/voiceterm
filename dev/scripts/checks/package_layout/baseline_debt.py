@@ -5,6 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+if __package__:
+    from .bootstrap import STANDARD_SHIM_METADATA_FIELDS, detect_compatibility_shim
+else:  # pragma: no cover - standalone script fallback
+    from bootstrap import STANDARD_SHIM_METADATA_FIELDS, detect_compatibility_shim
+
 
 @dataclass(frozen=True)
 class BaselineDebtSnapshot:
@@ -29,19 +34,36 @@ def _filter_baseline_debt_by_roots(
     return filtered_dirs, filtered_families
 
 
-def _changed_paths_touch_roots(
+def _changed_paths_worsen_layout_debt(
     changed_paths: list[object],
     *,
     repo_root: Path,
-    roots: list[str],
+    crowded_directories: list[dict],
+    crowded_namespace_families: list[dict],
 ) -> bool:
-    """Return True when any changed path lives under one of the selected roots."""
-    root_paths = tuple(repo_root / Path(root) for root in roots)
+    """Return True when a changed path adds to an already-crowded flat surface."""
+    crowded_roots = tuple(Path(item["root"]) for item in crowded_directories)
+    crowded_families = tuple(
+        (Path(item["root"]), str(item.get("flat_prefix") or ""))
+        for item in crowded_namespace_families
+    )
     for changed_path in changed_paths:
         path = changed_path if isinstance(changed_path, Path) else Path(str(changed_path))
-        path_abs = path if path.is_absolute() else repo_root / path
-        if any(path_abs == root or root in path_abs.parents for root in root_paths):
+        relative = path.relative_to(repo_root) if path.is_absolute() else path
+        worktree_path = repo_root / relative
+        if not worktree_path.exists():
+            continue
+        if detect_compatibility_shim(
+            worktree_path,
+            namespace_subdir="",
+            shim_required_metadata_fields=STANDARD_SHIM_METADATA_FIELDS,
+        ).is_valid:
+            continue
+        if any(relative.parent == root for root in crowded_roots):
             return True
+        for root, flat_prefix in crowded_families:
+            if relative.parent == root and relative.name.startswith(flat_prefix):
+                return True
     return False
 
 
@@ -57,9 +79,18 @@ def resolve_baseline_debt_enforcement(
         return False, [], []
 
     if not snapshot.roots:
-        return bool(
-            snapshot.crowded_directories or snapshot.crowded_namespace_families
-        ), snapshot.crowded_directories, snapshot.crowded_namespace_families
+        if changed_paths and not _changed_paths_worsen_layout_debt(
+            changed_paths,
+            repo_root=repo_root,
+            crowded_directories=snapshot.crowded_directories,
+            crowded_namespace_families=snapshot.crowded_namespace_families,
+        ):
+            return False, [], []
+        return (
+            bool(snapshot.crowded_directories or snapshot.crowded_namespace_families),
+            snapshot.crowded_directories,
+            snapshot.crowded_namespace_families,
+        )
 
     enforced_dirs, enforced_families = _filter_baseline_debt_by_roots(
         snapshot.crowded_directories,
@@ -68,10 +99,11 @@ def resolve_baseline_debt_enforcement(
     )
     if not (enforced_dirs or enforced_families):
         return False, [], []
-    if changed_paths and not _changed_paths_touch_roots(
+    if changed_paths and not _changed_paths_worsen_layout_debt(
         changed_paths,
         repo_root=repo_root,
-        roots=snapshot.roots,
+        crowded_directories=enforced_dirs,
+        crowded_namespace_families=enforced_families,
     ):
         return False, [], []
     return True, enforced_dirs, enforced_families

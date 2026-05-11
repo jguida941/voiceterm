@@ -361,7 +361,7 @@ class BaselineDebtEnforcementTests(unittest.TestCase):
         self.assertFalse(payload["baseline_debt_enforced"])
         self.assertNotIn("enforced_crowded_directories", payload)
 
-    def test_targeted_root_fails_when_changed_paths_touch_root(self) -> None:
+    def test_targeted_root_passes_when_changed_paths_touch_namespace_child(self) -> None:
         args = SimpleNamespace(
             since_ref=None,
             head_ref="HEAD",
@@ -371,7 +371,25 @@ class BaselineDebtEnforcementTests(unittest.TestCase):
         )
         rc, payload = self._run_main(
             args,
-            changed_paths=[Path("dev/scripts/devctl/commands/review_channel/ensure.py")],
+            changed_paths=[Path("dev/scripts/devctl/commands/review_channel/status.py")],
+        )
+
+        self.assertEqual(rc, 0)
+        self.assertTrue(payload["ok"])
+        self.assertFalse(payload["baseline_debt_enforced"])
+        self.assertNotIn("enforced_crowded_directories", payload)
+
+    def test_targeted_root_fails_when_changed_paths_touch_flat_root_file(self) -> None:
+        args = SimpleNamespace(
+            since_ref=None,
+            head_ref="HEAD",
+            format="json",
+            fail_on_baseline_debt=True,
+            baseline_debt_roots=["dev/scripts/devctl/commands"],
+        )
+        rc, payload = self._run_main(
+            args,
+            changed_paths=[Path("dev/scripts/devctl/commands/triage_loop.py")],
         )
 
         self.assertEqual(rc, 1)
@@ -380,6 +398,40 @@ class BaselineDebtEnforcementTests(unittest.TestCase):
         enforced_dirs = payload.get("enforced_crowded_directories", [])
         self.assertEqual(len(enforced_dirs), 1)
         self.assertEqual(enforced_dirs[0]["root"], "dev/scripts/devctl/commands")
+
+    def test_targeted_root_passes_when_changed_flat_file_is_compat_shim(self) -> None:
+        args = SimpleNamespace(
+            since_ref=None,
+            head_ref="HEAD",
+            format="json",
+            fail_on_baseline_debt=True,
+            baseline_debt_roots=["dev/scripts/devctl/commands"],
+        )
+        rc, payload = self._run_main(
+            args,
+            changed_paths=[Path("dev/scripts/devctl/commands/dashboard_utils.py")],
+        )
+
+        self.assertEqual(rc, 0)
+        self.assertTrue(payload["ok"])
+        self.assertFalse(payload["baseline_debt_enforced"])
+
+    def test_all_roots_pass_when_changed_paths_only_touch_namespace_child(self) -> None:
+        args = SimpleNamespace(
+            since_ref=None,
+            head_ref="HEAD",
+            format="json",
+            fail_on_baseline_debt=True,
+            baseline_debt_roots=None,
+        )
+        rc, payload = self._run_main(
+            args,
+            changed_paths=[Path("dev/scripts/devctl/commands/vcs/push.py")],
+        )
+
+        self.assertEqual(rc, 0)
+        self.assertTrue(payload["ok"])
+        self.assertFalse(payload["baseline_debt_enforced"])
 
     def test_flag_disabled_passes_even_with_debt(self) -> None:
         args = SimpleNamespace(
