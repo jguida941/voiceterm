@@ -1154,22 +1154,22 @@ Portability note:
   `tooling_control_plane.yml` and `release_preflight.yml` enforce it. The
   managed raw-git hook path is now explicit three-hook automation:
   `devctl install-git-hooks` installs the pre-commit
-  commit-permission-plus-projection hook, the post-commit receipt hook, and
+  commit-permission hook, the post-commit receipt hook, and
   a blocking pre-push hook. The pre-commit hook now fails closed when the
   existing typed `commit_permission` boundary says raw `git commit` is not
-  allowed, then best-effort refreshes/stages both the typed `bridge.md`
-  compatibility projection through `review-channel --action status` and the
-  ReviewSnapshot projection for allowed commits. The receipt hook delegates to
+  allowed; it does not refresh or stage projections because it runs while git
+  is preparing the commit index. The receipt hook delegates to
   `python3 dev/scripts/devctl.py review-snapshot --write --receipt-commit`
   so the final pushed branch can end with a governed ReviewSnapshot receipt
-  instead of a manually refreshed dirty worktree. Both the pre-commit snapshot
-  refresh and post-commit receipt refresh are bounded by
+  instead of a manually refreshed dirty worktree. The post-commit receipt
+  refresh is bounded by
   `DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS` (default 90 seconds, `0` to disable
   the timeout) and still fail open with a warning so a slow ReviewSnapshot
   cannot make an otherwise-allowed commit appear stuck. Governed
   `devctl commit` streams phase progress while the irreversible git commit is
   running, and the managed post-commit hook announces the trailing receipt
-  refresh before and after its quiet `review-snapshot` call, while the pre-push hook
+  refresh before and after its quiet `review-snapshot` call, while the
+  pre-commit hook stays read-only and the pre-push hook
   refuses raw `git push` unless the nested push came from
   `python3 dev/scripts/devctl.py push --execute`. `devctl push` consumes that
   shape directly: a receipt HEAD may satisfy a current

@@ -1187,11 +1187,14 @@ Current 2026-04-07 ReviewSnapshot receipt-hook closure note:
 - The external-review planning surface now has a repo-owned two-phase raw-git
   path instead of a manual dirty-worktree step. `review-snapshot --receipt-commit`
   creates a snapshot-only receipt commit only when no other path is dirty, and
-  `install-git-hooks` installs both the pre-commit projection hook and the
+  `install-git-hooks` installs both the read-only pre-commit permission hook and the
   post-commit receipt hook that invokes that command with recursion disabled.
   This keeps the portable platform contract honest: a snapshot cannot contain
   its own final commit SHA, so freshness is represented as a typed parent-code
   binding rather than a self-referential markdown claim.
+  The 2026-05-11 MP-377 repair explicitly removed projection/status writers
+  from pre-commit so `review-channel --action status`, `review-snapshot
+  --write`, and `git add` cannot run while git is preparing the commit index.
 
 Current 2026-04-08 review-status authority / ReviewSnapshot evidence note:
 - The next bounded `MP-377` closure tightened live review/status truth without
@@ -4735,10 +4738,10 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       durable authority. The generated boot card now includes the canonical
       memory-is-continuity rule required by `check_memory_not_authority.py`,
       so local notes stay continuity hints instead of process authority. The
-      managed pre-commit ReviewSnapshot refresh and
-      post-commit ReviewSnapshot receipt hook are now time-bounded and
-      fail-open so typed guard freshness, not a hanging hook subprocess, owns
-      receipt proof after commits.
+      managed pre-commit hook is now a read-only `commit_permission` gate, and
+      the post-commit ReviewSnapshot receipt hook is time-bounded and fail-open
+      so typed guard freshness, not a hanging hook subprocess, owns receipt
+      proof after commits.
 - [ ] `MP377-P0-T19A` Move bootstrap command execution through stdin/script-file rendering so generated agent instructions do not leak long prompts or operational packets through argv/process listings.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`
@@ -9986,8 +9989,9 @@ working on `MP-377`.
   startup-authority pass before starting another implementation or launcher
   slice. The remaining gap here is narrower but still real: raw interactive
   provider sessions can still skip Step 0 until a supported hook/wrapper
-  entry path exists, and raw git/pre-commit plus wider repo-pack activation
-  still remain open, not the old repo-owned-launcher loophole.
+  entry path exists, and wider repo-pack activation still remains open, not
+  the old repo-owned-launcher loophole or the now-read-only repo pre-commit
+  permission hook.
 - 2026-04-10 startup-gate receipt-type fix: `_is_repair_launch` in
   `startup_gate.py` was treating `StartupReceipt` as a dict via `.get()`,
   crashing the `repair_reviewer_loop` → `launch`/`rollover` path. Fixed to
@@ -10011,7 +10015,7 @@ working on `MP-377`.
   `WorkIntakePacket` routing, and `check_tandem_consistency` now share a
   repo-pack-aware review-state resolver that honors candidate-path authority
   instead. The remaining gap is broader migration of review-state/event
-  consumers plus the still-separate raw git/pre-commit bypass.
+  consumers plus broader raw provider entry and repo-pack activation bypasses.
 - 2026-03-23 Part-53 hardening follow-up: the live `ContextGraphDelta`
   path is no longer relying on unstable host metadata. Snapshot selection now
   orders `latest` / `previous` by embedded capture time instead of filesystem
@@ -12539,8 +12543,8 @@ Execution order for this section:
   bootstrap surfaces, and scoped repo-owned launcher/mutation `devctl`
   commands now fail closed when that receipt is missing/stale or when live
   startup-authority truth is already red. This narrows the remaining closure
-  to raw git/pre-commit bypass and broader repo-pack activation work instead
-  of the older "the packet exists but nothing requires it" gap.
+  to broader raw provider entry and repo-pack activation work instead of the
+  older "the packet exists but nothing requires it" gap.
 - 2026-03-22: Landed the first enforcement slice for the new
   architectural-absorption rule without creating another shadow audit surface.
   `governance-review --record` now requires typed finding disposition fields,

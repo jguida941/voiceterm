@@ -382,7 +382,7 @@ def test_repo_pre_commit_template_checks_commit_permission_before_refresh() -> N
     assert "DEVCTL_REVIEW_SNAPSHOT_RECEIPT_COMMIT" in content
 
 
-def test_repo_pre_commit_template_times_out_snapshot_refresh() -> None:
+def test_repo_pre_commit_template_does_not_write_projection_artifacts() -> None:
     template_path = (
         Path(__file__).resolve().parents[6]
         / "dev"
@@ -391,10 +391,11 @@ def test_repo_pre_commit_template_times_out_snapshot_refresh() -> None:
         / "pre-commit-review-snapshot.sh"
     )
     content = template_path.read_text(encoding="utf-8")
-    assert "DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS" in content
-    assert "run_review_snapshot_refresh" in content
-    assert "return 124" in content
-    assert "review-snapshot --write failed; continuing commit" in content
+    assert "commit_permission_hook" in content
+    assert "Projection refreshes deliberately" in content
+    assert "review-snapshot --write" not in content
+    assert "review-channel --action status" not in content
+    assert "git add" not in content
 
 
 def test_repo_post_commit_template_times_out_receipt_refresh() -> None:

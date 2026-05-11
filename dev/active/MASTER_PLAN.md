@@ -122,12 +122,14 @@
   authority stays in typed plan rows, repo-pack policy, contracts, receipts,
   startup-context, session-resume, context-graph, `/develop`, and guards;
   generated markdown only routes agents to those typed surfaces.
-- 2026-05-06 ReviewSnapshot hook timeout (MP-377): the managed pre-commit
-  ReviewSnapshot refresh and post-commit ReviewSnapshot receipt hook now bound
-  `review-snapshot --write` / `review-snapshot --write --receipt-commit` with
+- 2026-05-06 ReviewSnapshot hook timeout (MP-377): the managed post-commit
+  ReviewSnapshot receipt hook now bounds
+  `review-snapshot --write --receipt-commit` with
   `DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS` (default 90 seconds) and preserves
   the existing fail-open warning policy so ordinary commits do not hang while
-  receipt freshness remains enforced by guards.
+  receipt freshness remains enforced by guards. The 2026-05-11 follow-up made
+  pre-commit read-only over `commit_permission` so projection writers no longer
+  run while git owns the commit index.
 - 2026-05-06 remote-control campaign read model (MP-377): `MP377-P0-RC-PAIR-S1`
   is the typed owner row for the Codex/Claude remote-control dogfood campaign.
   `devctl develop campaign` now projects role lanes, remote-control attachment
@@ -374,9 +376,10 @@
   flip-mode convergence.
 - 2026-04-28 hook-time generated-surface receipt extension (MP-377):
   the same completed-handoff publication authority now reaches the raw-git
-  pre-commit boundary for push-owned generated-surface receipts. The hook only
-  accepts `DEVCTL_MANAGED_PROJECTION_RECEIPT_COMMIT=1` when the staged paths
-  are managed projection artifacts and the completed-handoff target resolves
+  pre-commit permission boundary for push-owned generated-surface receipts.
+  The hook only accepts `DEVCTL_MANAGED_PROJECTION_RECEIPT_COMMIT=1` as
+  read-only authority evidence when the staged paths are managed projection
+  artifacts and the completed-handoff target resolves
   through the full managed receipt/source chain back to the packet's
   `devctl_commit:<head>` parent; source commits, stale handoff targets, and
   mismatched providers still fail closed through `commit_permission`.
@@ -2106,7 +2109,7 @@
   and freshness/push authorization both bind it back to the parent code commit
   or another ancestor in a contiguous managed receipt chain instead of treating
   the receipt as a fresh approval target, while
-  `install-git-hooks` installs the pre-commit projection hook, the
+  `install-git-hooks` installs the read-only pre-commit permission hook, the
   post-commit receipt hook that invokes that typed path with hook recursion
   disabled, and a blocking pre-push hook that forces raw publication back
   through `devctl push --execute`. Next follow-ups are fresh open-finding
@@ -6353,10 +6356,10 @@ become the main product surface.
   require that receipt and re-check live startup authority before starting
   another implementation or launcher slice. The remaining gap is narrower
   but still real: fresh raw interactive provider sessions can still skip
-  Step 0 until a supported hook/wrapper entry path exists, and raw
-  git/pre-commit plus broader repo-pack activation still remain open, not
-  the old repo-owned-launcher "startup-context exists but nothing requires
-  it" hole. Latest
+  Step 0 until a supported hook/wrapper entry path exists, and broader
+  repo-pack activation still remains open, not the old repo-owned-launcher
+  "startup-context exists but nothing requires it" hole or the current
+  read-only repo pre-commit permission hook. Latest
   bootstrap-compression follow-up (2026-03-27): the human-facing Step 0
   default is now `startup-context --format summary` across generated
   bootstrap surfaces and review-channel conductor/bridge startup text, so AI
@@ -6872,16 +6875,16 @@ become the main product surface.
   `devctl` commands (`push`, `sync`, `guard-run`, `autonomy-loop`,
   `autonomy-swarm`, `swarm_run`, `review-channel --action launch|rollover`,
   and selected controller actions) now require a fresh receipt and still
-  fail closed on live startup-authority errors. Remaining closure is the
-  separate raw git/pre-commit bypass plus any additional mutating commands
-  that should graduate into the same gate, not the original instruction-
-  surface loophole. Latest follow-up (2026-03-24): the typed review-state
+  fail closed on live startup-authority errors. Remaining closure is broader
+  raw provider entry, repo-pack activation, plus any additional mutating
+  commands that should graduate into the same gate, not the original
+  instruction-surface loophole. Latest follow-up (2026-03-24): the typed review-state
   consumers behind that same startup/tandem path now share one repo-pack-
   aware resolver instead of hardcoding
   `dev/reports/review_channel/latest/review_state.json`, so
   `startup-context`, startup `WorkIntakePacket` routing, and
   `check_tandem_consistency` stay aligned with review-state candidate-path
-  authority while the remaining raw git/pre-commit bypass work stays
+  authority while the remaining raw provider/repo-pack activation work stays
   explicit. Latest follow-up (2026-03-24): guarded feature-branch push
   preflight now diffs against the tracked upstream ref instead of always
   `origin/develop`, which removed the false `bundle.release` / CodeRabbit

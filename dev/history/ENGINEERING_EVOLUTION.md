@@ -362,6 +362,27 @@ Evidence:
 - `PKT-BIND-REV-PKT-3086`
 - `PKT-BIND-REV-PKT-3087`
 
+### 2026-05-11 - Pre-commit hook stopped writing review projections
+
+Change: the managed pre-commit hook is now a read-only `commit_permission`
+gate. It no longer runs `review-channel --action status`,
+`review-snapshot --write`, or `git add` while git is preparing the commit
+index. The post-commit hook remains the owner of the bounded
+`review-snapshot --write --receipt-commit` receipt path, after HEAD and the
+commit tree are stable.
+
+This closes the hook deadlock shape where `git commit` could enter
+pre-commit, the hook could try to refresh review projections, and that
+projection writer could inspect or mutate git state while the commit was still
+assembling the index/tree. Freshness remains enforced by typed guards and the
+post-commit receipt chain instead of a mutating pre-commit writer.
+
+Evidence:
+
+- `dev/config/git_hooks/pre-commit-review-snapshot.sh`
+- `dev/scripts/devctl/tests/commands/governance/test_install_git_hooks.py`
+- `dev/scripts/README.md`
+
 ### 2026-05-06 - ReviewSnapshot hook refreshes are time-bounded
 
 Change: added managed timeouts around the pre-commit
