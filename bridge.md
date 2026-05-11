@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-11T10:57:25Z`
-- Last Codex poll (Local America/New_York): `2026-05-11 06:57:25 EDT`
+- Last Codex poll: `2026-05-11T11:45:55Z`
+- Last Codex poll (Local America/New_York): `2026-05-11 07:45:55 EDT`
 - Reviewer mode: `tools_only`
-- Last non-audit worktree hash: `a34c1934b4d24087ce304b7324cdc37e1f58e8910dffddb1f59820c89f2b1791`
-- Current instruction revision: ``
+- Last non-audit worktree hash: `0e9974e3a207b7b80258205e67b460d63aeb095dcd48559b3864284746ca69e9`
+- Current instruction revision: `e133eeadcc8e`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-61 pending review packet(s)
+63 pending review packet(s)
 
 ## Implementer Status
 
@@ -138,12 +138,12 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Implementer
 
-- Await reviewer instruction refresh.
+Priority action_request: Run governed commit staging from remote-control lane
 
 ## Last Reviewed Scope
 
-MP-377
+MP-355
 
 ## Action Requests
 
-- No pending action requests.
+- [rev_pkt_3663] stage_commit_pipeline: target=runtime:devctl_commit:5b5c0d065e965a06d2e49e4122ba6938895a28bd@5b5c0d065e965a06d2e49e4122ba6938895a28bd; Run governed commit staging from remote-control lane (status: pending)
