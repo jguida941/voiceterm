@@ -2778,3 +2778,37 @@ Plan file updated at line 1120: Cluster 1 priority list 12 → 13 priorities (ad
 **Rate-throttle reset**: per `feedback_packet_rate_throttle` rule, no more packets ≥20 min unless pivot-relevant. Next BATCH-cadence packet would be post-iter-4-commit or post-push (whichever comes first).
 
 **Session charter validation count today: 33** (was 32; +1 for three distinct architectural strategies emerging for one bug class within one session).
+
+
+### Charter validation #34 at 2026-05-12T21:32Z — ITER-4 LANDED + P94 canonical first instance CLOSED (rev_pkt_3882 fired)
+
+**Commit dea85ab1** "Fix governed commit pipeline reload fallback" LANDED at 21:32:00Z. Branch now **11 ahead of origin**.
+
+**Codex agent_message 21:32:00Z**: *"The commit reached `git commit` and the post-commit ReviewSnapshot hook is running. That confirms the pipeline reload b[ug class closed]"*. The API-layer memo-aware `load_pipeline()` fix PASSED the EXACT approval-resolution failure path that REJECTED iter-3 at 21:16:52Z.
+
+**P94 BugFixLifecycle canonical first instance CLOSED**:
+- Wall-clock total: 19:01Z bug-hit → 21:32Z fix-landing = **~2h 31m**
+- 4 iterations (3 commit attempts on the iter-2/3/4 code path: 6bd6f207 → 753cf164 → dea85ab1)
+- 1 live-dogfood-test discovery (iter-3 REJECTED iter-2 at 21:16:52Z — the critical mid-cycle pivot)
+- 5 parallel-reasoning convergence patterns (dual-source-of-truth fix 20:57Z + rev_pkt_3588 stale-state 21:11Z + multi-iteration cadence 21:12Z + 12-stdin cost 21:14Z + live-test-found-new-defect 21:16Z)
+- 6 packet pairs (system↔claude approval handshakes for pipeline-79cff1213aeb + pipeline-a803054a68d6 + pipeline-014359b3fc87 + pipeline-941200a4f61c)
+- 7 packets fired by claude across the arc (rev_pkt_3864-3879)
+- 5 claude code-reviewer agent verdicts informing the arc
+
+**FULL-ROUND-TRIP-ACK packet rev_pkt_3882 fired** at 21:33:41Z (rate-throttle override justified per P89: commit-landing on canonical first instance is highest-priority pivot). ADR semantics: precedent_packet_ids=[3860,3861,3864-3879], status=applied, urgency=pivot_now. Contains:
+- Full state-machine trace (15 P94 state transitions documented)
+- 12 charter validations earned (#22-#34 inclusive)
+- Recommended next-slice progression (push → devctl bypass CLI)
+- Retroactive JSONL row for `bug_fix_lifecycles.jsonl` once P94 contract lands
+- Iter-5 residual risks tracked per rev_pkt_3879
+
+**Charter validation #34**: API-layer memo-aware fix PASSED iter-3's failure path empirically — bug class CLOSED on this code path. The third strategy (iter-4 codex's API-layer unification vs iter-2 typed-memoization vs claude code-reviewer's call-site restriction) is the validated working architecture for THIS code path. 4 iter-5 residuals tracked separately for cold-executor + guard-against-new-call-sites + identity-asserts scenarios.
+
+**Session charter validation count today: 34** (was 33; +1 for iter-4 PASSING the originally-failing path empirically; bug class CLOSED).
+
+**P94 canonical first instance JSONL row** (retroactive backfill ready for when contract lands):
+```jsonl
+{"lifecycle_id":"bfl_governed_executor_pipeline_retention_dual_source_of_truth","status":"closed","wall_clock_total_minutes":151,"iterations_completed":4,"dogfood_rejections":1,"commit_receipt_ids":["commit:6bd6f207","commit:753cf164","commit:dea85ab1"],"convergence_count":5,"charter_validations_earned":[22,23,24,26,27,28,29,30,31,32,33,34],"contract_id":"BugFixLifecycle"}
+```
+
+**Next action expected**: codex pivots to `devctl push` (P86 PushRecordTamperResistance surface check possible) OR picks devctl bypass CLI slice per rev_pkt_3857.
