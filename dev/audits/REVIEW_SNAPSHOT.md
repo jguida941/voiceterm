@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `9249e17cc896` — Land MP-377 typed governance work-in-progress (multi-slice)
-- Tree hash: `6d51acf8e039`
-- Generation stamp: `snap-3adf4e57ec61`
-- Generated at (UTC): 2026-05-12T04:22:04Z
+- HEAD: `0352553be2ec` — Checkpoint MP377-P0-CHECKPOINT-AUTOMATION-S1 slice work (claude-mutation-lane handoff)
+- Tree hash: `3b984e219f4d`
+- Generation stamp: `snap-46f883f364be`
+- Generated at (UTC): 2026-05-12T15:37:50Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `tools_only` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 207 files, +15160/-1684
+- Delta since last snapshot: 24 commits, 233 files, +19371/-1679
 - Governance findings: 43 open / 0 fixed / 43 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -30,9 +30,9 @@ probes, typed actions, deterministic policy resolution — is what m...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `9249e17cc8963eca6c6af744de4d6dff6dd6c9d9`
+- HEAD SHA: `0352553be2ecacbd1cfbd62d0563d03da7d32701`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-12T00:21:12-04:00
+- HEAD timestamp (UTC): 2026-05-12T11:37:00-04:00
 
 ## 2. Governance state
 
@@ -44,9 +44,9 @@ probes, typed actions, deterministic policy resolution — is what m...
 - staged_path_count: 0
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
-- latest_push_report_state: `published_remote` (post_push_bundle_failed)
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- latest_push_report_state: `blocked` (validation_failed)
+- publication_backlog: recommended
+- publication_guidance: 2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -66,12 +66,12 @@ probes, typed actions, deterministic policy resolution — is what m...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `9249e17cc896`
+Range: last 24 commits ending at `0352553be2ec`
 
 - commits: 24
-- files changed: 207
-- insertions: +15160
-- deletions: -1684
+- files changed: 233
+- insertions: +19371
+- deletions: -1679
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 13 file(s)
 
@@ -79,76 +79,76 @@ Range: last 24 commits ending at `9249e17cc896`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `9249e17c` | Land MP-377 typed governance work-in-progress (multi-slice) | 176 | +12985/-235 | tooling |  |
-| 2 | `771a7fa5` | Refresh external review snapshot for 73417c6a | 2 | +71/-72 | docs |  |
-| 3 | `73417c6a` | Stop push preflight projection receipt loops | 5 | +138/-53 | tooling |  |
-| 4 | `fd9ed509` | Refresh external review snapshot for c9616cfe | 2 | +55/-55 | docs |  |
-| 5 | `c9616cfe` | Fix push bridge sync test mocks | 4 | +51/-56 | tooling |  |
-| 6 | `170167c1` | Refresh external review snapshot for fe5b9538 | 2 | +66/-65 | docs |  |
-| 7 | `fe5b9538` | Fix startup reviewer mode authority | 5 | +95/-60 | tooling |  |
-| 8 | `18685099` | Refresh external review snapshot for c4e50e10 | 2 | +40/-40 | docs |  |
-| 9 | `c4e50e10` | Refresh external review snapshot for 1036a84b | 2 | +64/-64 | docs |  |
-| 10 | `1036a84b` | Document push preflight projection policy | 9 | +94/-55 | tooling |  |
-| 11 | `8b8900d6` | Refresh external review snapshot for 0fa60654 | 2 | +64/-62 | docs |  |
-| 12 | `0fa60654` | Fix push preflight audit routing | 8 | +185/-59 | tooling |  |
-| 13 | `5b5c0d06` | Refresh external review snapshot for 9aba52e2 | 1 | +40/-40 | tooling |  |
-| 14 | `9aba52e2` | Refresh policy-owned generated surfaces for 905794d7 | 1 | +1/-1 | docs |  |
-| 15 | `905794d7` | Refresh external review snapshot for 5068dcf7 | 2 | +66/-67 | docs |  |
-| 16 | `5068dcf7` | Fix push preflight report backpressure | 6 | +264/-103 | tooling |  |
-| 17 | `bc5bc45d` | Refresh external review snapshot for da712f39 | 1 | +52/-52 | tooling |  |
-| 18 | `da712f39` | Refresh external review snapshot for c1d6f59f | 2 | +46/-47 | docs |  |
-| 19 | `c1d6f59f` | Refresh external review snapshot for 35002759 | 2 | +72/-71 | docs |  |
-| 20 | `35002759` | Fix review-channel declared mode authority | 21 | +378/-180 | tooling |  |
-| 21 | `9318cfd0` | Refresh external review snapshot for d555dc0f | 1 | +54/-55 | tooling |  |
-| 22 | `d555dc0f` | Refresh external review snapshot for df64f077 | 2 | +62/-62 | docs |  |
-| 23 | `df64f077` | Keep communication-only packets out of instruction authority | 5 | +172/-85 | tooling |  |
-| 24 | `f14b9338` | Refresh external review snapshot for 827ffafb | 2 | +45/-45 | docs |  |
+| 1 | `0352553b` | Checkpoint MP377-P0-CHECKPOINT-AUTOMATION-S1 slice work (cl… | 60 | +3582/-139 | tooling |  |
+| 2 | `0928a483` | Stage agent_supervise import set + adapter wiring (recover… | 8 | +808/-2 | tooling |  |
+| 3 | `28bcafdd` | Refresh policy-owned generated surfaces for 87554eb9 | 1 | +16/-16 | docs |  |
+| 4 | `87554eb9` | Refresh external review snapshot for 9249e17c | 2 | +138/-85 | docs |  |
+| 5 | `9249e17c` | Land MP-377 typed governance work-in-progress (multi-slice) | 176 | +12985/-235 | tooling |  |
+| 6 | `771a7fa5` | Refresh external review snapshot for 73417c6a | 2 | +71/-72 | docs |  |
+| 7 | `73417c6a` | Stop push preflight projection receipt loops | 5 | +138/-53 | tooling |  |
+| 8 | `fd9ed509` | Refresh external review snapshot for c9616cfe | 2 | +55/-55 | docs |  |
+| 9 | `c9616cfe` | Fix push bridge sync test mocks | 4 | +51/-56 | tooling |  |
+| 10 | `170167c1` | Refresh external review snapshot for fe5b9538 | 2 | +66/-65 | docs |  |
+| 11 | `fe5b9538` | Fix startup reviewer mode authority | 5 | +95/-60 | tooling |  |
+| 12 | `18685099` | Refresh external review snapshot for c4e50e10 | 2 | +40/-40 | docs |  |
+| 13 | `c4e50e10` | Refresh external review snapshot for 1036a84b | 2 | +64/-64 | docs |  |
+| 14 | `1036a84b` | Document push preflight projection policy | 9 | +94/-55 | tooling |  |
+| 15 | `8b8900d6` | Refresh external review snapshot for 0fa60654 | 2 | +64/-62 | docs |  |
+| 16 | `0fa60654` | Fix push preflight audit routing | 8 | +185/-59 | tooling |  |
+| 17 | `5b5c0d06` | Refresh external review snapshot for 9aba52e2 | 1 | +40/-40 | tooling |  |
+| 18 | `9aba52e2` | Refresh policy-owned generated surfaces for 905794d7 | 1 | +1/-1 | docs |  |
+| 19 | `905794d7` | Refresh external review snapshot for 5068dcf7 | 2 | +66/-67 | docs |  |
+| 20 | `5068dcf7` | Fix push preflight report backpressure | 6 | +264/-103 | tooling |  |
+| 21 | `bc5bc45d` | Refresh external review snapshot for da712f39 | 1 | +52/-52 | tooling |  |
+| 22 | `da712f39` | Refresh external review snapshot for c1d6f59f | 2 | +46/-47 | docs |  |
+| 23 | `c1d6f59f` | Refresh external review snapshot for 35002759 | 2 | +72/-71 | docs |  |
+| 24 | `35002759` | Fix review-channel declared mode authority | 21 | +378/-180 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `.claude/commands/develop.md` | docs | +3/-1 |
-| `AGENTS.md` | docs | +6/-1 |
-| `bridge.md` | docs | +81/-81 |
-| `codesmells.md` | docs | +356/-0 |
-| `dev/active/MASTER_PLAN.md` | tooling | +107/-0 |
-| `dev/active/ai_governance_platform.md` | tooling | +4/-2 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1176/-1177 |
-| `dev/guides/DEVELOPMENT.md` | docs | +13/-1 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +2/-2 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +59/-0 |
-| `dev/scripts/README.md` | tooling | +15/-2 |
+| `AGENTS.md` | docs | +9/-1 |
+| `bridge.md` | docs | +79/-79 |
+| `codesmells.md` | docs | +661/-0 |
+| `dev/active/MASTER_PLAN.md` | tooling | +126/-0 |
+| `dev/active/ai_governance_platform.md` | tooling | +28/-2 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1077/-1022 |
+| `dev/guides/DEVELOPMENT.md` | docs | +24/-1 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +19/-19 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +120/-0 |
+| `dev/scripts/README.md` | tooling | +23/-2 |
 | `dev/scripts/checks/check_checkpoint_budget_shape.py` | tooling | +11/-0 |
 | `dev/scripts/checks/multi_agent_sync/runtime_truth.py` | tooling | +98/-1 |
-| `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_instruction.py` | tooling | +172/-1 |
+| `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop.py` | tooling | +20/-3 |
+| `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_instruction.py` | tooling | +155/-0 |
 | `dev/scripts/checks/startup_authority_contract/checkpoint_budget_shape_command.py` | tooling | +79/-0 |
 | `dev/scripts/checks/startup_authority_contract/command.py` | tooling | +24/-2 |
 | `dev/scripts/checks/startup_authority_contract/runtime_checks.py` | tooling | +318/-9 |
+| `dev/scripts/devctl/cli.py` | tooling | +14/-1 |
+| `dev/scripts/devctl/cli_parser/agent_supervise.py` | tooling | +12/-0 |
 | `dev/scripts/devctl/cli_parser/artifact_suppression.py` | tooling | +0/-1 |
+| `dev/scripts/devctl/cli_parser/entrypoint.py` | tooling | +5/-0 |
 | `dev/scripts/devctl/commands/demo.py` | tooling | +43/-2 |
 | `dev/scripts/devctl/commands/development/command.py` | tooling | +12/-0 |
-| `dev/scripts/devctl/commands/development/continuation.py` | tooling | +72/-4 |
+| `dev/scripts/devctl/commands/development/continuation.py` | tooling | +107/-5 |
+| `dev/scripts/devctl/commands/development/final_response_gate.py` | tooling | +283/-13 |
 | `dev/scripts/devctl/commands/development/models.py` | tooling | +1/-0 |
-| `dev/scripts/devctl/commands/development/orchestration_models.py` | tooling | +4/-0 |
+| `dev/scripts/devctl/commands/development/next_slice_blockers.py` | tooling | +19/-0 |
+| `dev/scripts/devctl/commands/development/orchestration_agent_loop.py` | tooling | +21/-1 |
+| `dev/scripts/devctl/commands/development/orchestration_agent_loop_parse.py` | tooling | +34/-0 |
+| `dev/scripts/devctl/commands/development/orchestration_agent_loop_rows.py` | tooling | +40/-1 |
+| `dev/scripts/devctl/commands/development/orchestration_agent_supervise.py` | tooling | +118/-0 |
+| `dev/scripts/devctl/commands/development/orchestration_inputs.py` | tooling | +23/-1 |
+| `dev/scripts/devctl/commands/development/orchestration_models.py` | tooling | +17/-0 |
 | `dev/scripts/devctl/commands/development/packet_attention.py` | tooling | +18/-4 |
 | `dev/scripts/devctl/commands/development/packet_attention_commands.py` | tooling | +10/-4 |
 | `dev/scripts/devctl/commands/development/packet_attention_support.py` | tooling | +122/-0 |
-| `dev/scripts/devctl/commands/development/parser.py` | tooling | +47/-0 |
+| `dev/scripts/devctl/commands/development/parser.py` | tooling | +71/-0 |
 | `dev/scripts/devctl/commands/development/plan_intake_receipts.py` | tooling | +8/-0 |
 | `dev/scripts/devctl/commands/development/render.py` | tooling | +95/-0 |
-| `dev/scripts/devctl/commands/development/report.py` | tooling | +112/-13 |
-| `dev/scripts/devctl/commands/pipeline/status_action.py` | tooling | +13/-0 |
-| `dev/scripts/devctl/commands/reporting/claude_loop_compact.py` | tooling | +5/-0 |
-| `dev/scripts/devctl/commands/review_channel/_reviewer.py` | tooling | +120/-52 |
-| `dev/scripts/devctl/commands/review_channel/event_handler.py` | tooling | +27/-0 |
-| `dev/scripts/devctl/commands/review_channel/event_packet_transition_action.py` | tooling | +3/-0 |
-| `dev/scripts/devctl/commands/review_channel/event_post_action.py` | tooling | +67/-2 |
-| `dev/scripts/devctl/commands/review_channel/event_watch_support.py` | tooling | +6/-0 |
-| `dev/scripts/devctl/commands/review_channel/status_bridge_sync.py` | tooling | +4/-3 |
-| `dev/scripts/devctl/commands/review_channel_command/constants.py` | tooling | +0/-1 |
-| `dev/scripts/devctl/commands/review_channel_command/validation.py` | tooling | +17/-0 |
-| _167 more files trimmed_ | | |
+| _193 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -210,7 +210,7 @@ Recent findings:
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/bridge_projection_metadata.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/bridge_projection_state.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/review_channel/test_reviewer_follow_heartbeat_guard.py`) — Review contract-level invariants for this file
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/commands/development/orchestration_models.py`) — Commit 9249e17c changed dev/scripts/devctl/commands/development/orchestration_models.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/commands/development/orchestration_models.py`) — Commit 0352553b changed dev/scripts/devctl/commands/development/orchestration_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/runtime_identity_contract_rows.py`) — Commit 9249e17c changed dev/scripts/devctl/platform/runtime_identity_contract_rows.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/runtime_state_contract_rows.py`) — Commit 9249e17c changed dev/scripts/devctl/platform/runtime_state_contract_rows.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/review_channel/event_models.py`) — Commit 9249e17c changed dev/scripts/devctl/review_channel/event_models.py
@@ -241,11 +241,26 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`0352553b`** — Checkpoint MP377-P0-CHECKPOINT-AUTOMATION-S1 slice work (claude-mutation-lane handoff)
+  - Stages and commits codex's in-flight slice work that rev_pkt_3839 handed off to
+  - the claude mutation lane: CheckpointBudgetShape classifier wiring, agent-supervise
+  - driver consumer integration, AnchorScope + ReviewerResponseShape updates,
+  - evolution: Live MP-377 dogfood reproduced the operator symptom after the earlier continuation-anchor repairs: the final-response gate correctly denied a final response, but selected a peer startup-repair row whose `next_command` w…
+- **`0928a483`** — Stage agent_supervise import set + adapter wiring (recover from smell #058 layer-e)
+  - Stages the 4 untracked agent_supervise files (driver + parser adapter +
+  - orchestration consumer + test) plus the 3 modified files that wire them into
+  - cli.py / entrypoint.py / orchestration_inputs.py. Closes startup-authority
+  - evolution: Live MP-377 dogfood reproduced the operator symptom after the earlier continuation-anchor repairs: the final-response gate correctly denied a final response, but selected a peer startup-repair row whose `next_command` w…
+- **`28bcafdd`** — Refresh policy-owned generated surfaces for 87554eb9
+  - evolution: Live MP-377 dogfood reproduced the operator symptom after the earlier continuation-anchor repairs: the final-response gate correctly denied a final response, but selected a peer startup-repair row whose `next_command` w…
+- **`87554eb9`** — Refresh external review snapshot for 9249e17c
+  - evolution: Live MP-377 dogfood reproduced the operator symptom after the earlier continuation-anchor repairs: the final-response gate correctly denied a final response, but selected a peer startup-repair row whose `next_command` w…
 - **`9249e17c` | MPs: MP-377** — Land MP-377 typed governance work-in-progress (multi-slice)
   - Multi-slice landing of in-flight typed governance work. Closes
   - smell #058 layer-a (continuation_anchor cross-session bypass) via
   - paired anchor scope + body-observation oracle extended to all 3
   - plan: `dev/active/ai_governance_platform.md`
+  - evolution: Live MP-377 dogfood reproduced the operator symptom after the earlier continuation-anchor repairs: the final-response gate correctly denied a final response, but selected a peer startup-repair row whose `next_command` w…
 - **`771a7fa5`** — Refresh external review snapshot for 73417c6a
   - evolution: Live MP-377 dogfood exposed a second half of the TASK_COMPLETE continuation gap: `TaskCompleteDecision` could reject termination for an active `continuation_anchor`, but the review-channel post path still stamped the ge…
 - **`73417c6a`** — Stop push preflight projection receipt loops
@@ -283,14 +298,6 @@ Recent findings:
 - **`c1d6f59f`** — Refresh external review snapshot for 35002759
   - evolution: Live MP-377 dogfood exposed a second half of the TASK_COMPLETE continuation gap: `TaskCompleteDecision` could reject termination for an active `continuation_anchor`, but the review-channel post path still stamped the ge…
 - **`35002759`** — Fix review-channel declared mode authority
-  - evolution: Live MP-377 dogfood exposed a second half of the TASK_COMPLETE continuation gap: `TaskCompleteDecision` could reject termination for an active `continuation_anchor`, but the review-channel post path still stamped the ge…
-- **`9318cfd0`** — Refresh external review snapshot for d555dc0f
-  - evolution: Live MP-377 dogfood exposed a second half of the TASK_COMPLETE continuation gap: `TaskCompleteDecision` could reject termination for an active `continuation_anchor`, but the review-channel post path still stamped the ge…
-- **`d555dc0f`** — Refresh external review snapshot for df64f077
-  - evolution: Live MP-377 dogfood exposed a second half of the TASK_COMPLETE continuation gap: `TaskCompleteDecision` could reject termination for an active `continuation_anchor`, but the review-channel post path still stamped the ge…
-- **`df64f077`** — Keep communication-only packets out of instruction authority
-  - evolution: Live MP-377 dogfood exposed a second half of the TASK_COMPLETE continuation gap: `TaskCompleteDecision` could reject termination for an active `continuation_anchor`, but the review-channel post path still stamped the ge…
-- **`f14b9338`** — Refresh external review snapshot for 827ffafb
   - evolution: Live MP-377 dogfood exposed a second half of the TASK_COMPLETE continuation gap: `TaskCompleteDecision` could reject termination for an active `continuation_anchor`, but the review-channel post path still stamped the ge…
 ### Active MP scope (from MASTER_PLAN.md)
 
@@ -330,4 +337,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-3adf4e57ec61` binds this file to HEAD `9249e17cc896`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-46f883f364be` binds this file to HEAD `0352553be2ec`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
