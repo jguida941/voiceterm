@@ -87,6 +87,9 @@ from dev.scripts.devctl.review_channel.packet_contract import (
 from dev.scripts.devctl.review_channel.pending_packet_models import (
     PacketGuardBundleEvidenceFields,
 )
+from dev.scripts.devctl.review_channel.remote_commit_pipeline_artifact import (
+    persist_remote_commit_pipeline_contract,
+)
 from dev.scripts.devctl.review_channel.pending_packets import load_pending_packet_queue
 from dev.scripts.devctl.review_channel.remote_control_attachment_artifact import (
     persist_remote_control_attachment,
@@ -1600,6 +1603,27 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             self.assertEqual(pipeline.state, "commit_recorded")
             self.assertIn("tracked.txt", pipeline.intent.staged_paths)
             self.assertTrue(pipeline.commit_sha)
+
+    def test_load_pipeline_uses_in_memory_pipeline_after_projection_refresh(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            executor = _executor(repo_root)
+            pipeline = RemoteCommitPipelineContract(
+                pipeline_id="pipeline-123",
+                state="approved",
+            )
+
+            executor._persist_pipeline(pipeline)
+            persist_remote_commit_pipeline_contract(
+                RemoteCommitPipelineContract(),
+                output_root=executor.projections_root,
+            )
+
+            loaded = executor.load_pipeline()
+            self.assertEqual(loaded.pipeline_id, "pipeline-123")
+            self.assertEqual(loaded.state, "approved")
 
     def test_commit_retries_receipt_only_index_by_staging_dirty_work(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

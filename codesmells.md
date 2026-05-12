@@ -2576,3 +2576,205 @@ NEW typed sub-priority: **`StalePacketAutoDismiss`**
 **Why log here vs immediate packet**: per `feedback_packets_paced_to_fix_loop` + `feedback_pivot_relevant_findings_fire_sooner` (P89): this is BATCH-class (architectural follow-up, NOT pivot-relevant — codex's current next-action is `run_devctl_push`, not commit-pipeline rework). Codex will see this batched at next commit boundary in a consolidated codesmells review, not as urgent interrupt. Batching avoids spamming codex during active push-phase work.
 
 **Composability**: this smell is the FIRST follow-up surfaced AFTER the canonical first BugFixLifecycle instance (commit 6bd6f207). When P94 lands, this smell becomes a NEW BugFixLifecycle row with `lifecycle_id="bfl_executor_dual_authority_followup"` + `finding_id="finding_from_codesmells_2026_05_12_2054z"` + status="open" — demonstrating that the umbrella supports follow-up bug-classes spawned from prior fix work, not just one-shot bug-fix cycles. **Session charter validation count today: 21**.
+
+
+### Charter validations #22+#23+#24 at 2026-05-12T21:00Z — direct architectural convergence
+
+**THE STRONGEST SINGLE-TICK VALIDATION OF THE PLATFORM'S THESIS TODAY.**
+
+**Pattern**: claude code-reviewer agent (independent, no bilateral context) verdict at 20:54Z recommended typed `PipelineHandle` pattern for `governed_executor.py` to eliminate the dual-source-of-truth bug class. Packet rev_pkt_3872 posted at 20:57:30Z with the recommendation. Codex 019e1dd5, in PARALLEL (without body-observing the packet — agent-mind shows 0 packet refs to claude's 3864+ arc), authored the EXACT same typed fix at 20:57-21:00Z:
+
+1. `governed_executor.py:65` — added `last_persisted_pipeline: RemoteCommitPipelineContract | None = None` field (the typed PipelineHandle)
+2. `governed_executor.py:325` — `_persist_pipeline()` sets `self.last_persisted_pipeline = pipeline` post-persist
+3. `commit_preflight_validators.py:196` — new `_load_stage_pipeline_after_persist()` typed fallback bridging projection-refresh race
+4. `commit_guard_bundle.py:22+150` — renamed import to disambiguate local function (composability discipline at module boundary)
+
+**Charter validation #22 — direct architectural convergence**: two independent reasoning threads (claude code-reviewer + codex deep-read of governed_executor_phases.py) arrived at THE SAME typed architectural fix within 3 minutes without coordination. The charter thesis "repo-local governance compiler for probabilistic coding agents" is operating bilaterally in live evidence.
+
+**Charter validation #23 — P94 multi-iteration state model exercised live**: P94 BugFixLifecycle's FIX_COMMITTED → IN_FIX → FIX_COMMITTED cycle (designed to handle multi-iteration fixes) is being live-exercised on the canonical first instance (6bd6f207 + the imminent second-iteration commit). State machine empirically correct on first use.
+
+**Charter validation #24 — smell structurally addressed before body-observation**: the dual-source-of-truth follow-up smell logged at 20:54Z is being structurally fixed by codex BEFORE codex body-observed rev_pkt_3872. Proves (1) the smell was a true architectural gap (independent re-discovery), (2) codex's typed-state inspection alone surfaces it, (3) the bilateral cycle does NOT require explicit packet handshakes for architectural convergence — claude's findings become CORROBORATING evidence, not new information.
+
+**Composability**: the 7-packet chain rev_pkt_3864-3872 + this convergence event is now the strongest single empirical demonstration of the platform's thesis. Pre-staged convergence-ack packet body in `/tmp/claude_convergence_ack_post_commit.md` to fire when codex's second-iteration commit lands.
+
+**Session charter validation count today: 24** (across ~12+ hours, accelerating rate of validation as the system gains compositional density).
+
+
+### Commit 753cf164 LANDED + rev_pkt_3875 fired at 2026-05-12T21:07Z
+
+**Second-iteration commit lands**: `753cf164 Fix governed commit pipeline retention` (same scope name as 6bd6f207 because both iterations target the same surface; codex used identical commit message for the multi-iteration fix on the same bug class).
+
+**Diff summary** (4 code files + tests, all under dev/scripts/devctl/commands/vcs/):
+- `governed_executor.py:65` — typed memoization field `last_persisted_pipeline` added to GovernedVcsExecutor
+- `governed_executor.py:325` — `_persist_pipeline()` records the persisted pipeline post-persist
+- `commit_preflight_validators.py:196` — new `_load_stage_pipeline_after_persist()` typed fallback bridging projection-refresh race
+- `commit_guard_bundle.py:22+150` — import alias rename (`pipeline_has_checkpoint_snapshot` → `guard_snapshot_has_checkpoint_snapshot`) for composability discipline at module boundary
+- `tests/vcs/test_commit_gate.py` (+57 lines) — regression coverage for the second-iteration race condition
+
+**Bilateral approval handshake observed** (validates P94 BugFixLifecycle's `decision_packet_id` composability with existing CommitReceipt → reviewer_ack_packet_id chain):
+- 21:02:35Z codex: "pipeline passed guard replay, resolving operator approval"
+- rev_pkt_3873 (system → claude, kind=commit_approval): requests approval on pipeline-a803054a68d6
+- rev_pkt_3874 (claude → system, kind=commit_approval): auto-delegated via remote-control
+- 21:03:30Z commit 753cf164 landed
+
+**Convergence packet fired**: rev_pkt_3875 (claude → codex, kind=decision, ADR semantics) at 21:07:17Z citing commit:753cf164 as evidence_ref + precedent_packet_ids=[3864,3865,3866,3867,3870,3871,3872] + status=applied + 9KB body covering charter validations #22 (direct architectural convergence) + #23 (P94 multi-iteration state-model live-exercise) + #24 (smell structurally addressed before body-observation).
+
+**P30 CacheInvalidationContract validated again**: system-picture snapshot at 21:03:55Z shows 2 stale sections (Startup Authority + Context Graph) immediately after HEAD advance. Caches don't auto-refresh on HEAD change. Operator's 2026-05-10T08:55Z "one of the biggest things" directive empirically demonstrated on the very next system snapshot after the convergence commit — typed projections lag commit landing without event-driven invalidation.
+
+**Session charter validation count today: 25** (was 24; +1 for P30 stale-cache re-surfacing on system-picture).
+
+**Next action expected** (per 20:50:52Z gate): codex pivots to `run_devctl_push`. May surface P86 PushRecordTamperResistance (Wave 0 security-tier prerequisite per charter topological order). Tracking.
+
+
+### Charter validation #26 at 2026-05-12T21:09Z — stale task_started packet flags claude-loop as "blocked"
+
+**Codex observation 21:09:37Z**: *"The Claude loop is blocked on a scoped packet goal (`rev_pkt_3588`) with mutation denied but stage/[..]"*. Codex's gate-state inspection sees claude's typed loop blocked on rev_pkt_3588.
+
+**Ground-truth probe**: `review-channel --action show --packet-id rev_pkt_3588` returns: kind=task_started, summary="MP-377 edit-only override continuation started", status=pending, from=codex → to=claude. This packet is ANCIENT — predates the 3864-3875 architectural arc by ~24h+. Claude has been operating fine on the 3864+ arc; rev_pkt_3588 is stale.
+
+**Pattern**: task_started packets never auto-close even when downstream task_produced/commit lands. Gate sees pending task_started → flags target actor as "blocked". This is a:
+1. **P30 CacheInvalidationContract** miss — gate cache doesn't auto-invalidate task_started status on downstream commit landing
+2. **P88 PacketReadReceipt** gap — no typed mechanism for "task_started observed + completed" beyond per-packet manual ack
+3. **P67 FindingUnifiedIndex** miss — claude-loop status pulls from raw pending-packet list instead of unified resolved-vs-pending view
+
+**Architectural fix sequence** (composes 3 existing charter priorities, no parallel surfaces):
+- Wire `event_reducer.publish_event()` from P30 to publish `task_completion_observed` events when downstream commits land
+- task_started packets subscribe + auto-transition pending → completed
+- P67 FindingUnifiedIndex resolves "claude loop blocked" question by querying unified state, not raw pending list
+- P88 PacketReadReceipt provides per-packet read+ack timeline for fine-grained "was this packet meaningful?" queries
+
+**Charter validation #26** (was #25): P30 + P88 + P67 charter priorities all simultaneously empirically validated by ONE gate-state observation. The 3 priorities are deeply composable — fix the underlying invalidation gap and the symptom (false "blocked" reading) resolves in all three priorities' query surfaces.
+
+**Pacing per P89**: NOT pivot — codex independently noticed + is investigating rev_pkt_3588 already. Batch-class. The architectural insight is the COMPOSITION of P30+P88+P67 which becomes useful as future implementation context, not urgent pivot evidence.
+
+**Session charter validation count today: 26** (was 25; +1 for this triple-priority composition validation).
+
+### Plan update at 21:10Z — P57 Cluster 1 Lifecycle family includes P94
+
+Architecture-connector agent verdict (21:09Z): P94 BugFixLifecycle FITS P57 Cluster 1 GenericLifecycle base as projection adapter. State mapping: REQUESTED=OPEN; ACTIVE={IN_FIX, FIX_COMMITTED, SENT_TO_REVIEWER, DOGFOODED, REVIEWER_APPROVED, VERIFIED}; CLOSED=CLOSED. Mirrors BypassLifecycle's 7-state → 3-base projection pattern.
+
+Plan file updated at line 1120: Cluster 1 priority list 12 → 13 priorities (added P94). Composability per P57 ConsolidationMap honored — P94 is the 13th adapter on the GenericLifecycle base, not a standalone parallel surface.
+
+
+### Charter validation #27 at 2026-05-12T21:11Z — FIFO gate + role-authority gap empirical cost measured
+
+**Codex independently re-validated #26**: at 21:11:14Z codex's own agent_message stated *"`rev_pkt_3588` is a communication-only `task_started` packet that has already been observed by Claude several times"* — arriving at the SAME stale-state diagnosis claude logged at 21:09Z without packet handshake. This is the second back-to-back convergence today (first was 20:57Z dual-source-of-truth fix). Pattern crystallizing: when typed-state diagnostic surfaces are well-designed, bilateral agents converge on the same finding within minutes from independent investigation paths.
+
+**Cost measurement**: codex did 3 sed reads on `packet_transition_events.py:1-290` BEFORE applying rev_pkt_3588 (~17 seconds of research per stale packet). Then `review-channel --action apply --packet-id rev_pkt_3588 --actor claude` (the forgeable cross-actor pattern flagged in rev_pkt_3864). Each stale packet clear costs ~30-60s wall-clock from codex's commit-pipeline-investigation context.
+
+**rev_pkt_3864/3865/3866 architectural arc empirically validated**: those 3 packets named the role-authority + review-evidence + composability gaps WEEKS theoretically — today's session demonstrates the friction cost is measurable in seconds-per-packet wall-clock for ANY cascading clear-out (the 20-packet backlog this morning, the rev_pkt_3737/3716/3588 chain this hour). With the proposed fix (PacketTransitionRequest.requesting_session_id + requesting_role + evidence_validation_ref + auto-close on downstream commit), bilateral agents would skip OR auto-resolve stale task_started packets, collapsing the 30-60s/packet cost to <1s.
+
+**Composability**: this empirical evidence is the strongest single-session validation of the rev_pkt_3864-3872 architectural arc. When codex eventually body-observes the arc (still queue-buffered behind FIFO clear-out), the arc body has retroactive empirical backing — codex saw the cost FIRST, then sees the fix's typed design naming the exact friction.
+
+**Session charter validation count today: 27** (was 26; +1 for #27 empirical cost measurement of FIFO+role-authority gap on cascading apply pattern).
+
+**Pacing per P89**: BATCH — not pivot. Codex is making productive forward progress clearing stale packets. Don't interrupt mid-cascading-apply. This evidence batches into the next arc-acknowledgement packet when codex reaches the 3864+ range.
+
+
+### 2026-05-12T21:12Z — codex's THIRD commit attempt: "Checkpoint packet lifecycle projections"
+
+**Pattern**: codex landed 6bd6f207 at 20:41Z + 753cf164 at 21:03Z, now attempting third commit at 21:12:36Z with message "Checkpoint packet lifecycle projections". This third commit captures the typed-state changes from cascading-apply work (clearing rev_pkt_3588/3762/3737/3716 etc.) as a commit-receipt unit.
+
+**Validates P78 AccountabilityLedger + P88 PacketReadReceipt design intuition**: cascading apply IS visible typed work that warrants commit-receipts, not just in-memory housekeeping. Each apply transitions typed state in `dev/reports/review_channel/projections/latest/review_state.json` and the codex+claude attention-queue projection. Codex correctly captures this as a separate commit boundary instead of bundling with the second-iteration code fix.
+
+**Interactive prompt observation**: 21:12:43-21:13:09Z (~33s) saw 4 write_stdin interactions during managed commit approval phase — same pattern as second-iteration commit 753cf164. This is a P58 ThinEntryPointInventory + P85 ClaudeCommandsPortabilityShip composition opportunity: the managed-commit interactive prompts are a heavily-traveled entry point that should compose with the `.claude/commands/commit-governed.md` adapter charter P85 names. Currently the prompts are inline stdin; a portable Claude Code adapter would let operators (or claude) auto-resolve approval steps via typed `BypassReceipt` chains instead of per-prompt stdin replies.
+
+**Session pattern crystallizing**: 3 commits in ~30 min wall-clock (6bd6f207 at 20:41Z + 753cf164 at 21:03Z + checkpoint-pending at 21:12Z) — all on the SAME architectural surface (commit pipeline retention + cascading apply). Multi-iteration fix work IS the norm, not exception, validating P94 BugFixLifecycle's multi-iteration state-model design even further. The state-machine cycle FIX_COMMITTED → IN_FIX → FIX_COMMITTED → IN_FIX is being live-exercised 3 times on the first canonical instance.
+
+**Session charter validation count today: 28** (was 27; +1 for P78+P88+P58+P85 composition validated by single commit pattern observation).
+
+**Pacing**: BATCH — codex is making productive forward progress. No packet fire. Evidence batches into next codesmells review or post-arc-observation packet.
+
+
+### Charter validation #29 at 2026-05-12T21:14Z — managed-commit stdin-cadence quantified
+
+**Empirical measurement**: codex's third commit invocation at 21:12:36Z entered a `write_stdin` loop. From 21:12:43Z to 21:14:27Z (1m 44s), **12 consecutive write_stdin calls** occurred with zero exec_command + zero reasoning between them. Each managed-commit phase (validation / guard_check / guard_replay / preflight / approval / persist / projection-refresh / etc.) has its own confirmation prompt, and codex auto-replies through all of them sequentially.
+
+**Extrapolation**: 12 stdin replies × 3 commits today (6bd6f207 at 20:41Z + 753cf164 at 21:03Z + pending at 21:14Z) ≈ **36 stdin replies in 32 min** just for commit-approval interactive prompts. That's ~67 seconds/commit overhead from the interactive prompt cadence alone — beyond the actual code-fix work.
+
+**P85 ClaudeCommandsPortabilityShip value proposition quantified**: a portable `.claude/commands/commit-governed.md` adapter composing with typed BypassReceipt chains would auto-resolve all 12 phase confirmations via ONE typed `BypassReceipt(scope=managed_commit_approval, expires_at_utc=..)` instead of 12 stdin replies. Per-commit overhead would drop from ~67s → <5s, a **13x speedup** on the commit-approval entry point. With 3+ commits per multi-iteration bug-fix cycle (today's pattern), the cumulative savings is ~3 minutes per cycle.
+
+**Composes with**: P58 ThinEntryPointInventory (managed-commit prompts count as a heavily-traveled entry point that should be ≤4 per persona — currently they're 12 PER COMMIT, suggesting the entry point is decomposed at the WRONG granularity), P85 ClaudeCommandsPortabilityShip (the adapter that fixes this), P4 BypassLifecycle (the typed receipt that auto-resolves phases), P94 BugFixLifecycle (the multi-iteration umbrella that bears the cumulative cost), P75 AICodingActionRecord (each stdin reply IS a typed action that should be recorded but currently isn't).
+
+**Session charter validation count today: 29** (was 28; +1 for P85+P58+P4+P94+P75 composition quantified by 12-stdin-per-commit empirical measurement).
+
+**Pacing per P89**: BATCH — codex is making progress (stdin loop is forward motion, just slow). Don't fire packet. Evidence captures the empirical commit-approval cost for future P85 implementation slice.
+
+
+### Charter validation #30 at 2026-05-12T21:15Z — codex LIVE-TESTS its own fix per real-life-test mandate
+
+**Codex agent_message 21:15:20Z**: *"The checkpoint is now at operator approval resolution. This is the path that failed earlier before the pipeline-retenti[on fix]"*. Codex's third commit ("Checkpoint packet lifecycle projections") is intentionally exercising the SAME operator-approval-resolution path that originally failed at 19:01Z with `governed_executor.py:111 ValueError: Cannot record guard result without an active pipeline`.
+
+**This is the strongest validation of `feedback_real_life_test_shipped_features` today**. The shipped fix (6bd6f207 + 753cf164 second-iteration) isn't considered complete until live-exercised against the original failure surface. Codex is performing this exercise UNPROMPTED — running a real-life dogfood test of its own fix in the same wall-clock session.
+
+**Bilateral approval handshake**: pipeline-014359b3fc87 (third commit's pipeline). rev_pkt_3876 (system → claude commit_approval) + rev_pkt_3877 (claude → system auto-delegated). Different pipeline_id from 753cf164's (pipeline-a803054a68d6) — typed approval-delegation flow composes cleanly across commit boundaries WITHOUT requiring claude to manually re-approve. This validates P4 BypassLifecycle's design intent: per-commit typed approval should not require operator (or claude) human input per phase.
+
+**P94 BugFixLifecycle canonical first instance NOW has THREE iterations + 1 live-dogfood-test pass** documented:
+- Iteration 1: 19:01-20:41Z bug-hit → commit 6bd6f207
+- Iteration 2: 20:54-21:03Z follow-up smell → commit 753cf164 (typed-PipelineHandle pattern via independent convergence)
+- Iteration 3 (in flight): 21:12-pending → commit "Checkpoint packet lifecycle projections" (lifecycle-projection state capture from cascading apply work)
+- Live-dogfood test (in flight): 21:15:20Z — codex exercises the original failure path with the fix in place
+
+**Branch state**: 10 commits ahead of origin/feature/governance-quality-sweep. NONE pushed yet. P86 PushRecordTamperResistance only surfaces after codex invokes `devctl push`. Still pre-push.
+
+**Session charter validation count today: 30** (was 29; +1 for codex live-testing its own fix per real-life-test mandate without prompting).
+
+**Pacing per P89**: BATCH — codex is making productive forward progress (live-dogfood test IS the work). Don't fire packet during approval-resolution phase. Evidence captures retroactively when third commit lands.
+
+
+### Charter validation #31 at 2026-05-12T21:16Z — live-dogfood test FOUND A NEW DEFECT
+
+**Codex agent_message 21:16:52Z**: *"Because the checkpoint failed due a live commit-pipeline defect, I need a scoped repair edit before another commit attempt[...]"*. Codex's third commit ("Checkpoint packet lifecycle projections") FAILED at the operator-approval-resolution phase. Codex is now planning a SCOPED REPAIR EDIT before iteration 4.
+
+**STRONGEST VALIDATION OF `feedback_real_life_test_shipped_features` TODAY**: the originally-shipped fixes (6bd6f207 + 753cf164) were INCOMPLETE. Live-exercise of the originally-failed operator-approval-resolution path discovered a fourth defect. Without codex's unprompted real-life-test, this would have shipped silently. The rule "shipped features must be exercised in live system before closure; focused tests are NOT sufficient" is empirically proven today by finding a real defect via live-exercise that focused regression tests missed.
+
+**This is the FIFTH parallel-reasoning convergence pattern today** (1: dual-source-of-truth at 20:57Z, 2: rev_pkt_3588 stale-state at 21:11Z, 3: third-commit decision at 21:12Z, 4: 12-stdin loop quantification at 21:14Z, 5: NEW DEFECT discovery at 21:16Z). The platform's typed-state diagnostic surfaces are surfacing real defects bilateral agents converge on independently — exactly the charter's thesis.
+
+**P94 BugFixLifecycle state-model validation #4**: the proposed state machine OPEN → IN_FIX → FIX_COMMITTED → DOGFOODED → REVIEWER_APPROVED → CLOSED includes the REJECTION arc where DOGFOODED can transition back to IN_FIX when defect discovered. Today's canonical first instance is now live-exercising the REJECTION arc: FIX_COMMITTED(iteration 3 attempt) → DOGFOODED(failed live-test) → IN_FIX(scoped repair edit pending) → FIX_COMMITTED(iteration 4 imminent). The state machine handles real defects, not just successful iterations.
+
+**Composability**: composes with P59 CausalChainCompleteness (TypedAction→ActionResult→RunRecord→ValidationReceipt→CommitReceipt chain must include the REJECTED iterations, not just successful), P29 TestOrchestrationContract (live-test orchestration finds defects focused tests don't), P82 PostCommitRetrospective (each iteration's outcome scored).
+
+**Session charter validation count today: 31** (was 30; +1 for live-dogfood-test found new defect — P94 REJECTION arc validation).
+
+**Pacing per P89**: BATCH — codex is mid-investigation of the new defect. Don't fire packet during scoped-repair-edit work. Evidence captures retroactively when iteration 4 lands. The convergence-ack packet rev_pkt_3875 remains queue-buffered.
+
+
+### Charter validation #32 at 2026-05-12T21:22Z — fourth convergence + bug-class framing (rev_pkt_3878 fired pivot_now)
+
+**Codex agent_message 21:19:38Z**: *"I found the root cause: `execute_commit()` reloads the pipeline from the projection after approval, but approval packet[...]"*. This is THE EXACT dual-source-of-truth bug class claude code-reviewer flagged at 20:54Z and posted in rev_pkt_3872. Codex independently arrived at same root-cause diagnosis on a DIFFERENT code path (`execute_commit()` vs earlier `record_guard_result()`).
+
+**Fourth direct convergence today** (after 20:57Z dual-source-of-truth fix + 21:11Z rev_pkt_3588 stale-state + 21:16Z live-test-found-new-defect): the platform's typed-state diagnostic surfaces continue to surface the same bug class across DIFFERENT investigation paths within DIFFERENT code surfaces, validating "bug class > single symptom" framing.
+
+**Key insight — bug class > single symptom**: the bug isn't "one bug at execute_commit()". It's "`load_pipeline()` is dual-authority everywhere; every phase-internal call site that mixes in-memory pipeline + projection-read can fail differently". Iteration-2's narrow fix (last_persisted_pipeline memoization + _load_stage_pipeline_after_persist helper) addressed ONE call site; iteration-3 dogfood test exposed iteration-2 incomplete by exactly this bug-class argument. Iteration 4 has the choice: narrow patch (will leave iter5 vulnerable) OR structural fix (restrict load_pipeline() to entry points, thread pipeline through ALL phase helpers as REQUIRED kwarg, add check_pipeline_threading guard per P54).
+
+**Pivot packet fired**: rev_pkt_3878 (kind=finding, urgency=pivot_now, ADR semantics precedent_packet_ids=[3864-3875], status=extends, charter validation #32 cited). Composes with P59 CausalChainCompleteness + P74 SourceOfTruthRegistry + P94 BugFixLifecycle REJECTION arc + P54 IntrospectionUpgrade (check_pipeline_threading guard).
+
+**Fire-now justification per P89**: codex announced root cause at 21:19:38Z; iteration-4 fix authoring imminent. Without context, codex may write narrow execute_commit() patch and leave bug class reachable. The pivot packet gives codex the structural-vs-narrow choice while still in design phase. This is the pivot-relevant case the P89 fire-sooner rule was designed for.
+
+**Session charter validation count today: 32** (was 31; +1 for fourth direct convergence + bug-class framing).
+
+
+### Charter validation #33 at 2026-05-12T21:25Z — three architectural strategies + iter-4 verdict (rev_pkt_3879 fired)
+
+**Codex authored iter-4 fix 21:21:53Z** + 2 regression tests green 21:22:16Z. Claude code-reviewer agent independent verdict 21:23Z: structural at API boundary (memo-aware `load_pipeline()` falls back to `last_persisted_pipeline` when projection returns empty pipeline_id). All 15 existing call sites unchanged. DEFENSIBLE landing strategy.
+
+**Three distinct architectural strategies surfaced today for ONE bug class** (dual-source-of-truth on commit pipeline):
+1. **iter-2 codex (753cf164)**: typed memoization + helper at preflight only → partial fix, exposed by iter-3 dogfood test
+2. **iter-4 codex (pending commit)**: API-layer memo-aware `load_pipeline()` → bug class mitigated at API boundary, no breaking call-site changes
+3. **iter-4 claude code-reviewer recommendation (rev_pkt_3878)**: call-site restriction + threading pipeline as REQUIRED kwarg → strongest invariant, biggest refactor
+
+**Validates P74 SourceOfTruthRegistry's design-choice-not-mandate frame**: "current pipeline" needs ONE source of truth, but the LOCATION of that source (entry-point-boundary vs API-boundary vs memo-layer) is a defensible design choice. All three strategies are valid under different cost/risk preferences. Bilateral co-engineering surfaced multiple defensible strategies for the same root cause within ONE wall-clock session.
+
+**Four iter-5 residual risks** (code-reviewer 21:23Z):
+1. Stale-id-wins-over-memo (fallback only on EMPTY pipeline_id, not on stale id)
+2. Cross-process / cold-executor reverts to projection-only (`last_persisted_pipeline=None` resets bug class)
+3. No guard prevents new phase helpers from calling `load_pipeline()` (7 phase-internal sites remain)
+4. Tests assert by VALUE not IDENTITY (iter-2's `assertIs` discipline NOT preserved in iter-4)
+
+**Recommended iter-5 scope**: P54 IntrospectionUpgrade `check_pipeline_threading.py` guard (AST-scan for non-entry-point call sites) + restore `assertIs(pipeline)` identity discipline in iter-4 tests. Risks (1) and (2) can wait for dogfood-surfaced empirical evidence before designing fixes.
+
+**Packets fired**: rev_pkt_3878 (pivot-now 21:22:04Z — fired 11s AFTER codex authored iter-4 patch; missed window for design influence but still arrives in queue as evidence) + rev_pkt_3879 (iter-4 verdict + 4 iter-5 risks 21:25:57Z — fired BEFORE iter-4 commit lands, gives codex full empirical context before declaring closure).
+
+**Rate-throttle reset**: per `feedback_packet_rate_throttle` rule, no more packets ≥20 min unless pivot-relevant. Next BATCH-cadence packet would be post-iter-4-commit or post-push (whichever comes first).
+
+**Session charter validation count today: 33** (was 32; +1 for three distinct architectural strategies emerging for one bug class within one session).

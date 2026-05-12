@@ -34,6 +34,9 @@ from dev.scripts.devctl.commands.vcs.governed_executor_packets import (
 from dev.scripts.devctl.commands.vcs.governed_executor_phases import (
     _attention_revision_block,
 )
+from dev.scripts.devctl.commands.vcs.governed_executor_sync import (
+    sync_pipeline_approval,
+)
 from dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime import (
     StartupContextRefreshResult,
     refresh_and_recheck_attention_revision,
@@ -56,6 +59,9 @@ from dev.scripts.devctl.review_channel.packet_contract import (
 )
 from dev.scripts.devctl.review_channel.packet_attestation import (
     PacketGuardAttestation,
+)
+from dev.scripts.devctl.review_channel.remote_commit_pipeline_artifact import (
+    persist_remote_commit_pipeline_contract,
 )
 from dev.scripts.devctl.runtime import ActionResult
 from dev.scripts.devctl.runtime.action_contracts import (
@@ -2649,6 +2655,96 @@ def test_commit_does_not_refresh_review_projections_after_approval(
                 pipeline_id=pipeline.pipeline_id,
             )
         )
+
+    committed_pipeline = executor.load_pipeline()
+    assert commit_result.ok is True
+    assert committed_pipeline.state == "commit_recorded"
+    assert committed_pipeline.push_authorization is not None
+
+
+def test_commit_uses_in_memory_pipeline_after_approval_projection_refresh(
+    tmp_path: Path,
+) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+    executor = _executor(repo_root)
+
+    executor.execute(
+        build_stage_action(
+            repo_pack_id="test-pack",
+            paths=("tracked.txt",),
+            commit_message_draft="feat: survive approval projection refresh",
+            push_requested=True,
+            guard_profile="bundle.tooling",
+            work_intake_ref="MP-377",
+        )
+    )
+    executor.record_guard_result(_passing_guard_result())
+    pipeline = executor.load_pipeline()
+    artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+    post_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=build_commit_approval_request(pipeline),
+    )
+    _, decision_event = post_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=PacketPostRequest(
+            from_agent="operator",
+            to_agent="system",
+            kind=APPROVAL_PACKET_KIND,
+            summary="Approve governed commit pipeline",
+            body="Operator approved the guarded staged snapshot.",
+            requested_action="approve_commit_pipeline",
+            policy_hint="operator_approval_required",
+            approval_required=False,
+            trace_id=pipeline.pipeline_id,
+            target=PacketTargetFields.from_values(
+                target_kind="runtime",
+                target_ref=f"remote_commit_pipeline:{pipeline.pipeline_id}",
+                target_revision=pipeline.generation_id,
+            ),
+            runtime_approval=PacketRuntimeApprovalFields.from_values(
+                pipeline_generation=pipeline.generation_id,
+                staged_snapshot_hash=pipeline.intent.staged_tree_hash,
+                guard_results_summary='{"action_id": "quality.guard_bundle", "reason": "", "status": "pass"}',
+            ),
+        ),
+    )
+    transition_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=PacketTransitionRequest(
+            action="apply",
+            packet_id=str(decision_event["packet_id"]),
+            actor="operator",
+            guard_attestation=_approval_attestation(
+                decision_event["packet_id"],
+                pipeline,
+            ),
+        ),
+    )
+    approved = sync_pipeline_approval(
+        pipeline,
+        executor._event_packets(),
+        approval_packet_kind=APPROVAL_PACKET_KIND,
+    )
+    executor._persist_pipeline(approved)
+    persist_remote_commit_pipeline_contract(
+        RemoteCommitPipelineContract(),
+        output_root=executor.projections_root,
+    )
+
+    commit_result = executor.execute(
+        build_commit_action(
+            repo_pack_id="test-pack",
+            pipeline_id=approved.pipeline_id,
+        )
+    )
 
     committed_pipeline = executor.load_pipeline()
     assert commit_result.ok is True

@@ -9,9 +9,6 @@ from typing import Any
 from ...config import REPO_ROOT
 from ...repo_packs import active_path_config
 from ...review_channel.event_store import resolve_artifact_paths
-from ...review_channel.remote_commit_pipeline_artifact import (
-    load_remote_commit_pipeline_contract,
-)
 from ...runtime import ActionResult, TypedAction
 from ...runtime.action_contracts import (
     ActionOutcome,
@@ -39,11 +36,14 @@ from .governed_executor_commit_phase import CommitPipelineContext, execute_commi
 from .governed_executor_field_access import string_value
 from .governed_executor_git import repo_relpath
 from .governed_executor_packets import build_commit_approval_request
+from .governed_executor_pipeline_memory import (
+    load_pipeline_with_memory,
+    persist_pipeline_contract_only_for_executor,
+)
 from .governed_executor_phases import execute_stage
 from .governed_executor_sync import (
     load_event_packets,
     persist_pipeline,
-    persist_pipeline_contract_only,
     sync_pipeline_push_authorization,
 )
 from .governed_executor_validation import build_validation_receipt
@@ -78,7 +78,10 @@ class GovernedVcsExecutor:
         return Path(resolve_artifact_paths(repo_root=self.repo_root).projections_root)
 
     def load_pipeline(self) -> RemoteCommitPipelineContract:
-        return load_remote_commit_pipeline_contract(output_root=self.projections_root)
+        return load_pipeline_with_memory(
+            output_root=self.projections_root,
+            fallback=self.last_persisted_pipeline,
+        )
 
     def execute(self, action: TypedAction) -> ActionResult:
         if action.action_id == STAGE_ACTION_ID:
@@ -172,12 +175,7 @@ class GovernedVcsExecutor:
                 review_channel_path=self.review_channel_path,
                 load_pipeline=self.load_pipeline,
                 persist_pipeline=self._persist_pipeline,
-                persist_pipeline_contract_only=lambda pipeline: persist_pipeline_contract_only(
-                    pipeline,
-                    projections_root=self.projections_root,
-                    repo_root=self.repo_root,
-                )
-                or [],
+                persist_pipeline_contract_only=lambda pipeline: persist_pipeline_contract_only_for_executor(self, pipeline),
                 event_packets_loader=self._event_packets,
                 pipeline_artifact_relpath=self._pipeline_artifact_relpath(),
                 result_builder=self._result,
