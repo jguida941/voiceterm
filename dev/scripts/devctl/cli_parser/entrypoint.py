@@ -101,6 +101,7 @@ from ..commands.governance import (
     simple_lanes,
     startup_context as governance_startup_context,
 )
+from ..commands.runtime import agent_supervise
 from ..commands.reporting import claude_loop, dogfood, findings_priority, progress_status
 from ..commands.vcs import commit as vcs_commit, push
 from ..config import (
@@ -153,6 +154,7 @@ from ..triage.loop_parser import add_triage_loop_parser
 from ..triage.parser import add_findings_priority_parser, add_triage_parser
 from .artifact_suppression import ARTIFACT_WRITES_ENV, artifact_writes_suppressed
 from .artifact_suppression import read_only_command_suppresses_artifact_writes
+from .agent_supervise import add_agent_supervise_parser
 from .builders import add_standard_parsers
 from .exceptions import add_exceptions_parser
 from .python_tests import add_parser as add_python_tests_parser
@@ -181,6 +183,7 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset({
     "dashboard",
     "claude-loop",
     "agent-loop",
+    "agent-supervise",
     "discover",
     "findings-priority",
     "graph-walk",
@@ -258,6 +261,7 @@ def build_parser() -> argparse.ArgumentParser:
     governance_install_git_hooks.add_parser(sub)
     _add_dashboard_parser(sub)
     add_agent_loop_parser(sub)
+    add_agent_supervise_parser(sub)
     add_claude_loop_parser(sub)
     dogfood.add_parser(sub)
     monitor.add_parser(sub)
@@ -322,6 +326,7 @@ COMMAND_HANDLERS = {
     "check": check.run,
     "check-router": check_router.run,
     "agent-loop": claude_loop.run,
+    "agent-supervise": agent_supervise.run,
     "claude-loop": claude_loop.run,
     "dashboard": dashboard.run,
     "dogfood": dogfood.run,

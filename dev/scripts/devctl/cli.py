@@ -18,10 +18,12 @@ from .commands.governance import (
     session as governance_session,
 )
 from .commands.remote_control import command as remote_control_command
+from .commands.runtime import agent_supervise
 from .cli_parser import entrypoint as _impl
 
 # Keep the compatibility shim visible to static command-surface guards.
 COMMAND_HANDLER_ROWS = (
+    ("agent-supervise", agent_supervise.run),
     ("develop", development_command.run),
     ("demo", demo_command.run),
     ("dogfood", dogfood.run),
@@ -32,6 +34,17 @@ COMMAND_HANDLER_ROWS = (
     ("session", governance_session.run),
     ("test-python", python_test_command.run),
 )
-COMMAND_HANDLERS = dict(COMMAND_HANDLER_ROWS)
+COMMAND_HANDLERS = {
+    "agent-supervise": agent_supervise.run,
+    "develop": development_command.run,
+    "demo": demo_command.run,
+    "dogfood": dogfood.run,
+    "exceptions": governance_exceptions.run,
+    "progress-status": progress_status.run,
+    "relaunch-loop": relaunch_loop.run,
+    "remote-control": remote_control_command.run,
+    "session": governance_session.run,
+    "test-python": python_test_command.run,
+}
 
 sys.modules[__name__] = _impl
