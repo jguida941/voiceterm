@@ -62,6 +62,7 @@ class GovernedVcsExecutor:
     build_post_push_commands_fn: Any = None
     refresh_projections: bool = True
     last_push_report: dict[str, Any] | None = None
+    last_persisted_pipeline: RemoteCommitPipelineContract | None = None
 
     def __post_init__(self) -> None:
         config = active_path_config()
@@ -107,7 +108,8 @@ class GovernedVcsExecutor:
         pipeline: RemoteCommitPipelineContract | None = None,
     ) -> RemoteCommitPipelineContract:
         """Record the existing guard-bundle result on the current pipeline."""
-        pipeline = pipeline or self.load_pipeline()
+        if pipeline is None:
+            pipeline = self.load_pipeline()
         if not pipeline.pipeline_id:
             raise ValueError("Cannot record guard result without an active pipeline.")
 
@@ -316,7 +318,7 @@ class GovernedVcsExecutor:
         )
 
     def _persist_pipeline(self, pipeline: RemoteCommitPipelineContract) -> list[str]:
-        return persist_pipeline(
+        warnings = persist_pipeline(
             pipeline,
             projections_root=self.projections_root,
             repo_root=self.repo_root,
@@ -324,6 +326,8 @@ class GovernedVcsExecutor:
             review_channel_path=self.review_channel_path,
             bridge_path=self.bridge_path,
         )
+        self.last_persisted_pipeline = pipeline
+        return warnings
 
     def _event_packets(self) -> tuple:
         return load_event_packets(

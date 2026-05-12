@@ -2528,3 +2528,51 @@ NEW typed sub-priority: **`StalePacketAutoDismiss`**
 
 **Session validation count today: 16** — operator's question forced surface of architectural concern claude initially framed as feature. Demonstrates platform's recursive self-validation pattern at maximum density.
 
+
+### Charter validations #19+#20 at 2026-05-12T20:41Z — bilateral debug+fix cycle COMPLETE
+
+**Commit 6bd6f207 LANDED** "Fix governed commit pipeline retention" via codex 019e1dd5 managed devctl commit (now working after codex's own fix).
+
+**Bilateral debug+fix cycle end-to-end** (canonical first instance):
+- 19:01Z claude hit governed_executor.py:111 ValueError during managed devctl commit
+- 19:06Z claude bailed to raw git commit per operator authorization
+- 19:08Z claude fired rev_pkt_3860 with bug finding
+- 19:30Z claude bundled in rev_pkt_3861 full-scope handoff for new codex session
+- 20:21Z codex (019e1dd5) body-observed rev_pkt_3861 after typed-state recovery
+- 20:25Z codex hit same bug class (pipeline_not_found variant) on its own commit
+- 20:30-20:36Z codex deep-researched governed_executor_phases + actions + commit_guard_replay + remote_commit_pipeline_models + review_state
+- 20:36:50Z codex patched record_guard_result() to carry staged pipeline
+- 20:36:54-20:37:03Z codex wrote + ran regression test on test_commit_gate.py; passed
+- 20:37:04Z codex retried managed commit with fix
+- 20:39:55Z commit retry passed guard_replay + reached approval — FIX VALIDATED
+- 20:41Z commit 6bd6f207 LANDED
+
+**Total wall-clock**: ~100 min from claude's first bug-hit to codex's fix-landing. With P94 FixLifecycle typed contract (proposed in rev_pkt_3867), this entire chain queryable via `devctl fix-lifecycle show --fix-id <id>` in <1 second.
+
+**Charter validation #19**: bilateral debug+fix cycle WORKS end-to-end via typed packet handoff. Claude's typed packets provided codex with full bug context + reproduction path.
+
+**Charter validation #20**: P61 LifecycleStateCompleteness confirmed load-bearing — `governed_executor.py:111` was exactly the state-machine completeness gap P61 names architecturally. Codex's fix preserves typed semantics rather than bypassing.
+
+**Session charter validation count today: 20** across ~12+ hours.
+
+
+
+### Code-reviewer follow-up smell on commit 6bd6f207 — 2026-05-12T20:54Z
+
+**Class**: parallel-authority / dual-source-of-truth (same shape as bridge-as-authority + mode-derivation smells).
+
+**Site**: `dev/scripts/devctl/commands/vcs/governed_executor.py` — `record_guard_result()` accepts a `pipeline=None` kwarg with `executor.load_pipeline()` as fallback. The fallback re-reads the projected on-disk state and can return a stale/empty contract when projection refresh happened between phases. **This is the exact bug class 6bd6f207 just fixed**, kept in the API for backwards compatibility.
+
+**Reviewer verdict** (claude code-reviewer agent at 20:54Z, independent of bilateral cycle): commit 6bd6f207 is real (threads in-memory `pipeline` through 4 call sites + asserts identity via `assertIs(sync_approval.call_args.args[1], pipeline)` + `assertIs(synced, pipeline)` + `executor.load_pipeline.assert_not_called()` in `tests/vcs/test_commit_gate.py`). Concurrency window REDUCED (fewer mid-phase projection reads). BUT: the `load_pipeline()` fallback masks the very bug class the commit fixed. A future caller that omits the `pipeline` kwarg re-enters the bug.
+
+**Architectural smell**: the executor exposes BOTH `load_pipeline()` (projection read) AND in-memory `pipeline` kwargs — two sources of truth for "current pipeline." Each helper independently decides which to trust. A typed `PipelineHandle` passed through phase functions, with `load_pipeline()` reserved for entry points only, would eliminate the bug class structurally.
+
+**Proposed follow-up slice** (composes with P59 CausalChainCompleteness + P74 SourceOfTruthRegistry + P94 BugFixLifecycle):
+1. Audit all callers of `record_guard_result()`; confirm none rely on the `pipeline=None` fallback.
+2. Make `pipeline` required (deprecate the None fallback) OR log a warning when falling back.
+3. Introduce typed `PipelineHandle` over the executor's phase API so `load_pipeline()` is restricted to entry points.
+4. Add a guard `check_pipeline_threading.py` that fails CI if any phase helper calls `load_pipeline()` directly (composes with P54 introspection upgrade).
+
+**Why log here vs immediate packet**: per `feedback_packets_paced_to_fix_loop` + `feedback_pivot_relevant_findings_fire_sooner` (P89): this is BATCH-class (architectural follow-up, NOT pivot-relevant — codex's current next-action is `run_devctl_push`, not commit-pipeline rework). Codex will see this batched at next commit boundary in a consolidated codesmells review, not as urgent interrupt. Batching avoids spamming codex during active push-phase work.
+
+**Composability**: this smell is the FIRST follow-up surfaced AFTER the canonical first BugFixLifecycle instance (commit 6bd6f207). When P94 lands, this smell becomes a NEW BugFixLifecycle row with `lifecycle_id="bfl_executor_dual_authority_followup"` + `finding_id="finding_from_codesmells_2026_05_12_2054z"` + status="open" — demonstrating that the umbrella supports follow-up bug-classes spawned from prior fix work, not just one-shot bug-fix cycles. **Session charter validation count today: 21**.

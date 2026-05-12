@@ -19,7 +19,7 @@ from ...runtime.action_contracts import (
 )
 from .commit_guard_snapshot import (
     guard_check_args_for_pipeline,
-    pipeline_has_checkpoint_snapshot,
+    pipeline_has_checkpoint_snapshot as guard_snapshot_has_checkpoint_snapshot,
 )
 
 GUARD_PROFILE = "quick"
@@ -148,7 +148,7 @@ def _run_guard_check(
         *guard_check_args_for_pipeline(pipeline),
     ]
     child_env = os.environ.copy()
-    if pipeline_has_checkpoint_snapshot(pipeline):
+    if guard_snapshot_has_checkpoint_snapshot(pipeline):
         child_env["DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY"] = "1"
     result = run_fn(
         cmd,
@@ -297,6 +297,8 @@ def guard_result(
 
 def pipeline_has_checkpoint_snapshot(pipeline: object | None) -> bool:
     """Return true when commit is running against a staged governed snapshot."""
+    if guard_snapshot_has_checkpoint_snapshot(pipeline):
+        return True
     if _pipeline_has_validation_plan(pipeline):
         return True
     if pipeline is None:

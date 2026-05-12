@@ -157,7 +157,10 @@ def prepare_pipeline(
                 requested_by="devctl.commit",
             )
         )
-        pipeline = vcs_executor.load_pipeline()
+        pipeline = _load_stage_pipeline_after_persist(
+            vcs_executor=vcs_executor,
+            stage_result=stage_result,
+        )
         stage_warnings = list(stage_result.warnings)
         if not stage_result.ok:
             return (
@@ -188,6 +191,21 @@ def prepare_pipeline(
         scan_trigger="commit_preflight",
     )
     return pipeline, stage_warnings, None
+
+
+def _load_stage_pipeline_after_persist(
+    *,
+    vcs_executor: GovernedVcsExecutor,
+    stage_result,
+):
+    """Return the staged pipeline even if projection refresh races the reload."""
+    pipeline = vcs_executor.load_pipeline()
+    if pipeline.pipeline_id or not bool(getattr(stage_result, "ok", False)):
+        return pipeline
+    last_persisted = getattr(vcs_executor, "last_persisted_pipeline", None)
+    if last_persisted is not None and getattr(last_persisted, "pipeline_id", ""):
+        return last_persisted
+    return pipeline
 
 
 def _selected_stage_paths(args) -> tuple[str, ...]:

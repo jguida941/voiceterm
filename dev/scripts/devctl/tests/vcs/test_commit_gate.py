@@ -901,6 +901,45 @@ class TestStartupActionRouting(unittest.TestCase):
         self.assertIn("orphan_snapshot_advisory snapshot_hash=sha256:test", warnings)
         advisory_mock.assert_called_once()
 
+    def test_prepare_pipeline_uses_in_memory_stage_pipeline_after_projection_refresh(
+        self,
+    ) -> None:
+        empty_pipeline = SimpleNamespace(
+            pipeline_id="",
+            state="",
+            approval_state="",
+        )
+        staged_pipeline = SimpleNamespace(
+            pipeline_id="pipeline-123",
+            state="staged",
+            approval_state="pending",
+        )
+        stage_result = SimpleNamespace(ok=True, reason="staged", warnings=())
+        executor = MagicMock()
+        executor.load_pipeline.side_effect = [empty_pipeline, empty_pipeline]
+        executor.execute.return_value = stage_result
+        executor.last_persisted_pipeline = staged_pipeline
+
+        with (
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_preflight_validators.preflight_import_index_atomicity",
+                side_effect=lambda **kwargs: (kwargs["stage_warnings"], None),
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_preflight_validators.append_orphan_snapshot_advisory",
+            ),
+        ):
+            returned_pipeline, warnings, report = prepare_pipeline(
+                args=_make_args(),
+                repo_root=Path("/tmp/repo"),
+                resolved_policy=SimpleNamespace(repo_pack_id="voiceterm"),
+                vcs_executor=executor,
+            )
+
+        self.assertIs(returned_pipeline, staged_pipeline)
+        self.assertEqual(warnings, [])
+        self.assertIsNone(report)
+
     def test_load_pipeline_for_explicit_approval_projects_commit_command(self) -> None:
         pipeline = SimpleNamespace(
             pipeline_id="",
@@ -1424,6 +1463,24 @@ class TestGuardBundleRunner(unittest.TestCase):
                 validation_plan=None,
                 staged_tree_hash="tree-123",
                 staged_path_count=4,
+            )
+        )
+
+        rc = _run_guard_bundle(runner=mock_runner, pipeline=pipeline)
+
+        self.assertEqual(rc, 0)
+        cmd = mock_runner.call_args[0][0]
+        self.assertIn("--commit-snapshot", cmd)
+        env = mock_runner.call_args[1]["env"]
+        self.assertEqual(env["DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY"], "1")
+
+    def test_guard_bundle_bypasses_with_staged_tree_hash_only(self):
+        mock_runner = MagicMock(return_value=_mock_subprocess_result(0))
+        pipeline = SimpleNamespace(
+            intent=SimpleNamespace(
+                validation_plan=None,
+                staged_tree_hash="tree-123",
+                staged_path_count=0,
             )
         )
 
