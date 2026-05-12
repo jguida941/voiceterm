@@ -104,9 +104,10 @@ class GovernedVcsExecutor:
         guard_result: ActionResult,
         *,
         guard_action_id: str = "quality.guard_bundle",
+        pipeline: RemoteCommitPipelineContract | None = None,
     ) -> RemoteCommitPipelineContract:
         """Record the existing guard-bundle result on the current pipeline."""
-        pipeline = self.load_pipeline()
+        pipeline = pipeline or self.load_pipeline()
         if not pipeline.pipeline_id:
             raise ValueError("Cannot record guard result without an active pipeline.")
 

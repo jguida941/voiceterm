@@ -113,7 +113,7 @@ def run_commit_pipeline_flow(
     commit_result = vcs_executor.execute(
         build_commit_action(
             repo_pack_id=resolved_policy.repo_pack_id,
-            pipeline_id=vcs_executor.load_pipeline().pipeline_id,
+            pipeline_id=pipeline.pipeline_id,
             commit_message_draft=str(getattr(args, "message", "") or ""),
             amend=bool(getattr(args, "amend", False)),
             allow_empty=passthrough.allow_empty,

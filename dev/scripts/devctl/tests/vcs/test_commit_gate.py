@@ -35,11 +35,13 @@ from dev.scripts.devctl.commands.vcs.commit_action_request_evidence import (
     derive_pipeline_evidence,
 )
 from dev.scripts.devctl.commands.vcs.commit_guard_bundle import guard_result
+from dev.scripts.devctl.commands.vcs.commit_guard_replay import replay_pipeline_guards
 from dev.scripts.devctl.commands.vcs.commit_pipeline_blocking import (
     build_active_pipeline_block_report,
 )
 from dev.scripts.devctl.commands.vcs.commit_preflight import (
     apply_explicit_operator_approval,
+    ensure_pipeline_approval,
     load_pipeline_for_explicit_approval,
     prepare_pipeline,
 )
@@ -52,6 +54,7 @@ from dev.scripts.devctl.commands.vcs.commit_preflight_validators import (
     resolve_index_reuse_decision,
 )
 from dev.scripts.devctl.commands.vcs.commit_preflight_support import (
+    CommitApprovalAuthority,
     build_commit_approval_authority,
 )
 from dev.scripts.devctl.commands.vcs.governed_executor import GovernedVcsExecutor
@@ -3182,6 +3185,112 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             persisted = executor.load_pipeline()
             self.assertEqual(persisted.approval_state, "approved")
             self.assertEqual(persisted.decision_packet_id, decision_event["packet_id"])
+
+    def test_auto_approval_sync_uses_in_memory_pipeline_after_projection_refresh(
+        self,
+    ) -> None:
+        pipeline = RemoteCommitPipelineContract(
+            pipeline_id="pipeline-in-memory",
+            state="guards_passed",
+        )
+        approved = replace(
+            pipeline,
+            state="approved",
+            approval_state="approved",
+        )
+        executor = MagicMock()
+
+        with patch(
+            "dev.scripts.devctl.commands.vcs.commit_preflight.apply_local_approval"
+        ), patch(
+            "dev.scripts.devctl.commands.vcs.commit_preflight.sync_pipeline_approval_state",
+            return_value=approved,
+        ) as sync_approval:
+            synced, report = ensure_pipeline_approval(
+                vcs_executor=executor,
+                pipeline=pipeline,
+                approval_authority=CommitApprovalAuthority(
+                    interaction_mode="remote_control",
+                    approval_actor="claude",
+                    auto_approve=True,
+                    authority_reason="remote_control_operator_delegate",
+                ),
+                stage_warnings=[],
+            )
+
+        self.assertIsNone(report)
+        self.assertEqual(synced.pipeline_id, "pipeline-in-memory")
+        self.assertIs(sync_approval.call_args.args[1], pipeline)
+        executor.load_pipeline.assert_not_called()
+
+    def test_guard_replay_records_result_against_in_memory_pipeline(
+        self,
+    ) -> None:
+        pipeline = RemoteCommitPipelineContract(
+            pipeline_id="pipeline-guard-replay",
+            state="staged",
+        )
+        action_result = guard_result(0)
+        executor = MagicMock()
+        executor.record_guard_result.return_value = pipeline
+
+        with patch(
+            "dev.scripts.devctl.commands.vcs.commit_guard_replay.run_guard_bundle_with_result",
+            return_value=(0, action_result),
+        ), patch(
+            "dev.scripts.devctl.commands.vcs.commit_guard_replay.sync_pipeline_approval_state",
+            return_value=pipeline,
+        ):
+            rc, synced = replay_pipeline_guards(
+                vcs_executor=executor,
+                repo_root=Path("."),
+                guard_runner=MagicMock(),
+                pipeline=pipeline,
+            )
+
+        self.assertEqual(rc, 0)
+        self.assertIs(synced, pipeline)
+        executor.record_guard_result.assert_called_once_with(
+            action_result,
+            pipeline=pipeline,
+        )
+
+    def test_explicit_approval_sync_uses_in_memory_pipeline_after_projection_refresh(
+        self,
+    ) -> None:
+        pipeline = RemoteCommitPipelineContract(
+            pipeline_id="pipeline-explicit",
+            state="guards_passed",
+        )
+        approved = replace(
+            pipeline,
+            state="approved",
+            approval_state="approved",
+            decision_packet_id="rev_pkt_decision",
+        )
+        executor = MagicMock()
+        executor._event_packets.return_value = ()
+
+        with patch(
+            "dev.scripts.devctl.commands.vcs.commit_preflight.record_operator_approval"
+        ), patch(
+            "dev.scripts.devctl.commands.vcs.commit_preflight.sync_pipeline_approval",
+            return_value=approved,
+        ) as sync_approval:
+            synced, report = apply_explicit_operator_approval(
+                vcs_executor=executor,
+                pipeline=pipeline,
+                approval_authority=build_commit_approval_authority(
+                    interaction_mode="remote_control",
+                ),
+                stage_warnings=[],
+            )
+
+        self.assertIsNone(report)
+        self.assertEqual(synced.pipeline_id, "pipeline-explicit")
+        self.assertIs(sync_approval.call_args.args[0], pipeline)
+        executor.load_pipeline.assert_not_called()
+        executor._persist_pipeline.assert_called_once_with(approved)
 
     def test_explicit_operator_approval_records_guard_attestation(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

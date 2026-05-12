@@ -153,7 +153,7 @@ def ensure_pipeline_approval(
         )
     pipeline = sync_pipeline_approval_state(
         vcs_executor,
-        vcs_executor.load_pipeline(),
+        pipeline,
     )
     if pipeline.approval_state == "approved":
         return pipeline, None
@@ -204,7 +204,7 @@ def apply_explicit_operator_approval(
         approval_actor=approval_authority.approval_actor,
     )
     pipeline = sync_pipeline_approval(
-        vcs_executor.load_pipeline(),
+        pipeline,
         vcs_executor._event_packets(),
         approval_packet_kind=APPROVAL_PACKET_KIND,
     )

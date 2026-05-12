@@ -2475,3 +2475,56 @@ NEW typed sub-priority: **`StalePacketAutoDismiss`**
 
 **Verdict**: the typed stop/continuation mechanism DOES work end-to-end (rev_pkt_3846 honored proves it). But the OBSERVABILITY of "is codex still following the directive" requires multi-surface tracing. The charter P88+P91+SessionTimelineView combo would close this gap.
 
+
+### Charter validation #11 at 2026-05-12T19:44Z — P56 charter ingestion can't run as bulk-ingest
+
+**Trigger**: per operator directive "go back to plan and what we're doing," claude attempted to execute charter P56 (the FIRST Wave 0 slice — charter ingestion via `devctl develop ingest-plan`).
+
+**Command**: `python3 dev/scripts/devctl.py develop ingest-plan --source "/Users/jguida941/.claude/plans/do-that-and-in-cached-hammock.md" --target-ref "plan:MP-378" --source-kind "markdown_plan_file"`
+
+**Result**: status=rejected, receipt_id=plan-ingest-87e9fa7a82e2751f, reason=`missing_plan_row_or_checklist_authority`, row_ids=0, source_matched_anchor_count=0.
+
+**Why**: the ingester expects anchored plan_row or checklist entries (typically `plan_row_id: X` markers or structured checklist sections). The charter is operator-authored architectural prose with section headers and priority descriptions, NOT anchored typed-row format. The `develop ingest-plan` reducer scans for specific anchor patterns; none match in the charter markdown.
+
+**Charter implications**:
+- **P56 cannot bulk-ingest 93 priorities** — needs per-priority row creation as each slice lands
+- **P93 CharterDeliveryProtocol's design must account for this**: typed CharterDeliverySnapshot can record content_digest + priority_count + sections, but actual plan_index.jsonl population happens row-by-row via slice implementation commits (like eb336244 added BypassLifecycle plan rows)
+- **Operator-authored markdown ≠ typed-state-ingestible** — these are TWO TYPES OF KNOWLEDGE: architectural intent (markdown) + execution state (jsonl rows). The charter is the FORMER, plan_index.jsonl is the LATTER. P57 ConsolidationMap implicitly assumes both layers; today's attempt validates the separation.
+
+**Workaround pattern (validated)**: as each priority lands as an implementation slice, codex/claude writes a `plan_row` entry to dev/state/plan_index.jsonl as part of that slice's commit. The eb336244 BypassLifecycle commit demonstrated this pattern — it added MP378-BYPASS-LIFECYCLE plan row entries alongside the typed-runtime code.
+
+**Charter validation count today: 11** (was 10 before this attempt). The platform's THESIS recursive validation continues — every attempt to use a charter directive either succeeds or surfaces an architectural gap that the charter's OTHER priorities collectively address.
+
+
+### Charter validation #16 at 2026-05-12T20:27Z — Role-based authority gap in typed packet transitions
+
+**Operator clarification 20:27Z**: *"It's not supposed to be model named it's supposed to be any model playing roles with the rest of our system."*
+
+**Trigger**: codex (session 019e1dd5) at 20:24:08Z applied rev_pkt_3839 using `--actor claude` flag (cross-actor impersonation) and SUCCESSFULLY cleared the typed deadlock. Claude initially framed as "cross-actor delegation feature"; operator correctly questioned whether the typed system should permit this.
+
+**Authority audit verdict** (claude Explore agent 20:27Z): **`--actor` flag is FORGEABLE**. Evidence:
+- `event_packet_transition_action.py:21-24` passes `actor=context.args.actor` directly to PacketTransitionRequest, no caller validation
+- `events.py:246-255` validates `request.actor` against registered roster ONLY, not against calling session's authorized roles
+- `events.py:317-321` confirms actor matches packet target (`to_agent`) but no caller-identity check
+- `packet_contract.py:264-277` PacketTransitionRequest has `actor` + `session_id` fields but NO `requesting_actor` or `requesting_session_id` to record who initiated the transition
+- `role_profile.py` + `role_customization.py` have role definitions but NO `RoleGuard` validates "which caller can impersonate which role"
+
+**Charter implications** (5 priorities affected):
+- **P38 RoleOwnershipRule + ProviderToRoleSeparation**: needs `caller_session_has_authority_for_target_actor()` guard
+- **P74 SourceOfTruthRegistry**: should record `caller_actor` separate from `target_actor`
+- **P58 ThinEntryPointInventory**: `--actor` flag itself is questionable surface
+- **P88 PacketReadReceipt**: typed read receipts should distinguish caller vs target
+- **P91 PacketRelationshipGraph**: typed edges should show caller→target relationship explicitly
+
+**Operator's architectural model** (clarified 20:27Z):
+- ROLES (reviewer/implementer/operator/dashboard/observer) — durable, role-level
+- ACTORS (claude/codex/cursor) — model-specific projections of role assignment
+- Codex's session-as-reviewer should switch its ROLE (not actor) to act on different scopes
+- Operator-override remains the SOLE mechanism for explicit cross-role impersonation
+
+**Proposed fix**: add `requesting_session_id` + `requesting_role` fields to PacketTransitionRequest + validation in `_validate_transition()` that checks caller-role has authority for target-actor's role. Cross-role transitions require explicit RoleGuard allowing them OR AgentLoopOperatorOverride active.
+
+**Packet fired**: rev_pkt_3864 to codex with full evidence + proposed fix + ADR semantics (precedent_packet_ids=[3854,3855,3857,3858,3859,3860,3861]).
+
+**Session validation count today: 16** — operator's question forced surface of architectural concern claude initially framed as feature. Demonstrates platform's recursive self-validation pattern at maximum density.
+

@@ -51,7 +51,7 @@ def replay_pipeline_guards(
         runner=guard_runner,
         pipeline=pipeline,
     )
-    pipeline = vcs_executor.record_guard_result(action_result)
+    pipeline = vcs_executor.record_guard_result(action_result, pipeline=pipeline)
     if guard_rc == 0:
         pipeline = sync_pipeline_approval_state(vcs_executor, pipeline)
     return guard_rc, pipeline
