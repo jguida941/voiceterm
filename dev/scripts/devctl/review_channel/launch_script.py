@@ -49,6 +49,7 @@ def build_session_script(
     prepared_instruction_revision: str = "",
     prepared_session_token: str = "",
     review_state_path: Path | None = None,
+    bypass_lifecycle: object | None = None,
 ) -> Path:
     """Write one launch script for a conductor session."""
     if interaction_mode == "remote_control":
@@ -62,6 +63,7 @@ def build_session_script(
         repo_root=repo_root,
         approval_mode=approval_mode,
         dangerous=dangerous,
+        bypass_lifecycle=bypass_lifecycle,
     )
     # Finding D fix (operator-confirmed regression 2026-05-03, scope auth
     # 17:55Z): the interactive `codex` CLI checks isatty(0) on startup and
@@ -280,6 +282,7 @@ def _provider_args(
     repo_root: Path,
     approval_mode: str,
     dangerous: bool,
+    bypass_lifecycle: object | None = None,
 ) -> list[str]:
     resolved_mode = normalize_approval_mode(
         approval_mode,
@@ -289,6 +292,7 @@ def _provider_args(
         provider=provider,
         repo_root=repo_root,
         approval_mode=resolved_mode,
+        bypass_lifecycle=bypass_lifecycle,
     )
 
 

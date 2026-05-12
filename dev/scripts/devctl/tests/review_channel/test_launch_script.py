@@ -10,6 +10,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
+from dev.scripts.devctl.approval_mode import BypassLifecycleRequired
 from dev.scripts.devctl.commands.review_channel._publisher import (
     resolve_auto_poll_cadence,
 )
@@ -36,6 +37,31 @@ from dev.scripts.devctl.review_channel.reviewer_follow_recovery_support import (
     resolve_recovery_terminal,
 )
 from dev.scripts.devctl.review_channel.terminal_mode import resolve_terminal_mode
+from dev.scripts.devctl.runtime.lifetime_bypass_mode import (
+    BypassAuthorityScope,
+    BypassEvaluationInput,
+    BypassRequest,
+    evaluate_bypass_request,
+)
+
+
+def _active_bypass_lifecycle():
+    return evaluate_bypass_request(
+        BypassRequest(
+            request_id="launch-trusted",
+            scope=BypassAuthorityScope.EDIT_ONLY,
+            reason="operator approved trusted launch",
+            actor="operator",
+            requested_at_utc="2026-05-12T16:10:00Z",
+            target_surface="runtime:review-channel-launch",
+            evidence_refs=("packet:rev_pkt_3847",),
+        ),
+        BypassEvaluationInput(
+            operator_signature="operator",
+            ai_approval_evidence="packet:rev_pkt_3847",
+            evaluated_at_utc="2026-05-12T16:10:01Z",
+        ),
+    )
 
 
 def _build_script(
@@ -655,6 +681,35 @@ class TestLaunchScriptCodexExecHeadlessSwitch(unittest.TestCase):
         # `--ask-for-approval` flag is invalid there and would crash codex
         # at parse time. Filter it out.
         self.assertNotIn("--ask-for-approval", script.split("codex exec ", 1)[1].split("\n", 1)[0])
+
+    def test_trusted_codex_requires_active_bypass_lifecycle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            with self.assertRaises(BypassLifecycleRequired):
+                build_session_script(
+                    provider="codex",
+                    repo_root=root,
+                    prompt="test prompt",
+                    script_path=root / "conductor.sh",
+                    resolve_cli_path_fn=lambda _p: "/opt/homebrew/bin/codex",
+                    approval_mode="trusted",
+                )
+
+    def test_trusted_codex_uses_typed_bypass_lifecycle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            script_path = root / "conductor.sh"
+            build_session_script(
+                provider="codex",
+                repo_root=root,
+                prompt="test prompt",
+                script_path=script_path,
+                resolve_cli_path_fn=lambda _p: "/opt/homebrew/bin/codex",
+                approval_mode="trusted",
+                bypass_lifecycle=_active_bypass_lifecycle(),
+            )
+            script = script_path.read_text(encoding="utf-8")
+        self.assertIn("--dangerously-bypass-approvals-and-sandbox", script)
 
     def test_headless_claude_does_not_use_exec(self) -> None:
         # The codex-exec switch must be codex-specific. Claude headless

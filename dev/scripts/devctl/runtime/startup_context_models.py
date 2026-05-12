@@ -8,6 +8,7 @@ from typing import Any
 from ..platform.coordination_snapshot_models import CoordinationSnapshot
 from .authority_snapshot import AuthoritySnapshot
 from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
+from .lifetime_bypass_mode import BypassLifecycle
 from .packet_intent_anchor import PacketIntentAnchor, PlanIterationSession
 from .project_governance import ProjectGovernance
 from .recovery_authority import RecoveryAuthorityState
@@ -113,6 +114,7 @@ class StartupContext:
     packet_continuity_index: dict[str, object] = field(default_factory=dict)
     packet_carry_forward_debt: tuple[dict[str, object], ...] = ()
     continuity_attention: dict[str, object] = field(default_factory=dict)
+    bypass_lifecycles: tuple[BypassLifecycle, ...] = ()
     key_surfaces: tuple[str, ...] = ()
     snapshot_id: str = ""
     zref: str = ""
@@ -195,6 +197,10 @@ class StartupContext:
             self.packet_carry_forward_debt
         )
         d["continuity_attention"] = dict(self.continuity_attention)
+        if self.bypass_lifecycles:
+            d["bypass_lifecycles"] = [
+                lifecycle.to_dict() for lifecycle in self.bypass_lifecycles
+            ]
         d["key_surfaces"] = list(self.key_surfaces)
         d["snapshot_id"] = self.snapshot_id
         d["zref"] = self.zref

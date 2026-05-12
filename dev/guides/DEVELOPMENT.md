@@ -209,11 +209,17 @@ Use docs like this:
   explicit `--approval-mode`. This eliminates the silent sandbox-escalation
   deadlock where headless `--terminal none` could not render local approval
   prompts (`auto_elevated_approval_mode` lives in
-  `dev/scripts/devctl/approval_mode.py`). The rendered launch prompt now
-  also includes an explicit inbox-drain section after the bootstrap chain,
-  so codex sessions ack pending operator-authority packets before any
-  reviewer-bootstrap or code reading. Typed conductor-stall observations
-  for any wedge that escapes prevention live in
+  `dev/scripts/devctl/approval_mode.py`). Trusted provider args are now
+  fail-closed behind the typed bypass lifecycle: callers must supply or resolve
+  an active edit-only `BypassLifecycle` receipt, usually by passing
+  `--bypass-receipt-id` to launch/recover after the lifecycle row exists in the
+  governed JSONL store. The approval helper must not emit Codex
+  `--dangerously-bypass-approvals-and-sandbox` or Claude
+  `--dangerously-skip-permissions` from a raw mode string alone. The rendered
+  launch prompt now also includes an explicit inbox-drain section after the
+  bootstrap chain, so codex sessions ack pending operator-authority packets
+  before any reviewer-bootstrap or code reading. Typed conductor-stall
+  observations for any wedge that escapes prevention live in
   `dev/scripts/devctl/review_channel/stall_diagnostics.py`
   (`ConductorStallDiagnosis` reader over codex rollout JSONL). Typed
   remote-control liveness also means status/doctor must recommend
@@ -768,7 +774,12 @@ Three quality layers matter in practice:
     When a development-mode caller supplies a typed launcher bypass reason,
     the caller must persist the returned `LauncherDisciplineBypass` as a
     `launcher_discipline_bypassed` event before launch/recover work can trust
-    the override as auditable evidence.
+    the override as auditable evidence. New no-prompt provider authorization
+    must flow through `BypassLifecycle` (`BypassRequest`, `BypassEvaluation`,
+    `BypassReceipt`, then `BypassExpiry`) instead of extending raw bypass
+    reasons; launcher-discipline receipts remain launch-contract audit evidence,
+    while active bypass lifecycle receipts are the authority checked before
+    trusted provider arguments are rendered.
     The paired bootstrap/session-resume surfaces must keep a caller-threaded
     typed `ReviewState` authoritative over stale compact/current-session text
     so a recovered implementer sees the same instruction the reviewer/status

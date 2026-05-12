@@ -3,8 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 
 from .development_core_workstreams import BUILDER_WORKSTREAM
+from .lifetime_bypass_mode import (
+    BypassAuthorityScope,
+    BypassEvaluationInput,
+    BypassLifecycle,
+    BypassRequest,
+    bypass_lifecycle_active,
+    evaluate_bypass_request,
+)
 from .value_coercion import coerce_bool, coerce_text
 
 _READ_ACTIONS = (
@@ -80,7 +89,7 @@ def operator_override_from_request(
     requested_plan_ref: object = "",
     requested_packet_id: object = "",
 ) -> AgentLoopOperatorOverride:
-    """Build a typed, edit-only override from explicit loop input."""
+    """Build a typed, edit-only override through BypassLifecycle evaluation."""
     if not coerce_bool(requested):
         return AgentLoopOperatorOverride()
     normalized_scope = (
@@ -117,14 +126,72 @@ def operator_override_from_request(
             target_kind=target_kind,
             target_ref=target_ref,
         )
+    lifecycle = evaluate_bypass_request(
+        BypassRequest(
+            request_id=_bypass_request_id(target_kind=target_kind, target_ref=target_ref),
+            scope=BypassAuthorityScope.EDIT_ONLY,
+            reason=coerce_text(reason),
+            actor=coerce_text(requested_by) or OPERATOR_OVERRIDE_REQUESTOR,
+            requested_at_utc=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            target_surface=_target_surface(target_kind=target_kind, target_ref=target_ref),
+            evidence_refs=(
+                f"{target_kind}:{target_ref}" if target_kind and target_ref else "",
+            ),
+        ),
+        BypassEvaluationInput(
+            operator_signature=coerce_text(requested_by) or OPERATOR_OVERRIDE_REQUESTOR,
+            ai_approval_evidence=(
+                "agent_loop_operator_override:"
+                f"{target_kind or 'unknown'}:{target_ref or 'unscoped'}"
+            ),
+            evaluated_at_utc=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            evaluator_actor_id="agent_loop_operator_override",
+            policy_evidence_refs=("AgentLoopOperatorOverride",),
+        ),
+    )
+    return operator_override_from_bypass_lifecycle(lifecycle)
+
+
+def operator_override_from_bypass_lifecycle(
+    lifecycle: BypassLifecycle,
+) -> AgentLoopOperatorOverride:
+    """Project an active edit-only BypassLifecycle into AgentLoopOperatorOverride."""
+    target_kind, target_ref = _target_from_bypass_lifecycle(lifecycle)
+    if not bypass_lifecycle_active(
+        lifecycle,
+        required_scope=BypassAuthorityScope.EDIT_ONLY,
+    ):
+        return _invalid(
+            "bypass_lifecycle_required",
+            scope=EDIT_ONLY_OVERRIDE_SCOPE,
+            reason=lifecycle.request.reason,
+            requested_by=lifecycle.request.actor,
+            target_kind=target_kind,
+            target_ref=target_ref,
+        )
+    if not target_ref:
+        return _invalid(
+            "target_required",
+            scope=EDIT_ONLY_OVERRIDE_SCOPE,
+            reason=lifecycle.request.reason,
+            requested_by=lifecycle.request.actor,
+            target_kind=target_kind,
+            target_ref=target_ref,
+        )
+    receipt = lifecycle.receipt
     return AgentLoopOperatorOverride(
         requested=True,
         active=True,
         state="active",
         source=OPERATOR_OVERRIDE_SOURCE,
-        requested_by=coerce_text(requested_by) or OPERATOR_OVERRIDE_REQUESTOR,
-        scope=normalized_scope,
-        reason=coerce_text(reason),
+        requested_by=(
+            receipt.granted_by_operator_actor_id
+            if receipt is not None and receipt.granted_by_operator_actor_id
+            else lifecycle.request.actor
+        )
+        or OPERATOR_OVERRIDE_REQUESTOR,
+        scope=EDIT_ONLY_OVERRIDE_SCOPE,
+        reason=(receipt.reason if receipt is not None and receipt.reason else lifecycle.request.reason),
         target_kind=target_kind,
         target_ref=target_ref,
         effective_actor_role=EDIT_ONLY_EFFECTIVE_ROLE,
@@ -182,6 +249,33 @@ def _target(*, requested_plan_ref: object, requested_packet_id: object) -> tuple
     return "", ""
 
 
+def _target_from_bypass_lifecycle(lifecycle: BypassLifecycle) -> tuple[str, str]:
+    target_surface = coerce_text(lifecycle.request.target_surface)
+    for value in (target_surface, *lifecycle.request.evidence_refs):
+        kind, ref = _split_target_ref(value)
+        if kind and ref:
+            return kind, ref
+    return "bypass_lifecycle", lifecycle.lifecycle_id
+
+
+def _split_target_ref(value: object) -> tuple[str, str]:
+    raw = coerce_text(value)
+    if ":" not in raw:
+        return "", ""
+    kind, ref = raw.split(":", 1)
+    if kind in {"packet", "plan"} and ref:
+        return kind, ref
+    return "", ""
+
+
+def _target_surface(*, target_kind: str, target_ref: str) -> str:
+    return f"{target_kind}:{target_ref}" if target_kind and target_ref else ""
+
+
+def _bypass_request_id(*, target_kind: str, target_ref: str) -> str:
+    return f"operator-override:{target_kind or 'target'}:{target_ref or 'unscoped'}"
+
+
 def _invalid(
     state: str,
     *,
@@ -214,6 +308,7 @@ __all__ = [
     "OPERATOR_OVERRIDE_REQUESTOR",
     "OPERATOR_OVERRIDE_SOURCE",
     "apply_operator_override_actions",
+    "operator_override_from_bypass_lifecycle",
     "operator_override_from_request",
     "operator_override_next_command",
 ]

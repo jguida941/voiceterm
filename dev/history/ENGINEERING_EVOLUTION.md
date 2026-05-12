@@ -37,6 +37,33 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-12 - Trusted launch bypass is bound to a typed lifecycle
+
+Review-channel dogfood found that remote-control launch recovery still had a
+raw trusted-mode hole: the system could emit provider dangerous/no-prompt flags
+without proving a current typed bypass lifecycle. That made blanket operator
+authorization look like another parallel surface instead of an auditable
+exception path.
+
+Change: bypass launch authority is now modeled as
+`BypassRequest -> BypassEvaluation -> BypassReceipt -> BypassExpiry` inside
+`BypassLifecycle`. Approved lifecycles compose with
+`GovernedExceptionLifecycle`, project into `AgentLoopOperatorOverride`, can be
+loaded from the durable lifecycle JSONL store, and surface through startup
+context. Review-channel launch/recover/follow paths accept
+`--bypass-receipt-id`; trusted Codex/Claude provider arguments require an
+active edit-only lifecycle receipt before emitting dangerous/no-prompt flags.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/lifetime_bypass_mode.py`
+- `dev/scripts/devctl/runtime/agent_loop_operator_override.py`
+- `dev/scripts/devctl/approval_mode.py`
+- `dev/scripts/devctl/review_channel/launch.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/tests/runtime/test_lifetime_bypass_mode.py`
+- `dev/scripts/devctl/tests/review_channel/test_launch_script.py`
+
 ### 2026-05-12 - Final gate stops treating prose peer repair as a continuation command
 
 Live MP-377 dogfood reproduced the operator symptom after the earlier

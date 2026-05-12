@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .contracts import ContractField, ContractSpec, CrossLinkSpec
+from .runtime_state_contract_rows_bypass_lifecycle import BYPASS_LIFECYCLE_CONTRACTS
 
 GOVERNED_EXCEPTION_CORE_CONTRACTS: tuple[ContractSpec, ...] = (
     ContractSpec(
@@ -161,6 +162,7 @@ GOVERNED_EXCEPTION_CORE_CONTRACTS: tuple[ContractSpec, ...] = (
             ),
         ),
     ),
+    *BYPASS_LIFECYCLE_CONTRACTS,
     ContractSpec(
         contract_id="ResolutionReceipt",
         owner_layer="governance_runtime",

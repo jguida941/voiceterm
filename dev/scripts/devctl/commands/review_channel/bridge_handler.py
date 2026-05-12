@@ -242,6 +242,7 @@ def _maybe_enforce_terminal_app_launch_discipline(
         interaction_mode=interaction_mode,
         terminal_arg="terminal-app",
         bypass_reason=str(getattr(args, "bypass_reason", "") or ""),
+        bypass_receipt_id=str(getattr(args, "bypass_receipt_id", "") or ""),
     )
     persist_launcher_discipline_bypass_receipt(
         artifact_paths=artifact_paths,

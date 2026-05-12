@@ -39,7 +39,7 @@ def startup_interaction_mode(
     return "unresolved"
 
 
-def compact_product_thesis(value: str, limit: int = 480) -> str:
+def compact_product_thesis(value: str, limit: int = 300) -> str:
     text = str(value or "").strip()
     if len(text) <= limit:
         return text

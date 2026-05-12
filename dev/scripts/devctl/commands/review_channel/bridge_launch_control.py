@@ -195,6 +195,7 @@ def validate_launch_request_discipline(request: LaunchSessionRequest):
         interaction_mode=request.interaction_mode,
         terminal_arg=str(getattr(request.args, "terminal", "")),
         bypass_reason=str(getattr(request.args, "bypass_reason", "") or ""),
+        bypass_receipt_id=str(getattr(request.args, "bypass_receipt_id", "") or ""),
     )
     return persist_launcher_discipline_bypass_receipt(
         artifact_paths=request.artifact_paths,

@@ -73,6 +73,18 @@ Current ingestion status:
   Codex. Live proof: the gate returns that override, the follow-up
   `/develop next` lands in `operator_override_edit`, and stage/commit/push
   remain blocked.
+- 2026-05-12 bypass-launch blocker repair: blanket trusted/headless launch
+  elevation now has a typed lifecycle boundary. `BypassRequest` evaluates into
+  `BypassEvaluation`, produces a scoped `BypassReceipt`, and remains usable only
+  while the enclosing `BypassLifecycle` is active and unexpired; expiry records
+  are explicit `BypassExpiry` events. The lifecycle composes with
+  `GovernedExceptionLifecycle` instead of creating a second bypass system, and
+  launcher/provider trusted mode now requires an active edit-only bypass
+  lifecycle receipt, optionally selected by `--bypass-receipt-id` from the
+  durable lifecycle store. Startup context projects active bypass lifecycles so
+  final-gate/operator-override decisions, launch scripts, and review-channel
+  recovery all read the same typed state rather than raw provider flags or
+  bridge prose.
 
 2026-05-06 governed exception lifecycle correction:
 - `MP377-P0-EXC-S1` replaces the earlier raw-bypass receipt direction with a

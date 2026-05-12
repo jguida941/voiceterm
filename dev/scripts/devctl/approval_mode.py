@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .runtime.lifetime_bypass_mode import BypassLifecycle
 
 APPROVAL_MODE_CHOICES = ("strict", "balanced", "trusted")
 DEFAULT_APPROVAL_MODE = "balanced"
@@ -24,6 +27,10 @@ AUTO_ALLOWED = [
     "normal test runs",
     "repo-local file edits",
 ]
+
+
+class BypassLifecycleRequired(ValueError):
+    """Raised when no-prompt provider mode lacks typed bypass authority."""
 
 
 def normalize_approval_mode(
@@ -75,10 +82,12 @@ def provider_args_for_approval_mode(
     provider: str,
     repo_root: Path,
     approval_mode: str,
+    bypass_lifecycle: "BypassLifecycle | None" = None,
 ) -> list[str]:
     """Return provider CLI args for the requested approval mode."""
     if provider == "codex":
         if approval_mode == "trusted":
+            _require_active_bypass_lifecycle(bypass_lifecycle)
             return [
                 "-C",
                 str(repo_root),
@@ -95,6 +104,7 @@ def provider_args_for_approval_mode(
         ]
     if provider == "claude":
         if approval_mode == "trusted":
+            _require_active_bypass_lifecycle(bypass_lifecycle)
             return ["--dangerously-skip-permissions"]
         # Claude's `auto` mode is subscription-gated. Review-channel launches
         # must stay portable across operator plans, so non-trusted sessions use
@@ -104,6 +114,25 @@ def provider_args_for_approval_mode(
     if provider == "cursor":
         return ["--composer", str(repo_root)]
     raise ValueError(f"Unsupported provider: {provider}")
+
+
+def _require_active_bypass_lifecycle(
+    bypass_lifecycle: "BypassLifecycle | None",
+) -> None:
+    from .runtime.lifetime_bypass_mode import (
+        BypassAuthorityScope,
+        bypass_lifecycle_active,
+    )
+
+    if bypass_lifecycle is not None and bypass_lifecycle_active(
+        bypass_lifecycle,
+        required_scope=BypassAuthorityScope.EDIT_ONLY,
+    ):
+        return
+    raise BypassLifecycleRequired(
+        "trusted approval mode requires an active BypassLifecycle receipt "
+        "with edit_only authority"
+    )
 
 
 def build_approval_policy_payload(approval_mode: str) -> dict[str, Any]:

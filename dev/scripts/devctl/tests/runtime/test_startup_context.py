@@ -75,6 +75,13 @@ from dev.scripts.devctl.runtime.reviewer_runtime_models import (
 from dev.scripts.devctl.runtime.runtime_truth_snapshot import RuntimeTruthSnapshot
 from dev.scripts.devctl.runtime.session_posture import SessionPosture
 from dev.scripts.devctl.runtime.startup_blocker_decision import BlockerSnapshot
+from dev.scripts.devctl.runtime.lifetime_bypass_mode import (
+    DEFAULT_BYPASS_LIFECYCLE_STORE_REL,
+    BypassAuthorityScope,
+    BypassEvaluationInput,
+    BypassRequest,
+    evaluate_bypass_request,
+)
 from dev.scripts.devctl.runtime.startup_context import (
     ReviewerGateState,
     StartupContext,
@@ -84,6 +91,9 @@ from dev.scripts.devctl.runtime.startup_context import (
     _load_startup_review_state,
     blocks_new_implementation,
     build_startup_context,
+)
+from dev.scripts.devctl.runtime.startup_context_assembly import (
+    _collect_active_bypass_lifecycles,
 )
 from dev.scripts.devctl.runtime.work_intake_models import (
     PlanTargetRef,
@@ -154,6 +164,37 @@ class TestStartupContextBuild(unittest.TestCase):
             ctx.authority_snapshot.implementer_ack_state,
             ctx.current_session.implementer_ack_state,
         )
+
+    def test_collects_active_bypass_lifecycles_for_role(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            store = repo_root / DEFAULT_BYPASS_LIFECYCLE_STORE_REL
+            store.parent.mkdir(parents=True)
+            lifecycle = evaluate_bypass_request(
+                BypassRequest(
+                    request_id="startup-bypass",
+                    scope=BypassAuthorityScope.EDIT_ONLY,
+                    reason="operator approved startup bypass",
+                    actor="operator",
+                    requested_at_utc="2026-05-12T16:10:00Z",
+                    target_role="implementer",
+                    target_surface="startup-context",
+                    evidence_refs=("packet:rev_pkt_3847",),
+                ),
+                BypassEvaluationInput(
+                    operator_signature="operator",
+                    ai_approval_evidence="packet:rev_pkt_3847",
+                    evaluated_at_utc="2026-05-12T16:10:01Z",
+                ),
+            )
+            store.write_text(json.dumps(lifecycle.to_dict()) + "\n", encoding="utf-8")
+
+            collected = _collect_active_bypass_lifecycles(
+                repo_root=repo_root,
+                role="implementer",
+            )
+
+        self.assertIn(lifecycle.lifecycle_id, {row.lifecycle_id for row in collected})
 
     def test_startup_mode_fields_match_authority_snapshot(self) -> None:
         ctx = _live_startup_context()

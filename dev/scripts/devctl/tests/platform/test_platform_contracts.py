@@ -67,6 +67,11 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "CallerAuthorityPolicy" in contract_ids
     assert "GovernedExceptionLifecycle" in contract_ids
     assert "ExceptionReceipt" in contract_ids
+    assert "BypassRequest" in contract_ids
+    assert "BypassEvaluation" in contract_ids
+    assert "BypassReceipt" in contract_ids
+    assert "BypassExpiry" in contract_ids
+    assert "BypassLifecycle" in contract_ids
     assert "ResolutionReceipt" in contract_ids
     assert "ExceptionPolicy" in contract_ids
     assert "ExceptionClass" in contract_ids
@@ -228,6 +233,11 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "correlation_id" in contract_map["ExceptionReceipt"]
     assert "causation_id" in contract_map["ExceptionReceipt"]
     assert "run_id" in contract_map["ExceptionReceipt"]
+    assert "target_surface" in contract_map["BypassRequest"]
+    assert "governed_exception_lifecycle_id" in contract_map["BypassEvaluation"]
+    assert "requested_authority_scope" in contract_map["BypassReceipt"]
+    assert "source" in contract_map["BypassExpiry"]
+    assert "governed_exception" in contract_map["BypassLifecycle"]
     assert "validation_receipt_id" in contract_map["ResolutionReceipt"]
     assert "forbidden_exception_classes" in contract_map["ExceptionPolicy"]
 

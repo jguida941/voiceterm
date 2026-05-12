@@ -12,6 +12,7 @@ from ..approval_mode import DEFAULT_APPROVAL_MODE
 
 if TYPE_CHECKING:
     from .core import LaneAssignment
+    from ..runtime.lifetime_bypass_mode import BypassLifecycle
 
 
 @dataclass(slots=True)
@@ -43,6 +44,8 @@ class LaunchSessionRequest:
     rollover_provider: str = ""
     review_state_path: Path | None = None
     worktree_path: Path | None = None
+    bypass_receipt_id: str = ""
+    bypass_lifecycle: "BypassLifecycle | None" = None
 
 
 @dataclass(slots=True)

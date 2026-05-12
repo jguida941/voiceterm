@@ -125,8 +125,16 @@ def build_launch_arguments(arg_builder) -> list[ArgumentDef]:
             "--bypass-reason",
             default="",
             help=(
-                "Operator-visible reason for bypassing a launch-discipline refusal. "
-                "Every accepted bypass is persisted as a typed audit receipt."
+                "Deprecated request reason for a launch-discipline bypass. "
+                "Use --bypass-receipt-id to consume an active typed bypass receipt."
+            ),
+        ),
+        arg_builder(
+            "--bypass-receipt-id",
+            default="",
+            help=(
+                "Typed BypassLifecycle receipt id required for trusted/no-prompt "
+                "provider launch modes."
             ),
         ),
         *build_bridge_control_arguments(

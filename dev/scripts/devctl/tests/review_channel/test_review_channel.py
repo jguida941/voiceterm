@@ -526,6 +526,7 @@ class ReviewChannelParserTests(unittest.TestCase):
         self.assertEqual(args.terminal, "none")
         self.assertEqual(args.approval_mode, "balanced")
         self.assertEqual(args.bypass_reason, "")
+        self.assertEqual(args.bypass_receipt_id, "")
         self.assertEqual(args.terminal_profile, DEFAULT_TERMINAL_PROFILE)
         self.assertEqual(args.rollover_threshold_pct, DEFAULT_ROLLOVER_THRESHOLD_PCT)
         self.assertEqual(args.await_ack_seconds, DEFAULT_ROLLOVER_ACK_WAIT_SECONDS)
@@ -550,6 +551,24 @@ class ReviewChannelParserTests(unittest.TestCase):
         )
 
         self.assertEqual(args.bypass_reason, "operator approved recovery launch")
+
+    def test_cli_accepts_review_channel_bypass_receipt_id(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "review-channel",
+                "--action",
+                "launch",
+                "--terminal",
+                "none",
+                "--bypass-receipt-id",
+                "bypass:mp377-priority-1",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(args.bypass_receipt_id, "bypass:mp377-priority-1")
 
     def test_cli_leaves_launch_terminal_unset_for_typed_visibility_default(self) -> None:
         parser = build_parser()

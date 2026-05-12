@@ -1573,6 +1573,10 @@ python3 dev/scripts/devctl.py review-channel --action launch --approval-mode tru
 # Note: when --approval-mode is unset and typed interaction_mode == "remote_control",
 # the launcher auto-elevates to "trusted" via approval_mode.auto_elevated_approval_mode
 # so headless launches do not silently wedge on local sandbox-escalation prompts.
+# Rendering trusted provider args now requires an active edit-only
+# BypassLifecycle receipt. Use --bypass-receipt-id to select the durable
+# lifecycle row; a raw trusted mode string is not enough to emit dangerous
+# provider/no-prompt flags.
 # review-channel --action recover and the ensure-follow reviewer-wake path
 # (reviewer_follow_guard.launch_waiting_reviewer_conductor) follow the same
 # auto-elevation rule.
@@ -1951,6 +1955,7 @@ summary over the selected snapshot window.
 | `dev/scripts/checks/check_runtime_spine_closure.py` | Runtime-spine closure guard | Fails when `SYSTEM_MAP.md` section 0.6 stops carrying the closure rule, when the guard is not registered, or when a ❌/⚠️ runtime-spine object lacks an active owner reference in the active plan or typed plan store. This turns the documented "promote one gap per session" convention into executable pressure so compaction, ACK, or packet expiry cannot erase known architecture gaps without durable typed ownership. Supports `--format`. |
 | `dev/scripts/checks/check_contract_connectivity.py` | Contract-connectivity guard | Scans `dev/scripts/devctl/runtime`, `governance`, `platform`, and `app/operator_console` dataclasses, traces importer reachability through Python AST import usage, flags unreferenced or internal-only contracts, purpose-guided semantic duplicates, and raw-dict stranded consumers, and blocks only new findings unless `--absolute` is requested. Supports `--absolute`, `--since-ref`, `--head-ref`, and `--format`. |
 | `dev/scripts/checks/check_typed_enum_connectivity.py` | Typed enum connectivity guard | Warning-only first-pass guard that scans repo-owned Python `Enum` / `StrEnum` members and AST decision consumers so enum values cannot be added without a visible branch, policy map, comparison, or typed reference. Supports `--format`, `--include-tests`, and `--fail-on-disconnected` for later Slice C promotion. |
+| `dev/scripts/checks/check_checkpoint_budget_shape.py` | Checkpoint-budget shape guard | Stable shim entrypoint for the startup-authority checkpoint-budget classifier; validates that over-budget work routes through typed checkpoint/repair state instead of raw continuation. Supports `--format`. |
 | `dev/scripts/checks/check_startup_authority_contract.py` | Startup-authority contract guard | Validates the live `ProjectGovernance` bootstrap payload by requiring the core startup authority files, non-empty repo identity, plan-registry roots/order, fail-closed checkpoint-budget truth, working-tree-to-index Python import atomicity, and committed-tree (`HEAD`)-to-`HEAD` importer coherence; fresh repos without a first commit skip the committed-tree layer until `HEAD` exists. Supports `--format`. |
 | `dev/scripts/checks/check_mobile_relay_protocol.py` | Mobile relay projection contract guard | Fails when the shared mobile relay payload shape drifts across the Rust/controller emitters, Python projection tooling, and iOS consumer contract. Supports `--since-ref/--head-ref` and `--format`. |
 | `dev/scripts/checks/check_daemon_state_parity.py` | Daemon-state parity guard | Validates the Rust daemon lifecycle/state seam against the Python runtime models by checking lifecycle-event coverage plus required daemon-state and agent-info fields. Supports `--format`. |
@@ -2469,8 +2474,14 @@ Machine-first output note:
   - Development-mode launcher overrides are only trusted as durable audit
     evidence after the caller persists the returned `LauncherDisciplineBypass`
     as a `launcher_discipline_bypassed` event. The receipt records the bypass
-    reason, requested terminal, interaction mode, and each bypassed verdict;
-    the future operator-facing bypass flag remains separate follow-up work.
+    reason, requested terminal, interaction mode, and each bypassed verdict.
+    Provider dangerous/no-prompt mode is separate authority now: trusted launch
+    rendering requires an active edit-only `BypassLifecycle` selected from the
+    governed lifecycle store, typically by `--bypass-receipt-id`. The lifecycle
+    records `BypassRequest`, `BypassEvaluation`, `BypassReceipt`, and
+    `BypassExpiry`, composes with `GovernedExceptionLifecycle`, and is projected
+    through startup context and `AgentLoopOperatorOverride` instead of relying
+    on raw provider flags or bridge text.
   - Launch orchestration has explicit module boundaries now:
     `bridge_action_prepare.py` owns action preparation, `bridge_scope.py` owns
     scope promotion helpers, `bridge_stale_refresh.py` owns stale heartbeat

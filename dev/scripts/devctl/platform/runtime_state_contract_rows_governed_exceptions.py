@@ -13,6 +13,13 @@ from .runtime_state_contract_rows_governed_exception_descriptors import (
 
 if TYPE_CHECKING:
     from ..runtime.governed_exception_lifecycle import GovernedExceptionLifecycle
+    from ..runtime.lifetime_bypass_mode import (
+        BypassEvaluation,
+        BypassExpiry,
+        BypassLifecycle,
+        BypassReceipt,
+        BypassRequest,
+    )
     from ..runtime.governed_exception_policy import (
         ExceptionClass,
         ExceptionLifecycleStatus,
@@ -28,6 +35,11 @@ if TYPE_CHECKING:
 
     _RUNTIME_MODEL_REFS: tuple[
         type[AutoRepairReceipt],
+        type[BypassEvaluation],
+        type[BypassExpiry],
+        type[BypassLifecycle],
+        type[BypassReceipt],
+        type[BypassRequest],
         type[ClosureProof],
         type[ExceptionClass],
         type[ExceptionLifecycleStatus],

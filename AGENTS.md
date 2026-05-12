@@ -38,6 +38,7 @@
 - `TypedAction -> ActionResult -> RunRecord -> ValidationReceipt` is the proof chain for mutations.
 - A typed `AgentLoopOperatorOverride` can allow scoped edit-only repair when the operator explicitly approves it; it never authorizes staging, commit, push, or raw bypass.
 - If the final gate emits a scoped edit-only override, continue through `/develop next --actor <actor> --operator-override --override-scope edit-only --slice-id <id>` so the override survives reducer refresh and compaction; do not replace it with raw `agent-loop` bypass.
+- Trusted/no-prompt provider launch authority must come from an active edit-only `BypassLifecycle` receipt (`BypassRequest -> BypassEvaluation -> BypassReceipt -> BypassExpiry`) that composes with `GovernedExceptionLifecycle`; raw `--approval-mode trusted` or bridge prose is not authority.
 - Session continuation after `TASK_COMPLETE` must come from `SessionTerminationPolicy`, `TaskCompleteDecision`, and actor/role/session-scoped `continuation_anchor` / `stop_anchor` packets, not packet body prose.
 - For autonomous multi-hour loops, set `session_termination_policy.mode=keep_awake_via_packets` before the agent can emit `TASK_COMPLETE`, and keep a scoped `continuation_anchor` live until typed controller closure allows stop.
 - `system-picture` is a composite reducer; use it after startup authority is known, not as the first hop.

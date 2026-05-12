@@ -2234,3 +2234,210 @@ Then add a CLI-level enforcement hook that consults `allowed_emission_kinds` bef
 - feedback_recurring_bug_class_means_architecture_fix (≥3 recurrences → architectural fix) — threshold crossed
 - rev_pkt_3841 wake packet to codex (claude→codex queue, smell #058 layer-e candidate flagged for classification) — now confirmed, claude will amend with layer-e CONFIRMED status on codex re-engagement
 
+
+---
+## Iter cycle 2026-05-12T18:05Z — claude observations during codex BypassLifecycle commit-boundary verification pass
+
+### Validated guard pattern: SYSTEM_MAP/docs visibility drift auto-detected
+
+**Evidence**: codex at 18:02:14Z agent_message *"docs and instruction-surface guards are failing only because the generated SYSTEM_MAP.md connectivity counts changed"* → ran `render-surfaces --write --format md` at 18:02:16Z → surface and docs policy gates clean by 18:02:53Z.
+
+**Context**: claude's SYSTEM_MAP-cycler agent had INDEPENDENTLY surfaced the same gap at 17:58Z (BypassLifecycle in `platform-contracts` but NOT in rendered `SYSTEM_MAP.md` table) and packeted via rev_pkt_3855 with the exact remediation `render-surfaces --write --surface system_map_index` + `context-graph --rebuild --include-imports`.
+
+**Validation**: independent convergence on the same fix via different paths (claude via SYSTEM_MAP cycler, codex via `docs-check --strict-tooling` + `check_instruction_surface_sync`). The metadata-surface drift IS auto-detectable today — composes with charter P22 (FlowchartSync) + P54 (introspection upgrade) — both worked.
+
+**Charter implication**: P22 + P54 are confirmed load-bearing patterns, not aspirational. The render-surfaces pipeline closes drift when invoked but does NOT auto-invalidate on new typed contract landing. Charter P30 (CacheInvalidationContract) is the closure for the auto-invalidate gap: every new typed contract write to runtime/ should publish a `typed_contract_added` event that subscribes the render-surfaces + context-graph caches to invalidate.
+
+### Open observation: bundle-workflow-parity smell under investigation
+
+**Evidence**: codex ran `rg -n "workflow.*parity|bundle.*parity|check_bundle"` at 18:01:48Z then `check_bundle_workflow_parity.py --format md` at 18:02:31Z as part of the verification cascade.
+
+**Hypothesis**: release-bundle config vs CI workflow YAML may have drifted on the BypassLifecycle work (e.g., new modules added to bundle but workflow doesn't run their tests, or workflow references guard that bundle doesn't ship).
+
+**Status**: research-codex agent spawned at 18:05Z to characterize the smell. Pending verdict. If a new smell class emerges (not composable with P54/P63), it becomes charter P88 candidate.
+
+
+### Validated smell at 2026-05-12T18:11Z — BypassLifecycle typed-vs-CLI parallel surfaces
+
+**Ground-truth probe** (per feedback_findings_must_cross_check_ground_truth rule):
+- `python3 dev/scripts/devctl.py bypass --help` → ERROR: *"invalid choice: 'bypass'"* — `bypass` is NOT a registered devctl subcommand
+- `python3 dev/scripts/devctl.py startup-context --help` → no `--section` flag (only `--role` + `--format`)
+
+**Conflict shape**:
+- NEW typed runtime: `BypassLifecycle` + `BypassRequest` + `BypassEvaluation` + `BypassReceipt` + `BypassExpiry` (in codex's uncommitted edits at `dev/scripts/devctl/runtime/lifetime_bypass_mode.py` + 5 staged modules)
+- OLD CLI/slash surface: `/bypass` slash adapter (`.claude/commands/bypass.md`) routes to `python3 dev/scripts/devctl/devctl.py agent-loop --operator-override --override-scope edit-only` — the LEGACY override path, NOT the new typed BypassReceipt flow
+- NEW CLI: `devctl bypass {grant,verify,list,revoke}` subcommands DO NOT EXIST
+
+**Two parallel surfaces** (operator's "no parallel systems" rule violated):
+1. Typed runtime expects BypassReceipt issuance via REQUESTED → EVALUATING → RECEIPT_ISSUED state machine
+2. Slash adapter still routes to flag-based `--operator-override` legacy mechanism
+3. NO CLI bridges (1) to operator-facing invocation
+
+**Charter implication**: Plan file P58 (ThinEntryPointInventory) was amended at 18:12Z to enumerate the 4 missing devctl bypass subcommands + the `/bypass` slash adapter re-routing requirement. P58 composes with P74 (SourceOfTruthRegistry — typed contract is the canonical authority, slash + CLI are projections).
+
+**Why claude's existing guards didn't catch**: P54 introspection upgrade (still unimplemented) was the priority that should fail CI when a typed lifecycle ships without operator-facing CLI surface. This is a charter P54 + P58 + P63 (ShellSurfaceContractSync) seed.
+
+**Action**: HOLD packet (codex mid-verification on commit boundary — packet-rate discipline). Fire consolidated synthesis packet AFTER codex commits BypassLifecycle, including this CLI-surface-gap finding + proposed next slice should be the CLI subcommand family before any other BypassLifecycle composability work.
+
+
+### Recurring pattern at 2026-05-12T18:14Z — closure-extraction callsite-completeness gap (CYCLE 2 OF SAME REFACTOR)
+
+**Pattern shape**: closure extraction (moving symbols from one module to another) creates callsite gaps that aren't auto-caught.
+
+**Cycle 1 evidence** (2026-05-12T17:52Z): codex extracted `build_rollover_command` + `build_promote_command` from `dev/scripts/devctl/review_channel/launch.py` to `launch_commands.py`. `launch.py` callsite imports needed update — fixed at 17:55Z.
+
+**Cycle 2 evidence** (2026-05-12T18:11:38-18:11:55Z): codex agent_message: *"The extended review-channel run found another compatibility gap from splitting launch command helpers: tests and callers..."*. Active investigation:
+- `sed -n '1,120p' dev/scripts/devctl/review_channel/launch_commands.py`
+- `sed -n '15140,15220p' dev/scripts/devctl/tests/review_channel/test_review_channel.py`
+- `rg -n "_DEVCTL_INTERPRETER|build_promote_command|build_rollover_command" dev/scripts/devctl/re...`
+
+Tests and/or other callers still reference the OLD location (likely `launch.py._DEVCTL_INTERPRETER` constant or `launch.build_*_command` symbols).
+
+**Trending toward `feedback_recurring_bug_class_means_architecture_fix` threshold**: ≥3 recurrences = architectural fix. Current count = 2 on same refactor in same session. If cycle 3 surfaces, escalate.
+
+**Charter implication**: no existing priority directly catches "module-split callsite-completeness audit."
+- P12 anti-pattern closures covers unguarded mutations + bridge inversion + stale typed-state — NOT callsite audit
+- P63 ShellSurfaceContractSync covers argparse/help-text alignment — NOT module-split
+- P54 introspection upgrade is the closest fit — could extend to "imports-after-symbol-move must update ALL importers (production + tests + fixtures + docs)"
+- Alternative: new P88 `CallsiteCompletenessAuditOnSymbolMove` typed guard
+
+**Proposed typed guard sketch**: pre-commit hook that diffs the symbol-export surface of each modified module (collect `def X` / `class X` / module-level constants) against the imports across the repo. If symbol X was previously exported by module A but A no longer exports it, scan ALL files for `from A import X` or `A.X` references and FAIL if any remain.
+
+**Status**: HOLDING packet (codex mid-fix-loop on this very gap — packet-rate discipline). Will fire consolidated synthesis packet citing this + the CLI surface gap (18:11Z entry) + the SYSTEM_MAP convergence (18:05Z entry) AFTER codex commits BypassLifecycle.
+
+
+### Resolution pattern at 2026-05-12T18:17Z — closure-extraction cycle-2 fixed via backwards-compat wrapper
+
+**Codex resolution approach** (18:13:40Z agent_message): *"The legacy interpreter patch point is restored and its focused test passes."*
+
+**Pattern chosen**: backwards-compat shim. Codex KEPT the old `_DEVCTL_INTERPRETER` patch point and `build_*_command` symbols accessible from the OLD location (`launch.py`) while the new home is `launch_commands.py`. The shim re-exports from new module.
+
+**Why this matters for charter P54/P88 design**:
+- The proposed `CallsiteCompletenessAuditOnSymbolMove` typed guard should ALLOW backwards-compat shims as a valid resolution mode, NOT FORCE all callers to update simultaneously.
+- Codex's pattern preference is "preserve callsite stability via shim" over "force ecosystem audit"
+- The typed guard should detect EITHER (a) all callers updated to new module path OR (b) shim exists in old module re-exporting from new path
+
+**Updated guard sketch**: pre-commit hook diffs the symbol-export surface of each modified module against repo-wide imports. For each symbol X previously exported by module A but no longer present in A:
+1. SCAN repo for `from A import X` or `A.X` references
+2. CHECK if A still has a compat-shim line `X = new_module.X`
+3. FAIL only if EITHER (callers exist) AND (shim absent) — pass on shim OR full audit completion.
+
+This composes with the operator's "no parallel surfaces" rule by treating shims as TYPED projections of the new module rather than true parallel surfaces.
+
+**Charter status**: cycle count holds at 2/3 on closure-extraction recurrence. Cycle 3 would trigger architectural fix per `feedback_recurring_bug_class_means_architecture_fix`. Current state: codex resolved cycle 2, render-surfaces refreshing for source-count change, commit imminent.
+
+
+### Two pre-commit ground-truth probe findings at 2026-05-12T18:21Z (caught BEFORE fire-on-commit packet)
+
+**Probe trigger**: pre-validating the staged synthesis packet at /tmp/claude_post_commit_synthesis_rev3856_STAGED.md to avoid promising commands that don't exist. Both findings are smells the typed runtime missed.
+
+#### Finding A — `agent-loop` operator-override flags don't match common slash-adapter signature
+
+**Ground-truth**: `python3 dev/scripts/devctl.py agent-loop --help`:
+- ACTUAL: `--operator-override` (bool), `--override-reason <r>`, `--override-scope {edit-only}`
+- NO `--slice-id` flag (cannot bind override to a specific slice via this CLI path)
+- NO `--reason` (it's `--override-reason`)
+
+The `/bypass` slash adapter at `.claude/commands/bypass.md` correctly uses `--operator-override --override-scope edit-only` BUT the staged rev_pkt_3855 + initial synthesis packet drafts used `--reason "<r>"` and `--slice-id <id>` — these would have failed unrecognized-arg.
+
+**Charter implication**: P63 ShellSurfaceContractSync — argparse.choices + help-text + slash-adapter-translation should all align. Today there's no validation that the slash-adapter command string parses cleanly against the argparse parser. Composes with P58 ThinEntryPointInventory (verify each thin entry routes to a parseable subcommand).
+
+#### Finding B — `StartupContext.to_dict()` conditional serialization on `bypass_lifecycles`
+
+**Ground-truth**: `dev/scripts/devctl/runtime/startup_context_models.py:200-202`:
+```python
+if self.bypass_lifecycles:
+    d["bypass_lifecycles"] = [lifecycle.to_dict() for lifecycle in self.bypass_lifecycles]
+```
+
+The `bypass_lifecycles` key is ONLY present in the JSON output when the tuple is non-empty. Consumer cannot distinguish:
+- (a) No active bypass — empty tuple → key absent
+- (b) Old schema version without this field — key absent
+
+**Charter implication**: this is a SCHEMA TRAP (charter P31 SchemaMigrationLifecycle + P61 LifecycleStateCompleteness territory). Fields with default-empty values should emit explicitly (`"bypass_lifecycles": []`) so consumers can detect state vs schema-version.
+
+The pattern is also relevant to charter P74 SourceOfTruthRegistry: when typed contracts declare an optional/default-empty field, the registry should record whether to_dict emits the field unconditionally (preferred) or conditionally (smell).
+
+**Why claude caught these**: pre-commit ground-truth probing of the staged synthesis packet. Per `feedback_findings_must_cross_check_ground_truth` rule — ground-truth probe BEFORE claiming. Both gaps would have caused the live-test to silently fail (Finding A: command-not-found; Finding B: assertion `bypass_lifecycles == []` on missing key returns True even when bypass IS active, so a positive-test would falsely report "no bypass active").
+
+**Pattern across today's session**: 3 CLI surface gaps caught in 30 min via independent ground-truth probes (CLI bypass subcommand missing at 18:11Z + agent-loop flag mismatch at 18:21Z + conditional serialization at 18:21Z). Validates charter P58 + P63 as load-bearing.
+
+
+### Pivot-relevant finding at 2026-05-12T18:34Z — FIFO gate ordering undermines P89 pivot_now urgency
+
+**Observation**: codex at 18:32-18:34Z transitioned from BypassLifecycle verification to inbox-backlog clearing via `develop next --actor codex --enforce-final-response-gate`. The gate processes pending packets in FIFO order — codex's first body-observation target was `rev_pkt_3736` (a packet from much earlier in this session about MP377 peer heartbeat TTL contract).
+
+**Charter gap**: claude's rev_pkt_3854/3855/3857 (recent pivot-relevant packets including the P89-fire-sooner application) are queued AFTER the 20-deep historical backlog. Codex must clear ~17 older packets via the gate before reaching the pivot-input. The "fire sooner" rule cannot compress codex's READ time when the gate enforces FIFO regardless of urgency classification.
+
+**Charter additions needed**:
+
+NEW typed sub-priority (compose with P88+P89): **`PacketQueuePriorityOrdering`**
+- Today: `--enforce-final-response-gate` processes packets FIFO by `posted_at_utc`
+- Refined: gate should sort by `(urgency_class.priority, expires_at_utc, posted_at_utc)` where urgency_class.priority comes from P89 `PacketUrgencyClassification`
+- `pivot_now` urgency jumps to front of queue
+- `batch_at_commit` urgency stays in normal order
+- `informational` urgency goes to back
+
+NEW typed sub-priority: **`StalePacketAutoDismiss`**
+- 20-deep backlog suggests packets accumulate without being dismissed when superseded
+- A newer packet on the same `scope_id` should automatically `supersedes_packet_id` an older one
+- Stale packets >N hours old should auto-transition to `status=expired` if not consumed
+- Composes with `expired_at_utc` field on packet contract (already present per warnings: *"pending runtime-transport review packets are past their expiry timestamp"*)
+
+**Composes with**: P50 BilateralPacketWakeBridge, P74 SourceOfTruthRegistry, P88 PacketReadReceipt, P89 PacketUrgencyClassification, P58 ThinEntryPointInventory.
+
+**Action**: not firing another packet now (rate-guard discipline + adding to back of FIFO queue is counterproductive). Wait for codex to reach rev_pkt_3857 via gate clearance, then fire ONE consolidated follow-up packet noting this gap. Log here as durable evidence.
+
+**Empirical measurement**: codex appears to clear ~1 packet per 30-60 seconds via the gate (rev_pkt_3736 at 18:33:32, develop-next re-check at 18:33:58). At that rate, 17 older packets = ~10-17 minutes until codex reaches rev_pkt_3857. Tracking via next-tick agent-mind poll.
+
+
+### Backlog drain telemetry at 2026-05-12T18:38Z
+
+**Observed rate**: codex is clearing pending packets via `develop next --actor codex --enforce-final-response-gate` at ~1.5-2 minutes per packet (slower than initial 30s estimate).
+
+**Sequence observed**:
+- 18:33Z showed rev_pkt_3736 → develop-next re-check → 18:36Z showed rev_pkt_3716 → develop-next → 18:37Z showed rev_pkt_3738 → develop-next
+
+**Pattern**: processing order is NOT strict numerical FIFO. Packets shown in order 3736 → 3716 → 3738 → ... (decreasing, then jumping). Likely sorted by `posted_at_utc` rather than packet_id.
+
+**ETA to claude's recent packets**: at 1.5-2 min/pkt × ~17 remaining packets = 25-35 minutes until codex reaches rev_pkt_3857.
+
+**Charter implication amplifying P88/P89/PacketQueuePriorityOrdering finding**:
+- The gate's processing rate (~1pkt/90-120s) compounds the FIFO ordering gap
+- A 20-deep backlog at 90s/packet = 30 min throughput
+- Adding priority-aware ordering (pivot_now jumps queue) would compress this to <2 min for pivot-relevant items
+- Without it, P89's "fire sooner" gives logical immediacy but operational latency = full backlog drain
+
+**Action**: spawned Explore agent at 18:38Z to investigate whether claude can SAFELY `ack` historical packets to help drain backlog (without destroying typed evidence). Pending verdict.
+
+
+### MAJOR EVENT 2026-05-12T18:54Z — CLAUDE FIRED MUTATION-LANE COMMIT
+
+**Trigger**: codex agent_message 18:52:15Z + 18:52:45Z surfaced typed gate diagnostic that claude's lane has stage/commit capabilities but was pinned to rev_pkt_3736. Codex's gate moved to "explicit startup-authority repair: stage the missing imported files."
+
+**Pre-commit prep (claude-side)**:
+1. Body-observed rev_pkt_3736 via `review-channel --action show --packet-id rev_pkt_3736 --actor claude` to unpin claude's loop
+2. Verified claude's `develop next --enforce-final-response-gate` returns next_required_command=none, blocking_packet_id=none (gate clear for action)
+3. check-router selected release lane (97 commands) due to .github/workflows/release_preflight.yml modification — used managed `devctl commit` path instead of raw git
+4. Staged 47 files (2105 insertions, 341 deletions) covering full BypassLifecycle composability surface
+
+**Files staged**:
+- 6 new untracked modules (bypass_lifecycle_*.py + launch_bypass + launch_commands + runtime_state_contract_rows_bypass_lifecycle)
+- ~30 M files (approval_mode, agent_loop_operator_override, lifetime_bypass_mode, startup_context*, parser_launch_arguments, governance, review_channel handlers, workflows, generated surfaces, MASTER_PLAN.md, ai_governance_platform.md, SYSTEM_MAP.md, AGENTS.md, bridge.md, ENGINEERING_EVOLUTION.md, DEVELOPMENT.md, codesmells.md)
+- ~10 test files (test_lifetime_bypass_mode, test_startup_context, test_review_channel, test_launch_script, test_platform_contracts, test_agent_loop_decision)
+- dev/state/contract_registry.jsonl + plan_index.jsonl
+
+**Commit command**: `python3 dev/scripts/devctl.py commit --role implementer --format json -m "Land MP377 BypassLifecycle composability + charter additions P88-P93 (claude-mutation-lane handoff)"`
+
+**Background task ID**: b3982wtso. Result pending.
+
+**Per HEAD precedent**: HEAD commit `0352553b Checkpoint MP377-P0-CHECKPOINT-AUTOMATION-S1 slice work (claude-mutation-lane handoff)` was created via same managed path — broad checkpoint commits expected for this lane.
+
+**Operator authorizations cited**: "yes I give you permission to do whatever you need to do when we launch codex" + "Permission to raw git commit and push if you have to so you and codex can get back on plan."
+
+**Charter validations executed in single action**:
+- Codex's claude-mutation-lane handoff pattern (HEAD precedent)
+- feedback_findings_must_cross_check_ground_truth (verified git status before staging)
+- feedback_real_life_test_shipped_features (commit IS the live application)
+- feedback_apply_adr_semantics_manually (commit message cites rev_pkt_3854/3855/3857/3858/3859 precedents)
+

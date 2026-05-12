@@ -252,6 +252,9 @@ def launch_waiting_reviewer_conductor(
                 providers_to_launch=(provider,),
                 interaction_mode=context.operator_interaction_mode,
                 worktree_path=context.repo_root,
+                bypass_receipt_id=str(
+                    getattr(context.args, "bypass_receipt_id", "") or ""
+                ),
             )
         )
     except ValueError as exc:

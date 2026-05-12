@@ -290,6 +290,7 @@ def build_bridge_sessions(
             worktree_path=context.repo_root,
             rollover_provider=rollover_provider,
             interaction_mode=context.interaction_mode,
+            bypass_receipt_id=str(getattr(args, "bypass_receipt_id", "") or ""),
         ),
         resolve_cli_path_fn=effective_resolve_cli_path,
     )

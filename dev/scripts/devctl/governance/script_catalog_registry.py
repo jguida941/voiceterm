@@ -98,6 +98,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("rust_test_shape", "check_rust_test_shape.py"),
     ("rustsec_policy", "check_rustsec_policy.py"),
     ("screenshot_integrity", "check_screenshot_integrity.py"),
+    ("checkpoint_budget_shape", "check_checkpoint_budget_shape.py"),
     ("startup_authority_contract", "check_startup_authority_contract.py"),
     ("test_coverage_parity", "check_test_coverage_parity.py"),
     ("typed_enum_connectivity", "check_typed_enum_connectivity.py"),

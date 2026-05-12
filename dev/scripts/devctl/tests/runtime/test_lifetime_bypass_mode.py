@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
@@ -12,11 +14,21 @@ from dev.scripts.devctl.runtime.governed_exception_validation import (
 from dev.scripts.devctl.runtime.lifetime_bypass_mode import (
     BYPASS_EXCEPTION_CLASS,
     BypassAuthorityScope,
+    BypassEvaluationDecision,
+    BypassEvaluationInput,
+    BypassExpirySource,
+    BypassLifecycleState,
+    BypassRequest,
     BypassReceipt,
+    active_bypass_lifecycle_for_receipt_id,
+    bypass_lifecycle_active,
     bypass_receipt_active,
     bypass_receipt_from_mapping,
+    evaluate_bypass_request,
+    expire_bypass_lifecycle,
     grant_lifetime_bypass,
     is_bypass_active,
+    load_bypass_lifecycles_with_errors,
 )
 
 
@@ -35,6 +47,41 @@ def _receipt(**overrides: object) -> BypassReceipt:
     }
     values.update(overrides)
     return BypassReceipt(**values)
+
+
+def _request(**overrides: object) -> BypassRequest:
+    values = {
+        "request_id": "mp377-priority-1",
+        "scope": BypassAuthorityScope.EDIT_ONLY,
+        "reason": "Operator requested scoped BypassLifecycle repair.",
+        "actor": "operator",
+        "requested_at_utc": "2026-05-12T16:09:27Z",
+        "target_role": "implementer",
+        "target_session_id": "session-1",
+        "target_surface": "review-channel-launch",
+        "evidence_refs": ("packet:rev_pkt_3847",),
+    }
+    values.update(overrides)
+    return BypassRequest(**values)
+
+
+def _evaluation_input(**overrides: object) -> BypassEvaluationInput:
+    values = {
+        "operator_signature": "operator",
+        "ai_approval_evidence": "packet:rev_pkt_3847",
+        "evaluated_at_utc": "2026-05-12T16:10:00Z",
+    }
+    values.update(overrides)
+    return BypassEvaluationInput(**values)
+
+
+def test_bypass_request_round_trips_from_mapping() -> None:
+    request = _request()
+    parsed = BypassRequest.from_mapping(request.to_dict())
+
+    assert parsed == request
+    assert parsed.scope is BypassAuthorityScope.EDIT_ONLY
+    assert parsed.target_surface == "review-channel-launch"
 
 
 def test_bypass_receipt_round_trips_from_mapping() -> None:
@@ -119,3 +166,109 @@ def test_lifetime_bypass_composes_with_governed_exception_lifecycle() -> None:
     assert lifecycle.exception.action_kind == "runtime.mutate"
     assert f"bypass_receipt:{receipt.receipt_id}" in lifecycle.authority_evidence_refs
     assert validate_governed_exception_lifecycle(lifecycle) == ()
+
+
+def test_bypass_lifecycle_evaluation_issues_governed_exception_receipt() -> None:
+    request = _request()
+
+    lifecycle = evaluate_bypass_request(
+        request,
+        _evaluation_input(
+            evaluator_actor_id="codex",
+            expires_at_utc="2030-05-12T17:10:00Z",
+        ),
+    )
+
+    assert lifecycle.contract_id == "BypassLifecycle"
+    assert lifecycle.state is BypassLifecycleState.ACTIVE
+    assert lifecycle.evaluation.decision is BypassEvaluationDecision.APPROVED
+    assert lifecycle.receipt is not None
+    assert lifecycle.receipt.receipt_id == "bypass:mp377-priority-1"
+    assert lifecycle.governed_exception is not None
+    assert (
+        lifecycle.evaluation.governed_exception_lifecycle_id
+        == lifecycle.governed_exception.lifecycle_id
+    )
+    assert lifecycle.governed_exception.exception is not None
+    assert lifecycle.governed_exception.exception.exception_class == BYPASS_EXCEPTION_CLASS
+    assert "GovernedExceptionLifecycle" in lifecycle.evaluation.policy_evidence_refs
+    assert validate_governed_exception_lifecycle(lifecycle.governed_exception) == ()
+    assert is_bypass_active(lifecycle.receipt.receipt_id, BypassAuthorityScope.EDIT_ONLY)
+
+
+def test_bypass_lifecycle_denies_request_without_operator_evidence() -> None:
+    lifecycle = evaluate_bypass_request(
+        _request(),
+        _evaluation_input(operator_signature=""),
+    )
+
+    assert lifecycle.state is BypassLifecycleState.DENIED
+    assert lifecycle.evaluation.decision is BypassEvaluationDecision.DENIED
+    assert lifecycle.evaluation.reason == "operator_signature_required"
+    assert lifecycle.receipt is None
+    assert lifecycle.governed_exception is None
+
+
+def test_bypass_lifecycle_expiry_records_stop_anchor_event() -> None:
+    lifecycle = evaluate_bypass_request(
+        _request(),
+        _evaluation_input(),
+    )
+
+    expired = expire_bypass_lifecycle(
+        lifecycle,
+        expired_at_utc="2026-05-12T16:23:00Z",
+        reason="rev_pkt_3846 stop_anchor honored",
+        source=BypassExpirySource.STOP_ANCHOR,
+        evidence_refs=("packet:rev_pkt_3846",),
+    )
+
+    assert expired.state is BypassLifecycleState.EXPIRED
+    assert expired.expiry is not None
+    assert expired.expiry.source is BypassExpirySource.STOP_ANCHOR
+    assert expired.expiry.evidence_refs == ("packet:rev_pkt_3846",)
+    assert expired.receipt == lifecycle.receipt
+
+
+def test_bypass_lifecycle_revoke_updates_registered_receipt() -> None:
+    lifecycle = evaluate_bypass_request(
+        _request(request_id="mp377-revoke"),
+        _evaluation_input(),
+    )
+    assert lifecycle.receipt is not None
+
+    revoked = expire_bypass_lifecycle(
+        lifecycle,
+        expired_at_utc="2026-05-12T16:20:00Z",
+        reason="operator revoked",
+        source=BypassExpirySource.OPERATOR_REVOKE,
+    )
+
+    assert revoked.state is BypassLifecycleState.REVOKED
+    assert revoked.receipt is not None
+    assert revoked.receipt.revoked_at_utc == "2026-05-12T16:20:00Z"
+    assert not is_bypass_active(
+        revoked.receipt.receipt_id, BypassAuthorityScope.EDIT_ONLY
+    )
+
+
+def test_active_bypass_lifecycle_loads_from_jsonl_store(tmp_path: Path) -> None:
+    lifecycle = evaluate_bypass_request(
+        _request(request_id="mp377-store", target_role="implementer"),
+        _evaluation_input(),
+    )
+    assert lifecycle.receipt is not None
+    store = tmp_path / "bypass_lifecycles.jsonl"
+    store.write_text(json.dumps(lifecycle.to_dict()) + "\n", encoding="utf-8")
+
+    loaded = load_bypass_lifecycles_with_errors(store)
+    active = active_bypass_lifecycle_for_receipt_id(
+        lifecycle.receipt.receipt_id,
+        store_path=store,
+        target_role="implementer",
+    )
+
+    assert loaded.errors == ()
+    assert active is not None
+    assert active.lifecycle_id == lifecycle.lifecycle_id
+    assert bypass_lifecycle_active(active)

@@ -446,6 +446,9 @@ jobs:
       - name: Run orchestration recommendation-closure guard
         run: python3 dev/scripts/checks/check_orchestration_recommendation_closure.py
 
+      - name: Run checkpoint-budget shape guard
+        run: python3 dev/scripts/checks/check_checkpoint_budget_shape.py
+
       - name: Run startup-authority contract guard
         run: python3 dev/scripts/checks/check_startup_authority_contract.py
 

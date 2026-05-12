@@ -158,6 +158,7 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
     check_script_shell_command("state_store_authority"),
     check_script_shell_command("check_cli_test_parity"),
     check_script_shell_command("orchestration_recommendation_closure"),
+    check_script_shell_command("checkpoint_budget_shape"),
     check_script_shell_command("startup_authority_contract"),
     check_script_shell_command("review_surface_consistency"),
     check_script_shell_command("tandem_consistency"),

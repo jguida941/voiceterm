@@ -21,6 +21,11 @@ from .launch_records import (
     session_output_paths,
 )
 from .launch_authority import build_prepared_launch_authority, current_head_sha
+from .launch_bypass import resolve_launch_bypass_lifecycle
+from .launch_commands import (
+    build_promote_command as _build_promote_command,
+    build_rollover_command as _build_rollover_command,
+)
 from .launch_topology import build_conductor_launch_specs
 from .launch_script import build_session_script
 from .prompt import build_conductor_prompt
@@ -35,10 +40,37 @@ if TYPE_CHECKING:
     from .core import LaneAssignment
 
 _build_terminal_launch_lines = build_terminal_launch_lines
-
 _DEVCTL_INTERPRETER = os.path.basename(sys.executable)
-"""Interpreter name matching the runtime that loaded this module."""
 
+
+def build_rollover_command(
+    *,
+    rollover_threshold_pct: int,
+    await_ack_seconds: int,
+    approval_mode: str = DEFAULT_APPROVAL_MODE,
+    dangerous: bool = False,
+    bypass_receipt_id: str = "",
+) -> str:
+    """Return the canonical self-relaunch command for planned rollovers."""
+    return _build_rollover_command(
+        rollover_threshold_pct=rollover_threshold_pct,
+        await_ack_seconds=await_ack_seconds,
+        approval_mode=approval_mode,
+        dangerous=dangerous,
+        bypass_receipt_id=bypass_receipt_id,
+        interpreter=_DEVCTL_INTERPRETER,
+    )
+
+
+def build_promote_command(
+    *,
+    promotion_plan_rel: str,
+) -> str:
+    """Return the canonical typed next-task promotion command."""
+    return _build_promote_command(
+        promotion_plan_rel=promotion_plan_rel,
+        interpreter=_DEVCTL_INTERPRETER,
+    )
 
 @dataclass(frozen=True, slots=True)
 class _LaunchSessionBuildContext:
@@ -52,6 +84,7 @@ class _LaunchSessionBuildContext:
     resolved_approval_mode: str
     rollover_command: str
     promote_command: str
+    bypass_lifecycle: object | None
     build_conductor_prompt_fn: Callable[..., str]
     resolve_cli_path_fn: Callable[[str], str]
 
@@ -62,53 +95,6 @@ def resolve_cli_path(provider: str) -> str:
     if cli_path:
         return cli_path
     raise ValueError(f"Required CLI not found on PATH: {provider}")
-
-
-def build_rollover_command(
-    *,
-    rollover_threshold_pct: int,
-    await_ack_seconds: int,
-    approval_mode: str = DEFAULT_APPROVAL_MODE,
-    dangerous: bool = False,
-) -> str:
-    """Return the canonical self-relaunch command for planned rollovers."""
-    command = [
-        _DEVCTL_INTERPRETER,
-        "dev/scripts/devctl.py",
-        "review-channel",
-        "--action",
-        "rollover",
-        "--rollover-threshold-pct",
-        str(rollover_threshold_pct),
-        "--await-ack-seconds",
-        str(await_ack_seconds),
-        "--terminal",
-        "terminal-app",
-    ]
-    resolved_mode = normalize_approval_mode(approval_mode, dangerous=dangerous)
-    command.extend(["--approval-mode", resolved_mode])
-    return shlex.join(command)
-
-
-def build_promote_command(
-    *,
-    promotion_plan_rel: str,
-) -> str:
-    """Return the canonical typed next-task promotion command."""
-    command = [
-        _DEVCTL_INTERPRETER,
-        "dev/scripts/devctl.py",
-        "review-channel",
-        "--action",
-        "promote",
-        "--promotion-plan",
-        promotion_plan_rel,
-        "--terminal",
-        "none",
-        "--format",
-        "md",
-    ]
-    return shlex.join(command)
 
 
 def _build_launch_session(
@@ -201,6 +187,7 @@ def _build_launch_session(
         prepared_instruction_revision=context.prepared_instruction_revision,
         prepared_session_token=context.prepared_session_token,
         review_state_path=context.review_state_path,
+        bypass_lifecycle=context.bypass_lifecycle,
     )
     session_record.script_path = script_path
     return session_record.report_payload()
@@ -222,12 +209,17 @@ def build_launch_sessions(
     rollover_command = build_rollover_command(
         approval_mode=request.approval_mode,
         dangerous=request.dangerous,
+        bypass_receipt_id=request.bypass_receipt_id,
         rollover_threshold_pct=request.rollover_threshold_pct,
         await_ack_seconds=request.await_ack_seconds,
     )
     resolved_approval_mode = normalize_approval_mode(
         request.approval_mode,
         dangerous=request.dangerous,
+    )
+    bypass_lifecycle = resolve_launch_bypass_lifecycle(
+        request=request,
+        resolved_approval_mode=resolved_approval_mode,
     )
     promote_command = build_promote_command(
         promotion_plan_rel=request.promotion_plan_rel,
@@ -265,6 +257,7 @@ def build_launch_sessions(
         resolved_approval_mode=resolved_approval_mode,
         rollover_command=rollover_command,
         promote_command=promote_command,
+        bypass_lifecycle=bypass_lifecycle,
         build_conductor_prompt_fn=build_conductor_prompt_fn,
         resolve_cli_path_fn=resolve_cli_path_fn,
     )

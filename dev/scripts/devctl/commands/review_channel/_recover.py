@@ -208,6 +208,7 @@ def _build_recover_sessions(
             interaction_mode=interaction_mode,
             terminal_arg=terminal,
             bypass_reason=str(getattr(args, "bypass_reason", "") or ""),
+            bypass_receipt_id=str(getattr(args, "bypass_receipt_id", "") or ""),
         )
         persist_launcher_discipline_bypass_receipt(
             artifact_paths=runtime_paths.artifact_paths,
@@ -272,6 +273,7 @@ def _build_recover_sessions(
             worktree_path=repo_root,
             providers_to_launch=(recover_provider,),
             interaction_mode=interaction_mode,
+            bypass_receipt_id=str(getattr(args, "bypass_receipt_id", "") or ""),
         ),
     )
     return (
@@ -300,6 +302,7 @@ def _maybe_launch_recover_sessions(
             interaction_mode=launch_input.interaction_mode,
             terminal_arg=terminal,
             bypass_reason=str(getattr(args, "bypass_reason", "") or ""),
+            bypass_receipt_id=str(getattr(args, "bypass_receipt_id", "") or ""),
         )
         persist_launcher_discipline_bypass_receipt(
             artifact_paths=launch_input.artifact_paths,

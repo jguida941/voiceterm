@@ -37,6 +37,7 @@ from .startup_continuity import (
 from .startup_context_assembly import (
     StartupContextAssemblyInput,
     _assemble_startup_context,
+    _collect_active_bypass_lifecycles,
     compute_startup_continuity_signals,
     extract_coordination_state_projection,
 )
@@ -364,20 +365,10 @@ def build_startup_context(
 ) -> StartupContext:
     """Build the typed startup-context packet for the current repo state.
 
-    ``governance`` and ``review_state`` are optional frozen inputs that let
-    callers (in particular the F1 coordination-parity proof in
-    ``test_startup_context`` and any composite renderer that wants a single
-    tick to cover all three governance surfaces) lock one typed review-state
-    snapshot across ``build_startup_context``, ``build_control_plane_read_
-    model``, and ``session_resume_support.build_from_sources``. When both are
-    omitted, the function still performs a fresh governance scan and
-    bridge-refreshed review-state load so the standalone command behavior is
-    unchanged. ``review_status_dir`` threads the caller-selected review bundle
-    through that single review-state load so startup-context stays on the same
-    frozen bundle as the dashboard and session-resume surfaces when a custom
-    status root is in play. ``caller_role`` only affects reduced advisory
-    authority projection, letting read-only composite surfaces reuse the same
-    startup tick without exposing mutating next commands.
+    Optional frozen governance/review-state inputs let composite renderers share
+    one typed review tick across startup, control-plane, and session-resume
+    surfaces. ``review_status_dir`` selects that frozen bundle when needed, and
+    ``caller_role`` only affects reduced authority projection.
     """
     repo_root, governance = _resolve_startup_repo_and_governance(
         repo_root=repo_root,
@@ -472,6 +463,10 @@ def build_startup_context(
         repo_root=repo_root,
         review_state=review_state,
     )
+    bypass_lifecycles = _collect_active_bypass_lifecycles(
+        repo_root=repo_root,
+        role=caller_role,
+    )
 
     ctx = _assemble_startup_context(
         StartupContextAssemblyInput(
@@ -497,6 +492,7 @@ def build_startup_context(
             packet_continuity_index=packet_continuity_index,
             packet_carry_forward_debt=packet_carry_forward_debt,
             continuity_attention=continuity_attention,
+            bypass_lifecycles=bypass_lifecycles,
             snapshot_id=snapshot_id,
             zref=zref,
         )

@@ -21,6 +21,13 @@ from dev.scripts.devctl.runtime.agent_loop_operator_override import (
     OPERATOR_OVERRIDE_REQUESTOR,
     OPERATOR_OVERRIDE_SOURCE,
     apply_operator_override_actions,
+    operator_override_from_bypass_lifecycle,
+)
+from dev.scripts.devctl.runtime.lifetime_bypass_mode import (
+    BypassAuthorityScope,
+    BypassEvaluationInput,
+    BypassRequest,
+    evaluate_bypass_request,
 )
 from dev.scripts.devctl.runtime.session_termination_policy import (
     CONTINUATION_ANCHOR_MISSING_ERROR,
@@ -1535,6 +1542,38 @@ def test_operator_override_allows_scoped_edit_without_publication() -> None:
     assert "operator override active" not in decision.next_command
     assert "--operator-override" in decision.next_loop_command
     assert "--packet rev_pkt_1" in decision.next_loop_command
+
+
+def test_operator_override_projects_from_active_bypass_lifecycle() -> None:
+    lifecycle = evaluate_bypass_request(
+        BypassRequest(
+            request_id="override-projection",
+            scope=BypassAuthorityScope.EDIT_ONLY,
+            reason="operator approved scoped repair",
+            actor="operator",
+            requested_at_utc="2026-05-12T16:10:00Z",
+            target_surface="packet:rev_pkt_1",
+            evidence_refs=("packet:rev_pkt_1",),
+        ),
+        BypassEvaluationInput(
+            operator_signature="operator",
+            ai_approval_evidence="packet:rev_pkt_3847",
+            evaluated_at_utc="2026-05-12T16:10:01Z",
+        ),
+    )
+
+    override = operator_override_from_bypass_lifecycle(lifecycle)
+
+    assert override.edit_allowed is True
+    assert override.target_kind == "packet"
+    assert override.target_ref == "rev_pkt_1"
+    assert override.effective_authority_source == EDIT_ONLY_AUTHORITY_SOURCE
+    assert override.allowed_actions == (
+        "startup-context.summary",
+        "review-channel.status",
+        "review-channel.post_finding",
+        "implementation.edit",
+    )
 
 
 def test_operator_override_without_effective_role_does_not_grant_edit() -> None:

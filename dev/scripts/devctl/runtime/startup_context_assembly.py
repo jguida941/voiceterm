@@ -11,6 +11,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, NamedTuple
 
 from .key_surfaces import startup_key_surfaces
+from .lifetime_bypass_mode import (
+    DEFAULT_BYPASS_LIFECYCLE_STORE_REL,
+    BypassAuthorityScope,
+    BypassLifecycle,
+    active_bypass_lifecycles,
+)
 from .packet_intent_anchor import plan_iteration_session_from_anchors
 from .project_governance import ProjectGovernance
 from .remote_control_attachment_models import RemoteControlAttachmentState
@@ -64,6 +70,7 @@ class StartupContextAssemblyInput(NamedTuple):
     packet_continuity_index: object
     packet_carry_forward_debt: object
     continuity_attention: object
+    bypass_lifecycles: object
     snapshot_id: object
     zref: object
 
@@ -114,6 +121,7 @@ def _assemble_startup_context(spec: StartupContextAssemblyInput) -> StartupConte
         packet_continuity_index=spec.packet_continuity_index,
         packet_carry_forward_debt=spec.packet_carry_forward_debt,
         continuity_attention=spec.continuity_attention,
+        bypass_lifecycles=tuple(spec.bypass_lifecycles or ()),
         key_surfaces=_startup_key_surfaces(spec.governance),
         snapshot_id=spec.snapshot_id,
         zref=spec.zref,
@@ -134,6 +142,19 @@ def extract_coordination_state_projection(
     if isinstance(cs, dict):
         return dict(cs)
     return {}
+
+
+def _collect_active_bypass_lifecycles(
+    *,
+    repo_root: "Path",
+    role: object = "",
+) -> tuple[BypassLifecycle, ...]:
+    """Collect active typed bypass lifecycles for startup-context consumers."""
+    return active_bypass_lifecycles(
+        store_path=repo_root / DEFAULT_BYPASS_LIFECYCLE_STORE_REL,
+        target_role=str(role or "").strip(),
+        required_scope=BypassAuthorityScope.EDIT_ONLY,
+    )
 
 
 def compute_startup_continuity_signals(
@@ -169,6 +190,7 @@ def compute_startup_continuity_signals(
 __all__ = [
     "StartupContextAssemblyInput",
     "_assemble_startup_context",
+    "_collect_active_bypass_lifecycles",
     "compute_startup_continuity_signals",
     "extract_coordination_state_projection",
 ]
