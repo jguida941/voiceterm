@@ -1214,6 +1214,62 @@ class TestRawGitCommitPermissionHook(unittest.TestCase):
         self.assertTrue(allowed)
         self.assertEqual(lines, ())
 
+    def test_evaluate_raw_git_commit_permission_allows_publish_clear_managed_projection(
+        self,
+    ) -> None:
+        ctx = SimpleNamespace(
+            implementation_permission="suspended",
+            observed_control_topology="dual_implementer",
+            reviewer_gate=SimpleNamespace(
+                review_gate_allows_push=True,
+                implementation_blocked=False,
+                implementation_block_reason="",
+            ),
+            governance=SimpleNamespace(
+                push_enforcement=SimpleNamespace(
+                    checkpoint_required=False,
+                    safe_to_continue_editing=True,
+                )
+            ),
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            _run_git(repo_root, "init")
+            _run_git(repo_root, "config", "user.email", "test@example.com")
+            _run_git(repo_root, "config", "user.name", "Test User")
+            surface_path = repo_root / "dev/guides/SYSTEM_MAP.md"
+            surface_path.parent.mkdir(parents=True, exist_ok=True)
+            surface_path.write_text("base\n", encoding="utf-8")
+            _run_git(repo_root, "add", "dev/guides/SYSTEM_MAP.md")
+            _run_git(repo_root, "commit", "-m", "base")
+            surface_path.write_text("receipt\n", encoding="utf-8")
+            _run_git(repo_root, "add", "dev/guides/SYSTEM_MAP.md")
+
+            with (
+                patch(
+                    "dev.scripts.devctl.runtime.startup_context.build_startup_context",
+                    return_value=ctx,
+                ),
+                patch(
+                    "dev.scripts.devctl.runtime.review_snapshot_refresh."
+                    "managed_receipt_relpaths",
+                    return_value=("dev/guides/SYSTEM_MAP.md",),
+                ),
+                patch(
+                    "dev.scripts.devctl.runtime.completed_handoff_authority."
+                    "current_completed_handoff_outcome",
+                    return_value=None,
+                ),
+                patch.dict(
+                    os.environ,
+                    {"DEVCTL_MANAGED_PROJECTION_RECEIPT_COMMIT": "1"},
+                ),
+            ):
+                allowed, lines = _evaluate_raw_git_commit_permission(repo_root)
+
+        self.assertTrue(allowed)
+        self.assertEqual(lines, ())
+
     def test_evaluate_raw_git_commit_permission_blocks_source_commit_despite_handoff_receipt(
         self,
     ) -> None:

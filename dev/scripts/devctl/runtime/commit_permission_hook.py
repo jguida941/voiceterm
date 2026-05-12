@@ -36,6 +36,12 @@ def evaluate_raw_git_commit_permission(
         environ=os.environ,
     ):
         return True, ()
+    if publish_clear_allows_managed_projection_commit(
+        repo_root=repo_root,
+        environ=os.environ,
+        decision=decision,
+    ):
+        return True, ()
 
     return False, _blocked_lines(decision)
 
@@ -55,6 +61,36 @@ def completed_handoff_allows_managed_projection_commit(
     except Exception:  # broad-except: allow reason=hook handoff import must fail closed when runtime authority helpers are unavailable fallback=return False
         return False
     return current_completed_handoff_outcome(repo_root=repo_root) is not None
+
+
+def publish_clear_allows_managed_projection_commit(
+    *,
+    repo_root: Path,
+    environ: Mapping[str, str] | None = None,
+    decision=None,
+) -> bool:
+    """Return True for hook-time managed receipts when review can publish."""
+    if not _env_flag_enabled(environ, MANAGED_PROJECTION_RECEIPT_COMMIT_ENV):
+        return False
+    if not _staged_paths_are_managed_projection_receipts(repo_root=repo_root):
+        return False
+    if decision is None:
+        return False
+    blockers = {
+        str(blocker).strip()
+        for blocker in getattr(decision, "blockers", ()) or ()
+        if str(blocker).strip()
+    }
+    allowed_blockers = {
+        "implementation_permission_blocked",
+        "implementation_permission_suspended",
+    }
+    return (
+        bool(blockers)
+        and blockers <= allowed_blockers
+        and getattr(decision, "review_authority", "") == "valid"
+        and getattr(decision, "checkpoint_state", "") == "satisfied"
+    )
 
 
 def _staged_paths_are_managed_projection_receipts(*, repo_root: Path) -> bool:

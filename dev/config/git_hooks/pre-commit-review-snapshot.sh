@@ -18,8 +18,9 @@
 #                                           snapshot-only receipt commit
 #   DEVCTL_MANAGED_PROJECTION_RECEIPT_COMMIT=1
 #                                           allow a repo-owned generated-surface
-#                                           receipt only when completed-handoff
-#                                           authority and staged-path checks pass
+#                                           receipt only when staged-path checks
+#                                           pass and typed review authority is
+#                                           publish-clear or completed-handoff
 #
 # Failure policy:
 # - commit_permission failures are blocking. raw git commits must not bypass
