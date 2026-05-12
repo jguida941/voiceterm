@@ -2441,3 +2441,37 @@ NEW typed sub-priority: **`StalePacketAutoDismiss`**
 - feedback_real_life_test_shipped_features (commit IS the live application)
 - feedback_apply_adr_semantics_manually (commit message cites rev_pkt_3854/3855/3857/3858/3859 precedents)
 
+
+### Stop/continuation anchor state at 2026-05-12T19:20Z (operator-prompted trace)
+
+**Operator question**: *"Is codex still proceeding towards the stop packet or whatever we gave it so where it stood after that packet etc... I'm curious if it actually works."*
+
+**Findings**:
+
+1. **rev_pkt_3846 stop_anchor (target 16:23:22Z) WAS HONORED** by codex at exactly 16:23:22Z (per rev_pkt_3849 confirmation). The original test of the typed stop mechanism SUCCEEDED end-to-end. BUT the packet `status` field is still `pending` — codex's HONOR action did not auto-transition the originating packet to "applied"/"honored" status. Charter finding: packet-status reverse-edge missing. Composes with P88 PacketReadReceipt + P91 PacketRelationshipGraph (reverse edge from honor action back to packet).
+
+2. **3 active anchor packets in codex's inbox now**:
+   - rev_pkt_3685 continuation_anchor: OPERATOR-AUTHORIZED goal MP-377 consolidation plan (the long-running directive keeping codex's session goal alive across slices)
+   - rev_pkt_3773 stop_anchor: scoped to session **019e18a8** at next_slice_boundary — STALE (codex's current session is 019e1cf8)
+   - rev_pkt_3774 stop_anchor: scoped to session **019e18a8** at next_slice_boundary — STALE (same as 3773)
+
+3. **STALE-SESSION SMELL**: stop_anchors rev_pkt_3773/3774 are scoped to session 019e18a8 which no longer exists. Codex's current session 019e1cf8 isn't subject to these anchors. These stale packets accumulate in inbox without expiry/dismissal. Charter implication: NEW sub-priority `StalePacketAutoDismiss` (already noted at 18:34Z) — anchors scoped to dead sessions should auto-transition to `status=expired` on session termination. Composes with P50 BilateralPacketWakeBridge + P90 PacketSupersessionLink.
+
+4. **Codex's CURRENT stop/continuation state**:
+   - continuation_anchor rev_pkt_3685 ACTIVE → goal scope = MP-377 consolidation plan
+   - BypassLifecycle commit eb336244 = typed goal-progress evidence under this anchor
+   - stop_anchors 3773/3774 = STALE-session, won't fire
+   - codex deep-reasoning idle 18+ min, waiting for managed-pipeline output that will never come
+   - rev_pkt_3860 in codex inbox explains the bailout
+
+5. **UX-surface gap surfaced by the operator's question**: claude had to trace 4 different typed surfaces to answer "where does codex stand?":
+   - `agent-mind --agent codex` (event stream)
+   - `review-channel --action inbox --target codex` (pending packets)
+   - `review-channel --action show --packet-id <id>` (packet details)
+   - `develop next --actor codex --enforce-final-response-gate` (gate state)
+   No single "session timeline" view exists. Charter implication: P64 InvestigationMetaAuditClosure + a new hypothetical `SessionTimelineView` typed projection that consolidates these 4 surfaces into one read.
+
+**Composes with**: P50 (BilateralPacketWakeBridge), P64 (InvestigationMetaAuditClosure), P88 (PacketReadReceipt), P91 (PacketRelationshipGraph reverse edges), and new `StalePacketAutoDismiss` sub-priority.
+
+**Verdict**: the typed stop/continuation mechanism DOES work end-to-end (rev_pkt_3846 honored proves it). But the OBSERVABILITY of "is codex still following the directive" requires multi-surface tracing. The charter P88+P91+SessionTimelineView combo would close this gap.
+

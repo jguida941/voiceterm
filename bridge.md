@@ -81,7 +81,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-05-12T19:05:14Z`
 - Last Codex poll (Local America/New_York): `2026-05-12 15:05:14 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `7cbd3a5a3e8329035d1b1ae7244195489b17093a791b74f09c92f3757596c3fd`
+- Last non-audit worktree hash: `a71ddbac73605839d523d81af2dd88e7deae05fb1509f6f944f2cb3ad23bea32`
 - Current instruction revision: ``
 
 ## Protocol
@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Implementer Status
 
-- pending
+- Status unavailable.
 
 ## Implementer Questions
 
@@ -142,7 +142,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Last Reviewed Scope
 
-MP-377
+MP-355
 
 ## Action Requests
 
