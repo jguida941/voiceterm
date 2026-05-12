@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `05adb548c6e9` — Allow publish-clear managed projection receipts
-- Tree hash: `adae1e261395`
-- Generation stamp: `snap-a96669254129`
-- Generated at (UTC): 2026-05-12T21:57:38Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `555fa4834876` — Checkpoint push bypass packet projections
+- Tree hash: `ba0f6ab73518`
+- Generation stamp: `snap-e1a4fc9c0bf8`
+- Generated at (UTC): 2026-05-12T22:01:22Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 247 files, +21704/-1891
+- Delta since last snapshot: 24 commits, 246 files, +21659/-1877
 - Governance findings: 43 open / 0 fixed / 43 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,23 +28,23 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `05adb548c6e9bd37ebbd52322beba02f7376bd5c`
+- HEAD SHA: `555fa4834876c22a547919e570e6d8cd7e6b204d`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-12T17:53:42-04:00
+- HEAD timestamp (UTC): 2026-05-12T18:00:49-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_present
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 2
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 15 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 16 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -60,16 +60,16 @@ production client (VoiceTerm...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `05adb548c6e9`
+Range: last 24 commits ending at `555fa4834876`
 
 - commits: 24
-- files changed: 247
-- insertions: +21704
-- deletions: -1891
+- files changed: 246
+- insertions: +21659
+- deletions: -1877
 - bundle classes touched: tooling, docs
 - authority surfaces touched: 17 file(s)
 
@@ -77,30 +77,30 @@ Range: last 24 commits ending at `05adb548c6e9`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `05adb548` | Allow publish-clear managed projection receipts | 5 | +145/-52 | tooling |  |
-| 2 | `c41a0250` | Refresh external review snapshot for c536d666 | 2 | +59/-59 | docs |  |
-| 3 | `c536d666` | Checkpoint post-commit packet projections | 4 | +84/-48 | tooling |  |
-| 4 | `ed1fbf18` | Refresh external review snapshot for dea85ab1 | 2 | +60/-58 | docs |  |
-| 5 | `dea85ab1` | Fix governed commit pipeline reload fallback | 8 | +417/-54 | tooling |  |
-| 6 | `753cf164` | Fix governed commit pipeline retention | 8 | +190/-55 | tooling |  |
-| 7 | `cae10c5e` | Refresh external review snapshot for 6bd6f207 | 2 | +60/-59 | docs |  |
-| 8 | `6bd6f207` | Fix governed commit pipeline retention | 10 | +230/-56 | tooling |  |
-| 9 | `42683c3f` | Refresh external review snapshot for c8cf1c84 | 2 | +49/-48 | docs |  |
-| 10 | `c8cf1c84` | Post-commit working tree cleanup: bridge heartbeat + codesm… | 4 | +39/-3 | docs |  |
-| 11 | `e76ed6f3` | Refresh external review snapshot for eb336244 | 2 | +82/-76 | docs |  |
-| 12 | `eb336244` | Land MP377 BypassLifecycle composability + charter addition… | 48 | +2199/-407 | tooling |  |
-| 13 | `b331baa1` | Refresh external review snapshot for 0352553b | 2 | +85/-78 | docs |  |
-| 14 | `0352553b` | Checkpoint MP377-P0-CHECKPOINT-AUTOMATION-S1 slice work (cl… | 60 | +3582/-139 | tooling |  |
-| 15 | `0928a483` | Stage agent_supervise import set + adapter wiring (recover… | 8 | +808/-2 | tooling |  |
-| 16 | `28bcafdd` | Refresh policy-owned generated surfaces for 87554eb9 | 1 | +16/-16 | docs |  |
-| 17 | `87554eb9` | Refresh external review snapshot for 9249e17c | 2 | +138/-85 | docs |  |
-| 18 | `9249e17c` | Land MP-377 typed governance work-in-progress (multi-slice) | 176 | +12985/-235 | tooling |  |
-| 19 | `771a7fa5` | Refresh external review snapshot for 73417c6a | 2 | +71/-72 | docs |  |
-| 20 | `73417c6a` | Stop push preflight projection receipt loops | 5 | +138/-53 | tooling |  |
-| 21 | `fd9ed509` | Refresh external review snapshot for c9616cfe | 2 | +55/-55 | docs |  |
-| 22 | `c9616cfe` | Fix push bridge sync test mocks | 4 | +51/-56 | tooling |  |
-| 23 | `170167c1` | Refresh external review snapshot for fe5b9538 | 2 | +66/-65 | docs |  |
-| 24 | `fe5b9538` | Fix startup reviewer mode authority | 5 | +95/-60 | tooling |  |
+| 1 | `555fa483` | Checkpoint push bypass packet projections | 3 | +50/-46 | tooling |  |
+| 2 | `05adb548` | Allow publish-clear managed projection receipts | 5 | +145/-52 | tooling |  |
+| 3 | `c41a0250` | Refresh external review snapshot for c536d666 | 2 | +59/-59 | docs |  |
+| 4 | `c536d666` | Checkpoint post-commit packet projections | 4 | +84/-48 | tooling |  |
+| 5 | `ed1fbf18` | Refresh external review snapshot for dea85ab1 | 2 | +60/-58 | docs |  |
+| 6 | `dea85ab1` | Fix governed commit pipeline reload fallback | 8 | +417/-54 | tooling |  |
+| 7 | `753cf164` | Fix governed commit pipeline retention | 8 | +190/-55 | tooling |  |
+| 8 | `cae10c5e` | Refresh external review snapshot for 6bd6f207 | 2 | +60/-59 | docs |  |
+| 9 | `6bd6f207` | Fix governed commit pipeline retention | 10 | +230/-56 | tooling |  |
+| 10 | `42683c3f` | Refresh external review snapshot for c8cf1c84 | 2 | +49/-48 | docs |  |
+| 11 | `c8cf1c84` | Post-commit working tree cleanup: bridge heartbeat + codesm… | 4 | +39/-3 | docs |  |
+| 12 | `e76ed6f3` | Refresh external review snapshot for eb336244 | 2 | +82/-76 | docs |  |
+| 13 | `eb336244` | Land MP377 BypassLifecycle composability + charter addition… | 48 | +2199/-407 | tooling |  |
+| 14 | `b331baa1` | Refresh external review snapshot for 0352553b | 2 | +85/-78 | docs |  |
+| 15 | `0352553b` | Checkpoint MP377-P0-CHECKPOINT-AUTOMATION-S1 slice work (cl… | 60 | +3582/-139 | tooling |  |
+| 16 | `0928a483` | Stage agent_supervise import set + adapter wiring (recover… | 8 | +808/-2 | tooling |  |
+| 17 | `28bcafdd` | Refresh policy-owned generated surfaces for 87554eb9 | 1 | +16/-16 | docs |  |
+| 18 | `87554eb9` | Refresh external review snapshot for 9249e17c | 2 | +138/-85 | docs |  |
+| 19 | `9249e17c` | Land MP-377 typed governance work-in-progress (multi-slice) | 176 | +12985/-235 | tooling |  |
+| 20 | `771a7fa5` | Refresh external review snapshot for 73417c6a | 2 | +71/-72 | docs |  |
+| 21 | `73417c6a` | Stop push preflight projection receipt loops | 5 | +138/-53 | tooling |  |
+| 22 | `fd9ed509` | Refresh external review snapshot for c9616cfe | 2 | +55/-55 | docs |  |
+| 23 | `c9616cfe` | Fix push bridge sync test mocks | 4 | +51/-56 | tooling |  |
+| 24 | `170167c1` | Refresh external review snapshot for fe5b9538 | 2 | +66/-65 | docs |  |
 
 ### Files
 
@@ -110,11 +110,11 @@ Range: last 24 commits ending at `05adb548c6e9`
 | `.github/workflows/release_preflight.yml` | tooling | +1/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +3/-0 |
 | `AGENTS.md` | docs | +9/-1 |
-| `bridge.md` | docs | +86/-86 |
+| `bridge.md` | docs | +82/-82 |
 | `codesmells.md` | docs | +1239/-0 |
-| `dev/active/MASTER_PLAN.md` | tooling | +147/-0 |
+| `dev/active/MASTER_PLAN.md` | tooling | +149/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +39/-2 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1133/-1065 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1129/-1061 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +3/-2 |
 | `dev/guides/DEVELOPMENT.md` | docs | +35/-6 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +23/-23 |
@@ -146,7 +146,7 @@ Range: last 24 commits ending at `05adb548c6e9`
 | `dev/scripts/devctl/commands/development/orchestration_inputs.py` | tooling | +23/-1 |
 | `dev/scripts/devctl/commands/development/orchestration_models.py` | tooling | +17/-0 |
 | `dev/scripts/devctl/commands/development/packet_attention.py` | tooling | +18/-4 |
-| _207 more files trimmed_ | | |
+| _206 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -245,6 +245,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`555fa483`** — Checkpoint push bypass packet projections
+  - evolution: Review-channel dogfood found that remote-control launch recovery still had a raw trusted-mode hole: the system could emit provider dangerous/no-prompt flags without proving a current typed bypass lifecycle. That made bl…
 - **`05adb548`** — Allow publish-clear managed projection receipts
   - evolution: Review-channel dogfood found that remote-control launch recovery still had a raw trusted-mode hole: the system could emit provider dangerous/no-prompt flags without proving a current typed bypass lifecycle. That made bl…
 - **`c41a0250`** — Refresh external review snapshot for c536d666
@@ -305,8 +307,6 @@ Recent findings:
   - evolution: Live MP-377 dogfood exposed a second half of the TASK_COMPLETE continuation gap: `TaskCompleteDecision` could reject termination for an active `continuation_anchor`, but the review-channel post path still stamped the ge…
 - **`170167c1`** — Refresh external review snapshot for fe5b9538
   - evolution: Live MP-377 dogfood exposed a second half of the TASK_COMPLETE continuation gap: `TaskCompleteDecision` could reject termination for an active `continuation_anchor`, but the review-channel post path still stamped the ge…
-- **`fe5b9538`** — Fix startup reviewer mode authority
-  - evolution: Live MP-377 dogfood exposed a second half of the TASK_COMPLETE continuation gap: `TaskCompleteDecision` could reject termination for an active `continuation_anchor`, but the review-channel post path still stamped the ge…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -325,10 +325,10 @@ Recent findings:
 - open governance findings: 43
 
 ### Startup advisories
-- checkpoint_before_continue: dirty_after_local_checkpoint
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Relaunch the reviewer loop immediately.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/integrations_import.py`): dogfood.command.integrations-import: Auto-ingested devctl finalization failure rc=1.
@@ -345,4 +345,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-a96669254129` binds this file to HEAD `05adb548c6e9`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-e1a4fc9c0bf8` binds this file to HEAD `555fa4834876`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
