@@ -41,6 +41,27 @@ def test_response_shape_blocks_status_table_when_final_gate_denies() -> None:
     assert "completion_marker:complete" in shape.violations
 
 
+def test_response_shape_blocks_terminal_response_when_final_gate_denies_without_candidate() -> None:
+    shape = reviewer_response_shape_for_gate(
+        FinalResponseGateResult(
+            allow_final_response=False,
+            action="run_next_command",
+            next_required_command="python3 dev/scripts/devctl.py develop next --actor codex --format md",
+            continuation_state="must_continue",
+            continuation_goal="typed controller goal",
+        ),
+        actor_id="codex",
+        role="reviewer",
+    )
+
+    assert shape.status == "blocked"
+    assert shape.final_response_allowed is False
+    assert shape.status_prose_allowed is False
+    assert shape.completion_prose_allowed is False
+    assert shape.proposed_response_text_observed is False
+    assert shape.violations == ()
+
+
 def test_response_shape_allows_receipt_summary_when_final_gate_allows() -> None:
     shape = reviewer_response_shape_for_gate(
         FinalResponseGateResult(

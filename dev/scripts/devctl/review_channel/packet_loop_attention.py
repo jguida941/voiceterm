@@ -4,8 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from ..runtime.review_packet_inbox_actionable import (
+    is_actionable,
+    packet_is_communication_only,
+)
 from ..runtime.session_termination_policy import SESSION_TERMINATION_PACKET_KINDS
 from ..runtime.value_coercion import coerce_text
+from .packet_body_observation import packet_body_digest, packet_body_observed_by
 
 _PENDING_LOOP_ATTENTION_LIFECYCLES = frozenset(
     {
@@ -21,6 +26,16 @@ _PENDING_LOOP_ATTENTION_LIFECYCLES = frozenset(
         "task_produced",
         "task_blocked",
         "operator_routed",
+    }
+)
+_SUCCESSFUL_DURABLE_INGESTION_STATUSES = frozenset(
+    {"already_present", "inserted", "updated"}
+)
+_COMMAND_LANE_KINDS = frozenset(
+    {
+        "action_request",
+        "approval_request",
+        "instruction",
     }
 )
 
@@ -45,3 +60,72 @@ def packet_requires_loop_attention(packet: Mapping[str, object]) -> bool:
         "",
         "review_only",
     }
+
+
+def packet_body_attention_required(
+    packet: Mapping[str, object],
+    *,
+    actor: str,
+    role: str = "",
+    session: str = "",
+) -> bool:
+    """Return whether a packet still needs route-scoped body observation."""
+    actor_id = coerce_text(actor)
+    if not actor_id or coerce_text(packet.get("from_agent")) == actor_id:
+        return False
+    if not packet_body_digest(packet):
+        return False
+    if packet_body_observed_by(packet, actor=actor_id, role=role, session=session):
+        return False
+    if packet_durable_ingestion_succeeded(packet):
+        return False
+    return True
+
+
+def packet_requires_runtime_attention(
+    packet: Mapping[str, object],
+    *,
+    actor: str,
+    role: str = "",
+    session: str = "",
+) -> bool:
+    """Return whether one pending packet should keep an agent-loop awake."""
+    if packet_durable_ingestion_succeeded(packet) and not _command_lane_packet(packet):
+        return packet_body_attention_required(
+            packet,
+            actor=actor,
+            role=role,
+            session=session,
+        )
+    if packet_requires_loop_attention(packet) and not packet_is_communication_only(packet):
+        return True
+    if is_actionable(packet):
+        return True
+    return packet_body_attention_required(
+        packet,
+        actor=actor,
+        role=role,
+        session=session,
+    )
+
+
+def packet_durable_ingestion_succeeded(packet: Mapping[str, object]) -> bool:
+    receipt = packet.get("packet_durable_ingestion_receipt")
+    if (
+        isinstance(receipt, Mapping)
+        and coerce_text(receipt.get("status")) in _SUCCESSFUL_DURABLE_INGESTION_STATUSES
+    ):
+        return True
+    for key in ("durable_binding", "packet_creation_binding"):
+        binding = packet.get(key)
+        if not isinstance(binding, Mapping):
+            continue
+        if coerce_text(binding.get("binding_target_kind")) == "communication_only":
+            continue
+        if coerce_text(binding.get("status")) in _SUCCESSFUL_DURABLE_INGESTION_STATUSES:
+            return True
+    return False
+
+
+def _command_lane_packet(packet: Mapping[str, object]) -> bool:
+    return coerce_text(packet.get("kind")) in _COMMAND_LANE_KINDS

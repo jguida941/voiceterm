@@ -25,7 +25,10 @@ from .agent_sync_models import (
     TERMINAL_SUCCESS_STATES,
 )
 from .event_models import event_id_rank
-from .packet_body_observation import packet_body_digest, packet_body_observed_by
+from .packet_loop_attention import (
+    packet_body_attention_required,
+    packet_requires_runtime_attention,
+)
 from .packet_contract import normalize_packet_route_role, packet_route_matches_scope
 
 
@@ -48,11 +51,6 @@ _PENDING_LIFECYCLES = frozenset(
         "operator_routed",
     }
 )
-_SUCCESSFUL_DURABLE_INGESTION_STATUSES = frozenset(
-    {"already_present", "inserted", "updated"}
-)
-
-
 @dataclass(frozen=True, slots=True)
 class _AttentionBuildInput:
     actor: str
@@ -99,7 +97,12 @@ def packet_attention_for_agent(
         role=role_id,
         session=session_id,
     )
-    if not _active_packet_visible_to_role(active_packet, role=role_id):
+    if not _active_packet_visible_to_route(
+        active_packet,
+        actor=actor_id,
+        role=role_id,
+        session=session_id,
+    ):
         active_packet = {}
     attention_packet = _best_attention_packet(
         active_packet=active_packet,
@@ -279,7 +282,12 @@ def _pending_packets_for_scope(
             session=session,
         ):
             continue
-        if _pending_packet_visible_to_role(packet, role=role):
+        if _pending_packet_visible_to_route(
+            packet,
+            actor=actor,
+            role=role,
+            session=session,
+        ):
             rows.append(packet)
     if not rows and role in {"dashboard", "operator"}:
         rows.extend(
@@ -309,7 +317,12 @@ def _pending_packets_for_ambiguous_actor_scope(
             continue
         if not (_text(packet.get("target_role")) or packet_session):
             continue
-        if _pending_packet_visible_to_role(packet, role=observer_role):
+        if _pending_packet_visible_to_route(
+            packet,
+            actor=actor,
+            role=observer_role,
+            session=session,
+        ):
             rows.append(packet)
     return tuple(rows)
 
@@ -332,10 +345,12 @@ def _packet_matches_attention_scope(
     return bool(packet_session and session and packet_session == session)
 
 
-def _pending_packet_visible_to_role(
+def _pending_packet_visible_to_route(
     packet: Mapping[str, object],
     *,
+    actor: str,
     role: str,
+    session: str,
 ) -> bool:
     if _text(packet.get("kind")) in SESSION_TERMINATION_PACKET_KINDS:
         return False
@@ -345,13 +360,22 @@ def _pending_packet_visible_to_role(
     if _observer_legacy_action_request(packet, role=role):
         return False
     status = _text(packet.get("status"))
-    return status in {"", "pending"} and lifecycle in _PENDING_LIFECYCLES
+    if status not in {"", "pending"} or lifecycle not in _PENDING_LIFECYCLES:
+        return False
+    return packet_requires_runtime_attention(
+        packet,
+        actor=actor,
+        role=role,
+        session=session,
+    )
 
 
-def _active_packet_visible_to_role(
+def _active_packet_visible_to_route(
     packet: Mapping[str, object],
     *,
+    actor: str,
     role: str,
+    session: str,
 ) -> bool:
     if not packet:
         return False
@@ -361,7 +385,14 @@ def _active_packet_visible_to_role(
     if lifecycle not in ACTIVE_LIFECYCLE_STATES:
         return False
     status = _text(packet.get("status"))
-    return status in {"", "pending", "acked", "acknowledged", "in_progress"}
+    if status not in {"", "pending", "acked", "acknowledged", "in_progress"}:
+        return False
+    return packet_requires_runtime_attention(
+        packet,
+        actor=actor,
+        role=role,
+        session=session,
+    )
 
 
 def _best_attention_packet(
@@ -397,7 +428,7 @@ def _body_open_packets(
     rows = [
         packet
         for packet in pending_packets
-        if _packet_body_open_required(
+        if packet_body_attention_required(
             packet,
             actor=actor,
             role=role,
@@ -417,32 +448,7 @@ def _best_body_open_packet(
     return packets[0] if packets else {}
 
 
-def _packet_body_open_required(
-    packet: Mapping[str, object],
-    *,
-    actor: str,
-    role: str,
-    session: str,
-) -> bool:
-    if not actor or _text(packet.get("from_agent")) == actor:
-        return False
-    if not packet_body_digest(packet):
-        return False
-    if packet_body_observed_by(packet, actor=actor, role=role, session=session):
-        return False
-    if _durable_ingestion_succeeded(packet):
-        return False
-    return True
-
-
-def _durable_ingestion_succeeded(packet: Mapping[str, object]) -> bool:
-    receipt = _mapping(packet.get("packet_durable_ingestion_receipt"))
-    if not receipt:
-        return False
-    return _text(receipt.get("status")) in _SUCCESSFUL_DURABLE_INGESTION_STATUSES
-
-
-def _body_open_command(
+def packet_body_open_command(
     *,
     packet_id: str,
     actor: str,
@@ -458,6 +464,21 @@ def _body_open_command(
     if session:
         command += f" --target-session-id {session}"
     return command
+
+
+def _body_open_command(
+    *,
+    packet_id: str,
+    actor: str,
+    role: str = "",
+    session: str = "",
+) -> str:
+    return packet_body_open_command(
+        packet_id=packet_id,
+        actor=actor,
+        role=role,
+        session=session,
+    )
 
 
 def _attention_priority_key(
@@ -544,4 +565,4 @@ def _matching_fallback_attention(
     return fallback
 
 
-__all__ = ["packet_attention_for_agent"]
+__all__ = ["packet_attention_for_agent", "packet_body_open_command"]

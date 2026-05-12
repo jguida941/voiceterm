@@ -3,6 +3,7 @@ from __future__ import annotations
 from dev.scripts.devctl.commands.development.continuation import continuation_signal
 from dev.scripts.devctl.commands.development.models import DevelopmentPacketAttention
 from dev.scripts.devctl.commands.development.orchestration_models import (
+    DevelopmentAgentLoopInput,
     DevelopmentOrchestrationSnapshot,
     DevelopmentWatcherLease,
 )
@@ -72,6 +73,54 @@ def test_continuation_signal_reports_goal_progress_fields() -> None:
     assert signal.goal_progress_status == "in_progress"
 
 
+def test_complete_goal_progress_still_requires_stop_anchor() -> None:
+    signal = continuation_signal(
+        packet_attention=DevelopmentPacketAttention(),
+        orchestration=_reviewer_route(),
+        watcher_lease=DevelopmentWatcherLease(status="live"),
+        review_state={
+            "packets": [
+                _continuation_anchor(),
+                _goal_progress(evidence_refs=["goal_progress:2/2"]),
+            ]
+        },
+        actor="codex",
+        current_action="next",
+        fallback_commands=(
+            "python3 dev/scripts/devctl.py develop next --actor codex --format md",
+        ),
+    )
+
+    assert signal.progress_percentage_toward_goal == 100
+    assert signal.goal_progress_status == "complete"
+    assert signal.continuation_required is True
+    assert signal.final_response_allowed is False
+    assert "continuation_anchor_active:rev_pkt_anchor" in signal.reasons
+
+    stopped = continuation_signal(
+        packet_attention=DevelopmentPacketAttention(),
+        orchestration=_reviewer_route(),
+        watcher_lease=DevelopmentWatcherLease(status="live"),
+        review_state={
+            "packets": [
+                _continuation_anchor(),
+                _goal_progress(evidence_refs=["goal_progress:2/2"]),
+                _stop_anchor(),
+            ]
+        },
+        actor="codex",
+        current_action="next",
+        fallback_commands=(
+            "python3 dev/scripts/devctl.py develop next --actor codex --format md",
+        ),
+    )
+
+    assert stopped.progress_percentage_toward_goal == 100
+    assert stopped.continuation_required is False
+    assert stopped.final_response_allowed is True
+    assert stopped.reasons == ()
+
+
 def _continuation_anchor() -> dict[str, object]:
     return {
         "packet_id": "rev_pkt_anchor",
@@ -82,6 +131,40 @@ def _continuation_anchor() -> dict[str, object]:
         "lifecycle_current_state": "pending",
         "posted_at": "2026-05-11T23:10:00Z",
         "latest_event_id": "rev_evt_10",
+    }
+
+
+def _reviewer_route() -> DevelopmentOrchestrationSnapshot:
+    return DevelopmentOrchestrationSnapshot(
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="session-1",
+                lifecycle_state="closed",
+                required_action="stop_no_work",
+                loop_mode="closed",
+                should_continue_loop=False,
+                safe_to_continue=True,
+                may_mutate=False,
+                proof_state="satisfied",
+            ),
+        )
+    )
+
+
+def _stop_anchor() -> dict[str, object]:
+    return {
+        "packet_id": "rev_pkt_stop",
+        "kind": "stop_anchor",
+        "from_agent": "operator",
+        "to_agent": "codex",
+        "target_role": "reviewer",
+        "anchor_scope": "role",
+        "status": "pending",
+        "lifecycle_current_state": "pending",
+        "posted_at": "2026-05-11T23:12:00Z",
+        "latest_event_id": "rev_evt_12",
     }
 
 

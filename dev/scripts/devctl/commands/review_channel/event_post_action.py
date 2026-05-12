@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
+from ...runtime.collaboration_packet_kinds import TASK_PRODUCED_PACKET_KIND
 from ...review_channel.context_refs import resolve_context_pack_refs
 from ...review_channel.events import post_packet
 from ...review_channel.packet_contract import (
@@ -53,6 +55,11 @@ def _post_request(context: EventActionContext) -> PacketPostRequest:
     args = context.args
     evidence_refs = _post_evidence_refs(args)
     _require_typed_evidence_for_post(args, evidence_refs)
+    _require_commit_or_clean_worktree_for_publish(
+        context.repo_root,
+        args,
+        evidence_refs,
+    )
     return PacketPostRequest(
         from_agent=args.from_agent,
         to_agent=args.to_agent,
@@ -140,6 +147,40 @@ def _require_typed_evidence_for_post(
         "--evidence-artifact-path, --action-result-id, --commit-sha, or both "
         "--plan-revision-before and --plan-revision-after."
     )
+
+
+def _require_commit_or_clean_worktree_for_publish(
+    repo_root: Path,
+    args,
+    evidence_refs: tuple[str, ...],
+) -> None:
+    kind = str(getattr(args, "kind", "") or "").strip()
+    from_agent = str(getattr(args, "from_agent", "") or "").strip().lower()
+    if kind != TASK_PRODUCED_PACKET_KIND or from_agent != "codex":
+        return
+    if any(ref.startswith("commit:") for ref in evidence_refs):
+        return
+    if _worktree_clean(repo_root):
+        return
+    raise ValueError(
+        "review-channel post --kind task_produced from codex requires commit "
+        "evidence or a clean worktree: pass --commit-sha after the governed "
+        "commit path, or keep working instead of publishing closure."
+    )
+
+
+def _worktree_clean(repo_root: Path) -> bool:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "status", "--porcelain"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0 and not result.stdout.strip()
 
 
 def _target_fields(args) -> PacketTargetFields:

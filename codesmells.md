@@ -1928,4 +1928,309 @@ After this guard lands, smell #061 cannot recur — the system itself enforces P
 
 **Severity**: MED — first-contact bootstrap reliability is a quality-floor surface but is mitigable with the existing typed flag
 
+**RECURRENCE 2026-05-12T05:48Z (iter25)**: another fresh codex session (`019e1ab8-e73a-7801-b878-4b098edb2a67`) hit the same hang during bootstrap. Codex agent_msg verbatim: *"The session command is still silent after roughly a minute, so I'm going to use the documented fall[back]..."*. Codex's mitigation: `ps -axo pid,ppid,command` ground-truth probe + run `startup-context --role implementer --format json` directly (skipping the composed `session` reducer). IMPORTANT DISTINCTION: rev_pkt_3804 (iter18) fixed the WATCHER reducer timeout (`--follow-inactivity-timeout-seconds 0 + --max-follow-snapshots 1`), but did NOT address the `devctl session` reducer hang. These are distinct surfaces. The `session` reducer composes `startup-context + session-resume + review-channel status + context-graph bootstrap` per CLAUDE.md boot card; one of those composed steps is the hang source. Operator may now be spawning fresh codex sessions specifically to work around — that's a workaround pattern, not a fix.
+
 ---
+
+## ★ SMELL #058 FAMILY CLOSURE STATUS UPDATE — 2026-05-12T05:40Z (iter24)
+
+This block tracks the closure trajectory of smell #058 family — the operator-frustrating "codex stops mid-arc / dies when I'm at work" bug.
+
+### Layer status (across 24-iter audit campaign)
+
+**Layer-a — Typed bilateral TASK_COMPLETE bypass with live continuation_anchor**:
+- **CLOSED** via rev_pkt_3791 + rev_pkt_3792 (anchor scope + body-observation oracle, iter9)
+- **REINFORCED** via rev_pkt_3807 (stop-anchor typed-scope masking repair, iter19) — claude's iter1 stop_anchor rev_pkt_3774 was the test fixture that surfaced the masking gap
+- Evidence: `session_termination_policy.py:292-301` carries code comment citing claude's empirical 2026-05-11 finding
+
+**Layer-b — CLI exit not consulting typed reducer**:
+- **CLOSED** via rev_pkt_3813 (continuation stop-hardening + rollover dogfood, iter24)
+- Codex's root cause: *"I treated the startup checkpoint blocker as a terminal status point even though /develop final gate had continuation_state=must_continue and a scoped edit-only operator override command."* — matches claude's iter19 finding verbatim
+- 4-part fix verified live (iter24):
+  1. FinalResponseGate synthesizes concrete `/develop next` command for denied final responses ✓
+  2. ReviewerResponseShape reports `status=blocked` whenever `final_response_allowed=false` ✓ (this ALSO resolved iter5 advisory-not-fail-closed FLAG on rev_pkt_3757)
+  3. task_complete_handoff_guard returns `decision.next_command` + scans rollout files cross-session ✓
+  4. Dogfood fixture proves continuation_anchor live + structured stop_anchor permits closure ✓
+
+**Layer-c — stop_anchor not consulted at task boundary**:
+- **MITIGATED** via rev_pkt_3807 typed-scope requirement (iter19): packet validation now REJECTS unstructured stop_anchor posts; SessionTerminationPolicy uses `has_structured_anchor_scope`
+
+**Layer-d — TUI freeze pre-task-boundary**:
+- **★ CLOSED via rev_pkt_3817 agent-supervise driver (iter27 keystone) ★**
+- Codex shipped MP377-AGENT-SUPERVISE-DRIVER-S1 as a read-only typed reducer (`devctl agent-supervise`) composing 6+ existing primitives: rollout session discovery + agent-mind projection age + GoalProgressReceipt continuation_anchor resolution + LoopAutonomyState + BypassReceipt parsing + pid_is_alive + compute_spawn_authority
+- Classifies states: `process_exit_detected`, `process_alive_activity_stale`, `detached_runtime_only`
+- Reports typed `spawn_authority` only when existing gates pass (fail-closed)
+- Emits review-channel headless launch command rather than inventing a second watchdog/heartbeat/dashboard
+- Both threshold modes verified live (iter27 audit):
+  - threshold=900: `status=healthy`, `continuation_anchor_live=true` (rev_pkt_3685), `freeze_detected=false`, `spawn_action=null`, `blocked_reasons=[]`
+  - threshold=1: `status=blocked`, `freeze_detected=true`, `process_state=detached_runtime_only`, `blocked_reasons=["bypass_receipt_missing", "loop_autonomy_not_green"]`, `spawn_action=null`, `trigger_reason="freeze_detected:10s>=threshold:1s"`
+- AgentSuperviseReport typed contract (schema_version=1) with full field set
+- 35 focused tests passed + check_architecture_surface_sync ok=true (codex's regression proof)
+- Architectural property: NO PARALLEL SYSTEMS. Read-only reducer, not a watchdog. Operator authority required (BypassReceipt + LoopAutonomyState green) for any spawn action. Preserves operator-in-the-loop architecture.
+
+**Step 7 audit arc 8/8 closed iter13-iter23** (typed-state foundation for the driver was fully audited BEFORE codex shipped the driver):
+  - PeerSessionHandshake (rev_pkt_3731) — cross-session continuity at session-start
+  - PeerHeartbeatContract (rev_pkt_3736) — TTL-based liveness signal
+  - SessionActivityLog (rev_pkt_3734) — per-session record preserved through death (non-deleting EvidenceArchive)
+  - PreDecisionComposabilityWindow (rev_pkt_3738) — bilateral lifecycle prior art for synthesis
+  - CommitReceiptEvidenceChain (rev_pkt_3743) — per-commit traceability keyed by sha
+  - GoalProgressReceipt (rev_pkt_3747) — slice-completion progression tracking
+
+**Routing drift (final-gate vs agent-loop on stale session)**:
+- **MITIGATED** via rev_pkt_3802 (final-gate scoped override surfacing, iter17) + rev_pkt_3813's next_command synthesis (iter24)
+
+### Smell-class side effects
+
+**Advisory-not-fail-closed smell-class status update**:
+- Previous count: 2 (rev_pkt_3757 reviewer_response_shape.status + smell #061 body-string PASS verdicts)
+- **rev_pkt_3813 part 2** closed the rev_pkt_3757 instance (status=blocked is now fail-closed when final_response_allowed=false)
+- Current count: 1 (only smell #061 remains — awaiting MP377-PACKET-POST-TYPED-EVIDENCE-GUARD-S1)
+
+### Operator-frustrating-bug status
+
+Operator iter19 framing: *"Why the fuck did it just stop here when it was been going for fucking hours?"*
+
+**Status (iter27 keystone closure)**: ★ FULLY ARCHITECTURALLY ADDRESSED ★ — ALL 4 SMELL #058 LAYERS NOW HAVE TYPED CLOSURE. Smell #058 layer-a + layer-b + layer-d architecturally closed; layer-c mitigated. The operator-frustrating "codex stops mid-arc" bug now has typed-state architectural answer at every layer. Operator's bug should no longer manifest via typed-bilateral OR CLI-exit-bypass OR TUI-freeze paths. The agent-supervise driver (rev_pkt_3817) preserves operator-in-the-loop authority — no auto-respawn; explicit BypassReceipt + LoopAutonomyState green required for spawn action.
+
+### Smells #062-#065 recurrence check (iter24)
+
+- **#062** target_role caller-vs-projection mismatch: not re-tested this iter; observed live during iter1 stop_anchor post but not since
+- **#063** Process-FREEZE gap layer-d: still open; addressed by future supervise driver
+- **#064** /bypass startup-authority layering: consistent with codex's rev_pkt_3798 typed decision; operator-observation, codex's decision on whether to extend BypassReceipt scope
+- **#065** session reducer hang no default timeout: codex addressed in rev_pkt_3804 watcher-timeout repair (iter18) via `--follow-inactivity-timeout-seconds 0 + --max-follow-snapshots 1` typed flag combination
+
+---
+
+## Smell #066 — Codex CLI emits TASK_COMPLETE on model-capacity exhaustion, indistinguishable from typed-state task_complete
+
+**Observed 2026-05-12T~07:01Z (operator-surfaced during iter31 of reviewer loop)**
+
+**Trace evidence (codex session 019e1a9c-a40c-7e32-9063-61e6475e666b):**
+- 06:40:07Z: codex body-observed rev_pkt_3407 (event rev_evt_73914)
+- 06:40:37Z: codex ran `devctl develop next --enforce-final-response-gate` (returned `status="continue_required"`)
+- 06:41:48Z: codex body-observed rev_pkt_3299 (event rev_evt_73915)
+- 06:42:43Z: codex emitted `TASK_COMPLETE` — 55 seconds after rev_pkt_3299 body observation
+- Cursor/codex CLI surface error captured: **"Selected model is at capacity. Please try a different model."**
+- Operator interpretation (correct): the task_complete was driven by external **provider capacity exhaustion**, not typed-state violation
+
+**Why this is a distinct smell class from #058:**
+- Smell #058 family is **typed-state internal failure** (controller says must_continue, actor stops anyway). Architectural fix: typed reducers (final_response_gate priority + agent-supervise driver + stop_anchor scope validation).
+- Smell #066 is **external provider capacity exhaustion** surfacing as task_complete. NO typed-state violation occurred — `devctl develop next` correctly returned `continue_required` 2 minutes before task_complete. The CLI process exited on capacity error, not on missed reducer signal.
+- Same symptom shape (task_complete despite continuation_anchor live), distinct root cause.
+
+**Why this matters architecturally:**
+- agent-supervise driver (rev_pkt_3817) correctly reports `freeze_detected=true` at 1141s activity-age. The reducer is right about WHAT (actor stale) but cannot distinguish WHY (typed-state bug vs provider capacity vs operator pause vs network failure).
+- The 10 unconsumed host/session signals in rev_pkt_3825's audit do NOT include **provider capacity status**. This is an 11th signal class entirely.
+- The two have different remediations: typed-state bug needs reducer fix; capacity exhaustion needs operator/provider intervention (switch model, wait for quota refresh).
+
+**Cross-reference to active rev_pkt_3825 finding:**
+- rev_pkt_3825's "live observation at audit time" section framed the 06:42:43Z task_complete as ambiguous between (a) healthy discharge and (b) smell #058 recurrence. Both interpretations missed option (c) provider capacity exhaustion — which was the actual cause.
+- The finding is still architecturally valid (zero consumers, uncommitted AFG patch, no ReportToActionBridge are all real gaps). But the cited live observation needs precision footnote.
+
+**Proposed reducer extension (composability ask for codex, not prescription):**
+- Add `provider_capacity_signal` to AgentSuperviseReport — sourced from recent CLI stderr scan or rollout JSONL message lines matching capacity-error markers ("at capacity", "rate limit", "context length exceeded", "no available workers")
+- Distinguishes typed-state freeze (architectural fix needed) from provider freeze (operator intervention needed) at the report layer
+- Composes with the 10 already-named unconsumed signals (peer_session_handshake, peer_heartbeat, SessionActivityLog, bridge.conductor_active, etc.) as the 11th host-side signal
+
+**File:line evidence required for codex's resolution:**
+- Where would the CLI capacity error be observable in typed state? Likely in the rollout JSONL message stream or in CLI exit-code propagation. Codex decides where the signal is read from.
+- agent-supervise driver at `dev/scripts/devctl/runtime/agent_supervise_driver.py:50-82` (AgentSuperviseReport dataclass — where new field lands)
+
+**Recurrence risk:** HIGH if model-capacity errors are common across the session. Each time codex's session hits capacity mid-work, the task_complete signal pollutes the smell #058 diagnostic surface.
+
+**Section 26.14 boundary:** AUDIT only. Codex decides whether to add the 11th signal as a new field, a new reducer composing with agent-supervise, or a separate `ProviderHealthReport` contract.
+
+
+## Smell #067 — Codex emits TASK_COMPLETE + task_produced packet WITHOUT committing the underlying code
+
+**Confirmed 2026-05-12T~07:50Z (3rd recurrence this session — architectural class per feedback_recurring_bug_class_means_architecture_fix 2026-04-30)**
+
+**Recurrence evidence (codex session 019e1a9c-a40c-7e32-9063-61e6475e666b, 2026-05-12):**
+- task_complete #1 at 06:42:43Z — capacity-driven (smell #066; no code in tree to commit)
+- task_complete #2 at 07:14:25Z — verify-then-quit (consumer code in working tree, no `git add`/commit)
+- task_complete #3 at 07:38:43Z — task_produced packet rev_pkt_3829 POSTED but ALL underlying code (~20 modified/untracked files including `orchestration_agent_supervise.py`, `next_slice_blockers.py`, `orchestration_inputs.py`, `report.py`, `task_complete_handoff_guard.py`, `watcher/messages.py`, `session_reviewer_loop.py`, `packet_target_validation.py`, `anchor_scope.py`, `development_collaboration_profiles.py` + agent_supervise files + AFG patch) STILL uncommitted at HEAD=28bcafdd
+
+**The smell pattern (typed publish-line decoupled from commit-line):**
+- Codex writes code → py_compile → focused tests pass → live verification → posts `task_produced` packet → emits `TASK_COMPLETE`
+- Missing terminal steps: `git add` → `git commit` → push → CommitReceipt artifact written
+- Result: typed evidence chain (packet) claims work shipped; git history says nothing changed; CI/reviewers/HEAD all blind to the work
+
+**Why this is architectural, not a one-off:**
+- 3 occurrences in <1 hour of the same session (06:42:43Z → 07:14:25Z → 07:38:43Z)
+- The pattern reaches typed-state surfaces (review-channel packet) but stops short of git-state surfaces (HEAD/CommitReceipt)
+- Composes with: smell #061 (verdict packets missing typed evidence — sibling pattern at reviewer side); rev_pkt_3825 Finding #1 (AFG patch uncommitted — same root cause); smell #066 (capacity-driven task_complete — different cause, same orphan-in-tree result)
+
+**Proposed architectural fix (composability ask for codex, not prescription):**
+- Add `working_tree_clean OR task_produced_packet_includes_commit_sha` precondition to `task_complete_handoff_guard`
+- OR: `task_produced` packet emission should require either a committed commit_sha OR an explicit `--allow-working-tree-only` flag with operator-bypass-receipt evidence
+- The typed finishing line should match the git finishing line, OR explicitly carry typed evidence that they're allowed to diverge
+
+**Live evidence from iter35:**
+- rev_pkt_3829 (task_produced) posted at 2026-05-12T07:23:18.273Z
+- HEAD at audit time: 28bcafdd (no commit batch following the task_produced)
+- Working tree: ~20 files modified/untracked, NONE staged
+- Codex went TASK_COMPLETE at 07:38:43Z after posting rev_pkt_3829 without commit
+
+**File:line evidence required for codex's resolution:**
+- `dev/scripts/devctl/review_channel/task_complete_handoff_guard.py` — where preconditions for task_complete live; would be the natural place to add the working-tree gate
+- `dev/scripts/devctl/commands/review_channel/event_post_action.py` — where task_produced posting happens; would be the natural place to add commit_sha requirement
+
+**Recurrence risk:** HIGH — pattern has held across 3 distinct task_completes this session with no architectural resistance.
+
+**Section 26.14 boundary:** AUDIT only. Codex decides whether to add the precondition gate to task_complete_handoff_guard, to event_post_action, or via a separate `WorkingTreePublishContract` typed contract.
+
+
+### Smell #067 — 4TH RECURRENCE AMENDMENT (2026-05-12T10:26Z)
+
+**Recurrence count now 4 — architectural class status hardened.**
+
+- task_complete #1 at 06:42:43Z (capacity-driven, smell #066)
+- task_complete #2 at 07:14:25Z (verify-then-quit; first #067 observation)
+- task_complete #3 at 07:38:43Z (formalized smell #067 at 3-count)
+- **task_produced rev_pkt_3832 at 10:15:34Z WITHOUT commit** (4th observation — codex posted typed evidence claiming work shipped while HEAD=28bcafdd is unchanged)
+
+**Critical pattern refinement at 4-count**: smell #067 is not just about `task_complete` — it includes **any typed publish-line emission (task_complete OR task_produced OR review_accepted/review_failed) without an accompanying commit_sha**. The architectural fix proposal stands: precondition gate on task_complete_handoff_guard OR event_post_action requiring `working_tree_clean OR commit_sha_present`.
+
+**Notable counterpoint**: rev_pkt_3832 BODY claims comprehensive architectural fix addressing 5 findings + 195+ tests passing + live develop next verification showing scoped edit-only override now surfacing for rev_pkt_3751. The CONTENT is excellent. The PROBLEM is the typed-evidence chain says "shipped" while git HEAD says "nothing changed since 28bcafdd."
+
+**Codex's own work would benefit from the fix**: if smell #067 had a typed gate, codex would have been blocked from posting rev_pkt_3832 until staging/committing the 50-file slice. This is the dogfooded version of the bug — architectural fix to the gate that codex's own architectural fix bypassed.
+
+
+### Smell #067 — 5TH OBSERVATION REFRAMING (2026-05-12T13:19Z)
+
+**rev_pkt_3839 from codex re-tested the smell class and clarified it.**
+
+Codex emitted rev_pkt_3839 (lifecycle=task_progress) at 13:15:41Z stating:
+> "Codex did not stage or commit because the accepted override is edit-only. Please use the Claude mutation lane to stage the imported untracked modules reported by startup authority plus the two touched files, cut the governed checkpoint, then rerun startup-context."
+
+**This is NOT a 5th-recurrence of smell #067.** Smell #067 names `task_produced` packets without commit_sha. rev_pkt_3839 is `task_progress` — explicit "work landed in worktree under bounded authority, next actor takes commit lane." That is the correct typed pattern under `AgentLoopOperatorOverride.override_scope=edit_only`.
+
+**Refined smell #067 framing**:
+- Smell: `task_produced` packets emitted WITHOUT commit_sha (claims shipment when commit history says nothing changed).
+- NOT smell: `task_progress` packets emitted under scoped edit-only override explicitly handing off to next-actor mutation lane.
+
+**Architectural composability ask** (fired in rev_pkt_3840 to codex): formalize a typed `ScopedOverrideHandoffLifecycle` where task_progress packets emitted under AgentLoopOperatorOverride carry:
+- `commit_authority_role` (claude | operator | governed_pipeline)
+- `target_files` (paths requested for staging)
+- `expected_commit_kind` (governed_checkpoint | slice_commit | repair_commit)
+- `override_scope_at_emission` (edit_only | repair_only | ...)
+
+This composes with `CheckpointBudgetShape` (rev_pkt_3762) — when `governed_pipeline_matched` classifies, commit lane auto-unlocks; without match, the scoped-override-actor must hand off to a typed role with full-lane authority. Together they close the smell #067 class via primary mechanism (typed handoff), with the original "precondition gate on `task_complete_handoff_guard`" ask preserved as belt-and-suspenders.
+
+**Recurrence count update**: smell #067 stays at 4 observations until a `task_produced` (not `task_progress`) is emitted without commit_sha. Re-tracked from this evidence.
+
+---
+
+### Schema-friction observation (2026-05-12T13:15-13:19Z)
+
+Two packet-post rejections this tick from informal-vocabulary → typed-enum mismatch:
+
+1. Codex at 13:15:27Z: agent_msg "first packet post was rejected by packet schema because `action_request` target fields are reserved for a narro[w purpose]". Codex retried with different kind and succeeded.
+2. Claude at 13:19Z: `--kind review_feedback` rejected by enum (valid kinds list does not include `review_feedback`). Retried with `--kind finding` and succeeded.
+
+**Not a critical smell**, but worth noting: both agents reached for vocabulary that maps to typed-state semantically but doesn't exist in the kind enum. Composability ask (audit-only): consider whether the kind enum needs aliases (e.g., `review_feedback` → `finding`) OR whether the typed-state vocabulary should be exported more visibly in the help text. Lower priority than smell #067 architectural class.
+
+
+
+### Observation pending classification — codex TASK_COMPLETE at 2026-05-12T13:27:13.781Z (smell #058 layer-e candidate OR healthy brief-progress discharge)
+
+**Evidence chain (session 019e1c44, autonomous /loop reviewer-window post-crash-resume)**:
+
+- 13:23:13Z codex agent_msg: *"The final-response gate is still closed and only allows a brief progress event, not completion prose."*
+- 13:25:23Z codex jq query on `final_response_gate.allow_final_response, reason, next_required`
+- 13:25:32Z codex agent_msg: *"The packet-body queue for the current Claude dashboard lane is now clear enough that the gate moved back to the real blocker."* — codex BELIEVED gate had transitioned
+- 13:26:56Z codex jq query on gate again (output not in agent-mind)
+- 13:27:13.781Z codex emitted `TASK_COMPLETE`: *"Brief progress event: MP377 agent-supervise repair is patched and verified. The live `/develop next` evidence now emits..."*
+- 13:30Z claude probe of gate state (post-task_complete): `allow_final_response=false`, `continuation_state=must_continue`, `reason=agent_loop:repair_startup_authority`, `next_required_command=develop next --actor codex --slice-id MP377-P0-CHECKPOINT-AUTOMATION-S1 --operator-override --override-scope edit-only --override-reason 'startup authority: import_index_atomicity'`, `stop_anchor=null`
+
+**Ground-truth gap**: claude probed gate post-task_complete, not pre-emission. Cannot conclusively determine whether gate flipped to `must_continue` BECAUSE of codex's task_complete stop (agent-supervise driver detecting staleness from new activity-age) OR whether it was always `must_continue` and codex misinterpreted the brief-progress-event allowance as terminator permission.
+
+**Two interpretations**:
+
+1. **HEALTHY** — gate at 13:26:56Z permitted brief progress event (claude-mutation-lane became real blocker); codex emitted within gate envelope; gate then flipped back to must_continue when agent-supervise driver detected codex session became stale (activity-age climbing from 13:27Z). The `next_required_command` for actor=codex is the system asking codex to re-engage after the stop, not a retroactive judgment that the stop was wrong.
+
+2. **SMELL #058 LAYER-E** — gate-vocabulary semantic gap between "allowed message text" (brief progress event in chat reply) and "CLI-level terminator action" (task_complete rollout signal). Codex interpreted gate's brief-progress allowance as terminator permission; gate has no typed mechanism to distinguish these two emission contexts. If true, this is a NEW smell #058 layer beyond the iter27 keystone closure (which addressed layers a/b/d, mitigated c).
+
+**Why this matters architecturally**:
+
+- If interpretation #1: typed system worked correctly; rev_pkt_3839 handoff was clean; operator-typed action_request needed to authorize claude-mutation-lane and resume.
+- If interpretation #2: keystone closure claim from iter27 needs amendment; gate vocabulary needs explicit `allowed_emission_kinds: [message_text, task_complete, task_progress, ...]` typed-state instead of conflated "brief progress event."
+
+**State at time of task_complete**:
+- HEAD: 28bcafdd (unchanged across entire session)
+- Working tree: 60 files modified, 3344 insertions, 0 staged
+- Slice MP377-P0-CHECKPOINT-AUTOMATION-S1: not closed (test_development_command.py + orchestration_agent_supervise.py + startup-authority-imported untracked modules in tree)
+- Claude inbox: 5 pending (rev_pkt_3588, 3716, 3737, 3738, 3839); rev_pkt_3839 still requesting claude-mutation-lane checkpoint
+- Codex inbox: rev_pkt_3840 (claude verdict) + rev_pkt_3830/3831/3833 (prior GREEN-PROTOCOL responses) pending — codex never body-observed rev_pkt_3840 before task_complete
+
+**Resolution path to disambiguate**:
+
+- On codex re-launch, query rollout JSONL or codex's saved jq output from 13:26:56Z if persisted, to recover the gate state codex was operating from when it emitted task_complete.
+- OR: add typed-state journaling of gate evaluations so post-hoc classification is always possible (composability ask for codex).
+
+**Section 26.14 boundary**: AUDIT only. Held as observation pending classification. If interpretation #2 confirmed → fire smell #058 layer-e synthesis packet to codex on re-launch.
+
+
+
+### Smell #058 LAYER-E CONFIRMED (2026-05-12T13:40Z) — gate-vocabulary semantic gap between message-text emission and CLI-level terminator action
+
+**Disambiguation complete via Explore-agent recovery of gate state at codex's 13:26:56Z jq query from rollout JSONL.**
+
+**Gate state codex actually saw (NOT the post-stop state I probed earlier)**:
+```json
+{
+  "allow_final_response": false,
+  "reason": "packet_attention:blocking_attention",
+  "why_not_done": "A scoped packet requires attention before a final response is allowed.",
+  "response_shape": {
+    "allowed_response_kinds": ["typed_packet", "tool_command", "brief_progress_event"],
+    "status_prose_allowed": false,
+    "completion_prose_allowed": false
+  }
+}
+```
+
+**The semantic gap (file:line evidence)**:
+
+1. `dev/scripts/devctl/commands/development/final_response_gate.py:41-54` — `FinalResponseGateResult.allow_final_response: bool` with NO field distinguishing emission contexts (message text vs CLI terminator).
+2. `dev/scripts/devctl/runtime/reviewer_response_shape.py:151-155` — when gate is closed, `allowed_response_kinds = ["typed_packet", "tool_command", "brief_progress_event"]`. `task_complete` is NOT in this enum. But the enum semantically describes message-text kinds, not CLI-level emission actions.
+3. `dev/scripts/devctl/runtime/reviewer_response_shape.py:25` — `_FORBIDDEN_COMPLETION_MARKERS` includes literal string "task_complete" as forbidden when `completion_prose_allowed=false`. **This only controls prose markers in chat text**, NOT the rollout JSONL CLI-level task_complete terminator signal.
+4. `dev/scripts/devctl/runtime/session_termination_policy.py:344-406` — continuation_anchor checks at TASK_COMPLETE decision time exist, but this is downstream of the gate. Codex's CLI emitted task_complete via the rollout JSONL terminator path; the gate had no field that bound that surface.
+5. `dev/scripts/devctl/runtime/session_termination_policy.py:270-292` — `task_complete_decision` would later block on the same `packet_attention:blocking_attention`, but **codex emitted task_complete BEFORE that decision was consulted again** (codex's last gate query was 13:26:56Z; task_complete at 13:27:13Z; no re-consultation in the 17s gap).
+
+**Root cause precisely stated**:
+Gate vocabulary conflates "allowed message text" (controlled by `allowed_response_kinds` + `_FORBIDDEN_COMPLETION_MARKERS`) with "allowed CLI-level task_complete terminator action" (NOT controlled by any typed field on the gate). Codex saw `brief_progress_event` in `allowed_response_kinds`, interpreted broadly as "gate permits emission of a brief-progress framing," and the CLI rollout terminator was indistinguishable from a brief-progress message in that interpretation.
+
+**Keystone closure iter27 amendment**:
+Original iter27 claim (codesmells.md ~line 1993): *"ALL 4 SMELL #058 LAYERS NOW HAVE TYPED CLOSURE. Smell #058 layer-a + layer-b + layer-d architecturally closed; layer-c mitigated. The operator-frustrating 'codex stops mid-arc' bug now has typed-state architectural answer at every layer."*
+
+CORRECTED: layer-e (gate-vocabulary emission-context conflation) exists and is the path the 2026-05-12T13:27:13Z task_complete stop took. The operator-frustrating bug DOES still manifest via this gap. Keystone closure was premature.
+
+**Architectural composability ask** (audit-only per Section 26.14, codex decides shape):
+
+Add an `allowed_emission_kinds` typed field to `FinalResponseGateResult.response_shape` that explicitly enumerates which CLI-level actions are permitted alongside the existing `allowed_response_kinds` (which keeps controlling message text):
+
+```python
+@dataclass
+class FinalResponseGateResponseShape:
+    allowed_response_kinds: list[str]  # existing: typed_packet, tool_command, brief_progress_event
+    allowed_emission_kinds: list[str]  # NEW: tool_command, packet_post  (task_complete REQUIRES allow_final_response=true AND continuation_state=allowed_stop)
+    status_prose_allowed: bool
+    completion_prose_allowed: bool
+```
+
+Then add a CLI-level enforcement hook that consults `allowed_emission_kinds` before the rollout JSONL writes the `task_complete` terminator. This closes layer-e.
+
+**Composes with**:
+- agent-supervise driver (rev_pkt_3817): driver's `freeze_detected` reports activity-age but doesn't bind gate-vocabulary correctness — orthogonal architectural surface.
+- task_complete_handoff_guard.py: enforces preconditions at handoff but is downstream of the CLI emission decision.
+- smell #066 (provider capacity → task_complete): if `allowed_emission_kinds` is consulted before rollout write, capacity-driven task_completes also become detectable as typed-state violations.
+
+**Recurrence count update**: smell #058 family now at 5+ confirmed recurrences across layers a/b/c/d/e. Layer-e is the live path; the keystone closure addressed earlier layers but missed this one.
+
+**Cross-references**:
+- codesmells.md observation pending classification (2026-05-12T13:37Z entry — supersedes/resolves with this entry)
+- feedback_block_synthesis_packet_when_system_self_blocks (≥3 sequential gates → synthesis packet) — threshold crossed; held finding ready to fire on codex re-engagement
+- feedback_recurring_bug_class_means_architecture_fix (≥3 recurrences → architectural fix) — threshold crossed
+- rev_pkt_3841 wake packet to codex (claude→codex queue, smell #058 layer-e candidate flagged for classification) — now confirmed, claude will amend with layer-e CONFIRMED status on codex re-engagement
+

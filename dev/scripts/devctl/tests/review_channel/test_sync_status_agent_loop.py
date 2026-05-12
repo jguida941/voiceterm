@@ -270,6 +270,50 @@ def test_sync_status_agent_loop_keeps_operator_review_only_notice_receipt_only()
     assert decisions == []
 
 
+def test_sync_status_agent_loop_scopes_operator_body_notice_to_operator_role() -> None:
+    review_state = {
+        "current_session": {"current_instruction_revision": "rev-current"},
+        "reviewer_runtime": {
+            "agent_runtime_clock": {"source_latest_event_id": "rev_evt_1"}
+        },
+        "agent_sync": {
+            "agents": {
+                "operator": {
+                    "pending_packets_to_me": ["rev_pkt_notice"],
+                }
+            }
+        },
+        "agent_work_board": {"rows": []},
+        "packets": [
+            {
+                "packet_id": "rev_pkt_notice",
+                "from_agent": "system",
+                "to_agent": "operator",
+                "kind": "system_notice",
+                "body": "Session launch notice.",
+                "status": "pending",
+                "lifecycle_current_state": "pending",
+                "requested_action": "review_only",
+                "policy_hint": "review_only",
+                "approval_required": False,
+                "latest_event_id": "rev_evt_2",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ],
+    }
+
+    decisions = agent_loop_decisions_for_work_board(
+        review_state=review_state,
+        work_board=review_state["agent_work_board"],
+    )
+
+    assert len(decisions) == 1
+    assert decisions[0]["actor_id"] == "operator"
+    assert decisions[0]["actor_role"] == "operator"
+    assert decisions[0]["required_action"] == "open_packet_body"
+    assert "--target-role operator" in decisions[0]["next_command"]
+
+
 def test_packet_attention_uses_unique_actor_pending_inventory() -> None:
     review_state = {
         "agent_sync": {

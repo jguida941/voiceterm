@@ -50,6 +50,51 @@ def test_queue_target_skips_dead_session_scoped_packet() -> None:
     assert decisions == []
 
 
+def test_queue_target_skips_stale_only_session_scoped_packet() -> None:
+    review_state = {
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "claude",
+                    "role": "implementer",
+                    "session_id": "stale-implementer-session",
+                    "status": "idle",
+                    "idle_seconds": 999,
+                    "stale_after_seconds": 300,
+                    "confidence_class": "stale",
+                }
+            ]
+        },
+        "queue": {"pending_claude": 1},
+        "agent_sync": {
+            "agents": {
+                "claude": {"pending_packets_to_me": ["rev_pkt_stale_session"]}
+            }
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_stale_session",
+                "kind": "finding",
+                "to_agent": "claude",
+                "status": "pending",
+                "lifecycle_current_state": "pending",
+                "target_role": "implementer",
+                "target_session_id": "stale-implementer-session",
+                "attention_urgency": "urgent",
+            }
+        ],
+    }
+
+    decisions = queue_target_decisions(
+        review_state=review_state,
+        dashboard={},
+        target_agent="claude",
+        seen_keys=set(),
+    )
+
+    assert decisions == []
+
+
 def test_queue_target_keeps_fresh_session_scoped_packet() -> None:
     review_state = {
         "agent_work_board": {

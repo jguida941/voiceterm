@@ -32,6 +32,9 @@ from dev.scripts.devctl.runtime.session_termination_policy import (
 from dev.scripts.devctl.runtime.startup_blocker_decision import (
     STARTUP_AUTHORITY_NEXT_ACTION_PREFIX,
 )
+from dev.scripts.devctl.review_channel.packet_body_observation import (
+    packet_body_digest,
+)
 
 
 def _packet(
@@ -640,6 +643,188 @@ def test_actor_loop_attention_prefers_newer_collaboration_packet_over_old_findin
     assert decision.attention_packet_id == "rev_pkt_new_progress"
 
 
+def test_requested_packet_focus_does_not_pivot_to_higher_priority_packet() -> None:
+    review_state = _state(
+        _packet(
+            packet_id="rev_pkt_urgent",
+            to_agent="claude",
+            kind="finding",
+            lifecycle_current_state="pending",
+            latest_event_id="rev_evt_103",
+            target_role="implementer",
+            target_session_id="s1",
+            attention_urgency="blocking",
+        ),
+        _packet(
+            packet_id="rev_pkt_requested",
+            to_agent="claude",
+            kind="finding",
+            lifecycle_current_state="pending",
+            latest_event_id="rev_evt_102",
+            target_role="implementer",
+            target_session_id="s1",
+        ),
+    )
+    review_state["agent_sync"] = {
+        "agents": {
+            "claude": {
+                "last_consumed_event_id_lower_bound": "rev_evt_100",
+            }
+        }
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="s1",
+        requested_packet_id="rev_pkt_requested",
+    )
+
+    assert decision.required_action == "execute_active_packet"
+    assert decision.decision == "continue_to_goal"
+    assert decision.active_packet_id == "rev_pkt_requested"
+    assert decision.attention_packet_id == "rev_pkt_requested"
+    assert decision.continuation_goal == "rev_pkt_requested"
+
+
+def test_requested_observed_receipt_packet_does_not_pivot_to_other_packet() -> None:
+    requested = _packet(
+        packet_id="rev_pkt_requested",
+        to_agent="claude",
+        kind="task_produced",
+        body="Observed communication-only receipt.",
+        lifecycle_current_state="task_produced",
+        latest_event_id="rev_evt_102",
+        target_role="implementer",
+        target_session_id="s1",
+    )
+    requested["packet_creation_binding"] = {
+        "binding_target_kind": "communication_only",
+    }
+    requested["body_observation_events"] = [
+        {
+            "body_observed_by": "claude",
+            "body_observed_role": "implementer",
+            "body_observed_session_id": "s1",
+            "body_digest": packet_body_digest(requested),
+        }
+    ]
+    review_state = _state(
+        _packet(
+            packet_id="rev_pkt_other",
+            to_agent="claude",
+            kind="finding",
+            lifecycle_current_state="pending",
+            latest_event_id="rev_evt_103",
+            target_role="implementer",
+            target_session_id="s1",
+            attention_urgency="blocking",
+        ),
+        requested,
+    )
+    review_state["agent_sync"] = {
+        "agents": {
+            "claude": {
+                "last_consumed_event_id_lower_bound": "rev_evt_100",
+            }
+        }
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="s1",
+        requested_packet_id="rev_pkt_requested",
+    )
+
+    assert decision.required_action == "wait_for_scoped_packet"
+    assert decision.active_packet_id == ""
+    assert decision.attention_packet_id == ""
+    assert decision.continuation_goal == "typed controller goal"
+
+
+def test_requested_unobserved_receipt_opens_body_before_startup_repair() -> None:
+    requested = _packet(
+        packet_id="rev_pkt_requested",
+        from_agent="codex",
+        to_agent="operator",
+        kind="goal_progress",
+        body="Progress receipt body.",
+        lifecycle_current_state="goal_progress",
+        latest_event_id="rev_evt_102",
+    )
+    requested["packet_creation_binding"] = {
+        "binding_target_kind": "communication_only",
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=_state(requested),
+        dashboard={
+            "control_plane": {
+                "top_blocker": "startup authority: import_index_atomicity",
+            }
+        },
+        actor_id="operator",
+        actor_role="operator",
+        requested_packet_id="rev_pkt_requested",
+    )
+
+    assert decision.required_action == "open_packet_body"
+    assert decision.reason_code == "packet_body_open_required"
+    assert decision.active_packet_id == "rev_pkt_requested"
+    assert decision.attention_packet_id == "rev_pkt_requested"
+    assert decision.may_mutate is False
+    assert decision.next_command == (
+        "python3 dev/scripts/devctl.py review-channel --action show "
+        "--packet-id rev_pkt_requested --actor operator --terminal none --format md "
+        "--target-role operator"
+    )
+
+
+def test_requested_observed_receipt_does_not_become_startup_repair_packet() -> None:
+    requested = _packet(
+        packet_id="rev_pkt_requested",
+        from_agent="codex",
+        to_agent="operator",
+        kind="goal_progress",
+        body="Progress receipt body.",
+        lifecycle_current_state="goal_progress",
+        latest_event_id="rev_evt_102",
+    )
+    requested["packet_creation_binding"] = {
+        "binding_target_kind": "communication_only",
+    }
+    requested["body_observation_events"] = [
+        {
+            "body_observed_by": "operator",
+            "body_observed_role": "operator",
+            "body_observed_session_id": "",
+            "body_digest": packet_body_digest(requested),
+        }
+    ]
+
+    decision = build_agent_loop_decision(
+        review_state=_state(requested),
+        dashboard={
+            "control_plane": {
+                "top_blocker": "startup authority: import_index_atomicity",
+            }
+        },
+        actor_id="operator",
+        actor_role="operator",
+        requested_packet_id="rev_pkt_requested",
+    )
+
+    assert decision.required_action == "repair_startup_authority"
+    assert decision.active_packet_id == ""
+    assert decision.attention_packet_id == ""
+    assert "--packet rev_pkt_requested" not in decision.next_command
+
+
 def test_actor_loop_attention_respects_role_and_session_scope() -> None:
     review_state = _state(
         _packet(
@@ -1048,7 +1233,7 @@ def test_agent_loop_edit_only_override_blocks_governed_checkpoint_commit() -> No
     assert decision.effective_workstream_id == "builder"
     assert decision.effective_authority_source == "operator_override_edit_only_repair"
     assert decision.can_run_next_command is False
-    assert decision.next_command == decision.next_loop_command
+    assert decision.next_command == ""
     assert decision.operator_override.active is True
     assert "implementation.edit" in decision.allowed_actions
     assert "vcs.stage" in decision.blocked_actions
@@ -1346,7 +1531,8 @@ def test_operator_override_allows_scoped_edit_without_publication() -> None:
     assert "vcs.stage" in decision.blocked_actions
     assert "vcs.commit" in decision.blocked_actions
     assert "vcs.push" in decision.blocked_actions
-    assert "do not stage, commit, or push" in decision.next_command
+    assert decision.next_command == ""
+    assert "operator override active" not in decision.next_command
     assert "--operator-override" in decision.next_loop_command
     assert "--packet rev_pkt_1" in decision.next_loop_command
 

@@ -93,6 +93,17 @@ Use docs like this:
   directly after disposition. Startup/lifecycle blockers that prevent governed
   progress must map to their owning repair rows before ordinary queued plan
   work is selected.
+- When startup authority blocks legitimate governed repair, use the scoped
+  edit-only override command emitted by the final-response gate rather than
+  re-running a raw `agent-loop` bypass. The override must flow through
+  `/develop next --operator-override --override-scope edit-only --slice-id ...`
+  so the next reducer pass, compaction resume, and final gate all see the same
+  `operator_override_edit` state. That state permits implementation edits only;
+  staging, commit, push, and dirty `task_produced` closure packets still require
+  their own typed evidence. If a peer startup-repair row carries prose such as
+  "stage missing imported file(s)" instead of an executable command, the final
+  gate must surface the scoped override command rather than handing that prose
+  back as the next step.
 - Governed checkpoint retries must not preserve a stale partial index after a
   guard failure and repair. If non-receipt unstaged work remains, `devctl commit`
   rebuilds the stage action so the checkpoint records the latest source state

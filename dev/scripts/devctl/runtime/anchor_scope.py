@@ -49,6 +49,19 @@ def effective_anchor_scope(packet: Mapping[str, object]) -> str:
     return ANCHOR_SCOPE_ROLE
 
 
+def has_structured_anchor_scope(packet: Mapping[str, object]) -> bool:
+    """Return whether an anchor carries typed scope fields, not body prose."""
+    if normalize_anchor_scope(packet.get("anchor_scope")):
+        return True
+    if _text(packet.get("target_session_id")):
+        return True
+    if _text(packet.get("target_role")):
+        return True
+    return _text(packet.get("target_kind")) == "plan" and bool(
+        _text(packet.get("target_ref"))
+    )
+
+
 def is_session_termination_anchor(packet: Mapping[str, object]) -> bool:
     """Return whether a packet participates in continuation/stop anchoring."""
     return _text(packet.get("kind")) in SESSION_TERMINATION_ANCHOR_KINDS
@@ -67,6 +80,7 @@ __all__ = [
     "SESSION_TERMINATION_ANCHOR_KINDS",
     "VALID_ANCHOR_SCOPES",
     "effective_anchor_scope",
+    "has_structured_anchor_scope",
     "is_session_termination_anchor",
     "normalize_anchor_scope",
 ]

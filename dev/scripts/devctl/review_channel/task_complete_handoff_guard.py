@@ -8,7 +8,10 @@ import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from ..commands.rollout_tail.discovery import discover_latest_session
+from ..commands.rollout_tail.discovery import (
+    default_sessions_root,
+    iter_session_files,
+)
 from ..commands.rollout_tail.parser import parse_rollout_file
 from ..repo_packs import active_path_config
 from ..runtime.rollout_event import RolloutEvent
@@ -53,6 +56,7 @@ class TaskCompleteHandoffResult:
     target_ref: str = ""
     rollout_path: str = ""
     task_complete_at_utc: str = ""
+    next_command: str = ""
 
 
 def emit_handoff_for_latest_task_complete(
@@ -63,10 +67,12 @@ def emit_handoff_for_latest_task_complete(
     if provider != "codex":
         return _skipped("unsupported_provider")
 
-    rollout_path = discover_latest_session(provider, root=request.sessions_root)
+    rollout_path, task_complete = _latest_task_complete_session(
+        provider,
+        root=request.sessions_root,
+    )
     if rollout_path is None:
         return _skipped("missing_rollout")
-    task_complete = _latest_task_complete(rollout_path, provider=provider)
     if task_complete is None:
         return _skipped("missing_task_complete", rollout_path=rollout_path)
 
@@ -102,6 +108,7 @@ def emit_handoff_for_latest_task_complete(
             target_ref=target_ref,
             rollout_path=str(rollout_path),
             task_complete_at_utc=task_complete.timestamp,
+            next_command=decision.next_command,
         )
 
     if _has_matching_stage_handoff(
@@ -196,6 +203,29 @@ def _latest_task_complete(rollout_path: Path, *, provider: str) -> RolloutEvent 
     if not task_events:
         return None
     return max(task_events, key=lambda event: event.timestamp or "")
+
+
+def _latest_task_complete_session(
+    provider: str,
+    *,
+    root: Path | None,
+) -> tuple[Path | None, RolloutEvent | None]:
+    search_root = root if root is not None else default_sessions_root(provider)
+    if search_root is None or not search_root.exists():
+        return None, None
+    candidates = sorted(
+        (path for path in iter_session_files(provider, search_root) if path.is_file()),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    if not candidates:
+        return None, None
+    latest_rollout = candidates[0]
+    for rollout_path in candidates:
+        task_complete = _latest_task_complete(rollout_path, provider=provider)
+        if task_complete is not None:
+            return rollout_path, task_complete
+    return latest_rollout, None
 
 
 def _has_matching_stage_handoff(

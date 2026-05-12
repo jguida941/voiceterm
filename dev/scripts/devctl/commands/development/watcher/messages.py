@@ -7,7 +7,7 @@ def watch_command(actor: str) -> str:
     return (
         "python3 dev/scripts/devctl.py review-channel --action watch "
         f"--target {actor} --status pending --follow --terminal none --format json "
-        "--follow-inactivity-timeout-seconds 300"
+        "--follow-inactivity-timeout-seconds 0"
     )
 
 

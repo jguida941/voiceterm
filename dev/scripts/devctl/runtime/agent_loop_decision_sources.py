@@ -8,9 +8,14 @@ from dataclasses import asdict, dataclass
 from ..review_channel.agent_packet_attention import packet_attention_for_agent
 from ..review_channel.agent_packet_focus import (
     AgentPacketFocus,
+    packet_by_id,
     packet_focus_for_agent,
 )
-from ..review_channel.packet_contract import normalize_packet_route_role
+from ..review_channel.packet_contract import (
+    normalize_packet_route_role,
+    packet_route_matches_scope,
+)
+from ..review_channel.packet_loop_attention import packet_requires_runtime_attention
 from .agent_loop_checkpoint_repair import checkpoint_repair_next_action_for_review_state
 from .agent_loop_decision_grants import (
     action_routing_decision,
@@ -27,6 +32,7 @@ from .agent_loop_operator_override import (
     apply_operator_override_actions,
     operator_override_from_request,
 )
+from .review_packet_inbox_liveness import is_live_pending
 from .value_coercion import (
     coerce_bool,
     coerce_int,
@@ -192,12 +198,57 @@ def build_agent_loop_context(
 
 
 def resolve_packet_state(ctx: AgentLoopContext) -> PacketState:
-    return packet_focus_for_agent(
+    focus = packet_focus_for_agent(
         ctx.review_state,
         actor=ctx.actor,
         role=ctx.role,
         session=ctx.session,
         attention=ctx.attention,
+    )
+    if ctx.requested_packet_id:
+        return _requested_packet_focus(ctx, fallback=focus)
+    return focus
+
+
+def _requested_packet_focus(
+    ctx: AgentLoopContext,
+    *,
+    fallback: PacketState,
+) -> PacketState:
+    packet_id = _text(ctx.requested_packet_id)
+    packet = packet_by_id(ctx.review_state, packet_id)
+    if not _requested_packet_can_focus(ctx, packet):
+        return AgentPacketFocus()
+    return AgentPacketFocus(
+        active_packet_id=packet_id,
+        attention_packet_id=packet_id,
+        executing_packet_id=fallback.executing_packet_id,
+        active_packet=packet,
+        attention_packet=packet,
+        executing_packet=fallback.executing_packet,
+        source_contracts=fallback.source_contracts,
+    )
+
+
+def _requested_packet_can_focus(
+    ctx: AgentLoopContext,
+    packet: Mapping[str, object],
+) -> bool:
+    if not packet:
+        return False
+    if not is_live_pending(packet):
+        return False
+    if not packet_route_matches_scope(
+        packet,
+        target_role=ctx.role,
+        target_session_id=ctx.session,
+    ):
+        return False
+    return packet_requires_runtime_attention(
+        packet,
+        actor=ctx.actor,
+        role=ctx.role,
+        session=ctx.session,
     )
 
 
@@ -207,6 +258,12 @@ def blocker_active(ctx: AgentLoopContext) -> bool:
 
 def attention_requires_pivot(ctx: AgentLoopContext, packets: PacketState) -> bool:
     if not ctx.attention:
+        return False
+    if (
+        ctx.requested_packet_id
+        and not packets.active_packet_id
+        and not packets.attention_packet_id
+    ):
         return False
     if coerce_bool(ctx.attention.get("body_open_required")):
         return True

@@ -18,6 +18,8 @@ from .agent_loop_decision_support import (
     observer_decision,
     packet_attention_pending_decision,
     pending_review_packet_decision,
+    requested_packet_body_open_decision,
+    requested_packet_body_open_required,
     session_identity_decision,
     unresolved_decision,
     wait_decision,
@@ -88,6 +90,8 @@ def build_agent_loop_decision(
     packets = resolve_packet_state(ctx)
     outcome = latest_session_outcome(ctx)
     outcome_kind = str(outcome.get("outcome") or "").strip()
+    if requested_packet_body_open_required(ctx, packets):
+        return requested_packet_body_open_decision(ctx, packets)
     if blocker_active(ctx) and attention_requires_pivot(ctx, packets):
         return communication_attention_decision(ctx, packets)
     if blocker_active(ctx):

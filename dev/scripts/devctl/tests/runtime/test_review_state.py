@@ -266,6 +266,9 @@ class ReviewStateTests(unittest.TestCase):
                             "requested_action": "git_push",
                             "approval_required": True,
                             "timestamp_utc": "2026-03-12T00:01:00Z",
+                            "target_role": "reviewer",
+                            "target_session_id": "session-1",
+                            "anchor_scope": "role",
                         }
                     ],
                 },
@@ -318,6 +321,9 @@ class ReviewStateTests(unittest.TestCase):
         self.assertEqual(state.bridge.reviewer_mode, "tools_only")
         self.assertEqual(state.attention.status, "healthy")
         self.assertEqual(state.packets[0].posted_at, "2026-03-12T00:01:00Z")
+        self.assertEqual(state.packets[0].target_role, "reviewer")
+        self.assertEqual(state.packets[0].target_session_id, "session-1")
+        self.assertEqual(state.packets[0].anchor_scope, "role")
         self.assertEqual(state.pending_approvals()[0].packet_id, "pkt-1")
         self.assertEqual(state.lane_agents("codex")[0].current_job, "Reviewing slice")
 

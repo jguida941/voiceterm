@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
+
 from dev.scripts.devctl.review_channel.agent_packet_attention import (
     packet_attention_for_agent,
 )
@@ -216,6 +218,169 @@ def test_successful_durable_ingestion_receipt_suppresses_body_open_gate() -> Non
     )
 
     assert attention.body_open_required is False
+
+
+def test_observed_communication_only_packet_does_not_keep_runtime_awake() -> None:
+    packet = {
+        "packet_id": "rev_pkt_notice",
+        "from_agent": "codex",
+        "to_agent": "claude",
+        "kind": "task_produced",
+        "requested_action": "review_only",
+        "policy_hint": "review_only",
+        "attention_urgency": "blocking",
+        "body": "Review-only advisory body.",
+        "status": "pending",
+        "lifecycle_current_state": "task_produced",
+        "latest_event_id": "rev_evt_50",
+        "target_role": "implementer",
+        "packet_creation_binding": {"binding_target_kind": "communication_only"},
+    }
+    digest = packet_body_digest(packet)
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "claude",
+            "body_observed_role": "implementer",
+            "body_observed_session_id": "s1",
+            "body_digest": digest,
+        }
+    ]
+    review_state = {
+        "packets": [packet],
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "claude",
+                    "role": "implementer",
+                    "session_id": "s1",
+                    "active_packet_id": "rev_pkt_notice",
+                    "attention_packet_id": "rev_pkt_notice",
+                }
+            ]
+        },
+    }
+
+    attention = packet_attention_for_agent(
+        review_state,
+        actor="claude",
+        role="implementer",
+        session="s1",
+    )
+    focus = packet_focus_for_agent(
+        review_state,
+        actor="claude",
+        role="implementer",
+        session="s1",
+        attention=asdict(attention),
+    )
+
+    assert attention.pending_packet_count == 0
+    assert attention.wake_required is False
+    assert attention.pivot_required is False
+    assert attention.body_open_required is False
+    assert attention.latest_attention_packet_id == ""
+    assert focus.active_packet_id == ""
+    assert focus.attention_packet_id == ""
+
+
+def test_unobserved_communication_only_packet_still_requires_body_open() -> None:
+    packet = {
+        "packet_id": "rev_pkt_notice",
+        "from_agent": "codex",
+        "to_agent": "claude",
+        "kind": "task_produced",
+        "requested_action": "review_only",
+        "policy_hint": "review_only",
+        "body": "Review-only advisory body.",
+        "status": "pending",
+        "lifecycle_current_state": "task_produced",
+        "latest_event_id": "rev_evt_51",
+        "target_role": "implementer",
+        "target_session_id": "s1",
+        "packet_creation_binding": {"binding_target_kind": "communication_only"},
+    }
+
+    attention = packet_attention_for_agent(
+        {"packets": [packet]},
+        actor="claude",
+        role="implementer",
+        session="s1",
+    )
+
+    assert attention.pending_packet_count == 1
+    assert attention.body_open_required is True
+    assert attention.body_open_packet_id == "rev_pkt_notice"
+
+
+def test_observed_actionable_packet_stays_runtime_attention() -> None:
+    packet = {
+        "packet_id": "rev_pkt_action",
+        "from_agent": "codex",
+        "to_agent": "claude",
+        "kind": "action_request",
+        "requested_action": "apply",
+        "body": "This remains actionable after body observation.",
+        "status": "pending",
+        "lifecycle_current_state": "delivery_pending",
+        "latest_event_id": "rev_evt_52",
+        "target_role": "implementer",
+        "target_session_id": "s1",
+    }
+    digest = packet_body_digest(packet)
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "claude",
+            "body_observed_role": "implementer",
+            "body_observed_session_id": "s1",
+            "body_digest": digest,
+        }
+    ]
+
+    attention = packet_attention_for_agent(
+        {"packets": [packet]},
+        actor="claude",
+        role="implementer",
+        session="s1",
+    )
+
+    assert attention.pending_packet_count == 1
+    assert attention.body_open_required is False
+    assert attention.latest_attention_packet_id == "rev_pkt_action"
+    assert attention.wake_required is True
+
+
+def test_durably_ingested_finding_does_not_remain_runtime_attention() -> None:
+    packet = {
+        "packet_id": "rev_pkt_finding",
+        "from_agent": "codex",
+        "to_agent": "claude",
+        "kind": "finding",
+        "requested_action": "review_only",
+        "policy_hint": "review_only",
+        "attention_urgency": "blocking",
+        "body": "Finding has already been folded into durable plan state.",
+        "status": "pending",
+        "lifecycle_current_state": "pending",
+        "latest_event_id": "rev_evt_53",
+        "target_role": "implementer",
+        "target_session_id": "s1",
+        "durable_binding": {
+            "binding_target_kind": "plan_row",
+            "status": "inserted",
+        },
+    }
+
+    attention = packet_attention_for_agent(
+        {"packets": [packet]},
+        actor="claude",
+        role="implementer",
+        session="s1",
+    )
+
+    assert attention.pending_packet_count == 0
+    assert attention.body_open_required is False
+    assert attention.latest_attention_packet_id == ""
+    assert attention.wake_required is False
 
 
 def test_urgent_attention_preempts_newer_active_packet() -> None:

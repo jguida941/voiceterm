@@ -50,6 +50,15 @@ def agent_loop_decisions_for_work_board(
     work_board: Mapping[str, object],
     target_agent: str = "",
     dashboard: Mapping[str, object] | None = None,
+    master_plan: Mapping[str, object] | None = None,
+    operator_override_actor: str = "",
+    loop_intent: str = "",
+    requested_plan_ref: str = "",
+    requested_packet_id: str = "",
+    operator_override_requested: bool = False,
+    operator_override_reason: str = "",
+    operator_override_scope: str = "edit-only",
+    operator_override_by: str = "operator",
 ) -> list[dict[str, object]]:
     """Resolve one ``AgentLoopDecision`` per typed work-board row."""
     from ..runtime.agent_loop_decision import build_agent_loop_decision
@@ -75,12 +84,25 @@ def agent_loop_decisions_for_work_board(
         if key in seen:
             continue
         seen.add(key)
+        override_for_actor = bool(
+            operator_override_requested
+            and operator_override_actor
+            and actor_id == operator_override_actor
+        )
         decision = build_agent_loop_decision(
             review_state=review_state,
             dashboard=dashboard_payload,
             actor_id=actor_id,
             actor_role=role,
             session_id=session_id,
+            loop_intent=loop_intent if override_for_actor else "",
+            requested_plan_ref=requested_plan_ref if override_for_actor else "",
+            requested_packet_id=requested_packet_id if override_for_actor else "",
+            master_plan=master_plan,
+            operator_override_requested=override_for_actor,
+            operator_override_reason=operator_override_reason,
+            operator_override_scope=operator_override_scope,
+            operator_override_by=operator_override_by,
         ).to_dict()
         decision["source_work_board_row"] = _source_row(row, key)
         decisions.append(decision)

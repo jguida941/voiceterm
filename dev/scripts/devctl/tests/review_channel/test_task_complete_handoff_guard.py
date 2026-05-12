@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from dev.scripts.devctl.review_channel.event_store import (
@@ -108,6 +109,54 @@ def test_task_complete_guard_dedupes_existing_stage_handoff(tmp_path: Path) -> N
     assert len(stage_posts) == 1
 
 
+def test_task_complete_guard_uses_latest_session_with_task_complete(
+    tmp_path: Path,
+) -> None:
+    review_channel_path = tmp_path / "dev/active/review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+    sessions_root = tmp_path / "sessions"
+    old_rollout = sessions_root / "2026/04/28/rollout-20260428-old-codex.jsonl"
+    new_rollout = sessions_root / "2026/04/28/rollout-20260428-new-codex.jsonl"
+    old_rollout.parent.mkdir(parents=True, exist_ok=True)
+    old_rollout.write_text(
+        json.dumps(
+            {
+                "timestamp": "2026-04-28T19:25:00Z",
+                "type": "event_msg",
+                "payload": {"type": "task_complete"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    new_rollout.write_text(
+        json.dumps(
+            {
+                "timestamp": "2026-04-28T19:30:00Z",
+                "type": "event_msg",
+                "payload": {"type": "turn_context"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    os.utime(old_rollout, (1_772_000_000, 1_772_000_000))
+    os.utime(new_rollout, (1_772_000_300, 1_772_000_300))
+
+    result = emit_handoff_for_latest_task_complete(
+        TaskCompleteHandoffRequest(
+            repo_root=tmp_path,
+            sessions_root=sessions_root,
+            target_revision="d" * 40,
+        )
+    )
+
+    assert result.status == "posted"
+    assert result.rollout_path == str(old_rollout)
+    assert result.task_complete_at_utc == "2026-04-28T19:25:00Z"
+
+
 def test_task_complete_guard_rejects_handoff_when_continuation_anchor_applies(
     tmp_path: Path,
 ) -> None:
@@ -167,4 +216,6 @@ def test_task_complete_guard_rejects_handoff_when_continuation_anchor_applies(
     assert result.reason == (
         "task_complete_rejected_by_policy:continuation_anchor_body_unobserved"
     )
+    assert "review-channel --action show" in result.next_command
+    assert "--packet-id" in result.next_command
     assert stage_posts == []

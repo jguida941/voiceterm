@@ -602,6 +602,30 @@ def test_stop_anchor_terminates_even_when_continuation_anchor_exists() -> None:
     assert decision.reason == "operator_stop_anchor"
 
 
+def test_unstructured_stop_anchor_does_not_override_continuation_anchor() -> None:
+    stop_anchor = {
+        "packet_id": "rev_pkt_stop",
+        "kind": STOP_ANCHOR_PACKET_KIND,
+        "status": "pending",
+        "lifecycle_current_state": "pending",
+        "body": "Target session: dead-session",
+        "posted_at": "2026-05-08T12:01:00+00:00",
+        "expires_at_utc": _stamp(timedelta(minutes=30)),
+    }
+    decision = task_complete_decision(
+        session_id="session-1",
+        packets=(_anchor(), stop_anchor),
+        policy=SessionTerminationPolicy(
+            mode=SESSION_TERMINATION_MODE_KEEP_AWAKE_VIA_PACKETS,
+            target_session_id="session-1",
+        ),
+        actor="codex",
+    )
+
+    assert decision.terminate is False
+    assert decision.reason == "continuation_anchor_active"
+
+
 def test_plan_scoped_stop_anchor_only_overrides_matching_plan() -> None:
     stop_anchor = {
         "packet_id": "rev_pkt_stop",

@@ -10,6 +10,7 @@ from ..runtime.value_coercion import coerce_mapping as _mapping
 from ..runtime.value_coercion import coerce_text as _text
 from .active_packet_authority import current_active_packet_for_agent
 from .event_models import event_id_rank as _event_id_rank
+from .packet_loop_attention import packet_requires_runtime_attention
 from .agent_sync_models import ACTIVE_LIFECYCLE_STATES
 from .packet_contract import normalize_packet_route_role
 
@@ -66,7 +67,13 @@ def packet_focus_for_agent(
         target_role=role,
         target_session_id=session,
     )
-    if not _packet_id_is_focusable(review_state, active):
+    if not _packet_id_is_focusable(
+        review_state,
+        active,
+        actor=actor,
+        role=role,
+        session=session,
+    ):
         active = ""
     work_row = _work_board_row_for_scope(
         review_state,
@@ -91,6 +98,9 @@ def packet_focus_for_agent(
         review_state,
         selected_attention_id,
         default_attention_id,
+        actor=actor,
+        role=role,
+        session=session,
     )
     attention_id = body_open_attention_id or (
         selected_attention_id
@@ -98,9 +108,21 @@ def packet_focus_for_agent(
         else explicit_work_board_attention or default_attention_id
     )
     executing = _text(work_row.get("executing_packet_id"))
-    if not _packet_id_is_focusable(review_state, attention_id):
+    if not _packet_id_is_focusable(
+        review_state,
+        attention_id,
+        actor=actor,
+        role=role,
+        session=session,
+    ):
         attention_id = ""
-    if not _packet_id_is_focusable(review_state, executing):
+    if not _packet_id_is_focusable(
+        review_state,
+        executing,
+        actor=actor,
+        role=role,
+        session=session,
+    ):
         executing = ""
     active_packet = packet_by_id(review_state, active)
     legacy_unscoped = ""
@@ -137,36 +159,72 @@ def packet_by_id(
 def _packet_id_is_focusable(
     review_state: Mapping[str, object],
     packet_id: str,
+    *,
+    actor: str = "",
+    role: str = "",
+    session: str = "",
 ) -> bool:
     if not packet_id:
         return False
     if not isinstance(review_state.get("packets"), (list, tuple)):
         return True
-    return _packet_is_focusable(packet_by_id(review_state, packet_id))
+    return _packet_is_focusable(
+        packet_by_id(review_state, packet_id),
+        actor=actor,
+        role=role,
+        session=session,
+    )
 
 
-def _packet_is_focusable(packet: Mapping[str, object]) -> bool:
+def _packet_is_focusable(
+    packet: Mapping[str, object],
+    *,
+    actor: str = "",
+    role: str = "",
+    session: str = "",
+) -> bool:
     if not packet:
         return False
     lifecycle = _text(packet.get("lifecycle_current_state"))
     if lifecycle not in _FOCUSABLE_LIFECYCLE_STATES:
         return False
     status = _text(packet.get("status"))
-    return status in {"", "pending", "acked", "acknowledged", "in_progress"}
+    if status not in {"", "pending", "acked", "acknowledged", "in_progress"}:
+        return False
+    return packet_requires_runtime_attention(
+        packet,
+        actor=actor,
+        role=role,
+        session=session,
+    )
 
 
 def _attention_packet_preempts(
     review_state: Mapping[str, object],
     candidate_id: str,
     current_id: str,
+    *,
+    actor: str,
+    role: str,
+    session: str,
 ) -> bool:
     if not candidate_id or candidate_id == current_id:
         return False
     candidate = packet_by_id(review_state, candidate_id)
-    if not _packet_is_focusable(candidate):
+    if not _packet_is_focusable(
+        candidate,
+        actor=actor,
+        role=role,
+        session=session,
+    ):
         return False
     current = packet_by_id(review_state, current_id)
-    if not _packet_is_focusable(current):
+    if not _packet_is_focusable(
+        current,
+        actor=actor,
+        role=role,
+        session=session,
+    ):
         return True
     return _attention_priority_key(candidate) > _attention_priority_key(current)
 

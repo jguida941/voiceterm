@@ -14,6 +14,7 @@ from dev.scripts.devctl.commands.development import command as development_comma
 from dev.scripts.devctl.commands.development import (
     baseline_inventory as baseline_inventory_module,
     design_preflight as design_preflight_module,
+    orchestration_agent_supervise as orchestration_agent_supervise_module,
     orchestration_system_picture as orchestration_system_picture_module,
 )
 from dev.scripts.devctl.commands.development import packet_debt as development_packet_debt
@@ -33,6 +34,7 @@ from dev.scripts.devctl.commands.development.final_response_gate import (
 from dev.scripts.devctl.commands.development.orchestration_models import (
     DevelopmentAgentLoopInput,
     DevelopmentContinuationRequiredSignal,
+    DevelopmentOrchestrationSignal,
     DevelopmentOrchestrationSnapshot,
     DevelopmentWatcherLease,
 )
@@ -49,6 +51,7 @@ from dev.scripts.devctl.commands.development.status_summary import (
 )
 from dev.scripts.devctl.commands.development.watcher.lease import watcher_lease_status
 from dev.scripts.devctl.runtime.master_plan_contract import PlanRow, SDLCStage
+from dev.scripts.devctl.runtime.agent_supervise_driver import AgentSuperviseReport
 from dev.scripts.devctl.runtime.baseline_authority_inventory import (
     DEFAULT_BASELINE_AUTHORITY_INVENTORY_REL,
     read_baseline_authority_inventory_receipts,
@@ -153,6 +156,9 @@ def test_develop_status_renders_topology_and_scaling(capsys) -> None:
     assert isinstance(payload["selected_packet_classifications"], list)
     assert "watcher_lease" in payload
     assert "--follow --terminal none --format json" in (
+        payload["watcher_lease"]["next_report_command"]
+    )
+    assert "--follow-inactivity-timeout-seconds 0" in (
         payload["watcher_lease"]["next_report_command"]
     )
     assert "--max-follow-snapshots 1" not in (
@@ -1074,6 +1080,172 @@ def test_continuation_signal_blocks_final_response_when_anchor_is_live() -> None
     assert signal.next_required_command.endswith("--actor codex --format md")
 
 
+def test_continuation_signal_ignores_unstructured_stop_anchor_body_scope() -> None:
+    signal = continuation_signal(
+        packet_attention=DevelopmentPacketAttention(),
+        orchestration=DevelopmentOrchestrationSnapshot(
+            agent_loop_decisions=(
+                DevelopmentAgentLoopInput(
+                    actor_id="codex",
+                    actor_role="reviewer",
+                    session_id="live-session",
+                    lifecycle_state="blocked",
+                    required_action="resolve_blocker",
+                    loop_mode="blocked",
+                    should_continue_loop=True,
+                    safe_to_continue=False,
+                    may_mutate=False,
+                    proof_state="satisfied",
+                ),
+            ),
+        ),
+        watcher_lease=DevelopmentWatcherLease(status="live"),
+        packet_pressure=_packet_pressure(live_total=0, actionable_total=0),
+        review_state={
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_anchor",
+                    "kind": "continuation_anchor",
+                    "to_agent": "codex",
+                    "status": "pending",
+                    "lifecycle_current_state": "pending",
+                    "posted_at": "2026-05-12T03:00:00Z",
+                },
+                {
+                    "packet_id": "rev_pkt_stop",
+                    "kind": "stop_anchor",
+                    "to_agent": "codex",
+                    "status": "pending",
+                    "lifecycle_current_state": "pending",
+                    "body": "Target session: dead-session",
+                    "posted_at": "2026-05-12T03:01:00Z",
+                },
+            ]
+        },
+        actor="codex",
+        current_action="next",
+        fallback_commands=("python3 dev/scripts/devctl.py develop next --format md",),
+    )
+
+    assert signal.continuation_required is True
+    assert signal.final_response_allowed is False
+    assert signal.continuation_anchor_packet_id == "rev_pkt_anchor"
+    assert "continuation_anchor_active:rev_pkt_anchor" in signal.reasons
+
+
+def test_continuation_signal_ignores_dead_session_stop_anchor() -> None:
+    signal = continuation_signal(
+        packet_attention=DevelopmentPacketAttention(),
+        orchestration=DevelopmentOrchestrationSnapshot(
+            agent_loop_decisions=(
+                DevelopmentAgentLoopInput(
+                    actor_id="codex",
+                    actor_role="reviewer",
+                    session_id="live-session",
+                    lifecycle_state="blocked",
+                    required_action="resolve_blocker",
+                    loop_mode="blocked",
+                    should_continue_loop=True,
+                    safe_to_continue=False,
+                    may_mutate=False,
+                    proof_state="satisfied",
+                ),
+            ),
+        ),
+        watcher_lease=DevelopmentWatcherLease(status="live"),
+        packet_pressure=_packet_pressure(live_total=0, actionable_total=0),
+        review_state={
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_anchor",
+                    "kind": "continuation_anchor",
+                    "to_agent": "codex",
+                    "status": "pending",
+                    "lifecycle_current_state": "pending",
+                    "posted_at": "2026-05-12T03:00:00Z",
+                },
+                {
+                    "packet_id": "rev_pkt_stop",
+                    "kind": "stop_anchor",
+                    "to_agent": "codex",
+                    "target_session_id": "dead-session",
+                    "anchor_scope": "session",
+                    "status": "pending",
+                    "lifecycle_current_state": "pending",
+                    "posted_at": "2026-05-12T03:01:00Z",
+                },
+            ]
+        },
+        actor="codex",
+        current_action="next",
+        fallback_commands=("python3 dev/scripts/devctl.py develop next --format md",),
+    )
+
+    assert signal.continuation_required is True
+    assert signal.final_response_allowed is False
+    assert signal.continuation_anchor_packet_id == "rev_pkt_anchor"
+    assert "continuation_anchor_active:rev_pkt_anchor" in signal.reasons
+
+
+def test_continuation_signal_honors_matching_plan_scoped_stop_anchor() -> None:
+    signal = continuation_signal(
+        packet_attention=DevelopmentPacketAttention(),
+        orchestration=DevelopmentOrchestrationSnapshot(
+            agent_loop_decisions=(
+                DevelopmentAgentLoopInput(
+                    actor_id="codex",
+                    actor_role="reviewer",
+                    session_id="live-session",
+                    lifecycle_state="blocked",
+                    required_action="resolve_blocker",
+                    loop_mode="blocked",
+                    should_continue_loop=True,
+                    safe_to_continue=False,
+                    may_mutate=False,
+                    proof_state="satisfied",
+                    target_kind="plan",
+                    target_ref="plan:MP-377",
+                ),
+            ),
+        ),
+        watcher_lease=DevelopmentWatcherLease(status="live"),
+        packet_pressure=_packet_pressure(live_total=0, actionable_total=0),
+        review_state={
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_anchor",
+                    "kind": "continuation_anchor",
+                    "to_agent": "codex",
+                    "target_kind": "plan",
+                    "target_ref": "MP-377",
+                    "anchor_scope": "plan",
+                    "status": "pending",
+                    "lifecycle_current_state": "pending",
+                    "posted_at": "2026-05-12T03:00:00Z",
+                },
+                {
+                    "packet_id": "rev_pkt_stop",
+                    "kind": "stop_anchor",
+                    "to_agent": "codex",
+                    "target_kind": "plan",
+                    "target_ref": "MP-377",
+                    "anchor_scope": "plan",
+                    "status": "pending",
+                    "lifecycle_current_state": "pending",
+                    "posted_at": "2026-05-12T03:01:00Z",
+                },
+            ]
+        },
+        actor="codex",
+        current_action="next",
+        fallback_commands=("python3 dev/scripts/devctl.py develop next --format md",),
+    )
+
+    assert signal.continuation_required is False
+    assert signal.final_response_allowed is True
+    assert signal.reasons == ()
+
+
 def test_continuation_signal_requires_packet_post_command_for_anchor() -> None:
     signal = continuation_signal(
         packet_attention=DevelopmentPacketAttention(),
@@ -1111,6 +1283,7 @@ def test_continuation_signal_requires_packet_post_command_for_anchor() -> None:
     assert parts[parts.index("--kind") + 1] == "continuation_anchor"
     assert "--target-role" in parts
     assert parts[parts.index("--target-role") + 1] == "reviewer"
+    assert "--target-role-scoped" in parts
     assert "--target-session-id" in parts
     assert parts[parts.index("--target-session-id") + 1] == "session-1"
     assert signal.next_required_command.endswith("develop next --format md")
@@ -1401,6 +1574,604 @@ def test_final_response_gate_denies_live_agent_loop_when_cached_closed() -> None
     assert result.next_required_command.endswith("--actor codex --format md")
 
 
+def test_final_response_gate_prefers_agent_loop_remediation_command() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=False,
+        final_response_allowed=True,
+        final_response_gate_allowed=True,
+    )
+    remediation = (
+        "python3 dev/scripts/devctl.py agent-loop --format json "
+        "--actor codex --role reviewer --mode plan --plan MP377-P0-T22AN-AC "
+        "--operator-override --override-scope edit-only "
+        "--override-reason typed-repair --override-by operator"
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="session-1",
+                lifecycle_state="blocked",
+                required_action="resolve_blocker",
+                loop_mode="blocked",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="satisfied",
+                next_command=remediation,
+                next_loop_command=(
+                    "python3 dev/scripts/devctl.py agent-loop --format json "
+                    "--actor codex --role reviewer"
+                ),
+            ),
+        ),
+    )
+
+    result = enforce_final_response_gate(
+        continuation,
+        orchestration=orchestration,
+    )
+
+    assert result.allow_final_response is False
+    assert result.reason == "agent_loop:resolve_blocker"
+    assert result.next_required_command == remediation
+    assert "--operator-override" in result.next_required_command
+
+
+def test_final_response_gate_builds_scoped_plan_override_from_next_slice() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=False,
+        final_response_allowed=True,
+        final_response_gate_allowed=True,
+    )
+    loop_command = (
+        "python3 dev/scripts/devctl.py agent-loop --format json "
+        "--actor codex --role reviewer"
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="session-1",
+                lifecycle_state="blocked",
+                required_action="resolve_blocker",
+                loop_mode="blocked",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="satisfied",
+                top_blocker="guard fail: bundle.tooling",
+                next_command=loop_command,
+                next_loop_command=loop_command,
+            ),
+        ),
+    )
+
+    result = enforce_final_response_gate(
+        continuation,
+        orchestration=orchestration,
+        next_slice_id="MP377-P0-T22AN-AC",
+    )
+
+    assert result.allow_final_response is False
+    assert "develop next" in result.next_required_command
+    assert "--slice-id MP377-P0-T22AN-AC" in result.next_required_command
+    assert "--operator-override" in result.next_required_command
+    assert "--override-scope edit-only" in result.next_required_command
+    assert "bundle.tooling" in result.next_required_command
+
+
+def test_final_response_gate_prioritizes_peer_packet_body_before_local_repair() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=False,
+        final_response_allowed=True,
+        final_response_gate_allowed=True,
+    )
+    local_loop_command = (
+        "python3 dev/scripts/devctl.py agent-loop --format json "
+        "--actor codex --role reviewer --session-id codex-session"
+    )
+    peer_packet_command = (
+        "python3 dev/scripts/devctl.py review-channel --action show "
+        "--packet-id rev_pkt_peer --actor claude --terminal none --format md "
+        "--target-role implementer --target-session-id claude-session"
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="codex-session",
+                lifecycle_state="blocked",
+                required_action="repair_startup_authority",
+                loop_mode="observer_wait",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="satisfied",
+                top_blocker="startup authority: import_index_atomicity",
+                next_command=local_loop_command,
+                next_loop_command=local_loop_command,
+            ),
+            DevelopmentAgentLoopInput(
+                actor_id="claude",
+                actor_role="implementer",
+                session_id="claude-session",
+                lifecycle_state="needs_attention",
+                required_action="open_packet_body",
+                loop_mode="continue_to_goal",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="missing",
+                active_packet_id="rev_pkt_peer",
+                attention_packet_id="rev_pkt_peer",
+                next_command=peer_packet_command,
+                next_loop_command=(
+                    "python3 dev/scripts/devctl.py agent-loop --format json "
+                    "--actor claude --role implementer --session-id claude-session"
+                ),
+            ),
+        ),
+    )
+
+    result = enforce_final_response_gate(
+        continuation,
+        orchestration=orchestration,
+        next_slice_id="MP377-P0-CHECKPOINT-AUTOMATION-S1",
+    )
+
+    assert result.allow_final_response is False
+    assert result.reason == "agent_loop:open_packet_body"
+    assert result.blocking_packet_id == "rev_pkt_peer"
+    assert result.next_required_command == peer_packet_command
+    assert "--operator-override" not in result.next_required_command
+
+
+def test_final_response_gate_reports_packet_body_command_packet_as_blocker() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=False,
+        final_response_allowed=True,
+        final_response_gate_allowed=True,
+    )
+    peer_packet_command = (
+        "python3 dev/scripts/devctl.py review-channel --action show "
+        "--packet-id rev_pkt_command --actor claude --terminal none --format md "
+        "--target-role implementer --target-session-id claude-session"
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="claude",
+                actor_role="implementer",
+                session_id="claude-session",
+                lifecycle_state="needs_attention",
+                required_action="open_packet_body",
+                loop_mode="continue_to_goal",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="missing",
+                active_packet_id="rev_pkt_attention",
+                attention_packet_id="rev_pkt_attention",
+                next_command=peer_packet_command,
+                next_loop_command=(
+                    "python3 dev/scripts/devctl.py agent-loop --format json "
+                    "--actor claude --role implementer --session-id claude-session"
+                ),
+            ),
+        ),
+    )
+
+    result = enforce_final_response_gate(
+        continuation,
+        orchestration=orchestration,
+    )
+
+    assert result.reason == "agent_loop:open_packet_body"
+    assert result.blocking_packet_id == "rev_pkt_command"
+    assert result.next_required_command == peer_packet_command
+
+
+def test_final_response_gate_prioritizes_packet_body_before_peer_continue_loop() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=False,
+        final_response_allowed=True,
+        final_response_gate_allowed=True,
+    )
+    dashboard_loop = (
+        "python3 dev/scripts/devctl.py agent-loop --format json "
+        "--actor claude --role dashboard --packet rev_pkt_dashboard"
+    )
+    peer_packet_command = (
+        "python3 dev/scripts/devctl.py review-channel --action show "
+        "--packet-id rev_pkt_body --actor claude --terminal none --format md "
+        "--target-role implementer --target-session-id claude-session"
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="claude",
+                actor_role="",
+                session_id="",
+                lifecycle_state="needs_attention",
+                required_action="continue_to_goal",
+                loop_mode="continue_to_goal",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="satisfied",
+                pending_packet_count=15,
+                active_packet_id="rev_pkt_dashboard",
+                attention_packet_id="rev_pkt_dashboard",
+                next_command=dashboard_loop,
+                next_loop_command=dashboard_loop,
+            ),
+            DevelopmentAgentLoopInput(
+                actor_id="claude",
+                actor_role="implementer",
+                session_id="claude-session",
+                lifecycle_state="needs_attention",
+                required_action="open_packet_body",
+                loop_mode="run_or_report_blocker",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="missing",
+                active_packet_id="rev_pkt_body",
+                attention_packet_id="rev_pkt_body",
+                next_command=peer_packet_command,
+                next_loop_command=(
+                    "python3 dev/scripts/devctl.py agent-loop --format json "
+                    "--actor claude --role implementer --session-id claude-session"
+                ),
+            ),
+        ),
+    )
+
+    result = enforce_final_response_gate(
+        continuation,
+        orchestration=orchestration,
+        next_slice_id="MP377-P0-CHECKPOINT-AUTOMATION-S1",
+    )
+
+    assert result.allow_final_response is False
+    assert result.reason == "agent_loop:open_packet_body"
+    assert result.blocking_packet_id == "rev_pkt_body"
+    assert result.next_required_command == peer_packet_command
+
+
+def test_final_response_gate_prefers_mutation_owner_startup_repair() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=False,
+        final_response_allowed=True,
+        final_response_gate_allowed=True,
+    )
+    observer_loop_command = (
+        "python3 dev/scripts/devctl.py agent-loop --format json "
+        "--actor codex --role reviewer --session-id codex-session"
+    )
+    mutation_repair = 'python3 dev/scripts/devctl.py commit -m "checkpoint"'
+    orchestration = DevelopmentOrchestrationSnapshot(
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="codex-session",
+                lifecycle_state="blocked",
+                required_action="repair_startup_authority",
+                loop_mode="observer_wait",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="satisfied",
+                top_blocker="startup authority: import_index_atomicity",
+                next_command=observer_loop_command,
+                next_loop_command=observer_loop_command,
+            ),
+            DevelopmentAgentLoopInput(
+                actor_id="claude",
+                actor_role="implementer",
+                session_id="claude-session",
+                lifecycle_state="blocked",
+                required_action="repair_startup_authority",
+                loop_mode="startup_repair",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=True,
+                proof_state="satisfied",
+                top_blocker="startup authority: import_index_atomicity",
+                next_command=mutation_repair,
+                next_loop_command=(
+                    "python3 dev/scripts/devctl.py agent-loop --format json "
+                    "--actor claude --role implementer --session-id claude-session"
+                ),
+            ),
+        ),
+    )
+
+    result = enforce_final_response_gate(
+        continuation,
+        orchestration=orchestration,
+        next_slice_id="MP377-P0-CHECKPOINT-AUTOMATION-S1",
+    )
+
+    assert result.allow_final_response is False
+    assert result.reason == "agent_loop:repair_startup_authority"
+    assert result.next_required_command == mutation_repair
+    assert "--operator-override" not in result.next_required_command
+
+
+def test_final_response_gate_prefers_scoped_repair_over_status_probe() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=False,
+        final_response_allowed=True,
+        final_response_gate_allowed=True,
+    )
+    observer_loop_command = (
+        "python3 dev/scripts/devctl.py agent-loop --format json "
+        "--actor codex --role reviewer --session-id codex-session"
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="codex-session",
+                lifecycle_state="blocked",
+                required_action="repair_startup_authority",
+                loop_mode="observer_wait",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="satisfied",
+                top_blocker="startup authority: dirty_and_untracked_budget_exceeded",
+                next_command=observer_loop_command,
+                next_loop_command=observer_loop_command,
+            ),
+            DevelopmentAgentLoopInput(
+                actor_id="claude",
+                actor_role="implementer",
+                session_id="claude-session",
+                lifecycle_state="blocked",
+                required_action="repair_startup_authority",
+                loop_mode="startup_repair",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=True,
+                proof_state="satisfied",
+                top_blocker="startup authority: dirty_and_untracked_budget_exceeded",
+                next_command=(
+                    "python3 dev/scripts/devctl.py review-channel --action status "
+                    "--terminal none --format json"
+                ),
+                next_loop_command=(
+                    "python3 dev/scripts/devctl.py agent-loop --format json "
+                    "--actor claude --role implementer --session-id claude-session"
+                ),
+            ),
+        ),
+    )
+
+    result = enforce_final_response_gate(
+        continuation,
+        orchestration=orchestration,
+        next_slice_id="MP377-P0-CHECKPOINT-AUTOMATION-S1",
+    )
+
+    assert result.allow_final_response is False
+    assert result.reason == "agent_loop:repair_startup_authority"
+    assert "--actor codex" in result.next_required_command
+    assert "--operator-override" in result.next_required_command
+    assert "review-channel --action status" not in result.next_required_command
+
+
+def test_final_response_gate_prefers_scoped_repair_over_prose_peer_repair() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=False,
+        final_response_allowed=True,
+        final_response_gate_allowed=True,
+    )
+    observer_loop_command = (
+        "python3 dev/scripts/devctl.py agent-loop --format json "
+        "--actor codex --role reviewer --session-id codex-session"
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="codex-session",
+                lifecycle_state="blocked",
+                required_action="repair_startup_authority",
+                loop_mode="observer_wait",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="satisfied",
+                top_blocker="startup authority: import_index_atomicity",
+                next_command=observer_loop_command,
+                next_loop_command=observer_loop_command,
+            ),
+            DevelopmentAgentLoopInput(
+                actor_id="claude",
+                actor_role="implementer",
+                session_id="claude-session",
+                lifecycle_state="blocked",
+                required_action="repair_startup_authority",
+                loop_mode="startup_repair",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=True,
+                proof_state="satisfied",
+                top_blocker="startup authority: import_index_atomicity",
+                next_command=(
+                    "stage missing imported file(s), then rerun "
+                    "python3 dev/scripts/devctl.py startup-context --format summary"
+                ),
+                next_loop_command=(
+                    "python3 dev/scripts/devctl.py agent-loop --format json "
+                    "--actor claude --role implementer --session-id claude-session"
+                ),
+            ),
+        ),
+    )
+
+    result = enforce_final_response_gate(
+        continuation,
+        orchestration=orchestration,
+        next_slice_id="MP377-P0-CHECKPOINT-AUTOMATION-S1",
+    )
+
+    assert result.allow_final_response is False
+    assert result.reason == "agent_loop:repair_startup_authority"
+    assert "--actor codex" in result.next_required_command
+    assert "--operator-override" in result.next_required_command
+    assert "stage missing imported file" not in result.next_required_command
+
+
+def test_final_response_gate_prefers_scoped_repair_over_raw_git_peer_repair() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=False,
+        final_response_allowed=True,
+        final_response_gate_allowed=True,
+    )
+    observer_loop_command = (
+        "python3 dev/scripts/devctl.py agent-loop --format json "
+        "--actor codex --role reviewer --session-id codex-session"
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="codex-session",
+                lifecycle_state="blocked",
+                required_action="repair_startup_authority",
+                loop_mode="observer_wait",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="satisfied",
+                top_blocker="startup authority: import_index_atomicity",
+                next_command=observer_loop_command,
+                next_loop_command=observer_loop_command,
+            ),
+            DevelopmentAgentLoopInput(
+                actor_id="claude",
+                actor_role="implementer",
+                session_id="claude-session",
+                lifecycle_state="blocked",
+                required_action="repair_startup_authority",
+                loop_mode="startup_repair",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=True,
+                proof_state="satisfied",
+                top_blocker="startup authority: import_index_atomicity",
+                next_command='git commit -m "checkpoint"',
+                next_loop_command=(
+                    "python3 dev/scripts/devctl.py agent-loop --format json "
+                    "--actor claude --role implementer --session-id claude-session"
+                ),
+            ),
+        ),
+    )
+
+    result = enforce_final_response_gate(
+        continuation,
+        orchestration=orchestration,
+        next_slice_id="MP377-P0-CHECKPOINT-AUTOMATION-S1",
+    )
+
+    assert result.allow_final_response is False
+    assert result.reason == "agent_loop:repair_startup_authority"
+    assert "--actor codex" in result.next_required_command
+    assert "--operator-override" in result.next_required_command
+    assert "git commit" not in result.next_required_command
+
+
+def test_final_response_gate_does_not_repeat_active_edit_only_override() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=False,
+        final_response_allowed=True,
+        final_response_gate_allowed=True,
+    )
+    loop_command = (
+        "python3 dev/scripts/devctl.py agent-loop --format json "
+        "--actor codex --role reviewer --mode packet --packet rev_pkt_1 "
+        "--operator-override --override-scope edit-only "
+        "--override-reason typed-repair --override-by operator"
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="session-1",
+                lifecycle_state="blocked",
+                required_action="repair_startup_authority",
+                loop_mode="operator_override_edit",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=True,
+                proof_state="satisfied",
+                active_packet_id="rev_pkt_1",
+                attention_packet_id="rev_pkt_1",
+                top_blocker="startup authority: import_index_atomicity",
+                next_command=loop_command,
+                next_loop_command=loop_command,
+            ),
+        ),
+    )
+
+    result = enforce_final_response_gate(
+        continuation,
+        orchestration=orchestration,
+        next_slice_id="MP377-P0-CHECKPOINT-AUTOMATION-S1",
+    )
+
+    assert result.allow_final_response is False
+    assert result.action == "continue_to_goal"
+    assert result.reason == "agent_loop:repair_startup_authority"
+    assert result.blocking_packet_id == "rev_pkt_1"
+    assert result.next_required_command == ""
+    assert result.user_action == "Continue scoped implementation edits"
+    assert "operator override" in result.why_not_done.lower()
+
+
+def test_report_next_step_command_does_not_fall_back_after_active_override() -> None:
+    final_gate = SimpleNamespace(
+        allow_final_response=False,
+        action="continue_to_goal",
+        next_required_command="",
+        user_action="Continue scoped implementation edits",
+        why_not_done=(
+            "Edit-only operator override is active; continue implementation edits."
+        ),
+    )
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=True,
+        final_response_allowed=False,
+        next_required_command=(
+            "python3 dev/scripts/devctl.py develop next --actor codex --format md"
+        ),
+    )
+
+    assert (
+        development_report._next_step_command_for_report(
+            final_response_gate=final_gate,
+            continuation=continuation,
+            packet_attention_required=False,
+            packet_attention_command="",
+            next_commands=("python3 dev/scripts/devctl.py develop launch --dry-run",),
+        )
+        == ""
+    )
+
+
 def test_final_response_gate_denies_dict_packet_attention_fields() -> None:
     continuation = DevelopmentContinuationRequiredSignal(
         continuation_required=False,
@@ -1427,12 +2198,72 @@ def test_final_response_gate_denies_dict_packet_attention_fields() -> None:
     assert "review-channel --action inbox" in result.next_required_command
 
 
+def test_final_response_gate_synthesizes_packet_attention_next_command() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=False,
+        final_response_allowed=True,
+        final_response_gate_allowed=True,
+    )
+
+    result = enforce_final_response_gate(
+        continuation,
+        packet_attention=DevelopmentPacketAttention(
+            attention_required=True,
+            agent="codex",
+            wake_reason="task_progress_pending",
+            latest_attention_packet_id="rev_pkt_3617",
+        ),
+    )
+
+    assert result.allow_final_response is False
+    assert result.next_required_command == (
+        "python3 dev/scripts/devctl.py develop next --actor codex --format md"
+    )
+
+
+def test_final_response_gate_synthesizes_agent_loop_next_command() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=False,
+        final_response_allowed=True,
+        final_response_gate_allowed=True,
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="reviewer",
+                session_id="session-1",
+                lifecycle_state="blocked",
+                required_action="run_next_command",
+                loop_mode="blocked",
+                should_continue_loop=True,
+                safe_to_continue=False,
+                may_mutate=False,
+                proof_state="missing",
+            ),
+        ),
+    )
+
+    result = enforce_final_response_gate(
+        continuation,
+        orchestration=orchestration,
+    )
+
+    assert result.allow_final_response is False
+    assert result.next_required_command == (
+        "python3 dev/scripts/devctl.py develop next --actor codex --format md"
+    )
+
+
 def test_final_response_gate_default_continuation_fails_closed() -> None:
     result = enforce_final_response_gate(DevelopmentContinuationRequiredSignal())
 
     assert result.allow_final_response is False
     assert result.reason == "continuation_signal_missing"
     assert result.action == "run_next_command"
+    assert result.next_required_command == (
+        "python3 dev/scripts/devctl.py develop next --format md"
+    )
 
 
 def test_develop_report_embeds_materialized_final_response_gate() -> None:
@@ -2550,9 +3381,22 @@ def test_develop_orchestration_inputs_consume_existing_surfaces(tmp_path) -> Non
                 "safe_to_continue": False,
                 "may_mutate": False,
                 "proof_state": "satisfied",
+                "can_run_next_command": False,
+                "advance_allowed": True,
+                "effective_authority_source": "operator_override_edit_only_repair",
                 "top_blocker": "655 expired unresolved review packet(s)",
                 "active_packet_id": "rev_pkt_anchor",
                 "attention_packet_id": "rev_pkt_attention",
+                "allowed_actions": ["implementation.edit"],
+                "blocked_actions": ["vcs.stage", "vcs.commit", "vcs.push"],
+                "operator_override": {
+                    "active": True,
+                    "scope": "edit-only",
+                    "target_kind": "packet",
+                    "target_ref": "rev_pkt_anchor",
+                    "allowed_actions": ["implementation.edit"],
+                    "blocked_actions": ["vcs.stage", "vcs.commit", "vcs.push"],
+                },
                 "next_loop_command": (
                     "python3 dev/scripts/devctl.py agent-loop --format json"
                 ),
@@ -2582,6 +3426,181 @@ def test_develop_orchestration_inputs_consume_existing_surfaces(tmp_path) -> Non
     assert snapshot.agent_loop_decisions[0].top_blocker.startswith("655 expired")
     assert snapshot.agent_loop_decisions[0].active_packet_id == "rev_pkt_anchor"
     assert snapshot.agent_loop_decisions[0].attention_packet_id == "rev_pkt_attention"
+    assert snapshot.agent_loop_decisions[0].advance_allowed is True
+    assert (
+        snapshot.agent_loop_decisions[0].effective_authority_source
+        == "operator_override_edit_only_repair"
+    )
+    assert snapshot.agent_loop_decisions[0].operator_override_active is True
+    assert snapshot.agent_loop_decisions[0].operator_override_edit_allowed is True
+    assert snapshot.agent_loop_decisions[0].operator_override_target_ref == "rev_pkt_anchor"
+    assert "vcs.commit" in snapshot.agent_loop_decisions[0].blocked_actions
+
+
+def test_develop_orchestration_carries_operator_override_into_fresh_rows(
+    tmp_path,
+) -> None:
+    review_state = {
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "codex",
+                    "role": "reviewer",
+                    "session_id": "session-1",
+                    "status": "live",
+                    "confidence_class": "fresh",
+                },
+                {
+                    "actor_id": "claude",
+                    "role": "implementer",
+                    "session_id": "session-2",
+                    "status": "live",
+                    "confidence_class": "fresh",
+                },
+            ]
+        },
+        "reviewer_runtime": {
+            "agent_runtime_clock": {
+                "state": "satisfied",
+                "source_latest_event_id": "rev_evt_1",
+                "snapshot_id": "agent-runtime-clock:rev_evt_1",
+            },
+            "packet_attention": {
+                "observation_actor_id": "codex",
+                "observation_session_id": "session-1",
+            },
+        },
+    }
+    dashboard = {
+        "control_plane": {
+            "top_blocker": "startup authority: dirty_and_untracked_budget_exceeded",
+            "next_action": (
+                "checkpoint_blocked_by_startup_authority:"
+                "dirty_and_untracked_budget_exceeded"
+            ),
+        },
+        "now": {
+            "top_blocker": "startup authority: dirty_and_untracked_budget_exceeded",
+            "next_action": (
+                "checkpoint_blocked_by_startup_authority:"
+                "dirty_and_untracked_budget_exceeded"
+            ),
+        },
+    }
+
+    snapshot = orchestration_snapshot(
+        tmp_path,
+        review_state,
+        actor="codex",
+        dashboard=dashboard,
+        master_plan={
+            "contract_id": "MasterPlan",
+            "rows": [
+                {
+                    "contract_id": "PlanRow",
+                    "row_id": "MP377-P0-CHECKPOINT-AUTOMATION-S1",
+                    "anchor_refs": ["plan:MP-377"],
+                    "target_ref": "plan:MP-377",
+                    "status": "queued",
+                }
+            ],
+        },
+        loop_intent="plan",
+        requested_plan_ref="MP377-P0-CHECKPOINT-AUTOMATION-S1",
+        operator_override_requested=True,
+        operator_override_reason="operator approved scoped repair",
+        operator_override_scope="edit-only",
+        operator_override_by="operator",
+    )
+
+    codex = next(row for row in snapshot.agent_loop_decisions if row.actor_id == "codex")
+    claude = next(row for row in snapshot.agent_loop_decisions if row.actor_id == "claude")
+    assert codex.loop_mode == "operator_override_edit"
+    assert codex.may_mutate is True
+    assert codex.operator_override_active is True
+    assert codex.operator_override_edit_allowed is True
+    assert codex.operator_override_target_kind == "plan"
+    assert codex.operator_override_target_ref == "MP377-P0-CHECKPOINT-AUTOMATION-S1"
+    assert codex.target_kind == "plan"
+    assert codex.target_ref == "MP377-P0-CHECKPOINT-AUTOMATION-S1"
+    assert codex.proof_state == "satisfied"
+    assert claude.operator_override_active is False
+    assert claude.may_mutate is False
+
+
+def test_develop_orchestration_consumes_agent_supervise_report(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    summary_path = tmp_path / "dev/reports/system_picture/latest/summary.json"
+    summary_path.parent.mkdir(parents=True)
+    summary_path.write_text(json.dumps({"sections": []}), encoding="utf-8")
+    captured_thresholds: list[int] = []
+
+    def fake_evaluate(inputs):
+        captured_thresholds.append(inputs.staleness_threshold_seconds)
+        return AgentSuperviseReport(
+            status="blocked",
+            actor=inputs.actor,
+            provider=inputs.provider,
+            role=inputs.role,
+            process_state="detached_runtime_only",
+            process_exit_detected=False,
+            freeze_detected=True,
+            session_id=inputs.session_id,
+            continuation_anchor_live=True,
+            continuation_anchor_packet_id="rev_pkt_anchor",
+            staleness_threshold_seconds=inputs.staleness_threshold_seconds,
+            trigger_reason=(
+                "freeze_detected:"
+                f"{inputs.staleness_threshold_seconds + 1}s"
+                f">=threshold:{inputs.staleness_threshold_seconds}s"
+            ),
+            blocked_reasons=("bypass_receipt_missing",),
+        )
+
+    monkeypatch.setattr(
+        orchestration_agent_supervise_module,
+        "evaluate_agent_supervision",
+        fake_evaluate,
+    )
+    monkeypatch.setattr(
+        orchestration_system_picture_module,
+        "_current_system_picture_sections_by_id",
+        lambda _repo_root: {},
+    )
+    review_state = {
+        "agent_loop_decisions": [
+            {
+                "actor_id": "codex",
+                "actor_role": "reviewer",
+                "session_id": "session-1",
+                "lifecycle_state": "idle",
+                "required_action": "observe_typed_runtime",
+                "loop_mode": "typed_event_wait",
+                "should_continue_loop": True,
+                "safe_to_continue": True,
+                "may_mutate": False,
+                "proof_state": "satisfied",
+                "next_loop_command": (
+                    "python3 dev/scripts/devctl.py agent-loop --format json"
+                ),
+            }
+        ]
+    }
+
+    snapshot = orchestration_snapshot(tmp_path, review_state, actor="codex")
+
+    supervise = snapshot.signals[0]
+    assert supervise.source == "agent-supervise"
+    assert supervise.status == "blocked"
+    assert supervise.severity == "medium"
+    assert "detached_runtime_only" in supervise.summary
+    assert "rev_pkt_anchor" in supervise.summary
+    assert "devctl.py agent-supervise" in supervise.closure_check_command
+    assert "--staleness-threshold-seconds 600" in supervise.closure_check_command
+    assert captured_thresholds == [600]
+    assert snapshot.action_required_count == 1
 
 
 def test_develop_orchestration_treats_idle_observer_wait_as_current(
@@ -3060,6 +4079,46 @@ def test_develop_next_maps_checkpoint_blocker_to_checkpoint_automation_row() -> 
                 may_mutate=False,
                 proof_state="satisfied",
                 top_blocker="git_index_write_blocked while staging managed projection",
+            ),
+        ),
+    )
+
+    selected = select_next_slice(
+        (active_general, checkpoint_repair),
+        orchestration=orchestration,
+    )
+
+    assert selected.slice_id == "MP377-P0-CHECKPOINT-AUTOMATION-S1"
+
+
+def test_develop_next_maps_agent_supervise_blocker_to_checkpoint_automation_row() -> None:
+    active_general = PlanRow(
+        row_id="MP377-P0-T22AN-AB",
+        title="Bound Python test execution through typed validation policy",
+        status="in_progress",
+        sdlc_stage=SDLCStage.IMPL,
+    )
+    checkpoint_repair = PlanRow(
+        row_id="MP377-P0-CHECKPOINT-AUTOMATION-S1",
+        title="Automate governed checkpoint projection and sandbox recovery",
+        status="queued",
+        sdlc_stage=SDLCStage.SPEC,
+        anchor_refs=("MP377-P0-T22AN-AB",),
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        status="action_required",
+        action_required_count=1,
+        signals=(
+            DevelopmentOrchestrationSignal(
+                source="agent-supervise",
+                signal_id="agent-supervise:codex:reviewer:s1",
+                status="blocked",
+                summary=(
+                    "agent-supervise codex:reviewer status=blocked "
+                    "process_state=detached_runtime_only "
+                    "trigger=freeze_detected:901s>=threshold:900s"
+                ),
+                recommended_action="resolve_agent_supervision_blocker",
             ),
         ),
     )

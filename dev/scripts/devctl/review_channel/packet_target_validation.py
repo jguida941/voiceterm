@@ -286,6 +286,17 @@ def _validate_session_termination_anchor_target_fields(
     if target.mutation_op:
         raise ValueError(f"Plan mutation fields are not valid on `{kind}` packets.")
     _validate_optional_plan_intent_fields(target)
+    if kind == "stop_anchor" and not (
+        target.anchor_scope
+        or target.target_role
+        or target.target_session_id
+        or (target.target_kind == "plan" and target.target_ref)
+    ):
+        raise ValueError(
+            "stop_anchor packets require typed scope: use --session-scoped, "
+            "--target-role-scoped, or --plan-scoped with the matching target "
+            "fields."
+        )
     if not target.anchor_scope:
         return
     if target.anchor_scope == ANCHOR_SCOPE_SESSION:

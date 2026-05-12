@@ -62,6 +62,17 @@ Current ingestion status:
   `watcher_owner=claude`, `watcher_status=live`, and `safe_to_fanout=false`;
   Claude stays watcher/verification owner, while mutable fanout remains
   blocked.
+- 2026-05-12 continuation-gate dogfood found that the final-response gate could
+  still strand Codex after startup bootstrap by preferring a peer
+  `repair_startup_authority` row whose `next_command` was prose
+  (`stage missing imported file(s), then rerun ...`) instead of an executable
+  command. `MP377-P0-CHECKPOINT-AUTOMATION-S1` now treats non-executable peer
+  repair text like a status probe for final-gate priority, preserving real
+  executable mutation-owner repair commands while surfacing the scoped
+  `/develop next --operator-override --override-scope edit-only` command for
+  Codex. Live proof: the gate returns that override, the follow-up
+  `/develop next` lands in `operator_override_edit`, and stage/commit/push
+  remain blocked.
 
 2026-05-06 governed exception lifecycle correction:
 - `MP377-P0-EXC-S1` replaces the earlier raw-bypass receipt direction with a
@@ -199,6 +210,19 @@ Current ingestion status:
   require ordinary inbox wake state for keep-awake anchors. This closes the
   `rev_pkt_3245` / `rev_pkt_3255` class where a Claude-addressed anchor could
   keep a Codex reviewer TASK_COMPLETE alive.
+- 2026-05-12 continuation handoff repair: `/develop next` now carries scoped
+  edit-only operator override fields through parser, report, orchestration
+  input, and fresh `AgentLoopDecision` projection rows so a valid override does
+  not disappear after the next reducer pass or context compaction. The final
+  response gate emits a scoped `/develop next --operator-override --slice-id`
+  remediation command before override activation, and active
+  `operator_override_edit` state suppresses unscoped fallback commands while
+  VCS actions remain blocked. Queue-derived peer packet rows now require a
+  fresh matching session route when target-session evidence exists, and
+  `open_packet_body` gate output reports the packet id from the concrete show
+  command so stale peer sessions cannot mask the live Codex continuation goal.
+  Dirty Codex-authored `task_produced` publish-line packets are blocked unless
+  they include commit evidence or the worktree is clean.
 - Raw exception execution, request, repair/prove/close/import-manual commands,
   dashboard writes, bridge writes, slash command writes, and raw `git push
   --no-verify` paths are out of scope until later slices add proof and policy

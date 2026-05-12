@@ -82,6 +82,14 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         review_state,
         actor=actor,
         dashboard=dashboard,
+        master_plan=_master_plan_payload(rows),
+        loop_intent=_operator_override_loop_intent(args),
+        requested_plan_ref=_operator_override_plan_ref(args),
+        requested_packet_id=_operator_override_packet_id(args),
+        operator_override_requested=bool(getattr(args, "operator_override", False)),
+        operator_override_reason=str(getattr(args, "override_reason", "") or ""),
+        operator_override_scope=str(getattr(args, "override_scope", "edit-only") or ""),
+        operator_override_by=str(getattr(args, "override_by", "operator") or ""),
     )
     next_slice = select_next_slice(
         rows,
@@ -195,6 +203,7 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         continuation,
         packet_attention=packet_attention,
         orchestration=orchestration,
+        next_slice_id=next_slice.slice_id,
     )
     status = status_for_report(blockers=blockers, continuation=continuation)
     summary = summary_for_action(
@@ -243,8 +252,9 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         discovery=discovery_snapshot(REPO_ROOT),
         required_checks=required_checks,
         next_commands=next_commands,
-        next_step_command=continuation.next_required_command
-        or _next_step_command(
+        next_step_command=_next_step_command_for_report(
+            final_response_gate=final_response_gate,
+            continuation=continuation,
             packet_attention_required=(
                 packet_attention.attention_required
                 and packet_attention.authority_affecting
@@ -310,6 +320,76 @@ def _session_activity_log_ref_for_actor(runtime: Any, actor: str) -> str:
         if session_id:
             return session_activity_log_ref(f"{actor}:{session_id}")
     return ""
+
+
+def _master_plan_payload(rows: tuple[Any, ...]) -> dict[str, object]:
+    return {
+        "contract_id": "MasterPlan",
+        "rows": [
+            row.to_dict() if hasattr(row, "to_dict") else row
+            for row in rows
+            if isinstance(row, Mapping) or hasattr(row, "to_dict")
+        ],
+    }
+
+
+def _next_step_command_for_report(
+    *,
+    final_response_gate: Any,
+    continuation: Any,
+    packet_attention_required: bool,
+    packet_attention_command: str,
+    next_commands: tuple[str, ...],
+) -> str:
+    gate_command = str(
+        getattr(final_response_gate, "next_required_command", "") or ""
+    ).strip()
+    if gate_command:
+        return gate_command
+    if _final_gate_is_active_edit_override(final_response_gate):
+        return ""
+    return str(getattr(continuation, "next_required_command", "") or "").strip() or (
+        _next_step_command(
+            packet_attention_required=packet_attention_required,
+            packet_attention_command=packet_attention_command,
+            next_commands=next_commands,
+        )
+    )
+
+
+def _final_gate_is_active_edit_override(final_response_gate: Any) -> bool:
+    if bool(getattr(final_response_gate, "allow_final_response", True)):
+        return False
+    if str(getattr(final_response_gate, "action", "") or "") != "continue_to_goal":
+        return False
+    user_action = str(getattr(final_response_gate, "user_action", "") or "")
+    why_not_done = str(getattr(final_response_gate, "why_not_done", "") or "")
+    return (
+        "scoped implementation edits" in user_action.lower()
+        or "edit-only operator override is active" in why_not_done.lower()
+    )
+
+
+def _operator_override_loop_intent(args: Any) -> str:
+    if not bool(getattr(args, "operator_override", False)):
+        return ""
+    if _operator_override_packet_id(args):
+        return "packet"
+    if _operator_override_plan_ref(args):
+        return "plan"
+    return ""
+
+
+def _operator_override_plan_ref(args: Any) -> str:
+    if not bool(getattr(args, "operator_override", False)):
+        return ""
+    return str(getattr(args, "slice_id", "") or "").strip()
+
+
+def _operator_override_packet_id(args: Any) -> str:
+    if not bool(getattr(args, "operator_override", False)):
+        return ""
+    return str(getattr(args, "packet_id", "") or "").strip()
 
 
 def _controller_state(action: str, args: Any) -> str:

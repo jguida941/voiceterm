@@ -130,6 +130,30 @@ def _add_controller_options(cmd: argparse.ArgumentParser) -> None:
             "final-response gate."
         ),
     )
+    cmd.add_argument(
+        "--operator-override",
+        action="store_true",
+        default=False,
+        help=(
+            "Carry an explicit AgentLoopOperatorOverride into this /develop "
+            "reducer pass; scoped edit-only only."
+        ),
+    )
+    cmd.add_argument(
+        "--override-scope",
+        default="edit-only",
+        help="Operator override scope. Only edit-only grants implementation edits.",
+    )
+    cmd.add_argument(
+        "--override-reason",
+        default="",
+        help="Required reason for an explicit edit-only operator override.",
+    )
+    cmd.add_argument(
+        "--override-by",
+        default="operator",
+        help="Actor id that granted the operator override.",
+    )
 
 
 def _add_collaboration_options(cmd: argparse.ArgumentParser) -> None:

@@ -5,7 +5,9 @@ from __future__ import annotations
 import shlex
 from collections.abc import Mapping
 
+from ...runtime.anchor_scope import has_structured_anchor_scope
 from ...runtime.goal_progress_receipt import resolve_goal_progress_receipt
+from ...runtime.session_route_scope import packet_matches_session_route
 from .continuation_commands import next_required_command, watcher_report_needed
 from .models import (
     DevelopmentContinuationRequiredSignal,
@@ -52,9 +54,16 @@ def continuation_signal(
         actor=actor,
         continuation_goal=continuation_goal,
     )
+    actor_role, session_id, target_ref = _active_route(
+        orchestration=orchestration,
+        actor=actor,
+    )
     if goal_progress.continuation_anchor_packet_id and not _has_stop_anchor(
         review_state,
         actor=actor,
+        actor_role=actor_role,
+        session_id=session_id,
+        target_ref=target_ref,
     ):
         reasons = tuple(
             dict.fromkeys(
@@ -141,6 +150,9 @@ def _has_stop_anchor(
     review_state: Mapping[str, object] | None,
     *,
     actor: str,
+    actor_role: str = "",
+    session_id: str = "",
+    target_ref: str = "",
 ) -> bool:
     if not isinstance(review_state, Mapping):
         return False
@@ -153,7 +165,15 @@ def _has_stop_anchor(
             continue
         if str(packet.get("kind") or "").strip() != "stop_anchor":
             continue
-        if str(packet.get("to_agent") or "").strip() not in {"", actor_id}:
+        if not has_structured_anchor_scope(packet):
+            continue
+        if not packet_matches_session_route(
+            packet,
+            session_id=session_id,
+            actor=actor_id,
+            actor_role=actor_role,
+            target_ref=target_ref,
+        ):
             continue
         if str(packet.get("status") or "").strip() in {
             "applied",
@@ -171,6 +191,19 @@ def _has_stop_anchor(
             continue
         return True
     return False
+
+
+def _active_route(
+    *,
+    orchestration: DevelopmentOrchestrationSnapshot,
+    actor: str,
+) -> tuple[str, str, str]:
+    actor_id = str(actor or "").strip()
+    for decision in orchestration.agent_loop_decisions:
+        if actor_id and decision.actor_id and decision.actor_id != actor_id:
+            continue
+        return decision.actor_role, decision.session_id, decision.target_ref
+    return "", "", ""
 
 
 def _required_final_response_action(
@@ -275,6 +308,7 @@ def _required_packet_command(
         ]
         if role:
             command.extend(["--target-role", role])
+            command.append("--target-role-scoped")
         if session_id:
             command.extend(["--target-session-id", session_id])
         return shlex.join(command)

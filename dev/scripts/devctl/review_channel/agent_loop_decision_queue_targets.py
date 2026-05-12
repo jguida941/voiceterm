@@ -21,7 +21,7 @@ from ..runtime.anchor_scope import (
     effective_anchor_scope,
 )
 from .agent_sync_readers import agent_sync_pending_packet_ids
-from .packet_loop_attention import packet_requires_loop_attention
+from .packet_loop_attention import packet_requires_runtime_attention
 from .packet_route_scope import packet_route_matches_scope
 
 _ROLE_ALIASES = {
@@ -145,7 +145,7 @@ def _pending_packet_decisions(
         packet_id = coerce_text(packet.get("packet_id"))
         if not packet_id:
             continue
-        role = _normalize_role(packet.get("target_role"))
+        role = _role_for_packet(actor_id, packet)
         session_id = coerce_text(packet.get("target_session_id"))
         key = (actor_id, role, session_id)
         if key in seen_keys:
@@ -204,12 +204,17 @@ def _first_pending_loop_attention_packet_for_actor(
             continue
         if not _is_live_pending_packet(row):
             continue
-        if not packet_requires_loop_attention(row):
-            continue
         if not _packet_targets_fresh_route(
             row,
             review_state=review_state,
             actor_id=actor_id,
+        ):
+            continue
+        if not packet_requires_runtime_attention(
+            row,
+            actor=actor_id,
+            role=_role_for_packet(actor_id, row),
+            session=coerce_text(row.get("target_session_id")),
         ):
             continue
         if _is_runtime_actionable_packet(row):
@@ -232,7 +237,7 @@ def _packet_targets_fresh_route(
         return True
     routes = _fresh_session_routes(review_state, actor_id=actor_id)
     if not routes:
-        return True
+        return not _has_session_route_evidence(review_state, actor_id=actor_id)
     return any(
         packet_route_matches_scope(
             packet,
@@ -271,6 +276,25 @@ def _fresh_session_routes(
         seen.add(key)
         routes.append({"role": role, "session_id": session_id})
     return tuple(routes)
+
+
+def _has_session_route_evidence(
+    review_state: Mapping[str, object],
+    *,
+    actor_id: str,
+) -> bool:
+    work_board = coerce_mapping(review_state.get("agent_work_board"))
+    rows = work_board.get("rows")
+    if not isinstance(rows, list):
+        return False
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        if coerce_text(row.get("actor_id")) != actor_id:
+            continue
+        if coerce_text(row.get("session_id")):
+            return True
+    return False
 
 
 def _route_freshness(row: Mapping[str, object]) -> str:
@@ -340,3 +364,10 @@ def _normalize_role(value: object) -> str:
         return ""
     key = role.lower().replace("-", "_").replace(" ", "_")
     return _ROLE_ALIASES.get(key, key)
+
+
+def _role_for_packet(actor_id: str, packet: Mapping[str, object]) -> str:
+    role = _normalize_role(packet.get("target_role"))
+    if role:
+        return role
+    return "operator" if actor_id == "operator" else ""

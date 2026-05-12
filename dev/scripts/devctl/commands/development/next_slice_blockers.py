@@ -66,6 +66,17 @@ _CHECKPOINT_TERMS = (
     "vcs.stage",
 )
 
+_AGENT_SUPERVISE_TERMS = (
+    "agent-supervise",
+    "agent supervise",
+    "process_exited",
+    "process exit",
+    "freeze_detected",
+    "process_alive_activity_stale",
+    "detached_runtime_only",
+    "spawn_authorized",
+)
+
 _TEST_POLICY_TERMS = ("code-shape", "code shape", "pytest", "test execution")
 
 _GUARD_SCHEDULER_ROW_IDS = (
@@ -96,6 +107,11 @@ _CHECKPOINT_ROW_IDS = (
     "MP377-P0-T22AN-AB",
 )
 
+_AGENT_SUPERVISE_ROW_IDS = (
+    "MP377-P0-CHECKPOINT-AUTOMATION-S1",
+    "MP377-WATCHER-AUTO-TRIGGER-S1",
+)
+
 _TEST_POLICY_ROW_IDS = ("MP377-P0-T22AN-AB",)
 
 
@@ -107,6 +123,7 @@ def blocker_categories(text: str) -> tuple[str, ...]:
     _append_if(categories, "selector", text, _SELECTOR_TERMS)
     _append_if(categories, "guard_scheduler", text, _GUARD_SCHEDULER_TERMS)
     _append_if(categories, "checkpoint", text, _CHECKPOINT_TERMS)
+    _append_if(categories, "agent_supervise", text, _AGENT_SUPERVISE_TERMS)
     _append_if(categories, "test_policy", text, _TEST_POLICY_TERMS)
     return tuple(dict.fromkeys(categories))
 
@@ -123,6 +140,8 @@ def category_row_ids(category: str) -> tuple[str, ...]:
         return _PACKET_DEBT_ROW_IDS
     if category == "checkpoint":
         return _CHECKPOINT_ROW_IDS
+    if category == "agent_supervise":
+        return _AGENT_SUPERVISE_ROW_IDS
     if category == "test_policy":
         return _TEST_POLICY_ROW_IDS
     return ()

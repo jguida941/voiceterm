@@ -638,6 +638,14 @@ Portability note:
   before final/TASK_COMPLETE prose; a false `allow_final_response` or
   `continuation_state=must_continue` means the next typed command must run
   instead of ending the session.
+- `agent-supervise`
+  (`agent-supervise --actor codex --provider codex --role reviewer --format json`)
+  is the read-only outer-loop supervision reducer for MP-377 continuation
+  failures. It composes the existing rollout/agent-mind activity age,
+  continuation anchor, `LoopAutonomyState`, `BypassReceipt`, and
+  `compute_spawn_authority()` gates; it reports process-exit or freeze evidence
+  and the existing headless review-channel launch command, but does not create a
+  second watchdog, heartbeat, dashboard, or relaunch loop.
 - Runtime liveness is projected through `SessionLivenessSignal` in
   `devctl.runtime` with the states `alive`, `degraded`,
   `detached_runtime_only`, and `dead`. Review-channel status emits

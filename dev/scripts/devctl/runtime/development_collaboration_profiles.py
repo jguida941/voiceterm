@@ -1062,7 +1062,7 @@ def _stop_anchor_post_commands(
             f"--from-agent operator --to-agent {binding.provider} "
             f"--kind {stop_anchor_request.stop_packet_kind} "
             f"--summary {summary!r} --body {body!r} "
-            f"--target-role {binding.role}"
+            f"--target-role {binding.role} --target-role-scoped"
         )
         if binding.session_id:
             command = f"{command} --target-session-id {binding.session_id}"

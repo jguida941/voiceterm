@@ -6,6 +6,7 @@ from ..common import emit_output, write_output
 from ..time_utils import utc_timestamp
 
 COMMANDS = [
+    "agent-supervise",
     "check",
     "commit",
     "check-router",

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 
 from ..review_channel.agent_packet_focus import packet_by_id
+from ..review_channel.agent_packet_attention import packet_body_open_command
+from ..review_channel.packet_loop_attention import packet_body_attention_required
 from .agent_loop_blocker_actions import required_action_for_blocker
-from .agent_loop_command import scoped_operator_override_command
+from .agent_loop_command import scoped_loop_command, scoped_operator_override_command
 from .agent_loop_decision_models import AgentLoopDecision
-from .agent_loop_operator_override import operator_override_next_command
 from .agent_loop_policy import policy_for_turn
 from .session_termination_policy import TaskCompleteDecision
 from .value_coercion import coerce_bool, coerce_int, coerce_text as _text
@@ -167,6 +169,44 @@ def pending_review_packet_decision(
     )
 
 
+def requested_packet_body_open_required(
+    ctx: AgentLoopContext,
+    packets: PacketState,
+) -> bool:
+    """Return whether an exact packet target still needs body observation."""
+    if not ctx.requested_packet_id:
+        return False
+    packet = packets.attention_packet or packets.active_packet
+    if not packet:
+        return False
+    return packet_body_attention_required(
+        packet,
+        actor=ctx.actor,
+        role=ctx.role,
+        session=ctx.session,
+    )
+
+
+def requested_packet_body_open_decision(
+    ctx: AgentLoopContext,
+    packets: PacketState,
+) -> AgentLoopDecision:
+    packet_id = packets.attention_packet_id or packets.active_packet_id
+    packet = packets.attention_packet or packets.active_packet
+    return _body_open_decision(
+        ctx,
+        packets,
+        packet_id,
+        packet,
+        next_command_override=packet_body_open_command(
+            packet_id=packet_id,
+            actor=ctx.actor,
+            role=ctx.role,
+            session=ctx.session,
+        ),
+    )
+
+
 def packet_attention_pending_decision(
     ctx: AgentLoopContext,
     task_decision: TaskCompleteDecision,
@@ -297,6 +337,12 @@ def decision(
     resolved_lifecycle = lifecycle_state or lifecycle_from_loop_state(loop_state)
     resolved_decision = decision_code or decision_from_loop_state(loop_state)
     resolved_reason_code = reason_code or required_action
+    command_ctx = _command_context_for_turn(
+        ctx,
+        active_packet_id=active_packet_id,
+        attention_packet_id=attention_packet_id,
+        executing_packet_id=executing_packet_id,
+    )
     loop_policy = policy_for_turn(
         ctx=ctx,
         loop_state=loop_state,
@@ -315,7 +361,7 @@ def decision(
         and required_action == "repair_startup_authority"
     )
     next_command = next_command_for_turn(
-        ctx=ctx,
+        ctx=command_ctx,
         loop_policy=loop_policy,
         loop_state=loop_state,
         required_action=required_action,
@@ -394,6 +440,20 @@ def decision(
     )
 
 
+def _command_context_for_turn(
+    ctx: AgentLoopContext,
+    *,
+    active_packet_id: str,
+    attention_packet_id: str,
+    executing_packet_id: str,
+) -> AgentLoopContext:
+    if not ctx.requested_packet_id:
+        return ctx
+    if active_packet_id or attention_packet_id or executing_packet_id:
+        return ctx
+    return replace(ctx, requested_packet_id="")
+
+
 def lifecycle_from_loop_state(loop_state: str) -> str:
     return {
         "blocked": "blocked",
@@ -415,12 +475,16 @@ def next_command_for_turn(
     next_command_override: str = "",
 ) -> str:
     """Return the command a simple loop driver should run next."""
-    override_next = operator_override_next_command(ctx.operator_override)
     override_request_next = scoped_operator_override_command(ctx, reason=reason)
+    loop_next_command = scoped_loop_command(ctx)
     if next_command_override:
         return next_command_override
-    if override_next and required_action == "repair_startup_authority":
-        return override_next
+    if (
+        ctx.operator_override.edit_allowed
+        and required_action
+        in {"repair_startup_authority", "governed_checkpoint_commit"}
+    ):
+        return ""
     if (
         override_request_next
         and loop_state == "blocked"
@@ -432,14 +496,14 @@ def next_command_for_turn(
         if (
             should_continue_loop
             and not loop_policy.advance_allowed
-            and loop_policy.next_loop_command
+            and loop_next_command
         ):
-            return loop_policy.next_loop_command
+            return loop_next_command
         return ""
     if loop_policy.can_run_next_command:
         return ctx.next_command
-    if should_continue_loop and loop_policy.next_loop_command:
-        return loop_policy.next_loop_command
+    if should_continue_loop and loop_next_command:
+        return loop_next_command
     return ""
 
 
@@ -475,6 +539,8 @@ def _body_open_decision(
     packets: PacketState,
     pivot_packet_id: str,
     pivot_packet: Mapping[str, object],
+    *,
+    next_command_override: str = "",
 ) -> AgentLoopDecision:
     packet_id = _text(ctx.attention.get("body_open_packet_id")) or pivot_packet_id
     return decision(
@@ -493,7 +559,7 @@ def _body_open_decision(
         executing_packet_id=packets.executing_packet_id,
         legacy_unscoped_packet_id=packets.legacy_unscoped_packet_id,
         plan_target_ref=_text(pivot_packet.get("target_ref")),
-        next_command_override=_body_open_command(ctx),
+        next_command_override=next_command_override or _body_open_command(ctx),
     )
 
 
@@ -568,6 +634,8 @@ __all__ = [
     "observer_decision",
     "packet_attention_pending_decision",
     "pending_review_packet_decision",
+    "requested_packet_body_open_decision",
+    "requested_packet_body_open_required",
     "session_identity_decision",
     "next_command_for_turn",
     "unresolved_decision",

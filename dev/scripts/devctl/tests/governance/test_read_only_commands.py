@@ -44,6 +44,7 @@ class ReadOnlyCommandSetTests(unittest.TestCase):
             "dashboard",
             "claude-loop",
             "agent-loop",
+            "agent-supervise",
             "discover",
             "findings-priority",
             "progress-status",

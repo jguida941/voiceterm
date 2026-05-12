@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.commands.governance.session_reviewer_loop import (
     _has_pending_work,
+    _run_ensure_tick,
 )
 
 
@@ -39,3 +40,16 @@ def test_has_pending_work_uses_typed_reviewer_provider() -> None:
         Path("/tmp/repo"),
         reviewer_agent="cursor",
     )
+
+
+def test_ensure_tick_uses_snapshot_bound_follow_without_inactivity_timeout() -> None:
+    with patch(
+        "dev.scripts.devctl.commands.governance.session_reviewer_loop.subprocess.run"
+    ) as run_mock:
+        _run_ensure_tick(Path("/tmp/repo"), 30)
+
+    command = run_mock.call_args.args[0]
+    assert "--max-follow-snapshots" in command
+    assert command[command.index("--max-follow-snapshots") + 1] == "1"
+    assert "--follow-inactivity-timeout-seconds" in command
+    assert command[command.index("--follow-inactivity-timeout-seconds") + 1] == "0"

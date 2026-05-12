@@ -55,9 +55,11 @@ def agent_loop_decision_errors(payload: Mapping[str, object]) -> list[str]:
     errors: list[str] = []
     errors.extend(_work_board_decision_errors(work_rows, decision_rows))
     sync_agents = coerce_mapping(coerce_mapping(payload.get("agent_sync")).get("agents"))
-    pending_agents = set(
-        pending_packet_agents(sync_agents, packet_rows=_packet_rows(payload))
-    )
+    pending_agents = {
+        agent
+        for agent in pending_packet_agents(sync_agents, packet_rows=_packet_rows(payload))
+        if _pending_agent_requires_loop_decision(agent, work_rows)
+    }
     decision_pending_agents = {
         coerce_text(row.get("actor_id"))
         for row in decision_rows
@@ -130,6 +132,21 @@ def _work_board_row_requires_loop_decision(row: Mapping[str, object]) -> bool:
     stale_after = coerce_int(row.get("stale_after_seconds"))
     idle_seconds = coerce_int(row.get("idle_seconds"))
     return not (stale_after > 0 and idle_seconds > stale_after)
+
+
+def _pending_agent_requires_loop_decision(
+    agent: str,
+    work_rows: list[Mapping[str, object]],
+) -> bool:
+    """Mirror work-board loop authority for pending packet count checks."""
+    routed_rows = [
+        row
+        for row in work_rows
+        if coerce_text(row.get("actor_id")) == agent
+    ]
+    if not routed_rows:
+        return True
+    return any(_work_board_row_requires_loop_decision(row) for row in routed_rows)
 
 
 def _packet_focus_errors(

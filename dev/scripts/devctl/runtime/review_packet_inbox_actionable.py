@@ -43,7 +43,7 @@ def is_action_request(packet: Mapping[str, object]) -> bool:
 
 def is_actionable(packet: Mapping[str, object]) -> bool:
     """Return True when one packet can drive the current instruction lane."""
-    if _packet_is_communication_only(packet):
+    if packet_is_communication_only(packet):
         return False
     if _packet_kind(packet) in SESSION_TERMINATION_PACKET_KINDS:
         return False
@@ -52,6 +52,11 @@ def is_actionable(packet: Mapping[str, object]) -> bool:
         or _packet_kind(packet) == "instruction"
         or attention_urgency(packet) in {"urgent", "blocking"}
     )
+
+
+def packet_is_communication_only(packet: Mapping[str, object]) -> bool:
+    """Return whether durable binding classifies a packet as communication-only."""
+    return _packet_is_communication_only(packet)
 
 
 def attention_urgency(packet: Mapping[str, object]) -> str:

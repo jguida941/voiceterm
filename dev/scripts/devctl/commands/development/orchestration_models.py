@@ -36,10 +36,23 @@ class DevelopmentAgentLoopInput:
     safe_to_continue: bool
     may_mutate: bool
     proof_state: str
+    can_run_next_command: bool = False
+    advance_allowed: bool = False
+    effective_authority_source: str = ""
     pending_packet_count: int = 0
+    target_kind: str = ""
+    target_ref: str = ""
     top_blocker: str = ""
+    next_command: str = ""
     next_loop_command: str = ""
     missing_proofs: tuple[str, ...] = ()
+    allowed_actions: tuple[str, ...] = ()
+    blocked_actions: tuple[str, ...] = ()
+    operator_override_active: bool = False
+    operator_override_edit_allowed: bool = False
+    operator_override_scope: str = ""
+    operator_override_target_kind: str = ""
+    operator_override_target_ref: str = ""
     active_packet_id: str = ""
     attention_packet_id: str = ""
     user_action: str = ""

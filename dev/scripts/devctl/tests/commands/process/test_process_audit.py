@@ -363,7 +363,7 @@ class ProcessAuditCommandTests(TestCase):
                     "command": (
                         "python3 dev/scripts/devctl.py review-channel --action watch "
                         "--target codex --status pending --follow --terminal none "
-                        "--format json --follow-inactivity-timeout-seconds 300"
+                        "--format json --follow-inactivity-timeout-seconds 0"
                     ),
                     "match_source": "direct",
                     "match_scope": "repo_tooling",

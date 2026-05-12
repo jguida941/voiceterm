@@ -162,6 +162,7 @@ def reviewer_response_shape_for_gate(
             "Typed controller still requires work; operator-facing status "
             "belongs in SessionActivityLog/typed packets, not terminal prose."
         ),
+        status="blocked",
     )
     return _with_violations(shape, proposed_response_text)
 
@@ -198,7 +199,10 @@ def reviewer_response_shape_from_mapping(
         ),
         forbidden_markers=coerce_string_items(payload.get("forbidden_markers")),
         violations=coerce_string_items(payload.get("violations")),
-        status=coerce_string(payload.get("status")) or "allowed",
+        status=(
+            coerce_string(payload.get("status"))
+            or ("allowed" if _bool(payload.get("final_response_allowed")) else "blocked")
+        ),
         summary=coerce_string(payload.get("summary")),
         schema_version=_int(payload.get("schema_version"))
         or REVIEWER_RESPONSE_SHAPE_SCHEMA_VERSION,

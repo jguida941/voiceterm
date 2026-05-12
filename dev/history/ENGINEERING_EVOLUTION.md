@@ -37,6 +37,32 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-12 - Final gate stops treating prose peer repair as a continuation command
+
+Live MP-377 dogfood reproduced the operator symptom after the earlier
+continuation-anchor repairs: the final-response gate correctly denied a final
+response, but selected a peer startup-repair row whose `next_command` was
+human prose (`stage missing imported file(s), then rerun ...`). That was not an
+executable typed next command, so Codex could still appear to stop at the
+continuation point even while a scoped edit-only operator override was
+available.
+
+Change: final-gate priority now treats non-executable startup repair text like
+a status probe. Real executable mutation-owner repair commands still win, but
+prose repair instructions no longer outrank the local Codex row that can
+synthesize the scoped
+`/develop next --operator-override --override-scope edit-only` remediation.
+Following that command lands Codex in `operator_override_edit`: implementation
+edits are allowed, while staging, commit, push, runtime recovery, and runtime
+termination stay blocked.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/final_response_gate.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `/tmp/mp377_gate_after_full_development_suite.json`
+- `/tmp/mp377_develop_next_after_full_development_suite_override.json`
+
 ### 2026-05-11 - Continuation anchors become no-expiry goal authority
 
 Live MP-377 dogfood exposed a second half of the TASK_COMPLETE continuation
@@ -15045,3 +15071,38 @@ Evidence:
 - `dev/scripts/devctl/tests/runtime/test_work_intake.py`
 - `dev/scripts/devctl/tests/runtime/test_startup_context.py`
 - `dev/scripts/devctl/tests/vcs/test_push.py`
+
+### 2026-05-12 - Continuation override survives develop-next compaction handoff
+
+Remote-control dogfood exposed a continuation failure where direct
+`agent-loop --operator-override` activation was valid, but the next
+`/develop next` pass rebuilt fresh rows without the override fields. The final
+gate could then reissue the same activation command or drift into stale
+peer-lane packet body work, leaving the agent with no clear typed continuation
+after compaction.
+
+Change: `/develop next` now accepts and carries scoped edit-only override
+fields through parser, report, orchestration input, work-board decision
+projection, and final-gate rendering. The first gate emits a scoped
+`/develop next --operator-override --slice-id ...` command; the carried
+override reports `operator_override_edit`, proof satisfied, mutation allowed
+for edits only, no follow-up command, and VCS actions still blocked. The
+queue-target reducer also rejects session-scoped peer packets when the
+work-board has only stale route evidence, and the final gate reports the
+packet id from the concrete body-open command so `blocking_packet_id` cannot
+disagree with the command it emits. Codex-authored `task_produced` packets now
+require commit evidence or a clean worktree, preventing another dirty
+publish-line recurrence of smell #067.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/parser.py`
+- `dev/scripts/devctl/commands/development/report.py`
+- `dev/scripts/devctl/commands/development/final_response_gate.py`
+- `dev/scripts/devctl/commands/development/orchestration_inputs.py`
+- `dev/scripts/devctl/review_channel/agent_loop_decision_projection.py`
+- `dev/scripts/devctl/review_channel/agent_loop_decision_queue_targets.py`
+- `dev/scripts/devctl/commands/review_channel/event_post_action.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `dev/scripts/devctl/tests/review_channel/test_agent_loop_decision_queue_targets.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_post_action.py`

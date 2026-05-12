@@ -8,13 +8,14 @@ from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
-from .packet_transport_expiry import packet_transport_expired
-from .session_route_scope import normalize_route_role, packet_matches_session_route
+from .anchor_scope import has_structured_anchor_scope
 from .correlation_spine import (
     CorrelationContext,
     lineage_fields,
     merge_correlation_context,
 )
+from .packet_transport_expiry import packet_transport_expired
+from .session_route_scope import normalize_route_role, packet_matches_session_route
 
 SESSION_TERMINATION_POLICY_CONTRACT_ID = "SessionTerminationPolicy"
 SESSION_TERMINATION_POLICY_SCHEMA_VERSION = 1
@@ -515,6 +516,7 @@ def _active_stop_anchor(
         packet
         for packet in packets
         if _text(packet.get("kind")) == STOP_ANCHOR_PACKET_KIND
+        and has_structured_anchor_scope(packet)
         and packet_matches_session_route(
             packet,
             session_id=session_id,

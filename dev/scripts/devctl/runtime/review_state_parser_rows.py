@@ -167,6 +167,7 @@ def packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
                 target_revision=_string(mapping.get("target_revision")),
                 target_role=_string(mapping.get("target_role")),
                 target_session_id=_string(mapping.get("target_session_id")),
+                anchor_scope=_string(mapping.get("anchor_scope")),
                 requested_session_visibility=_string(
                     mapping.get("requested_session_visibility")
                 ),

@@ -133,6 +133,20 @@ def test_session_scoped_continuation_anchor_requires_session_id() -> None:
         )
 
 
+def test_stop_anchor_requires_typed_scope() -> None:
+    with pytest.raises(ValueError, match="stop_anchor packets require typed scope"):
+        validate_post_request(
+            PacketPostRequest(
+                from_agent="claude",
+                to_agent="codex",
+                kind="stop_anchor",
+                summary="Stop later",
+                body="Target session: dead-session",
+            ),
+            valid_agent_ids=("codex", "claude"),
+        )
+
+
 def test_packet_route_resolution_scoped_role_must_resolve_to_one_fresh_session() -> None:
     resolved = resolve_packet_post_route_scope(
         _request(target_role="dashboard"),
