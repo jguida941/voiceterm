@@ -37,6 +37,7 @@ from .support import (
     recommended_next_command,
     resolve_current_head,
 )
+from ...runtime.commit_receipt import commit_receipt_artifact_relpath
 
 
 def build_status_view(
@@ -56,6 +57,12 @@ def build_status_view(
     pipeline_id = pipeline_id_of(payload)
     state = pipeline_state_of(payload)
     commit_sha = str(payload.get("commit_sha") or "")
+    commit_receipt_relpath = (
+        commit_receipt_artifact_relpath(commit_sha) if commit_sha else ""
+    )
+    commit_receipt_path = paths.repo_root / commit_receipt_relpath
+    if not commit_receipt_relpath:
+        commit_receipt_path = Path()
     authorized_head = authorized_head_sha_of(payload)
     expires_at = expires_at_of(payload)
     receipt_parent = managed_receipt_parent_for_current_head(
@@ -92,6 +99,10 @@ def build_status_view(
         "pipeline_id": pipeline_id,
         "state": state,
         "commit_sha": commit_sha,
+        "commit_receipt_artifact_path": commit_receipt_relpath,
+        "commit_receipt_exists": bool(
+            commit_receipt_relpath and commit_receipt_path.exists()
+        ),
         "authorized_head_sha": authorized_head,
         "current_head_sha": current_head,
         "expires_at_utc": expires_at,
@@ -180,6 +191,8 @@ def render_status_markdown(view: dict[str, Any]) -> str:
         f"- state: `{view['state']}`",
         f"- operation_reconcile_state: `{view['operation_reconcile_state']}`",
         f"- commit_sha: `{view['commit_sha']}`",
+        f"- commit_receipt_artifact: `{view['commit_receipt_artifact_path']}`",
+        f"- commit_receipt_exists: `{view['commit_receipt_exists']}`",
         f"- authorized_head_sha: `{view['authorized_head_sha']}`",
         f"- current_head_sha: `{view['current_head_sha']}`",
         f"- current_branch: `{view['current_branch']}`",

@@ -25,6 +25,7 @@ from .agent_sync_models import (
     TERMINAL_SUCCESS_STATES,
 )
 from .event_models import event_id_rank
+from .packet_body_observation import packet_body_digest, packet_body_observed_by
 from .packet_contract import normalize_packet_route_role, packet_route_matches_scope
 
 
@@ -47,11 +48,15 @@ _PENDING_LIFECYCLES = frozenset(
         "operator_routed",
     }
 )
+_SUCCESSFUL_DURABLE_INGESTION_STATUSES = frozenset(
+    {"already_present", "inserted", "updated"}
+)
 
 
 @dataclass(frozen=True, slots=True)
 class _AttentionBuildInput:
     actor: str
+    role: str
     session: str
     attention_packet: Mapping[str, object]
     pending_packets: tuple[Mapping[str, object], ...]
@@ -103,6 +108,7 @@ def packet_attention_for_agent(
     return _build_attention(
         _AttentionBuildInput(
             actor=actor_id,
+            role=role_id,
             session=session_id,
             attention_packet=attention_packet,
             pending_packets=pending_packets,
@@ -129,6 +135,13 @@ def _fallback_attention(
         last_observed_event_id=_text(fallback.get("last_observed_event_id")),
         last_observed_at_utc=_text(fallback.get("last_observed_at_utc")),
         pending_packet_count=int(fallback.get("pending_packet_count") or 0),
+        unopened_body_packet_ids=tuple(
+            _text(row)
+            for row in (fallback.get("unopened_body_packet_ids") or ())
+            if _text(row)
+        ),
+        body_open_packet_id=_text(fallback.get("body_open_packet_id")),
+        body_open_command=_text(fallback.get("body_open_command")),
         superseded_packet_id=_text(fallback.get("superseded_packet_id")),
     )
 
@@ -152,23 +165,31 @@ def _active_packet_for_scope(
 def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
     fallback = context.fallback
     attention_packet = context.attention_packet
+    body_open_packets = _body_open_packets(
+        context.pending_packets,
+        actor=context.actor,
+        role=context.role,
+        session=context.session,
+    )
+    body_open_packet = _best_body_open_packet(body_open_packets)
+    selected_packet = body_open_packet or attention_packet
     agent_sync = context.agent_sync
     last_observed = (
         _text(fallback.get("last_observed_event_id"))
         or _text(agent_sync.get("last_consumed_event_id_lower_bound"))
     )
     if context.packet_rows_authoritative:
-        latest_event_id = _text(attention_packet.get("latest_event_id"))
-        latest_attention_packet_id = _text(attention_packet.get("packet_id"))
+        latest_event_id = _text(selected_packet.get("latest_event_id"))
+        latest_attention_packet_id = _text(selected_packet.get("packet_id"))
         pending_packet_count = len(context.pending_packets)
         fallback_attention_changed_at = ""
         superseded_packet_id = ""
     else:
         latest_event_id = _latest_event_id(
-            _text(attention_packet.get("latest_event_id")),
+            _text(selected_packet.get("latest_event_id")),
             _text(fallback.get("latest_inbox_event_id")),
         )
-        latest_attention_packet_id = _text(attention_packet.get("packet_id")) or _text(
+        latest_attention_packet_id = _text(selected_packet.get("packet_id")) or _text(
             fallback.get("latest_attention_packet_id")
         )
         pending_packet_count = len(
@@ -178,19 +199,58 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
             fallback.get("latest_attention_changed_at_utc")
         )
         superseded_packet_id = _text(fallback.get("superseded_packet_id"))
+    body_open_packet_id = _text(body_open_packet.get("packet_id"))
+    unopened_body_packet_ids = tuple(
+        _text(packet.get("packet_id"))
+        for packet in body_open_packets
+        if _text(packet.get("packet_id"))
+    )
+    body_open_command = (
+        _body_open_command(
+            packet_id=body_open_packet_id,
+            actor=context.actor,
+            role=context.role,
+            session=context.session,
+        )
+        if body_open_packet_id
+        else ""
+    )
+    if (
+        not context.packet_rows_authoritative
+        and not body_open_packet_id
+        and bool(fallback.get("body_open_required"))
+    ):
+        body_open_packet_id = _text(fallback.get("body_open_packet_id"))
+        unopened_body_packet_ids = _fallback_unopened_body_packet_ids(
+            fallback,
+            body_open_packet_id=body_open_packet_id,
+        )
+        body_open_command = _text(fallback.get("body_open_command")) or (
+            _body_open_command(
+                packet_id=body_open_packet_id,
+                actor=context.actor,
+                role=context.role,
+                session=context.session,
+            )
+            if body_open_packet_id
+            else ""
+        )
     return build_packet_attention_state(
         observation_actor_id=context.actor,
         observation_session_id=context.session,
         latest_inbox_event_id=latest_event_id,
         latest_attention_packet_id=latest_attention_packet_id,
         latest_attention_changed_at_utc=(
-            _text(attention_packet.get("posted_at"))
-            or _text(attention_packet.get("latest_event_at_utc"))
+            _text(selected_packet.get("posted_at"))
+            or _text(selected_packet.get("latest_event_at_utc"))
             or fallback_attention_changed_at
         ),
         last_observed_event_id=last_observed,
         last_observed_at_utc=_text(fallback.get("last_observed_at_utc")),
         pending_packet_count=pending_packet_count,
+        unopened_body_packet_ids=unopened_body_packet_ids,
+        body_open_packet_id=body_open_packet_id,
+        body_open_command=body_open_command,
         superseded_packet_id=superseded_packet_id,
     )
 
@@ -327,6 +387,79 @@ def _best_attention_packet(
     return candidates[0][1]
 
 
+def _body_open_packets(
+    pending_packets: tuple[Mapping[str, object], ...],
+    *,
+    actor: str,
+    role: str,
+    session: str,
+) -> tuple[Mapping[str, object], ...]:
+    rows = [
+        packet
+        for packet in pending_packets
+        if _packet_body_open_required(
+            packet,
+            actor=actor,
+            role=role,
+            session=session,
+        )
+    ]
+    rows.sort(
+        reverse=True,
+        key=lambda packet: _attention_priority_key(packet, source_rank=0, index=0),
+    )
+    return tuple(rows)
+
+
+def _best_body_open_packet(
+    packets: tuple[Mapping[str, object], ...],
+) -> Mapping[str, object]:
+    return packets[0] if packets else {}
+
+
+def _packet_body_open_required(
+    packet: Mapping[str, object],
+    *,
+    actor: str,
+    role: str,
+    session: str,
+) -> bool:
+    if not actor or _text(packet.get("from_agent")) == actor:
+        return False
+    if not packet_body_digest(packet):
+        return False
+    if packet_body_observed_by(packet, actor=actor, role=role, session=session):
+        return False
+    if _durable_ingestion_succeeded(packet):
+        return False
+    return True
+
+
+def _durable_ingestion_succeeded(packet: Mapping[str, object]) -> bool:
+    receipt = _mapping(packet.get("packet_durable_ingestion_receipt"))
+    if not receipt:
+        return False
+    return _text(receipt.get("status")) in _SUCCESSFUL_DURABLE_INGESTION_STATUSES
+
+
+def _body_open_command(
+    *,
+    packet_id: str,
+    actor: str,
+    role: str = "",
+    session: str = "",
+) -> str:
+    command = (
+        "python3 dev/scripts/devctl.py review-channel --action show "
+        f"--packet-id {packet_id} --actor {actor} --terminal none --format md"
+    )
+    if role:
+        command += f" --target-role {role}"
+    if session:
+        command += f" --target-session-id {session}"
+    return command
+
+
 def _attention_priority_key(
     packet: Mapping[str, object],
     *,
@@ -364,6 +497,18 @@ def _latest_event_id(*values: str) -> str:
             best = text
             best_rank = rank
     return best
+
+
+def _fallback_unopened_body_packet_ids(
+    fallback: Mapping[str, object],
+    *,
+    body_open_packet_id: str,
+) -> tuple[str, ...]:
+    raw = fallback.get("unopened_body_packet_ids") or ()
+    rows = tuple(_text(row) for row in raw if _text(row))
+    if rows:
+        return rows
+    return (body_open_packet_id,) if body_open_packet_id else ()
 
 
 def _observer_legacy_action_request(

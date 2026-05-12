@@ -18,6 +18,11 @@ from ...runtime.plan_intent_ingestion import (
     plan_intent_action_id,
     plan_intent_receipt_id,
 )
+from ...runtime.correlation_spine import (
+    causation_id_for_ref,
+    correlation_id_for_ref,
+    run_id_for_ref,
+)
 from .plan_intake_sources import PlanIntentSource
 from .plan_intake_support import target_ref_from_source, text
 
@@ -109,6 +114,9 @@ def build_receipt(
         reason=outcome.reason,
         target_kind=outcome.target_kind,
         target_ref=binding_ids.target_ref,
+        correlation_id=correlation_id_for_ref("typed_action", binding_ids.action_id),
+        causation_id=causation_id_for_ref(source.kind, source.ref),
+        run_id=run_id_for_ref("plan_intent_ingestion", context.observed_at),
         row_ids=outcome.row_ids,
         store_statuses=outcome.store_statuses,
         terminal_status=outcome.terminal_status,

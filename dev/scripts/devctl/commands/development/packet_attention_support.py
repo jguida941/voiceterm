@@ -7,6 +7,10 @@ from collections.abc import Mapping
 from ...runtime.master_plan_contract import PlanRow
 from ...runtime.packet_carry_forward_sources import packet_ids_from_plan_row
 from ...runtime.review_packet_inbox_liveness import is_live_pending
+from ...review_channel.packet_contract import (
+    normalize_packet_route_role,
+    packet_route_matches_scope,
+)
 from .packet_attention_actionable import pending_actionable_packet_ids
 from .packet_attention_commands import required_command_for_record, show_packet_command
 from .packet_attention_lifecycle import (
@@ -18,6 +22,23 @@ from .packet_attention_types import (
     NO_PENDING_ATTENTION_SUMMARY,
     PacketAttentionSummaryInput,
     PacketExitContext,
+)
+
+_PENDING_DELIVERY_LIFECYCLES = frozenset(
+    {
+        "",
+        "pending",
+        "delivery_pending",
+        "execution_pending",
+        "acknowledged",
+        "in_progress",
+        "apply_pending_after_execution",
+        "task_started",
+        "task_progress",
+        "task_produced",
+        "task_blocked",
+        "operator_routed",
+    }
 )
 
 
@@ -131,6 +152,14 @@ def live_pending_packet_ids(
             continue
         if not is_live_pending(packet):
             continue
+        if not _packet_visible_for_delivery_attention(packet):
+            continue
+        if not _packet_matches_fresh_delivery_route(
+            packet,
+            actor=normalized_agent,
+            review_state=exit_context.review_state,
+        ):
+            continue
         packet_id = str(packet.get("packet_id") or "").strip()
         if packet_id and not packet_exits_next_pool(
             exit_context,
@@ -138,6 +167,99 @@ def live_pending_packet_ids(
         ):
             packet_ids.append(packet_id)
     return tuple(dict.fromkeys(packet_ids))
+
+
+def _packet_visible_for_delivery_attention(packet: Mapping[str, object]) -> bool:
+    lifecycle = str(packet.get("lifecycle_current_state") or "").strip()
+    return lifecycle in _PENDING_DELIVERY_LIFECYCLES
+
+
+def _packet_matches_fresh_delivery_route(
+    packet: Mapping[str, object],
+    *,
+    actor: str,
+    review_state: Mapping[str, object],
+) -> bool:
+    target_role = normalize_packet_route_role(packet.get("target_role"))
+    target_session = str(packet.get("target_session_id") or "").strip()
+    if not (target_role or target_session):
+        return True
+    routes = _fresh_actor_routes(review_state, actor=actor)
+    if not routes:
+        return True
+    return any(
+        packet_route_matches_scope(
+            packet,
+            target_role=route.get("role"),
+            target_session_id=route.get("session_id"),
+        )
+        for route in routes
+    )
+
+
+def _fresh_actor_routes(
+    review_state: Mapping[str, object],
+    *,
+    actor: str,
+) -> tuple[Mapping[str, object], ...]:
+    rows = _work_board_rows(review_state)
+    routes: list[Mapping[str, object]] = []
+    seen: set[tuple[str, str]] = set()
+    for row in rows:
+        if str(row.get("actor_id") or "").strip().lower() != actor:
+            continue
+        if _work_board_row_freshness(row) != "fresh":
+            continue
+        role = normalize_packet_route_role(row.get("role"))
+        session_id = str(row.get("session_id") or "").strip()
+        key = (role, session_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        routes.append({"role": role, "session_id": session_id})
+    return tuple(routes)
+
+
+def _work_board_rows(
+    review_state: Mapping[str, object],
+) -> tuple[Mapping[str, object], ...]:
+    work_board = review_state.get("agent_work_board")
+    if not isinstance(work_board, Mapping):
+        work_board = review_state.get("work_board")
+    if not isinstance(work_board, Mapping):
+        return ()
+    rows = work_board.get("rows")
+    if not isinstance(rows, (list, tuple)):
+        return ()
+    return tuple(row for row in rows if isinstance(row, Mapping))
+
+
+def _work_board_row_freshness(row: Mapping[str, object]) -> str:
+    confidence = str(row.get("confidence_class") or "").strip()
+    status = str(row.get("status") or "").strip()
+    idle_seconds = _int(row.get("idle_seconds"))
+    stale_after = _int(row.get("stale_after_seconds"))
+    if confidence == "stale" or (stale_after > 0 and idle_seconds > stale_after):
+        return "stale"
+    if status in {"working", "polling", "blocked", "checkpointed"}:
+        return "fresh"
+    if status == "idle":
+        return "idle"
+    return "unknown"
+
+
+def _int(value: object) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    text = str(value or "").strip()
+    if not text:
+        return 0
+    try:
+        return int(text)
+    except ValueError:
+        return 0
 
 
 def latest_attention_packet_id(

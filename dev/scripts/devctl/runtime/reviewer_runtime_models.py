@@ -116,6 +116,11 @@ class PacketAttentionState:
     last_observed_event_id: str = ""
     last_observed_at_utc: str = ""
     pending_packet_count: int = 0
+    unopened_body_packet_count: int = 0
+    unopened_body_packet_ids: tuple[str, ...] = ()
+    body_open_required: bool = False
+    body_open_packet_id: str = ""
+    body_open_command: str = ""
     superseded_packet_id: str = ""
     pivot_required: bool = False
     wake_required: bool = False
@@ -219,6 +224,9 @@ def build_packet_attention_state(
     last_observed_event_id: str,
     last_observed_at_utc: str,
     pending_packet_count: int,
+    unopened_body_packet_ids: tuple[str, ...] = (),
+    body_open_packet_id: str = "",
+    body_open_command: str = "",
     superseded_packet_id: str = "",
 ) -> PacketAttentionState:
     """Derive typed per-actor_session attention state.
@@ -232,14 +240,19 @@ def build_packet_attention_state(
     """
     pivot_reasons: list[str] = []
     wake_required = False
-    if (
-        latest_inbox_event_id
-        and latest_inbox_event_id != last_observed_event_id
+    if _event_id_unobserved(
+        latest_inbox_event_id=latest_inbox_event_id,
+        last_observed_event_id=last_observed_event_id,
     ):
         pivot_reasons.append("inbox_event_unobserved")
         wake_required = True
     if pending_packet_count > 0:
         pivot_reasons.append("pending_packets_unconsumed")
+        wake_required = True
+    unopened_ids = tuple(str(row).strip() for row in unopened_body_packet_ids if str(row).strip())
+    body_open_required = bool(unopened_ids or body_open_packet_id)
+    if body_open_required:
+        pivot_reasons.append("packet_bodies_unread")
         wake_required = True
     if superseded_packet_id:
         pivot_reasons.append("active_packet_superseded")
@@ -251,7 +264,9 @@ def build_packet_attention_state(
         pivot_reasons.append("actor_identity_ambiguous")
     pivot_required = bool(pivot_reasons)
     stale_reason = ""
-    if wake_required and not observation_actor_id:
+    if body_open_required:
+        stale_reason = "packet_body_open_required"
+    elif wake_required and not observation_actor_id:
         stale_reason = "actor_identity_ambiguous_with_pending_wake"
     elif wake_required:
         stale_reason = "wake_required"
@@ -266,12 +281,41 @@ def build_packet_attention_state(
         last_observed_event_id=last_observed_event_id,
         last_observed_at_utc=last_observed_at_utc,
         pending_packet_count=pending_packet_count,
+        unopened_body_packet_count=len(unopened_ids),
+        unopened_body_packet_ids=unopened_ids,
+        body_open_required=body_open_required,
+        body_open_packet_id=body_open_packet_id or (unopened_ids[0] if unopened_ids else ""),
+        body_open_command=body_open_command,
         superseded_packet_id=superseded_packet_id,
         pivot_required=pivot_required,
         wake_required=wake_required,
         stale_reason=stale_reason,
         pivot_reasons=tuple(pivot_reasons),
     )
+
+
+def _event_id_unobserved(
+    *,
+    latest_inbox_event_id: str,
+    last_observed_event_id: str,
+) -> bool:
+    if not latest_inbox_event_id:
+        return False
+    latest_rank = _event_id_rank(latest_inbox_event_id)
+    observed_rank = _event_id_rank(last_observed_event_id)
+    if latest_rank >= 0 or observed_rank >= 0:
+        return latest_rank > observed_rank
+    return latest_inbox_event_id != last_observed_event_id
+
+
+def _event_id_rank(event_id: str) -> int:
+    prefix = "rev_evt_"
+    if not event_id.startswith(prefix):
+        return -1
+    try:
+        return int(event_id[len(prefix):])
+    except ValueError:
+        return -1
 
 
 def build_agent_runtime_clock(

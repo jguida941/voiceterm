@@ -29,6 +29,79 @@
   default requested worker fanout is zero unless explicitly requested, and
   `bridge.md` remains a compatibility projection until native
   `CollaborationSession` topology lands.
+- 2026-05-11 slice 18 fix arc + bilateral protocol consolidation (MP-377):
+  claude reviewer-role's session arc identified 7 bugs in slice 18 via two
+  codex-review passes (5 findings from 17:16:09Z + 2 additional findings from
+  17:51:17Z plan-review pass) and 3 architectural smells (#058
+  TaskCompleteDecision ignores live `_active_continuation_anchor()`; #059
+  wake-packets cannot wake dead agent processes / no typed spawn authority;
+  bash-permission-stopgap as bypass-launch path). Operator-mandated ingest
+  of 15 plan-row anchors as first step before any slice 18 commit:
+  `MP377-P0-SLICE-18-P1A-FALLBACK-BODY-OPEN-S1` preserves fallback body-open
+  fields when packet rows absent (closes consumption-gap bypass at
+  `agent_packet_attention.py:209-215`);
+  `MP377-P0-SLICE-18-P1B-AUTHORIZED-RECEIPT-PUSH-S1` guards receipt-head
+  refresh for minimal git checkouts (unblocks
+  `test_governed_push_allows_managed_receipt_child_of_authorized_head` at
+  `push_preflight_projection.py:58-64`);
+  `MP377-P0-SLICE-18-P1C-SESSION-SCOPE-BODY-OPEN-S1` includes role+session
+  in body-observation match (closes session-scope bypass at
+  `agent_packet_attention.py:385`);
+  `MP377-P0-SLICE-18-P1D-URGENT-PACKET-PREEMPTION-S1` invokes
+  `_attention_priority_key()` BEFORE the early rank check at
+  `agent_packet_focus.py:171-174` so urgent/blocking pending packets with
+  lower event_ids preempt newer active packet (NEW finding from codex
+  review subagent 019e1851-a6c9-7931 emitted 2026-05-11T18:43:38Z);
+  `MP377-P0-SLICE-18-P2A-SHOW-WRITE-RECONCILE-S1` reconciles `review-channel
+  show` typed write with `DEVCTL_NO_ARTIFACT_WRITES=1` read-only suppression
+  contract at `event_handler.py:244-245`;
+  `MP377-P0-SLICE-18-P2B-INGESTION-STATUS-CHECK-S1` requires successful
+  receipt status before suppressing body-open at
+  `agent_packet_attention.py:387-388`;
+  `MP377-P0-SLICE-18-P2C-ACTOR-MATCH-OBSERVATION-S1` requires matching
+  actor+observation in multi_agent_sync runtime-truth check at
+  `runtime_truth_agent_loop_instruction.py:240-245`;
+  `MP377-P0-SLICE-18-P2D-DEFERRED-RECOVERY-RUN-S1` runs deferred recovery
+  before returning receipt-head preflight at
+  `push_preflight_projection.py:65`;
+  `MP377-CONTINUATION-ANCHOR-CONSOLIDATION-S1` makes
+  `TaskCompleteDecision` in `session_termination_policy.py` consult
+  `_active_continuation_anchor()` before allowing TASK_COMPLETE — the
+  primary fix for smell #058 (empirically confirmed by two dead codex
+  sessions 019e1436 and 019e17fa-3745 emitting TASK_COMPLETE despite live
+  anchor `rev_pkt_3685`);
+  `MP377-CODEX-SPAWN-AUTHORITY-S1` adds typed `SpawnDeadAgentAction`
+  composing with `LifetimeBypassMode` so dead-agent resurrection becomes a
+  typed-pipeline-native action instead of bash-permission grants;
+  `MP377-LIFETIME-BYPASS-MODE-S1` adds `LifetimeBypassMode` typed authority
+  with `BypassReceipt(receipt_id, reason, operator_signature,
+  ai_approval_evidence, requested_authority_scope, expires_at_utc_optional)`
+  composing with `governed_exception_lifecycle.py` (operator's 2026-05-11
+  proposal — no parallel system, all bypass authority lives in existing
+  lifetime governance lifecycle);
+  `MP377-PEER-SESSION-HANDSHAKE-S1` adds typed `peer_session_handshake`
+  packet kind that fires when claude or codex boots; session_resync
+  evidence required if session_id mismatch detected;
+  `MP377-PEER-HEARTBEAT-CONTRACT-S1` adds heartbeat packet TTL contract
+  with `peer_offline` evidence surfaced when heartbeat past expiry;
+  `MP377-PRE-DECISION-COMPOSABILITY-WINDOW-S1` adds typed pre-decision
+  window requiring claude reviewer ack or `pre_decision_objection` finding
+  before codex commits architectural slice;
+  `MP377-COMMIT-RECEIPT-EVIDENCE-CHAIN-S1` adds typed
+  `CommitReceipt(commit_sha, plan_row_id, reviewer_ack_packet_id,
+  audit_synthesis_ref)` bundling reviewer's audit chain into commit-level
+  typed evidence;
+  `MP377-GOAL-PROGRESS-RECEIPTS-S1` adds typed `goal_progress` event after
+  each slice; continuation_anchor reducer updates
+  `progress_percentage_toward_goal` field surfaced via `develop next`.
+  Execution priority per operator-mandated 25.13 sequencing:
+  continuation_anchor enforcement FIRST (so codex cannot die mid-arc),
+  then lifetime-bypass-mode + codex-spawn authority (so codex relaunch is
+  typed-state-native), then slice 18 P1 fixes + commit, then slice 19 P2
+  fixes, then bilateral protocol enhancements, then resume MP-377 Phase 0
+  per `develop next`. See plan section 25 of
+  `/Users/jguida941/.claude/plans/yes-anytime-it-doesn-t-lazy-sunset.md`
+  for full architectural detail + dogfood-verification protocol (25.14).
 - 2026-04-20 persistence-loop unblock (subordinate to
   `dev/active/autonomous_governance_loop_v2.md` MP-377): headless
   `review-channel --action launch | recover` now auto-elevate
@@ -8095,3 +8168,33 @@ This generated ledger projects packet creation bindings for humans. The typed ro
 - [ ] `PKT-BIND-REV-PKT-3656` Packet action request: Run governed commit staging from remote-control lane (source `rev_pkt_3656`; target `devctl_commit:9318cfd00b31e028c7e09653f93f75ccab94020f`; posted `2026-05-11T09:34:02.760321Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3663` Packet action request: Run governed commit staging from remote-control lane (source `rev_pkt_3663`; target `devctl_commit:5b5c0d065e965a06d2e49e4122ba6938895a28bd`; posted `2026-05-11T11:40:59.877524Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3673` Packet action request: Run governed commit staging from remote-control lane (source `rev_pkt_3673`; target `devctl_commit:170167c1416a008d0d816d8bbb01b2bb44a95aa6`; posted `2026-05-11T13:01:16.614785Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3681` Packet finding: PRE-COMMIT AUDIT slice 18 (packet_body_observed event + proof gate) — Explore agent verdict SAFE TO LAND; §11 5 EXTENDED-SAFE clusters (D-PacketAuthorityDualInjection + D-ValueCoercion canonical-only + D-DevelopNext + D-A... (source `rev_pkt_3681`; target `plan:MP-377`; posted `2026-05-11T14:41:42.314840Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3682` Packet action request: Audit MP377 packet-body gate and watcher body-state fix (source `rev_pkt_3682`; target `plan:MP-377`; posted `2026-05-11T15:08:30.623187Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3683` Packet finding: AUDIT RESPONSE rev_pkt_3682 — 3/4 surfaces PASS (show body receipt + 5-layer projection preservation + watcher signature body-fields), 1/4 GAP_CONFIRMED_REMAINING (reviewer-cycle receipt is distinct architectural debt). R... (source `rev_pkt_3683`; target `plan:MP-377`; posted `2026-05-11T15:19:05.895870Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3684` Packet finding: OPERATOR MANDATE 2026-05-11: ONE SYSTEM — continue_to_goal MUST compose with packet-body-consumption gate like Legos. Mode A (consume packets before commit) + Mode B (continue_to_goal anchor) compose, NOT parallel. Defaul... (source `rev_pkt_3684`; target `plan:MP-377`; posted `2026-05-11T15:49:07.194376Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3687` Packet finding: CODEX REVIEW SLICE 18 BLOCKER FINDINGS — 5 bugs found in 17min thorough composability review: 2 P1 (consumption-gap bypass via cleared fallback body-open + receipt-head refresh breaks authorized-receipt push test) + 3 P2 ... (source `rev_pkt_3687`; target `plan:MP-377`; posted `2026-05-11T17:21:45.579407Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3690` Packet finding: check-router guard bundle blocked by strict tooling docs policy (source `rev_pkt_3690`; target `dev/scripts/devctl.py:check-router`; posted `2026-05-11T19:15:08.260371Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3694` Packet finding: Pre-decision audit: correlation_spine.py + action_contracts.py:26-252 already exist; compose with them rather than create parallel (source `rev_pkt_3694`; target `dev/scripts/devctl/runtime/correlation_spine.py`; posted `2026-05-11T20:33:07.295343Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3698` Packet finding: Architectural audit PASS — correlation-spine integration composes correctly with existing typed pipeline; no duplicates, no parallel systems (source `rev_pkt_3698`; target `dev/scripts/devctl/runtime/correlation_spine.py`; posted `2026-05-11T20:46:52.218122Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3701` Packet finding: Smell #061 logged — reviewer-role posted body-string PASS verdicts instead of typed-evidence-bound packets; same anti-pattern violates plan §0.5 Property #7 (source `rev_pkt_3701`; target `codesmells.md:smell-061`; posted `2026-05-11T20:59:45.158855Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3702` Packet finding: Architectural slice MP377-PACKET-POST-TYPED-EVIDENCE-GUARD-S1 — operator-mandated fail-closed guard so smell #061 cannot recur (source `rev_pkt_3702`; target `dev/scripts/devctl/commands/review_channel/event_post_action.py`; posted `2026-05-11T21:01:24.445544Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3705` Packet finding: Correlation-spine coverage gap FLAG — ValidationReceipt + ExceptionReceipt + FindingRecord + packet_body_observation events still UNWIRED (source `rev_pkt_3705`; target `dev/scripts/devctl/runtime/correlation_spine.py`; posted `2026-05-11T21:06:01.756298Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3708` Packet finding: FLAG (non-blocking) — DogfoodSelfCheckReceipt typed contract used in dogfood artifacts but not registered in contract_registry.jsonl; thesis-edge case for evidence-bearing artifacts vs mutation contracts (source `rev_pkt_3708`; target `dev/state/contract_registry.jsonl`; posted `2026-05-11T21:14:22.055931Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3710` Packet finding: Architectural slice MP377-EVIDENCE-LIFECYCLE-ARCHIVE-S1 — operator-mandated evidence-lifecycle-archive (21GB dev/reports/ + 76MB single trace.ndjson; NEVER delete, archive after lifecycle closure) (source `rev_pkt_3710`; target `dev/scripts/devctl/runtime/plan_source_retention_anchors.py`; posted `2026-05-11T21:17:24.699044Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3729` Packet finding: Architectural slice MP377-SESSION-ACTIVITY-LOG-S1 — operator-mandated per-session typed activity log composing with just-shipped EvidenceArchive (source `rev_pkt_3729`; target `dev/scripts/devctl/runtime/evidence_archive.py`; posted `2026-05-11T22:24:00.681139Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3739` Packet finding: Architectural slice MP377-TYPED-SLASH-COMMAND-ENTRY-POINTS-S1 — thin slash-command entry points over typed program; operator + AI use identical entry points (source `rev_pkt_3739`; target `.claude/commands/`; posted `2026-05-11T22:59:35.580743Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3740` Packet finding: AMENDMENT to MP377-TYPED-SLASH-COMMAND-ENTRY-POINTS-S1 — universality: ANY AGENT uses identical entry points (not just operator+AI) (source `rev_pkt_3740`; target `.claude/commands/`; posted `2026-05-11T23:01:01.964928Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3744` Packet finding: Operator-flagged regression: claude reviewer keeps emitting status-update tables despite plan §26.13.2 — rules-not-strong-enough; codex investigate + propose typed fix (source `rev_pkt_3744`; target `dev/scripts/devctl/runtime/reviewer_response_shape.py`; posted `2026-05-11T23:09:59.029793Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3750` Packet finding: Architectural slice MP377-TYPED-ROLE-MODE-CUSTOMIZATION-S1 — operator-editable typed role customization + cards + guards + /role-create slash commands; codex DESIGN REVIEW requested (6 questions) (source `rev_pkt_3750`; target `dev/scripts/devctl/runtime/role_profile.py`; posted `2026-05-11T23:23:57.946913Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3753` Packet decision: Codex design decision for MP377 typed role-mode customization (source `rev_pkt_3753`; target `plan:MP-377`; posted `2026-05-11T23:31:05.720877Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3755` Packet finding: FLAG — reviewer_response_shape typed contract correct, but report.py:179 doesn't pass proposed_response_text; production gate inert (source `rev_pkt_3755`; target `dev/scripts/devctl/commands/development/report.py:179-184`; posted `2026-05-11T23:41:17.299982Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3759` Packet finding: Architectural slice MP377-COMPOSABLE-MODE-CHAIN-S1 — operator's chainable-mode design VALIDATED by dual Explore audits; 5 typed-contract gaps for codex design review (source `rev_pkt_3759`; target `dev/scripts/devctl/runtime/development_scaling_defaults.py`; posted `2026-05-12T00:04:30.512038Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3765` Packet finding: Amendment to MP377-COMPOSABLE-MODE-CHAIN-S1 — universality: ANY existing mode/flag composable; not specifically dogfood+architect example (source `rev_pkt_3765`; target `dev/scripts/devctl/runtime/development_collaboration_modes.py`; posted `2026-05-12T01:05:19.709615Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3767` Packet finding: FLAG — 6 of 8 new mode-chain typed contracts are context-graph disconnected-islands; Property #4 resumability gap (source `rev_pkt_3767`; target `dev/scripts/devctl/runtime/development_collaboration_modes.py`; posted `2026-05-12T01:09:13.395013Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3775` Packet finding: §11 duplicate-cluster hunt: 2 new flags — D-Topology (MED) at action_routing_publication_defer.py:224 + D-ValueCoercion (LOW) (source `rev_pkt_3775`; target `plan:MP-377`; posted `2026-05-12T01:50:10.002498Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3780` Packet finding: rev_pkt_3761 mode-chain: GREEN check + 3 FLAGS + 2 disconnected islands; ALSO smell #063 process-FREEZE + smell #064 /bypass layering (source `rev_pkt_3780`; target `plan:MP-377`; posted `2026-05-12T02:12:52.613142Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3781` Packet finding: Smell #065 ingest-not-blocking: session reducer hangs no default timeout; recurrence of smell #001 (--role codex invalid); plus context briefing for your inbox (source `rev_pkt_3781`; target `plan:MP-377`; posted `2026-05-12T02:19:49.297725Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3787` Packet finding: MP377 stale-session final gate routed rev_pkt_3778 but agent-loop pivoted to rev_pkt_3775 (source `rev_pkt_3787`; target `plan:MP-377`; posted `2026-05-12T02:56:22.203470Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3790` Packet finding: Synthesis ack for rev_pkt_3787: 3 evidence paths (your rev_pkt_3787 + my smell #058 layer-a + Explore map) converge on typed-gate-without-consumer-observation-proof class; 5-file composability map (source `rev_pkt_3790`; target `plan:MP-377`; posted `2026-05-12T03:24:34.376707Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3796` Packet finding: Operator-mandated synthesis design verification — wake_request packet kind + --synthesis flag + wake driver outside agents; claude ran 3 paced Explores; do you see better connections? (source `rev_pkt_3796`; target `plan:MP-377`; posted `2026-05-12T03:53:13.064598Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3798` Packet decision: MP377 synthesis wake design disposition from Codex (source `rev_pkt_3798`; target `plan:MP-377`; posted `2026-05-12T04:03:42.731767Z`; binding `plan_row`).

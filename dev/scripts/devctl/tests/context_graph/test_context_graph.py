@@ -184,6 +184,33 @@ class TestContextGraphBuild(unittest.TestCase):
             "graph should expose GovernedExceptionLifecycle as a typed contract node",
         )
 
+    def test_includes_nested_mode_chain_contract_nodes(self) -> None:
+        nodes, _ = build_context_graph()
+        labels = {
+            node.label
+            for node in nodes
+            if node.node_kind == NODE_KIND_TYPED_CONTRACT
+            and node.canonical_pointer_ref.startswith(
+                "dev/scripts/devctl/runtime/development_collaboration_modes.py:"
+            )
+        }
+
+        self.assertTrue(
+            {
+                "PhaseSequenceContract",
+                "ConflictingModeRule",
+                "ScopeInheritanceContract",
+                "LaneCardinalityEnforcer",
+                "CompositeReceiptContainer",
+                "ModeChainPolicy",
+                "ModeChainPhase",
+                "ChainReceiptRef",
+                "ModeChainComposition",
+                "ModeChainCompositionReport",
+            }.issubset(labels),
+            "mode-chain nested contracts should be discoverable by context-graph",
+        )
+
     def test_governed_exception_contract_nodes_carry_cross_link_metadata(self) -> None:
         nodes, _ = build_context_graph()
         candidates = [
@@ -344,6 +371,32 @@ class TestContextGraphQuery(unittest.TestCase):
                 result.confidence,
                 "no_match",
                 f"{term} should no longer be invisible to context-graph",
+            )
+
+    def test_contract_query_resolves_mode_chain_nested_symbols(self) -> None:
+        for term in (
+            "ConflictingModeRule",
+            "LaneCardinalityEnforcer",
+            "CompositeReceiptContainer",
+            "ModeChainPolicy",
+            "ModeChainPhase",
+            "ChainReceiptRef",
+            "ModeChainComposition",
+            "ModeChainCompositionReport",
+        ):
+            result = query_context_graph(term, self.nodes, self.edges)
+            self.assertNotEqual(
+                result.confidence,
+                "no_match",
+                f"{term} should be queryable",
+            )
+            self.assertTrue(
+                any(
+                    node.node_kind == NODE_KIND_TYPED_CONTRACT
+                    and node.label == term
+                    for node in result.matched_nodes
+                ),
+                f"{term} should resolve to a typed contract node",
             )
 
     def test_contract_query_resolves_plan_and_backlog_contract_nodes(self) -> None:

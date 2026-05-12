@@ -176,6 +176,49 @@ class PendingPacketInstructionRewriteGuardTests(unittest.TestCase):
         self.assertEqual(len(pending), 1)
         self.assertEqual(pending[0]["packet_id"], "rev_pkt_0001")
 
+    def test_load_pending_packet_queue_preserves_body_observation_events(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            _write_packet_events(
+                root,
+                packets=[
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0001",
+                        "packet_id": "rev_pkt_body",
+                        "trace_id": "trace_body",
+                        "event_type": "packet_posted",
+                        "status": "pending",
+                        "from_agent": "claude",
+                        "to_agent": "codex",
+                        "kind": "finding",
+                        "summary": "Body must be opened",
+                        "body": "Architectural finding details",
+                    },
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0002",
+                        "packet_id": "rev_pkt_body",
+                        "trace_id": "trace_body",
+                        "event_type": "packet_body_observed",
+                        "body_observed_by": "codex",
+                        "body_observed_at_utc": "2026-05-11T03:04:05Z",
+                        "body_digest": "sha256:abc123",
+                    },
+                ],
+            )
+
+            queue = load_pending_packet_queue(root)
+
+        packet = queue.pending_packets[0]
+        self.assertEqual(packet["body_observed_by"], "codex")
+        self.assertEqual(packet["body_observed_event_id"], "rev_evt_0002")
+        self.assertEqual(packet["body_digest"], "sha256:abc123")
+        self.assertEqual(
+            packet["body_observation_events"][0]["contract_id"],
+            "PacketBodyObservation",
+        )
+
     def test_load_pending_packets_keeps_clock_elapsed_findings_live(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

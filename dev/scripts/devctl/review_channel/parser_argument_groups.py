@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from .events import (
-    DEFAULT_PACKET_TTL_MINUTES,
     DEFAULT_REVIEW_CHANNEL_PLAN_ID,
     DEFAULT_REVIEW_CHANNEL_SESSION_ID,
 )
@@ -43,7 +42,11 @@ def build_packet_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             "--evidence-ref",
             action="append",
             default=[],
-            help="Repeatable evidence reference",
+            help=(
+                "Repeatable typed evidence reference for packet posts; required "
+                "for evidence-producing or verdict-bearing packet kinds unless "
+                "another typed evidence flag is supplied."
+            ),
         ),
         arg_builder(
             "--confidence",
@@ -182,6 +185,37 @@ def _packet_target_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             ),
         ),
         arg_builder(
+            "--anchor-scope",
+            choices=["session", "role", "plan"],
+            help=(
+                "Explicit scope for continuation_anchor/stop_anchor packets. "
+                "`session` binds only the target session, `role` survives "
+                "session replacement within the target role, and `plan` binds "
+                "the target plan ref."
+            ),
+        ),
+        arg_builder(
+            "--session-scoped",
+            dest="anchor_scope",
+            action="store_const",
+            const="session",
+            help="Shortcut for `--anchor-scope session`.",
+        ),
+        arg_builder(
+            "--target-role-scoped",
+            dest="anchor_scope",
+            action="store_const",
+            const="role",
+            help="Shortcut for `--anchor-scope role`.",
+        ),
+        arg_builder(
+            "--plan-scoped",
+            dest="anchor_scope",
+            action="store_const",
+            const="plan",
+            help="Shortcut for `--anchor-scope plan`.",
+        ),
+        arg_builder(
             "--requested-session-visibility",
             choices=["dashboard_only", "headless", "visible"],
             help=(
@@ -255,9 +289,25 @@ def build_event_context_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
         ),
         arg_builder("--controller-run-id", help="Optional controller run id on packet writes"),
         arg_builder(
+            "--correlation-id",
+            help="Optional lineage correlation id for packet/event writes",
+        ),
+        arg_builder(
+            "--causation-id",
+            help="Optional lineage causation id for packet/event writes",
+        ),
+        arg_builder(
+            "--run-id",
+            help="Optional lineage run id for packet/event writes",
+        ),
+        arg_builder(
             "--expires-in-minutes",
             type=int,
-            default=DEFAULT_PACKET_TTL_MINUTES,
-            help="Expiry horizon for newly posted packets",
+            default=None,
+            help=(
+                "Optional expiry horizon for newly posted packets. "
+                "Omit for default runtime TTL; continuation/stop anchors "
+                "do not expire unless this is explicitly set."
+            ),
         ),
     ]

@@ -49,6 +49,9 @@ def test_finding_from_probe_hint_builds_canonical_contract() -> None:
     assert finding["line"] == 14
     assert finding["source_artifact"] == "probe-report:risk_hints"
     assert finding["finding_id"]
+    assert finding["correlation_id"].startswith("corr-")
+    assert finding["causation_id"].startswith("cause-")
+    assert finding["run_id"].startswith("run-")
 
 
 def test_decision_packet_from_finding_preserves_identity_and_provenance() -> None:
@@ -174,6 +177,9 @@ def test_finding_from_guard_violation_code_shape() -> None:
     assert payload["risk_type"] == "code_shape_violation"
     assert payload["source_command"] == "check_code_shape"
     assert payload["finding_id"]
+    assert payload["correlation_id"].startswith("corr-")
+    assert payload["causation_id"].startswith("cause-")
+    assert payload["run_id"].startswith("run-")
     assert "crossed_soft_limit" in payload["signals"]
     assert any("Split into focused" in s for s in payload["signals"])
 

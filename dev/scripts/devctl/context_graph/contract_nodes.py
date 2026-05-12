@@ -43,7 +43,7 @@ def collect_contract_nodes(
     connectivity_registry: ConnectivityRegistrySnapshot | None = None,
 ) -> tuple[list[GraphNode], list[GraphEdge]]:
     """Collect typed contract and dataclass-field nodes from repo-owned code."""
-    contract_names = discoverable_contract_names()
+    contract_names = discoverable_contract_names(repo_root)
     registry = connectivity_registry or load_connectivity_registry(repo_root)
     registry_rows = {
         row.contract_id: row

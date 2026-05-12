@@ -26,6 +26,21 @@ def test_build_contract_registry_rows_covers_blueprint_contracts_and_artifacts()
         and row.registered_contract_id == "PlatformContractRegistry"
         for row in rows
     )
+    assert any(
+        row.entry_kind == "artifact_schema"
+        and row.registered_contract_id == "DogfoodSelfCheckReceipt"
+        for row in rows
+    )
+    assert any(
+        row.entry_kind == "artifact_schema"
+        and row.registered_contract_id == "ReviewerAuditReceipt"
+        for row in rows
+    )
+    assert any(
+        row.entry_kind == "artifact_schema"
+        and row.registered_contract_id == "SessionActivityLog"
+        for row in rows
+    )
 
 
 def test_contract_registry_rows_round_trip_through_jsonl(tmp_path) -> None:

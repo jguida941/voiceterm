@@ -17,6 +17,8 @@ from .packet_lifecycle import (
 from .pending_packet_core import partition_live_pending_packets
 from .pending_packet_models import PendingPacketQueueSnapshot
 
+_PACKET_BODY_OBSERVATION_EVENT_TYPE = "packet_body_observed"
+
 
 def load_pending_packets(
     repo_root: Path,
@@ -68,6 +70,14 @@ def load_pending_packet_queue(
                 existing,
                 event,
             )
+        elif event_type == _PACKET_BODY_OBSERVATION_EVENT_TYPE:
+            existing = packets.get(packet_id)
+            if existing is None:
+                continue
+            packets[packet_id] = _apply_packet_body_observation_snapshot(
+                existing,
+                event,
+            )
         elif event_type in (
             "packet_acked",
             "packet_dismissed",
@@ -112,6 +122,46 @@ def _apply_packet_creation_binding_snapshot(
     event_id = str(event.get("event_id") or "").strip()
     if event_id:
         updated["latest_event_id"] = event_id
+    return project_packet_lifecycle(updated)
+
+
+def _apply_packet_body_observation_snapshot(
+    packet: dict[str, object],
+    event: Mapping[str, object],
+) -> dict[str, object]:
+    from .packet_body_observation import packet_body_observation_payload_for_packet
+
+    updated = dict(packet)
+    payload = packet_body_observation_payload_for_packet(event, updated)
+    event_id = str(payload.get("event_id") or "").strip()
+    events = list(updated.get("body_observation_events") or [])
+    if event_id and not any(
+        isinstance(row, Mapping)
+        and str(row.get("event_id") or "").strip() == event_id
+        for row in events
+    ):
+        events.append(payload)
+    elif not event_id:
+        events.append(payload)
+    updated["body_observation_events"] = events
+    observed_by = str(payload.get("body_observed_by") or "").strip()
+    observed_at = str(payload.get("body_observed_at_utc") or "").strip()
+    digest = str(payload.get("body_digest") or "").strip()
+    if observed_by:
+        updated["body_observed_by"] = observed_by
+    observed_role = str(payload.get("body_observed_role") or "").strip()
+    observed_session = str(payload.get("body_observed_session_id") or "").strip()
+    if observed_role:
+        updated["body_observed_role"] = observed_role
+    if observed_session:
+        updated["body_observed_session_id"] = observed_session
+    if observed_at:
+        updated["body_observed_at_utc"] = observed_at
+    if event_id:
+        updated["body_observed_event_id"] = event_id
+        updated["latest_event_id"] = event_id
+    if digest:
+        updated["body_digest"] = digest
     return project_packet_lifecycle(updated)
 
 

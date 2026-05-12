@@ -50,6 +50,8 @@ def communication_attention_decision(
 ) -> AgentLoopDecision:
     pivot_packet_id = packets.attention_packet_id or packets.active_packet_id
     pivot_packet = packet_by_id(ctx.review_state, pivot_packet_id)
+    if _body_open_required(ctx):
+        return _body_open_decision(ctx, packets, pivot_packet_id, pivot_packet)
     return decision(
         ctx,
         "blocked",
@@ -72,6 +74,8 @@ def communication_attention_decision(
 def attention_decision(ctx: AgentLoopContext, packets: PacketState) -> AgentLoopDecision:
     pivot_packet_id = packets.attention_packet_id or packets.active_packet_id
     pivot_packet = packet_by_id(ctx.review_state, pivot_packet_id)
+    if _body_open_required(ctx):
+        return _body_open_decision(ctx, packets, pivot_packet_id, pivot_packet)
     return decision(
         ctx,
         "work",
@@ -456,6 +460,41 @@ def _attention_reason(ctx: AgentLoopContext) -> str:
     if reason == "actor_identity_ambiguous_with_pending_wake":
         return "actor_identity_ambiguous_with_pending_peer_input"
     return reason
+
+
+def _body_open_required(ctx: AgentLoopContext) -> bool:
+    return coerce_bool(ctx.attention.get("body_open_required"))
+
+
+def _body_open_command(ctx: AgentLoopContext) -> str:
+    return _text(ctx.attention.get("body_open_command"))
+
+
+def _body_open_decision(
+    ctx: AgentLoopContext,
+    packets: PacketState,
+    pivot_packet_id: str,
+    pivot_packet: Mapping[str, object],
+) -> AgentLoopDecision:
+    packet_id = _text(ctx.attention.get("body_open_packet_id")) or pivot_packet_id
+    return decision(
+        ctx,
+        "blocked",
+        "open_packet_body",
+        _attention_reason(ctx) or "packet_body_open_required",
+        lifecycle_state="needs_attention",
+        decision_code="run_next_command",
+        reason_code="packet_body_open_required",
+        should_continue_loop=True,
+        safe_to_continue=False,
+        may_mutate=False,
+        active_packet_id=packet_id,
+        attention_packet_id=packet_id or packets.attention_packet_id,
+        executing_packet_id=packets.executing_packet_id,
+        legacy_unscoped_packet_id=packets.legacy_unscoped_packet_id,
+        plan_target_ref=_text(pivot_packet.get("target_ref")),
+        next_command_override=_body_open_command(ctx),
+    )
 
 
 def readable_decision_fields(

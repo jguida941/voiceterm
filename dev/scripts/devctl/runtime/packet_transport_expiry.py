@@ -14,15 +14,21 @@ from datetime import datetime, timezone
 from ..time_utils import parse_utc_timestamp
 from .collaboration_packet_kinds import COLLABORATION_LIFECYCLE_PACKET_KINDS
 
-ALWAYS_TRANSPORT_EXPIRING_PACKET_KINDS = frozenset(
+TRANSPORT_EXPIRY_EXPLICIT_METADATA_KEY = "transport_expiry_explicit"
+DEFAULT_TRANSPORT_EXPIRING_PACKET_KINDS = frozenset(
     {
         "action_request",
         "approval_request",
         "commit_approval",
+    }
+)
+OPTIONAL_TRANSPORT_EXPIRING_PACKET_KINDS = frozenset(
+    {
         "continuation_anchor",
         "stop_anchor",
     }
 )
+ALWAYS_TRANSPORT_EXPIRING_PACKET_KINDS = DEFAULT_TRANSPORT_EXPIRING_PACKET_KINDS
 CONDITIONAL_TRANSPORT_EXPIRING_PACKET_KINDS = frozenset({"decision"})
 DURABLE_INTENT_PACKET_KINDS = frozenset(
     {
@@ -47,13 +53,36 @@ NON_TRANSPORT_EXPIRING_PACKET_KINDS = frozenset(
 def packet_uses_transport_expiry(packet: Mapping[str, object]) -> bool:
     """Return True when a packet's ``expires_at_utc`` is runtime authority."""
     kind = _text(_packet_value(packet, "kind"))
-    if kind in ALWAYS_TRANSPORT_EXPIRING_PACKET_KINDS:
+    if packet_kind_uses_default_transport_expiry(kind):
         return True
+    if packet_kind_allows_optional_transport_expiry(kind):
+        return packet_has_explicit_transport_expiry(packet)
     if kind in CONDITIONAL_TRANSPORT_EXPIRING_PACKET_KINDS:
         return not packet_carries_durable_intent(packet)
     if kind in NON_TRANSPORT_EXPIRING_PACKET_KINDS:
         return False
     return False
+
+
+def packet_kind_uses_default_transport_expiry(kind: object) -> bool:
+    """Return True when posts of this kind get the default runtime TTL."""
+    return _text(kind) in DEFAULT_TRANSPORT_EXPIRING_PACKET_KINDS
+
+
+def packet_kind_allows_optional_transport_expiry(kind: object) -> bool:
+    """Return True when expiry is only active if the post explicitly asks."""
+    return _text(kind) in OPTIONAL_TRANSPORT_EXPIRING_PACKET_KINDS
+
+
+def packet_has_explicit_transport_expiry(packet: Mapping[str, object]) -> bool:
+    """Return True when packet metadata opts into anchor transport expiry."""
+    metadata = _packet_value(packet, "metadata")
+    if not isinstance(metadata, Mapping):
+        return False
+    value = metadata.get(TRANSPORT_EXPIRY_EXPLICIT_METADATA_KEY)
+    if isinstance(value, bool):
+        return value
+    return _text(value).lower() in {"1", "true", "yes", "on", "explicit"}
 
 
 def packet_carries_durable_intent(packet: Mapping[str, object]) -> bool:
@@ -117,9 +146,15 @@ def _text(value: object) -> str:
 __all__ = [
     "ALWAYS_TRANSPORT_EXPIRING_PACKET_KINDS",
     "CONDITIONAL_TRANSPORT_EXPIRING_PACKET_KINDS",
+    "DEFAULT_TRANSPORT_EXPIRING_PACKET_KINDS",
     "DURABLE_INTENT_PACKET_KINDS",
     "NON_TRANSPORT_EXPIRING_PACKET_KINDS",
+    "OPTIONAL_TRANSPORT_EXPIRING_PACKET_KINDS",
+    "TRANSPORT_EXPIRY_EXPLICIT_METADATA_KEY",
     "packet_carries_durable_intent",
+    "packet_has_explicit_transport_expiry",
+    "packet_kind_allows_optional_transport_expiry",
+    "packet_kind_uses_default_transport_expiry",
     "packet_transport_expired",
     "packet_transport_expires_at",
     "packet_uses_transport_expiry",

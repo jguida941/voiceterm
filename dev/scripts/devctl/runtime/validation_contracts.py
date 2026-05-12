@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 
+from .correlation_spine import correlation_context_for_ref, merge_correlation_context
 from .value_coercion import (
     coerce_bool,
     coerce_int,
@@ -70,6 +71,9 @@ class ValidationReceipt:
     checkpoint_sufficient: bool = False
     push_sufficient: bool = False
     emitted_at_utc: str = ""
+    correlation_id: str = ""
+    causation_id: str = ""
+    run_id: str = ""
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
@@ -121,6 +125,17 @@ def validation_receipt_from_mapping(
     staged_tree_hash = coerce_string(mapping.get("staged_tree_hash"))
     if not receipt_id and not plan_id and not bundle_id and not staged_tree_hash:
         return None
+    context = merge_correlation_context(
+        mapping,
+        correlation_context_for_ref(
+            "validation_receipt",
+            receipt_id or staged_tree_hash,
+            causation_kind="typed_action",
+            causation_ref_value=coerce_string(mapping.get("action_id")),
+            run_kind="validation_plan",
+            run_ref_value=plan_id or bundle_id or staged_tree_hash,
+        ).to_dict(),
+    )
     return ValidationReceipt(
         schema_version=coerce_int(mapping.get("schema_version"))
         or VALIDATION_RECEIPT_SCHEMA_VERSION,
@@ -138,6 +153,9 @@ def validation_receipt_from_mapping(
         checkpoint_sufficient=coerce_bool(mapping.get("checkpoint_sufficient")),
         push_sufficient=coerce_bool(mapping.get("push_sufficient")),
         emitted_at_utc=coerce_string(mapping.get("emitted_at_utc")),
+        correlation_id=context.correlation_id,
+        causation_id=context.causation_id,
+        run_id=context.run_id,
     )
 
 

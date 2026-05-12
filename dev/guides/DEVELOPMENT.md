@@ -648,6 +648,13 @@ Three quality layers matter in practice:
     dashboard-scoped anchor cannot keep a Codex reviewer session alive. When
     continuation is valid, `TaskCompleteDecision.next_command` is
     `python3 dev/scripts/devctl.py develop next --actor <actor> --format md`.
+    `continuation_anchor` and `stop_anchor` packets do not get the default
+    review-packet TTL; they expire only when the post explicitly sets
+    `--expires-in-minutes`. Before any final response or TASK_COMPLETE prose,
+    run `python3 dev/scripts/devctl.py develop next --actor <actor> --enforce-final-response-gate --format json`;
+    if `final_response_gate.allow_final_response` is false or
+    `continuation_state` is `must_continue`, run the typed next command instead
+    of stopping.
   - After a real review pass, advance review truth with
     `python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint ...`
     rather than hand-editing heartbeat/hash/verdict lines separately. Prefer

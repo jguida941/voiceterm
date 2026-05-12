@@ -17,6 +17,9 @@ from unittest.mock import patch, MagicMock
 
 from dev.scripts.devctl import cli
 from dev.scripts.devctl.cli import ARTIFACT_WRITES_ENV, READ_ONLY_COMMANDS
+from dev.scripts.devctl.cli_parser.artifact_suppression import (
+    read_only_command_suppresses_artifact_writes,
+)
 
 
 class ReadOnlyCommandSetTests(unittest.TestCase):
@@ -30,6 +33,7 @@ class ReadOnlyCommandSetTests(unittest.TestCase):
             "session-resume",
             "context-graph",
             "develop",
+            "demo",
             "exceptions",
             "review-channel",
             "quality-policy",
@@ -192,6 +196,20 @@ class ArtifactWriteSuppressionTests(unittest.TestCase):
                         cli.main()
 
         self.assertEqual(captured_env.get("val"), "")
+
+    def test_review_channel_show_does_not_auto_suppress_body_observation_write(self) -> None:
+        args = SimpleNamespace(command="review-channel", action="show")
+
+        self.assertFalse(
+            read_only_command_suppresses_artifact_writes(args, READ_ONLY_COMMANDS)
+        )
+
+    def test_review_channel_history_still_suppresses_artifact_writes(self) -> None:
+        args = SimpleNamespace(command="review-channel", action="history")
+
+        self.assertTrue(
+            read_only_command_suppresses_artifact_writes(args, READ_ONLY_COMMANDS)
+        )
 
     def test_develop_drain_packets_does_not_auto_suppress_artifacts(self) -> None:
         """Packet-drain mode is an explicit managed sink behind /develop."""

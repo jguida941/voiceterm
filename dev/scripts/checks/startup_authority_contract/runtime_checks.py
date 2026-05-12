@@ -94,6 +94,38 @@ _index_tree_hash = import_repo_module(
     "dev.scripts.devctl.commands.vcs.governed_executor_git",
     repo_root=REPO_ROOT,
 ).index_tree_hash
+_checkpoint_budget_shape = import_repo_module(
+    "dev.scripts.devctl.runtime.checkpoint_budget_shape",
+    repo_root=REPO_ROOT,
+)
+CheckpointBudgetShape = _checkpoint_budget_shape.CheckpointBudgetShape
+CHECKPOINT_BUDGET_COMMIT_GATE_BYPASS = (
+    _checkpoint_budget_shape.CHECKPOINT_BUDGET_COMMIT_GATE_BYPASS
+)
+CHECKPOINT_BUDGET_PIPELINE_DRIFTED = (
+    _checkpoint_budget_shape.CHECKPOINT_BUDGET_PIPELINE_DRIFTED
+)
+CHECKPOINT_BUDGET_PIPELINE_INCOMPLETE = (
+    _checkpoint_budget_shape.CHECKPOINT_BUDGET_PIPELINE_INCOMPLETE
+)
+CHECKPOINT_BUDGET_RAW_EXCEEDED = _checkpoint_budget_shape.CHECKPOINT_BUDGET_RAW_EXCEEDED
+CHECKPOINT_BUDGET_TYPED_PIPELINE = (
+    _checkpoint_budget_shape.CHECKPOINT_BUDGET_TYPED_PIPELINE
+)
+CHECKPOINT_BUDGET_WITHIN_BUDGET = (
+    _checkpoint_budget_shape.CHECKPOINT_BUDGET_WITHIN_BUDGET
+)
+CHECKPOINT_NEXT_ACTION_CUT_CHECKPOINT = (
+    _checkpoint_budget_shape.CHECKPOINT_NEXT_ACTION_CUT_CHECKPOINT
+)
+CHECKPOINT_NEXT_ACTION_GOVERNED_COMMIT = (
+    _checkpoint_budget_shape.CHECKPOINT_NEXT_ACTION_GOVERNED_COMMIT
+)
+CHECKPOINT_NEXT_ACTION_NONE = _checkpoint_budget_shape.CHECKPOINT_NEXT_ACTION_NONE
+CHECKPOINT_NEXT_ACTION_REPAIR = _checkpoint_budget_shape.CHECKPOINT_NEXT_ACTION_REPAIR
+CHECKPOINT_NEXT_ACTION_RUN_VALIDATION = (
+    _checkpoint_budget_shape.CHECKPOINT_NEXT_ACTION_RUN_VALIDATION
+)
 def _resolve_commit_pipeline_root_rel(governance) -> str:
     """Return the repo-relative review-status dir for the commit-pipeline artifact.
 
@@ -205,21 +237,299 @@ def _governed_pipeline_parked_at_checkpoint(
     return True
 
 
-def collect_checkpoint_budget_errors(gov) -> list[str]:
-    """Return fail-closed errors when the worktree is over the continuation budget."""
-    if os.environ.get(_COMMIT_GATE_BYPASS_ENV, "").strip() == "1":
-        return []  # commit gate bypass — the checkpoint commit is the budget repair action
+def classify_checkpoint_budget_shape(
+    gov,
+    *,
+    repo_root: Path | None = None,
+    pipeline=None,
+    current_tree_hash: str | None = None,
+) -> CheckpointBudgetShape:
+    """Classify checkpoint pressure using typed pipeline evidence when present."""
     push = gov.push_enforcement
-    if push.checkpoint_required or not push.safe_to_continue_editing:
+    checkpoint_required = bool(getattr(push, "checkpoint_required", False))
+    safe_to_continue = bool(getattr(push, "safe_to_continue_editing", True))
+    base = _checkpoint_budget_shape_base(
+        push,
+        checkpoint_required=checkpoint_required,
+        safe_to_continue=safe_to_continue,
+    )
+    if os.environ.get(_COMMIT_GATE_BYPASS_ENV, "").strip() == "1":
+        return CheckpointBudgetShape(
+            **base,
+            state=CHECKPOINT_BUDGET_COMMIT_GATE_BYPASS,
+            reason="commit_gate_bypass",
+            bootstrap_blocked=False,
+            next_required_action=CHECKPOINT_NEXT_ACTION_NONE,
+        )
+    if not (checkpoint_required or not safe_to_continue):
+        return CheckpointBudgetShape(
+            **base,
+            state=CHECKPOINT_BUDGET_WITHIN_BUDGET,
+            reason=getattr(push, "checkpoint_reason", "") or "within_budget",
+            bootstrap_blocked=False,
+            next_required_action=CHECKPOINT_NEXT_ACTION_NONE,
+        )
+
+    resolved_pipeline = _resolve_checkpoint_budget_pipeline(
+        repo_root,
+        governance=gov,
+        pipeline=pipeline,
+    )
+    if resolved_pipeline is None:
+        return CheckpointBudgetShape(
+            **base,
+            state=CHECKPOINT_BUDGET_RAW_EXCEEDED,
+            reason=getattr(push, "checkpoint_reason", "") or "worktree_budget_exceeded",
+            bootstrap_blocked=True,
+            next_required_action=CHECKPOINT_NEXT_ACTION_CUT_CHECKPOINT,
+            errors=("no governed checkpoint pipeline evidence was found",),
+        )
+
+    pipeline_fields = _checkpoint_pipeline_fields(
+        resolved_pipeline,
+        repo_root=repo_root,
+        current_tree_hash=current_tree_hash,
+    )
+    errors = _checkpoint_pipeline_shape_errors(pipeline_fields)
+    if errors:
+        return CheckpointBudgetShape(
+            **base,
+            **pipeline_fields,
+            state=(
+                CHECKPOINT_BUDGET_PIPELINE_DRIFTED
+                if pipeline_fields.get("staged_tree_hash")
+                and pipeline_fields.get("current_tree_hash")
+                and not pipeline_fields.get("tree_hash_match")
+                else CHECKPOINT_BUDGET_PIPELINE_INCOMPLETE
+            ),
+            reason=getattr(push, "checkpoint_reason", "") or "worktree_budget_exceeded",
+            bootstrap_blocked=True,
+            next_required_action=CHECKPOINT_NEXT_ACTION_CUT_CHECKPOINT,
+            errors=tuple(errors),
+        )
+
+    return CheckpointBudgetShape(
+        **base,
+        **pipeline_fields,
+        state=CHECKPOINT_BUDGET_TYPED_PIPELINE,
+        reason=getattr(push, "checkpoint_reason", "") or "typed_checkpoint_pipeline",
+        bootstrap_blocked=False,
+        next_required_action=_checkpoint_pipeline_next_action(resolved_pipeline),
+        errors=(),
+    )
+
+
+def collect_checkpoint_budget_errors(
+    gov,
+    *,
+    repo_root: Path | None = None,
+    pipeline=None,
+    current_tree_hash: str | None = None,
+    shape: CheckpointBudgetShape | None = None,
+) -> list[str]:
+    """Return fail-closed errors when the worktree is over the continuation budget."""
+    resolved_shape = shape or classify_checkpoint_budget_shape(
+        gov,
+        repo_root=repo_root,
+        pipeline=pipeline,
+        current_tree_hash=current_tree_hash,
+    )
+    if resolved_shape.state == CHECKPOINT_BUDGET_COMMIT_GATE_BYPASS:
+        return []  # commit gate bypass — the checkpoint commit is the budget repair action
+    if resolved_shape.bootstrap_blocked:
+        push = gov.push_enforcement
+        evidence = (
+            f", pipeline_id={resolved_shape.pipeline_id}, "
+            f"pipeline_state={resolved_shape.pipeline_state}, "
+            f"shape={resolved_shape.state}"
+            if resolved_shape.pipeline_id
+            else f", shape={resolved_shape.state}"
+        )
+        detail = (
+            f", evidence_errors={'; '.join(resolved_shape.errors)}"
+            if resolved_shape.errors
+            else ""
+        )
         return [
             "Startup authority is over budget: "
-            f"checkpoint_required={push.checkpoint_required}, "
-            f"safe_to_continue_editing={push.safe_to_continue_editing}, "
+            f"checkpoint_required={resolved_shape.checkpoint_required}, "
+            f"safe_to_continue_editing={resolved_shape.safe_to_continue_editing}, "
             f"reason={push.checkpoint_reason or 'worktree_budget_exceeded'}, "
-            f"staged_path_count={getattr(push, 'staged_path_count', 0)}, "
-            f"unstaged_path_count={getattr(push, 'unstaged_path_count', 0)}."
+            f"staged_path_count={resolved_shape.staged_path_count}, "
+            f"unstaged_path_count={resolved_shape.unstaged_path_count}"
+            f"{evidence}{detail}."
         ]
     return []
+
+
+def _checkpoint_budget_shape_base(
+    push,
+    *,
+    checkpoint_required: bool,
+    safe_to_continue: bool,
+) -> dict[str, object]:
+    return {
+        "checkpoint_required": checkpoint_required,
+        "safe_to_continue_editing": safe_to_continue,
+        "staged_path_count": _coerce_nonnegative_int(
+            getattr(push, "staged_path_count", 0)
+        ),
+        "unstaged_path_count": _coerce_nonnegative_int(
+            getattr(push, "unstaged_path_count", 0)
+        ),
+        "dirty_path_count": _coerce_nonnegative_int(
+            getattr(push, "dirty_path_count", 0)
+        ),
+        "untracked_path_count": _coerce_nonnegative_int(
+            getattr(push, "untracked_path_count", 0)
+        ),
+    }
+
+
+def _resolve_checkpoint_budget_pipeline(
+    repo_root: Path | None,
+    *,
+    governance=None,
+    pipeline=None,
+):
+    if pipeline is not None:
+        return pipeline
+    if repo_root is None:
+        return None
+    try:
+        loaded = _load_remote_commit_pipeline_contract(
+            output_root=repo_root / _resolve_commit_pipeline_root_rel(governance),
+        )
+    except (OSError, ValueError):
+        return None
+    if not getattr(loaded, "pipeline_id", ""):
+        return None
+    return loaded
+
+
+def _checkpoint_pipeline_fields(
+    pipeline,
+    *,
+    repo_root: Path | None,
+    current_tree_hash: str | None,
+) -> dict[str, object]:
+    intent = getattr(pipeline, "intent", None)
+    staged_tree_hash = getattr(intent, "staged_tree_hash", "") if intent else ""
+    staged_tree_hash = str(staged_tree_hash or "").strip()
+    pipeline_staged_path_count = _coerce_nonnegative_int(
+        getattr(intent, "staged_path_count", 0) if intent else 0
+    )
+    resolved_current_hash = _resolve_checkpoint_current_tree_hash(
+        repo_root,
+        current_tree_hash=current_tree_hash,
+    )
+    guard_result = getattr(pipeline, "guard_result", None)
+    validation_receipt = getattr(pipeline, "validation_receipt", None)
+    guard_action_id = str(
+        getattr(guard_result, "action_id", "")
+        or getattr(pipeline, "guard_action_id", "")
+        or ""
+    ).strip()
+    validation_receipt_id = str(
+        getattr(validation_receipt, "receipt_id", "") or ""
+    ).strip()
+    validation_staged_tree_hash = str(
+        getattr(validation_receipt, "staged_tree_hash", "") or ""
+    ).strip()
+    validation_checkpoint_sufficient = bool(
+        getattr(validation_receipt, "checkpoint_sufficient", False)
+    ) and (
+        not validation_staged_tree_hash
+        or validation_staged_tree_hash == staged_tree_hash
+    )
+    return {
+        "pipeline_id": str(getattr(pipeline, "pipeline_id", "") or "").strip(),
+        "pipeline_state": str(getattr(pipeline, "state", "") or "").strip(),
+        "pipeline_staged_path_count": pipeline_staged_path_count,
+        "staged_tree_hash": staged_tree_hash,
+        "current_tree_hash": resolved_current_hash,
+        "tree_hash_match": bool(
+            staged_tree_hash
+            and resolved_current_hash
+            and staged_tree_hash == resolved_current_hash
+        ),
+        "typed_pipeline_parked": (
+            str(getattr(pipeline, "state", "") or "").strip()
+            in _PIPELINE_PARKED_AT_CHECKPOINT_STATES
+        ),
+        "receipt_backed": bool(guard_action_id or validation_receipt_id),
+        "guard_action_id": guard_action_id,
+        "guard_status": str(getattr(guard_result, "status", "") or "").strip(),
+        "guard_ok": bool(getattr(guard_result, "ok", False)),
+        "validation_receipt_id": validation_receipt_id,
+        "validation_receipt_status": str(
+            getattr(validation_receipt, "status", "") or ""
+        ).strip(),
+        "validation_checkpoint_sufficient": validation_checkpoint_sufficient,
+    }
+
+
+def _checkpoint_pipeline_shape_errors(fields: dict[str, object]) -> list[str]:
+    errors: list[str] = []
+    if not fields.get("pipeline_id"):
+        errors.append("pipeline_id is empty")
+    if not fields.get("typed_pipeline_parked"):
+        errors.append(
+            "pipeline state is not parked at the governed checkpoint boundary"
+        )
+    if not fields.get("staged_tree_hash"):
+        errors.append("pipeline staged_tree_hash is empty")
+    if _coerce_nonnegative_int(fields.get("pipeline_staged_path_count", 0)) <= 0:
+        errors.append("pipeline staged_path_count is empty")
+    if not fields.get("current_tree_hash"):
+        errors.append("current index tree hash is unavailable")
+    if (
+        fields.get("staged_tree_hash")
+        and fields.get("current_tree_hash")
+        and not fields.get("tree_hash_match")
+    ):
+        errors.append("current index tree hash differs from pipeline staged_tree_hash")
+    return errors
+
+
+def _checkpoint_pipeline_next_action(pipeline) -> str:
+    validation_receipt = getattr(pipeline, "validation_receipt", None)
+    if (
+        validation_receipt is not None
+        and bool(getattr(validation_receipt, "checkpoint_sufficient", False))
+    ):
+        return CHECKPOINT_NEXT_ACTION_GOVERNED_COMMIT
+    guard_result = getattr(pipeline, "guard_result", None)
+    if guard_result is None:
+        return CHECKPOINT_NEXT_ACTION_RUN_VALIDATION
+    if bool(getattr(guard_result, "ok", False)):
+        return CHECKPOINT_NEXT_ACTION_GOVERNED_COMMIT
+    return CHECKPOINT_NEXT_ACTION_REPAIR
+
+
+def _resolve_checkpoint_current_tree_hash(
+    repo_root: Path | None,
+    *,
+    current_tree_hash: str | None,
+) -> str:
+    if current_tree_hash is not None:
+        return str(current_tree_hash or "").strip()
+    if repo_root is None:
+        return ""
+    try:
+        return str(_index_tree_hash(repo_root) or "").strip()
+    except (OSError, ValueError):
+        return ""
+
+
+def _coerce_nonnegative_int(value: object) -> int:
+    try:
+        parsed = int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+    return max(parsed, 0)
+
+
 def collect_post_checkpoint_dirty_worktree_errors(
     gov,
     *,
@@ -320,4 +630,3 @@ def collect_concurrent_writer_errors(
             f"delegated_agents={delegated_agents}."
         ]
     return []
-

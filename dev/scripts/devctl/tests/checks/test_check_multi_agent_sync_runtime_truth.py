@@ -590,6 +590,91 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
         "resolved_review_state_relative_path"
     )
     @patch("dev.scripts.checks.multi_agent_sync.runtime_truth.load_review_state_payload")
+    def test_runtime_truth_repairs_stale_same_scope_pending_projection(
+        self,
+        load_payload_mock,
+        relpath_mock,
+    ) -> None:
+        relpath_mock.return_value = "dev/reports/review_channel/projections/latest/review_state.json"
+        load_payload_mock.return_value = {
+            "collaboration": {
+                "participants": [],
+                "delegated_work": [],
+                "ready_gates": [],
+            },
+            "registry": {"agents": []},
+            "current_session": {"current_instruction_revision": ""},
+            "reviewer_runtime": {
+                "agent_runtime_clock": {"source_latest_event_id": "rev_evt_2"},
+                "packet_attention": {
+                    "observation_actor_id": "",
+                    "pending_packet_count": 1,
+                    "wake_required": True,
+                    "stale_reason": "actor_identity_ambiguous_with_pending_wake",
+                },
+            },
+            "agent_sync": {
+                "agents": {
+                    "codex": {
+                        "pending_packets_to_me": ["rev_pkt_finding"],
+                        "last_consumed_event_id_lower_bound": "rev_evt_1",
+                    }
+                }
+            },
+            "agent_work_board": {
+                "rows": [
+                    {
+                        "actor_id": "codex",
+                        "role": "reviewer",
+                        "session_id": "s-codex",
+                        "idle_seconds": 10,
+                        "stale_after_seconds": 600,
+                    }
+                ]
+            },
+            "agent_loop_decisions": [
+                {
+                    "actor_id": "codex",
+                    "actor_role": "reviewer",
+                    "session_id": "s-codex",
+                    "pending_packet_count": 0,
+                    "required_action": "resolve_blocker",
+                }
+            ],
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_finding",
+                    "to_agent": "codex",
+                    "target_role": "reviewer",
+                    "target_session_id": "s-codex",
+                    "kind": "finding",
+                    "status": "pending",
+                    "lifecycle_current_state": "pending",
+                    "latest_event_id": "rev_evt_2",
+                    "requested_action": "review_only",
+                    "policy_hint": "review_only",
+                    "approval_required": False,
+                    "expires_at_utc": "2999-01-01T00:00:00Z",
+                }
+            ],
+        }
+
+        result = runtime_truth.evaluate_runtime_truth(
+            repo_root=Path("/repo"),
+            planned_agent_ids=[],
+        )
+
+        self.assertTrue(result["checked"])
+        self.assertEqual(result["pending_packet_agents"], ["codex"])
+        self.assertFalse(
+            any("no pending count for: codex" in err for err in result["errors"])
+        )
+
+    @patch(
+        "dev.scripts.checks.multi_agent_sync.runtime_truth."
+        "resolved_review_state_relative_path"
+    )
+    @patch("dev.scripts.checks.multi_agent_sync.runtime_truth.load_review_state_payload")
     def test_runtime_truth_blocks_queue_and_inbox_instruction_drift(
         self,
         load_payload_mock,

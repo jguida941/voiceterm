@@ -14,6 +14,7 @@ from ...runtime.packet_carry_forward_sources import (
     durable_packet_ids_from_plan_rows,
 )
 from ...runtime.review_packet_inbox import packet_inbox_from_review_state
+from ...review_channel.agent_packet_attention import packet_attention_for_agent
 from .models import DevelopmentPacketAttention
 from .packet_attention_support import (
     PacketAttentionSummaryInput,
@@ -92,6 +93,10 @@ def packet_attention_from_review_state(
         pending_actionable_packet_ids=pending_packet_ids,
         pending_delivery_packet_ids=delivery_packet_ids,
     )
+    body_attention = packet_attention_for_agent(review_state, actor=agent)
+    body_open_required = bool(body_attention.body_open_required)
+    if body_open_required and body_attention.body_open_packet_id:
+        latest_packet_id = body_attention.body_open_packet_id
     attention_packet = packet_by_id(review_state, latest_packet_id)
     durable_row_id = durable_row_id_for_packet(
         rows,
@@ -106,6 +111,7 @@ def packet_attention_from_review_state(
         or (
             status in _ATTENTION_REQUIRED_STATUSES
             and not _packet_specific_attention_without_packet(
+                status=status,
                 wake_reason=wake_reason,
                 latest_finding_packet_id=packet_id,
                 pending_packet_ids=pending_packet_ids,
@@ -121,11 +127,16 @@ def packet_attention_from_review_state(
                 exit_context=exit_context,
             )
         )
+        or body_open_required
     )
     if not attention_required:
         status = "none"
         wake_reason = ""
         required_command = ""
+    elif body_open_required and body_attention.body_open_command:
+        status = "wake_required"
+        wake_reason = "packet_body_open_required"
+        required_command = body_attention.body_open_command
     else:
         required_command = required_command_for_record(
             record,
@@ -198,20 +209,23 @@ def _packet_text(packet: Mapping[str, object], field: str) -> str:
 
 def _packet_specific_attention_without_packet(
     *,
+    status: str,
     wake_reason: str,
     latest_finding_packet_id: str,
     pending_packet_ids: tuple[str, ...],
     pending_delivery_packet_ids: tuple[str, ...],
     expired_unresolved_packet_ids: tuple[str, ...],
 ) -> bool:
-    if wake_reason not in {"finding_pending", "expired_unresolved_packet"}:
-        return False
-    return not (
+    if (
         latest_finding_packet_id
         or pending_packet_ids
         or pending_delivery_packet_ids
         or expired_unresolved_packet_ids
-    )
+    ):
+        return False
+    if status == "wake_required":
+        return True
+    return wake_reason in {"finding_pending", "expired_unresolved_packet"}
 
 
 def review_state_payload(repo_root: Path) -> Mapping[str, object]:

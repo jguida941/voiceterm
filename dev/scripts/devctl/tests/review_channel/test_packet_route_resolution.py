@@ -5,6 +5,7 @@ import pytest
 from dev.scripts.devctl.review_channel.packet_contract import (
     PacketPostRequest,
     PacketTargetFields,
+    validate_post_request,
 )
 from dev.scripts.devctl.review_channel.packet_route_resolution import (
     resolve_packet_post_route_scope,
@@ -82,6 +83,54 @@ def test_packet_route_resolution_auto_scopes_single_fresh_session_and_preserves_
     assert resolved.target.anchor_refs == ("checklist:router",)
     assert resolved.target.intake_ref == "intake://rev_pkt_1"
     assert resolved.target.mutation_op == "append"
+
+
+def test_plan_scoped_continuation_anchor_validates_plan_target() -> None:
+    validate_post_request(
+        PacketPostRequest(
+            from_agent="claude",
+            to_agent="codex",
+            kind="continuation_anchor",
+            summary="Continue MP-377",
+            body="Continue the plan-scoped goal.",
+            target=PacketTargetFields.from_values(
+                target_kind="plan",
+                target_ref="plan:MP-377",
+                anchor_scope="plan",
+            ),
+        ),
+        valid_agent_ids=("codex", "claude"),
+    )
+
+
+def test_plan_scoped_continuation_anchor_requires_plan_target() -> None:
+    with pytest.raises(ValueError, match="--plan-scoped anchors require"):
+        validate_post_request(
+            PacketPostRequest(
+                from_agent="claude",
+                to_agent="codex",
+                kind="continuation_anchor",
+                summary="Continue MP-377",
+                body="Continue the plan-scoped goal.",
+                target=PacketTargetFields.from_values(anchor_scope="plan"),
+            ),
+            valid_agent_ids=("codex", "claude"),
+        )
+
+
+def test_session_scoped_continuation_anchor_requires_session_id() -> None:
+    with pytest.raises(ValueError, match="--session-scoped anchors require"):
+        validate_post_request(
+            PacketPostRequest(
+                from_agent="claude",
+                to_agent="codex",
+                kind="continuation_anchor",
+                summary="Continue session",
+                body="Continue this exact session.",
+                target=PacketTargetFields.from_values(anchor_scope="session"),
+            ),
+            valid_agent_ids=("codex", "claude"),
+        )
 
 
 def test_packet_route_resolution_scoped_role_must_resolve_to_one_fresh_session() -> None:

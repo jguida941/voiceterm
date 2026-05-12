@@ -165,6 +165,23 @@ def _validate_common_limits(args, action: ReviewChannelAction) -> None:
     for flag, attr, default in COMMON_POSITIVE_LIMITS:
         _require_positive(flag, getattr(args, attr, default))
 
+    _validate_expires_in_minutes(args)
+
+
+def _validate_expires_in_minutes(args) -> None:
+    value = getattr(args, "expires_in_minutes", None)
+    if value is None:
+        return
+    if value < 0:
+        raise ValueError("--expires-in-minutes must be zero or greater.")
+    if value == 0 and str(getattr(args, "kind", "") or "") not in {
+        "continuation_anchor",
+        "stop_anchor",
+    }:
+        raise ValueError(
+            "--expires-in-minutes=0 is only valid for session termination anchors."
+        )
+
 
 def _validate_args(
     args,

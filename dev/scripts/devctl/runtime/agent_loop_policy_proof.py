@@ -103,7 +103,11 @@ def required_proofs_for_intent(
                 "round_proof",
             ]
         )
-    elif intent in {"wake", "packet", "plan"} or loop_state == "work":
+    elif (
+        intent in {"wake", "packet", "plan"}
+        or loop_state == "work"
+        or required_action == "open_packet_body"
+    ):
         base.append("packet_attention_evidence")
     return tuple(dict.fromkeys(base))
 

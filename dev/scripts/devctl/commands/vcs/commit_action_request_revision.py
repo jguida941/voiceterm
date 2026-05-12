@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ...runtime.value_coercion import coerce_text as _text
 from .governed_executor_git import head_commit
 
 
@@ -26,10 +27,6 @@ def target_revision_freshness_block(
 
 def _current_head(repo_root: Path) -> str:
     return head_commit(repo_root)
-
-
-def _text(value: object) -> str:
-    return str(value or "").strip()
 
 
 __all__ = ["target_revision_freshness_block"]

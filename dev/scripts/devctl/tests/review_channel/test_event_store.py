@@ -270,6 +270,37 @@ def test_append_event_returns_written_packet_id_for_auto_packet_posts() -> None:
 
         assert written["packet_id"] == "rev_pkt_0002"
         assert written["trace_id"]
+        assert str(written["correlation_id"]).startswith("corr-")
+        assert str(written["causation_id"]).startswith("cause-")
+        assert str(written["run_id"]).startswith("run-")
+
+
+def test_append_event_preserves_explicit_lineage_fields() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        events_path = Path(tmpdir) / "trace.ndjson"
+
+        written = append_event(
+            events_path,
+            {
+                "event_type": "packet_posted",
+                "packet_id": "",
+                "trace_id": "",
+                "session_id": "session-1",
+                "from_agent": "codex",
+                "to_agent": "claude",
+                "summary": "lineage",
+                "body": "body",
+                "correlation_id": "corr-explicit",
+                "causation_id": "cause-explicit",
+                "run_id": "run-explicit",
+                "idempotency_key": "",
+            },
+            existing_events=[],
+        )
+
+        assert written["correlation_id"] == "corr-explicit"
+        assert written["causation_id"] == "cause-explicit"
+        assert written["run_id"] == "run-explicit"
 
 
 def test_append_event_deduplicates_semantic_packet_posts() -> None:

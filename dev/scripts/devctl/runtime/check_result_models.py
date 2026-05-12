@@ -84,6 +84,9 @@ class CheckResult:
     skipped: int
     steps: tuple[dict[str, Any], ...]
     violations: tuple[ViolationRecord, ...] = ()
+    correlation_id: str = ""
+    causation_id: str = ""
+    run_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         result = asdict(self)
@@ -164,6 +167,9 @@ def build_check_result(
     steps: list[dict[str, Any]],
     timestamp: str,
     command: str = "check",
+    correlation_id: str = "",
+    causation_id: str = "",
+    run_id: str = "",
 ) -> CheckResult:
     """Build a typed CheckResult from raw step dicts."""
     passed = sum(1 for s in steps if s["returncode"] == 0 and not s.get("skipped"))
@@ -185,6 +191,9 @@ def build_check_result(
         skipped=skipped,
         steps=enriched,
         violations=violations,
+        correlation_id=correlation_id,
+        causation_id=causation_id,
+        run_id=run_id,
     )
 
 

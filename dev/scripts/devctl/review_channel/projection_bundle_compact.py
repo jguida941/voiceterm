@@ -13,6 +13,7 @@ from ..runtime.surface_provenance import (
     attach_surface_provenance,
     surface_provenance_from_mapping,
 )
+from ..runtime.value_coercion import coerce_mapping as _mapping
 from .current_session_projection import current_focus_line
 from .projection_observation import build_observation_projection
 
@@ -156,10 +157,6 @@ def _compact_queue(
         **queue,
         "current_focus": current_focus,
     }
-
-
-def _mapping(value: object) -> Mapping[str, object]:
-    return value if isinstance(value, Mapping) else {}
 
 
 __all__ = [

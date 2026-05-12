@@ -15,6 +15,8 @@ from dev.scripts.devctl.runtime.plan_intent_ingestion import (
     typed_action_ref,
 )
 from dev.scripts.devctl.runtime.plan_source_retention import (
+    MP377_EVIDENCE_LIFECYCLE_ARCHIVE_REQUIRED_ANCHORS,
+    MP377_EVIDENCE_LIFECYCLE_ARCHIVE_ROW_ID,
     MP377_EXCEPTION_SLICE1_REQUIRED_ANCHORS,
     append_plan_source_snapshot,
     build_plan_source_snapshot,
@@ -121,6 +123,34 @@ def test_mp377_exception_slice_accepts_full_plan_anchor_set() -> None:
     assert status.status == "full_plan_retained"
     assert status.required_count == len(MP377_EXCEPTION_SLICE1_REQUIRED_ANCHORS)
     assert status.matched_count == status.required_count
+
+
+def test_mp377_evidence_archive_slice_requires_lifecycle_archive_anchors() -> None:
+    source_text = "\n".join(MP377_EVIDENCE_LIFECYCLE_ARCHIVE_REQUIRED_ANCHORS)
+    row = PlanRow(
+        row_id=MP377_EVIDENCE_LIFECYCLE_ARCHIVE_ROW_ID,
+        title="Evidence lifecycle archive",
+        status="queued",
+        sdlc_stage=SDLCStage.SPEC,
+        sourced_from_packets=("rev_pkt_3710",),
+        content_hash=plan_source_body_hash(source_text),
+    )
+    snapshot = build_plan_source_snapshot(
+        plan_row_id=row.row_id,
+        source_kind="audit_receipt",
+        source_ref="audit:2026-05-11T21:20Z:evidence-lifecycle-archive-gap",
+        source_hash=row.content_hash,
+        source_text=source_text,
+        captured_at_utc="2026-05-11T21:20:00Z",
+        source_packet_id="rev_pkt_3710",
+    )
+
+    assert validate_plan_row_source_retention(row, (snapshot,)) == ()
+    status = full_plan_anchor_status(row.row_id, source_text)
+    assert status.status == "full_plan_retained"
+    assert status.required_count == len(
+        MP377_EVIDENCE_LIFECYCLE_ARCHIVE_REQUIRED_ANCHORS
+    )
 
 
 def test_mp377_current_source_uses_latest_accepted_receipt() -> None:

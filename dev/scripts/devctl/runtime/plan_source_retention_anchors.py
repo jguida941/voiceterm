@@ -39,8 +39,21 @@ MP377_EXCEPTION_SLICE1_REQUIRED_ANCHORS = (
     "Schema / contract registry rule",
     "Contract registration guard / schema registration guard",
 )
+MP377_EVIDENCE_LIFECYCLE_ARCHIVE_ROW_ID = "MP377-EVIDENCE-LIFECYCLE-ARCHIVE-S1"
+MP377_EVIDENCE_LIFECYCLE_ARCHIVE_REQUIRED_ANCHORS = (
+    "NEVER delete typed evidence",
+    "Archive after typed lifecycle closure",
+    "Variable retention policy",
+    "Time-based fallback",
+    "Receipt lookup must remain functional for archived receipts",
+    "Manifest file at archive root for indexed retrieval",
+    "Compressed archive subdir",
+)
 REQUIRED_FULL_PLAN_ANCHORS_BY_ROW_ID = {
     MP377_EXCEPTION_SLICE1_ROW_ID: MP377_EXCEPTION_SLICE1_REQUIRED_ANCHORS,
+    MP377_EVIDENCE_LIFECYCLE_ARCHIVE_ROW_ID: (
+        MP377_EVIDENCE_LIFECYCLE_ARCHIVE_REQUIRED_ANCHORS
+    ),
 }
 
 
@@ -83,6 +96,8 @@ def missing_required_plan_source_anchors(
 
 
 __all__ = [
+    "MP377_EVIDENCE_LIFECYCLE_ARCHIVE_REQUIRED_ANCHORS",
+    "MP377_EVIDENCE_LIFECYCLE_ARCHIVE_ROW_ID",
     "MP377_EXCEPTION_SLICE1_REQUIRED_ANCHORS",
     "MP377_EXCEPTION_SLICE1_ROW_ID",
     "PlanSourceAnchorStatus",

@@ -177,7 +177,9 @@ def test_watch_snapshot_signature_prefers_target_attention_revision() -> None:
         target="claude",
     )
 
-    assert signature[0] == (("pkt-1", "", "", "", "", "", "", "", "", ""),)
+    assert signature[0] == (
+        ("pkt-1", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""),
+    )
     assert signature[1] == 3
     assert signature[2] == "claude-rev"
 
@@ -200,7 +202,9 @@ def test_watch_snapshot_signature_falls_back_to_global_attention_revision() -> N
         target="claude",
     )
 
-    assert signature[0] == (("pkt-1", "", "", "", "", "", "", "", "", ""),)
+    assert signature[0] == (
+        ("pkt-1", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""),
+    )
     assert signature[1] == 0
     assert signature[2] == "global-rev"
 
@@ -232,6 +236,37 @@ def test_watch_snapshot_signature_changes_on_packet_status_transition() -> None:
     )
 
     assert pending != acked
+
+
+def test_watch_snapshot_signature_changes_on_packet_body_observation() -> None:
+    unopened = watch_snapshot_signature(
+        packets=[
+            {
+                "packet_id": "pkt-1",
+                "latest_event_id": "evt-1",
+                "status": "pending",
+            }
+        ],
+        review_state={},
+        target="codex",
+    )
+    opened = watch_snapshot_signature(
+        packets=[
+            {
+                "packet_id": "pkt-1",
+                "latest_event_id": "evt-1",
+                "status": "pending",
+                "body_observed_at_utc": "2026-05-11T15:02:33Z",
+                "body_observed_by": "codex",
+                "body_observed_event_id": "evt-2",
+                "body_digest": "sha256:abc123",
+            }
+        ],
+        review_state={},
+        target="codex",
+    )
+
+    assert unopened != opened
 
 
 def test_watch_snapshot_signature_changes_on_current_instruction_revision() -> None:

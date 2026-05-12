@@ -18,6 +18,7 @@ from .event_reducer_support import (
     record_provider_packet_state,
 )
 from .event_packet_rows import (
+    PACKET_BODY_OBSERVATION_EVENT_TYPES,
     PACKET_WAKE_EVENT_TYPES,
     apply_packet_transition,
     packet_from_event,
@@ -80,6 +81,7 @@ _PACKET_TRANSITION_EVENT_TYPES = {
     "packet_plan_integration_failed",
     *PACKET_CREATION_BINDING_EVENT_TYPES,
     *PACKET_DURABLE_INGESTION_EVENT_TYPES,
+    *PACKET_BODY_OBSERVATION_EVENT_TYPES,
     *ACTION_REQUEST_LIFECYCLE_EVENT_TYPES,
     *PACKET_WAKE_EVENT_TYPES,
 }

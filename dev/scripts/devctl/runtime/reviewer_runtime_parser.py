@@ -271,6 +271,15 @@ def _packet_attention_from_mapping(value: object) -> PacketAttentionState:
         last_observed_event_id=_string(payload.get("last_observed_event_id")),
         last_observed_at_utc=_string(payload.get("last_observed_at_utc")),
         pending_packet_count=int(payload.get("pending_packet_count") or 0),
+        unopened_body_packet_count=int(payload.get("unopened_body_packet_count") or 0),
+        unopened_body_packet_ids=tuple(
+            _string(row)
+            for row in (payload.get("unopened_body_packet_ids") or ())
+            if _string(row)
+        ),
+        body_open_required=_bool(payload.get("body_open_required")),
+        body_open_packet_id=_string(payload.get("body_open_packet_id")),
+        body_open_command=_string(payload.get("body_open_command")),
         superseded_packet_id=_string(payload.get("superseded_packet_id")),
         pivot_required=_bool(payload.get("pivot_required")),
         wake_required=_bool(payload.get("wake_required")),

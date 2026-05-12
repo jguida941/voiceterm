@@ -727,6 +727,57 @@ class TestStartupActionRouting(unittest.TestCase):
         self.assertEqual(decision.reason, "explicit_selected_paths")
         self.assertEqual(decision.to_dict()["contract_id"], "IndexReuseDecision")
 
+    def test_index_reuse_decision_preserves_clean_staged_user_index(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = _init_repo(Path(tmp) / "repo")
+            (repo_root / "tracked.txt").write_text(
+                "staged update\n",
+                encoding="utf-8",
+            )
+            _run_git(repo_root, "add", "tracked.txt")
+
+            decision = resolve_index_reuse_decision(
+                repo_root=repo_root,
+                selected_paths=(),
+                action_request_grant=None,
+            )
+
+        self.assertTrue(decision.reuse_staged_index)
+        self.assertEqual(decision.reason, "preserve_user_staged_artifacts")
+        self.assertEqual(decision.evidence, ("staged_non_receipt_count=1",))
+
+    def test_index_reuse_decision_restages_staged_plus_unstaged_work(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = _init_repo(Path(tmp) / "repo")
+            (repo_root / "tracked.txt").write_text(
+                "staged update\n",
+                encoding="utf-8",
+            )
+            _run_git(repo_root, "add", "tracked.txt")
+            (repo_root / "tracked.txt").write_text(
+                "unstaged update\n",
+                encoding="utf-8",
+            )
+
+            decision = resolve_index_reuse_decision(
+                repo_root=repo_root,
+                selected_paths=(),
+                action_request_grant=None,
+            )
+
+        self.assertFalse(decision.reuse_staged_index)
+        self.assertEqual(
+            decision.reason,
+            "staged_and_unstaged_worktree_requires_restage",
+        )
+        self.assertEqual(
+            decision.evidence,
+            (
+                "staged_non_receipt_count=1",
+                "unstaged_non_receipt_count=1",
+            ),
+        )
+
     def test_prepare_pipeline_blocks_on_import_index_atomicity_violation(
         self,
     ) -> None:
@@ -1009,7 +1060,7 @@ class TestManagedPreCommitHookTemplate(unittest.TestCase):
         self.assertIn("DEVCTL_REVIEW_SNAPSHOT_RECEIPT_COMMIT", content)
         self.assertIn("devctl.governed-commit", content)
         self.assertIn("DEVCTL_GOVERNED_COMMIT", content)
-        self.assertIn("review-channel --action status", content)
+        self.assertNotIn("review-channel --action status", content)
 
 
 class TestRawGitCommitPermissionHook(unittest.TestCase):
@@ -1515,7 +1566,7 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             self.assertEqual(pipeline.state, "commit_recorded")
             self.assertIn("tracked.txt", pipeline.intent.staged_paths)
 
-    def test_commit_preserves_partially_staged_index_with_unstaged_work(
+    def test_commit_restages_partially_staged_index_with_unstaged_work(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1541,7 +1592,7 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertEqual(pipeline.state, "commit_recorded")
             self.assertEqual(tuple(pipeline.intent.staged_paths), ("tracked.txt",))
-            self.assertEqual(committed, "staged")
+            self.assertEqual(committed, "unstaged")
             self.assertEqual(worktree_text, "unstaged\n")
 
     def test_commit_paths_fail_closed_when_dirty_work_is_outside_scope(self) -> None:

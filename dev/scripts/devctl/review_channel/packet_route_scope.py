@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from ..runtime.anchor_scope import (
+    ANCHOR_SCOPE_PLAN,
+    ANCHOR_SCOPE_ROLE,
+    ANCHOR_SCOPE_SESSION,
+    effective_anchor_scope,
+)
 from .packet_text_fields import clean_optional_text
 
 _ROLE_ALIASES = dict(
@@ -45,4 +51,9 @@ def packet_route_matches_scope(
 
     packet_session = clean_optional_text(packet.get("target_session_id")) or ""
     scope_session = clean_optional_text(target_session_id) or ""
+    anchor_scope = effective_anchor_scope(packet)
+    if anchor_scope == ANCHOR_SCOPE_SESSION:
+        return bool(packet_session) and bool(scope_session) and packet_session == scope_session
+    if anchor_scope in {ANCHOR_SCOPE_ROLE, ANCHOR_SCOPE_PLAN}:
+        return True
     return not packet_session or packet_session == scope_session

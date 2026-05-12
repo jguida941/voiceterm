@@ -319,12 +319,27 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "bool",
                 "Internal loop-control flag indicating the next action must change focus.",
             ),
+            ContractField(
+                "correlation_id",
+                "str",
+                "Parent lineage shared with the packet, attention row, or session decision.",
+            ),
+            ContractField(
+                "causation_id",
+                "str",
+                "Immediate trigger lineage that caused this decision.",
+            ),
+            ContractField(
+                "run_id",
+                "str",
+                "Session or orchestration run lineage for this decision.",
+            ),
         ),
         runtime_model=(
             "dev.scripts.devctl.runtime.session_termination_policy:"
             "TaskCompleteDecision"
         ),
-        startup_surface_tokens=("terminate", "reason", "anchor_packet_id"),
+        startup_surface_tokens=("terminate", "reason", "correlation_id"),
     ),
     *AGENT_SESSION_CONTINUATION_CONTRACTS,
     ContractSpec(

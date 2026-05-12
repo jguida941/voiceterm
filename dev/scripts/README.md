@@ -630,7 +630,14 @@ Portability note:
   the final decision and the canonical `develop next --actor <actor> --format md`
   next command. Anchor packet kinds are valid review-channel records but are not
   actionable inbox packets and should not be acked just to make prose "leave
-  pending" semantics work.
+  pending" semantics work. Anchors are also no-expiry by default: the generic
+  review-packet TTL is not transport authority for `continuation_anchor` or
+  `stop_anchor` unless `--expires-in-minutes` is explicitly set on the post.
+  Generated boot cards require
+  `develop next --actor <actor> --enforce-final-response-gate --format json`
+  before final/TASK_COMPLETE prose; a false `allow_final_response` or
+  `continuation_state=must_continue` means the next typed command must run
+  instead of ending the session.
 - Runtime liveness is projected through `SessionLivenessSignal` in
   `devctl.runtime` with the states `alive`, `degraded`,
   `detached_runtime_only`, and `dead`. Review-channel status emits

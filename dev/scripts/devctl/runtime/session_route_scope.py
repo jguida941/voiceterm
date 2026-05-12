@@ -4,6 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from .plan_ref import canonical_plan_ref
+from .anchor_scope import (
+    ANCHOR_SCOPE_PLAN,
+    ANCHOR_SCOPE_ROLE,
+    ANCHOR_SCOPE_SESSION,
+    effective_anchor_scope,
+)
+
 
 _IMPLEMENTER_ALIASES = frozenset(
     (
@@ -25,6 +33,7 @@ def packet_matches_session_route(
     session_id: str,
     actor: str = "",
     actor_role: str = "",
+    target_ref: str = "",
 ) -> bool:
     """Return whether a packet is scoped to the active actor/session route."""
     target_actor = _text(packet.get("to_agent")).lower()
@@ -38,6 +47,17 @@ def packet_matches_session_route(
         return False
 
     target_session = _text(packet.get("target_session_id"))
+    anchor_scope = effective_anchor_scope(packet)
+    if anchor_scope == ANCHOR_SCOPE_SESSION:
+        return bool(target_session) and bool(session_id) and target_session == session_id
+    if anchor_scope == ANCHOR_SCOPE_ROLE:
+        return True
+    if anchor_scope == ANCHOR_SCOPE_PLAN:
+        packet_target_ref = canonical_plan_ref(packet.get("target_ref"))
+        scoped_target_ref = canonical_plan_ref(target_ref)
+        return bool(packet_target_ref) and bool(scoped_target_ref) and (
+            packet_target_ref == scoped_target_ref
+        )
     if target_session and (not session_id or target_session != session_id):
         return False
     return True

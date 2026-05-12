@@ -7,9 +7,30 @@ from collections.abc import Mapping
 from ..runtime.session_termination_policy import SESSION_TERMINATION_PACKET_KINDS
 from ..runtime.value_coercion import coerce_text
 
+_PENDING_LOOP_ATTENTION_LIFECYCLES = frozenset(
+    {
+        "",
+        "pending",
+        "delivery_pending",
+        "execution_pending",
+        "acknowledged",
+        "in_progress",
+        "apply_pending_after_execution",
+        "task_started",
+        "task_progress",
+        "task_produced",
+        "task_blocked",
+        "operator_routed",
+    }
+)
+
 
 def packet_requires_loop_attention(packet: Mapping[str, object]) -> bool:
     """Return whether a live pending packet should wake an agent loop."""
+    if coerce_text(packet.get("lifecycle_current_state")) not in (
+        _PENDING_LOOP_ATTENTION_LIFECYCLES
+    ):
+        return False
     if coerce_text(packet.get("kind")) in SESSION_TERMINATION_PACKET_KINDS:
         return False
     if coerce_text(packet.get("to_agent")) != "operator":

@@ -19,6 +19,8 @@ from ...runtime.development_packet_pressure import packet_pressure_report
 from ...runtime.development_team import build_default_development_topology
 from ...runtime.master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL
 from ...runtime.master_plan_store import read_plan_rows_jsonl
+from ...runtime.reviewer_response_shape import reviewer_response_shape_for_gate
+from ...runtime.session_activity_log import session_activity_log_ref
 from .actions import resolve_action
 from .actor_resolution import resolve_actor
 from .attention_commands import (
@@ -112,16 +114,26 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         requested_mode=getattr(args, "collaboration_mode", ""),
         requested_role_preset=getattr(args, "role_preset", ""),
         max_workers=int(getattr(args, "max_workers", 0) or 0),
+        chain_phases=tuple(getattr(args, "chain_phase", ()) or ()),
+        dogfood=bool(getattr(args, "dogfood", False)),
+        generic_agent_count=int(getattr(args, "generic_agents", 0) or 0),
+        chain_scope=getattr(args, "chain_scope", ""),
+        receipt_refs=tuple(getattr(args, "chain_receipt_ref", ()) or ()),
+        role_counts=tuple(getattr(args, "role_count", ()) or ()),
+        effective_reviewer_mode=_effective_reviewer_mode_from_review_state(
+            review_state
+        ),
+    )
+    selected_role_preset_id = str(
+        collaboration_mode.get("selected_role_preset_id") or "dashboard"
     )
     collaboration_profile = build_agent_collaboration_profile(
         profile_id=getattr(args, "profile", ""),
         selected_mode_id=str(collaboration_mode.get("selected_mode_id") or "solo"),
-        selected_role_preset_id=str(
-            collaboration_mode.get("selected_role_preset_id") or "dashboard"
-        ),
+        selected_role_preset_id=selected_role_preset_id,
         providers=tuple(getattr(args, "provider", ()) or ()),
         role_bindings=tuple(getattr(args, "role_binding", ()) or ()),
-        role_counts=tuple(getattr(args, "role_count", ()) or ()),
+        role_counts=_profile_role_counts(args, selected_role_preset_id),
         agent_mind_providers=tuple(getattr(args, "agent_mind_provider", ()) or ()),
         remote_provider=getattr(args, "remote_provider", ""),
         architecture_agent_count=int(getattr(args, "architecture_agents", 0) or 0),
@@ -149,6 +161,16 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         and not collaboration_profile.ok
     ):
         blockers = (*blockers, *collaboration_profile.validation_errors)
+    mode_chain = collaboration_mode.get("mode_chain")
+    if (
+        _mode_chain_errors_should_block(action, args)
+        and isinstance(mode_chain, Mapping)
+        and mode_chain.get("validation_errors")
+    ):
+        blockers = (
+            *blockers,
+            *tuple(str(item) for item in mode_chain.get("validation_errors") or ()),
+        )
     design_preflight = build_design_preflight(
         args=args,
         repo_root=REPO_ROOT,
@@ -164,6 +186,8 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         orchestration=orchestration,
         watcher_lease=watcher_lease,
         packet_pressure=packet_pressure,
+        review_state=review_state,
+        actor=actor,
         current_action=action,
         fallback_commands=next_commands,
     )
@@ -172,21 +196,34 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         packet_attention=packet_attention,
         orchestration=orchestration,
     )
-
     status = status_for_report(blockers=blockers, continuation=continuation)
+    summary = summary_for_action(
+        action,
+        blockers=blockers,
+        continuation=continuation,
+        lifecycle_actions=LIFECYCLE_ACTIONS,
+        drain_packets=bool(getattr(args, "drain_packets", False)),
+        dry_run=bool(getattr(args, "dry_run", False)),
+    )
+    response_text, response_text_source = _proposed_response_text_for_shape(
+        args,
+        summary=summary,
+    )
+    reviewer_response_shape = reviewer_response_shape_for_gate(
+        final_response_gate,
+        actor_id=actor,
+        role=_runtime_role_for_actor(runtime, actor),
+        session_activity_log_ref=_session_activity_log_ref_for_actor(runtime, actor),
+        proposed_response_text=response_text,
+        proposed_response_text_source=response_text_source,
+    )
+
     return DevelopmentLoopReport(
         action=action,
         status=status,
         ok=not blockers,
         controller_state=_controller_state(action, args),
-        summary=summary_for_action(
-            action,
-            blockers=blockers,
-            continuation=continuation,
-            lifecycle_actions=LIFECYCLE_ACTIONS,
-            drain_packets=bool(getattr(args, "drain_packets", False)),
-            dry_run=bool(getattr(args, "dry_run", False)),
-        ),
+        summary=summary,
         topology=_topology_summary(topology),
         next_slice=next_slice,
         packet_attention=packet_attention,
@@ -201,6 +238,7 @@ def build_report(args: Any) -> DevelopmentLoopReport:
         watcher_lease=watcher_lease,
         continuation=continuation,
         final_response_gate=final_response_gate,
+        reviewer_response_shape=reviewer_response_shape,
         learning=learning_snapshot(REPO_ROOT),
         discovery=discovery_snapshot(REPO_ROOT),
         required_checks=required_checks,
@@ -255,6 +293,23 @@ def _profile_contract_refs(profile: AgentCollaborationProfile) -> dict[str, obje
             stop_anchor_request.status if stop_anchor_request is not None else ""
         ),
     }
+
+
+def _runtime_role_for_actor(runtime: Any, actor: str) -> str:
+    for row in getattr(runtime, "rows", ()) or ():
+        if getattr(row, "actor_id", "") == actor:
+            return str(getattr(row, "role", "") or "")
+    return ""
+
+
+def _session_activity_log_ref_for_actor(runtime: Any, actor: str) -> str:
+    for row in getattr(runtime, "rows", ()) or ():
+        if getattr(row, "actor_id", "") != actor:
+            continue
+        session_id = str(getattr(row, "session_id", "") or "").strip()
+        if session_id:
+            return session_activity_log_ref(f"{actor}:{session_id}")
+    return ""
 
 
 def _controller_state(action: str, args: Any) -> str:
@@ -460,6 +515,50 @@ def _next_step_command(
     if packet_attention_required and packet_attention_command:
         return packet_attention_command
     return next_commands[0] if next_commands else ""
+
+
+def _proposed_response_text_for_shape(
+    args: Any,
+    *,
+    summary: str,
+) -> tuple[str, str]:
+    explicit = str(getattr(args, "proposed_response_text", "") or "")
+    if explicit:
+        return explicit, "cli_arg:proposed_response_text"
+    return summary, "development_report.summary"
+
+
+def _profile_role_counts(args: Any, selected_role_preset_id: str) -> tuple[object, ...]:
+    """Return role counts, including the generic `--agents` shorthand."""
+    role_counts = list(getattr(args, "role_count", ()) or ())
+    generic_count = int(getattr(args, "generic_agents", 0) or 0)
+    if generic_count > 0 and selected_role_preset_id:
+        role_counts.append(f"{selected_role_preset_id}={generic_count}")
+    return tuple(role_counts)
+
+
+def _effective_reviewer_mode_from_review_state(
+    review_state: Mapping[str, object],
+) -> str:
+    coordination = review_state.get("coordination_state")
+    if not isinstance(coordination, Mapping):
+        return ""
+    return str(
+        coordination.get("effective_reviewer_mode")
+        or coordination.get("reviewer_mode")
+        or ""
+    ).strip()
+
+
+def _mode_chain_errors_should_block(action: str, args: Any) -> bool:
+    if action == "collaboration-profile":
+        return True
+    return bool(
+        getattr(args, "chain_phase", ())
+        or getattr(args, "dogfood", False)
+        or getattr(args, "chain_scope", "")
+        or getattr(args, "chain_receipt_ref", ())
+    )
 
 
 _next_commands_with_attention = next_commands_with_attention

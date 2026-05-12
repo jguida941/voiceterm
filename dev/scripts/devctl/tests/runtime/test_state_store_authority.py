@@ -85,6 +85,23 @@ def test_append_json_mapping_fsyncs_parent_directory_after_append(
     assert calls == [path.parent]
 
 
+def test_append_json_mapping_returns_lineage_fields(tmp_path) -> None:
+    path = tmp_path / "lineage.jsonl"
+
+    result = append_json_mapping(
+        path,
+        {"writer": "lineage"},
+        store_id="lineage_store",
+        correlation_id="corr-test",
+        causation_id="cause-test",
+        run_id="run-test",
+    )
+
+    assert result.correlation_id == "corr-test"
+    assert result.causation_id == "cause-test"
+    assert result.run_id == "run-test"
+
+
 def test_upsert_plan_row_jsonl_preserves_single_row_snapshot(tmp_path) -> None:
     path = tmp_path / "plan_index.jsonl"
     first = PlanRow(

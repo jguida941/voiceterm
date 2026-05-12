@@ -19,6 +19,9 @@ from dev.scripts.devctl.runtime.packet_continuity import (
     build_packet_continuity_index,
     compact_packet_continuity_index,
 )
+from dev.scripts.devctl.runtime.packet_transport_expiry import (
+    TRANSPORT_EXPIRY_EXPLICIT_METADATA_KEY,
+)
 from dev.scripts.devctl.runtime.review_state_parser_rows import packet_states_from_value
 
 
@@ -258,6 +261,60 @@ def test_stale_pending_packet_gets_archived_disposition(tmp_path: Path) -> None:
     )
 
 
+def test_continuation_anchor_without_explicit_expiry_is_not_stale(
+    tmp_path: Path,
+) -> None:
+    posted = _posted_packet(
+        packet_id="rev_pkt_goal",
+        kind="continuation_anchor",
+        to_agent="codex",
+        expires_at_utc="2000-01-01T00:00:00Z",
+        metadata={},
+    )
+
+    review_state, _ = reduce_events(
+        events=[posted],
+        repo_root=tmp_path,
+        review_channel_path=_review_channel_path(tmp_path),
+    )
+
+    packet = review_state["packets"][0]
+
+    assert review_state["queue"]["stale_packet_count"] == 0
+    assert review_state["queue"]["pending_total"] == 1
+    assert packet["status"] == "pending"
+    assert packet["lifecycle_current_state"] == "pending"
+    assert packet["disposition"]["sink"] == "queued"
+
+
+def test_continuation_anchor_with_explicit_expiry_becomes_stale(
+    tmp_path: Path,
+) -> None:
+    posted = _posted_packet(
+        packet_id="rev_pkt_goal",
+        kind="continuation_anchor",
+        to_agent="codex",
+        expires_at_utc="2000-01-01T00:00:00Z",
+        metadata={TRANSPORT_EXPIRY_EXPLICIT_METADATA_KEY: True},
+    )
+
+    review_state, _ = reduce_events(
+        events=[posted],
+        repo_root=tmp_path,
+        review_channel_path=_review_channel_path(tmp_path),
+    )
+
+    packet = review_state["packets"][0]
+
+    assert review_state["queue"]["stale_packet_count"] == 1
+    assert review_state["queue"]["pending_total"] == 0
+    assert packet["lifecycle_current_state"] == "archived"
+    assert (
+        packet["disposition"]["archive_classification"]
+        == "clock_expired_without_disposition"
+    )
+
+
 def test_explicit_packet_expired_event_records_acted_on_history(
     tmp_path: Path,
 ) -> None:
@@ -316,9 +373,14 @@ def test_workflow_packet_kinds_project_typed_lifecycle_states() -> None:
         "task_progress": "task_progress",
         "task_produced": "task_produced",
         "task_blocked": "task_blocked",
+        "goal_progress": "goal_progress",
         "review_started": "review_in_progress",
         "review_failed": "review_failed",
         "operator_routed": "operator_routed",
+        "peer_session_handshake": "peer_session_handshake",
+        "session_resync": "session_resync",
+        "peer_heartbeat": "peer_heartbeat",
+        "peer_offline": "peer_offline",
     }
 
     for kind, expected_state in cases.items():

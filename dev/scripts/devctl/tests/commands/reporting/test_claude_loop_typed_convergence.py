@@ -246,6 +246,14 @@ def test_agent_loop_json_is_compact_proof_contract() -> None:
                 "proof_state": "satisfied",
             },
             "proof_evidence": {"contract_id": "AgentLoopProofEvidence"},
+            "packet_attention": {
+                "latest_attention_packet_id": "rev_pkt_1",
+                "unopened_body_packet_count": 2,
+                "unopened_body_packet_ids": ["rev_pkt_1", "rev_pkt_2"],
+                "body_open_required": True,
+                "body_open_packet_id": "rev_pkt_1",
+                "body_open_command": "python3 dev/scripts/devctl.py review-channel --action show --packet-id rev_pkt_1 --actor codex --terminal none --format md",
+            },
             "pending_packets": [
                 {
                     "packet_id": "rev_pkt_1",
@@ -278,6 +286,9 @@ def test_agent_loop_json_is_compact_proof_contract() -> None:
     assert compact["pending_packets"][0]["plan_id"] == "MP-377"
     assert compact["pending_packets"][0]["anchor_refs"] == ["section:MP-377"]
     assert compact["pending_packets"][0]["intake_ref"] == "plan://MP-377"
+    assert compact["packet_attention"]["body_open_required"] is True
+    assert compact["packet_attention"]["body_open_packet_id"] == "rev_pkt_1"
+    assert compact["packet_attention"]["unopened_body_packet_count"] == 2
 
 
 def test_agent_loop_snapshot_does_not_mix_pending_packets_with_ambiguous_attention(

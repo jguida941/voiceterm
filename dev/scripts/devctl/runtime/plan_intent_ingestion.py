@@ -16,11 +16,19 @@ from .plan_ingestion_phase0_models import (
     RepoStateFingerprint,
 )
 from .state_store_authority import append_json_mapping
+from .correlation_spine import (
+    CAUSATION_REF_PREFIX,
+    CORRELATION_REF_PREFIX,
+    RUN_REF_PREFIX,
+)
 
 PLAN_INTENT_INGESTION_RECEIPT_CONTRACT_ID = "PlanIntentIngestionReceipt"
 PLAN_INTENT_INGESTION_RECEIPT_STORE_REL = "dev/state/plan_ingestion_receipts.jsonl"
 PLAN_INTENT_RECEIPT_REF_PREFIX = "plan_intent_receipt:"
 TYPED_ACTION_REF_PREFIX = "typed_action:"
+PLAN_INTENT_CORRELATION_REF_PREFIX = CORRELATION_REF_PREFIX
+PLAN_INTENT_CAUSATION_REF_PREFIX = CAUSATION_REF_PREFIX
+PLAN_INTENT_RUN_REF_PREFIX = RUN_REF_PREFIX
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +43,9 @@ class PlanIntentIngestionReceipt:
     reason: str
     target_kind: str
     target_ref: str
+    correlation_id: str = ""
+    causation_id: str = ""
+    run_id: str = ""
     row_ids: tuple[str, ...] = ()
     store_statuses: tuple[str, ...] = ()
     terminal_status: str = ""
@@ -152,6 +163,9 @@ def append_plan_intent_ingestion_receipt(
         path,
         stored.to_dict(),
         store_id="plan_ingestion_receipts",
+        correlation_id=stored.correlation_id,
+        causation_id=stored.causation_id,
+        run_id=stored.run_id,
     )
     return stored
 

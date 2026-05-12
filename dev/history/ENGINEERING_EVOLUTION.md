@@ -37,6 +37,41 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-11 - Continuation anchors become no-expiry goal authority
+
+Live MP-377 dogfood exposed a second half of the TASK_COMPLETE continuation
+gap: `TaskCompleteDecision` could reject termination for an active
+`continuation_anchor`, but the review-channel post path still stamped the
+generic 30-minute transport TTL onto the anchor. The reducer then treated the
+operator's "no expiration" goal packet as a clock-expired archive row, leaving
+Codex with no live goal authority to consult.
+
+Change: `continuation_anchor` and `stop_anchor` packets now opt into transport
+expiry only when packet metadata records an explicit expiry request from
+`--expires-in-minutes`. Existing legacy anchors with an old auto-stamped
+`expires_at_utc` but no explicit metadata are treated as non-expiring goal
+authority. Reduced packet rows now preserve post metadata so liveness,
+lifecycle, expiry materialization, and session termination all share the same
+transport-expiry predicate.
+
+Change: generated boot cards now require
+`develop next --actor <actor> --enforce-final-response-gate --format json`
+before final response or TASK_COMPLETE prose. If the gate says final response is
+not allowed, or reports `continuation_state=must_continue`, the agent must run
+the typed next command and keep working. This is the repo-native `/goal`
+behavior: no parallel supervisor is needed.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/packet_transport_expiry.py`
+- `dev/scripts/devctl/review_channel/events.py`
+- `dev/scripts/devctl/runtime/session_termination_policy.py`
+- `dev/scripts/devctl/governance/instruction_boot_card.py`
+- `AGENTS.md`
+- `CLAUDE.md`
+- `dev/scripts/devctl/tests/review_channel/test_packet_transport_expiry.py`
+- `dev/scripts/devctl/tests/runtime/test_session_termination_policy.py`
+
 ### 2026-05-08 - TASK_COMPLETE continuation anchors become typed contracts
 
 Change: Codex session completion no longer depends on packet body prose such as

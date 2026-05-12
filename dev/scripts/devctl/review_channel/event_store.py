@@ -10,6 +10,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from ..repo_packs import active_path_config
+from ..runtime.correlation_spine import (
+    causation_id_for_ref,
+    correlation_id_for_ref,
+    run_id_for_ref,
+)
 from .packet_post_idempotency import (
     is_idempotency_consumed_by,
     packet_posted_idempotency_key,
@@ -135,6 +140,7 @@ def append_event(
             event = dict(event)
             event["event_id"] = next_event_id(fresh_events)
             _finalize_packet_posted_identity(event, fresh_events)
+            _finalize_packet_event_lineage(event, fresh_events)
 
             # Recheck idempotency_key against fresh state. Lifecycle-aware
             # for packet_posted retries; symmetric-strict for non-packet
@@ -193,11 +199,78 @@ def _finalize_packet_posted_identity(
             fresh_events,
             from_agent=str(event.get("from_agent") or "").strip(),
         )
+        trace_id = str(event.get("trace_id") or "").strip()
+
+    if not str(event.get("correlation_id") or "").strip():
+        event["correlation_id"] = correlation_id_for_ref("packet", packet_id)
+    if not str(event.get("causation_id") or "").strip():
+        event["causation_id"] = causation_id_for_ref("trace", trace_id)
+    if not str(event.get("run_id") or "").strip():
+        run_seed = str(event.get("controller_run_id") or "").strip() or str(
+            event.get("session_id") or ""
+        ).strip()
+        if not run_seed:
+            run_seed = packet_id
+        event["run_id"] = run_id_for_ref("session", run_seed)
 
     event["idempotency_key"] = packet_posted_idempotency_key(
         event,
         idempotency_key,
     )
+
+
+def _finalize_packet_event_lineage(
+    event: dict[str, object],
+    fresh_events: list[dict[str, object]],
+) -> None:
+    """Thread packet lineage through all packet-scoped event families."""
+    packet_id = str(event.get("packet_id") or "").strip()
+    if not packet_id:
+        return
+    source_event_id = str(event.get("source_packet_event_id") or "").strip()
+    packet_lineage = _latest_packet_lineage(fresh_events, packet_id)
+    if not str(event.get("correlation_id") or "").strip():
+        event["correlation_id"] = packet_lineage.get(
+            "correlation_id"
+        ) or correlation_id_for_ref("packet", packet_id)
+    if not str(event.get("causation_id") or "").strip():
+        if source_event_id:
+            event["causation_id"] = causation_id_for_ref("event", source_event_id)
+        else:
+            event["causation_id"] = packet_lineage.get(
+                "causation_id"
+            ) or causation_id_for_ref(
+                "packet_event",
+                f"{packet_id}:{event.get('event_type') or ''}",
+            )
+    if not str(event.get("run_id") or "").strip():
+        run_seed = str(
+            event.get("controller_run_id")
+            or event.get("session_id")
+            or packet_id
+        ).strip()
+        event["run_id"] = packet_lineage.get("run_id") or run_id_for_ref(
+            "session",
+            run_seed,
+        )
+
+
+def _latest_packet_lineage(
+    fresh_events: list[dict[str, object]],
+    packet_id: str,
+) -> dict[str, str]:
+    lineage: dict[str, str] = {}
+    for existing in reversed(fresh_events):
+        if str(existing.get("packet_id") or "").strip() != packet_id:
+            continue
+        for field_name in ("correlation_id", "causation_id", "run_id"):
+            if field_name not in lineage:
+                value = str(existing.get(field_name) or "").strip()
+                if value:
+                    lineage[field_name] = value
+        if len(lineage) == 3:
+            break
+    return lineage
 
 
 def _read_events_under_lock(events_path: Path) -> list[dict[str, object]]:

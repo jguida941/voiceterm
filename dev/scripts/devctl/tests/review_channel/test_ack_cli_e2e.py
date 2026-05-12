@@ -43,15 +43,83 @@ def _review_channel_base_args(tmp_path: Path) -> list[str]:
 
 
 def _run_json(args: list[str]) -> dict[str, object]:
-    result = subprocess.run(
+    result = _run(args)
+    assert result.returncode == 0, result.stderr + result.stdout
+    return json.loads(result.stdout)
+
+
+def _run(args: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
         args,
         cwd=REPO_ROOT,
         text=True,
         capture_output=True,
         check=False,
     )
-    assert result.returncode == 0, result.stderr + result.stdout
-    return json.loads(result.stdout)
+
+
+def test_review_channel_post_rejects_evidence_packet_without_typed_evidence(
+    tmp_path: Path,
+) -> None:
+    """Verdict/evidence packet posts must fail closed without typed evidence."""
+
+    result = _run(
+        [
+            *_review_channel_base_args(tmp_path),
+            "--action",
+            "post",
+            "--from-agent",
+            "claude",
+            "--to-agent",
+            "codex",
+            "--kind",
+            "review_accepted",
+            "--summary",
+            "Accept without evidence",
+            "--body",
+            "This verdict lacks typed evidence.",
+            "--format",
+            "json",
+        ]
+    )
+
+    assert result.returncode != 0
+    assert "requires typed evidence" in result.stderr + result.stdout
+
+
+def test_review_channel_post_accepts_evidence_packet_with_artifact_ref(
+    tmp_path: Path,
+) -> None:
+    """Typed evidence flags are normalized into packet evidence refs."""
+
+    evidence_path = tmp_path / "typed-review-receipt.json"
+    evidence_path.write_text('{"contract_id":"ReviewerAuditReceipt"}\n', encoding="utf-8")
+    report = _run_json(
+        [
+            *_review_channel_base_args(tmp_path),
+            "--action",
+            "post",
+            "--from-agent",
+            "claude",
+            "--to-agent",
+            "codex",
+            "--kind",
+            "review_accepted",
+            "--summary",
+            "Accept with evidence",
+            "--body",
+            "This verdict is bound to typed evidence.",
+            "--evidence-artifact-path",
+            str(evidence_path),
+            "--format",
+            "json",
+        ]
+    )
+
+    packet = report["packet"]
+    assert isinstance(packet, dict)
+    assert packet["kind"] == "review_accepted"
+    assert packet["evidence_refs"] == [f"artifact:{evidence_path}"]
 
 
 def test_review_channel_ack_cli_records_lifecycle_transition(tmp_path: Path) -> None:

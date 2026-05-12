@@ -14,6 +14,8 @@ def wake_or_attention_satisfied(
 ) -> bool:
     attention = coerce_mapping(ctx.attention)
     override = ctx.operator_override
+    if attention.get("body_open_required") or attention.get("unopened_body_packet_count"):
+        return False
     return bool(
         active_packet_id
         or override.active

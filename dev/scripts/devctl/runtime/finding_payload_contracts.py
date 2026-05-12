@@ -28,6 +28,9 @@ class FindingPayload(TypedDict, total=False):
     signals: list[str]
     source_command: str
     source_artifact: str
+    correlation_id: str
+    causation_id: str
+    run_id: str
 
 
 class DecisionPacketPayload(TypedDict, total=False):

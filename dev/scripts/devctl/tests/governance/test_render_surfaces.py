@@ -165,6 +165,14 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             rendered_text,
         )
         self.assertIn(
+            "--enforce-final-response-gate --format json",
+            rendered_text,
+        )
+        self.assertIn(
+            "A live `continuation_anchor` is the repo-native `/goal`",
+            rendered_text,
+        )
+        self.assertIn(
             "projection_only: true",
             rendered_text,
         )

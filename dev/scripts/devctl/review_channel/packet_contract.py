@@ -6,12 +6,16 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
 from ..runtime.master_plan_contract import PlanProposal
+from ..runtime.anchor_scope import normalize_anchor_scope
 from ..runtime.collaboration_packet_kinds import (
     COLLABORATION_LIFECYCLE_PACKET_KINDS,
+    GOAL_PROGRESS_PACKET_KIND,
+    REVIEW_ACCEPTED_PACKET_KIND,
+    REVIEW_FAILED_PACKET_KIND,
+    TASK_PRODUCED_PACKET_KIND,
 )
 from ..runtime.session_termination_policy import SESSION_TERMINATION_PACKET_KINDS
 from .event_store import (
-    DEFAULT_PACKET_TTL_MINUTES,
     DEFAULT_REVIEW_CHANNEL_PLAN_ID,
     DEFAULT_REVIEW_CHANNEL_SESSION_ID,
 )
@@ -82,6 +86,16 @@ VALID_ATTENTION_CLASSES = frozenset(
         "system",
     }
 )
+POST_TYPED_EVIDENCE_REQUIRED_PACKET_KINDS = frozenset(
+    {
+        "decision",
+        "finding",
+        REVIEW_ACCEPTED_PACKET_KIND,
+        REVIEW_FAILED_PACKET_KIND,
+        GOAL_PROGRESS_PACKET_KIND,
+        TASK_PRODUCED_PACKET_KIND,
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +133,7 @@ class PacketTargetFields:
     mutation_op: str = ""
     target_role: str = ""
     target_session_id: str = ""
+    anchor_scope: str = ""
     requested_session_visibility: str = ""
 
     @classmethod
@@ -133,6 +148,7 @@ class PacketTargetFields:
         mutation_op: object = None,
         target_role: object = None,
         target_session_id: object = None,
+        anchor_scope: object = None,
         requested_session_visibility: object = None,
     ) -> "PacketTargetFields":
         return cls(
@@ -144,6 +160,7 @@ class PacketTargetFields:
             mutation_op=_clean_optional_text(mutation_op) or "",
             target_role=_clean_optional_text(target_role) or "",
             target_session_id=_clean_optional_text(target_session_id) or "",
+            anchor_scope=normalize_anchor_scope(anchor_scope),
             requested_session_visibility=(
                 _clean_optional_text(requested_session_visibility) or ""
             ),
@@ -159,6 +176,7 @@ class PacketTargetFields:
         fields["mutation_op"] = self.mutation_op or None
         fields["target_role"] = self.target_role or None
         fields["target_session_id"] = self.target_session_id or None
+        fields["anchor_scope"] = self.anchor_scope or None
         fields["requested_session_visibility"] = (
             self.requested_session_visibility or None
         )
@@ -175,6 +193,7 @@ class PacketTargetFields:
                 self.mutation_op,
                 self.target_role,
                 self.target_session_id,
+                self.anchor_scope,
                 self.requested_session_visibility,
             )
         )
@@ -227,7 +246,10 @@ class PacketPostRequest:
     session_id: str = DEFAULT_REVIEW_CHANNEL_SESSION_ID
     plan_id: str = DEFAULT_REVIEW_CHANNEL_PLAN_ID
     controller_run_id: str | None = None
-    expires_in_minutes: int = DEFAULT_PACKET_TTL_MINUTES
+    correlation_id: str = ""
+    causation_id: str = ""
+    run_id: str = ""
+    expires_in_minutes: int | None = None
     target: PacketTargetFields = field(default_factory=PacketTargetFields)
     runtime_approval: PacketRuntimeApprovalFields = field(
         default_factory=PacketRuntimeApprovalFields
@@ -249,6 +271,9 @@ class PacketTransitionRequest:
     session_id: str = DEFAULT_REVIEW_CHANNEL_SESSION_ID
     plan_id: str = DEFAULT_REVIEW_CHANNEL_PLAN_ID
     controller_run_id: str | None = None
+    correlation_id: str = ""
+    causation_id: str = ""
+    run_id: str = ""
     guard_attestation: PacketGuardAttestation | None = None
 
 
@@ -289,8 +314,15 @@ def validate_post_request(
             "Unsupported review-channel attention class: "
             f"{request.attention.attention_class}"
         )
-    if request.expires_in_minutes <= 0:
-        raise ValueError("--expires-in-minutes must be greater than zero.")
+    if request.expires_in_minutes is not None and request.expires_in_minutes < 0:
+        raise ValueError("--expires-in-minutes must be zero or greater.")
+    if (
+        request.expires_in_minutes == 0
+        and request.kind not in SESSION_TERMINATION_PACKET_KINDS
+    ):
+        raise ValueError(
+            "--expires-in-minutes=0 is only valid for session termination anchors."
+        )
     validate_target_fields(
         kind=request.kind,
         requested_action=request.requested_action,
@@ -307,6 +339,11 @@ def validate_post_request(
 def packet_kind_schema(kind: str) -> PacketKindSchema:
     """Return the typed validation schema for one packet kind."""
     return PACKET_KIND_SCHEMAS[kind]
+
+
+def post_kind_requires_typed_evidence(kind: str) -> bool:
+    """Return whether `review-channel post` must carry typed evidence refs."""
+    return kind in POST_TYPED_EVIDENCE_REQUIRED_PACKET_KINDS
 
 
 def plan_proposal_for_request(request: PacketPostRequest) -> PlanProposal:

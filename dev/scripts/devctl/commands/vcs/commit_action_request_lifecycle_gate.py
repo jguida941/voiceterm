@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import datetime, timezone
 
+from ...runtime.value_coercion import coerce_text as _text
+
 _ACTIONABLE_PACKET_STATUSES = frozenset({"pending", "acked"})
 
 
@@ -34,10 +36,6 @@ def _is_expired(packet: Mapping[str, object]) -> bool:
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     return expires_at.astimezone(timezone.utc) <= datetime.now(timezone.utc)
-
-
-def _text(value: object) -> str:
-    return str(value or "").strip()
 
 
 __all__ = ["lifecycle_status_block"]

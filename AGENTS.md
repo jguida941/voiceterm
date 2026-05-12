@@ -20,7 +20,11 @@
    Packet audits advance through that typed next step instead of rerunning the same reducer.
    Archived packet-history rows are audit evidence, not live packet-attention blockers.
    Selection comes from typed plan/lifecycle authority; packet ids are intake/provenance only unless unresolved intake blocks authority.
-3. Diagnostic fallback commands, only when `devctl session` is unavailable or names a child command:
+3. Before any final response or `TASK_COMPLETE`, run `python3 dev/scripts/devctl.py develop next --actor <actor> --enforce-final-response-gate --format json`.
+   If the gate reports `final_response_allowed=false`, `continuation_state=must_continue`, or a `next_required_command`, do not emit final completion prose.
+   Run the typed next command, read the targeted inbox/body, and continue until the gate allows final response or a scoped `stop_anchor` stops the goal.
+   A live `continuation_anchor` is the repo-native `/goal`: Codex keeps working inside the same session instead of stopping.
+4. Diagnostic fallback commands, only when `devctl session` is unavailable or names a child command:
    `python3 dev/scripts/devctl.py startup-context --role <role> --format json`
    `python3 dev/scripts/devctl.py session-resume --role <role> --format bootstrap`
    `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`

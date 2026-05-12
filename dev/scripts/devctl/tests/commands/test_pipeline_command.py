@@ -244,6 +244,33 @@ class PipelineStatusTests(unittest.TestCase):
         finally:
             fixture.close()
 
+    def test_status_surfaces_commit_receipt_artifact_for_recorded_commit(self) -> None:
+        commit_sha = "deadbeef00000000000000000000000000000000"
+        fixture = _PipelineFixture(fake_head=commit_sha)
+        try:
+            fixture.write_payload(_sample_pipeline_payload(commit_sha=commit_sha))
+            receipt_relpath = f"dev/reports/commit_receipts/{commit_sha}.json"
+            receipt_path = fixture.root / receipt_relpath
+            receipt_path.parent.mkdir(parents=True, exist_ok=True)
+            receipt_path.write_text(
+                json.dumps(
+                    {
+                        "contract_id": "CommitReceipt",
+                        "schema_version": 1,
+                        "commit_sha": commit_sha,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            view = build_status_view(fixture.paths())
+
+            self.assertEqual(view["commit_receipt_artifact_path"], receipt_relpath)
+            self.assertTrue(view["commit_receipt_exists"])
+        finally:
+            fixture.close()
+
     def test_status_recommends_recover_when_head_changed(self) -> None:
         fixture = _PipelineFixture(fake_head="cafebabe00000000000000000000000000000000")
         try:

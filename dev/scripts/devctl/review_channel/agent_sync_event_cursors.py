@@ -5,9 +5,15 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 
 from .event_models import event_id_rank as _event_id_rank
+from .packet_body_observation import PACKET_BODY_OBSERVATION_EVENT_TYPE
 
 _LOWER_BOUND_CONSUMPTION_EVENT_TYPES: frozenset[str] = frozenset(
-    {"packet_acked", "packet_applied", "packet_dismissed"}
+    {
+        "packet_acked",
+        "packet_applied",
+        "packet_dismissed",
+        PACKET_BODY_OBSERVATION_EVENT_TYPE,
+    }
 )
 
 
@@ -27,6 +33,8 @@ def _is_consumption_by_agent(
         actor = str(metadata.get("actor") or "").strip()
     if not actor:
         actor = str(event.get("actor") or "").strip()
+    if not actor:
+        actor = str(event.get("body_observed_by") or "").strip()
     return bool(actor) and actor == agent_id
 
 

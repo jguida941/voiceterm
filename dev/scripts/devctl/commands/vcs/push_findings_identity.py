@@ -11,6 +11,7 @@ from ...runtime.finding_contracts import (
     FindingIdentitySeed,
     FindingRecord,
     build_finding_id,
+    finding_correlation_context,
 )
 
 PUSH_FINDING_SIGNAL_TYPE = "guard"
@@ -74,10 +75,16 @@ def push_finding_record(
 ) -> FindingRecord:
     repo_name = repo_root.name if repo_root is not None else ""
     repo_path = "" if repo_root is None else str(repo_root)
+    finding_id = push_finding_id(rule, repo_name=repo_name)
+    context = finding_correlation_context(
+        finding_id,
+        check_id=PUSH_FINDING_CHECK_ID,
+        source_artifact=PUSH_FINDING_FILE_PATH,
+    )
 
     return replace(
         FINDING_RECORD_TEMPLATE,
-        finding_id=push_finding_id(rule, repo_name=repo_name),
+        finding_id=finding_id,
         rule_id=rule.rule_id,
         repo_name=repo_name,
         repo_path=repo_path,
@@ -86,6 +93,9 @@ def push_finding_record(
         review_lens=rule.review_lens,
         ai_instruction=message,
         signals=(rule.finding_type,),
+        correlation_id=context.correlation_id,
+        causation_id=context.causation_id,
+        run_id=context.run_id,
     )
 
 

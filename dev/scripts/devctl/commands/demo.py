@@ -20,6 +20,8 @@ from ..runtime.agent_loop_operator_override import (
     OPERATOR_OVERRIDE_REQUESTOR,
     OPERATOR_OVERRIDE_SOURCE,
 )
+from ..runtime.role_customization import build_role_creation_action
+from ..runtime.role_profile import normalize_tandem_role
 
 DEMO_REPORT_CONTRACT_ID = "DevctlDemoVerificationReport"
 DEMO_REPORT_SCHEMA_VERSION = 1
@@ -33,7 +35,11 @@ def add_parser(sub) -> None:
     )
     cmd.add_argument(
         "action",
-        choices=("verify-override", "verify-final-response-gate"),
+        choices=(
+            "verify-override",
+            "verify-final-response-gate",
+            "verify-role-customization",
+        ),
         help="Demo to run.",
     )
     cmd.add_argument(
@@ -52,8 +58,10 @@ def run(args: Any) -> int:
     """Run one typed demo and return nonzero when its proof fails."""
     if args.action == "verify-override":
         report = _verify_override(args)
-    else:
+    elif args.action == "verify-final-response-gate":
         report = _verify_final_response_gate(args)
+    else:
+        report = _verify_role_customization(args)
     output = json.dumps(report, indent=2) if args.format == "json" else _render_md(report)
     write_output(output, getattr(args, "output", None))
     return 0 if report["ok"] else 1
@@ -120,6 +128,39 @@ def _verify_final_response_gate(args: Any) -> dict[str, object]:
         proof={
             "continuation": asdict(continuation),
             "final_response_gate": gate.to_dict(),
+            "reason": str(args.reason or "").strip(),
+        },
+    )
+
+
+def _verify_role_customization(args: Any) -> dict[str, object]:
+    action = build_role_creation_action(
+        role_id="architecture-auditor",
+        base_workstream_id="architect",
+        display_name="Architecture Auditor",
+        instructions=("Audit composability before implementation starts.",),
+        guards=("reviewer_response_shape",),
+        slash_command_refs=("/role-create", "/role-edit", "/role-guard-add"),
+        requested_by="operator",
+    )
+    custom_role_is_not_tandem = normalize_tandem_role(action.role.role_id) is None
+    ok = (
+        action.status == "accepted"
+        and action.role.base_workstream_id == "architect"
+        and action.role.base_tandem_role == "reviewer"
+        and custom_role_is_not_tandem
+        and "/role-create" in action.role.slash_command_refs
+        and action.guards
+        and action.guards[0].violation_action == "fail_closed"
+    )
+    return _base_report(
+        action="verify-role-customization",
+        ok=ok,
+        proof={
+            "role_creation_action": action.to_dict(),
+            "custom_role_is_not_tandem": custom_role_is_not_tandem,
+            "tandem_role_strategy": "fixed_enum_plus_custom_role_overlay",
+            "slash_command_policy": "universal_entry_points",
             "reason": str(args.reason or "").strip(),
         },
     )

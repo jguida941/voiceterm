@@ -13,6 +13,11 @@ from .finding_explainability_contracts import (
     RuleMatchEvidenceRecord,
 )
 from .finding_payload_contracts import DecisionPacketPayload, FindingPayload
+from .correlation_spine import (
+    CorrelationContext,
+    correlation_context_for_ref,
+    merge_correlation_context,
+)
 from .value_coercion import coerce_int, coerce_string, coerce_string_items
 
 FINDING_CONTRACT_ID, FINDING_SCHEMA_VERSION = "Finding", 1
@@ -93,6 +98,23 @@ def build_finding_id(seed: FindingIdentitySeed) -> str:
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
 
 
+def finding_correlation_context(
+    finding_id: str,
+    *,
+    check_id: str = "",
+    source_artifact: str = "",
+) -> CorrelationContext:
+    """Return stable lineage for a canonical governance finding."""
+    return correlation_context_for_ref(
+        "finding",
+        finding_id,
+        causation_kind="check",
+        causation_ref_value=check_id,
+        run_kind="source_artifact",
+        run_ref_value=source_artifact,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class FindingRecord:
     """Canonical evidence row for one governance finding."""
@@ -117,6 +139,9 @@ class FindingRecord:
     signals: tuple[str, ...] = ()
     source_command: str = ""
     source_artifact: str = ""
+    correlation_id: str = ""
+    causation_id: str = ""
+    run_id: str = ""
 
     def to_dict(self) -> FindingPayload:
         payload: FindingPayload = {}
@@ -140,6 +165,9 @@ class FindingRecord:
         payload["signals"] = list(self.signals)
         payload["source_command"] = self.source_command
         payload["source_artifact"] = self.source_artifact
+        payload["correlation_id"] = self.correlation_id
+        payload["causation_id"] = self.causation_id
+        payload["run_id"] = self.run_id
         if self.line is not None:
             payload["line"] = self.line
         if self.end_line is not None:
@@ -225,24 +253,33 @@ def finding_from_probe_hint(
     signals = coerce_string_items(hint.get("signals"))
     line = _positive_int(hint.get("line") or hint.get("start_line"))
     end_line = _positive_int(hint.get("end_line"))
+    finding_id = build_finding_id(
+        FindingIdentitySeed(
+            repo_name=repo_name,
+            repo_path=repo_path,
+            signal_type="probe",
+            check_id=check_id,
+            file_path=file_path,
+            symbol=symbol,
+            line=line,
+            end_line=end_line,
+            risk_type=risk_type,
+            review_lens=review_lens,
+            signals=signals,
+        )
+    )
+    context = merge_correlation_context(
+        hint,
+        finding_correlation_context(
+            finding_id,
+            check_id=check_id,
+            source_artifact=source_artifact,
+        ).to_dict(),
+    )
     return FindingRecord(
         schema_version=FINDING_SCHEMA_VERSION,
         contract_id=FINDING_CONTRACT_ID,
-        finding_id=build_finding_id(
-            FindingIdentitySeed(
-                repo_name=repo_name,
-                repo_path=repo_path,
-                signal_type="probe",
-                check_id=check_id,
-                file_path=file_path,
-                symbol=symbol,
-                line=line,
-                end_line=end_line,
-                risk_type=risk_type,
-                review_lens=review_lens,
-                signals=signals,
-            )
-        ),
+        finding_id=finding_id,
         signal_type="probe",
         check_id=check_id,
         rule_id=check_id,
@@ -260,6 +297,9 @@ def finding_from_probe_hint(
         signals=signals,
         source_command=source_command,
         source_artifact=source_artifact,
+        correlation_id=context.correlation_id,
+        causation_id=context.causation_id,
+        run_id=context.run_id,
     )
 
 

@@ -233,9 +233,12 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("skipped", "int", "Skipped step count."),
             ContractField("steps", "tuple[dict, ...]", "Enriched step dicts with status and violation_summary."),
             ContractField("violations", "tuple[ViolationRecord, ...]", "Typed violation records from failed steps."),
+            ContractField("correlation_id", "str", "Parent lineage shared with the action or packet that requested the check."),
+            ContractField("causation_id", "str", "Immediate trigger lineage for this check result."),
+            ContractField("run_id", "str", "Orchestration run lineage for this check result."),
         ),
         runtime_model="dev.scripts.devctl.runtime.check_result_models:CheckResult",
-        startup_surface_tokens=("success", "total", "failed"),
+        startup_surface_tokens=("success", "failed", "correlation_id"),
     ),
     ContractSpec(
         contract_id="ControlState",

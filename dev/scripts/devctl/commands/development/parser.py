@@ -122,6 +122,14 @@ def _add_controller_options(cmd: argparse.ArgumentParser) -> None:
             "is not allowed."
         ),
     )
+    cmd.add_argument(
+        "--proposed-response-text",
+        default="",
+        help=(
+            "Optional terminal response candidate to validate against the typed "
+            "final-response gate."
+        ),
+    )
 
 
 def _add_collaboration_options(cmd: argparse.ArgumentParser) -> None:
@@ -172,6 +180,45 @@ def _add_collaboration_options(cmd: argparse.ArgumentParser) -> None:
             "Repeatable role=n request for collaboration-profile fanout, for "
             "example architect=3, researcher=2, watcher=1, or tester=4."
         ),
+    )
+    cmd.add_argument(
+        "--agents",
+        dest="generic_agents",
+        type=int,
+        default=0,
+        help=(
+            "Generic fanout count for the selected role preset, compiled to "
+            "the same typed role-count budget as role=n."
+        ),
+    )
+    cmd.add_argument(
+        "--dogfood",
+        action="store_true",
+        default=False,
+        help=(
+            "Append a dogfood_campaign tester phase to the typed mode-chain "
+            "request; authority still comes from runtime gates."
+        ),
+    )
+    cmd.add_argument(
+        "--chain-phase",
+        action="append",
+        default=[],
+        help=(
+            "Repeatable role[:collaboration_mode] phase for composable mode "
+            "requests, for example implementer:pair_review or tester:dogfood_campaign."
+        ),
+    )
+    cmd.add_argument(
+        "--chain-scope",
+        default="",
+        help="Optional scope ref inherited by child phases in a mode chain.",
+    )
+    cmd.add_argument(
+        "--chain-receipt-ref",
+        action="append",
+        default=[],
+        help="Repeatable child receipt ref for the composite receipt container.",
     )
     cmd.add_argument(
         "--agent-mind-provider",

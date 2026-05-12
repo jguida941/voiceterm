@@ -158,12 +158,66 @@ def _merge_prior_review_state(
             target[field] = dict(local_target[field])
     local_packets = local_target.get("packets")
     target_packets = target.get("packets")
-    if isinstance(local_packets, list) and (
-        not isinstance(target_packets, list)
-        or len(local_packets) > len(target_packets)
-    ):
-        target["packets"] = list(local_packets)
+    merged_packets = _merge_packet_rows_by_id(target_packets, local_packets)
+    if merged_packets is not None:
+        target["packets"] = merged_packets
     return merged
+
+
+def _merge_packet_rows_by_id(
+    target_packets: object,
+    local_packets: object,
+) -> list[dict[str, object]] | None:
+    if not isinstance(local_packets, list):
+        return list(target_packets) if isinstance(target_packets, list) else None
+    if not isinstance(target_packets, list):
+        return [dict(packet) for packet in local_packets if isinstance(packet, Mapping)]
+
+    merged: list[dict[str, object]] = []
+    seen: set[str] = set()
+    local_by_id = {
+        str(packet.get("packet_id") or "").strip(): packet
+        for packet in local_packets
+        if isinstance(packet, Mapping)
+        and str(packet.get("packet_id") or "").strip()
+    }
+    for packet in target_packets:
+        if not isinstance(packet, Mapping):
+            continue
+        packet_id = str(packet.get("packet_id") or "").strip()
+        seen.add(packet_id)
+        merged.append(_merge_packet_row(packet, local_by_id.get(packet_id)))
+    for packet in local_packets:
+        if not isinstance(packet, Mapping):
+            continue
+        packet_id = str(packet.get("packet_id") or "").strip()
+        if packet_id and packet_id in seen:
+            continue
+        merged.append(dict(packet))
+    return merged
+
+
+def _merge_packet_row(
+    target_packet: Mapping[str, object],
+    local_packet: Mapping[str, object] | None,
+) -> dict[str, object]:
+    merged = dict(target_packet)
+    if local_packet is None:
+        return merged
+    for key, value in local_packet.items():
+        if key not in merged or _packet_field_missing(merged.get(key)):
+            merged[str(key)] = value
+    return merged
+
+
+def _packet_field_missing(value: object) -> bool:
+    if value is None:
+        return True
+    if value == "":
+        return True
+    if isinstance(value, (list, tuple, dict, set)) and not value:
+        return True
+    return False
 
 
 def _reviewer_accepted_implementer_state_hash(payload: Mapping[str, object]) -> str:

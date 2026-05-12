@@ -25,6 +25,9 @@ def run_packet_transition_action(
             session_id=context.args.session_id,
             plan_id=context.args.plan_id,
             controller_run_id=getattr(context.args, "controller_run_id", None),
+            correlation_id=getattr(context.args, "correlation_id", "") or "",
+            causation_id=getattr(context.args, "causation_id", "") or "",
+            run_id=getattr(context.args, "run_id", "") or "",
             guard_attestation=_guard_attestation_from_args(context.args),
         ),
     )

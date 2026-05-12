@@ -208,6 +208,8 @@ def blocker_active(ctx: AgentLoopContext) -> bool:
 def attention_requires_pivot(ctx: AgentLoopContext, packets: PacketState) -> bool:
     if not ctx.attention:
         return False
+    if coerce_bool(ctx.attention.get("body_open_required")):
+        return True
     if (
         packets.active_packet_id
         and packets.active_packet_id == packets.attention_packet_id

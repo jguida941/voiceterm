@@ -51,6 +51,7 @@ def enrich_packet_request_plan_context(
         mutation_op=target.mutation_op,
         target_role=target.target_role,
         target_session_id=target.target_session_id,
+        anchor_scope=target.anchor_scope,
         requested_session_visibility=target.requested_session_visibility,
     )
     next_plan_id = request.plan_id

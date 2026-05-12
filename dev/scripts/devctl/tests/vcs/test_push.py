@@ -2526,6 +2526,11 @@ class PushBridgeSyncTests(unittest.TestCase):
             patch(
                 "dev.scripts.devctl.commands.vcs.push.append_orphan_snapshot_advisory"
             ),
+            patch.object(
+                push_preflight_projection,
+                "current_head_is_managed_review_snapshot_receipt",
+                return_value=False,
+            ),
             patch(
                 "dev.scripts.devctl.commands.vcs.push."
                 "_sync_bridge_projection_before_preflight"
@@ -2649,6 +2654,10 @@ class PushBridgeSyncTests(unittest.TestCase):
                 push_preflight_projection,
                 "auto_commit_managed_projection_receipt",
             ) as projection_receipt_mock,
+            patch.object(
+                push_preflight_projection,
+                "refresh_runtime_surfaces_after_projection_receipt",
+            ) as runtime_refresh_mock,
         ):
             result = (
                 push_preflight_projection.refresh_managed_projections_before_preflight(
@@ -2661,15 +2670,133 @@ class PushBridgeSyncTests(unittest.TestCase):
         heartbeat_mock.assert_not_called()
         refresh_snapshot_mock.assert_not_called()
         projection_receipt_mock.assert_not_called()
+        runtime_refresh_mock.assert_called_once_with(
+            state,
+            command_runner=push_preflight_projection.run_cmd,
+            repo_root=Path("/tmp/repo"),
+            next_step_label="push preflight receipt head",
+            repo_pack_id="voiceterm",
+        )
         self.assertEqual(result["status"], "completed")
         self.assertTrue(result["ok"])
         self.assertEqual(result["reason"], "managed_review_snapshot_receipt_head")
+        self.assertTrue(result["runtime_surfaces_refreshed"])
         self.assertFalse(result["receipt_committed"])
         self.assertEqual(result["paths"], ())
         self.assertEqual(result["snapshot_warning_count"], 0)
         self.assertEqual(
             state.pre_validation_managed_projection_sync["reason"],
             "managed_review_snapshot_receipt_head",
+        )
+
+    def test_refresh_managed_projections_does_not_block_receipt_head_runtime_staleness(
+        self,
+    ) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+
+        def _runtime_refresh(*_args, **_kwargs) -> None:
+            state.errors.append(
+                "Managed projection receipt moved HEAD, but context-graph "
+                "refresh failed before push preflight receipt head."
+            )
+
+        with (
+            patch.object(
+                push_preflight_projection,
+                "current_head_is_managed_review_snapshot_receipt",
+                return_value=True,
+            ),
+            patch.object(
+                push_preflight_projection,
+                "refresh_runtime_surfaces_after_projection_receipt",
+                side_effect=_runtime_refresh,
+            ),
+        ):
+            result = (
+                push_preflight_projection.refresh_managed_projections_before_preflight(
+                    state,
+                    policy,
+                    repo_root=Path("/tmp/repo"),
+                )
+            )
+
+        self.assertEqual(result["status"], "completed")
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["runtime_surfaces_refreshed"])
+        self.assertEqual(
+            result["runtime_surface_refresh_warnings"],
+            (
+                "Managed projection receipt moved HEAD, but context-graph "
+                "refresh failed before push preflight receipt head.",
+            ),
+        )
+        self.assertEqual(state.errors, [])
+        self.assertEqual(
+            state.warnings,
+            [
+                "Managed projection receipt moved HEAD, but context-graph "
+                "refresh failed before push preflight receipt head."
+            ],
+        )
+        self.assertEqual(
+            state.pre_validation_managed_projection_sync["reason"],
+            "managed_review_snapshot_receipt_head",
+        )
+
+    def test_refresh_managed_projections_receipt_head_runs_deferred_recovery(
+        self,
+    ) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+
+        def _runtime_refresh(*_args, **_kwargs) -> None:
+            state.pre_validation_recovery_loop_repair_required = True
+            state.pre_validation_recovery_loop_repair_startup = {
+                "required": True,
+                "reason": "runtime_missing",
+            }
+
+        def _runner(name, cmd, cwd=None, env=None):
+            del name, cmd, cwd, env
+            return {"returncode": 0}
+
+        with (
+            patch.object(
+                push_preflight_projection,
+                "current_head_is_managed_review_snapshot_receipt",
+                return_value=True,
+            ),
+            patch.object(
+                push_preflight_projection,
+                "refresh_runtime_surfaces_after_projection_receipt",
+                side_effect=_runtime_refresh,
+            ),
+            patch.object(
+                push_preflight_projection,
+                "run_pre_validation_recovery_loop_repair_phase",
+                return_value={"status": "completed", "ok": True},
+            ) as recovery_mock,
+        ):
+            result = (
+                push_preflight_projection.refresh_managed_projections_before_preflight(
+                    state,
+                    policy,
+                    repo_root=Path("/tmp/repo"),
+                    command_runner=_runner,
+                )
+            )
+
+        recovery_mock.assert_called_once_with(
+            state,
+            policy,
+            repo_root=Path("/tmp/repo"),
+            command_runner=_runner,
+        )
+        self.assertTrue(result["startup_context_recovery_required"])
+        self.assertEqual(
+            result["startup_context_recovery"],
+            {"required": True, "reason": "runtime_missing"},
         )
 
     def test_refresh_managed_projections_runs_render_surfaces_before_preflight(
@@ -5232,6 +5359,11 @@ class PushBridgeSyncTests(unittest.TestCase):
                     "reason": "unit_test",
                 },
             ),
+            patch.object(
+                push_preflight_projection,
+                "current_head_is_managed_review_snapshot_receipt",
+                return_value=False,
+            ),
             patch(
                 "dev.scripts.devctl.commands.vcs.push."
                 "_sync_bridge_projection_before_preflight"
@@ -5331,6 +5463,11 @@ class PushBridgeSyncTests(unittest.TestCase):
                     "status": "skipped",
                     "reason": "unit_test",
                 },
+            ),
+            patch.object(
+                push_preflight_projection,
+                "current_head_is_managed_review_snapshot_receipt",
+                return_value=False,
             ),
             patch(
                 "dev.scripts.devctl.commands.vcs.push."
@@ -5479,6 +5616,11 @@ class PushBridgeSyncTests(unittest.TestCase):
                     "status": "skipped",
                     "reason": "unit_test",
                 },
+            ),
+            patch.object(
+                push_preflight_projection,
+                "current_head_is_managed_review_snapshot_receipt",
+                return_value=False,
             ),
             patch(
                 "dev.scripts.devctl.commands.vcs.push."

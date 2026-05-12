@@ -46,3 +46,41 @@ def test_merge_prior_review_state_preserves_checkpoint_and_continuity_from_local
         == "rev_pkt_3110"
     )
     assert merged["packets"][0]["packet_id"] == "rev_pkt_3110"
+
+
+def test_merge_prior_review_state_fills_packet_body_observation_fields_by_id() -> None:
+    canonical = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_body",
+                "status": "pending",
+                "body_observed_by": "",
+                "body_observation_events": [],
+            }
+        ]
+    }
+    event_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_body",
+                "status": "pending",
+                "body_observed_by": "codex",
+                "body_observed_event_id": "rev_evt_73091",
+                "body_observation_events": [
+                    {
+                        "contract_id": "PacketBodyObservation",
+                        "event_id": "rev_evt_73091",
+                    }
+                ],
+            }
+        ]
+    }
+
+    merged = _merge_prior_review_state(canonical, event_state)
+
+    packet = merged["packets"][0]
+    assert packet["body_observed_by"] == "codex"
+    assert packet["body_observed_event_id"] == "rev_evt_73091"
+    assert packet["body_observation_events"][0]["contract_id"] == (
+        "PacketBodyObservation"
+    )

@@ -166,6 +166,44 @@ def test_develop_status_renders_topology_and_scaling(capsys) -> None:
     assert "WorkerPacket" in payload["topology"]["scaling"]["route_outputs"]
 
 
+def test_develop_report_passes_proposed_response_text_to_shape_gate(
+    monkeypatch, capsys
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_reviewer_response_shape_for_gate(gate, **kwargs):
+        captured["gate"] = gate
+        captured.update(kwargs)
+        return {
+            "contract_id": "ReviewerResponseShape",
+            "status": "blocked",
+            "violations": ["status_marker:markdown_table"],
+        }
+
+    monkeypatch.setattr(
+        development_report,
+        "reviewer_response_shape_for_gate",
+        fake_reviewer_response_shape_for_gate,
+    )
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "--status",
+            "--proposed-response-text",
+            "| Status | Detail |\n| --- | --- |\n| holding position | waiting |",
+            "--format",
+            "json",
+        ]
+    )
+
+    rc = cli.COMMAND_HANDLERS[args.command](args)
+
+    assert rc == 0
+    capsys.readouterr()
+    assert captured["proposed_response_text"].startswith("| Status | Detail |")
+    assert captured["proposed_response_text_source"] == "cli_arg:proposed_response_text"
+
+
 def test_next_commands_with_attention_uses_registered_peer_hints() -> None:
     commands = development_report._next_commands_with_attention(
         ("python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1",),
@@ -464,6 +502,120 @@ def test_develop_collaboration_profile_validate_profile_fails_invalid_stop_targe
     assert profile["stop_anchor_request"]["status"] == "invalid_stop_anchor_target"
     assert "packet_ack_or_apply" in profile["validation_errors"][0]
     assert all("--kind stop_anchor" not in command for command in profile["command_plan"])
+
+
+def test_develop_collaboration_profile_compiles_chain_flags(capsys) -> None:
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "collaboration-profile",
+            "--collaboration-mode",
+            "agent_sync",
+            "--role-preset",
+            "architect",
+            "--agents",
+            "3",
+            "--dogfood",
+            "--chain-phase",
+            "researcher",
+            "--chain-scope",
+            "plan:MP-377",
+            "--chain-receipt-ref",
+            "run:architect",
+            "--chain-receipt-ref",
+            "dogfood:green",
+            "--validate-profile",
+            "--format",
+            "json",
+        ]
+    )
+
+    rc = cli.COMMAND_HANDLERS[args.command](args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    profile = payload["collaboration_mode"]["profile"]
+    mode_chain = payload["collaboration_mode"]["mode_chain"]
+    budgets = {row["role"]: row for row in profile["resolved_role_budgets"]}
+    requests = {row["role"]: row for row in profile["role_count_requests"]}
+    assert budgets["architect"]["requested_count"] == 3
+    assert requests["architect"]["source"] == "request"
+    assert mode_chain["ok"] is True
+    assert [phase["role_preset"] for phase in mode_chain["phases"]] == [
+        "architect",
+        "researcher",
+        "tester",
+    ]
+    assert mode_chain["phases"][1]["scope_inherited_from"] == "phase-1-primary"
+    assert mode_chain["receipt_refs"] == ["run:architect", "dogfood:green"]
+    assert mode_chain["policy"]["lane_cardinality"]["max_independent_next_derivers"] == 1
+
+
+def test_develop_collaboration_profile_rejects_chain_cardinality(capsys) -> None:
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "collaboration-profile",
+            "--collaboration-mode",
+            "agent_sync",
+            "--role-preset",
+            "architect",
+            "--chain-phase",
+            "researcher",
+            "--chain-phase",
+            "reviewer",
+            "--chain-phase",
+            "tester",
+            "--chain-phase",
+            "watcher",
+            "--validate-profile",
+            "--format",
+            "json",
+        ]
+    )
+
+    rc = cli.COMMAND_HANDLERS[args.command](args)
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    mode_chain = payload["collaboration_mode"]["mode_chain"]
+    assert payload["status"] == "blocked"
+    assert mode_chain["ok"] is False
+    assert "D-DevelopNext cardinality" in mode_chain["validation_errors"][0]
+
+
+def test_develop_collaboration_profile_chain_cardinality_fails_without_validate(
+    capsys,
+) -> None:
+    args = cli.build_parser().parse_args(
+        [
+            "develop",
+            "collaboration-profile",
+            "--collaboration-mode",
+            "agent_sync",
+            "--role-preset",
+            "architect",
+            "--chain-phase",
+            "researcher",
+            "--chain-phase",
+            "reviewer",
+            "--chain-phase",
+            "tester",
+            "--chain-phase",
+            "watcher",
+            "--format",
+            "json",
+        ]
+    )
+
+    rc = cli.COMMAND_HANDLERS[args.command](args)
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    mode_chain = payload["collaboration_mode"]["mode_chain"]
+    assert payload["ok"] is False
+    assert mode_chain["ok"] is False
+    assert "D-DevelopNext cardinality" in mode_chain["validation_errors"][0]
 
 
 def test_develop_campaign_parser_action_is_read_only() -> None:
@@ -890,6 +1042,36 @@ def test_stopped_watcher_blocks_when_live_packet_pressure_exists() -> None:
     assert signal.final_response_allowed is False
     assert signal.reasons == ("watcher_stopped:claude",)
     assert signal.next_required_command.endswith("review-channel --action watch")
+
+
+def test_continuation_signal_blocks_final_response_when_anchor_is_live() -> None:
+    signal = continuation_signal(
+        packet_attention=DevelopmentPacketAttention(),
+        orchestration=DevelopmentOrchestrationSnapshot(),
+        watcher_lease=DevelopmentWatcherLease(status="live"),
+        packet_pressure=_packet_pressure(live_total=0, actionable_total=0),
+        review_state={
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_anchor",
+                    "kind": "continuation_anchor",
+                    "to_agent": "codex",
+                    "status": "pending",
+                    "lifecycle_current_state": "pending",
+                    "posted_at": "2026-05-12T03:00:00Z",
+                }
+            ]
+        },
+        actor="codex",
+        current_action="next",
+        fallback_commands=("python3 dev/scripts/devctl.py develop next --format md",),
+    )
+
+    assert signal.continuation_required is True
+    assert signal.final_response_allowed is False
+    assert signal.continuation_anchor_packet_id == "rev_pkt_anchor"
+    assert signal.reasons == ("continuation_anchor_active:rev_pkt_anchor",)
+    assert signal.next_required_command.endswith("--actor codex --format md")
 
 
 def test_continuation_signal_requires_packet_post_command_for_anchor() -> None:
@@ -3138,8 +3320,171 @@ def test_packet_attention_includes_latest_finding_as_actionable() -> None:
     assert attention.latest_attention_packet_id == "rev_pkt_9999"
     assert attention.required_command == (
         "python3 dev/scripts/devctl.py review-channel --action show "
-        "--packet-id rev_pkt_9999 --terminal none --format md"
+        "--packet-id rev_pkt_9999 --actor codex --terminal none --format md"
     )
+
+
+def test_packet_attention_requires_body_open_for_peer_progress_packet() -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_3662",
+                "from_agent": "claude",
+                "to_agent": "codex",
+                "kind": "task_progress",
+                "status": "pending",
+                "lifecycle_current_state": "task_progress",
+                "latest_event_id": "rev_evt_3662",
+                "body": "Ranked candidates that must be read before mutation.",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ]
+    }
+
+    attention = packet_attention_from_review_state(review_state, rows=())
+
+    assert attention.attention_required is True
+    assert attention.latest_attention_packet_id == "rev_pkt_3662"
+    assert attention.wake_reason == "packet_body_open_required"
+    assert attention.required_command == (
+        "python3 dev/scripts/devctl.py review-channel --action show "
+        "--packet-id rev_pkt_3662 --actor codex --terminal none --format md"
+    )
+
+
+def test_packet_attention_ignores_delivery_for_dead_target_route() -> None:
+    review_state = {
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "codex",
+                    "role": "reviewer",
+                    "session_id": "live-reviewer-session",
+                    "status": "polling",
+                    "confidence_class": "derived_typed_event",
+                }
+            ]
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_dead_route",
+                "from_agent": "claude",
+                "to_agent": "codex",
+                "kind": "review_accepted",
+                "status": "pending",
+                "lifecycle_current_state": "review_accepted",
+                "requested_action": "review_only",
+                "policy_hint": "review_only",
+                "target_role": "implementer",
+                "target_session_id": "dead-implementer-session",
+                "body": "Historical review acceptance for a dead implementer session.",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ],
+    }
+
+    attention = packet_attention_from_review_state(review_state, rows=())
+
+    assert attention.attention_required is False
+    assert attention.latest_attention_packet_id == ""
+    assert attention.pending_delivery_packet_ids == ()
+
+
+def test_packet_attention_ignores_lifecycle_review_acceptance_delivery() -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_review_accepted",
+                "from_agent": "claude",
+                "to_agent": "codex",
+                "kind": "review_accepted",
+                "status": "pending",
+                "lifecycle_current_state": "review_accepted",
+                "requested_action": "review_only",
+                "policy_hint": "review_only",
+                "body": "Historical lifecycle acceptance with no active action.",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ],
+    }
+
+    attention = packet_attention_from_review_state(review_state, rows=())
+
+    assert attention.attention_required is False
+    assert attention.latest_attention_packet_id == ""
+    assert attention.pending_delivery_packet_ids == ()
+
+
+def test_packet_attention_ignores_stale_wake_without_live_packets() -> None:
+    review_state = {
+        "packet_inbox": {
+            "agents": [
+                {
+                    "agent": "codex",
+                    "attention_status": "wake_required",
+                    "wake_reason": "urgent_attention",
+                    "required_command": (
+                        "python3 dev/scripts/devctl.py review-channel "
+                        "--action inbox --target codex --actor codex "
+                        "--status pending --terminal none --format md"
+                    ),
+                }
+            ]
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_review_accepted",
+                "from_agent": "claude",
+                "to_agent": "codex",
+                "kind": "review_accepted",
+                "status": "pending",
+                "lifecycle_current_state": "review_accepted",
+                "requested_action": "review_only",
+                "policy_hint": "review_only",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ],
+    }
+
+    attention = packet_attention_from_review_state(review_state, rows=())
+
+    assert attention.attention_required is False
+    assert attention.wake_reason == ""
+    assert attention.required_command == ""
+
+
+def test_packet_attention_keeps_delivery_for_matching_fresh_route() -> None:
+    review_state = {
+        "agent_work_board": {
+            "rows": [
+                {
+                    "actor_id": "codex",
+                    "role": "reviewer",
+                    "session_id": "live-reviewer-session",
+                    "status": "polling",
+                    "confidence_class": "derived_typed_event",
+                }
+            ]
+        },
+        "packets": [
+            {
+                "packet_id": "rev_pkt_live_route",
+                "from_agent": "claude",
+                "to_agent": "codex",
+                "kind": "system_notice",
+                "status": "pending",
+                "target_role": "reviewer",
+                "target_session_id": "live-reviewer-session",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ],
+    }
+
+    attention = packet_attention_from_review_state(review_state, rows=())
+
+    assert attention.attention_required is True
+    assert attention.latest_attention_packet_id == "rev_pkt_live_route"
+    assert attention.pending_delivery_packet_ids == ("rev_pkt_live_route",)
 
 
 def test_packet_attention_empty_state_reports_no_pending_attention() -> None:
@@ -3557,7 +3902,7 @@ def test_packet_attention_keeps_unacked_older_finding_live_when_newer_is_acked()
     assert attention.durable_plan_row_id == ""
     assert attention.required_command == (
         "python3 dev/scripts/devctl.py review-channel --action show "
-        "--packet-id rev_pkt_old --terminal none --format md"
+        "--packet-id rev_pkt_old --actor codex --terminal none --format md"
     )
     assert "rev_pkt_old" in attention.summary
     assert selected.slice_id == "communication-packet-attention"

@@ -6,9 +6,11 @@ import json
 
 from dev.scripts.devctl.commands.development import scaling_summary_from_contract
 from dev.scripts.devctl.runtime.development_collaboration_modes import (
+    ChainReceiptRef,
     COLLABORATION_MODE_CONTRACT_ID,
     build_default_collaboration_mode_topology,
     collaboration_mode_report,
+    mode_chain_report,
 )
 from dev.scripts.devctl.runtime.development_collaboration_profiles import (
     PROFILE_CONTRACT_ID,
@@ -290,6 +292,21 @@ def test_collaboration_modes_are_read_only_role_presets() -> None:
     assert topology.packet_pressure_policy.soft_attention_budget == 12
     assert topology.packet_pressure_policy.hard_attention_budget == 15
     assert topology.packet_pressure_policy.near_ttl_minutes == 10
+    assert topology.mode_chain_policy.contract_id == "ModeChainComposition"
+    assert topology.mode_chain_policy.phase_sequence.default_ordering == "sequential"
+    assert topology.mode_chain_policy.scope_inheritance.default_policy == (
+        "same_or_narrower"
+    )
+    assert topology.mode_chain_policy.lane_cardinality.max_chain_phases == 4
+    assert topology.mode_chain_policy.lane_cardinality.max_live_tree_writers == 1
+    assert topology.mode_chain_policy.composite_receipt.emit_stage == (
+        "chain_completion"
+    )
+    assert topology.mode_chain_policy.composite_receipt.required_child_receipt_kinds == (
+        "RunRecord",
+        "DogfoodSelfCheckReceipt",
+        "ReviewerAuditReceipt",
+    )
     dashboard = next(item for item in topology.role_presets if item.preset_id == "dashboard")
     assert dashboard.attention_subscription == "AgentAttentionLoop"
     assert dashboard.timing_policy == "typed_event_driven_no_independent_poll"
@@ -308,6 +325,108 @@ def test_collaboration_modes_are_read_only_role_presets() -> None:
     assert report["selected_mode_id"] == "solo"
     assert report["selected_role_preset_id"] == "dashboard"
     assert report["mutable_fanout_status"] == "blocked_by_read_model_mode"
+    assert report["mode_chain"]["contract_id"] == "ModeChainComposition"
+    assert report["mode_chain"]["phases"][0]["role_preset"] == "dashboard"
+
+
+def test_mode_chain_report_orders_implementer_before_dogfood() -> None:
+    report = mode_chain_report(
+        selected_mode_id="pair_review",
+        selected_role_preset_id="implementer",
+        dogfood=True,
+        chain_scope="plan:MP-377",
+        receipt_refs=("run:implementer", "dogfood:green"),
+    )
+
+    assert report["ok"] is True
+    assert report["effective_reviewer_mode"] == ""
+    assert report["phases"] == [
+        {
+            "phase_id": "phase-1-primary",
+            "order": 1,
+            "role_preset": "implementer",
+            "collaboration_mode": "pair_review",
+            "phase_kind": "primary",
+            "scope_ref": "plan:MP-377",
+            "scope_inherited_from": "",
+            "scope_policy": "same_or_narrower",
+        },
+        {
+            "phase_id": "phase-2-dogfood",
+            "order": 2,
+            "role_preset": "tester",
+            "collaboration_mode": "dogfood_campaign",
+            "phase_kind": "dogfood",
+            "scope_ref": "plan:MP-377",
+            "scope_inherited_from": "phase-1-primary",
+            "scope_policy": "same_or_narrower",
+        },
+    ]
+    assert report["policy"]["composite_receipt"]["emit_stage"] == (
+        "chain_completion"
+    )
+    assert report["receipt_ref_rows"] == [
+        {
+            "receipt_ref": "run:implementer",
+            "expected_contract_id": "RunRecord",
+            "phase_id": "",
+        },
+        {
+            "receipt_ref": "dogfood:green",
+            "expected_contract_id": "DogfoodSelfCheckReceipt",
+            "phase_id": "",
+        },
+    ]
+    assert report["composition"]["contract_id"] == "ModeChainComposition"
+    assert report["composition"]["receipt_refs"][0] == ChainReceiptRef(
+        receipt_ref="run:implementer",
+        expected_contract_id="RunRecord",
+    ).to_dict()
+    assert "SessionActivityLog references" in report["policy"][
+        "composite_receipt"
+    ]["session_activity_log_policy"]
+
+
+def test_mode_chain_report_fails_closed_on_cardinality_escape() -> None:
+    report = mode_chain_report(
+        selected_mode_id="agent_sync",
+        selected_role_preset_id="architect",
+        chain_phases=(
+            "researcher",
+            "reviewer",
+            "tester",
+            "watcher",
+        ),
+    )
+
+    assert report["ok"] is False
+    assert "D-DevelopNext cardinality" in report["validation_errors"][0]
+
+
+def test_mode_chain_report_consumes_effective_reviewer_mode() -> None:
+    report = mode_chain_report(
+        selected_mode_id="agent_sync",
+        selected_role_preset_id="architect",
+        chain_phases=("reviewer",),
+        effective_reviewer_mode="tools_only",
+    )
+
+    assert report["ok"] is True
+    assert report["effective_reviewer_mode"] == "tools_only"
+    assert report["composition"]["effective_reviewer_mode"] == "tools_only"
+    assert "tools_only" in report["validation_warnings"][0]
+
+
+def test_mode_chain_report_blocks_review_phase_when_reviewer_offline() -> None:
+    report = mode_chain_report(
+        selected_mode_id="agent_sync",
+        selected_role_preset_id="architect",
+        chain_phases=("reviewer",),
+        effective_reviewer_mode="offline",
+    )
+
+    assert report["ok"] is False
+    assert "effective_reviewer_mode `offline`" in report["validation_errors"][0]
 
 
 def test_agent_sync_profile_resolves_role_counts_without_granting_authority() -> None:

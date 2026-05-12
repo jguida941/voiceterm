@@ -7,6 +7,10 @@ from collections.abc import Mapping
 from .context_refs import normalize_context_pack_refs
 from .event_models import ReviewPacketRow
 from .packet_creation_binding import PACKET_CREATION_BINDING_EVENT_TYPES
+from .packet_body_observation import (
+    PACKET_BODY_OBSERVATION_EVENT_TYPES,
+    packet_body_observation_payload_for_packet,
+)
 from .packet_debt_remediation_contracts import PACKET_DURABLE_INGESTION_EVENT_TYPES
 from .packet_lifecycle import apply_lifecycle_transition, project_packet_lifecycle
 from .packet_source_identity import source_identity
@@ -58,6 +62,9 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         trace_id=event.get("trace_id"),
         plan_id=event.get("plan_id"),
         latest_event_id=event.get("event_id"),
+        correlation_id=event.get("correlation_id"),
+        causation_id=event.get("causation_id"),
+        run_id=event.get("run_id"),
         from_agent=event.get("from_agent"),
         to_agent=event.get("to_agent"),
         kind=event.get("kind"),
@@ -82,6 +89,7 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         mutation_op=event.get("mutation_op"),
         target_role=event.get("target_role"),
         target_session_id=event.get("target_session_id"),
+        anchor_scope=event.get("anchor_scope"),
         requested_session_visibility=event.get("requested_session_visibility"),
         pipeline_generation=event.get("pipeline_generation"),
         staged_snapshot_hash=event.get("staged_snapshot_hash"),
@@ -95,6 +103,7 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         plan_integration={},
         semantic_zref=_semantic_zref(event),
         source_identity=source_identity(event),
+        metadata=_metadata(event),
         status=event.get("status"),
         posted_at=event.get("timestamp_utc"),
         acked_by=None,
@@ -103,6 +112,13 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         delivery_emitted_at_utc=event.get("timestamp_utc") if is_action_request else None,
         delivery_observed_at_utc="",
         delivery_observed_by="",
+        body_observed_at_utc="",
+        body_observed_by="",
+        body_observed_role="",
+        body_observed_session_id="",
+        body_observed_event_id="",
+        body_digest="",
+        body_observation_events=[],
         execution_started_at_utc="",
         execution_started_by="",
         execution_failed_at_utc="",
@@ -148,6 +164,8 @@ def apply_packet_transition(
     if event_type in PACKET_WAKE_EVENT_TYPES:
         next_packet["reviewer_wake"] = _packet_wake_payload(event)
         return project_packet_lifecycle(next_packet)
+    if event_type in PACKET_BODY_OBSERVATION_EVENT_TYPES:
+        return _apply_packet_body_observation(next_packet, event)
     next_packet["status"] = event.get("status") or action_request_lifecycle_status(
         event_type
     )
@@ -185,6 +203,11 @@ def apply_packet_transition(
         next_packet["plan_proposal"] = event.get("plan_proposal") or packet.get(
             "plan_proposal"
         )
+    for lineage_field in ("correlation_id", "causation_id", "run_id"):
+        if event.get(lineage_field) is not None or packet.get(lineage_field):
+            next_packet[lineage_field] = event.get(lineage_field) or packet.get(
+                lineage_field
+            )
     if event.get("semantic_zref") is not None or packet.get("semantic_zref"):
         next_packet["semantic_zref"] = (
             event.get("semantic_zref") or packet.get("semantic_zref")
@@ -229,6 +252,41 @@ def apply_packet_transition(
             next_packet["execution_started_at_utc"] = event.get("timestamp_utc")
             next_packet["execution_started_by"] = actor or packet.get("to_agent")
     return apply_lifecycle_transition(next_packet, event)
+
+
+def _apply_packet_body_observation(
+    packet: dict[str, object],
+    event: dict[str, object],
+) -> dict[str, object]:
+    payload = packet_body_observation_payload_for_packet(event, packet)
+    observed_by = str(payload.get("body_observed_by") or "").strip()
+    observed_at = str(payload.get("body_observed_at_utc") or "").strip()
+    digest = str(payload.get("body_digest") or "").strip()
+    event_id = str(payload.get("event_id") or "").strip()
+    events = list(packet.get("body_observation_events") or [])
+    if not any(
+        isinstance(row, dict)
+        and str(row.get("event_id") or "").strip() == event_id
+        and event_id
+        for row in events
+    ):
+        events.append(payload)
+    packet["body_observation_events"] = events
+    if observed_by:
+        packet["body_observed_by"] = observed_by
+    observed_role = str(payload.get("body_observed_role") or "").strip()
+    observed_session = str(payload.get("body_observed_session_id") or "").strip()
+    if observed_role:
+        packet["body_observed_role"] = observed_role
+    if observed_session:
+        packet["body_observed_session_id"] = observed_session
+    if observed_at:
+        packet["body_observed_at_utc"] = observed_at
+    if event_id:
+        packet["body_observed_event_id"] = event_id
+    if digest:
+        packet["body_digest"] = digest
+    return project_packet_lifecycle(packet)
 
 
 def _plan_integration_payload(event: Mapping[str, object]) -> dict[str, object]:
@@ -316,6 +374,11 @@ def _event_reason(event: Mapping[str, object]) -> str:
     if not isinstance(metadata, Mapping):
         return ""
     return str(metadata.get("reason") or "").strip()
+
+
+def _metadata(event: Mapping[str, object]) -> dict[str, object]:
+    metadata = event.get("metadata")
+    return dict(metadata) if isinstance(metadata, Mapping) else {}
 
 
 def _semantic_zref(packet: Mapping[str, object]) -> str:

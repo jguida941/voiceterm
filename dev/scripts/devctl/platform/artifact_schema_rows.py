@@ -56,6 +56,19 @@ def artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
             rollback_path="Restore prior packet constants and artifact writers before removing consumers.",
         ),
         ArtifactSchemaSpec(
+            contract_id="ReviewerAuditReceipt",
+            owner_layer="governance_runtime",
+            purpose="Evidence-only reviewer audit receipt carrying ground-truth observations and audit outcomes.",
+            schema_version=1,
+            emitter_path="dev/scripts/devctl/runtime/evidence_receipts.py",
+            constants_module="dev.scripts.devctl.runtime.evidence_receipts",
+            contract_id_attr="REVIEWER_AUDIT_RECEIPT_CONTRACT_ID",
+            schema_version_attr="REVIEWER_AUDIT_RECEIPT_SCHEMA_VERSION",
+            compatibility_window="additive fields only; audit receipts must remain readable by archive and review tooling.",
+            migration_path="Add fields additively, update reviewer audit fixtures, then update evidence archive readers.",
+            rollback_path="Keep prior audit receipt fields accepted until archived evidence can be retrieved by manifest ref.",
+        ),
+        ArtifactSchemaSpec(
             contract_id="ReviewTargets",
             owner_layer="governance_core",
             purpose="Portable review-target handoff artifact carrying summary, findings, and review packet.",
@@ -80,6 +93,67 @@ def artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
             compatibility_window="best-effort stable within MP-377 P0/P1; additive changes only",
             migration_path="Expand topology payloads additively and update topology renderers/tests in the same slice.",
             rollback_path="Restore prior topology constants and emitters before removing consumer support.",
+        ),
+        ArtifactSchemaSpec(
+            contract_id="DogfoodSelfCheckReceipt",
+            owner_layer="governance_runtime",
+            purpose="Evidence-only self-check receipt emitted by implementation agents for slice dogfood proof.",
+            schema_version=1,
+            emitter_path="dev/scripts/devctl/runtime/evidence_receipts.py",
+            constants_module="dev.scripts.devctl.runtime.evidence_receipts",
+            contract_id_attr="DOGFOOD_SELF_CHECK_RECEIPT_CONTRACT_ID",
+            schema_version_attr="DOGFOOD_SELF_CHECK_RECEIPT_SCHEMA_VERSION",
+            compatibility_window="additive fields only; evidence receipts must remain readable by archive and review tooling.",
+            migration_path="Add fields additively, update dogfood receipt fixtures, then update evidence archive readers.",
+            rollback_path="Keep prior receipt fields accepted until archived evidence can be retrieved by manifest ref.",
+        ),
+        ArtifactSchemaSpec(
+            contract_id="SessionActivityLog",
+            owner_layer="governance_runtime",
+            purpose=(
+                "Per-session typed activity artifact summarizing what was added, "
+                "verified, and archived from dogfood/audit receipts and packet evidence."
+            ),
+            schema_version=1,
+            emitter_path="dev/scripts/devctl/runtime/session_activity_log.py",
+            constants_module="dev.scripts.devctl.runtime.session_activity_log",
+            contract_id_attr="SESSION_ACTIVITY_LOG_CONTRACT_ID",
+            schema_version_attr="SESSION_ACTIVITY_LOG_SCHEMA_VERSION",
+            compatibility_window="additive fields only; logs are session-scoped and archived by EvidenceArchive on close.",
+            migration_path="Add fields additively, update session activity fixtures, then update archive readers and status renderers.",
+            rollback_path="Keep prior log fields readable until archived session summaries can be retrieved by evidence archive ref.",
+        ),
+        ArtifactSchemaSpec(
+            contract_id="CommitReceipt",
+            owner_layer="governance_runtime",
+            purpose=(
+                "Governed-commit receipt artifact binding commit SHA, reviewer ack, "
+                "audit synthesis, validation receipt, and remote pipeline lineage."
+            ),
+            schema_version=1,
+            emitter_path="dev/scripts/devctl/runtime/commit_receipt.py",
+            constants_module="dev.scripts.devctl.runtime.commit_receipt",
+            contract_id_attr="COMMIT_RECEIPT_CONTRACT_ID",
+            schema_version_attr="COMMIT_RECEIPT_SCHEMA_VERSION",
+            compatibility_window="additive fields only; commit receipts must remain readable by publication and audit tooling.",
+            migration_path="Add fields additively, update commit receipt fixtures, then update governed commit and publication readers.",
+            rollback_path="Keep prior receipt fields readable until governed commit evidence can be retrieved by commit SHA.",
+        ),
+        ArtifactSchemaSpec(
+            contract_id="GoalProgressReceipt",
+            owner_layer="governance_runtime",
+            purpose=(
+                "Goal-progress receipt artifact tying goal_progress packets to a "
+                "continuation_anchor and operator-visible progress percentage."
+            ),
+            schema_version=1,
+            emitter_path="dev/scripts/devctl/runtime/goal_progress_receipt.py",
+            constants_module="dev.scripts.devctl.runtime.goal_progress_receipt",
+            contract_id_attr="GOAL_PROGRESS_RECEIPT_CONTRACT_ID",
+            schema_version_attr="GOAL_PROGRESS_RECEIPT_SCHEMA_VERSION",
+            compatibility_window="additive fields only; goal progress receipts must remain readable by develop and status surfaces.",
+            migration_path="Add fields additively, update goal progress fixtures, then update develop/status readers.",
+            rollback_path="Keep prior progress fields readable until continuation-anchor progress consumers are migrated.",
         ),
         ArtifactSchemaSpec(
             contract_id="ProbeAllowlist",

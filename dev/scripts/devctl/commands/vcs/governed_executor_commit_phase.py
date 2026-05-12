@@ -13,6 +13,10 @@ from ...runtime.commit_packet_gate import (
     check_commit_packet_gate,
     pending_packet_queue_block_commit,
 )
+from ...runtime.commit_receipt import (
+    build_commit_receipt,
+    write_commit_receipt_artifact,
+)
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
 from ...runtime.vcs import run_git_capture
 from .governed_executor_actions import APPROVAL_PACKET_KIND
@@ -441,7 +445,34 @@ def _commit_success_result(
     context: CommitPipelineContext,
     completed: RemoteCommitPipelineContract,
 ) -> ActionResult:
-    warnings = context.persist_pipeline_contract_only(completed)
+    artifact_paths = [context.pipeline_artifact_relpath]
+    receipt_warnings: list[str] = []
+    try:
+        receipt = build_commit_receipt(
+            completed,
+            artifact_paths=artifact_paths,
+        )
+        artifact_paths.append(
+            write_commit_receipt_artifact(context.repo_root, receipt)
+        )
+    except Exception as exc:
+        # Commit is already durable; surface receipt write failure as evidence debt.
+        receipt_warnings.append(f"commit_receipt_write_failed:{exc}")
+    commit_result = context.result_builder(
+        action_id=action_id,
+        ok=True,
+        status=ActionOutcome.PASS,
+        reason="commit_recorded",
+        operator_guidance=(
+            "Run the existing governed `vcs.push` action to publish the "
+            "new commit."
+        ),
+        artifact_paths=tuple(artifact_paths),
+    )
+    warnings = context.persist_pipeline_contract_only(
+        replace(completed, commit_result=commit_result)
+    )
+    warnings.extend(receipt_warnings)
     return context.result_builder(
         action_id=action_id,
         ok=True,
@@ -452,5 +483,5 @@ def _commit_success_result(
             "new commit."
         ),
         warnings=tuple(warnings),
-        artifact_paths=(context.pipeline_artifact_relpath,),
+        artifact_paths=tuple(artifact_paths),
     )

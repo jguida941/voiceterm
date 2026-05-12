@@ -297,6 +297,7 @@ class DevelopmentLoopReport:
     watcher_lease: DevelopmentWatcherLease
     continuation: DevelopmentContinuationRequiredSignal
     final_response_gate: Any
+    reviewer_response_shape: Any
     learning: DevelopmentLearningSnapshot
     discovery: DevelopmentDiscoverySnapshot
     required_checks: tuple[str, ...]

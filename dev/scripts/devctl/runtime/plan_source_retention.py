@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from .plan_source_retention_anchors import (
+    MP377_EVIDENCE_LIFECYCLE_ARCHIVE_REQUIRED_ANCHORS,
+    MP377_EVIDENCE_LIFECYCLE_ARCHIVE_ROW_ID,
     MP377_EXCEPTION_SLICE1_REQUIRED_ANCHORS,
     full_plan_anchor_status,
     missing_required_plan_source_anchors,
@@ -34,6 +36,8 @@ __all__ = [
     "PLAN_SOURCE_SNAPSHOT_CONTRACT_ID",
     "PLAN_SOURCE_SNAPSHOT_STORE_REL",
     "ACCEPTED_PLAN_SOURCE_RECEIPT_STATUSES",
+    "MP377_EVIDENCE_LIFECYCLE_ARCHIVE_REQUIRED_ANCHORS",
+    "MP377_EVIDENCE_LIFECYCLE_ARCHIVE_ROW_ID",
     "MP377_EXCEPTION_SLICE1_REQUIRED_ANCHORS",
     "PlanSourceSnapshot",
     "append_plan_source_snapshot",

@@ -76,20 +76,26 @@ def packet_focus_for_agent(
         active_packet_id=active,
     )
     selected_attention_id = _text(attention.get("latest_attention_packet_id"))
+    body_open_attention_id = (
+        _text(attention.get("body_open_packet_id"))
+        if attention.get("body_open_required")
+        else ""
+    )
     default_attention_id = (
         _text(work_row.get("attention_packet_id"))
         or active
         or selected_attention_id
     )
     explicit_work_board_attention = _text(work_row.get("attention_packet_id"))
-    attention_id = explicit_work_board_attention or (
+    selected_preempts_default = _attention_packet_preempts(
+        review_state,
+        selected_attention_id,
+        default_attention_id,
+    )
+    attention_id = body_open_attention_id or (
         selected_attention_id
-        if _attention_packet_preempts(
-            review_state,
-            selected_attention_id,
-            default_attention_id,
-        )
-        else default_attention_id
+        if selected_preempts_default
+        else explicit_work_board_attention or default_attention_id
     )
     executing = _text(work_row.get("executing_packet_id"))
     if not _packet_id_is_focusable(review_state, attention_id):

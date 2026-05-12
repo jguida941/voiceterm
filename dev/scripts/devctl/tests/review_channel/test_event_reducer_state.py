@@ -172,6 +172,9 @@ def test_packet_attention_metadata_reduces_into_packet_row() -> None:
                     "source": "review_channel",
                     "packet_id": "rev_pkt_attention",
                     "trace_id": "trace-attention",
+                    "correlation_id": "corr-attention",
+                    "causation_id": "cause-attention",
+                    "run_id": "run-attention",
                     "session_id": "local-review",
                     "plan_id": "MP-377",
                     "project_id": "project-1",
@@ -201,6 +204,9 @@ def test_packet_attention_metadata_reduces_into_packet_row() -> None:
     packet = review_state["packets"][0]
     assert packet["attention_urgency"] == "blocking"
     assert packet["attention_class"] == "decision"
+    assert packet["correlation_id"] == "corr-attention"
+    assert packet["causation_id"] == "cause-attention"
+    assert packet["run_id"] == "run-attention"
 
 
 def _stage_commit_events(*, outcome_provider: str = "codex") -> list[dict[str, object]]:

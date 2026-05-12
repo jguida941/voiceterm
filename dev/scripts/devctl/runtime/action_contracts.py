@@ -23,6 +23,13 @@ class TypedAction:
     parameters: dict[str, object]
     requested_by: str = ""
     dry_run: bool = False
+    correlation_id: str = ""
+    causation_id: str = ""
+    run_id: str = ""
+
+
+RUN_RECORD_CONTRACT_ID = "RunRecord"
+RUN_RECORD_SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +43,8 @@ class RunRecord:
     findings_count: int = 0
     started_at: str = ""
     finished_at: str = ""
+    correlation_id: str = ""
+    causation_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,6 +113,9 @@ class ActionResultFields:
     auto_executable: bool = False
     findings_count: int = 0
     artifact_paths: Sequence[str] = field(default_factory=tuple)
+    correlation_id: str = ""
+    causation_id: str = ""
+    run_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,6 +148,9 @@ class ActionResult:
     auto_executable: bool = False
     findings_count: int = 0
     artifact_paths: tuple[str, ...] = ()
+    correlation_id: str = ""
+    causation_id: str = ""
+    run_id: str = ""
 
     def to_dict(self) -> dict[str, object]:
         d = asdict(self)
@@ -168,6 +183,9 @@ def build_action_result(fields: ActionResultFields) -> ActionResult:
         auto_executable=fields.auto_executable,
         findings_count=fields.findings_count,
         artifact_paths=artifact_paths,
+        correlation_id=fields.correlation_id,
+        causation_id=fields.causation_id,
+        run_id=fields.run_id,
     )
 
 
@@ -191,6 +209,9 @@ def action_result_from_mapping(payload: Mapping[str, object]) -> ActionResult:
         auto_executable=coerce_bool(payload.get("auto_executable")),
         findings_count=coerce_int(payload.get("findings_count")),
         artifact_paths=coerce_string_items(payload.get("artifact_paths")),
+        correlation_id=coerce_string(payload.get("correlation_id")),
+        causation_id=coerce_string(payload.get("causation_id")),
+        run_id=coerce_string(payload.get("run_id")),
     )
 
 
@@ -215,13 +236,18 @@ def typed_action_from_mapping(payload: Mapping[str, object]) -> TypedAction:
         parameters=parameters,
         requested_by=coerce_string(payload.get("requested_by")),
         dry_run=coerce_bool(payload.get("dry_run")),
+        correlation_id=coerce_string(payload.get("correlation_id")),
+        causation_id=coerce_string(payload.get("causation_id")),
+        run_id=coerce_string(payload.get("run_id")),
     )
 
 
 def run_record_from_mapping(payload: Mapping[str, object]) -> RunRecord:
     return RunRecord(
-        schema_version=coerce_int(payload.get("schema_version")) or 1,
-        contract_id=coerce_string(payload.get("contract_id")) or "RunRecord",
+        schema_version=coerce_int(payload.get("schema_version"))
+        or RUN_RECORD_SCHEMA_VERSION,
+        contract_id=coerce_string(payload.get("contract_id"))
+        or RUN_RECORD_CONTRACT_ID,
         run_id=coerce_string(payload.get("run_id")),
         action_id=coerce_string(payload.get("action_id")),
         artifact_paths=coerce_string_items(payload.get("artifact_paths")),
@@ -229,6 +255,8 @@ def run_record_from_mapping(payload: Mapping[str, object]) -> RunRecord:
         findings_count=coerce_int(payload.get("findings_count")),
         started_at=coerce_string(payload.get("started_at")),
         finished_at=coerce_string(payload.get("finished_at")),
+        correlation_id=coerce_string(payload.get("correlation_id")),
+        causation_id=coerce_string(payload.get("causation_id")),
     )
 
 

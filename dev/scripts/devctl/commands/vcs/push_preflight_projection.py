@@ -55,14 +55,33 @@ def refresh_managed_projections_before_preflight(
         return result
     result = _base_pre_validation_result(render_result=render_result)
     if current_head_is_managed_review_snapshot_receipt(repo_root=repo_root):
+        errors_before_refresh = len(getattr(state, "errors", ()))
+        refresh_runtime_surfaces_after_projection_receipt(
+            state,
+            command_runner=runner,
+            repo_root=repo_root,
+            next_step_label="push preflight receipt head",
+            repo_pack_id=str(getattr(policy, "repo_pack_id", "") or ""),
+        )
         result["status"] = "completed"
         result["ok"] = True
         result["reason"] = "managed_review_snapshot_receipt_head"
+        refresh_errors = tuple(getattr(state, "errors", ())[errors_before_refresh:])
+        if refresh_errors:
+            del state.errors[errors_before_refresh:]
+            state.warnings.extend(refresh_errors)
+        result["runtime_surfaces_refreshed"] = not bool(refresh_errors)
+        result["runtime_surface_refresh_warnings"] = refresh_errors
         result["receipt_committed"] = False
         result["paths"] = ()
         result["snapshot_warning_count"] = 0
-        _record_phase_state(state, PRE_VALIDATION_MANAGED_PROJECTION_SYNC, result)
-        return result
+        return _finish_pre_validation_managed_projection_sync(
+            state,
+            policy,
+            result,
+            repo_root=repo_root,
+            command_runner=runner,
+        )
     heartbeat_result = refresh_stale_reviewer_heartbeat_before_publication(
         state,
         command_runner=runner,
@@ -134,6 +153,23 @@ def refresh_managed_projections_before_preflight(
             next_step_label="push preflight generated-surface receipt",
             repo_pack_id=str(getattr(policy, "repo_pack_id", "") or ""),
         )
+    return _finish_pre_validation_managed_projection_sync(
+        state,
+        policy,
+        result,
+        repo_root=repo_root,
+        command_runner=runner,
+    )
+
+
+def _finish_pre_validation_managed_projection_sync(
+    state,
+    policy,
+    result: dict[str, object],
+    *,
+    repo_root: Path,
+    command_runner,
+) -> dict[str, object]:
     _merge_existing_phase_state(
         result,
         getattr(state, "pre_validation_managed_projection_sync", {}),
@@ -150,18 +186,32 @@ def refresh_managed_projections_before_preflight(
         result["startup_context_recovery"] = dict(recovery_record)
     if getattr(state, "errors", ()):
         result["status"] = "blocked"
+        result["ok"] = False
     _record_phase_state(
         state,
         "pre_validation_managed_projection_sync",
         result,
     )
     if not getattr(state, "errors", ()):
-        run_pre_validation_recovery_loop_repair_phase(
+        recovery_result = run_pre_validation_recovery_loop_repair_phase(
             state,
             policy,
             repo_root=repo_root,
-            command_runner=runner,
+            command_runner=command_runner,
         )
+        if (
+            isinstance(recovery_result, dict)
+            and recovery_result.get("status") != "not_needed"
+        ):
+            result["pre_validation_recovery_loop_repair"] = dict(recovery_result)
+        if getattr(state, "errors", ()):
+            result["status"] = "blocked"
+            result["ok"] = False
+            _record_phase_state(
+                state,
+                "pre_validation_managed_projection_sync",
+                result,
+            )
     return result
 
 

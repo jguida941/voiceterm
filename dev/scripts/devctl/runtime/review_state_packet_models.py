@@ -183,6 +183,9 @@ class ReviewPacketState:
     context_pack_refs: tuple[ContextPackRefState, ...] = ()
     trace_id: str = ""
     latest_event_id: str = ""
+    correlation_id: str = ""
+    causation_id: str = ""
+    run_id: str = ""
     confidence: float = 0.0
     guidance_refs: tuple[str, ...] = ()
     target_kind: str = ""
@@ -190,6 +193,7 @@ class ReviewPacketState:
     target_revision: str = ""
     target_role: str = ""
     target_session_id: str = ""
+    anchor_scope: str = ""
     requested_session_visibility: str = ""
     anchor_refs: tuple[str, ...] = ()
     intake_ref: str = ""
@@ -212,6 +216,11 @@ class ReviewPacketState:
     apply_pending_after_execution_at_utc: str = ""
     apply_pending_after_execution_by: str = ""
     apply_pending_after_execution_reason: str = ""
+    body_observed_at_utc: str = ""
+    body_observed_by: str = ""
+    body_observed_event_id: str = ""
+    body_digest: str = ""
+    body_observation_events: tuple[dict[str, object], ...] = ()
     expires_at_utc: str = ""
     semantic_zref: str = ""
     source_identity: dict[str, str] = field(default_factory=dict)

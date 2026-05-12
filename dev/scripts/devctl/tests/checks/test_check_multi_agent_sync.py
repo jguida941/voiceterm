@@ -326,6 +326,228 @@ class CheckMultiAgentSyncTests(unittest.TestCase):
             any("Packet inbox current instruction disagrees" in err for err in errors)
         )
 
+    def test_body_open_subqueue_can_advance_past_observed_current_instruction(self) -> None:
+        payload = {
+            "queue": {
+                "derived_next_instruction_source": {
+                    "to_agent": "codex",
+                    "packet_id": "rev_pkt_observed",
+                }
+            },
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "codex",
+                        "current_instruction_packet_id": "rev_pkt_observed",
+                        "pending_actionable_packet_ids": [
+                            "rev_pkt_observed",
+                            "rev_pkt_unread",
+                        ],
+                    }
+                ]
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_observed",
+                    "body": "Observed packet body",
+                    "body_observed_by": "codex",
+                    "body_observed_role": "",
+                    "body_observed_session_id": "",
+                    "body_observed_event_id": "rev_evt_2",
+                    "body_digest": "61701d9968a3896116e8590d1c447f8dcbc6a729066c56eaab7a281cdc033555",
+                },
+                {
+                    "packet_id": "rev_pkt_unread",
+                    "body": "Unread packet body",
+                },
+            ],
+        }
+        decisions = [
+            {
+                "actor_id": "codex",
+                "active_packet_id": "rev_pkt_unread",
+                "attention_packet_id": "rev_pkt_unread",
+                "required_action": "open_packet_body",
+            }
+        ]
+
+        errors = instruction_authority_mismatch_errors(payload, decisions)
+
+        assert errors == []
+
+    def test_body_open_subqueue_allows_projection_with_narrow_actionable_list(self) -> None:
+        payload = {
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "claude",
+                        "target_role": "dashboard",
+                        "target_session_id": "session-a",
+                        "current_instruction_packet_id": "rev_pkt_observed",
+                        "pending_actionable_packet_ids": [
+                            "rev_pkt_observed",
+                        ],
+                    }
+                ]
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_observed",
+                    "target_role": "dashboard",
+                    "target_session_id": "session-a",
+                    "body": "Observed dashboard packet body",
+                    "body_observed_by": "claude",
+                    "body_observed_role": "dashboard",
+                    "body_observed_session_id": "session-a",
+                    "body_observed_event_id": "rev_evt_2",
+                    "body_digest": "5cc901ad99177aa85013163b1887c66acc614e2eb41451ce62189138d1a8afb5",
+                },
+                {
+                    "packet_id": "rev_pkt_unread",
+                    "target_role": "dashboard",
+                    "target_session_id": "session-a",
+                    "body": "Unread packet body",
+                },
+            ],
+        }
+        decisions = [
+            {
+                "actor_id": "claude",
+                "actor_role": "dashboard",
+                "session_id": "session-a",
+                "active_packet_id": "rev_pkt_unread",
+                "attention_packet_id": "rev_pkt_unread",
+                "required_action": "open_packet_body",
+            }
+        ]
+
+        errors = instruction_authority_mismatch_errors(payload, decisions)
+
+        assert errors == []
+
+    def test_body_open_subqueue_rejects_observation_from_other_actor(self) -> None:
+        payload = {
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "codex",
+                        "current_instruction_packet_id": "rev_pkt_observed",
+                        "pending_actionable_packet_ids": [
+                            "rev_pkt_observed",
+                            "rev_pkt_unread",
+                        ],
+                    }
+                ]
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_observed",
+                    "body": "Observed by the wrong actor.",
+                    "body_observed_by": "claude",
+                    "body_observed_event_id": "rev_evt_2",
+                    "body_digest": "e58af0c3b3683df72867d58abab6e80e27130f6f360de8e6f8c230f28a524014",
+                },
+                {
+                    "packet_id": "rev_pkt_unread",
+                    "body": "Unread packet body",
+                },
+            ],
+        }
+        decisions = [
+            {
+                "actor_id": "codex",
+                "active_packet_id": "rev_pkt_unread",
+                "attention_packet_id": "rev_pkt_unread",
+                "required_action": "open_packet_body",
+            }
+        ]
+
+        errors = instruction_authority_mismatch_errors(payload, decisions)
+
+        assert any("Packet inbox current instruction disagrees" in err for err in errors)
+
+    def test_body_open_subqueue_accepts_frozen_legacy_event_for_same_actor(self) -> None:
+        payload = {
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "codex",
+                        "current_instruction_packet_id": "rev_pkt_observed",
+                    }
+                ]
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_observed",
+                    "body": "Legacy observation event without body digest.",
+                    "body_observation_events": (
+                        {
+                            "body_observed_by": "codex",
+                            "body_observed_role": "",
+                            "body_observed_session_id": "",
+                            "body_observed_event_id": "rev_evt_2",
+                        },
+                    ),
+                },
+                {
+                    "packet_id": "rev_pkt_unread",
+                    "body": "Unread packet body",
+                },
+            ],
+        }
+        decisions = [
+            {
+                "actor_id": "codex",
+                "active_packet_id": "rev_pkt_unread",
+                "attention_packet_id": "rev_pkt_unread",
+                "required_action": "open_packet_body",
+            }
+        ]
+
+        errors = instruction_authority_mismatch_errors(payload, decisions)
+
+        assert errors == []
+
+    def test_body_open_subqueue_rejects_legacy_event_from_other_actor(self) -> None:
+        payload = {
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "codex",
+                        "current_instruction_packet_id": "rev_pkt_observed",
+                    }
+                ]
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_observed",
+                    "body": "Legacy observation event from another actor.",
+                    "body_observation_events": [
+                        {
+                            "body_observed_by": "claude",
+                            "body_observed_event_id": "rev_evt_2",
+                        }
+                    ],
+                },
+                {
+                    "packet_id": "rev_pkt_unread",
+                    "body": "Unread packet body",
+                },
+            ],
+        }
+        decisions = [
+            {
+                "actor_id": "codex",
+                "active_packet_id": "rev_pkt_unread",
+                "attention_packet_id": "rev_pkt_unread",
+                "required_action": "open_packet_body",
+            }
+        ]
+
+        errors = instruction_authority_mismatch_errors(payload, decisions)
+
+        assert any("Packet inbox current instruction disagrees" in err for err in errors)
+
     def test_communication_only_packet_is_not_instruction_authority(self) -> None:
         payload = {
             "packet_inbox": {

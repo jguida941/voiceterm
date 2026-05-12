@@ -12,6 +12,7 @@ from .finding_contracts import (
     FindingRecord,
     _positive_int,
     build_finding_id,
+    finding_correlation_context,
 )
 from .value_coercion import coerce_string
 
@@ -64,24 +65,30 @@ def finding_from_guard_violation(
     line = _positive_int(violation.get("line") or violation.get("start_line"))
     end_line = _positive_int(violation.get("end_line"))
     signals = _guard_signals(violation)
+    finding_id = build_finding_id(
+        FindingIdentitySeed(
+            repo_name=repo_name,
+            repo_path=repo_path,
+            signal_type="guard",
+            check_id=policy.guard_command,
+            file_path=file_path,
+            symbol=symbol,
+            line=line,
+            end_line=end_line,
+            risk_type=policy.risk_type,
+            review_lens=policy.review_lens,
+            signals=signals,
+        )
+    )
+    context = finding_correlation_context(
+        finding_id,
+        check_id=policy.guard_command,
+        source_artifact=policy.source_artifact,
+    )
     return FindingRecord(
         schema_version=FINDING_SCHEMA_VERSION,
         contract_id=FINDING_CONTRACT_ID,
-        finding_id=build_finding_id(
-            FindingIdentitySeed(
-                repo_name=repo_name,
-                repo_path=repo_path,
-                signal_type="guard",
-                check_id=policy.guard_command,
-                file_path=file_path,
-                symbol=symbol,
-                line=line,
-                end_line=end_line,
-                risk_type=policy.risk_type,
-                review_lens=policy.review_lens,
-                signals=signals,
-            )
-        ),
+        finding_id=finding_id,
         signal_type="guard",
         check_id=policy.guard_command,
         rule_id=policy.guard_command,
@@ -99,4 +106,7 @@ def finding_from_guard_violation(
         signals=signals,
         source_command=policy.guard_command,
         source_artifact=policy.source_artifact,
+        correlation_id=context.correlation_id,
+        causation_id=context.causation_id,
+        run_id=context.run_id,
     )

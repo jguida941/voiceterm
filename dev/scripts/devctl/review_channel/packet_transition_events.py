@@ -53,6 +53,9 @@ def build_transition_event(
         source="review_channel",
         plan_id=_transition_plan_id(packet=packet, request=request),
         controller_run_id=request.controller_run_id,
+        correlation_id=request.correlation_id or packet.get("correlation_id"),
+        causation_id=request.causation_id or packet.get("causation_id"),
+        run_id=request.run_id or packet.get("run_id"),
         event_type=event_type,
         from_agent=packet.get("from_agent"),
         to_agent=packet.get("to_agent"),
@@ -188,6 +191,9 @@ def _plan_integration_event(
         "source": "review_channel",
         "plan_id": written_event.get("plan_id") or packet.get("plan_id"),
         "controller_run_id": request.controller_run_id,
+        "correlation_id": request.correlation_id or packet.get("correlation_id"),
+        "causation_id": request.causation_id or packet.get("causation_id"),
+        "run_id": request.run_id or packet.get("run_id"),
         "event_type": event_type,
         "from_agent": packet.get("from_agent"),
         "to_agent": packet.get("to_agent"),
@@ -209,6 +215,11 @@ def _plan_integration_event(
             "actor": actor,
             "plan_ingestion": dict(plan_integration),
             "plan_integration": dict(plan_integration),
+            "correlation_id": request.correlation_id
+            or packet.get("correlation_id")
+            or "",
+            "causation_id": request.causation_id or packet.get("causation_id") or "",
+            "run_id": request.run_id or packet.get("run_id") or "",
         },
     }
 

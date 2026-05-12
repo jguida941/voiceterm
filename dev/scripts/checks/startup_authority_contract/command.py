@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 from .runtime_checks import (
+    classify_checkpoint_budget_shape,
     collect_checkpoint_budget_errors,
     collect_concurrent_writer_errors,
     collect_import_index_atomicity_finding_records,
@@ -133,14 +134,18 @@ def _runtime_authority_checks(
     *,
     intent: str,
     reviewer_gate=None,
-) -> tuple[list[str], list[str], int, int, bool, bool, list[str], list[dict]]:
+) -> tuple[list[str], list[str], int, int, bool, bool, list[str], list[dict], dict]:
     errors: list[str] = []
     warnings: list[str] = []
     checks_run = 0
     checks_passed = 0
 
     checks_run += 1
-    checkpoint_errors = collect_checkpoint_budget_errors(gov)
+    checkpoint_budget_shape = classify_checkpoint_budget_shape(gov, repo_root=root)
+    checkpoint_errors = collect_checkpoint_budget_errors(
+        gov,
+        shape=checkpoint_budget_shape,
+    )
     if checkpoint_errors:
         errors.extend(checkpoint_errors)
     else:
@@ -210,6 +215,7 @@ def _runtime_authority_checks(
         and not reviewer_loop_errors,
         list(import_atomicity_errors),
         [record.to_dict() for record in import_atomicity_records],
+        checkpoint_budget_shape.to_dict(),
     )
 
 
@@ -233,6 +239,7 @@ def _build_report(
         reviewer_loop_bootstrap_allowed,
         import_index_atomicity_findings,
         import_index_atomicity_finding_records,
+        checkpoint_budget_shape,
     ) = _runtime_authority_checks(
         root,
         gov,
@@ -257,6 +264,7 @@ def _build_report(
         "checkpoint_required": gov.push_enforcement.checkpoint_required,
         "safe_to_continue_editing": gov.push_enforcement.safe_to_continue_editing,
         "checkpoint_reason": gov.push_enforcement.checkpoint_reason,
+        "checkpoint_budget_shape": checkpoint_budget_shape,
         "staged_path_count": int(
             getattr(gov.push_enforcement, "staged_path_count", 0) or 0
         ),
@@ -285,6 +293,20 @@ def _render_md(report: dict) -> str:
         f"- safe_to_continue_editing: {report['safe_to_continue_editing']}"
     )
     lines.append(f"- checkpoint_reason: {report['checkpoint_reason']}")
+    shape = report.get("checkpoint_budget_shape") or {}
+    if isinstance(shape, dict):
+        lines.append(
+            "- checkpoint_budget_shape: "
+            f"{shape.get('state', 'unknown')} "
+            f"next={shape.get('next_required_action', 'none')} "
+            f"blocked={shape.get('bootstrap_blocked', False)}"
+        )
+        if shape.get("pipeline_id"):
+            lines.append(
+                "- checkpoint_budget_pipeline: "
+                f"{shape.get('pipeline_id')} state={shape.get('pipeline_state', '')} "
+                f"tree_match={shape.get('tree_hash_match', False)}"
+            )
     lines.append(f"- staged_path_count: {report['staged_path_count']}")
     lines.append(f"- unstaged_path_count: {report['unstaged_path_count']}")
     lines.append(

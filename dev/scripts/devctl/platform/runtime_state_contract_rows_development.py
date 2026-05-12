@@ -205,6 +205,15 @@ DEVELOPMENT_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 ),
             ),
             ContractField(
+                "reviewer_response_shape",
+                "Any",
+                (
+                    "ReviewerResponseShape payload derived from the final "
+                    "gate; it explains which terminal response shapes are "
+                    "allowed while typed continuation state is live."
+                ),
+            ),
+            ContractField(
                 "learning",
                 "DevelopmentLearningSnapshot",
                 "Guard/probe and prevention-loop inputs visible to the controller.",
@@ -296,6 +305,15 @@ DEVELOPMENT_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "packet_pressure_policy",
                 "PacketAttentionPressurePolicy",
                 "Repo-pack configurable soft/hard packet budgets and near-TTL window.",
+            ),
+            ContractField(
+                "mode_chain_policy",
+                "ModeChainPolicy",
+                (
+                    "Typed chain composition policy covering phase order, "
+                    "conflicts, scope inheritance, lane cardinality, and "
+                    "composite receipt chaining."
+                ),
             ),
             ContractField(
                 "authority_policy",

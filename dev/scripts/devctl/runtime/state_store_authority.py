@@ -27,6 +27,9 @@ class StateStoreWriteResult:
     byte_offset: int = 0
     bytes_written: int = 0
     replaced: bool = False
+    correlation_id: str = ""
+    causation_id: str = ""
+    run_id: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -46,6 +49,9 @@ def append_json_mapping(
     *,
     store_id: str = "",
     serializer: Callable[[Mapping[str, object]], str] | None = None,
+    correlation_id: str = "",
+    causation_id: str = "",
+    run_id: str = "",
 ) -> StateStoreWriteResult:
     """Append one JSON object row under a shared exclusive lock."""
     result = append_json_mappings(
@@ -53,6 +59,9 @@ def append_json_mapping(
         (payload,),
         store_id=store_id,
         serializer=serializer,
+        correlation_id=correlation_id,
+        causation_id=causation_id,
+        run_id=run_id,
     )
     return result
 
@@ -63,6 +72,9 @@ def append_json_mappings(
     *,
     store_id: str = "",
     serializer: Callable[[Mapping[str, object]], str] | None = None,
+    correlation_id: str = "",
+    causation_id: str = "",
+    run_id: str = "",
 ) -> StateStoreWriteResult:
     """Append one or more JSON object rows under a shared exclusive lock."""
     rows = tuple(_mapping_copy(item) for item in payloads)
@@ -72,6 +84,9 @@ def append_json_mappings(
             path=str(path),
             write_mode="append",
             lock_path=str(_lock_path(path)),
+            correlation_id=correlation_id,
+            causation_id=causation_id,
+            run_id=run_id,
         )
     serializer_fn = serializer or json_line
     rendered_rows = [serializer_fn(row) for row in rows]
@@ -93,6 +108,9 @@ def append_json_mappings(
             byte_offset=byte_offset,
             bytes_written=len(content.encode("utf-8")),
             replaced=False,
+            correlation_id=correlation_id,
+            causation_id=causation_id,
+            run_id=run_id,
         )
 
 
@@ -102,6 +120,9 @@ def replace_json_mappings(
     *,
     store_id: str = "",
     serializer: Callable[[Mapping[str, object]], str] | None = None,
+    correlation_id: str = "",
+    causation_id: str = "",
+    run_id: str = "",
 ) -> StateStoreWriteResult:
     """Atomically replace a governed JSONL/NDJSON file under a shared lock."""
     rows = tuple(_mapping_copy(item) for item in payloads)
@@ -119,6 +140,9 @@ def replace_json_mappings(
             byte_offset=0,
             bytes_written=len(content.encode("utf-8")),
             replaced=True,
+            correlation_id=correlation_id,
+            causation_id=causation_id,
+            run_id=run_id,
         )
 
 
@@ -131,6 +155,9 @@ def transform_json_mappings(
     ],
     store_id: str = "",
     serializer: Callable[[Mapping[str, object]], str] | None = None,
+    correlation_id: str = "",
+    causation_id: str = "",
+    run_id: str = "",
 ) -> tuple[dict[str, Any], ...]:
     """Apply one locked read-modify-write transform to a governed JSONL store."""
     serializer_fn = serializer or json_line

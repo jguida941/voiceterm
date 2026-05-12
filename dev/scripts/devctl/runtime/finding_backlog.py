@@ -25,7 +25,9 @@ from .finding_contracts import (
     FindingIdentitySeed,
     FindingRecord,
     build_finding_id,
+    finding_correlation_context,
 )
+from .correlation_spine import merge_correlation_context
 from .review_snapshot_sources import resolve_governance_log_path
 
 _OPEN_VERDICTS = frozenset({"confirmed_issue"})
@@ -272,6 +274,18 @@ def _finding_from_review_row(
             signals=("confirmed_issue",),
         )
     )
+    check_source_command = (
+        optional_text(row.get("source_command"))
+        or "python3 dev/scripts/devctl.py governance-review --format md"
+    )
+    context = merge_correlation_context(
+        row,
+        finding_correlation_context(
+            finding_id,
+            check_id=check_id,
+            source_artifact=source_artifact,
+        ).to_dict(),
+    )
     return FindingRecord(
         schema_version=FINDING_SCHEMA_VERSION,
         contract_id=FINDING_CONTRACT_ID,
@@ -292,9 +306,11 @@ def _finding_from_review_row(
         review_lens=optional_text(row.get("prevention_surface")) or "",
         ai_instruction=optional_text(row.get("notes")) or "",
         signals=("confirmed_issue",),
-        source_command=optional_text(row.get("source_command"))
-        or "python3 dev/scripts/devctl.py governance-review --format md",
+        source_command=check_source_command,
         source_artifact=source_artifact,
+        correlation_id=context.correlation_id,
+        causation_id=context.causation_id,
+        run_id=context.run_id,
     )
 
 

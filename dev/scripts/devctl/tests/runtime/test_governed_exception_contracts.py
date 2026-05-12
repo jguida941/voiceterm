@@ -41,9 +41,13 @@ def test_valid_exception_receipt_validates() -> None:
 def test_exception_receipt_scope_round_trips() -> None:
     receipt = _valid_receipt(scope="managed projection refresh")
     payload = receipt.to_dict()
+    restored = ExceptionReceipt.from_mapping(payload)
 
     assert payload["scope"] == "managed projection refresh"
-    assert ExceptionReceipt.from_mapping(payload).scope == "managed projection refresh"
+    assert restored.scope == "managed projection refresh"
+    assert restored.correlation_id.startswith("corr-")
+    assert restored.causation_id.startswith("cause-")
+    assert restored.run_id.startswith("run-")
 
 
 def test_missing_reason_fails_validation() -> None:

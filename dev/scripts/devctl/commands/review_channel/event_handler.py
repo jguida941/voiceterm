@@ -28,6 +28,8 @@ from ...review_channel.follow_stream import (
     validate_follow_json_format,
 )
 from ...review_channel.pending_packets import reconcile_review_state_packet_queue
+from ...review_channel.packet_body_observation import record_packet_body_observation
+from ...review_channel.projection_bundle import artifact_writes_suppressed
 from ...review_channel.state import projection_paths_to_dict
 from ...review_channel.watch_lifecycle import (
     claim_watch_lifecycle,
@@ -238,6 +240,30 @@ def _run_loaded_bundle_action(
             packet_id=getattr(args, "packet_id", None),
             limit=args.limit if args.action == "history" else 1,
         )
+        body_observation_event = None
+        actor = str(getattr(args, "actor", "") or "").strip()
+        if (
+            args.action == "show"
+            and actor
+            and len(packets) == 1
+            and not artifact_writes_suppressed()
+        ):
+            bundle, body_observation_event = record_packet_body_observation(
+                repo_root=context.repo_root,
+                review_channel_path=context.review_channel_path,
+                artifact_paths=context.artifact_paths,
+                bundle=bundle,
+                packet=packets[0],
+                actor=actor,
+                role=str(getattr(args, "target_role", "") or ""),
+                session_id=str(getattr(args, "target_session_id", "") or ""),
+            )
+            packets = filter_history_packets(
+                bundle.review_state,
+                target=getattr(args, "target", None),
+                packet_id=getattr(args, "packet_id", None),
+                limit=1,
+            )
         packets, packet_outcome_ledger = attach_history_outcomes_if_requested(
             args=args,
             bundle=bundle,
@@ -259,6 +285,7 @@ def _run_loaded_bundle_action(
             packets=packets,
             history=history,
             packet_outcome_ledger=packet_outcome_ledger,
+            event=body_observation_event,
         )
     raise ValueError(f"Unsupported event-backed review-channel action: {args.action}")
 

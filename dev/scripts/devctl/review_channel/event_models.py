@@ -16,6 +16,9 @@ class ReviewPacketRow(TypedDict):
     trace_id: object
     plan_id: object
     latest_event_id: object
+    correlation_id: object
+    causation_id: object
+    run_id: object
     from_agent: object
     to_agent: object
     kind: object
@@ -38,6 +41,7 @@ class ReviewPacketRow(TypedDict):
     mutation_op: object
     target_role: object
     target_session_id: object
+    anchor_scope: object
     requested_session_visibility: object
     pipeline_generation: object
     staged_snapshot_hash: object
@@ -51,6 +55,7 @@ class ReviewPacketRow(TypedDict):
     plan_integration: dict[str, object]
     semantic_zref: object
     source_identity: dict[str, object]
+    metadata: dict[str, object]
     status: object
     acked_by: object
     acked_at_utc: object
@@ -58,6 +63,13 @@ class ReviewPacketRow(TypedDict):
     delivery_emitted_at_utc: object
     delivery_observed_at_utc: object
     delivery_observed_by: object
+    body_observed_at_utc: object
+    body_observed_by: object
+    body_observed_role: object
+    body_observed_session_id: object
+    body_observed_event_id: object
+    body_digest: object
+    body_observation_events: list[dict[str, object]]
     execution_started_at_utc: object
     execution_started_by: object
     execution_failed_at_utc: object

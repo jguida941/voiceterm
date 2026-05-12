@@ -22,6 +22,9 @@ PLAN_INTAKE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("reason", "str", "Bounded outcome reason."),
             ContractField("target_kind", "str", "plan_row or terminal_receipt."),
             ContractField("target_ref", "str", "Typed plan target ref when available."),
+            ContractField("correlation_id", "str", "Parent lineage shared with the TypedAction and state-store write."),
+            ContractField("causation_id", "str", "Immediate source lineage that triggered ingestion."),
+            ContractField("run_id", "str", "Plan-ingestion run lineage for this receipt."),
             ContractField("row_ids", "tuple[str, ...]", "PlanRow ids written or previewed."),
             ContractField("store_statuses", "tuple[str, ...]", "Per-row JSONL upsert statuses."),
             ContractField("terminal_status", "str", "Terminal receipt class when no PlanRow is written."),
@@ -94,7 +97,7 @@ PLAN_INTAKE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("dry_run", "bool", "Whether writes were suppressed."),
         ),
         runtime_model="dev.scripts.devctl.runtime.plan_intent_ingestion:PlanIntentIngestionReceipt",
-        startup_surface_tokens=("status", "row_ids", "terminal_status"),
+        startup_surface_tokens=("status", "row_ids", "correlation_id"),
         cross_links=(
             CrossLinkSpec(
                 "action_id",

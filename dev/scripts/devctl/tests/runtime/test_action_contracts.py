@@ -7,8 +7,12 @@ from dev.scripts.devctl.runtime import (
     ACTION_RESULT_SCHEMA_VERSION,
     ActionResult,
     ArtifactStore,
+    causation_ref,
+    correlation_context_for_ref,
+    correlation_ref,
     action_result_from_mapping,
     provider_adapter_from_mapping,
+    run_ref,
     run_record_from_mapping,
     typed_action_from_mapping,
     workflow_adapter_from_mapping,
@@ -24,6 +28,9 @@ def test_typed_action_from_mapping_normalizes_payload() -> None:
             "parameters": {"format": "json"},
             "requested_by": "agent",
             "dry_run": "true",
+            "correlation_id": "corr-1",
+            "causation_id": "cause-1",
+            "run_id": "run-1",
         }
     )
     assert action.contract_id == "TypedAction"
@@ -32,6 +39,9 @@ def test_typed_action_from_mapping_normalizes_payload() -> None:
     assert action.parameters == {"format": "json"}
     assert action.requested_by == "agent"
     assert action.dry_run is True
+    assert action.correlation_id == "corr-1"
+    assert action.causation_id == "cause-1"
+    assert action.run_id == "run-1"
 
 
 def test_run_record_from_mapping_normalizes_artifacts_and_findings() -> None:
@@ -42,6 +52,8 @@ def test_run_record_from_mapping_normalizes_artifacts_and_findings() -> None:
             "artifact_paths": ["dev/reports/a.md", "", None],
             "status": "complete",
             "findings_count": "4",
+            "correlation_id": "corr-1",
+            "causation_id": "cause-1",
         }
     )
     assert record.contract_id == "RunRecord"
@@ -50,6 +62,8 @@ def test_run_record_from_mapping_normalizes_artifacts_and_findings() -> None:
     assert record.artifact_paths == ("dev/reports/a.md",)
     assert record.status == "complete"
     assert record.findings_count == 4
+    assert record.correlation_id == "corr-1"
+    assert record.causation_id == "cause-1"
 
 
 def test_adapter_and_artifact_contracts_normalize_defaults() -> None:
@@ -181,12 +195,36 @@ def test_action_result_roundtrip() -> None:
         status="recorded",
         findings_count=1,
         artifact_paths=("dev/reports/governance/latest/summary.md",),
+        correlation_id="corr-1",
+        causation_id="cause-1",
+        run_id="run-1",
     )
     roundtripped = action_result_from_mapping(original.to_dict())
     assert roundtripped.action_id == original.action_id
     assert roundtripped.ok == original.ok
     assert roundtripped.findings_count == original.findings_count
     assert roundtripped.artifact_paths == original.artifact_paths
+    assert roundtripped.correlation_id == original.correlation_id
+    assert roundtripped.causation_id == original.causation_id
+    assert roundtripped.run_id == original.run_id
+
+
+def test_correlation_context_refs_are_stable() -> None:
+    context = correlation_context_for_ref(
+        "typed_action",
+        "review-channel.post",
+        causation_kind="packet",
+        causation_ref_value="rev_pkt_1",
+        run_kind="session",
+        run_ref_value="session-1",
+    )
+
+    assert context.correlation_id.startswith("corr-")
+    assert context.causation_id.startswith("cause-")
+    assert context.run_id.startswith("run-")
+    assert correlation_ref(context.correlation_id).startswith("correlation_ref:")
+    assert causation_ref(context.causation_id).startswith("causation_ref:")
+    assert run_ref(context.run_id).startswith("run_ref:")
 
 
 def test_action_outcome_constants_are_consistent() -> None:

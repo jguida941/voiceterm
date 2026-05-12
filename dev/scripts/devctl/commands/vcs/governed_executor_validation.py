@@ -7,6 +7,7 @@ from collections.abc import Sequence
 
 from ...runtime import ActionResult, TypedAction
 from ...runtime.action_contracts import ActionOutcome
+from ...runtime.correlation_spine import correlation_context_for_ref
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
 from ...runtime.validation_contracts import ValidationPlan, ValidationReceipt
 from ...time_utils import utc_timestamp
@@ -60,8 +61,17 @@ def build_validation_receipt(
         else pipeline.intent.staged_tree_hash
     )
     passed = guard_result.ok and guard_result.status == ActionOutcome.PASS
+    receipt_id = f"validation-receipt-{secrets.token_hex(6)}"
+    context = correlation_context_for_ref(
+        "validation_receipt",
+        receipt_id,
+        causation_kind="typed_action",
+        causation_ref_value=guard_action_id,
+        run_kind="validation_plan",
+        run_ref_value=plan_id or staged_tree_hash,
+    )
     return ValidationReceipt(
-        receipt_id=f"validation-receipt-{secrets.token_hex(6)}",
+        receipt_id=receipt_id,
         plan_id=plan_id,
         bundle_id=bundle_id,
         staged_tree_hash=staged_tree_hash,
@@ -73,4 +83,7 @@ def build_validation_receipt(
         checkpoint_sufficient=passed,
         push_sufficient=passed and pipeline.intent.push_requested,
         emitted_at_utc=utc_timestamp(),
+        correlation_id=context.correlation_id,
+        causation_id=context.causation_id,
+        run_id=context.run_id,
     )

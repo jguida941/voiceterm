@@ -21,6 +21,8 @@ from dev.scripts.checks.startup_authority_contract.runtime_import_staged import 
     collect_staged_import_index_atomicity_findings,
 )
 from dev.scripts.checks.startup_authority_contract.runtime_checks import (
+    classify_checkpoint_budget_shape,
+    collect_checkpoint_budget_errors,
     collect_concurrent_writer_errors,
     collect_import_index_atomicity_findings,
     collect_post_checkpoint_dirty_worktree_errors,
@@ -35,6 +37,8 @@ def _fake_pipeline(
     state: str = "guards_failed",
     staged_tree_hash: str = "deadbeefcafef00d",
     staged_path_count: int = 8,
+    guard_result=None,
+    validation_receipt=None,
 ):
     """Build a minimal pipeline namespace for the parked-at-checkpoint exemption.
 
@@ -50,6 +54,8 @@ def _fake_pipeline(
             staged_tree_hash=staged_tree_hash,
             staged_path_count=staged_path_count,
         ),
+        guard_result=guard_result,
+        validation_receipt=validation_receipt,
     )
 
 
@@ -276,7 +282,70 @@ def test_startup_authority_fails_when_checkpoint_budget_is_exceeded(
     assert report["ok"] is False
     assert report["checkpoint_required"] is True
     assert report["safe_to_continue_editing"] is False
+    assert report["checkpoint_budget_shape"]["state"] == "raw_budget_exceeded"
+    assert report["checkpoint_budget_shape"]["bootstrap_blocked"] is True
     assert any("over budget" in error for error in report["errors"])
+
+
+def test_checkpoint_budget_shape_allows_matching_governed_pipeline() -> None:
+    gov = _fake_governance(
+        Path("/tmp/repo"),
+        checkpoint_required=True,
+        safe_to_continue_editing=False,
+        checkpoint_reason="dirty_path_budget_exceeded",
+    )
+    pipeline = _fake_pipeline(
+        state="guards_failed",
+        guard_result=SimpleNamespace(
+            action_id="guard-action-1",
+            ok=False,
+            status="fail",
+        ),
+    )
+
+    shape = classify_checkpoint_budget_shape(
+        gov,
+        pipeline=pipeline,
+        current_tree_hash="deadbeefcafef00d",
+    )
+    errors = collect_checkpoint_budget_errors(gov, shape=shape)
+
+    assert shape.state == "typed_checkpoint_pipeline"
+    assert shape.bootstrap_blocked is False
+    assert shape.receipt_backed is True
+    assert shape.next_required_action == "repair_governed_checkpoint"
+    assert errors == []
+
+
+def test_checkpoint_budget_shape_rejects_drifted_governed_pipeline() -> None:
+    gov = _fake_governance(
+        Path("/tmp/repo"),
+        checkpoint_required=True,
+        safe_to_continue_editing=False,
+        checkpoint_reason="dirty_path_budget_exceeded",
+    )
+    pipeline = _fake_pipeline(
+        state="guards_failed",
+        guard_result=SimpleNamespace(
+            action_id="guard-action-1",
+            ok=True,
+            status="pass",
+        ),
+    )
+
+    shape = classify_checkpoint_budget_shape(
+        gov,
+        pipeline=pipeline,
+        current_tree_hash="driftedhashfromnewedits",
+    )
+    errors = collect_checkpoint_budget_errors(gov, shape=shape)
+
+    assert shape.state == "typed_checkpoint_pipeline_drifted"
+    assert shape.bootstrap_blocked is True
+    assert shape.tree_hash_match is False
+    assert any("differs" in error for error in shape.errors)
+    assert len(errors) == 1
+    assert "typed_checkpoint_pipeline_drifted" in errors[0]
 
 
 def test_startup_authority_fails_when_local_checkpoint_leaves_dirty_worktree(
@@ -761,6 +830,85 @@ def test_startup_authority_integration_allows_dirty_when_live_pipeline_parked(
     )
 
 
+def test_startup_authority_integration_classifies_budget_pipeline_evidence(
+    tmp_path: Path,
+) -> None:
+    """Budget pressure from a matching governed pipeline is not raw scratch dirt."""
+    _setup_full_layout(tmp_path)
+    status_dir = tmp_path / "dev" / "reports" / "review_channel" / "latest"
+    status_dir.mkdir(parents=True, exist_ok=True)
+    staged_tree_hash = "93026842b5ba832eec5c72971df8b19c56a0cae8"
+    (status_dir / "commit_pipeline.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "contract_id": "RemoteCommitPipelineContract",
+                "pipeline_id": "pipeline-budget-test",
+                "state": "guards_failed",
+                "intent": {
+                    "staged_tree_hash": staged_tree_hash,
+                    "staged_path_count": 8,
+                },
+                "guard_action_id": "guard-action-1",
+                "guard_result": {
+                    "schema_version": 1,
+                    "contract_id": "ActionResult",
+                    "action_id": "guard-action-1",
+                    "ok": False,
+                    "status": "fail",
+                    "reason": "guard_bundle_failed",
+                },
+                "approval_state": "not_requested",
+                "blocked_reason": "guard_bundle_failed",
+            }
+        ),
+        encoding="utf-8",
+    )
+    fake_module = SimpleNamespace(
+        scan_repo_governance=lambda _root: _fake_governance(
+            tmp_path,
+            checkpoint_required=True,
+            safe_to_continue_editing=False,
+            checkpoint_reason="dirty_path_budget_exceeded",
+            worktree_clean=False,
+            worktree_dirty=True,
+            ahead_of_upstream_commits=1,
+            dirty_path_count=11,
+            untracked_path_count=0,
+            recommended_action="commit_before_push",
+        )
+    )
+
+    with (
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.import_repo_module",
+            return_value=fake_module,
+        ),
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_finding_records",
+            return_value=([], []),
+        ),
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.collect_push_decision_contract_errors",
+            return_value=[],
+        ),
+        patch(
+            "dev.scripts.checks.startup_authority_contract.runtime_checks._index_tree_hash",
+            return_value=staged_tree_hash,
+        ),
+    ):
+        report = _build_report(repo_root=tmp_path)
+
+    assert report["ok"] is True
+    assert report["checkpoint_budget_shape"]["state"] == "typed_checkpoint_pipeline"
+    assert report["checkpoint_budget_shape"]["pipeline_id"] == "pipeline-budget-test"
+    assert report["checkpoint_budget_shape"]["bootstrap_blocked"] is False
+    assert report["checkpoint_budget_shape"]["next_required_action"] == (
+        "repair_governed_checkpoint"
+    )
+    assert not any("over budget" in error for error in report["errors"])
+
+
 def test_post_checkpoint_dirty_rejects_when_current_tree_hash_drifts_from_pipeline() -> None:
     """F18: dirty worktree + parked pipeline + drifted current tree -> exemption denied.
 
@@ -969,6 +1117,7 @@ def test_startup_authority_fails_when_reviewer_loop_blocks_implementation(
                     "status": "claude_ack_stale",
                 },
                 "current_session": {
+                    "current_instruction_revision": "instruction-rev-1",
                     "implementer_ack_state": "stale",
                 },
             }
@@ -976,7 +1125,16 @@ def test_startup_authority_fails_when_reviewer_loop_blocks_implementation(
         encoding="utf-8",
     )
 
-    report = _build_report(repo_root=tmp_path)
+    reviewer_gate = SimpleNamespace(
+        implementation_blocked=True,
+        review_gate_allows_push=False,
+        implementation_block_reason="claude_ack_stale",
+        reviewer_mode="active_dual_agent",
+        effective_reviewer_mode="active_dual_agent",
+        review_accepted=False,
+    )
+
+    report = _build_report(repo_root=tmp_path, reviewer_gate=reviewer_gate)
 
     assert report["ok"] is False
     assert report["reviewer_loop_blocked"] is True
@@ -1060,6 +1218,7 @@ def test_startup_authority_bootstrap_intent_allows_reviewer_loop_only_block(
                     "status": "claude_ack_stale",
                 },
                 "current_session": {
+                    "current_instruction_revision": "instruction-rev-1",
                     "implementer_ack_state": "stale",
                 },
             }
@@ -1067,7 +1226,20 @@ def test_startup_authority_bootstrap_intent_allows_reviewer_loop_only_block(
         encoding="utf-8",
     )
 
-    report = _build_report(repo_root=tmp_path, intent="reviewer_bootstrap")
+    reviewer_gate = SimpleNamespace(
+        implementation_blocked=True,
+        review_gate_allows_push=False,
+        implementation_block_reason="claude_ack_stale",
+        reviewer_mode="active_dual_agent",
+        effective_reviewer_mode="active_dual_agent",
+        review_accepted=False,
+    )
+
+    report = _build_report(
+        repo_root=tmp_path,
+        intent="reviewer_bootstrap",
+        reviewer_gate=reviewer_gate,
+    )
 
     assert report["ok"] is True
     assert report["reviewer_loop_blocked"] is True

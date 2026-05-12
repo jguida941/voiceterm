@@ -253,6 +253,25 @@ def resolve_index_reuse_decision(
             evidence=(f"error={type(exc).__name__}",),
         )
     staged_non_receipt = non_receipt_artifact_paths(repo_root=repo_root, paths=staged)
+    unstaged_non_receipt = non_receipt_artifact_paths(
+        repo_root=repo_root,
+        paths=unstaged,
+    )
+    if staged_non_receipt and unstaged_non_receipt:
+        return IndexReuseDecision(
+            reuse_staged_index=False,
+            reason="staged_and_unstaged_worktree_requires_restage",
+            evidence=(
+                f"staged_non_receipt_count={len(staged_non_receipt)}",
+                f"unstaged_non_receipt_count={len(unstaged_non_receipt)}",
+            ),
+        )
+    if unstaged_non_receipt:
+        return IndexReuseDecision(
+            reuse_staged_index=False,
+            reason="unstaged_artifacts_require_restage",
+            evidence=(f"unstaged_non_receipt_count={len(unstaged_non_receipt)}",),
+        )
     if staged_non_receipt:
         return IndexReuseDecision(
             reuse_staged_index=True,
@@ -264,16 +283,6 @@ def resolve_index_reuse_decision(
             reuse_staged_index=False,
             reason="dirty_worktree_requires_restage",
             evidence=(f"dirty_path_count={len(dirty)}",),
-        )
-    unstaged_non_receipt = non_receipt_artifact_paths(
-        repo_root=repo_root,
-        paths=unstaged,
-    )
-    if unstaged_non_receipt:
-        return IndexReuseDecision(
-            reuse_staged_index=False,
-            reason="unstaged_artifacts_require_restage",
-            evidence=(f"unstaged_non_receipt_count={len(unstaged_non_receipt)}",),
         )
     return IndexReuseDecision(
         reuse_staged_index=True,

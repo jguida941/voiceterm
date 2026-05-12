@@ -13,12 +13,17 @@ from ..commands.rollout_tail.parser import parse_rollout_file
 from ..repo_packs import active_path_config
 from ..runtime.rollout_event import RolloutEvent
 from .event_store import load_events, resolve_artifact_paths
+from .event_reducer import reduce_events
 from .events import post_packet
 from .launch_authority import current_head_sha
 from .packet_contract import (
     PacketGuardBundleEvidenceFields,
     PacketPostRequest,
     PacketTargetFields,
+)
+from ..runtime.session_termination_policy import (
+    session_termination_policy_from_review_state,
+    task_complete_decision,
 )
 
 
@@ -31,6 +36,8 @@ class TaskCompleteHandoffRequest:
     to_agent: str = "claude"
     sessions_root: Path | None = None
     target_revision: str = ""
+    target_ref: str = ""
+    actor_role: str = ""
     guard_evidence: str = "--profile ci"
     conductor_exit_code: str = ""
 
@@ -67,9 +74,36 @@ def emit_handoff_for_latest_task_complete(
     target_revision = _clean(request.target_revision) or current_head_sha(repo_root)
     if not target_revision:
         return _skipped("missing_target_revision", rollout_path=rollout_path)
-    target_ref = f"devctl_commit:{target_revision}"
+    target_ref = _clean(request.target_ref) or f"devctl_commit:{target_revision}"
     artifact_paths = resolve_artifact_paths(repo_root=repo_root)
     existing_events = load_events(Path(artifact_paths.event_log_path))
+    review_channel_path = repo_root / active_path_config().review_channel_rel
+    if not review_channel_path.exists():
+        return _skipped("missing_review_channel", rollout_path=rollout_path)
+
+    review_state, _ = reduce_events(
+        events=existing_events,
+        repo_root=repo_root,
+        review_channel_path=review_channel_path,
+    )
+    decision = task_complete_decision(
+        session_id=task_complete.session_id,
+        packets=review_state.get("packets", ()),
+        policy=session_termination_policy_from_review_state(review_state),
+        actor=provider,
+        actor_role=request.actor_role,
+        target_ref=target_ref,
+    )
+    if not decision.terminate:
+        return TaskCompleteHandoffResult(
+            status="blocked",
+            reason=f"task_complete_rejected_by_policy:{decision.reason}",
+            target_revision=target_revision,
+            target_ref=target_ref,
+            rollout_path=str(rollout_path),
+            task_complete_at_utc=task_complete.timestamp,
+        )
+
     if _has_matching_stage_handoff(
         existing_events,
         from_agent=provider,
@@ -84,10 +118,6 @@ def emit_handoff_for_latest_task_complete(
             rollout_path=str(rollout_path),
             task_complete_at_utc=task_complete.timestamp,
         )
-
-    review_channel_path = repo_root / active_path_config().review_channel_rel
-    if not review_channel_path.exists():
-        return _skipped("missing_review_channel", rollout_path=rollout_path)
 
     _, event = post_packet(
         repo_root=repo_root,
@@ -134,6 +164,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repo-root", default=os.environ.get("REVIEW_CHANNEL_CONTROL_ROOT", "."))
     parser.add_argument("--sessions-root", default=os.environ.get("REVIEW_CHANNEL_CODEX_SESSIONS_ROOT", ""))
     parser.add_argument("--target-revision", default=os.environ.get("REVIEW_CHANNEL_HANDOFF_TARGET_REVISION", ""))
+    parser.add_argument("--target-ref", default=os.environ.get("REVIEW_CHANNEL_HANDOFF_TARGET_REF", ""))
+    parser.add_argument("--actor-role", default=os.environ.get("REVIEW_CHANNEL_HANDOFF_ACTOR_ROLE", ""))
     parser.add_argument("--guard-evidence", default=os.environ.get("REVIEW_CHANNEL_HANDOFF_GUARD_EVIDENCE", "--profile ci"))
     parser.add_argument("--conductor-exit-code", default="")
     args = parser.parse_args(argv)
@@ -145,6 +177,8 @@ def main(argv: list[str] | None = None) -> int:
             to_agent=args.to_agent,
             sessions_root=Path(args.sessions_root) if args.sessions_root else None,
             target_revision=args.target_revision,
+            target_ref=args.target_ref,
+            actor_role=args.actor_role,
             guard_evidence=args.guard_evidence,
             conductor_exit_code=args.conductor_exit_code,
         )
@@ -237,4 +271,3 @@ def _clean(value: object) -> str:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

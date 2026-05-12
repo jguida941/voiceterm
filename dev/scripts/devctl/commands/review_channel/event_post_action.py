@@ -12,6 +12,7 @@ from ...review_channel.packet_contract import (
     PacketPostRequest,
     PacketRuntimeApprovalFields,
     PacketTargetFields,
+    post_kind_requires_typed_evidence,
 )
 from .event_action_support import EventActionContext
 from .event_packet_lookup import packet_by_id
@@ -50,13 +51,15 @@ def run_post_action(
 
 def _post_request(context: EventActionContext) -> PacketPostRequest:
     args = context.args
+    evidence_refs = _post_evidence_refs(args)
+    _require_typed_evidence_for_post(args, evidence_refs)
     return PacketPostRequest(
         from_agent=args.from_agent,
         to_agent=args.to_agent,
         kind=args.kind,
         summary=args.summary,
         body=load_post_body(args),
-        evidence_refs=tuple(args.evidence_ref or []),
+        evidence_refs=evidence_refs,
         context_pack_refs=tuple(resolve_context_pack_refs(args, context.repo_root)),
         confidence=float(args.confidence),
         requested_action=args.requested_action,
@@ -67,7 +70,10 @@ def _post_request(context: EventActionContext) -> PacketPostRequest:
         session_id=args.session_id,
         plan_id=args.plan_id,
         controller_run_id=getattr(args, "controller_run_id", None),
-        expires_in_minutes=args.expires_in_minutes,
+        correlation_id=getattr(args, "correlation_id", "") or "",
+        causation_id=getattr(args, "causation_id", "") or "",
+        run_id=getattr(args, "run_id", "") or "",
+        expires_in_minutes=getattr(args, "expires_in_minutes", None),
         target=_target_fields(args),
         runtime_approval=_runtime_approval_fields(args),
         guard_bundle_evidence=_guard_bundle_evidence_fields(args),
@@ -75,6 +81,64 @@ def _post_request(context: EventActionContext) -> PacketPostRequest:
             attention_urgency=getattr(args, "attention_urgency", None),
             attention_class=getattr(args, "attention_class", None),
         ),
+    )
+
+
+def _post_evidence_refs(args) -> tuple[str, ...]:
+    refs = [
+        ref
+        for ref in (
+            _clean_evidence_ref(value)
+            for value in getattr(args, "evidence_ref", []) or []
+        )
+        if ref
+    ]
+    refs.extend(
+        f"artifact:{ref}"
+        for ref in (
+            _clean_evidence_ref(value)
+            for value in getattr(args, "evidence_artifact_path", []) or []
+        )
+        if ref
+    )
+    refs.extend(
+        f"action_result:{ref}"
+        for ref in (
+            _clean_evidence_ref(value)
+            for value in getattr(args, "action_result_id", []) or []
+        )
+        if ref
+    )
+    commit_sha = _clean_evidence_ref(getattr(args, "commit_sha", None))
+    if commit_sha:
+        refs.append(f"commit:{commit_sha}")
+    plan_revision_before = _clean_evidence_ref(
+        getattr(args, "plan_revision_before", None)
+    )
+    plan_revision_after = _clean_evidence_ref(
+        getattr(args, "plan_revision_after", None)
+    )
+    if plan_revision_before and plan_revision_after:
+        refs.append(f"plan_revision:{plan_revision_before}->{plan_revision_after}")
+    return tuple(dict.fromkeys(refs))
+
+
+def _clean_evidence_ref(value: object) -> str:
+    return str(value or "").strip()
+
+
+def _require_typed_evidence_for_post(
+    args,
+    evidence_refs: tuple[str, ...],
+) -> None:
+    kind = str(getattr(args, "kind", "") or "").strip()
+    if not post_kind_requires_typed_evidence(kind) or evidence_refs:
+        return
+    raise ValueError(
+        "review-channel post --kind "
+        f"{kind} requires typed evidence: pass --evidence-ref, "
+        "--evidence-artifact-path, --action-result-id, --commit-sha, or both "
+        "--plan-revision-before and --plan-revision-after."
     )
 
 
@@ -88,6 +152,7 @@ def _target_fields(args) -> PacketTargetFields:
         mutation_op=getattr(args, "mutation_op", None),
         target_role=getattr(args, "target_role", None),
         target_session_id=getattr(args, "target_session_id", None),
+        anchor_scope=getattr(args, "anchor_scope", None),
         requested_session_visibility=getattr(
             args,
             "requested_session_visibility",

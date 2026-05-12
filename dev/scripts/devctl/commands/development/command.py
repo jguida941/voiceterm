@@ -40,11 +40,23 @@ def run(args: Any) -> int:
         and not report.ok
     ):
         return 1
+    if _mode_chain_validation_failed(report):
+        return 1
     if (
         bool(getattr(args, "enforce_final_response_gate", False))
         and not report.final_response_gate.allow_final_response
     ):
         return 1
     return 0
+
+
+def _mode_chain_validation_failed(report) -> bool:
+    collaboration_mode = getattr(report, "collaboration_mode", None)
+    if not isinstance(collaboration_mode, dict):
+        return False
+    mode_chain = collaboration_mode.get("mode_chain")
+    if not isinstance(mode_chain, dict):
+        return False
+    return bool(mode_chain.get("validation_errors"))
 
 __all__ = ["DEVELOP_ACTIONS", "add_parser", "build_report", "run"]

@@ -26,6 +26,9 @@ from dev.scripts.devctl.review_channel.agent_loop_decision_projection import (  
     apply_agent_sync_session_attention_disambiguation,
     apply_scoped_attention_to_ambiguous_packet_attention,
 )
+from dev.scripts.devctl.review_channel.agent_sync_readers import (  # pragma: no cover - import wiring
+    agent_sync_pending_packet_ids_from_row,
+)
 
 if __package__:
     from .runtime_truth_agent_loop import (
@@ -135,6 +138,12 @@ def _with_pending_agent_loop_projection(
         return payload
 
     existing = agent_loop_decision_rows(payload)
+    existing, repaired_existing = _repair_existing_pending_decisions(
+        existing,
+        agents=agents,
+        pending_agents=pending_agents,
+        work_board=work_board,
+    )
     seen = {_decision_key(row) for row in existing if _decision_key(row)}
     projected = agent_loop_decisions_for_work_board(
         review_state=payload,
@@ -147,7 +156,7 @@ def _with_pending_agent_loop_projection(
         and _decision_key(row)
         and _decision_key(row) not in seen
     ]
-    if not missing:
+    if not missing and not repaired_existing:
         return payload
 
     updated: dict[str, object] = dict(payload)
@@ -155,6 +164,87 @@ def _with_pending_agent_loop_projection(
     updated = apply_agent_sync_session_attention_disambiguation(updated)
     updated = apply_scoped_attention_to_ambiguous_packet_attention(updated)
     return updated
+
+
+def _repair_existing_pending_decisions(
+    existing: list[Mapping[str, object]],
+    *,
+    agents: Mapping[str, object],
+    pending_agents: set[str],
+    work_board: Mapping[str, object],
+) -> tuple[list[Mapping[str, object]], bool]:
+    """Annotate stale startup-blocked rows with pending packet counts.
+
+    Read-only runtime truth can lag by one projection step. If a startup-blocked
+    row already occupies an actor/session key, queue-target projection cannot
+    append the agent-sync pending row. Rows with actual packet focus stay
+    untouched so active/attention drift remains blocking.
+    """
+    if not existing:
+        return existing, False
+    focused_actors = _work_board_packet_focus_actors(work_board)
+    actors_with_pending_decision = {
+        str(row.get("actor_id") or "").strip()
+        for row in existing
+        if _int(row.get("pending_packet_count")) > 0
+    }
+    if pending_agents <= actors_with_pending_decision:
+        return existing, False
+
+    repaired: list[Mapping[str, object]] = []
+    changed = False
+    for row in existing:
+        actor = str(row.get("actor_id") or "").strip()
+        if (
+            actor in pending_agents
+            and actor not in focused_actors
+            and actor not in actors_with_pending_decision
+            and _row_without_packet_focus(row)
+        ):
+            pending_count = _agent_sync_pending_packet_count(agents, actor)
+            if pending_count > 0:
+                updated = dict(row)
+                updated["pending_packet_count"] = pending_count
+                updated["wake_required"] = True
+                updated["projection_repaired_from_agent_sync"] = True
+                repaired.append(updated)
+                changed = True
+                continue
+        repaired.append(row)
+    return repaired, changed
+
+
+def _work_board_packet_focus_actors(work_board: Mapping[str, object]) -> set[str]:
+    rows = work_board.get("rows")
+    if not isinstance(rows, list):
+        return set()
+    actors: set[str] = set()
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        if not _row_without_packet_focus(row):
+            actor = str(row.get("actor_id") or "").strip()
+            if actor:
+                actors.add(actor)
+    return actors
+
+
+def _row_without_packet_focus(row: Mapping[str, object]) -> bool:
+    return not (
+        str(row.get("active_packet_id") or "").strip()
+        or str(row.get("attention_packet_id") or "").strip()
+        or str(row.get("executing_packet_id") or "").strip()
+    )
+
+
+def _agent_sync_pending_packet_count(
+    agents: Mapping[str, object],
+    actor: str,
+) -> int:
+    row = agents.get(actor)
+    if not isinstance(row, Mapping):
+        return 0
+    return len(agent_sync_pending_packet_ids_from_row(row))
 
 
 def _decision_key(row: Mapping[str, object]) -> tuple[str, str, str]:
@@ -204,6 +294,13 @@ def _runtime_warnings(runtime: Mapping[str, object]) -> list[str]:
         f"coordination_topology={topology}; legacy_reviewer_mode={legacy_mode}. "
         "Use coordination_topology for runtime topology."
     ]
+
+
+def _int(value: object) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _router_governance_debt_errors(

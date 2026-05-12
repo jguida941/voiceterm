@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import shlex
+from collections.abc import Mapping
 
+from ...runtime.goal_progress_receipt import resolve_goal_progress_receipt
 from .continuation_commands import next_required_command, watcher_report_needed
 from .models import (
     DevelopmentContinuationRequiredSignal,
@@ -20,6 +22,8 @@ def continuation_signal(
     orchestration: DevelopmentOrchestrationSnapshot,
     watcher_lease: DevelopmentWatcherLease,
     packet_pressure: object | None = None,
+    review_state: Mapping[str, object] | None = None,
+    actor: str = "",
     current_action: str,
     fallback_commands: tuple[str, ...],
 ) -> DevelopmentContinuationRequiredSignal:
@@ -39,6 +43,33 @@ def continuation_signal(
         fallback_commands=fallback_commands,
     )
     required = bool(reasons)
+    continuation_goal = _continuation_goal(
+        packet_attention=packet_attention,
+        orchestration=orchestration,
+    )
+    goal_progress = resolve_goal_progress_receipt(
+        review_state,
+        actor=actor,
+        continuation_goal=continuation_goal,
+    )
+    if goal_progress.continuation_anchor_packet_id and not _has_stop_anchor(
+        review_state,
+        actor=actor,
+    ):
+        reasons = tuple(
+            dict.fromkeys(
+                (
+                    *reasons,
+                    "continuation_anchor_active:"
+                    f"{goal_progress.continuation_anchor_packet_id}",
+                )
+            )
+        )
+        required = True
+        next_command = (
+            "python3 dev/scripts/devctl.py develop next "
+            f"--actor {shlex.quote(actor or 'codex')} --format md"
+        )
     final_response_action = _required_final_response_action(
         reasons=reasons,
         orchestration=orchestration,
@@ -51,10 +82,11 @@ def continuation_signal(
         final_response_gate_allowed=not required,
         user_continue_state="must_continue" if required else "may_stop",
         user_action=final_response_action,
-        continuation_goal=_continuation_goal(
-            packet_attention=packet_attention,
-            orchestration=orchestration,
-        ),
+        continuation_goal=continuation_goal,
+        continuation_anchor_packet_id=goal_progress.continuation_anchor_packet_id,
+        goal_progress_packet_id=goal_progress.latest_progress_packet_id,
+        progress_percentage_toward_goal=goal_progress.progress_percentage_toward_goal,
+        goal_progress_status=goal_progress.status,
         why_not_done=(
             "; ".join(reasons)
             if required
@@ -103,6 +135,42 @@ def _continuation_summary(*, required: bool, next_command: str) -> str:
     if not required:
         return "Typed controller closure allows a terminal response."
     return f"Do not stop here; run `{next_command}` next."
+
+
+def _has_stop_anchor(
+    review_state: Mapping[str, object] | None,
+    *,
+    actor: str,
+) -> bool:
+    if not isinstance(review_state, Mapping):
+        return False
+    rows = review_state.get("packets")
+    if not isinstance(rows, (list, tuple)):
+        return False
+    actor_id = str(actor or "").strip()
+    for packet in rows:
+        if not isinstance(packet, Mapping):
+            continue
+        if str(packet.get("kind") or "").strip() != "stop_anchor":
+            continue
+        if str(packet.get("to_agent") or "").strip() not in {"", actor_id}:
+            continue
+        if str(packet.get("status") or "").strip() in {
+            "applied",
+            "archived",
+            "dismissed",
+            "expired",
+        }:
+            continue
+        if str(packet.get("lifecycle_current_state") or "").strip() in {
+            "applied",
+            "archived",
+            "dismissed",
+            "expired",
+        }:
+            continue
+        return True
+    return False
 
 
 def _required_final_response_action(

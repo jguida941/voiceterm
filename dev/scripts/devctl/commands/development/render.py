@@ -32,6 +32,9 @@ def render_markdown(report: DevelopmentLoopReport) -> str:
     lines.extend(_watcher_lease_lines(payload.get("watcher_lease")))
     lines.extend(_continuation_lines(payload.get("continuation")))
     lines.extend(_final_response_gate_lines(payload.get("final_response_gate")))
+    lines.extend(
+        _reviewer_response_shape_lines(payload.get("reviewer_response_shape"))
+    )
     lines.extend(_workstream_lines(topology["workstreams"]))
     lines.extend(_scaling_lines(scaling))
     lines.extend(_learning_lines(payload["learning"]))
@@ -185,7 +188,68 @@ def _collaboration_mode_lines(collaboration) -> list[str]:
         f"- near_ttl_minutes: {pressure.get('near_ttl_minutes')}",
         f"- authority_policy: {collaboration.get('authority_policy') or '(none)'}",
     ]
+    lines.extend(_mode_chain_lines(collaboration.get("mode_chain")))
     lines.extend(_collaboration_profile_lines(collaboration.get("profile")))
+    return lines
+
+
+def _mode_chain_lines(mode_chain) -> list[str]:
+    if not isinstance(mode_chain, dict):
+        return []
+    lines = ["", "## Mode Chain", ""]
+    lines.append(f"- contract_id: {mode_chain.get('contract_id') or '(none)'}")
+    lines.append(f"- ok: {mode_chain.get('ok')}")
+    lines.append(f"- chain_id: {mode_chain.get('chain_id') or '(none)'}")
+    lines.append(
+        "- effective_reviewer_mode: "
+        f"{mode_chain.get('effective_reviewer_mode') or '(none)'}"
+    )
+    policy = mode_chain.get("policy") if isinstance(mode_chain.get("policy"), dict) else {}
+    phase_policy = (
+        policy.get("phase_sequence")
+        if isinstance(policy.get("phase_sequence"), dict)
+        else {}
+    )
+    lane_policy = (
+        policy.get("lane_cardinality")
+        if isinstance(policy.get("lane_cardinality"), dict)
+        else {}
+    )
+    receipt_policy = (
+        policy.get("composite_receipt")
+        if isinstance(policy.get("composite_receipt"), dict)
+        else {}
+    )
+    lines.append(
+        "- phase_sequence: "
+        f"{phase_policy.get('default_ordering') or '(none)'} "
+        f"interleaving={phase_policy.get('interleaving_policy') or '(none)'}"
+    )
+    lines.append(
+        "- lane_cardinality: "
+        f"max_chain_phases={lane_policy.get('max_chain_phases')} "
+        f"max_live_tree_writers={lane_policy.get('max_live_tree_writers')} "
+        f"next_derivers={lane_policy.get('max_independent_next_derivers')}"
+    )
+    lines.append(
+        "- composite_receipt: "
+        f"{receipt_policy.get('emit_stage') or '(none)'} "
+        f"children={_list_text(receipt_policy.get('required_child_receipt_kinds'))}"
+    )
+    for phase in _dict_rows(mode_chain.get("phases")):
+        lines.append(
+            f"- phase {phase.get('order')}: "
+            f"{phase.get('role_preset')}:{phase.get('collaboration_mode')} "
+            f"kind={phase.get('phase_kind')} "
+            f"scope={phase.get('scope_ref') or '(inherited/default)'} "
+            f"parent={phase.get('scope_inherited_from') or '(none)'}"
+        )
+    _append_list(lines, "Mode Chain Errors", mode_chain.get("validation_errors") or [])
+    _append_list(
+        lines,
+        "Mode Chain Warnings",
+        mode_chain.get("validation_warnings") or [],
+    )
     return lines
 
 
@@ -426,6 +490,12 @@ def _continuation_lines(continuation) -> list[str]:
         f"- continuation_state: {continuation.get('user_continue_state') or '(none)'}",
         f"- user_action: {action_label(continuation.get('user_action')) or '(none)'}",
         f"- continuation_goal: {continuation.get('continuation_goal') or '(none)'}",
+        "- continuation_anchor_packet_id: "
+        f"{continuation.get('continuation_anchor_packet_id') or '(none)'}",
+        f"- goal_progress_packet_id: {continuation.get('goal_progress_packet_id') or '(none)'}",
+        "- progress_percentage_toward_goal: "
+        f"{continuation.get('progress_percentage_toward_goal')}",
+        f"- goal_progress_status: {continuation.get('goal_progress_status') or '(none)'}",
         f"- why_not_done: {reason_label(continuation.get('why_not_done')) or '(none)'}",
         f"- continuation_required: {continuation.get('continuation_required')}",
         f"- status: {continuation.get('status') or '(none)'}",
@@ -466,6 +536,31 @@ def _final_response_gate_lines(gate) -> list[str]:
         "- required_packet_command: "
         f"{gate.get('required_packet_command') or '(none)'}",
         f"- stop_policy: {gate.get('stop_policy') or '(none)'}",
+    ]
+
+
+def _reviewer_response_shape_lines(shape) -> list[str]:
+    if not isinstance(shape, dict):
+        return []
+    return [
+        "",
+        "## Response Shape",
+        "",
+        f"- status: {shape.get('status') or '(none)'}",
+        f"- response_mode: {shape.get('response_mode') or '(none)'}",
+        f"- continuation_state: {shape.get('continuation_state') or '(none)'}",
+        f"- status_prose_allowed: {shape.get('status_prose_allowed')}",
+        f"- completion_prose_allowed: {shape.get('completion_prose_allowed')}",
+        f"- required_next_action: {action_label(shape.get('required_next_action')) or '(none)'}",
+        f"- next_required_command: {shape.get('next_required_command') or '(none)'}",
+        f"- continuation_goal: {shape.get('continuation_goal') or '(none)'}",
+        f"- operator_status_source: {shape.get('operator_status_source') or '(none)'}",
+        "- proposed_response_text_observed: "
+        f"{shape.get('proposed_response_text_observed')}",
+        "- proposed_response_text_source: "
+        f"{shape.get('proposed_response_text_source') or '(none)'}",
+        f"- allowed_response_kinds: {_list_label_text(shape.get('allowed_response_kinds'))}",
+        f"- violations: {_list_label_text(shape.get('violations'))}",
     ]
 
 

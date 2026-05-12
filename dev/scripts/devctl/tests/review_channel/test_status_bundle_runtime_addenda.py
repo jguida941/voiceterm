@@ -259,6 +259,43 @@ def test_projection_canonicalize_preserves_packet_durable_resolution_fields() ->
     assert packet["packet_creation_binding"]["contract_id"] == "PacketCreationBinding"
 
 
+def test_projection_canonicalize_preserves_packet_body_observation_fields() -> None:
+    payload = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_body",
+                "kind": "finding",
+                "from_agent": "claude",
+                "to_agent": "codex",
+                "summary": "Finding",
+                "body": "Body",
+                "status": "pending",
+                "body_observed_at_utc": "2026-05-11T03:04:05Z",
+                "body_observed_by": "codex",
+                "body_observed_event_id": "rev_evt_73091",
+                "body_digest": "sha256:abc123",
+                "body_observation_events": [
+                    {
+                        "contract_id": "PacketBodyObservation",
+                        "event_id": "rev_evt_73091",
+                        "body_observed_by": "codex",
+                    }
+                ],
+            }
+        ]
+    }
+
+    canonical = canonicalize_projection_review_state(payload)
+
+    packet = canonical["packets"][0]
+    assert packet["body_observed_by"] == "codex"
+    assert packet["body_observed_event_id"] == "rev_evt_73091"
+    assert packet["body_digest"] == "sha256:abc123"
+    assert packet["body_observation_events"][0]["contract_id"] == (
+        "PacketBodyObservation"
+    )
+
+
 def test_status_bundle_persists_agent_loop_decisions_from_work_board() -> None:
     payload = {
         "current_session": {"current_instruction_revision": "rev-current"},
@@ -515,7 +552,7 @@ def test_status_bundle_clears_agent_sync_attention_when_sessions_disagree() -> N
     assert claude_sync["attention_scope_state"] == "session_ambiguous"
 
 
-def test_status_bundle_keeps_work_board_attention_over_stale_urgent_packet() -> None:
+def test_status_bundle_urgent_packet_preempts_newer_work_board_attention() -> None:
     payload = {
         "current_session": {"current_instruction_revision": "rev-current"},
         "attention": {"status": "ok"},
@@ -573,8 +610,8 @@ def test_status_bundle_keeps_work_board_attention_over_stale_urgent_packet() -> 
     projected = _attach_agent_loop_decisions(payload)
 
     decision = projected["agent_loop_decisions"][0]
-    assert decision["active_packet_id"] == "rev_pkt_new"
-    assert decision["attention_packet_id"] == "rev_pkt_new"
+    assert decision["active_packet_id"] == "rev_pkt_old"
+    assert decision["attention_packet_id"] == "rev_pkt_old"
 
 
 def test_status_bundle_adds_queue_targeted_agent_loop_decision() -> None:

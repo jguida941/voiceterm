@@ -23,7 +23,6 @@ _REVIEW_CHANNEL_READ_ONLY_ACTIONS = frozenset(
         "operator-inbox",
         "sync-status",
         "history",
-        "show",
         "bridge-poll",
         "render-bridge",
     }

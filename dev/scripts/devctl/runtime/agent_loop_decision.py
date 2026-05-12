@@ -32,8 +32,19 @@ from .agent_loop_decision_sources import (
     session_identity_required,
 )
 from .session_termination_policy import (
+    CONTINUATION_ANCHOR_BODY_UNOBSERVED_ERROR,
+    PENDING_REVIEW_PACKET_BODY_UNOBSERVED_ERROR,
+    STOP_ANCHOR_BODY_UNOBSERVED_ERROR,
     session_termination_policy_from_review_state,
     task_complete_decision,
+)
+
+_PACKET_BODY_UNOBSERVED_ERRORS = frozenset(
+    {
+        CONTINUATION_ANCHOR_BODY_UNOBSERVED_ERROR,
+        STOP_ANCHOR_BODY_UNOBSERVED_ERROR,
+        PENDING_REVIEW_PACKET_BODY_UNOBSERVED_ERROR,
+    }
 )
 
 
@@ -89,10 +100,13 @@ def build_agent_loop_decision(
             policy=session_termination_policy_from_review_state(review_state),
             actor=ctx.actor,
             actor_role=ctx.role,
+            target_ref=ctx.requested_plan_ref,
             packet_attention=ctx.attention,
         )
         if task_decision.packet_attention_pending:
             return packet_attention_pending_decision(ctx, task_decision)
+        if task_decision.error_kind in _PACKET_BODY_UNOBSERVED_ERRORS:
+            return pending_review_packet_decision(ctx, task_decision)
         if task_decision.pending_review_packet:
             return pending_review_packet_decision(ctx, task_decision)
         if packets.active_packet_id:

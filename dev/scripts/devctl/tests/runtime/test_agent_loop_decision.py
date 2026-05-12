@@ -37,8 +37,10 @@ from dev.scripts.devctl.runtime.startup_blocker_decision import (
 def _packet(
     *,
     packet_id: str,
+    from_agent: str = "codex",
     to_agent: str = "claude",
     kind: str = "action_request",
+    body: str = "",
     lifecycle_current_state: str = "delivery_pending",
     status: str = "pending",
     latest_event_id: str = "rev_evt_100",
@@ -50,8 +52,10 @@ def _packet(
 ) -> dict[str, object]:
     row = {
         "packet_id": packet_id,
+        "from_agent": from_agent,
         "to_agent": to_agent,
         "kind": kind,
+        "body": body,
         "lifecycle_current_state": lifecycle_current_state,
         "status": status,
         "latest_event_id": latest_event_id,
@@ -226,6 +230,38 @@ def test_scoped_implementer_loop_claims_matching_packet() -> None:
         "scoped_packet_target",
         "packet_attention_evidence",
     )
+
+
+def test_loop_blocks_mutation_until_peer_packet_body_is_opened() -> None:
+    review_state = _state(
+        _packet(
+            packet_id="rev_pkt_unread",
+            from_agent="claude",
+            to_agent="codex",
+            kind="task_progress",
+            body="Ranked architectural findings that Codex must read.",
+            latest_event_id="rev_evt_101",
+        )
+    )
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {"next_command": "python3 dev/scripts/devctl.py push --execute"}},
+        actor_id="codex",
+        actor_role="implementer",
+        session_id="codex-main",
+    )
+
+    assert decision.required_action == "open_packet_body"
+    assert decision.safe_to_continue is False
+    assert decision.may_mutate is False
+    assert decision.active_packet_id == "rev_pkt_unread"
+    assert decision.next_command == (
+        "python3 dev/scripts/devctl.py review-channel --action show "
+        "--packet-id rev_pkt_unread --actor codex --terminal none --format md "
+        "--target-role implementer --target-session-id codex-main"
+    )
+    assert decision.proof_state == "missing"
 
 
 def test_same_provider_reviewer_session_does_not_inherit_implementer_grants() -> None:

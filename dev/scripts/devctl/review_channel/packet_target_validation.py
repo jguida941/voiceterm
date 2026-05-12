@@ -4,6 +4,13 @@ from __future__ import annotations
 
 import re
 
+from ..runtime.anchor_scope import (
+    ANCHOR_SCOPE_PLAN,
+    ANCHOR_SCOPE_ROLE,
+    ANCHOR_SCOPE_SESSION,
+    SESSION_TERMINATION_ANCHOR_KINDS,
+    VALID_ANCHOR_SCOPES,
+)
 from .pending_packet_models import (
     PacketGuardBundleEvidenceFields,
     PacketRuntimeApprovalFields,
@@ -53,6 +60,22 @@ def validate_target_fields(
         raise ValueError(
             f"Unsupported review-channel target kind: {target.target_kind}"
         )
+    if target.anchor_scope and target.anchor_scope not in VALID_ANCHOR_SCOPES:
+        raise ValueError(
+            f"Unsupported review-channel anchor scope: {target.anchor_scope}"
+        )
+
+    if kind in SESSION_TERMINATION_ANCHOR_KINDS:
+        _validate_session_termination_anchor_target_fields(
+            kind=kind,
+            target=target,
+            runtime_approval=runtime_approval,
+            guard_bundle_evidence=guard_bundle_evidence,
+        )
+        return
+
+    if target.anchor_scope:
+        raise ValueError("--anchor-scope is only valid on session termination anchors.")
 
     if kind in {"plan_gap_review", "plan_patch_review", "plan_ready_gate"}:
         _validate_plan_target_fields(kind=kind, target=target)
@@ -249,6 +272,35 @@ def _validate_action_request_target_fields(
             "action_request packets, stage-commit action_request packets, or "
             "`commit_approval` packets."
         )
+
+
+def _validate_session_termination_anchor_target_fields(
+    *,
+    kind: str,
+    target,
+    runtime_approval: PacketRuntimeApprovalFields,
+    guard_bundle_evidence: PacketGuardBundleEvidenceFields,
+) -> None:
+    if runtime_approval.has_values() or guard_bundle_evidence.has_values():
+        raise ValueError(f"Runtime guard fields are not valid on `{kind}` packets.")
+    if target.mutation_op:
+        raise ValueError(f"Plan mutation fields are not valid on `{kind}` packets.")
+    _validate_optional_plan_intent_fields(target)
+    if not target.anchor_scope:
+        return
+    if target.anchor_scope == ANCHOR_SCOPE_SESSION:
+        if not target.target_session_id:
+            raise ValueError("--session-scoped anchors require --target-session-id.")
+        return
+    if target.anchor_scope == ANCHOR_SCOPE_ROLE:
+        if not target.target_role:
+            raise ValueError("--target-role-scoped anchors require --target-role.")
+        return
+    if target.anchor_scope == ANCHOR_SCOPE_PLAN:
+        if target.target_kind != "plan" or not target.target_ref:
+            raise ValueError(
+                "--plan-scoped anchors require --target-kind plan and --target-ref."
+            )
 
 
 def _validate_non_authoritative_target_fields(

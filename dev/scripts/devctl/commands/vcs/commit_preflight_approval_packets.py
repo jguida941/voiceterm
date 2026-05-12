@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ...review_channel.context_refs import normalize_context_pack_refs
 from ...review_channel.event_store import (
+    DEFAULT_PACKET_TTL_MINUTES,
     append_event,
     future_utc_timestamp,
     load_events,
@@ -335,7 +336,9 @@ def _append_post_packet_without_refresh(
         "status": "pending",
         "idempotency_key": "",
         "nonce": secrets.token_hex(12),
-        "expires_at_utc": future_utc_timestamp(minutes=request.expires_in_minutes),
+        "expires_at_utc": future_utc_timestamp(
+            minutes=request.expires_in_minutes or DEFAULT_PACKET_TTL_MINUTES
+        ),
         "metadata": {},
     }
     return append_event(events_path, event, existing_events=existing_events)

@@ -16,7 +16,10 @@ def required_command_for_record(
             pending_packet_ids[0] if pending_packet_ids else ""
         )
         if packet_id:
-            return show_packet_command(packet_id)
+            return show_packet_command(
+                packet_id,
+                actor=str(getattr(record, "agent", "") or "").strip(),
+            )
     if record.wake_reason != "expired_unresolved_packet":
         return command
     if pending_packet_ids or latest_finding_packet_id:
@@ -24,11 +27,14 @@ def required_command_for_record(
     return "python3 dev/scripts/devctl.py develop audit-packets --format md"
 
 
-def show_packet_command(packet_id: str) -> str:
-    return (
+def show_packet_command(packet_id: str, *, actor: str = "") -> str:
+    command = (
         "python3 dev/scripts/devctl.py review-channel --action show "
-        f"--packet-id {packet_id} --terminal none --format md"
+        f"--packet-id {packet_id}"
     )
+    if actor:
+        command = f"{command} --actor {actor}"
+    return f"{command} --terminal none --format md"
 
 
 __all__ = ["required_command_for_record", "show_packet_command"]

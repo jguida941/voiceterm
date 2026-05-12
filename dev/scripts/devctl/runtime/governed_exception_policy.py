@@ -26,6 +26,7 @@ ALLOWED_EXCEPTION_CLASS_IDS = frozenset(
         "generated_surface_drift",
         "review_snapshot_refresh_failure",
         "known_false_positive_guard",
+        "operator_lifetime_bypass",
         "transient_lock_after_bounded_retry",
         "stale_projection_index",
     }

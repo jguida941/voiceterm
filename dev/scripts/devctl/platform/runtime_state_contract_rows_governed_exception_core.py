@@ -119,9 +119,24 @@ GOVERNED_EXCEPTION_CORE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("post_push_proof_ref", "str", "Post-push proof ref."),
             ContractField("expires_at_utc", "str", "Receipt expiry timestamp."),
             ContractField("created_at_utc", "str", "Receipt creation timestamp."),
+            ContractField(
+                "correlation_id",
+                "str",
+                "Parent lineage shared with the guarded action and receipts.",
+            ),
+            ContractField(
+                "causation_id",
+                "str",
+                "Immediate trigger lineage for the exception receipt.",
+            ),
+            ContractField(
+                "run_id",
+                "str",
+                "Run lineage for the validation or bypass sequence.",
+            ),
         ),
         runtime_model="dev.scripts.devctl.runtime.governed_exception_contracts:ExceptionReceipt",
-        startup_surface_tokens=("receipt_id", "action_kind", "exception_class"),
+        startup_surface_tokens=("receipt_id", "action_kind", "correlation_id"),
         cross_links=(
             CrossLinkSpec(
                 "finding_id",

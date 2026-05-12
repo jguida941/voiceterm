@@ -61,11 +61,17 @@ def _apply_attestation_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             "--action-result-id",
             action="append",
             default=[],
-            help="Repeatable ActionResult id proving an apply transition",
+            help=(
+                "Repeatable ActionResult id proving an apply transition or "
+                "typed-evidence-required packet post."
+            ),
         ),
         arg_builder(
             "--commit-sha",
-            help="Commit SHA bound to code-changing apply transitions",
+            help=(
+                "Commit SHA bound to code-changing apply transitions or "
+                "typed-evidence-required packet posts."
+            ),
         ),
         arg_builder(
             "--plan-revision-before",
@@ -79,7 +85,10 @@ def _apply_attestation_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             "--evidence-artifact-path",
             action="append",
             default=[],
-            help="Repeatable evidence artifact path for apply attestation",
+            help=(
+                "Repeatable evidence artifact path for apply attestation or "
+                "typed-evidence-required packet post."
+            ),
         ),
         arg_builder(
             "--operator-signature",

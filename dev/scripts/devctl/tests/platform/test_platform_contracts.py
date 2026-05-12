@@ -42,11 +42,26 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "SessionPosture" in contract_ids
     assert "PacketIntentAnchor" in contract_ids
     assert "RemoteCommitPipelineContract" in contract_ids
+    assert "CheckpointBudgetShape" in contract_ids
     assert "CheckpointRepairAuthority" in contract_ids
     assert "PushAuthorizationRecord" in contract_ids
     assert "CheckResult" in contract_ids
     assert "Finding" in contract_ids
     assert "DecisionPacket" in contract_ids
+    assert "EvidenceArchivePolicy" in contract_ids
+    assert "EvidenceArchiveManifest" in contract_ids
+    assert "EvidenceArchiveReceipt" in contract_ids
+    assert "SessionActivityEntry" in contract_ids
+    assert "SessionActivityLog" in contract_ids
+    assert "ReviewerResponseShape" in contract_ids
+    assert "RoleInstructionCard" in contract_ids
+    assert "RoleGuard" in contract_ids
+    assert "CustomRoleDefinition" in contract_ids
+    assert "RoleCreationAction" in contract_ids
+    assert "PeerHeartbeatEvidence" in contract_ids
+    assert "PreDecisionComposabilityWindow" in contract_ids
+    assert "CommitReceipt" in contract_ids
+    assert "GoalProgressReceipt" in contract_ids
     assert "FailurePacket" in contract_ids
     assert "LocalServiceEndpoint" in contract_ids
     assert "CallerAuthorityPolicy" in contract_ids
@@ -62,6 +77,11 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert len(blueprint.artifact_schemas) >= 1
     artifact_ids = [schema.contract_id for schema in blueprint.artifact_schemas]
     assert "PlatformContractRegistry" in artifact_ids
+    assert "DogfoodSelfCheckReceipt" in artifact_ids
+    assert "ReviewerAuditReceipt" in artifact_ids
+    assert "SessionActivityLog" in artifact_ids
+    assert "CommitReceipt" in artifact_ids
+    assert "GoalProgressReceipt" in artifact_ids
 
 
 def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> None:
@@ -79,10 +99,47 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "shutdown_entrypoints" in contract_map["LocalServiceEndpoint"]
     assert "forbidden_actions" in contract_map["CallerAuthorityPolicy"]
     assert "signals" in contract_map["Finding"]
+    assert "correlation_id" in contract_map["Finding"]
+    assert "causation_id" in contract_map["Finding"]
+    assert "run_id" in contract_map["Finding"]
     assert "validation_plan" in contract_map["DecisionPacket"]
     assert "rule_summary" in contract_map["DecisionPacket"]
     assert "match_evidence" in contract_map["DecisionPacket"]
     assert "rejected_rule_traces" in contract_map["DecisionPacket"]
+    assert "retention_days" in contract_map["EvidenceArchivePolicy"]
+    assert "archive_after_lifecycle_statuses" in contract_map["EvidenceArchivePolicy"]
+    assert "delete_source_after_archive" in contract_map["EvidenceArchivePolicy"]
+    assert "entries" in contract_map["EvidenceArchiveManifest"]
+    assert "head_sha_at_archive" in contract_map["EvidenceArchiveManifest"]
+    assert "source_deleted" in contract_map["EvidenceArchiveReceipt"]
+    assert "manifest_path" in contract_map["EvidenceArchiveReceipt"]
+    assert "session_id" in contract_map["SessionActivityLog"]
+    assert "entries" in contract_map["SessionActivityLog"]
+    assert "evidence_archive_ref" in contract_map["SessionActivityLog"]
+    assert "activity_type" in contract_map["SessionActivityEntry"]
+    assert "packet_refs" in contract_map["SessionActivityEntry"]
+    assert "response_mode" in contract_map["ReviewerResponseShape"]
+    assert "status_prose_allowed" in contract_map["ReviewerResponseShape"]
+    assert "operator_status_source" in contract_map["ReviewerResponseShape"]
+    assert "proposed_response_text_observed" in contract_map["ReviewerResponseShape"]
+    assert "proposed_response_text_source" in contract_map["ReviewerResponseShape"]
+    assert "violations" in contract_map["ReviewerResponseShape"]
+    assert "rules" in contract_map["RoleInstructionCard"]
+    assert "enforcement_point" in contract_map["RoleGuard"]
+    assert "base_workstream_id" in contract_map["CustomRoleDefinition"]
+    assert "instruction_cards" in contract_map["RoleCreationAction"]
+    assert "validation_errors" in contract_map["RoleCreationAction"]
+    assert "heartbeat_packet_id" in contract_map["PeerHeartbeatEvidence"]
+    assert "peer_offline" in contract_map["PeerHeartbeatEvidence"]
+    assert "composability_anchors" in contract_map["PreDecisionComposabilityWindow"]
+    assert "duplicate_hunt_ref" in contract_map["PreDecisionComposabilityWindow"]
+    assert "commit_blocked" in contract_map["PreDecisionComposabilityWindow"]
+    assert "reviewer_ack_packet_id" in contract_map["CommitReceipt"]
+    assert "audit_synthesis_ref" in contract_map["CommitReceipt"]
+    assert "evidence_refs" in contract_map["CommitReceipt"]
+    assert "progress_percentage_toward_goal" in contract_map["GoalProgressReceipt"]
+    assert "continuation_anchor_packet_id" in contract_map["GoalProgressReceipt"]
+    assert "latest_progress_packet_id" in contract_map["GoalProgressReceipt"]
     assert "reviewer_runtime" in contract_map["ReviewState"]
     assert "commit_pipeline" in contract_map["ReviewState"]
     assert "push_authorization" in contract_map["ReviewState"]
@@ -110,6 +167,7 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "packet_attention" in contract_map["DevelopmentLoopReport"]
     assert "runtime" in contract_map["DevelopmentLoopReport"]
     assert "peer_minds" in contract_map["DevelopmentLoopReport"]
+    assert "reviewer_response_shape" in contract_map["DevelopmentLoopReport"]
     assert "packet_debt_remediation" in contract_map["DevelopmentLoopReport"]
     assert "repo_state_fingerprint" in contract_map["BaselineAuthorityInventoryReceipt"]
     assert "state_store_entries" in contract_map["BaselineAuthorityInventoryReceipt"]
@@ -155,6 +213,9 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "approval_expires_at_utc" in contract_map["RemoteCommitPipelineContract"]
     assert "approved_target_identity" in contract_map["RemoteCommitPipelineContract"]
     assert "push_authorization" in contract_map["RemoteCommitPipelineContract"]
+    assert "tree_hash_match" in contract_map["CheckpointBudgetShape"]
+    assert "bootstrap_blocked" in contract_map["CheckpointBudgetShape"]
+    assert "next_required_action" in contract_map["CheckpointBudgetShape"]
     assert "next_authorized_action" in contract_map["CheckpointRepairAuthority"]
     assert "validation_receipt_id" in contract_map["CheckpointRepairAuthority"]
     assert "blocked_raw_actions" in contract_map["CheckpointRepairAuthority"]
@@ -164,6 +225,9 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "exception" in contract_map["GovernedExceptionLifecycle"]
     assert "operator_reason" in contract_map["ExceptionReceipt"]
     assert "remote_ref_verified" in contract_map["ExceptionReceipt"]
+    assert "correlation_id" in contract_map["ExceptionReceipt"]
+    assert "causation_id" in contract_map["ExceptionReceipt"]
+    assert "run_id" in contract_map["ExceptionReceipt"]
     assert "validation_receipt_id" in contract_map["ResolutionReceipt"]
     assert "forbidden_exception_classes" in contract_map["ExceptionPolicy"]
 
@@ -264,6 +328,8 @@ def test_platform_contracts_json_output(capsys) -> None:
     assert "DecisionPacket" in contract_ids
     assert "ProbeReport" in artifact_ids
     assert "ReviewPacket" in artifact_ids
+    assert "DogfoodSelfCheckReceipt" in artifact_ids
+    assert "ReviewerAuditReceipt" in artifact_ids
     assert "SystemPicture" in artifact_ids
     assert payload["service_lifecycle"][0]["service_id"] == "voiceterm_daemon"
     assert "shutdown_entrypoints" in contract_map["LocalServiceEndpoint"]

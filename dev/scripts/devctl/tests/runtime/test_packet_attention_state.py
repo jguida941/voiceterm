@@ -60,6 +60,15 @@ def test_new_packet_wakes_claude_and_blocks_old_work() -> None:
     assert state.stale_reason == "wake_required"
 
 
+def test_later_observation_event_satisfies_older_inbox_event() -> None:
+    kwargs = _baseline_kwargs()
+    kwargs["latest_inbox_event_id"] = "rev_evt_101"
+    kwargs["last_observed_event_id"] = "rev_evt_73098"
+    state = build_packet_attention_state(**kwargs)
+    assert state.wake_required is False
+    assert "inbox_event_unobserved" not in state.pivot_reasons
+
+
 def test_superseding_codex_packet_interrupts_active_claude_work() -> None:
     """Per rev_pkt_2498 (7) test 2: a superseding packet (Codex dismissed
     Claude's prior active and routed a new one) MUST mark wake_required so
@@ -99,6 +108,26 @@ def test_attention_state_pending_packets_force_wake() -> None:
     state = build_packet_attention_state(**kwargs)
     assert state.wake_required is True
     assert "pending_packets_unconsumed" in state.pivot_reasons
+
+
+def test_unopened_packet_bodies_force_body_open_gate() -> None:
+    kwargs = _baseline_kwargs()
+    kwargs["pending_packet_count"] = 1
+    state = build_packet_attention_state(
+        **kwargs,
+        unopened_body_packet_ids=("rev_pkt_3662",),
+        body_open_packet_id="rev_pkt_3662",
+        body_open_command=(
+            "python3 dev/scripts/devctl.py review-channel --action show "
+            "--packet-id rev_pkt_3662 --actor codex --terminal none --format md"
+        ),
+    )
+
+    assert state.body_open_required is True
+    assert state.unopened_body_packet_count == 1
+    assert state.unopened_body_packet_ids == ("rev_pkt_3662",)
+    assert state.stale_reason == "packet_body_open_required"
+    assert "packet_bodies_unread" in state.pivot_reasons
 
 
 def test_runtime_clock_carries_source_event_evidence() -> None:

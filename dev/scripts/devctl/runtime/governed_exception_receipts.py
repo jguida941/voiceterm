@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 
+from .correlation_spine import correlation_context_for_ref, merge_correlation_context
 from .governed_exception_base import (
     AUTO_REPAIR_RECEIPT_CONTRACT_ID,
     CLOSURE_PROOF_CONTRACT_ID,
@@ -55,17 +56,36 @@ class ExceptionReceipt(GovernedExceptionReceiptMixin):
     post_push_proof_ref: str = ""
     expires_at_utc: str = ""
     created_at_utc: str = ""
+    correlation_id: str = ""
+    causation_id: str = ""
+    run_id: str = ""
     schema_version: int = GOVERNED_EXCEPTION_SCHEMA_VERSION
     contract_id: str = EXCEPTION_RECEIPT_CONTRACT_ID
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, object]) -> "ExceptionReceipt":
         mapping = coerce_mapping(payload)
+        receipt_id = coerce_string(mapping.get("receipt_id"))
+        guard_id = coerce_string(mapping.get("guard_id"))
+        validation_plan_id = coerce_string(mapping.get("validation_plan_id"))
+        context = merge_correlation_context(
+            mapping,
+            correlation_context_for_ref(
+                "exception_receipt",
+                receipt_id,
+                causation_kind="guard",
+                causation_ref_value=guard_id,
+                run_kind="validation_plan",
+                run_ref_value=validation_plan_id
+                or coerce_string(mapping.get("phase"))
+                or receipt_id,
+            ).to_dict(),
+        )
         return cls(
-            receipt_id=coerce_string(mapping.get("receipt_id")),
+            receipt_id=receipt_id,
             action_kind=coerce_string(mapping.get("action_kind")),
             phase=coerce_string(mapping.get("phase")),
-            guard_id=coerce_string(mapping.get("guard_id")),
+            guard_id=guard_id,
             exception_class=coerce_string(mapping.get("exception_class")),
             operator_reason=coerce_string(mapping.get("operator_reason")),
             head=coerce_string(mapping.get("head")),
@@ -85,6 +105,9 @@ class ExceptionReceipt(GovernedExceptionReceiptMixin):
             post_push_proof_ref=coerce_string(mapping.get("post_push_proof_ref")),
             expires_at_utc=coerce_string(mapping.get("expires_at_utc")),
             created_at_utc=coerce_string(mapping.get("created_at_utc")),
+            correlation_id=context.correlation_id,
+            causation_id=context.causation_id,
+            run_id=context.run_id,
             schema_version=coerce_int(mapping.get("schema_version"))
             or GOVERNED_EXCEPTION_SCHEMA_VERSION,
         )

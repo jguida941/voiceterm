@@ -5,8 +5,21 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from .action_contracts import RUN_RECORD_CONTRACT_ID
+from .evidence_receipts import (
+    DOGFOOD_SELF_CHECK_RECEIPT_CONTRACT_ID,
+    REVIEWER_AUDIT_RECEIPT_CONTRACT_ID,
+)
+
 COLLABORATION_MODE_CONTRACT_ID = "CollaborationModeTopology"
 COLLABORATION_MODE_SCHEMA_VERSION = 1
+MODE_CHAIN_CONTRACT_ID = "ModeChainComposition"
+MODE_CHAIN_SCHEMA_VERSION = 1
+DEFAULT_COMPOSITE_RECEIPT_CHILD_KINDS = (
+    RUN_RECORD_CONTRACT_ID,
+    DOGFOOD_SELF_CHECK_RECEIPT_CONTRACT_ID,
+    REVIEWER_AUDIT_RECEIPT_CONTRACT_ID,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +86,198 @@ class RoleCountBudget:
 
 
 @dataclass(frozen=True, slots=True)
+class PhaseSequenceContract:
+    """Ordering rules for chaining collaboration modes."""
+
+    default_ordering: str = "sequential"
+    primary_phase_policy: str = "selected role preset is phase 1"
+    child_phase_policy: str = "child phases run after parent output exists"
+    interleaving_policy: str = "explicit_phase_only"
+    phase_boundary_receipts: tuple[str, ...] = ("RunRecord", "SessionActivityEntry")
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["phase_boundary_receipts"] = list(self.phase_boundary_receipts)
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class ConflictingModeRule:
+    """One fail-closed conflict rule for mode-chain requests."""
+
+    rule_id: str
+    selectors: tuple[str, ...]
+    validation_stage: str
+    reason: str
+    severity: str = "error"
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["selectors"] = list(self.selectors)
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class ScopeInheritanceContract:
+    """Scope propagation rules between parent and child phases."""
+
+    default_policy: str = "same_or_narrower"
+    allowed_policies: tuple[str, ...] = ("inherits_parent_scope", "narrows_parent_scope")
+    blocked_when: tuple[str, ...] = (
+        "child widens parent scope without operator approval",
+        "child omits scope when parent has an explicit scope",
+    )
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["allowed_policies"] = list(self.allowed_policies)
+        payload["blocked_when"] = list(self.blocked_when)
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class LaneCardinalityEnforcer:
+    """Control-plane lane limits for chained-mode requests."""
+
+    max_chain_phases: int = 4
+    max_live_tree_writers: int = 1
+    max_independent_next_derivers: int = 1
+    role_count_budget_source: str = "DevelopCollaborationModeSpec.role_count_budgets"
+    enforcement_stage: str = "request_normalization_and_dispatch"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class CompositeReceiptContainer:
+    """Receipt-chain policy for completed mode chains."""
+
+    emit_stage: str = "chain_completion"
+    phase_boundary_policy: str = "child phases emit their native receipts"
+    session_activity_log_policy: str = (
+        "SessionActivityLog references child receipts and the composite receipt"
+    )
+    required_child_receipt_kinds: tuple[str, ...] = (
+        DEFAULT_COMPOSITE_RECEIPT_CHILD_KINDS
+    )
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["required_child_receipt_kinds"] = list(
+            self.required_child_receipt_kinds
+        )
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class ModeChainPolicy:
+    """Typed policy bundle for composable slash-command modes."""
+
+    phase_sequence: PhaseSequenceContract
+    conflict_rules: tuple[ConflictingModeRule, ...]
+    scope_inheritance: ScopeInheritanceContract
+    lane_cardinality: LaneCardinalityEnforcer
+    composite_receipt: CompositeReceiptContainer
+    authority_policy: str = (
+        "mode chains compile request metadata only; AuthoritySnapshot, "
+        "AgentDispatchRouter, OrphanSnapshot, and leases still grant work"
+    )
+    schema_version: int = MODE_CHAIN_SCHEMA_VERSION
+    contract_id: str = MODE_CHAIN_CONTRACT_ID
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["phase_sequence"] = self.phase_sequence.to_dict()
+        payload["conflict_rules"] = [item.to_dict() for item in self.conflict_rules]
+        payload["scope_inheritance"] = self.scope_inheritance.to_dict()
+        payload["lane_cardinality"] = self.lane_cardinality.to_dict()
+        payload["composite_receipt"] = self.composite_receipt.to_dict()
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class ModeChainPhase:
+    """One requested phase in a composable mode chain."""
+
+    phase_id: str
+    order: int
+    role_preset: str
+    collaboration_mode: str
+    phase_kind: str
+    scope_ref: str = ""
+    scope_inherited_from: str = ""
+    scope_policy: str = "same_or_narrower"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class ChainReceiptRef:
+    """Typed child receipt reference carried by a mode-chain composition."""
+
+    receipt_ref: str
+    expected_contract_id: str = ""
+    phase_id: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class ModeChainComposition:
+    """Canonical composition object behind the mode-chain report projection."""
+
+    chain_id: str
+    phases: tuple[ModeChainPhase, ...]
+    receipt_refs: tuple[ChainReceiptRef, ...]
+    policy: ModeChainPolicy
+    effective_reviewer_mode: str = ""
+    schema_version: int = MODE_CHAIN_SCHEMA_VERSION
+    contract_id: str = MODE_CHAIN_CONTRACT_ID
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["phases"] = [item.to_dict() for item in self.phases]
+        payload["receipt_refs"] = [item.to_dict() for item in self.receipt_refs]
+        payload["policy"] = self.policy.to_dict()
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class ModeChainCompositionReport:
+    """Resolved mode-chain request embedded in `/develop` output."""
+
+    chain_id: str
+    requested_chain_phases: tuple[str, ...]
+    phases: tuple[ModeChainPhase, ...]
+    receipt_refs: tuple[str, ...]
+    validation_errors: tuple[str, ...]
+    validation_warnings: tuple[str, ...]
+    ok: bool
+    policy: ModeChainPolicy
+    composition: ModeChainComposition
+    effective_reviewer_mode: str = ""
+    schema_version: int = MODE_CHAIN_SCHEMA_VERSION
+    contract_id: str = MODE_CHAIN_CONTRACT_ID
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["requested_chain_phases"] = list(self.requested_chain_phases)
+        payload["phases"] = [item.to_dict() for item in self.phases]
+        payload["receipt_refs"] = list(self.receipt_refs)
+        payload["validation_errors"] = list(self.validation_errors)
+        payload["validation_warnings"] = list(self.validation_warnings)
+        payload["policy"] = self.policy.to_dict()
+        payload["composition"] = self.composition.to_dict()
+        payload["receipt_ref_rows"] = [
+            item.to_dict() for item in self.composition.receipt_refs
+        ]
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
 class DevelopCollaborationModeSpec:
     mode_id: str
     display_name: str
@@ -118,6 +323,7 @@ class CollaborationModeTopology:
     modes: tuple[DevelopCollaborationModeSpec, ...]
     role_presets: tuple[DevelopRolePresetSpec, ...]
     packet_pressure_policy: PacketAttentionPressurePolicy
+    mode_chain_policy: ModeChainPolicy
     authority_policy: str
     slash_adapter_policy: str
     default_mode_id: str = "solo"
@@ -131,6 +337,7 @@ class CollaborationModeTopology:
         payload["modes"] = [item.to_dict() for item in self.modes]
         payload["role_presets"] = [item.to_dict() for item in self.role_presets]
         payload["packet_pressure_policy"] = self.packet_pressure_policy.to_dict()
+        payload["mode_chain_policy"] = self.mode_chain_policy.to_dict()
         return payload
 
 
@@ -397,6 +604,45 @@ COLLABORATION_MODES = (
 )
 
 
+def build_default_mode_chain_policy() -> ModeChainPolicy:
+    """Return the default typed policy for composable slash modes."""
+    return ModeChainPolicy(
+        phase_sequence=PhaseSequenceContract(),
+        conflict_rules=(
+            ConflictingModeRule(
+                rule_id="single_primary_role_per_phase",
+                selectors=("role_preset", "chain_phase"),
+                validation_stage="request_normalization",
+                reason=(
+                    "each phase must compile to one role preset; adapters cannot "
+                    "smuggle /reviewer and /implementer into one phase"
+                ),
+            ),
+            ConflictingModeRule(
+                rule_id="self_review_blocked_across_phases",
+                selectors=("implementer", "reviewer"),
+                validation_stage="dispatch_authority_gate",
+                reason=(
+                    "implementer output and reviewer acceptance must remain "
+                    "distinct evidence paths"
+                ),
+            ),
+            ConflictingModeRule(
+                rule_id="strict_governance_disables_full_auto",
+                selectors=("strict_governance", "full_auto"),
+                validation_stage="request_normalization",
+                reason=(
+                    "strict governance mode cannot be combined with autonomous "
+                    "terminal completion shortcuts"
+                ),
+            ),
+        ),
+        scope_inheritance=ScopeInheritanceContract(),
+        lane_cardinality=LaneCardinalityEnforcer(),
+        composite_receipt=CompositeReceiptContainer(),
+    )
+
+
 def build_default_collaboration_mode_topology() -> CollaborationModeTopology:
     """Return the default read-only collaboration topology for `/develop`."""
     return CollaborationModeTopology(
@@ -404,6 +650,7 @@ def build_default_collaboration_mode_topology() -> CollaborationModeTopology:
         modes=COLLABORATION_MODES,
         role_presets=ROLE_PRESETS,
         packet_pressure_policy=PacketAttentionPressurePolicy(),
+        mode_chain_policy=build_default_mode_chain_policy(),
         authority_policy=(
             "CollaborationModeTopology explains requested topology only; "
             "AuthoritySnapshot, SessionPosture, AgentDispatchRouter, "
@@ -422,6 +669,13 @@ def collaboration_mode_report(
     requested_mode: object = "",
     requested_role_preset: object = "",
     max_workers: int = 0,
+    chain_phases: tuple[object, ...] = (),
+    dogfood: bool = False,
+    generic_agent_count: int = 0,
+    chain_scope: object = "",
+    receipt_refs: tuple[object, ...] = (),
+    role_counts: tuple[object, ...] = (),
+    effective_reviewer_mode: object = "",
 ) -> dict[str, Any]:
     """Return the compact report payload embedded in DevelopmentLoopReport."""
     topology = build_default_collaboration_mode_topology()
@@ -450,7 +704,263 @@ def collaboration_mode_report(
         max_workers=max_workers,
         mode=selected_mode,
     )
+    payload["mode_chain"] = mode_chain_report(
+        selected_mode_id=selected_mode_id,
+        selected_role_preset_id=selected_role_id,
+        chain_phases=chain_phases,
+        dogfood=dogfood,
+        generic_agent_count=generic_agent_count,
+        chain_scope=chain_scope,
+        receipt_refs=receipt_refs,
+        role_counts=role_counts,
+        effective_reviewer_mode=effective_reviewer_mode,
+        topology=topology,
+    )
     return payload
+
+
+def mode_chain_report(
+    *,
+    selected_mode_id: str,
+    selected_role_preset_id: str,
+    chain_phases: tuple[object, ...] = (),
+    dogfood: bool = False,
+    generic_agent_count: int = 0,
+    chain_scope: object = "",
+    receipt_refs: tuple[object, ...] = (),
+    role_counts: tuple[object, ...] = (),
+    effective_reviewer_mode: object = "",
+    topology: CollaborationModeTopology | None = None,
+) -> dict[str, Any]:
+    """Resolve a composable mode-chain request against typed policy."""
+    topology = topology or build_default_collaboration_mode_topology()
+    policy = topology.mode_chain_policy
+    roles = {item.preset_id for item in topology.role_presets}
+    modes = {item.mode_id for item in topology.modes}
+    scope_ref = str(chain_scope or "").strip()
+    effective_mode = str(effective_reviewer_mode or "").strip()
+    errors: list[str] = []
+    warnings: list[str] = []
+    phases: list[ModeChainPhase] = [
+        ModeChainPhase(
+            phase_id="phase-1-primary",
+            order=1,
+            role_preset=selected_role_preset_id,
+            collaboration_mode=selected_mode_id,
+            phase_kind="primary",
+            scope_ref=scope_ref,
+        )
+    ]
+
+    for raw in chain_phases:
+        phase = _parse_chain_phase(
+            raw,
+            roles=roles,
+            modes=modes,
+            order=len(phases) + 1,
+            parent_phase_id=phases[0].phase_id,
+            scope_ref=scope_ref,
+        )
+        if isinstance(phase, str):
+            errors.append(phase)
+            continue
+        phases.append(phase)
+
+    if dogfood:
+        phases.append(
+            ModeChainPhase(
+                phase_id=f"phase-{len(phases) + 1}-dogfood",
+                order=len(phases) + 1,
+                role_preset="tester",
+                collaboration_mode="dogfood_campaign",
+                phase_kind="dogfood",
+                scope_ref=scope_ref,
+                scope_inherited_from=phases[0].phase_id,
+                scope_policy=policy.scope_inheritance.default_policy,
+            )
+        )
+
+    _reviewer_mode_semantic_findings(
+        effective_reviewer_mode=effective_mode,
+        phases=tuple(phases),
+        errors=errors,
+        warnings=warnings,
+    )
+    if len(phases) > policy.lane_cardinality.max_chain_phases:
+        errors.append(
+            "mode chain declares "
+            f"{len(phases)} phases; max is "
+            f"{policy.lane_cardinality.max_chain_phases} so the chain cannot "
+            "bypass D-DevelopNext cardinality"
+        )
+    if generic_agent_count < 0:
+        errors.append("--agents must be non-negative")
+    if generic_agent_count > 0 and selected_role_preset_id not in roles:
+        errors.append(
+            f"--agents cannot resolve unknown role `{selected_role_preset_id}`"
+        )
+    _role_count_warnings(
+        role_counts=role_counts,
+        phase_roles={phase.role_preset for phase in phases},
+        warnings=warnings,
+    )
+    receipt_ref_rows = _chain_receipt_refs(receipt_refs)
+    clean_receipt_refs = tuple(item.receipt_ref for item in receipt_ref_rows)
+    if len(phases) > 1 and not receipt_ref_rows:
+        warnings.append(
+            "composite receipt container is pending child receipt refs until "
+            "the chained phases run"
+        )
+    chain_id = "+".join(
+        f"{phase.role_preset}:{phase.collaboration_mode}" for phase in phases
+    )
+    composition = ModeChainComposition(
+        chain_id=chain_id,
+        phases=tuple(phases),
+        receipt_refs=receipt_ref_rows,
+        policy=policy,
+        effective_reviewer_mode=effective_mode,
+    )
+    return ModeChainCompositionReport(
+        chain_id=chain_id,
+        requested_chain_phases=tuple(
+            str(item or "").strip() for item in chain_phases if str(item or "").strip()
+        ),
+        phases=tuple(phases),
+        receipt_refs=clean_receipt_refs,
+        validation_errors=tuple(errors),
+        validation_warnings=tuple(warnings),
+        ok=not errors,
+        policy=policy,
+        composition=composition,
+        effective_reviewer_mode=effective_mode,
+    ).to_dict()
+
+
+def _parse_chain_phase(
+    raw: object,
+    *,
+    roles: set[str],
+    modes: set[str],
+    order: int,
+    parent_phase_id: str,
+    scope_ref: str,
+) -> ModeChainPhase | str:
+    text = str(raw or "").strip()
+    if not text:
+        return "chain phase cannot be empty"
+    if "+" in text or "," in text:
+        return (
+            f"chain phase `{text}` must declare one role; use repeated "
+            "--chain-phase flags for multiple phases"
+        )
+    role, separator, mode = text.partition(":")
+    role = role.strip()
+    mode = mode.strip() if separator else _default_mode_for_role(role)
+    if role not in roles:
+        return f"chain phase `{text}` uses unknown role `{role}`"
+    if mode not in modes:
+        return f"chain phase `{text}` uses unknown collaboration mode `{mode}`"
+    return ModeChainPhase(
+        phase_id=f"phase-{order}-{role}",
+        order=order,
+        role_preset=role,
+        collaboration_mode=mode,
+        phase_kind="explicit",
+        scope_ref=scope_ref,
+        scope_inherited_from=parent_phase_id,
+    )
+
+
+def _default_mode_for_role(role: str) -> str:
+    if role in {"architect", "researcher"}:
+        return "research_fanout"
+    if role in {"reviewer", "tester"}:
+        return "review_fanout"
+    if role == "intake":
+        return "intake_fanout"
+    if role == "watcher":
+        return "watcher_fanout"
+    if role in {"dashboard", "operator"}:
+        return "dashboard_led"
+    if role == "implementer":
+        return "pair_review"
+    return "solo"
+
+
+def _chain_receipt_refs(receipt_refs: tuple[object, ...]) -> tuple[ChainReceiptRef, ...]:
+    rows: list[ChainReceiptRef] = []
+    for raw in receipt_refs:
+        ref = str(raw or "").strip()
+        if not ref:
+            continue
+        rows.append(
+            ChainReceiptRef(
+                receipt_ref=ref,
+                expected_contract_id=_expected_receipt_contract_id(ref),
+            )
+        )
+    return tuple(rows)
+
+
+def _expected_receipt_contract_id(receipt_ref: str) -> str:
+    prefix = receipt_ref.split(":", 1)[0].strip().lower()
+    if prefix == "run":
+        return RUN_RECORD_CONTRACT_ID
+    if prefix == "dogfood":
+        return DOGFOOD_SELF_CHECK_RECEIPT_CONTRACT_ID
+    if prefix in {"audit", "review", "reviewer_audit"}:
+        return REVIEWER_AUDIT_RECEIPT_CONTRACT_ID
+    return ""
+
+
+def _reviewer_mode_semantic_findings(
+    *,
+    effective_reviewer_mode: str,
+    phases: tuple[ModeChainPhase, ...],
+    errors: list[str],
+    warnings: list[str],
+) -> None:
+    if not effective_reviewer_mode:
+        return
+    review_phase = any(
+        phase.role_preset in {"reviewer", "tester"}
+        or phase.collaboration_mode in {"review_fanout", "dogfood_campaign"}
+        for phase in phases
+    )
+    if not review_phase:
+        return
+    if effective_reviewer_mode in {"paused", "offline"}:
+        errors.append(
+            "effective_reviewer_mode "
+            f"`{effective_reviewer_mode}` cannot satisfy review/dogfood "
+            "mode-chain phases"
+        )
+        return
+    if effective_reviewer_mode in {"single_agent", "tools_only"}:
+        warnings.append(
+            "effective_reviewer_mode "
+            f"`{effective_reviewer_mode}` limits review/dogfood phases to that "
+            "runtime posture; live dual-agent proof still needs a compatible "
+            "CollaborationSession"
+        )
+
+
+def _role_count_warnings(
+    *,
+    role_counts: tuple[object, ...],
+    phase_roles: set[str],
+    warnings: list[str],
+) -> None:
+    for raw in role_counts:
+        text = str(raw or "").strip()
+        if not text or "=" not in text:
+            continue
+        role = text.split("=", 1)[0].strip()
+        if role and role not in phase_roles:
+            warnings.append(
+                f"role count `{text}` applies outside the explicit mode chain"
+            )
 
 
 def _selected_key(
@@ -480,11 +990,25 @@ def _mutable_fanout_status(
 __all__ = [
     "COLLABORATION_MODE_CONTRACT_ID",
     "COLLABORATION_MODE_SCHEMA_VERSION",
+    "ChainReceiptRef",
     "CollaborationModeTopology",
+    "CompositeReceiptContainer",
+    "ConflictingModeRule",
     "DevelopCollaborationModeSpec",
     "DevelopRolePresetSpec",
+    "LaneCardinalityEnforcer",
+    "MODE_CHAIN_CONTRACT_ID",
+    "MODE_CHAIN_SCHEMA_VERSION",
+    "ModeChainComposition",
+    "ModeChainCompositionReport",
+    "ModeChainPhase",
+    "ModeChainPolicy",
     "PacketAttentionPressurePolicy",
+    "PhaseSequenceContract",
     "RoleCountBudget",
+    "ScopeInheritanceContract",
     "build_default_collaboration_mode_topology",
+    "build_default_mode_chain_policy",
     "collaboration_mode_report",
+    "mode_chain_report",
 ]

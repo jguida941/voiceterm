@@ -7,6 +7,158 @@ from .contracts import ContractField, ContractSpec, CrossLinkSpec
 
 PIPELINE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     ContractSpec(
+        contract_id="CheckpointBudgetShape",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Startup checkpoint-budget classifier that separates raw scratch "
+            "dirt from a governed checkpoint pipeline parked at the staged "
+            "snapshot boundary."
+        ),
+        required_fields=(
+            ContractField("state", "str", "Budget classifier state."),
+            ContractField("reason", "str", "Checkpoint pressure reason."),
+            ContractField(
+                "checkpoint_required",
+                "bool",
+                "Whether ProjectGovernance says a checkpoint is required.",
+            ),
+            ContractField(
+                "safe_to_continue_editing",
+                "bool",
+                "Whether more implementation editing is safe before checkpoint.",
+            ),
+            ContractField(
+                "staged_path_count",
+                "int",
+                "Staged path count from ProjectGovernance push enforcement.",
+            ),
+            ContractField(
+                "unstaged_path_count",
+                "int",
+                "Unstaged path count from ProjectGovernance push enforcement.",
+            ),
+            ContractField(
+                "dirty_path_count",
+                "int",
+                "Dirty path count from ProjectGovernance push enforcement.",
+            ),
+            ContractField(
+                "untracked_path_count",
+                "int",
+                "Untracked path count from ProjectGovernance push enforcement.",
+            ),
+            ContractField(
+                "pipeline_id",
+                "str",
+                "RemoteCommitPipelineContract id when typed pipeline evidence exists.",
+            ),
+            ContractField(
+                "pipeline_state",
+                "str",
+                "Remote commit pipeline lifecycle state.",
+            ),
+            ContractField(
+                "pipeline_staged_path_count",
+                "int",
+                "Staged path count captured by the pipeline intent.",
+            ),
+            ContractField(
+                "staged_tree_hash",
+                "str",
+                "Pipeline staged tree hash used as repo-state fingerprint.",
+            ),
+            ContractField(
+                "current_tree_hash",
+                "str",
+                "Current git index tree hash read during classification.",
+            ),
+            ContractField(
+                "tree_hash_match",
+                "bool",
+                "Whether current_tree_hash matches staged_tree_hash.",
+            ),
+            ContractField(
+                "typed_pipeline_parked",
+                "bool",
+                "Whether the pipeline state is parked at the checkpoint boundary.",
+            ),
+            ContractField(
+                "receipt_backed",
+                "bool",
+                "Whether guard or validation receipt evidence is present.",
+            ),
+            ContractField(
+                "guard_action_id",
+                "str",
+                "Guard ActionResult id when guard receipt evidence exists.",
+            ),
+            ContractField(
+                "guard_status",
+                "str",
+                "Guard ActionResult status when guard receipt evidence exists.",
+            ),
+            ContractField(
+                "guard_ok",
+                "bool",
+                "Whether the guard ActionResult reports ok.",
+            ),
+            ContractField(
+                "validation_receipt_id",
+                "str",
+                "ValidationReceipt id when validation evidence exists.",
+            ),
+            ContractField(
+                "validation_receipt_status",
+                "str",
+                "ValidationReceipt status when validation evidence exists.",
+            ),
+            ContractField(
+                "validation_checkpoint_sufficient",
+                "bool",
+                "Whether validation receipt proves checkpoint sufficiency.",
+            ),
+            ContractField(
+                "bootstrap_blocked",
+                "bool",
+                "Whether startup authority must still block bootstrap work.",
+            ),
+            ContractField(
+                "next_required_action",
+                "str",
+                "Next governed action implied by the classifier.",
+            ),
+            ContractField(
+                "blocked_raw_actions",
+                "tuple[str, ...]",
+                "Raw actions still blocked by the classifier.",
+            ),
+            ContractField(
+                "errors",
+                "tuple[str, ...]",
+                "Fail-closed evidence errors when bootstrap is blocked.",
+            ),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.checkpoint_budget_shape:"
+            "CheckpointBudgetShape"
+        ),
+        startup_surface_tokens=(
+            "state",
+            "bootstrap_blocked",
+            "next_required_action",
+        ),
+        cross_links=(
+            CrossLinkSpec(
+                "pipeline_id",
+                "RemoteCommitPipelineContract",
+                "classifies_pipeline",
+                target_node_kind="remote_commit_pipeline",
+                target_resolver="pipeline_id",
+                required=False,
+            ),
+        ),
+    ),
+    ContractSpec(
         contract_id="RemoteCommitPipelineContract",
         owner_layer="governance_runtime",
         purpose=(

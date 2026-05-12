@@ -69,7 +69,6 @@ COMMON_NONNEGATIVE_LIMITS = (
 COMMON_POSITIVE_LIMITS = (
     ("--follow-interval-seconds", "follow_interval_seconds", 120),
     ("--stale-minutes", "stale_minutes", 30),
-    ("--expires-in-minutes", "expires_in_minutes", 30),
 )
 
 

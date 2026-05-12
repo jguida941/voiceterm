@@ -11,7 +11,9 @@ from ..runtime.finding_contracts import (
     FindingIdentitySeed,
     FindingRecord,
     build_finding_id,
+    finding_correlation_context,
 )
+from ..runtime.correlation_spine import merge_correlation_context
 
 
 def live_findings_from_governance_report(
@@ -69,6 +71,18 @@ def _finding_from_governance_row(
             signals=("confirmed_issue",),
         )
     )
+    source_command = (
+        _text(row.get("source_command"))
+        or "python3 dev/scripts/devctl.py governance-review --format md"
+    )
+    context = merge_correlation_context(
+        row,
+        finding_correlation_context(
+            finding_id,
+            check_id=check_id,
+            source_artifact=source_artifact,
+        ).to_dict(),
+    )
     return FindingRecord(
         schema_version=FINDING_SCHEMA_VERSION,
         contract_id=FINDING_CONTRACT_ID,
@@ -87,9 +101,11 @@ def _finding_from_governance_row(
         review_lens=_text(row.get("prevention_surface")),
         ai_instruction=_text(row.get("notes")),
         signals=("confirmed_issue",),
-        source_command=_text(row.get("source_command"))
-        or "python3 dev/scripts/devctl.py governance-review --format md",
+        source_command=source_command,
         source_artifact=source_artifact,
+        correlation_id=context.correlation_id,
+        causation_id=context.causation_id,
+        run_id=context.run_id,
     )
 
 

@@ -157,6 +157,9 @@ def packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
                 ),
                 trace_id=_string(mapping.get("trace_id")),
                 latest_event_id=_string(mapping.get("latest_event_id")),
+                correlation_id=_string(mapping.get("correlation_id")),
+                causation_id=_string(mapping.get("causation_id")),
+                run_id=_string(mapping.get("run_id")),
                 confidence=confidence,
                 guidance_refs=_string_rows(mapping.get("guidance_refs")),
                 target_kind=_string(mapping.get("target_kind")),
@@ -205,6 +208,13 @@ def packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
                 ),
                 apply_pending_after_execution_reason=_string(
                     mapping.get("apply_pending_after_execution_reason")
+                ),
+                body_observed_at_utc=_string(mapping.get("body_observed_at_utc")),
+                body_observed_by=_string(mapping.get("body_observed_by")),
+                body_observed_event_id=_string(mapping.get("body_observed_event_id")),
+                body_digest=_string(mapping.get("body_digest")),
+                body_observation_events=_mapping_rows(
+                    mapping.get("body_observation_events")
                 ),
                 expires_at_utc=_string(mapping.get("expires_at_utc")),
                 semantic_zref=_string(mapping.get("semantic_zref")),

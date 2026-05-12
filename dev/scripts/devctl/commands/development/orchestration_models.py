@@ -95,6 +95,10 @@ class DevelopmentContinuationRequiredSignal:
     user_continue_state: str = "must_continue"
     user_action: str = "Compute typed continuation state"
     continuation_goal: str = "typed controller goal"
+    continuation_anchor_packet_id: str = ""
+    goal_progress_packet_id: str = ""
+    progress_percentage_toward_goal: int = 0
+    goal_progress_status: str = "missing"
     why_not_done: str = "Typed controller closure has not been computed."
     required_final_response_action: str = "run_next_command"
     required_packet_kind: str = ""

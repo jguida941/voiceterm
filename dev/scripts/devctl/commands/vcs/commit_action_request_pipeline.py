@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ...runtime.value_coercion import coerce_text as _text
 from .governed_executor_git import pipeline_is_stale_for_current_repo
 
 
@@ -48,10 +49,6 @@ def pipeline_hash(pipeline: object | None) -> str:
     """Return the typed staged-tree hash bound to the pipeline."""
     intent = getattr(pipeline, "intent", None)
     return _text(getattr(intent, "staged_tree_hash", ""))
-
-
-def _text(value: object) -> str:
-    return str(value or "").strip()
 
 
 __all__ = [
