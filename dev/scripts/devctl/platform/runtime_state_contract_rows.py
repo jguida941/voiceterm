@@ -241,6 +241,91 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         startup_surface_tokens=("success", "failed", "correlation_id"),
     ),
     ContractSpec(
+        contract_id="SecurityReport",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed top-level report emitted by `devctl security`, preserving "
+            "scanner settings, warnings, and step evidence for JSON and markdown renderers."
+        ),
+        required_fields=(
+            ContractField("timestamp", "str", "UTC timestamp for the security run."),
+            ContractField("ok", "bool", "Whether blocking security checks passed."),
+            ContractField("rustsec_output", "str", "Resolved RustSec audit output path."),
+            ContractField("scanner_tier", "str", "Scanner tier selected for the run."),
+            ContractField("python_scope", "str", "Python scanner scope used by core checks."),
+            ContractField("since_ref", "str | None", "Optional comparison base ref."),
+            ContractField("head_ref", "str", "Comparison head ref."),
+            ContractField(
+                "expensive_policy",
+                "str",
+                "Policy for expensive advisory scanner failures.",
+            ),
+            ContractField(
+                "core_scanners",
+                "tuple[str, ...]",
+                "Core scanner ids advertised by the command.",
+            ),
+            ContractField(
+                "expensive_scanners",
+                "tuple[str, ...]",
+                "Expensive scanner ids advertised by the command.",
+            ),
+            ContractField("warnings", "tuple[str, ...]", "Non-fatal warnings emitted."),
+            ContractField(
+                "steps",
+                "tuple[dict[str, Any], ...]",
+                "Step records rendered through the CheckResult path.",
+            ),
+        ),
+        runtime_model="dev.scripts.devctl.runtime.audit_report_contracts:SecurityReport",
+        startup_surface_tokens=("contract_id", "schema_version", "scanner_tier"),
+    ),
+    ContractSpec(
+        contract_id="RustAuditReport",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed aggregate Rust audit report preserving guard reports, "
+            "category rationale, hotspots, and chart evidence for renderers."
+        ),
+        required_fields=(
+            ContractField("mode", "str", "Resolved Rust audit mode."),
+            ContractField("since_ref", "str | None", "Optional comparison base ref."),
+            ContractField("head_ref", "str", "Comparison head ref."),
+            ContractField("ok", "bool", "Whether all Rust audit guards were clean."),
+            ContractField(
+                "collection_ok",
+                "bool",
+                "Whether guard report collection succeeded.",
+            ),
+            ContractField("warnings", "tuple[str, ...]", "Non-fatal collection warnings."),
+            ContractField("errors", "tuple[str, ...]", "Collection or parse errors."),
+            ContractField("summary", "dict[str, Any]", "Aggregate audit summary."),
+            ContractField(
+                "guards",
+                "tuple[dict[str, Any], ...]",
+                "Per-guard status rows.",
+            ),
+            ContractField(
+                "guard_reports",
+                "dict[str, dict[str, Any]]",
+                "Raw parsed guard payloads by guard id.",
+            ),
+            ContractField(
+                "categories",
+                "tuple[dict[str, Any], ...]",
+                "Ranked finding categories with rationale and fixes.",
+            ),
+            ContractField(
+                "hotspots",
+                "tuple[dict[str, Any], ...]",
+                "Ranked file hotspots by weighted audit score.",
+            ),
+            ContractField("charts", "tuple[str, ...]", "Chart artifact paths."),
+        ),
+        runtime_model="dev.scripts.devctl.runtime.audit_report_contracts:RustAuditReport",
+        startup_surface_tokens=("contract_id", "schema_version", "collection_ok"),
+    ),
+    ContractSpec(
         contract_id="ControlState",
         owner_layer="governance_runtime",
         purpose=(

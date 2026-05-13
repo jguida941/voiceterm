@@ -7,6 +7,11 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from ..runtime.audit_report_contracts import (
+    RUST_AUDIT_REPORT_CONTRACT_ID,
+    RUST_AUDIT_REPORT_SCHEMA_VERSION,
+)
+
 
 def build_rust_audit_charts(
     audit: dict[str, Any],
@@ -89,8 +94,16 @@ def render_rust_audit_markdown(audit: dict[str, Any]) -> list[str]:
     """Render a human-readable markdown section for Rust audit output."""
     lines = ["## Rust Audit", ""]
     summary = audit.get("summary") if isinstance(audit.get("summary"), dict) else {}
+    lines.append(
+        f"- contract_id: {audit.get('contract_id', RUST_AUDIT_REPORT_CONTRACT_ID)}"
+    )
+    lines.append(
+        f"- schema_version: {audit.get('schema_version', RUST_AUDIT_REPORT_SCHEMA_VERSION)}"
+    )
+    lines.append(f"- command: {audit.get('command', 'rust-audit')}")
     lines.append(f"- Audit mode: {audit.get('mode')}")
     lines.append(f"- Audit clean: {audit.get('ok')}")
+    lines.append(f"- Collection clean: {audit.get('collection_ok')}")
     lines.append(
         f"- Violation files: {summary.get('total_violation_files', 0)}"
     )
