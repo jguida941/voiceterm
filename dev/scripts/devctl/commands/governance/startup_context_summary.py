@@ -51,6 +51,16 @@ def managed_projection_summary_lines(ctx_dict: dict) -> list[str]:
     return lines
 
 
+def typed_bypass_capability_summary_lines(ctx_dict: dict) -> list[str]:
+    if not _startup_has_blocking_gate(ctx_dict):
+        return []
+    return [
+        "typed_bypass_capabilities="
+        "AgentLoopOperatorOverride,BypassReceipt,GovernedExceptionLifecycle",
+        "typed_bypass_scope=edit-only blocks vcs.stage,vcs.commit,vcs.push",
+    ]
+
+
 def summary_coordination_lines(ctx_dict: dict) -> list[str]:
     coordination = coordination_dict(ctx_dict)
     if not coordination:
@@ -113,6 +123,7 @@ def render_summary(ctx_dict: dict) -> str:
             "remote_control_routing=typed_action_request_or_bounded_repo_command",
         )
     lines.extend(managed_projection_summary_lines(ctx_dict))
+    lines.extend(typed_bypass_capability_summary_lines(ctx_dict))
     observed_control_topology = str(
         ctx_dict.get("observed_control_topology") or ""
     ).strip()
@@ -206,8 +217,32 @@ def render_summary(ctx_dict: dict) -> str:
     return "\n".join(lines)
 
 
+def _startup_has_blocking_gate(ctx_dict: dict) -> bool:
+    advisory_action = str(ctx_dict.get("advisory_action") or "").strip()
+    if advisory_action in {
+        "await_review",
+        "checkpoint_before_continue",
+        "repair_reviewer_loop",
+    }:
+        return True
+    gate = ctx_dict.get("reviewer_gate")
+    if isinstance(gate, dict) and bool(gate.get("implementation_blocked")):
+        return True
+    push = ctx_dict.get("push_decision")
+    if isinstance(push, dict) and str(push.get("action") or "").strip() in {
+        "await_checkpoint",
+        "await_review",
+    }:
+        return True
+    blocker = ctx_dict.get("blocker")
+    return isinstance(blocker, dict) and str(
+        blocker.get("top_blocker") or ""
+    ).strip() not in {"", "none"}
+
+
 __all__ = [
     "render_summary",
     "summary_blockers",
     "summary_next_command",
+    "typed_bypass_capability_summary_lines",
 ]

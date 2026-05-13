@@ -2091,6 +2091,53 @@ def test_final_response_gate_prefers_scoped_repair_over_raw_git_peer_repair() ->
     assert "--actor codex" in result.next_required_command
     assert "--operator-override" in result.next_required_command
     assert "git commit" not in result.next_required_command
+    assert result.gate_failure is not None
+    assert result.gate_failure.contract_id == "TypedGateFailure"
+    assert result.gate_failure.bypass_invocation == result.next_required_command
+
+
+def test_final_response_gate_surfaces_plan_override_for_waiting_loop() -> None:
+    continuation = DevelopmentContinuationRequiredSignal(
+        continuation_required=True,
+        final_response_allowed=False,
+        final_response_gate_allowed=False,
+        next_required_command=(
+            "python3 dev/scripts/devctl.py agent-loop --format json "
+            "--actor codex --role implementer"
+        ),
+    )
+    orchestration = DevelopmentOrchestrationSnapshot(
+        agent_loop_decisions=(
+            DevelopmentAgentLoopInput(
+                actor_id="codex",
+                actor_role="implementer",
+                session_id="session-1",
+                lifecycle_state="waiting",
+                required_action="wait_for_scoped_packet",
+                loop_mode="typed_event_wait",
+                should_continue_loop=True,
+                safe_to_continue=True,
+                may_mutate=False,
+                proof_state="satisfied",
+                why_not_done="no scoped active packet",
+            ),
+        ),
+    )
+
+    result = enforce_final_response_gate(
+        continuation,
+        orchestration=orchestration,
+        next_slice_id="PKT-BIND-REV-PKT-3140",
+    )
+
+    assert result.allow_final_response is False
+    assert result.reason == "agent_loop:wait_for_scoped_packet"
+    assert "--operator-override" in result.next_required_command
+    assert "--slice-id PKT-BIND-REV-PKT-3140" in result.next_required_command
+    assert result.gate_failure is not None
+    assert result.gate_failure.gate_id == "agent_loop.wait_for_scoped_packet"
+    assert result.gate_failure.bypass_receipt_kind == "BypassReceipt"
+    assert result.gate_failure.bypass_invocation == result.next_required_command
 
 
 def test_final_response_gate_does_not_repeat_active_edit_only_override() -> None:

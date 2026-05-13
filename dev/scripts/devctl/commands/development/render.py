@@ -518,7 +518,7 @@ def _continuation_lines(continuation) -> list[str]:
 def _final_response_gate_lines(gate) -> list[str]:
     if not isinstance(gate, dict):
         return []
-    return [
+    lines = [
         "",
         "## Stop Gate",
         "",
@@ -537,6 +537,25 @@ def _final_response_gate_lines(gate) -> list[str]:
         f"{gate.get('required_packet_command') or '(none)'}",
         f"- stop_policy: {gate.get('stop_policy') or '(none)'}",
     ]
+    gate_failure = gate.get("gate_failure")
+    if isinstance(gate_failure, dict) and gate_failure:
+        lines.extend(
+            [
+                "- typed_gate_failure: "
+                f"{gate_failure.get('gate_id') or '(none)'}",
+                "- violation_reason: "
+                f"{reason_label(gate_failure.get('violation_reason')) or '(none)'}",
+                "- bypass_invocation: "
+                f"{gate_failure.get('bypass_invocation') or '(none)'}",
+                "- bypass_receipt_kind: "
+                f"{gate_failure.get('bypass_receipt_kind') or '(none)'}",
+                "- contract_definition_path: "
+                f"{gate_failure.get('contract_definition_path') or '(none)'}",
+                "- exception_lifecycle_class: "
+                f"{gate_failure.get('exception_lifecycle_class') or '(none)'}",
+            ]
+        )
+    return lines
 
 
 def _reviewer_response_shape_lines(shape) -> list[str]:

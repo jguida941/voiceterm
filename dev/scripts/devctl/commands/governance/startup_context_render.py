@@ -171,7 +171,7 @@ def render_markdown(ctx_dict: dict) -> str:
     )
     lines.append("")
     append_blocker_table(lines, ctx_dict)
-    _append_operator_override_discovery(lines, ctx_dict)
+    _append_typed_bypass_capabilities(lines, ctx_dict)
 
     thesis = str(ctx_dict.get("product_thesis") or "").strip()
     if thesis:
@@ -267,14 +267,25 @@ def render_markdown(ctx_dict: dict) -> str:
     return "\n".join(lines)
 
 
-def _append_operator_override_discovery(lines: list[str], ctx_dict: dict) -> None:
+def _append_typed_bypass_capabilities(lines: list[str], ctx_dict: dict) -> None:
     if not _startup_has_blocking_gate(ctx_dict):
         return
-    lines.append("## Operator Override Discovery")
+    lines.append("## Typed Bypass Capabilities")
     lines.append(
-        "- edit_only: `agent-loop --operator-override --override-scope edit-only "
-        "--override-reason '<typed reason>'`; still blocks `vcs.stage`, "
-        "`vcs.commit`, `vcs.push`; lifecycle owner: `MP377-P0-EXC-S1`."
+        "- AgentLoopOperatorOverride: `python3 dev/scripts/devctl.py develop "
+        "next --actor <actor> --slice-id <slice-id> --operator-override "
+        "--override-scope edit-only --override-reason '<typed reason>'`; "
+        "requires explicit operator approval and keeps `vcs.stage`, "
+        "`vcs.commit`, and `vcs.push` blocked."
+    )
+    lines.append(
+        "- BypassLifecycle: authorized edit-only overrides issue a typed "
+        "`BypassReceipt`; raw bypass prose or provider permission mode is not "
+        "authority."
+    )
+    lines.append(
+        "- GovernedExceptionLifecycle: architectural gate changes must be filed "
+        "as exception lifecycle work instead of creating a parallel bypass path."
     )
     lines.append("")
 

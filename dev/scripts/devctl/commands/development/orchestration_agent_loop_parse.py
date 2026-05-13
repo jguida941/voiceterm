@@ -52,6 +52,7 @@ def agent_loop_input(
         continuation_goal=_text(row.get("continuation_goal")),
         why_not_done=_text(row.get("why_not_done")),
         user_continue_state=_text(row.get("user_continue_state")),
+        gate_failure=dict(_mapping(row.get("gate_failure"))) or None,
         new_peer_input=bool(row.get("new_peer_input")),
         switch_to_packet_goal=bool(row.get("switch_to_packet_goal")),
         continue_before_final=bool(row.get("continue_before_final")),

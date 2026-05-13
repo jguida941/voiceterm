@@ -9,6 +9,7 @@ from .agent_loop_command import scoped_loop_command, scoped_operator_override_co
 from .agent_loop_decision_models import AgentLoopDecision
 from .agent_loop_decision_sources import AgentLoopContext, PacketState
 from .agent_loop_policy import policy_for_turn
+from .typed_gate_failure import TypedGateFailure
 from .value_coercion import coerce_bool, coerce_int, coerce_text as _text
 
 CONTINUE_TO_GOAL_ACTION = "continue_to_goal"
@@ -76,6 +77,13 @@ def decision(
         should_continue_loop=effective_should_continue_loop,
         next_command=next_command,
     )
+    gate_failure = _gate_failure_for_decision(
+        loop_state=loop_state,
+        required_action=required_action,
+        reason=reason,
+        next_command=next_command,
+        should_continue_loop=effective_should_continue_loop,
+    )
     return AgentLoopDecision(
         actor_id=ctx.actor,
         actor_role=ctx.role,
@@ -133,9 +141,59 @@ def decision(
         blocked_actions=ctx.blocked_actions,
         granted_capabilities=ctx.granted_capabilities,
         operator_override=ctx.operator_override,
+        gate_failure=gate_failure,
         source_latest_event_id=_text(ctx.clock.get("source_latest_event_id")),
         source_snapshot_id=_text(ctx.clock.get("snapshot_id")),
     )
+
+
+def _gate_failure_for_decision(
+    *,
+    loop_state: str,
+    required_action: str,
+    reason: str,
+    next_command: str,
+    should_continue_loop: bool,
+) -> TypedGateFailure | None:
+    if not should_continue_loop:
+        return None
+    gate_id = _gate_id_for_decision(loop_state=loop_state, required_action=required_action)
+    if not gate_id:
+        return None
+    return TypedGateFailure(
+        gate_id=gate_id,
+        violation_reason=reason or required_action,
+        bypass_invocation=(
+            next_command if "--operator-override" in next_command else ""
+        ),
+        contract_definition_path=_gate_contract_path(required_action),
+    )
+
+
+def _gate_id_for_decision(*, loop_state: str, required_action: str) -> str:
+    if required_action in {
+        "repair_startup_authority",
+        "resolve_blocker",
+        "cut_checkpoint",
+        "wait_for_review",
+        "wait_for_scoped_packet",
+    }:
+        return f"agent_loop.{required_action}"
+    if loop_state == "blocked" and required_action:
+        return f"agent_loop.{required_action}"
+    return ""
+
+
+def _gate_contract_path(required_action: str) -> str:
+    if required_action == "repair_startup_authority":
+        return "dev/scripts/devctl/runtime/startup_blocker_decision.py:126"
+    if required_action == "cut_checkpoint":
+        return "dev/scripts/devctl/runtime/checkpoint_repair_authority.py:1"
+    if required_action == "wait_for_scoped_packet":
+        return "dev/scripts/devctl/runtime/agent_loop_decision_support.py:306"
+    if required_action == "wait_for_review":
+        return "dev/scripts/devctl/runtime/agent_loop_blocker_actions.py:17"
+    return "dev/scripts/devctl/runtime/agent_loop_decision_builder.py:1"
 
 
 def _command_context_for_turn(

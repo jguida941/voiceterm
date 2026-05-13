@@ -163,7 +163,11 @@ def packet_id_from_command(command: str) -> str:
 
 
 def should_surface_plan_override(agent_decision: Any, *, required_action: str) -> bool:
-    if required_action not in {"resolve_blocker", "repair_startup_authority"}:
+    if required_action not in {
+        "resolve_blocker",
+        "repair_startup_authority",
+        "wait_for_scoped_packet",
+    }:
         return False
     if is_active_edit_only_override(agent_decision):
         return False

@@ -7,6 +7,47 @@ from .runtime_state_contract_rows_bypass_lifecycle import BYPASS_LIFECYCLE_CONTR
 
 GOVERNED_EXCEPTION_CORE_CONTRACTS: tuple[ContractSpec, ...] = (
     ContractSpec(
+        contract_id="TypedGateFailure",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed discoverability payload emitted by gate failures so agents "
+            "see the gate id, violation reason, existing audited bypass "
+            "invocation, owning contract path, and governed exception lifecycle "
+            "path at point of need."
+        ),
+        required_fields=(
+            ContractField("gate_id", "str", "Canonical gate identifier."),
+            ContractField("violation_reason", "str", "Reason the gate failed."),
+            ContractField(
+                "bypass_invocation",
+                "str",
+                "Existing typed CLI invocation for audited edit-only override.",
+            ),
+            ContractField(
+                "bypass_receipt_kind",
+                "str",
+                "Receipt kind issued by the existing BypassLifecycle path.",
+            ),
+            ContractField(
+                "contract_definition_path",
+                "str",
+                "File and line for the gate's typed contract or reducer.",
+            ),
+            ContractField(
+                "exception_lifecycle_class",
+                "str",
+                "Governed lifecycle to file for architectural gate changes.",
+            ),
+        ),
+        runtime_model="dev.scripts.devctl.runtime.typed_gate_failure:TypedGateFailure",
+        startup_surface_tokens=(
+            "gate_id",
+            "bypass_invocation",
+            "bypass_receipt_kind",
+            "exception_lifecycle_class",
+        ),
+    ),
+    ContractSpec(
         contract_id="GovernedExceptionLifecycle",
         owner_layer="governance_runtime",
         purpose=(

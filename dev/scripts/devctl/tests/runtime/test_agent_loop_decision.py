@@ -1739,6 +1739,15 @@ def test_operator_override_request_command_surfaces_for_scoped_blocker() -> None
     assert "--override-scope edit-only" in decision.next_command
     assert "--plan MP-377" in decision.next_command
     assert "expired unresolved review packet" in decision.next_command
+    assert decision.gate_failure is not None
+    assert decision.gate_failure.contract_id == "TypedGateFailure"
+    assert decision.gate_failure.gate_id == "agent_loop.wait_for_review"
+    assert decision.gate_failure.bypass_receipt_kind == "BypassReceipt"
+    assert decision.gate_failure.bypass_invocation == decision.next_command
+    assert (
+        decision.gate_failure.exception_lifecycle_class
+        == "GovernedExceptionLifecycle"
+    )
 
 
 def test_operator_override_requires_reason_and_scope_target() -> None:

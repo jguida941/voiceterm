@@ -59,6 +59,7 @@ class DevelopmentAgentLoopInput:
     continuation_goal: str = ""
     why_not_done: str = ""
     user_continue_state: str = ""
+    gate_failure: dict[str, object] | None = None
     new_peer_input: bool = False
     switch_to_packet_goal: bool = False
     continue_before_final: bool = False

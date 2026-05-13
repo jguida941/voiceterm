@@ -17,6 +17,7 @@ from .final_response_gate_agent_loop import (
     prioritized_agent_loop_decisions,
 )
 from .orchestration_models import DevelopmentContinuationRequiredSignal
+from ...runtime.typed_gate_failure import TypedGateFailure
 
 FINAL_RESPONSE_GATE_CONTRACT_ID = "FinalResponseGateResult"
 FINAL_RESPONSE_GATE_SCHEMA_VERSION = 1
@@ -54,6 +55,7 @@ class FinalResponseGateResult:
     continuation_goal: str = ""
     why_not_done: str = ""
     stop_policy: str = "stop_only_when_typed_controller_closed"
+    gate_failure: TypedGateFailure | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -204,10 +206,11 @@ def _agent_loop_final_response_block(
             required_action=required_action,
             next_required_command=next_required_command,
         )
+        reason = f"agent_loop:{required_action or 'continue_required'}"
         return FinalResponseGateResult(
             allow_final_response=False,
             action=action,
-            reason=f"agent_loop:{required_action or 'continue_required'}",
+            reason=reason,
             next_required_command=next_required_command,
             required_packet_kind=required_packet_kind,
             required_packet_command=continuation.required_packet_command,
@@ -237,8 +240,51 @@ def _agent_loop_final_response_block(
                 or "The agent loop still has a typed goal before final response."
             ),
             stop_policy=continuation.stop_policy,
+            gate_failure=_gate_failure_for_agent_loop(
+                agent_decision,
+                required_action=required_action,
+                reason=reason,
+                next_required_command=next_required_command,
+            ),
         )
     return None
+
+
+def _gate_failure_for_agent_loop(
+    agent_decision: Any,
+    *,
+    required_action: str,
+    reason: str,
+    next_required_command: str,
+) -> TypedGateFailure:
+    existing = _field(agent_decision, "gate_failure")
+    if isinstance(existing, Mapping):
+        gate_id = _text(existing.get("gate_id")) or f"agent_loop.{required_action}"
+        violation_reason = _text(existing.get("violation_reason")) or reason
+        contract_path = _text(existing.get("contract_definition_path"))
+        receipt_kind = _text(existing.get("bypass_receipt_kind")) or "BypassReceipt"
+        lifecycle_class = (
+            _text(existing.get("exception_lifecycle_class"))
+            or "GovernedExceptionLifecycle"
+        )
+    else:
+        gate_id = f"agent_loop.{required_action or 'continue_required'}"
+        violation_reason = reason
+        contract_path = "dev/scripts/devctl/commands/development/final_response_gate.py:95"
+        receipt_kind = "BypassReceipt"
+        lifecycle_class = "GovernedExceptionLifecycle"
+    return TypedGateFailure(
+        gate_id=gate_id,
+        violation_reason=violation_reason,
+        bypass_invocation=(
+            next_required_command
+            if "--operator-override" in next_required_command
+            else ""
+        ),
+        bypass_receipt_kind=receipt_kind,
+        contract_definition_path=contract_path,
+        exception_lifecycle_class=lifecycle_class,
+    )
 
 
 def _text(value: object) -> str:

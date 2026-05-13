@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .agent_loop_operator_override import AgentLoopOperatorOverride
+from .typed_gate_failure import TypedGateFailure, typed_gate_failure_dict
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +72,7 @@ class AgentLoopDecision:
     operator_override: AgentLoopOperatorOverride = field(
         default_factory=AgentLoopOperatorOverride
     )
+    gate_failure: TypedGateFailure | None = None
     source_latest_event_id: str = ""
     source_snapshot_id: str = ""
 
@@ -134,6 +136,7 @@ class AgentLoopDecision:
             "blocked_actions": list(self.blocked_actions),
             "granted_capabilities": list(self.granted_capabilities),
             "operator_override": self.operator_override.to_dict(),
+            "gate_failure": typed_gate_failure_dict(self.gate_failure),
             "source_latest_event_id": self.source_latest_event_id,
             "source_snapshot_id": self.source_snapshot_id,
         }

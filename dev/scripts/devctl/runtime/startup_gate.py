@@ -14,6 +14,7 @@ from .startup_receipt import (
     load_startup_receipt,
     startup_receipt_problems_for_intent,
 )
+from .typed_gate_failure import TypedGateFailure
 
 _REVIEW_CHANNEL_GATED_ACTIONS = {"launch", "rollover"}
 _CONTROLLER_ACTION_GATED_ACTIONS = {"dispatch-report-only", "resume-loop"}
@@ -124,20 +125,53 @@ def _format_gate_failure(
 ) -> str:
     command_label = _command_label(args)
     lines = [heading, f"Command: `{command_label}`"]
-    for failure in failures[:5]:
-        lines.append(f"- {failure}")
+    for failure_text in failures[:5]:
+        lines.append(f"- {failure_text}")
     lines.append(
         "Run the repo's `startup-context` command before starting the next implementation or launcher slice."
     )
-    lines.append(
-        "If the operator explicitly approves bounded repair edits, use the typed "
-        "`agent-loop --operator-override --override-scope edit-only --override-reason "
-        "'<typed reason>' --plan <plan-id> --packet <packet-id>` path; it does not "
-        "authorize staging, commit, push, or raw bypass."
+    typed_failure = _typed_startup_gate_failure(
+        gate_id="startup_gate",
+        violation_reason=failures[0] if failures else heading,
     )
+    lines.extend(_typed_gate_failure_lines(typed_failure))
     if footer:
         lines.append(footer)
     return "\n".join(lines)
+
+
+def _typed_startup_gate_failure(
+    *,
+    gate_id: str,
+    violation_reason: str,
+) -> TypedGateFailure:
+    return TypedGateFailure(
+        gate_id=gate_id,
+        violation_reason=violation_reason,
+        bypass_invocation=(
+            "python3 dev/scripts/devctl.py agent-loop --format json "
+            "--actor <actor> --role implementer --plan <plan-id-or-slice-id> "
+            "--operator-override --override-scope edit-only "
+            "--override-reason '<typed reason>' --override-by operator"
+        ),
+        contract_definition_path="dev/scripts/devctl/runtime/startup_gate.py:61",
+    )
+
+
+def _typed_gate_failure_lines(failure: TypedGateFailure) -> list[str]:
+    return [
+        "TypedGateFailure:",
+        f"- gate_id: {failure.gate_id}",
+        f"- violation_reason: {failure.violation_reason}",
+        f"- bypass_invocation: `{failure.bypass_invocation}`",
+        f"- bypass_receipt_kind: {failure.bypass_receipt_kind}",
+        f"- contract_definition_path: {failure.contract_definition_path}",
+        f"- exception_lifecycle_class: {failure.exception_lifecycle_class}",
+        (
+            "This edit-only path requires explicit operator approval and does not "
+            "authorize staging, commit, push, or raw bypass."
+        ),
+    ]
 
 
 def _command_label(args: SimpleNamespace) -> str:

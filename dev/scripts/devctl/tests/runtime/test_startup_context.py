@@ -1491,11 +1491,11 @@ class TestCLIRegistration(unittest.TestCase):
             }
         )
 
-        self.assertIn("## Operator Override Discovery", rendered)
+        self.assertIn("## Typed Bypass Capabilities", rendered)
         self.assertIn("--operator-override", rendered)
         self.assertIn("--override-scope edit-only", rendered)
-        self.assertIn("MP377-P0-EXC-S1", rendered)
-        self.assertNotIn("typed_gate_failure", rendered)
+        self.assertIn("BypassReceipt", rendered)
+        self.assertIn("GovernedExceptionLifecycle", rendered)
 
     def test_markdown_renders_quality_signals(self) -> None:
         rendered = _render_markdown(
