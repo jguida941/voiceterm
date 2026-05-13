@@ -6,6 +6,7 @@ from dev.scripts.devctl.commands.review_channel.status_action_support import (
 from dev.scripts.devctl.commands.review_channel.status_readiness import (
     append_runtime_readiness_markdown,
     attach_runtime_readiness,
+    build_command_freshness,
 )
 from dev.scripts.devctl.commands.review_channel_bridge_render import render_bridge_md
 from dev.scripts.devctl.review_channel.event_render import render_event_md
@@ -159,6 +160,28 @@ def test_runtime_readiness_markdown_separates_command_and_system_status() -> Non
     assert "- system_ok: False" in rendered
     assert "- recommended_command_allowed: False" in rendered
     assert "- recommended_command_blockers: vcs.commit" in rendered
+    assert "- command_generated_at_utc:" in rendered
+    assert "- command_freshness_status:" in rendered
+
+
+def test_command_freshness_marks_stale_command_and_runtime_snapshot() -> None:
+    freshness = build_command_freshness(
+        {
+            "timestamp": "2026-05-13T05:00:00Z",
+            "last_codex_poll_utc": "2026-05-13T05:01:00Z",
+            "snapshot_id": "snap-test",
+            "zref": "zref-test",
+        },
+        observed_at_utc="2026-05-13T05:10:00Z",
+        stale_after_seconds=300,
+    )
+
+    assert freshness["contract_id"] == "ReviewChannelCommandFreshness"
+    assert freshness["command_age_seconds"] == 600
+    assert freshness["command_freshness_status"] == "stale"
+    assert freshness["runtime_snapshot_age_seconds"] == 540
+    assert freshness["runtime_snapshot_freshness_status"] == "stale"
+    assert freshness["snapshot_id"] == "snap-test"
 
 
 def test_event_markdown_renders_runtime_readiness_section() -> None:

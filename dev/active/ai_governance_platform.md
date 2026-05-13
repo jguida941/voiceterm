@@ -4475,11 +4475,17 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       platform contract and artifact-schema matrices, and render markdown
       from the same typed header fields (`contract_id`, `schema_version`,
       command/status fields) as JSON output instead of one-off command prose.
-- [ ] `MP377-P0-T08D` Add stale-command freshness metadata to packet/read-only surfaces so operators can tell old command data from current runtime state.
+- [x] `MP377-P0-T08D` Add stale-command freshness metadata to packet/read-only surfaces so operators can tell old command data from current runtime state.
       owner_doc: `dev/active/ai_governance_platform.md`
-      status: `queued`
+      status: `done`
       depends_on: `MP377-P0-T08A`
       disposition_sources: `rev_pkt_AA`
+      progress: 2026-05-13 read-only review-channel status now carries
+      registered `ReviewChannelCommandFreshness` metadata with command/runtime
+      snapshot timestamps, ages, stale thresholds, and freshness statuses;
+      OperationalSummaryView also records packet summary generation time,
+      packet update timestamps, packet ages, and freshness labels so old packet
+      data is visually separable from current runtime state.
 - [ ] `MP377-P0-T08E` Surface guard-error details through packet lifecycle/disposition reports so hidden failures cannot resolve as generic stale backlog.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `queued`

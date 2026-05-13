@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 
+from ...time_utils import parse_utc_timestamp, utc_timestamp
 from ...runtime.value_coercion import (
     coerce_bool,
     coerce_mapping as _mapping,
@@ -11,6 +14,7 @@ from ...runtime.value_coercion import (
 )
 
 _HEALTHY_ATTENTION_STATUSES = frozenset({"", "ok", "healthy", "none"})
+_COMMAND_FRESHNESS_STALE_AFTER_SECONDS = 300
 _VCS_COMMAND_ACTIONS = (
     ("devctl.py commit", "vcs.commit"),
     ("devctl.py push", "vcs.push"),
@@ -19,10 +23,32 @@ _VCS_COMMAND_ACTIONS = (
 )
 
 
+@dataclass(frozen=True)
+class ReviewChannelCommandFreshness:
+    """Freshness metadata for read-only review-channel command output."""
+
+    command_generated_at_utc: str
+    observed_at_utc: str
+    command_age_seconds: int | None
+    command_freshness_status: str
+    runtime_snapshot_at_utc: str
+    runtime_snapshot_age_seconds: int | None
+    runtime_snapshot_freshness_status: str
+    stale_after_seconds: int
+    snapshot_id: str
+    zref: str
+    schema_version: int = 1
+    contract_id: str = "ReviewChannelCommandFreshness"
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
 def attach_runtime_readiness(report: dict[str, object]) -> None:
     """Attach command-vs-runtime readiness without conflating status health."""
     readiness = build_runtime_readiness(report)
     report["runtime_readiness"] = readiness
+    report["command_freshness"] = readiness["command_freshness"]
     report["command_ok"] = readiness["command_ok"]
     report["ok"] = readiness["command_ok"]
 
@@ -42,6 +68,38 @@ def append_runtime_readiness_markdown(
     lines.append(f"- status: {readiness.get('status') or 'unknown'}")
     if readiness.get("required_action"):
         lines.append(f"- required_action: {readiness.get('required_action')}")
+    freshness = _mapping(readiness.get("command_freshness"))
+    if freshness:
+        lines.append(
+            "- command_generated_at_utc: "
+            f"{freshness.get('command_generated_at_utc') or 'unknown'}"
+        )
+        if freshness.get("command_age_seconds") is not None:
+            lines.append(
+                f"- command_age_seconds: {freshness.get('command_age_seconds')}"
+            )
+        lines.append(
+            "- command_freshness_status: "
+            f"{freshness.get('command_freshness_status') or 'unknown'}"
+        )
+        lines.append(
+            "- command_stale_after_seconds: "
+            f"{freshness.get('stale_after_seconds')}"
+        )
+        if freshness.get("runtime_snapshot_at_utc"):
+            lines.append(
+                "- runtime_snapshot_at_utc: "
+                f"{freshness.get('runtime_snapshot_at_utc')}"
+            )
+            if freshness.get("runtime_snapshot_age_seconds") is not None:
+                lines.append(
+                    "- runtime_snapshot_age_seconds: "
+                    f"{freshness.get('runtime_snapshot_age_seconds')}"
+                )
+            lines.append(
+                "- runtime_snapshot_freshness_status: "
+                f"{freshness.get('runtime_snapshot_freshness_status') or 'unknown'}"
+            )
     if readiness.get("recommended_command"):
         lines.append(
             f"- recommended_command: `{readiness.get('recommended_command')}`"
@@ -71,6 +129,7 @@ def build_runtime_readiness(
     recovery_decision = _mapping(recovery.get("decision"))
     coordination_state = _mapping(report.get("coordination_state"))
     observed_runtime = _mapping(coordination_state.get("observed_runtime"))
+    command_freshness = build_command_freshness(report)
 
     blocked_actions = _string_list(authority.get("blocked_actions"))
     safe_to_continue = _safe_to_continue(authority, attention, doctor)
@@ -93,6 +152,7 @@ def build_runtime_readiness(
         "command_ok": command_ok,
         "system_ok": system_ok,
         "status": status,
+        "command_freshness": command_freshness,
         "safe_to_continue": safe_to_continue,
         "required_action": required_action,
         "attention_status": _text(attention.get("status")),
@@ -113,6 +173,39 @@ def build_runtime_readiness(
             _mapping(observed_runtime.get("work_board_row_counts"))
         ),
     }
+
+
+def build_command_freshness(
+    report: Mapping[str, object],
+    *,
+    stale_after_seconds: int = _COMMAND_FRESHNESS_STALE_AFTER_SECONDS,
+    observed_at_utc: str | None = None,
+) -> dict[str, object]:
+    """Return freshness metadata for read-only command output and runtime data."""
+    observed_at = _text(observed_at_utc) or utc_timestamp()
+    observed_dt = parse_utc_timestamp(observed_at) or datetime.now(timezone.utc)
+    command_generated_at = _text(report.get("timestamp")) or observed_at
+    runtime_snapshot_at = _runtime_snapshot_at(report)
+    command_age = _age_seconds(command_generated_at, observed_dt)
+    runtime_age = _age_seconds(runtime_snapshot_at, observed_dt)
+    return ReviewChannelCommandFreshness(
+        command_generated_at_utc=command_generated_at,
+        observed_at_utc=observed_at,
+        command_age_seconds=command_age,
+        command_freshness_status=_freshness_status(
+            command_age,
+            stale_after_seconds=stale_after_seconds,
+        ),
+        runtime_snapshot_at_utc=runtime_snapshot_at,
+        runtime_snapshot_age_seconds=runtime_age,
+        runtime_snapshot_freshness_status=_freshness_status(
+            runtime_age,
+            stale_after_seconds=stale_after_seconds,
+        ),
+        stale_after_seconds=stale_after_seconds,
+        snapshot_id=_text(report.get("snapshot_id")),
+        zref=_text(report.get("zref")),
+    ).to_dict()
 
 
 def _safe_to_continue(
@@ -192,6 +285,36 @@ def _command_blockers(
     ]
 
 
+def _runtime_snapshot_at(report: Mapping[str, object]) -> str:
+    doctor = _mapping(report.get("doctor"))
+    bridge_liveness = _mapping(report.get("bridge_liveness"))
+    reviewer_runtime = _mapping(report.get("reviewer_runtime"))
+    return (
+        _text(report.get("last_codex_poll_utc"))
+        or _text(doctor.get("last_codex_poll_utc"))
+        or _text(bridge_liveness.get("last_codex_poll_utc"))
+        or _text(reviewer_runtime.get("last_packet_observed_at_utc"))
+        or _text(report.get("timestamp"))
+    )
+
+
+def _age_seconds(value: object, observed_dt: datetime) -> int | None:
+    parsed = parse_utc_timestamp(value)
+    if parsed is None:
+        return None
+    return max(0, int((observed_dt - parsed).total_seconds()))
+
+
+def _freshness_status(
+    age_seconds: int | None,
+    *,
+    stale_after_seconds: int,
+) -> str:
+    if age_seconds is None:
+        return "unknown"
+    return "fresh" if age_seconds <= stale_after_seconds else "stale"
+
+
 def _string_list(value: object) -> list[str]:
     if not isinstance(value, (list, tuple)):
         return []
@@ -199,7 +322,9 @@ def _string_list(value: object) -> list[str]:
 
 
 __all__ = [
+    "ReviewChannelCommandFreshness",
     "append_runtime_readiness_markdown",
     "attach_runtime_readiness",
+    "build_command_freshness",
     "build_runtime_readiness",
 ]

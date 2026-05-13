@@ -6,6 +6,7 @@ from collections import Counter, defaultdict
 from collections.abc import Mapping
 import re
 
+from ..time_utils import parse_utc_timestamp, utc_timestamp
 from .pending_packets import partition_live_packet_queue
 
 
@@ -13,6 +14,7 @@ HISTORY_OPERATIONAL_SUMMARY_SENTINEL = "__review_channel_operational_summary__"
 
 _PIPELINE_ID_RE = re.compile(r"\b(pipeline-[A-Za-z0-9][A-Za-z0-9_.-]*)\b")
 _DEFAULT_SAMPLE_LIMIT = 5
+_PACKET_FRESHNESS_STALE_AFTER_SECONDS = 3600
 
 
 def history_operational_summary_requested(args: object) -> bool:
@@ -31,12 +33,19 @@ def build_operational_summary_view(
     *,
     target: str | None = None,
     sample_limit: int | None = None,
+    generated_at_utc: str | None = None,
 ) -> dict[str, object]:
     """Group packet-rich review state into scan-friendly operational buckets."""
     rows = _packet_rows(review_state, target=target)
     live_rows, history_rows, stale_rows = partition_live_packet_queue(rows)
     stale_row_ids = {id(packet) for packet in stale_rows}
     limit = _sample_limit(sample_limit)
+    generated_at = (
+        _text(generated_at_utc)
+        or _text(review_state.get("timestamp"))
+        or utc_timestamp()
+    )
+    generated_dt = parse_utc_timestamp(generated_at)
 
     route_stage_counts: Counter[tuple[str, str]] = Counter()
     stage_counts: Counter[str] = Counter()
@@ -54,20 +63,42 @@ def build_operational_summary_view(
         if pipeline_id:
             pipeline_groups[pipeline_id].append(packet)
         if _is_active_claim(packet, stage=stage, pipeline_id=pipeline_id):
-            _append_sample(active_claims, packet, stage=stage, limit=limit)
+            _append_sample(
+                active_claims,
+                packet,
+                stage=stage,
+                limit=limit,
+                generated_dt=generated_dt,
+            )
         if _is_orphan_action_request(packet, stage=stage, pipeline_id=pipeline_id):
-            _append_sample(orphan_action_requests, packet, stage=stage, limit=limit)
+            _append_sample(
+                orphan_action_requests,
+                packet,
+                stage=stage,
+                limit=limit,
+                generated_dt=generated_dt,
+            )
         if stage == "expired_without_disposition":
-            _append_sample(stale_awaiting_reaper, packet, stage=stage, limit=limit)
+            _append_sample(
+                stale_awaiting_reaper,
+                packet,
+                stage=stage,
+                limit=limit,
+                generated_dt=generated_dt,
+            )
 
     pipeline_transit = _pipeline_summaries(
         pipeline_groups,
         stale_row_ids=stale_row_ids,
         limit=limit,
+        generated_dt=generated_dt,
     )
     return {
         "contract_id": "OperationalSummaryView",
         "schema_version": 1,
+        "generated_at_utc": generated_at,
+        "source_review_state_timestamp": _text(review_state.get("timestamp")),
+        "packet_freshness_stale_after_seconds": _PACKET_FRESHNESS_STALE_AFTER_SECONDS,
         "packet_total": len(rows),
         "live_pending_total": len(live_rows),
         "packet_history_total": len(history_rows),
@@ -93,6 +124,18 @@ def render_operational_summary_view(view: Mapping[str, object]) -> list[str]:
     lines.append(
         f"- stale_awaiting_reaper_total: {view.get('stale_awaiting_reaper_total', 0)}"
     )
+    if view.get("generated_at_utc"):
+        lines.append(f"- generated_at_utc: {view.get('generated_at_utc')}")
+    if view.get("source_review_state_timestamp"):
+        lines.append(
+            "- source_review_state_timestamp: "
+            f"{view.get('source_review_state_timestamp')}"
+        )
+    if view.get("packet_freshness_stale_after_seconds") is not None:
+        lines.append(
+            "- packet_freshness_stale_after_seconds: "
+            f"{view.get('packet_freshness_stale_after_seconds')}"
+        )
     target_filter = str(view.get("target_filter") or "").strip()
     if target_filter:
         lines.append(f"- target_filter: {target_filter}")
@@ -134,6 +177,7 @@ def _pipeline_summaries(
     *,
     stale_row_ids: set[int],
     limit: int,
+    generated_dt,
 ) -> list[dict[str, object]]:
     summaries: list[dict[str, object]] = []
     for pipeline_id, packets in pipeline_groups.items():
@@ -150,6 +194,7 @@ def _pipeline_summaries(
             for packet in packets
         )
         latest = max(packets, key=_sort_key)
+        latest_updated_at = _packet_updated_at(latest)
         summaries.append(
             {
                 "pipeline_id": pipeline_id,
@@ -159,6 +204,11 @@ def _pipeline_summaries(
                 "latest_stage": _lifecycle_stage(
                     latest,
                     stale_row_ids=stale_row_ids,
+                ),
+                "latest_packet_updated_at_utc": latest_updated_at,
+                "latest_packet_age_seconds": _age_seconds(
+                    latest_updated_at,
+                    generated_dt,
                 ),
                 "stage_counts": dict(sorted(stage_counts.items())),
                 "kind_counts": dict(sorted(kind_counts.items())),
@@ -252,18 +302,30 @@ def _append_sample(
     *,
     stage: str,
     limit: int,
+    generated_dt,
 ) -> None:
     if len(samples) >= limit:
         return
-    samples.append(_packet_sample(packet, stage=stage))
+    samples.append(_packet_sample(packet, stage=stage, generated_dt=generated_dt))
 
 
-def _packet_sample(packet: Mapping[str, object], *, stage: str) -> dict[str, object]:
+def _packet_sample(
+    packet: Mapping[str, object],
+    *,
+    stage: str,
+    generated_dt,
+) -> dict[str, object]:
+    updated_at = _packet_updated_at(packet)
     return {
         "packet_id": _text(packet.get("packet_id")),
         "route": _route(packet),
         "kind": _text(packet.get("kind")) or "unknown",
         "lifecycle_stage": stage,
+        "packet_updated_at_utc": updated_at,
+        "packet_age_seconds": _age_seconds(updated_at, generated_dt),
+        "packet_freshness_status": _packet_freshness_status(
+            _age_seconds(updated_at, generated_dt)
+        ),
         "requested_action": _text(packet.get("requested_action")),
         "target": _target(packet),
         "summary": _truncate(_text(packet.get("summary")), 160),
@@ -377,6 +439,9 @@ def _append_pipeline_transit(
         )
         if packet_ids:
             line += f" | recent={packet_ids}"
+        latest_age = group.get("latest_packet_age_seconds")
+        if latest_age is not None:
+            line += f" | latest_age_seconds={latest_age}"
         summary = _text(group.get("summary"))
         if summary:
             line += f" | {summary}"
@@ -402,6 +467,14 @@ def _append_samples(lines: list[str], heading: str, samples: object) -> None:
         target = _text(sample.get("target"))
         if target:
             line += f" | target={target}"
+        updated_at = _text(sample.get("packet_updated_at_utc"))
+        if updated_at:
+            line += f" | updated={updated_at}"
+        if sample.get("packet_age_seconds") is not None:
+            line += f" | age_seconds={sample.get('packet_age_seconds')}"
+        freshness = _text(sample.get("packet_freshness_status"))
+        if freshness:
+            line += f" | freshness={freshness}"
         summary = _text(sample.get("summary"))
         if summary:
             line += f" | {summary}"
@@ -439,6 +512,33 @@ def _truncate(value: str, limit: int) -> str:
     if len(value) <= limit:
         return value
     return value[: limit - 3].rstrip() + "..."
+
+
+def _packet_updated_at(packet: Mapping[str, object]) -> str:
+    return (
+        _text(packet.get("latest_event_at_utc"))
+        or _text(packet.get("_sort_timestamp"))
+        or _text(packet.get("posted_at"))
+        or _text(packet.get("timestamp_utc"))
+        or _text(packet.get("created_at_utc"))
+    )
+
+
+def _age_seconds(value: object, generated_dt) -> int | None:
+    if generated_dt is None:
+        return None
+    parsed = parse_utc_timestamp(value)
+    if parsed is None:
+        return None
+    return max(0, int((generated_dt - parsed).total_seconds()))
+
+
+def _packet_freshness_status(age_seconds: int | None) -> str:
+    if age_seconds is None:
+        return "unknown"
+    if age_seconds > _PACKET_FRESHNESS_STALE_AFTER_SECONDS:
+        return "stale"
+    return "fresh"
 
 
 def _text(value: object) -> str:

@@ -76,9 +76,12 @@ def test_operational_summary_groups_commit_pipeline_packets() -> None:
             ],
         },
         sample_limit=10,
+        generated_at_utc="2026-05-13T00:10:00Z",
     )
 
     assert view["contract_id"] == "OperationalSummaryView"
+    assert view["generated_at_utc"] == "2026-05-13T00:10:00Z"
+    assert view["packet_freshness_stale_after_seconds"] == 3600
     assert view["packet_total"] == 5
     assert view["live_pending_total"] == 3
     assert view["stale_awaiting_reaper_total"] == 1
@@ -97,6 +100,8 @@ def test_operational_summary_groups_commit_pipeline_packets() -> None:
         "rev_pkt_5",
     ]
     assert [row["packet_id"] for row in view["active_claims"]] == ["rev_pkt_4"]
+    assert view["active_claims"][0]["packet_age_seconds"] == 600
+    assert view["active_claims"][0]["packet_freshness_status"] == "fresh"
 
 
 def test_operational_summary_markdown_names_readable_sections() -> None:
@@ -116,15 +121,19 @@ def test_operational_summary_markdown_names_readable_sections() -> None:
                     summary="Unpaired request",
                 ),
             ],
-        }
+        },
+        generated_at_utc="2026-05-13T00:10:00Z",
     )
 
     rendered = "\n".join(render_operational_summary_view(view))
 
     assert "## Operational Summary View" in rendered
+    assert "generated_at_utc: 2026-05-13T00:10:00Z" in rendered
     assert "### Pipeline Transit" in rendered
     assert "pipeline-abc123" in rendered
+    assert "latest_age_seconds=600" in rendered
     assert "### Orphan Action Requests" in rendered
+    assert "age_seconds=600" in rendered
     assert "Unpaired request" in rendered
 
 

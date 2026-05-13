@@ -326,6 +326,68 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         startup_surface_tokens=("contract_id", "schema_version", "collection_ok"),
     ),
     ContractSpec(
+        contract_id="ReviewChannelCommandFreshness",
+        owner_layer="governance_commands",
+        purpose=(
+            "Freshness metadata attached to review-channel read-only status "
+            "and packet summary surfaces so old command output is distinguishable "
+            "from current runtime state."
+        ),
+        required_fields=(
+            ContractField(
+                "command_generated_at_utc",
+                "str",
+                "UTC timestamp when the read-only command generated this output.",
+            ),
+            ContractField(
+                "observed_at_utc",
+                "str",
+                "UTC timestamp used as the freshness comparison point.",
+            ),
+            ContractField(
+                "command_age_seconds",
+                "int | None",
+                "Command output age at render time.",
+            ),
+            ContractField(
+                "command_freshness_status",
+                "str",
+                "fresh, stale, or unknown command freshness.",
+            ),
+            ContractField(
+                "runtime_snapshot_at_utc",
+                "str",
+                "UTC timestamp for the runtime snapshot backing the output.",
+            ),
+            ContractField(
+                "runtime_snapshot_age_seconds",
+                "int | None",
+                "Runtime snapshot age at render time.",
+            ),
+            ContractField(
+                "runtime_snapshot_freshness_status",
+                "str",
+                "fresh, stale, or unknown runtime snapshot freshness.",
+            ),
+            ContractField(
+                "stale_after_seconds",
+                "int",
+                "Age threshold used to label freshness status.",
+            ),
+            ContractField("snapshot_id", "str", "Review-state snapshot id."),
+            ContractField("zref", "str", "Review-state zero-ref identity."),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.commands.review_channel.status_readiness:"
+            "ReviewChannelCommandFreshness"
+        ),
+        startup_surface_tokens=(
+            "command_generated_at_utc",
+            "command_freshness_status",
+            "runtime_snapshot_freshness_status",
+        ),
+    ),
+    ContractSpec(
         contract_id="ControlState",
         owner_layer="governance_runtime",
         purpose=(

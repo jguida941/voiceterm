@@ -300,6 +300,7 @@ def _run_loaded_bundle_action(
                     bundle.review_state,
                     target=getattr(args, "target", None),
                     sample_limit=getattr(args, "limit", None),
+                    generated_at_utc=utc_timestamp(),
                 )
                 if summary_requested
                 else None
