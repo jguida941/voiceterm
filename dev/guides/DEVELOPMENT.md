@@ -3000,6 +3000,10 @@ function, and `dev/state/transition_modules.jsonl` lists modules that must be
 imported for deterministic registration. Add or update platform contract rows
 and schema fixtures when adding a new transition contract family, then run
 `check_schema_fixture_handshake.py` and `check_platform_contract_closure.py`.
+Transitions that need runtime checks can opt in with `runtime_enforced=True`
+and resolver functions that emit the same state refs declared in `requires`
+and `produces`; illegal refs raise `TransitionStateViolation`. Leave ordinary
+metadata-only transitions unwrapped.
 
 **Typestate result cases:**
 

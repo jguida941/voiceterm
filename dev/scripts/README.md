@@ -3127,6 +3127,10 @@ Governed-transition note:
   `TransitionContract` metadata by building lifecycle graph edges and walking
   required/produced state paths through `walk_context_graph`; it is part of
   the shared governance bundle and CI workflows.
+- Runtime enforcement is opt-in per transition. When a transition declares
+  `runtime_enforced=True`, its resolver functions must project pre/post state
+  refs into the same string vocabulary used by `requires` and `produces`; an
+  illegal ref raises `TransitionStateViolation`.
 
 Receipt-state evidence note:
 - `dev/scripts/devctl/runtime/validation_contracts.py` keeps

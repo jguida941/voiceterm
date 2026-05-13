@@ -14619,3 +14619,26 @@ Evidence:
 - `dev/scripts/devctl/platform/runtime_identity_contract_rows.py`
 - `dev/scripts/devctl/tests/runtime/test_commit_receipt.py`
 - `dev/scripts/devctl/tests/runtime/test_correlation_spine_coverage.py`
+
+## 2026-05-13 — P102 runtime transition enforcement (P102-ENFORCE-S1)
+
+The `@governed_transition` family now supports opt-in runtime state checks
+without changing metadata-only behavior for existing callers. A transition can
+declare `runtime_enforced=True` plus pre/post state resolvers; the decorator
+then rejects illegal state refs with `TransitionStateViolation` before or after
+calling the reducer.
+
+The first adopter is the existing `BypassLifecycle` reducer family:
+`grant_lifetime_bypass`, `evaluate_bypass_request`, and
+`expire_bypass_lifecycle` now enforce their declared `requires` and `produces`
+refs. This closes the `rev_pkt_3958` enforcement gap for the canonical
+lifecycle instance while keeping enforcement inside the existing transition
+surface, not a parallel design-by-contract framework.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/governed_transitions.py`
+- `dev/scripts/devctl/runtime/bypass_lifecycle_evaluation.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_transitions.py`
+- `dev/scripts/devctl/tests/runtime/test_governed_transitions.py`
+- `dev/scripts/devctl/tests/runtime/test_lifetime_bypass_mode.py`

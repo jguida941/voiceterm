@@ -11,6 +11,7 @@ import pytest
 from dev.scripts.devctl.runtime.governed_exception_validation import (
     validate_governed_exception_lifecycle,
 )
+from dev.scripts.devctl.runtime.governed_transitions import TransitionStateViolation
 from dev.scripts.devctl.runtime.lifetime_bypass_mode import (
     BYPASS_EXCEPTION_CLASS,
     BypassAuthorityScope,
@@ -207,6 +208,21 @@ def test_bypass_lifecycle_denies_request_without_operator_evidence() -> None:
     assert lifecycle.evaluation.reason == "operator_signature_required"
     assert lifecycle.receipt is None
     assert lifecycle.governed_exception is None
+
+
+def test_bypass_lifecycle_expiry_rejects_inactive_lifecycle() -> None:
+    lifecycle = evaluate_bypass_request(
+        _request(request_id="mp377-denied-expiry"),
+        _evaluation_input(operator_signature=""),
+    )
+
+    with pytest.raises(TransitionStateViolation, match="bypass.expire_lifecycle"):
+        expire_bypass_lifecycle(
+            lifecycle,
+            expired_at_utc="2026-05-12T16:23:00Z",
+            reason="cannot expire denied lifecycle",
+            source=BypassExpirySource.STOP_ANCHOR,
+        )
 
 
 def test_bypass_lifecycle_expiry_records_stop_anchor_event() -> None:

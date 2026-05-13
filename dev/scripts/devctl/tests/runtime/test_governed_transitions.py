@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
 from dev.scripts.devctl.runtime.governed_transitions import (
     TransitionContract,
+    TransitionStateViolation,
     governed_transition,
     load_governed_transitions,
     load_transition_module_rows,
@@ -63,6 +65,93 @@ def test_governed_transition_rejects_duplicate_ids() -> None:
         decorator(transition)
 
 
+@dataclass(frozen=True)
+class StateFixture:
+    state: str
+
+
+def _input_state_ref(value: StateFixture) -> str:
+    return f"Input:{value.state}"
+
+
+def _output_state_ref(value: StateFixture) -> str:
+    return f"Output:{value.state}"
+
+
+def test_governed_transition_runtime_enforcement_accepts_legal_states() -> None:
+    registry: list[TransitionContract] = []
+
+    @governed_transition(
+        transition_id="test.enforced",
+        requires=("Input:ready",),
+        produces=("Output:done",),
+        runtime_enforced=True,
+        pre_state_resolver=_input_state_ref,
+        post_state_resolver=_output_state_ref,
+        registry=registry,
+    )
+    def transition(value: StateFixture) -> StateFixture:
+        return StateFixture(state="done")
+
+    assert transition(StateFixture(state="ready")).state == "done"
+    assert registry[0].runtime_enforced is True
+    assert getattr(transition, "__governed_transition__") == registry[0]
+
+
+def test_governed_transition_runtime_enforcement_rejects_bad_pre_state() -> None:
+    registry: list[TransitionContract] = []
+
+    @governed_transition(
+        transition_id="test.bad_pre",
+        requires=("Input:ready",),
+        produces=("Output:done",),
+        runtime_enforced=True,
+        pre_state_resolver=_input_state_ref,
+        post_state_resolver=_output_state_ref,
+        registry=registry,
+    )
+    def transition(value: StateFixture) -> StateFixture:
+        return StateFixture(state="done")
+
+    with pytest.raises(TransitionStateViolation, match="bad_pre pre_state"):
+        transition(StateFixture(state="blocked"))
+
+
+def test_governed_transition_runtime_enforcement_rejects_bad_post_state() -> None:
+    registry: list[TransitionContract] = []
+
+    @governed_transition(
+        transition_id="test.bad_post",
+        requires=("Input:ready",),
+        produces=("Output:done",),
+        runtime_enforced=True,
+        pre_state_resolver=_input_state_ref,
+        post_state_resolver=_output_state_ref,
+        registry=registry,
+    )
+    def transition(value: StateFixture) -> StateFixture:
+        return StateFixture(state="stuck")
+
+    with pytest.raises(TransitionStateViolation, match="bad_post post_state"):
+        transition(StateFixture(state="ready"))
+
+
+def test_runtime_enforced_transition_requires_state_resolver() -> None:
+    registry: list[TransitionContract] = []
+
+    with pytest.raises(ValueError, match="require at least one state resolver"):
+
+        @governed_transition(
+            transition_id="test.no_resolver",
+            requires=("Input:ready",),
+            produces=("Output:done",),
+            runtime_enforced=True,
+            registry=registry,
+        )
+        def transition() -> None:
+            return None
+
+
 def test_transition_manifest_rows_round_trip(tmp_path: Path) -> None:
     manifest = tmp_path / "transition_modules.jsonl"
     manifest.write_text(
@@ -102,6 +191,8 @@ def test_real_manifest_loads_bypass_lifecycle_transitions() -> None:
     assert by_id["bypass.expire_lifecycle"].requires == (
         "BypassLifecycle:bypass_active",
     )
+    assert by_id["bypass.evaluate_request"].runtime_enforced is True
+    assert by_id["bypass.expire_lifecycle"].runtime_enforced is True
 
 
 def test_transition_contract_round_trips_from_mapping() -> None:
@@ -111,6 +202,7 @@ def test_transition_contract_round_trips_from_mapping() -> None:
         produces=("Output:done",),
         emits=("EvidenceReceipt",),
         graph_path=("Input", "EvidenceReceipt", "Output"),
+        runtime_enforced=True,
         owner_module="tests.transitions",
         function_name="transition",
     )

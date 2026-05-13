@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
+from functools import wraps
 from importlib import import_module
 from pathlib import Path
 from typing import ParamSpec, TypeVar
@@ -26,6 +27,7 @@ class TransitionContract:
     produces: tuple[str, ...]
     emits: tuple[str, ...] = ()
     graph_path: tuple[str, ...] = ()
+    runtime_enforced: bool = False
     owner_module: str = ""
     function_name: str = ""
     schema_version: int = 1
@@ -59,6 +61,32 @@ class GovernedTransitionModule:
 GOVERNED_TRANSITION_REGISTRY: list[TransitionContract] = []
 
 
+StateRefResolver = Callable[..., str]
+ResultStateRefResolver = Callable[..., str]
+
+
+class TransitionStateViolation(ValueError):
+    """Raised when an opted-in governed transition sees an illegal state."""
+
+    def __init__(
+        self,
+        *,
+        transition_id: str,
+        check_kind: str,
+        expected: Sequence[str],
+        actual: str,
+    ) -> None:
+        expected_text = ", ".join(expected) or "(none)"
+        super().__init__(
+            f"governed transition {transition_id} {check_kind} state violation: "
+            f"expected one of {expected_text}; got {actual or '(empty)'}"
+        )
+        self.transition_id = transition_id
+        self.check_kind = check_kind
+        self.expected = tuple(expected)
+        self.actual = actual
+
+
 def governed_transition(
     *,
     transition_id: str,
@@ -66,6 +94,9 @@ def governed_transition(
     produces: Sequence[str],
     emits: Sequence[str] = (),
     graph_path: Sequence[str] = (),
+    runtime_enforced: bool = False,
+    pre_state_resolver: StateRefResolver | None = None,
+    post_state_resolver: ResultStateRefResolver | None = None,
     registry: list[TransitionContract] | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Register lifecycle transition metadata without wrapping the function."""
@@ -78,12 +109,41 @@ def governed_transition(
             produces=tuple(produces),
             emits=tuple(emits),
             graph_path=tuple(graph_path),
+            runtime_enforced=runtime_enforced,
             owner_module=func.__module__,
             function_name=func.__qualname__,
         )
         _register_transition(transition, target_registry)
-        setattr(func, "__governed_transition__", transition)
-        return func
+        if not runtime_enforced:
+            setattr(func, "__governed_transition__", transition)
+            return func
+        if pre_state_resolver is None and post_state_resolver is None:
+            raise ValueError(
+                "runtime-enforced governed transitions require at least one "
+                "state resolver"
+            )
+
+        @wraps(func)
+        def wrapped(*args: P.args, **kwargs: P.kwargs) -> R:
+            if pre_state_resolver is not None:
+                _enforce_state_ref(
+                    transition=transition,
+                    check_kind="pre_state",
+                    actual=pre_state_resolver(*args, **kwargs),
+                    expected=transition.requires,
+                )
+            result = func(*args, **kwargs)
+            if post_state_resolver is not None:
+                _enforce_state_ref(
+                    transition=transition,
+                    check_kind="post_state",
+                    actual=post_state_resolver(result),
+                    expected=transition.produces,
+                )
+            return result
+
+        setattr(wrapped, "__governed_transition__", transition)
+        return wrapped
 
     return decorate
 
@@ -149,6 +209,7 @@ def transition_from_mapping(payload: object) -> TransitionContract:
         produces=coerce_string_items(mapping.get("produces")),
         emits=coerce_string_items(mapping.get("emits")),
         graph_path=coerce_string_items(mapping.get("graph_path")),
+        runtime_enforced=coerce_bool(mapping.get("runtime_enforced", False)),
         owner_module=coerce_string(mapping.get("owner_module")),
         function_name=coerce_string(mapping.get("function_name")),
     )
@@ -165,11 +226,28 @@ def _register_transition(
     registry.append(transition)
 
 
+def _enforce_state_ref(
+    *,
+    transition: TransitionContract,
+    check_kind: str,
+    actual: str,
+    expected: Sequence[str],
+) -> None:
+    if actual not in expected:
+        raise TransitionStateViolation(
+            transition_id=transition.transition_id,
+            check_kind=check_kind,
+            expected=expected,
+            actual=actual,
+        )
+
+
 __all__ = [
     "GOVERNED_TRANSITION_REGISTRY",
     "TRANSITION_MODULES_STORE_REL",
     "GovernedTransitionModule",
     "TransitionContract",
+    "TransitionStateViolation",
     "governed_transition",
     "governed_transition_modules_path",
     "load_governed_transition_modules",

@@ -8300,6 +8300,12 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
     receipt evidence on existing validation/commit receipt boundaries.
     Third-party design-by-contract libraries are evaluation candidates only,
     not authority and not part of the Phase 7 slice.
+  - 2026-05-13 `P102-ENFORCE-S1` landed as an opt-in extension to the existing
+    `@governed_transition` surface: runtime-enforced transitions declare
+    pre/post state resolvers, raise `TransitionStateViolation` on illegal state
+    refs, and keep metadata-only behavior as the default. The canonical
+    `BypassLifecycle` reducers now enforce their declared `requires` and
+    `produces` refs without introducing a parallel design-by-contract system.
 - [ ] `PKT-BIND-REV-PKT-3960` Packet finding: Pre-decision architectural review (operator-directed): ZGraph+zRef+traversal map + ai_governance_platform.md fit + 3 parallel-surface risks + smaller Phase 8 composition path (Agent 3 found: reuse require_receipt_state, n... (source `rev_pkt_3960`; target `plan:MP-377`; posted `2026-05-13T20:40:13.945631Z`; binding `plan_row`).
   - 2026-05-13 Codex disposition: accept the smaller composition path. Phase
     8 should not introduce a standalone `check_attestation_path.py` package or
@@ -8312,3 +8318,4 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
 - [ ] `PKT-BIND-REV-PKT-3965` Packet finding: ADR Mode + AI-Decision-ADR-Receipts (operator keystone): ADR is governance MODE not mandate (4 levels: off/observe/advisory/strict); typed DesignDecisionRecord per material AI decision; composes with correlation_spine + c... (source `rev_pkt_3965`; target `plan:MP-377`; posted `2026-05-13T21:40:37.284835Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3966` Packet finding: FULL GOVERNANCE ARCHITECTURE (operator 4-directive synthesis): 3-layer hierarchy (UI projection / typed mode policy / immutable evidence); ModeChangeReceipt + AIDecisionADRReceipt + governance_gates; You may disable gates... (source `rev_pkt_3966`; target `plan:MP-377`; posted `2026-05-13T21:45:02.191757Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3968` Packet finding: Directive 5 — Automation Discovery Growth Harness (operator-directed): system already exists manually (codesmells.md→audits→plan_index); clippy_pedantic.top_promote_candidates IS template mirror; master charter P47+P56+P6... (source `rev_pkt_3968`; target `plan:MP-377`; posted `2026-05-13T22:12:02.160289Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3969` Packet finding: Directive 6 — Governance Discovery Role + Smart Dashboard (operator-directed): MAJOR FINDING role_customization.py already supports user-defined roles (config-only for governance_discovery_agent); 14-surface dashboard via... (source `rev_pkt_3969`; target `plan:MP-377`; posted `2026-05-13T22:22:36.393414Z`; binding `plan_row`).

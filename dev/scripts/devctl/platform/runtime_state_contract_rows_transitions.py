@@ -47,6 +47,11 @@ TRANSITION_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("produces", "tuple[str, ...]", "Produced state refs."),
             ContractField("emits", "tuple[str, ...]", "Evidence or contracts emitted."),
             ContractField("graph_path", "tuple[str, ...]", "Expected graph path hints."),
+            ContractField(
+                "runtime_enforced",
+                "bool",
+                "Whether the decorator enforces runtime pre/post state refs.",
+            ),
             ContractField("owner_module", "str", "Module that owns the decorated function."),
             ContractField("function_name", "str", "Decorated function qualname."),
         ),

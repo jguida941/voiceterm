@@ -43,6 +43,36 @@ _ACTION_KIND_BY_SCOPE = {
 }
 
 
+def _bypass_request_state_ref(
+    request: BypassRequest,
+    *_: object,
+    **__: object,
+) -> str:
+    return f"{request.contract_id}:{BypassLifecycleState.REQUESTED.value}"
+
+
+def _bypass_receipt_state_ref(
+    _: BypassReceipt,
+    *__: object,
+    **___: object,
+) -> str:
+    return "BypassReceipt:issued"
+
+
+def _bypass_lifecycle_state_ref(
+    lifecycle: BypassLifecycle,
+    *_: object,
+    **__: object,
+) -> str:
+    return f"{lifecycle.contract_id}:{lifecycle.state.value}"
+
+
+def _governed_exception_lifecycle_state_ref(
+    lifecycle: "GovernedExceptionRecord",
+) -> str:
+    return f"{lifecycle.contract_id}:{lifecycle.status}"
+
+
 @dataclass(frozen=True, slots=True)
 class BypassEvaluationInput:
     operator_signature: str
@@ -59,6 +89,9 @@ class BypassEvaluationInput:
     produces=("GovernedExceptionLifecycle:operator_approved",),
     emits=("ExceptionReceipt", "GovernedExceptionLifecycle"),
     graph_path=("BypassReceipt", "ExceptionReceipt", "GovernedExceptionLifecycle"),
+    runtime_enforced=True,
+    pre_state_resolver=_bypass_receipt_state_ref,
+    post_state_resolver=_governed_exception_lifecycle_state_ref,
 )
 def grant_lifetime_bypass(receipt: BypassReceipt) -> "GovernedExceptionRecord":
     """Grant bypass authority through the governed exception lifecycle."""
@@ -133,6 +166,9 @@ def grant_lifetime_bypass(receipt: BypassReceipt) -> "GovernedExceptionRecord":
         "GovernedExceptionLifecycle",
         "BypassLifecycle",
     ),
+    runtime_enforced=True,
+    pre_state_resolver=_bypass_request_state_ref,
+    post_state_resolver=_bypass_lifecycle_state_ref,
 )
 def evaluate_bypass_request(
     request: BypassRequest,
@@ -218,6 +254,9 @@ def evaluate_bypass_activation(
     produces=("BypassLifecycle:bypass_expired", "BypassLifecycle:bypass_revoked"),
     emits=("BypassExpiry", "BypassLifecycle"),
     graph_path=("BypassLifecycle", "BypassExpiry", "BypassLifecycle"),
+    runtime_enforced=True,
+    pre_state_resolver=_bypass_lifecycle_state_ref,
+    post_state_resolver=_bypass_lifecycle_state_ref,
 )
 def expire_bypass_lifecycle(
     lifecycle: BypassLifecycle,

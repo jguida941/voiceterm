@@ -15275,6 +15275,25 @@ Evidence:
 - `dev/scripts/devctl/runtime/commit_receipt.py`
 - `dev/scripts/devctl/tests/runtime/test_commit_receipt.py`
 
+### 2026-05-13 - P102 transitions can enforce runtime state refs
+
+`@governed_transition` remains metadata-only by default, but transitions can
+now opt into runtime checks with `runtime_enforced=True` and state resolver
+functions. The wrapper compares resolved pre/post state refs against the
+declared `requires` and `produces` metadata and raises
+`TransitionStateViolation` on illegal transitions.
+
+The first enforced family is `BypassLifecycle`: request evaluation, lifetime
+bypass grant, and lifecycle expiry/revocation now reject state drift at the
+same surface that already declares transition metadata.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/governed_transitions.py`
+- `dev/scripts/devctl/runtime/bypass_lifecycle_evaluation.py`
+- `dev/scripts/devctl/tests/runtime/test_governed_transitions.py`
+- `dev/scripts/devctl/tests/runtime/test_lifetime_bypass_mode.py`
+
 ### 2026-05-13 - Stale pending-packet prose stops blocking agent loops
 
 Agent-loop blocker selection now treats typed pending-review packet count as
