@@ -16,6 +16,9 @@ from ..review_channel.event_render_typed_sections import (
 )
 from ..review_channel.event_render_queue import append_event_queue_summary
 from ..review_channel.pending_packets import partition_live_packet_queue
+from ..review_channel.readable_packet_projection import (
+    render_operational_summary_view,
+)
 
 from ..commands.review_channel_bridge_render import (
     append_common_report_sections,
@@ -70,8 +73,12 @@ def render_event_md(report: dict) -> str:
         report.get("packet_expiry_materialization"),
     )
     _append_packet_outcome_ledger(lines, report.get("packet_outcome_ledger"))
+    operational_summary_view = report.get("operational_summary_view")
+    if isinstance(operational_summary_view, dict):
+        lines.extend(render_operational_summary_view(operational_summary_view))
+    operational_summary_only = bool(report.get("operational_summary_only"))
     packets = report.get("packets")
-    if isinstance(packets, list) and packets:
+    if isinstance(packets, list) and packets and not operational_summary_only:
         _append_packet_queue_sections(lines, packets)
     history = report.get("history")
     if isinstance(history, list) and history:

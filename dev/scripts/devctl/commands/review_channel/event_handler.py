@@ -30,6 +30,10 @@ from ...review_channel.follow_stream import (
 from ...review_channel.pending_packets import reconcile_review_state_packet_queue
 from ...review_channel.packet_body_observation import record_packet_body_observation
 from ...review_channel.projection_bundle import artifact_writes_suppressed
+from ...review_channel.readable_packet_projection import (
+    build_operational_summary_view,
+    history_operational_summary_requested,
+)
 from ...review_channel.state import projection_paths_to_dict
 from ...review_channel.watch_lifecycle import (
     claim_watch_lifecycle,
@@ -70,6 +74,8 @@ def _build_event_report(
     history: list[dict[str, object]] | None = None,
     packet_outcome_ledger: dict[str, object] | None = None,
     packet_expiry_materialization: dict[str, object] | None = None,
+    operational_summary_view: dict[str, object] | None = None,
+    operational_summary_only: bool = False,
     warnings: list[str] | None = None,
 ) -> tuple[dict, int]:
     """Assemble the event-backed action report dict."""
@@ -130,6 +136,8 @@ def _build_event_report(
         "history": history or [],
         "packet_outcome_ledger": packet_outcome_ledger,
         "packet_expiry_materialization": packet_expiry_materialization,
+        "operational_summary_view": operational_summary_view,
+        "operational_summary_only": operational_summary_only,
         "event": event,
         "target": getattr(args, "target", None),
         "target_role": getattr(args, "target_role", None),
@@ -234,6 +242,7 @@ def _run_loaded_bundle_action(
             status_override="pending",
         )
     if args.action in {"history", "show"}:
+        summary_requested = history_operational_summary_requested(args)
         packets = filter_history_packets(
             bundle.review_state,
             target=getattr(args, "target", None),
@@ -286,6 +295,16 @@ def _run_loaded_bundle_action(
             history=history,
             packet_outcome_ledger=packet_outcome_ledger,
             event=body_observation_event,
+            operational_summary_view=(
+                build_operational_summary_view(
+                    bundle.review_state,
+                    target=getattr(args, "target", None),
+                    sample_limit=getattr(args, "limit", None),
+                )
+                if summary_requested
+                else None
+            ),
+            operational_summary_only=summary_requested,
         )
     raise ValueError(f"Unsupported event-backed review-channel action: {args.action}")
 

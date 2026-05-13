@@ -137,6 +137,15 @@ def _query_filter_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             action="store_true",
             help="Attach a typed PacketOutcomeLedger to history rows.",
         ),
+        arg_builder(
+            "--grouped",
+            action="store_true",
+            help=(
+                "Render review-channel history as an OperationalSummaryView "
+                "with grouped pipeline transit, orphan action requests, and "
+                "lifecycle buckets."
+            ),
+        ),
     ]
 
 

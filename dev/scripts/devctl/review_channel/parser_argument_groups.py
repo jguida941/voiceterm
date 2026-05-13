@@ -16,6 +16,7 @@ from .packet_contract import (
     VALID_TARGET_KINDS,
 )
 from .parser_query_arguments import build_query_arguments
+from .readable_packet_projection import HISTORY_OPERATIONAL_SUMMARY_SENTINEL
 
 
 def build_packet_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
@@ -34,7 +35,15 @@ def build_packet_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
                 "`plan_patch_review` also requires `--mutation-op`."
             ),
         ),
-        arg_builder("--summary", help="Short packet summary for post/watch/history views"),
+        arg_builder(
+            "--summary",
+            nargs="?",
+            const=HISTORY_OPERATIONAL_SUMMARY_SENTINEL,
+            help=(
+                "Short packet summary for post. For `--action history`, pass "
+                "without a value to render the OperationalSummaryView."
+            ),
+        ),
         arg_builder("--body", help="Inline packet body for `--action post`"),
         arg_builder(
             "--body-file",
