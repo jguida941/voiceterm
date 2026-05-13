@@ -160,9 +160,7 @@ def test_stage_action_persists_staged_snapshot_hash(tmp_path: Path) -> None:
         pipeline.intent.validation_plan.staged_tree_hash
         == pipeline.intent.staged_tree_hash
     )
-    assert (
-        repo_root / "dev/reports/review_channel/latest/commit_pipeline.json"
-    ).exists()
+    assert (executor.projections_root / "commit_pipeline.json").exists()
 
 
 def test_commit_stage_request_allows_pre_pipeline_runtime_target() -> None:

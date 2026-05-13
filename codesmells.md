@@ -2851,3 +2851,33 @@ A codex mid-refactor literally never traverses the guard that could observe stop
 **Delivery status of this finding**: CLI is broken (ImportError: `STAGE_PIPELINE_ACTION_REQUEST_ACTIONS`-class — codex extracted constant to `packet_target_runtime.py` but old import sites still point at `packet_target_validation.py`), so claude cannot post typed packet to codex's inbox. Operator authorized dual-channel delivery: (a) this codesmells.md entry as durable surface codex consumes at next startup-context refresh; (b) consolidated typed packet to be fired through `review-channel post` AS SOON AS codex's refactor heals the CLI ImportError. Claude scheduled wake to detect CLI heal + fire the packet at that boundary, per operator-authorized pivot from HARDENED write-hold.
 
 **Session charter validation count today: 35** (was 34; +1 for empirical-test surfacing the boundary-coverage gap, with operator-validated retraction of the framing question proving claim discipline still composes with finding survival).
+
+---
+
+### Priority 98 candidate — Typed-State Output Readability (operator concern, 2026-05-13T~02:38Z)
+
+**Operator concern**: *"That sounds like they're all not to find right in the system because that's, like, unreadable. We need to think about readability and what we're doing here... we need to make sure that's readable. You know, these things outputs that we're having. It's not a big deal now as we continue doing what we're doing, but just keep that somewhere for now."*
+
+**Triggering observation**: `review-channel history` at session round 16 showed `pending_total: 125` packets rendered as truncated single-line entries — mostly commit-pipeline approval flows (~2 packets per codex commit), heartbeat state packets, and stale TTL-expired packets awaiting reaper. An operator or classifier consuming this projection cannot quickly scan for orphan action_requests blocking codex's next decision.
+
+**Architectural gap**: Platform has rich typed packet data (`route`, `kind`, `summary`, `lifecycle_current_state`, `disposition`, `target_role`, `requested_action`, `evidence_refs`, `correlation_id`, `expires_at_utc`) but `--format md` renders flat single-line entries that:
+- Don't group related packets (commit-pipeline approvals for same `pipeline-id` could collapse to one row)
+- Don't separate orphan action_requests from routine transit flow
+- Don't surface "which packets block codex's next decision" vs "transit-state archive candidates"
+- Don't visually distinguish lifecycle stages (pending / applied / archived / expired_without_disposition)
+
+Same pattern likely affects `develop campaign`, `agent-mind`, `system-map` projections — all typed-rich but human-rendering-thin.
+
+**Proposed shape**: New `OperationalSummaryView` reducer family:
+- `ReadablePacketProjection` — groups commit-pipeline-approval packets by `pipeline-id`, collapses to one row per pipeline; orphan action_requests + lifecycle stage prominently; flags `clock_expired_without_disposition` separately
+- `OperationalSummaryView` — composite over `review-channel history` + `agent-mind` + `develop campaign` + push report; emits multi-section markdown: "Active claims" / "Pipeline transit" / "Stale awaiting reaper" / "Orphan acks pending"
+- `RoutedPacketBucketProjection` — slices by route + lifecycle stage; counts per bucket + recent samples
+
+**Composability**: Priority 7 (unified_dev_guide render-surfaces pattern), Priority 88 (PacketReadReceipt — readable projections surface "behaviorally responded but never formally acked"), Priority 97 Layer 1 (RepoSemanticClassifier feeds cleaner inputs), Priority 97 Layer 3 (CumulativeRiskSignature weight calibration easier when projection groups cleanly).
+
+**Files to amend** (when this becomes a formal slice):
+- `dev/scripts/devctl/runtime/review_channel/` — add `readable_packet_projection.py` reducer
+- `dev/scripts/devctl/commands/review_channel/history.py` — add `--summary` / `--grouped` flags
+- `dev/config/devctl_repo_policy.json` — register `operational_summary_view` governed_surface
+
+**Status**: Working-memory candidate. Will compose into a formal plan-row after Priority 97 reaches review-closure. Empirical motivation: 125 pending packets visible this session, 7 of them (rev_pkt_3913-3919) were from the same 3 pipeline transactions in a tight time window.
