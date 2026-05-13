@@ -11,8 +11,9 @@ from .lifetime_bypass_mode import (
     BypassEvaluationInput,
     BypassLifecycle,
     BypassRequest,
+    bypass_activation_lifecycle,
     bypass_lifecycle_active,
-    evaluate_bypass_request,
+    evaluate_bypass_activation,
 )
 from .value_coercion import coerce_bool, coerce_text
 
@@ -126,7 +127,7 @@ def operator_override_from_request(
             target_kind=target_kind,
             target_ref=target_ref,
         )
-    lifecycle = evaluate_bypass_request(
+    activation = evaluate_bypass_activation(
         BypassRequest(
             request_id=_bypass_request_id(target_kind=target_kind, target_ref=target_ref),
             scope=BypassAuthorityScope.EDIT_ONLY,
@@ -149,6 +150,7 @@ def operator_override_from_request(
             policy_evidence_refs=("AgentLoopOperatorOverride",),
         ),
     )
+    lifecycle = bypass_activation_lifecycle(activation)
     return operator_override_from_bypass_lifecycle(lifecycle)
 
 

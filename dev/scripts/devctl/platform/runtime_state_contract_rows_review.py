@@ -21,12 +21,26 @@ if TYPE_CHECKING:
         SessionTerminationPolicy,
         TaskCompleteDecision,
     )
+    from ..runtime.task_complete_result import (
+        TaskCompleteBodyObservationRequired,
+        TaskCompleteContinuationActive,
+        TaskCompleteContinuationMissing,
+        TaskCompletePacketAttentionPending,
+        TaskCompletePendingReview,
+        TaskCompleteTerminated,
+    )
 
     _RUNTIME_MODEL_REFS: tuple[
         type[PeerAwarenessPolicy],
         type[PeerAwarenessDecision],
         type[SessionTerminationPolicy],
         type[TaskCompleteDecision],
+        type[TaskCompletePacketAttentionPending],
+        type[TaskCompleteBodyObservationRequired],
+        type[TaskCompletePendingReview],
+        type[TaskCompleteContinuationMissing],
+        type[TaskCompleteContinuationActive],
+        type[TaskCompleteTerminated],
     ]
 
 REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (

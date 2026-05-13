@@ -6,11 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 
 from ...runtime import ActionResult
-from ...runtime.action_contracts import (
-    ACTION_RESULT_CONTRACT_ID,
-    ACTION_RESULT_SCHEMA_VERSION,
-    ActionOutcome,
-)
+from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
 from ...runtime.remote_commit_pipeline_state import (
     AUTO_DELIVERY_TRANSITION_RULE,
     PUSH_FAILURE_CLASSIFICATION_NON_DESTRUCTIVE,
@@ -18,6 +14,13 @@ from ...runtime.remote_commit_pipeline_state import (
     classify_push_failure,
 )
 from .governed_executor_field_access import mapping, string_value
+from .push_result_typestate import (
+    PushFailed,
+    PushPartialProgress,
+    PushResult,
+    PushSucceeded,
+    action_result_for_push_result,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,23 +46,20 @@ def project_push_report(
 ) -> PushReportProjection:
     """Extract pipeline state transition fields from a push report dict."""
     push_result = pipeline_push_result(action_id=action_id, report=report)
-    push_report_path = string_value(
-        mapping(report.get("artifacts")) if isinstance(report, dict) else {}
-    )
+    push_report_path = string_value(mapping(report.get("artifacts")))
     artifacts: tuple[str, ...] = ()
-    if isinstance(report, dict):
-        artifacts_dict = report.get("artifacts")
-        if isinstance(artifacts_dict, dict):
-            push_report_json = string_value(artifacts_dict.get("push_report_json"))
-            latest_json = string_value(artifacts_dict.get("latest_json"))
-            paths = tuple(
-                dict.fromkeys(
-                    path for path in (push_report_json, latest_json) if path
-                )
+    artifacts_dict = mapping(report.get("artifacts"))
+    if artifacts_dict:
+        push_report_json = string_value(artifacts_dict.get("push_report_json"))
+        latest_json = string_value(artifacts_dict.get("latest_json"))
+        paths = tuple(
+            dict.fromkeys(
+                path for path in (push_report_json, latest_json) if path
             )
-            if paths:
-                artifacts = paths
-                push_report_path = paths[0]
+        )
+        if paths:
+            artifacts = paths
+            push_report_path = paths[0]
     push_pipeline_phases = dict(mapping(report.get("push_pipeline_phases")))
 
     push_completed = _push_report_completed(report)
@@ -93,7 +93,10 @@ def project_push_report(
     )
 
 
-def apply_push_report_projection(pipeline, projection: PushReportProjection):
+def apply_push_report_projection(
+    pipeline: RemoteCommitPipelineContract,
+    projection: PushReportProjection,
+) -> RemoteCommitPipelineContract:
     """Return a pipeline updated from one push-report projection."""
     return replace(
         pipeline,
@@ -131,7 +134,8 @@ def build_push_pipeline_phases(
 
 def append_push_pipeline_phase_lines(lines: list[str], phase_state: object) -> None:
     """Append a compact markdown view of push pipeline phase state."""
-    if not isinstance(phase_state, dict) or not phase_state:
+    phase_state_mapping = mapping(phase_state)
+    if not phase_state_mapping:
         return
     lines.append("")
     lines.append("## Push Pipeline Phases")
@@ -141,12 +145,14 @@ def append_push_pipeline_phase_lines(lines: list[str], phase_state: object) -> N
         "pre_validation_recovery_loop_repair",
         "post_validation_auto_commit_repair",
     ):
-        phase = phase_state.get(name) or {}
-        if not isinstance(phase, dict):
+        phase = mapping(phase_state_mapping.get(name))
+        if not phase:
             continue
-        lines.append(f"- {name}: {phase.get('status', 'unknown')}")
-        if phase.get("reason"):
-            lines.append(f"- {name}_reason: {phase.get('reason')}")
+        status = string_value(phase.get("status")) or "unknown"
+        reason = string_value(phase.get("reason"))
+        lines.append(f"- {name}: {status}")
+        if reason:
+            lines.append(f"- {name}_reason: {reason}")
 
 
 def pipeline_push_result(
@@ -154,17 +160,23 @@ def pipeline_push_result(
     action_id: str,
     report: Mapping[str, object],
 ) -> ActionResult:
-    """Project one governed push report into an ActionResult."""
+    """Project one governed push report into the canonical ActionResult envelope."""
+    return action_result_for_push_result(
+        pipeline_push_result_case(action_id=action_id, report=report)
+    )
+
+
+def pipeline_push_result_case(
+    *,
+    action_id: str,
+    report: Mapping[str, object],
+) -> PushResult:
+    """Project one governed push report into exhaustive push-result cases."""
     silent_failure = _silent_push_failure_reason(report)
     if silent_failure:
-        return ActionResult(
-            schema_version=ACTION_RESULT_SCHEMA_VERSION,
-            contract_id=ACTION_RESULT_CONTRACT_ID,
+        return PushFailed(
             action_id=action_id,
-            ok=False,
-            status=ActionOutcome.FAIL,
             reason=silent_failure,
-            retryable=True,
             operator_guidance=(
                 "The push report does not contain enough subprocess evidence to "
                 "prove remote publication. Rerun governed push after repairing "
@@ -174,39 +186,22 @@ def pipeline_push_result(
     stages = mapping(report.get("push_stages"))
     reason = string_value(report.get("reason"))
     published_remote = bool(stages.get("published_remote"))
-    post_push_green = bool(stages.get("post_push_green"))
     if _push_report_completed(report):
-        return ActionResult(
-            schema_version=ACTION_RESULT_SCHEMA_VERSION,
-            contract_id=ACTION_RESULT_CONTRACT_ID,
+        return PushSucceeded(
             action_id=action_id,
-            ok=True,
-            status=ActionOutcome.PASS,
-            reason="push_completed",
             operator_guidance="Remote publication and post-push validation completed.",
         )
     if published_remote:
-        return ActionResult(
-            schema_version=ACTION_RESULT_SCHEMA_VERSION,
-            contract_id=ACTION_RESULT_CONTRACT_ID,
+        return PushPartialProgress(
             action_id=action_id,
-            ok=False,
-            status=ActionOutcome.FAIL,
             reason=reason or "post_push_incomplete",
-            retryable=True,
-            partial_progress=True,
             operator_guidance=(
                 "Remote publication succeeded, but post-push validation is not green yet."
             ),
         )
-    return ActionResult(
-        schema_version=ACTION_RESULT_SCHEMA_VERSION,
-        contract_id=ACTION_RESULT_CONTRACT_ID,
+    return PushFailed(
         action_id=action_id,
-        ok=False,
-        status=ActionOutcome.FAIL,
         reason=string_value(report.get("reason")) or "push_failed",
-        retryable=True,
         operator_guidance=string_value(
             mapping(report.get("action_result")).get("operator_guidance")
         )
@@ -230,7 +225,7 @@ def _silent_push_failure_reason(report: Mapping[str, object]) -> str:
     if not push_step:
         return "published_remote_without_push_step"
     try:
-        push_returncode = int(push_step.get("returncode", 1))
+        push_returncode = int(str(push_step.get("returncode", 1)).strip() or "1")
     except (TypeError, ValueError):
         push_returncode = 1
     if push_returncode != 0:

@@ -2991,6 +2991,16 @@ imported for deterministic registration. Add or update platform contract rows
 and schema fixtures when adding a new transition contract family, then run
 `check_schema_fixture_handshake.py` and `check_platform_contract_closure.py`.
 
+**Typestate result cases:**
+
+Use focused algebraic result-case modules when a reducer already has canonical
+typed authority but needs exhaustive branch handling. Current P102 examples are
+`runtime/bypass_activation_result.py`, `runtime/task_complete_result.py`, and
+`commands/vcs/push_result_typestate.py`. They expose frozen dataclass unions
+with `Literal` discriminators and `assert_never` helpers while leaving
+`BypassLifecycle`, `TaskCompleteDecision`, and `ActionResult` as the durable
+contracts.
+
 **Test with different backends:**
 
 ```bash

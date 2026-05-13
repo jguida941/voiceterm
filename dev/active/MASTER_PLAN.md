@@ -8269,3 +8269,10 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
     and `TransitionContract` / `GovernedTransitionModule` are registered with
     platform-contract and schema-fixture closure. This remains metadata over
     current lifecycle surfaces, not a parallel receipt-state system.
+  - 2026-05-13 P102 Phase C landed the first algebraic result-case slice over
+    existing lifecycle outputs: bypass activation, governed push projection,
+    and `TaskCompleteDecision` routing now have discriminated dataclass cases
+    with strict `Literal` / `match` / `assert_never` coverage. These cases
+    project canonical `BypassLifecycle`, `ActionResult`, and
+    `TaskCompleteDecision` state; they do not introduce a parallel receipt
+    authority.

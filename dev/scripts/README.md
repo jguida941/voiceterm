@@ -3113,3 +3113,14 @@ Governed-transition note:
 - Transition contract additions should update platform-contract rows, registry
   rows, schema fixtures, and focused runtime tests before running
   `check_platform_contract_closure.py` and `check_schema_fixture_handshake.py`.
+
+Typestate-result note:
+- `dev/scripts/devctl/runtime/bypass_activation_result.py`,
+  `dev/scripts/devctl/runtime/task_complete_result.py`, and
+  `dev/scripts/devctl/commands/vcs/push_result_typestate.py` are the P102
+  algebraic-result helpers for existing lifecycle outputs.
+- Keep these helpers as typed projections over canonical contracts. Do not move
+  authority out of `BypassLifecycle`, `TaskCompleteDecision`, or `ActionResult`.
+- Add new result cases with frozen dataclasses, `Literal` discriminators, and
+  `assert_never` coverage, then extend
+  `dev/scripts/devctl/tests/runtime/test_typestate_exhaustiveness.py`.

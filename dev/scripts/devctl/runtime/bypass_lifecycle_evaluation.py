@@ -5,6 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from .bypass_activation_result import (
+    BypassActivated,
+    BypassActivationResult,
+    BypassDenied,
+    bypass_activation_lifecycle,
+    bypass_activation_result,
+)
 from .bypass_lifecycle_models import (
     BYPASS_EXCEPTION_CLASS,
     BYPASS_GUARD_ID,
@@ -197,6 +204,14 @@ def evaluate_bypass_request(
     return lifecycle
 
 
+def evaluate_bypass_activation(
+    request: BypassRequest,
+    evidence: BypassEvaluationInput,
+) -> BypassActivationResult:
+    """Evaluate a bypass request as an explicit activated/denied sum type."""
+    return bypass_activation_result(evaluate_bypass_request(request, evidence))
+
+
 @governed_transition(
     transition_id="bypass.expire_lifecycle",
     requires=("BypassLifecycle:bypass_active",),
@@ -305,8 +320,14 @@ def _bypass_request_denial_reason(
 
 
 __all__ = [
+    "BypassActivated",
+    "BypassActivationResult",
+    "BypassDenied",
     "BypassEvaluationInput",
+    "bypass_activation_lifecycle",
+    "bypass_activation_result",
     "evaluate_bypass_request",
+    "evaluate_bypass_activation",
     "expire_bypass_lifecycle",
     "grant_lifetime_bypass",
 ]

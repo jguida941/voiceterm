@@ -1,8 +1,13 @@
 {
   "include": [
     "dev/scripts/devctl/context_graph/models.py",
+    "dev/scripts/devctl/commands/vcs/governed_executor_push_result.py",
+    "dev/scripts/devctl/commands/vcs/push_result_typestate.py",
+    "dev/scripts/devctl/runtime/bypass_activation_result.py",
+    "dev/scripts/devctl/runtime/bypass_lifecycle_evaluation.py",
     "dev/scripts/devctl/runtime/governed_transitions.py",
     "dev/scripts/devctl/runtime/receipt_state_gate.py",
+    "dev/scripts/devctl/runtime/task_complete_result.py",
     "dev/scripts/devctl/tests/runtime/test_receipt_state_gate.py",
     "dev/scripts/devctl/tests/runtime/test_typestate_exhaustiveness.py"
   ],

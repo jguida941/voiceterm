@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import assert_never
 
 from .agent_loop_decision_models import AgentLoopDecision
 from .agent_loop_decision_support import (
@@ -36,19 +37,17 @@ from .agent_loop_decision_sources import (
     session_identity_required,
 )
 from .session_termination_policy import (
-    CONTINUATION_ANCHOR_BODY_UNOBSERVED_ERROR,
-    PENDING_REVIEW_PACKET_BODY_UNOBSERVED_ERROR,
-    STOP_ANCHOR_BODY_UNOBSERVED_ERROR,
     session_termination_policy_from_review_state,
     task_complete_decision,
 )
-
-_PACKET_BODY_UNOBSERVED_ERRORS = frozenset(
-    {
-        CONTINUATION_ANCHOR_BODY_UNOBSERVED_ERROR,
-        STOP_ANCHOR_BODY_UNOBSERVED_ERROR,
-        PENDING_REVIEW_PACKET_BODY_UNOBSERVED_ERROR,
-    }
+from .task_complete_result import (
+    TaskCompleteBodyObservationRequired,
+    TaskCompleteContinuationActive,
+    TaskCompleteContinuationMissing,
+    TaskCompletePacketAttentionPending,
+    TaskCompletePendingReview,
+    TaskCompleteTerminated,
+    task_complete_result,
 )
 
 
@@ -89,19 +88,36 @@ def _completed_handoff_decision(
         target_ref=ctx.requested_plan_ref,
         packet_attention=ctx.attention,
     )
-    if task_decision.packet_attention_pending:
-        return packet_attention_pending_decision(ctx, task_decision)
-    if task_decision.error_kind in _PACKET_BODY_UNOBSERVED_ERRORS:
-        return pending_review_packet_decision(ctx, task_decision)
-    if task_decision.pending_review_packet:
-        return pending_review_packet_decision(ctx, task_decision)
+    task_result = task_complete_result(task_decision)
+    match task_result:
+        case TaskCompletePacketAttentionPending(decision=decision):
+            return packet_attention_pending_decision(ctx, decision)
+        case TaskCompleteBodyObservationRequired(decision=decision):
+            return pending_review_packet_decision(ctx, decision)
+        case TaskCompletePendingReview(decision=decision):
+            return pending_review_packet_decision(ctx, decision)
+        case (
+            TaskCompleteContinuationMissing()
+            | TaskCompleteContinuationActive()
+            | TaskCompleteTerminated()
+        ):
+            pass
     if packets.active_packet_id:
         return active_packet_decision(ctx, packets)
-    if task_decision.continuation_anchor_missing:
-        return continuation_anchor_missing_decision(ctx, task_decision)
-    if not task_decision.terminate:
-        return continuation_anchor_decision(ctx, task_decision)
-    return completed_decision(ctx, outcome)
+    match task_result:
+        case TaskCompleteContinuationMissing(decision=decision):
+            return continuation_anchor_missing_decision(ctx, decision)
+        case TaskCompleteContinuationActive(decision=decision):
+            return continuation_anchor_decision(ctx, decision)
+        case TaskCompleteTerminated():
+            return completed_decision(ctx, outcome)
+        case (
+            TaskCompletePacketAttentionPending()
+            | TaskCompleteBodyObservationRequired()
+            | TaskCompletePendingReview()
+        ):
+            raise AssertionError("task_complete_blocking_result_not_returned")
+    assert_never(task_result)
 
 
 def _active_runtime_decision(

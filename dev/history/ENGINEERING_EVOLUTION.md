@@ -15193,3 +15193,24 @@ Evidence:
 - `dev/scripts/devctl/tests/commands/test_development_command.py`
 - `dev/scripts/devctl/tests/review_channel/test_agent_loop_decision_queue_targets.py`
 - `dev/scripts/devctl/tests/review_channel/test_event_post_action.py`
+
+### 2026-05-13 - P102 typestate result cases stay as projections
+
+The typestate-governance roadmap now has its first algebraic result slice over
+live reducers. Bypass activation uses `BypassActivated | BypassDenied`,
+governed push projection uses
+`PushSucceeded | PushPartialProgress | PushFailed`, and task-complete routing
+uses explicit `TaskComplete*` cases before the agent-loop reducer maps them to
+existing loop decisions.
+
+The implementation deliberately keeps authority in the current contracts:
+`BypassLifecycle`, `ActionResult`, and `TaskCompleteDecision`. The new cases
+are strict typed projections for branch exhaustiveness, backed by focused
+`mypy` / `pyright` coverage and the existing runtime test suite.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/bypass_activation_result.py`
+- `dev/scripts/devctl/runtime/task_complete_result.py`
+- `dev/scripts/devctl/commands/vcs/push_result_typestate.py`
+- `dev/scripts/devctl/tests/runtime/test_typestate_exhaustiveness.py`

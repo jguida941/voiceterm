@@ -14441,3 +14441,26 @@ Evidence:
 
 - `dev/scripts/devctl/runtime/scope_path_claims.py`
 - `dev/scripts/devctl/tests/runtime/test_scope_path_claims.py`
+
+## 2026-05-13 — P102 algebraic typestate result cases (Phase C)
+
+The first typestate-result slice now applies the P102
+dataclass-plus-`Literal` pattern to existing lifecycle result paths without
+creating a parallel generic receipt universe. `BypassLifecycle` activation is
+projected through `BypassActivated | BypassDenied`, governed push projection is
+projected through `PushSucceeded | PushPartialProgress | PushFailed`, and
+`TaskCompleteDecision` routing is projected through explicit task-complete
+cases consumed by the agent-loop decision reducer.
+
+These result cases are views over canonical contracts. Durable authority
+remains with `BypassLifecycle`, `ActionResult`, `TaskCompleteDecision`, and
+their existing reducers. The strict checker seed now includes the typestate
+case modules, and focused tests exercise the `match` / `assert_never`
+exhaustiveness path for the three current result families.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/bypass_activation_result.py`
+- `dev/scripts/devctl/runtime/task_complete_result.py`
+- `dev/scripts/devctl/commands/vcs/push_result_typestate.py`
+- `dev/scripts/devctl/tests/runtime/test_typestate_exhaustiveness.py`

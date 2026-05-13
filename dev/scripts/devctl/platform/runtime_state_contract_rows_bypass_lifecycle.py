@@ -2,7 +2,20 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .contracts import ContractField, ContractSpec, CrossLinkSpec
+
+if TYPE_CHECKING:
+    from ..runtime.bypass_activation_result import (
+        BypassActivated,
+        BypassDenied,
+    )
+
+    _TYPESTATE_RESULT_REFS: tuple[
+        type[BypassActivated],
+        type[BypassDenied],
+    ]
 
 BYPASS_LIFECYCLE_CONTRACTS: tuple[ContractSpec, ...] = (
     ContractSpec(

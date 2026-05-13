@@ -2,7 +2,22 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .contracts import ContractField, ContractSpec, CrossLinkSpec
+
+if TYPE_CHECKING:
+    from ..commands.vcs.push_result_typestate import (
+        PushFailed,
+        PushPartialProgress,
+        PushSucceeded,
+    )
+
+    _TYPESTATE_RESULT_REFS: tuple[
+        type[PushSucceeded],
+        type[PushPartialProgress],
+        type[PushFailed],
+    ]
 
 
 PIPELINE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
