@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `35b5131cc98f` — Phase 8: add receipt state evidence
-- Tree hash: `80e7e7e6e950`
-- Generation stamp: `snap-a9df41ea4e5b`
-- Generated at (UTC): 2026-05-13T20:55:44Z
+- HEAD: `1cc7d6579e6e` — Fix stale pending packet blocker normalization
+- Tree hash: `7ff88e9054cd`
+- Generation stamp: `snap-17ad2ab30bf8`
+- Generated at (UTC): 2026-05-13T21:16:42Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 105 files, +5145/-857
+- Delta since last snapshot: 25 commits, 99 files, +4660/-908
 - Governance findings: 43 open / 0 fixed / 43 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `35b5131cc98f95f0cadfedcde13238820f33fd24`
+- HEAD SHA: `1cc7d6579e6e7d05e5b8ab2104e7eb7407ef052b`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-13T16:55:05-04:00
+- HEAD timestamp (UTC): 2026-05-13T17:16:02-04:00
 
 ## 2. Governance state
 
@@ -44,7 +44,7 @@ production client (VoiceTerm...
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (push_preflight_running)
 - publication_backlog: urgent
-- publication_guidance: 19 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 21 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -64,12 +64,12 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `35b5131cc98f`
+Range: last 25 commits ending at `1cc7d6579e6e`
 
-- commits: 24
-- files changed: 105
-- insertions: +5145
-- deletions: -857
+- commits: 25
+- files changed: 99
+- insertions: +4660
+- deletions: -908
 - bundle classes touched: tooling, docs
 - authority surfaces touched: 3 file(s)
 
@@ -77,30 +77,31 @@ Range: last 24 commits ending at `35b5131cc98f`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `35b5131c` | Phase 8: add receipt state evidence | 18 | +352/-55 | tooling |  |
-| 2 | `9a3ae526` | Refresh external review snapshot for 4ff12daa | 2 | +70/-71 | docs |  |
-| 3 | `4ff12daa` | Phase 7: add governed transition verifier | 25 | +854/-2 | tooling |  |
-| 4 | `72f2b85b` | Refresh external review snapshot for f9804b01 | 2 | +59/-59 | docs |  |
-| 5 | `f9804b01` | Phase 1.5: add typed ID wrappers | 12 | +223/-8 | tooling |  |
-| 6 | `6571e026` | Refresh external review snapshot for cdd7c805 | 2 | +68/-67 | docs |  |
-| 7 | `cdd7c805` | Phase C: add typestate result cases | 20 | +706/-79 | tooling |  |
-| 8 | `5237713c` | Refresh external review snapshot for be3f8650 | 2 | +60/-59 | docs |  |
-| 9 | `be3f8650` | Phase 5: add governed transition registry | 46 | +1045/-4 | tooling |  |
-| 10 | `2f4b9058` | Refresh external review snapshot for 25335b5b | 2 | +56/-56 | docs |  |
-| 11 | `25335b5b` | Record packet attention refinement plan binding | 2 | +2/-0 | tooling |  |
-| 12 | `7e7c1ecf` | Refresh external review snapshot for 1676e5cc | 2 | +49/-49 | docs |  |
-| 13 | `1676e5cc` | Phase A: add lifecycle graph edge kinds | 4 | +86/-8 | tooling |  |
-| 14 | `667a9959` | Refresh external review snapshot for e73ef5c4 | 2 | +51/-51 | docs |  |
-| 15 | `e73ef5c4` | Phase B: extract reusable receipt state gate | 5 | +111/-8 | tooling |  |
-| 16 | `42c692e6` | Refresh external review snapshot for 6097fb64 | 2 | +52/-53 | docs |  |
-| 17 | `6097fb64` | Phase 1: enable strict type checking config | 5 | +59/-3 | tooling |  |
-| 18 | `11ac15c3` | Refresh external review snapshot for 804d4738 | 2 | +51/-51 | docs |  |
-| 19 | `804d4738` | Ignore stale push reports in control plane quality | 4 | +107/-23 | tooling |  |
-| 20 | `bdbd3e56` | Refresh external review snapshot for c912d41b | 2 | +51/-49 | docs |  |
-| 21 | `c912d41b` | Append McGilchrist speaker bio to Priority 102 ERROR-FORMAT… | 2 | +3/-1 | docs |  |
-| 22 | `e0204888` | Refresh external review snapshot for ea524877 | 2 | +73/-68 | docs |  |
-| 23 | `ea524877` | Record P102 typestate research synthesis + session-end state | 4 | +324/-4 | docs |  |
-| 24 | `676766de` | Surface packet guard-error lifecycle details | 11 | +633/-29 | tooling |  |
+| 1 | `1cc7d657` | Fix stale pending packet blocker normalization | 8 | +84/-19 | tooling |  |
+| 2 | `0b7707c9` | Refresh external review snapshot for 35b5131c | 2 | +64/-61 | docs |  |
+| 3 | `35b5131c` | Phase 8: add receipt state evidence | 18 | +352/-55 | tooling |  |
+| 4 | `9a3ae526` | Refresh external review snapshot for 4ff12daa | 2 | +70/-71 | docs |  |
+| 5 | `4ff12daa` | Phase 7: add governed transition verifier | 25 | +854/-2 | tooling |  |
+| 6 | `72f2b85b` | Refresh external review snapshot for f9804b01 | 2 | +59/-59 | docs |  |
+| 7 | `f9804b01` | Phase 1.5: add typed ID wrappers | 12 | +223/-8 | tooling |  |
+| 8 | `6571e026` | Refresh external review snapshot for cdd7c805 | 2 | +68/-67 | docs |  |
+| 9 | `cdd7c805` | Phase C: add typestate result cases | 20 | +706/-79 | tooling |  |
+| 10 | `5237713c` | Refresh external review snapshot for be3f8650 | 2 | +60/-59 | docs |  |
+| 11 | `be3f8650` | Phase 5: add governed transition registry | 46 | +1045/-4 | tooling |  |
+| 12 | `2f4b9058` | Refresh external review snapshot for 25335b5b | 2 | +56/-56 | docs |  |
+| 13 | `25335b5b` | Record packet attention refinement plan binding | 2 | +2/-0 | tooling |  |
+| 14 | `7e7c1ecf` | Refresh external review snapshot for 1676e5cc | 2 | +49/-49 | docs |  |
+| 15 | `1676e5cc` | Phase A: add lifecycle graph edge kinds | 4 | +86/-8 | tooling |  |
+| 16 | `667a9959` | Refresh external review snapshot for e73ef5c4 | 2 | +51/-51 | docs |  |
+| 17 | `e73ef5c4` | Phase B: extract reusable receipt state gate | 5 | +111/-8 | tooling |  |
+| 18 | `42c692e6` | Refresh external review snapshot for 6097fb64 | 2 | +52/-53 | docs |  |
+| 19 | `6097fb64` | Phase 1: enable strict type checking config | 5 | +59/-3 | tooling |  |
+| 20 | `11ac15c3` | Refresh external review snapshot for 804d4738 | 2 | +51/-51 | docs |  |
+| 21 | `804d4738` | Ignore stale push reports in control plane quality | 4 | +107/-23 | tooling |  |
+| 22 | `bdbd3e56` | Refresh external review snapshot for c912d41b | 2 | +51/-49 | docs |  |
+| 23 | `c912d41b` | Append McGilchrist speaker bio to Priority 102 ERROR-FORMAT… | 2 | +3/-1 | docs |  |
+| 24 | `e0204888` | Refresh external review snapshot for ea524877 | 2 | +73/-68 | docs |  |
+| 25 | `ea524877` | Record P102 typestate research synthesis + session-end state | 4 | +324/-4 | docs |  |
 
 ### Files
 
@@ -108,15 +109,15 @@ Range: last 24 commits ending at `35b5131cc98f`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +1/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +3/-0 |
-| `bridge.md` | docs | +46/-46 |
+| `bridge.md` | docs | +49/-49 |
 | `codesmells.md` | docs | +316/-0 |
-| `dev/active/MASTER_PLAN.md` | tooling | +47/-0 |
-| `dev/active/ai_governance_platform.md` | tooling | +172/-2 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +599/-592 |
-| `dev/guides/DEVELOPMENT.md` | docs | +47/-0 |
+| `dev/active/MASTER_PLAN.md` | tooling | +52/-0 |
+| `dev/active/ai_governance_platform.md` | tooling | +164/-1 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +660/-650 |
+| `dev/guides/DEVELOPMENT.md` | docs | +52/-0 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +9/-9 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +108/-0 |
-| `dev/scripts/README.md` | tooling | +42/-0 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +125/-0 |
+| `dev/scripts/README.md` | tooling | +47/-0 |
 | `dev/scripts/checks/check_governed_transitions.py` | tooling | +12/-0 |
 | `dev/scripts/checks/governed_transitions/__init__.py` | tooling | +1/-0 |
 | `dev/scripts/checks/governed_transitions/command.py` | tooling | +93/-0 |
@@ -137,16 +138,16 @@ Range: last 24 commits ending at `35b5131cc98f`
 | `dev/scripts/devctl/governance/script_catalog_registry.py` | tooling | +1/-0 |
 | `dev/scripts/devctl/platform/runtime_identity_contract_rows.py` | tooling | +2/-33 |
 | `dev/scripts/devctl/platform/runtime_identity_contract_rows_commit.py` | tooling | +65/-0 |
-| `dev/scripts/devctl/platform/runtime_state_contract_rows.py` | tooling | +53/-0 |
+| `dev/scripts/devctl/platform/runtime_state_contract_rows.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_bypass_lifecycle.py` | tooling | +13/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_pipeline.py` | tooling | +15/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_review.py` | tooling | +14/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_transitions.py` | tooling | +59/-0 |
-| `dev/scripts/devctl/review_channel/event_render.py` | tooling | +56/-0 |
-| `dev/scripts/devctl/review_channel/packet_lifecycle.py` | tooling | +68/-25 |
-| `dev/scripts/devctl/review_channel/packet_lifecycle_disposition.py` | tooling | +44/-2 |
-| `dev/scripts/devctl/review_channel/readable_packet_projection.py` | tooling | +44/-0 |
-| _65 more files trimmed_ | | |
+| `dev/scripts/devctl/runtime/agent_loop_decision.py` | tooling | +37/-21 |
+| `dev/scripts/devctl/runtime/agent_loop_operator_override.py` | tooling | +4/-2 |
+| `dev/scripts/devctl/runtime/bypass_activation_result.py` | tooling | +77/-0 |
+| `dev/scripts/devctl/runtime/bypass_lifecycle_evaluation.py` | tooling | +54/-0 |
+| _59 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -215,6 +216,10 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`1cc7d657`** — Fix stale pending packet blocker normalization
+  - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
+- **`0b7707c9`** — Refresh external review snapshot for 35b5131c
+  - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
 - **`35b5131c`** — Phase 8: add receipt state evidence
   - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
 - **`9a3ae526`** — Refresh external review snapshot for 4ff12daa
@@ -266,8 +271,6 @@ Recent findings:
   - in codesmells.md (SLSA+in-toto twin, Dagster decorator, dbt/HTN/LangGraph
   - kinship, ZGraph audit, Idris error format spec, safeguard plan).
   - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
-- **`676766de`** — Surface packet guard-error lifecycle details
-  - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -306,4 +309,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-a9df41ea4e5b` binds this file to HEAD `35b5131cc98f`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-17ad2ab30bf8` binds this file to HEAD `1cc7d6579e6e`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
