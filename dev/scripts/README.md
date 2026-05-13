@@ -3113,6 +3113,10 @@ Governed-transition note:
 - Transition contract additions should update platform-contract rows, registry
   rows, schema fixtures, and focused runtime tests before running
   `check_platform_contract_closure.py` and `check_schema_fixture_handshake.py`.
+- `dev/scripts/checks/check_governed_transitions.py` verifies registered
+  `TransitionContract` metadata by building lifecycle graph edges and walking
+  required/produced state paths through `walk_context_graph`; it is part of
+  the shared governance bundle and CI workflows.
 
 Typestate-result note:
 - `dev/scripts/devctl/runtime/bypass_activation_result.py`,

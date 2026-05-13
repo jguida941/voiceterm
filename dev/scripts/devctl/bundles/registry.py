@@ -138,6 +138,7 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
     check_script_shell_command("repo_url_parity"),
     check_script_shell_command("guard_enforcement_inventory"),
     check_script_shell_command("ground_truth_probe_gate"),
+    check_script_shell_command("governed_transitions"),
     check_script_shell_command("memory_not_authority"),
     check_script_shell_command("architecture_surface_sync"),
     check_script_shell_command("review_snapshot_freshness"),

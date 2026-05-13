@@ -15232,3 +15232,23 @@ Evidence:
 - `dev/scripts/devctl/commands/development/lifecycle_commands.py`
 - `dev/scripts/devctl/runtime/commit_receipt.py`
 - `dev/scripts/devctl/tests/runtime/test_typed_ids.py`
+
+### 2026-05-13 - P102 transition metadata gets a graph verifier
+
+The governed-transition decorator now has CI proof instead of relying on
+registration tests alone. `check_governed_transitions.py` imports the manifest
+modules, builds lifecycle graph edges from `TransitionContract` metadata, and
+uses `walk_context_graph` to verify required-to-produced state paths plus
+declared `graph_path` chains.
+
+The check is registered in the script catalog, included in the shared
+governance bundle, and wired into both tooling and release workflows.
+
+Evidence:
+
+- `dev/scripts/checks/check_governed_transitions.py`
+- `dev/scripts/checks/governed_transitions/command.py`
+- `dev/scripts/devctl/tests/checks/governed_transitions/test_check_governed_transitions.py`
+- `dev/scripts/devctl/bundles/registry.py`
+- `.github/workflows/tooling_control_plane.yml`
+- `.github/workflows/release_preflight.yml`

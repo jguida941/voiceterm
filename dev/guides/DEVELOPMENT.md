@@ -3009,6 +3009,14 @@ receipt, and plan-row identifiers could be accidentally swapped. `PacketId`,
 evidence-ref helpers. Persisted contract fields remain strings unless a later
 typed-state slice explicitly migrates a schema.
 
+**Governed transition guard:**
+
+Run `python3 dev/scripts/checks/check_governed_transitions.py` after adding
+or changing `@governed_transition` metadata. The guard imports the manifest
+modules, builds lifecycle graph edges from each `TransitionContract`, and uses
+`walk_context_graph` to verify required/produced state reachability and
+declared graph paths.
+
 **Test with different backends:**
 
 ```bash

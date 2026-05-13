@@ -31,6 +31,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("duplicate_types", "check_duplicate_types.py"),
     ("guard_enforcement_inventory", "check_guard_enforcement_inventory.py"),
     ("ground_truth_probe_gate", "check_ground_truth_probe_gate.py"),
+    ("governed_transitions", "check_governed_transitions.py"),
     ("guide_contract_sync", "check_guide_contract_sync.py"),
     ("memory_not_authority", "check_memory_not_authority.py"),
     ("python_broad_except", "check_python_broad_except.py"),

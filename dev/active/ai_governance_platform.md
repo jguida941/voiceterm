@@ -99,6 +99,18 @@ Current ingestion status:
   helper family. They protect internal helper boundaries and command/evidence
   construction without changing persisted JSON contract fields, which remain
   plain strings for compatibility.
+- 2026-05-13 P102 transition verifier: `check_governed_transitions.py` now
+  loads the existing governed-transition manifest, projects transition
+  metadata into lifecycle graph edges, and proves required/produced state paths
+  plus declared graph paths through `walk_context_graph`. The guard is wired
+  into the existing governance bundle and CI workflows.
+- 2026-05-13 P102 Idris-ST enforcement follow-up (`rev_pkt_3958`): Codex
+  accepts the finding that `@governed_transition` is currently metadata-only.
+  The active decision is Option A: ship Phase 7 as the metadata/graph verifier,
+  then queue a separate runtime pre/postcondition enforcement slice plus
+  receipt pre/post-state evidence. Do not widen Phase 7 into a second feature
+  or add a dependency-backed design-by-contract library until that follow-up
+  slice is selected and justified by typed plan authority.
 
 2026-05-06 governed exception lifecycle correction:
 - `MP377-P0-EXC-S1` replaces the earlier raw-bypass receipt direction with a
@@ -14489,3 +14501,60 @@ Evidence:
 - `dev/scripts/devctl/commands/development/lifecycle_commands.py`
 - `dev/scripts/devctl/runtime/commit_receipt.py`
 - `dev/scripts/devctl/tests/runtime/test_typed_ids.py`
+
+## 2026-05-13 — P102 governed-transition graph verifier (Phase 7)
+
+The P102 transition metadata now has a CI guard. `check_governed_transitions.py`
+loads `dev/state/transition_modules.jsonl`, imports the registered transition
+owners, builds a small lifecycle graph from each `TransitionContract`, and
+uses `walk_context_graph` to prove that required states can reach produced
+states and that declared `graph_path` chains are traversable.
+
+The guard composes with the existing script catalog, shared governance bundle,
+and tooling/release workflows. It reuses `requires_state`, `produces_state`,
+`transitions_to`, and existing `receipt_proves` edge vocabulary instead of
+adding a parallel attestation-path checker.
+
+Evidence:
+
+- `dev/scripts/checks/check_governed_transitions.py`
+- `dev/scripts/checks/governed_transitions/command.py`
+- `dev/scripts/checks/governed_transitions/models.py`
+- `dev/scripts/devctl/tests/checks/governed_transitions/test_check_governed_transitions.py`
+- `dev/scripts/devctl/bundles/registry.py`
+- `.github/workflows/tooling_control_plane.yml`
+- `.github/workflows/release_preflight.yml`
+
+## 2026-05-13 — P102 Idris-ST enforcement follow-up
+
+`rev_pkt_3958` is accepted as a real enforcement-gap finding, but not folded
+into the Phase 7 commit. Phase 7 proves that governed-transition metadata is
+registered and graph-walkable; it does not wrap transition functions or prove
+runtime pre/postconditions. The follow-up should extend the existing
+`@governed_transition` lifecycle family rather than create a parallel
+typestate or generic receipt universe.
+
+Queued follow-up slices:
+
+- `P102-ENFORCE-S1`: add opt-in runtime precondition/postcondition enforcement
+  for governed transitions over existing lifecycle state resolvers. Start with
+  a stdlib-first wrapper and explicit violation types; evaluate third-party
+  design-by-contract libraries only if the slice proves they reduce local
+  complexity without becoming authority.
+- `P102-RECEIPT-DBC-S1`: extend existing validation/commit receipt evidence
+  with transition id plus pre/post-state digests where the underlying action
+  already has a durable state boundary.
+
+Compiler/control-plane mapping for this work:
+
+| Stage | Concept | Current owner |
+|---|---|---|
+| 1 | Input | `review_channel/events.py` |
+| 2 | Reducer | `review_channel/event_reducer.py` |
+| 3 | Typed state | `review_channel/state.py` + `projection_bundle.py` |
+| 4 | Authority calculation | `runtime/authority_snapshot_build.py` |
+| 5 | Permission envelope | `runtime/agent_loop_decision.py` |
+| 6 | Tool execution | `commands/vcs/commit.py` + `governed_executor.py` |
+| 7 | Probes/guards | `review_channel/prompt_guards.py` + `dev/scripts/checks/*.py` |
+| 8 | Receipts | `dev/state/plan_ingestion_receipts.jsonl` + `plan_index.jsonl` |
+| 9 | Lowering/publication | `commands/vcs/governed_executor_commit_phase.py` + `push.py` |

@@ -379,6 +379,9 @@ jobs:
       - name: Run ground-truth probe gate
         run: python3 dev/scripts/checks/check_ground_truth_probe_gate.py
 
+      - name: Run governed-transition graph guard
+        run: python3 dev/scripts/checks/check_governed_transitions.py
+
       - name: Run memory-not-authority guard
         run: python3 dev/scripts/checks/check_memory_not_authority.py
 

@@ -8282,3 +8282,17 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
     first use stays at command/evidence helper boundaries so persisted typed
     contracts remain string-compatible while strict checks can prevent future
     packet/receipt/plan-row swaps.
+  - 2026-05-13 P102 Phase 7 landed `check_governed_transitions.py`: the guard
+    loads governed-transition manifest modules, builds lifecycle graph edges
+    from `TransitionContract` metadata, and proves state/graph reachability
+    through `walk_context_graph`. It is registered in the script catalog,
+    shared governance bundle, and tooling/release workflows.
+- [ ] `PKT-BIND-REV-PKT-3958` Packet finding: Idris-ST enforcement-gap research: @governed_transition is metadata-only; 4 typestate pairs implicit; 9-stage compiler mapping; receipts DBC-incomplete; 3 options for Phase 7/8 scope (source `rev_pkt_3958`; target `plan:MP-377`; posted `2026-05-13T20:17:09.375695Z`; binding `plan_row`).
+  - 2026-05-13 Codex disposition: accept the enforcement-gap finding and
+    choose Option A. Phase 7 remains the metadata/graph verifier. Queue
+    follow-up work as `P102-ENFORCE-S1` for opt-in runtime
+    precondition/postcondition enforcement over existing lifecycle state
+    resolvers and `P102-RECEIPT-DBC-S1` for transition id plus pre/post-state
+    receipt evidence on existing validation/commit receipt boundaries.
+    Third-party design-by-contract libraries are evaluation candidates only,
+    not authority and not part of the Phase 7 slice.
