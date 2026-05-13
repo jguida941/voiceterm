@@ -24,13 +24,7 @@ def agent_loop_inputs(
     actor: str,
     dashboard: Mapping[str, object] | None = None,
     master_plan: Mapping[str, object] | None = None,
-    loop_intent: str = "",
-    requested_plan_ref: str = "",
-    requested_packet_id: str = "",
-    operator_override_requested: bool = False,
-    operator_override_reason: str = "",
-    operator_override_scope: str = "edit-only",
-    operator_override_by: str = "operator",
+    **options: object,
 ) -> tuple[DevelopmentAgentLoopInput, ...]:
     rows: list[DevelopmentAgentLoopInput] = []
     for row in agent_loop_rows(
@@ -38,13 +32,7 @@ def agent_loop_inputs(
         dashboard=dashboard,
         master_plan=master_plan,
         operator_override_actor=actor,
-        loop_intent=loop_intent,
-        requested_plan_ref=requested_plan_ref,
-        requested_packet_id=requested_packet_id,
-        operator_override_requested=operator_override_requested,
-        operator_override_reason=operator_override_reason,
-        operator_override_scope=operator_override_scope,
-        operator_override_by=operator_override_by,
+        **options,
     ):
         parsed = agent_loop_input(row)
         if parsed is not None:

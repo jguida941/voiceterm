@@ -14,28 +14,14 @@ def agent_loop_rows(
     *,
     dashboard: Mapping[str, object] | None = None,
     master_plan: Mapping[str, object] | None = None,
-    operator_override_actor: str = "",
-    loop_intent: str = "",
-    requested_plan_ref: str = "",
-    requested_packet_id: str = "",
-    operator_override_requested: bool = False,
-    operator_override_reason: str = "",
-    operator_override_scope: str = "edit-only",
-    operator_override_by: str = "operator",
+    **options: object,
 ) -> tuple[Mapping[str, object], ...]:
     """Return fresh agent-loop rows when runtime work-board state is available."""
     refreshed = _refreshed_agent_loop_rows(
         review_state,
         dashboard=dashboard,
         master_plan=master_plan,
-        operator_override_actor=operator_override_actor,
-        loop_intent=loop_intent,
-        requested_plan_ref=requested_plan_ref,
-        requested_packet_id=requested_packet_id,
-        operator_override_requested=operator_override_requested,
-        operator_override_reason=operator_override_reason,
-        operator_override_scope=operator_override_scope,
-        operator_override_by=operator_override_by,
+        **options,
     )
     if refreshed:
         return refreshed
@@ -50,14 +36,7 @@ def _refreshed_agent_loop_rows(
     *,
     dashboard: Mapping[str, object] | None = None,
     master_plan: Mapping[str, object] | None = None,
-    operator_override_actor: str = "",
-    loop_intent: str = "",
-    requested_plan_ref: str = "",
-    requested_packet_id: str = "",
-    operator_override_requested: bool = False,
-    operator_override_reason: str = "",
-    operator_override_scope: str = "edit-only",
-    operator_override_by: str = "operator",
+    **options: object,
 ) -> tuple[Mapping[str, object], ...]:
     work_board = review_state.get("agent_work_board")
     if not isinstance(work_board, Mapping):
@@ -70,14 +49,7 @@ def _refreshed_agent_loop_rows(
         work_board=work_board,
         dashboard=dashboard,
         master_plan=master_plan,
-        operator_override_actor=operator_override_actor,
-        loop_intent=loop_intent,
-        requested_plan_ref=requested_plan_ref,
-        requested_packet_id=requested_packet_id,
-        operator_override_requested=operator_override_requested,
-        operator_override_reason=operator_override_reason,
-        operator_override_scope=operator_override_scope,
-        operator_override_by=operator_override_by,
+        **options,
     )
     return tuple(row for row in decisions if isinstance(row, Mapping))
 

@@ -51,18 +51,21 @@ def agent_loop_decisions_for_work_board(
     target_agent: str = "",
     dashboard: Mapping[str, object] | None = None,
     master_plan: Mapping[str, object] | None = None,
-    operator_override_actor: str = "",
-    loop_intent: str = "",
-    requested_plan_ref: str = "",
-    requested_packet_id: str = "",
-    operator_override_requested: bool = False,
-    operator_override_reason: str = "",
-    operator_override_scope: str = "edit-only",
-    operator_override_by: str = "operator",
+    **options: object,
 ) -> list[dict[str, object]]:
     """Resolve one ``AgentLoopDecision`` per typed work-board row."""
     from ..runtime.agent_loop_decision import build_agent_loop_decision
 
+    operator_override_actor = _text(options.get("operator_override_actor"))
+    loop_intent = _text(options.get("loop_intent"))
+    requested_plan_ref = _text(options.get("requested_plan_ref"))
+    requested_packet_id = _text(options.get("requested_packet_id"))
+    operator_override_requested = bool(options.get("operator_override_requested"))
+    operator_override_reason = _text(options.get("operator_override_reason"))
+    operator_override_scope = _text(
+        options.get("operator_override_scope")
+    ) or "edit-only"
+    operator_override_by = _text(options.get("operator_override_by")) or "operator"
     dashboard_payload = dashboard if dashboard is not None else _dashboard_from_review_state(review_state)
     rows = work_board.get("rows")
     if not isinstance(rows, list):

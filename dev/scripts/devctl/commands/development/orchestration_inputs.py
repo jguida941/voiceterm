@@ -18,13 +18,7 @@ def orchestration_snapshot(
     actor: str,
     dashboard: Mapping[str, object] | None = None,
     master_plan: Mapping[str, object] | None = None,
-    loop_intent: str = "",
-    requested_plan_ref: str = "",
-    requested_packet_id: str = "",
-    operator_override_requested: bool = False,
-    operator_override_reason: str = "",
-    operator_override_scope: str = "edit-only",
-    operator_override_by: str = "operator",
+    **options: object,
 ) -> DevelopmentOrchestrationSnapshot:
     """Summarize existing proof/wake/freshness surfaces for `/develop`."""
     picture_signals = system_picture_signals(repo_root)
@@ -33,13 +27,7 @@ def orchestration_snapshot(
         actor=actor,
         dashboard=dashboard,
         master_plan=master_plan,
-        loop_intent=loop_intent,
-        requested_plan_ref=requested_plan_ref,
-        requested_packet_id=requested_packet_id,
-        operator_override_requested=operator_override_requested,
-        operator_override_reason=operator_override_reason,
-        operator_override_scope=operator_override_scope,
-        operator_override_by=operator_override_by,
+        **options,
     )
     loop_signals = agent_loop_signals(loop_decisions)
     supervise_signals = agent_supervise_signals(
