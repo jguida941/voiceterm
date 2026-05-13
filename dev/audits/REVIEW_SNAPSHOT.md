@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `a9415b9af0db` — Refresh policy-owned generated surfaces for 7e006123
-- Tree hash: `8b2e35a1f20a`
-- Generation stamp: `snap-3ef256d6db95`
-- Generated at (UTC): 2026-05-13T00:33:04Z
-- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- HEAD: `a1c11da2b090` — Split governance modules for code shape compliance
+- Tree hash: `f5d1bebbd30c`
+- Generation stamp: `snap-6dcd9837390d`
+- Generated at (UTC): 2026-05-13T00:38:10Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 67 files, +4716/-1950
+- Delta since last snapshot: 25 commits, 105 files, +8359/-4742
 - Governance findings: 43 open / 0 fixed / 43 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,23 +28,23 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `a9415b9af0dbaa4b51728d66fb33f77a59f76642`
+- HEAD SHA: `a1c11da2b090b03dbad2b55e9307221e0b99321d`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-12T19:18:09-04:00
+- HEAD timestamp (UTC): 2026-05-12T20:37:30-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_budget_exceeded
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 41
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 27 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 28 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -60,17 +60,16 @@ production client (VoiceTerm...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
-- checkpoint_required: **yes**
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `a9415b9af0db`
+Range: last 25 commits ending at `a1c11da2b090`
 
-- commits: 24
-- files changed: 67
-- insertions: +4716
-- deletions: -1950
+- commits: 25
+- files changed: 105
+- insertions: +8359
+- deletions: -4742
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 9 file(s)
 
@@ -78,30 +77,31 @@ Range: last 24 commits ending at `a9415b9af0db`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `a9415b9a` | Refresh policy-owned generated surfaces for 7e006123 | 1 | +1/-1 | docs |  |
-| 2 | `7e006123` | Refresh external review snapshot for 8d5bb18a | 2 | +56/-53 | docs |  |
-| 3 | `8d5bb18a` | Checkpoint listing package projections | 4 | +51/-49 | tooling |  |
-| 4 | `32545d54` | Package devctl list command | 4 | +221/-242 | tooling |  |
-| 5 | `cdc5b9a1` | Refresh policy-owned generated surfaces for f91cbada | 1 | +1/-1 | docs |  |
-| 6 | `f91cbada` | Refresh external review snapshot for 725c000d | 2 | +57/-57 | docs |  |
-| 7 | `725c000d` | Allow shared schema fixture roots | 6 | +455/-319 | tooling |  |
-| 8 | `97992ae2` | Refresh external review snapshot for 81f85b53 | 2 | +54/-54 | docs |  |
-| 9 | `81f85b53` | Checkpoint live packet projections | 4 | +49/-47 | tooling |  |
-| 10 | `454b6230` | Refresh ground truth probe receipt | 2 | +51/-50 | tooling |  |
-| 11 | `eddba7ea` | Refresh external review snapshot for 555fa483 | 2 | +56/-56 | docs |  |
-| 12 | `555fa483` | Checkpoint push bypass packet projections | 3 | +50/-46 | tooling |  |
-| 13 | `05adb548` | Allow publish-clear managed projection receipts | 5 | +145/-52 | tooling |  |
-| 14 | `c41a0250` | Refresh external review snapshot for c536d666 | 2 | +59/-59 | docs |  |
-| 15 | `c536d666` | Checkpoint post-commit packet projections | 4 | +84/-48 | tooling |  |
-| 16 | `ed1fbf18` | Refresh external review snapshot for dea85ab1 | 2 | +60/-58 | docs |  |
-| 17 | `dea85ab1` | Fix governed commit pipeline reload fallback | 8 | +417/-54 | tooling |  |
-| 18 | `753cf164` | Fix governed commit pipeline retention | 8 | +190/-55 | tooling |  |
-| 19 | `cae10c5e` | Refresh external review snapshot for 6bd6f207 | 2 | +60/-59 | docs |  |
-| 20 | `6bd6f207` | Fix governed commit pipeline retention | 10 | +230/-56 | tooling |  |
-| 21 | `42683c3f` | Refresh external review snapshot for c8cf1c84 | 2 | +49/-48 | docs |  |
-| 22 | `c8cf1c84` | Post-commit working tree cleanup: bridge heartbeat + codesm… | 4 | +39/-3 | docs |  |
-| 23 | `e76ed6f3` | Refresh external review snapshot for eb336244 | 2 | +82/-76 | docs |  |
-| 24 | `eb336244` | Land MP377 BypassLifecycle composability + charter addition… | 48 | +2199/-407 | tooling |  |
+| 1 | `a1c11da2` | Split governance modules for code shape compliance | 42 | +3643/-2792 | tooling |  |
+| 2 | `a9415b9a` | Refresh policy-owned generated surfaces for 7e006123 | 1 | +1/-1 | docs |  |
+| 3 | `7e006123` | Refresh external review snapshot for 8d5bb18a | 2 | +56/-53 | docs |  |
+| 4 | `8d5bb18a` | Checkpoint listing package projections | 4 | +51/-49 | tooling |  |
+| 5 | `32545d54` | Package devctl list command | 4 | +221/-242 | tooling |  |
+| 6 | `cdc5b9a1` | Refresh policy-owned generated surfaces for f91cbada | 1 | +1/-1 | docs |  |
+| 7 | `f91cbada` | Refresh external review snapshot for 725c000d | 2 | +57/-57 | docs |  |
+| 8 | `725c000d` | Allow shared schema fixture roots | 6 | +455/-319 | tooling |  |
+| 9 | `97992ae2` | Refresh external review snapshot for 81f85b53 | 2 | +54/-54 | docs |  |
+| 10 | `81f85b53` | Checkpoint live packet projections | 4 | +49/-47 | tooling |  |
+| 11 | `454b6230` | Refresh ground truth probe receipt | 2 | +51/-50 | tooling |  |
+| 12 | `eddba7ea` | Refresh external review snapshot for 555fa483 | 2 | +56/-56 | docs |  |
+| 13 | `555fa483` | Checkpoint push bypass packet projections | 3 | +50/-46 | tooling |  |
+| 14 | `05adb548` | Allow publish-clear managed projection receipts | 5 | +145/-52 | tooling |  |
+| 15 | `c41a0250` | Refresh external review snapshot for c536d666 | 2 | +59/-59 | docs |  |
+| 16 | `c536d666` | Checkpoint post-commit packet projections | 4 | +84/-48 | tooling |  |
+| 17 | `ed1fbf18` | Refresh external review snapshot for dea85ab1 | 2 | +60/-58 | docs |  |
+| 18 | `dea85ab1` | Fix governed commit pipeline reload fallback | 8 | +417/-54 | tooling |  |
+| 19 | `753cf164` | Fix governed commit pipeline retention | 8 | +190/-55 | tooling |  |
+| 20 | `cae10c5e` | Refresh external review snapshot for 6bd6f207 | 2 | +60/-59 | docs |  |
+| 21 | `6bd6f207` | Fix governed commit pipeline retention | 10 | +230/-56 | tooling |  |
+| 22 | `42683c3f` | Refresh external review snapshot for c8cf1c84 | 2 | +49/-48 | docs |  |
+| 23 | `c8cf1c84` | Post-commit working tree cleanup: bridge heartbeat + codesm… | 4 | +39/-3 | docs |  |
+| 24 | `e76ed6f3` | Refresh external review snapshot for eb336244 | 2 | +82/-76 | docs |  |
+| 25 | `eb336244` | Land MP377 BypassLifecycle composability + charter addition… | 48 | +2199/-407 | tooling |  |
 
 ### Files
 
@@ -111,20 +111,31 @@ Range: last 24 commits ending at `a9415b9af0db`
 | `.github/workflows/tooling_control_plane.yml` | tooling | +3/-0 |
 | `AGENTS.md` | docs | +1/-0 |
 | `bridge.md` | docs | +64/-64 |
-| `codesmells.md` | docs | +578/-0 |
-| `dev/active/MASTER_PLAN.md` | tooling | +28/-0 |
+| `codesmells.md` | docs | +617/-0 |
+| `dev/active/MASTER_PLAN.md` | tooling | +29/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +12/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1121/-1138 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1206/-1231 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +3/-2 |
 | `dev/guides/DEVELOPMENT.md` | docs | +17/-6 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +7/-7 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +27/-0 |
 | `dev/scripts/README.md` | tooling | +13/-2 |
 | `dev/scripts/checks/check_schema_fixture_handshake.py` | tooling | +8/-266 |
+| `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop.py` | tooling | +6/-101 |
+| `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_focus.py` | tooling | +46/-0 |
+| `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_pending.py` | tooling | +67/-0 |
 | `dev/scripts/checks/schema_fixture_handshake/__init__.py` | tooling | +1/-0 |
 | `dev/scripts/checks/schema_fixture_handshake/command.py` | tooling | +302/-0 |
 | `dev/scripts/devctl/approval_mode.py` | tooling | +30/-1 |
 | `dev/scripts/devctl/bundles/registry.py` | tooling | +1/-0 |
+| `dev/scripts/devctl/commands/development/final_response_gate.py` | tooling | +20/-285 |
+| `dev/scripts/devctl/commands/development/final_response_gate_agent_loop.py` | tooling | +293/-0 |
+| `dev/scripts/devctl/commands/development/parser.py` | tooling | +5/-160 |
+| `dev/scripts/devctl/commands/development/parser_collaboration.py` | tooling | +204/-0 |
+| `dev/scripts/devctl/commands/development/report.py` | tooling | +2/-228 |
+| `dev/scripts/devctl/commands/development/report_assembly.py` | tooling | +252/-0 |
+| `dev/scripts/devctl/commands/development/report_assembly_collaboration.py` | tooling | +104/-0 |
+| `dev/scripts/devctl/commands/development/report_assembly_final.py` | tooling | +92/-0 |
 | `dev/scripts/devctl/commands/listing.py` | tooling | +6/-136 |
 | `dev/scripts/devctl/commands/listing/__init__.py` | tooling | +137/-0 |
 | `dev/scripts/devctl/commands/review_channel/_recover.py` | tooling | +3/-0 |
@@ -136,18 +147,7 @@ Range: last 24 commits ending at `a9415b9af0db`
 | `dev/scripts/devctl/commands/vcs/commit_guard_replay.py` | tooling | +1/-1 |
 | `dev/scripts/devctl/commands/vcs/commit_preflight.py` | tooling | +2/-2 |
 | `dev/scripts/devctl/commands/vcs/commit_preflight_validators.py` | tooling | +19/-1 |
-| `dev/scripts/devctl/commands/vcs/commit_runtime_flow.py` | tooling | +1/-1 |
-| `dev/scripts/devctl/commands/vcs/governed_executor.py` | tooling | +17/-14 |
-| `dev/scripts/devctl/commands/vcs/governed_executor_pipeline_memory.py` | tooling | +37/-0 |
-| `dev/scripts/devctl/governance/instruction_boot_card.py` | tooling | +1/-0 |
-| `dev/scripts/devctl/governance/script_catalog_registry.py` | tooling | +1/-0 |
-| `dev/scripts/devctl/platform/runtime_state_contract_rows_bypass_lifecycle.py` | tooling | +191/-0 |
-| `dev/scripts/devctl/platform/runtime_state_contract_rows_governed_exception_core.py` | tooling | +2/-0 |
-| `dev/scripts/devctl/platform/runtime_state_contract_rows_governed_exceptions.py` | tooling | +12/-0 |
-| `dev/scripts/devctl/review_channel/launch.py` | tooling | +42/-49 |
-| `dev/scripts/devctl/review_channel/launch_bypass.py` | tooling | +31/-0 |
-| `dev/scripts/devctl/review_channel/launch_commands.py` | tooling | +66/-0 |
-| _27 more files trimmed_ | | |
+| _65 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -221,6 +221,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`a1c11da2`** — Split governance modules for code shape compliance
+  - evolution: Review-channel dogfood found that remote-control launch recovery still had a raw trusted-mode hole: the system could emit provider dangerous/no-prompt flags without proving a current typed bypass lifecycle. That made bl…
 - **`a9415b9a`** — Refresh policy-owned generated surfaces for 7e006123
   - evolution: Review-channel dogfood found that remote-control launch recovery still had a raw trusted-mode hole: the system could emit provider dangerous/no-prompt flags without proving a current typed bypass lifecycle. That made bl…
 - **`7e006123`** — Refresh external review snapshot for 8d5bb18a
@@ -291,11 +293,10 @@ Recent findings:
 - open governance findings: 43
 
 ### Startup advisories
-- checkpoint_before_continue: staged_index_budget_exceeded
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Keep editing the current slice.
-- Move straight to the governed push path.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/review_channel/instruction_transitions.py`): packet.transition_session_disambiguation: source_packet_ids=rev_pkt_2691,rev_pkt_2696,rev_pkt_2705; Claude beta finding: transition_packet ack/apply/dismiss paths bypass session disambiguation, allowing cross-session packet actions. Durable owner: MP377-GUARDIR-TRANSITION-DISAMBIGUATION.
@@ -312,4 +313,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-3ef256d6db95` binds this file to HEAD `a9415b9af0db`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-6dcd9837390d` binds this file to HEAD `a1c11da2b090`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
