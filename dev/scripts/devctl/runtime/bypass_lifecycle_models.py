@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from .governed_exception_base import json_ready_dict
 from .value_coercion import coerce_mapping, coerce_string, coerce_string_items
@@ -56,6 +56,7 @@ class BypassRequest:
     reason: str
     actor: str
     requested_at_utc: str
+    state: BypassLifecycleState = BypassLifecycleState.REQUESTED
     target_role: str = ""
     target_session_id: str = ""
     target_surface: str = ""
@@ -65,7 +66,7 @@ class BypassRequest:
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
-        return json_ready_dict(payload)
+        return _json_ready_payload(payload)
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, object]) -> "BypassRequest":
@@ -76,6 +77,10 @@ class BypassRequest:
             reason=coerce_string(payload.get("reason")),
             actor=coerce_string(payload.get("actor")),
             requested_at_utc=coerce_string(payload.get("requested_at_utc")),
+            state=bypass_lifecycle_state_from_value(
+                payload.get("state"),
+                default=BypassLifecycleState.REQUESTED,
+            ),
             target_role=coerce_string(payload.get("target_role")),
             target_session_id=coerce_string(payload.get("target_session_id")),
             target_surface=coerce_string(payload.get("target_surface")),
@@ -100,7 +105,7 @@ class BypassEvaluation:
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
-        return json_ready_dict(payload)
+        return _json_ready_payload(payload)
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, object]) -> "BypassEvaluation":
@@ -138,13 +143,16 @@ class BypassReceipt:
     requested_authority_scope: BypassAuthorityScope
     granted_at_utc: str
     granted_by_operator_actor_id: str
+    state: BypassLifecycleState = BypassLifecycleState.RECEIPT_ISSUED
     expires_at_utc: str = ""
     revoked_at_utc: str = ""
     revoked_reason: str = ""
+    schema_version: int = 1
+    contract_id: str = "BypassReceipt"
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
-        return json_ready_dict(payload)
+        return _json_ready_payload(payload)
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, object]) -> "BypassReceipt":
@@ -160,6 +168,10 @@ class BypassReceipt:
             granted_at_utc=coerce_string(payload.get("granted_at_utc")),
             granted_by_operator_actor_id=coerce_string(
                 payload.get("granted_by_operator_actor_id")
+            ),
+            state=bypass_lifecycle_state_from_value(
+                payload.get("state"),
+                default=BypassLifecycleState.RECEIPT_ISSUED,
             ),
             expires_at_utc=coerce_string(payload.get("expires_at_utc")),
             revoked_at_utc=coerce_string(payload.get("revoked_at_utc")),
@@ -180,7 +192,7 @@ class BypassExpiry:
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
-        return json_ready_dict(payload)
+        return _json_ready_payload(payload)
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, object]) -> "BypassExpiry":
@@ -215,7 +227,7 @@ class BypassLifecycle:
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
-        return json_ready_dict(payload)
+        return _json_ready_payload(payload)
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, object]) -> "BypassLifecycle":
@@ -232,28 +244,27 @@ class BypassLifecycle:
         receipt = payload.get("receipt")
         governed_exception = payload.get("governed_exception")
         expiry = payload.get("expiry")
+        receipt_mapping = _optional_mapping_payload(receipt)
+        governed_exception_mapping = _optional_mapping_payload(governed_exception)
+        expiry_mapping = _optional_mapping_payload(expiry)
         return cls(
             lifecycle_id=coerce_string(payload.get("lifecycle_id")),
             state=state,
-            request=BypassRequest.from_mapping(
-                request if isinstance(request, Mapping) else {}
-            ),
-            evaluation=BypassEvaluation.from_mapping(
-                evaluation if isinstance(evaluation, Mapping) else {}
-            ),
+            request=BypassRequest.from_mapping(_mapping_payload(request)),
+            evaluation=BypassEvaluation.from_mapping(_mapping_payload(evaluation)),
             receipt=(
-                BypassReceipt.from_mapping(receipt)
-                if isinstance(receipt, Mapping)
+                BypassReceipt.from_mapping(receipt_mapping)
+                if receipt_mapping is not None
                 else None
             ),
             governed_exception=(
-                GovernedExceptionLifecycle.from_mapping(governed_exception)
-                if isinstance(governed_exception, Mapping)
+                GovernedExceptionLifecycle.from_mapping(governed_exception_mapping)
+                if governed_exception_mapping is not None
                 else None
             ),
             expiry=(
-                BypassExpiry.from_mapping(expiry)
-                if isinstance(expiry, Mapping)
+                BypassExpiry.from_mapping(expiry_mapping)
+                if expiry_mapping is not None
                 else None
             ),
             activation_evidence_refs=coerce_string_items(
@@ -268,12 +279,43 @@ class BypassLifecycleStoreLoadResult:
     errors: tuple[str, ...] = ()
 
 
+def _json_ready_payload(value: object) -> dict[str, object]:
+    payload: dict[str, object] = json_ready_dict(value)
+    return payload
+
+
+def _mapping_payload(value: object) -> Mapping[str, object]:
+    if not isinstance(value, Mapping):
+        return {}
+    return cast(Mapping[str, object], value)
+
+
+def _optional_mapping_payload(value: object) -> Mapping[str, object] | None:
+    if not isinstance(value, Mapping):
+        return None
+    return cast(Mapping[str, object], value)
+
+
 def scope_from_value(value: object) -> BypassAuthorityScope:
     raw_scope = coerce_string(value)
     try:
         return BypassAuthorityScope(raw_scope)
     except ValueError as exc:
         raise ValueError(f"unknown_bypass_authority_scope: {raw_scope}") from exc
+
+
+def bypass_lifecycle_state_from_value(
+    value: object,
+    *,
+    default: BypassLifecycleState | None = None,
+) -> BypassLifecycleState:
+    raw_state = coerce_string(value)
+    if not raw_state and default is not None:
+        return default
+    try:
+        return BypassLifecycleState(raw_state)
+    except ValueError as exc:
+        raise ValueError(f"unknown_bypass_lifecycle_state: {raw_state}") from exc
 
 
 def bypass_receipt_from_mapping(mapping: Mapping[str, object]) -> BypassReceipt:
@@ -295,6 +337,7 @@ __all__ = [
     "BypassLifecycleStoreLoadResult",
     "BypassReceipt",
     "BypassRequest",
+    "bypass_lifecycle_state_from_value",
     "bypass_receipt_from_mapping",
     "scope_from_value",
 ]

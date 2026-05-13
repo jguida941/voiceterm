@@ -3290,3 +3290,32 @@ Operator going to sleep. Codex must halt cleanly via cooperative stop_anchor; ha
 **Hard backstop = SIGTERM → SIGINT → SIGKILL** with JSONL safety check.
 
 **Formal name for the pattern**: "graceful drain" + watchdog wall-clock deadline. Industry-standard 30-90s grace period; operator's directive gives 2h45m grace (06:18Z → 09:00Z), so cooperative path has plenty of room.
+
+### Charter validation #36 at 2026-05-13T23:03Z — P102 Phase D pre-landing BATCH (non-pivot findings parked for next consolidated packet)
+
+**Context**: Round 69 of /loop reviewer-role. After codex's bulk-drain (16-packet sequential ack via PID 24927 bash for-loop) cleared the chronic stale set including 5-day-old rev_pkt_3407/3408/3414/3420, multi-role agent fleet ran in parallel. Three findings produced; ONE pivot-relevant fired as `rev_pkt_3973` (synthetic pre-state resolvers + signature asymmetry). TWO non-pivot findings batched here for future consolidated packet after Phase D commits.
+
+**Batched finding A — SYSTEM_MAP staleness post-P102 enforcement landing**
+
+- `dev/guides/SYSTEM_MAP.md` last refreshed 2026-05-13T16:55:05Z (commit `35b5131c` "Phase 8: add receipt state evidence"), ~1.5h BEFORE P102 enforcement merged (`b05a8973` at 2026-05-13T18:31:33Z). Index has not seen P102 surfaces yet.
+- Missing entries: `TransitionContract` dataclass, `GovernedTransitionModule` manifest type, `TransitionStateViolation` exception, `bypass_lifecycle_evaluation.py` bridge layer (39 LOC).
+- Connectivity Registry table at lines 163-177: lists 13 rendered contracts (RepoPack through CheckpointRepairAuthority) but NOT the 3 new P102 contracts.
+- §45 line 1746: "state-transition reasons" framed as NOT-YET-IMPLEMENTED — P102 literally added this. Stale framing now contradicts code.
+- §45 line 1492 compatibility layer: lists legacy helpers, misses bypass_lifecycle_evaluation.py.
+
+**Refresh action**: `python3 dev/scripts/devctl.py render-surfaces --write --surface system_map_index` regenerates the managed block at lines 120-184. Hand-written sections (§45 compat + line 1746 closure prose) need manual P102 edits before next external handoff.
+
+**Batched finding B — multi-element requires/produces test coverage gap**
+
+- `tests/runtime/test_governed_transitions.py:80-96` exercises single-state `requires=("Input:ready",)` only.
+- Set-style membership check at `governed_transitions.py:236` (`actual not in expected`) UNTESTED for multi-element `requires` / `produces`.
+- Phase D's `BypassEvaluationDecision` has `produces=("bypass_active", "bypass_denied")` — currently passes by accident; needs explicit multi-state acceptance test before first multi-state decorator commits.
+
+**Why batched not fired**: Both findings are documentation/test-hygiene class, not blocking for Phase D architectural decisions. Codex's pivot decision (Options A/B/C in rev_pkt_3973) does NOT depend on these. Fire after codex commits the resolver pattern fix; re-run the probe first per `feedback_packets_paced_to_fix_loop` and drop if rendered moot by the fix.
+
+**Cross-checks**:
+- `feedback_pivot_relevant_findings_fire_sooner` — neither finding would change codex's CURRENT path; batch is correct posture.
+- `feedback_one_packet_full_authority` — when fired, combine A+B with whatever next codex slice closes; do not double-fire.
+- `feedback_findings_must_cross_check_ground_truth` — SYSTEM_MAP finding cross-checked: SYSTEM_MAP last-modified time vs commit b05a8973 commit-time delta = 1h36m PRE-P102 (verified via SYSTEM_MAP_renderer cycler sub-agent at 2026-05-13T23:01Z).
+
+**Provenance**: Multi-role agent fleet — SYSTEM_MAP-cycler sub-agent (a2dad52abdb86f274) + code-reviewer sub-agent (af0cf594a2d20087f) at 2026-05-13T23:00-23:01Z, ground-truth verified by claude direct file read at `bypass_lifecycle_evaluation.py:46-73` and `governed_transitions.py:127-141` 2026-05-13T23:02:30Z. Companion typed packet: `rev_pkt_3973` (fired 2026-05-13T23:03Z with commit-sha + 2 evidence file:line refs + ADR-composed 13 precedent packet IDs).

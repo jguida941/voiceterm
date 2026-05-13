@@ -48,15 +48,15 @@ def _bypass_request_state_ref(
     *_: object,
     **__: object,
 ) -> str:
-    return f"{request.contract_id}:{BypassLifecycleState.REQUESTED.value}"
+    return f"{request.contract_id}:{request.state.value}"
 
 
 def _bypass_receipt_state_ref(
-    _: BypassReceipt,
+    receipt: BypassReceipt,
     *__: object,
     **___: object,
 ) -> str:
-    return "BypassReceipt:issued"
+    return f"{receipt.contract_id}:{receipt.state.value}"
 
 
 def _bypass_lifecycle_state_ref(
@@ -85,7 +85,7 @@ class BypassEvaluationInput:
 
 @governed_transition(
     transition_id="bypass.grant_lifetime_bypass",
-    requires=("BypassReceipt:issued",),
+    requires=("BypassReceipt:bypass_receipt_issued",),
     produces=("GovernedExceptionLifecycle:operator_approved",),
     emits=("ExceptionReceipt", "GovernedExceptionLifecycle"),
     graph_path=("BypassReceipt", "ExceptionReceipt", "GovernedExceptionLifecycle"),
@@ -318,6 +318,7 @@ def _revoked_receipt(
         requested_authority_scope=receipt.requested_authority_scope,
         granted_at_utc=receipt.granted_at_utc,
         granted_by_operator_actor_id=receipt.granted_by_operator_actor_id,
+        state=BypassLifecycleState.REVOKED,
         expires_at_utc=receipt.expires_at_utc,
         revoked_at_utc=expired_at_utc,
         revoked_reason=reason,

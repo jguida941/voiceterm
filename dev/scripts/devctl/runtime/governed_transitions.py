@@ -61,8 +61,8 @@ class GovernedTransitionModule:
 GOVERNED_TRANSITION_REGISTRY: list[TransitionContract] = []
 
 
-StateRefResolver = Callable[..., str]
-ResultStateRefResolver = Callable[..., str]
+PreStateResolver = Callable[..., str]
+PostStateResolver = Callable[[R], str]
 
 
 class TransitionStateViolation(ValueError):
@@ -95,11 +95,15 @@ def governed_transition(
     emits: Sequence[str] = (),
     graph_path: Sequence[str] = (),
     runtime_enforced: bool = False,
-    pre_state_resolver: StateRefResolver | None = None,
-    post_state_resolver: ResultStateRefResolver | None = None,
+    pre_state_resolver: PreStateResolver | None = None,
+    post_state_resolver: PostStateResolver[R] | None = None,
     registry: list[TransitionContract] | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Register lifecycle transition metadata without wrapping the function."""
+    """Register lifecycle transition metadata and optionally enforce states.
+
+    Runtime pre-state resolvers receive the wrapped function's ``*args`` and
+    ``**kwargs``. Runtime post-state resolvers receive only the function result.
+    """
 
     def decorate(func: Callable[P, R]) -> Callable[P, R]:
         target_registry = registry if registry is not None else GOVERNED_TRANSITION_REGISTRY
@@ -244,6 +248,8 @@ def _enforce_state_ref(
 
 __all__ = [
     "GOVERNED_TRANSITION_REGISTRY",
+    "PostStateResolver",
+    "PreStateResolver",
     "TRANSITION_MODULES_STORE_REL",
     "GovernedTransitionModule",
     "TransitionContract",

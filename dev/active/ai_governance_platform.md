@@ -116,6 +116,13 @@ Current ingestion status:
   carry additive pre/post state evidence at the existing governed VCS
   boundaries, with `require_receipt_state()` enforcing emitted state instead
   of a new attestation-path checker or alternate transition decorator.
+- 2026-05-13 P102 resolver correction (`rev_pkt_3973`): the runtime-enforced
+  `BypassLifecycle` transitions adopt Option A. `BypassRequest` and
+  `BypassReceipt` now carry explicit `BypassLifecycleState`, so transition
+  resolvers read real input state instead of returning constants; pre-state
+  resolvers receive function arguments, while post-state resolvers receive the
+  reducer result. The `rev_pkt_3975` refinement is included: revoke
+  construction explicitly sets the inner `BypassReceipt.state` to `REVOKED`.
 
 2026-05-06 governed exception lifecycle correction:
 - `MP377-P0-EXC-S1` replaces the earlier raw-bypass receipt direction with a
@@ -6092,14 +6099,14 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       scope: Governed publication needs to validate the authorized commit range without letting unrelated live worktree dirt or projection-liveness drift masquerade as proof that the committed range is invalid. Add a typed `ValidationScope` / `ValidationContext` contract shared by `check-router`, `docs-check`, push preflight command construction, and live projection guards. Keep standalone checks fail-closed under the default `live_worktree` scope; use `pipeline_authorized_phase` only from governed publication so affected live guards still run, preserve their original `live_worktree_ok` and errors as evidence, and report advisory nonblocking status for the publication phase.
       acceptance_criteria: `devctl push --execute` routes preflight through `check-router --validation-scope pipeline_authorized_phase`; `check-router` keeps docs-check and live projection guards planned instead of hiding them in a skip list; docs-check passes the same scope into nested strict-tooling subgates; tandem, bridge, surface, multi-agent, startup-authority, and system-picture live guards accept the scope and annotate any advisory pass with original live errors; standalone guard and docs-check invocations remain strict by default; generated boot cards, maintainer docs, plan docs, and evolution notes carry the same contract; focused router/docs/push tests and live guard CLI probes cover the behavior.
       progress: 2026-05-09 packets `rev_pkt_3329`, `rev_pkt_3334`, `rev_pkt_3343`, `rev_pkt_3344`, `rev_pkt_3345`, `rev_pkt_3346`, `rev_pkt_3347`, `rev_pkt_3349`, `rev_pkt_3350`, `rev_pkt_3356`, and Claude architecture approval `rev_pkt_3357` converged the design: live guards remain visible evidence, but governed push may publish an already-authorized commit range while unrelated live-worktree state remains advisory. The implementation adds the shared validation-scope runtime contract, threads it through push preflight, router, docs-check, and live guard CLIs, and records the ground-truth receipt for the new validation path. 2026-05-11 push dogfood tightened the same row: publication preflight now fails fast by default through repo policy `fail_fast_on_blocker=true`, the in-flight push report says no git push has started until validation passes, and external ReviewSnapshot receipt commits no longer trigger another external ReviewSnapshot receipt commit.
-- [ ] `MP377-P0-T22AN-AC` Automate fresh-session typed orientation.
+- [x] `MP377-P0-T22AN-AC` Automate fresh-session typed orientation.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`
-      status: `in_progress`
+      status: `completed`
       depends_on: `MP377-P0-T22AN-X`, `MP377-P0-T22AN-Y`
       scope: Replace ad hoc "where are we / next steps" reconstruction with one governed `devctl session` orientation command. The command must run `startup-context`, `session-resume`, `review-channel --action status --terminal none`, and `context-graph --mode bootstrap` in order, preserve startup blockers as typed evidence, keep context-graph snapshot writes enabled for freshness, and reduce the preferred `AuthoritySnapshot` into the next command.
       acceptance_criteria: `devctl session --role <role> --format md|json` emits `SessionOrientationPacket`; startup-context non-zero typed blockers do not stop session-resume/status/context-graph reads; reviewer/implementer/observer roles are supported; docs/bootstrap surfaces tell fresh sessions to use `devctl session` before answering; focused tests cover command order, review-status inclusion, artifact suppression override, and dashboard-to-observer normalization.
-      progress: 2026-05-03 operator dogfood found a fresh-session bootstrap miss where a new Codex session inferred state from git/docs without typed startup, review-status, or context-graph reads; that instruction was ingested into typed plan authority as `MP377-P0-T22AN-AC`. 2026-05-08 dogfood tightened the live orientation reducer and generated boot cards: `devctl session` is now the first generated bootstrap command, and `SessionOrientationPacket.final.next_command` no longer promotes startup `run_devctl_push` when the preferred review/status `AuthoritySnapshot` says `safe_to_continue=false` or blocks `vcs.push`. 2026-05-13 live controller dogfood fixed the adjacent stale-packet blocker path: when typed packet attention reports zero scoped pending packets, legacy `session.open_findings` prose like `138 pending review packet(s)` is cleared instead of blocking `agent-loop` and `/develop next`.
+      progress: 2026-05-03 operator dogfood found a fresh-session bootstrap miss where a new Codex session inferred state from git/docs without typed startup, review-status, or context-graph reads; that instruction was ingested into typed plan authority as `MP377-P0-T22AN-AC`. 2026-05-08 dogfood tightened the live orientation reducer and generated boot cards: `devctl session` is now the first generated bootstrap command, and `SessionOrientationPacket.final.next_command` no longer promotes startup `run_devctl_push` when the preferred review/status `AuthoritySnapshot` says `safe_to_continue=false` or blocks `vcs.push`. 2026-05-13 live controller dogfood fixed the adjacent stale-packet blocker path: when typed packet attention reports zero scoped pending packets, legacy `session.open_findings` prose like `138 pending review packet(s)` is cleared instead of blocking `agent-loop` and `/develop next`. Closure proof: `devctl test-python --suite devctl --path dev/scripts/devctl/tests/governance/test_session_orientation.py --path dev/scripts/devctl/tests/governance/test_read_only_commands.py --path dev/scripts/devctl/tests/runtime/test_startup_blocker_decision.py` passed 44/44, and live `devctl session --role implementer --include-review-status always --format json` emitted `SessionOrientationPacket` with startup, session-resume, review-status, and context-graph steps all parsed.
 - [ ] `MP377-P0-T22AN-AD` Align slash entry points to typed governance domains.
       phase_id: `MP377-P0`
       owner_doc: `dev/active/ai_governance_platform.md`
@@ -14635,10 +14642,19 @@ refs. This closes the `rev_pkt_3958` enforcement gap for the canonical
 lifecycle instance while keeping enforcement inside the existing transition
 surface, not a parallel design-by-contract framework.
 
+The `rev_pkt_3973` pre-Phase-D correction adopts Option A: `BypassRequest` and
+`BypassReceipt` have explicit `BypassLifecycleState` fields. Their transition
+resolvers now project actual object state, and the decorator documents the
+signature split between pre-state resolvers (`*args`, `**kwargs`) and post-state
+resolvers (the reducer result). Focused tests cover illegal request/receipt
+states, revoked receipt state propagation, and multi-state `requires` /
+`produces` membership.
+
 Evidence:
 
 - `dev/scripts/devctl/runtime/governed_transitions.py`
 - `dev/scripts/devctl/runtime/bypass_lifecycle_evaluation.py`
+- `dev/scripts/devctl/runtime/bypass_lifecycle_models.py`
 - `dev/scripts/devctl/platform/runtime_state_contract_rows_transitions.py`
 - `dev/scripts/devctl/tests/runtime/test_governed_transitions.py`
 - `dev/scripts/devctl/tests/runtime/test_lifetime_bypass_mode.py`

@@ -3003,7 +3003,11 @@ and schema fixtures when adding a new transition contract family, then run
 Transitions that need runtime checks can opt in with `runtime_enforced=True`
 and resolver functions that emit the same state refs declared in `requires`
 and `produces`; illegal refs raise `TransitionStateViolation`. Leave ordinary
-metadata-only transitions unwrapped.
+metadata-only transitions unwrapped. Pre-state resolvers receive the wrapped
+function arguments; post-state resolvers receive only the reducer result. State
+refs must come from explicit typed state fields such as
+`BypassRequest.state`, `BypassReceipt.state`, and `BypassLifecycle.state`, not
+from constants hidden inside the resolver.
 
 **Typestate result cases:**
 

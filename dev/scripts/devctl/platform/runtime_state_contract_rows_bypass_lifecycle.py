@@ -28,6 +28,7 @@ BYPASS_LIFECYCLE_CONTRACTS: tuple[ContractSpec, ...] = (
         required_fields=(
             ContractField("request_id", "str", "Stable bypass request id."),
             ContractField("scope", "BypassAuthorityScope", "Requested bounded authority scope."),
+            ContractField("state", "BypassLifecycleState", "Explicit request state."),
             ContractField("reason", "str", "Operator-visible reason."),
             ContractField("actor", "str", "Actor requesting or authorizing bypass."),
             ContractField("requested_at_utc", "str", "Request timestamp."),
@@ -91,6 +92,7 @@ BYPASS_LIFECYCLE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "BypassAuthorityScope",
                 "Granted bounded authority scope.",
             ),
+            ContractField("state", "BypassLifecycleState", "Explicit receipt state."),
             ContractField("granted_at_utc", "str", "Grant timestamp."),
             ContractField("granted_by_operator_actor_id", "str", "Granting operator actor."),
             ContractField("expires_at_utc", "str", "Optional expiry timestamp."),

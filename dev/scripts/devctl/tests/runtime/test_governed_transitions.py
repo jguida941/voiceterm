@@ -98,6 +98,27 @@ def test_governed_transition_runtime_enforcement_accepts_legal_states() -> None:
     assert getattr(transition, "__governed_transition__") == registry[0]
 
 
+def test_governed_transition_runtime_enforcement_accepts_any_listed_state() -> None:
+    registry: list[TransitionContract] = []
+
+    @governed_transition(
+        transition_id="test.enforced_multi_state",
+        requires=("Input:ready", "Input:queued"),
+        produces=("Output:done", "Output:skipped"),
+        runtime_enforced=True,
+        pre_state_resolver=_input_state_ref,
+        post_state_resolver=_output_state_ref,
+        registry=registry,
+    )
+    def transition(value: StateFixture) -> StateFixture:
+        if value.state == "queued":
+            return StateFixture(state="skipped")
+        return StateFixture(state="done")
+
+    assert transition(StateFixture(state="ready")).state == "done"
+    assert transition(StateFixture(state="queued")).state == "skipped"
+
+
 def test_governed_transition_runtime_enforcement_rejects_bad_pre_state() -> None:
     registry: list[TransitionContract] = []
 
@@ -190,6 +211,9 @@ def test_real_manifest_loads_bypass_lifecycle_transitions() -> None:
     assert "BypassLifecycle" in by_id["bypass.evaluate_request"].emits
     assert by_id["bypass.expire_lifecycle"].requires == (
         "BypassLifecycle:bypass_active",
+    )
+    assert by_id["bypass.grant_lifetime_bypass"].requires == (
+        "BypassReceipt:bypass_receipt_issued",
     )
     assert by_id["bypass.evaluate_request"].runtime_enforced is True
     assert by_id["bypass.expire_lifecycle"].runtime_enforced is True

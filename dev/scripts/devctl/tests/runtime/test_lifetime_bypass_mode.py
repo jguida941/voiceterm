@@ -82,6 +82,7 @@ def test_bypass_request_round_trips_from_mapping() -> None:
 
     assert parsed == request
     assert parsed.scope is BypassAuthorityScope.EDIT_ONLY
+    assert parsed.state is BypassLifecycleState.REQUESTED
     assert parsed.target_surface == "review-channel-launch"
 
 
@@ -91,6 +92,26 @@ def test_bypass_receipt_round_trips_from_mapping() -> None:
 
     assert parsed == receipt
     assert parsed.requested_authority_scope is BypassAuthorityScope.EDIT_ONLY
+    assert parsed.state is BypassLifecycleState.RECEIPT_ISSUED
+
+
+def test_bypass_request_runtime_enforcement_rejects_non_requested_state() -> None:
+    with pytest.raises(
+        TransitionStateViolation,
+        match="bypass.evaluate_request pre_state",
+    ):
+        evaluate_bypass_request(
+            _request(state=BypassLifecycleState.DENIED),
+            _evaluation_input(),
+        )
+
+
+def test_bypass_receipt_runtime_enforcement_rejects_non_issued_state() -> None:
+    with pytest.raises(
+        TransitionStateViolation,
+        match="bypass.grant_lifetime_bypass pre_state",
+    ):
+        grant_lifetime_bypass(_receipt(state=BypassLifecycleState.EXPIRED))
 
 
 def test_bypass_receipt_rejects_unknown_scope() -> None:
@@ -262,6 +283,7 @@ def test_bypass_lifecycle_revoke_updates_registered_receipt() -> None:
 
     assert revoked.state is BypassLifecycleState.REVOKED
     assert revoked.receipt is not None
+    assert revoked.receipt.state is BypassLifecycleState.REVOKED
     assert revoked.receipt.revoked_at_utc == "2026-05-12T16:20:00Z"
     assert not is_bypass_active(
         revoked.receipt.receipt_id, BypassAuthorityScope.EDIT_ONLY

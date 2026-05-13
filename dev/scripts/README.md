@@ -3130,7 +3130,10 @@ Governed-transition note:
 - Runtime enforcement is opt-in per transition. When a transition declares
   `runtime_enforced=True`, its resolver functions must project pre/post state
   refs into the same string vocabulary used by `requires` and `produces`; an
-  illegal ref raises `TransitionStateViolation`.
+  illegal ref raises `TransitionStateViolation`. Pre-state resolvers receive
+  the wrapped function arguments, post-state resolvers receive only the
+  reducer result, and resolver outputs must be derived from explicit typed
+  state fields rather than hard-coded happy-path constants.
 
 Receipt-state evidence note:
 - `dev/scripts/devctl/runtime/validation_contracts.py` keeps

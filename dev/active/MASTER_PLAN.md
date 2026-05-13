@@ -6614,7 +6614,7 @@ become the main product surface.
     and must not imply that `git push` has started while it is still running
     guards. Repo policy now owns `fail_fast_on_blocker=true`; audit-only
     policies can opt back into `--keep-going`.
-  - [ ] `MP377-P0-T22AN-AC` now owns fresh-session orientation automation:
+  - [x] `MP377-P0-T22AN-AC` now owns fresh-session orientation automation:
     `devctl session` must run startup-context, session-resume, live
     review-channel status, and context-graph bootstrap before answering
     "where are we" or selecting next work.
@@ -6625,7 +6625,11 @@ become the main product surface.
     2026-05-13 live controller dogfood also fixed stale pending-packet blocker
     prose: when typed packet attention reports zero scoped pending packets,
     legacy `session.open_findings` text like `138 pending review packet(s)` no
-    longer blocks `agent-loop` or `/develop next`.
+    longer blocks `agent-loop` or `/develop next`. Closure proof: the focused
+    session-orientation/read-only/startup-blocker tests passed 44/44, and a
+    live `devctl session --role implementer --include-review-status always
+    --format json` emitted a complete `SessionOrientationPacket` with all four
+    child reducers parsed.
   - [ ] `MP377-P0-T22AN-AD` now owns Claude `rev_pkt_2863` slash-domain
     architecture: split canonical slash entry points by typed backend domain
     while keeping current `/develop` role presets as compatibility aliases
@@ -8306,6 +8310,16 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
     refs, and keep metadata-only behavior as the default. The canonical
     `BypassLifecycle` reducers now enforce their declared `requires` and
     `produces` refs without introducing a parallel design-by-contract system.
+  - 2026-05-13 `rev_pkt_3973` disposition: adopt Option A before Phase D
+    widens. `BypassRequest` and `BypassReceipt` now carry explicit
+    `BypassLifecycleState`, the request/receipt resolvers read actual input
+    state instead of returning constants, pre-state resolvers receive wrapped
+    function arguments, and post-state resolvers receive only the reducer
+    result. Focused coverage now rejects illegal request/receipt states and
+    proves multi-state `requires` / `produces` membership. `rev_pkt_3975`
+    refined the same slice before commit: revoke construction now sets the
+    inner `BypassReceipt.state` to `REVOKED` instead of inheriting the issued
+    default.
 - [ ] `PKT-BIND-REV-PKT-3960` Packet finding: Pre-decision architectural review (operator-directed): ZGraph+zRef+traversal map + ai_governance_platform.md fit + 3 parallel-surface risks + smaller Phase 8 composition path (Agent 3 found: reuse require_receipt_state, n... (source `rev_pkt_3960`; target `plan:MP-377`; posted `2026-05-13T20:40:13.945631Z`; binding `plan_row`).
   - 2026-05-13 Codex disposition: accept the smaller composition path. Phase
     8 should not introduce a standalone `check_attestation_path.py` package or
@@ -8321,3 +8335,6 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
 - [ ] `PKT-BIND-REV-PKT-3969` Packet finding: Directive 6 — Governance Discovery Role + Smart Dashboard (operator-directed): MAJOR FINDING role_customization.py already supports user-defined roles (config-only for governance_discovery_agent); 14-surface dashboard via... (source `rev_pkt_3969`; target `plan:MP-377`; posted `2026-05-13T22:22:36.393414Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3970` Packet finding: Directive 7 — Explainable Operator Console + platform decision (operator-directed): old operator_console.md EXISTS (NOT lost) at dev/active/ (51KB, MP-359); PyQt6 console Phase-1 COMPLETE (168 files, 14 tests, 5 workspace... (source `rev_pkt_3970`; target `plan:MP-377`; posted `2026-05-13T22:41:30.543682Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3971` Packet finding: Directive 7 Operator Console Platform Decision (source `rev_pkt_3971`; target `plan:MP-377`; posted `2026-05-13T22:42:03.849528Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3973` Packet finding: P102 Phase D PRE-LANDING — 2 of 4 governed_transition state resolvers tautological (BypassRequest/BypassReceipt return constants without reading input state); resolver signature asymmetry secondary foot-gun. Decision need... (source `rev_pkt_3973`; target `plan:MP-377`; posted `2026-05-13T23:04:23.370641Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3974` Packet finding: OPERATOR PRODUCT FINDING — Directive 7 refinement: dashboard JSON is RICH (3962 packets + 20+ surfaces), renderer is SHALLOW (~6 fields); build operator/cockpit projection OVER existing JSON instead of new data layer; ope... (source `rev_pkt_3974`; target `dev/scripts/devctl/dashboard/`; posted `2026-05-13T23:05:26.035682Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3975` Packet finding: REFINES rev_pkt_3973 — Option A WIP missing state=REVOKED at _revoked_receipt() (bypass_lifecycle_evaluation.py:313). One-line patch before commit prevents silent correctness regression on revoked-receipt state propagation. (source `rev_pkt_3975`; target `plan:MP-377`; posted `2026-05-13T23:14:54.553061Z`; binding `plan_row`).

@@ -15287,10 +15287,19 @@ The first enforced family is `BypassLifecycle`: request evaluation, lifetime
 bypass grant, and lifecycle expiry/revocation now reject state drift at the
 same surface that already declares transition metadata.
 
+The `rev_pkt_3973` pre-Phase-D correction keeps this enforcement honest:
+`BypassRequest` and `BypassReceipt` now carry explicit lifecycle state, their
+resolvers read object state instead of returning constants, and the decorator
+documents the signature split between pre-state resolvers (`*args`, `**kwargs`)
+and post-state resolvers (result only). Regression coverage now includes bad
+request/receipt states, revoked receipt state propagation, and multi-state
+`requires` / `produces` membership.
+
 Evidence:
 
 - `dev/scripts/devctl/runtime/governed_transitions.py`
 - `dev/scripts/devctl/runtime/bypass_lifecycle_evaluation.py`
+- `dev/scripts/devctl/runtime/bypass_lifecycle_models.py`
 - `dev/scripts/devctl/tests/runtime/test_governed_transitions.py`
 - `dev/scripts/devctl/tests/runtime/test_lifetime_bypass_mode.py`
 
