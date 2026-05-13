@@ -2942,3 +2942,35 @@ Same pattern likely affects `develop campaign`, `agent-mind`, `system-map` proje
 - `feedback_check_inbox_not_reviewer_mode` memory rule — same DX class: rich typed data, thin surface for operators/agents to act on
 
 **Status**: Working-memory candidate. Composes with Priority 98 and Priority 99 into an "operator/agent CLI ergonomics" charter section.
+
+---
+
+### Priority 101 candidate — Codex unidirectional agent-mind during long tasks (operator concern, 2026-05-13T~03:46Z)
+
+**Trigger**: Operator observation during mid-push stop_anchor real-life-test: *"it's also not keeping in communication with agent mind and you."* Codex's entire push pipeline run (03:00Z → 03:46Z, ~46 min) shows zero queries against claude's agent-mind or codex's own inbox via review-channel.
+
+**Empirical evidence** — codex's last 14 agent events (03:21Z–03:42Z):
+- 5 `agent_msg` events: all inward — own subprocess status, own pytest shard ETA, own ps checks of child PIDs
+- 4 `exec_command` events: all `ps -axo pid,ppid,stat,etime,command | awk` — checking own push subprocess tree
+- 4 `write_stdin` events: routine subprocess interaction
+- 5 `reasoning` events: encrypted (not visible)
+- **0 calls to `agent-mind --agent claude`** to see what dashboard is doing
+- **0 calls to `review-channel --action inbox --target codex`** to check for new packets
+- **0 body_observed events** for the 20 pending packets in codex's inbox during this 46-min window (other than passive watcher-service body-observation at 03:42:17Z for rev_pkt_3923)
+
+**Architectural finding**: Bidirectional agent-mind coordination is asymmetric in current architecture. Claude (dashboard role) polls codex's agent-mind on ~5min cadence. Codex (implementer role) does NOT poll claude's agent-mind during long-running work; only checks inbox at `develop next` boundary (which is the same boundary the rev_pkt_3795 body-observation oracle gates).
+
+**Composability with charter validations**:
+- Charter #35 (stop_anchor boundary coverage): same root cause — codex's active-loop boundaries don't traverse review-channel/inbox polls
+- Priority 100 (review-channel post DX): related class — typed system has rich data but agent surfaces don't poll it during active work
+- feedback_8_point_mandate_with_codesmells_log: requires *bidirectional* mind-watching; current architecture only supports one direction (claude → codex)
+- feedback_check_inbox_not_reviewer_mode: same DX class
+
+**Proposed fix shape** (composes with Priority 99 push pipeline performance):
+- During long-running subprocess wait loops (push pipeline, test shard execution), codex's monitoring agent_message hook should ALSO `review-channel --action inbox --target codex --status pending` and `agent-mind --agent claude --since-cursor` at each tick
+- New typed contract: `PeerAwarenessPolicy` declaring required peer-poll cadence per role + work-class
+- Composes with rev_pkt_3795 body-observation oracle — extend oracle to fire at `agent_message_emit` boundary, not only `TASK_COMPLETE`
+
+**Empirical motivation**: charter validation #35 mid-push stop_anchor test (rev_pkt_3923 posted 03:37:15Z, codex agent_message at 03:41:21Z showed no peer-poll behavior — pure inward subprocess monitoring). This Priority 101 finding is the WHY underneath the #35 gap.
+
+**Status**: Working-memory candidate. Strongly composable with Priority 99 + Priority 100 — all three are "active-work boundary coverage" findings.
