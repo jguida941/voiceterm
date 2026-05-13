@@ -21,6 +21,7 @@ from .bypass_lifecycle_models import (
 from .bypass_lifecycle_registry import DEFAULT_BYPASS_REGISTRY
 from .correlation_spine import correlation_context_for_ref
 from .governed_exception_receipts import ExceptionReceipt
+from .governed_transitions import governed_transition
 
 if TYPE_CHECKING:
     from .governed_exception_lifecycle import (
@@ -45,6 +46,13 @@ class BypassEvaluationInput:
     policy_evidence_refs: tuple[str, ...] = ()
 
 
+@governed_transition(
+    transition_id="bypass.grant_lifetime_bypass",
+    requires=("BypassReceipt:issued",),
+    produces=("GovernedExceptionLifecycle:operator_approved",),
+    emits=("ExceptionReceipt", "GovernedExceptionLifecycle"),
+    graph_path=("BypassReceipt", "ExceptionReceipt", "GovernedExceptionLifecycle"),
+)
 def grant_lifetime_bypass(receipt: BypassReceipt) -> "GovernedExceptionRecord":
     """Grant bypass authority through the governed exception lifecycle."""
     from .governed_exception_lifecycle import GovernedExceptionLifecycle
@@ -101,6 +109,24 @@ def grant_lifetime_bypass(receipt: BypassReceipt) -> "GovernedExceptionRecord":
     return lifecycle
 
 
+@governed_transition(
+    transition_id="bypass.evaluate_request",
+    requires=("BypassRequest:bypass_requested",),
+    produces=("BypassLifecycle:bypass_active", "BypassLifecycle:bypass_denied"),
+    emits=(
+        "BypassEvaluation",
+        "BypassReceipt",
+        "GovernedExceptionLifecycle",
+        "BypassLifecycle",
+    ),
+    graph_path=(
+        "BypassRequest",
+        "BypassEvaluation",
+        "BypassReceipt",
+        "GovernedExceptionLifecycle",
+        "BypassLifecycle",
+    ),
+)
 def evaluate_bypass_request(
     request: BypassRequest,
     evidence: BypassEvaluationInput,
@@ -171,6 +197,13 @@ def evaluate_bypass_request(
     return lifecycle
 
 
+@governed_transition(
+    transition_id="bypass.expire_lifecycle",
+    requires=("BypassLifecycle:bypass_active",),
+    produces=("BypassLifecycle:bypass_expired", "BypassLifecycle:bypass_revoked"),
+    emits=("BypassExpiry", "BypassLifecycle"),
+    graph_path=("BypassLifecycle", "BypassExpiry", "BypassLifecycle"),
+)
 def expire_bypass_lifecycle(
     lifecycle: BypassLifecycle,
     *,

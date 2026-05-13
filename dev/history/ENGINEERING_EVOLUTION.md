@@ -70,6 +70,33 @@ Evidence:
 - `dev/scripts/devctl/tests/vcs/test_push.py`
 - `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
 
+### 2026-05-13 - Lifecycle transitions gain typed metadata without a parallel receipt system
+
+P102 typestate planning called for the smallest reusable foundation before any
+generic receipt-state universe. The accepted direction was to evolve the
+existing `BypassLifecycle` and context-graph surfaces first, then add richer
+attestation checks later.
+
+Change: added `TransitionContract` and `GovernedTransitionModule`, plus a
+side-effect-only `@governed_transition` decorator that records requirements,
+produced states, emitted evidence, and graph-path hints without wrapping the
+reducer. The first registrations annotate the existing BypassLifecycle
+reducers. The repo-owned `dev/state/transition_modules.jsonl` manifest imports
+transition modules deterministically, and the platform registry/schema fixture
+closure now covers the new transition contracts plus previously missing
+registry fixture roots.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/governed_transitions.py`
+- `dev/scripts/devctl/runtime/bypass_lifecycle_evaluation.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_transitions.py`
+- `dev/state/transition_modules.jsonl`
+- `dev/state/contract_registry.jsonl`
+- `dev/scripts/devctl/tests/runtime/test_governed_transitions.py`
+- `dev/test_data/schema_fixtures/TransitionContract/1`
+- `dev/test_data/schema_fixtures/GovernedTransitionModule/1`
+
 ### 2026-05-12 - Trusted launch bypass is bound to a typed lifecycle
 
 Review-channel dogfood found that remote-control launch recovery still had a

@@ -72,6 +72,8 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "BypassReceipt" in contract_ids
     assert "BypassExpiry" in contract_ids
     assert "BypassLifecycle" in contract_ids
+    assert "GovernedTransitionModule" in contract_ids
+    assert "TransitionContract" in contract_ids
     assert "ResolutionReceipt" in contract_ids
     assert "ExceptionPolicy" in contract_ids
     assert "ExceptionClass" in contract_ids
@@ -238,6 +240,10 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "requested_authority_scope" in contract_map["BypassReceipt"]
     assert "source" in contract_map["BypassExpiry"]
     assert "governed_exception" in contract_map["BypassLifecycle"]
+    assert "module" in contract_map["GovernedTransitionModule"]
+    assert "transition_id" in contract_map["TransitionContract"]
+    assert "requires" in contract_map["TransitionContract"]
+    assert "produces" in contract_map["TransitionContract"]
     assert "validation_receipt_id" in contract_map["ResolutionReceipt"]
     assert "forbidden_exception_classes" in contract_map["ExceptionPolicy"]
 

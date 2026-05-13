@@ -2981,6 +2981,16 @@ See `scripts/README.md` for full script documentation.
 
 The runtime scope-path parser at `dev/scripts/devctl/runtime/scope_path_claims.py:_PATH_RE` recognizes both `.json` and `.jsonl` extensions, so typed-state files such as `dev/state/plan_index.jsonl` referenced in instruction or reviewed-scope text are correctly matched by `extract_scope_paths()` and `path_matches_scope_claim()`. This keeps the startup-authority concurrent-writer contract from flagging legitimate typed-state writes as outside-scope. Focused regression coverage: `dev/scripts/devctl/tests/runtime/test_scope_path_claims.py`.
 
+**Governed transition metadata:**
+
+Lifecycle reducers can declare auditable state-transition metadata with
+`dev/scripts/devctl/runtime/governed_transitions.py:@governed_transition`.
+The decorator records `TransitionContract` metadata without wrapping the
+function, and `dev/state/transition_modules.jsonl` lists modules that must be
+imported for deterministic registration. Add or update platform contract rows
+and schema fixtures when adding a new transition contract family, then run
+`check_schema_fixture_handshake.py` and `check_platform_contract_closure.py`.
+
 **Test with different backends:**
 
 ```bash

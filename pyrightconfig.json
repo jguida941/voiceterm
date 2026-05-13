@@ -1,6 +1,7 @@
 {
   "include": [
     "dev/scripts/devctl/context_graph/models.py",
+    "dev/scripts/devctl/runtime/governed_transitions.py",
     "dev/scripts/devctl/runtime/receipt_state_gate.py",
     "dev/scripts/devctl/tests/runtime/test_receipt_state_gate.py",
     "dev/scripts/devctl/tests/runtime/test_typestate_exhaustiveness.py"

@@ -3104,3 +3104,12 @@ Workspace-path note:
 - `dev/scripts/tests/benchmark_voice.sh` and
   `dev/scripts/tests/compare_python_rust_voice_latency.sh` use the same
   `rust/`-first workspace detection with legacy `src/` fallback.
+
+Governed-transition note:
+- `dev/scripts/devctl/runtime/governed_transitions.py` owns the
+  `@governed_transition` decorator and `TransitionContract` metadata.
+- `dev/state/transition_modules.jsonl` is the manifest that imports transition
+  owner modules for deterministic decorator registration.
+- Transition contract additions should update platform-contract rows, registry
+  rows, schema fixtures, and focused runtime tests before running
+  `check_platform_contract_closure.py` and `check_schema_fixture_handshake.py`.

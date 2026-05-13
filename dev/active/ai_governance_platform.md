@@ -85,6 +85,15 @@ Current ingestion status:
   final-gate/operator-override decisions, launch scripts, and review-channel
   recovery all read the same typed state rather than raw provider flags or
   bridge prose.
+- 2026-05-13 P102 typestate foundation: the first transition-metadata slice
+  stays inside the existing lifecycle family. `BypassLifecycle` reducers now
+  carry `@governed_transition` metadata, a repo-owned
+  `dev/state/transition_modules.jsonl` manifest imports the owning module so
+  decorator registration is deterministic, and `TransitionContract` /
+  `GovernedTransitionModule` are registered platform contracts. This is
+  metadata and closure proof only; it does not introduce a parallel generic
+  receipt-state universe. The same slice closed missing registry-fixture roots
+  so `check_schema_fixture_handshake.py` covers every current registry row.
 
 2026-05-06 governed exception lifecycle correction:
 - `MP377-P0-EXC-S1` replaces the earlier raw-bypass receipt direction with a

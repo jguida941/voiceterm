@@ -8262,3 +8262,10 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
 - [ ] `PKT-BIND-REV-PKT-3948` Packet decision: P102 Phase 1 PIVOT: mypy.ini + pyrightconfig.json ALREADY EXIST at repo root — Phase 1 must COMPOSE existing configs, NOT create parallel files. Per master charter no-parallel-surfaces rule. (source `rev_pkt_3948`; target `plan:MP-377`; posted `2026-05-13T18:27:42.460160Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3949` Packet finding: ARCHITECTURAL FINDING: 23-min startup-authority cascade — phase 4 packet-attention drain ate 15 of 23 min. Composes with P88/P89/P57 Cluster 6/P63/P74. (source `rev_pkt_3949`; target `plan:MP-377`; posted `2026-05-13T18:35:42.004353Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3953` Packet decision: OPERATOR VERDICT on rev_pkt_3949 (23-min cascade): keep lifecycle design (correct), but SEPARATE 3 proof classes + DIFFERENTIATE blocking by surface + BATCH body-observation. Implementation-ready refinement. Composes P88... (source `rev_pkt_3953`; target `plan:MP-377`; posted `2026-05-13T19:01:18.584550Z`; binding `plan_row`).
+  - 2026-05-13 P102 Phase 5 foundation landed in the existing lifecycle
+    architecture: `BypassLifecycle` reducers declare governed transition
+    metadata through `@governed_transition`, the repo-owned
+    `dev/state/transition_modules.jsonl` manifest prevents import-order drift,
+    and `TransitionContract` / `GovernedTransitionModule` are registered with
+    platform-contract and schema-fixture closure. This remains metadata over
+    current lifecycle surfaces, not a parallel receipt-state system.

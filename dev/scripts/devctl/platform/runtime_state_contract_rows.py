@@ -11,6 +11,7 @@ from .runtime_state_contract_rows_review_pipeline import (
     REVIEW_PIPELINE_STATE_CONTRACTS,
 )
 from .runtime_state_contract_rows_relaunch_loop import RELAUNCH_LOOP_STATE_CONTRACTS
+from .runtime_state_contract_rows_transitions import TRANSITION_STATE_CONTRACTS
 
 
 RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
@@ -495,4 +496,5 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     *GOVERNED_EXCEPTION_STATE_CONTRACTS,
     *REVIEW_PIPELINE_STATE_CONTRACTS,
     *RELAUNCH_LOOP_STATE_CONTRACTS,
+    *TRANSITION_STATE_CONTRACTS,
 )
