@@ -13,12 +13,18 @@ from .runtime_state_contract_rows_session_continuation import (
 )
 
 if TYPE_CHECKING:
+    from ..runtime.peer_awareness_policy import (
+        PeerAwarenessDecision,
+        PeerAwarenessPolicy,
+    )
     from ..runtime.session_termination_policy import (
         SessionTerminationPolicy,
         TaskCompleteDecision,
     )
 
     _RUNTIME_MODEL_REFS: tuple[
+        type[PeerAwarenessPolicy],
+        type[PeerAwarenessDecision],
         type[SessionTerminationPolicy],
         type[TaskCompleteDecision],
     ]
@@ -215,6 +221,96 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             "AgentSessionOutcomeState"
         ),
         startup_surface_tokens=("outcome", "provider", "session_name"),
+    ),
+    ContractSpec(
+        contract_id="PeerAwarenessPolicy",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed peer-poll cadence policy for agent work classes, including "
+            "the agent-message and subprocess-heartbeat boundaries that require "
+            "review-channel inbox and peer agent-mind observation."
+        ),
+        required_fields=(
+            ContractField("role", "str", "Runtime role covered by the policy."),
+            ContractField(
+                "work_class",
+                "str",
+                "Work class such as interactive_turn or long_running_subprocess.",
+            ),
+            ContractField(
+                "peer_provider",
+                "str",
+                "Peer provider expected for cross-mind polling.",
+            ),
+            ContractField(
+                "cadence_seconds",
+                "int",
+                "Maximum age of peer-poll evidence before a boundary is due.",
+            ),
+            ContractField(
+                "boundary_events",
+                "tuple[str, ...]",
+                "Boundary events where the policy is evaluated.",
+            ),
+            ContractField(
+                "required_observations",
+                "tuple[str, ...]",
+                "Observation families required by the policy.",
+            ),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.peer_awareness_policy:"
+            "PeerAwarenessPolicy"
+        ),
+        startup_surface_tokens=("role", "work_class", "cadence_seconds"),
+    ),
+    ContractSpec(
+        contract_id="PeerAwarenessDecision",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed agent-message boundary decision that either opens an "
+            "unobserved packet body, polls peer state, or allows current work "
+            "to continue."
+        ),
+        required_fields=(
+            ContractField(
+                "action",
+                "str",
+                (
+                    "Boundary action: open_packet_body, poll_peer_state, "
+                    "or continue_current_work."
+                ),
+            ),
+            ContractField("reason", "str", "Machine-readable reason for the decision."),
+            ContractField("boundary", "str", "Boundary that produced the decision."),
+            ContractField("peer_provider", "str", "Peer provider selected for polling."),
+            ContractField(
+                "cadence_seconds",
+                "int",
+                "Policy cadence applied to this decision.",
+            ),
+            ContractField("poll_due", "bool", "Whether peer-poll commands must run now."),
+            ContractField(
+                "body_open_required",
+                "bool",
+                "Whether packet body observation takes priority.",
+            ),
+            ContractField(
+                "blocking_packet_id",
+                "str",
+                "Packet id that must be opened before continuing.",
+            ),
+            ContractField(
+                "next_commands",
+                "tuple[str, ...]",
+                "Bounded repo-owned commands for the next action.",
+            ),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.peer_awareness_policy:"
+            "PeerAwarenessDecision"
+        ),
+        startup_surface_tokens=("action", "reason", "blocking_packet_id"),
     ),
     ContractSpec(
         contract_id="SessionTerminationPolicy",

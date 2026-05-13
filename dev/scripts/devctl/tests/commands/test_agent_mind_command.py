@@ -33,6 +33,12 @@ from dev.scripts.devctl.runtime.agent_mind_slice import (
 from dev.scripts.devctl.runtime.rollout_event import RolloutEvent
 
 
+_PEER_AGENT_MIND_COMMAND = (
+    "python3 dev/scripts/devctl.py agent-mind --agent claude --since-cursor "
+    "--project --format md --limit 20"
+)
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -479,6 +485,124 @@ class SliceBuilderFilterTests(unittest.TestCase):
             ]
             self.assertEqual(len(task_events), 1)
             self.assertIn("Done", task_events[0].summary)
+
+    def test_agent_message_boundary_flags_missing_peer_poll_during_long_task(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            lines = [
+                _assistant_message_line(
+                    "2026-04-09T20:00:00.000Z",
+                    "push pipeline still running pid=123 elapsed=300s",
+                ),
+            ]
+            session_path, events = self._parse_codex_events(root, lines)
+            slice_ = build_slice(
+                events,
+                agent_provider="codex",
+                session_id="sess-1",
+                session_path=session_path,
+                since_cursor=None,
+                limit=20,
+            )
+
+            awareness = slice_.peer_awareness
+            self.assertTrue(awareness["due"])
+            self.assertEqual(awareness["boundary"], "agent_message_emit")
+            self.assertEqual(awareness["work_class"], "long_running_subprocess")
+            self.assertTrue(
+                any(
+                    "review-channel --action inbox" in command
+                    for command in awareness["next_commands"]
+                )
+            )
+            self.assertTrue(
+                any(
+                    "agent-mind --agent claude" in command
+                    for command in awareness["next_commands"]
+                )
+            )
+
+    def test_agent_message_boundary_accepts_peer_poll_after_long_task_message(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            lines = [
+                _assistant_message_line(
+                    "2026-04-09T20:00:00.000Z",
+                    "push pipeline still running pid=123 elapsed=300s",
+                ),
+                _function_call_line(
+                    "2026-04-09T20:00:10.000Z",
+                    _PEER_AGENT_MIND_COMMAND,
+                ),
+            ]
+            session_path, events = self._parse_codex_events(root, lines)
+            slice_ = build_slice(
+                events,
+                agent_provider="codex",
+                session_id="sess-1",
+                session_path=session_path,
+                since_cursor=None,
+                limit=20,
+            )
+
+            awareness = slice_.peer_awareness
+            self.assertFalse(awareness["due"])
+            self.assertEqual(
+                awareness["last_peer_poll_command"],
+                _PEER_AGENT_MIND_COMMAND,
+            )
+
+    def test_agent_message_boundary_honors_peer_poll_cadence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            lines = [
+                _function_call_line(
+                    "2026-04-09T20:00:00.000Z",
+                    _PEER_AGENT_MIND_COMMAND,
+                ),
+                _assistant_message_line(
+                    "2026-04-09T20:04:59.000Z",
+                    "push pipeline still running pid=123 elapsed=299s",
+                ),
+            ]
+            session_path, events = self._parse_codex_events(root, lines)
+            slice_ = build_slice(
+                events,
+                agent_provider="codex",
+                session_id="sess-1",
+                session_path=session_path,
+                since_cursor=None,
+                limit=20,
+            )
+
+            self.assertFalse(slice_.peer_awareness["due"])
+
+    def test_agent_message_boundary_flags_stale_peer_poll(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            lines = [
+                _function_call_line(
+                    "2026-04-09T20:00:00.000Z",
+                    _PEER_AGENT_MIND_COMMAND,
+                ),
+                _assistant_message_line(
+                    "2026-04-09T20:06:00.000Z",
+                    "push pipeline still running pid=123 elapsed=360s",
+                ),
+            ]
+            session_path, events = self._parse_codex_events(root, lines)
+            slice_ = build_slice(
+                events,
+                agent_provider="codex",
+                session_id="sess-1",
+                session_path=session_path,
+                since_cursor=None,
+                limit=20,
+            )
+
+            awareness = slice_.peer_awareness
+            self.assertTrue(awareness["due"])
+            self.assertEqual(awareness["reason"], "peer_poll_due_at_agent_message_emit")
 
     def test_latest_escalation_timestamp_captured(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -70,6 +70,14 @@ def _header_block(slice_: AgentMindSlice) -> list[str]:
         lines.append(f"- latest_escalation: `{slice_.latest_escalation_at}`")
     if slice_.latest_error_at:
         lines.append(f"- latest_error: `{slice_.latest_error_at}`")
+    peer_awareness = slice_.peer_awareness
+    if peer_awareness:
+        status = "due" if peer_awareness.get("due") else "current"
+        lines.append(
+            f"- peer_awareness: `{status}` ({peer_awareness.get('reason')})"
+        )
+        for command in peer_awareness.get("next_commands") or ():
+            lines.append(f"- peer_awareness_next: `{command}`")
     lines.append(f"- cursor: `{slice_.last_cursor or '-'}`")
     return lines
 

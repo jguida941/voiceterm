@@ -26,6 +26,7 @@ from ...runtime.agent_mind_slice import (
     AgentMindSlice,
 )
 from ...runtime.rollout_event import RolloutEvent
+from .peer_awareness import build_agent_mind_peer_awareness
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,6 +90,11 @@ def build_slice(
     if resolved.limit > 0 and len(decision_events) > resolved.limit:
         decision_events = decision_events[-resolved.limit:]
 
+    peer_awareness = build_agent_mind_peer_awareness(
+        decision_events,
+        agent_provider=resolved.agent_provider,
+    )
+    policy = peer_awareness.get("policy")
     return AgentMindSlice(
         schema_version=AGENT_MIND_SCHEMA_VERSION,
         contract_id=AGENT_MIND_CONTRACT_ID,
@@ -102,6 +108,8 @@ def build_slice(
         latest_task_complete_at=cursors["latest_task_complete"],
         latest_escalation_at=cursors["latest_escalation"],
         latest_error_at=cursors["latest_error"],
+        peer_awareness_policy=policy if isinstance(policy, dict) else {},
+        peer_awareness=peer_awareness,
     )
 
 

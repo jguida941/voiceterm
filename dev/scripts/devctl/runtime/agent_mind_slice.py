@@ -74,6 +74,8 @@ class AgentMindSlice:
     latest_task_complete_at: str = ""
     latest_escalation_at: str = ""
     latest_error_at: str = ""
+    peer_awareness_policy: dict[str, Any] = field(default_factory=dict)
+    peer_awareness: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the slice as a plain dict for JSON projection.
