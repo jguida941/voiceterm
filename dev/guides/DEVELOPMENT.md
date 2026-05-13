@@ -1115,6 +1115,11 @@ Three quality layers matter in practice:
     `probe_report` and `governance_review`, so fresh sessions, dashboard, and
     session-resume do not need separate backlog readers or a second target-
     selection rule.
+    Agent-loop and startup blocker rendering also normalize compatibility
+    `open_findings` summaries against the typed pending-review packet count:
+    when typed review state reports zero pending packets, stale prose such as
+    `138 pending review packet(s)` is cleared instead of blocking `/develop`
+    continuation.
     Non-guard queries now suppress generic guard-edge fan-out, and current
     scoped ownership comes from docs-policy rules rather than raw substring
     adjacency alone.

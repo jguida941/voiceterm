@@ -6622,6 +6622,10 @@ become the main product surface.
     `devctl session` first, and the session reducer preserves a blocking
     review/status `AuthoritySnapshot` instead of promoting startup
     `run_devctl_push` through `safe_to_continue=false` or `vcs.push` blocks.
+    2026-05-13 live controller dogfood also fixed stale pending-packet blocker
+    prose: when typed packet attention reports zero scoped pending packets,
+    legacy `session.open_findings` text like `138 pending review packet(s)` no
+    longer blocks `agent-loop` or `/develop next`.
   - [ ] `MP377-P0-T22AN-AD` now owns Claude `rev_pkt_2863` slash-domain
     architecture: split canonical slash entry points by typed backend domain
     while keeping current `/develop` role presets as compatibility aliases
@@ -8303,3 +8307,4 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
     `ValidationReceipt` and `CommitReceipt` evidence with pre/post states and
     verifies emitted receipt state through `require_receipt_state()` at the
     governed validation and commit boundaries.
+- [ ] `PKT-BIND-REV-PKT-3962` Packet finding: Multi-modal audit (operator-directed): system is multi-modal-with-gaps; 3 CI/CD-hardcoded smells in auto-mode + startup_context; docs architecturally-sound but rhetorically-cage-heavy; 3 options for fix (doc-only / arch f... (source `rev_pkt_3962`; target `plan:MP-377`; posted `2026-05-13T21:09:14.415297Z`; binding `plan_row`).

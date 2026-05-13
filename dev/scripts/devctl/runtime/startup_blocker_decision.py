@@ -28,7 +28,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 import re
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 if TYPE_CHECKING:
     from .review_state_models import ReviewState
@@ -104,7 +104,7 @@ def _normalize_pending_review_packet_blocker(
     prefer the typed count so blocker text does not drift across dashboard,
     control-plane, and session surfaces.
     """
-    if pending_count is None or pending_count <= 0:
+    if pending_count is None:
         return findings
     stripped = findings.strip()
     if not stripped:
@@ -115,6 +115,8 @@ def _normalize_pending_review_packet_blocker(
     match = _PENDING_REVIEW_PACKET_RE.match(first_line)
     if match is None:
         return findings
+    if pending_count <= 0:
+        return ""
     current_count = int(match.group("count"))
     if current_count == pending_count:
         return findings
@@ -167,28 +169,35 @@ def startup_authority_blocker_kind(startup_authority: object) -> str:
 
 def _mapping(value: object) -> Mapping[str, Any]:
     if isinstance(value, Mapping):
-        return value
+        return cast(Mapping[str, Any], value)
     to_dict = getattr(value, "to_dict", None)
     if callable(to_dict):
         try:
             payload = to_dict()
         except (TypeError, ValueError):
             return {}
-        return payload if isinstance(payload, Mapping) else {}
+        if isinstance(payload, Mapping):
+            return cast(Mapping[str, Any], payload)
+        return {}
     return {}
 
 
 def _string_items(value: object) -> tuple[str, ...]:
     if not isinstance(value, (list, tuple)):
         return ()
-    return tuple(str(item).strip() for item in value if str(item).strip())
+    items = cast(list[object] | tuple[object, ...], value)
+    return tuple(str(item).strip() for item in items if str(item).strip())
 
 
 def _has_import_index_atomicity_finding_records(authority: Mapping[str, Any]) -> bool:
     records = authority.get("import_index_atomicity_finding_records")
     if not isinstance(records, (list, tuple)):
         return False
-    return any(_is_import_index_atomicity_finding_record(record) for record in records)
+    record_items = cast(list[object] | tuple[object, ...], records)
+    return any(
+        _is_import_index_atomicity_finding_record(record)
+        for record in record_items
+    )
 
 
 def _is_import_index_atomicity_finding_record(record: object) -> bool:
@@ -203,8 +212,14 @@ def _is_import_index_atomicity_finding_record(record: object) -> bool:
 
 
 def _int_value(value: object) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, bool):
+        return int(value)
+    if not isinstance(value, (int, float, str, bytes, bytearray)):
+        return 0
     try:
-        return int(value or 0)
+        return int(value)
     except (TypeError, ValueError):
         return 0
 
@@ -270,9 +285,10 @@ def derive_blocker_decision(
             derivation_evidence=tuple(evidence),
         )
 
-    failing = quality.get("failing", [])
+    failing = quality.get("failing")
     if isinstance(failing, list) and failing:
-        first = str(failing[0]).strip()
+        failing_items = cast(list[object], failing)
+        first = str(failing_items[0]).strip()
         evidence.append(f"quality.failing[0]={first}")
         return BlockerSnapshot(
             top_blocker=f"code-shape debt in {first}",
@@ -283,12 +299,18 @@ def derive_blocker_decision(
 
     last_guard_ok = quality.get("last_guard_ok")
     if last_guard_ok is False:
-        details = quality.get("check_details", ())
+        details = quality.get("check_details")
         if isinstance(details, (list, tuple)) and details:
-            first = details[0]
+            detail_items = cast(list[object] | tuple[object, ...], details)
+            first_detail = detail_items[0]
             check_name = "unknown"
-            if isinstance(first, dict):
-                raw = first.get("check") or first.get("step_name") or "unknown"
+            if isinstance(first_detail, Mapping):
+                first_mapping = cast(Mapping[str, object], first_detail)
+                raw = (
+                    first_mapping.get("check")
+                    or first_mapping.get("step_name")
+                    or "unknown"
+                )
                 check_name = str(raw).strip() or "unknown"
             evidence.append(f"quality.last_guard_ok=False;check={check_name}")
             return BlockerSnapshot(
@@ -351,12 +373,12 @@ def derive_startup_blocker(
     session: dict[str, Any] = {}
     doctor: dict[str, Any] = {}
     if review_state is not None:
-        rs_payload = review_state.to_dict()
-        session = rs_payload.get("current_session", {}) or {}
-        reviewer_runtime = rs_payload.get("reviewer_runtime", {}) or {}
+        rs_payload = _mapping(review_state.to_dict())
+        session = dict(_mapping(rs_payload.get("current_session")))
+        reviewer_runtime = _mapping(rs_payload.get("reviewer_runtime"))
         doctor_value = reviewer_runtime.get("doctor", {})
-        if isinstance(doctor_value, dict):
-            doctor = doctor_value
+        if isinstance(doctor_value, Mapping):
+            doctor = dict(cast(Mapping[str, Any], doctor_value))
     return derive_blocker_decision(
         quality=None,
         doctor=doctor,

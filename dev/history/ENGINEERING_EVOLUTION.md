@@ -15274,3 +15274,20 @@ Evidence:
 - `dev/scripts/devctl/commands/vcs/governed_executor_validation.py`
 - `dev/scripts/devctl/runtime/commit_receipt.py`
 - `dev/scripts/devctl/tests/runtime/test_commit_receipt.py`
+
+### 2026-05-13 - Stale pending-packet prose stops blocking agent loops
+
+Agent-loop blocker selection now treats typed pending-review packet count as
+authority over compatibility `open_findings` summaries. If the typed count is
+positive, old prose is rewritten to that count; if the typed count is zero,
+stale text such as `138 pending review packet(s)` is cleared before deriving
+`top_blocker`.
+
+This keeps `/develop next`, startup/runtime status, and agent-loop decisions
+aligned on the same typed packet truth: a session with no scoped active packet
+waits for new work instead of waking forever on legacy prose.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/startup_blocker_decision.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_blocker_decision.py`

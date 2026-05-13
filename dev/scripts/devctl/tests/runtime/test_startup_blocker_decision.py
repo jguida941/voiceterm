@@ -153,6 +153,16 @@ class DeriveBlockerDecisionTests(unittest.TestCase):
         self.assertEqual(snapshot.blocker_source, "session")
         self.assertEqual(snapshot.top_blocker, "6 pending review packet(s)")
 
+    def test_pending_review_packet_summary_clears_when_typed_count_zero(self) -> None:
+        snapshot = derive_blocker_decision(
+            quality={},
+            doctor={},
+            session={"open_findings": "138 pending review packet(s)"},
+            pending_count=0,
+        )
+        self.assertEqual(snapshot.blocker_source, "none")
+        self.assertEqual(snapshot.top_blocker, "none")
+
     def test_pending_review_packet_count_ignores_empty_findings_summary(self) -> None:
         snapshot = derive_blocker_decision(
             quality={},
