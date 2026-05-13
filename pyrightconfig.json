@@ -1,5 +1,7 @@
 {
   "include": [
+    "dev/scripts/devctl/runtime/receipt_state_gate.py",
+    "dev/scripts/devctl/tests/runtime/test_receipt_state_gate.py",
     "dev/scripts/devctl/tests/runtime/test_typestate_exhaustiveness.py"
   ],
   "exclude": [

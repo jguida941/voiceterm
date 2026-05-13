@@ -121,17 +121,29 @@ def _require_active_bypass_lifecycle(
 ) -> None:
     from .runtime.lifetime_bypass_mode import (
         BypassAuthorityScope,
-        bypass_lifecycle_active,
+        BypassLifecycleState,
+        bypass_receipt_active,
+        bypass_receipt_grants_scope,
     )
+    from .runtime.receipt_state_gate import require_receipt_state
 
-    if bypass_lifecycle is not None and bypass_lifecycle_active(
+    def grants_edit_scope(lifecycle: "BypassLifecycle") -> bool:
+        if lifecycle.receipt is None:
+            return False
+        return bypass_receipt_active(lifecycle.receipt) and bypass_receipt_grants_scope(
+            lifecycle.receipt,
+            BypassAuthorityScope.EDIT_ONLY,
+        )
+
+    require_receipt_state(
         bypass_lifecycle,
-        required_scope=BypassAuthorityScope.EDIT_ONLY,
-    ):
-        return
-    raise BypassLifecycleRequired(
-        "trusted approval mode requires an active BypassLifecycle receipt "
-        "with edit_only authority"
+        state_getter=lambda lifecycle: lifecycle.state,
+        required_state=BypassLifecycleState.ACTIVE,
+        is_usable=grants_edit_scope,
+        error_factory=lambda: BypassLifecycleRequired(
+            "trusted approval mode requires an active BypassLifecycle receipt "
+            "with edit_only authority"
+        ),
     )
 
 
