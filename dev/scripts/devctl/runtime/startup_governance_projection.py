@@ -136,7 +136,7 @@ def _startup_plan_entry_dict(entry) -> dict[str, object]:
     if entry.session_resume is not None and entry.session_resume.summary:
         payload["session_resume_summary"] = _brief_text(
             entry.session_resume.summary,
-            limit=240,
+            limit=140,
         )
     return payload
 

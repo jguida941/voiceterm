@@ -14,9 +14,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, NamedTuple
+from enum import StrEnum
+from typing import TYPE_CHECKING, NamedTuple
 
-from .enum_compat import StrEnum
 from .value_coercion import (
     coerce_mapping as _mapping,
     coerce_string as _string,
@@ -184,28 +184,29 @@ def operator_context_from_mapping(value: object) -> OperatorContext:
     )
 
 
-def _nested_get(mapping: Mapping[str, Any] | None, *keys: str) -> Any:
-    current: Any = mapping
+def _nested_get(mapping: Mapping[str, object] | None, *keys: str) -> object | None:
+    current: object = mapping
     for key in keys:
-        if not isinstance(current, Mapping):
+        current_mapping = _mapping(current)
+        if not current_mapping:
             return None
-        current = current.get(key)
+        current = current_mapping.get(key)
     return current
 
 
 def _governance_interaction_mode(governance: "ProjectGovernance | None") -> str:
     if governance is None:
         return ""
-    return coerce_string(
-        getattr(getattr(governance, "bridge_config", None), "operator_interaction_mode", "")
-    )
+    bridge_config = getattr(governance, "bridge_config", None)
+    mode = getattr(bridge_config, "operator_interaction_mode", "")
+    return str(mode or "").strip()
 
 
 def derive_operator_interaction_mode(
     *,
     governance: "ProjectGovernance | None",
-    review_state_payload: Mapping[str, Any] | None,
-    receipt: Mapping[str, Any] | None,
+    review_state_payload: Mapping[str, object] | None,
+    receipt: Mapping[str, object] | None,
     reviewer_mode: str,
 ) -> str:
     """Canonical operator_interaction_mode derivation (rev_pkt_0463).
@@ -252,8 +253,11 @@ def derive_operator_interaction_mode(
     if saw_local_terminal:
         return "local_terminal"
 
-    if reviewer_mode_is_active(reviewer_mode):
+    normalized_reviewer_mode = str(reviewer_mode or "").strip()
+    if normalized_reviewer_mode and reviewer_mode_is_active(normalized_reviewer_mode):
         return "dual_agent"
-    if reviewer_mode_is_single_agent(reviewer_mode):
+    if normalized_reviewer_mode and reviewer_mode_is_single_agent(
+        normalized_reviewer_mode
+    ):
         return "single_agent"
     return "unresolved"

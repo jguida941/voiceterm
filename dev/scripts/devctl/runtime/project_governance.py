@@ -9,6 +9,10 @@ from __future__ import annotations
 from .project_governance_contract import (
     PROJECT_GOVERNANCE_CONTRACT_ID,
     PROJECT_GOVERNANCE_SCHEMA_VERSION,
+    DELIVERY_MODE_GIT_PUSH_REQUIRED,
+    DELIVERY_MODE_LIBRARY_IMPORT_ONLY,
+    DELIVERY_MODE_LOCAL_EDIT_ONLY,
+    SUPPORTED_DELIVERY_MODES,
     ArtifactRoots,
     BridgeConfig,
     BundleOverrides,
@@ -29,6 +33,8 @@ from .project_governance_contract import (
     RepoPackRef,
     SessionResumeEntry,
     SessionResumeState,
+    delivery_mode_requires_push,
+    normalize_delivery_mode,
 )
 from .project_governance_push import PushEnforcement
 from .project_governance_parse import (
@@ -53,6 +59,10 @@ from .project_governance_parse import (
 __all__ = [
     "PROJECT_GOVERNANCE_CONTRACT_ID",
     "PROJECT_GOVERNANCE_SCHEMA_VERSION",
+    "DELIVERY_MODE_GIT_PUSH_REQUIRED",
+    "DELIVERY_MODE_LIBRARY_IMPORT_ONLY",
+    "DELIVERY_MODE_LOCAL_EDIT_ONLY",
+    "SUPPORTED_DELIVERY_MODES",
     "ArtifactRoots",
     "BridgeConfig",
     "BundleOverrides",
@@ -74,6 +84,8 @@ __all__ = [
     "RepoPackRef",
     "SessionResumeEntry",
     "SessionResumeState",
+    "delivery_mode_requires_push",
+    "normalize_delivery_mode",
     "artifact_roots_from_mapping",
     "bridge_config_from_mapping",
     "bundle_overrides_from_mapping",

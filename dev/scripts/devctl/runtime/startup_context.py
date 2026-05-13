@@ -22,6 +22,10 @@ from .packet_intent_anchor import (
     plan_iteration_session_from_anchors,
 )
 from .project_governance import ProjectGovernance
+from .project_governance_contract import (
+    delivery_mode_requires_push,
+    normalize_delivery_mode,
+)
 from .review_state_locator import load_current_review_state
 from .review_state_semantics import is_missing_instruction
 from .startup_advisory_decision import (
@@ -355,6 +359,44 @@ def _attach_startup_surface_identity(
     return replace(push_decision, snapshot_id=snapshot_id, zref=zref), snapshot_id, zref
 
 
+def _governance_delivery_mode(governance: ProjectGovernance) -> str:
+    return normalize_delivery_mode(
+        getattr(getattr(governance, "bridge_config", None), "delivery_mode", "")
+    )
+
+
+def _derive_delivery_push_decision(
+    governance: ProjectGovernance,
+    gate: ReviewerGateState,
+) -> PushDecisionState:
+    """Derive push decision, skipping publication in non-push delivery modes."""
+    delivery_mode = _governance_delivery_mode(governance)
+    push = governance.push_enforcement
+    if delivery_mode_requires_push(delivery_mode) and push is not None:
+        return _derive_push_decision(
+            push,
+            review_gate_allows_push=gate.review_gate_allows_push,
+            implementation_blocked=gate.implementation_blocked,
+            implementation_block_reason=gate.implementation_block_reason,
+        )
+    return PushDecisionState(
+        worktree_clean=bool(getattr(push, "worktree_clean", True)),
+        review_gate_allows_push=bool(gate.review_gate_allows_push),
+        has_remote_work_to_push=False,
+        push_eligible_now=False,
+        action="no_push_needed",
+        reason=f"delivery_mode:{delivery_mode}",
+        next_step_summary=(
+            "This delivery mode does not require governed git push; continue "
+            "with local, library, or embedded-governance workflow steps."
+        ),
+        rule_summary=(
+            "Startup skipped push-decision derivation because the governed "
+            f"delivery mode is `{delivery_mode}`, not git publication."
+        ),
+    )
+
+
 def build_startup_context(
     *,
     repo_root: Path | None = None,
@@ -391,12 +433,7 @@ def build_startup_context(
         review_state=review_state,
         gate=gate,
     )
-    push_decision = _derive_push_decision(
-        governance.push_enforcement,
-        review_gate_allows_push=gate.review_gate_allows_push,
-        implementation_blocked=gate.implementation_blocked,
-        implementation_block_reason=gate.implementation_block_reason,
-    )
+    push_decision = _derive_delivery_push_decision(governance, gate)
     ownership = build_work_intake_ownership_state(
         repo_root=repo_root,
         review_state=review_state,
@@ -551,4 +588,6 @@ def blocks_new_implementation(ctx: StartupContext) -> bool:
     if governance is None:
         return False
     push = governance.push_enforcement
+    if push is None:
+        return False
     return bool(push.checkpoint_required or not push.safe_to_continue_editing)

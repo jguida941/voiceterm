@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dev.scripts.devctl.runtime.project_governance import (
+    DELIVERY_MODE_LIBRARY_IMPORT_ONLY,
+    DELIVERY_MODE_LOCAL_EDIT_ONLY,
     PROJECT_GOVERNANCE_CONTRACT_ID,
     PROJECT_GOVERNANCE_SCHEMA_VERSION,
     ArtifactRoots,
@@ -357,6 +359,7 @@ def test_push_enforcement_legacy_push_ready_maps_to_worktree_clean() -> None:
     assert gov.bridge_config.bridge_path == ""
     assert gov.bridge_config.review_channel_path == ""
     assert gov.bridge_config.bridge_active is False
+    assert gov.bridge_config.delivery_mode == "git_push_required"
 
     assert gov.enabled_checks.guard_ids == ()
     assert gov.enabled_checks.probe_ids == ()
@@ -512,6 +515,35 @@ def test_bridge_config_from_mapping_coerces_bool() -> None:
         }
     )
     assert config.bridge_active is True
+
+
+def test_bridge_config_from_mapping_normalizes_delivery_mode() -> None:
+    config = bridge_config_from_mapping({"delivery_mode": "local_edit_only"})
+    assert config.delivery_mode == DELIVERY_MODE_LOCAL_EDIT_ONLY
+
+
+def test_bridge_config_from_mapping_defaults_unknown_delivery_mode_to_git_push() -> None:
+    config = bridge_config_from_mapping({"delivery_mode": "magic"})
+    assert config.delivery_mode == "git_push_required"
+
+
+def test_non_push_project_governance_allows_missing_push_enforcement() -> None:
+    gov = project_governance_from_mapping(
+        {
+            "bridge_config": {
+                "delivery_mode": DELIVERY_MODE_LIBRARY_IMPORT_ONLY,
+            },
+        }
+    )
+    assert gov.bridge_config.delivery_mode == DELIVERY_MODE_LIBRARY_IMPORT_ONLY
+    assert gov.push_enforcement is None
+
+
+def test_inline_project_governance_defaults_to_library_delivery() -> None:
+    gov = ProjectGovernance.from_inline(repo_name="embedded")
+    assert gov.repo_identity.repo_name == "embedded"
+    assert gov.bridge_config.delivery_mode == DELIVERY_MODE_LIBRARY_IMPORT_ONLY
+    assert gov.push_enforcement is None
 
 
 def test_project_governance_schema_constants() -> None:

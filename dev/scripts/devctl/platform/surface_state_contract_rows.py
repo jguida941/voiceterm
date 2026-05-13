@@ -228,6 +228,7 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("last_guard_ok", "bool", "Whether the last guard bundle passed."),
             ContractField("pending_action_requests", "int", "Count of pending action requests."),
             ContractField("next_transition", "str", "Human-readable hint for the next expected transition."),
+            ContractField("delivery_mode", "str", "Governed delivery mode that determines whether commit/push phases apply."),
         ),
         runtime_model="dev.scripts.devctl.runtime.auto_mode:AutoModeState",
         startup_surface_tokens=("phase", "next_transition"),

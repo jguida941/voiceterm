@@ -1120,6 +1120,11 @@ Three quality layers matter in practice:
     when typed review state reports zero pending packets, stale prose such as
     `138 pending review packet(s)` is cleared instead of blocking `/develop`
     continuation.
+    Delivery is now a first-class startup mode rather than an implicit CI/CD
+    assumption. `BridgeConfig.delivery_mode` defaults to
+    `git_push_required`, while `local_edit_only` and `library_import_only`
+    reuse the same contracts and skip governed-push selection in startup and
+    auto-mode.
     Non-guard queries now suppress generic guard-edge fan-out, and current
     scoped ownership comes from docs-policy rules rather than raw substring
     adjacency alone.

@@ -110,6 +110,8 @@ def _push_enforcement_projection(governance) -> dict[str, object]:
     if governance is None:
         return {"checkpoint_required": False, "safe_to_continue_editing": True}
     push = governance.push_enforcement
+    if push is None:
+        return {"checkpoint_required": False, "safe_to_continue_editing": True}
     return {
         "checkpoint_required": bool(push.checkpoint_required),
         "safe_to_continue_editing": bool(push.safe_to_continue_editing),

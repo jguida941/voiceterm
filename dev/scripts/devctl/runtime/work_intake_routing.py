@@ -32,7 +32,7 @@ def build_routing(
     push_defaults = _push_defaults(governance.command_routing_defaults)
     if "current_branch" not in push_defaults:
         push_defaults["current_branch"] = governance.repo_identity.current_branch
-    if "upstream_ref" not in push_defaults:
+    if "upstream_ref" not in push_defaults and governance.push_enforcement is not None:
         push_defaults["upstream_ref"] = governance.push_enforcement.upstream_ref
     post_push_bundle = _mapping_text(_mapping(push_defaults.get("post_push")).get("bundle"))
     selection = select_workflow_profile(

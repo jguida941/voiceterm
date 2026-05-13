@@ -15291,3 +15291,25 @@ Evidence:
 
 - `dev/scripts/devctl/runtime/startup_blocker_decision.py`
 - `dev/scripts/devctl/tests/runtime/test_startup_blocker_decision.py`
+
+### 2026-05-13 - Delivery mode makes governance multi-modal
+
+`ProjectGovernance` now carries an explicit delivery mode through
+`BridgeConfig.delivery_mode`. The default remains `git_push_required`, while
+`local_edit_only` and `library_import_only` let startup and auto-mode reuse the
+same typed contracts without treating governed git publication as mandatory.
+
+The slice also adds an inline `ProjectGovernance.from_inline(...)` constructor
+for embedded/library callers and records the operating-mode framing in the
+active platform plan so CI/CD remains one supported mode, not the platform
+identity.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/project_governance_contract.py`
+- `dev/scripts/devctl/runtime/project_governance_parse.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/runtime/auto_mode.py`
+- `dev/scripts/devctl/tests/runtime/test_project_governance.py`
+- `dev/scripts/devctl/tests/runtime/test_auto_mode.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`

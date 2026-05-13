@@ -1,7 +1,9 @@
 """Typed auto-mode state machine for the continuous governance loop.
 
-The auto-mode loop tracks the current phase of the agent lifecycle:
-reviewing -> implementing -> testing -> committing -> pushing -> idle.
+The auto-mode loop tracks the current phase of the default git-publishing
+agent lifecycle: reviewing -> implementing -> testing -> committing -> pushing
+-> idle. Non-publishing delivery modes reuse the same phases but skip
+commit/push terminal pressure.
 
 AutoModePhase is the typed enum for each phase.  AutoModeState captures
 the resolved snapshot including which agents are alive, the last guard
@@ -13,11 +15,19 @@ the system is doing and what should happen next.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
+from enum import StrEnum
 from typing import Any
 
-from .enum_compat import StrEnum
-from .value_coercion import coerce_bool, coerce_int, coerce_string
+from .project_governance_contract import (
+    DELIVERY_MODE_GIT_PUSH_REQUIRED,
+    DELIVERY_MODE_LIBRARY_IMPORT_ONLY,
+    DELIVERY_MODE_LOCAL_EDIT_ONLY,
+    delivery_mode_requires_push,
+    normalize_delivery_mode,
+)
+from .value_coercion import coerce_bool, coerce_int, coerce_mapping, coerce_string
 
 
 class AutoModePhase(StrEnum):
@@ -48,6 +58,7 @@ class AutoModeState:
     last_guard_ok: bool = True
     pending_action_requests: int = 0
     next_transition: str = ""
+    delivery_mode: str = DELIVERY_MODE_GIT_PUSH_REQUIRED
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -69,6 +80,7 @@ class AutoModeInputs:
     last_reviewed_sha: str = ""
     pending_action_requests: int = 0
     operator_interaction_mode: str = "local_terminal"
+    delivery_mode: str = DELIVERY_MODE_GIT_PUSH_REQUIRED
     timestamp_utc: str = ""
 
 
@@ -84,6 +96,9 @@ _TRANSITION_RUN_GUARDS = "run guard bundle to validate current edits"
 _TRANSITION_CONTINUE_IMPLEMENTING = "continue editing toward the current slice"
 _TRANSITION_IDLE = "no active work; start a new slice or await instructions"
 _TRANSITION_HEAD_DRIFT = "HEAD moved past last reviewed commit; review the new commits"
+_TRANSITION_LOCAL_DELIVERY_IDLE = (
+    "delivery mode does not require governed push; start the next local or library task"
+)
 
 
 def resolve_auto_mode_phase(inputs: AutoModeInputs) -> AutoModeState:
@@ -123,7 +138,25 @@ def resolve_auto_mode_phase(inputs: AutoModeInputs) -> AutoModeState:
         last_guard_ok=inputs.last_guard_ok,
         pending_action_requests=inputs.pending_action_requests,
         next_transition=next_transition,
+        delivery_mode=normalize_delivery_mode(inputs.delivery_mode),
     )
+
+
+def _resolve_by_non_push_delivery_mode(inputs: AutoModeInputs) -> tuple[str, str] | None:
+    delivery_mode = normalize_delivery_mode(inputs.delivery_mode)
+    if delivery_mode_requires_push(delivery_mode):
+        return None
+    if not inputs.last_guard_ok:
+        return AutoModePhase.TESTING.value, _TRANSITION_RUN_GUARDS
+    if inputs.implementation_blocked:
+        return AutoModePhase.REVIEWING.value, _TRANSITION_AWAIT_REVIEW
+    if not inputs.worktree_clean:
+        return AutoModePhase.IMPLEMENTING.value, _TRANSITION_CONTINUE_IMPLEMENTING
+    if delivery_mode == DELIVERY_MODE_LIBRARY_IMPORT_ONLY:
+        return AutoModePhase.IDLE.value, _TRANSITION_LOCAL_DELIVERY_IDLE
+    if delivery_mode == DELIVERY_MODE_LOCAL_EDIT_ONLY:
+        return AutoModePhase.IDLE.value, _TRANSITION_LOCAL_DELIVERY_IDLE
+    return AutoModePhase.IDLE.value, _TRANSITION_LOCAL_DELIVERY_IDLE
 
 
 def _resolve_by_push_decision(
@@ -171,6 +204,9 @@ def _resolve_phase_and_transition(
     implementer_alive: bool,
 ) -> tuple[str, str]:
     """Return (phase, next_transition) based on governance signal priority."""
+    via_delivery_mode = _resolve_by_non_push_delivery_mode(inputs)
+    if via_delivery_mode is not None:
+        return via_delivery_mode
     via_push_decision = _resolve_by_push_decision(
         inputs,
         reviewer_alive=reviewer_alive,
@@ -190,21 +226,23 @@ def _head_has_drifted(inputs: AutoModeInputs) -> bool:
 
 def auto_mode_state_from_mapping(value: object) -> AutoModeState:
     """Deserialize an AutoModeState from a mapping, defaulting missing fields."""
-    if not isinstance(value, dict):
+    mapping: Mapping[str, object] = coerce_mapping(value)
+    if not mapping:
         return AutoModeState()
     return AutoModeState(
-        phase=coerce_string(value.get("phase")) or AutoModePhase.IDLE.value,
-        phase_started_utc=coerce_string(value.get("phase_started_utc")),
+        phase=coerce_string(mapping.get("phase")) or AutoModePhase.IDLE.value,
+        phase_started_utc=coerce_string(mapping.get("phase_started_utc")),
         operator_interaction_mode=(
-            coerce_string(value.get("operator_interaction_mode"))
+            coerce_string(mapping.get("operator_interaction_mode"))
             or "local_terminal"
         ),
-        reviewer_alive=coerce_bool(value.get("reviewer_alive", False)),
-        implementer_alive=coerce_bool(value.get("implementer_alive", False)),
-        last_commit_sha=coerce_string(value.get("last_commit_sha")),
-        last_guard_ok=coerce_bool(value.get("last_guard_ok", True)),
+        reviewer_alive=coerce_bool(mapping.get("reviewer_alive", False)),
+        implementer_alive=coerce_bool(mapping.get("implementer_alive", False)),
+        last_commit_sha=coerce_string(mapping.get("last_commit_sha")),
+        last_guard_ok=coerce_bool(mapping.get("last_guard_ok", True)),
         pending_action_requests=coerce_int(
-            value.get("pending_action_requests", 0)
+            mapping.get("pending_action_requests", 0)
         ),
-        next_transition=coerce_string(value.get("next_transition")),
+        next_transition=coerce_string(mapping.get("next_transition")),
+        delivery_mode=normalize_delivery_mode(mapping.get("delivery_mode")),
     )

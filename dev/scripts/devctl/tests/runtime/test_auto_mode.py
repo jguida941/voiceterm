@@ -14,6 +14,10 @@ from dev.scripts.devctl.runtime.auto_mode import (
     auto_mode_state_from_mapping,
     resolve_auto_mode_phase,
 )
+from dev.scripts.devctl.runtime.project_governance import (
+    DELIVERY_MODE_LIBRARY_IMPORT_ONLY,
+    DELIVERY_MODE_LOCAL_EDIT_ONLY,
+)
 
 
 class AutoModePhaseEnumTests(unittest.TestCase):
@@ -46,6 +50,7 @@ class AutoModeStateTests(unittest.TestCase):
         self.assertTrue(state.last_guard_ok)
         self.assertEqual(state.pending_action_requests, 0)
         self.assertEqual(state.next_transition, "")
+        self.assertEqual(state.delivery_mode, "git_push_required")
 
     def test_to_dict_roundtrip(self) -> None:
         state = AutoModeState(
@@ -85,6 +90,7 @@ class AutoModeFromMappingTests(unittest.TestCase):
             "last_guard_ok": False,
             "pending_action_requests": 3,
             "next_transition": "run governed push",
+            "delivery_mode": "local_edit_only",
         })
         self.assertEqual(state.phase, "pushing")
         self.assertTrue(state.reviewer_alive)
@@ -93,6 +99,7 @@ class AutoModeFromMappingTests(unittest.TestCase):
         self.assertFalse(state.last_guard_ok)
         self.assertEqual(state.pending_action_requests, 3)
         self.assertEqual(state.next_transition, "run governed push")
+        self.assertEqual(state.delivery_mode, "local_edit_only")
 
 
 class ResolveAutoModePhaseTests(unittest.TestCase):
@@ -251,6 +258,40 @@ class ResolveAutoModePhaseTests(unittest.TestCase):
         ))
         self.assertEqual(state.phase, "pushing")
 
+    def test_local_edit_delivery_skips_push_phase_when_clean(self) -> None:
+        state = resolve_auto_mode_phase(self._inputs(
+            push_decision_action="run_devctl_push",
+            reviewer_mode="active_dual_agent",
+            delivery_mode=DELIVERY_MODE_LOCAL_EDIT_ONLY,
+        ))
+        self.assertEqual(state.phase, "idle")
+        self.assertIn("delivery mode", state.next_transition)
+
+    def test_library_delivery_skips_checkpoint_phase_when_clean(self) -> None:
+        state = resolve_auto_mode_phase(self._inputs(
+            push_decision_action="await_checkpoint",
+            worktree_clean=True,
+            delivery_mode=DELIVERY_MODE_LIBRARY_IMPORT_ONLY,
+        ))
+        self.assertEqual(state.phase, "idle")
+        self.assertIn("delivery mode", state.next_transition)
+
+    def test_non_push_delivery_still_runs_guards_before_idle(self) -> None:
+        state = resolve_auto_mode_phase(self._inputs(
+            last_guard_ok=False,
+            push_decision_action="run_devctl_push",
+            delivery_mode=DELIVERY_MODE_LOCAL_EDIT_ONLY,
+        ))
+        self.assertEqual(state.phase, "testing")
+
+    def test_non_push_delivery_keeps_dirty_work_in_implementing(self) -> None:
+        state = resolve_auto_mode_phase(self._inputs(
+            worktree_clean=False,
+            push_decision_action="await_checkpoint",
+            delivery_mode=DELIVERY_MODE_LIBRARY_IMPORT_ONLY,
+        ))
+        self.assertEqual(state.phase, "implementing")
+
     def test_head_drift_forces_reviewing(self) -> None:
         """When HEAD has moved past last_reviewed_sha, phase is reviewing."""
         state = resolve_auto_mode_phase(self._inputs(
@@ -337,7 +378,7 @@ class LaunchInteractionModeTests(unittest.TestCase):
         )
 
     @unittest.mock.patch(
-        "dev.scripts.devctl.commands.review_channel.bridge_action_support"
+        "dev.scripts.devctl.commands.review_channel.bridge_interaction_mode"
         ".scan_repo_governance_safely",
     )
     def test_remote_control_governance_forces_headless_interaction(self, mock_gov) -> None:
@@ -348,14 +389,27 @@ class LaunchInteractionModeTests(unittest.TestCase):
         from pathlib import Path
 
         mock_gov.return_value = self._make_governance("remote_control")
-        mode = resolve_launch_interaction_mode(
-            repo_root=Path("/tmp/fake"),
-            args_fallback="local_terminal",
-        )
+        with unittest.mock.patch(
+            "dev.scripts.devctl.runtime.review_state_locator"
+            ".load_current_review_state_payload",
+            return_value={
+                "reviewer_runtime": {
+                    "remote_control_attachment": {
+                        "status": "attached",
+                        "session_url": "https://claude.ai/code/session_test",
+                        "heartbeat_ttl_seconds": -1,
+                    },
+                },
+            },
+        ):
+            mode = resolve_launch_interaction_mode(
+                repo_root=Path("/tmp/fake"),
+                args_fallback="local_terminal",
+            )
         self.assertEqual(mode, "remote_control")
 
     @unittest.mock.patch(
-        "dev.scripts.devctl.commands.review_channel.bridge_action_support"
+        "dev.scripts.devctl.commands.review_channel.bridge_interaction_mode"
         ".scan_repo_governance_safely",
     )
     def test_empty_governance_falls_back_to_args(self, mock_gov) -> None:
@@ -366,14 +420,19 @@ class LaunchInteractionModeTests(unittest.TestCase):
         from pathlib import Path
 
         mock_gov.return_value = self._make_governance("")
-        mode = resolve_launch_interaction_mode(
-            repo_root=Path("/tmp/fake"),
-            args_fallback="dual_agent",
-        )
+        with unittest.mock.patch(
+            "dev.scripts.devctl.runtime.review_state_locator"
+            ".load_current_review_state_payload",
+            return_value=None,
+        ):
+            mode = resolve_launch_interaction_mode(
+                repo_root=Path("/tmp/fake"),
+                args_fallback="dual_agent",
+            )
         self.assertEqual(mode, "dual_agent")
 
     @unittest.mock.patch(
-        "dev.scripts.devctl.commands.review_channel.bridge_action_support"
+        "dev.scripts.devctl.commands.review_channel.bridge_interaction_mode"
         ".scan_repo_governance_safely",
     )
     def test_no_governance_falls_back_to_args(self, mock_gov) -> None:
@@ -384,10 +443,15 @@ class LaunchInteractionModeTests(unittest.TestCase):
         from pathlib import Path
 
         mock_gov.return_value = None
-        mode = resolve_launch_interaction_mode(
-            repo_root=Path("/tmp/fake"),
-            args_fallback="single_agent",
-        )
+        with unittest.mock.patch(
+            "dev.scripts.devctl.runtime.review_state_locator"
+            ".load_current_review_state_payload",
+            return_value=None,
+        ):
+            mode = resolve_launch_interaction_mode(
+                repo_root=Path("/tmp/fake"),
+                args_fallback="single_agent",
+            )
         self.assertEqual(mode, "single_agent")
 
 
@@ -395,9 +459,9 @@ class StatusProjectionPacketCountTests(unittest.TestCase):
     """Verify status projection carries real pending packet counts."""
 
     def test_queue_counts_from_pending_packets(self) -> None:
-        """_build_queue_state derives counts from pending packet tuples."""
-        from dev.scripts.devctl.review_channel.status_projection import (
-            _build_queue_state,
+        """build_queue_state derives counts from pending packet tuples."""
+        from dev.scripts.devctl.review_channel.status_projection_support import (
+            build_queue_state,
         )
 
         packets = (
@@ -406,7 +470,7 @@ class StatusProjectionPacketCountTests(unittest.TestCase):
             {"status": "pending", "to_agent": "claude", "packet_id": "p3"},
             {"status": "acked", "to_agent": "codex", "packet_id": "p4"},
         )
-        queue = _build_queue_state(None, pending_packets=packets)
+        queue = build_queue_state(None, pending_packets=packets)
         self.assertEqual(queue.pending_total, 3)
         self.assertEqual(queue.pending_codex, 2)
         self.assertEqual(queue.pending_claude, 1)
@@ -415,17 +479,17 @@ class StatusProjectionPacketCountTests(unittest.TestCase):
 
     def test_queue_counts_empty_packets(self) -> None:
         """Empty packet tuple yields zero counts (backward compat)."""
-        from dev.scripts.devctl.review_channel.status_projection import (
-            _build_queue_state,
+        from dev.scripts.devctl.review_channel.status_projection_support import (
+            build_queue_state,
         )
 
-        queue = _build_queue_state(None, pending_packets=())
+        queue = build_queue_state(None, pending_packets=())
         self.assertEqual(queue.pending_total, 0)
         self.assertEqual(queue.pending_codex, 0)
 
     def test_count_pending_by_target(self) -> None:
         """_count_pending_by_target groups only pending packets by to_agent."""
-        from dev.scripts.devctl.review_channel.status_projection import (
+        from dev.scripts.devctl.review_channel.status_projection_support import (
             _count_pending_by_target,
         )
 
@@ -611,9 +675,21 @@ class AutoModeFromControlPlaneReadModelTests(unittest.TestCase):
             sources={
                 "review_state": {
                     "packets": [
-                        {"status": "pending", "packet_id": "p1"},
-                        {"status": "pending", "packet_id": "p2"},
-                        {"status": "acked", "packet_id": "p3"},
+                        {
+                            "kind": "action_request",
+                            "status": "pending",
+                            "packet_id": "p1",
+                        },
+                        {
+                            "kind": "action_request",
+                            "status": "pending",
+                            "packet_id": "p2",
+                        },
+                        {
+                            "kind": "action_request",
+                            "status": "acked",
+                            "packet_id": "p3",
+                        },
                     ],
                 },
             },

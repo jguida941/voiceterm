@@ -239,6 +239,7 @@ def _scan_bridge_config(
     # interaction_mode (same shape the serialized payload uses) and
     # resolve empty/unknown values to 'unresolved'.
     from ..runtime.operator_context import resolve_operator_interaction_mode
+    from ..runtime.project_governance_contract import normalize_delivery_mode
 
     bridge_policy = repo_governance_payload(policy).get("bridge_config")
     if not isinstance(bridge_policy, dict):
@@ -253,6 +254,7 @@ def _scan_bridge_config(
         review_channel_path=review_channel_path,
         bridge_active=bridge_exists,
         operator_interaction_mode=interaction_mode,
+        delivery_mode=normalize_delivery_mode(bridge_policy.get("delivery_mode")),
     )
 
 

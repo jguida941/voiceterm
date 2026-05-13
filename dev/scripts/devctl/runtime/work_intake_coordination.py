@@ -300,7 +300,9 @@ def _authority_mode(
         return "operator_approval_required"
 
     push = governance.push_enforcement
-    if push.checkpoint_required or not push.safe_to_continue_editing:
+    if push is not None and (
+        push.checkpoint_required or not push.safe_to_continue_editing
+    ):
         return "push_locked"
     if review_state is not None and review_state.queue.pending_total > 0:
         return "packet_gated"
@@ -327,9 +329,13 @@ def _sync_cadence_mode(
     collaboration_topology: str,
 ) -> str:
     push = governance.push_enforcement
-    if push.worktree_clean and push.ahead_of_upstream_commits not in (0, None):
+    if (
+        push is not None
+        and push.worktree_clean
+        and push.ahead_of_upstream_commits not in (0, None)
+    ):
         return "before_publish"
-    if push.checkpoint_required:
+    if push is not None and push.checkpoint_required:
         return "checkpointed"
     if work_ownership_mode in {
         "concurrent_writer_conflict",

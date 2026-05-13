@@ -11,6 +11,28 @@ from .session_resume import SessionResumeEntry, SessionResumeState
 PROJECT_GOVERNANCE_CONTRACT_ID = "ProjectGovernance"
 PROJECT_GOVERNANCE_SCHEMA_VERSION = 1
 
+DELIVERY_MODE_GIT_PUSH_REQUIRED = "git_push_required"
+DELIVERY_MODE_LOCAL_EDIT_ONLY = "local_edit_only"
+DELIVERY_MODE_LIBRARY_IMPORT_ONLY = "library_import_only"
+SUPPORTED_DELIVERY_MODES: frozenset[str] = frozenset({
+    DELIVERY_MODE_GIT_PUSH_REQUIRED,
+    DELIVERY_MODE_LOCAL_EDIT_ONLY,
+    DELIVERY_MODE_LIBRARY_IMPORT_ONLY,
+})
+
+
+def normalize_delivery_mode(raw: object) -> str:
+    """Normalize repo delivery mode while preserving current push behavior."""
+    value = str(raw or "").strip().lower()
+    if value in SUPPORTED_DELIVERY_MODES:
+        return value
+    return DELIVERY_MODE_GIT_PUSH_REQUIRED
+
+
+def delivery_mode_requires_push(delivery_mode: object) -> bool:
+    """Return whether the delivery mode requires governed git publication."""
+    return normalize_delivery_mode(delivery_mode) == DELIVERY_MODE_GIT_PUSH_REQUIRED
+
 
 @dataclass(frozen=True, slots=True)
 class RepoIdentity:
@@ -215,6 +237,7 @@ class BridgeConfig:
     review_channel_path: str = ""
     bridge_active: bool = False
     operator_interaction_mode: str = "local_terminal"
+    delivery_mode: str = DELIVERY_MODE_GIT_PUSH_REQUIRED
 
 
 @dataclass(frozen=True, slots=True)
@@ -249,7 +272,7 @@ class ProjectGovernance:
     bundle_overrides: BundleOverrides
     doc_policy: DocPolicy = field(default_factory=DocPolicy)
     doc_registry: DocRegistry = field(default_factory=DocRegistry)
-    push_enforcement: PushEnforcement = field(default_factory=PushEnforcement)
+    push_enforcement: PushEnforcement | None = field(default_factory=PushEnforcement)
     startup_order: tuple[str, ...] = ()
     docs_authority: str = ""
     workflow_profiles: tuple[str, ...] = ()
@@ -257,6 +280,44 @@ class ProjectGovernance:
     product_thesis: str = ""
     master_plan: MasterPlan = field(default_factory=MasterPlan)
     ingestion_policy: IngestionPolicy = field(default_factory=IngestionPolicy)
+
+    @classmethod
+    def from_inline(
+        cls,
+        *,
+        repo_name: str = "inline-governance",
+        repo_pack_id: str = "portable",
+        bridge_config: BridgeConfig | None = None,
+        push_enforcement: PushEnforcement | None = None,
+        delivery_mode: str = DELIVERY_MODE_LIBRARY_IMPORT_ONLY,
+    ) -> "ProjectGovernance":
+        """Build in-memory governance for library or embedded callers.
+
+        This is intentionally a thin constructor over the existing
+        ``ProjectGovernance`` contract. It gives non-repo deployments a typed
+        entrypoint without adding a parallel startup-authority surface.
+        """
+        bridge = bridge_config or BridgeConfig(
+            delivery_mode=normalize_delivery_mode(delivery_mode),
+        )
+        return cls(
+            schema_version=PROJECT_GOVERNANCE_SCHEMA_VERSION,
+            contract_id=PROJECT_GOVERNANCE_CONTRACT_ID,
+            repo_identity=RepoIdentity(repo_name=repo_name),
+            repo_pack=RepoPackRef(pack_id=repo_pack_id),
+            path_roots=PathRoots(),
+            plan_registry=PlanRegistry(),
+            artifact_roots=ArtifactRoots(),
+            memory_roots=MemoryRoots(),
+            bridge_config=bridge,
+            enabled_checks=EnabledChecks(),
+            bundle_overrides=BundleOverrides(overrides={}),
+            push_enforcement=(
+                push_enforcement or PushEnforcement()
+                if delivery_mode_requires_push(bridge.delivery_mode)
+                else push_enforcement
+            ),
+        )
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
@@ -283,6 +344,10 @@ class ProjectGovernance:
 __all__ = [
     "PROJECT_GOVERNANCE_CONTRACT_ID",
     "PROJECT_GOVERNANCE_SCHEMA_VERSION",
+    "DELIVERY_MODE_GIT_PUSH_REQUIRED",
+    "DELIVERY_MODE_LIBRARY_IMPORT_ONLY",
+    "DELIVERY_MODE_LOCAL_EDIT_ONLY",
+    "SUPPORTED_DELIVERY_MODES",
     "ArtifactRoots",
     "BridgeConfig",
     "BundleOverrides",
@@ -303,4 +368,6 @@ __all__ = [
     "RepoPackRef",
     "SessionResumeEntry",
     "SessionResumeState",
+    "delivery_mode_requires_push",
+    "normalize_delivery_mode",
 ]

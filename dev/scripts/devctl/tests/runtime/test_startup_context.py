@@ -41,6 +41,7 @@ from dev.scripts.devctl.runtime.conductor_capability import (
     session_resume_command_for_role,
 )
 from dev.scripts.devctl.runtime.project_governance import (
+    DELIVERY_MODE_LIBRARY_IMPORT_ONLY,
     PROJECT_GOVERNANCE_CONTRACT_ID,
     PROJECT_GOVERNANCE_SCHEMA_VERSION,
     ArtifactRoots,
@@ -133,6 +134,27 @@ class TestStartupContextBuild(unittest.TestCase):
     def test_builds_without_error(self) -> None:
         ctx = _live_startup_context()
         self.assertIsNotNone(ctx)
+
+    def test_inline_library_governance_skips_push_decision_derivation(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            governance = ProjectGovernance.from_inline(repo_name="embedded")
+            ctx = build_startup_context(
+                repo_root=Path(tmpdir),
+                governance=governance,
+                review_state=None,
+            )
+
+        self.assertEqual(
+            ctx.governance.bridge_config.delivery_mode,
+            DELIVERY_MODE_LIBRARY_IMPORT_ONLY,
+        )
+        self.assertIsNone(ctx.governance.push_enforcement)
+        self.assertEqual(ctx.push_decision.action, "no_push_needed")
+        self.assertEqual(
+            ctx.push_decision.reason,
+            f"delivery_mode:{DELIVERY_MODE_LIBRARY_IMPORT_ONLY}",
+        )
+        self.assertFalse(blocks_new_implementation(ctx))
         self.assertEqual(ctx.contract_id, "StartupContext")
 
     def test_builds_authority_snapshot(self) -> None:

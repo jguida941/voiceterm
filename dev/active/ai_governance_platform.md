@@ -1047,6 +1047,11 @@ The stack:
 One-sentence product framing:
 "You built a deterministic CI/CD control system, then realized AI could become the worker inside that system instead of the thing replacing the system."
 
+This cage is flexible: the same contracts, guards, and receipts work in CI/CD
+pipelines, local development, IDE integrations, library usage, long-running
+daemons, and portable repos. VoiceTerm is the reference client; the platform is
+adopter-agnostic.
+
 Why this matters for every architectural decision:
 - AI is NOT the product. The governed loop is the product.
 - AI is NOT the authority. The deterministic gates + typed contracts are authority.
@@ -1502,6 +1507,25 @@ Apply these rules while executing `MP-377`:
    policy surfaces can be invoked by AI agents, human developers, CLI flows,
    PyQt6, overlay/TUI, phone/mobile clients, and later skills/hooks without
    each surface inventing a second backend or a different check stack.
+
+## Operating Modes
+
+The platform composes with these execution contexts. They are not mutually
+exclusive, and they must use the same typed contracts, deterministic guards,
+governance receipts, and AI worker boundaries.
+
+1. **Local development**: developer or AI agent edits locally while guard
+   bundles and packet-state receipts decide when the slice is checkpointed.
+2. **CI/CD integration**: workflow/webhook adapters run check-router,
+   docs-check, publication gates, and managed receipt refreshes.
+3. **Pair/team collaboration**: multi-agent packets, role assignments, review
+   acceptance, and packet lifecycle state coordinate human and AI workers.
+4. **Portable library**: in-memory or embedded `ProjectGovernance` config can
+   select library/import delivery without requiring git publication.
+5. **IDE/plugin integration**: MCP/editor adapters project runtime state and
+   invoke typed actions without re-implementing orchestration.
+6. **Standalone appliance**: a containerized or daemonized governance engine can
+   expose UI clients over the same runtime contracts.
 
 ## Platform Layers
 

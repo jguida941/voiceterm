@@ -16,6 +16,8 @@ from .project_governance_contract import (
     ProjectGovernance,
     RepoIdentity,
     RepoPackRef,
+    delivery_mode_requires_push,
+    normalize_delivery_mode,
 )
 from .master_plan_parse import (
     ingestion_policy_from_mapping,
@@ -116,6 +118,7 @@ def bridge_config_from_mapping(
         review_channel_path=coerce_string(payload.get("review_channel_path")),
         bridge_active=coerce_bool(payload.get("bridge_active")),
         operator_interaction_mode=interaction_mode,
+        delivery_mode=normalize_delivery_mode(payload.get("delivery_mode")),
     )
 
 
@@ -159,6 +162,16 @@ def project_governance_from_mapping(
         coerce_string(payload.get("contract_id"))
         or PROJECT_GOVERNANCE_CONTRACT_ID
     )
+    bridge_config = bridge_config_from_mapping(
+        coerce_mapping(payload.get("bridge_config"))
+    )
+    raw_push_enforcement = payload.get("push_enforcement")
+    push_enforcement = (
+        push_enforcement_from_mapping(coerce_mapping(raw_push_enforcement))
+        if raw_push_enforcement is not None
+        or delivery_mode_requires_push(bridge_config.delivery_mode)
+        else None
+    )
     return ProjectGovernance(
         schema_version=version,
         contract_id=contract,
@@ -180,9 +193,7 @@ def project_governance_from_mapping(
         memory_roots=memory_roots_from_mapping(
             coerce_mapping(payload.get("memory_roots"))
         ),
-        bridge_config=bridge_config_from_mapping(
-            coerce_mapping(payload.get("bridge_config"))
-        ),
+        bridge_config=bridge_config,
         enabled_checks=enabled_checks_from_mapping(
             coerce_mapping(payload.get("enabled_checks"))
         ),
@@ -195,9 +206,7 @@ def project_governance_from_mapping(
         doc_registry=doc_registry_from_mapping(
             coerce_mapping(payload.get("doc_registry"))
         ),
-        push_enforcement=push_enforcement_from_mapping(
-            coerce_mapping(payload.get("push_enforcement"))
-        ),
+        push_enforcement=push_enforcement,
         startup_order=coerce_string_items(payload.get("startup_order")),
         docs_authority=coerce_string(payload.get("docs_authority")),
         workflow_profiles=coerce_string_items(
