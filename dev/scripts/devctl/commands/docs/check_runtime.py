@@ -27,6 +27,7 @@ class DocsEvaluationInput:
     policy_path: str | None
     user_docs: list[str]
     tooling_required_docs: list[str]
+    tooling_required_doc_aliases: dict[str, tuple[str, ...]]
     evolution_doc: str
     empty_commit_range: bool
     deprecated_violations: list[dict]
@@ -138,10 +139,18 @@ def evaluate_docs_state(context: DocsEvaluationInput) -> DocsEvaluation:
         policy_path=context.policy_path,
     )
     updated_tooling_docs = [
-        doc for doc in context.tooling_required_docs if doc in context.changed
+        doc
+        for doc in context.tooling_required_docs
+        if _required_doc_satisfied(
+            doc, context.changed, context.tooling_required_doc_aliases
+        )
     ]
     missing_tooling_docs = [
-        doc for doc in context.tooling_required_docs if doc not in context.changed
+        doc
+        for doc in context.tooling_required_docs
+        if not _required_doc_satisfied(
+            doc, context.changed, context.tooling_required_doc_aliases
+        )
     ]
     updated_triggered_tooling_docs = [
         doc for doc in triggered_tooling_required_docs if doc in context.changed
@@ -189,6 +198,17 @@ def evaluate_docs_state(context: DocsEvaluationInput) -> DocsEvaluation:
         user_facing_enabled=user_facing_enabled,
         user_facing_ok=user_facing_ok,
     )
+
+
+def _required_doc_satisfied(
+    doc: str,
+    changed: set[str],
+    aliases: dict[str, tuple[str, ...]],
+) -> bool:
+    """Return true when a required doc or explicit durable alias changed."""
+    if doc in changed:
+        return True
+    return any(alias in changed for alias in aliases.get(doc, ()))
 
 
 def collect_strict_tooling_gates(
@@ -243,4 +263,3 @@ def collect_strict_tooling_gates(
         gate_state,
         validation_scope=validation_scope,
     )
-

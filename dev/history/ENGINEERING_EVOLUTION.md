@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-05-08
+**Last Updated:** 2026-05-13
 
 ## At a Glance
 
@@ -36,6 +36,39 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-05-13 - Remote-control dogfood hardens push and review-channel ergonomics
+
+Live MP-377 remote-control dogfood exposed four small friction points that
+were making the typed loop slower and harder to read: repeated check-router
+policy loads, governed-push preflight not forwarding worker parallelism,
+`review-channel post` lacking the operator-used `--packet-kind` alias, and
+markdown errors landing too far down typed reports.
+
+Change: check-router config resolution is cached, push policy carries
+`parallel_workers` into routed preflight, `review-channel post --packet-kind`
+aliases `--kind`, and event-backed markdown reports emit top-level error lines
+before detailed sections. The same push retry exposed a docs-governance loop:
+strict tooling docs treated generated `AGENTS.md` as a hand-edit-required
+maintainer doc. `docs-check` now consumes `tooling_required_doc_aliases`, and
+VoiceTerm maps `AGENTS.md` to `dev/active/MASTER_PLAN.md` so generated boot
+cards remain projection-only while durable owner docs still move with tooling
+changes.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/check/router_resolve.py`
+- `dev/scripts/devctl/governance/push_policy.py`
+- `dev/scripts/devctl/governance/push_policy_parse.py`
+- `dev/scripts/devctl/governance/push_routing.py`
+- `dev/scripts/devctl/review_channel/parser_argument_groups.py`
+- `dev/scripts/devctl/commands/review_channel/bridge_render.py`
+- `dev/scripts/devctl/review_channel/event_render.py`
+- `dev/scripts/devctl/commands/docs/check_runtime.py`
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/devctl/tests/commands/docs/test_check.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
 
 ### 2026-05-12 - Trusted launch bypass is bound to a typed lifecycle
 

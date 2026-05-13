@@ -2043,6 +2043,11 @@ Machine-first output note:
     `repo_governance.docs_check` in the active repo policy; use
     `--quality-policy <path>` to point the same command at another repo's
     governance contract.
+  - `tooling_required_doc_aliases` lets a generated required surface be
+    satisfied by an explicit durable owner doc. VoiceTerm uses this for
+    `AGENTS.md` -> `dev/active/MASTER_PLAN.md`, preventing docs-check from
+    forcing manual edits to generated boot cards while still requiring owner
+    documentation for tooling/process changes.
   - If you add or promote a shared guard, treat `quality-policy --format md`,
     `check_guard_enforcement_inventory.py`, and
     `check_bundle_workflow_parity.py` as one closure set before push so AI
@@ -2067,6 +2072,9 @@ Machine-first output note:
   projection receipt commits also no-op when `HEAD` is already a managed
   ReviewSnapshot/generated-surface receipt, so generated-surface cleanup cannot
   create a receipt-on-receipt chain.
+  Push preflight also passes policy-owned `parallel_workers` into
+  `check-router`, so parallel-safe guard rows can run in bounded worker batches
+  whenever router execution is in an audit/keep-going phase.
 - `path-audit`: stale-reference scan for legacy check-script paths (skips `dev/archive/`)
 - `path-rewrite`: auto-rewrite legacy check-script paths to canonical registry targets (use `--dry-run` first)
 - `sync`: guarded branch-sync workflow (clean-tree preflight, remote/local ref checks, `--ff-only` pull, optional `--push` for ahead branches, and start-branch restore)

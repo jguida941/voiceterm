@@ -150,6 +150,7 @@ def run(args) -> int:
             policy_path=policy_path,
             user_docs=user_docs,
             tooling_required_docs=tooling_required_docs,
+            tooling_required_doc_aliases=docs_policy.tooling_required_doc_aliases,
             evolution_doc=evolution_doc,
             empty_commit_range=empty_commit_range,
             deprecated_violations=deprecated_violations,

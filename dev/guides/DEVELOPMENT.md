@@ -2642,6 +2642,10 @@ Docs governance guardrails:
   change: update `AGENTS.md`, this guide, `dev/active/MASTER_PLAN.md`, and
   `dev/history/ENGINEERING_EVOLUTION.md` in the same slice unless the diff is
   explicitly documented as an exemption.
+  `AGENTS.md` remains a generated projection-only boot card; this repo's
+  docs-check policy satisfies that required surface through the durable
+  `dev/active/MASTER_PLAN.md` alias so agents update the owner doc and rerender
+  surfaces instead of hand-editing generated prose.
 - Review-channel `current_session` is fail-closed on explicit packet truth:
   blank queue state alone preserves the prior typed instruction/ACK posture,
   while explicit packet authority with no live current-instruction packet may

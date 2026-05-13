@@ -14198,6 +14198,16 @@ Execution order for this section:
   from typed runtime/evidence artifacts and not only by hand-editing prose.
   The command now owns the bounded machine snapshot plus the tracked
   writeback projection into `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md`.
+- 2026-05-13: Live remote-control dogfood closed the first P99/P100 friction
+  fixes inline: check-router config resolution is cached, governed push passes
+  policy-owned `parallel_workers` into preflight routing, `review-channel post`
+  accepts `--packet-kind` as an alias for `--kind`, and markdown error output
+  now appears near the top of typed reports. The same governed-push retry
+  exposed that strict tooling docs policy treated generated `AGENTS.md` as a
+  hand-edit-required maintainer doc, so docs-check now consumes
+  `tooling_required_doc_aliases`; VoiceTerm maps `AGENTS.md` to
+  `dev/active/MASTER_PLAN.md`, keeping generated boot cards projection-only
+  while still forcing durable owner-doc movement.
 
 ## Audit Evidence
 

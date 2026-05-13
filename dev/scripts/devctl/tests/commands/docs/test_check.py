@@ -13,9 +13,11 @@ from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.docs import check as docs_check
 from dev.scripts.devctl.commands import docs_check_policy
 from dev.scripts.devctl.commands.docs.check_runtime import (
+    DocsEvaluationInput,
     StrictToolingGateFns,
     StrictToolingGateState,
     collect_strict_tooling_gates,
+    evaluate_docs_state,
 )
 from dev.scripts.devctl.governance.governed_doc_routing import GovernedDocRouting
 from dev.scripts.devctl.quality_scan_mode import ADOPTION_BASE_REF, WORKTREE_HEAD_REF
@@ -304,6 +306,40 @@ class DocsCheckCommandTests(unittest.TestCase):
 
 
 class DocsCheckPolicyRuntimeTests(unittest.TestCase):
+    def test_strict_tooling_required_doc_alias_satisfies_generated_surface(self) -> None:
+        evaluation = evaluate_docs_state(
+            DocsEvaluationInput(
+                changed={
+                    "Makefile",
+                    "dev/guides/DEVELOPMENT.md",
+                    "dev/scripts/README.md",
+                    "dev/active/MASTER_PLAN.md",
+                    "dev/history/ENGINEERING_EVOLUTION.md",
+                },
+                user_facing=False,
+                strict=False,
+                strict_tooling=True,
+                policy_path=None,
+                user_docs=[],
+                tooling_required_docs=[
+                    "AGENTS.md",
+                    "dev/guides/DEVELOPMENT.md",
+                    "dev/scripts/README.md",
+                    "dev/active/MASTER_PLAN.md",
+                ],
+                tooling_required_doc_aliases={
+                    "AGENTS.md": ("dev/active/MASTER_PLAN.md",)
+                },
+                evolution_doc="dev/history/ENGINEERING_EVOLUTION.md",
+                empty_commit_range=False,
+                deprecated_violations=[],
+            )
+        )
+
+        self.assertTrue(evaluation.tooling_policy_ok)
+        self.assertEqual(evaluation.missing_tooling_docs, [])
+        self.assertIn("AGENTS.md", evaluation.updated_tooling_docs)
+
     def test_policy_defaults_follow_governed_doc_routing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = Path(tmpdir)

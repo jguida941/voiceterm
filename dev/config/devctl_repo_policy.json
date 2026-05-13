@@ -253,7 +253,11 @@
         "dev/scripts/README.md",
         "dev/active/MASTER_PLAN.md"
       ],
-      "tooling_required_doc_aliases": {},
+      "tooling_required_doc_aliases": {
+        "AGENTS.md": [
+          "dev/active/MASTER_PLAN.md"
+        ]
+      },
       "tooling_doc_requirement_rules": [
         {
           "id": "ai_governance_platform_plan",

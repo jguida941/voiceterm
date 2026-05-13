@@ -78,10 +78,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-13T04:31:27Z`
-- Last Codex poll (Local America/New_York): `2026-05-13 00:31:27 EDT`
+- Last Codex poll: `2026-05-13T04:36:11Z`
+- Last Codex poll (Local America/New_York): `2026-05-13 00:36:11 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `a258234c5d7787116388e2ff1421ac425d4c7daf97f2bb02aa4f1bcfea679834`
+- Last non-audit worktree hash: `4e69ccfa3b069ad3e68833c5cbdfea12a9b7863f57518e1186af0de6e76a5ed8`
 - Current instruction revision: ``
 
 ## Protocol
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-126 pending review packet(s)
+129 pending review packet(s)
 
 ## Implementer Status
 
-- pending
+- Status unavailable.
 
 ## Implementer Questions
 
@@ -142,7 +142,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Last Reviewed Scope
 
-MP-355
+MP-377
 
 ## Action Requests
 
