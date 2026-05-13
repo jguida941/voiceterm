@@ -3001,6 +3001,14 @@ with `Literal` discriminators and `assert_never` helpers while leaving
 `BypassLifecycle`, `TaskCompleteDecision`, and `ActionResult` as the durable
 contracts.
 
+**Nominal governance IDs:**
+
+Use `runtime/typed_ids.py` for internal helper boundaries where packet,
+receipt, and plan-row identifiers could be accidentally swapped. `PacketId`,
+`ReceiptId`, and `PlanRowId` are `NewType` wrappers with normalizers and
+evidence-ref helpers. Persisted contract fields remain strings unless a later
+typed-state slice explicitly migrates a schema.
+
 **Test with different backends:**
 
 ```bash

@@ -3124,3 +3124,10 @@ Typestate-result note:
 - Add new result cases with frozen dataclasses, `Literal` discriminators, and
   `assert_never` coverage, then extend
   `dev/scripts/devctl/tests/runtime/test_typestate_exhaustiveness.py`.
+
+Nominal ID note:
+- `dev/scripts/devctl/runtime/typed_ids.py` owns `PacketId`, `ReceiptId`, and
+  `PlanRowId` `NewType` wrappers plus normalizers and evidence-ref helpers.
+- Use these wrappers at internal helper boundaries with real identifier-swap
+  risk. Keep persisted contract fields string-compatible unless an explicit
+  schema migration slice says otherwise.

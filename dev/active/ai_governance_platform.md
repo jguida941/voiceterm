@@ -94,6 +94,11 @@ Current ingestion status:
   metadata and closure proof only; it does not introduce a parallel generic
   receipt-state universe. The same slice closed missing registry-fixture roots
   so `check_schema_fixture_handshake.py` covers every current registry row.
+- 2026-05-13 P102 typed-id foundation: `PacketId`, `ReceiptId`, and
+  `PlanRowId` are now nominal `NewType` wrappers in the existing runtime
+  helper family. They protect internal helper boundaries and command/evidence
+  construction without changing persisted JSON contract fields, which remain
+  plain strings for compatibility.
 
 2026-05-06 governed exception lifecycle correction:
 - `MP377-P0-EXC-S1` replaces the earlier raw-bypass receipt direction with a
@@ -14464,3 +14469,23 @@ Evidence:
 - `dev/scripts/devctl/runtime/task_complete_result.py`
 - `dev/scripts/devctl/commands/vcs/push_result_typestate.py`
 - `dev/scripts/devctl/tests/runtime/test_typestate_exhaustiveness.py`
+
+## 2026-05-13 — P102 nominal governance IDs (Phase 1.5)
+
+The P102 Kobzol-style ID slice now has a canonical runtime helper for nominal
+governance identifiers. `PacketId`, `ReceiptId`, and `PlanRowId` are
+`NewType` wrappers with normalizers and canonical evidence-ref helpers, and
+the first low-risk call sites route packet command rendering and validation
+receipt ref construction through those wrappers.
+
+This is intentionally not a schema migration. Existing contract dataclasses
+and persisted JSON continue to expose string fields; the wrappers sit at
+typed internal boundaries so later slices can tighten high-risk ID swaps
+without inventing a parallel receipt or packet model.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/typed_ids.py`
+- `dev/scripts/devctl/commands/development/lifecycle_commands.py`
+- `dev/scripts/devctl/runtime/commit_receipt.py`
+- `dev/scripts/devctl/tests/runtime/test_typed_ids.py`

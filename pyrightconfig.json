@@ -8,7 +8,9 @@
     "dev/scripts/devctl/runtime/governed_transitions.py",
     "dev/scripts/devctl/runtime/receipt_state_gate.py",
     "dev/scripts/devctl/runtime/task_complete_result.py",
+    "dev/scripts/devctl/runtime/typed_ids.py",
     "dev/scripts/devctl/tests/runtime/test_receipt_state_gate.py",
+    "dev/scripts/devctl/tests/runtime/test_typed_ids.py",
     "dev/scripts/devctl/tests/runtime/test_typestate_exhaustiveness.py"
   ],
   "exclude": [

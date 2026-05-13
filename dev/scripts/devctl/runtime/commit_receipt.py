@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .remote_commit_pipeline_models import RemoteCommitPipelineContract
+from .typed_ids import ReceiptId, as_receipt_id, id_text
 from .value_coercion import (
     coerce_bool,
     coerce_int,
@@ -77,7 +78,7 @@ def build_commit_receipt(
         coerce_string(push_auth.decision_packet_id) if push_auth is not None else ""
     ) or coerce_string(pipeline.decision_packet_id)
     reviewer_ack_packet_id = decision_packet_id or approval_packet_id
-    validation_receipt_id = (
+    validation_receipt_id = as_receipt_id(
         coerce_string(validation.receipt_id) if validation is not None else ""
     )
     resolved_audit_ref = (
@@ -111,7 +112,7 @@ def build_commit_receipt(
         approval_packet_id=approval_packet_id,
         decision_packet_id=decision_packet_id,
         audit_synthesis_ref=resolved_audit_ref,
-        validation_receipt_id=validation_receipt_id,
+        validation_receipt_id=id_text(validation_receipt_id),
         guard_action_id=coerce_string(pipeline.guard_action_id),
         commit_action_id=coerce_string(pipeline.commit_action_id),
         status="commit_recorded" if commit_sha else "missing_commit_sha",
@@ -206,8 +207,8 @@ def _ref(prefix: str, value: str) -> str:
     return f"{prefix}:{token}"
 
 
-def _validation_receipt_ref(receipt_id: str) -> str:
-    return _ref("validation_receipt", receipt_id)
+def _validation_receipt_ref(receipt_id: ReceiptId) -> str:
+    return _ref("validation_receipt", id_text(receipt_id))
 
 
 def _guard_action_ref(action_id: str) -> str:

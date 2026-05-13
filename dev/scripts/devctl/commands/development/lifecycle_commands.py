@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+from dev.scripts.devctl.runtime.typed_ids import PacketId, as_packet_id, id_text
 
-def packet_show_command(packet_id: str) -> str:
+
+def packet_show_command(packet_id: PacketId | str) -> str:
     """Return the exact typed packet-read command."""
-    if not packet_id:
+    typed_packet_id = as_packet_id(packet_id)
+    packet_id_text = id_text(typed_packet_id)
+    if not packet_id_text:
         return ""
     return (
         "python3 dev/scripts/devctl.py review-channel --action show "
-        f"--packet-id {packet_id} --terminal none --format md"
+        f"--packet-id {packet_id_text} --terminal none --format md"
     )
 
 

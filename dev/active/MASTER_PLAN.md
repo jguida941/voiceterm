@@ -8276,3 +8276,9 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
     project canonical `BypassLifecycle`, `ActionResult`, and
     `TaskCompleteDecision` state; they do not introduce a parallel receipt
     authority.
+  - 2026-05-13 P102 Phase 1.5 landed nominal governance ID wrappers:
+    `PacketId`, `ReceiptId`, and `PlanRowId` now live in
+    `runtime/typed_ids.py` with normalizers and evidence-ref helpers. The
+    first use stays at command/evidence helper boundaries so persisted typed
+    contracts remain string-compatible while strict checks can prevent future
+    packet/receipt/plan-row swaps.

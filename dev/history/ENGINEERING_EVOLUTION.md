@@ -15214,3 +15214,21 @@ Evidence:
 - `dev/scripts/devctl/runtime/task_complete_result.py`
 - `dev/scripts/devctl/commands/vcs/push_result_typestate.py`
 - `dev/scripts/devctl/tests/runtime/test_typestate_exhaustiveness.py`
+
+### 2026-05-13 - P102 nominal ID wrappers stay schema-compatible
+
+The P102 NewType slice now has a canonical runtime helper for governance
+identifiers. `PacketId`, `ReceiptId`, and `PlanRowId` live in
+`runtime/typed_ids.py` with normalizers and evidence-ref helpers, and the
+first adopters are low-risk command/evidence construction boundaries.
+
+This deliberately does not migrate persisted contracts. JSON-facing packet,
+receipt, and plan-row fields remain plain strings until a later typed-state
+slice has enough proof to tighten specific schemas.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/typed_ids.py`
+- `dev/scripts/devctl/commands/development/lifecycle_commands.py`
+- `dev/scripts/devctl/runtime/commit_receipt.py`
+- `dev/scripts/devctl/tests/runtime/test_typed_ids.py`
