@@ -2974,3 +2974,317 @@ Same pattern likely affects `develop campaign`, `agent-mind`, `system-map` proje
 **Empirical motivation**: charter validation #35 mid-push stop_anchor test (rev_pkt_3923 posted 03:37:15Z, codex agent_message at 03:41:21Z showed no peer-poll behavior — pure inward subprocess monitoring). This Priority 101 finding is the WHY underneath the #35 gap.
 
 **Status**: Working-memory candidate. Strongly composable with Priority 99 + Priority 100 — all three are "active-work boundary coverage" findings.
+
+---
+
+### Priority 102 candidate — Typestate-Governed Attestation Pipeline over LTS (operator architectural epiphany, 2026-05-13T~05:50Z)
+
+**Trigger**: Operator had architectural epiphany via external AI conversation about Idris ST typestate, mapped it to existing AI-governance platform. Operator quote: *"that is exactly 100% exactly what I'm trying to do."* Operator directive: spawn research agents, synthesize, add to plan, codex evaluates/implements if agrees.
+
+**5 research-agent synthesis:**
+
+1. **Industry vocabulary**: "typestate-governed attestation pipeline over a labeled transition graph". Use SLSA / in-toto for receipts, Plaid/Rust typestate for lifecycles, LTS reachability for ZGraph. Aligns with supply-chain security (Sigstore, in-toto, SLSA), smart-contract verifiers (Certora, K-framework), and policy-as-code (AWS Cedar). Avoids bespoke terms.
+
+2. **Technical claims** (all VERIFIED): Idris `:::` is typestate annotation, `:->` is post-state. Python `typing.Annotated` PEP 593 attaches metadata. `TypeGuard`/`TypeIs` PEP 647+742 narrow types. mypy plugins customize but can't add new first-class types. Rust `PhantomData<T>` is zero-sized state marker. Python can't do full dependent types but `Generic[S]` + Literal + TypeIs + beartype ≈ 80% coverage.
+
+3. **Python library landscape**: WRAP, don't build, don't adopt. Layer 1: `Generic[S]` + StrEnum (already codebase convention). Layer 2: `beartype` + optionally `plum-dispatch` (~200 LOC wrap). Layer 3: keep ZGraph homegrown. DO NOT adopt `python-statemachine` or `transitions` — they model one running machine, not a population of audit-evidence-bound receipts forming a DAG.
+
+4. **Codebase audit (CRITICAL)** — existing patterns already 80% there:
+   - **BypassLifecycle** at `runtime/bypass_lifecycle_models.py:31-49,133-168` — complete typed lifecycle (REQUESTED → EVALUATING → RECEIPT_ISSUED → ACTIVE → DENIED/REVOKED/EXPIRED). Uses **frozen dataclass + StrEnum**.
+   - **GovernedExceptionLifecycle** at `runtime/governed_exception_lifecycle.py:17-87` — composite envelope nesting ExceptionReceipt + ResolutionReceipt + ClosureProof.
+   - **`_require_active_bypass_lifecycle()`** at `approval_mode.py:119-135` — the typestate enforcement pattern (raises if state ≠ ACTIVE with edit_only scope).
+   - **SessionTerminationPolicy** at `runtime/session_termination_policy.py:34-49,61-100` — TaskCompleteDecision with `error_kind` field that rejects state transitions (PENDING_REVIEW_PACKET, PACKET_ATTENTION_PENDING, etc.).
+   - **Packet lifecycle reducer** at `review_channel/packet_lifecycle_state.py:42-96` — derived state from packet kind + action history.
+   - **ZGraph** at `context_graph/models.py` — has `NodeKind` (RECEIPT, WORKFLOW, HANDOFF, AGENT) and `EdgeKind` (CONTAINS, RELATED_TO) — **NO lifecycle-transition edges yet, NO state-annotation metadata yet, but `GraphNode.metadata` dict is extensible**.
+   - **NO `typing.Annotated` usage** in devctl yet — clear runway.
+   - **NO Generic[T] state parameters** yet — clear runway.
+   - **Convention**: frozen dataclass + StrEnum (NOT phantom markers); composition (NOT parameterized generics); gating functions (NOT type signatures).
+
+5. **Rust port reference** (eventual): mirror `embedded-hal` GPIO pin pattern for receipts (`Pin<Output<PushPull>>`); `rustls` handshake state machine for lifecycles (`ExpectServerHello → ExpectCertificate → ExpectFinished`); `typed-builder` for required-evidence enforcement; `session_types` crate for protocol shape.
+
+**PROPOSED INLINE FIX** (composes with operator's no-parallel-surfaces rule):
+
+**EVOLVE existing patterns, do not invent parallel ones.**
+
+- **A. Extend ZGraph EdgeKind** at `context_graph/models.py`: add `EDGE_KIND_TRANSITIONS_TO`, `EDGE_KIND_REQUIRES_STATE`, `EDGE_KIND_PRODUCES_STATE`, `EDGE_KIND_EVIDENCE_FOR`, `EDGE_KIND_ATTESTATION_PROOFS`. Adds lifecycle-transition semantics to existing graph without new surface.
+- **B. Generalize the BypassLifecycle gating pattern** at `approval_mode.py:119-135`: extract a reusable `require_receipt_state(receipt, expected_state)` helper that all lifecycle types can call uniformly. Composes with BypassLifecycle, GovernedExceptionLifecycle, and future lifecycles.
+- **C. Add `typing.Annotated` "extra meaning" decoration** on receipt builder functions (PEP 593, zero deps). Pattern: `def approve(r: Annotated[Receipt, Requires(State.CREATED)]) -> Annotated[Receipt, Produces(State.APPROVED), Emits("approval_receipt")]`. The Annotated metadata is read by a new ZGraph-edge-builder helper to auto-add EDGE_KIND_REQUIRES_STATE / EDGE_KIND_PRODUCES_STATE edges. The "metadata" matches the operator's mental model exactly.
+- **D. Add a `ReceiptLifecycle[T]` typed contract** in the platform contract registry — declares the legal transitions for each receipt type, registered in `dev/state/contract_registry.jsonl`. BypassLifecycle becomes the canonical instance.
+- **E. Add `check_attestation_path.py` CI guard** that walks ZGraph from a typed action through its receipts to the push command, refuses publication if the evidence-DAG path is incomplete. This is "graph traversal proves the path" — formally: LTS reachability from `request` to `verified` with all evidence edges present.
+
+**Naming convention** (operator-facing + auditor-facing): use "attestation" for receipts, "typestate" for lifecycle states, "evidence DAG" for ZGraph. These are industry terms (SLSA, in-toto, Rust typestate community).
+
+**Why this composes with everything already there**:
+- Reuses BypassLifecycle pattern (operator already invented this)
+- Reuses ZGraph (operator's existing semantic graph — just adds edge kinds)
+- Uses Python's stdlib `Annotated` (no new deps)
+- Generalizes existing gating instead of replacing it
+- ADR-composes with feedback_apply_adr_semantics_manually (typed lifecycle = ADR-able)
+- ADR-composes with feedback_architectural_fixes_inline_not_deferred (this whole rollout is inline-fix material)
+
+**Status**: Operator-authorized for codex review + implement-if-agrees per directive 2026-05-13T~05:50Z. Codex should evaluate: (1) does the evolution-not-replacement framing match the no-parallel-surfaces rule? (2) which of A-E to land first (smallest-first: probably B then A then C)? (3) any architectural objections.
+
+#### Priority 102 REFINEMENT (3-agent follow-up, 2026-05-13T~06:00Z, status=refines precedent=[rev_pkt_3939])
+
+Operator shared a second AI conversation extending the typestate proposal. 3 verification agents (decorator-registry / Python-exhaustiveness / Kobzol article) returned with concrete refinements:
+
+**R1. 5-PHASE ROLLOUT SEQUENCE** (replaces "smallest-first A-E" ordering):
+- Phase 1: turn on pyright `strict` + mypy `--strict` + `warn_unreachable` on the existing codebase. ZERO new code. Just configure the checkers — they'll flag latent issues across BypassLifecycle, ExceptionReceipt, etc. Smallest cost, highest signal.
+- Phase 2: introduce `@governed_transition` decorator + module-level registry (FastAPI pattern). Decorator captures `TransitionContract`, no behavior change to callers.
+- Phase 3: standalone governance checker (`check_governed_transitions.py`) that reads the registry + Annotated metadata + emits typed validation reports. Composes with existing check_router.
+- Phase 4: ZGraph verifier connected to CI — extends existing `check_platform_contract_closure.py` pattern to also check evidence-DAG path reachability.
+- Phase 5 (LAST): optional mypy plugin. Per agent #1 verification, mypy plugins can't add first-class types — only customize existing rules. Don't start here.
+
+**R2. `@governed_transition` DECORATOR PATTERN** (mirror FastAPI routes — agent recommendation):
+```python
+@governed_transition(
+    requires=BypassLifecycleState.RECEIPT_ISSUED,
+    produces=(BypassLifecycleState.ACTIVE, BypassLifecycleState.DENIED),
+    graph_path=["bypass_requested", "bypass_evaluated", "bypass_receipt_issued"],
+    emits="bypass_activation_record",
+)
+def activate_bypass(receipt: BypassReceipt) -> BypassActivationResult:
+    ...
+```
+- Decorator builds frozen `TransitionContract` dataclass → appends to `GOVERNED_TRANSITION_REGISTRY: list[TransitionContract]` → returns func unchanged.
+- **Solution to import-ordering pitfall**: typed manifest `dev/state/transition_modules.jsonl` lists modules the verifier MUST import. Composes with existing typed-state pattern (no parallel surface, no filesystem walk).
+- Pitfalls to guard: `(module, qualname)` dedupe key for reload protection; pytest `registry.snapshot()/restore()` fixture for test isolation; capture `func.__wrapped__` when stacked with @staticmethod.
+- Verified: no existing Python lib does decorator-for-transition — python-statemachine uses class descriptors, transitions uses config-as-data. Operator's design is novel-but-conventional (FastAPI/Django shape).
+
+**R3. EXHAUSTIVENESS-CHECKED ALGEBRAIC RESULT TYPES** (separable win, ship even without R2):
+
+Pattern (verified production-ready per mypy/pyright docs):
+```python
+@dataclass(frozen=True, slots=True)
+class BypassActivated:
+    kind: Literal["bypass_activated"] = "bypass_activated"
+    receipt: BypassReceipt
+@dataclass(frozen=True, slots=True)
+class BypassDenied:
+    kind: Literal["bypass_denied"] = "bypass_denied"
+    reason: str
+type BypassActivationResult = BypassActivated | BypassDenied
+# At call sites:
+match result:
+    case BypassActivated(receipt=r): ...
+    case BypassDenied(reason=r): ...
+    case _ as unreachable:
+        assert_never(unreachable)  # MUST bind + assert_never; bare `case _:` masks check
+```
+- mypy itself uses this idiom internally; ezyang's "Idiomatic ADTs in Python" is canonical reference.
+- **Drop-in config** the operator should add:
+  ```ini
+  # mypy.ini
+  [mypy]
+  strict = True
+  warn_unreachable = True
+  warn_return_any = True
+  ```
+  ```json
+  // pyrightconfig.json
+  {"typeCheckingMode": "strict", "reportMatchNotExhaustive": "error", "reportUnnecessaryComparison": "error"}
+  ```
+- mypy edge case to avoid: keep discriminators FLAT (single Literal field). Nested 2-tuples of enums still trip up exhaustiveness narrowing per mypy issues #14833, #16650, #16722.
+
+**R4. KOBZOL "Writing Python like Rust" (verified canonical)**:
+- Author: Jakub Beránek, https://kobzol.github.io/rust/python/2023/05/20/writing-python-like-its-rust.html (2023-05-20). EuroPython 2023 talk also exists.
+- Load-bearing principle: **"make illegal states unrepresentable"** (Yaron Minsky / OCaml lineage). Composes cleanly with the codebase's existing frozen dataclass + StrEnum convention.
+- Three patterns to mirror: (a) `NewType` wrappers for primitive-typed IDs so `plan_id` and `packet_id` can't be swapped at call sites; (b) `@dataclass(frozen=True, slots=True)` for immutable typed-state records; (c) sum-type lifecycle states discriminated by match with exhaustive guard.
+
+**REVISED Priority 102 implementation plan** (Phase 1 first — smallest cost, highest signal):
+
+| Phase | Action | Files / config | Test |
+|-------|--------|---------------|------|
+| 1 | Configure pyright `strict` + mypy `--strict` + `warn_unreachable`. Fix latent issues surfaced. | `mypy.ini`, `pyrightconfig.json` | All existing tests still green |
+| 1.5 | Convert ID strings to `NewType` wrappers per Kobzol pattern (start with `PacketId`, `ReceiptId`, `PlanRowId`). | new file `dev/scripts/devctl/runtime/typed_ids.py` | Focused test |
+| 2 | Add `@governed_transition` decorator + `GOVERNED_TRANSITION_REGISTRY` + `dev/state/transition_modules.jsonl` manifest. Decorate ONE existing lifecycle (e.g., BypassLifecycle activation) as proof. | new file `dev/scripts/devctl/runtime/governance_typestate.py` + decoration on `approval_mode.py` | Focused test for the decorator + registry |
+| 3 | Convert existing result paths (BypassActivationResult, PushResult, TaskCompleteDecision) to algebraic dataclass+Literal+match+assert_never. Fix call sites. | Files: as needed | Existing tests + new exhaustiveness tests |
+| 4 | `check_governed_transitions.py` standalone verifier that reads the registry + Annotated metadata, validates against ZGraph EdgeKind extensions. Wire into check_router. | new check script | Focused test + push-preflight integration |
+| 5 | Extend ZGraph EdgeKind (item A from original P102) — only after Phase 2-4 prove the registry shape. | `context_graph/models.py` | Focused test |
+| 6 | `check_attestation_path.py` (item E from original P102) — LTS reachability gate. | new check | Focused test + governed-push integration |
+| 7 (LAST, optional) | mypy plugin for codebase-specific patterns. | new plugin | Focused test |
+
+**Status (refinement)**: 3-agent verification complete. Phase 1 (turn on strict checkers, add NewType) is shippable in <2 hours with zero architectural risk. Phases 2-4 are the substantive new surface. Operator-authorized for codex evaluation + implement-if-agrees. ADR refs: status=refines, precedent_packet_ids=[rev_pkt_3939], conflict_resolution=phase-1-first-not-A-E.
+
+#### Priority 102 CONSOLIDATION (5-agent follow-up, 2026-05-13T~06:10Z, status=refines precedent=[rev_pkt_3939, rev_pkt_3941])
+
+Operator emphasized the graph-typestate UNIFICATION thesis: *"If typestate is the truth, graphing the typestate should graph the entire system. The graph and the logic should meet together, allowing the AI to traverse the graph and have logic on what they're running."* 5 additional agents (3 NEW + 2 prior re-cited) returned:
+
+**R5. 5-LAYER ARCHITECTURE INDUSTRY TWIN — SLSA + in-toto + Sigstore (1:1 mapping)**
+
+| Layer | Operator's stack | Industry twin |
+|-------|------------------|---------------|
+| L1 | Python type hints declare local typestate | in-toto predicate schema |
+| L2 | Decorator captures runtime contract | in-toto link / builder step |
+| L3 | Receipt proves transition | DSSE-signed attestation |
+| L4 | ZGraph semantic reachability | Rekor transparency log + provenance graph |
+| L5 | CI/CD push gate | Sigstore verifier policy at deploy |
+
+Cedar/OPA weak at L4 (entity store flat, not semantic graph). Pulumi closest **language-level** analog. **Anti-pattern flagged**: "attestation fatigue" — L3↔L4 drift (receipts proliferate faster than graph indexes); mitigate via single-source reducer (`devctl develop next` already does this) + fail-fast at L5 with L4 evidence inlined. Future docs vocabulary: *"in-toto-style attestation stack where typed packets are predicates, devctl is the builder, ValidationReceipts are DSSE attestations, ZGraph is Rekor + provenance graph, governed push is the verifier."*
+
+**R6. DECORATOR API — MIRROR DAGSTER `@multi_asset` (the only API with all four contract fields)**
+
+Real-world reference signature to copy:
+```python
+@multi_asset(
+    ins={"ready": AssetIn(key=["push", "ready_to_push"])},                 # precondition
+    outs={
+        "verified": AssetOut(dagster_type=RemoteVerified, is_required=False),
+        "blocked":  AssetOut(dagster_type=Blocked,        is_required=False),
+    },                                                                      # postcondition (sum type)
+    check_specs=[AssetCheckSpec(name="push_receipt", asset="verified")],    # emitted artifact
+    deps=[AssetKey(p) for p in ["approved","guards_passed","committed","ready_to_push"]],  # chain
+    required_resource_keys={"git", "policy"},
+    config_schema={"dry_run": bool},
+)
+def push(context, ready: ReadyToPush) -> tuple[Output, Output]: ...
+```
+Operator's mapping: `ins → requires`, `outs → produces`, `check_specs → emits`, `deps → graph_path`. **Pitfall trap to avoid**: kwargs typed as `Mapping[str, Any]` defeat mypy. **Fix**: back each contract slot with frozen `dataclass(kw_only=True, frozen=True, slots=True)` (`PreconditionRef`, `PostconditionRef`, `EmittedReceiptSpec`, `GraphPathStep`), validate at decoration time via `__post_init__`, expose `wrapped.contract` for reflection.
+
+**R7. GRAPH-AS-PROGRAM UNIFICATION — CLOSEST ANALOGS (dbt + Dagster + LangGraph + HTN)**
+
+Ranked relevance:
+1. **dbt's `manifest.json`** — graph + types + execution + test-receipts on nodes. `state:modified+` selectors ARE graph-walk decisions. CLOSEST production system to typestate+graph+execution+proofs.
+2. **Dagster asset lineage** — typed Ins/Outs, `materialize` traverses graph in dependency order, reflectable via `AssetGraph`.
+3. **LangGraph** — TypedDict state + inspectable graph, reducer-merged state ticks. Strongest surface kinship.
+4. **Pulumi checkpoint** — typed resource graph with dependency edges; `pulumi stack export` yields JSON checkpoint with typed graph + dependency edges; agent diff = decide next mutation.
+5. **HTN planners (GTPyhop)** — typed action graph with preconditions/effects; backtracking search to choose next primitive. STRONGEST SEMANTIC KINSHIP for "AI reads typestate + graph + decides next governed action."
+
+**CRITICAL NOVELTY VALIDATED**: *"No production system carries governance lifecycle proofs on graph edges. The unification thesis as voiceterm states it — typestate + graph + execution + receipts — has no production analog."* dbt has graph+types+execution+test-proofs but NOT lifecycle receipts. **The voiceterm extension is a real contribution to the design space.**
+
+**Future-docs framing for legibility**: *"HTN-style governed planner with a LangGraph-style inspectable typestate surface, plus receipts as first-class proof on graph edges."* This sentence is industry-legible to AI-planning researchers (HTN), modern agent-framework users (LangGraph), and security/audit reviewers (in-toto/SLSA receipts).
+
+**R8. ZGRAPH AUDIT — codebase is MORE prepared than R4 (first audit) suggested**
+
+`context_graph/models.py` already defines **22 NodeKinds** (including `NODE_KIND_RECEIPT`, `NODE_KIND_TYPED_CONTRACT`, `NODE_KIND_PACKET`, `NODE_KIND_HANDOFF`, `NODE_KIND_FINDING`, `NODE_KIND_PLAN_ROW`, `NODE_KIND_INTENT`) and **18 EdgeKinds** including:
+- **`EDGE_KIND_RECEIPT_PROVES`** ← THIS IS THE TYPESTATE-EVIDENCE EDGE, ALREADY EXISTS
+- `EDGE_KIND_CONTRACT_READS`, `EDGE_KIND_CONTRACT_WRITES` — typed-contract IO already encoded
+- `EDGE_KIND_PACKET_HANDOFF`, `EDGE_KIND_GUARD_CATCHES`, `EDGE_KIND_POLICY_SCOPES` — lifecycle-adjacent semantics
+
+PACKET nodes carry `lifecycle_current_state` + `status` + `kind` + `from_agent` + `to_agent` + `requested_action` + `summary` in metadata (`operational_nodes.py:327`). PARTIAL typestate already encoded.
+
+**Traversal helpers already exist** (composes directly with proposed `check_attestation_path.py`):
+- `walk_context_graph(from_query, to_query, nodes, edges)` at `graph_walk.py:110` — A* with edge weights
+- `shortest_paths(start_id, adjacency)` at `traversal.py:39` — BFS
+- `edge_adjacency(edges, edge_kind)` at `traversal.py:8` — grouped adjacency
+
+**JSON snapshot at `dev/reports/graph_snapshots/{commit_hash}_{timestamp}.json`** is already commit-hash-bound — governance-grade. `ContextGraphSnapshot` schema_version=1, contract_id="ContextGraphSnapshot".
+
+**REAL ARCHITECTURAL GAP**: `GraphEdge` (models.py:21-27) has NO metadata field — only `source_id`, `target_id`, `edge_kind`. To carry typestate annotations on edges (the `RequiresState(X) → ProducesState(Y)` shape per R6), GraphEdge needs structural extension.
+
+**Revised Phase 5 (ZGraph EdgeKind extension) is now MUCH SMALLER**:
+- Add 3 EdgeKinds: `EDGE_KIND_TRANSITIONS_TO`, `EDGE_KIND_REQUIRES_STATE`, `EDGE_KIND_PRODUCES_STATE`
+- Add `metadata: dict[str, object] = field(default_factory=dict)` to GraphEdge (one field addition, schema-evolution-safe with `default_factory`)
+- `EDGE_KIND_RECEIPT_PROVES` is REUSED (don't add — already does evidence-proof role)
+- Phase 6 (check_attestation_path.py) reuses existing `walk_context_graph` A* — just adds a typestate-edge-aware policy on top
+
+**REVISED FULL ROADMAP** (consolidated, smallest-first):
+
+| # | Phase | Files / config | Effort | Risk |
+|---|-------|---------------|--------|------|
+| 1 | mypy.ini + pyrightconfig.json strict + warn_unreachable | 2 config files | <2 hours | zero arch |
+| 1.5 | NewType wrappers for `PacketId`, `ReceiptId`, `PlanRowId` | new `runtime/typed_ids.py` | <2 hours | zero arch |
+| 2 | `@governed_transition` decorator (mirror Dagster `@multi_asset`) + `TransitionContract` frozen dataclass + `GOVERNED_TRANSITION_REGISTRY: list` + `dev/state/transition_modules.jsonl` manifest | new `runtime/governance_typestate.py` + decorate one existing lifecycle (BypassLifecycle activation) | 4-6 hours | low |
+| 3 | Algebraic dataclass+Literal+match+assert_never on existing result paths (`BypassActivationResult`, `PushResult`, `TaskCompleteDecision`); fix call sites | M edits across runtime/ | 4-8 hours | low (mypy catches regressions) |
+| 4 | `check_governed_transitions.py` standalone verifier reading the registry; wire into check_router | new check script | 2-4 hours | low |
+| 5 | Add 3 EdgeKinds to ZGraph (`TRANSITIONS_TO`, `REQUIRES_STATE`, `PRODUCES_STATE`) + `GraphEdge.metadata` field; `governed_transition` decorator populates the new edges via `add_edge()` calls | `context_graph/models.py` + builder changes | 2-4 hours | low |
+| 6 | `check_attestation_path.py` CI guard — reuses existing `walk_context_graph` A*; refuses publication if evidence-DAG path incomplete | new check script | 2-4 hours | low |
+| 7 (LAST, optional) | mypy plugin for codebase-specific patterns | new plugin | unknown | high — skip until 1-6 prove stable |
+
+**Total estimated cost for Phases 1-6**: ~18-30 hours of focused work. Phase 1 ships immediately with high signal.
+
+**Status (consolidation)**: 5-agent verification complete + codebase audit done. P102 is now sized to actual work, not aspiration. ADR refs: status=refines, precedent_packet_ids=[rev_pkt_3939, rev_pkt_3941], conflict_resolution=phase-5-smaller-than-thought-EDGE_KIND_RECEIPT_PROVES-already-exists. Operator-authorized for codex evaluation + implement-if-agrees inline using bypass authority.
+
+#### Priority 102 ERROR-FORMAT SPEC (operator screenshot 2026-05-13T~06:15Z, status=refines precedent=[rev_pkt_3939, rev_pkt_3941, rev_pkt_3943])
+
+Operator shared a screenshot from **Tim McGilchrist, Compose Melbourne 2018, "Dependently Typed State Machines"** (https://www.youtube.com/watch?v=AgRmpMPCKeU) showing Idris ST compile-time error for a login/logout state transition violation. Operator quote: *"What is stopping us from doing something like that but for our system?"*
+
+**Answer**: Nothing. Phase 4 `check_governed_transitions.py` produces exactly this shape of error at CI time (vs Idris doing it at compile time). The screenshot is the UI/UX SPEC for the governance type checker's error output.
+
+**Canonical 5-slot error format** (all 5 slots required, mirror Idris ST exactly):
+| Slot | Meaning |
+|------|---------|
+| Operation | Fully-qualified function whose state-transition failed |
+| Preconditions | Required input state(s): `[resource ::: Type StateIn]` |
+| States here are | Actual state(s) at call site |
+| Postconditions | `\result => [resource ::: Type StateOut]` (often case-split on result) |
+| Required result states here | Actual continuation-required output state(s) |
+
+The load-bearing UX feature: **expected vs actual paired TWICE — once for entry (pre), once for exit (post)**. The symmetry is what makes Idris errors comprehensible.
+
+**Mockup for `check_governed_transitions.py` output** (CI-grep-friendly + actionable):
+```
+ERROR governed_transition: illegal Receipt[State] transition
+  at  voiceterm/governance/reducer.py:147 in apply_bypass_receipt()
+  via ZGraph path: BypassRequest -> BypassEvaluation -> *apply_bypass_receipt*
+
+  Operation:        apply_bypass_receipt :: Receipt[Evaluated] -> Receipt[Applied]
+  Preconditions:    [receipt ::: Receipt(state=Evaluated, scope=edit_only)]
+  States here are:  [receipt ::: Receipt(state=Requested, scope=edit_only)]
+                                         ^^^^^^^^^ expected Evaluated
+  Postconditions:   \result => [receipt ::: Receipt(state=Applied)]
+  Required result:  [receipt ::: Receipt(state=Expired)]
+                                         ^^^^^^^ unreachable from Applied
+
+  Prior transition: BypassRequest@reducer.py:131 left receipt in state=Requested
+  Legal next from Requested: [evaluate_bypass, reject_bypass]
+  Decorator metadata: @governed_transition(from=Evaluated, to=Applied, scope=edit_only)
+
+  Fix: insert evaluate_bypass(receipt) before apply_bypass_receipt(receipt),
+       or guard with reducer dispatch on receipt.state.
+```
+
+**Extensions to consider** (worth mirroring from other typed-state error formats):
+- **Granule** grade arithmetic (`1 + 2 ≠ 3`) — analog for receipt-count constraints
+- **Linear Haskell** "Receipt consumed twice" — useful for `feedback_raw_git_during_plan_execution_governed_push_at_end` violations
+- **Liquid Haskell** Inferred/Required/Context triple — context block is the actionable part
+- **Frank** ability-set diff — analog for ZGraph allowed-edges
+
+**What our error has that Idris doesn't** (governance-specific value-adds):
+- Prior transition with file:line that produced wrong state
+- Suggested legal-next transitions from current state (closure of @governed_transition edges)
+- ZGraph path the call traversed
+- Decorator metadata block
+- Concrete fix suggestion
+
+**Status (error-format)**: ADR refs: status=refines, precedent_packet_ids=[rev_pkt_3939, 3941, 3943, 3944], adoption_rationale=visual-UI-spec-from-operator-screenshot. This becomes the Phase 4 error-message template when codex builds `check_governed_transitions.py`.
+
+---
+
+### SAFEGUARD PLAN (operator going offline 2026-05-13T~06:18Z, resume ~14:00Z = 10am Florida)
+
+Operator going to sleep. Codex must halt cleanly via cooperative stop_anchor; hard kill if cooperative path fails. Agent-researched escalation:
+
+**Timeline** (Florida EDT = UTC-4):
+
+| Florida | UTC | Action |
+|---------|-----|--------|
+| 2:18 AM | 06:18Z | Stop_anchor rev_pkt_3944 posted; agents complete; safeguard scheduled |
+| 3:18 AM | 07:18Z | First safeguard wake — verify codex halted; if active, post nudge |
+| 3:30 AM (T-90) | 07:30Z | Post nudge packet citing rev_pkt_3944 + ground-truth ps/agent-mind probe |
+| 4:00 AM (T-60) | 08:00Z | Second nudge with urgency=pivot_now if still active |
+| 4:30 AM (T-30) | 08:30Z | `kill -TERM` on codex parent PID 60022; wait 60s |
+| 4:35 AM (T-25) | 08:35Z | `kill -INT` if SIGTERM ignored |
+| 4:55 AM (T-5) | 08:55Z | `lsof -p 60022 \| grep dev/state` check; if SAFE, `kill -KILL` |
+| 5:00 AM | 09:00Z | Hard deadline — codex MUST be halted |
+| 5:00 AM | 09:00Z | Post-kill: `rm -f .git/index.lock`; validate JSONL tail: `python3 -c "import json; [json.loads(l) for l in open('dev/state/plan_index.jsonl')]"` |
+| 10:00 AM | 14:00Z | Operator resumes; claude reports final state |
+
+**Safest kill points** (ranked):
+1. Between slices (post-task_produced, pre-next-develop-next) — zero in-flight state
+2. Between agent_messages — codex idle waiting for next typed event
+3. Between commits — worktree clean, no `.git/index.lock`
+4. Mid-test — annoying but safe (idempotent rerun)
+5. Mid-read — safe
+6. Mid-commit — recoverable (`rm index.lock`)
+7. Mid-push — usually OK (server atomicity)
+8. Mid-rebase/merge — needs `git rebase --abort`
+9. **Mid-file-write (JSONL append, packet emit) — NEVER kill here**; corrupts typed state. ALWAYS check `lsof -p <pid> | grep dev/state` before SIGKILL.
+
+**Codex CLI specifics** (verified): `codex exec` is Rust + tokio. Handles SIGINT (Ctrl-C) for cooperative cancel and SIGTERM for shutdown. `--dangerously-bypass-approvals-and-sandbox` does NOT change signal handling. SIGTERM to parent propagates to spawned subprocesses if launched with setsid (codex exec is, by default).
+
+**Cooperative path = stop_anchor** (rev_pkt_3944): codex's own SessionTerminationPolicy fires via TaskCompleteDecision when codex body-observes the packet at next slice boundary. This is the K8s preStop / Envoy drain equivalent.
+
+**Hard backstop = SIGTERM → SIGINT → SIGKILL** with JSONL safety check.
+
+**Formal name for the pattern**: "graceful drain" + watchdog wall-clock deadline. Industry-standard 30-90s grace period; operator's directive gives 2h45m grace (06:18Z → 09:00Z), so cooperative path has plenty of room.
