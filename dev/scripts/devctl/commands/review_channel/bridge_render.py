@@ -28,6 +28,7 @@ def render_bridge_md(
     """Render a markdown summary for bridge-backed review-channel actions."""
     lines = ["# devctl review-channel", ""]
     lines.append(f"- ok: {report['ok']}")
+    append_top_level_error_lines(lines, report)
     lines.append(f"- action: {report.get('action')}")
     lines.append(f"- execution_mode: {report.get('execution_mode')}")
     lines.append(f"- terminal: {report.get('terminal')}")
@@ -164,3 +165,8 @@ def append_common_report_sections(lines: list[str], report: dict) -> None:
         commit_pipeline_path = projection_paths.get("commit_pipeline_path")
         if commit_pipeline_path:
             lines.append(f"- commit_pipeline_path: {commit_pipeline_path}")
+
+
+def append_top_level_error_lines(lines: list[str], report: dict) -> None:
+    for error in report.get("errors") or []:
+        lines.append(f"- error: {error}")

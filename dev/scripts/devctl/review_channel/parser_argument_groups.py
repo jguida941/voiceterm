@@ -23,6 +23,8 @@ def build_packet_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
         *_agent_packet_arguments(arg_builder),
         arg_builder(
             "--kind",
+            "--packet-kind",
+            dest="kind",
             choices=sorted(VALID_PACKET_KINDS),
             help=(
                 "Review packet kind for `--action post`. "

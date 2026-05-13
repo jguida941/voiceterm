@@ -71,11 +71,13 @@ def _parse_preflight_policy(
     fail_fast_on_blocker = bool(payload.get("fail_fast_on_blocker", True))
     if "keep_going" in payload and "fail_fast_on_blocker" not in payload:
         fail_fast_on_blocker = not bool(payload.get("keep_going"))
+    parallel_workers = _coerce_positive_int(payload.get("parallel_workers"), fallback=4)
     return PushPreflightPolicy(
         command=command,
         since_ref_template=since_ref_template,
         execute=execute,
         fail_fast_on_blocker=fail_fast_on_blocker,
+        parallel_workers=parallel_workers,
     )
 
 

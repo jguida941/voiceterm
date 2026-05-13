@@ -212,6 +212,7 @@ class PushParserTests(unittest.TestCase):
         self.assertFalse(policy.bypass.allow_skip_preflight)
         self.assertFalse(policy.bypass.allow_skip_post_push)
         self.assertTrue(policy.preflight.fail_fast_on_blocker)
+        self.assertEqual(policy.preflight.parallel_workers, 4)
 
 
 class PushAuthorizedPipelineDirtyWorktreeTests(unittest.TestCase):
@@ -5775,7 +5776,27 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertIn("--head-ref authorized-sha", command)
         self.assertIn("--range-scope-only", command)
         self.assertIn("--validation-scope pipeline_authorized_phase", command)
+        self.assertIn("--parallel-workers 4", command)
         self.assertNotIn("--keep-going", command)
+
+    def test_build_preflight_shell_command_can_configure_parallel_workers(
+        self,
+    ) -> None:
+        policy = make_policy(
+            preflight=PushPreflightPolicy(parallel_workers=8),
+        )
+
+        command = push.build_preflight_shell_command(
+            policy,
+            remote="origin",
+            route_state=push.PushRefRoutingState(
+                current_branch="feature/demo",
+                upstream_ref="origin/feature/demo",
+                branch_has_remote=True,
+            ),
+        )
+
+        self.assertIn("--parallel-workers 8", command)
 
     def test_build_preflight_shell_command_can_write_report_artifact(
         self,

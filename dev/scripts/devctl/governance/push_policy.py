@@ -36,6 +36,7 @@ class PushPreflightPolicy:
     since_ref_template: str = "{remote}/{development_branch}"
     execute: bool = True
     fail_fast_on_blocker: bool = True
+    parallel_workers: int = 4
 
 
 @dataclass(frozen=True, slots=True)

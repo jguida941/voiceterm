@@ -75,6 +75,7 @@ def build_preflight_shell_command(
         )
     if policy.preflight.execute:
         args.append("--execute")
+        args.extend(["--parallel-workers", str(max(1, policy.preflight.parallel_workers))])
         if not bool(getattr(policy.preflight, "fail_fast_on_blocker", True)):
             args.append("--keep-going")
     command = shlex.join(args)

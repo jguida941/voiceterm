@@ -721,6 +721,28 @@ class ReviewChannelParserTests(unittest.TestCase):
         )
         self.assertEqual(args.context_pack_adapter_profile, "claude")
 
+    def test_cli_accepts_packet_kind_alias_for_review_channel_post(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "review-channel",
+                "--action",
+                "post",
+                "--from-agent",
+                "codex",
+                "--to-agent",
+                "claude",
+                "--packet-kind",
+                "review_accepted",
+                "--summary",
+                "Accepted",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(args.kind, "review_accepted")
+
     def test_cli_accepts_review_channel_promote_flags(self) -> None:
         parser = build_parser()
         args = parser.parse_args(

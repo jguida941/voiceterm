@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -116,6 +117,7 @@ def _prefixes_from_user_docs(user_docs: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(prefixes)
 
 
+@lru_cache(maxsize=16)
 def resolve_check_router_config(
     *,
     repo_root: Path = REPO_ROOT,

@@ -93,6 +93,19 @@ def test_render_event_md_does_not_crash_with_coordination_state() -> None:
     assert "recovery_eligibility: remote_only" in text
 
 
+def test_render_event_md_surfaces_errors_near_top() -> None:
+    report = _base_report(None, None)
+    report["ok"] = False
+    report["errors"] = ["missing --from-agent", "missing --to-agent"]
+
+    text = render_event_md(report)
+    top_lines = text.splitlines()[:6]
+
+    assert "- error: missing --from-agent" in top_lines
+    assert "- error: missing --to-agent" in top_lines
+    assert "## Errors" in text
+
+
 def test_render_event_md_does_not_crash_with_work_board_rows() -> None:
     report = _base_report(_typed_coordination_state(), _typed_work_board_one_row())
     text = render_event_md(report)

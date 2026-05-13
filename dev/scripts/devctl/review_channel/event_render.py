@@ -17,13 +17,17 @@ from ..review_channel.event_render_typed_sections import (
 from ..review_channel.event_render_queue import append_event_queue_summary
 from ..review_channel.pending_packets import partition_live_packet_queue
 
-from ..commands.review_channel_bridge_render import append_common_report_sections
+from ..commands.review_channel_bridge_render import (
+    append_common_report_sections,
+    append_top_level_error_lines,
+)
 
 
 def render_event_md(report: dict) -> str:
     """Render a markdown summary for event-backed review-channel actions."""
     lines = ["# devctl review-channel", ""]
     lines.append(f"- ok: {report['ok']}")
+    append_top_level_error_lines(lines, report)
     lines.append(f"- action: {report.get('action')}")
     lines.append(f"- execution_mode: {report.get('execution_mode')}")
     queue = report.get("queue") or {}
