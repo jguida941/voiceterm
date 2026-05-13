@@ -590,9 +590,13 @@ def test_action_request_failure_event_reduces_through_lifecycle_history(
         "event_type": "action_request_execution_failed",
         "timestamp_utc": "2026-04-29T13:01:00Z",
         "status": "failed",
+        "guard_results_summary": '{"status": "failed", "reason": "pytest"}',
+        "full_guard_bundle_evidence": "dev/reports/guards/latest.json",
         "metadata": {
             "actor": "claude",
             "reason": "pending_reviewer_packets",
+            "errors": ["pytest failed"],
+            "reason_chain": ["commit_failed", "guard_failed"],
         },
     }
 
@@ -609,8 +613,55 @@ def test_action_request_failure_event_reduces_through_lifecycle_history(
     assert packet["execution_failed_by"] == "claude"
     assert packet["execution_failed_reason"] == "pending_reviewer_packets"
     assert packet["acted_on_events"][0]["event_kind"] == "failed"
+    guard_detail = packet["acted_on_events"][0]["guard_error_detail"]
+    assert guard_detail["contract_id"] == "PacketGuardErrorDetail"
+    assert guard_detail["reason"] == "pending_reviewer_packets"
+    assert guard_detail["errors"] == ("pytest failed",)
+    assert guard_detail["reason_chain"] == ("commit_failed", "guard_failed")
+    assert (
+        guard_detail["full_guard_bundle_evidence"]
+        == "dev/reports/guards/latest.json"
+    )
     assert packet["disposition"]["sink"] == "recovery_required"
     assert packet["disposition"]["next_slice_target"] == "fresh_action_request"
+    assert (
+        packet["disposition"]["guard_error_detail"]["reason"]
+        == "pending_reviewer_packets"
+    )
+
+
+def test_stale_action_request_with_failure_evidence_requires_recovery(
+    tmp_path: Path,
+) -> None:
+    posted = _posted_packet(
+        packet_id="rev_pkt_stale_guard_failed",
+        kind="action_request",
+        requested_action="stage_commit_pipeline",
+        expires_at_utc="2000-01-01T00:00:00Z",
+        guard_results_summary='{"status": "failed", "reason": "ruff"}',
+        full_guard_bundle_evidence="failure_envelope:commit_failed,guard_failed",
+    )
+
+    review_state, _ = reduce_events(
+        events=[posted],
+        repo_root=tmp_path,
+        review_channel_path=_review_channel_path(tmp_path),
+    )
+
+    packet = review_state["packets"][0]
+
+    assert packet["lifecycle_current_state"] == "failed"
+    assert packet["acted_on_events"][0]["action"] == "failed"
+    assert (
+        packet["acted_on_events"][0]["guard_error_detail"]["failure_source"]
+        == "stale_packet_guard_error"
+    )
+    assert packet["disposition"]["sink"] == "recovery_required"
+    assert packet["disposition"]["status"] == "failed"
+    assert (
+        packet["disposition"]["guard_error_detail"]["full_guard_bundle_evidence"]
+        == "failure_envelope:commit_failed,guard_failed"
+    )
 
 
 def test_action_request_apply_pending_event_reduces_through_lifecycle_history(

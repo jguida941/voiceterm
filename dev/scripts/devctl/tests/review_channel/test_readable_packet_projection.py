@@ -137,6 +137,48 @@ def test_operational_summary_markdown_names_readable_sections() -> None:
     assert "Unpaired request" in rendered
 
 
+def test_operational_summary_surfaces_guard_error_details() -> None:
+    view = build_operational_summary_view(
+        {
+            "packets": [
+                {
+                    **_packet(
+                        "rev_pkt_guard_failed",
+                        kind="action_request",
+                        target_ref="remote_commit_pipeline:pipeline-guard",
+                        requested_action="stage_commit_pipeline",
+                        status="failed",
+                        summary="Pipeline guard failed",
+                    ),
+                    "disposition": {
+                        "sink": "recovery_required",
+                        "status": "failed",
+                        "resolution_anchor": "packet:rev_pkt_guard_failed",
+                        "guard_error_detail": {
+                            "contract_id": "PacketGuardErrorDetail",
+                            "failure_source": "action_request_lifecycle_event",
+                            "reason": "guard_failed",
+                            "full_guard_bundle_evidence": (
+                                "failure_envelope:commit_failed,guard_failed"
+                            ),
+                        },
+                    },
+                }
+            ],
+        },
+        generated_at_utc="2026-05-13T00:10:00Z",
+    )
+
+    pipeline = view["pipeline_transit"][0]
+    assert pipeline["guard_error_total"] == 1
+    assert pipeline["latest_guard_error_reason"] == "guard_failed"
+
+    rendered = "\n".join(render_operational_summary_view(view))
+
+    assert "guard_errors=1" in rendered
+    assert "latest_guard_error=guard_failed" in rendered
+
+
 def test_history_summary_flag_sets_operational_summary_sentinel() -> None:
     args = build_parser().parse_args(
         ["review-channel", "--action", "history", "--summary"]

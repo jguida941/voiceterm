@@ -195,10 +195,15 @@ def _pipeline_summaries(
         )
         latest = max(packets, key=_sort_key)
         latest_updated_at = _packet_updated_at(latest)
+        guard_error_packets = [
+            packet for packet in packets if _guard_error_detail(packet)
+        ]
+        latest_guard_error = _guard_error_detail(latest)
         summaries.append(
             {
                 "pipeline_id": pipeline_id,
                 "packet_total": len(packets),
+                "guard_error_total": len(guard_error_packets),
                 "route": _route(latest),
                 "latest_packet_id": _text(latest.get("packet_id")),
                 "latest_stage": _lifecycle_stage(
@@ -213,6 +218,12 @@ def _pipeline_summaries(
                 "stage_counts": dict(sorted(stage_counts.items())),
                 "kind_counts": dict(sorted(kind_counts.items())),
                 "requested_action_counts": dict(sorted(action_counts.items())),
+                "latest_guard_error_reason": _text(
+                    latest_guard_error.get("reason")
+                ),
+                "latest_guard_error_source": _text(
+                    latest_guard_error.get("failure_source")
+                ),
                 "packet_ids": [
                     _text(packet.get("packet_id"))
                     for packet in sorted(packets, key=_sort_key, reverse=True)[:limit]
@@ -316,6 +327,7 @@ def _packet_sample(
     generated_dt,
 ) -> dict[str, object]:
     updated_at = _packet_updated_at(packet)
+    guard_error = _guard_error_detail(packet)
     return {
         "packet_id": _text(packet.get("packet_id")),
         "route": _route(packet),
@@ -329,6 +341,9 @@ def _packet_sample(
         "requested_action": _text(packet.get("requested_action")),
         "target": _target(packet),
         "summary": _truncate(_text(packet.get("summary")), 160),
+        "guard_error_reason": _text(guard_error.get("reason")),
+        "guard_error_source": _text(guard_error.get("failure_source")),
+        "guard_error_evidence": _text(guard_error.get("full_guard_bundle_evidence")),
     }
 
 
@@ -442,6 +457,12 @@ def _append_pipeline_transit(
         latest_age = group.get("latest_packet_age_seconds")
         if latest_age is not None:
             line += f" | latest_age_seconds={latest_age}"
+        guard_error_total = _as_int(group.get("guard_error_total"))
+        if guard_error_total:
+            line += f" | guard_errors={guard_error_total}"
+        guard_reason = _text(group.get("latest_guard_error_reason"))
+        if guard_reason:
+            line += f" | latest_guard_error={guard_reason}"
         summary = _text(group.get("summary"))
         if summary:
             line += f" | {summary}"
@@ -475,6 +496,12 @@ def _append_samples(lines: list[str], heading: str, samples: object) -> None:
         freshness = _text(sample.get("packet_freshness_status"))
         if freshness:
             line += f" | freshness={freshness}"
+        guard_reason = _text(sample.get("guard_error_reason"))
+        if guard_reason:
+            line += f" | guard_error={guard_reason}"
+        guard_evidence = _text(sample.get("guard_error_evidence"))
+        if guard_evidence:
+            line += f" | guard_evidence={guard_evidence}"
         summary = _text(sample.get("summary"))
         if summary:
             line += f" | {summary}"
@@ -539,6 +566,23 @@ def _packet_freshness_status(age_seconds: int | None) -> str:
     if age_seconds > _PACKET_FRESHNESS_STALE_AFTER_SECONDS:
         return "stale"
     return "fresh"
+
+
+def _guard_error_detail(packet: Mapping[str, object]) -> dict[str, object]:
+    disposition = packet.get("disposition")
+    if isinstance(disposition, Mapping):
+        detail = disposition.get("guard_error_detail")
+        if isinstance(detail, Mapping):
+            return dict(detail)
+    events = packet.get("acted_on_events")
+    if isinstance(events, list):
+        for event in reversed(events):
+            if not isinstance(event, Mapping):
+                continue
+            detail = event.get("guard_error_detail")
+            if isinstance(detail, Mapping):
+                return dict(detail)
+    return {}
 
 
 def _text(value: object) -> str:

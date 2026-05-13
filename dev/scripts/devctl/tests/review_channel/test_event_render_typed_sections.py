@@ -259,6 +259,39 @@ def test_render_event_md_renders_packet_section_attention_alias() -> None:
     assert "- packet_id: rev_pkt_show_attention" in text
 
 
+def test_render_event_md_surfaces_packet_guard_error_detail() -> None:
+    report = _base_report(None, None)
+    report["action"] = "show"
+    report["packet"] = {
+        "packet_id": "rev_pkt_guard_failed",
+        "trace_id": "trace-guard-failed",
+        "from_agent": "codex",
+        "to_agent": "claude",
+        "status": "failed",
+        "summary": "Guard failed during action-request execution",
+        "disposition": {
+            "sink": "recovery_required",
+            "resolution_anchor": "packet:rev_pkt_guard_failed",
+            "guard_error_detail": {
+                "contract_id": "PacketGuardErrorDetail",
+                "failure_source": "action_request_lifecycle_event",
+                "action": "failed",
+                "reason": "guard_failed",
+                "full_guard_bundle_evidence": (
+                    "failure_envelope:commit_failed,guard_failed"
+                ),
+            },
+        },
+    }
+
+    text = render_event_md(report)
+
+    assert "## Guard Error Detail" in text
+    assert "- failure_source: action_request_lifecycle_event" in text
+    assert "- reason: guard_failed" in text
+    assert "failure_envelope:commit_failed,guard_failed" in text
+
+
 def test_render_event_md_renders_headless_delegate_wake_receipt() -> None:
     report = _base_report(None, None)
     report["action"] = "post"

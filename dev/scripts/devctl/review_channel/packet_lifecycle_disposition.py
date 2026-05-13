@@ -5,6 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 
+from ..runtime.packet_guard_errors import (
+    guard_error_detail_from_action_event,
+    guard_error_detail_from_packet,
+)
 from .packet_lifecycle_binding import (
     has_creation_binding,
     plan_ingestion_payload,
@@ -37,7 +41,7 @@ def acted_on_disposition(
     target_anchor = _text(action_event.get("target_anchor"))
 
     if action == "failed":
-        return asdict(
+        payload = asdict(
             PacketDisposition(
                 sink="recovery_required",
                 status="failed",
@@ -49,9 +53,13 @@ def acted_on_disposition(
                 next_slice_target="fresh_action_request",
             )
         )
+        guard_error_detail = guard_error_detail_from_action_event(action_event)
+        if guard_error_detail:
+            payload["guard_error_detail"] = guard_error_detail
+        return payload
 
     if action == "apply_pending_after_execution":
-        return asdict(
+        payload = asdict(
             PacketDisposition(
                 sink="recovery_required",
                 status="apply_pending_after_execution",
@@ -63,6 +71,10 @@ def acted_on_disposition(
                 next_slice_target="fresh_action_request_or_explicit_recovery",
             )
         )
+        guard_error_detail = guard_error_detail_from_action_event(action_event)
+        if guard_error_detail:
+            payload["guard_error_detail"] = guard_error_detail
+        return payload
 
     if action == "applied" and _text(packet.get("target_kind")) == "plan":
         return _plan_disposition(
@@ -151,6 +163,35 @@ def _plan_disposition(
     )
 
 
+def action_request_recovery_disposition_from_packet(
+    packet: Mapping[str, object],
+    *,
+    status: str,
+    reason: str,
+    next_slice_target: str,
+) -> dict[str, object]:
+    """Build a recovery disposition from reduced action-request fields."""
+    packet_id = _text(packet.get("packet_id"))
+    payload = asdict(
+        PacketDisposition(
+            sink="recovery_required",
+            status=status,
+            resolution_anchor=f"packet:{packet_id}",
+            reason=reason,
+            next_slice_target=next_slice_target,
+        )
+    )
+    guard_error_detail = guard_error_detail_from_packet(
+        packet,
+        action=status,
+        reason=reason,
+        failure_source="action_request_receipt",
+    )
+    if guard_error_detail:
+        payload["guard_error_detail"] = guard_error_detail
+    return payload
+
+
 def _text(value: object) -> str:
     return str(value or "").strip()
 
@@ -159,5 +200,6 @@ __all__ = [
     "PACKET_DISPOSITION_CONTRACT_ID",
     "PacketDisposition",
     "acted_on_disposition",
+    "action_request_recovery_disposition_from_packet",
     "archive_disposition",
 ]

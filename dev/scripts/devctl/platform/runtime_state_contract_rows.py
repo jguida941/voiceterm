@@ -388,6 +388,57 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         ),
     ),
     ContractSpec(
+        contract_id="PacketGuardErrorDetail",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Structured guard and execution failure details attached to packet "
+            "lifecycle events, recovery dispositions, and readable history "
+            "surfaces so failures cannot collapse into generic stale backlog."
+        ),
+        required_fields=(
+            ContractField("packet_id", "str", "Packet carrying the guard failure."),
+            ContractField(
+                "action",
+                "str",
+                "Lifecycle action that exposed the failure.",
+            ),
+            ContractField("reason", "str", "Primary failure reason."),
+            ContractField(
+                "failure_source",
+                "str",
+                "Where the failure detail was observed or synthesized.",
+            ),
+            ContractField("event_id", "str", "Lifecycle event id when available."),
+            ContractField("actor", "str", "Actor associated with the failure."),
+            ContractField("status", "str", "Packet or event status."),
+            ContractField(
+                "guard_results_summary",
+                "str",
+                "Guard result summary preserved from packet or event fields.",
+            ),
+            ContractField(
+                "full_guard_bundle_evidence",
+                "str",
+                "Guard bundle evidence or failure-envelope reference.",
+            ),
+            ContractField("errors", "tuple[str, ...]", "Detailed guard errors."),
+            ContractField(
+                "reason_chain",
+                "tuple[str, ...]",
+                "Machine-readable failure reason chain.",
+            ),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.packet_guard_errors:"
+            "PacketGuardErrorDetail"
+        ),
+        startup_surface_tokens=(
+            "guard_error_detail",
+            "failure_source",
+            "full_guard_bundle_evidence",
+        ),
+    ),
+    ContractSpec(
         contract_id="ControlState",
         owner_layer="governance_runtime",
         purpose=(

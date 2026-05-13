@@ -192,6 +192,56 @@ def _append_packet_attention(lines: list[str], wake: object) -> None:
             lines.append(f"- warning: {warning}")
 
 
+def _packet_guard_error_detail(packet: dict) -> dict[str, object]:
+    disposition = packet.get("disposition")
+    if isinstance(disposition, dict):
+        detail = disposition.get("guard_error_detail")
+        if isinstance(detail, dict):
+            return detail
+    events = packet.get("acted_on_events")
+    if isinstance(events, list):
+        for event in reversed(events):
+            if not isinstance(event, dict):
+                continue
+            detail = event.get("guard_error_detail")
+            if isinstance(detail, dict):
+                return detail
+    return {}
+
+
+def _append_guard_error_detail(
+    lines: list[str],
+    detail: dict[str, object],
+) -> None:
+    if not detail:
+        return
+    lines.append("")
+    lines.append("## Guard Error Detail")
+    for field_name in (
+        "contract_id",
+        "failure_source",
+        "action",
+        "reason",
+        "event_id",
+        "actor",
+        "status",
+        "guard_results_summary",
+        "full_guard_bundle_evidence",
+    ):
+        value = detail.get(field_name)
+        if value:
+            lines.append(f"- {field_name}: {value}")
+    errors = detail.get("errors")
+    if isinstance(errors, (list, tuple)) and errors:
+        lines.append("- errors: " + ", ".join(str(error) for error in errors))
+    reason_chain = detail.get("reason_chain")
+    if isinstance(reason_chain, (list, tuple)) and reason_chain:
+        lines.append(
+            "- reason_chain: "
+            + ", ".join(str(reason) for reason in reason_chain)
+        )
+
+
 def _format_packet_line(
     packet_row: dict,
     *,
@@ -229,6 +279,11 @@ def _format_packet_line(
             summary += f" | disposition: {sink}"
             if anchor:
                 summary += f" ({anchor})"
+        guard_error = _packet_guard_error_detail(packet_row)
+        if guard_error:
+            reason = str(guard_error.get("reason") or "").strip()
+            if reason:
+                summary += f" | guard_error: {reason}"
     return summary
 
 
@@ -269,6 +324,7 @@ def _append_packet_section(lines: list[str], packet: dict) -> None:
             "- full_guard_bundle_evidence: "
             f"{packet.get('full_guard_bundle_evidence')}"
         )
+    _append_guard_error_detail(lines, _packet_guard_error_detail(packet))
     _append_packet_attention(
         lines,
         packet.get("packet_attention") or packet.get("reviewer_wake"),

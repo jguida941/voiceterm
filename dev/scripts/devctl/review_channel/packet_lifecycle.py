@@ -11,9 +11,14 @@ from .packet_lifecycle_binding import (
     has_creation_binding,
 )
 from .packet_lifecycle_clock import has_expired_durable_binding
+from ..runtime.packet_guard_errors import (
+    guard_error_detail_from_event,
+    guard_error_detail_from_packet,
+)
 from .packet_lifecycle_disposition import (
     PACKET_DISPOSITION_CONTRACT_ID,
     PacketDisposition,
+    action_request_recovery_disposition_from_packet,
     acted_on_disposition,
     archive_disposition,
 )
@@ -48,6 +53,7 @@ class PacketLifecycleEvent:
     action: str = ""
     target_anchor: str = ""
     guard_attestation: dict[str, object] | None = None
+    guard_error_detail: dict[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,7 +86,15 @@ def project_packet_lifecycle(
     )
 
     if (stale_pending or has_expired_durable_binding(row)) and not acted_on_events:
-        acted_on_events = [_clock_expired_action(row)]
+        guard_error_detail = guard_error_detail_from_packet(
+            row,
+            failure_source="stale_packet_guard_error",
+        )
+        acted_on_events = [
+            _guard_failed_action(row, guard_error_detail=guard_error_detail)
+            if guard_error_detail
+            else _clock_expired_action(row)
+        ]
 
     disposition = _disposition_for_packet(
         row,
@@ -187,6 +201,17 @@ def _action_event(
     packet: Mapping[str, object],
 ) -> dict[str, object]:
     action = _ACTION_BY_EVENT_TYPE[_text(event.get("event_type"))]
+    reason = _action_reason(action, event=event)
+    guard_error_detail = (
+        guard_error_detail_from_event(
+            event,
+            packet,
+            action=action,
+            reason=reason,
+        )
+        if action in {"failed", "apply_pending_after_execution"}
+        else None
+    )
     return _drop_empty_fields(
         asdict(
             PacketLifecycleEvent(
@@ -196,8 +221,9 @@ def _action_event(
                 event_kind=action,
                 action=action,
                 target_anchor=_target_anchor(action=action, packet=packet),
-                reason=_action_reason(action, event=event),
+                reason=reason,
                 guard_attestation=_guard_attestation(event) if action == "applied" else None,
+                guard_error_detail=guard_error_detail,
             )
         )
     )
@@ -218,6 +244,30 @@ def _clock_expired_action(packet: Mapping[str, object]) -> dict[str, object]:
                 action="archived",
                 target_anchor=f"archive_classification:{classification}",
                 reason="packet TTL elapsed before an explicit disposition event",
+            )
+        )
+    )
+
+
+def _guard_failed_action(
+    packet: Mapping[str, object],
+    *,
+    guard_error_detail: Mapping[str, object],
+) -> dict[str, object]:
+    return _drop_empty_fields(
+        asdict(
+            PacketLifecycleEvent(
+                event_id="",
+                at_utc=_text(packet.get("expires_at_utc")),
+                by_agent="system",
+                action="failed",
+                event_kind="failed",
+                target_anchor=f"packet:{_text(packet.get('packet_id'))}",
+                reason=(
+                    _text(guard_error_detail.get("reason"))
+                    or "guard_failure_evidence_present"
+                ),
+                guard_error_detail=dict(guard_error_detail),
             )
         )
     )
@@ -266,32 +316,25 @@ def _disposition_for_packet(
 def _action_request_recovery_disposition(
     packet: Mapping[str, object],
 ) -> dict[str, object]:
-    packet_id = _text(packet.get("packet_id"))
     if _text(packet.get("apply_pending_after_execution_at_utc")):
-        return asdict(
-            PacketDisposition(
-                sink="recovery_required",
-                status="apply_pending_after_execution",
-                resolution_anchor=f"packet:{packet_id}",
-                reason=(
-                    _text(packet.get("apply_pending_after_execution_reason"))
-                    or "Commit execution completed but packet apply remains pending."
-                ),
-                next_slice_target="fresh_action_request_or_explicit_recovery",
-            )
+        return action_request_recovery_disposition_from_packet(
+            packet,
+            status="apply_pending_after_execution",
+            reason=(
+                _text(packet.get("apply_pending_after_execution_reason"))
+                or "Commit execution completed but packet apply remains pending."
+            ),
+            next_slice_target="fresh_action_request_or_explicit_recovery",
         )
     if _text(packet.get("execution_failed_at_utc")):
-        return asdict(
-            PacketDisposition(
-                sink="recovery_required",
-                status="failed",
-                resolution_anchor=f"packet:{packet_id}",
-                reason=(
-                    _text(packet.get("execution_failed_reason"))
-                    or "Action-request execution failed before resolution."
-                ),
-                next_slice_target="fresh_action_request",
-            )
+        return action_request_recovery_disposition_from_packet(
+            packet,
+            status="failed",
+            reason=(
+                _text(packet.get("execution_failed_reason"))
+                or "Action-request execution failed before resolution."
+            ),
+            next_slice_target="fresh_action_request",
         )
     return {}
 
