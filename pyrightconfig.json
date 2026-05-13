@@ -1,4 +1,7 @@
 {
+  "include": [
+    "dev/scripts/devctl/tests/runtime/test_typestate_exhaustiveness.py"
+  ],
   "exclude": [
     ".venv",
     "rust/target",
@@ -6,6 +9,9 @@
     "dev/reports",
     ".git"
   ],
-  "pythonVersion": "3.12",
+  "typeCheckingMode": "strict",
+  "reportMatchNotExhaustive": "error",
+  "reportUnnecessaryComparison": "error",
+  "pythonVersion": "3.11",
   "pythonPlatform": "Darwin"
 }
