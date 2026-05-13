@@ -34,17 +34,6 @@ COMMAND_HANDLER_ROWS = (
     ("session", governance_session.run),
     ("test-python", python_test_command.run),
 )
-COMMAND_HANDLERS = {
-    "agent-supervise": agent_supervise.run,
-    "develop": development_command.run,
-    "demo": demo_command.run,
-    "dogfood": dogfood.run,
-    "exceptions": governance_exceptions.run,
-    "progress-status": progress_status.run,
-    "relaunch-loop": relaunch_loop.run,
-    "remote-control": remote_control_command.run,
-    "session": governance_session.run,
-    "test-python": python_test_command.run,
-}
+COMMAND_HANDLERS = dict(COMMAND_HANDLER_ROWS)
 
 sys.modules[__name__] = _impl
