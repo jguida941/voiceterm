@@ -2881,3 +2881,64 @@ Same pattern likely affects `develop campaign`, `agent-mind`, `system-map` proje
 - `dev/config/devctl_repo_policy.json` — register `operational_summary_view` governed_surface
 
 **Status**: Working-memory candidate. Will compose into a formal plan-row after Priority 97 reaches review-closure. Empirical motivation: 125 pending packets visible this session, 7 of them (rev_pkt_3913-3919) were from the same 3 pipeline transactions in a tight time window.
+
+---
+
+### Priority 99 candidate — Push Pipeline Performance (operator concern, 2026-05-13T~03:20Z)
+
+**Trigger**: Governed push has been running 20+ minutes this session (test_development_command.py 900s + test_governed_executor.py + test_check_router.py 420s, all serial). Operator asked: "would a JIT compiler help, or other ways to make guards run faster?"
+
+**Ground-truth audit findings** (codebase-specific, `dev/scripts/devctl/`):
+
+1. **Triple policy load per router invocation** — `router.py:106`, `router_support.py:123`, `router_support.py:296`: `resolve_check_router_config()` reads and parses repo governance policy files **3 times** sequentially during route planning (main router_config + `classify_lane()` + `detect_risk_addons()`). Module-level cache would eliminate 2 of 3 reads at zero correctness cost.
+
+2. **Guards sequential by default** — `router_execution.py:86-136`: Guards run serially unless both `--keep-going` AND `--parallel-workers > 1` are explicitly set. `push.py:376-379` does NOT enable parallelism for preflight — so every push runs all guards sequentially even when most are `parallel_safe`. The batching logic in `router_phases.py:18-29` creates artificial serial barriers: a single `serial_required` guard blocks an entire phase from interleaving.
+
+3. **No config caching between invocations** — `router_resolve.py:125-183`: Each `check-router` call re-parses governed doc routing, docs policy, and risk addon specs from disk from scratch. With 317+ subprocess-spawned guard callsites in devctl, this compounds.
+
+**General Python performance research findings** (ranked by ROI for this workload):
+
+| Rank | Fix | Speedup | Cost |
+|------|-----|---------|------|
+| 1 | In-process guard execution via `importlib.import_module` + call `main()` — eliminates 60-150ms Python startup per guard | 2-5x | Medium |
+| 2 | Enable parallel guard dispatch in push preflight (`--parallel-workers` already exists; just not wired to push) | 2-4x wall time | Low |
+| 3 | pytest-xdist already in pyproject.toml; confirm fixture isolation safety → enable | 3-6x on tests | Low |
+| 4 | CPython 3.12 upgrade (5-10% general speedup from Faster CPython) | ~10% | Medium |
+| 5 | Mypyc for hot modules | 10-30% | High |
+
+**JIT verdict**: CPython 3.13 JIT is experimental, not in Homebrew bottles, and irrelevant for I/O-bound subprocess orchestration. PyPy JIT warm-up cost hurts short-lived CLI invocations. **JIT is not the answer** — subprocess elimination + parallelism is.
+
+**Lowest-hanging fruit** (could be a single small slice):
+- Add `--parallel-workers` to `push.py:376-379` preflight call → immediate wall-time halving with zero architecture change
+- Add module-level `@lru_cache` or `functools.cache` on `resolve_check_router_config()` → eliminates 2/3 of policy I/O per invocation
+
+**Proposed priority**: Priority 99 candidate — `PushPipelinePerformance`. Composes with Priority 97 (RepoSemanticClassifier reads the same governance policy files; caching benefits both), Priority 86 (push-record tamper resistance; faster push = shorter exposure window), check-router architecture already in scope.
+
+**Hold status**: Fire to codex after Priority 97 review closure and push completes. Adjacent: Priority 98 candidate (this file, above) — both observed in same session round 16, same governance policy read path.
+
+---
+
+### Priority 100 candidate — `review-channel post` CLI DX friction (operator concern, 2026-05-13T~03:30Z)
+
+**Trigger**: Claude attempted to post `review_accepted` for rev_pkt_3795 in response to typed-controller `must_continue` state. Required four sequential CLI invocations to discover all required flags. Each attempt returned `ok: False` with the next missing-flag error, instead of failing fast with all missing requirements listed. Operator interrupted before the post landed; nothing was written (`typed_state_written: False` on every attempt).
+
+**Concrete friction points** (single session, single command, ~5 minutes wasted):
+
+1. **Flag naming inconsistency** — first attempt used `--packet-kind review_accepted` (matches typed-state nomenclature "packet kind" used in `kind` field of packet model). CLI rejected with `unrecognized arguments: --packet-kind`. Actual flag is `--kind`. Likely fix: accept `--packet-kind` as alias OR rename to `--packet-kind` for nomenclature consistency.
+
+2. **Silent error at default verbosity** — `--format md` puts errors in a `## Errors` section that's invisible unless the operator greps for it. The top-line `ok: False` flag is the only failure signal in the first 30 lines of output. Likely fix: emit error lines near the top (after `ok: False`) so they're visible without scrolling/grep.
+
+3. **`--format json` contaminated with non-JSON header lines** — `python -c "json.load(sys.stdin)"` fails because the CLI emits log lines before the JSON body. Likely fix: route logs to stderr, JSON to stdout (or add `--json-only` flag for clean stdout pipelines).
+
+4. **Sequential one-error-at-a-time validation** — discovered in order: missing `--from-agent`, then `--to-agent`, then `--evidence-ref` (review_accepted-specific). Each required a new invocation. Likely fix: collect ALL missing requirements in one validation pass, report them together (`fail-fast-with-all-errors` pattern).
+
+5. **Body-observed packets should auto-satisfy evidence for review_accepted** — when responding to a packet via `--target rev_pkt_XXXX`, the act of body-observing that packet (recorded as `packet_body_observed` event in trace) IS the typed evidence chain. The CLI demanded explicit `--evidence-ref` even though body observation was already in the event log. Likely fix: if the target packet has a `packet_body_observed` event by the posting actor, accept it as implicit `--evidence-ref` for review_accepted/review_failed kinds.
+
+**Empirical motivation**: typed controller blocking on rev_pkt_3795 with `must_continue` state — but the path to clear it (post review_accepted) has 5 distinct flag-discovery hurdles. This is the typed system asking for action and then friction-blocking the action.
+
+**Composability**:
+- Priority 98 (readability) — same agent-DX concern at a different surface; combine into one "operator/agent CLI ergonomics" charter section
+- Priority 99 (push pipeline performance) — performance bottlenecks of the same `review-channel` subsystem; check-router config caching benefits both
+- `feedback_check_inbox_not_reviewer_mode` memory rule — same DX class: rich typed data, thin surface for operators/agents to act on
+
+**Status**: Working-memory candidate. Composes with Priority 98 and Priority 99 into an "operator/agent CLI ergonomics" charter section.
