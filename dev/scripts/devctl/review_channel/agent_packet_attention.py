@@ -9,48 +9,27 @@ from ..runtime.reviewer_runtime_models import (
     PacketAttentionState,
     build_packet_attention_state,
 )
-from ..runtime.review_packet_inbox_actionable import attention_urgency
-from ..runtime.session_termination_policy import SESSION_TERMINATION_PACKET_KINDS
-from ..runtime.value_coercion import coerce_mapping as _mapping
 from ..runtime.value_coercion import coerce_text as _text
 from .active_packet_authority import current_active_packet_for_agent
+from .agent_packet_attention_body import packet_body_open_command
+from .agent_packet_attention_priority import (
+    best_attention_packet,
+    best_body_open_packet,
+    body_open_packets,
+    latest_event_id as select_latest_event_id,
+)
+from .agent_packet_attention_scope import (
+    active_packet_visible_to_route,
+    pending_packets_for_scope,
+)
 from .agent_packet_focus import packet_by_id
 from .agent_sync_readers import (
     agent_sync_pending_packet_count_from_row,
     agent_sync_row_for_actor,
 )
-from .agent_sync_models import (
-    ACTIVE_LIFECYCLE_STATES,
-    TERMINAL_NON_SUCCESS_STATES,
-    TERMINAL_SUCCESS_STATES,
-)
-from .event_models import event_id_rank
-from .packet_loop_attention import (
-    packet_body_attention_required,
-    packet_requires_runtime_attention,
-)
-from .packet_contract import normalize_packet_route_role, packet_route_matches_scope
+from .packet_contract import normalize_packet_route_role
 
 
-_TERMINAL_LIFECYCLE_STATES = (
-    TERMINAL_NON_SUCCESS_STATES | TERMINAL_SUCCESS_STATES
-)
-_PENDING_LIFECYCLES = frozenset(
-    {
-        "",
-        "pending",
-        "delivery_pending",
-        "execution_pending",
-        "acknowledged",
-        "in_progress",
-        "apply_pending_after_execution",
-        "task_started",
-        "task_progress",
-        "task_produced",
-        "task_blocked",
-        "operator_routed",
-    }
-)
 @dataclass(frozen=True, slots=True)
 class _AttentionBuildInput:
     actor: str
@@ -85,7 +64,7 @@ def packet_attention_for_agent(
 
     packet_rows = _packet_rows(review_state)
     packet_rows_authoritative = isinstance(review_state.get("packets"), (list, tuple))
-    pending_packets = _pending_packets_for_scope(
+    pending_packets = pending_packets_for_scope(
         packet_rows,
         actor=actor_id,
         role=role_id,
@@ -97,14 +76,14 @@ def packet_attention_for_agent(
         role=role_id,
         session=session_id,
     )
-    if not _active_packet_visible_to_route(
+    if not active_packet_visible_to_route(
         active_packet,
         actor=actor_id,
         role=role_id,
         session=session_id,
     ):
         active_packet = {}
-    attention_packet = _best_attention_packet(
+    attention_packet = best_attention_packet(
         active_packet=active_packet,
         pending_packets=pending_packets,
     )
@@ -168,13 +147,13 @@ def _active_packet_for_scope(
 def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
     fallback = context.fallback
     attention_packet = context.attention_packet
-    body_open_packets = _body_open_packets(
+    body_open_packet_rows = body_open_packets(
         context.pending_packets,
         actor=context.actor,
         role=context.role,
         session=context.session,
     )
-    body_open_packet = _best_body_open_packet(body_open_packets)
+    body_open_packet = best_body_open_packet(body_open_packet_rows)
     selected_packet = body_open_packet or attention_packet
     agent_sync = context.agent_sync
     last_observed = (
@@ -182,13 +161,13 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
         or _text(agent_sync.get("last_consumed_event_id_lower_bound"))
     )
     if context.packet_rows_authoritative:
-        latest_event_id = _text(selected_packet.get("latest_event_id"))
+        latest_inbox_event_id = _text(selected_packet.get("latest_event_id"))
         latest_attention_packet_id = _text(selected_packet.get("packet_id"))
         pending_packet_count = len(context.pending_packets)
         fallback_attention_changed_at = ""
         superseded_packet_id = ""
     else:
-        latest_event_id = _latest_event_id(
+        latest_inbox_event_id = select_latest_event_id(
             _text(selected_packet.get("latest_event_id")),
             _text(fallback.get("latest_inbox_event_id")),
         )
@@ -205,11 +184,11 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
     body_open_packet_id = _text(body_open_packet.get("packet_id"))
     unopened_body_packet_ids = tuple(
         _text(packet.get("packet_id"))
-        for packet in body_open_packets
+            for packet in body_open_packet_rows
         if _text(packet.get("packet_id"))
     )
     body_open_command = (
-        _body_open_command(
+        packet_body_open_command(
             packet_id=body_open_packet_id,
             actor=context.actor,
             role=context.role,
@@ -229,7 +208,7 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
             body_open_packet_id=body_open_packet_id,
         )
         body_open_command = _text(fallback.get("body_open_command")) or (
-            _body_open_command(
+            packet_body_open_command(
                 packet_id=body_open_packet_id,
                 actor=context.actor,
                 role=context.role,
@@ -241,7 +220,7 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
     return build_packet_attention_state(
         observation_actor_id=context.actor,
         observation_session_id=context.session,
-        latest_inbox_event_id=latest_event_id,
+        latest_inbox_event_id=latest_inbox_event_id,
         latest_attention_packet_id=latest_attention_packet_id,
         latest_attention_changed_at_utc=(
             _text(selected_packet.get("posted_at"))
@@ -265,261 +244,6 @@ def _packet_rows(review_state: Mapping[str, object]) -> tuple[Mapping[str, objec
     return tuple(packet for packet in packets if isinstance(packet, Mapping))
 
 
-def _pending_packets_for_scope(
-    packet_rows: tuple[Mapping[str, object], ...],
-    *,
-    actor: str,
-    role: str,
-    session: str,
-) -> tuple[Mapping[str, object], ...]:
-    rows: list[Mapping[str, object]] = []
-    for packet in packet_rows:
-        if _text(packet.get("to_agent")) != actor:
-            continue
-        if not _packet_matches_attention_scope(
-            packet,
-            role=role,
-            session=session,
-        ):
-            continue
-        if _pending_packet_visible_to_route(
-            packet,
-            actor=actor,
-            role=role,
-            session=session,
-        ):
-            rows.append(packet)
-    if not rows and role in {"dashboard", "operator"}:
-        rows.extend(
-            _pending_packets_for_ambiguous_actor_scope(
-                packet_rows,
-                actor=actor,
-                session=session,
-                observer_role=role,
-            )
-        )
-    return tuple(rows)
-
-
-def _pending_packets_for_ambiguous_actor_scope(
-    packet_rows: tuple[Mapping[str, object], ...],
-    *,
-    actor: str,
-    session: str,
-    observer_role: str,
-) -> tuple[Mapping[str, object], ...]:
-    rows: list[Mapping[str, object]] = []
-    for packet in packet_rows:
-        if _text(packet.get("to_agent")) != actor:
-            continue
-        packet_session = _text(packet.get("target_session_id"))
-        if packet_session and session and packet_session != session:
-            continue
-        if not (_text(packet.get("target_role")) or packet_session):
-            continue
-        if _pending_packet_visible_to_route(
-            packet,
-            actor=actor,
-            role=observer_role,
-            session=session,
-        ):
-            rows.append(packet)
-    return tuple(rows)
-
-
-def _packet_matches_attention_scope(
-    packet: Mapping[str, object],
-    *,
-    role: str,
-    session: str,
-) -> bool:
-    if packet_route_matches_scope(
-        packet,
-        target_role=role,
-        target_session_id=session,
-    ):
-        return True
-    if attention_urgency(packet) not in {"urgent", "blocking"}:
-        return False
-    packet_session = _text(packet.get("target_session_id"))
-    return bool(packet_session and session and packet_session == session)
-
-
-def _pending_packet_visible_to_route(
-    packet: Mapping[str, object],
-    *,
-    actor: str,
-    role: str,
-    session: str,
-) -> bool:
-    if _text(packet.get("kind")) in SESSION_TERMINATION_PACKET_KINDS:
-        return False
-    lifecycle = _text(packet.get("lifecycle_current_state"))
-    if lifecycle in _TERMINAL_LIFECYCLE_STATES:
-        return False
-    if _observer_legacy_action_request(packet, role=role):
-        return False
-    status = _text(packet.get("status"))
-    if status not in {"", "pending"} or lifecycle not in _PENDING_LIFECYCLES:
-        return False
-    return packet_requires_runtime_attention(
-        packet,
-        actor=actor,
-        role=role,
-        session=session,
-    )
-
-
-def _active_packet_visible_to_route(
-    packet: Mapping[str, object],
-    *,
-    actor: str,
-    role: str,
-    session: str,
-) -> bool:
-    if not packet:
-        return False
-    if _observer_legacy_action_request(packet, role=role):
-        return False
-    lifecycle = _text(packet.get("lifecycle_current_state"))
-    if lifecycle not in ACTIVE_LIFECYCLE_STATES:
-        return False
-    status = _text(packet.get("status"))
-    if status not in {"", "pending", "acked", "acknowledged", "in_progress"}:
-        return False
-    return packet_requires_runtime_attention(
-        packet,
-        actor=actor,
-        role=role,
-        session=session,
-    )
-
-
-def _best_attention_packet(
-    *,
-    active_packet: Mapping[str, object],
-    pending_packets: tuple[Mapping[str, object], ...],
-) -> Mapping[str, object]:
-    candidates: list[tuple[tuple[int, int, int, int, int], Mapping[str, object]]] = []
-    if active_packet:
-        candidates.append(
-            (
-                _attention_priority_key(active_packet, source_rank=1, index=-1),
-                active_packet,
-            )
-        )
-    candidates.extend(
-        (_attention_priority_key(packet, source_rank=0, index=index), packet)
-        for index, packet in enumerate(pending_packets)
-    )
-    if not candidates:
-        return {}
-    candidates.sort(reverse=True, key=lambda row: row[0])
-    return candidates[0][1]
-
-
-def _body_open_packets(
-    pending_packets: tuple[Mapping[str, object], ...],
-    *,
-    actor: str,
-    role: str,
-    session: str,
-) -> tuple[Mapping[str, object], ...]:
-    rows = [
-        packet
-        for packet in pending_packets
-        if packet_body_attention_required(
-            packet,
-            actor=actor,
-            role=role,
-            session=session,
-        )
-    ]
-    rows.sort(
-        reverse=True,
-        key=lambda packet: _attention_priority_key(packet, source_rank=0, index=0),
-    )
-    return tuple(rows)
-
-
-def _best_body_open_packet(
-    packets: tuple[Mapping[str, object], ...],
-) -> Mapping[str, object]:
-    return packets[0] if packets else {}
-
-
-def packet_body_open_command(
-    *,
-    packet_id: str,
-    actor: str,
-    role: str = "",
-    session: str = "",
-) -> str:
-    command = (
-        "python3 dev/scripts/devctl.py review-channel --action show "
-        f"--packet-id {packet_id} --actor {actor} --terminal none --format md"
-    )
-    if role:
-        command += f" --target-role {role}"
-    if session:
-        command += f" --target-session-id {session}"
-    return command
-
-
-def _body_open_command(
-    *,
-    packet_id: str,
-    actor: str,
-    role: str = "",
-    session: str = "",
-) -> str:
-    return packet_body_open_command(
-        packet_id=packet_id,
-        actor=actor,
-        role=role,
-        session=session,
-    )
-
-
-def _attention_priority_key(
-    packet: Mapping[str, object],
-    *,
-    source_rank: int,
-    index: int,
-) -> tuple[int, int, int, int, int]:
-    urgency_rank = {"blocking": 5, "urgent": 4, "ambient": 0}
-    command_lane_rank = {
-        "action_request": 3,
-        "instruction": 3,
-        "approval_request": 3,
-    }
-    kind_rank = {
-        "review_failed": 2,
-        "finding": 2,
-        "decision": 2,
-        "task_progress": 1,
-    }
-    return (
-        urgency_rank.get(attention_urgency(packet), 0),
-        command_lane_rank.get(_text(packet.get("kind")).lower(), 0),
-        event_id_rank(_text(packet.get("latest_event_id"))),
-        kind_rank.get(_text(packet.get("kind")).lower(), 0) + source_rank,
-        index,
-    )
-
-
-def _latest_event_id(*values: str) -> str:
-    best = ""
-    best_rank = -1
-    for value in values:
-        text = _text(value)
-        rank = event_id_rank(text)
-        if text and rank >= best_rank:
-            best = text
-            best_rank = rank
-    return best
-
-
 def _fallback_unopened_body_packet_ids(
     fallback: Mapping[str, object],
     *,
@@ -530,21 +254,6 @@ def _fallback_unopened_body_packet_ids(
     if rows:
         return rows
     return (body_open_packet_id,) if body_open_packet_id else ()
-
-
-def _observer_legacy_action_request(
-    packet: Mapping[str, object],
-    *,
-    role: str,
-) -> bool:
-    if role not in {"dashboard", "operator"}:
-        return False
-    if _text(packet.get("kind")) != "action_request":
-        return False
-    return not (
-        _text(packet.get("target_role"))
-        or _text(packet.get("target_session_id"))
-    )
 
 
 def _matching_fallback_attention(

@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 
-from ..review_channel.agent_packet_attention import packet_attention_for_agent
 from ..review_channel.agent_packet_focus import (
     AgentPacketFocus,
     packet_by_id,
@@ -16,21 +15,8 @@ from ..review_channel.packet_contract import (
     packet_route_matches_scope,
 )
 from ..review_channel.packet_loop_attention import packet_requires_runtime_attention
-from .agent_loop_checkpoint_repair import checkpoint_repair_next_action_for_review_state
-from .agent_loop_decision_grants import (
-    action_routing_decision,
-    authority_snapshot,
-    granted_capabilities_for_actor,
-    lane_edit_allowed,
-    may_actor_mutate,
-    merged_actions,
-    reconcile_actions_with_capability_grants,
-    scoped_session_mutation_mode_allows,
-)
 from .agent_loop_operator_override import (
     AgentLoopOperatorOverride,
-    apply_operator_override_actions,
-    operator_override_from_request,
 )
 from .review_packet_inbox_liveness import is_live_pending
 from .value_coercion import (
@@ -86,114 +72,27 @@ def build_agent_loop_context(
     operator_override_scope: object = "edit-only",
     operator_override_by: object = "operator",
 ) -> AgentLoopContext:
-    actor = _text(actor_id)
-    role = normalize_packet_route_role(actor_role)
-    session = _text(session_id)
-    control_plane = _mapping(dashboard.get("control_plane"))
-    now = _mapping(dashboard.get("now"))
-    top_blocker = _text(control_plane.get("top_blocker")) or _text(
-        now.get("top_blocker")
+    from .agent_loop_context_builder import (
+        AgentLoopContextBuildInput,
+        build_agent_loop_context_impl,
     )
-    next_action = _text(control_plane.get("next_action")) or _text(
-        now.get("next_action")
-    )
-    next_command = _text(control_plane.get("next_command")) or _text(
-        dashboard.get("next_command")
-    )
-    next_action, next_command = checkpoint_repair_next_action_for_review_state(
-        review_state,
-        top_blocker=top_blocker,
-        next_action=next_action,
-        next_command=next_command,
-    )
-    authority = authority_snapshot(review_state=review_state, dashboard=dashboard)
-    action_routing = action_routing_decision(
-        review_state=review_state,
-        dashboard=dashboard,
-    )
-    grants = granted_capabilities_for_actor(
-        review_state=review_state,
-        dashboard=dashboard,
-        actor=actor,
-        role=role,
-        session=session,
-    )
-    edit_allowed = lane_edit_allowed(
-        review_state=review_state,
-        dashboard=dashboard,
-    ) and scoped_session_mutation_mode_allows(
-        review_state=review_state,
-        dashboard=dashboard,
-        actor=actor,
-        role=role,
-        session=session,
-    )
-    allowed_actions = merged_actions(authority, action_routing, key="allowed_actions")
-    blocked_actions = merged_actions(authority, action_routing, key="blocked_actions")
-    allowed_actions, blocked_actions = reconcile_actions_with_capability_grants(
-        allowed_actions=allowed_actions,
-        blocked_actions=blocked_actions,
-        granted_capabilities=grants,
-    )
-    override = operator_override_from_request(
-        requested=operator_override_requested,
-        reason=operator_override_reason,
-        scope=operator_override_scope,
-        requested_by=operator_override_by,
-        requested_plan_ref=requested_plan_ref,
-        requested_packet_id=requested_packet_id,
-    )
-    allowed_actions, blocked_actions = apply_operator_override_actions(
-        allowed_actions=allowed_actions,
-        blocked_actions=blocked_actions,
-        operator_override=override,
-    )
-    reviewer_runtime = _mapping(review_state.get("reviewer_runtime"))
-    return AgentLoopContext(
-        review_state=review_state,
-        dashboard=dashboard,
-        actor=actor,
-        role=role,
-        session=session,
-        master_plan=_mapping(master_plan) or _mapping(review_state.get("master_plan")),
-        clock=_mapping(reviewer_runtime.get("agent_runtime_clock"))
-        or _mapping(dashboard.get("agent_runtime_clock")),
-        attention=asdict(
-            packet_attention_for_agent(
-                review_state,
-                actor=actor,
-                role=role,
-                session=session,
-                fallback_attention=scoped_packet_attention(
-                    review_state=review_state,
-                    dashboard=dashboard,
-                    actor=actor,
-                    session=session,
-                ),
-            )
-        ),
-        authority=authority,
-        action_routing=action_routing,
-        allowed_actions=allowed_actions,
-        blocked_actions=blocked_actions,
-        granted_capabilities=grants,
-        operator_override=override,
-        may_mutate=override.edit_allowed or may_actor_mutate(
-            granted_capabilities=grants,
-            allowed_actions=allowed_actions,
-            blocked_actions=blocked_actions,
-            edit_allowed=edit_allowed,
-        ),
-        top_blocker=top_blocker,
-        next_action=next_action,
-        next_command=next_command,
-        current_instruction_revision=current_instruction_revision(
+
+    return build_agent_loop_context_impl(
+        AgentLoopContextBuildInput(
             review_state=review_state,
             dashboard=dashboard,
-        ),
-        loop_intent=normalize_loop_intent(loop_intent),
-        requested_plan_ref=_text(requested_plan_ref),
-        requested_packet_id=_text(requested_packet_id),
+            actor_id=actor_id,
+            actor_role=actor_role,
+            session_id=session_id,
+            loop_intent=loop_intent,
+            requested_plan_ref=requested_plan_ref,
+            requested_packet_id=requested_packet_id,
+            master_plan=master_plan,
+            operator_override_requested=operator_override_requested,
+            operator_override_reason=operator_override_reason,
+            operator_override_scope=operator_override_scope,
+            operator_override_by=operator_override_by,
+        )
     )
 
 

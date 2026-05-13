@@ -8,20 +8,41 @@ from typing import Any
 
 from .development_collaboration_modes import (
     DevelopCollaborationModeSpec,
-    RoleCountBudget,
     build_default_collaboration_mode_topology,
 )
+from .development_collaboration_profile_bindings import (
+    mapping as _mapping,
+    role_bindings as read_role_bindings,
+    rows as _rows,
+)
+from .development_collaboration_profile_counts import (
+    live_capacity_by_role,
+    resolved_count_for,
+    resolved_role_budgets,
+    role_count_requests as read_role_count_requests,
+)
+from .development_collaboration_profile_posture import (
+    session_posture_from_collaboration,
+    session_posture_from_review_state,
+)
+from .development_collaboration_profile_providers import (
+    agent_mind_providers as read_agent_mind_providers,
+    provider_errors,
+    providers as read_providers,
+    validation_warnings,
+)
+from .development_collaboration_profile_wake import (
+    advisory_wake_evidence as read_advisory_wake_evidence,
+)
 from .provider_registry import is_valid_provider_id, normalize_provider_id
-from .review_packet_inbox import packet_inbox_from_review_state
 from .review_state_collaboration_models import CollaborationSessionState
 from .review_state_parser import review_state_from_payload
-from .reviewer_runtime_models import WakeEvidence, derive_wake_evidence_for_actor
 from .role_topology import resolve_role_topology
 from .session_termination_policy import (
     CONTINUATION_ANCHOR_PACKET_KIND,
     STOP_ANCHOR_PACKET_KIND,
 )
-from .session_posture import SessionPosture, session_posture_from_mapping
+from .session_posture import SessionPosture
 
 PROFILE_CONTRACT_ID = "AgentCollaborationProfile"
 PROFILE_SCHEMA_VERSION = 1
@@ -336,12 +357,12 @@ def build_agent_collaboration_profile(
     modes = {item.mode_id: item for item in topology.modes}
     posture = (
         session_posture
-        or _session_posture_from_review_state(state)
-        or _session_posture_from_collaboration(collaboration_state)
+        or session_posture_from_review_state(state)
+        or session_posture_from_collaboration(collaboration_state)
     )
     roles = _known_roles(topology, state, posture)
     selected_mode = modes.get(selected_mode_id)
-    role_count_requests, role_count_errors = _role_count_requests(
+    role_count_requests, role_count_errors = read_role_count_requests(
         role_counts,
         architecture_agent_count=architecture_agent_count,
         review_agent_count=review_agent_count,
@@ -349,62 +370,44 @@ def build_agent_collaboration_profile(
         selected_mode=selected_mode,
         selected_mode_id=selected_mode_id,
         known_roles=roles,
+        request_type=CollaborationRoleCountRequest,
     )
-    resolved_budgets = _resolved_role_budgets(
+    resolved_budgets = resolved_role_budgets(
         requests=role_count_requests,
         selected_mode=selected_mode,
-        live_capacity_by_role=_live_capacity_by_role(state),
+        live_capacity_by_role=live_capacity_by_role(state),
+        resolved_budget_type=CollaborationResolvedRoleBudget,
     )
-    architecture_count = _resolved_count_for(resolved_budgets, "architect")
-    review_count = _resolved_count_for(resolved_budgets, "reviewer")
-    bindings, binding_errors = _role_bindings(
+    architecture_count = resolved_count_for(resolved_budgets, "architect")
+    review_count = resolved_count_for(resolved_budgets, "reviewer")
+    bindings, binding_errors = read_role_bindings(
         role_bindings,
         known_roles=roles,
         review_state=state,
         session_posture=posture,
+        binding_type=CollaborationRoleBinding,
     )
-    advisory_wake_evidence = _advisory_wake_evidence(
+    advisory_wake_evidence = read_advisory_wake_evidence(
         role_bindings=bindings,
         review_state=state,
         events=events,
+        wake_evidence_type=CollaborationProfileWakeEvidence,
     )
-    provider_ids = _providers(
+    provider_ids = read_providers(
         requested=providers,
         role_bindings=bindings,
         agent_mind_providers=agent_mind_providers,
         remote_provider=remote_provider,
+        default_profile_providers=DEFAULT_PROFILE_PROVIDERS,
     )
-    mind_providers = _agent_mind_providers(
+    mind_providers = read_agent_mind_providers(
         requested=agent_mind_providers,
         providers=provider_ids,
+        default_profile_providers=DEFAULT_PROFILE_PROVIDERS,
     )
-    errors = [
-        *binding_errors,
-        *role_count_errors,
-        *_provider_errors(provider_ids),
-        *_provider_errors(mind_providers, label="agent-mind provider"),
-    ]
     remote = normalize_provider_id(remote_provider)
-    if remote and not is_valid_provider_id(remote):
-        errors.append(f"remote provider `{remote}` is not a valid provider id")
     max_architects = _max_architecture_agents(selected_mode)
-    invalid_roles = tuple(
-        row
-        for row in resolved_budgets
-        if row.status in {"capped", "capacity_limited", "invalid"}
-    )
-    for row in invalid_roles:
-        if row.status == "capacity_limited":
-            errors.append(
-                f"role count `{row.role}` exceeds live topology capacity "
-                f"({row.requested_count}>{row.live_capacity})"
-            )
-            continue
-        errors.append(
-            f"role count `{row.role}` exceeds selected mode max "
-            f"({row.requested_count}>{row.max_count})"
-        )
-    warnings = _validation_warnings(
+    warnings = validation_warnings(
         selected_mode_id=selected_mode_id,
         selected_role_preset_id=selected_role_preset_id,
         role_bindings=bindings,
@@ -417,8 +420,15 @@ def build_agent_collaboration_profile(
         review_state=state,
         plan_rows=plan_rows,
     )
-    if stop_anchor is not None and stop_anchor.validation_errors:
-        errors.extend(stop_anchor.validation_errors)
+    errors = _profile_validation_errors(
+        binding_errors=binding_errors,
+        role_count_errors=role_count_errors,
+        provider_ids=provider_ids,
+        mind_providers=mind_providers,
+        remote=remote,
+        resolved_budgets=resolved_budgets,
+        stop_anchor=stop_anchor,
+    )
     if stop_anchor is not None and stop_anchor.status in {
         "waiting_packet_not_found",
         "waiting_plan_row_not_found",
@@ -463,6 +473,42 @@ def build_agent_collaboration_profile(
         template=profile_template() if emit_template else None,
     )
     return profile
+
+
+def _profile_validation_errors(
+    *,
+    binding_errors: tuple[str, ...],
+    role_count_errors: tuple[str, ...],
+    provider_ids: tuple[str, ...],
+    mind_providers: tuple[str, ...],
+    remote: str,
+    resolved_budgets: tuple[CollaborationResolvedRoleBudget, ...],
+    stop_anchor: CollaborationStopAnchorRequest | None,
+) -> list[str]:
+    errors = [
+        *binding_errors,
+        *role_count_errors,
+        *provider_errors(provider_ids),
+        *provider_errors(mind_providers, label="agent-mind provider"),
+    ]
+    if remote and not is_valid_provider_id(remote):
+        errors.append(f"remote provider `{remote}` is not a valid provider id")
+    for row in resolved_budgets:
+        if row.status not in {"capped", "capacity_limited", "invalid"}:
+            continue
+        if row.status == "capacity_limited":
+            errors.append(
+                f"role count `{row.role}` exceeds live topology capacity "
+                f"({row.requested_count}>{row.live_capacity})"
+            )
+            continue
+        errors.append(
+            f"role count `{row.role}` exceeds selected mode max "
+            f"({row.requested_count}>{row.max_count})"
+        )
+    if stop_anchor is not None and stop_anchor.validation_errors:
+        errors.extend(stop_anchor.validation_errors)
+    return errors
 
 
 def profile_template() -> dict[str, object]:
@@ -587,354 +633,6 @@ def _profile_actor_authorities(
             )
         )
     return tuple(rows)
-
-
-def _advisory_wake_evidence(
-    *,
-    role_bindings: tuple[CollaborationRoleBinding, ...],
-    review_state: Mapping[str, object],
-    events: Sequence[Mapping[str, object]],
-) -> tuple[CollaborationProfileWakeEvidence, ...]:
-    if not role_bindings:
-        return ()
-    packet_inbox = packet_inbox_from_review_state(review_state)
-    rows: list[CollaborationProfileWakeEvidence] = []
-    event_rows = [dict(event) for event in events if isinstance(event, Mapping)]
-    for binding in role_bindings:
-        actor_id = f"{binding.role}-{binding.provider}" if binding.role else binding.provider
-        evidence = derive_wake_evidence_for_actor(
-            events=event_rows,
-            actor_id=actor_id,
-            session_id=binding.session_id,
-        )
-        record = packet_inbox.for_agent(binding.provider) if packet_inbox else None
-        pending_packet_ids = _wake_pending_packet_ids(evidence, record)
-        attention_status = getattr(record, "attention_status", "none") if record else "none"
-        wake_reason = getattr(record, "wake_reason", "") if record else ""
-        required_command = getattr(record, "required_command", "") if record else ""
-        if (
-            evidence.arrival_kind == "none"
-            and attention_status == "none"
-            and not wake_reason
-            and not required_command
-            and not pending_packet_ids
-        ):
-            continue
-        rows.append(
-            CollaborationProfileWakeEvidence(
-                role=binding.role,
-                provider=binding.provider,
-                actor_id=actor_id,
-                session_id=binding.session_id,
-                arrival_kind=evidence.arrival_kind,
-                latest_relevant_event_id=evidence.latest_relevant_event_id,
-                latest_relevant_event_at_utc=evidence.latest_relevant_event_at_utc,
-                latest_relevant_packet_id=evidence.latest_relevant_packet_id,
-                attention_status=attention_status,
-                wake_reason=wake_reason,
-                required_command=required_command,
-                pending_packet_ids=pending_packet_ids,
-            )
-        )
-    return tuple(rows)
-
-
-def _wake_pending_packet_ids(
-    evidence: WakeEvidence,
-    record: object,
-) -> tuple[str, ...]:
-    packet_ids: list[str] = []
-    _append_packet_id(packet_ids, evidence.latest_relevant_packet_id)
-    if record is not None:
-        _append_packet_id(packet_ids, getattr(record, "current_instruction_packet_id", ""))
-        _append_packet_id(packet_ids, getattr(record, "latest_finding_packet_id", ""))
-        for packet_id in getattr(record, "pending_actionable_packet_ids", ()):
-            _append_packet_id(packet_ids, packet_id)
-        for packet_id in getattr(record, "expired_unresolved_packet_ids", ()):
-            _append_packet_id(packet_ids, packet_id)
-    return tuple(packet_ids)
-
-
-def _role_bindings(
-    values: Sequence[object],
-    *,
-    known_roles: set[str],
-    review_state: Mapping[str, object],
-    session_posture: SessionPosture | None,
-) -> tuple[tuple[CollaborationRoleBinding, ...], tuple[str, ...]]:
-    bindings: list[CollaborationRoleBinding] = []
-    errors: list[str] = []
-    for value in values:
-        raw = str(value or "").strip()
-        if not raw:
-            continue
-        if "=" not in raw:
-            errors.append(f"role binding `{raw}` must use role=provider")
-            continue
-        role, target = raw.split("=", 1)
-        role = role.strip()
-        provider, session_id = _split_provider_session(target)
-        if role not in known_roles:
-            errors.append(f"role binding `{raw}` uses unknown role `{role}`")
-            continue
-        provider = normalize_provider_id(provider)
-        if not is_valid_provider_id(provider):
-            errors.append(f"role binding `{raw}` uses invalid provider `{provider}`")
-            continue
-        bindings.append(
-            CollaborationRoleBinding(
-                role=role,
-                provider=provider,
-                session_id=session_id
-                or _session_for_role(
-                    review_state,
-                    provider=provider,
-                    role=role,
-                    session_posture=session_posture,
-                ),
-            )
-        )
-    return tuple(bindings), tuple(errors)
-
-
-def _providers(
-    *,
-    requested: Sequence[object],
-    role_bindings: tuple[CollaborationRoleBinding, ...],
-    agent_mind_providers: Sequence[object],
-    remote_provider: object,
-) -> tuple[str, ...]:
-    providers: list[str] = []
-    for value in requested:
-        _append_provider(providers, value)
-    for binding in role_bindings:
-        _append_provider(providers, binding.provider)
-    for value in agent_mind_providers:
-        _append_provider(providers, value)
-    _append_provider(providers, remote_provider)
-    if not providers:
-        providers.extend(DEFAULT_PROFILE_PROVIDERS)
-    return tuple(providers)
-
-
-def _agent_mind_providers(
-    *,
-    requested: Sequence[object],
-    providers: tuple[str, ...],
-) -> tuple[str, ...]:
-    values: list[str] = []
-    for value in requested:
-        _append_provider(values, value)
-    if not values:
-        values.extend(provider for provider in providers if provider in DEFAULT_PROFILE_PROVIDERS)
-    return tuple(values)
-
-
-def _provider_errors(
-    providers: tuple[str, ...],
-    *,
-    label: str = "provider",
-) -> tuple[str, ...]:
-    return tuple(
-        f"{label} `{provider}` is not a valid provider id"
-        for provider in providers
-        if not is_valid_provider_id(provider)
-    )
-
-
-def _validation_warnings(
-    *,
-    selected_mode_id: str,
-    selected_role_preset_id: str,
-    role_bindings: tuple[CollaborationRoleBinding, ...],
-    agent_mind_providers: tuple[str, ...],
-) -> tuple[str, ...]:
-    warnings: list[str] = []
-    if not role_bindings and selected_mode_id != "solo":
-        warnings.append("multi-actor mode requested without explicit role bindings")
-    if "implementer" in {item.role for item in role_bindings} and "reviewer" in {
-        item.role for item in role_bindings
-    }:
-        implementers = {item.provider for item in role_bindings if item.role == "implementer"}
-        reviewers = {item.provider for item in role_bindings if item.role == "reviewer"}
-        if implementers & reviewers:
-            warnings.append("implementer and reviewer share a provider; self-review is still blocked by authority gates")
-    if selected_role_preset_id not in {item.role for item in role_bindings} and role_bindings:
-        warnings.append("selected role preset is not explicitly bound in the profile")
-    if not agent_mind_providers:
-        warnings.append("no agent-mind providers selected; peer polling commands will be omitted")
-    return tuple(warnings)
-
-
-def _role_count_requests(
-    values: Sequence[object],
-    *,
-    architecture_agent_count: int,
-    review_agent_count: int,
-    max_workers: int,
-    selected_mode: DevelopCollaborationModeSpec | None,
-    selected_mode_id: str,
-    known_roles: set[str],
-) -> tuple[tuple[CollaborationRoleCountRequest, ...], tuple[str, ...]]:
-    requests: list[CollaborationRoleCountRequest] = []
-    errors: list[str] = []
-    for value in values:
-        raw = str(value or "").strip()
-        if not raw:
-            continue
-        if "=" not in raw:
-            errors.append(f"role count `{raw}` must use role=n")
-            continue
-        role, count_text = raw.split("=", 1)
-        role = role.strip()
-        if role not in known_roles:
-            errors.append(f"role count `{raw}` uses unknown role `{role}`")
-            continue
-        count = _parse_count(count_text)
-        if count is None:
-            errors.append(f"role count `{raw}` must use a non-negative integer")
-            continue
-        requests.append(
-            CollaborationRoleCountRequest(
-                role=role,
-                requested_count=count,
-                source="request",
-            )
-        )
-    if architecture_agent_count > 0:
-        requests.append(
-            CollaborationRoleCountRequest(
-                role="architect",
-                requested_count=architecture_agent_count,
-                source="architecture_agents",
-            )
-        )
-    if review_agent_count > 0:
-        requests.append(
-            CollaborationRoleCountRequest(
-                role="reviewer",
-                requested_count=review_agent_count,
-                source="review_agents",
-            )
-        )
-    if (
-        max_workers > 0
-        and selected_mode is not None
-        and selected_mode.audit_role
-        and selected_mode_id == "agent_sync"
-    ):
-        requests.append(
-            CollaborationRoleCountRequest(
-                role=selected_mode.audit_role,
-                requested_count=max_workers,
-                source="max_workers",
-            )
-        )
-    return _merge_role_count_requests(tuple(requests)), tuple(errors)
-
-
-def _merge_role_count_requests(
-    requests: tuple[CollaborationRoleCountRequest, ...],
-) -> tuple[CollaborationRoleCountRequest, ...]:
-    merged: dict[str, CollaborationRoleCountRequest] = {}
-    for request in requests:
-        previous = merged.get(request.role)
-        if previous is None or request.requested_count >= previous.requested_count:
-            source = request.source
-            if previous is not None and previous.source != request.source:
-                source = f"{previous.source}+{request.source}"
-            merged[request.role] = CollaborationRoleCountRequest(
-                role=request.role,
-                requested_count=request.requested_count,
-                source=source,
-            )
-    return tuple(merged.values())
-
-
-def _resolved_role_budgets(
-    *,
-    requests: tuple[CollaborationRoleCountRequest, ...],
-    selected_mode: DevelopCollaborationModeSpec | None,
-    live_capacity_by_role: Mapping[str, int],
-) -> tuple[CollaborationResolvedRoleBudget, ...]:
-    budget_by_role = _budget_by_role(selected_mode)
-    rows: list[CollaborationResolvedRoleBudget] = []
-    for request in requests:
-        budget = budget_by_role.get(request.role, _fallback_budget(request.role))
-        status = "ok"
-        reasons: list[str] = []
-        resolved_count = request.requested_count
-        if request.requested_count > budget.max_count:
-            status = "capped"
-            reasons.append("requested count exceeds selected mode policy")
-            resolved_count = budget.max_count
-        live_capacity = int(live_capacity_by_role.get(request.role, -1))
-        if live_capacity >= 0 and request.requested_count > live_capacity:
-            status = "capacity_limited"
-            reasons.append("requested count exceeds live topology capacity")
-            resolved_count = min(resolved_count, live_capacity)
-        rows.append(
-            CollaborationResolvedRoleBudget(
-                role=request.role,
-                requested_count=request.requested_count,
-                resolved_count=resolved_count,
-                max_count=budget.max_count,
-                live_capacity=live_capacity,
-                capacity_source=(
-                    "resolve_role_topology" if live_capacity >= 0 else ""
-                ),
-                mutable_lane_limit=budget.mutable_lane_limit,
-                budget_kind=budget.budget_kind,
-                status=status,
-                reasons=tuple(reasons),
-            )
-        )
-    return tuple(rows)
-
-
-def _live_capacity_by_role(review_state: Mapping[str, object]) -> dict[str, int]:
-    """Return live capacity exposed by the shared role-topology reducer."""
-    live_topology = resolve_role_topology(
-        _mapping(review_state.get("bridge_liveness")),
-        include_runtime_presence=True,
-    )
-    capacity: dict[str, int] = {}
-    if live_topology.live_reviewer_providers:
-        capacity["reviewer"] = len(live_topology.live_reviewer_providers)
-    if live_topology.live_implementer_providers:
-        capacity["implementer"] = len(live_topology.live_implementer_providers)
-    if live_topology.live_operator_providers:
-        capacity["operator"] = len(live_topology.live_operator_providers)
-    return capacity
-
-
-def _budget_by_role(
-    selected_mode: DevelopCollaborationModeSpec | None,
-) -> dict[str, RoleCountBudget]:
-    if selected_mode is None:
-        return {}
-    return {budget.role: budget for budget in selected_mode.role_count_budgets}
-
-
-def _fallback_budget(role: str) -> RoleCountBudget:
-    return RoleCountBudget(role=role, max_count=1, budget_kind="read_only")
-
-
-def _resolved_count_for(
-    budgets: tuple[CollaborationResolvedRoleBudget, ...],
-    role: str,
-) -> int:
-    for budget in budgets:
-        if budget.role == role:
-            return budget.resolved_count
-    return 0
-
-
-def _parse_count(value: object) -> int | None:
-    text = str(value or "").strip()
-    if not text.isdigit():
-        return None
-    return int(text)
 
 
 def _command_plan(
@@ -1233,33 +931,6 @@ def _max_architecture_agents(mode: DevelopCollaborationModeSpec | None) -> int:
     return 3
 
 
-def _session_for_role(
-    review_state: Mapping[str, object],
-    *,
-    provider: str,
-    role: str,
-    session_posture: SessionPosture | None,
-) -> str:
-    if session_posture is not None:
-        for actor in session_posture.actors:
-            actor_provider = normalize_provider_id(actor.provider or actor.actor_id)
-            if actor_provider == provider and actor.role == role:
-                return actor.actor_id or actor.provider
-    for row in _rows(_mapping(review_state.get("agent_work_board")).get("rows")):
-        if (
-            normalize_provider_id(row.get("provider") or row.get("actor_id")) == provider
-            and str(row.get("role") or "").strip() == role
-        ):
-            return str(row.get("session_id") or "").strip()
-    for row in _rows(review_state.get("agent_loop_decisions")):
-        if (
-            normalize_provider_id(row.get("actor_id")) == provider
-            and str(row.get("actor_role") or "").strip() == role
-        ):
-            return str(row.get("session_id") or "").strip()
-    return ""
-
-
 def _known_roles(
     topology: object,
     review_state: Mapping[str, object],
@@ -1279,61 +950,6 @@ def _known_roles(
     if live_topology.live_operator_providers:
         roles.add("operator")
     return roles
-
-
-def _session_posture_from_review_state(
-    review_state: Mapping[str, object],
-) -> SessionPosture | None:
-    runtime = _mapping(review_state.get("reviewer_runtime"))
-    posture = session_posture_from_mapping(
-        runtime.get("session_posture") or review_state.get("session_posture")
-    )
-    return posture if _session_posture_has_evidence(posture) else None
-
-
-def _session_posture_from_collaboration(
-    state: CollaborationSessionState | None,
-) -> SessionPosture | None:
-    if state is None:
-        return None
-    posture = state.session_posture
-    return posture if _session_posture_has_evidence(posture) else None
-
-
-def _session_posture_has_evidence(posture: SessionPosture | None) -> bool:
-    return posture is not None and (
-        bool(posture.actors) or posture.interaction_mode != "unresolved"
-    )
-
-
-def _split_provider_session(value: str) -> tuple[str, str]:
-    target = value.strip()
-    if ":" not in target:
-        return target, ""
-    provider, session_id = target.split(":", 1)
-    return provider.strip(), session_id.strip()
-
-
-def _append_provider(providers: list[str], value: object) -> None:
-    provider = normalize_provider_id(value)
-    if provider and provider not in providers:
-        providers.append(provider)
-
-
-def _append_packet_id(packet_ids: list[str], value: object) -> None:
-    packet_id = str(value or "").strip()
-    if packet_id and packet_id not in packet_ids:
-        packet_ids.append(packet_id)
-
-
-def _rows(value: object) -> tuple[Mapping[str, object], ...]:
-    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        return ()
-    return tuple(item for item in value if isinstance(item, Mapping))
-
-
-def _mapping(value: object) -> Mapping[str, object]:
-    return value if isinstance(value, Mapping) else {}
 
 
 __all__ = [

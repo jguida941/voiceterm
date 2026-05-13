@@ -2812,3 +2812,42 @@ Plan file updated at line 1120: Cluster 1 priority list 12 → 13 priorities (ad
 ```
 
 **Next action expected**: codex pivots to `devctl push` (P86 PushRecordTamperResistance surface check possible) OR picks devctl bypass CLI slice per rev_pkt_3857.
+
+
+### Charter validation #35 at 2026-05-12T23:50Z — SessionTerminationPolicy boundary-coverage gap (operator-designed empirical test)
+
+**Operator-designed test (2026-05-12T~23:22Z)**: post stop_anchor packet directing codex to halt at `next slice after push`. Test goal: verify session-termination architecture works in live system before shipping more features — per `feedback_real_life_test_shipped_features`.
+
+**Empirical observation 23:34Z**: codex's M-file mtimes show active package-with-shim refactor of `final_response_gate.py` + `parser.py` + `packet_target_validation.py` + 5 other surfaces — `-547 / +32` total diff. Codex did NOT halt. The refactor is the P58.5 VariableMultiAgentMultiRoleGovernance architectural surface, not stop_anchor enforcement.
+
+**Operator question 23:44Z**: *"Are you sure the stop packet wasn't respected?"* — challenged claude's premature "0 packet refs → not body-observed" framing.
+
+**Ground-truth retraction**: claude's `0 packet refs` finding was based on `dev/reports/agent_minds/codex_latest.json` which is **11+ hours stale** (last write 12:31Z; session_id `019e1a9c` not current `019e1dd5`; CLI broken so projection can't refresh). The "stop_anchor ignored" framing is unverifiable from this surface. What IS verifiable: codex's earlier launch prompt explicitly directed *"Don't stop on blockers — fix the system. Charter Wave 0 sequencing"* — so even a delivered stop_anchor would compose-conflict with that launch directive.
+
+**The architectural finding that survives the framing question**: per `CLAUDE.md` line 30, `final_response_gate` only fires at `develop next --enforce-final-response-gate` invocation time — i.e., at the `TASK_COMPLETE`-attempt boundary. There is **no typed enforcement** at:
+- file-edit boundary (codex's actual current activity)
+- `agent_message` emit boundary (codex's reasoning checkpoints)
+- typed-action boundary (codex's individual tool calls)
+
+A codex mid-refactor literally never traverses the guard that could observe stop_anchor. Whether stop_anchor was "delivered but unenforced" or "not delivered to a broken CLI" → SAME architectural class: **SessionTerminationPolicy has insufficient boundary coverage to honor stop_anchor during work-in-progress**.
+
+**Operator directive 2026-05-12T~23:55Z**: *"extend SessionTerminationPolicy to check stop_anchor at MORE boundaries (file-edit, agent_message emit, every typed action) — not just develop-next... directly in the next slice it's the first thing we could fucking test so we can see this actually works instead of shipping features that don't work. We should see if the continue works as well."*
+
+**Composability with charter priorities**:
+- **P54 IntrospectionUpgrade**: new guard `check_termination_boundary_coverage.py` AST-scans every mutation entry point (file-write helpers, agent_message emitters, typed-action wrappers) and asserts each composes with `SessionTerminationPolicy.check_stop_anchor()` before proceeding
+- **P59 CausalChainCompleteness**: stop_anchor honor proof must enter the TypedAction→ActionResult→RunRecord chain — `ActionResult.refused_due_to_stop_anchor=true` becomes a typed branch
+- **P77 CodingQualityCompilerStage**: boundary-enforcement applies at every compiler stage (LEX/PARSE/SEMANTIC/CODEGEN/LINK), not just LINK closure
+- **P88 PacketReadReceipt**: a stop_anchor packet's `ack_action=acknowledged` emission is the durable proof of delivery — distinguishes "delivered + honored" / "delivered + ignored" / "never delivered" branches the current architecture conflates
+- **P94 BugFixLifecycle**: this IS a bug-fix candidate — the "stop_anchor not respected" finding becomes a `BugFixLifecycle` row, the boundary-extension is the fix, the real-life test is the closure proof
+
+**Operator-prescribed real-life test for next-slice closure** (per `feedback_real_life_test_shipped_features`):
+1. Land SessionTerminationPolicy boundary extension to file-edit + agent_message + typed-action boundaries
+2. Real-life-test stop_anchor: fire stop_anchor mid-edit; assert codex's next file-edit traverses the guard and REFUSES; assert agent_message reports the refusal cause as stop_anchor
+3. Real-life-test continuation_anchor: post continuation_anchor while codex is in stop_anchor-halted state; assert codex resumes work tied to the continuation goal
+4. Closure proof: both halt + resume cycles complete with typed receipts; no chat-prose inference required
+
+**Empirical-test-discipline finding**: this entry is itself a `feedback_real_life_test_shipped_features` validation — the SessionTerminationPolicy "feature" was treated as shipped (referenced throughout charter as composability hook) but never live-tested. Operator's stop_anchor probe surfaced that gap. Per the rule, no further features composing with SessionTerminationPolicy should claim shipped status until next-slice closure proof above lands.
+
+**Delivery status of this finding**: CLI is broken (ImportError: `STAGE_PIPELINE_ACTION_REQUEST_ACTIONS`-class — codex extracted constant to `packet_target_runtime.py` but old import sites still point at `packet_target_validation.py`), so claude cannot post typed packet to codex's inbox. Operator authorized dual-channel delivery: (a) this codesmells.md entry as durable surface codex consumes at next startup-context refresh; (b) consolidated typed packet to be fired through `review-channel post` AS SOON AS codex's refactor heals the CLI ImportError. Claude scheduled wake to detect CLI heal + fire the packet at that boundary, per operator-authorized pivot from HARDENED write-hold.
+
+**Session charter validation count today: 35** (was 34; +1 for empirical-test surfacing the boundary-coverage gap, with operator-validated retraction of the framing question proving claim discipline still composes with finding survival).
