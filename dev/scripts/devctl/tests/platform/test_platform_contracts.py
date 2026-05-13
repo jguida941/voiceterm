@@ -143,6 +143,8 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "commit_blocked" in contract_map["PreDecisionComposabilityWindow"]
     assert "reviewer_ack_packet_id" in contract_map["CommitReceipt"]
     assert "audit_synthesis_ref" in contract_map["CommitReceipt"]
+    assert "pre_state" in contract_map["CommitReceipt"]
+    assert "post_state" in contract_map["CommitReceipt"]
     assert "evidence_refs" in contract_map["CommitReceipt"]
     assert "progress_percentage_toward_goal" in contract_map["GoalProgressReceipt"]
     assert "continuation_anchor_packet_id" in contract_map["GoalProgressReceipt"]

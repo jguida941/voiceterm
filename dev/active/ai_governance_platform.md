@@ -111,6 +111,11 @@ Current ingestion status:
   receipt pre/post-state evidence. Do not widen Phase 7 into a second feature
   or add a dependency-backed design-by-contract library until that follow-up
   slice is selected and justified by typed plan authority.
+- 2026-05-13 P102 receipt-state evidence (`rev_pkt_3960`): Phase 8 follows
+  the smaller composition path. `ValidationReceipt` and `CommitReceipt` now
+  carry additive pre/post state evidence at the existing governed VCS
+  boundaries, with `require_receipt_state()` enforcing emitted state instead
+  of a new attestation-path checker or alternate transition decorator.
 
 2026-05-06 governed exception lifecycle correction:
 - `MP377-P0-EXC-S1` replaces the earlier raw-bypass receipt direction with a
@@ -14558,3 +14563,35 @@ Compiler/control-plane mapping for this work:
 | 7 | Probes/guards | `review_channel/prompt_guards.py` + `dev/scripts/checks/*.py` |
 | 8 | Receipts | `dev/state/plan_ingestion_receipts.jsonl` + `plan_index.jsonl` |
 | 9 | Lowering/publication | `commands/vcs/governed_executor_commit_phase.py` + `push.py` |
+
+## 2026-05-13 — P102 receipt-state evidence hooks (Phase 8)
+
+`rev_pkt_3960` refined the Phase 8 implementation path before Codex landed a
+standalone attestation-path guard. The accepted slice keeps the existing
+`@governed_transition` metadata and `check_governed_transitions.py` graph
+verifier intact, then attaches pre/post state evidence to receipt contracts
+that already sit at durable action boundaries.
+
+Implemented behavior:
+
+- `ValidationReceipt` now carries `pre_state`, `post_state`,
+  `pre_state_snapshot`, and `post_state_snapshot`. The governed VCS executor
+  emits `validation_pending -> validation_passed|validation_failed` evidence
+  from the routed guard result and verifies the emitted post-state with
+  `require_receipt_state()`.
+- `CommitReceipt` now carries `pre_state` and `post_state`. Commit receipt
+  construction requires a `validation_passed` validation receipt when a commit
+  SHA is present, preserving backwards readability by deriving the state from
+  legacy `status == pass` receipts when the additive field is absent.
+- No `check_attestation_path.py` or new enforcing decorator was added. Runtime
+  enforcement continues through existing receipt contracts, the reusable
+  receipt-state gate, and the governed executor boundary.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/validation_contracts.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_validation.py`
+- `dev/scripts/devctl/runtime/commit_receipt.py`
+- `dev/scripts/devctl/platform/runtime_identity_contract_rows.py`
+- `dev/scripts/devctl/tests/runtime/test_commit_receipt.py`
+- `dev/scripts/devctl/tests/runtime/test_correlation_spine_coverage.py`

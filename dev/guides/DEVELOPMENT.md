@@ -3017,6 +3017,17 @@ modules, builds lifecycle graph edges from each `TransitionContract`, and uses
 `walk_context_graph` to verify required/produced state reachability and
 declared graph paths.
 
+**Receipt-state evidence:**
+
+Governed validation and commit receipts carry additive pre/post state evidence
+at existing action boundaries. `ValidationReceipt` records
+`validation_pending -> validation_passed|validation_failed` plus staged-tree
+and guard-result snapshots. `CommitReceipt` records the validation state it
+builds on and the commit state it produces, and commit receipt construction
+uses `require_receipt_state()` to require `validation_passed` evidence when a
+commit SHA exists. Keep new enforcement inside these receipt contracts unless
+a typed plan explicitly migrates the lifecycle.
+
 **Test with different backends:**
 
 ```bash

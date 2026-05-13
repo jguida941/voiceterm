@@ -3118,6 +3118,17 @@ Governed-transition note:
   required/produced state paths through `walk_context_graph`; it is part of
   the shared governance bundle and CI workflows.
 
+Receipt-state evidence note:
+- `dev/scripts/devctl/runtime/validation_contracts.py` keeps
+  `ValidationReceipt` backward-compatible while adding pre/post state evidence
+  and snapshots for governed guard execution.
+- `dev/scripts/devctl/runtime/commit_receipt.py` keeps `CommitReceipt` as the
+  governed commit boundary and requires `validation_passed` evidence through
+  `require_receipt_state()` before recording a commit SHA.
+- Do not add a parallel attestation-path checker or alternate enforcement
+  decorator unless a typed plan explicitly migrates the existing receipt
+  lifecycle.
+
 Typestate-result note:
 - `dev/scripts/devctl/runtime/bypass_activation_result.py`,
   `dev/scripts/devctl/runtime/task_complete_result.py`, and

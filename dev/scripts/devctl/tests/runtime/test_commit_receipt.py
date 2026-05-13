@@ -1,7 +1,12 @@
 from __future__ import annotations
+# pyright: reportPrivateUsage=false
 
 import json
+from dataclasses import replace
 from pathlib import Path
+from typing import cast
+
+import pytest
 
 from dev.scripts.devctl.commands.vcs.governed_executor_commit_phase import (
     CommitPipelineContext,
@@ -15,6 +20,9 @@ from dev.scripts.devctl.runtime.action_contracts import (
 )
 from dev.scripts.devctl.runtime.commit_receipt import (
     COMMIT_RECEIPT_CONTRACT_ID,
+    COMMIT_RECORDED_STATE,
+    CommitReceiptStateRequired,
+    VALIDATION_PASSED_STATE,
     build_commit_receipt,
     commit_receipt_from_mapping,
     write_commit_receipt_artifact,
@@ -44,6 +52,9 @@ def test_commit_receipt_bundles_reviewer_ack_and_audit_chain() -> None:
     assert receipt.reviewer_ack_packet_id == "rev_pkt_accept"
     assert receipt.approval_packet_id == "rev_pkt_request"
     assert receipt.audit_synthesis_ref == "validation_receipt:val-1"
+    assert receipt.status == COMMIT_RECORDED_STATE
+    assert receipt.pre_state == VALIDATION_PASSED_STATE
+    assert receipt.post_state == COMMIT_RECORDED_STATE
     assert "commit:abc123" in receipt.evidence_refs
     assert "packet:rev_pkt_accept" in receipt.evidence_refs
     assert "validation_receipt:val-1" in receipt.evidence_refs
@@ -62,6 +73,24 @@ def test_commit_receipt_round_trips_artifact(tmp_path: Path) -> None:
     assert parsed.commit_sha == "abc123"
     assert parsed.reviewer_ack_packet_id == "rev_pkt_accept"
     assert parsed.audit_synthesis_ref == "validation_receipt:val-1"
+    assert parsed.pre_state == VALIDATION_PASSED_STATE
+    assert parsed.post_state == COMMIT_RECORDED_STATE
+
+
+def test_commit_receipt_rejects_commit_after_failed_validation() -> None:
+    pipeline = _pipeline()
+    assert pipeline.validation_receipt is not None
+    failed = replace(
+        pipeline,
+        validation_receipt=replace(
+            pipeline.validation_receipt,
+            status=ActionOutcome.FAIL,
+            post_state="validation_failed",
+        ),
+    )
+
+    with pytest.raises(CommitReceiptStateRequired):
+        build_commit_receipt(failed)
 
 
 def test_governed_commit_success_emits_commit_receipt_artifact(tmp_path: Path) -> None:
@@ -89,10 +118,12 @@ def test_governed_commit_success_emits_commit_receipt_artifact(tmp_path: Path) -
     receipt_paths = [
         path for path in result.artifact_paths if path.startswith("dev/reports/commit_receipts/")
     ]
+    commit_result = persisted[-1].commit_result
+    assert commit_result is not None
     assert result.ok is True
     assert receipt_paths == ["dev/reports/commit_receipts/abc123.json"]
     assert (tmp_path / receipt_paths[0]).exists()
-    assert receipt_paths[0] in persisted[-1].commit_result.artifact_paths
+    assert receipt_paths[0] in commit_result.artifact_paths
 
 
 def _pipeline() -> RemoteCommitPipelineContract:
@@ -112,6 +143,7 @@ def _pipeline() -> RemoteCommitPipelineContract:
             plan_id="MP377-COMMIT-RECEIPT-EVIDENCE-CHAIN-S1",
             bundle_id="runtime",
             status="pass",
+            post_state=VALIDATION_PASSED_STATE,
         ),
         approval_packet_id="rev_pkt_request",
         decision_packet_id="rev_pkt_accept",
@@ -145,7 +177,9 @@ def _persist(
     return []
 
 
-def _result(**kwargs) -> ActionResult:
+def _result(**kwargs: object) -> ActionResult:
+    warnings_value = kwargs.get("warnings")
+    artifact_paths_value = kwargs.get("artifact_paths")
     return build_action_result(
         ActionResultFields(
             action_id=str(kwargs["action_id"]),
@@ -153,7 +187,14 @@ def _result(**kwargs) -> ActionResult:
             status=str(kwargs.get("status") or ActionOutcome.UNKNOWN),
             reason=str(kwargs.get("reason") or ""),
             operator_guidance=str(kwargs.get("operator_guidance") or ""),
-            warnings=tuple(kwargs.get("warnings") or ()),
-            artifact_paths=tuple(kwargs.get("artifact_paths") or ()),
+            warnings=_string_tuple(warnings_value),
+            artifact_paths=_string_tuple(artifact_paths_value),
         )
     )
+
+
+def _string_tuple(value: object) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    items = cast(list[object] | tuple[object, ...], value)
+    return tuple(str(item) for item in items)

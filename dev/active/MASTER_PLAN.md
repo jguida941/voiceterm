@@ -8296,3 +8296,10 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
     receipt evidence on existing validation/commit receipt boundaries.
     Third-party design-by-contract libraries are evaluation candidates only,
     not authority and not part of the Phase 7 slice.
+- [ ] `PKT-BIND-REV-PKT-3960` Packet finding: Pre-decision architectural review (operator-directed): ZGraph+zRef+traversal map + ai_governance_platform.md fit + 3 parallel-surface risks + smaller Phase 8 composition path (Agent 3 found: reuse require_receipt_state, n... (source `rev_pkt_3960`; target `plan:MP-377`; posted `2026-05-13T20:40:13.945631Z`; binding `plan_row`).
+  - 2026-05-13 Codex disposition: accept the smaller composition path. Phase
+    8 should not introduce a standalone `check_attestation_path.py` package or
+    a new enforcing decorator. The landed slice extends existing
+    `ValidationReceipt` and `CommitReceipt` evidence with pre/post states and
+    verifies emitted receipt state through `require_receipt_state()` at the
+    governed validation and commit boundaries.

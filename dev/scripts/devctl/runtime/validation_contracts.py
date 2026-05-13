@@ -70,6 +70,10 @@ class ValidationReceipt:
     warnings: tuple[str, ...] = ()
     checkpoint_sufficient: bool = False
     push_sufficient: bool = False
+    pre_state: str = ""
+    post_state: str = ""
+    pre_state_snapshot: str = ""
+    post_state_snapshot: str = ""
     emitted_at_utc: str = ""
     correlation_id: str = ""
     causation_id: str = ""
@@ -152,6 +156,10 @@ def validation_receipt_from_mapping(
         warnings=coerce_string_items(mapping.get("warnings")),
         checkpoint_sufficient=coerce_bool(mapping.get("checkpoint_sufficient")),
         push_sufficient=coerce_bool(mapping.get("push_sufficient")),
+        pre_state=coerce_string(mapping.get("pre_state")),
+        post_state=coerce_string(mapping.get("post_state")),
+        pre_state_snapshot=coerce_string(mapping.get("pre_state_snapshot")),
+        post_state_snapshot=coerce_string(mapping.get("post_state_snapshot")),
         emitted_at_utc=coerce_string(mapping.get("emitted_at_utc")),
         correlation_id=context.correlation_id,
         causation_id=context.causation_id,

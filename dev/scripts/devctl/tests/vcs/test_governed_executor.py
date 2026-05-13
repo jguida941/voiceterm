@@ -2246,6 +2246,10 @@ def test_full_pipeline_commits_and_pushes_to_local_remote(tmp_path: Path) -> Non
     )
     assert pipeline.validation_receipt.checkpoint_sufficient is True
     assert pipeline.validation_receipt.push_sufficient is True
+    assert pipeline.validation_receipt.pre_state == "validation_pending"
+    assert pipeline.validation_receipt.post_state == "validation_passed"
+    assert pipeline.validation_receipt.pre_state_snapshot.startswith("staged_tree:")
+    assert pipeline.validation_receipt.post_state_snapshot.startswith("guard_action:")
     artifact_paths = resolve_artifact_paths(repo_root=repo_root)
 
     post_packet(

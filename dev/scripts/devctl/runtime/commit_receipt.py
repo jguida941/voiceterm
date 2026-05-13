@@ -9,19 +9,23 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .remote_commit_pipeline_models import RemoteCommitPipelineContract
+from .receipt_state_gate import require_receipt_state
 from .typed_ids import ReceiptId, as_receipt_id, id_text
-from .value_coercion import (
-    coerce_bool,
-    coerce_int,
-    coerce_mapping,
-    coerce_string,
-    coerce_string_items,
-)
+from .value_coercion import coerce_int, coerce_mapping, coerce_string, coerce_string_items
 
 
 COMMIT_RECEIPT_CONTRACT_ID = "CommitReceipt"
 COMMIT_RECEIPT_SCHEMA_VERSION = 1
 COMMIT_RECEIPT_ARTIFACT_ROOT = "dev/reports/commit_receipts"
+VALIDATION_PASSED_STATE = "validation_passed"
+VALIDATION_FAILED_STATE = "validation_failed"
+VALIDATION_UNKNOWN_STATE = "validation_unknown"
+COMMIT_RECORDED_STATE = "commit_recorded"
+COMMIT_MISSING_SHA_STATE = "missing_commit_sha"
+
+
+class CommitReceiptStateRequired(ValueError):
+    """Raised when commit receipt evidence violates expected state ordering."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +47,8 @@ class CommitReceipt:
     guard_action_id: str = ""
     commit_action_id: str = ""
     status: str = "unknown"
+    pre_state: str = ""
+    post_state: str = ""
     recorded_at_utc: str = ""
     produced_by: str = "devctl"
     artifact_paths: tuple[str, ...] = ()
@@ -81,12 +87,23 @@ def build_commit_receipt(
     validation_receipt_id = as_receipt_id(
         coerce_string(validation.receipt_id) if validation is not None else ""
     )
+    pre_state = _validation_receipt_state(validation)
+    if validation is not None and commit_sha:
+        require_receipt_state(
+            validation,
+            state_getter=_validation_receipt_state,
+            required_state=VALIDATION_PASSED_STATE,
+            error_factory=lambda: CommitReceiptStateRequired(
+                "commit receipt requires a validation_passed receipt"
+            ),
+        )
     resolved_audit_ref = (
         coerce_string(audit_synthesis_ref)
         or _validation_receipt_ref(validation_receipt_id)
         or _guard_action_ref(pipeline.guard_action_id)
     )
     plan_row_id = _plan_row_id(pipeline)
+    post_state = COMMIT_RECORDED_STATE if commit_sha else COMMIT_MISSING_SHA_STATE
     evidence_refs = _unique_refs(
         (
             _ref("commit", commit_sha),
@@ -115,7 +132,9 @@ def build_commit_receipt(
         validation_receipt_id=id_text(validation_receipt_id),
         guard_action_id=coerce_string(pipeline.guard_action_id),
         commit_action_id=coerce_string(pipeline.commit_action_id),
-        status="commit_recorded" if commit_sha else "missing_commit_sha",
+        status=post_state,
+        pre_state=pre_state,
+        post_state=post_state,
         recorded_at_utc=coerce_string(recorded_at_utc) or _utc_now(),
         produced_by=coerce_string(produced_by) or "devctl",
         artifact_paths=tuple(coerce_string(path) for path in artifact_paths if coerce_string(path)),
@@ -147,6 +166,8 @@ def commit_receipt_from_mapping(payload: Mapping[str, object]) -> CommitReceipt:
         guard_action_id=coerce_string(mapping.get("guard_action_id")),
         commit_action_id=coerce_string(mapping.get("commit_action_id")),
         status=coerce_string(mapping.get("status")) or "unknown",
+        pre_state=coerce_string(mapping.get("pre_state")),
+        post_state=coerce_string(mapping.get("post_state")),
         recorded_at_utc=coerce_string(mapping.get("recorded_at_utc")),
         produced_by=coerce_string(mapping.get("produced_by")) or "devctl",
         artifact_paths=coerce_string_items(mapping.get("artifact_paths")),
@@ -200,6 +221,22 @@ def _unique_refs(values: Iterable[str]) -> tuple[str, ...]:
     return tuple(refs)
 
 
+def _validation_receipt_state(validation: object | None) -> str:
+    if validation is None:
+        return VALIDATION_UNKNOWN_STATE
+    raw_post_state: object = getattr(validation, "post_state", "")
+    post_state = str(raw_post_state).strip() if raw_post_state is not None else ""
+    if post_state:
+        return post_state
+    raw_status: object = getattr(validation, "status", "")
+    status = str(raw_status).strip() if raw_status is not None else ""
+    if status == "pass":
+        return VALIDATION_PASSED_STATE
+    if status == "fail":
+        return VALIDATION_FAILED_STATE
+    return VALIDATION_UNKNOWN_STATE
+
+
 def _ref(prefix: str, value: str) -> str:
     token = coerce_string(value)
     if not token:
@@ -228,7 +265,10 @@ __all__ = [
     "COMMIT_RECEIPT_ARTIFACT_ROOT",
     "COMMIT_RECEIPT_CONTRACT_ID",
     "COMMIT_RECEIPT_SCHEMA_VERSION",
+    "COMMIT_RECORDED_STATE",
     "CommitReceipt",
+    "CommitReceiptStateRequired",
+    "VALIDATION_PASSED_STATE",
     "build_commit_receipt",
     "commit_receipt_artifact_relpath",
     "commit_receipt_from_mapping",

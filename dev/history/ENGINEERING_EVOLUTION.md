@@ -15252,3 +15252,25 @@ Evidence:
 - `dev/scripts/devctl/bundles/registry.py`
 - `.github/workflows/tooling_control_plane.yml`
 - `.github/workflows/release_preflight.yml`
+
+### 2026-05-13 - P102 receipts carry validation and commit state evidence
+
+The Phase 8 enforcement slice followed `rev_pkt_3960` and stayed inside
+existing receipt boundaries instead of adding a parallel attestation-path
+checker. `ValidationReceipt` now records `validation_pending` pre-state,
+`validation_passed` or `validation_failed` post-state, plus pre/post state
+snapshots from the staged tree and guard result. The governed VCS executor
+checks the emitted post-state with `require_receipt_state()`.
+
+`CommitReceipt` now records the validation pre-state it builds on and the
+commit post-state it produces. When a commit SHA is present, receipt
+construction requires a `validation_passed` validation receipt, while still
+deriving that state from legacy `status == pass` receipts when additive
+fields are absent.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/validation_contracts.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_validation.py`
+- `dev/scripts/devctl/runtime/commit_receipt.py`
+- `dev/scripts/devctl/tests/runtime/test_commit_receipt.py`
