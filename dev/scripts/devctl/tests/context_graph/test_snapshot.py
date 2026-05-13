@@ -6,7 +6,6 @@ import json
 import os
 import tempfile
 import unittest
-from dataclasses import asdict
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -15,7 +14,15 @@ from dev.scripts.devctl.context_graph.command import run
 from dev.scripts.devctl.context_graph.latest_snapshot import (
     latest_context_graph_snapshot_path,
 )
-from dev.scripts.devctl.context_graph.models import BootstrapContext, GraphEdge, GraphNode, GraphSize
+from dev.scripts.devctl.context_graph.models import (
+    EDGE_KIND_PRODUCES_STATE,
+    EDGE_KIND_REQUIRES_STATE,
+    EDGE_KIND_TRANSITIONS_TO,
+    BootstrapContext,
+    GraphEdge,
+    GraphNode,
+    GraphSize,
+)
 from dev.scripts.devctl.context_graph.snapshot import (
     CONTEXT_GRAPH_SNAPSHOT_CONTRACT_ID,
     CONTEXT_GRAPH_SNAPSHOT_SCHEMA_VERSION,
@@ -100,6 +107,60 @@ class TestContextGraphSnapshotWriter(unittest.TestCase):
             self.assertEqual(
                 payload["temperature_distribution"]["buckets"]["0.75-1.00"],
                 1,
+            )
+
+    def test_lifecycle_edge_metadata_persists_in_snapshot_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            edges = [
+                GraphEdge(
+                    source_id="receipt:bypass-receipt",
+                    target_id="lifecycle:bypass:active",
+                    edge_kind=EDGE_KIND_REQUIRES_STATE,
+                    metadata={"state": "active", "contract_id": "BypassLifecycle"},
+                ),
+                GraphEdge(
+                    source_id="lifecycle:bypass:requested",
+                    target_id="lifecycle:bypass:active",
+                    edge_kind=EDGE_KIND_TRANSITIONS_TO,
+                    metadata={"transition": "approve_bypass_lifecycle"},
+                ),
+                GraphEdge(
+                    source_id="transition:approve_bypass_lifecycle",
+                    target_id="lifecycle:bypass:active",
+                    edge_kind=EDGE_KIND_PRODUCES_STATE,
+                    metadata={"state": "active"},
+                ),
+            ]
+
+            receipt = write_context_graph_snapshot(
+                _sample_nodes(),
+                edges,
+                capture=ContextGraphSnapshotCapture(
+                    source_mode="bootstrap",
+                    repo_root=repo_root,
+                    branch="feature/test",
+                    commit_hash="lifecycle123",
+                    generated_at_utc="2026-03-22T16:10:00Z",
+                    timestamp_slug="20260322T161000Z",
+                ),
+            )
+
+            payload = json.loads((repo_root / receipt.path).read_text(encoding="utf-8"))
+            edge_kinds = {edge["edge_kind"] for edge in payload["edges"]}
+
+            self.assertEqual(
+                edge_kinds,
+                {
+                    EDGE_KIND_REQUIRES_STATE,
+                    EDGE_KIND_TRANSITIONS_TO,
+                    EDGE_KIND_PRODUCES_STATE,
+                },
+            )
+            self.assertEqual(payload["edges"][0]["metadata"]["state"], "active")
+            self.assertEqual(
+                payload["edges"][1]["metadata"]["transition"],
+                "approve_bypass_lifecycle",
             )
 
     def test_snapshot_resolution_uses_capture_time_not_filesystem_mtime(self) -> None:

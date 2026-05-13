@@ -5,6 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 
+def _object_metadata() -> dict[str, object]:
+    return {}
+
+
+def _object_list() -> list[dict[str, object]]:
+    return []
+
+
 @dataclass(frozen=True)
 class GraphNode:
     """A single node in the context graph."""
@@ -15,7 +23,7 @@ class GraphNode:
     canonical_pointer_ref: str
     provenance_ref: str
     temperature: float
-    metadata: dict[str, object] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=_object_metadata)
 
 
 @dataclass(frozen=True)
@@ -25,6 +33,7 @@ class GraphEdge:
     source_id: str
     target_id: str
     edge_kind: str
+    metadata: dict[str, object] = field(default_factory=_object_metadata)
 
 
 @dataclass(frozen=True)
@@ -87,13 +96,13 @@ class BootstrapContext:
     bootstrap_links: dict[str, str | None]
     push_enforcement: dict[str, object]
     usage: str
-    bootstrap_commands: list[dict[str, object]] = field(default_factory=list)
-    quality_signals: dict[str, object] = field(default_factory=dict)
+    bootstrap_commands: list[dict[str, object]] = field(default_factory=_object_list)
+    quality_signals: dict[str, object] = field(default_factory=_object_metadata)
     key_surfaces: tuple[str, ...] = ()
-    runtime_spine_closure: dict[str, object] = field(default_factory=dict)
-    packet_continuity_index: dict[str, object] = field(default_factory=dict)
+    runtime_spine_closure: dict[str, object] = field(default_factory=_object_metadata)
+    packet_continuity_index: dict[str, object] = field(default_factory=_object_metadata)
     packet_carry_forward_debt: tuple[dict[str, object], ...] = ()
-    continuity_attention: dict[str, object] = field(default_factory=dict)
+    continuity_attention: dict[str, object] = field(default_factory=_object_metadata)
 
 
 @dataclass(frozen=True)
@@ -125,3 +134,6 @@ EDGE_KIND_CONTRACT_READS = "contract_reads"
 EDGE_KIND_CONTRACT_WRITES = "contract_writes"
 EDGE_KIND_POLICY_SCOPES = "policy_scopes"
 EDGE_KIND_RECEIPT_PROVES = "receipt_proves"
+EDGE_KIND_TRANSITIONS_TO = "transitions_to"
+EDGE_KIND_REQUIRES_STATE = "requires_state"
+EDGE_KIND_PRODUCES_STATE = "produces_state"
