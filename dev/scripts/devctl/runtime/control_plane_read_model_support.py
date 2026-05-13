@@ -91,7 +91,10 @@ def resolve_control_plane_context(
         inputs.full_json,
     )
     daemons = resolve_daemon_state(inputs.sources)
-    quality = resolve_quality(inputs.push_report)
+    quality = resolve_quality(
+        inputs.push_report,
+        current_head=coerce_string(inputs.git.get("head")),
+    )
     pending = resolve_pending_packets(inputs.review_state_payload)
     blocker = resolve_blocker_and_action(
         inputs.receipt,

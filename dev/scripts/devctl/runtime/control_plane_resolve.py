@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .control_plane_daemons import resolve_daemon_state
+from .control_plane_quality import resolve_quality
 from .control_plane_sources import artifact_paths, load_sources, read_json_artifact
 from .post_checkpoint_dirty_support import COMMIT_CHECKPOINT_COMMAND
 from .review_packet_inbox import summarize_packet_attention_open_findings
@@ -178,27 +179,6 @@ def resolve_reviewer_state(
         "attention_status": attention_status,
         "attention_summary": coerce_string(attention.get("summary")) or "n/a",
     }
-
-
-def resolve_quality(push_report: dict[str, Any] | None) -> dict[str, Any]:
-    """Derive guard-ok and check details from the push report."""
-    if push_report is None:
-        return {"last_guard_ok": True, "check_details": ()}
-    preflight = push_report.get("preflight_step", {}) or {}
-    rc = preflight.get("returncode", -1)
-    guard_ok = rc == 0 if isinstance(rc, int) else True
-    details: list[dict[str, str]] = []
-    if not guard_ok:
-        violations = push_report.get("violations")
-        if isinstance(violations, list):
-            for v in violations[:10]:
-                if isinstance(v, dict):
-                    details.append({
-                        "check": coerce_string(v.get("step_name")) or "unknown",
-                        "status": "FAIL",
-                        "violation": coerce_string(v.get("summary")),
-                    })
-    return {"last_guard_ok": guard_ok, "check_details": tuple(details)}
 
 
 def resolve_blocker_and_action(

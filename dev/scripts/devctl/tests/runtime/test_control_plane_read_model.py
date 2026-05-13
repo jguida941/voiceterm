@@ -132,7 +132,7 @@ class BuildFromEmptySourcesTests(unittest.TestCase):
         self.assertFalse(model.loop_autonomy_ok)
         self.assertEqual(
             model.loop_gap_summary,
-            "single_agent loop has no typed wake-capable owner or scheduler.",
+            "single_agent loop has no typed attention-capable owner or scheduler.",
         )
 
     def test_dirty_worktree_resolves_implementing(self) -> None:
@@ -401,6 +401,16 @@ class BuildWithReviewStateTests(unittest.TestCase):
         sources = _empty_sources()
         sources["review_state"] = {
             "bridge": {"reviewer_mode": "single_agent"},
+            "reviewer_runtime": {
+                "remote_control_attachment": {
+                    "provider": "claude",
+                    "remote_session_id": "session_xyz789",
+                    "status": "attached",
+                    "last_seen_utc": datetime.now(timezone.utc)
+                    .isoformat()
+                    .replace("+00:00", "Z"),
+                }
+            },
         }
         governance = SimpleNamespace(
             bridge_config=SimpleNamespace(operator_interaction_mode="remote_control")
@@ -480,6 +490,9 @@ class BuildWithReviewStateTests(unittest.TestCase):
                     "session_name": "VoiceTerm Bridge Loop",
                     "remote_session_id": "session_abc123",
                     "status": "attached",
+                    "last_seen_utc": datetime.now(timezone.utc)
+                    .isoformat()
+                    .replace("+00:00", "Z"),
                 }
             },
         }
@@ -514,6 +527,9 @@ class BuildWithReviewStateTests(unittest.TestCase):
                     "session_name": "VoiceTerm Bridge Loop",
                     "remote_session_id": "session_xyz789",
                     "status": "attached",
+                    "last_seen_utc": datetime.now(timezone.utc)
+                    .isoformat()
+                    .replace("+00:00", "Z"),
                 }
             },
         }
@@ -646,6 +662,23 @@ class BuildWithPushReportTests(unittest.TestCase):
         self.assertEqual(model.check_details[0]["check"], "code_shape")
         self.assertEqual(model.resolved_phase, "testing")
 
+    def test_stale_push_report_does_not_block_current_head(self) -> None:
+        sources = _empty_sources()
+        sources["push_report"] = {
+            "head_commit": "old-head",
+            "status": "blocked",
+            "reason": "push_preflight_running",
+            "preflight_step": None,
+            "violations": [],
+        }
+        model = build_control_plane_read_model(
+            Path("/tmp/nonexistent"),
+            sources_override=sources,
+            git_override=_base_git(),
+        )
+        self.assertTrue(model.last_guard_ok)
+        self.assertEqual(model.top_blocker, "none")
+
 
 class BuildWithDaemonHeartbeatsTests(unittest.TestCase):
     """Build from daemon heartbeat data."""
@@ -711,6 +744,18 @@ class ResolverUnitTests(unittest.TestCase):
         })
         self.assertFalse(q["last_guard_ok"])
         self.assertEqual(len(q["check_details"]), 1)
+
+    def test_resolve_quality_ignores_stale_push_report(self) -> None:
+        q = resolve_quality(
+            {
+                "head_commit": "old-head",
+                "preflight_step": {"returncode": 1},
+                "violations": [{"step_name": "check_x", "summary": "bad"}],
+            },
+            current_head="new-head",
+        )
+        self.assertTrue(q["last_guard_ok"])
+        self.assertEqual(q["check_details"], ())
 
     def test_resolve_reviewer_defaults(self) -> None:
         r = resolve_reviewer_state(None, None, None)
@@ -913,6 +958,9 @@ class ResolverUnitTests(unittest.TestCase):
                     "remote_session_id": "session_abc123",
                     "session_url": "https://claude.ai/code/session_abc123",
                     "status": "attached",
+                    "last_seen_utc": datetime.now(timezone.utc)
+                    .isoformat()
+                    .replace("+00:00", "Z"),
                 }
             },
         }
