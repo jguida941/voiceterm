@@ -388,6 +388,59 @@ class TestPendingReviewerPacketsBlockCommit(unittest.TestCase):
     @patch(
         "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"
     )
+    def test_review_only_action_request_packets_do_not_block_commit(self, mock_load):
+        mock_load.return_value = _make_review_state(
+            agents=[
+                _make_inbox_record(
+                    agent="codex",
+                    pending_ids=("rev_pkt_review_only_action",),
+                ),
+            ],
+            packets=[
+                _make_packet(
+                    packet_id="rev_pkt_review_only_action",
+                    kind="action_request",
+                    to_agent="codex",
+                    requested_action="review_only",
+                    policy_hint="review_only",
+                ),
+            ],
+        )
+
+        result = pending_reviewer_packets_block_commit(
+            repo_root=None,
+            review_channel_path=Path("/fake/exists"),
+            target_agent="codex",
+        )
+
+        self.assertIsNone(result)
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate.load_pending_packet_queue"
+    )
+    def test_queue_gate_allows_review_only_action_request_packets(self, mock_load):
+        mock_load.return_value = PendingPacketQueueSnapshot(
+            pending_packets=(
+                {
+                    "packet_id": "rev_pkt_review_only_action",
+                    "kind": "action_request",
+                    "to_agent": "codex",
+                    "status": "pending",
+                    "requested_action": "review_only",
+                    "policy_hint": "review_only",
+                },
+            ),
+        )
+        result = pending_packet_queue_block_commit(
+            repo_root=Path("/fake/repo"),
+            target_agent="codex",
+        )
+
+        self.assertIsNone(result)
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"
+    )
     def test_non_review_only_instruction_packets_still_block_commit(self, mock_load):
         mock_load.return_value = _make_review_state(
             agents=[

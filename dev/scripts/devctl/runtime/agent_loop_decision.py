@@ -25,6 +25,8 @@ from .agent_loop_decision_support import (
     wait_decision,
 )
 from .agent_loop_decision_sources import (
+    AgentLoopContext,
+    PacketState,
     attention_requires_pivot,
     blocker_active,
     build_agent_loop_context,
@@ -48,6 +50,78 @@ _PACKET_BODY_UNOBSERVED_ERRORS = frozenset(
         PENDING_REVIEW_PACKET_BODY_UNOBSERVED_ERROR,
     }
 )
+
+
+def _identity_gate_decision(ctx: AgentLoopContext) -> AgentLoopDecision | None:
+    if not ctx.actor:
+        return actor_identity_decision(ctx)
+    if session_identity_required(ctx):
+        return session_identity_decision(ctx)
+    return None
+
+
+def _packet_or_blocker_decision(
+    ctx: AgentLoopContext,
+    packets: PacketState,
+) -> AgentLoopDecision | None:
+    if requested_packet_body_open_required(ctx, packets):
+        return requested_packet_body_open_decision(ctx, packets)
+    if not blocker_active(ctx):
+        return None
+    if attention_requires_pivot(ctx, packets):
+        return communication_attention_decision(ctx, packets)
+    return blocker_decision(ctx, packets)
+
+
+def _completed_handoff_decision(
+    ctx: AgentLoopContext,
+    *,
+    review_state: Mapping[str, object],
+    packets: PacketState,
+    outcome: Mapping[str, object],
+) -> AgentLoopDecision:
+    task_decision = task_complete_decision(
+        session_id=ctx.session,
+        packets=review_state.get("packets", ()),
+        policy=session_termination_policy_from_review_state(review_state),
+        actor=ctx.actor,
+        actor_role=ctx.role,
+        target_ref=ctx.requested_plan_ref,
+        packet_attention=ctx.attention,
+    )
+    if task_decision.packet_attention_pending:
+        return packet_attention_pending_decision(ctx, task_decision)
+    if task_decision.error_kind in _PACKET_BODY_UNOBSERVED_ERRORS:
+        return pending_review_packet_decision(ctx, task_decision)
+    if task_decision.pending_review_packet:
+        return pending_review_packet_decision(ctx, task_decision)
+    if packets.active_packet_id:
+        return active_packet_decision(ctx, packets)
+    if task_decision.continuation_anchor_missing:
+        return continuation_anchor_missing_decision(ctx, task_decision)
+    if not task_decision.terminate:
+        return continuation_anchor_decision(ctx, task_decision)
+    return completed_decision(ctx, outcome)
+
+
+def _active_runtime_decision(
+    ctx: AgentLoopContext,
+    *,
+    packets: PacketState,
+    outcome: Mapping[str, object],
+    outcome_kind: str,
+) -> AgentLoopDecision:
+    if attention_requires_pivot(ctx, packets):
+        return attention_decision(ctx, packets)
+    if outcome_kind in {"unresolved", "process_died"} and not packets.active_packet_id:
+        return unresolved_decision(ctx, outcome)
+    if packets.executing_packet_id:
+        return executing_decision(ctx, packets)
+    if packets.active_packet_id:
+        return active_packet_decision(ctx, packets)
+    if role_is_observer(ctx.role):
+        return observer_decision(ctx, packets)
+    return wait_decision(ctx)
 
 
 def build_agent_loop_decision(
@@ -82,55 +156,30 @@ def build_agent_loop_decision(
         operator_override_scope=operator_override_scope,
         operator_override_by=operator_override_by,
     )
-    if not ctx.actor:
-        return actor_identity_decision(ctx)
-    if session_identity_required(ctx):
-        return session_identity_decision(ctx)
+    identity_decision = _identity_gate_decision(ctx)
+    if identity_decision is not None:
+        return identity_decision
 
     packets = resolve_packet_state(ctx)
     outcome = latest_session_outcome(ctx)
     outcome_kind = str(outcome.get("outcome") or "").strip()
-    if requested_packet_body_open_required(ctx, packets):
-        return requested_packet_body_open_decision(ctx, packets)
-    if blocker_active(ctx) and attention_requires_pivot(ctx, packets):
-        return communication_attention_decision(ctx, packets)
-    if blocker_active(ctx):
-        return blocker_decision(ctx, packets)
+    gate_decision = _packet_or_blocker_decision(ctx, packets)
+    if gate_decision is not None:
+        return gate_decision
 
     if outcome_kind == "completed_handoff":
-        task_decision = task_complete_decision(
-            session_id=ctx.session,
-            packets=review_state.get("packets", ()),
-            policy=session_termination_policy_from_review_state(review_state),
-            actor=ctx.actor,
-            actor_role=ctx.role,
-            target_ref=ctx.requested_plan_ref,
-            packet_attention=ctx.attention,
+        return _completed_handoff_decision(
+            ctx,
+            review_state=review_state,
+            packets=packets,
+            outcome=outcome,
         )
-        if task_decision.packet_attention_pending:
-            return packet_attention_pending_decision(ctx, task_decision)
-        if task_decision.error_kind in _PACKET_BODY_UNOBSERVED_ERRORS:
-            return pending_review_packet_decision(ctx, task_decision)
-        if task_decision.pending_review_packet:
-            return pending_review_packet_decision(ctx, task_decision)
-        if packets.active_packet_id:
-            return active_packet_decision(ctx, packets)
-        if task_decision.continuation_anchor_missing:
-            return continuation_anchor_missing_decision(ctx, task_decision)
-        if not task_decision.terminate:
-            return continuation_anchor_decision(ctx, task_decision)
-        return completed_decision(ctx, outcome)
-    if attention_requires_pivot(ctx, packets):
-        return attention_decision(ctx, packets)
-    if outcome_kind in {"unresolved", "process_died"} and not packets.active_packet_id:
-        return unresolved_decision(ctx, outcome)
-    if packets.executing_packet_id:
-        return executing_decision(ctx, packets)
-    if packets.active_packet_id:
-        return active_packet_decision(ctx, packets)
-    if role_is_observer(ctx.role):
-        return observer_decision(ctx, packets)
-    return wait_decision(ctx)
+    return _active_runtime_decision(
+        ctx,
+        packets=packets,
+        outcome=outcome,
+        outcome_kind=outcome_kind,
+    )
 
 
 __all__ = ["AgentLoopDecision", "build_agent_loop_decision"]

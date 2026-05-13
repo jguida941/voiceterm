@@ -299,11 +299,9 @@ def _is_live_control_packet(packet: object) -> bool:
 
 def _packet_blocks_commit(packet: object) -> bool:
     kind = _packet_text(packet, "kind")
-    if kind == "action_request":
-        return True
     if kind == "finding":
         return False
-    if kind != "instruction":
+    if kind not in {"action_request", "instruction"}:
         return False
     requested_action = _packet_text(packet, "requested_action")
     policy_hint = _packet_text(packet, "policy_hint")
