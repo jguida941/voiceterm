@@ -4453,11 +4453,18 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       proposal class and now reject live duplicate target/mutation proposals,
       while runtime/action packets remain communication carriers with their own
       typed runtime binding.
-- [ ] `MP377-P0-T08B` Normalize read-only command `ok` / `status` semantics so informational surfaces stop looking red when they only carry advisory packet backlog or stale-data evidence.
+- [x] `MP377-P0-T08B` Normalize read-only command `ok` / `status` semantics so informational surfaces stop looking red when they only carry advisory packet backlog or stale-data evidence.
       owner_doc: `dev/active/ai_governance_platform.md`
-      status: `queued`
+      status: `done`
       depends_on: `MP377-P0-T08A`
       disposition_sources: `rev_pkt_R`, `rev_pkt_S`
+      progress: 2026-05-13 event-backed status now applies the same read-only
+      command/runtime readiness normalization as the bridge path, and both
+      event-backed and bridge markdown render `Runtime Readiness` with
+      `command_ok` separate from `system_ok`, recommended-command allowance,
+      and VCS blockers. Informational status commands stay green when the
+      command succeeded while still showing runtime packet/checkpoint blockers
+      as advisory readiness state.
 - [ ] `MP377-P0-T08C` Give security / audit renderer output a typed report contract and truth-preserving markdown path instead of one-off command prose.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `queued`

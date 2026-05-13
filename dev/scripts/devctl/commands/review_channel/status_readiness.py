@@ -27,6 +27,34 @@ def attach_runtime_readiness(report: dict[str, object]) -> None:
     report["ok"] = readiness["command_ok"]
 
 
+def append_runtime_readiness_markdown(
+    lines: list[str],
+    report: Mapping[str, object],
+) -> None:
+    """Render read-only command health separately from runtime readiness."""
+    readiness = _mapping(report.get("runtime_readiness"))
+    if not readiness:
+        return
+    lines.append("")
+    lines.append("## Runtime Readiness")
+    lines.append(f"- command_ok: {coerce_bool(readiness.get('command_ok'))}")
+    lines.append(f"- system_ok: {coerce_bool(readiness.get('system_ok'))}")
+    lines.append(f"- status: {readiness.get('status') or 'unknown'}")
+    if readiness.get("required_action"):
+        lines.append(f"- required_action: {readiness.get('required_action')}")
+    if readiness.get("recommended_command"):
+        lines.append(
+            f"- recommended_command: `{readiness.get('recommended_command')}`"
+        )
+        lines.append(
+            "- recommended_command_allowed: "
+            f"{coerce_bool(readiness.get('recommended_command_allowed'))}"
+        )
+    blockers = _string_list(readiness.get("recommended_command_blockers"))
+    if blockers:
+        lines.append("- recommended_command_blockers: " + ", ".join(blockers))
+
+
 def build_runtime_readiness(
     report: Mapping[str, object],
 ) -> dict[str, object]:
@@ -170,4 +198,8 @@ def _string_list(value: object) -> list[str]:
     return [_text(item) for item in value if _text(item)]
 
 
-__all__ = ["attach_runtime_readiness", "build_runtime_readiness"]
+__all__ = [
+    "append_runtime_readiness_markdown",
+    "attach_runtime_readiness",
+    "build_runtime_readiness",
+]

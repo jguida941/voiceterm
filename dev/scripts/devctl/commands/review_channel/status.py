@@ -286,6 +286,7 @@ def _run_status_action(
                 report["recommended_command_source"] = command_source
                 if not isinstance(report.get("authority_snapshot"), dict):
                     project_authority_snapshot(report, caller_role="observer")
+                normalize_read_only_status_ok(report)
                 return report, exit_code
 
             fallback_warnings.append(

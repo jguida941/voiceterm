@@ -24,6 +24,9 @@ from ..commands.review_channel_bridge_render import (
     append_common_report_sections,
     append_top_level_error_lines,
 )
+from ..commands.review_channel.status_readiness import (
+    append_runtime_readiness_markdown,
+)
 
 
 def render_event_md(report: dict) -> str:
@@ -63,6 +66,7 @@ def render_event_md(report: dict) -> str:
         lines,
         report.get("packet_attention") or report.get("reviewer_wake"),
     )
+    append_runtime_readiness_markdown(lines, report)
     append_common_report_sections(lines, report)
     append_doctor_markdown(lines, report.get("doctor"))
     packet = report.get("packet")

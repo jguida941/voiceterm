@@ -18,6 +18,7 @@ from .bridge_render_sections import (
     _append_bridge_render,
     _append_sessions,
 )
+from .status_readiness import append_runtime_readiness_markdown
 
 
 def render_bridge_md(
@@ -86,6 +87,7 @@ def render_bridge_md(
             "- handoff_ack_observed: "
             f"{json.dumps(report['handoff_ack_observed'], sort_keys=True)}"
         )
+    append_runtime_readiness_markdown(lines, report)
     append_common_report_sections(lines, report)
     _append_handoff_bundle(lines, report.get("handoff_bundle"))
     _append_promotion(lines, report.get("promotion"))
