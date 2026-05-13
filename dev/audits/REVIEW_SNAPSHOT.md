@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `c912d41bcb6b` — Append McGilchrist speaker bio to Priority 102 ERROR-FORMAT SPEC
-- Tree hash: `5123d27b68c6`
-- Generation stamp: `snap-b87b70d50f0d`
-- Generated at (UTC): 2026-05-13T06:47:57Z
+- HEAD: `804d47388141` — Ignore stale push reports in control plane quality
+- Tree hash: `7babe731c500`
+- Generation stamp: `snap-5277f5b21b7c`
+- Generated at (UTC): 2026-05-13T18:24:25Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 55 files, +4562/-965
+- Delta since last snapshot: 24 commits, 57 files, +4558/-928
 - Governance findings: 43 open / 0 fixed / 43 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `c912d41bcb6b7deda03a4a973a8efc7141786205`
+- HEAD SHA: `804d473881410164fbf8fa04e94832bee5507a56`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-13T02:47:28-04:00
+- HEAD timestamp (UTC): 2026-05-13T14:23:53-04:00
 
 ## 2. Governance state
 
@@ -64,55 +64,53 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `c912d41bcb6b`
+Range: last 24 commits ending at `804d47388141`
 
 - commits: 24
-- files changed: 55
-- insertions: +4562
-- deletions: -965
-- bundle classes touched: docs, tooling
+- files changed: 57
+- insertions: +4558
+- deletions: -928
+- bundle classes touched: tooling, docs
 - authority surfaces touched: 2 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `c912d41b` | Append McGilchrist speaker bio to Priority 102 ERROR-FORMAT… | 2 | +3/-1 | docs |  |
-| 2 | `e0204888` | Refresh external review snapshot for ea524877 | 2 | +73/-68 | docs |  |
-| 3 | `ea524877` | Record P102 typestate research synthesis + session-end state | 4 | +324/-4 | docs |  |
-| 4 | `676766de` | Surface packet guard-error lifecycle details | 11 | +633/-29 | tooling |  |
-| 5 | `6f16325d` | Add review-channel command freshness metadata | 8 | +335/-8 | tooling |  |
-| 6 | `c910beb7` | Add typed security and Rust audit report contracts | 10 | +325/-46 | tooling |  |
-| 7 | `029384fc` | Refresh external review snapshot for f216a49b | 2 | +62/-62 | docs |  |
-| 8 | `f216a49b` | Separate read-only status command and runtime readiness | 6 | +158/-3 | tooling |  |
-| 9 | `b6511619` | Refresh external review snapshot for 26377459 | 2 | +52/-52 | docs |  |
-| 10 | `26377459` | Add PeerAwarenessPolicy contract and body-observation oracl… | 10 | +868/-0 | tooling |  |
-| 11 | `6fb64ce4` | Refresh external review snapshot for a59a8198 | 2 | +52/-52 | docs |  |
-| 12 | `a59a8198` | Add OperationalSummaryView readable packet projection | 6 | +659/-2 | tooling |  |
-| 13 | `3f38220f` | Refresh external review snapshot for 36a1a87b | 2 | +66/-66 | docs |  |
-| 14 | `36a1a87b` | Honor docs-check generated surface aliases | 11 | +177/-60 | tooling |  |
-| 15 | `ee552370` | Refresh external review snapshot for f0d0b9db | 2 | +64/-64 | docs |  |
-| 16 | `f0d0b9db` | Improve governance CLI dogfood ergonomics | 12 | +129/-55 | tooling |  |
-| 17 | `63ce7cbe` | Refresh external review snapshot for 3e9b18d8 | 2 | +56/-55 | docs |  |
-| 18 | `3e9b18d8` | Record post-push governance updates | 3 | +87/-56 | docs |  |
-| 19 | `47b6ac17` | Refresh external review snapshot for 285123c6 | 2 | +52/-52 | docs |  |
-| 20 | `285123c6` | chore(push): auto-commit preflight-generated changes | 1 | +61/-0 | docs |  |
-| 21 | `10c86a85` | Refresh external review snapshot for 63e6af81 | 2 | +68/-62 | docs |  |
-| 22 | `63e6af81` | Update governed executor projection path test | 5 | +96/-59 | tooling |  |
-| 23 | `5734839a` | Refresh external review snapshot for 5340d350 | 2 | +60/-60 | docs |  |
-| 24 | `5340d350` | Register Claude automation safety declaration | 3 | +102/-49 | tooling |  |
+| 1 | `804d4738` | Ignore stale push reports in control plane quality | 4 | +107/-23 | tooling |  |
+| 2 | `bdbd3e56` | Refresh external review snapshot for c912d41b | 2 | +51/-49 | docs |  |
+| 3 | `c912d41b` | Append McGilchrist speaker bio to Priority 102 ERROR-FORMAT… | 2 | +3/-1 | docs |  |
+| 4 | `e0204888` | Refresh external review snapshot for ea524877 | 2 | +73/-68 | docs |  |
+| 5 | `ea524877` | Record P102 typestate research synthesis + session-end state | 4 | +324/-4 | docs |  |
+| 6 | `676766de` | Surface packet guard-error lifecycle details | 11 | +633/-29 | tooling |  |
+| 7 | `6f16325d` | Add review-channel command freshness metadata | 8 | +335/-8 | tooling |  |
+| 8 | `c910beb7` | Add typed security and Rust audit report contracts | 10 | +325/-46 | tooling |  |
+| 9 | `029384fc` | Refresh external review snapshot for f216a49b | 2 | +62/-62 | docs |  |
+| 10 | `f216a49b` | Separate read-only status command and runtime readiness | 6 | +158/-3 | tooling |  |
+| 11 | `b6511619` | Refresh external review snapshot for 26377459 | 2 | +52/-52 | docs |  |
+| 12 | `26377459` | Add PeerAwarenessPolicy contract and body-observation oracl… | 10 | +868/-0 | tooling |  |
+| 13 | `6fb64ce4` | Refresh external review snapshot for a59a8198 | 2 | +52/-52 | docs |  |
+| 14 | `a59a8198` | Add OperationalSummaryView readable packet projection | 6 | +659/-2 | tooling |  |
+| 15 | `3f38220f` | Refresh external review snapshot for 36a1a87b | 2 | +66/-66 | docs |  |
+| 16 | `36a1a87b` | Honor docs-check generated surface aliases | 11 | +177/-60 | tooling |  |
+| 17 | `ee552370` | Refresh external review snapshot for f0d0b9db | 2 | +64/-64 | docs |  |
+| 18 | `f0d0b9db` | Improve governance CLI dogfood ergonomics | 12 | +129/-55 | tooling |  |
+| 19 | `63ce7cbe` | Refresh external review snapshot for 3e9b18d8 | 2 | +56/-55 | docs |  |
+| 20 | `3e9b18d8` | Record post-push governance updates | 3 | +87/-56 | docs |  |
+| 21 | `47b6ac17` | Refresh external review snapshot for 285123c6 | 2 | +52/-52 | docs |  |
+| 22 | `285123c6` | chore(push): auto-commit preflight-generated changes | 1 | +61/-0 | docs |  |
+| 23 | `10c86a85` | Refresh external review snapshot for 63e6af81 | 2 | +68/-62 | docs |  |
+| 24 | `63e6af81` | Update governed executor projection path test | 5 | +96/-59 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `bridge.md` | docs | +60/-60 |
+| `bridge.md` | docs | +58/-58 |
 | `codesmells.md` | docs | +439/-0 |
-| `dev/active/CLAUDE_SESSION_AUTOMATION_SAFETY_DECLARATION.md` | tooling | +52/-0 |
-| `dev/active/INDEX.md` | tooling | +1/-0 |
 | `dev/active/MASTER_PLAN.md` | tooling | +13/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +43/-8 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +820/-808 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +764/-750 |
 | `dev/config/devctl_repo_policy.json` | tooling | +5/-1 |
 | `dev/guides/DEVELOPMENT.md` | docs | +4/-0 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +34/-1 |
@@ -143,10 +141,12 @@ Range: last 24 commits ending at `c912d41bcb6b`
 | `dev/scripts/devctl/runtime/__init__.py` | tooling | +18/-0 |
 | `dev/scripts/devctl/runtime/agent_mind_slice.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/runtime/audit_report_contracts.py` | tooling | +104/-0 |
+| `dev/scripts/devctl/runtime/control_plane_quality.py` | tooling | +53/-0 |
+| `dev/scripts/devctl/runtime/control_plane_read_model_support.py` | tooling | +4/-1 |
+| `dev/scripts/devctl/runtime/control_plane_resolve.py` | tooling | +1/-21 |
 | `dev/scripts/devctl/runtime/packet_guard_errors.py` | tooling | +234/-0 |
 | `dev/scripts/devctl/runtime/peer_awareness_policy.py` | tooling | +329/-0 |
-| `dev/scripts/devctl/rust_audit/render.py` | tooling | +13/-0 |
-| _15 more files trimmed_ | | |
+| _17 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -212,6 +212,10 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`804d4738`** — Ignore stale push reports in control plane quality
+  - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
+- **`bdbd3e56`** — Refresh external review snapshot for c912d41b
+  - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
 - **`c912d41b`** — Append McGilchrist speaker bio to Priority 102 ERROR-FORMAT SPEC
   - Tarides/Ambiata OCaml-Haskell-Idris engineer; talk archive cite.
   - Bridge.md projection refresh after codex liveness expiration.
@@ -261,10 +265,6 @@ Recent findings:
   - evolution: Review-channel dogfood found that remote-control launch recovery still had a raw trusted-mode hole: the system could emit provider dangerous/no-prompt flags without proving a current typed bypass lifecycle. That made bl…
 - **`63e6af81`** — Update governed executor projection path test
   - evolution: Review-channel dogfood found that remote-control launch recovery still had a raw trusted-mode hole: the system could emit provider dangerous/no-prompt flags without proving a current typed bypass lifecycle. That made bl…
-- **`5734839a`** — Refresh external review snapshot for 5340d350
-  - evolution: Review-channel dogfood found that remote-control launch recovery still had a raw trusted-mode hole: the system could emit provider dangerous/no-prompt flags without proving a current typed bypass lifecycle. That made bl…
-- **`5340d350`** — Register Claude automation safety declaration
-  - evolution: Review-channel dogfood found that remote-control launch recovery still had a raw trusted-mode hole: the system could emit provider dangerous/no-prompt flags without proving a current typed bypass lifecycle. That made bl…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -303,4 +303,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-b87b70d50f0d` binds this file to HEAD `c912d41bcb6b`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-5277f5b21b7c` binds this file to HEAD `804d47388141`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
