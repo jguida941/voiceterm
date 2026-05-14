@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from ...runtime.derived_state_invalidation import (
+    DerivedStateInvalidationInput,
     PACKET_ARRIVAL_DERIVED_STATE_INVALIDATION_CONTRACT_ID,
     PACKET_ARRIVAL_INVALIDATION_SOURCE,
     REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
@@ -116,14 +117,20 @@ def packet_arrival_derived_state_invalidation(
 ) -> dict[str, object]:
     """Describe existing derived-state subscribers affected by packet arrival."""
     report = derived_state_invalidation_payload(
-        contract_id=PACKET_ARRIVAL_DERIVED_STATE_INVALIDATION_CONTRACT_ID,
-        source=PACKET_ARRIVAL_INVALIDATION_SOURCE,
-        producer_id="review_channel.packet_arrival",
-        producer_kind="review_channel_event",
-        invalidated_consumers=REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
-        next_consumer_action="reload_event_backed_review_state_before_work_decision",
-        packet_id=_text(packet.get("packet_id")),
-        source_event_id=_text(packet.get("latest_event_id") or packet.get("event_id")),
+        DerivedStateInvalidationInput(
+            contract_id=PACKET_ARRIVAL_DERIVED_STATE_INVALIDATION_CONTRACT_ID,
+            source=PACKET_ARRIVAL_INVALIDATION_SOURCE,
+            producer_id="review_channel.packet_arrival",
+            producer_kind="review_channel_event",
+            invalidated_consumers=REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
+            next_consumer_action=(
+                "reload_event_backed_review_state_before_work_decision"
+            ),
+            packet_id=_text(packet.get("packet_id")),
+            source_event_id=_text(
+                packet.get("latest_event_id") or packet.get("event_id")
+            ),
+        )
     )
     if posted_review_state_payload is None:
         report["projection_refresh_state"] = "refresh_required_at_consumer_boundary"

@@ -8,6 +8,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from ..runtime.derived_state_invalidation import (
+    DerivedStateInvalidationInput,
     PACKET_DURABLE_INGESTION_INVALIDATION_SOURCE,
     PACKET_LIFECYCLE_TRANSITION_INVALIDATION_SOURCE,
     REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
@@ -97,17 +98,21 @@ def build_transition_event(
         source_identity=source_identity(packet),
         status=status,
         derived_state_invalidation=derived_state_invalidation_payload(
-            source=PACKET_LIFECYCLE_TRANSITION_INVALIDATION_SOURCE,
-            producer_id="review_channel.packet_lifecycle_transition",
-            producer_kind="review_channel_event",
-            invalidated_consumers=REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
-            next_consumer_action="reload_event_backed_review_state_before_work_decision",
-            event_type=event_type,
-            packet_id=request.packet_id,
-            source_event_id=event_id,
-            status=status,
-            target_ref=str(packet.get("target_ref") or ""),
-            extra={"actor": str(request.actor or "").strip()},
+            DerivedStateInvalidationInput(
+                source=PACKET_LIFECYCLE_TRANSITION_INVALIDATION_SOURCE,
+                producer_id="review_channel.packet_lifecycle_transition",
+                producer_kind="review_channel_event",
+                invalidated_consumers=REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
+                next_consumer_action=(
+                    "reload_event_backed_review_state_before_work_decision"
+                ),
+                event_type=event_type,
+                packet_id=request.packet_id,
+                source_event_id=event_id,
+                status=status,
+                target_ref=str(packet.get("target_ref") or ""),
+                extra={"actor": str(request.actor or "").strip()},
+            )
         ),
         idempotency_key=idempotency_key(
             event_type,
@@ -243,16 +248,20 @@ def _plan_integration_event(
         },
     }
     event["derived_state_invalidation"] = derived_state_invalidation_payload(
-        source=PACKET_DURABLE_INGESTION_INVALIDATION_SOURCE,
-        producer_id="review_channel.packet_durable_ingestion",
-        producer_kind="review_channel_event",
-        invalidated_consumers=REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
-        next_consumer_action="reload_packet_debt_and_work_board_before_work_decision",
-        event_type=event_type,
-        packet_id=packet_id,
-        source_event_id="",
-        status=str(plan_integration.get("status") or event.get("status") or ""),
-        target_ref=str(packet.get("target_ref") or ""),
+        DerivedStateInvalidationInput(
+            source=PACKET_DURABLE_INGESTION_INVALIDATION_SOURCE,
+            producer_id="review_channel.packet_durable_ingestion",
+            producer_kind="review_channel_event",
+            invalidated_consumers=REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
+            next_consumer_action=(
+                "reload_packet_debt_and_work_board_before_work_decision"
+            ),
+            event_type=event_type,
+            packet_id=packet_id,
+            source_event_id="",
+            status=str(plan_integration.get("status") or event.get("status") or ""),
+            target_ref=str(packet.get("target_ref") or ""),
+        )
     )
     return event
 

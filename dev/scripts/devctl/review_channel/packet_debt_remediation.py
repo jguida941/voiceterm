@@ -10,6 +10,7 @@ from pathlib import Path
 
 from ..runtime.master_plan_store import read_plan_rows_jsonl
 from ..runtime.derived_state_invalidation import (
+    DerivedStateInvalidationInput,
     PACKET_DURABLE_INGESTION_INVALIDATION_SOURCE,
     REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
     derived_state_invalidation_payload,
@@ -166,17 +167,21 @@ def _append_durable_ingestion_event(
         timestamp_utc=utc_timestamp(),
     )
     event["derived_state_invalidation"] = derived_state_invalidation_payload(
-        source=PACKET_DURABLE_INGESTION_INVALIDATION_SOURCE,
-        producer_id="review_channel.packet_durable_ingestion",
-        producer_kind="review_channel_event",
-        invalidated_consumers=REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
-        next_consumer_action="reload_packet_debt_and_work_board_before_work_decision",
-        event_type=event_type,
-        packet_id=_text(packet.get("packet_id")),
-        source_event_id=_text(event.get("event_id")),
-        status=status,
-        receipt_id=_text(getattr(receipt, "event_id", "")),
-        target_ref=_text(getattr(receipt, "target_ref", "")),
+        DerivedStateInvalidationInput(
+            source=PACKET_DURABLE_INGESTION_INVALIDATION_SOURCE,
+            producer_id="review_channel.packet_durable_ingestion",
+            producer_kind="review_channel_event",
+            invalidated_consumers=REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
+            next_consumer_action=(
+                "reload_packet_debt_and_work_board_before_work_decision"
+            ),
+            event_type=event_type,
+            packet_id=_text(packet.get("packet_id")),
+            source_event_id=_text(event.get("event_id")),
+            status=status,
+            receipt_id=_text(getattr(receipt, "event_id", "")),
+            target_ref=_text(getattr(receipt, "target_ref", "")),
+        )
     )
     written = append_event(
         Path(artifact_paths.event_log_path),

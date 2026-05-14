@@ -19,6 +19,7 @@ from ...runtime.plan_intent_ingestion import (
     plan_intent_receipt_id,
 )
 from ...runtime.derived_state_invalidation import (
+    DerivedStateInvalidationInput,
     PLAN_INGESTION_DERIVED_STATE_CONSUMERS,
     PLAN_INGESTION_INVALIDATION_SOURCE,
     derived_state_invalidation_payload,
@@ -112,22 +113,24 @@ def build_receipt(
     binding_ids = receipt_binding_ids(context)
     dry_run = bool(getattr(context.args, "dry_run", False))
     derived_state_invalidation = derived_state_invalidation_payload(
-        source=PLAN_INGESTION_INVALIDATION_SOURCE,
-        producer_id="develop.plan_ingestion",
-        producer_kind="typed_receipt",
-        invalidated=not dry_run,
-        invalidated_consumers=PLAN_INGESTION_DERIVED_STATE_CONSUMERS,
-        next_consumer_action=(
-            "reload_plan_authority_and_ingestion_receipts_before_work_decision"
-        ),
-        source_ref=source.ref,
-        packet_id=text(packet.get("packet_id")),
-        receipt_id=binding_ids.receipt_id,
-        action_id=binding_ids.action_id,
-        row_ids=outcome.row_ids,
-        target_ref=binding_ids.target_ref,
-        status=outcome.status,
-        store_statuses=outcome.store_statuses,
+        DerivedStateInvalidationInput(
+            source=PLAN_INGESTION_INVALIDATION_SOURCE,
+            producer_id="develop.plan_ingestion",
+            producer_kind="typed_receipt",
+            invalidated=not dry_run,
+            invalidated_consumers=PLAN_INGESTION_DERIVED_STATE_CONSUMERS,
+            next_consumer_action=(
+                "reload_plan_authority_and_ingestion_receipts_before_work_decision"
+            ),
+            source_ref=source.ref,
+            packet_id=text(packet.get("packet_id")),
+            receipt_id=binding_ids.receipt_id,
+            action_id=binding_ids.action_id,
+            row_ids=outcome.row_ids,
+            target_ref=binding_ids.target_ref,
+            status=outcome.status,
+            store_statuses=outcome.store_statuses,
+        )
     )
     return PlanIntentIngestionReceipt(
         receipt_id=binding_ids.receipt_id,

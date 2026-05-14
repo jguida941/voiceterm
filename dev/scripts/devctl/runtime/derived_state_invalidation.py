@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
 
 DERIVED_STATE_INVALIDATION_SCHEMA_VERSION = 1
 DERIVED_STATE_INVALIDATION_CONTRACT_ID = "DerivedStateInvalidation"
@@ -40,63 +41,69 @@ PLAN_INGESTION_DERIVED_STATE_CONSUMERS = (
 )
 
 
+@dataclass(frozen=True)
+class DerivedStateInvalidationInput:
+    """Typed producer metadata for a derived-state invalidation payload."""
+
+    source: str
+    producer_id: str
+    producer_kind: str
+    invalidated_consumers: Iterable[str]
+    next_consumer_action: str
+    contract_id: str = DERIVED_STATE_INVALIDATION_CONTRACT_ID
+    invalidated: bool = True
+    source_event_id: str = ""
+    source_ref: str = ""
+    event_type: str = ""
+    packet_id: str = ""
+    receipt_id: str = ""
+    action_id: str = ""
+    row_ids: Iterable[str] = ()
+    target_ref: str = ""
+    status: str = ""
+    store_statuses: Iterable[str] = ()
+    projection_refresh_state: str = ""
+    refreshed_at_utc: str = ""
+    projection_refresh_seq: object = None
+    source_latest_event_id: str = ""
+    extra: Mapping[str, object] = field(default_factory=dict)
+
+
 def derived_state_invalidation_payload(
-    *,
-    source: str,
-    producer_id: str,
-    producer_kind: str,
-    invalidated_consumers: Iterable[str],
-    next_consumer_action: str,
-    contract_id: str = DERIVED_STATE_INVALIDATION_CONTRACT_ID,
-    invalidated: bool = True,
-    source_event_id: str = "",
-    source_ref: str = "",
-    event_type: str = "",
-    packet_id: str = "",
-    receipt_id: str = "",
-    action_id: str = "",
-    row_ids: Iterable[str] = (),
-    target_ref: str = "",
-    status: str = "",
-    store_statuses: Iterable[str] = (),
-    projection_refresh_state: str = "",
-    refreshed_at_utc: str = "",
-    projection_refresh_seq: object = None,
-    source_latest_event_id: str = "",
-    extra: Mapping[str, object] | None = None,
+    spec: DerivedStateInvalidationInput,
 ) -> dict[str, object]:
     """Return a normalized invalidation payload for existing evidence rows."""
     payload: dict[str, object] = {
-        "contract_id": contract_id,
+        "contract_id": spec.contract_id,
         "schema_version": DERIVED_STATE_INVALIDATION_SCHEMA_VERSION,
-        "source": _text(source),
-        "producer_id": _text(producer_id),
-        "producer_kind": _text(producer_kind),
-        "invalidated": bool(invalidated),
-        "invalidated_consumers": _text_list(invalidated_consumers),
-        "next_consumer_action": _text(next_consumer_action),
+        "source": _text(spec.source),
+        "producer_id": _text(spec.producer_id),
+        "producer_kind": _text(spec.producer_kind),
+        "invalidated": bool(spec.invalidated),
+        "invalidated_consumers": _text_list(spec.invalidated_consumers),
+        "next_consumer_action": _text(spec.next_consumer_action),
     }
-    _put_text(payload, "source_event_id", source_event_id)
-    _put_text(payload, "source_ref", source_ref)
-    _put_text(payload, "event_type", event_type)
-    _put_text(payload, "packet_id", packet_id)
-    _put_text(payload, "receipt_id", receipt_id)
-    _put_text(payload, "action_id", action_id)
-    row_id_list = _text_list(row_ids)
+    _put_text(payload, "source_event_id", spec.source_event_id)
+    _put_text(payload, "source_ref", spec.source_ref)
+    _put_text(payload, "event_type", spec.event_type)
+    _put_text(payload, "packet_id", spec.packet_id)
+    _put_text(payload, "receipt_id", spec.receipt_id)
+    _put_text(payload, "action_id", spec.action_id)
+    row_id_list = _text_list(spec.row_ids)
     if row_id_list:
         payload["row_ids"] = row_id_list
-    _put_text(payload, "target_ref", target_ref)
-    _put_text(payload, "status", status)
-    store_status_list = _text_list(store_statuses)
+    _put_text(payload, "target_ref", spec.target_ref)
+    _put_text(payload, "status", spec.status)
+    store_status_list = _text_list(spec.store_statuses)
     if store_status_list:
         payload["store_statuses"] = store_status_list
-    _put_text(payload, "projection_refresh_state", projection_refresh_state)
-    _put_text(payload, "refreshed_at_utc", refreshed_at_utc)
-    if projection_refresh_seq is not None:
-        payload["projection_refresh_seq"] = projection_refresh_seq
-    _put_text(payload, "source_latest_event_id", source_latest_event_id)
-    if extra:
-        for key, value in extra.items():
+    _put_text(payload, "projection_refresh_state", spec.projection_refresh_state)
+    _put_text(payload, "refreshed_at_utc", spec.refreshed_at_utc)
+    if spec.projection_refresh_seq is not None:
+        payload["projection_refresh_seq"] = spec.projection_refresh_seq
+    _put_text(payload, "source_latest_event_id", spec.source_latest_event_id)
+    if spec.extra:
+        for key, value in spec.extra.items():
             text_key = _text(key)
             if text_key and value not in ("", None, (), []):
                 payload[text_key] = value
@@ -120,6 +127,7 @@ def _text(value: object) -> str:
 __all__ = [
     "DERIVED_STATE_INVALIDATION_CONTRACT_ID",
     "DERIVED_STATE_INVALIDATION_SCHEMA_VERSION",
+    "DerivedStateInvalidationInput",
     "PACKET_ARRIVAL_DERIVED_STATE_INVALIDATION_CONTRACT_ID",
     "PACKET_ARRIVAL_INVALIDATION_SOURCE",
     "PACKET_DURABLE_INGESTION_INVALIDATION_SOURCE",
