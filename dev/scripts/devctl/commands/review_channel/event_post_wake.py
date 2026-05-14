@@ -60,6 +60,7 @@ def maybe_wake_posted_reviewer_packet(
     return packet_delivery_recorded_without_wake(
         packet=packet,
         target_agent=target_agent,
+        posted_review_state_payload=posted_review_state_payload,
     )
 
 

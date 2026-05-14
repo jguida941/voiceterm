@@ -200,6 +200,20 @@ def test_render_event_md_renders_packet_attention_without_wake() -> None:
         "target_agent": "codex",
         "wake_method": "none",
         "packet_id": "rev_pkt_attention",
+        "derived_state_invalidation": {
+            "invalidated": True,
+            "source": "packet_arrival_event",
+            "projection_refresh_state": "refreshed_by_packet_post_reducer",
+            "projection_refresh_seq": 17,
+            "invalidated_consumers": [
+                "review_channel.projections.latest.review_state",
+                "review_channel.agent_loop_decisions",
+                "develop.next",
+            ],
+            "next_consumer_action": (
+                "reload_event_backed_review_state_before_work_decision"
+            ),
+        },
     }
 
     text = render_event_md(report)
@@ -210,6 +224,18 @@ def test_render_event_md_renders_packet_attention_without_wake() -> None:
     assert "- attention_recorded: True" in text
     assert "- dispatch_method: none" in text
     assert "- packet_id: rev_pkt_attention" in text
+    assert "- derived_state_invalidated: True" in text
+    assert "- invalidation_source: packet_arrival_event" in text
+    assert "- projection_refresh_state: refreshed_by_packet_post_reducer" in text
+    assert "- projection_refresh_seq: 17" in text
+    assert (
+        "- invalidated_consumers: review_channel.projections.latest.review_state, "
+        "review_channel.agent_loop_decisions, develop.next"
+    ) in text
+    assert (
+        "- next_consumer_action: "
+        "reload_event_backed_review_state_before_work_decision"
+    ) in text
 
 
 def test_render_event_md_accepts_legacy_reviewer_wake_attention_alias() -> None:

@@ -859,6 +859,12 @@ Three quality layers matter in practice:
     launch command that a future scheduler/OS service would run. This is
     dogfoodable typed state, not packet delivery wake authority; provider
     spawning remains fail-closed until dispatcher registry authority lands.
+  - Packet delivery remains typed communication, not process authority. The
+    event-backed post path records `PacketArrivalDerivedStateInvalidation`
+    inside the existing packet-attention/no-wake receipt so `review_state`,
+    packet inbox, work-board, agent-loop, startup, and `/develop next`
+    consumers know to reload the event-backed projections at their next task
+    boundary without treating packet arrival as a launch or external wake.
   - `implementer-wait` is only valid under an explicit reviewer-owned wait
     state. If `Current Instruction For Claude` still assigns active work,
     `Claude Status` / `Claude Ack` must stay substantive: name concrete

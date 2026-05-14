@@ -41,6 +41,10 @@ For automation-first `devctl` routing and Ralph loop controls, see
 For a plain-language map of how `review-channel`, `autonomy-swarm`, and
 `swarm_run` fit together inside the larger Codex/Claude collaboration model,
 see `dev/guides/AGENT_COLLABORATION_SYSTEM.md`.
+Review-channel packet posts deliberately remain no-wake communication events:
+their packet-attention receipt records `PacketArrivalDerivedStateInvalidation`
+for the existing event-backed projections and controller consumers, while
+provider launch/replacement stays owned by scheduler/runtime controllers.
 For MCP-as-adapter rules and extension policy, see
 `dev/guides/MCP_DEVCTL_ALIGNMENT.md`.
 For portable-governance exports, benchmark planning, and multi-repo adoption,

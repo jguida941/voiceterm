@@ -168,6 +168,7 @@ def _append_packet_attention(lines: list[str], wake: object) -> None:
         lines.append(f"- packet_id: {wake.get('packet_id')}")
     if wake.get("requested_action"):
         lines.append(f"- requested_action: {wake.get('requested_action')}")
+    _append_derived_state_invalidation(lines, wake)
     spawned_pids = wake.get("spawned_pids")
     if isinstance(spawned_pids, list) and spawned_pids:
         lines.append(
@@ -190,6 +191,37 @@ def _append_packet_attention(lines: list[str], wake: object) -> None:
     if isinstance(warnings, list) and warnings:
         for warning in warnings:
             lines.append(f"- warning: {warning}")
+
+
+def _append_derived_state_invalidation(lines: list[str], wake: dict) -> None:
+    invalidation = wake.get("derived_state_invalidation")
+    if not isinstance(invalidation, dict) or not invalidation:
+        return
+    lines.append(
+        f"- derived_state_invalidated: {bool(invalidation.get('invalidated'))}"
+    )
+    if invalidation.get("source"):
+        lines.append(f"- invalidation_source: {invalidation.get('source')}")
+    if invalidation.get("projection_refresh_state"):
+        lines.append(
+            "- projection_refresh_state: "
+            f"{invalidation.get('projection_refresh_state')}"
+        )
+    if invalidation.get("projection_refresh_seq") is not None:
+        lines.append(
+            "- projection_refresh_seq: "
+            f"{invalidation.get('projection_refresh_seq')}"
+        )
+    consumers = invalidation.get("invalidated_consumers")
+    if isinstance(consumers, list) and consumers:
+        lines.append(
+            "- invalidated_consumers: "
+            + ", ".join(str(consumer) for consumer in consumers)
+        )
+    if invalidation.get("next_consumer_action"):
+        lines.append(
+            f"- next_consumer_action: {invalidation.get('next_consumer_action')}"
+        )
 
 
 def _packet_guard_error_detail(packet: dict) -> dict[str, object]:

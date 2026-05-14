@@ -14,6 +14,9 @@ from dev.scripts.devctl.commands.review_channel.event_post_wake import (
     EventPostWakeDeps,
     maybe_wake_posted_reviewer_packet,
 )
+from dev.scripts.devctl.commands.review_channel.event_post_wake_reports import (
+    PACKET_ARRIVAL_DERIVED_STATE_CONSUMERS,
+)
 
 
 def _fail_wake_dependency(**_kwargs):
@@ -27,9 +30,17 @@ def test_maybe_wake_posted_reviewer_packet_records_attention_only() -> None:
         paths={},
         packet={
             "packet_id": "pkt-find-1",
+            "latest_event_id": "rev_evt_post_1",
             "to_agent": "codex",
             "kind": "finding",
             "status": "pending",
+        },
+        posted_review_state_payload={
+            "timestamp": "2026-05-14T00:00:00Z",
+            "agent_work_board": {
+                "projection_refresh_seq": 17,
+                "source_latest_event_id": "rev_evt_post_1",
+            },
         },
         deps=EventPostWakeDeps(
             refresh_status_snapshot_fn=_fail_wake_dependency,
@@ -46,6 +57,21 @@ def test_maybe_wake_posted_reviewer_packet_records_attention_only() -> None:
     assert result["wake_method"] == "none"
     assert result["target_agent"] == "codex"
     assert result["packet_id"] == "pkt-find-1"
+    assert result["derived_state_invalidated"] is True
+    invalidation = result["derived_state_invalidation"]
+    assert invalidation["contract_id"] == "PacketArrivalDerivedStateInvalidation"
+    assert invalidation["source"] == "packet_arrival_event"
+    assert invalidation["projection_refresh_state"] == "refreshed_by_packet_post_reducer"
+    assert invalidation["projection_refresh_seq"] == 17
+    assert invalidation["source_latest_event_id"] == "rev_evt_post_1"
+    assert invalidation["source_event_id"] == "rev_evt_post_1"
+    assert invalidation["invalidated_consumers"] == list(
+        PACKET_ARRIVAL_DERIVED_STATE_CONSUMERS
+    )
+    assert "review_channel.agent_loop_decisions" in invalidation[
+        "invalidated_consumers"
+    ]
+    assert "develop.next" in invalidation["invalidated_consumers"]
     assert "does not launch" in result["warnings"][0]
 
 
@@ -76,6 +102,11 @@ def test_maybe_wake_posted_reviewer_packet_records_provider_attention_only() -> 
     assert result["target_agent"] == "claude"
     assert result["packet_id"] == "pkt-claude"
     assert result["requested_action"] == "review_only"
+    assert result["derived_state_invalidated"] is True
+    assert (
+        result["derived_state_invalidation"]["projection_refresh_state"]
+        == "refresh_required_at_consumer_boundary"
+    )
 
 
 def test_maybe_wake_posted_reviewer_packet_skips_synthetic_target() -> None:
@@ -126,7 +157,7 @@ def test_maybe_wake_posted_reviewer_packet_skips_non_pending_packet() -> None:
 
 def test_run_event_action_attaches_packet_attention_for_post(monkeypatch) -> None:
     monkeypatch.setattr(
-        "dev.scripts.devctl.commands.review_channel.event_handler.run_post_action",
+        "dev.scripts.devctl.commands.review_channel.event_handler_side_effects.run_post_action",
         lambda **_kwargs: (
             {"packet": {"packet_id": "pkt-1", "to_agent": "codex"}},
             0,
@@ -134,7 +165,7 @@ def test_run_event_action_attaches_packet_attention_for_post(monkeypatch) -> Non
         ),
     )
     monkeypatch.setattr(
-        "dev.scripts.devctl.commands.review_channel.event_handler.maybe_wake_posted_reviewer_packet",
+        "dev.scripts.devctl.commands.review_channel.event_handler_side_effects.maybe_wake_posted_reviewer_packet",
         lambda **_kwargs: {
             "attempted": False,
             "woke": False,
@@ -191,7 +222,7 @@ def test_run_event_action_syncs_bridge_when_post_becomes_instruction(
     }
 
     monkeypatch.setattr(
-        "dev.scripts.devctl.commands.review_channel.event_handler.run_post_action",
+        "dev.scripts.devctl.commands.review_channel.event_handler_side_effects.run_post_action",
         lambda **_kwargs: (
             {
                 "packet": {
@@ -205,11 +236,11 @@ def test_run_event_action_syncs_bridge_when_post_becomes_instruction(
         ),
     )
     monkeypatch.setattr(
-        "dev.scripts.devctl.commands.review_channel.event_handler.maybe_wake_posted_reviewer_packet",
+        "dev.scripts.devctl.commands.review_channel.event_handler_side_effects.maybe_wake_posted_reviewer_packet",
         lambda **_kwargs: None,
     )
     monkeypatch.setattr(
-        "dev.scripts.devctl.commands.review_channel.event_handler.compute_non_audit_worktree_hash",
+        "dev.scripts.devctl.commands.review_channel.event_handler_side_effects.compute_non_audit_worktree_hash",
         lambda **_kwargs: "b" * 64,
     )
 
@@ -223,7 +254,7 @@ def test_run_event_action_syncs_bridge_when_post_becomes_instruction(
         )
 
     monkeypatch.setattr(
-        "dev.scripts.devctl.commands.review_channel.event_handler.render_bridge_projection",
+        "dev.scripts.devctl.commands.review_channel.event_handler_side_effects.render_bridge_projection",
         fake_render_bridge_projection,
     )
 

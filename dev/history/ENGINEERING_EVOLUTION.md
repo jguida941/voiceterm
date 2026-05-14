@@ -15431,3 +15431,23 @@ Evidence:
 - `dev/state/plan_ingestion_receipts.jsonl`
 - `dev/state/plan_source_snapshots.jsonl`
 - `dev/active/MASTER_PLAN.md`
+
+### 2026-05-14 - Packet arrival invalidates existing derived state without wake authority
+
+Event-backed review-channel packet posts now add a
+`PacketArrivalDerivedStateInvalidation` block to the existing packet-attention
+receipt. The metadata names the current derived consumers that must reload
+event-backed review state, including projections, packet inbox, work-board,
+agent-loop decisions, `startup-context`, and `/develop next`.
+
+The no-wake boundary remains intact: packet delivery still does not launch,
+replace, or externally wake provider sessions; runtime controllers consume the
+typed invalidation at explicit task boundaries.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel/event_post_wake.py`
+- `dev/scripts/devctl/commands/review_channel/event_post_wake_reports.py`
+- `dev/scripts/devctl/review_channel/event_render.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_post_wake.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_render_typed_sections.py`

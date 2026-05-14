@@ -5,7 +5,20 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 PACKET_ARRIVAL_ATTENTION_SHAPE = "packet_arrival"
+PACKET_ARRIVAL_INVALIDATION_SOURCE = "packet_arrival_event"
 PACKET_WAKE_PIVOT_EVENT = "packet_wake_attempted"
+PACKET_ARRIVAL_DERIVED_STATE_CONSUMERS = (
+    "review_channel.state",
+    "review_channel.projections.latest.review_state",
+    "review_channel.projections.latest.compact",
+    "review_channel.projections.latest.full",
+    "review_channel.projections.latest.actions",
+    "review_channel.packet_inbox",
+    "review_channel.agent_work_board",
+    "review_channel.agent_loop_decisions",
+    "startup_context",
+    "develop.next",
+)
 
 
 def wake_report_payload(
@@ -68,6 +81,7 @@ def packet_delivery_recorded_without_wake(
     *,
     packet: Mapping[str, object],
     target_agent: str,
+    posted_review_state_payload: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Return the post-packet scheduling receipt.
 
@@ -85,11 +99,56 @@ def packet_delivery_recorded_without_wake(
     report["target_session_id"] = _text(packet.get("target_session_id"))
     report["attention_recorded"] = True
     report["wake_method"] = "none"
+    report["derived_state_invalidated"] = True
+    report["derived_state_invalidation"] = (
+        packet_arrival_derived_state_invalidation(
+            packet=packet,
+            posted_review_state_payload=posted_review_state_payload,
+        )
+    )
     report["warnings"] = [
         "Packet delivery does not launch, replace, or externally wake agent "
         "sessions; scheduler/runtime controllers must consume typed packet "
         "state and decide session work at explicit task boundaries."
     ]
+    return report
+
+
+def packet_arrival_derived_state_invalidation(
+    *,
+    packet: Mapping[str, object],
+    posted_review_state_payload: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    """Describe existing derived-state subscribers affected by packet arrival."""
+    report: dict[str, object] = {
+        "contract_id": "PacketArrivalDerivedStateInvalidation",
+        "schema_version": 1,
+        "source": PACKET_ARRIVAL_INVALIDATION_SOURCE,
+        "invalidated": True,
+        "packet_id": _text(packet.get("packet_id")),
+        "source_event_id": _text(
+            packet.get("latest_event_id") or packet.get("event_id")
+        ),
+        "invalidated_consumers": list(PACKET_ARRIVAL_DERIVED_STATE_CONSUMERS),
+        "next_consumer_action": "reload_event_backed_review_state_before_work_decision",
+    }
+    if posted_review_state_payload is None:
+        report["projection_refresh_state"] = "refresh_required_at_consumer_boundary"
+        return report
+
+    report["projection_refresh_state"] = "refreshed_by_packet_post_reducer"
+    if posted_review_state_payload.get("timestamp"):
+        report["refreshed_at_utc"] = _text(
+            posted_review_state_payload.get("timestamp")
+        )
+    work_board = posted_review_state_payload.get("agent_work_board")
+    if isinstance(work_board, Mapping):
+        refresh_seq = work_board.get("projection_refresh_seq")
+        if refresh_seq is not None:
+            report["projection_refresh_seq"] = refresh_seq
+        source_latest_event_id = _text(work_board.get("source_latest_event_id"))
+        if source_latest_event_id:
+            report["source_latest_event_id"] = source_latest_event_id
     return report
 
 
@@ -156,7 +215,10 @@ def _text(value: object) -> str:
 
 __all__ = [
     "PACKET_ARRIVAL_ATTENTION_SHAPE",
+    "PACKET_ARRIVAL_DERIVED_STATE_CONSUMERS",
+    "PACKET_ARRIVAL_INVALIDATION_SOURCE",
     "PACKET_WAKE_PIVOT_EVENT",
+    "packet_arrival_derived_state_invalidation",
     "packet_delivery_recorded_without_wake",
     "wake_attention_recorded_without_conductor",
     "wake_error",
