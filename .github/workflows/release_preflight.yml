@@ -186,6 +186,7 @@ jobs:
           python3 dev/scripts/checks/check_ground_truth_probe_gate.py
           python3 dev/scripts/checks/check_governed_transitions.py
           python3 dev/scripts/checks/check_memory_not_authority.py
+          python3 dev/scripts/checks/check_plan_index_commit_continuity.py
           python3 dev/scripts/checks/check_architecture_surface_sync.py --since-ref "${{ steps.ai_guard_range.outputs.since }}" --head-ref "${{ steps.ai_guard_range.outputs.head }}"
           python3 dev/scripts/checks/check_review_snapshot_freshness.py
           python3 dev/scripts/checks/check_instruction_surface_sync.py

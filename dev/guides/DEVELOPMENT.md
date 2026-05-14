@@ -1528,6 +1528,12 @@ Three quality layers matter in practice:
   `check_guard_enforcement_inventory.py` and
   `check_bundle_workflow_parity.py` so typed policy, bundle authority, and CI
   workflow lanes converge before governed push.
+- Plan-row continuity is guarded by
+  `check_plan_index_commit_continuity.py`: new governed `PlanRow` entries such
+  as MP-378 closures, task-start bindings, and guard charters need a `commit:`
+  anchor plus `plan_intent_receipt:` and `typed_action:` evidence. Legacy gaps
+  are visible in the report, but new MP-378 continuity rows must carry the
+  proof triple before the tooling/release bundles pass.
 - Treat moved public `dev/scripts/**` entrypoints and compatibility shims as
   smoke/integration surfaces, not pure unit seams: direct module tests are not
   enough when script mode, package mode, and public CLI/root-entrypoint

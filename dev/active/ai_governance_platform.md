@@ -168,6 +168,12 @@ Current ingestion status:
   surface. `SessionLivenessSignal` is also registered as the canonical
   downstream liveness-signal contract so status/count projections and
   attachment cleanup share the same platform contract registry.
+- 2026-05-14 guard-discovery loop: `rev_pkt_4017` makes architectural
+  self-improvement a continuous typed-plan obligation for MP-378. Guard P1 is
+  `check_plan_index_commit_continuity.py`, which blocks governed MP-378 and
+  post-mandate plan rows, including task-start bindings and guard charters,
+  when they lack a commit anchor, `PlanIntentReceipt`, or `TypedAction`
+  evidence while keeping legacy gaps visible for later cleanup.
 
 2026-05-06 governed exception lifecycle correction:
 - `MP377-P0-EXC-S1` replaces the earlier raw-bypass receipt direction with a

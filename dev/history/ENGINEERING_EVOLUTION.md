@@ -15641,3 +15641,21 @@ Evidence:
 - `dev/scripts/devctl/commands/governance/session_reconcile.py`
 - `dev/scripts/devctl/review_channel/status_projection_helpers.py`
 - `dev/scripts/devctl/tests/runtime/test_session_liveness_reconciler.py`
+
+### 2026-05-14 - Plan-row closure now has a commit-continuity guard
+
+The MP-378 guard-discovery mandate is now represented as typed plan state and
+the first guard, `check_plan_index_commit_continuity.py`, blocks governed
+post-mandate `PlanRow` entries, task-start bindings, and guard charters that
+lack a commit anchor, `PlanIntentReceipt`, or `TypedAction` evidence.
+Historical applied rows still report as legacy gaps, which keeps the old debt
+visible without letting new launch-bootstrap slices fall back to attention-only
+closure.
+
+Evidence:
+
+- `dev/scripts/checks/check_plan_index_commit_continuity.py`
+- `dev/scripts/devctl/tests/checks/test_check_plan_index_commit_continuity.py`
+- `dev/scripts/devctl/bundles/registry.py`
+- `.github/workflows/tooling_control_plane.yml`
+- `.github/workflows/release_preflight.yml`

@@ -41,6 +41,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("compat_matrix_smoke", "compat_matrix_smoke.py"),
     ("code_shape", "check_code_shape.py"),
     ("package_layout", "check_package_layout.py"),
+    ("plan_index_commit_continuity", "check_plan_index_commit_continuity.py"),
     ("platform_layer_boundaries", "check_platform_layer_boundaries.py"),
     ("platform_contract_closure", "check_platform_contract_closure.py"),
     ("platform_contract_sync", "check_platform_contract_sync.py"),

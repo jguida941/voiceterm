@@ -151,6 +151,19 @@
   a dry-run reconciliation report, and the shipped CLI has a live
   `session reconcile --kill-stale` dogfood run. Later rows cover role reset,
   runtime-state ignore posture, and long-command wrappers.
+- 2026-05-14 architectural self-improvement charter
+  (`MP-378-ARCH-SELF-IMPROVEMENT-LOOP-S1`): `rev_pkt_4017` elevates the
+  recurring-class finding into a durable guard-discovery-and-build loop. Every
+  reviewer round scans recent packets, typed state, and fleet observations for
+  unguarded architectural invariants; when one appears, the loop proposes a
+  typed guard/probe and Codex builds it inline or distributes it across the
+  next MP-378 slices. Guard P1 is `check_plan_index_commit_continuity.py`;
+  P2-P5 are distributed across S6/S7 and the next contract-registry/sidebar
+  updates. `rev_pkt_4019` widened P1 from lexical MP-378 matching to mutation
+  semantics for task-start bindings and guard charters, and added P6/P7 as
+  live-validated follow-on guards to distribute with the remaining launch
+  bootstrap slices. This rule lives in typed plan state so it does not depend
+  on memory or chat attention.
 - 2026-04-20 persistence-loop unblock (subordinate to
   `dev/active/autonomous_governance_loop_v2.md` MP-377): headless
   `review-channel --action launch | recover` now auto-elevate
@@ -8439,6 +8452,9 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
 - [ ] `PKT-BIND-REV-PKT-4008` Packet finding: S3 pivot-relevant: Bash(*) wildcard at settings.local.json:4 makes typed permission rules inert + .claude/settings.local.json is gitignored. Decisions needed pre-commit. (source `rev_pkt_4008`; target `dev/scripts/devctl/runtime/classifier_safety_attestation.py`; posted `2026-05-14T13:54:10.615658Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-4010` Packet finding: S3 review_accepted (5/5 absorbed, 13/13 tests pass) + RECURRING-CLASS SYSTEM_MAP gap: 3 slices silently skipped SYSTEM_MAP doc-sweep; docs-check strict-tooling has no contract_registry-to-SYSTEM_MAP binding. Inline-fix ar... (source `rev_pkt_4010`; target `dev/scripts/devctl/runtime/classifier_safety_attestation.py`; posted `2026-05-14T14:10:04.463394Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-4012` Packet finding: Arch-fix review_accepted (guard works, live dogfood pass) + RECURSIVE-CLASS: the fix itself exhibits the recurring-class gap it fixes (no dedicated plan row, wrong target on PKT-BIND row, no commit anchor, no PlanIntentRe... (source `rev_pkt_4012`; target `dev/scripts/checks/check_systemmap_covers_contract_registry.py`; posted `2026-05-14T14:40:00.598447Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4013` Packet task_started: MP-378 S4 SessionLivenessReconciler (source `rev_pkt_4013`; target `plan:MP-378-LAUNCH-BOOTSTRAP-FIX-S4`; posted `2026-05-14T14:42:57.479602Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-4014` Packet finding: S4 pre-substrate PIVOT: 4 compose-target design decisions + recursive-class MUTATING (continuity weakening at each cycle: S2/S3 strong → arch-fix partial → S4 task-start zero PKT-BIND row). 5 absorption items breakable du... (source `rev_pkt_4014`; target `dev/scripts/devctl/runtime/session_liveness_reconciler.py`; posted `2026-05-14T14:48:21.781478Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-4015` Packet finding: S4 pre-commit: CLI carve CLEAN ✓ + COMPOSE-PARALLEL trip-wire (substrate at attachment-layer not signal-chain; Decision 1.4 NEITHER picked; Item D back-reg SKIPPED) + docstring regression (1-line on PID-SIGTERM substrate ... (source `rev_pkt_4015`; target `dev/scripts/devctl/runtime/session_liveness_reconciler.py`; posted `2026-05-14T14:58:08.282123Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-4016` Packet finding: S4 review_accepted (17/17 PASS, docstring exceeds S3, Item D absorbed, Finding 1 Option A documented, Decision 1.4 delegate) + META-FINDING: recurring-class IS the lack of guards. STABILIZED on 4 guard-enforced axes; PROP... (source `rev_pkt_4016`; target `dev/scripts/devctl/runtime/session_liveness_reconciler.py`; posted `2026-05-14T15:27:49.133753Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4017` Packet finding: OPERATOR MANDATE 2026-05-14T15:35Z: META-FINDING elevated from observation to active-build. 5 guards (P1-P5) now MANDATORY across S5-S7 + arch-fix. Plan must carry guard-discovery-loop charter row. Claude /loop gains step... (source `rev_pkt_4017`; target `plan:MP-378`; posted `2026-05-14T15:37:25.618461Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4019` Packet finding: Guard P1 shape matches proposal + retroactive S4 hygiene LANDED (major win). BUT P1 correctness gap: enforced-row classifier is lexical-only, misses task_started_packet_binding mutation_op. ALSO 2 NEW LIVE-VALIDATED guard... (source `rev_pkt_4019`; target `dev/scripts/checks/check_plan_index_commit_continuity.py`; posted `2026-05-14T15:56:43.481632Z`; binding `plan_row`).
