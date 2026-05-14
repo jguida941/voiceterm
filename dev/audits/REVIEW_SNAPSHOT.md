@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `df5b66a9e657` — MP377: make reviewer mode role binding symmetric
-- Tree hash: `0a2c0fbae1fe`
-- Generation stamp: `snap-4efd924db56f`
-- Generated at (UTC): 2026-05-14T01:47:45Z
+- HEAD: `8568a49af7b5` — Record MP377 reviewer-mode slice closure
+- Tree hash: `c73345154308`
+- Generation stamp: `snap-f39086c7e7d2`
+- Generated at (UTC): 2026-05-14T02:00:55Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 73 files, +3593/-888
+- Delta since last snapshot: 24 commits, 71 files, +3528/-875
 - Governance findings: 42 open / 0 fixed / 42 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `df5b66a9e657e9eb6320e3a0f4d5e6ff05ce35cb`
+- HEAD SHA: `8568a49af7b56de8d1c87ca2c884b34af7a3f7d6`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-13T21:47:14-04:00
+- HEAD timestamp (UTC): 2026-05-13T22:00:20-04:00
 
 ## 2. Governance state
 
@@ -43,8 +43,8 @@ production client (VoiceTerm...
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (push_preflight_running)
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_backlog: recommended
+- publication_guidance: 3 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -64,12 +64,12 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `df5b66a9e657`
+Range: last 24 commits ending at `8568a49af7b5`
 
 - commits: 24
-- files changed: 73
-- insertions: +3593
-- deletions: -888
+- files changed: 71
+- insertions: +3528
+- deletions: -875
 - bundle classes touched: tooling, docs
 - authority surfaces touched: 7 file(s)
 
@@ -77,45 +77,45 @@ Range: last 24 commits ending at `df5b66a9e657`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `df5b66a9` | MP377: make reviewer mode role binding symmetric | 11 | +269/-23 | tooling |  |
-| 2 | `00b3fb70` | Refresh external review snapshot for eb040912 | 2 | +67/-67 | docs |  |
-| 3 | `eb040912` | Record rev_pkt_3983 plan binding | 2 | +2/-0 | tooling |  |
-| 4 | `5b36477a` | Refresh external review snapshot for 524dc68b | 2 | +51/-51 | docs |  |
-| 5 | `524dc68b` | MP377: add agent supervise execute bridge | 13 | +365/-5 | tooling |  |
-| 6 | `4af60318` | Refresh external review snapshot for e5640356 | 2 | +60/-61 | docs |  |
-| 7 | `e5640356` | MP377: add bilateral protocol contract | 16 | +668/-7 | tooling |  |
-| 8 | `ee14ad16` | Refresh external review snapshot for 2d9b07bf | 2 | +54/-55 | docs |  |
-| 9 | `2d9b07bf` | MP377: close adopter pilot gate proof | 8 | +67/-11 | tooling |  |
-| 10 | `cbb63aed` | Refresh external review snapshot for 98b40dcc | 2 | +59/-56 | docs |  |
-| 11 | `98b40dcc` | P102: surface typed gate failures | 21 | +433/-21 | tooling |  |
-| 12 | `14b4c55b` | Refresh external review snapshot for 915ca48d | 2 | +58/-57 | docs |  |
-| 13 | `915ca48d` | P102: fix lifecycle state resolvers | 13 | +214/-35 | tooling |  |
-| 14 | `fa1b6698` | Refresh external review snapshot for f5c7778f | 2 | +54/-54 | docs |  |
-| 15 | `f5c7778f` | Record rev_pkt_3970 and rev_pkt_3971 plan bindings | 2 | +4/-0 | tooling |  |
-| 16 | `b6b50dbe` | Refresh external review snapshot for b05a8973 | 2 | +51/-51 | docs |  |
-| 17 | `b05a8973` | P102: enforce governed transition states | 11 | +290/-2 | tooling |  |
-| 18 | `d44a2588` | Refresh external review snapshot for 2db48c12 | 2 | +51/-56 | docs |  |
-| 19 | `2db48c12` | Record rev_pkt_3968 plan binding | 2 | +2/-0 | tooling |  |
-| 20 | `1e0ceffd` | Refresh external review snapshot for 94d2df5d | 2 | +68/-62 | docs |  |
-| 21 | `94d2df5d` | Add delivery modes to governance runtime | 23 | +499/-78 | tooling |  |
-| 22 | `66919658` | Refresh external review snapshot for 1cc7d657 | 2 | +59/-56 | docs |  |
-| 23 | `1cc7d657` | Fix stale pending packet blocker normalization | 8 | +84/-19 | tooling |  |
-| 24 | `0b7707c9` | Refresh external review snapshot for 35b5131c | 2 | +64/-61 | docs |  |
+| 1 | `8568a49a` | Record MP377 reviewer-mode slice closure | 5 | +19/-1 | tooling |  |
+| 2 | `8636cd93` | Refresh external review snapshot for df5b66a9 | 2 | +64/-66 | docs |  |
+| 3 | `df5b66a9` | MP377: make reviewer mode role binding symmetric | 11 | +269/-23 | tooling |  |
+| 4 | `00b3fb70` | Refresh external review snapshot for eb040912 | 2 | +67/-67 | docs |  |
+| 5 | `eb040912` | Record rev_pkt_3983 plan binding | 2 | +2/-0 | tooling |  |
+| 6 | `5b36477a` | Refresh external review snapshot for 524dc68b | 2 | +51/-51 | docs |  |
+| 7 | `524dc68b` | MP377: add agent supervise execute bridge | 13 | +365/-5 | tooling |  |
+| 8 | `4af60318` | Refresh external review snapshot for e5640356 | 2 | +60/-61 | docs |  |
+| 9 | `e5640356` | MP377: add bilateral protocol contract | 16 | +668/-7 | tooling |  |
+| 10 | `ee14ad16` | Refresh external review snapshot for 2d9b07bf | 2 | +54/-55 | docs |  |
+| 11 | `2d9b07bf` | MP377: close adopter pilot gate proof | 8 | +67/-11 | tooling |  |
+| 12 | `cbb63aed` | Refresh external review snapshot for 98b40dcc | 2 | +59/-56 | docs |  |
+| 13 | `98b40dcc` | P102: surface typed gate failures | 21 | +433/-21 | tooling |  |
+| 14 | `14b4c55b` | Refresh external review snapshot for 915ca48d | 2 | +58/-57 | docs |  |
+| 15 | `915ca48d` | P102: fix lifecycle state resolvers | 13 | +214/-35 | tooling |  |
+| 16 | `fa1b6698` | Refresh external review snapshot for f5c7778f | 2 | +54/-54 | docs |  |
+| 17 | `f5c7778f` | Record rev_pkt_3970 and rev_pkt_3971 plan bindings | 2 | +4/-0 | tooling |  |
+| 18 | `b6b50dbe` | Refresh external review snapshot for b05a8973 | 2 | +51/-51 | docs |  |
+| 19 | `b05a8973` | P102: enforce governed transition states | 11 | +290/-2 | tooling |  |
+| 20 | `d44a2588` | Refresh external review snapshot for 2db48c12 | 2 | +51/-56 | docs |  |
+| 21 | `2db48c12` | Record rev_pkt_3968 plan binding | 2 | +2/-0 | tooling |  |
+| 22 | `1e0ceffd` | Refresh external review snapshot for 94d2df5d | 2 | +68/-62 | docs |  |
+| 23 | `94d2df5d` | Add delivery modes to governance runtime | 23 | +499/-78 | tooling |  |
+| 24 | `66919658` | Refresh external review snapshot for 1cc7d657 | 2 | +59/-56 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `bridge.md` | docs | +41/-41 |
+| `bridge.md` | docs | +42/-42 |
 | `codesmells.md` | docs | +29/-0 |
-| `dev/active/MASTER_PLAN.md` | tooling | +63/-5 |
-| `dev/active/ai_governance_platform.md` | tooling | +104/-5 |
+| `dev/active/MASTER_PLAN.md` | tooling | +59/-5 |
+| `dev/active/ai_governance_platform.md` | tooling | +103/-4 |
 | `dev/active/portable_code_governance.md` | tooling | +23/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +655/-646 |
-| `dev/guides/DEVELOPMENT.md` | docs | +44/-1 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +654/-650 |
+| `dev/guides/DEVELOPMENT.md` | docs | +39/-1 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +8/-8 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +144/-1 |
-| `dev/scripts/README.md` | tooling | +41/-3 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +141/-1 |
+| `dev/scripts/README.md` | tooling | +36/-3 |
 | `dev/scripts/checks/review_probes/probe_event_field_naming_consistency.py` | tooling | +2/-4 |
 | `dev/scripts/devctl/commands/development/final_response_gate.py` | tooling | +47/-1 |
 | `dev/scripts/devctl/commands/development/final_response_gate_agent_loop.py` | tooling | +5/-1 |
@@ -146,7 +146,7 @@ Range: last 24 commits ending at `df5b66a9e657`
 | `dev/scripts/devctl/runtime/project_governance.py` | tooling | +12/-0 |
 | `dev/scripts/devctl/runtime/project_governance_contract.py` | tooling | +68/-1 |
 | `dev/scripts/devctl/runtime/project_governance_parse.py` | tooling | +15/-6 |
-| _33 more files trimmed_ | | |
+| _31 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -222,6 +222,10 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`8568a49a`** — Record MP377 reviewer-mode slice closure
+  - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
+- **`8636cd93`** — Refresh external review snapshot for df5b66a9
+  - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
 - **`df5b66a9`** — MP377: make reviewer mode role binding symmetric
   - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
 - **`00b3fb70`** — Refresh external review snapshot for eb040912
@@ -266,10 +270,6 @@ Recent findings:
   - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
 - **`66919658`** — Refresh external review snapshot for 1cc7d657
   - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
-- **`1cc7d657`** — Fix stale pending packet blocker normalization
-  - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
-- **`0b7707c9`** — Refresh external review snapshot for 35b5131c
-  - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -310,4 +310,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-4efd924db56f` binds this file to HEAD `df5b66a9e657`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-f39086c7e7d2` binds this file to HEAD `8568a49af7b5`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
