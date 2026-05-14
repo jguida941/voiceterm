@@ -15659,3 +15659,21 @@ Evidence:
 - `dev/scripts/devctl/bundles/registry.py`
 - `.github/workflows/tooling_control_plane.yml`
 - `.github/workflows/release_preflight.yml`
+
+Follow-up closure on the same slice bound the guard charter, dedicated Guard P1
+row, and task-start packet rows to commit evidence through typed
+`PlanIntentReceipt` / `TypedAction` rows. The guard now catches the
+`task_started_packet_binding` and `guard_discovery_build_loop_charter` classes
+called out by `rev_pkt_4019`, while preserving legacy gaps as non-blocking
+debt.
+The follow-up review in `rev_pkt_4020` presented a status-gate alternative,
+but this slice kept the aggressive interpretation and backfilled the missing
+commit anchors instead, so the guard remains CI-gating for in-flight lifecycle
+rows that are part of the enforced mutation classes.
+
+Closure evidence:
+
+- `MP-378-ARCH-SELF-IMPROVEMENT-LOOP-S1`
+- `MP-378-GUARD-P1-PLAN-INDEX-CONTINUITY`
+- `PKT-BIND-REV-PKT-4013`
+- `PKT-BIND-REV-PKT-4018`
