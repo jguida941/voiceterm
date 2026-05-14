@@ -15677,3 +15677,9 @@ Closure evidence:
 - `MP-378-GUARD-P1-PLAN-INDEX-CONTINUITY`
 - `PKT-BIND-REV-PKT-4013`
 - `PKT-BIND-REV-PKT-4018`
+
+The same review window introduced `rev_pkt_4021`, which retires the earlier
+push-batching override and changes the active operator cadence to raw
+`git push` after each validated slice. The first application is the Guard P1
+slice: resolve the continuity guard, validate, then push the accumulated branch
+before starting S5.
