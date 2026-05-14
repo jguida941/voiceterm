@@ -144,16 +144,18 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> int:
-    args = _build_parser().parse_args()
+def _run_agents_contract_check(output_format: str) -> int:
     report = _build_report()
-
-    if args.format == "json":
-        print(json.dumps(report, indent=2))
+    if output_format == "json":
+        output = json.dumps(report, indent=2)
     else:
-        print(_render_md(report))
-
+        output = _render_md(report)
+    print(output)
     return 0 if report.get("ok", False) else 1
+
+
+def main() -> int:
+    return _run_agents_contract_check(_build_parser().parse_args().format)
 
 
 if __name__ == "__main__":
