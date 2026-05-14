@@ -780,7 +780,10 @@ Three quality layers matter in practice:
     launches now pin `--follow-inactivity-timeout-seconds 0`, and
     `review-channel --action stop --daemon-kind <publisher|reviewer_supervisor|all>`
     is the repo-owned daemon reclaim path when those follow daemons need a
-    clean replacement. A governed reviewer-supervisor `manual_stop` or
+    clean replacement. Stop is only for detached daemon PIDs; if a heartbeat
+    points at the current controller process, the stop helper reports
+    `current_process_not_detached` and leaves the caller alive instead of
+    self-signaling. A governed reviewer-supervisor `manual_stop` or
     `completed` lifecycle record is non-restartable for implicit `ensure` /
     reviewer-heartbeat auto-start; restore it through an explicit
     launch/rollover/follow command instead of letting background automation

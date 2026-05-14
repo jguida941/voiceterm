@@ -15781,3 +15781,22 @@ linked `GovernedExceptionLifecycle`. The wrapper rejects no-op raw-git
 executions and validates lifecycle-backed authority before receipt write. A
 later receipt-completeness guard still needs to enforce the contract over the
 commit range since the MP-378 mandate.
+
+### 2026-05-14 - Review-channel stop no longer self-signals the controller
+
+Governed push preflight exposed a review-channel regression: a focused
+`test_review_channel.py` run reached `reviewer-checkpoint`, then the detached
+runtime stop helper delivered `SIGINT` to the current pytest/devctl process
+because the test heartbeat fixture used the caller PID. The stop helper now
+detects that self-PID case and returns `current_process_not_detached` without
+calling `os.kill`, while canonical active-dual-agent test fixtures use
+`active_dual_agent` instead of the legacy `agents` label. The full
+review-channel target now completes under the same focused preflight command
+that governed push selected.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel/_stop.py`
+- `dev/scripts/devctl/tests/review_channel/test_stop.py`
+- `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
+- `dev/audits/r98_push_preflight_review_channel_timeout.md`

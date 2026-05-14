@@ -8515,3 +8515,4 @@ Captured from `rev_pkt_4030` through `rev_pkt_4038` via
 - [ ] `MP-NEW-026` Cross-cutting: consolidate the proposed R98 contracts into the platform contract registry, blueprint, fixtures, and closure checks.
 - [ ] `MP-NEW-027` Cross-cutting: scaffold guards P17 through P41 as a guard-bundle backlog with dependencies on the MP-NEW class rows.
 - [ ] `MP-NEW-028` Cross-cutting: migrate repo-pack policy and lifecycle-receipt backfill so raw push, governed push, and commit proof share one publication ledger.
+- [ ] `MP-NEW-029` Governed push preflight follow-up: prevent review-channel detached-runtime stop from self-signaling the current controller process, and keep the focused review-channel test inside the governed-push preflight proof path.

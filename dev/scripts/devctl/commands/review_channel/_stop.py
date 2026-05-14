@@ -252,6 +252,20 @@ def _send_stop_signal(
     deps: StopActionDeps,
 ) -> DaemonStopResult | None:
     current_state = target.read_state_fn(status_dir)
+    if pid == os.getpid():
+        return DaemonStopResult(
+            daemon_kind=target.daemon_kind,
+            attempted=False,
+            stopped=False,
+            ok=True,
+            reason="current_process_not_detached",
+            pid=pid,
+            state=current_state,
+            detail=(
+                f"Skipped stopping {target.daemon_kind} pid {pid} because it "
+                "matches the current controller process"
+            ),
+        )
     try:
         deps.kill_fn(pid, stop_signal)
     except PermissionError:

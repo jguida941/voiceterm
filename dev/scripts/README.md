@@ -297,6 +297,7 @@ python3 dev/scripts/devctl.py tandem-validate --format md
 python3 dev/scripts/devctl.py review-channel --action doctor --terminal none --format md
 python3 dev/scripts/devctl.py review-channel --action reviewer-heartbeat --reviewer-mode single_agent --reason local-dev-pass --terminal none --format md
 python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --checkpoint-payload-file /tmp/reviewer-checkpoint.json --expected-instruction-revision <live-revision> --expected-implementer-state-hash <live-implementer-state-hash> --terminal none --format md
+python3 dev/scripts/devctl.py review-channel --action stop --daemon-kind all --terminal none --format md
 python3 dev/scripts/devctl.py bypass grant --scope edit-only --reason "<operator reason>" --format json
 python3 dev/scripts/devctl.py raw-git commit --no-verify -m "<slice message>"
 python3 dev/scripts/devctl.py raw-git push --no-verify
@@ -325,6 +326,12 @@ python3 dev/scripts/devctl.py list
 
 Use the long command catalog below as the full reference, not the first thing to
 read end to end.
+
+`review-channel --action stop` reclaims detached publisher and reviewer
+supervisor daemons. It is not a way to interrupt the current `devctl`
+controller: heartbeat state that resolves to the caller process is reported as
+`current_process_not_detached` so reviewer checkpoint and heartbeat writes
+cannot self-signal during governed preflight.
 
 Compatibility note:
 - When splitting or relocating Python tooling modules under `dev/scripts/**`,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import signal
 from types import SimpleNamespace
 from pathlib import Path
@@ -224,6 +225,52 @@ def test_run_stop_action_is_idempotent_when_daemon_is_not_running(tmp_path: Path
     assert report["ok"] is True
     result = report["results"][0]
     assert result["reason"] == "not_running"
+    assert result["attempted"] is False
+
+
+def test_run_stop_action_skips_current_controller_process(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    status_dir = tmp_path / "status"
+    status_dir.mkdir()
+    current_pid = os.getpid()
+    monkeypatch.setattr(
+        "dev.scripts.devctl.review_channel.lifecycle_state._pid_is_alive",
+        lambda pid: pid == current_pid,
+    )
+    monkeypatch.setattr(
+        "dev.scripts.devctl.review_channel.lifecycle_state._heartbeat_age_seconds",
+        lambda _timestamp: 0.0,
+    )
+    write_publisher_heartbeat(
+        status_dir,
+        PublisherHeartbeat(
+            pid=current_pid,
+            started_at_utc="2026-03-25T12:00:00Z",
+            last_heartbeat_utc="2026-03-25T12:00:05Z",
+            snapshots_emitted=2,
+            reviewer_mode="active_dual_agent",
+        ),
+    )
+    kill_calls: list[tuple[int, int]] = []
+
+    report, exit_code = run_stop_action(
+        args=SimpleNamespace(daemon_kind="publisher", stop_grace_seconds=1.0),
+        repo_root=tmp_path,
+        paths={"status_dir": status_dir},
+        deps=StopActionDeps(
+            kill_fn=lambda pid, sig: kill_calls.append((pid, sig)),
+            monotonic_fn=lambda: 0.0,
+            sleep_fn=lambda _seconds: None,
+        ),
+    )
+
+    assert exit_code == 0
+    assert report["ok"] is True
+    assert kill_calls == []
+    result = report["results"][0]
+    assert result["reason"] == "current_process_not_detached"
     assert result["attempted"] is False
 
 
