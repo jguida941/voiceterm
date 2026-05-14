@@ -20,6 +20,7 @@ from ..runtime.review_state_models import (
     RecoveryAssessmentState,
     ReviewState,
 )
+from ..runtime.session_status_projection import build_session_status_projection
 from .collaboration_session import build_collaboration_session
 from .current_session_projection import resolve_current_session_authority
 from .handoff import BridgeSnapshot
@@ -95,6 +96,7 @@ def build_bridge_review_state(
         collaboration=collaboration,
         snapshot=snapshot,
     )
+    codex_agent_mind = read_agent_mind_projection(context.repo_root, provider="codex")
     reviewer_runtime = build_reviewer_runtime_contract(
         ReviewerRuntimeInputs(
             snapshot=snapshot,
@@ -111,7 +113,7 @@ def build_bridge_review_state(
             operator_interaction_mode=str(
                 typed_bridge_liveness.get("operator_interaction_mode") or ""
             ),
-            agent_mind=read_agent_mind_projection(context.repo_root, provider="codex"),
+            agent_mind=codex_agent_mind,
             reviewer_accepted_implementer_state_hash_override=(
                 context.reviewer_accepted_implementer_state_hash_override
             ),
@@ -148,8 +150,9 @@ def build_bridge_review_state(
             reduced_runtime=reduced_runtime,
         )
     )
+    push_enforcement = typed_bridge_liveness.get("push_enforcement") or {}
     head_sha = str(
-        (typed_bridge_liveness.get("push_enforcement") or {}).get("current_head_commit")
+        push_enforcement.get("current_head_commit")
         or commit_bundle.commit_pipeline.commit_sha
         or ""
     ).strip()
@@ -159,6 +162,22 @@ def build_bridge_review_state(
         generation_id=commit_bundle.commit_pipeline.generation_id,
         head_sha=head_sha,
     )
+    session_status_projection = build_session_status_projection(
+        generated_at_utc=context.timestamp,
+        collaboration=collaboration,
+        bridge_liveness=bridge_state,
+        agent_minds={
+            "codex": codex_agent_mind,
+            "claude": read_agent_mind_projection(context.repo_root, provider="claude"),
+        },
+        recovery_assessment=recovery_assessment,
+        head_sha=head_sha,
+        worktree_dirty=(
+            push_enforcement.get("worktree_dirty")
+            if isinstance(push_enforcement.get("worktree_dirty"), bool)
+            else None
+        ),
+    ).to_dict()
     registry_context = AgentRegistryContext(
         timestamp=context.timestamp,
         plan_id=context.plan_id,
@@ -186,6 +205,7 @@ def build_bridge_review_state(
             typed_bridge_liveness=typed_bridge_liveness,
             recovery_assessment=recovery_assessment,
             registry_context=registry_context,
+            session_status_projection=session_status_projection,
         )
     )
     governance = scan_repo_governance_safely(context.repo_root)

@@ -691,6 +691,13 @@ Portability note:
   compatibility projection; DashboardSnapshot, mobile status, startup counts,
   and control-plane readers consume the typed signal instead of direct bridge
   conductor booleans when it is present.
+- `SessionStatusProjection` is the single derived status answer for
+  task-complete versus mid-task death. It does not write a new lifecycle store:
+  bridge-backed and event-backed status producers derive it from
+  `SessionLivenessSignal`, `AgentSessionOutcome`, `AgentMindSlice`,
+  collaboration participants, HEAD, and worktree identity, then round-trip it
+  through `ReviewState` addenda for status, doctor, startup, and resume
+  consumers.
 - Packet `ack` / `apply` / `dismiss` is only packet transport lifecycle. It
   does not write the implementer `Claude Ack` compatibility section and does
   not satisfy `current_session.implementer_ack_state=current`; that ACK still

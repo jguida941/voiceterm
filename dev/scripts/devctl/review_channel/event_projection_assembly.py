@@ -11,6 +11,7 @@ from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.review_packet_inbox import build_packet_inbox_payload
 from ..runtime.review_state_round_proof import build_round_proofs_from_review_state
 from ..runtime.review_state_parser import review_state_from_payload
+from ..runtime.session_status_projection import build_session_status_projection
 from ..runtime.surface_snapshot import (
     build_surface_snapshot_id,
     build_surface_zref,
@@ -259,6 +260,23 @@ def _apply_review_state_enrichment(
     review_state["current_session"] = current_session_payload(runtime.current_session)
     review_state["collaboration"] = asdict(runtime.collaboration)
     review_state["reviewer_runtime"] = asdict(runtime.reviewer_runtime)
+    review_state["session_status_projection"] = build_session_status_projection(
+        generated_at_utc=str(review_state.get("timestamp") or ""),
+        collaboration=runtime.collaboration,
+        bridge_liveness=runtime.typed_bridge_liveness,
+        agent_minds={
+            "codex": read_agent_mind_projection(base.repo_root, provider="codex"),
+            "claude": read_agent_mind_projection(base.repo_root, provider="claude"),
+        },
+        recovery_assessment=runtime.recovery_assessment,
+        head_sha=str(
+            (runtime.typed_bridge_liveness.get("push_enforcement") or {}).get(
+                "current_head_commit"
+            )
+            or runtime.commit_pipeline.commit_sha
+            or ""
+        ).strip(),
+    ).to_dict()
     review_state["round_proofs"] = [
         row.to_dict() for row in build_round_proofs_from_review_state(review_state)
     ]

@@ -234,6 +234,7 @@ class ReviewState:
     agent_loop_decisions: list[dict[str, object]] = field(default_factory=list)
     attention_windows: dict[str, object] = field(default_factory=dict)
     agent_dispatch_router: dict[str, object] = field(default_factory=dict)
+    session_status_projection: dict[str, object] = field(default_factory=dict)
     # Per Codex rev_pkt_2273/2278/2281/2298: 4-field topology/authority split
     # ('coordination_topology', 'authority_mode', 'recovery_eligibility',
     # 'observed_runtime') so consumers stop treating ``single_agent`` as

@@ -252,6 +252,7 @@ def _preserve_typed_runtime_addenda(
         "coordination_state",
         "agent_loop_decisions",
         "attention_windows",
+        "session_status_projection",
     ):
         value = prior.get(key)
         if value:

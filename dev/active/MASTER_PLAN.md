@@ -123,7 +123,11 @@
   `devctl bypass grant`, a governed command that evaluates
   `BypassRequest -> BypassEvaluation -> BypassReceipt` and persists an active
   `BypassLifecycle` before review-channel launch/recover consumes
-  `--bypass-receipt-id`. Later rows cover session-status projection,
+  `--bypass-receipt-id`. S2 adds `SessionStatusProjection`, a derived
+  read model over `SessionLivenessSignal`, `AgentSessionOutcome`,
+  `AgentMindSlice.latest_task_complete_at`, collaboration participants,
+  HEAD, and worktree identity so operators can ask one typed surface whether
+  a session task-completed or died mid-task. Later rows cover
   classifier safety attestation, stale-session reconciliation, role reset,
   runtime-state ignore posture, and long-command wrappers.
 - 2026-04-20 persistence-loop unblock (subordinate to
@@ -8404,3 +8408,4 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
     typed evidence is required, plan target/anchor/intake refs are allowed as
     non-authoritative context, and mutation/runtime guard fields remain
     rejected so executable work still flows through plan ingestion.
+- [ ] `PKT-BIND-REV-PKT-4004` Packet finding: S2 PIVOT-FIX (pre-commit): session_status_projection.py reads untyped dict mappings — needs typed imports of RecoveryAssessmentState/SessionActivityEntry/AgentMindSlice to close PARALLEL-SURFACE-RISK. Also: 6 missing clas... (source `rev_pkt_4004`; target `plan:MP-377`; posted `2026-05-14T13:09:18.234854Z`; binding `plan_row`).

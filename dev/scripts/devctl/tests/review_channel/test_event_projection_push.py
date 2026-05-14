@@ -162,9 +162,21 @@ def test_enrich_event_review_state_attaches_push_truth(
         "_compat": {"runtime": {"daemons": {}}},
     }
 
+    def _agent_mind(_repo_root: Path, *, provider: str = "codex") -> dict[str, object]:
+        if provider == "codex":
+            return {
+                "session_id": "s-codex",
+                "latest_task_complete_at": "2026-04-04T00:00:01Z",
+                "generated_at_utc": "2026-04-04T00:00:02Z",
+            }
+        return {}
+
     with patch(
         "dev.scripts.devctl.review_channel.event_projection_context.load_bridge_inputs",
         return_value=("", None),
+    ), patch(
+        "dev.scripts.devctl.review_channel.event_projection_assembly.read_agent_mind_projection",
+        side_effect=_agent_mind,
     ):
         enriched, extras = enrich_event_review_state(
             review_state=review_state,
@@ -196,6 +208,9 @@ def test_enrich_event_review_state_attaches_push_truth(
         enriched["attention"]["recommended_command"]
         == enriched["recovery_assessment"]["decision"]["command"]
     )
+    assert enriched["session_status_projection"]["contract_id"] == "SessionStatusProjection"
+    assert enriched["session_status_projection"]["status"] == "task_completed"
+    assert enriched["session_status_projection"]["rows"]
     runtime_inputs = _reviewer_runtime_mock.call_args.args[0]
     assert runtime_inputs.bridge_liveness["effective_reviewer_mode"] == "tools_only"
 

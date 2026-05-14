@@ -205,6 +205,9 @@ def attach_reviewer_runtime_snapshot(
     current_session = getattr(review_state, "current_session", None)
     if current_session is not None:
         report["current_session"] = asdict(current_session)
+    session_status_projection = getattr(review_state, "session_status_projection", None)
+    if isinstance(session_status_projection, Mapping):
+        report["session_status_projection"] = dict(session_status_projection)
     queue = getattr(review_state, "queue", None)
     if queue is not None:
         if is_dataclass(queue) and not isinstance(queue, type):

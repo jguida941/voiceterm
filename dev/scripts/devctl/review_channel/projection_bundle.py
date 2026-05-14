@@ -58,6 +58,7 @@ _TYPED_REVIEW_STATE_KEYS = (
     "agent_work_board",
     "agent_loop_decisions",
     "attention_windows",
+    "session_status_projection",
     "coordination_state",
     "warnings",
     "errors",

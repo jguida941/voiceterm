@@ -20,6 +20,7 @@ _RUNTIME_SNAPSHOT_REPORT_KEYS = (
     "agent_sync",
     "agent_work_board",
     "agent_loop_decisions",
+    "session_status_projection",
     "observed_control_topology",
     "implementation_permission",
     "reviewer_mode",

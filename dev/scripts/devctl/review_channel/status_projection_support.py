@@ -74,6 +74,7 @@ class ReviewStatePayloadInputs:
     typed_bridge_liveness: Mapping[str, object]
     recovery_assessment: RecoveryAssessmentState | None
     registry_context: AgentRegistryContext
+    session_status_projection: Mapping[str, object]
 
 
 def build_review_state_payload(inputs: ReviewStatePayloadInputs) -> ReviewState:
@@ -117,6 +118,7 @@ def build_review_state_payload(inputs: ReviewStatePayloadInputs) -> ReviewState:
             or packet_inbox_from_mapping({"attention_revision": "", "agents": []})
         ),
         recovery_assessment=inputs.recovery_assessment,
+        session_status_projection=dict(inputs.session_status_projection),
         warnings=inputs.context.warnings,
         errors=inputs.errors,
         source_identity=inputs.registry_context.source_identity_dict(),

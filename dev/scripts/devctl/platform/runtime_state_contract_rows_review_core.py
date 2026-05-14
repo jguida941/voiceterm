@@ -187,6 +187,15 @@ REVIEW_CORE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 ),
             ),
             ContractField(
+                "session_status_projection",
+                "dict[str, object]",
+                (
+                    "Typed SessionStatusProjection read model answering whether "
+                    "provider sessions task_completed, died mid-task, are still "
+                    "running, or are detached runtime-only."
+                ),
+            ),
+            ContractField(
                 "attention",
                 "ReviewAttentionState | None",
                 "Current top-priority attention state, if any.",
@@ -237,6 +246,44 @@ REVIEW_CORE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             "agent_loop_decisions",
             "agent_dispatch_router",
         ),
+    ),
+    ContractSpec(
+        contract_id="SessionStatusProjection",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Single typed read model over CollaborationSession, "
+            "AgentSessionOutcome, SessionLivenessSignal, AgentMindSlice, "
+            "RecoveryAssessmentState, and SessionActivityEntry evidence that "
+            "answers whether an agent task_completed or died mid-task."
+        ),
+        required_fields=(
+            ContractField("generated_at_utc", "str", "UTC projection timestamp."),
+            ContractField("status", "str", "Overall session status answer."),
+            ContractField("answer", "str", "Operator-readable answer token."),
+            ContractField(
+                "rows",
+                "tuple[SessionStatusRow, ...]",
+                "Per-provider status rows with source evidence refs.",
+            ),
+            ContractField("head_sha", "str", "Repository HEAD observed by the projection."),
+            ContractField(
+                "worktree_hash",
+                "str",
+                "Worktree identity observed by the projection.",
+            ),
+            ContractField(
+                "worktree_dirty",
+                "bool | None",
+                "Whether the live worktree was dirty when known.",
+            ),
+            ContractField(
+                "evidence_refs",
+                "tuple[str, ...]",
+                "Typed source evidence refs consumed by the projection.",
+            ),
+        ),
+        runtime_model="dev.scripts.devctl.runtime.session_status_projection:SessionStatusProjection",
+        startup_surface_tokens=("status", "answer", "rows"),
     ),
     ContractSpec(
         contract_id="AgentDispatchRouter",

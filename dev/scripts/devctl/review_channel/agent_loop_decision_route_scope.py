@@ -66,6 +66,7 @@ def first_pending_loop_attention_packet_for_actor(
             row,
             review_state=review_state,
             actor_id=actor_id,
+            allow_actor_pending_pressure=bool(packet_id_filter),
         ):
             continue
         if not packet_requires_runtime_attention(
@@ -87,6 +88,7 @@ def packet_targets_fresh_route(
     *,
     review_state: Mapping[str, object],
     actor_id: str,
+    allow_actor_pending_pressure: bool = False,
 ) -> bool:
     target_session = coerce_text(packet.get("target_session_id"))
     if not target_session:
@@ -95,6 +97,8 @@ def packet_targets_fresh_route(
         return True
     routes = fresh_session_routes(review_state, actor_id=actor_id)
     if not routes:
+        if allow_actor_pending_pressure:
+            return True
         return not has_session_route_evidence(review_state, actor_id=actor_id)
     return any(
         packet_route_matches_scope(

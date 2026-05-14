@@ -39,6 +39,10 @@ def test_status_bundle_preserves_event_runtime_addenda() -> None:
         "coordination_state": {
             "coordination_topology": "multi_agent_active",
         },
+        "session_status_projection": {
+            "contract_id": "SessionStatusProjection",
+            "status": "task_completed",
+        },
         "reviewer_runtime": {
             "agent_runtime_clock": {
                 "source_latest_event_id": "rev_evt_1",
@@ -62,6 +66,7 @@ def test_status_bundle_preserves_event_runtime_addenda() -> None:
     assert merged["packets"] == [{"packet_id": "rev_pkt_1"}]
     assert merged["agent_work_board"] == {"contract_id": "AgentWorkBoardProjection"}
     assert merged["agent_loop_decisions"] == [{"actor_id": "claude"}]
+    assert merged["session_status_projection"]["status"] == "task_completed"
     assert merged["coordination_state"]["coordination_topology"] == "multi_agent_active"
     assert (
         merged["reviewer_runtime"]["agent_runtime_clock"]["source_latest_event_id"]
@@ -208,6 +213,10 @@ def test_projection_canonicalize_keeps_typed_runtime_addenda() -> None:
         "coordination_state": {
             "coordination_topology": "multi_agent_active",
         },
+        "session_status_projection": {
+            "contract_id": "SessionStatusProjection",
+            "status": "running",
+        },
         "round_proofs": [
             {
                 "contract_id": "RoundProof",
@@ -224,6 +233,7 @@ def test_projection_canonicalize_keeps_typed_runtime_addenda() -> None:
     assert canonical["agent_sync"] == {"contract_id": "AgentSyncProjection"}
     assert canonical["agent_work_board"] == {"contract_id": "AgentWorkBoardProjection"}
     assert canonical["agent_loop_decisions"] == [{"actor_id": "claude"}]
+    assert canonical["session_status_projection"]["status"] == "running"
     assert canonical["coordination_state"]["coordination_topology"] == "multi_agent_active"
     assert canonical["round_proofs"][0]["contract_id"] == "RoundProof"
     assert canonical["round_proofs"][0]["proof_id"] == "round-1"
@@ -407,13 +417,13 @@ def test_status_bundle_keeps_actor_pending_pressure_without_session_match() -> N
     decision = next(
         row
         for row in projected["agent_loop_decisions"]
-        if row["required_action"] == "continue_to_goal"
+        if row["active_packet_id"] == "rev_pkt_reviewer"
     )
     assert decision["actor_id"] == "codex"
     assert decision["actor_role"] == "reviewer"
     assert decision["session_id"] == "s-codex-old"
-    assert decision["required_action"] == "continue_to_goal"
-    assert decision["user_action"] == "Continue to the typed goal"
+    assert decision["required_action"] == "repair_startup_authority"
+    assert decision["user_action"] == "Continue loop"
     assert decision["continuation_goal"] == "rev_pkt_reviewer"
     assert decision["active_packet_id"] == "rev_pkt_reviewer"
     assert decision["attention_packet_id"] == "rev_pkt_reviewer"

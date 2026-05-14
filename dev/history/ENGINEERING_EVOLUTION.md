@@ -57,6 +57,27 @@ Evidence:
 - `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
 - `dev/scripts/devctl/tests/review_channel/test_event_post_action.py`
 
+### 2026-05-14 - Session status projection answers completion versus death
+
+MP-378 added `SessionStatusProjection` as the single typed read model for
+whether an agent session task-completed or died mid-task. The projection
+derives from existing `SessionLivenessSignal`, `AgentSessionOutcome`,
+`AgentMindSlice`, collaboration participant, HEAD, and worktree evidence, so it
+does not create a parallel lifecycle ledger or process authority path.
+
+Change: bridge-backed and event-backed status producers attach the projection
+to `ReviewState`, and the parser/projection bundle round-trip it as typed
+addenda. The classifier ignores stale agent-mind task-complete evidence when
+the session id no longer matches current session evidence.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/session_status_projection.py`
+- `dev/scripts/devctl/review_channel/status_projection.py`
+- `dev/scripts/devctl/review_channel/event_projection_assembly.py`
+- `dev/scripts/devctl/tests/runtime/test_session_status_projection.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_projection_push.py`
+
 ### 2026-05-14 - Bilateral agent-loop policy becomes a typed contract
 
 MP-377 added `AgentLoopBilateralProtocol` as the seven-property policy verdict

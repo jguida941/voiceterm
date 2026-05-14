@@ -239,7 +239,12 @@ Use docs like this:
   observations for any wedge that escapes prevention live in
   `dev/scripts/devctl/review_channel/stall_diagnostics.py`
   (`ConductorStallDiagnosis` reader over codex rollout JSONL). Typed
-  remote-control liveness also means status/doctor must recommend
+  session completion/death status lives in `SessionStatusProjection`, a pure
+  projection over existing liveness, session-outcome, agent-mind, HEAD, and
+  worktree evidence. Consumers should read that projection instead of
+  separately inferring task completion from bridge text, stale process rows, or
+  cached `latest_task_complete_at` values. Typed remote-control liveness also
+  means status/doctor must recommend
   `--terminal none`, and explicit visible Terminal.app launch/recover requests
   must be rejected before local Terminal profile lookup or provider prompts.
 - The `ensure-follow` reviewer-wake path

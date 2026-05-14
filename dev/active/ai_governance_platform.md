@@ -141,6 +141,16 @@ Current ingestion status:
   adds the runtime contract, platform-contract row, contract-registry row,
   schema fixtures, and focused tests only; eventbus dispatch, process wakeup,
   and session-trigger automation remain later typed rows.
+- 2026-05-14 launch-bootstrap status projection: `SessionStatusProjection`
+  is now the typed single-answer read model for whether provider sessions
+  `task_completed`, died mid-task, are still running, or are detached
+  runtime-only. It composes existing `CollaborationSession`,
+  `AgentSessionOutcome`, `SessionLivenessSignal`, `AgentMindSlice`,
+  `RecoveryAssessmentState`, and `SessionActivityEntry` evidence, round-trips
+  through bridge-backed and event-backed `ReviewState`, and is registered in
+  the platform contract registry. Consumers should read this contract instead
+  of inferring completion from bridge prose, cached agent-mind rows, or stale
+  process metadata.
 
 2026-05-06 governed exception lifecycle correction:
 - `MP377-P0-EXC-S1` replaces the earlier raw-bypass receipt direction with a

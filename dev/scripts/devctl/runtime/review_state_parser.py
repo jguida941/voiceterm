@@ -34,6 +34,7 @@ from .review_state_packet_inbox_parse import review_state_packet_inbox
 from .reviewer_runtime_parser import reviewer_runtime_state_from_payload
 from .review_state_round_proof import round_proofs_from_value
 from .review_state_registry_parse import registry_state_from_payload, source_identity
+from .session_status_projection import session_status_projection_from_mapping
 
 _REVIEW_STATE_SHAPE_KEYS = (
     "review",
@@ -60,6 +61,7 @@ _REVIEW_STATE_SHAPE_KEYS = (
     "agent_work_board",
     "agent_loop_decisions",
     "attention_windows",
+    "session_status_projection",
     "coordination_state",
 )
 
@@ -241,6 +243,9 @@ def _projection_addenda(
     )
     addenda["agent_dispatch_router"] = dict(
         _mapping(review_payload.get("agent_dispatch_router"))
+    )
+    addenda["session_status_projection"] = session_status_projection_from_mapping(
+        review_payload.get("session_status_projection")
     )
     addenda["coordination_state"] = dict(
         _mapping(review_payload.get("coordination_state"))
