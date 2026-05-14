@@ -20,7 +20,14 @@ from ...runtime.lifetime_bypass_mode import (
     BypassAuthorityScope,
     BypassEvaluationInput,
     BypassRequest,
+    active_bypass_lifecycle_for_receipt_id,
     evaluate_bypass_request,
+)
+from ...runtime.classifier_safety_attestation import (
+    DEFAULT_CLAUDE_SETTINGS_LOCAL_REL,
+    ClassifierSafetyAttestation,
+    build_classifier_safety_attestation,
+    project_classifier_safety_attestation,
 )
 from ...runtime.state_store_authority import append_json_mapping
 
@@ -105,8 +112,51 @@ def add_parser(sub) -> None:
         default=str(DEFAULT_BYPASS_LIFECYCLE_STORE_REL),
         help="Bypass lifecycle JSONL store path.",
     )
+    grant.add_argument(
+        "--classifier-settings-path",
+        default=str(DEFAULT_CLAUDE_SETTINGS_LOCAL_REL),
+        help=(
+            "Claude settings.local.json path receiving the "
+            "ClassifierSafetyAttestation projection."
+        ),
+    )
+    grant.add_argument(
+        "--skip-classifier-attestation",
+        action="store_true",
+        help="Persist the bypass lifecycle without updating Claude classifier settings.",
+    )
     add_standard_output_arguments(
         grant,
+        format_choices=("json", "md"),
+        default_format="json",
+    )
+
+    attest = action_sub.add_parser(
+        "attest",
+        help="Project an active BypassLifecycle receipt into Claude settings",
+    )
+    attest.add_argument(
+        "--receipt-id",
+        required=True,
+        help="Active typed BypassReceipt id to project.",
+    )
+    attest.add_argument(
+        "--target-role",
+        default="implementer",
+        help="Target role for active lifecycle lookup.",
+    )
+    attest.add_argument(
+        "--store-path",
+        default=str(DEFAULT_BYPASS_LIFECYCLE_STORE_REL),
+        help="Bypass lifecycle JSONL store path.",
+    )
+    attest.add_argument(
+        "--classifier-settings-path",
+        default=str(DEFAULT_CLAUDE_SETTINGS_LOCAL_REL),
+        help="Claude settings.local.json path receiving the attestation projection.",
+    )
+    add_standard_output_arguments(
+        attest,
         format_choices=("json", "md"),
         default_format="json",
     )
@@ -117,6 +167,8 @@ def run(args: Any) -> int:
     action = str(getattr(args, "bypass_action", "") or "").strip()
     if action == "grant":
         report, rc = grant_action(args)
+    elif action == "attest":
+        report, rc = attest_action(args)
     else:
         report, rc = _error_report(action)
 
@@ -186,6 +238,7 @@ def grant_action(args: Any) -> tuple[dict[str, object], int]:
         payload,
         store_id="BypassLifecycle",
     )
+    classifier_report = _classifier_attestation_report(args, lifecycle)
     report = {
         "command": "bypass",
         "action": "grant",
@@ -197,8 +250,50 @@ def grant_action(args: Any) -> tuple[dict[str, object], int]:
         "expires_at_utc": lifecycle.receipt.expires_at_utc,
         "store_path": display_path(store_path),
         "write_result": write_result.to_dict(),
+        "classifier_safety_attestation": classifier_report,
     }
-    return report, 0
+    return report, 0 if classifier_report.get("ok") is not False else 1
+
+
+def attest_action(args: Any) -> tuple[dict[str, object], int]:
+    """Project an existing active bypass receipt into Claude settings."""
+    receipt_id = _required_text(getattr(args, "receipt_id", ""), field="receipt_id")
+    store_path = resolve_repo_path(
+        getattr(args, "store_path", ""),
+        DEFAULT_BYPASS_LIFECYCLE_STORE_REL,
+        repo_root=REPO_ROOT,
+    )
+    lifecycle = active_bypass_lifecycle_for_receipt_id(
+        receipt_id,
+        store_path=store_path,
+        target_role=str(getattr(args, "target_role", "") or "").strip(),
+        required_scope=BypassAuthorityScope.EDIT_ONLY,
+    )
+    if lifecycle is None:
+        return (
+            {
+                "command": "bypass",
+                "action": "attest",
+                "ok": False,
+                "error": "active_bypass_receipt_not_found",
+                "receipt_id": receipt_id,
+                "store_path": display_path(store_path),
+            },
+            1,
+        )
+    classifier_report = _classifier_attestation_report(args, lifecycle)
+    return (
+        {
+            "command": "bypass",
+            "action": "attest",
+            "ok": classifier_report.get("ok") is not False,
+            "receipt_id": receipt_id,
+            "lifecycle_id": lifecycle.lifecycle_id,
+            "store_path": display_path(store_path),
+            "classifier_safety_attestation": classifier_report,
+        },
+        0 if classifier_report.get("ok") is not False else 1,
+    )
 
 
 def _error_report(action: str) -> tuple[dict[str, object], int]:
@@ -241,6 +336,12 @@ def _render_markdown(report: dict[str, object]) -> str:
         lines.append(f"- expires_at_utc: {report.get('expires_at_utc')}")
     if report.get("store_path"):
         lines.append(f"- store_path: {report.get('store_path')}")
+    classifier_report = report.get("classifier_safety_attestation")
+    if isinstance(classifier_report, dict):
+        lines.append(
+            "- classifier_safety_attestation: "
+            f"{classifier_report.get('attestation_id') or classifier_report.get('status') or classifier_report.get('error')}"
+        )
     if report.get("reason"):
         lines.append(f"- reason: {report.get('reason')}")
     if report.get("error"):
@@ -284,8 +385,59 @@ def _required_text(value: object, *, field: str) -> str:
     return text
 
 
+def _classifier_attestation_report(
+    args: Any,
+    lifecycle: Any,
+) -> dict[str, object]:
+    if getattr(args, "skip_classifier_attestation", False):
+        return {"ok": True, "status": "skipped"}
+    raw_path = getattr(args, "classifier_settings_path", None)
+    if raw_path is None:
+        return {"ok": True, "status": "not_requested"}
+    settings_path = resolve_repo_path(
+        raw_path,
+        DEFAULT_CLAUDE_SETTINGS_LOCAL_REL,
+        repo_root=REPO_ROOT,
+    )
+    try:
+        attestation: ClassifierSafetyAttestation | None = (
+            build_classifier_safety_attestation(
+                lifecycle,
+                settings_path=settings_path,
+            )
+        )
+        if attestation is None:
+            return {
+                "ok": False,
+                "error": "active_bypass_lifecycle_required",
+                "settings_path": display_path(settings_path),
+            }
+        write_result = project_classifier_safety_attestation(
+            settings_path,
+            attestation,
+        )
+    except (OSError, ValueError) as exc:
+        return {
+            "ok": False,
+            "error": str(exc),
+            "settings_path": display_path(settings_path),
+        }
+    return {
+        "ok": True,
+        "attestation": attestation.to_dict(),
+        **{
+            key: (
+                display_path(Path(value))
+                if key in {"settings_path", "lock_path"} and isinstance(value, str)
+                else value
+            )
+            for key, value in write_result.items()
+        },
+    }
+
+
 def _now_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 
-__all__ = ["add_parser", "grant_action", "run"]
+__all__ = ["add_parser", "attest_action", "grant_action", "run"]

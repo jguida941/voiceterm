@@ -103,6 +103,64 @@ BYPASS_LIFECYCLE_CONTRACTS: tuple[ContractSpec, ...] = (
         startup_surface_tokens=("receipt_id", "requested_authority_scope", "expires_at_utc"),
     ),
     ContractSpec(
+        contract_id="ClassifierSafetyAttestation",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed bridge from an active BypassLifecycle receipt into "
+            "Claude-readable local permission rules. It is a projection over "
+            "BypassReceipt authority, not a separate bypass authority source."
+        ),
+        required_fields=(
+            ContractField("attestation_id", "str", "Stable attestation id."),
+            ContractField("bypass_receipt_id", "str", "Source BypassReceipt id."),
+            ContractField(
+                "bypass_lifecycle_id",
+                "str",
+                "Source BypassLifecycle id proving active authority.",
+            ),
+            ContractField("source_contract", "str", "Source typed contract id."),
+            ContractField("target_surface", "str", "Classifier-readable target surface."),
+            ContractField("settings_path", "str", "Claude settings projection path."),
+            ContractField("target_role", "str", "Role lane covered by the receipt."),
+            ContractField("authority_scope", "str", "Granted bounded authority scope."),
+            ContractField("granted_at_utc", "str", "Receipt grant timestamp."),
+            ContractField("expires_at_utc", "str", "Receipt expiry timestamp."),
+            ContractField(
+                "permission_rules",
+                "tuple[str, ...]",
+                "Claude permission rules generated from the source receipt.",
+            ),
+            ContractField(
+                "evidence_refs",
+                "tuple[str, ...]",
+                "Bypass lifecycle, receipt, and policy evidence refs.",
+            ),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.classifier_safety_attestation:"
+            "ClassifierSafetyAttestation"
+        ),
+        startup_surface_tokens=("attestation_id", "bypass_receipt_id", "permission_rules"),
+        cross_links=(
+            CrossLinkSpec(
+                "bypass_receipt_id",
+                "BypassReceipt",
+                "projects",
+                target_node_kind="receipt",
+                target_resolver="bypass_receipt_id",
+                required=True,
+            ),
+            CrossLinkSpec(
+                "bypass_lifecycle_id",
+                "BypassLifecycle",
+                "projects",
+                target_node_kind="typed_contract",
+                target_resolver="bypass_lifecycle_id",
+                required=True,
+            ),
+        ),
+    ),
+    ContractSpec(
         contract_id="BypassExpiry",
         owner_layer="governance_runtime",
         purpose=(

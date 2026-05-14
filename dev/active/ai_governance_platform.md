@@ -150,7 +150,17 @@ Current ingestion status:
   through bridge-backed and event-backed `ReviewState`, and is registered in
   the platform contract registry. Consumers should read this contract instead
   of inferring completion from bridge prose, cached agent-mind rows, or stale
-  process metadata.
+  process checks.
+- 2026-05-14 launch-bootstrap classifier bridge: `ClassifierSafetyAttestation`
+  now projects active `BypassLifecycle` / `BypassReceipt` authority into
+  Claude Code local settings permission rules. `devctl bypass grant` writes the
+  projection during receipt issuance, and `devctl bypass attest --receipt-id`
+  refreshes it for an existing active receipt. The source of authority remains
+  the typed bypass lifecycle; `.claude/settings.local.json` is only the
+  classifier-readable projection. If an existing `Bash(*)` allow rule dominates
+  the generated rules, the projection records
+  `classifier_dominated_by_bash_wildcard` until a later hardening slice removes
+  that wildcard.
 
 2026-05-06 governed exception lifecycle correction:
 - `MP377-P0-EXC-S1` replaces the earlier raw-bypass receipt direction with a

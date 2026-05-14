@@ -78,6 +78,29 @@ Evidence:
 - `dev/scripts/devctl/tests/runtime/test_session_status_projection.py`
 - `dev/scripts/devctl/tests/review_channel/test_event_projection_push.py`
 
+### 2026-05-14 - Classifier safety attestation bridges bypass receipts to Claude settings
+
+MP-378 added `ClassifierSafetyAttestation` as a projection from active
+`BypassLifecycle` receipts into `.claude/settings.local.json` permission rules.
+`devctl bypass grant` writes the projection when issuing a receipt, and
+`devctl bypass attest --receipt-id <id>` refreshes the classifier-readable
+settings entry for an existing active receipt.
+
+The source of authority remains `BypassRequest -> BypassEvaluation ->
+BypassReceipt -> BypassLifecycle`; Claude settings are only a local projection
+for the provider classifier. S3 keeps `.claude/settings.local.json`
+operator-local and gitignored, and emits
+`classifier_dominated_by_bash_wildcard` when an existing `Bash(*)` rule makes
+the narrower receipt-scoped rules advisory until later hardening removes that
+wildcard.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/classifier_safety_attestation.py`
+- `dev/scripts/devctl/commands/bypass/command.py`
+- `dev/scripts/devctl/tests/commands/test_bypass_command.py`
+- `dev/scripts/devctl/tests/runtime/test_classifier_safety_attestation.py`
+
 ### 2026-05-14 - Bilateral agent-loop policy becomes a typed contract
 
 MP-377 added `AgentLoopBilateralProtocol` as the seven-property policy verdict

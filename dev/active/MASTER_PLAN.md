@@ -127,9 +127,14 @@
   read model over `SessionLivenessSignal`, `AgentSessionOutcome`,
   `AgentMindSlice.latest_task_complete_at`, collaboration participants,
   HEAD, and worktree identity so operators can ask one typed surface whether
-  a session task-completed or died mid-task. Later rows cover
-  classifier safety attestation, stale-session reconciliation, role reset,
-  runtime-state ignore posture, and long-command wrappers.
+  a session task-completed or died mid-task. S3 adds
+  `ClassifierSafetyAttestation`, a projection from active `BypassLifecycle`
+  receipts into Claude classifier-readable permission rules in
+  `.claude/settings.local.json` without treating that gitignored local file as
+  authority; the projection marks `classifier_dominated_by_bash_wildcard` when
+  an existing `Bash(*)` rule dominates the generated receipt-scoped rules.
+  Later rows cover stale-session reconciliation, role reset, runtime-state
+  ignore posture, and long-command wrappers.
 - 2026-04-20 persistence-loop unblock (subordinate to
   `dev/active/autonomous_governance_loop_v2.md` MP-377): headless
   `review-channel --action launch | recover` now auto-elevate
@@ -8409,3 +8414,4 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
     non-authoritative context, and mutation/runtime guard fields remain
     rejected so executable work still flows through plan ingestion.
 - [ ] `PKT-BIND-REV-PKT-4004` Packet finding: S2 PIVOT-FIX (pre-commit): session_status_projection.py reads untyped dict mappings — needs typed imports of RecoveryAssessmentState/SessionActivityEntry/AgentMindSlice to close PARALLEL-SURFACE-RISK. Also: 6 missing clas... (source `rev_pkt_4004`; target `plan:MP-377`; posted `2026-05-14T13:09:18.234854Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4008` Packet finding: S3 pivot-relevant: Bash(*) wildcard at settings.local.json:4 makes typed permission rules inert + .claude/settings.local.json is gitignored. Decisions needed pre-commit. (source `rev_pkt_4008`; target `dev/scripts/devctl/runtime/classifier_safety_attestation.py`; posted `2026-05-14T13:54:10.615658Z`; binding `plan_row`).

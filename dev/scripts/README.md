@@ -332,7 +332,10 @@ Compatibility note:
   `devctl bypass grant` to evaluate and persist an active `BypassLifecycle`
   receipt before `review-channel launch|recover` consumes
   `--bypass-receipt-id`; do not recreate the old inline dangerous-launch
-  shortcut in wrapper scripts.
+  shortcut in wrapper scripts. The grant path now also writes a
+  `ClassifierSafetyAttestation` projection into `.claude/settings.local.json`;
+  use `devctl bypass attest --receipt-id <id>` to refresh that projection for
+  an already-active receipt.
 - `dev/scripts/bootstrap_bypass_lifecycle.py` and
   `dev/scripts/launch_codex_with_bootstrap_receipt.sh` are incident-specific
   launch-deadlock fallback adapters retained for audit/recovery continuity.
@@ -698,6 +701,15 @@ Portability note:
   collaboration participants, HEAD, and worktree identity, then round-trip it
   through `ReviewState` addenda for status, doctor, startup, and resume
   consumers.
+- `ClassifierSafetyAttestation` is the typed bridge from active
+  `BypassLifecycle` authority into Claude Code project settings. It projects
+  receipt-scoped launch and attest permission rules into
+  `.claude/settings.local.json` while keeping `BypassReceipt` as the source of
+  authority; the settings file is classifier-readable projection state, not a
+  second safety system. The local settings file remains gitignored by policy.
+  If an existing `Bash(*)` allow rule dominates the projection, the writer
+  records `classifier_dominated_by_bash_wildcard` so the typed bridge does not
+  imply narrower operational effect than the provider classifier is applying.
 - Packet `ack` / `apply` / `dismiss` is only packet transport lifecycle. It
   does not write the implementer `Claude Ack` compatibility section and does
   not satisfy `current_session.implementer_ack_state=current`; that ACK still

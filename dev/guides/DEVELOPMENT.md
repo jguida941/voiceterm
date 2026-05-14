@@ -243,7 +243,10 @@ Use docs like this:
   projection over existing liveness, session-outcome, agent-mind, HEAD, and
   worktree evidence. Consumers should read that projection instead of
   separately inferring task completion from bridge text, stale process rows, or
-  cached `latest_task_complete_at` values. Typed remote-control liveness also
+  cached `latest_task_complete_at` values. Typed launch-bypass classifier
+  hints live in `ClassifierSafetyAttestation`, which `devctl bypass grant` and
+  `devctl bypass attest --receipt-id` project into `.claude/settings.local.json`
+  from active `BypassLifecycle` receipts. Typed remote-control liveness also
   means status/doctor must recommend
   `--terminal none`, and explicit visible Terminal.app launch/recover requests
   must be rejected before local Terminal profile lookup or provider prompts.
