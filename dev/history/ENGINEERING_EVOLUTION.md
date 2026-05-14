@@ -15603,3 +15603,21 @@ Evidence:
 - `dev/scripts/devctl/tests/commands/test_bypass_command.py`
 - `dev/scripts/devctl/runtime/lifetime_bypass_mode.py`
 - `dev/state/plan_index.jsonl`
+
+### 2026-05-14 - SYSTEM_MAP covers the platform contract registry
+
+The generated SYSTEM_MAP block now includes a compact coverage index for every
+`dev/state/contract_registry.jsonl` `contract_id` while keeping the detailed
+connectivity table bounded. The new
+`check_systemmap_covers_contract_registry.py` guard compares the generated
+block against the live renderer and fails when a registry id is missing, so
+typed contract registration, architecture docs, and tooling/release bundles
+close through the same surface.
+
+Evidence:
+
+- `dev/scripts/devctl/platform/system_map.py`
+- `dev/scripts/checks/check_systemmap_covers_contract_registry.py`
+- `dev/scripts/devctl/tests/checks/test_check_systemmap_covers_contract_registry.py`
+- `.github/workflows/tooling_control_plane.yml`
+- `.github/workflows/release_preflight.yml`

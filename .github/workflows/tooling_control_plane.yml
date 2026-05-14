@@ -419,6 +419,9 @@ jobs:
       - name: Run contract-connectivity guard
         run: python3 dev/scripts/checks/check_contract_connectivity.py
 
+      - name: Run SYSTEM_MAP contract-registry coverage guard
+        run: python3 dev/scripts/checks/check_systemmap_covers_contract_registry.py
+
       - name: Run typed-enum connectivity guard
         run: python3 dev/scripts/checks/check_typed_enum_connectivity.py
 

@@ -12,6 +12,10 @@ from dev.scripts.devctl.platform.system_map import (
     render_system_map_document,
     render_system_map_markdown,
 )
+from dev.scripts.devctl.platform.contract_registry import (
+    contract_registry_path,
+    read_contract_registry_rows,
+)
 from dev.scripts.devctl.platform.connectivity_registry import (
     CONNECTIVITY_REGISTRY_READER_IDS,
     summarize_connectivity_registry,
@@ -107,7 +111,21 @@ def test_system_map_markdown_surfaces_required_authority_contracts() -> None:
     assert "- rendered_contract_count:" in rendered
     assert "- omitted_contract_count:" in rendered
     assert "required authority contracts" in rendered
+    assert "### Platform Contract Registry Coverage" in rendered
+    assert "### Command Entrypoints" in rendered
+    assert "`ClassifierSafetyAttestation`" in rendered
     assert "`CheckpointRepairAuthority`" in rendered
+    assert "`SessionStatusProjection`" in rendered
+    assert "`BypassLifecycle`" in rendered
+    assert "`python3 dev/scripts/devctl.py bypass grant --help`" in rendered
+
+
+def test_system_map_contract_registry_coverage_covers_registry_rows() -> None:
+    snapshot = build_system_map_snapshot()
+    registry_rows = read_contract_registry_rows(contract_registry_path(Path(".")))
+    registry_ids = {row.registered_contract_id for row in registry_rows}
+
+    assert registry_ids.issubset(set(snapshot.contract_registry_contract_ids))
 
 
 def test_system_map_registry_projects_governed_exception_cross_links() -> None:

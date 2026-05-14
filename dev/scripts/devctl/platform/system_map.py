@@ -9,6 +9,7 @@ from typing import Any
 
 from ..common_io import display_path
 from ..config import REPO_ROOT
+from .contract_registry import contract_registry_path, read_contract_registry_rows
 from .connectivity_registry import build_connectivity_registry_snapshot
 from .connectivity_registry_models import ConnectivityContractRow
 from .policy_paths import resolve_repo_policy_path
@@ -29,11 +30,24 @@ REQUIRED_COMMANDS = (
     "python3 dev/scripts/devctl.py system-map --format md",
     "python3 dev/scripts/devctl.py render-surfaces --write --surface system_map_index --format md",
     "python3 dev/scripts/checks/check_instruction_surface_sync.py --format md",
+    "python3 dev/scripts/checks/check_systemmap_covers_contract_registry.py --format md",
+)
+FEATURED_COMMAND_ENTRYPOINTS = (
+    "python3 dev/scripts/devctl.py bypass grant --help",
+    "python3 dev/scripts/devctl.py bypass attest --help",
 )
 CONNECTIVITY_REGISTRY_ROW_LIMIT = 12
 CONNECTIVITY_REGISTRY_REQUIRED_CONTRACT_IDS = frozenset(
     {
+        "BypassEvaluation",
+        "BypassLifecycle",
+        "BypassReceipt",
+        "BypassRequest",
+        "ClassifierSafetyAttestation",
         "CheckpointRepairAuthority",
+        "GovernedTransitionModule",
+        "SessionStatusProjection",
+        "TransitionContract",
     }
 )
 
@@ -51,6 +65,9 @@ def build_system_map_snapshot(
         repo_root=repo_root,
         governed_surface_ids=tuple(surface.surface_id for surface in governed_surfaces),
     )
+    contract_registry_contract_ids, registry_warnings = _contract_registry_contract_ids(
+        repo_root=repo_root
+    )
     return SystemMapSnapshot(
         schema_version=1,
         contract_id="SystemMapSnapshot",
@@ -61,9 +78,11 @@ def build_system_map_snapshot(
         ),
         governed_surfaces=governed_surfaces,
         connectivity_registry=registry,
+        contract_registry_contract_ids=contract_registry_contract_ids,
+        featured_command_entrypoints=FEATURED_COMMAND_ENTRYPOINTS,
         required_commands=REQUIRED_COMMANDS,
         source_policy_path=display_path(resolved_policy_path, repo_root=repo_root),
-        warnings=tuple(warnings) + registry.warnings,
+        warnings=tuple(warnings) + registry.warnings + registry_warnings,
     )
 
 
@@ -131,6 +150,23 @@ def render_system_map_markdown(snapshot: SystemMapSnapshot) -> str:
             f"{len(contract.fields)} | `{contract.writer.writer_id}` | {consumers} |"
         )
     lines.append("")
+    lines.append("### Platform Contract Registry Coverage")
+    lines.append("")
+    lines.append("- source_registry: `dev/state/contract_registry.jsonl`")
+    lines.append(f"- registry_contract_count: {len(snapshot.contract_registry_contract_ids)}")
+    lines.append(
+        "- coverage_policy: every registry `contract_id` is rendered below as a "
+        "backticked token so `check_systemmap_covers_contract_registry.py` can "
+        "fail stale architecture docs."
+    )
+    for chunk in _chunked(snapshot.contract_registry_contract_ids, size=8):
+        lines.append("- " + ", ".join(f"`{contract_id}`" for contract_id in chunk))
+    lines.append("")
+    lines.append("### Command Entrypoints")
+    lines.append("")
+    for command in snapshot.featured_command_entrypoints:
+        lines.append(f"- `{command}`")
+    lines.append("")
     lines.append("### Required Commands")
     lines.append("")
     for command in snapshot.required_commands:
@@ -142,6 +178,25 @@ def render_system_map_markdown(snapshot: SystemMapSnapshot) -> str:
         for warning in snapshot.warnings:
             lines.append(f"- {warning}")
     return "\n".join(lines)
+
+
+def _contract_registry_contract_ids(
+    *,
+    repo_root: Path,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    registry_path = contract_registry_path(repo_root)
+    try:
+        rows = read_contract_registry_rows(registry_path)
+    except (OSError, TypeError, ValueError) as exc:
+        return (), (f"unable to read platform contract registry: {exc}",)
+    contract_ids = tuple(
+        sorted({row.registered_contract_id for row in rows if row.registered_contract_id})
+    )
+    return contract_ids, ()
+
+
+def _chunked(values: tuple[str, ...], *, size: int) -> tuple[tuple[str, ...], ...]:
+    return tuple(values[index : index + size] for index in range(0, len(values), size))
 
 
 def _connectivity_contracts_for_markdown(

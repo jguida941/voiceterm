@@ -38,6 +38,8 @@ class SystemMapSnapshot:
     tracked_roots: tuple[SystemMapRootSummary, ...]
     governed_surfaces: tuple[SystemMapSurfaceSummary, ...]
     connectivity_registry: ConnectivityRegistrySnapshot
+    contract_registry_contract_ids: tuple[str, ...]
+    featured_command_entrypoints: tuple[str, ...]
     required_commands: tuple[str, ...]
     source_policy_path: str
     warnings: tuple[str, ...] = ()

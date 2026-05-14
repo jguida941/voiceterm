@@ -860,6 +860,10 @@ class CheckRouterTests(unittest.TestCase):
             "python3 dev/scripts/checks/check_function_duplication.py",
             tooling_commands,
         )
+        self.assertIn(
+            "python3 dev/scripts/checks/check_systemmap_covers_contract_registry.py",
+            tooling_commands,
+        )
 
     @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check.router_execution.run_cmd")

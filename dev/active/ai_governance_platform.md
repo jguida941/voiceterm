@@ -1262,6 +1262,12 @@ Current 2026-04-25 SYSTEM_MAP connectivity authority note:
   fails closed when required graph/startup/session/render/SYSTEM_MAP consumers
   or field readers disappear. Future SYSTEM_MAP slices should extend this
   registry rather than creating parallel A->B->C connectivity maps.
+- The generated SYSTEM_MAP block also carries a compact platform contract
+  registry coverage index sourced from `dev/state/contract_registry.jsonl`.
+  `check_systemmap_covers_contract_registry.py` fails when any registry
+  `contract_id` is missing from that generated block or when the block is
+  stale, so newly registered runtime contracts remain visible without a
+  parallel markdown-maintained registry.
 - S4 freshness closure adds a hard `check_system_picture_freshness.py` lane:
   normal `context-graph --mode bootstrap` now persists the graph snapshot
   needed by `SystemPicture`, `BootstrapContext` carries the startup

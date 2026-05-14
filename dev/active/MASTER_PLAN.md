@@ -931,6 +931,12 @@
   carry the same bounded summary, `render-surfaces` reports it beside the
   generated SYSTEM_MAP block, and `check_platform_contract_closure.py` fails
   closed when required consumers or field readers disappear.
+- 2026-05-14 SYSTEM_MAP contract-registry coverage closure:
+  `render-surfaces` now renders every `dev/state/contract_registry.jsonl`
+  `contract_id` into the generated SYSTEM_MAP block as a compact coverage
+  index, and `check_systemmap_covers_contract_registry.py` gates tooling and
+  release bundles so platform contracts cannot remain invisible while registry
+  closure passes.
 - 2026-04-25 S4 SYSTEM_MAP freshness gate slice (rev_pkt_1824 / rev_pkt_1839):
   `context-graph --mode bootstrap` now persists its managed graph snapshot
   during normal dispatcher runs, `BootstrapContext.key_surfaces` shares the
@@ -8415,3 +8421,4 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
     rejected so executable work still flows through plan ingestion.
 - [ ] `PKT-BIND-REV-PKT-4004` Packet finding: S2 PIVOT-FIX (pre-commit): session_status_projection.py reads untyped dict mappings — needs typed imports of RecoveryAssessmentState/SessionActivityEntry/AgentMindSlice to close PARALLEL-SURFACE-RISK. Also: 6 missing clas... (source `rev_pkt_4004`; target `plan:MP-377`; posted `2026-05-14T13:09:18.234854Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-4008` Packet finding: S3 pivot-relevant: Bash(*) wildcard at settings.local.json:4 makes typed permission rules inert + .claude/settings.local.json is gitignored. Decisions needed pre-commit. (source `rev_pkt_4008`; target `dev/scripts/devctl/runtime/classifier_safety_attestation.py`; posted `2026-05-14T13:54:10.615658Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4010` Packet finding: S3 review_accepted (5/5 absorbed, 13/13 tests pass) + RECURRING-CLASS SYSTEM_MAP gap: 3 slices silently skipped SYSTEM_MAP doc-sweep; docs-check strict-tooling has no contract_registry-to-SYSTEM_MAP binding. Inline-fix ar... (source `rev_pkt_4010`; target `dev/scripts/devctl/runtime/classifier_safety_attestation.py`; posted `2026-05-14T14:10:04.463394Z`; binding `plan_row`).

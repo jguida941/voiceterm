@@ -195,6 +195,7 @@ jobs:
           python3 dev/scripts/checks/check_platform_layer_boundaries.py
           python3 dev/scripts/checks/check_platform_contract_closure.py
           python3 dev/scripts/checks/check_contract_connectivity.py
+          python3 dev/scripts/checks/check_systemmap_covers_contract_registry.py
           python3 dev/scripts/checks/check_typed_enum_connectivity.py
           python3 dev/scripts/checks/check_platform_contract_sync.py
           python3 dev/scripts/checks/check_review_channel_bridge.py

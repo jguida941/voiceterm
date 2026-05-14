@@ -75,6 +75,10 @@ _CHECK_SCRIPT_ENTRIES = (
     ("schema_migration_spine", "check_schema_migration_spine.py"),
     ("schema_version_monotonic", "check_schema_version_monotonic.py"),
     ("state_store_authority", "check_state_store_authority.py"),
+    (
+        "systemmap_covers_contract_registry",
+        "check_systemmap_covers_contract_registry.py",
+    ),
     ("tandem_consistency", "check_tandem_consistency.py"),
     ("rust_best_practices", "check_rust_best_practices.py"),
     ("rust_compiler_warnings", "check_rust_compiler_warnings.py"),
