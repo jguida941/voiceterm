@@ -34,7 +34,7 @@ INACTIVE_REVIEWER_MODES = frozenset(
 def normalize_reviewer_mode(
     value: object,
     *,
-    default: ReviewerMode = ReviewerMode.ACTIVE_DUAL_AGENT,
+    default: ReviewerMode = ReviewerMode.TOOLS_ONLY,
 ) -> ReviewerMode:
     """Normalize text into one canonical reviewer mode enum."""
     raw = str(value or "").strip().lower()
@@ -91,21 +91,37 @@ def resolve_reported_reviewer_mode(source: Mapping[str, object] | None) -> str:
     return ReviewerMode.TOOLS_ONLY.value
 
 
-def reviewer_mode_is_active(value: object) -> bool:
+def reviewer_mode_is_active(
+    value: object,
+    *,
+    default: ReviewerMode = ReviewerMode.TOOLS_ONLY,
+) -> bool:
     """Return True only when the runtime mode is actively dual-agent."""
-    return normalize_reviewer_mode(value) in ACTIVE_REVIEWER_MODES
+    return normalize_reviewer_mode(value, default=default) in ACTIVE_REVIEWER_MODES
 
 
-def reviewer_mode_is_single_agent(value: object) -> bool:
+def reviewer_mode_is_single_agent(
+    value: object,
+    *,
+    default: ReviewerMode = ReviewerMode.TOOLS_ONLY,
+) -> bool:
     """Return True when the runtime mode is single-agent (local takeover authorized)."""
-    return normalize_reviewer_mode(value) is ReviewerMode.SINGLE_AGENT
+    return normalize_reviewer_mode(value, default=default) is ReviewerMode.SINGLE_AGENT
 
 
-def reviewer_mode_allows_implementer(value: object) -> bool:
+def reviewer_mode_allows_implementer(
+    value: object,
+    *,
+    default: ReviewerMode = ReviewerMode.TOOLS_ONLY,
+) -> bool:
     """Return True when an implementer may own bounded implementation work."""
-    return normalize_reviewer_mode(value) is ReviewerMode.ACTIVE_DUAL_AGENT
+    return normalize_reviewer_mode(value, default=default) is ReviewerMode.ACTIVE_DUAL_AGENT
 
 
-def reviewer_mode_allows_reviewer_mutation(value: object) -> bool:
+def reviewer_mode_allows_reviewer_mutation(
+    value: object,
+    *,
+    default: ReviewerMode = ReviewerMode.TOOLS_ONLY,
+) -> bool:
     """Return True when the reviewer may mutate without an explicit takeover."""
-    return normalize_reviewer_mode(value) is ReviewerMode.SINGLE_AGENT
+    return normalize_reviewer_mode(value, default=default) is ReviewerMode.SINGLE_AGENT

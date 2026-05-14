@@ -14676,3 +14676,21 @@ Evidence:
 - `dev/scripts/devctl/platform/runtime_state_contract_rows_transitions.py`
 - `dev/scripts/devctl/tests/runtime/test_governed_transitions.py`
 - `dev/scripts/devctl/tests/runtime/test_lifetime_bypass_mode.py`
+
+## 2026-05-14 — Reviewer-mode defaults and role symmetry
+
+The MP377 reviewer-mode authority slice makes missing or unknown reviewer-mode
+values fail closed to `tools_only`, while allowing callers to request an
+explicit typed default for compatibility. Bridge-state status and event
+projections now resolve reviewer/implementer providers from the collaboration
+session and pass explicit `TandemRole` values into conductor-capability
+construction, so swapped provider assignments do not inherit fixed `codex` /
+`claude` role assumptions.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/reviewer_mode.py`
+- `dev/scripts/devctl/review_channel/status_projection_bridge_state.py`
+- `dev/scripts/devctl/review_channel/event_projection_bridge_state.py`
+- `dev/scripts/devctl/tests/review_channel/test_bridge_projection_mode_defaults.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`

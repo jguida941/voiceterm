@@ -10,6 +10,8 @@ from ..runtime.conductor_capability import (
     build_conductor_capability_state,
 )
 from ..runtime.review_state_models import ReviewerRuntimeContract
+from ..runtime.role_profile import TandemRole, default_provider_for_role
+from .collaboration_provider import collaboration_provider
 from .current_session_projection import current_session_mapping
 from .peer_liveness import resolve_reported_reviewer_mode
 
@@ -77,22 +79,24 @@ def build_event_bridge_state_projection(
     reviewer_provider = _collaboration_provider(
         collaboration,
         role_id="review_agent",
-        default="codex",
+        default=default_provider_for_role(TandemRole.REVIEWER),
     )
     implementer_provider = _collaboration_provider(
         collaboration,
         role_id="coding_agent",
-        default="claude",
+        default=default_provider_for_role(TandemRole.IMPLEMENTER),
     )
     bridge_state["reviewer_capability"] = asdict(
         build_conductor_capability_state(
             provider=reviewer_provider,
+            role=TandemRole.REVIEWER.value,
             reviewer_mode=effective_mode,
         )
     )
     bridge_state["implementer_capability"] = asdict(
         build_conductor_capability_state(
             provider=implementer_provider,
+            role=TandemRole.IMPLEMENTER.value,
             reviewer_mode=effective_mode,
         )
     )
@@ -241,17 +245,7 @@ def _collaboration_provider(
     role_id: str,
     default: str,
 ) -> str:
-    assignments = collaboration.get("role_assignments")
-    if not isinstance(assignments, list):
-        return default
-    for row in assignments:
-        assignment = _mapping(row)
-        if str(assignment.get("role_id") or "").strip() != role_id:
-            continue
-        provider = str(assignment.get("provider") or "").strip()
-        if provider:
-            return provider
-    return default
+    return collaboration_provider(collaboration, role_id=role_id, default=default)
 
 
 def _mapping(value: object) -> Mapping[str, object]:

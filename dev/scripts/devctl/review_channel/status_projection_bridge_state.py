@@ -103,12 +103,14 @@ def build_typed_bridge_liveness(
     typed["reviewer_capability"] = asdict(
         build_conductor_capability_state(
             provider=reviewer_provider,
+            role=TandemRole.REVIEWER.value,
             reviewer_mode=effective_mode,
         )
     )
     typed["implementer_capability"] = asdict(
         build_conductor_capability_state(
             provider=implementer_provider,
+            role=TandemRole.IMPLEMENTER.value,
             reviewer_mode=effective_mode,
         )
     )
@@ -232,10 +234,12 @@ def build_review_bridge_state(
         claude_conductor_active=bool(bridge_liveness.get("claude_conductor_active")),
         reviewer_capability=build_conductor_capability_state(
             provider=reviewer_provider,
+            role=TandemRole.REVIEWER.value,
             reviewer_mode=effective_mode,
         ),
         implementer_capability=build_conductor_capability_state(
             provider=implementer_provider,
+            role=TandemRole.IMPLEMENTER.value,
             reviewer_mode=effective_mode,
         ),
         session_liveness_signals=_mapping_rows(

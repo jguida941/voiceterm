@@ -15397,3 +15397,23 @@ Evidence:
 - `dev/scripts/devctl/tests/runtime/test_project_governance.py`
 - `dev/scripts/devctl/tests/runtime/test_auto_mode.py`
 - `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+
+### 2026-05-14 - Reviewer-mode authority stops inheriting provider roles
+
+Reviewer-mode normalization now fails closed to `tools_only` for missing or
+unknown values; call sites that need a non-closed fallback must pass an
+explicit `ReviewerMode` default. This removes the implicit active dual-agent
+fallback from ordinary authority checks.
+
+Status and event bridge-state projections now bind conductor capabilities with
+explicit reviewer/implementer roles after resolving providers from typed
+collaboration role assignments. A Claude reviewer plus Codex implementer no
+longer becomes editable/read-only based on fixed provider labels.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/reviewer_mode.py`
+- `dev/scripts/devctl/review_channel/status_projection_bridge_state.py`
+- `dev/scripts/devctl/review_channel/event_projection_bridge_state.py`
+- `dev/scripts/devctl/tests/review_channel/test_bridge_projection_mode_defaults.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`

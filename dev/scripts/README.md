@@ -3175,3 +3175,12 @@ Nominal ID note:
 - Use these wrappers at internal helper boundaries with real identifier-swap
   risk. Keep persisted contract fields string-compatible unless an explicit
   schema migration slice says otherwise.
+
+Reviewer-mode authority note:
+- `dev/scripts/devctl/runtime/reviewer_mode.py` fails closed to `tools_only`
+  when reviewer mode text is missing or unknown. Callers that need a different
+  fallback must pass an explicit `ReviewerMode` default.
+- Bridge-state capability projections must pass the typed `TandemRole` into
+  `build_conductor_capability_state()`. Provider ids such as `codex` and
+  `claude` are adapter labels; collaboration role assignments decide which
+  provider is the reviewer or implementer.

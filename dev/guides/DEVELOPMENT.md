@@ -3043,6 +3043,15 @@ receipt, and plan-row identifiers could be accidentally swapped. `PacketId`,
 evidence-ref helpers. Persisted contract fields remain strings unless a later
 typed-state slice explicitly migrates a schema.
 
+**Reviewer-mode role symmetry:**
+
+Reviewer-mode parsing fails closed to `tools_only` for missing or unknown
+values. When a caller intentionally needs an active fallback, pass the
+`ReviewerMode` default explicitly rather than relying on provider identity.
+Status and event bridge-state projections must resolve reviewer and
+implementer providers from typed collaboration role assignments, then pass the
+explicit `TandemRole` into `build_conductor_capability_state()`.
+
 **Governed transition guard:**
 
 Run `python3 dev/scripts/checks/check_governed_transitions.py` after adding

@@ -2271,6 +2271,8 @@ class TestCLIRegistration(unittest.TestCase):
                     "interaction_mode=unresolved",
                     "blockers=none",
                     "next=python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md",
+                    "typed_bypass_capabilities=AgentLoopOperatorOverride,BypassReceipt,GovernedExceptionLifecycle",
+                    "typed_bypass_scope=edit-only blocks vcs.stage,vcs.commit,vcs.push",
                     "continuity_attention=none",
                 )
             ),

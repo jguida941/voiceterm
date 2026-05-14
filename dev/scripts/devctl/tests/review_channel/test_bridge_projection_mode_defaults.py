@@ -13,6 +13,9 @@ from dev.scripts.devctl.review_channel.bridge_projection_state import (
     BridgeProjectionState,
     bridge_projection_metadata_lines,
 )
+from dev.scripts.devctl.review_channel.event_projection_bridge_state import (
+    build_event_bridge_state_projection,
+)
 from dev.scripts.devctl.review_channel.handoff import BridgeSnapshot
 from dev.scripts.devctl.review_channel.remote_control_attachment_artifact import (
     persist_remote_control_attachment,
@@ -27,7 +30,22 @@ from dev.scripts.devctl.review_channel.status_projection_bridge_state import (
 from dev.scripts.devctl.review_channel.status_projection_helpers import (
     attach_conductor_session_state,
 )
-from dev.scripts.devctl.runtime.review_state_models import ReviewCurrentSessionState
+from dev.scripts.devctl.runtime.review_state_models import (
+    CollaborationArbitrationState,
+    CollaborationParticipantState,
+    CollaborationPeerReviewState,
+    CollaborationRestartState,
+    CollaborationRoleAssignmentState,
+    CollaborationSessionState,
+    ReviewCurrentSessionState,
+)
+from dev.scripts.devctl.runtime.reviewer_mode import (
+    ReviewerMode,
+    normalize_reviewer_mode,
+    reviewer_mode_allows_implementer,
+    reviewer_mode_is_active,
+    reviewer_mode_is_single_agent,
+)
 from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     RemoteControlAttachmentState,
 )
@@ -44,6 +62,92 @@ def _current_session() -> ReviewCurrentSessionState:
     )
 
 
+def _swapped_collaboration() -> CollaborationSessionState:
+    return CollaborationSessionState(
+        schema_version=1,
+        contract_id="CollaborationSession",
+        session_id="session-test",
+        plan_id="plan-test",
+        status="active",
+        reviewer_mode="active_dual_agent",
+        operator_mode="remote_control",
+        lead_agent="claude",
+        review_agent="claude",
+        coding_agent="codex",
+        current_slice="slice-test",
+        peer_review=CollaborationPeerReviewState(
+            current_instruction="",
+            current_instruction_revision="",
+            open_findings="",
+            implementer_status="",
+            implementer_ack="",
+            implementer_ack_state="missing",
+        ),
+        arbitration=CollaborationArbitrationState(status="inactive", summary=""),
+        restart=CollaborationRestartState(
+            status="active",
+            resumable=True,
+            source="test",
+            launch_truth="live",
+            reviewer_mode="active_dual_agent",
+            effective_reviewer_mode="active_dual_agent",
+        ),
+        ready_gates=(),
+        role_assignments=(
+            CollaborationRoleAssignmentState(
+                role_id="review_agent",
+                agent_id="claude",
+                provider="claude",
+                display_name="Claude",
+                status="active",
+                source="test",
+                live=True,
+            ),
+            CollaborationRoleAssignmentState(
+                role_id="coding_agent",
+                agent_id="codex",
+                provider="codex",
+                display_name="Codex",
+                status="active",
+                source="test",
+                live=True,
+            ),
+        ),
+        participants=(
+            CollaborationParticipantState(
+                agent_id="claude",
+                provider="claude",
+                display_name="Claude",
+                role="reviewer",
+                session_name="reviewer-session",
+                live=True,
+                status="active",
+            ),
+            CollaborationParticipantState(
+                agent_id="codex",
+                provider="codex",
+                display_name="Codex",
+                role="implementer",
+                session_name="implementer-session",
+                live=True,
+                status="active",
+            ),
+        ),
+        delegated_work=(),
+    )
+
+
+def test_reviewer_mode_helpers_fail_closed_unless_default_is_explicit() -> None:
+    assert normalize_reviewer_mode("") is ReviewerMode.TOOLS_ONLY
+    assert normalize_reviewer_mode("unknown") is ReviewerMode.TOOLS_ONLY
+    assert reviewer_mode_is_active("") is False
+    assert reviewer_mode_allows_implementer("") is False
+    assert (
+        reviewer_mode_is_active("", default=ReviewerMode.ACTIVE_DUAL_AGENT) is True
+    )
+    assert reviewer_mode_is_single_agent("", default=ReviewerMode.SINGLE_AGENT) is True
+
+
 def test_build_typed_bridge_liveness_defaults_missing_mode_to_tools_only() -> None:
     payload = build_typed_bridge_liveness(
         bridge_liveness={},
@@ -54,6 +158,72 @@ def test_build_typed_bridge_liveness_defaults_missing_mode_to_tools_only() -> No
     assert payload["launch_truth"] == "inactive"
     assert payload["effective_reviewer_mode"] == "tools_only"
     assert payload["implementer_capability"]["queue_policy"] == "inactive"
+
+
+def test_build_typed_bridge_liveness_uses_typed_roles_for_swapped_providers() -> None:
+    payload = build_typed_bridge_liveness(
+        bridge_liveness={
+            "reviewer_mode": "active_dual_agent",
+            "reviewer_freshness": "fresh",
+            "codex_poll_state": "fresh",
+            "publisher_running": True,
+        },
+        current_session=_current_session(),
+        collaboration=_swapped_collaboration(),
+    )
+
+    assert payload["effective_reviewer_mode"] == "active_dual_agent"
+    assert payload["reviewer_capability"]["provider"] == "claude"
+    assert payload["reviewer_capability"]["role"] == "reviewer"
+    assert payload["reviewer_capability"]["may_edit_repo"] is False
+    assert payload["implementer_capability"]["provider"] == "codex"
+    assert payload["implementer_capability"]["role"] == "implementer"
+    assert payload["implementer_capability"]["may_edit_repo"] is True
+
+
+def test_build_review_bridge_state_uses_typed_roles_for_swapped_providers() -> None:
+    state = build_review_bridge_state(
+        snapshot=BridgeSnapshot(metadata={}, sections={}),
+        bridge_liveness={"effective_reviewer_mode": "active_dual_agent"},
+        overall_state="fresh",
+        current_session=_current_session(),
+        collaboration=_swapped_collaboration(),
+    )
+
+    assert state.reviewer_capability is not None
+    assert state.reviewer_capability.provider == "claude"
+    assert state.reviewer_capability.role == "reviewer"
+    assert state.reviewer_capability.may_edit_repo is False
+    assert state.implementer_capability is not None
+    assert state.implementer_capability.provider == "codex"
+    assert state.implementer_capability.role == "implementer"
+    assert state.implementer_capability.may_edit_repo is True
+
+
+def test_event_bridge_state_projection_uses_typed_roles_for_swapped_providers() -> None:
+    payload = build_event_bridge_state_projection(
+        review_state={
+            "collaboration": {
+                "review_agent": "claude",
+                "coding_agent": "codex",
+                "role_assignments": [
+                    {"role_id": "review_agent", "provider": "claude"},
+                    {"role_id": "coding_agent", "provider": "codex"},
+                ],
+            }
+        },
+        bridge_liveness={
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
+        },
+    )
+
+    assert payload["reviewer_capability"]["provider"] == "claude"
+    assert payload["reviewer_capability"]["role"] == "reviewer"
+    assert payload["reviewer_capability"]["may_edit_repo"] is False
+    assert payload["implementer_capability"]["provider"] == "codex"
+    assert payload["implementer_capability"]["role"] == "implementer"
+    assert payload["implementer_capability"]["may_edit_repo"] is True
 
 
 def test_build_review_bridge_state_uses_tools_only_when_declared_mode_missing() -> None:
