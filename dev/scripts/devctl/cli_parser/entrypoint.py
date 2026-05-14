@@ -80,6 +80,7 @@ from ..commands import (
     triage_loop,
     view,
 )
+from ..commands.bypass import command as bypass
 from ..commands.governance import (
     bootstrap as governance_bootstrap,
     doc_authority as governance_doc_authority,
@@ -227,6 +228,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_pipeline_parser(sub)
     add_rollout_tail_parser(sub)
     add_agent_mind_parser(sub)
+    bypass.add_parser(sub)
     add_path_audit_parser(sub)
     add_path_rewrite_parser(sub)
     add_cihub_setup_parser(sub)
@@ -327,6 +329,7 @@ COMMAND_HANDLERS = {
     "check-router": check_router.run,
     "agent-loop": claude_loop.run,
     "agent-supervise": agent_supervise.run,
+    "bypass": bypass.run,
     "claude-loop": claude_loop.run,
     "dashboard": dashboard.run,
     "dogfood": dogfood.run,

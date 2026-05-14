@@ -15540,3 +15540,22 @@ Evidence:
 - `dev/scripts/devctl/review_channel/packet_transition_events.py`
 - `dev/scripts/devctl/review_channel/session_liveness_events.py`
 - `dev/scripts/devctl/tests/runtime/test_derived_state_invalidation.py`
+
+### 2026-05-14 - Bypass lifecycle bootstrap is a first-class devctl command
+
+`devctl bypass grant` now issues the active `BypassLifecycle` receipt that
+headless `review-channel launch|recover` already requires before trusted
+provider arguments are rendered. The command accepts bounded scopes, operator
+reason/evaluator evidence, optional receipt metadata, and a store path for
+dogfood tests, then calls the same `evaluate_bypass_request()` runtime contract
+used by the temporary bootstrap helper.
+
+This closes the fresh-repo bootstrap deadlock where launch hardening required
+an existing bypass receipt before the old inline launch path could create one.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/bypass/command.py`
+- `dev/scripts/devctl/tests/commands/test_bypass_command.py`
+- `dev/scripts/devctl/runtime/lifetime_bypass_mode.py`
+- `dev/state/plan_index.jsonl`

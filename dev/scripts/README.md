@@ -291,6 +291,7 @@ python3 dev/scripts/devctl.py tandem-validate --format md
 python3 dev/scripts/devctl.py review-channel --action doctor --terminal none --format md
 python3 dev/scripts/devctl.py review-channel --action reviewer-heartbeat --reviewer-mode single_agent --reason local-dev-pass --terminal none --format md
 python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --checkpoint-payload-file /tmp/reviewer-checkpoint.json --expected-instruction-revision <live-revision> --expected-implementer-state-hash <live-implementer-state-hash> --terminal none --format md
+python3 dev/scripts/devctl.py bypass grant --scope edit-only --reason "<operator reason>" --format json
 python3 dev/scripts/devctl.py launcher-check
 python3 dev/scripts/devctl.py launcher-probes
 python3 dev/scripts/devctl.py launcher-policy
@@ -327,6 +328,16 @@ Compatibility note:
   generation and local `triage-loop` preflight should still work on runners
   that do not have provider CLIs on `PATH` or cannot reach the GitHub API,
   unless the command is actually performing the live launch/fix step.
+- Keep typed launch-bypass bootstrap on the real lifecycle contract. Use
+  `devctl bypass grant` to evaluate and persist an active `BypassLifecycle`
+  receipt before `review-channel launch|recover` consumes
+  `--bypass-receipt-id`; do not recreate the old inline dangerous-launch
+  shortcut in wrapper scripts.
+- `dev/scripts/bootstrap_bypass_lifecycle.py` and
+  `dev/scripts/launch_codex_with_bootstrap_receipt.sh` are incident-specific
+  launch-deadlock fallback adapters retained for audit/recovery continuity.
+  Prefer `devctl bypass grant` for fresh bootstrap receipts and keep new
+  operator-run commands short enough to avoid adding wrapper debt.
 - Keep stale-bridge repair portable as well: `review-channel` auto-refresh must
   use the bridge snapshot/liveness contract instead of depending only on
   `check_review_channel_bridge.py` freshness output, because that guard

@@ -7,6 +7,7 @@ from ...time_utils import utc_timestamp
 
 COMMANDS = [
     "agent-supervise",
+    "bypass",
     "check",
     "commit",
     "check-router",

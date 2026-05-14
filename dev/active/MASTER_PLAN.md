@@ -115,6 +115,17 @@
   per `develop next`. See plan section 25 of
   `/Users/jguida941/.claude/plans/yes-anytime-it-doesn-t-lazy-sunset.md`
   for full architectural detail + dogfood-verification protocol (25.14).
+- 2026-05-14 launch-bootstrap repair family (MP-378): after the relaunch
+  incident log recorded the P102 bootstrap deadlock, add
+  `MP-378-LAUNCH-BOOTSTRAP-FIX-S1` through
+  `MP-378-LAUNCH-BOOTSTRAP-FIX-S7` as the typed repair queue. S1 is the first
+  commit and promotes the temporary bootstrap helper into
+  `devctl bypass grant`, a governed command that evaluates
+  `BypassRequest -> BypassEvaluation -> BypassReceipt` and persists an active
+  `BypassLifecycle` before review-channel launch/recover consumes
+  `--bypass-receipt-id`. Later rows cover session-status projection,
+  classifier safety attestation, stale-session reconciliation, role reset,
+  runtime-state ignore posture, and long-command wrappers.
 - 2026-04-20 persistence-loop unblock (subordinate to
   `dev/active/autonomous_governance_loop_v2.md` MP-377): headless
   `review-channel --action launch | recover` now auto-elevate

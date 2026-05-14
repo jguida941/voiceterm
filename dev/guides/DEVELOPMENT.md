@@ -226,7 +226,11 @@ Use docs like this:
   fail-closed behind the typed bypass lifecycle: callers must supply or resolve
   an active edit-only `BypassLifecycle` receipt, usually by passing
   `--bypass-receipt-id` to launch/recover after the lifecycle row exists in the
-  governed JSONL store. The approval helper must not emit Codex
+  governed JSONL store. Fresh-repo or emergency bootstrap can create that row
+  with `python3 dev/scripts/devctl.py bypass grant --scope edit-only --reason "<operator reason>"`;
+  the command evaluates the same `BypassRequest` / `BypassEvaluation` contract
+  and appends the resulting `BypassLifecycle` to the governed store before any
+  launch/recover path consumes it. The approval helper must not emit Codex
   `--dangerously-bypass-approvals-and-sandbox` or Claude
   `--dangerously-skip-permissions` from a raw mode string alone. The rendered
   launch prompt now also includes an explicit inbox-drain section after the
