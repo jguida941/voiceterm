@@ -122,10 +122,36 @@ def is_idempotency_consumed_by(
         return False
 
     events_list = list(events) if not isinstance(events, list) else events
+    return is_idempotency_consumed_by_statuses(
+        non_packet_match=non_packet_match,
+        matched_packet_statuses=(
+            _latest_packet_status(events_list, packet_id)
+            for packet_id in matched_packet_ids
+        ),
+        current_event_type=current_event_type,
+    )
+
+
+def is_idempotency_consumed_by_statuses(
+    *,
+    non_packet_match: bool,
+    matched_packet_statuses: Iterable[str],
+    current_event_type: str = "",
+) -> bool:
+    """Apply packet retry-slot policy to a precomputed idempotency index."""
+    statuses = tuple(matched_packet_statuses)
+    is_current_packet_post = (
+        not current_event_type or current_event_type == "packet_posted"
+    )
+    if not is_current_packet_post:
+        return non_packet_match or bool(statuses)
+
+    if non_packet_match:
+        return True
+
     return any(
-        _latest_packet_status(events_list, packet_id)
-        in _RETRY_SLOT_CONSUMING_STATUSES
-        for packet_id in matched_packet_ids
+        status in _RETRY_SLOT_CONSUMING_STATUSES
+        for status in statuses
     )
 
 

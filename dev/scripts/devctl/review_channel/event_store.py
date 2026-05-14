@@ -6,7 +6,7 @@ import fcntl
 import hashlib
 import json
 from collections.abc import Iterable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -17,7 +17,7 @@ from ..runtime.correlation_spine import (
     run_id_for_ref,
 )
 from .packet_post_idempotency import (
-    is_idempotency_consumed_by,
+    is_idempotency_consumed_by_statuses,
     packet_posted_idempotency_key,
 )
 
@@ -28,6 +28,24 @@ DEFAULT_REVIEW_PROJECTIONS_DIR_REL = active_path_config().review_projections_dir
 DEFAULT_REVIEW_CHANNEL_SESSION_ID = "local-review"
 DEFAULT_REVIEW_CHANNEL_PLAN_ID = "MP-355"
 DEFAULT_PACKET_TTL_MINUTES = 30
+
+
+@dataclass
+class _LockedEventLogSummary:
+    row_count: int = 0
+    max_event_index: int = 0
+    max_packet_index: int = 0
+    packet_posted_ids: set[str] = field(default_factory=set)
+    packet_status_by_id: dict[str, str] = field(default_factory=dict)
+    idempotency_non_packet_keys: set[str] = field(default_factory=set)
+    idempotency_packet_ids_by_key: dict[str, list[str]] = field(default_factory=dict)
+    target_packet_lineage: dict[str, str] = field(default_factory=dict)
+
+    def next_event_id(self) -> str:
+        return f"rev_evt_{self.max_event_index + 1:04d}"
+
+    def next_packet_id(self) -> str:
+        return f"rev_pkt_{self.max_packet_index + 1:04d}"
 
 
 @dataclass(frozen=True)
@@ -119,34 +137,30 @@ def append_event(
     with events_path.open("a", encoding="utf-8") as handle:
         fcntl.flock(handle, fcntl.LOCK_EX)
         try:
-            # Re-read the on-disk log while holding the lock to get fresh state.
-            fresh_events = _read_events_under_lock(events_path)
+            event = dict(event)
+            packet_id = str(event.get("packet_id") or "").strip()
+            fresh_state = _summarize_events_under_lock(
+                events_path,
+                target_packet_id=packet_id,
+            )
 
             # Allocate ids from fresh on-disk state, not stale caller snapshots.
-            event = dict(event)
-            event["event_id"] = next_event_id(fresh_events)
-            _finalize_packet_posted_identity(event, fresh_events)
-            _finalize_packet_event_lineage(event, fresh_events)
+            event["event_id"] = fresh_state.next_event_id()
+            _finalize_packet_posted_identity(event, fresh_state)
+            _finalize_packet_event_lineage(event, fresh_state)
 
             # Recheck idempotency_key against fresh state. Lifecycle-aware
             # for packet_posted retries; symmetric-strict for non-packet
             # events (the current event_type matters per rev_pkt_2255).
             idempotency_key = str(event.get("idempotency_key") or "").strip()
-            if idempotency_key and is_idempotency_consumed_by(
-                fresh_events,
+            if idempotency_key and _summary_consumes_idempotency_key(
+                fresh_state,
                 idempotency_key,
                 current_event_type=str(event.get("event_type") or ""),
             ):
                 raise ValueError(
                     "Duplicate review-channel idempotency_key rejected: "
                     f"{idempotency_key}"
-                )
-
-            # Recheck event_id uniqueness against fresh state.
-            new_event_id = str(event.get("event_id") or "")
-            if any(str(e.get("event_id") or "") == new_event_id for e in fresh_events):
-                raise ValueError(
-                    f"Duplicate review-channel event_id rejected: {new_event_id}"
                 )
 
             handle.write(json.dumps(event, sort_keys=True) + "\n")
@@ -158,7 +172,7 @@ def append_event(
 
 def _finalize_packet_posted_identity(
     event: dict[str, object],
-    fresh_events: list[dict[str, object]],
+    fresh_state: _LockedEventLogSummary,
 ) -> None:
     """Allocate packet-posted ids from the locked on-disk view."""
     if str(event.get("event_type") or "").strip() != "packet_posted":
@@ -166,13 +180,9 @@ def _finalize_packet_posted_identity(
 
     packet_id = str(event.get("packet_id") or "").strip()
     if not packet_id:
-        packet_id = next_packet_id(fresh_events)
+        packet_id = fresh_state.next_packet_id()
         event["packet_id"] = packet_id
-    elif any(
-        str(existing.get("event_type") or "").strip() == "packet_posted"
-        and str(existing.get("packet_id") or "").strip() == packet_id
-        for existing in fresh_events
-    ):
+    elif packet_id in fresh_state.packet_posted_ids:
         raise ValueError(
             f"Duplicate review-channel packet_id rejected: {packet_id}"
         )
@@ -181,8 +191,8 @@ def _finalize_packet_posted_identity(
 
     trace_id = str(event.get("trace_id") or "").strip()
     if not trace_id:
-        event["trace_id"] = next_trace_id(
-            fresh_events,
+        event["trace_id"] = _trace_id_from_event_count(
+            fresh_state.row_count,
             from_agent=str(event.get("from_agent") or "").strip(),
         )
         trace_id = str(event.get("trace_id") or "").strip()
@@ -207,14 +217,14 @@ def _finalize_packet_posted_identity(
 
 def _finalize_packet_event_lineage(
     event: dict[str, object],
-    fresh_events: list[dict[str, object]],
+    fresh_state: _LockedEventLogSummary,
 ) -> None:
     """Thread packet lineage through all packet-scoped event families."""
     packet_id = str(event.get("packet_id") or "").strip()
     if not packet_id:
         return
     source_event_id = str(event.get("source_packet_event_id") or "").strip()
-    packet_lineage = _latest_packet_lineage(fresh_events, packet_id)
+    packet_lineage = fresh_state.target_packet_lineage
     if not str(event.get("correlation_id") or "").strip():
         event["correlation_id"] = packet_lineage.get(
             "correlation_id"
@@ -241,24 +251,6 @@ def _finalize_packet_event_lineage(
         )
 
 
-def _latest_packet_lineage(
-    fresh_events: list[dict[str, object]],
-    packet_id: str,
-) -> dict[str, str]:
-    lineage: dict[str, str] = {}
-    for existing in reversed(fresh_events):
-        if str(existing.get("packet_id") or "").strip() != packet_id:
-            continue
-        for field_name in ("correlation_id", "causation_id", "run_id"):
-            if field_name not in lineage:
-                value = str(existing.get(field_name) or "").strip()
-                if value:
-                    lineage[field_name] = value
-        if len(lineage) == 3:
-            break
-    return lineage
-
-
 def _read_events_under_lock(events_path: Path) -> list[dict[str, object]]:
     """Read all events from the NDJSON log (caller must hold the lock).
 
@@ -269,6 +261,139 @@ def _read_events_under_lock(events_path: Path) -> list[dict[str, object]]:
     if not events_path.exists():
         return []
     return list(_iter_event_rows(events_path, fail_as_corrupt_log=True))
+
+
+def _summarize_events_under_lock(
+    events_path: Path,
+    *,
+    target_packet_id: str,
+) -> _LockedEventLogSummary:
+    """Summarize the event log without keeping every parsed event in memory."""
+    if not events_path.exists():
+        return _LockedEventLogSummary()
+
+    summary = _LockedEventLogSummary()
+    for row in _iter_event_rows(events_path, fail_as_corrupt_log=True):
+        summary.row_count += 1
+        _update_max_event_index(summary, row)
+
+        event_type = str(row.get("event_type") or "").strip()
+        packet_id = str(row.get("packet_id") or "").strip()
+        if event_type == "packet_posted":
+            _record_packet_posted(summary, packet_id)
+        _record_packet_status(summary, event_type, packet_id)
+        _record_idempotency(summary, row, event_type, packet_id)
+        if target_packet_id and packet_id == target_packet_id:
+            _record_target_lineage(summary, row)
+
+    return summary
+
+
+def _update_max_event_index(
+    summary: _LockedEventLogSummary,
+    row: dict[str, object],
+) -> None:
+    event_id = str(row.get("event_id") or "")
+    if not event_id.startswith("rev_evt_"):
+        return
+    try:
+        index = int(event_id[len("rev_evt_"):])
+    except ValueError:
+        return
+    if index > summary.max_event_index:
+        summary.max_event_index = index
+
+
+def _record_packet_posted(
+    summary: _LockedEventLogSummary,
+    packet_id: str,
+) -> None:
+    if not packet_id:
+        return
+    summary.packet_posted_ids.add(packet_id)
+    if not packet_id.startswith("rev_pkt_"):
+        return
+    try:
+        index = int(packet_id[len("rev_pkt_"):])
+    except ValueError:
+        return
+    if index > summary.max_packet_index:
+        summary.max_packet_index = index
+
+
+def _record_packet_status(
+    summary: _LockedEventLogSummary,
+    event_type: str,
+    packet_id: str,
+) -> None:
+    if not packet_id:
+        return
+    status = _packet_status_for_event_type(event_type)
+    if status:
+        summary.packet_status_by_id[packet_id] = status
+
+
+def _packet_status_for_event_type(event_type: str) -> str:
+    if event_type == "packet_posted":
+        return "pending"
+    if event_type == "packet_acked":
+        return "acked"
+    if event_type == "packet_dismissed":
+        return "dismissed"
+    if event_type == "packet_applied":
+        return "applied"
+    if event_type == "packet_expired":
+        return "archived"
+    if event_type == "action_request_execution_failed":
+        return "failed"
+    if event_type == "action_request_apply_pending_after_execution":
+        return "apply_pending_after_execution"
+    return ""
+
+
+def _record_idempotency(
+    summary: _LockedEventLogSummary,
+    row: dict[str, object],
+    event_type: str,
+    packet_id: str,
+) -> None:
+    key = str(row.get("idempotency_key") or "").strip()
+    if not key:
+        return
+    if event_type == "packet_posted" and packet_id:
+        summary.idempotency_packet_ids_by_key.setdefault(key, []).append(packet_id)
+    else:
+        summary.idempotency_non_packet_keys.add(key)
+
+
+def _record_target_lineage(
+    summary: _LockedEventLogSummary,
+    row: dict[str, object],
+) -> None:
+    for field_name in ("correlation_id", "causation_id", "run_id"):
+        value = str(row.get(field_name) or "").strip()
+        if value:
+            summary.target_packet_lineage[field_name] = value
+
+
+def _summary_consumes_idempotency_key(
+    summary: _LockedEventLogSummary,
+    idempotency_key: str,
+    *,
+    current_event_type: str,
+) -> bool:
+    matched_packet_ids = summary.idempotency_packet_ids_by_key.get(
+        idempotency_key,
+        [],
+    )
+    return is_idempotency_consumed_by_statuses(
+        non_packet_match=idempotency_key in summary.idempotency_non_packet_keys,
+        matched_packet_statuses=(
+            summary.packet_status_by_id.get(packet_id, "")
+            for packet_id in matched_packet_ids
+        ),
+        current_event_type=current_event_type,
+    )
 
 
 def _iter_event_rows(
@@ -373,7 +498,11 @@ def next_trace_id(
     from_agent: str,
 ) -> str:
     """Generate a readable trace id for one new packet."""
-    next_index = len(events) + 1
+    return _trace_id_from_event_count(len(events), from_agent=from_agent)
+
+
+def _trace_id_from_event_count(event_count: int, *, from_agent: str) -> str:
+    next_index = event_count + 1
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     return f"trace_{stamp}_{from_agent}_{next_index:03d}"
 

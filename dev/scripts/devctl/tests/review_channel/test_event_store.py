@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from dev.scripts.devctl.review_channel import event_store as event_store_module
 from dev.scripts.devctl.review_channel.event_store import (
     append_event,
     load_events,
@@ -151,6 +152,41 @@ def test_append_event_locked_read_streams_without_read_text(
             raise AssertionError("append_event must stream trace rows under lock")
 
         monkeypatch.setattr(Path, "read_text", fail_read_text)
+
+        written = append_event(
+            events_path,
+            {"idempotency_key": "key_new", "event_type": "test"},
+            existing_events=[],
+        )
+
+        assert written["event_id"] == "rev_evt_0002"
+
+
+def test_append_event_locked_read_uses_bounded_summary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        events_path = Path(tmpdir) / "trace.ndjson"
+        events_path.write_text(
+            json.dumps(
+                {"event_id": "rev_evt_0001", "idempotency_key": "seed"},
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        def fail_materialized_read(
+            *args: object,
+            **kwargs: object,
+        ) -> list[dict[str, object]]:
+            raise AssertionError("append_event must not materialize locked events")
+
+        monkeypatch.setattr(
+            event_store_module,
+            "_read_events_under_lock",
+            fail_materialized_read,
+        )
 
         written = append_event(
             events_path,
