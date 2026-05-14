@@ -965,6 +965,14 @@ Three quality layers matter in practice:
     `session-resume`, `review-channel --action status --terminal none`, and
     `context-graph --mode bootstrap` in order, so non-zero startup blockers
     are preserved as typed data instead of stopping later status/graph reads.
+    When session launch/resume is blocked by stale implementer or
+    remote-control attachment state, run
+    `python3 dev/scripts/devctl.py session reconcile --kill-stale --format md`.
+    That command emits the typed `SessionLivenessReconciler`, detaches stale
+    persisted remote-control attachments using the existing artifact writer,
+    optionally terminates stale attachment PIDs, and refreshes the existing
+    review-channel status projection rather than creating a second liveness
+    authority.
     The orientation reducer must not surface `devctl push --execute` from a
     startup push decision when the preferred live `AuthoritySnapshot` says
     `safe_to_continue=false` or blocks `vcs.push`; keep the review/status

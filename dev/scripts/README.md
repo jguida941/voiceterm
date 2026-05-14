@@ -186,6 +186,12 @@ observer lane. It emits a typed `SessionOrientationPacket` by running
 and `context-graph --mode bootstrap` in order, then reducing the preferred
 `AuthoritySnapshot` into the next command. Use that repo-owned packet instead
 of hand-written mode prompts, manual git inspection, or operator memory.
+When stale runtime attachments survive a process exit, run
+`python3 dev/scripts/devctl.py session reconcile --kill-stale --format md`.
+It emits `SessionLivenessReconciler`, detaches expired or process-dead
+remote-control attachment artifacts through the existing session artifact
+writer, and refreshes review-channel status so stale implementer counts are
+not preserved in the next startup packet.
 When that preferred authority is blocked or explicitly lists `vcs.push` in
 `blocked_actions`, the session packet must keep the authority/status next
 command instead of promoting a stale startup `run_devctl_push` hint.

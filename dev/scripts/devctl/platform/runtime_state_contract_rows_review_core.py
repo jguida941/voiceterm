@@ -248,6 +248,44 @@ REVIEW_CORE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         ),
     ),
     ContractSpec(
+        contract_id="SessionLivenessSignal",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Canonical typed liveness signal emitted for provider-owned "
+            "runtime participants. It feeds session status and liveness count "
+            "read models after upstream attachment state has been reconciled."
+        ),
+        required_fields=(
+            ContractField("provider", "str", "Provider identifier for the runtime participant."),
+            ContractField("role", "str", "Governed collaboration role for the participant."),
+            ContractField("state", "SessionLivenessState", "Classified liveness state."),
+            ContractField("reason", "str", "Human-readable classification reason."),
+            ContractField(
+                "process_live",
+                "bool | None",
+                "Whether the participant process was observed as live when known.",
+            ),
+            ContractField(
+                "terminal_open",
+                "bool | None",
+                "Whether the participant terminal/window was observed as open when known.",
+            ),
+            ContractField(
+                "poll_age_seconds",
+                "int | None",
+                "Age of the latest participant poll when known.",
+            ),
+            ContractField(
+                "last_activity_utc",
+                "str | None",
+                "Latest observed activity timestamp when known.",
+            ),
+            ContractField("timestamp_utc", "str", "UTC timestamp for this signal."),
+        ),
+        runtime_model="dev.scripts.devctl.runtime.session_liveness_signal:SessionLivenessSignal",
+        startup_surface_tokens=("provider", "role", "state", "reason"),
+    ),
+    ContractSpec(
         contract_id="SessionStatusProjection",
         owner_layer="governance_runtime",
         purpose=(
@@ -284,6 +322,49 @@ REVIEW_CORE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         ),
         runtime_model="dev.scripts.devctl.runtime.session_status_projection:SessionStatusProjection",
         startup_surface_tokens=("status", "answer", "rows"),
+    ),
+    ContractSpec(
+        contract_id="SessionLivenessReconciler",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed reconciliation report over persisted session attachments and "
+            "process liveness evidence. It clears stale remote-control "
+            "attachments through the existing attachment artifact writer instead "
+            "of creating another liveness authority surface."
+        ),
+        required_fields=(
+            ContractField("generated_at_utc", "str", "UTC reconciliation timestamp."),
+            ContractField("kill_stale", "bool", "Whether stale artifacts were eligible for mutation."),
+            ContractField("dry_run", "bool", "Whether mutations were suppressed."),
+            ContractField(
+                "session_output_root",
+                "str",
+                "Review-channel status root containing sessions/ artifacts.",
+            ),
+            ContractField("stale_count", "int", "Number of stale artifacts observed."),
+            ContractField(
+                "cleared_attachment_count",
+                "int",
+                "Number of attachment artifacts downgraded to detached.",
+            ),
+            ContractField(
+                "killed_pid_count",
+                "int",
+                "Number of stale attachment PIDs terminated.",
+            ),
+            ContractField(
+                "rows",
+                "tuple[SessionLivenessReconcilerRow, ...]",
+                "Per-artifact reconciliation rows with process evidence.",
+            ),
+            ContractField("warnings", "tuple[str, ...]", "Non-blocking reconciliation warnings."),
+            ContractField("errors", "tuple[str, ...]", "Blocking reconciliation errors."),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.session_liveness_reconciler:"
+            "SessionLivenessReconciler"
+        ),
+        startup_surface_tokens=("stale_count", "cleared_attachment_count", "rows"),
     ),
     ContractSpec(
         contract_id="AgentDispatchRouter",

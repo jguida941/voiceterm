@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ..runtime.reviewer_mode_projection import write_effective_reviewer_mode
 from ..runtime.role_topology import resolve_role_topology
+from ..runtime.session_liveness_reconciler import reconcile_session_liveness
 from . import status_projection_liveness as _liveness
 from .core import active_conductor_providers as _active_conductor_providers
 from .reviewer_runtime_session_owner import (
@@ -113,3 +114,10 @@ def attach_conductor_session_state(
     )
     bridge_liveness["session_liveness_signals"] = signals
     bridge_liveness["participant_liveness"] = signals
+    bridge_liveness["session_liveness_reconciliation"] = (
+        reconcile_session_liveness(
+            session_output_root=output_root,
+            kill_stale=False,
+            dry_run=True,
+        ).to_dict()
+    )

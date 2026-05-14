@@ -21,7 +21,7 @@ def add_parser(subparsers) -> None:
     cmd.add_argument(
         "--role",
         choices=("reviewer", "implementer", "dashboard", "observer"),
-        required=True,
+        default="",
         help="Agent role for this session.",
     )
     cmd.add_argument(
@@ -83,11 +83,56 @@ def add_parser(subparsers) -> None:
         help="Per-step timeout for the one-shot orientation sequence.",
     )
     add_standard_output_arguments(cmd)
+    subcommands = cmd.add_subparsers(dest="session_action")
+    reconcile = subcommands.add_parser(
+        "reconcile",
+        help="Reconcile persisted session liveness artifacts.",
+    )
+    reconcile.add_argument(
+        "--kill-stale",
+        action="store_true",
+        default=False,
+        help="Detach stale persisted attachments and terminate stale attachment PIDs.",
+    )
+    reconcile.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Report stale session artifacts without mutating them.",
+    )
+    reconcile.add_argument(
+        "--session-output-root",
+        default="",
+        help=(
+            "Review-channel status root containing sessions/. Defaults to the "
+            "repo-pack review status directory."
+        ),
+    )
+    reconcile.add_argument(
+        "--no-refresh-status",
+        action="store_true",
+        default=False,
+        help="Skip review-channel status projection refresh after cleanup.",
+    )
+    reconcile.add_argument(
+        "--execution-mode",
+        choices=("auto", "markdown-bridge", "overlay"),
+        default="markdown-bridge",
+        help="Execution mode passed to review-channel status refresh.",
+    )
+    add_standard_output_arguments(reconcile)
 
 
 def run(args) -> int:
     """Dispatch to the role-specific session handler."""
+    if getattr(args, "session_action", "") == "reconcile":
+        from .session_reconcile import run_reconcile
+
+        return run_reconcile(args, repo_root=get_repo_root())
+
     role = args.role
+    if not role:
+        raise SystemExit("devctl session requires --role or a subcommand")
     repo_root = get_repo_root()
     if role == "reviewer" and args.loop:
         from .session_reviewer_loop import run_reviewer_loop

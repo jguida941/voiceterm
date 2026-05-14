@@ -158,9 +158,16 @@ Current ingestion status:
   refreshes it for an existing active receipt. The source of authority remains
   the typed bypass lifecycle; `.claude/settings.local.json` is only the
   classifier-readable projection. If an existing `Bash(*)` allow rule dominates
-  the generated rules, the projection records
-  `classifier_dominated_by_bash_wildcard` until a later hardening slice removes
-  that wildcard.
+  the generated receipt-scoped rules, the attestation records that dominance.
+- 2026-05-14 launch-bootstrap liveness reconciliation:
+  `SessionLivenessReconciler` is now the typed cleanup report for stale
+  persisted session attachments. `devctl session reconcile --kill-stale`
+  downgrades expired or process-dead remote-control attachment artifacts to
+  `detached`, optionally terminates stale attachment PIDs, and refreshes the
+  existing review-channel status projection instead of adding another liveness
+  surface. `SessionLivenessSignal` is also registered as the canonical
+  downstream liveness-signal contract so status/count projections and
+  attachment cleanup share the same platform contract registry.
 
 2026-05-06 governed exception lifecycle correction:
 - `MP377-P0-EXC-S1` replaces the earlier raw-bypass receipt direction with a

@@ -133,8 +133,24 @@
   `.claude/settings.local.json` without treating that gitignored local file as
   authority; the projection marks `classifier_dominated_by_bash_wildcard` when
   an existing `Bash(*)` rule dominates the generated receipt-scoped rules.
-  Later rows cover stale-session reconciliation, role reset, runtime-state
-  ignore posture, and long-command wrappers.
+  S4 adds `SessionLivenessReconciler` plus
+  `devctl session reconcile --kill-stale`.
+  Why: incidents #7/#8 were stale persisted remote-control attachment files
+  and stale session counts surviving the real process exit path. The fix runs
+  at the attachment layer, upstream of `session_liveness_*` signal/count
+  projections, because the attachment JSON carries PID identity and the
+  existing detach-write authority.
+  How: the reconciler scans persisted remote-control attachment artifacts,
+  checks expiry, heartbeat, physical identity, and process liveness, then
+  reports a typed row per artifact. Dry-run mode is report-only; `--kill-stale`
+  detaches stale artifacts through the existing attachment writer, optionally
+  terminates a still-live stale PID, and refreshes the existing review-channel
+  status projection rather than introducing another liveness surface.
+  Acceptance: `SessionLivenessSignal` and `SessionLivenessReconciler` are both
+  registered platform contracts, schema fixtures pass, status projection carries
+  a dry-run reconciliation report, and the shipped CLI has a live
+  `session reconcile --kill-stale` dogfood run. Later rows cover role reset,
+  runtime-state ignore posture, and long-command wrappers.
 - 2026-04-20 persistence-loop unblock (subordinate to
   `dev/active/autonomous_governance_loop_v2.md` MP-377): headless
   `review-channel --action launch | recover` now auto-elevate
@@ -8422,3 +8438,6 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
 - [ ] `PKT-BIND-REV-PKT-4004` Packet finding: S2 PIVOT-FIX (pre-commit): session_status_projection.py reads untyped dict mappings — needs typed imports of RecoveryAssessmentState/SessionActivityEntry/AgentMindSlice to close PARALLEL-SURFACE-RISK. Also: 6 missing clas... (source `rev_pkt_4004`; target `plan:MP-377`; posted `2026-05-14T13:09:18.234854Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-4008` Packet finding: S3 pivot-relevant: Bash(*) wildcard at settings.local.json:4 makes typed permission rules inert + .claude/settings.local.json is gitignored. Decisions needed pre-commit. (source `rev_pkt_4008`; target `dev/scripts/devctl/runtime/classifier_safety_attestation.py`; posted `2026-05-14T13:54:10.615658Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-4010` Packet finding: S3 review_accepted (5/5 absorbed, 13/13 tests pass) + RECURRING-CLASS SYSTEM_MAP gap: 3 slices silently skipped SYSTEM_MAP doc-sweep; docs-check strict-tooling has no contract_registry-to-SYSTEM_MAP binding. Inline-fix ar... (source `rev_pkt_4010`; target `dev/scripts/devctl/runtime/classifier_safety_attestation.py`; posted `2026-05-14T14:10:04.463394Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4012` Packet finding: Arch-fix review_accepted (guard works, live dogfood pass) + RECURSIVE-CLASS: the fix itself exhibits the recurring-class gap it fixes (no dedicated plan row, wrong target on PKT-BIND row, no commit anchor, no PlanIntentRe... (source `rev_pkt_4012`; target `dev/scripts/checks/check_systemmap_covers_contract_registry.py`; posted `2026-05-14T14:40:00.598447Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4014` Packet finding: S4 pre-substrate PIVOT: 4 compose-target design decisions + recursive-class MUTATING (continuity weakening at each cycle: S2/S3 strong → arch-fix partial → S4 task-start zero PKT-BIND row). 5 absorption items breakable du... (source `rev_pkt_4014`; target `dev/scripts/devctl/runtime/session_liveness_reconciler.py`; posted `2026-05-14T14:48:21.781478Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4015` Packet finding: S4 pre-commit: CLI carve CLEAN ✓ + COMPOSE-PARALLEL trip-wire (substrate at attachment-layer not signal-chain; Decision 1.4 NEITHER picked; Item D back-reg SKIPPED) + docstring regression (1-line on PID-SIGTERM substrate ... (source `rev_pkt_4015`; target `dev/scripts/devctl/runtime/session_liveness_reconciler.py`; posted `2026-05-14T14:58:08.282123Z`; binding `plan_row`).

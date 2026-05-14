@@ -15621,3 +15621,23 @@ Evidence:
 - `dev/scripts/devctl/tests/checks/test_check_systemmap_covers_contract_registry.py`
 - `.github/workflows/tooling_control_plane.yml`
 - `.github/workflows/release_preflight.yml`
+
+### 2026-05-14 - Session liveness reconciliation is a typed repair action
+
+`devctl session reconcile --kill-stale` now evaluates remote-control
+attachments against live process and heartbeat evidence before clearing stale
+session state. The reconciliation report is a registered
+`SessionLivenessReconciler` contract, and review-channel status includes the
+same report in dry-run mode so launch and dashboard paths can distinguish live
+agents from stale attachment artifacts without inventing a separate session
+surface. The existing downstream `SessionLivenessSignal` classifier is now
+back-registered as a platform contract, making the attachment cleanup layer and
+the liveness signal/count projections visible in the same contract registry.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/session_liveness_signal.py`
+- `dev/scripts/devctl/runtime/session_liveness_reconciler.py`
+- `dev/scripts/devctl/commands/governance/session_reconcile.py`
+- `dev/scripts/devctl/review_channel/status_projection_helpers.py`
+- `dev/scripts/devctl/tests/runtime/test_session_liveness_reconciler.py`

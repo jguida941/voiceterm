@@ -158,6 +158,7 @@ class SessionOrientationTests(unittest.TestCase):
         with patch.object(session, "emit_session_orientation", return_value=0) as emit_mock:
             rc = session.run(
                 SimpleNamespace(
+                    session_action="",
                     role="dashboard",
                     loop=False,
                     interval=30,
@@ -167,6 +168,29 @@ class SessionOrientationTests(unittest.TestCase):
 
         self.assertEqual(rc, 0)
         self.assertEqual(emit_mock.call_args.kwargs["role"], "observer")
+
+    def test_session_command_dispatches_reconcile_subcommand(self) -> None:
+        with patch(
+            "dev.scripts.devctl.commands.governance.session_reconcile.run_reconcile",
+            return_value=0,
+        ) as reconcile_mock:
+            rc = session.run(
+                SimpleNamespace(
+                    session_action="reconcile",
+                    kill_stale=True,
+                    dry_run=True,
+                    session_output_root="",
+                    no_refresh_status=True,
+                    execution_mode="markdown-bridge",
+                    format="json",
+                    output=None,
+                    pipe_command=None,
+                    pipe_args=None,
+                )
+            )
+
+        self.assertEqual(rc, 0)
+        self.assertTrue(reconcile_mock.call_args.kwargs["repo_root"].exists())
 
     def test_session_child_artifact_suppression_preserves_graph_freshness(self) -> None:
         specs = session_orientation_runner._step_specs(_args(), "implementer")
