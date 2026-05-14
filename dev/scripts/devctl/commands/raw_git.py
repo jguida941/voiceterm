@@ -141,7 +141,14 @@ def run_raw_git_action(
         return _git_failure_report(verb, git_args, command_result), command_result.returncode
 
     after_head = _git_stdout(runner, ("rev-parse", "HEAD"))
-    if verb is RawGitVerb.COMMIT and (not after_head or after_head == before_head):
+    raw_commit_sha = ""
+    if verb is RawGitVerb.COMMIT:
+        raw_commit_sha = _first_new_commit_sha(
+            runner,
+            before_head=before_head,
+            after_head=after_head,
+        )
+    if verb is RawGitVerb.COMMIT and not raw_commit_sha:
         return (
             _git_noop_report(
                 verb,
@@ -152,7 +159,7 @@ def run_raw_git_action(
             1,
         )
 
-    commit_sha = after_head
+    commit_sha = raw_commit_sha if verb is RawGitVerb.COMMIT else after_head
     push_range: tuple[str, str] = ()
     if verb is RawGitVerb.PUSH:
         after_ahead = (
@@ -261,6 +268,22 @@ def _affected_paths(
     else:
         output = ""
     return tuple(line.strip() for line in output.splitlines() if line.strip())
+
+
+def _first_new_commit_sha(
+    runner: GitRunner,
+    *,
+    before_head: str,
+    after_head: str,
+) -> str:
+    if not after_head or after_head == before_head:
+        return ""
+    if before_head:
+        output = _git_stdout(runner, ("rev-list", "--reverse", f"{before_head}..{after_head}"))
+        commits = tuple(line.strip() for line in output.splitlines() if line.strip())
+        if commits:
+            return commits[0]
+    return after_head
 
 
 def _normalized_git_args(values: object) -> tuple[str, ...]:

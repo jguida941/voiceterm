@@ -61,6 +61,48 @@ def test_raw_git_commit_wrapper_emits_receipt(tmp_path: Path) -> None:
     assert exceptions[0].lifecycle_id == receipts[0].governed_exception_id
 
 
+def test_raw_git_commit_wrapper_records_raw_commit_when_hook_advances_head(
+    tmp_path: Path,
+) -> None:
+    state = {"committed": False}
+
+    def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
+        if args == ("rev-parse", "HEAD"):
+            return GitCommandResult(0, "snapshot456\n" if state["committed"] else "base\n", "")
+        if args == ("rev-parse", "--verify", "@{u}"):
+            return GitCommandResult(1, "", "no upstream")
+        if args == ("commit", "--no-verify", "-m", "slice"):
+            state["committed"] = True
+            return GitCommandResult(0, "committed\n", "")
+        if args == ("rev-list", "--reverse", "base..snapshot456"):
+            return GitCommandResult(0, "raw123\nsnapshot456\n", "")
+        if args == ("diff-tree", "--no-commit-id", "--name-only", "-r", "raw123"):
+            return GitCommandResult(0, "dev/state/plan_index.jsonl\n", "")
+        return GitCommandResult(1, "", "not found")
+
+    args = Namespace(
+        raw_git_action="commit",
+        git_args=["--no-verify", "-m", "slice"],
+        actor="codex",
+        authority="operator_witnessed",
+        bypass_lifecycle_id="",
+        operator_quote_evidence_ref=["packet:rev_pkt_4026"],
+        store_path="dev/state/raw_git_bypass_receipts.jsonl",
+        bypass_lifecycle_store_path="dev/state/bypass_lifecycles.jsonl",
+        governed_exception_store_path="dev/state/governed_exception_lifecycles.jsonl",
+    )
+
+    report, rc = run_raw_git_action(args, repo_root=tmp_path, git_runner=fake_git)
+
+    assert rc == 0
+    assert report["ok"] is True
+    receipts = read_raw_git_bypass_receipts(
+        tmp_path / "dev/state/raw_git_bypass_receipts.jsonl"
+    )
+    assert receipts[0].commit_sha == "raw123"
+    assert receipts[0].affected_paths == ("dev/state/plan_index.jsonl",)
+
+
 def test_raw_git_push_wrapper_records_push_range(tmp_path: Path) -> None:
     state = {"pushed": False}
 
