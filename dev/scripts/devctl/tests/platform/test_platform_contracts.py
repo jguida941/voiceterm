@@ -59,6 +59,7 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "CustomRoleDefinition" in contract_ids
     assert "RoleCreationAction" in contract_ids
     assert "PeerHeartbeatEvidence" in contract_ids
+    assert "AgentLoopBilateralProtocol" in contract_ids
     assert "PreDecisionComposabilityWindow" in contract_ids
     assert "CommitReceipt" in contract_ids
     assert "GoalProgressReceipt" in contract_ids
@@ -138,6 +139,12 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "validation_errors" in contract_map["RoleCreationAction"]
     assert "heartbeat_packet_id" in contract_map["PeerHeartbeatEvidence"]
     assert "peer_offline" in contract_map["PeerHeartbeatEvidence"]
+    assert "property_results" in contract_map["AgentLoopBilateralProtocol"]
+    assert "failing_property_ids" in contract_map["AgentLoopBilateralProtocol"]
+    assert "lane_resumption_refs" in contract_map["AgentLoopBilateralProtocol"]
+    assert "command_evidence_refs" in contract_map["AgentLoopBilateralProtocol"]
+    assert "receipt_refs" in contract_map["AgentLoopBilateralProtocol"]
+    assert "proof_ref" in contract_map["AgentLoopBilateralProtocol"]
     assert "composability_anchors" in contract_map["PreDecisionComposabilityWindow"]
     assert "duplicate_hunt_ref" in contract_map["PreDecisionComposabilityWindow"]
     assert "commit_blocked" in contract_map["PreDecisionComposabilityWindow"]

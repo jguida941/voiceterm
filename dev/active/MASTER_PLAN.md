@@ -93,7 +93,14 @@
   typed evidence;
   `MP377-GOAL-PROGRESS-RECEIPTS-S1` adds typed `goal_progress` event after
   each slice; continuation_anchor reducer updates
-  `progress_percentage_toward_goal` field surfaced via `develop next`.
+  `progress_percentage_toward_goal` field surfaced via `develop next`;
+  `MP377-AGENT-LOOP-BILATERAL-PROTOCOL-S1` adds the seven-property
+  `AgentLoopBilateralProtocol` runtime contract and regression tests as a
+  policy foundation only: chat/projections remain non-authority, serious
+  actions and handoffs require typed state, provider-neutral lane resumption
+  evidence is explicit, commands consume typed evidence, and receipts bind
+  repo state, actor, guard result, command, and proof. Eventbus and
+  session-trigger automation remain later MP-377 rows.
   Execution priority per operator-mandated 25.13 sequencing:
   continuation_anchor enforcement FIRST (so codex cannot die mid-arc),
   then lifetime-bypass-mode + codex-spawn authority (so codex relaunch is
@@ -8344,3 +8351,4 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
 - [ ] `PKT-BIND-REV-PKT-3974` Packet finding: OPERATOR PRODUCT FINDING — Directive 7 refinement: dashboard JSON is RICH (3962 packets + 20+ surfaces), renderer is SHALLOW (~6 fields); build operator/cockpit projection OVER existing JSON instead of new data layer; ope... (source `rev_pkt_3974`; target `dev/scripts/devctl/dashboard/`; posted `2026-05-13T23:05:26.035682Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3975` Packet finding: REFINES rev_pkt_3973 — Option A WIP missing state=REVOKED at _revoked_receipt() (bypass_lifecycle_evaluation.py:313). One-line patch before commit prevents silent correctness regression on revoked-receipt state propagation. (source `rev_pkt_3975`; target `plan:MP-377`; posted `2026-05-13T23:14:54.553061Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3977` Packet finding: WAVE 0 PLAN-COHERENCE OBSERVATION (codex design authority): cross-check shows P31+P56 substantively landed under different names; P57+P74 partial (registries exist, no keystone contract); P84 partial (drift exists, smells... (source `rev_pkt_3977`; target `plan:MP-377`; posted `2026-05-13T23:35:04.331192Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-3980` Packet finding: OPERATOR-DRIVEN DESIGN PROPOSAL: --tracker projection joining 6 typed-state axes (git+packets+plan_index+agent-mind+receipts+stage-events) for anchor-windowed 'what AI accomplished' visibility. FOUNDATION EXISTS (SessionA... (source `rev_pkt_3980`; target `plan:MP-377`; posted `2026-05-14T00:30:47.945944Z`; binding `plan_row`).

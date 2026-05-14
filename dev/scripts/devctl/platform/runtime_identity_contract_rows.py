@@ -2,8 +2,19 @@
 
 from __future__ import annotations
 
+from ..runtime.agent_loop_bilateral_protocol import (
+    AgentLoopBilateralProtocol,
+    BilateralProtocolPropertyResult,
+)
 from .contracts import ContractField, ContractSpec
 from .runtime_identity_contract_rows_commit import COMMIT_RECEIPT_CONTRACTS
+
+_AGENT_LOOP_BILATERAL_PROTOCOL_RUNTIME_MODEL = (
+    f"{AgentLoopBilateralProtocol.__module__}:{AgentLoopBilateralProtocol.__name__}"
+)
+_BILATERAL_PROPERTY_RESULTS_TYPE = (
+    f"tuple[{BilateralProtocolPropertyResult.__name__}, ...]"
+)
 
 
 RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
@@ -450,6 +461,108 @@ RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("summary", "str", "Operator-readable heartbeat resolution summary."),
         ),
         runtime_model="dev.scripts.devctl.runtime.peer_heartbeat:PeerHeartbeatEvidence",
+        startup_surface_tokens=("actor_id", "peer_actor_id", "status"),
+    ),
+    ContractSpec(
+        contract_id=AgentLoopBilateralProtocol.__name__,
+        owner_layer="governance_runtime",
+        purpose=(
+            "Seven-property bilateral agent-loop protocol that binds cross-agent "
+            "handoff authority to typed state, provider-neutral lane evidence, "
+            "display-only projections, command evidence, and receipts."
+        ),
+        required_fields=(
+            ContractField(
+                "actor_id",
+                "str",
+                "Actor resolving or producing the protocol verdict.",
+            ),
+            ContractField(
+                "peer_actor_id",
+                "str",
+                "Peer actor on the bilateral handoff path.",
+            ),
+            ContractField(
+                "plan_row_id",
+                "str",
+                "Plan row covered by the bilateral protocol verdict.",
+            ),
+            ContractField("status", "str", "satisfied or violated."),
+            ContractField(
+                "property_results",
+                _BILATERAL_PROPERTY_RESULTS_TYPE,
+                "One machine-checkable verdict per bilateral protocol property.",
+            ),
+            ContractField(
+                "failing_property_ids",
+                "tuple[str, ...]",
+                "Property ids that failed.",
+            ),
+            ContractField(
+                "composability_contracts",
+                "tuple[str, ...]",
+                "Existing typed contracts composed by this protocol.",
+            ),
+            ContractField(
+                "authority_refs",
+                "tuple[str, ...]",
+                "Typed authority refs; chat/memory/projection refs fail.",
+            ),
+            ContractField(
+                "typed_action_refs",
+                "tuple[str, ...]",
+                "Typed actions or packets for serious actions.",
+            ),
+            ContractField(
+                "handoff_refs",
+                "tuple[str, ...]",
+                "Continuation, stop, or lifecycle handoff refs.",
+            ),
+            ContractField(
+                "resume_packet_refs",
+                "tuple[str, ...]",
+                "Typed packets that let a later agent resume.",
+            ),
+            ContractField(
+                "lane_resumption_refs",
+                "tuple[str, ...]",
+                "Provider-neutral lane/session evidence refs.",
+            ),
+            ContractField(
+                "projection_refs",
+                "tuple[str, ...]",
+                "Display-only projection refs.",
+            ),
+            ContractField(
+                "command_evidence_refs",
+                "tuple[str, ...]",
+                "Evidence consumed before mutation commands.",
+            ),
+            ContractField(
+                "receipt_refs",
+                "tuple[str, ...]",
+                "Receipts binding the action proof chain.",
+            ),
+            ContractField(
+                "repo_state_ref",
+                "str",
+                "Repo-state ref bound by the receipt chain.",
+            ),
+            ContractField("actor_ref", "str", "Actor ref bound by the receipt chain."),
+            ContractField(
+                "guard_result_ref",
+                "str",
+                "Guard result ref bound by the receipt chain.",
+            ),
+            ContractField(
+                "command_ref",
+                "str",
+                "Command ref bound by the receipt chain.",
+            ),
+            ContractField("proof_ref", "str", "Proof ref bound by the receipt chain."),
+            ContractField("summary", "str", "Operator-readable protocol verdict."),
+        ),
+        runtime_model=_AGENT_LOOP_BILATERAL_PROTOCOL_RUNTIME_MODEL,
         startup_surface_tokens=("actor_id", "peer_actor_id", "status"),
     ),
     ContractSpec(

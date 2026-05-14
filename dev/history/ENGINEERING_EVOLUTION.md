@@ -37,6 +37,24 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-14 - Bilateral agent-loop policy becomes a typed contract
+
+MP-377 added `AgentLoopBilateralProtocol` as the seven-property policy verdict
+for Codex/Claude handoffs. It keeps chat and projections out of authority,
+requires typed action, handoff, resumption, command-evidence, and receipt refs,
+and records provider-neutral lane evidence before later session automation can
+depend on the protocol.
+
+Change: the runtime contract, platform-contract registry row, and focused
+tests now cover the policy foundation while eventbus/process-wakeup behavior
+stays in later MP-377 rows.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/agent_loop_bilateral_protocol.py`
+- `dev/scripts/devctl/tests/runtime/test_agent_loop_bilateral_protocol.py`
+- `dev/scripts/devctl/platform/runtime_identity_contract_rows.py`
+
 ### 2026-05-14 - Fixture adopters prove the portable gate and expose one probe wrapper bug
 
 MP-377 adopter-gate work reran the portable bootstrap/probe path against two

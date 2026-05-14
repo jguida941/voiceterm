@@ -49,6 +49,11 @@ For MP-377 fixture-adopter gate evidence, use the dated section in
 `dev/active/portable_code_governance.md`; it records the two non-VoiceTerm
 fixture reruns, the source-repo probe wrapper fix, and the remaining
 Step-0/full-stack authority blockers.
+For MP-377 bilateral agent-loop policy, use
+`dev.scripts.devctl.runtime.agent_loop_bilateral_protocol.AgentLoopBilateralProtocol`;
+it records the seven typed-state properties and composes with existing
+session, command-evidence, and receipt contracts before eventbus/session
+automation is allowed to rely on it.
 For the broader standalone-governance product architecture, repo-pack
 extraction, and frontend/runtime convergence plan, see
 `dev/active/ai_governance_platform.md` and

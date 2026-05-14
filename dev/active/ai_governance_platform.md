@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-05-08 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-05-14 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -123,6 +123,15 @@ Current ingestion status:
   resolvers receive function arguments, while post-state resolvers receive the
   reducer result. The `rev_pkt_3975` refinement is included: revoke
   construction explicitly sets the inner `BypassReceipt.state` to `REVOKED`.
+- 2026-05-14 MP-377 bilateral protocol foundation:
+  `AgentLoopBilateralProtocol` is the policy contract for the seven
+  agent-loop handoff properties. It records typed authority refs, serious
+  action refs, stop/handoff refs, typed resume packets, provider-neutral lane
+  evidence, command evidence, receipt refs, and the required receipt binding
+  fields. Chat, memory, and projection refs remain non-authority. This slice
+  adds the runtime contract, platform-contract row, contract-registry row,
+  schema fixtures, and focused tests only; eventbus dispatch, process wakeup,
+  and session-trigger automation remain later typed rows.
 
 2026-05-06 governed exception lifecycle correction:
 - `MP377-P0-EXC-S1` replaces the earlier raw-bypass receipt direction with a

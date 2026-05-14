@@ -2590,6 +2590,10 @@ Structured audit/event ledgers are separate from that handoff surface:
   - use `devctl` commands whenever the work should land in command telemetry;
   - before handoff, append `governance-review --record` rows for any findings
     you confirmed, fixed, deferred, waived, or judged false-positive;
+  - for MP-377 agent-loop work, treat `AgentLoopBilateralProtocol` as a typed
+    policy verdict over the seven bilateral properties, not as session
+    automation by itself; eventbus dispatch, process wakeup, and
+    session-trigger behavior must land through their own typed plan rows;
   - after recording a guard/probe prevention surface, check the promotion
     queue file or the `governance-review` JSON summary metadata so the
     follow-up candidate is visible in repo-owned state before the session
