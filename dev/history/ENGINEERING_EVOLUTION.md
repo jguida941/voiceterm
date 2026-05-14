@@ -15683,3 +15683,9 @@ push-batching override and changes the active operator cadence to raw
 `git push` after each validated slice. The first application is the Guard P1
 slice: resolve the continuity guard, validate, then push the accumulated branch
 before starting S5.
+
+`rev_pkt_4022` immediately refines that push posture: raw git operations also
+need typed receipt integration so `--no-verify` commit/push paths do not become
+an untracked authority bypass. The next arch-fix sidebar is a
+`RawGitBypassReceipt` foundation plus an emitting wrapper or hook and a later
+receipt-completeness guard over commits since the MP-378 mandate.
