@@ -37,6 +37,31 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-14 - R98 packet findings become MP-381 rows and proposal contracts
+
+The R98 reviewer-loop handoff exposed nine live review packets
+(`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake.
+The closure published the pending 80-commit wall first, read the packet bodies
+from the review-channel trace, composed the available agent-mind projections,
+and retained the source in `dev/audits/r98_packet_4030_4038_plan_capture.md`.
+
+Change: `devctl develop ingest-plan` inserted `MP-NEW-001` through
+`MP-NEW-028` under `plan:MP-381-COMPREHENSIVE-GOVERNANCE-UNIFICATION`, and the
+platform contract registry now includes proposal-stage contracts for
+FeatureLifecycleProof, toggle receipts, role capabilities, packet urgency and
+ADR links, assistant-guide mode, skill compatibility, and the mandatory
+ingest-before-implement invariant. `SYSTEM_MAP.md` was regenerated so the new
+registry rows remain visible in the managed connectivity block.
+
+Evidence:
+
+- `dev/audits/r98_packet_4030_4038_plan_capture.md`
+- `dev/scripts/devctl/runtime/governance_proposed_contracts.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_governance_proposed.py`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/state/contract_registry.jsonl`
+- `dev/guides/SYSTEM_MAP.md`
+
 ### 2026-05-14 - Checkpoint repair authority becomes a first-class pipeline field
 
 Fact: `CheckpointRepairAuthority` already existed as the typed proof that a

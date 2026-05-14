@@ -1444,6 +1444,14 @@ Three quality layers matter in practice:
   declared reader set present.
   Also add deterministic contract/query proof so the producer and consumer stay
   wired together.
+  Packet-derived contract proposals follow the same closure lane: promote the
+  packet body into actionable `PlanRow` authority first, then add the runtime
+  dataclass, `ContractSpec` row module, regenerated
+  `dev/state/contract_registry.jsonl`, refreshed `SYSTEM_MAP.md`, and focused
+  contract-closure proof. R98 proposal contracts currently live in
+  `dev/scripts/devctl/runtime/governance_proposed_contracts.py` and
+  `dev/scripts/devctl/platform/runtime_state_contract_rows_governance_proposed.py`
+  until their implementation slices graduate them into narrower owner modules.
   Keep `startup_surface_tokens` current on every implemented platform
   contract row so startup/bootstrap surfaces project the same inventory the
   closure guard validates. As of 2026-04-27, the finding spine rows include

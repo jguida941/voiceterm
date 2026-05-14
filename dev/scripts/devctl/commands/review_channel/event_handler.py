@@ -195,6 +195,15 @@ def _run_event_action(
         )
     if args.action in {"ack", "dismiss", "apply"}:
         return run_packet_transition_action(context=context)
+    if args.action in {"status", "sync-status"}:
+        bundle = refresh_event_bundle(
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            artifact_paths=artifact_paths,
+        )
+        if args.action == "status":
+            return _build_event_report(args=args, bundle=bundle)
+        return run_sync_status_action(args=args, bundle=bundle)
     bundle = load_or_refresh_event_bundle(
         repo_root=repo_root,
         review_channel_path=review_channel_path,
@@ -210,11 +219,6 @@ def _run_loaded_bundle_action(
     bundle,
 ) -> tuple[dict, int]:
     if args.action == "status":
-        bundle = refresh_event_bundle(
-            repo_root=context.repo_root,
-            review_channel_path=context.review_channel_path,
-            artifact_paths=context.artifact_paths,
-        )
         return _build_event_report(args=args, bundle=bundle)
     if args.action == "inbox":
         return run_inbox_like_action(context=context, bundle=bundle)
@@ -227,11 +231,6 @@ def _run_loaded_bundle_action(
             observe_action_requests=False,
         )
     if args.action == "sync-status":
-        bundle = refresh_event_bundle(
-            repo_root=context.repo_root,
-            review_channel_path=context.review_channel_path,
-            artifact_paths=context.artifact_paths,
-        )
         return run_sync_status_action(args=args, bundle=bundle)
     if args.action == "expire-packets":
         return run_expire_packets_action(context=context)

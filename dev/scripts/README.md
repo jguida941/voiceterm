@@ -452,6 +452,15 @@ Portability note:
   bound to the latest accepted `PlanIntentIngestionReceipt` for the row, so an
   older full snapshot cannot mask a newer short-summary snapshot after packet
   expiry.
+- R98 packet capture follows that same ingestion path for architectural
+  findings before implementation. `dev/audits/r98_packet_4030_4038_plan_capture.md`
+  is the retained source snapshot for `MP-NEW-001` through `MP-NEW-028`, and
+  `dev/scripts/devctl/runtime/governance_proposed_contracts.py` plus
+  `dev/scripts/devctl/platform/runtime_state_contract_rows_governance_proposed.py`
+  hold the proposed contract stubs until each slice moves into its permanent
+  owner module. Keep `contract_registry.jsonl`, `SYSTEM_MAP.md`, and
+  `check_platform_contract_closure.py` green when adding or graduating one of
+  those packet-proposed contracts.
 - Major governance features need physical dogfood evidence in addition to green
   unit tests and guards. For governed exceptions and role/session packet routing,
   exercise the real `devctl` command surfaces and record dogfood rows; when the

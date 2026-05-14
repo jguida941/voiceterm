@@ -464,6 +464,47 @@ def _build_event_bundle_for_test(
     )
 
 
+class ReviewChannelEventHandlerTests(unittest.TestCase):
+    def test_status_refreshes_event_bundle_once_without_preload(self) -> None:
+        bundle = _build_event_bundle_for_test(["pkt-1"])
+        args = SimpleNamespace(
+            action="status",
+            target=None,
+            target_role=None,
+            target_session_id=None,
+            status=None,
+            limit=None,
+            terminal_profile=None,
+            approval_mode="balanced",
+        )
+        paths = {
+            "review_channel_path": Path("/tmp/repo/dev/active/review_channel.md"),
+            "artifact_paths": bundle.artifact_paths,
+        }
+
+        with (
+            patch.object(
+                review_channel_event_handler,
+                "load_or_refresh_event_bundle",
+                side_effect=AssertionError("status must not preload then refresh"),
+            ),
+            patch.object(
+                review_channel_event_handler,
+                "refresh_event_bundle",
+                return_value=bundle,
+            ) as refresh_event_bundle_mock,
+        ):
+            report, rc = review_channel_event_handler._run_event_action(
+                args=args,
+                repo_root=Path("/tmp/repo"),
+                paths=paths,
+            )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(report["action"], "status")
+        self.assertEqual(refresh_event_bundle_mock.call_count, 1)
+
+
 class ReviewChannelParserTests(unittest.TestCase):
     def test_review_channel_help_documents_plan_review_post_requirements(self) -> None:
         parser = build_parser()

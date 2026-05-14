@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `03379dd76b49` — MP378: guard task packet binding completeness
-- Tree hash: `81ee491393b8`
-- Generation stamp: `snap-c7a8c0c23994`
-- Generated at (UTC): 2026-05-14T18:22:30Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `92488df194b1` — MP377: checkpoint packet-pressure bridge refresh
+- Tree hash: `b44b869101ff`
+- Generation stamp: `snap-78d7111c14de`
+- Generated at (UTC): 2026-05-14T21:58:07Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 72 files, +6011/-645
+- Delta since last snapshot: 24 commits, 60 files, +4118/-596
 - Governance findings: 44 open / 0 fixed / 44 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,23 +28,22 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `03379dd76b490cf6860bf87542d46c3b2fa0272f`
+- HEAD SHA: `92488df194b192a0d5ddec83e6f4e8241b8e9793`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-14T14:21:36-04:00
+- HEAD timestamp (UTC): 2026-05-14T17:02:49-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
+- action: `await_checkpoint`
+- reason: staged_index_budget_exceeded
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 489
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- next_step_command: `n/a`
 - latest_push_report_state: `blocked` (push_preflight_running)
-- publication_backlog: urgent
-- publication_guidance: 71 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_backlog: none
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -60,94 +59,94 @@ production client (VoiceTerm...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `03379dd76b49`
+Range: last 24 commits ending at `92488df194b1`
 
-- commits: 25
-- files changed: 72
-- insertions: +6011
-- deletions: -645
-- bundle classes touched: tooling, docs
-- authority surfaces touched: 1 file(s)
+- commits: 24
+- files changed: 60
+- insertions: +4118
+- deletions: -596
+- bundle classes touched: docs, tooling
+- authority surfaces touched: 4 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `03379dd7` | MP378: guard task packet binding completeness | 21 | +863/-5 | tooling |  |
-| 2 | `7bafd1e7` | Refresh external review snapshot for 7f29e975 | 2 | +63/-65 | docs |  |
-| 3 | `7f29e975` | MP378: record human-summary packet binding | 2 | +2/-0 | tooling |  |
-| 4 | `58ad460a` | Refresh external review snapshot for 6aaaacf7 | 2 | +45/-45 | docs |  |
-| 5 | `6aaaacf7` | MP378: close raw-git hook receipt plan row | 3 | +3/-0 | tooling |  |
-| 6 | `c891ec57` | Refresh external review snapshot for 209c52fe | 2 | +59/-59 | docs |  |
-| 7 | `209c52fe` | MP378: fix raw git hook receipt target | 2 | +67/-2 | tooling |  |
-| 8 | `9116c3fb` | Refresh external review snapshot for b1f2fdc8 | 2 | +56/-56 | docs |  |
-| 9 | `b1f2fdc8` | MP378: close raw-git receipt plan row | 4 | +5/-0 | tooling |  |
-| 10 | `21bedcee` | Refresh external review snapshot for 72a16eaf | 2 | +64/-65 | docs |  |
-| 11 | `72a16eaf` | MP378: add raw git bypass receipts | 19 | +1210/-15 | tooling |  |
-| 12 | `145da853` | MP378: record raw-git receipt mandate | 3 | +8/-0 | tooling |  |
-| 13 | `13419479` | Refresh external review snapshot for 92545abb | 2 | +62/-60 | docs |  |
-| 14 | `92545abb` | MP378: record raw-push operator directive | 4 | +9/-1 | tooling |  |
-| 15 | `45dc468b` | MP378: record Guard P1 review closure | 4 | +21/-1 | tooling |  |
-| 16 | `e9797b30` | MP378: close plan-index continuity guard rows | 3 | +12/-3 | tooling |  |
-| 17 | `0cd7b4e3` | Refresh external review snapshot for eb871172 | 2 | +61/-62 | docs |  |
-| 18 | `eb871172` | MP378: add plan-index commit continuity guard | 17 | +763/-10 | tooling |  |
-| 19 | `1dc4bd2c` | Refresh external review snapshot for 7357c966 | 2 | +64/-65 | docs |  |
-| 20 | `7357c966` | Record S4 review acceptance packet binding | 3 | +7/-5 | tooling |  |
-| 21 | `c30ba06f` | Refresh external review snapshot for 8b4e647e | 1 | +104/-94 | tooling |  |
-| 22 | `8b4e647e` | MP378: add session liveness reconciler | 22 | +989/-14 | tooling |  |
-| 23 | `39216f9d` | MP378: enforce system map contract coverage | 20 | +533/-5 | tooling |  |
-| 24 | `9fd28931` | MP378: close classifier attestation plan row | 3 | +3/-1 | tooling |  |
-| 25 | `1b33360d` | MP378: add classifier safety attestation | 19 | +938/-12 | tooling |  |
+| 1 | `92488df1` | MP377: checkpoint packet-pressure bridge refresh | 1 | +1/-1 | docs |  |
+| 2 | `ec6f330e` | MP378: summarize locked review events | 4 | +244/-53 | tooling |  |
+| 3 | `e991f288` | MP377: checkpoint packet-pressure reductions | 3 | +3/-1 | tooling |  |
+| 4 | `744a4aa9` | MP378: stream review-channel event reads | 5 | +93/-43 | tooling |  |
+| 5 | `5fed0004` | MP377: checkpoint reviewer-mode packet reduction | 3 | +4/-2 | tooling |  |
+| 6 | `8bd100f9` | MP377: checkpoint packet queue reductions | 3 | +9/-6 | tooling |  |
+| 7 | `22cfecd2` | MP377: checkpoint repair field and portability guard | 38 | +1154/-51 | tooling |  |
+| 8 | `d0b53c26` | MP378: close packet binding guard plan row | 4 | +5/-0 | tooling |  |
+| 9 | `94db6e01` | Refresh external review snapshot for 03379dd7 | 2 | +68/-65 | docs |  |
+| 10 | `03379dd7` | MP378: guard task packet binding completeness | 21 | +863/-5 | tooling |  |
+| 11 | `7bafd1e7` | Refresh external review snapshot for 7f29e975 | 2 | +63/-65 | docs |  |
+| 12 | `7f29e975` | MP378: record human-summary packet binding | 2 | +2/-0 | tooling |  |
+| 13 | `58ad460a` | Refresh external review snapshot for 6aaaacf7 | 2 | +45/-45 | docs |  |
+| 14 | `6aaaacf7` | MP378: close raw-git hook receipt plan row | 3 | +3/-0 | tooling |  |
+| 15 | `c891ec57` | Refresh external review snapshot for 209c52fe | 2 | +59/-59 | docs |  |
+| 16 | `209c52fe` | MP378: fix raw git hook receipt target | 2 | +67/-2 | tooling |  |
+| 17 | `9116c3fb` | Refresh external review snapshot for b1f2fdc8 | 2 | +56/-56 | docs |  |
+| 18 | `b1f2fdc8` | MP378: close raw-git receipt plan row | 4 | +5/-0 | tooling |  |
+| 19 | `21bedcee` | Refresh external review snapshot for 72a16eaf | 2 | +64/-65 | docs |  |
+| 20 | `72a16eaf` | MP378: add raw git bypass receipts | 19 | +1210/-15 | tooling |  |
+| 21 | `145da853` | MP378: record raw-git receipt mandate | 3 | +8/-0 | tooling |  |
+| 22 | `13419479` | Refresh external review snapshot for 92545abb | 2 | +62/-60 | docs |  |
+| 23 | `92545abb` | MP378: record raw-push operator directive | 4 | +9/-1 | tooling |  |
+| 24 | `45dc468b` | MP378: record Guard P1 review closure | 4 | +21/-1 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `.github/workflows/README.md` | tooling | +2/-2 |
-| `.github/workflows/release_preflight.yml` | tooling | +3/-0 |
-| `.github/workflows/tooling_control_plane.yml` | tooling | +9/-0 |
+| `.github/workflows/release_preflight.yml` | tooling | +2/-0 |
+| `.github/workflows/tooling_control_plane.yml` | tooling | +6/-0 |
 | `.gitignore` | tooling | +3/-0 |
-| `bridge.md` | docs | +37/-37 |
-| `dev/active/MASTER_PLAN.md` | tooling | +68/-7 |
-| `dev/active/ai_governance_platform.md` | tooling | +45/-5 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +554/-546 |
-| `dev/guides/DEVELOPMENT.md` | docs | +33/-1 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +69/-31 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +136/-3 |
-| `dev/scripts/README.md` | tooling | +33/-1 |
-| `dev/scripts/checks/check_packet_pkt_bind_completeness.py` | tooling | +12/-0 |
-| `dev/scripts/checks/check_plan_index_commit_continuity.py` | tooling | +379/-0 |
-| `dev/scripts/checks/check_systemmap_covers_contract_registry.py` | tooling | +12/-0 |
+| `bridge.md` | docs | +42/-42 |
+| `dev/active/MASTER_PLAN.md` | tooling | +24/-2 |
+| `dev/active/ai_governance_platform.md` | tooling | +38/-1 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +397/-395 |
+| `dev/config/devctl_repo_policy.json` | tooling | +34/-0 |
+| `dev/guides/DEVELOPMENT.md` | docs | +26/-0 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +26/-25 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +100/-3 |
+| `dev/scripts/README.md` | tooling | +13/-0 |
+| `dev/scripts/checks/check_packet_pkt_bind_completeness.py` | tooling | +19/-0 |
+| `dev/scripts/checks/check_plan_index_commit_continuity.py` | tooling | +29/-17 |
+| `dev/scripts/checks/check_substrate_is_repo_portable.py` | tooling | +10/-0 |
 | `dev/scripts/checks/packet_pkt_bind_completeness/__init__.py` | tooling | +6/-0 |
-| `dev/scripts/checks/packet_pkt_bind_completeness/command.py` | tooling | +47/-0 |
-| `dev/scripts/checks/packet_pkt_bind_completeness/constants.py` | tooling | +29/-0 |
-| `dev/scripts/checks/packet_pkt_bind_completeness/core.py` | tooling | +198/-0 |
+| `dev/scripts/checks/packet_pkt_bind_completeness/command.py` | tooling | +52/-1 |
+| `dev/scripts/checks/packet_pkt_bind_completeness/constants.py` | tooling | +29/-2 |
+| `dev/scripts/checks/packet_pkt_bind_completeness/core.py` | tooling | +217/-12 |
 | `dev/scripts/checks/packet_pkt_bind_completeness/models.py` | tooling | +34/-0 |
 | `dev/scripts/checks/packet_pkt_bind_completeness/readers.py` | tooling | +134/-0 |
 | `dev/scripts/checks/packet_pkt_bind_completeness/render.py` | tooling | +65/-0 |
 | `dev/scripts/checks/packet_pkt_bind_completeness/time_support.py` | tooling | +39/-0 |
-| `dev/scripts/checks/systemmap_covers_contract_registry/__init__.py` | tooling | +1/-0 |
-| `dev/scripts/checks/systemmap_covers_contract_registry/command.py` | tooling | +226/-0 |
-| `dev/scripts/devctl/bundles/registry.py` | tooling | +3/-0 |
+| `dev/scripts/checks/repo_portability/__init__.py` | tooling | +5/-0 |
+| `dev/scripts/checks/repo_portability/command.py` | tooling | +376/-0 |
+| `dev/scripts/devctl/bundles/registry.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/cli.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/cli_parser/entrypoint.py` | tooling | +3/-0 |
-| `dev/scripts/devctl/commands/bypass/command.py` | tooling | +154/-2 |
-| `dev/scripts/devctl/commands/governance/session.py` | tooling | +46/-1 |
-| `dev/scripts/devctl/commands/governance/session_reconcile.py` | tooling | +152/-0 |
 | `dev/scripts/devctl/commands/listing.py` | tooling | +1/-1 |
 | `dev/scripts/devctl/commands/listing/__init__.py` | tooling | +1/-0 |
 | `dev/scripts/devctl/commands/raw_git.py` | tooling | +379/-2 |
-| `dev/scripts/devctl/governance/script_catalog_registry.py` | tooling | +6/-0 |
-| `dev/scripts/devctl/platform/runtime_state_contract_rows_bypass_lifecycle.py` | tooling | +135/-0 |
-| `dev/scripts/devctl/platform/runtime_state_contract_rows_review_core.py` | tooling | +81/-0 |
-| `dev/scripts/devctl/platform/system_map.py` | tooling | +56/-1 |
-| `dev/scripts/devctl/platform/system_map_models.py` | tooling | +2/-0 |
-| `dev/scripts/devctl/review_channel/status_projection_helpers.py` | tooling | +8/-0 |
-| _32 more files trimmed_ | | |
+| `dev/scripts/devctl/commands/vcs/governed_executor.py` | tooling | +1/-1 |
+| `dev/scripts/devctl/governance/script_catalog_registry.py` | tooling | +2/-0 |
+| `dev/scripts/devctl/platform/runtime_state_contract_rows_bypass_lifecycle.py` | tooling | +77/-0 |
+| `dev/scripts/devctl/platform/runtime_state_contract_rows_pipeline.py` | tooling | +5/-0 |
+| `dev/scripts/devctl/platform/runtime_state_contract_rows_review_core.py` | tooling | +45/-0 |
+| `dev/scripts/devctl/review_channel/event_store.py` | tooling | +219/-87 |
+| `dev/scripts/devctl/review_channel/packet_post_idempotency.py` | tooling | +29/-3 |
+| `dev/scripts/devctl/runtime/agent_loop_checkpoint_repair.py` | tooling | +5/-0 |
+| `dev/scripts/devctl/runtime/checkpoint_repair_authority.py` | tooling | +5/-0 |
+| _20 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -196,8 +195,12 @@ Recent findings:
 
 ### Targeted hints
 
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/remote_commit_pipeline_models.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/commands/check/test_check_router.py`) — Review contract-level invariants for this file
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/system_map_models.py`) — Commit 39216f9d changed dev/scripts/devctl/platform/system_map_models.py
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/vcs/test_governed_executor.py`) — Review contract-level invariants for this file
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/remote_commit_pipeline_models.py`) — Commit 22cfecd2 changed dev/scripts/devctl/runtime/remote_commit_pipeline_models.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/platform/test_platform_contracts.py`) — Commit 22cfecd2 changed dev/scripts/devctl/tests/platform/test_platform_contracts.py
 
 ### Suggested verification commands
 
@@ -211,60 +214,61 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`92488df1`** — MP377: checkpoint packet-pressure bridge refresh
+  - Checkpoint bridge projection after dismissing stale May 9 packet-pressure owner gaps. No push per operator batch-push mandate.
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
+- **`ec6f330e`** — MP378: summarize locked review events
+  - Avoid materializing the full review-channel trace during append_event. The locked append path now streams a bounded summary for id allocation, packet lifecycle idempotency, and lineage lookup. Focused review-channel tests pass, and review-channel status smoked against the live trace.
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
+- **`e991f288`** — MP377: checkpoint packet-pressure reductions
+  - Record the current bridge hash and PKT-BIND-REV-PKT-4038 plan binding after dismissing stale May 9 packet-pressure owner gaps.
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
+- **`744a4aa9`** — MP378: stream review-channel event reads
+  - Avoid full trace materialization in load_events and append_event locked reads. Adds focused regression coverage that fails if those paths call Path.read_text. Also checkpoints current packet-intake projections through rev_pkt_4037.
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
+- **`5fed0004`** — MP377: checkpoint reviewer-mode packet reduction
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
+- **`8bd100f9`** — MP377: checkpoint packet queue reductions
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
+- **`22cfecd2`** — MP377: checkpoint repair field and portability guard
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
+- **`d0b53c26`** — MP378: close packet binding guard plan row
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
+- **`94db6e01`** — Refresh external review snapshot for 03379dd7
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`03379dd7`** — MP378: guard task packet binding completeness
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`7bafd1e7`** — Refresh external review snapshot for 7f29e975
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`7f29e975`** — MP378: record human-summary packet binding
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`58ad460a`** — Refresh external review snapshot for 6aaaacf7
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`6aaaacf7`** — MP378: close raw-git hook receipt plan row
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`c891ec57`** — Refresh external review snapshot for 209c52fe
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`209c52fe`** — MP378: fix raw git hook receipt target
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`9116c3fb`** — Refresh external review snapshot for b1f2fdc8
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`b1f2fdc8`** — MP378: close raw-git receipt plan row
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`21bedcee`** — Refresh external review snapshot for 72a16eaf
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`72a16eaf`** — MP378: add raw git bypass receipts
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`145da853`** — MP378: record raw-git receipt mandate
   - Anchors rev_pkt_4022: raw commit/push remains allowed by operator direction, but it now needs typed RawGitBypassReceipt integration so --no-verify paths do not become invisible governance bypasses.
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`13419479`** — Refresh external review snapshot for 92545abb
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`92545abb`** — MP378: record raw-push operator directive
   - Anchors rev_pkt_4021 as the active process pivot: retire the prior batch-push override, validate Guard P1, then raw-push the accumulated branch and continue with per-slice raw pushes.
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`45dc468b`** — MP378: record Guard P1 review closure
   - Anchors rev_pkt_4020 review feedback to the aggressive Guard P1 closure choice: keep task_started_packet_binding and guard_discovery_build_loop_charter enforcement active, backfill commit anchors through typed plan evidence, and record the remaining P6/P7 follow-up context without pushing.
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
-- **`e9797b30`** — MP378: close plan-index continuity guard rows
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
-- **`0cd7b4e3`** — Refresh external review snapshot for eb871172
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
-- **`eb871172`** — MP378: add plan-index commit continuity guard
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
-- **`1dc4bd2c`** — Refresh external review snapshot for 7357c966
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
-- **`7357c966`** — Record S4 review acceptance packet binding
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
-- **`c30ba06f`** — Refresh external review snapshot for 8b4e647e
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
-- **`8b4e647e`** — MP378: add session liveness reconciler
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
-- **`39216f9d`** — MP378: enforce system map contract coverage
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
-- **`9fd28931`** — MP378: close classifier attestation plan row
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
-- **`1b33360d`** — MP378: add classifier safety attestation
-  - Decision: .claude/settings.local.json stays gitignored operator-local projection state; BypassLifecycle/BypassReceipt remain the durable authority. Decision: if Bash(*) already dominates the provider classifier allow-list, project the receipt-scoped rules but emit classifier_dominated_by_bash_wildcard in the projection result/settings bridge so S3 does not imply narrower operational effect until a later hardening slice removes the wildcard. Adds direct runtime tests plus CLI lockstep tests, platform contract registry/fixtures, docs, and generated surface refresh.
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -283,10 +287,11 @@ Recent findings:
 - open governance findings: 44
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/pipeline/command.py`): dogfood.command.pipeline: Auto-ingested devctl finalization failure rc=1.
@@ -308,4 +313,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-c7a8c0c23994` binds this file to HEAD `03379dd76b49`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-78d7111c14de` binds this file to HEAD `92488df194b1`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

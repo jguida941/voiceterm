@@ -191,6 +191,16 @@ Current ingestion status:
   wrapper that runs git, rejects no-op commit/push attempts, validates
   lifecycle-backed authority before write, and appends the receipt to
   `dev/state/raw_git_bypass_receipts.jsonl`.
+- 2026-05-14 R98 packet-capture ingestion: `rev_pkt_4030` through
+  `rev_pkt_4038` are no longer PKT-BIND-only intake. Their bodies were read
+  from `dev/reports/review_channel/events/trace.ndjson`, composed with the
+  available `agent-mind` projections, retained in
+  `dev/audits/r98_packet_4030_4038_plan_capture.md`, and ingested as
+  `MP-NEW-001` through `MP-NEW-028` under
+  `plan:MP-381-COMPREHENSIVE-GOVERNANCE-UNIFICATION`. The same capture added
+  proposal-stage contracts for lifecycle proof, role capabilities, toggle
+  receipts, packet urgency/supersession/ADR links, assistant-guide mode,
+  skill compatibility, and the mandatory ingest-before-implement invariant.
 
 2026-05-06 governed exception lifecycle correction:
 - `MP377-P0-EXC-S1` replaces the earlier raw-bypass receipt direction with a
@@ -10944,6 +10954,13 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-05-14: Captured the R98 `rev_pkt_4030` through `rev_pkt_4038`
+  findings into actionable plan rows and proposal-stage platform contracts.
+  The retained source is `dev/audits/r98_packet_4030_4038_plan_capture.md`;
+  typed receipt `plan-ingest-030b2f4e03c55fc9` inserted `MP-NEW-001` through
+  `MP-NEW-028`; and `dev/scripts/devctl/runtime/governance_proposed_contracts.py`
+  now holds the 30 contract stubs needed by the MP-381 family until their
+  implementation slices graduate them into permanent owner modules.
 - 2026-04-27: Closed `MP377-P0-T12` as the bounded Slice C/D zref and
   enum-connectivity repair from `rev_pkt_2006`. Push pipeline sync now refreshes
   proof identity from the current review-state tick, preventing stale
