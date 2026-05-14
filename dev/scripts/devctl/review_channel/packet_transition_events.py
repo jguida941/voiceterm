@@ -8,8 +8,10 @@ from dataclasses import replace
 from pathlib import Path
 
 from ..runtime.derived_state_invalidation import (
-    packet_durable_ingestion_invalidation,
-    packet_lifecycle_transition_invalidation,
+    PACKET_DURABLE_INGESTION_INVALIDATION_SOURCE,
+    PACKET_LIFECYCLE_TRANSITION_INVALIDATION_SOURCE,
+    REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
+    derived_state_invalidation_payload,
 )
 from .context_refs import normalize_context_pack_refs
 from .event_store import (
@@ -94,13 +96,18 @@ def build_transition_event(
         semantic_zref=packet.get("semantic_zref") or _packet_semantic_zref(packet),
         source_identity=source_identity(packet),
         status=status,
-        derived_state_invalidation=packet_lifecycle_transition_invalidation(
+        derived_state_invalidation=derived_state_invalidation_payload(
+            source=PACKET_LIFECYCLE_TRANSITION_INVALIDATION_SOURCE,
+            producer_id="review_channel.packet_lifecycle_transition",
+            producer_kind="review_channel_event",
+            invalidated_consumers=REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
+            next_consumer_action="reload_event_backed_review_state_before_work_decision",
             event_type=event_type,
             packet_id=request.packet_id,
             source_event_id=event_id,
             status=status,
-            actor=request.actor,
             target_ref=str(packet.get("target_ref") or ""),
+            extra={"actor": str(request.actor or "").strip()},
         ),
         idempotency_key=idempotency_key(
             event_type,
@@ -235,7 +242,12 @@ def _plan_integration_event(
             "run_id": request.run_id or packet.get("run_id") or "",
         },
     }
-    event["derived_state_invalidation"] = packet_durable_ingestion_invalidation(
+    event["derived_state_invalidation"] = derived_state_invalidation_payload(
+        source=PACKET_DURABLE_INGESTION_INVALIDATION_SOURCE,
+        producer_id="review_channel.packet_durable_ingestion",
+        producer_kind="review_channel_event",
+        invalidated_consumers=REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
+        next_consumer_action="reload_packet_debt_and_work_board_before_work_decision",
         event_type=event_type,
         packet_id=packet_id,
         source_event_id="",

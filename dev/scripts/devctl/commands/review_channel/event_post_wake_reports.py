@@ -5,9 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from ...runtime.derived_state_invalidation import (
+    PACKET_ARRIVAL_DERIVED_STATE_INVALIDATION_CONTRACT_ID,
     PACKET_ARRIVAL_INVALIDATION_SOURCE,
     REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
-    packet_arrival_invalidation_payload,
+    derived_state_invalidation_payload,
 )
 
 PACKET_ARRIVAL_ATTENTION_SHAPE = "packet_arrival"
@@ -114,7 +115,13 @@ def packet_arrival_derived_state_invalidation(
     posted_review_state_payload: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Describe existing derived-state subscribers affected by packet arrival."""
-    report = packet_arrival_invalidation_payload(
+    report = derived_state_invalidation_payload(
+        contract_id=PACKET_ARRIVAL_DERIVED_STATE_INVALIDATION_CONTRACT_ID,
+        source=PACKET_ARRIVAL_INVALIDATION_SOURCE,
+        producer_id="review_channel.packet_arrival",
+        producer_kind="review_channel_event",
+        invalidated_consumers=REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
+        next_consumer_action="reload_event_backed_review_state_before_work_decision",
         packet_id=_text(packet.get("packet_id")),
         source_event_id=_text(packet.get("latest_event_id") or packet.get("event_id")),
     )

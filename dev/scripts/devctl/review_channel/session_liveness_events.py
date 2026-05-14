@@ -13,7 +13,11 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from ..runtime.derived_state_invalidation import session_liveness_invalidation_payload
+from ..runtime.derived_state_invalidation import (
+    REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
+    SESSION_LIVENESS_INVALIDATION_SOURCE,
+    derived_state_invalidation_payload,
+)
 from ..time_utils import utc_timestamp
 from .session_probe import ConductorSessionRecord, load_conductor_sessions
 
@@ -152,10 +156,14 @@ def _build_liveness_expired_event(
             record.live_reason,
             record.age_seconds,
         ),
-        derived_state_invalidation=session_liveness_invalidation_payload(
-            provider=record.provider,
-            session_name=record.session_name,
+        derived_state_invalidation=derived_state_invalidation_payload(
+            source=SESSION_LIVENESS_INVALIDATION_SOURCE,
+            producer_id="review_channel.session_liveness",
+            producer_kind="review_channel_event",
+            invalidated_consumers=REVIEW_CHANNEL_DERIVED_STATE_CONSUMERS,
+            next_consumer_action="reload_session_liveness_before_work_decision",
             source_event_id=next_event_id(existing_events),
+            source_ref=f"session:{record.provider}:{record.session_name}",
             status=record.live_reason,
         ),
     )

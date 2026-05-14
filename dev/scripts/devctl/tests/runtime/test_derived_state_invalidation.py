@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from dev.scripts.devctl.runtime.derived_state_invalidation import (
     PLAN_INGESTION_DERIVED_STATE_CONSUMERS,
+    PLAN_INGESTION_INVALIDATION_SOURCE,
     derived_state_invalidation_payload,
-    plan_ingestion_invalidation_payload,
 )
 
 
@@ -31,7 +31,14 @@ def test_derived_state_invalidation_payload_normalizes_optional_fields() -> None
 
 
 def test_plan_ingestion_invalidation_names_plan_and_work_consumers() -> None:
-    payload = plan_ingestion_invalidation_payload(
+    payload = derived_state_invalidation_payload(
+        source=PLAN_INGESTION_INVALIDATION_SOURCE,
+        producer_id="develop.plan_ingestion",
+        producer_kind="typed_receipt",
+        invalidated_consumers=PLAN_INGESTION_DERIVED_STATE_CONSUMERS,
+        next_consumer_action=(
+            "reload_plan_authority_and_ingestion_receipts_before_work_decision"
+        ),
         source_ref="packet:rev_pkt_1",
         packet_id="rev_pkt_1",
         receipt_id="plan-ingest-1",
