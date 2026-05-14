@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `7357c966c729` — Record S4 review acceptance packet binding
-- Tree hash: `8ebb2dfa2052`
-- Generation stamp: `snap-8d07cc4fb0c6`
-- Generated at (UTC): 2026-05-14T15:32:34Z
+- HEAD: `eb871172360b` — MP378: add plan-index commit continuity guard
+- Tree hash: `adde5393d4a2`
+- Generation stamp: `snap-c3b565ae625e`
+- Generated at (UTC): 2026-05-14T16:06:28Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 80 files, +5319/-817
+- Delta since last snapshot: 24 commits, 83 files, +6086/-833
 - Governance findings: 43 open / 0 fixed / 43 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `7357c966c729a2884432ecf9a129e2888691a36c`
+- HEAD SHA: `eb871172360ba7410a4506e335d63caea3151ef2`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-14T11:31:44-04:00
+- HEAD timestamp (UTC): 2026-05-14T12:05:38-04:00
 
 ## 2. Governance state
 
@@ -44,7 +44,7 @@ production client (VoiceTerm...
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (push_preflight_running)
 - publication_backlog: urgent
-- publication_guidance: 52 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 54 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -64,67 +64,69 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `7357c966c729`
+Range: last 24 commits ending at `eb871172360b`
 
 - commits: 24
-- files changed: 80
-- insertions: +5319
-- deletions: -817
-- bundle classes touched: docs, tooling
+- files changed: 83
+- insertions: +6086
+- deletions: -833
+- bundle classes touched: tooling, docs
 - authority surfaces touched: 2 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `7357c966` | Record S4 review acceptance packet binding | 3 | +7/-5 | tooling |  |
-| 2 | `c30ba06f` | Refresh external review snapshot for 8b4e647e | 1 | +104/-94 | tooling |  |
-| 3 | `8b4e647e` | MP378: add session liveness reconciler | 22 | +989/-14 | tooling |  |
-| 4 | `39216f9d` | MP378: enforce system map contract coverage | 20 | +533/-5 | tooling |  |
-| 5 | `9fd28931` | MP378: close classifier attestation plan row | 3 | +3/-1 | tooling |  |
-| 6 | `1b33360d` | MP378: add classifier safety attestation | 19 | +938/-12 | tooling |  |
-| 7 | `68dc3810` | MP378: close session status plan row | 3 | +3/-1 | tooling |  |
-| 8 | `50cdb5a7` | MP378: add session status projection | 25 | +1294/-12 | tooling |  |
-| 9 | `89b08bd5` | Refresh external review snapshot for 9a5ac82b | 2 | +50/-51 | docs |  |
-| 10 | `9a5ac82b` | MP378: close bypass grant plan row | 4 | +7/-5 | tooling |  |
-| 11 | `9c944574` | Refresh external review snapshot for f5e91409 | 2 | +71/-64 | docs |  |
-| 12 | `f5e91409` | MP378: add bypass grant CLI | 15 | +501/-15 | tooling |  |
-| 13 | `9fa76099` | Refresh external review snapshot for 03d25016 | 2 | +65/-68 | docs |  |
-| 14 | `03d25016` | Add P102 BypassLifecycle bootstrap helper + launch wrapper | 4 | +136/-2 | tooling |  |
-| 15 | `663147f9` | Refresh external review snapshot for b5d809fa | 2 | +50/-50 | docs |  |
-| 16 | `b5d809fa` | MP377: deduplicate agents contract entrypoint | 1 | +9/-7 | tooling |  |
-| 17 | `4c950e45` | Refresh external review snapshot for db6b6ba6 | 2 | +62/-70 | docs |  |
-| 18 | `db6b6ba6` | MP377: package agents contract guard | 4 | +170/-156 | tooling |  |
-| 19 | `5fe9282f` | Refresh external review snapshot for 2d494215 | 2 | +63/-58 | docs |  |
-| 20 | `2d494215` | MP377: add boot card role discovery | 11 | +154/-18 | tooling |  |
-| 21 | `e0ed1503` | Refresh external review snapshot for 7f5eef7e | 2 | +47/-47 | docs |  |
-| 22 | `7f5eef7e` | Refresh bridge projection after progress packet | 1 | +3/-3 | docs |  |
-| 23 | `7f43ac95` | Refresh external review snapshot for 252ca280 | 2 | +56/-58 | docs |  |
-| 24 | `252ca280` | MP377: close automation opportunity packet slice | 3 | +4/-1 | tooling |  |
+| 1 | `eb871172` | MP378: add plan-index commit continuity guard | 17 | +763/-10 | tooling |  |
+| 2 | `1dc4bd2c` | Refresh external review snapshot for 7357c966 | 2 | +64/-65 | docs |  |
+| 3 | `7357c966` | Record S4 review acceptance packet binding | 3 | +7/-5 | tooling |  |
+| 4 | `c30ba06f` | Refresh external review snapshot for 8b4e647e | 1 | +104/-94 | tooling |  |
+| 5 | `8b4e647e` | MP378: add session liveness reconciler | 22 | +989/-14 | tooling |  |
+| 6 | `39216f9d` | MP378: enforce system map contract coverage | 20 | +533/-5 | tooling |  |
+| 7 | `9fd28931` | MP378: close classifier attestation plan row | 3 | +3/-1 | tooling |  |
+| 8 | `1b33360d` | MP378: add classifier safety attestation | 19 | +938/-12 | tooling |  |
+| 9 | `68dc3810` | MP378: close session status plan row | 3 | +3/-1 | tooling |  |
+| 10 | `50cdb5a7` | MP378: add session status projection | 25 | +1294/-12 | tooling |  |
+| 11 | `89b08bd5` | Refresh external review snapshot for 9a5ac82b | 2 | +50/-51 | docs |  |
+| 12 | `9a5ac82b` | MP378: close bypass grant plan row | 4 | +7/-5 | tooling |  |
+| 13 | `9c944574` | Refresh external review snapshot for f5e91409 | 2 | +71/-64 | docs |  |
+| 14 | `f5e91409` | MP378: add bypass grant CLI | 15 | +501/-15 | tooling |  |
+| 15 | `9fa76099` | Refresh external review snapshot for 03d25016 | 2 | +65/-68 | docs |  |
+| 16 | `03d25016` | Add P102 BypassLifecycle bootstrap helper + launch wrapper | 4 | +136/-2 | tooling |  |
+| 17 | `663147f9` | Refresh external review snapshot for b5d809fa | 2 | +50/-50 | docs |  |
+| 18 | `b5d809fa` | MP377: deduplicate agents contract entrypoint | 1 | +9/-7 | tooling |  |
+| 19 | `4c950e45` | Refresh external review snapshot for db6b6ba6 | 2 | +62/-70 | docs |  |
+| 20 | `db6b6ba6` | MP377: package agents contract guard | 4 | +170/-156 | tooling |  |
+| 21 | `5fe9282f` | Refresh external review snapshot for 2d494215 | 2 | +63/-58 | docs |  |
+| 22 | `2d494215` | MP377: add boot card role discovery | 11 | +154/-18 | tooling |  |
+| 23 | `e0ed1503` | Refresh external review snapshot for 7f5eef7e | 2 | +47/-47 | docs |  |
+| 24 | `7f5eef7e` | Refresh bridge projection after progress packet | 1 | +3/-3 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `.github/workflows/release_preflight.yml` | tooling | +1/-0 |
-| `.github/workflows/tooling_control_plane.yml` | tooling | +3/-0 |
+| `.github/workflows/README.md` | tooling | +2/-2 |
+| `.github/workflows/release_preflight.yml` | tooling | +2/-0 |
+| `.github/workflows/tooling_control_plane.yml` | tooling | +6/-0 |
 | `AGENTS.md` | docs | +15/-6 |
-| `bridge.md` | docs | +39/-39 |
-| `dev/active/MASTER_PLAN.md` | tooling | +60/-6 |
-| `dev/active/ai_governance_platform.md` | tooling | +43/-5 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +543/-535 |
+| `bridge.md` | docs | +45/-44 |
+| `dev/active/MASTER_PLAN.md` | tooling | +76/-6 |
+| `dev/active/ai_governance_platform.md` | tooling | +49/-5 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +551/-542 |
 | `dev/config/devctl_repo_policy.json` | tooling | +12/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +31/-7 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +59/-22 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +124/-0 |
-| `dev/scripts/README.md` | tooling | +47/-6 |
+| `dev/guides/DEVELOPMENT.md` | docs | +37/-7 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +61/-24 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +142/-0 |
+| `dev/scripts/README.md` | tooling | +48/-6 |
 | `dev/scripts/bootstrap_bypass_lifecycle.py` | tooling | +113/-0 |
 | `dev/scripts/checks/agents_contract/command.py` | tooling | +169/-7 |
 | `dev/scripts/checks/check_agents_contract.py` | tooling | +23/-153 |
+| `dev/scripts/checks/check_plan_index_commit_continuity.py` | tooling | +379/-0 |
 | `dev/scripts/checks/check_systemmap_covers_contract_registry.py` | tooling | +12/-0 |
 | `dev/scripts/checks/systemmap_covers_contract_registry/__init__.py` | tooling | +1/-0 |
 | `dev/scripts/checks/systemmap_covers_contract_registry/command.py` | tooling | +226/-0 |
-| `dev/scripts/devctl/bundles/registry.py` | tooling | +1/-0 |
+| `dev/scripts/devctl/bundles/registry.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/cli.py` | tooling | +15/-13 |
 | `dev/scripts/devctl/cli_parser/entrypoint.py` | tooling | +3/-0 |
 | `dev/scripts/devctl/commands/bypass/__init__.py` | tooling | +7/-0 |
@@ -136,7 +138,7 @@ Range: last 24 commits ending at `7357c966c729`
 | `dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py` | tooling | +3/-0 |
 | `dev/scripts/devctl/commands/review_channel/status_runtime_projection.py` | tooling | +1/-0 |
 | `dev/scripts/devctl/governance/instruction_boot_card.py` | tooling | +31/-2 |
-| `dev/scripts/devctl/governance/script_catalog_registry.py` | tooling | +4/-0 |
+| `dev/scripts/devctl/governance/script_catalog_registry.py` | tooling | +5/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_bypass_lifecycle.py` | tooling | +58/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_review_core.py` | tooling | +128/-0 |
 | `dev/scripts/devctl/platform/system_map.py` | tooling | +56/-1 |
@@ -144,9 +146,7 @@ Range: last 24 commits ending at `7357c966c729`
 | `dev/scripts/devctl/review_channel/README.md` | tooling | +3/-1 |
 | `dev/scripts/devctl/review_channel/agent_loop_decision_route_scope.py` | tooling | +4/-0 |
 | `dev/scripts/devctl/review_channel/event_projection_assembly.py` | tooling | +18/-0 |
-| `dev/scripts/devctl/review_channel/projection_bundle.py` | tooling | +1/-0 |
-| `dev/scripts/devctl/review_channel/status_bundle.py` | tooling | +1/-0 |
-| _40 more files trimmed_ | | |
+| _43 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -214,6 +214,10 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`eb871172`** — MP378: add plan-index commit continuity guard
+  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+- **`1dc4bd2c`** — Refresh external review snapshot for 7357c966
+  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
 - **`7357c966`** — Record S4 review acceptance packet binding
   - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
 - **`c30ba06f`** — Refresh external review snapshot for 8b4e647e
@@ -259,10 +263,6 @@ Recent findings:
   - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
 - **`7f5eef7e`** — Refresh bridge projection after progress packet
   - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
-- **`7f43ac95`** — Refresh external review snapshot for 252ca280
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
-- **`252ca280`** — MP377: close automation opportunity packet slice
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -306,4 +306,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-8d07cc4fb0c6` binds this file to HEAD `7357c966c729`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-c3b565ae625e` binds this file to HEAD `eb871172360b`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
