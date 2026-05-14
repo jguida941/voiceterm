@@ -9,11 +9,13 @@ from .runtime_state_contract_rows_remote_control import REMOTE_CONTROL_STATE_CON
 
 if TYPE_CHECKING:
     from ..runtime.packet_intent_anchor import PlanIterationSession
+    from ..runtime.repo_portability import RepoPortabilityCheck
     from ..runtime.session_posture import SessionPostureActor
     from ..runtime.startup_context_models import ReviewerGateState, StartupContext
 
     _RUNTIME_MODEL_REFS: tuple[
         type[PlanIterationSession],
+        type[RepoPortabilityCheck],
         type[SessionPostureActor],
         type[ReviewerGateState],
         type[StartupContext],
@@ -365,6 +367,49 @@ REVIEW_CORE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             "SessionLivenessReconciler"
         ),
         startup_surface_tokens=("stale_count", "cleared_attachment_count", "rows"),
+    ),
+    ContractSpec(
+        contract_id="RepoPortabilityCheck",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed portability scan result for governance substrate files that "
+            "must not embed repo-specific packet ids, plan ids, timestamps, "
+            "operator identities, or local path literals outside repo-pack policy."
+        ),
+        required_fields=(
+            ContractField("check_id", "str", "Guard command that produced the scan result."),
+            ContractField(
+                "target_substrate_path",
+                "str",
+                "Repo-relative portable substrate path scanned by the guard.",
+            ),
+            ContractField(
+                "hardcoded_literal_count",
+                "int",
+                "Number of repo-specific literals found in the substrate path.",
+            ),
+            ContractField(
+                "hardcoded_categories",
+                "tuple[str, ...]",
+                "Finding categories observed for the substrate path.",
+            ),
+            ContractField(
+                "proposed_lifts",
+                "tuple[str, ...]",
+                "Policy or typed-contract lift suggestions for the flagged literals.",
+            ),
+            ContractField(
+                "repo_pack_policy_keys_needed",
+                "tuple[str, ...]",
+                "Repo-pack policy keys needed to replace the hardcoded literals.",
+            ),
+        ),
+        runtime_model="dev.scripts.devctl.runtime.repo_portability:RepoPortabilityCheck",
+        startup_surface_tokens=(
+            "target_substrate_path",
+            "hardcoded_literal_count",
+            "hardcoded_categories",
+        ),
     ),
     ContractSpec(
         contract_id="AgentDispatchRouter",

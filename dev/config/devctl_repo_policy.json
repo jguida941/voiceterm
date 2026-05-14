@@ -187,6 +187,40 @@
         }
       ]
     },
+    "guard_mandates": {
+      "check_packet_pkt_bind_completeness": {
+        "mandate_packet_id": "rev_pkt_4017",
+        "observed_at_utc": "2026-05-14T15:37:25Z"
+      },
+      "check_plan_index_commit_continuity": {
+        "mandate_packet_id": "rev_pkt_4017",
+        "observed_at_utc": "2026-05-14T15:37:25Z",
+        "enforced_row_prefixes": [
+          "MP-378-"
+        ]
+      }
+    },
+    "repo_portability": {
+      "target_paths": [
+        "dev/scripts/checks/check_plan_index_commit_continuity.py",
+        "dev/scripts/checks/packet_pkt_bind_completeness",
+        "dev/scripts/checks/systemmap_covers_contract_registry"
+      ],
+      "ignore_paths": [
+        "dev/scripts/devctl/tests",
+        "dev/test_data",
+        "__pycache__"
+      ],
+      "project_name_literals": [
+        "VoiceTerm",
+        "voiceterm",
+        "codex-voice"
+      ],
+      "operator_identity_literals": [
+        "jguida941"
+      ],
+      "allowed_literals": {}
+    },
     "bridge_config": {
       "operator_interaction_mode": "local_terminal"
     },

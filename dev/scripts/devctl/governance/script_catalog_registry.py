@@ -43,6 +43,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("package_layout", "check_package_layout.py"),
     ("packet_pkt_bind_completeness", "check_packet_pkt_bind_completeness.py"),
     ("plan_index_commit_continuity", "check_plan_index_commit_continuity.py"),
+    ("substrate_is_repo_portable", "check_substrate_is_repo_portable.py"),
     ("platform_layer_boundaries", "check_platform_layer_boundaries.py"),
     ("platform_contract_closure", "check_platform_contract_closure.py"),
     ("platform_contract_sync", "check_platform_contract_sync.py"),

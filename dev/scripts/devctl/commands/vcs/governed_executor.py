@@ -145,7 +145,7 @@ class GovernedVcsExecutor:
         if checkpoint_repair is not None:
             updated = replace(
                 updated,
-                push_failure_transition=checkpoint_repair.to_dict(),
+                checkpoint_repair_authority=checkpoint_repair.to_dict(),
             )
         self._persist_pipeline(updated)
         return updated

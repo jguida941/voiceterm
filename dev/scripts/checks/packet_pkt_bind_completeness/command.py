@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 
 try:
     from check_bootstrap import REPO_ROOT, emit_runtime_error
 except ModuleNotFoundError:
     from dev.scripts.checks.check_bootstrap import REPO_ROOT, emit_runtime_error
+
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from .constants import COMMAND, DEFAULT_EVENT_LOG_REL, DEFAULT_GRACE_MINUTES
 from .constants import DEFAULT_PLAN_INDEX_REL
@@ -24,7 +28,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--strict-legacy",
         action="store_true",
-        help="Fail historical Codex task_started packets that predate rev_pkt_4017.",
+        help="Fail historical Codex task_started packets that predate the configured mandate.",
     )
     parser.add_argument("--format", choices=("json", "md"), default="md")
     args = parser.parse_args(argv)

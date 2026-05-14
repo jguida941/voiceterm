@@ -55,6 +55,7 @@ class BundleRegistryContractTests(TestCase):
             "python3 dev/scripts/checks/check_provider_list_parity_graph.py",
             "python3 dev/scripts/checks/check_repo_url_parity.py",
             "python3 dev/scripts/checks/check_release_version_parity.py",
+            "python3 dev/scripts/checks/check_substrate_is_repo_portable.py",
             "python3 dev/scripts/checks/check_systemmap_covers_contract_registry.py",
             "python3 dev/scripts/checks/check_review_channel_bridge.py",
             "python3 dev/scripts/checks/check_bridge_projection_only.py",
@@ -87,6 +88,7 @@ class BundleRegistryContractTests(TestCase):
             "python3 dev/scripts/checks/check_publication_sync.py --release-branch-aware",
             "python3 dev/scripts/checks/check_python_subprocess_policy.py",
             "python3 dev/scripts/checks/check_repo_url_parity.py",
+            "python3 dev/scripts/checks/check_substrate_is_repo_portable.py",
             "python3 dev/scripts/checks/check_systemmap_covers_contract_registry.py",
             "python3 dev/scripts/checks/check_serde_compatibility.py",
         }

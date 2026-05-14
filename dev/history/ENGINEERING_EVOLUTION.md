@@ -37,6 +37,49 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-14 - Checkpoint repair authority becomes a first-class pipeline field
+
+Fact: `CheckpointRepairAuthority` already existed as the typed proof that a
+failed checkpoint guard was repaired by fresh validation evidence, but the live
+pipeline persisted that proof through `push_failure_transition`. That made a
+checkpoint repair promotion look like ordinary push-failure classification.
+
+The closure keeps compatibility but separates the contracts. `RemoteCommitPipelineContract`
+now has a `checkpoint_repair_authority` field, governed guard repair promotion
+writes that field, and startup/agent-loop readers prefer it before falling back
+to legacy artifacts. Platform contract closure covers the new field.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/remote_commit_pipeline_models.py`
+- `dev/scripts/devctl/runtime/checkpoint_repair_authority.py`
+- `dev/scripts/devctl/runtime/agent_loop_checkpoint_repair.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor.py`
+- `dev/scripts/devctl/tests/runtime/test_checkpoint_repair_authority.py`
+- `dev/scripts/devctl/tests/runtime/test_agent_loop_decision.py`
+
+### 2026-05-14 - Repo-portability guard lifts VoiceTerm literals into policy
+
+The portable governance substrate now has a registered `RepoPortabilityCheck`
+contract and `check_substrate_is_repo_portable.py` guard. The guard scans
+repo-policy configured substrate paths for hardcoded packet ids, plan ids,
+session timestamps, local paths, product names, and operator identities.
+
+The first migration moved the P1 plan-index continuity mandate and P2 packet
+binding mandate out of Python constants and into `dev/config/devctl_repo_policy.json`.
+Tooling and release workflows now run the portability guard next to the
+continuity guards, and `RepoPortabilityCheck` is registered in the platform
+contract registry and SYSTEM_MAP.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/repo_portability.py`
+- `dev/scripts/checks/check_substrate_is_repo_portable.py`
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/checks/check_plan_index_commit_continuity.py`
+- `dev/scripts/checks/packet_pkt_bind_completeness/core.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_review_core.py`
+
 ### 2026-05-14 - Automation opportunity packets stay advisory and evidence-bound
 
 Review-channel now has a dedicated `automation_opportunity` packet kind for

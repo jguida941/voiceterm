@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -13,6 +15,7 @@ from dev.scripts.checks.packet_pkt_bind_completeness.constants import (
 
 
 NOW = datetime(2026, 5, 14, 17, 0, tzinfo=UTC)
+REPO_ROOT = Path(__file__).resolve().parents[5]
 
 
 def _write_jsonl(tmp_path: Path, relative_path: str, rows: list[dict]) -> Path:
@@ -23,12 +26,52 @@ def _write_jsonl(tmp_path: Path, relative_path: str, rows: list[dict]) -> Path:
     return path
 
 
+def test_cli_shim_imports_in_script_mode() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "dev/scripts/checks/check_packet_pkt_bind_completeness.py",
+            "--help",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
 def _write_events(tmp_path: Path, events: list[dict]) -> Path:
+    _write_policy(tmp_path)
     return _write_jsonl(
         tmp_path,
         "dev/reports/review_channel/events/trace.ndjson",
         events,
     )
+
+
+def _write_policy(tmp_path: Path) -> Path:
+    path = tmp_path / "dev/config/devctl_repo_policy.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "repo_governance": {
+                    "guard_mandates": {
+                        "check_packet_pkt_bind_completeness": {
+                            "mandate_packet_id": "rev_pkt_4017",
+                            "observed_at_utc": "2026-05-14T15:37:25Z",
+                        }
+                    }
+                },
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    return path
 
 
 def _write_plan_index(tmp_path: Path, rows: list[dict]) -> Path:

@@ -81,7 +81,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-05-14T18:21:47Z`
 - Last Codex poll (Local America/New_York): `2026-05-14 14:21:47 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `b4b9817c7d5c0f0da93770b783323bc1ed91d200b0ec51c8b1dc708ddb4145ba`
+- Last non-audit worktree hash: `8aa772e2307a3a925345b7d3264697d8390614e232ce03791b3ebcfbb0e6cbe7`
 - Current instruction revision: ``
 
 ## Protocol
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-149 pending review packet(s)
+138 pending review packet(s)
 
 ## Implementer Status
 
@@ -138,11 +138,12 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Implementer
 
-- Await reviewer instruction refresh.
+- Cut a checkpoint before continuing to edit.
+- Run `python3 dev/scripts/devctl.py commit -m "<descriptive message>"`.
 
 ## Last Reviewed Scope
 
-MP-355
+MP-377
 
 ## Action Requests
 

@@ -23,12 +23,13 @@ from dev.scripts.devctl.runtime.plan_intent_ingestion import (  # noqa: E402
     TYPED_ACTION_REF_PREFIX,
     read_plan_intent_ingestion_receipts,
 )
+from dev.scripts.devctl.runtime.repo_portability import (  # noqa: E402
+    GuardMandate,
+    resolve_guard_mandate,
+)
 
 COMMAND = "check_plan_index_commit_continuity"
 DEFAULT_PLAN_INDEX_REL = "dev/state/plan_index.jsonl"
-MANDATE_PACKET_ID = "rev_pkt_4017"
-MANDATE_OBSERVED_AT_UTC = "2026-05-14T15:37:25Z"
-ENFORCED_ROW_PREFIXES = ("MP-378-",)
 ENFORCED_MUTATION_OPS = (
     "guard_discovery_build_loop_charter",
     "task_started_packet_binding",
@@ -63,11 +64,11 @@ def evaluate_plan_index_commit_continuity(
 ) -> dict[str, object]:
     """Return continuity evidence for governed plan rows.
 
-    The operator mandate in ``rev_pkt_4017`` is forward-enforcing: MP-378 rows
-    and rows observed after the mandate fail when they require lifecycle
-    continuity without the full proof triple. Older applied rows are still
-    surfaced as legacy gaps so the backlog is visible without blocking the
-    guard landing commit.
+    The repo-policy mandate window is forward-enforcing: configured row
+    prefixes and rows observed after the mandate fail when they require
+    lifecycle continuity without the full proof triple. Older applied rows are
+    still surfaced as legacy gaps so the backlog is visible without blocking
+    the guard landing commit.
     """
     resolved_path = plan_index_path or repo_root / DEFAULT_PLAN_INDEX_REL
     resolved_receipt_path = (
@@ -75,6 +76,7 @@ def evaluate_plan_index_commit_continuity(
     )
     rows, load_errors = _read_rows(resolved_path)
     receipts = read_plan_intent_ingestion_receipts(resolved_receipt_path)
+    mandate = resolve_guard_mandate(COMMAND, repo_root=repo_root)
     receipts_by_id = {
         _text(receipt.get("receipt_id")): receipt
         for receipt in receipts
@@ -94,7 +96,7 @@ def evaluate_plan_index_commit_continuity(
         row_is_applied = _text(row.get("status")) == "applied"
         if row_is_applied:
             applied_count += 1
-        enforced = _row_is_enforced(row)
+        enforced = _row_is_enforced(row, mandate=mandate)
         if enforced:
             enforced_row_count += 1
             if row_is_applied:
@@ -125,9 +127,11 @@ def evaluate_plan_index_commit_continuity(
         "ok": not load_errors and not violations,
         "plan_index_path": _display_path(resolved_path, repo_root=repo_root),
         "receipt_path": _display_path(resolved_receipt_path, repo_root=repo_root),
-        "mandate_packet_id": MANDATE_PACKET_ID,
-        "mandate_observed_at_utc": MANDATE_OBSERVED_AT_UTC,
-        "enforced_row_prefixes": ENFORCED_ROW_PREFIXES,
+        "mandate_packet_id": mandate.mandate_packet_id,
+        "mandate_observed_at_utc": mandate.observed_at_utc,
+        "mandate_policy_path": mandate.policy_path,
+        "mandate_policy_warnings": list(mandate.warnings),
+        "enforced_row_prefixes": mandate.enforced_row_prefixes,
         "strict_legacy": strict_legacy,
         "row_count": len(rows),
         "receipt_count": len(receipts),
@@ -238,9 +242,11 @@ def _matching_receipt_status(
     return "receipt_not_found"
 
 
-def _row_is_enforced(row: dict[str, Any]) -> bool:
+def _row_is_enforced(row: dict[str, Any], *, mandate: GuardMandate) -> bool:
     row_id = _text(row.get("row_id"))
-    if row_id.startswith(ENFORCED_ROW_PREFIXES):
+    if mandate.enforced_row_prefixes and row_id.startswith(
+        mandate.enforced_row_prefixes
+    ):
         return True
     mutation_op = _text(row.get("mutation_op"))
     if mutation_op in ENFORCED_MUTATION_OPS:
@@ -248,10 +254,10 @@ def _row_is_enforced(row: dict[str, Any]) -> bool:
     if _packet_binding_op_requires_continuity(row):
         return True
     refs = (*_refs(row.get("anchor_refs")), *_refs(row.get("work_evidence_ids")))
-    if f"packet:{MANDATE_PACKET_ID}" in refs:
+    if mandate.mandate_packet_id and f"packet:{mandate.mandate_packet_id}" in refs:
         return True
     observed_at = _text(_mapping(row.get("provenance")).get("observed_at_utc"))
-    return _normalize_timestamp(observed_at) >= MANDATE_OBSERVED_AT_UTC
+    return _timestamp_is_enforced(observed_at, mandate=mandate)
 
 
 def _row_requires_continuity(row: dict[str, Any]) -> bool:
@@ -289,6 +295,12 @@ def _has_prefix(values: tuple[str, ...], prefix: str) -> bool:
 
 def _normalize_timestamp(value: str) -> str:
     return value.replace("+00:00", "Z")
+
+
+def _timestamp_is_enforced(value: str, *, mandate: GuardMandate) -> bool:
+    if not value or not mandate.observed_at_utc:
+        return False
+    return _normalize_timestamp(value) >= _normalize_timestamp(mandate.observed_at_utc)
 
 
 def _text(value: object) -> str:
@@ -353,7 +365,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--strict-legacy",
         action="store_true",
-        help="Fail historical applied rows that predate the rev_pkt_4017 mandate.",
+        help="Fail historical applied rows that predate the configured mandate.",
     )
     parser.add_argument("--format", choices=("json", "md"), default="md")
     args = parser.parse_args(argv)

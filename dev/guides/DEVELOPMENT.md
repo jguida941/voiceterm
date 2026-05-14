@@ -1225,6 +1225,12 @@ Three quality layers matter in practice:
     also resolves the governed review-channel `rollover_dir` sibling from the
     managed review root before dispatching repo-owned review-channel actions,
     so review-channel command splits do not silently break startup repair.
+    Governed checkpoint repair proof now has its own pipeline field:
+    `RemoteCommitPipelineContract.checkpoint_repair_authority`. New guard
+    repair promotion writes that field, while startup and agent-loop readers
+    keep a compatibility fallback to legacy `push_failure_transition`
+    artifacts. Use `push_failure_transition` for push-failure classification,
+    not checkpoint repair authority.
     Reviewer bootstrap uses that same startup receipt, but do not flatten all
     non-zero reviewer receipts into repair. In `active_dual_agent`, a reviewer
     receipt with `action=continue_editing` / `reason=review_pending` or
@@ -1548,6 +1554,11 @@ Three quality layers matter in practice:
   closes or before a paired `task_produced` packet lands. Historical misses are
   reported as legacy gaps so cleanup remains visible without blocking forward
   enforcement.
+- Repo portability is guarded by `check_substrate_is_repo_portable.py`: portable
+  governance substrates listed in repo policy must not embed packet ids, plan
+  ids, session timestamps, local paths, product names, or operator identities.
+  Put repo-specific values in typed repo-pack policy so fresh adopters can
+  supply their own launch and guard mandates.
 - Treat moved public `dev/scripts/**` entrypoints and compatibility shims as
   smoke/integration surfaces, not pure unit seams: direct module tests are not
   enough when script mode, package mode, and public CLI/root-entrypoint
@@ -1853,6 +1864,7 @@ Why this model is safe:
 | Workflow shell anti-pattern drift | `python3 dev/scripts/checks/check_workflow_shell_hygiene.py` | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
 | Workflow action pinning drift | `python3 dev/scripts/checks/check_workflow_action_pinning.py` | `tooling_control_plane.yml` + `workflow_lint.yml` |
 | Check-script enforcement lane drift | `python3 dev/scripts/checks/check_guard_enforcement_inventory.py` | `tooling_control_plane.yml` + `release_preflight.yml` (new shared guards must also land in typed quality-policy + bundle/workflow parity) |
+| Repo-portable governance substrate drift | `python3 dev/scripts/checks/check_substrate_is_repo_portable.py` | `tooling_control_plane.yml` + `release_preflight.yml` |
 | AGENTS boot-card projection drift | `python3 dev/scripts/checks/check_agents_bundle_render.py` plus `python3 dev/scripts/checks/check_agents_contract.py` for role/help discovery; use `python3 dev/scripts/devctl.py render-surfaces --write --format md` to regenerate | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
 | Durable guide/playbook coverage drift | `python3 dev/scripts/checks/check_guide_contract_sync.py` | `tooling_control_plane.yml` + `release_preflight.yml` + `docs-check --strict-tooling` |
 | Instruction/starter surface drift | `python3 dev/scripts/checks/check_instruction_surface_sync.py` (`python3 dev/scripts/devctl.py render-surfaces --write --format md` to regenerate) | `tooling_control_plane.yml` + `docs-check --strict-tooling` |

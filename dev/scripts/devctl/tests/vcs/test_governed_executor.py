@@ -70,6 +70,7 @@ from dev.scripts.devctl.runtime.action_contracts import (
     ActionOutcome,
 )
 from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
+    CommitIntentState,
     RemoteCommitPipelineContract,
 )
 from dev.scripts.devctl.runtime.review_state_models import (
@@ -338,6 +339,47 @@ def test_commit_approval_request_without_guard_result_has_typed_summary(
         "status": "not_recorded",
     }
     validate_post_request(request)
+
+
+def test_record_guard_result_writes_checkpoint_repair_authority_field(
+    tmp_path: Path,
+) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    executor = _executor(repo_root)
+    failed_pipeline = RemoteCommitPipelineContract(
+        pipeline_id="pipeline-guard-repair",
+        generation_id="generation-1",
+        state="guards_failed",
+        blocked_reason="guard_bundle_failed",
+        intent=CommitIntentState(
+            staged_tree_hash="tree-1",
+            staged_path_count=1,
+            staged_paths=("tracked.txt",),
+        ),
+        guard_result=ActionResult(
+            schema_version=ACTION_RESULT_SCHEMA_VERSION,
+            contract_id=ACTION_RESULT_CONTRACT_ID,
+            action_id="quality.guard_bundle",
+            ok=False,
+            status=ActionOutcome.FAIL,
+            reason="guard_bundle_failed",
+        ),
+    )
+
+    updated = executor.record_guard_result(
+        _passing_guard_result(),
+        pipeline=failed_pipeline,
+    )
+
+    assert (
+        updated.checkpoint_repair_authority["contract_id"]
+        == "CheckpointRepairAuthority"
+    )
+    assert (
+        updated.checkpoint_repair_authority["next_authorized_action"]
+        == "governed_checkpoint_commit"
+    )
+    assert updated.push_failure_transition == {}
 
 
 def test_stage_replaces_stale_same_branch_pipeline_with_old_commit_sha(

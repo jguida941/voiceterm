@@ -94,6 +94,12 @@ Current ingestion status:
   proof so host process resurrection stays bound to the live
   `continuation_anchor`, active `BypassReceipt`, and green `LoopAutonomyState`
   gates.
+- 2026-05-14 checkpoint repair authority field: `RemoteCommitPipelineContract`
+  now carries first-class `checkpoint_repair_authority` evidence for
+  `CheckpointRepairAuthority` instead of overloading `push_failure_transition`.
+  Readers still accept the legacy transition field for old artifacts, but new
+  governed guard-repair promotion writes the named field so typed checkpoint
+  proof and push-failure classification stay separate.
 - 2026-05-13 P102 typestate foundation: the first transition-metadata slice
   stays inside the existing lifecycle family. `BypassLifecycle` reducers now
   carry `@governed_transition` metadata, a repo-owned
@@ -14797,3 +14803,23 @@ Evidence:
 - `dev/scripts/devctl/review_channel/packet_transition_events.py`
 - `dev/scripts/devctl/review_channel/session_liveness_events.py`
 - `dev/scripts/devctl/tests/runtime/test_derived_state_invalidation.py`
+
+## 2026-05-14 - Repo-portability guard for shared substrates
+
+Guard P16 adds a typed `RepoPortabilityCheck` contract and the
+`check_substrate_is_repo_portable.py` enforcement lane. Portable governance
+substrates now read packet mandate ids, observed-at windows, enforced row
+prefixes, project names, operator identities, and local path exceptions from
+repo-pack policy instead of embedding VoiceTerm-specific values in reusable
+guard code. P1 and P2 now resolve their mandate windows through that policy, so
+fresh adopter repos can provide their own packet and launch context without
+rewriting substrate checks.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/repo_portability.py`
+- `dev/scripts/checks/check_substrate_is_repo_portable.py`
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/checks/check_plan_index_commit_continuity.py`
+- `dev/scripts/checks/packet_pkt_bind_completeness/core.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_review_core.py`

@@ -135,6 +135,7 @@ class RemoteCommitPipelineContract:
     push_result: ActionResult | None = None
     push_pipeline_phases: Mapping[str, object] = field(default_factory=dict)
     push_failure_transition: Mapping[str, object] = field(default_factory=dict)
+    checkpoint_repair_authority: Mapping[str, object] = field(default_factory=dict)
     push_report_path: str = ""
     blocked_reason: str = "pipeline_unavailable"
     recovery_action_allowed: str = ""
@@ -185,6 +186,9 @@ class RemoteCommitPipelineContract:
         )
         payload["push_pipeline_phases"] = dict(self.push_pipeline_phases)
         payload["push_failure_transition"] = dict(self.push_failure_transition)
+        payload["checkpoint_repair_authority"] = dict(
+            self.checkpoint_repair_authority
+        )
         payload["push_report_path"] = self.push_report_path
         payload["blocked_reason"] = self.blocked_reason
         payload["recovery_action_allowed"] = self.recovery_action_allowed
@@ -305,6 +309,9 @@ def remote_commit_pipeline_contract_from_mapping(
         push_pipeline_phases=coerce_mapping(mapping.get("push_pipeline_phases")),
         push_failure_transition=coerce_mapping(
             mapping.get("push_failure_transition")
+        ),
+        checkpoint_repair_authority=coerce_mapping(
+            mapping.get("checkpoint_repair_authority")
         ),
         push_report_path=coerce_string(mapping.get("push_report_path")),
         blocked_reason=blocked_reason,

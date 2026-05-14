@@ -79,6 +79,11 @@ def checkpoint_repair_authority_from_pipeline(
     pipeline: RemoteCommitPipelineContract,
 ) -> CheckpointRepairAuthority | None:
     """Read a persisted checkpoint repair promotion from a pipeline."""
+    direct = checkpoint_repair_authority_from_mapping(
+        pipeline.checkpoint_repair_authority
+    )
+    if direct is not None:
+        return direct
     return checkpoint_repair_authority_from_mapping(pipeline.push_failure_transition)
 
 

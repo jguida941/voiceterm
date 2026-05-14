@@ -11,10 +11,12 @@ from dev.scripts.devctl.runtime.checkpoint_repair_authority import (
     GUARD_BUNDLE_FAILED,
     REPAIR_VERIFIED,
     build_checkpoint_repair_authority,
+    checkpoint_repair_authority_from_pipeline,
 )
 from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
     CommitIntentState,
     RemoteCommitPipelineContract,
+    remote_commit_pipeline_contract_from_mapping,
 )
 from dev.scripts.devctl.runtime.startup_repair import build_startup_repair_result
 from dev.scripts.devctl.runtime.startup_repair_models import (
@@ -104,6 +106,62 @@ def test_checkpoint_repair_authority_blocks_stale_validation_receipt() -> None:
         )
         is None
     )
+
+
+def test_checkpoint_repair_authority_reads_first_class_pipeline_field() -> None:
+    authority = build_checkpoint_repair_authority(
+        previous_pipeline=_failed_pipeline(),
+        repaired_pipeline=_repaired_pipeline(_failed_pipeline()),
+    )
+    assert authority is not None
+    pipeline = RemoteCommitPipelineContract(
+        pipeline_id="pipeline-1",
+        checkpoint_repair_authority=authority.to_dict(),
+        push_failure_transition={"contract_id": "OtherTransition"},
+    )
+
+    restored = checkpoint_repair_authority_from_pipeline(pipeline)
+
+    assert restored is not None
+    assert restored.pipeline_id == authority.pipeline_id
+    assert restored.validation_receipt_id == authority.validation_receipt_id
+
+
+def test_checkpoint_repair_authority_keeps_legacy_transition_fallback() -> None:
+    authority = build_checkpoint_repair_authority(
+        previous_pipeline=_failed_pipeline(),
+        repaired_pipeline=_repaired_pipeline(_failed_pipeline()),
+    )
+    assert authority is not None
+    pipeline = RemoteCommitPipelineContract(
+        pipeline_id="pipeline-1",
+        push_failure_transition=authority.to_dict(),
+    )
+
+    restored = checkpoint_repair_authority_from_pipeline(pipeline)
+
+    assert restored is not None
+    assert restored.pipeline_id == authority.pipeline_id
+
+
+def test_remote_commit_pipeline_roundtrips_checkpoint_repair_authority_field() -> None:
+    authority = build_checkpoint_repair_authority(
+        previous_pipeline=_failed_pipeline(),
+        repaired_pipeline=_repaired_pipeline(_failed_pipeline()),
+    )
+    assert authority is not None
+    payload = RemoteCommitPipelineContract(
+        pipeline_id="pipeline-1",
+        checkpoint_repair_authority=authority.to_dict(),
+    ).to_dict()
+
+    restored = remote_commit_pipeline_contract_from_mapping(payload)
+
+    assert (
+        restored.checkpoint_repair_authority["contract_id"]
+        == "CheckpointRepairAuthority"
+    )
+    assert restored.push_failure_transition == {}
 
 
 def test_startup_repair_surfaces_governed_commit_after_verified_repair() -> None:

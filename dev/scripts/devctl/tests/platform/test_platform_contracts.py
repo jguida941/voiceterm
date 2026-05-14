@@ -229,6 +229,7 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "approval_expires_at_utc" in contract_map["RemoteCommitPipelineContract"]
     assert "approved_target_identity" in contract_map["RemoteCommitPipelineContract"]
     assert "push_authorization" in contract_map["RemoteCommitPipelineContract"]
+    assert "checkpoint_repair_authority" in contract_map["RemoteCommitPipelineContract"]
     assert "tree_hash_match" in contract_map["CheckpointBudgetShape"]
     assert "bootstrap_blocked" in contract_map["CheckpointBudgetShape"]
     assert "next_required_action" in contract_map["CheckpointBudgetShape"]

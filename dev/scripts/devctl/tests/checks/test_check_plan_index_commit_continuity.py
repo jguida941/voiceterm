@@ -13,6 +13,31 @@ def _write_plan_index(tmp_path: Path, rows: list[dict]) -> Path:
         "\n".join(json.dumps(row, sort_keys=True) for row in rows) + "\n",
         encoding="utf-8",
     )
+    _write_policy(tmp_path)
+    return path
+
+
+def _write_policy(tmp_path: Path) -> Path:
+    path = tmp_path / "dev/config/devctl_repo_policy.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "repo_governance": {
+                    "guard_mandates": {
+                        "check_plan_index_commit_continuity": {
+                            "mandate_packet_id": "rev_pkt_4017",
+                            "observed_at_utc": "2026-05-14T15:37:25Z",
+                            "enforced_row_prefixes": ["MP-378-"],
+                        }
+                    }
+                },
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
     return path
 
 

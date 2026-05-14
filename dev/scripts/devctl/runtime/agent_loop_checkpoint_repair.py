@@ -23,6 +23,11 @@ def checkpoint_repair_authority_for_loop(
         return direct.to_dict()
     commit_pipeline = _mapping(review_state.get("commit_pipeline"))
     promoted = checkpoint_repair_authority_from_mapping(
+        _mapping(commit_pipeline.get("checkpoint_repair_authority"))
+    )
+    if promoted is not None:
+        return promoted.to_dict()
+    promoted = checkpoint_repair_authority_from_mapping(
         _mapping(commit_pipeline.get("push_failure_transition"))
     )
     return promoted.to_dict() if promoted is not None else {}

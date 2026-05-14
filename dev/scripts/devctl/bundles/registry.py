@@ -142,6 +142,7 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
     check_script_shell_command("memory_not_authority"),
     check_script_shell_command("packet_pkt_bind_completeness"),
     check_script_shell_command("plan_index_commit_continuity"),
+    check_script_shell_command("substrate_is_repo_portable"),
     check_script_shell_command("architecture_surface_sync"),
     check_script_shell_command("review_snapshot_freshness"),
     check_script_shell_command("guide_contract_sync"),

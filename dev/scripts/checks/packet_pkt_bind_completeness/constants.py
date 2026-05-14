@@ -19,8 +19,6 @@ from dev.scripts.devctl.runtime.collaboration_packet_kinds import (
 COMMAND = "check_packet_pkt_bind_completeness"
 DEFAULT_EVENT_LOG_REL = "dev/reports/review_channel/events/trace.ndjson"
 DEFAULT_PLAN_INDEX_REL = "dev/state/plan_index.jsonl"
-MANDATE_PACKET_ID = "rev_pkt_4017"
-MANDATE_OBSERVED_AT_UTC = "2026-05-14T15:37:25Z"
 DEFAULT_GRACE_MINUTES = 30
 LIFECYCLE_PACKET_KINDS = COLLABORATION_LIFECYCLE_PACKET_KINDS
 TASK_STARTED_KIND = TASK_STARTED_PACKET_KIND

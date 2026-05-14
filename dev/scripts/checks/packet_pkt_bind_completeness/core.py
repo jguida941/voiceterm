@@ -10,9 +10,11 @@ try:
 except ModuleNotFoundError:
     from dev.scripts.checks.check_bootstrap import REPO_ROOT
 
+from dev.scripts.devctl.runtime.repo_portability import GuardMandate
+from dev.scripts.devctl.runtime.repo_portability import resolve_guard_mandate
+
 from .constants import COMMAND, DEFAULT_EVENT_LOG_REL, DEFAULT_GRACE_MINUTES
-from .constants import DEFAULT_PLAN_INDEX_REL, MANDATE_OBSERVED_AT_UTC
-from .constants import MANDATE_PACKET_ID
+from .constants import DEFAULT_PLAN_INDEX_REL
 from .models import PacketBindGap, TaskStart
 from .readers import read_bound_packet_ids, read_packet_events
 from .time_support import age_minutes, display_path, format_timestamp, parse_timestamp
@@ -30,11 +32,11 @@ def evaluate_packet_pkt_bind_completeness(
 ) -> dict[str, object]:
     """Return durable binding coverage for Codex ``task_started`` packets.
 
-    The ``rev_pkt_4017`` operator mandate is forward-enforcing. Older
-    ``task_started`` packets are still reported so packet debt stays visible,
-    but only post-mandate packets block by default. A missing binding blocks
-    once either the grace window expires or a paired ``task_produced`` packet
-    is posted, whichever happens first.
+    The repo-policy mandate window is forward-enforcing. Older ``task_started``
+    packets are still reported so packet debt stays visible, but only
+    post-mandate packets block by default. A missing binding blocks once either
+    the grace window expires or a paired ``task_produced`` packet is posted,
+    whichever happens first.
     """
     resolved_event_log = event_log_path or repo_root / DEFAULT_EVENT_LOG_REL
     resolved_plan_index = plan_index_path or repo_root / DEFAULT_PLAN_INDEX_REL
@@ -43,6 +45,7 @@ def evaluate_packet_pkt_bind_completeness(
         resolved_event_log
     )
     bound_packet_ids, plan_errors = read_bound_packet_ids(resolved_plan_index)
+    mandate = resolve_guard_mandate(COMMAND, repo_root=repo_root)
     violations: list[PacketBindGap] = []
     legacy_gaps: list[PacketBindGap] = []
     pending_packets: list[dict[str, object]] = []
@@ -51,7 +54,7 @@ def evaluate_packet_pkt_bind_completeness(
     legacy_count = 0
 
     for task_start in task_starts:
-        enforced = _task_start_is_enforced(task_start)
+        enforced = _task_start_is_enforced(task_start, mandate=mandate)
         if enforced:
             enforced_count += 1
         else:
@@ -100,8 +103,10 @@ def evaluate_packet_pkt_bind_completeness(
         "ok": not errors and not violations,
         "event_log_path": display_path(resolved_event_log, repo_root=repo_root),
         "plan_index_path": display_path(resolved_plan_index, repo_root=repo_root),
-        "mandate_packet_id": MANDATE_PACKET_ID,
-        "mandate_observed_at_utc": MANDATE_OBSERVED_AT_UTC,
+        "mandate_packet_id": mandate.mandate_packet_id,
+        "mandate_observed_at_utc": mandate.observed_at_utc,
+        "mandate_policy_path": mandate.policy_path,
+        "mandate_policy_warnings": list(mandate.warnings),
         "grace_minutes": grace_minutes,
         "strict_legacy": strict_legacy,
         "task_started_count": len(task_starts),
@@ -154,8 +159,10 @@ def _produced_event_matches(task_start: TaskStart, event: dict[str, object]) -> 
     return bool(task_start.target_ref and target_ref == task_start.target_ref)
 
 
-def _task_start_is_enforced(task_start: TaskStart) -> bool:
-    return format_timestamp(task_start.timestamp_utc) >= MANDATE_OBSERVED_AT_UTC
+def _task_start_is_enforced(task_start: TaskStart, *, mandate: GuardMandate) -> bool:
+    if not mandate.observed_at_utc:
+        return False
+    return format_timestamp(task_start.timestamp_utc) >= mandate.observed_at_utc
 
 
 def _human_summary(report: dict[str, object]) -> dict[str, object]:

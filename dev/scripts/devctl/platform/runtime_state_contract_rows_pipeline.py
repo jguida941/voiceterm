@@ -280,6 +280,11 @@ PIPELINE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Typed push failure classification and state-transition evidence for automatic local-delivery movement.",
             ),
             ContractField(
+                "checkpoint_repair_authority",
+                "Mapping[str, object]",
+                "CheckpointRepairAuthority proof promoted from a repaired staged checkpoint pipeline.",
+            ),
+            ContractField(
                 "push_report_path",
                 "str",
                 "Artifact path for the current governed push report.",
