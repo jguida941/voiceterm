@@ -169,6 +169,10 @@ def test_review_channel_ack_cli_records_lifecycle_transition(tmp_path: Path) -> 
     assert event["event_type"] == "packet_acked"
     assert event["packet_id"] == packet_id
     assert event["metadata"] == {"actor": "codex"}
+    assert event["derived_state_invalidation"]["source"] == (
+        "packet_lifecycle_transition"
+    )
+    assert event["derived_state_invalidation"]["packet_id"] == packet_id
 
     acked_packet = ack_report["packet"]
     assert isinstance(acked_packet, dict)

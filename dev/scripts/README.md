@@ -3174,6 +3174,18 @@ Remote Evidence Queue note:
   remote proof can bind to validation/commit tree identity without a parallel
   receipt universe.
 
+Derived-state invalidation note:
+- `dev/scripts/devctl/runtime/derived_state_invalidation.py` owns the shared
+  payload helper for producer-side reload hints.
+- Producers attach invalidation metadata to existing events and receipts,
+  including packet arrival, packet lifecycle transition, packet durable
+  ingestion, session liveness, and plan ingestion. Do not add a separate
+  invalidation bus or authority store for these hints.
+- `PlanIntentIngestionReceipt` carries `derived_state_invalidated` and
+  `derived_state_invalidation` so plan-index, startup, `/develop next`, inbox,
+  work-board, and agent-loop consumers can reload after typed plan state
+  changes.
+
 Typestate-result note:
 - `dev/scripts/devctl/runtime/bypass_activation_result.py`,
   `dev/scripts/devctl/runtime/task_complete_result.py`, and

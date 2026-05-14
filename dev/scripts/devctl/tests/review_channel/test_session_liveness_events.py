@@ -113,6 +113,12 @@ def test_status_tick_liveness_producer_emits_liveness_expired(
     assert expired[0]["provider"] == "claude"
     assert expired[0]["session_name"] == "claude-conductor"
     assert expired[0]["live_reason"] == "detached_exit"
+    assert expired[0]["derived_state_invalidation"]["source"] == (
+        "session_liveness_event"
+    )
+    assert expired[0]["derived_state_invalidation"]["producer_id"] == (
+        "review_channel.session_liveness"
+    )
     assert "idempotency_key" in expired[0]
     assert bridge_liveness.get("participant_liveness_expired_events")
 

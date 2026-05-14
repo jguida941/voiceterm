@@ -9,6 +9,9 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from ..runtime.master_plan_store import read_plan_rows_jsonl
+from ..runtime.derived_state_invalidation import (
+    packet_durable_ingestion_invalidation,
+)
 from ..runtime.packet_carry_forward import (
     durable_packet_ids_from_finding_rows,
     durable_packet_ids_from_plan_rows,
@@ -159,6 +162,14 @@ def _append_durable_ingestion_event(
         receipt=receipt,
         event_type=event_type,
         timestamp_utc=utc_timestamp(),
+    )
+    event["derived_state_invalidation"] = packet_durable_ingestion_invalidation(
+        event_type=event_type,
+        packet_id=_text(packet.get("packet_id")),
+        source_event_id=_text(event.get("event_id")),
+        status=status,
+        receipt_id=_text(getattr(receipt, "event_id", "")),
+        target_ref=_text(getattr(receipt, "target_ref", "")),
     )
     written = append_event(
         Path(artifact_paths.event_log_path),

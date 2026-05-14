@@ -2530,6 +2530,14 @@ def test_develop_ingest_plan_body_writes_row_and_receipt(
     assert receipt["repo_state_fingerprint"]["worktree_identity"] == str(
         tmp_path.resolve()
     )
+    assert receipt["derived_state_invalidated"] is True
+    assert receipt["derived_state_invalidation"]["source"] == "plan_ingestion_event"
+    assert receipt["derived_state_invalidation"]["producer_id"] == (
+        "develop.plan_ingestion"
+    )
+    assert "develop.next" in receipt["derived_state_invalidation"][
+        "invalidated_consumers"
+    ]
     assert receipt["receipt_coverage_inventory"]["total_mp377_rows"] == 0
     assert receipt["composition_disposition_matrix"][0]["row_id"] == "MP377-P0-T22AN-W"
     assert any(
@@ -2557,6 +2565,7 @@ def test_develop_ingest_plan_body_writes_row_and_receipt(
     assert receipt["source_retention_status"] == "snapshotted"
     assert receipt["source_integrity_status"] == "ok"
     assert receipt_rows[0]["row_ids"] == ["MP377-P0-T22AN-W"]
+    assert receipt_rows[0]["derived_state_invalidated"] is True
 
 
 def test_develop_ingest_intent_alias_writes_typed_plan_receipt(

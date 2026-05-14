@@ -8373,3 +8373,12 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
     additive `tree_content_hash` identity on `CommitReceipt` and `RunRecord`.
     The Finding-to-next-action bridge remains the next Remote Evidence Queue
     follow-up.
+  - 2026-05-14 `MP377-AUTOINVAL-PRODUCER-WIRING-S1` landed the first producer
+    wiring slice for derived-state invalidation without creating a parallel
+    event bus. Packet lifecycle transitions, packet-debt repair ingestion,
+    session-liveness expiry events, and plan-ingestion receipts now attach
+    shared invalidation metadata to their existing evidence rows. The
+    `PlanIntentIngestionReceipt` contract gained additive
+    `derived_state_invalidated` / `derived_state_invalidation` fields so plan,
+    startup, inbox, work-board, agent-loop, and `/develop next` consumers can
+    reload from typed evidence after plan authority changes.

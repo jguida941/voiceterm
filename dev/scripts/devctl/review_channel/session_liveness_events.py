@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from ..runtime.derived_state_invalidation import session_liveness_invalidation_payload
 from ..time_utils import utc_timestamp
 from .session_probe import ConductorSessionRecord, load_conductor_sessions
 
@@ -38,6 +39,7 @@ class ParticipantLivenessExpiredEvent:
     terminal_window_state: str
     launch_authority_state: str
     idempotency_key: str
+    derived_state_invalidation: dict[str, object] = field(default_factory=dict)
     schema_version: int = 1
     event_type: str = "participant_liveness_expired"
     source: str = "review_channel"
@@ -149,6 +151,12 @@ def _build_liveness_expired_event(
             record.session_name,
             record.live_reason,
             record.age_seconds,
+        ),
+        derived_state_invalidation=session_liveness_invalidation_payload(
+            provider=record.provider,
+            session_name=record.session_name,
+            source_event_id=next_event_id(existing_events),
+            status=record.live_reason,
         ),
     )
     return payload.to_event()

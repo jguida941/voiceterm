@@ -7,6 +7,10 @@ from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 
+from ..runtime.derived_state_invalidation import (
+    packet_durable_ingestion_invalidation,
+    packet_lifecycle_transition_invalidation,
+)
 from .context_refs import normalize_context_pack_refs
 from .event_store import (
     DEFAULT_REVIEW_CHANNEL_PLAN_ID,
@@ -37,6 +41,9 @@ def build_transition_event(
     project_id: str,
 ) -> dict[str, object]:
     event_type = TRANSITION_EVENT_TYPES[request.action]
+    status = {"ack": "acked", "dismiss": "dismissed", "apply": "applied"}[
+        request.action
+    ]
     metadata = _transition_metadata(
         packet=packet,
         request=request,
@@ -86,9 +93,15 @@ def build_transition_event(
         full_guard_bundle_evidence=packet.get("full_guard_bundle_evidence"),
         semantic_zref=packet.get("semantic_zref") or _packet_semantic_zref(packet),
         source_identity=source_identity(packet),
-        status={"ack": "acked", "dismiss": "dismissed", "apply": "applied"}[
-            request.action
-        ],
+        status=status,
+        derived_state_invalidation=packet_lifecycle_transition_invalidation(
+            event_type=event_type,
+            packet_id=request.packet_id,
+            source_event_id=event_id,
+            status=status,
+            actor=request.actor,
+            target_ref=str(packet.get("target_ref") or ""),
+        ),
         idempotency_key=idempotency_key(
             event_type,
             request.packet_id,
@@ -180,7 +193,7 @@ def _plan_integration_event(
         else "packet_plan_ingestion_failed"
     )
     actor = str(request.actor or "").strip()
-    return {
+    event = {
         "schema_version": 1,
         "event_id": "",
         "session_id": request.session_id,
@@ -222,6 +235,14 @@ def _plan_integration_event(
             "run_id": request.run_id or packet.get("run_id") or "",
         },
     }
+    event["derived_state_invalidation"] = packet_durable_ingestion_invalidation(
+        event_type=event_type,
+        packet_id=packet_id,
+        source_event_id="",
+        status=str(plan_integration.get("status") or event.get("status") or ""),
+        target_ref=str(packet.get("target_ref") or ""),
+    )
+    return event
 
 
 def _plan_integration_recorded(plan_integration: Mapping[str, object]) -> bool:

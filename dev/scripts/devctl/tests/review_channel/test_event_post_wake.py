@@ -61,6 +61,8 @@ def test_maybe_wake_posted_reviewer_packet_records_attention_only() -> None:
     invalidation = result["derived_state_invalidation"]
     assert invalidation["contract_id"] == "PacketArrivalDerivedStateInvalidation"
     assert invalidation["source"] == "packet_arrival_event"
+    assert invalidation["producer_id"] == "review_channel.packet_arrival"
+    assert invalidation["producer_kind"] == "review_channel_event"
     assert invalidation["projection_refresh_state"] == "refreshed_by_packet_post_reducer"
     assert invalidation["projection_refresh_seq"] == 17
     assert invalidation["source_latest_event_id"] == "rev_evt_post_1"

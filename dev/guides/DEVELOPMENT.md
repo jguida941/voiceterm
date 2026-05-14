@@ -3088,6 +3088,20 @@ present paths remain `stale_but_relevant`; removed paths become
 `tree_content_hash` fields so remote evidence can bind to the same tree
 identity as validation and commit receipts.
 
+**Derived-state invalidation producers:**
+
+Use `dev/scripts/devctl/runtime/derived_state_invalidation.py` when a producer
+changes typed state that derived consumers must reload. Attach the payload to
+the producer's existing event or receipt; do not create a parallel invalidation
+queue. Current producers include packet arrival, packet lifecycle transitions,
+packet durable-ingestion repair, session-liveness expiry, and
+`PlanIntentIngestionReceipt`.
+
+Plan-ingestion receipts expose `derived_state_invalidated` and
+`derived_state_invalidation` so plan-index, startup, `/develop next`, inbox,
+work-board, and agent-loop consumers have one reload hint tied to durable plan
+evidence.
+
 **Test with different backends:**
 
 ```bash

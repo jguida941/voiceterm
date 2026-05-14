@@ -18,6 +18,7 @@ from ...runtime.plan_intent_ingestion import (
     plan_intent_action_id,
     plan_intent_receipt_id,
 )
+from ...runtime.derived_state_invalidation import plan_ingestion_invalidation_payload
 from ...runtime.correlation_spine import (
     causation_id_for_ref,
     correlation_id_for_ref,
@@ -105,6 +106,18 @@ def build_receipt(
     source = context.source
     packet = source.packet_payload
     binding_ids = receipt_binding_ids(context)
+    dry_run = bool(getattr(context.args, "dry_run", False))
+    derived_state_invalidation = plan_ingestion_invalidation_payload(
+        source_ref=source.ref,
+        packet_id=text(packet.get("packet_id")),
+        receipt_id=binding_ids.receipt_id,
+        action_id=binding_ids.action_id,
+        row_ids=outcome.row_ids,
+        target_ref=binding_ids.target_ref,
+        status=outcome.status,
+        store_statuses=outcome.store_statuses,
+        invalidated=not dry_run,
+    )
     return PlanIntentIngestionReceipt(
         receipt_id=binding_ids.receipt_id,
         action_id=binding_ids.action_id,
@@ -140,8 +153,10 @@ def build_receipt(
         repo_state_fingerprint=outcome.repo_state_fingerprint,
         receipt_coverage_inventory=outcome.receipt_coverage_inventory,
         schema_limit_warning=outcome.schema_limit_warning,
+        derived_state_invalidated=not dry_run,
+        derived_state_invalidation=derived_state_invalidation,
         recorded_at_utc=context.observed_at,
-        dry_run=bool(getattr(context.args, "dry_run", False)),
+        dry_run=dry_run,
     )
 
 

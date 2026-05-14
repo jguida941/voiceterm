@@ -15475,3 +15475,25 @@ Evidence:
 - `dev/scripts/devctl/runtime/commit_receipt.py`
 - `dev/scripts/devctl/runtime/action_contracts.py`
 - `dev/scripts/devctl/tests/remote_evidence_queue/test_path_freshness.py`
+
+### 2026-05-14 - AutoInval producer wiring uses existing evidence rows
+
+Derived-state invalidation metadata is now produced through existing
+review-channel events and plan-ingestion receipts instead of a new event bus.
+The shared runtime helper preserves the packet-arrival payload shape and is
+used by packet lifecycle transitions, packet debt repair ingestion, session
+liveness expiry events, and `PlanIntentIngestionReceipt`.
+
+Plan ingestion receipts now carry additive `derived_state_invalidated` and
+`derived_state_invalidation` fields so `/develop next`, startup context, packet
+inbox, work-board, and plan-index consumers can reload from typed evidence
+after plan authority changes.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/derived_state_invalidation.py`
+- `dev/scripts/devctl/runtime/plan_intent_ingestion.py`
+- `dev/scripts/devctl/commands/development/plan_intake_receipts.py`
+- `dev/scripts/devctl/review_channel/packet_transition_events.py`
+- `dev/scripts/devctl/review_channel/session_liveness_events.py`
+- `dev/scripts/devctl/tests/runtime/test_derived_state_invalidation.py`

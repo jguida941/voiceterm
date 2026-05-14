@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 from .master_plan_contract import MASTER_PLAN_SCHEMA_VERSION
@@ -70,6 +70,8 @@ class PlanIntentIngestionReceipt:
     repo_state_fingerprint: RepoStateFingerprint | None = None
     receipt_coverage_inventory: ReceiptCoverageInventory | None = None
     schema_limit_warning: str = ""
+    derived_state_invalidated: bool = False
+    derived_state_invalidation: dict[str, object] = field(default_factory=dict)
     recorded_at_utc: str = ""
     dry_run: bool = False
     schema_version: int = MASTER_PLAN_SCHEMA_VERSION

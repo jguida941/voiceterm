@@ -93,6 +93,16 @@ PLAN_INTAKE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "str",
                 "Warning that richer dependency/guard semantics remain in receipt and snapshot metadata until schema migration lands.",
             ),
+            ContractField(
+                "derived_state_invalidated",
+                "bool",
+                "Whether this ingestion attempt changed durable state that consumers must reload.",
+            ),
+            ContractField(
+                "derived_state_invalidation",
+                "dict[str, object]",
+                "Derived-state invalidation metadata for plan and work-decision consumers.",
+            ),
             ContractField("recorded_at_utc", "str", "UTC receipt timestamp."),
             ContractField("dry_run", "bool", "Whether writes were suppressed."),
         ),
