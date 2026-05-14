@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from ..repo_packs import active_path_config
 from ..runtime.remote_commit_pipeline_models import (
     RemoteCommitPipelineContract,
     remote_commit_pipeline_contract_from_mapping,
@@ -15,6 +16,19 @@ from ..runtime.pipeline_local_delivery_receipts import (
 
 
 COMMIT_PIPELINE_FILENAME = "commit_pipeline.json"
+
+
+def load_canonical_remote_commit_pipeline_contract(
+    *,
+    repo_root: Path,
+) -> RemoteCommitPipelineContract:
+    """Load the canonical event-backed pipeline, with legacy status fallback."""
+    for output_root in _canonical_pipeline_roots(repo_root):
+        artifact_path = output_root / COMMIT_PIPELINE_FILENAME
+        if not artifact_path.exists():
+            continue
+        return load_remote_commit_pipeline_contract(output_root=output_root)
+    return RemoteCommitPipelineContract()
 
 
 def load_remote_commit_pipeline_contract(
@@ -74,6 +88,29 @@ def persist_remote_commit_pipeline_contract(
         json.dumps(contract.to_dict(), indent=2) + "\n",
     )
     return artifact_path
+
+
+def _canonical_pipeline_roots(repo_root: Path) -> tuple[Path, ...]:
+    """Return preferred then legacy roots that may own commit_pipeline.json."""
+    from .event_store import resolve_artifact_paths
+
+    roots: list[Path] = []
+    try:
+        roots.append(Path(resolve_artifact_paths(repo_root=repo_root).projections_root))
+    except (OSError, ValueError):
+        pass
+    config = active_path_config()
+    roots.append(repo_root / config.review_projections_dir_rel)
+    roots.append(repo_root / config.review_status_dir_rel)
+    deduped: list[Path] = []
+    seen: set[Path] = set()
+    for root in roots:
+        resolved = root.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        deduped.append(root)
+    return tuple(deduped)
 
 
 def _default_receipts_root(output_root: Path) -> Path:

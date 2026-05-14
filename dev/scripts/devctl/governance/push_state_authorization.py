@@ -5,9 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ..repo_packs import active_path_config
 from ..review_channel.remote_commit_pipeline_artifact import (
-    load_remote_commit_pipeline_contract,
+    load_canonical_remote_commit_pipeline_contract,
 )
 from ..runtime.review_snapshot_refresh import receipt_commit_ancestor_shas
 from .push_policy import PushCheckpointPolicy
@@ -15,9 +14,7 @@ from .push_policy import PushCheckpointPolicy
 
 def current_approved_target_identity(*, repo_root: Path) -> str:
     """Return the current approved publish identity from the pipeline artifact."""
-    pipeline = load_remote_commit_pipeline_contract(
-        output_root=repo_root / active_path_config().review_status_dir_rel
-    )
+    pipeline = load_canonical_remote_commit_pipeline_contract(repo_root=repo_root)
     return approved_target_identity_from_pipeline(pipeline)
 
 
@@ -43,9 +40,7 @@ def current_push_authorization_state(
     current_worktree_identity: str,
 ) -> tuple[str, str, str, str, str, str, bool, bool, bool, bool]:
     """Return the current push-authorization receipt summary."""
-    pipeline = load_remote_commit_pipeline_contract(
-        output_root=repo_root / active_path_config().review_status_dir_rel
-    )
+    pipeline = load_canonical_remote_commit_pipeline_contract(repo_root=repo_root)
     return push_authorization_state_from_pipeline(
         pipeline=pipeline,
         current_head_commit=current_head_commit,

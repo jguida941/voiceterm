@@ -9,9 +9,8 @@ from pathlib import Path
 from ..governance.draft import scan_repo_governance
 from ..governance.push_state import current_head_commit_sha
 from ..governance.push_state_support import is_expired
-from ..repo_packs import active_path_config
 from ..review_channel.remote_commit_pipeline_artifact import (
-    load_remote_commit_pipeline_contract,
+    load_canonical_remote_commit_pipeline_contract,
 )
 from ..review_channel.service_identity import worktree_identity_for_repo
 from .action_contracts import ActionOutcome
@@ -318,9 +317,7 @@ def _pipeline_targets_current_publication(
 
 
 def _load_pipeline(repo_root: Path) -> RemoteCommitPipelineContract:
-    return load_remote_commit_pipeline_contract(
-        output_root=repo_root / active_path_config().review_status_dir_rel
-    )
+    return load_canonical_remote_commit_pipeline_contract(repo_root=repo_root)
 
 
 def _snapshot_only_receipt_parent_sha(

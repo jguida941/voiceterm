@@ -4558,6 +4558,11 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       self-invalidate current authorization. Non-managed HEAD movement,
       expired approval, stale fixtures, and wrong-worktree authorization still
       fail closed.
+      2026-05-14 R98 dogfood follow-up: publication authorization now reads
+      the canonical event-backed `projections/latest/commit_pipeline.json`
+      before legacy review-status roots, so a stale
+      `review_channel/latest/commit_pipeline.json` mirror cannot hide the
+      current `PushAuthorizationRecord`.
 - [ ] `MP377-P0-T08` Extend `PlatformFindingIngest` for finding durability without distraction: every review-channel finding and ad-hoc capture must mirror into `FindingBacklog` / `governance-review` with severity, plan anchor, evidence ref, lifecycle outcome, stale-pending visibility, dashboard counts, startup `quality_signals.open_findings_summary`, and findings-priority ordering. This extends the existing finding spine only.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `in_progress`

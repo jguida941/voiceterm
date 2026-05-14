@@ -1280,8 +1280,11 @@ Portability note:
   shape directly: a receipt HEAD may satisfy a current
   `PushAuthorizationRecord` through the contiguous managed
   bridge/ReviewSnapshot/generated-surface receipt chain back to the approved
-  content commit, the approved-target identity finding path consumes the same
-  chain proof instead of re-checking raw HEAD equality, and push preflight now
+  content commit, the authorization reader looks first at the canonical
+  event-backed `projections/latest/commit_pipeline.json` artifact before
+  falling back to legacy review-status roots, the approved-target identity
+  finding path consumes the same chain proof instead of re-checking raw HEAD
+  equality, and push preflight now
   runs `render-surfaces --write` plus
   a one-shot reviewer-heartbeat refresh before ReviewSnapshot refresh when
   active dual-agent `Last Codex poll` exceeds the bridge freshness threshold,

@@ -15800,3 +15800,27 @@ Evidence:
 - `dev/scripts/devctl/tests/review_channel/test_stop.py`
 - `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
 - `dev/audits/r98_push_preflight_review_channel_timeout.md`
+
+### 2026-05-14 - Governed push reads canonical push authorization
+
+R98 dogfood reached the next publication blocker after routed preflight passed:
+`devctl push --execute` reported `push_authorization_missing` even though the
+active `PushAuthorizationRecord` existed in
+`dev/reports/review_channel/projections/latest/commit_pipeline.json`. The
+publication gate and startup push-state summaries were still reading the
+legacy `dev/reports/review_channel/latest/commit_pipeline.json` root, which was
+missing the event-backed commit pipeline.
+
+Change: commit-pipeline loading now checks the canonical event-backed
+projection first and falls back to the legacy review-status root only when the
+canonical artifact is absent. The focused regression test writes an empty
+legacy pipeline next to a valid `projections/latest` pipeline and verifies that
+`publication_authorization_decision()` authorizes the current HEAD.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/remote_commit_pipeline_artifact.py`
+- `dev/scripts/devctl/runtime/push_authorization.py`
+- `dev/scripts/devctl/governance/push_state_authorization.py`
+- `dev/scripts/devctl/tests/runtime/test_push_authorization.py`
+- `dev/audits/r98_push_authorization_projection_path.md`

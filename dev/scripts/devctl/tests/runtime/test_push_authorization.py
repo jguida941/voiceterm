@@ -15,6 +15,9 @@ from dev.scripts.devctl.runtime.push_authorization import (
     _snapshot_only_receipt_parent_sha,
     publication_authorization_decision,
 )
+from dev.scripts.devctl.review_channel.remote_commit_pipeline_artifact import (
+    persist_remote_commit_pipeline_contract,
+)
 from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
     PushAuthorizationRecord,
     RemoteCommitPipelineContract,
@@ -120,6 +123,56 @@ def test_publication_authorization_allows_current_head_with_stale_reviewer_runti
     assert decision.reason == "push_authorization_current"
     assert decision.push_authorization is not None
     assert decision.push_authorization.approval_mode == "commit_pipeline_approval"
+
+
+def test_publication_authorization_reads_event_backed_pipeline_projection(
+    tmp_path: Path,
+) -> None:
+    projections_root = tmp_path / "dev/reports/review_channel/projections/latest"
+    legacy_status_root = tmp_path / "dev/reports/review_channel/latest"
+    persist_remote_commit_pipeline_contract(
+        RemoteCommitPipelineContract(),
+        output_root=legacy_status_root,
+    )
+    persist_remote_commit_pipeline_contract(
+        _pipeline(authorized_head_sha="head-123"),
+        output_root=projections_root,
+    )
+
+    with (
+        patch(
+            "dev.scripts.devctl.runtime.push_authorization.scan_repo_governance",
+            return_value=None,
+        ),
+        patch(
+            "dev.scripts.devctl.runtime.push_authorization.load_review_state",
+            return_value=_review_state(),
+        ),
+        patch(
+            "dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha",
+            return_value="head-123",
+        ),
+        patch(
+            "dev.scripts.devctl.runtime.push_authorization.worktree_identity_for_repo",
+            return_value="",
+        ),
+        patch(
+            "dev.scripts.devctl.runtime.push_authorization"
+            "._snapshot_only_receipt_parent_sha",
+            return_value="",
+        ),
+        patch(
+            "dev.scripts.devctl.runtime.push_authorization"
+            ".receipt_commit_ancestor_shas",
+            return_value=(),
+        ),
+    ):
+        decision = publication_authorization_decision(repo_root=tmp_path)
+
+    assert decision.authorized is True
+    assert decision.reason == "push_authorization_current"
+    assert decision.push_authorization is not None
+    assert decision.push_authorization.authorization_id == "push-auth-20260403T010000Z"
 
 
 @patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
