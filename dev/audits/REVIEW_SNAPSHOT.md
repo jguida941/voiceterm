@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `7f5eef7eeec4` — Refresh bridge projection after progress packet
-- Tree hash: `a5e472199038`
-- Generation stamp: `snap-d582f0bdb50e`
-- Generated at (UTC): 2026-05-14T06:20:02Z
+- HEAD: `2d494215923d` — MP377: add boot card role discovery
+- Tree hash: `c9b676cb56e1`
+- Generation stamp: `snap-b78e3aa6fd20`
+- Generated at (UTC): 2026-05-14T06:37:09Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 39 files, +2175/-1021
+- Delta since last snapshot: 24 commits, 45 files, +2326/-1039
 - Governance findings: 42 open / 0 fixed / 42 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `7f5eef7eeec40db857f128d9f217d6f2a009bb7d`
+- HEAD SHA: `2d494215923d292157fb25f373f9c316ac6ea75b`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-14T02:19:18-04:00
+- HEAD timestamp (UTC): 2026-05-14T02:36:25-04:00
 
 ## 2. Governance state
 
@@ -44,7 +44,7 @@ production client (VoiceTerm...
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (push_preflight_running)
 - publication_backlog: urgent
-- publication_guidance: 31 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 33 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -64,57 +64,61 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `7f5eef7eeec4`
+Range: last 24 commits ending at `2d494215923d`
 
 - commits: 24
-- files changed: 39
-- insertions: +2175
-- deletions: -1021
+- files changed: 45
+- insertions: +2326
+- deletions: -1039
 - bundle classes touched: docs, tooling
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `7f5eef7e` | Refresh bridge projection after progress packet | 1 | +3/-3 | docs |  |
-| 2 | `7f43ac95` | Refresh external review snapshot for 252ca280 | 2 | +56/-58 | docs |  |
-| 3 | `252ca280` | MP377: close automation opportunity packet slice | 3 | +4/-1 | tooling |  |
-| 4 | `d799f7b0` | Refresh external review snapshot for ca3766c2 | 2 | +65/-61 | docs |  |
-| 5 | `ca3766c2` | MP377: add automation opportunity packet kind | 8 | +163/-1 | tooling |  |
-| 6 | `f5359bf3` | Refresh external review snapshot for 81f814f7 | 2 | +54/-60 | docs |  |
-| 7 | `81f814f7` | MP377: close AutoInval producer wiring slice | 3 | +3/-1 | tooling |  |
-| 8 | `76e9c859` | Refresh external review snapshot for 68d7def8 | 2 | +47/-47 | docs |  |
-| 9 | `68d7def8` | MP377: avoid invalidation payload dict literal | 1 | +9/-10 | tooling |  |
-| 10 | `aa63e907` | Refresh external review snapshot for 05d5d555 | 2 | +62/-62 | docs |  |
-| 11 | `05d5d555` | MP377: type invalidation helper inputs | 7 | +174/-134 | tooling |  |
-| 12 | `07afcf41` | Refresh external review snapshot for 56e25deb | 2 | +54/-55 | docs |  |
-| 13 | `56e25deb` | MP377: refresh invalidation ground truth receipt | 1 | +2/-0 | tooling |  |
-| 14 | `23755276` | Refresh external review snapshot for 5332adba | 2 | +59/-59 | docs |  |
-| 15 | `5332adba` | MP377: remove invalidation facade wrappers | 7 | +70/-142 | tooling |  |
-| 16 | `b03c5495` | Refresh external review snapshot for 24910ea9 | 2 | +68/-71 | docs |  |
-| 17 | `24910ea9` | MP377: wire derived-state invalidation producers | 20 | +495/-32 | tooling |  |
-| 18 | `8c3b1123` | Refresh external review snapshot for cc29a3ff | 2 | +57/-58 | docs |  |
-| 19 | `cc29a3ff` | Mark AutoInval subscriber slice complete | 3 | +3/-1 | tooling |  |
-| 20 | `544dafdb` | Refresh external review snapshot for 5e817ddd | 2 | +61/-59 | docs |  |
-| 21 | `5e817ddd` | MP377: add remote evidence queue path freshness | 19 | +560/-3 | tooling |  |
-| 22 | `7e828e51` | Refresh external review snapshot for 2d9a8e2c | 2 | +56/-56 | docs |  |
-| 23 | `2d9a8e2c` | Record rev_pkt_3996 plan binding | 2 | +2/-0 | tooling |  |
-| 24 | `9ae876bd` | Refresh external review snapshot for 96cf64af | 2 | +48/-47 | docs |  |
+| 1 | `2d494215` | MP377: add boot card role discovery | 11 | +154/-18 | tooling |  |
+| 2 | `e0ed1503` | Refresh external review snapshot for 7f5eef7e | 2 | +47/-47 | docs |  |
+| 3 | `7f5eef7e` | Refresh bridge projection after progress packet | 1 | +3/-3 | docs |  |
+| 4 | `7f43ac95` | Refresh external review snapshot for 252ca280 | 2 | +56/-58 | docs |  |
+| 5 | `252ca280` | MP377: close automation opportunity packet slice | 3 | +4/-1 | tooling |  |
+| 6 | `d799f7b0` | Refresh external review snapshot for ca3766c2 | 2 | +65/-61 | docs |  |
+| 7 | `ca3766c2` | MP377: add automation opportunity packet kind | 8 | +163/-1 | tooling |  |
+| 8 | `f5359bf3` | Refresh external review snapshot for 81f814f7 | 2 | +54/-60 | docs |  |
+| 9 | `81f814f7` | MP377: close AutoInval producer wiring slice | 3 | +3/-1 | tooling |  |
+| 10 | `76e9c859` | Refresh external review snapshot for 68d7def8 | 2 | +47/-47 | docs |  |
+| 11 | `68d7def8` | MP377: avoid invalidation payload dict literal | 1 | +9/-10 | tooling |  |
+| 12 | `aa63e907` | Refresh external review snapshot for 05d5d555 | 2 | +62/-62 | docs |  |
+| 13 | `05d5d555` | MP377: type invalidation helper inputs | 7 | +174/-134 | tooling |  |
+| 14 | `07afcf41` | Refresh external review snapshot for 56e25deb | 2 | +54/-55 | docs |  |
+| 15 | `56e25deb` | MP377: refresh invalidation ground truth receipt | 1 | +2/-0 | tooling |  |
+| 16 | `23755276` | Refresh external review snapshot for 5332adba | 2 | +59/-59 | docs |  |
+| 17 | `5332adba` | MP377: remove invalidation facade wrappers | 7 | +70/-142 | tooling |  |
+| 18 | `b03c5495` | Refresh external review snapshot for 24910ea9 | 2 | +68/-71 | docs |  |
+| 19 | `24910ea9` | MP377: wire derived-state invalidation producers | 20 | +495/-32 | tooling |  |
+| 20 | `8c3b1123` | Refresh external review snapshot for cc29a3ff | 2 | +57/-58 | docs |  |
+| 21 | `cc29a3ff` | Mark AutoInval subscriber slice complete | 3 | +3/-1 | tooling |  |
+| 22 | `544dafdb` | Refresh external review snapshot for 5e817ddd | 2 | +61/-59 | docs |  |
+| 23 | `5e817ddd` | MP377: add remote evidence queue path freshness | 19 | +560/-3 | tooling |  |
+| 24 | `7e828e51` | Refresh external review snapshot for 2d9a8e2c | 2 | +56/-56 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `bridge.md` | docs | +37/-37 |
-| `dev/active/MASTER_PLAN.md` | tooling | +23/-0 |
-| `dev/active/ai_governance_platform.md` | tooling | +48/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +653/-659 |
-| `dev/guides/DEVELOPMENT.md` | docs | +32/-0 |
+| `AGENTS.md` | docs | +15/-6 |
+| `bridge.md` | docs | +36/-36 |
+| `dev/active/MASTER_PLAN.md` | tooling | +27/-0 |
+| `dev/active/ai_governance_platform.md` | tooling | +54/-1 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +653/-660 |
+| `dev/config/devctl_repo_policy.json` | tooling | +12/-0 |
+| `dev/guides/DEVELOPMENT.md` | docs | +39/-4 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +3/-3 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +66/-0 |
-| `dev/scripts/README.md` | tooling | +32/-0 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +89/-0 |
+| `dev/scripts/README.md` | tooling | +41/-5 |
+| `dev/scripts/checks/check_agents_contract.py` | tooling | +16/-0 |
 | `dev/scripts/devctl/commands/development/plan_intake_receipts.py` | tooling | +49/-20 |
 | `dev/scripts/devctl/commands/review_channel/event_post_wake_reports.py` | tooling | +35/-35 |
+| `dev/scripts/devctl/governance/instruction_boot_card.py` | tooling | +31/-2 |
 | `dev/scripts/devctl/platform/runtime_identity_contract_rows.py` | tooling | +5/-0 |
 | `dev/scripts/devctl/platform/runtime_identity_contract_rows_commit.py` | tooling | +5/-1 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_plan_intake.py` | tooling | +10/-0 |
@@ -130,7 +134,9 @@ Range: last 24 commits ending at `7f5eef7eeec4`
 | `dev/scripts/devctl/runtime/commit_receipt.py` | tooling | +18/-0 |
 | `dev/scripts/devctl/runtime/derived_state_invalidation.py` | tooling | +320/-181 |
 | `dev/scripts/devctl/runtime/plan_intent_ingestion.py` | tooling | +3/-1 |
+| `dev/scripts/devctl/tests/checks/test_check_agents_contract.py` | tooling | +18/-0 |
 | `dev/scripts/devctl/tests/commands/test_development_command.py` | tooling | +9/-0 |
+| `dev/scripts/devctl/tests/governance/test_render_surfaces.py` | tooling | +12/-0 |
 | `dev/scripts/devctl/tests/remote_evidence_queue/test_path_freshness.py` | tooling | +190/-0 |
 | `dev/scripts/devctl/tests/review_channel/test_ack_cli_e2e.py` | tooling | +4/-0 |
 | `dev/scripts/devctl/tests/review_channel/test_event_post_action.py` | tooling | +23/-0 |
@@ -139,11 +145,7 @@ Range: last 24 commits ending at `7f5eef7eeec4`
 | `dev/scripts/devctl/tests/review_channel/test_session_liveness_events.py` | tooling | +6/-0 |
 | `dev/scripts/devctl/tests/runtime/test_action_contracts.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/tests/runtime/test_commit_receipt.py` | tooling | +3/-0 |
-| `dev/scripts/devctl/tests/runtime/test_derived_state_invalidation.py` | tooling | +88/-25 |
-| `dev/state/ground_truth_probe_receipts.jsonl` | tooling | +3/-0 |
-| `dev/state/plan_index.jsonl` | tooling | +5/-3 |
-| `dev/state/plan_ingestion_receipts.jsonl` | tooling | +5/-0 |
-| `dev/state/plan_source_snapshots.jsonl` | tooling | +4/-0 |
+| _5 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -154,8 +156,8 @@ Range: last 24 commits ending at `7f5eef7eeec4`
 - false positives: 0
 
 Recent findings:
-- `review_channel.command_latency_under_fanout` — `dev/scripts/devctl/commands/review_channel` (high, verdict=`confirmed_issue`)
 - `work_board.rows_duplication` — `dev/scripts/devctl/runtime/agent_dispatch_router.py` (high, verdict=`confirmed_issue`)
+- `dogfood.command.tandem-validate` — `dev/scripts/devctl/commands/governance/simple_lanes.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.pipeline` — `dev/scripts/devctl/commands/pipeline/command.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.process-audit` — `dev/scripts/devctl/commands/process/audit.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.check-router` — `dev/scripts/devctl/commands/check/router.py` (n/a, verdict=`confirmed_issue`)
@@ -192,6 +194,8 @@ Recent findings:
 
 ### Targeted hints
 
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/checks/check_agents_contract.py`) — Commit 2d494215 changed dev/scripts/checks/check_agents_contract.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/checks/test_check_agents_contract.py`) — Commit 2d494215 changed dev/scripts/devctl/tests/checks/test_check_agents_contract.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/review_channel/packet_contract.py`) — Commit ca3766c2 changed dev/scripts/devctl/review_channel/packet_contract.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/runtime_identity_contract_rows.py`) — Commit 5e817ddd changed dev/scripts/devctl/platform/runtime_identity_contract_rows.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/action_contracts.py`) — Commit 5e817ddd changed dev/scripts/devctl/runtime/action_contracts.py
@@ -208,6 +212,10 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`2d494215`** — MP377: add boot card role discovery
+  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+- **`e0ed1503`** — Refresh external review snapshot for 7f5eef7e
+  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
 - **`7f5eef7e`** — Refresh bridge projection after progress packet
   - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
 - **`7f43ac95`** — Refresh external review snapshot for 252ca280
@@ -252,10 +260,6 @@ Recent findings:
   - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
 - **`7e828e51`** — Refresh external review snapshot for 2d9a8e2c
   - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
-- **`2d9a8e2c`** — Record rev_pkt_3996 plan binding
-  - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
-- **`9ae876bd`** — Refresh external review snapshot for 96cf64af
-  - evolution: Live MP-377 remote-control dogfood exposed four small friction points that were making the typed loop slower and harder to read: repeated check-router policy loads, governed-push preflight not forwarding worker parallel…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -280,8 +284,9 @@ Recent findings:
 - Stop because nothing remains to push.
 
 ### Open gap rows
-- **governance_open** (`dev/scripts/devctl/commands/review_channel`): review_channel.command_latency_under_fanout: source_packet_ids=rev_pkt_2704,rev_pkt_2705; review-channel post and startup-context can hang under multi-agent load, tied to process-cleanup and detached sleep pressure. Durable owner: MP377-GUARDIR-FANOUT-COMMAND-HANGS.
 - **governance_open** (`dev/scripts/devctl/runtime/agent_dispatch_router.py`): work_board.rows_duplication: source_packet_ids=rev_pkt_2700,rev_pkt_2705; _work_board_rows logic is duplicated between packet_route_resolution.py and agent_dispatch_router.py. Durable owner: MP377-GUARDIR-WORK-BOARD-ROUTE-DEDUP.
+- **governance_open** (`dev/scripts/devctl/commands/governance/simple_lanes.py`): dogfood.command.tandem-validate: Auto-ingested devctl finalization failure rc=1.
+repo_path=/Users/jguida941/testing_upgrade/codex-voice
 - **governance_open** (`dev/scripts/devctl/commands/pipeline/command.py`): dogfood.command.pipeline: Auto-ingested devctl finalization failure rc=1.
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
 - **governance_open** (`dev/scripts/devctl/commands/process/audit.py`): dogfood.command.process-audit: Auto-ingested devctl finalization failure rc=1.
@@ -297,4 +302,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-d582f0bdb50e` binds this file to HEAD `7f5eef7eeec4`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-b78e3aa6fd20` binds this file to HEAD `2d494215923d`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
