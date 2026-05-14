@@ -59,6 +59,8 @@ class CheckAgentsContractTests(TestCase):
         self.assertEqual(report["missing_markers"], [])
         self.assertEqual(report["missing_commands"], [])
         self.assertEqual(report["forbidden_claims"], [])
+        self.assertEqual(report["missing_role_choices"], [])
+        self.assertEqual(report["forbidden_role_placeholders"], [])
 
     def test_build_report_flags_missing_command(self) -> None:
         missing_command = "system-picture"
@@ -79,6 +81,22 @@ class CheckAgentsContractTests(TestCase):
             report["forbidden_claims"],
             ["AGENTS.md is canonical authority"],
         )
+
+    def test_build_report_flags_role_placeholder(self) -> None:
+        text = self._valid_agents_text().replace("--role reviewer", "--role <role>", 1)
+        agents_path = self._with_temp_agents(text)
+        with patch.object(self.script, "AGENTS_PATH", agents_path):
+            report = self.script._build_report()
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["forbidden_role_placeholders"], ["--role <role>"])
+
+    def test_build_report_flags_missing_role_choice(self) -> None:
+        text = self._valid_agents_text().replace("`observer`", "`viewer`")
+        agents_path = self._with_temp_agents(text)
+        with patch.object(self.script, "AGENTS_PATH", agents_path):
+            report = self.script._build_report()
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["missing_role_choices"], ["observer"])
 
     def test_build_report_missing_file_returns_error(self) -> None:
         missing_path = REPO_ROOT / "tmp-check-agents-contract-missing.md"

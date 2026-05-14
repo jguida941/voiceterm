@@ -164,8 +164,11 @@ Generated bootstrap surfaces are part of that same architecture boundary:
 and `CODEX.md` is not generated as a repo surface. Keep them synced with
 `render-surfaces`, and make sure they explain the compiler-style control model plus the
 `TypedAction -> ActionResult -> RunRecord` path instead of relying on chat
-memory or stale starter prose. `AGENTS.md` also states the canonical
-memory-is-continuity rule enforced by `check_memory_not_authority.py`.
+memory or stale starter prose. Generated boot cards must also enumerate the
+valid session roles (`reviewer`, `implementer`, `dashboard`, `observer`) and
+show help-discovery commands so fresh agents do not guess invalid role names.
+`AGENTS.md` also states the canonical memory-is-continuity rule enforced by
+`check_memory_not_authority.py`.
 Reviewer bootstrap note: repo-owned Codex conductors still begin with
 `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`,
 but a non-zero receipt with `action=continue_editing` / `reason=review_pending`
@@ -1903,7 +1906,7 @@ summary over the selected snapshot window.
 | `dev/scripts/artifacts/sha256.py` | Checksum writer | Canonical helper for release/archive checksum generation. |
 | `dev/scripts/checks/check_mutation_score.py` | Mutation score gate | Used in CI and local validation; prints outcomes source freshness and supports `--max-age-hours` stale-data gating. |
 | `dev/scripts/checks/check_mutation_bypass_graph_closure.py` | Governed-mutation bypass graph guard | Stable shim entrypoint for the graph-backed mutation-bypass closure check while the packaged implementation lives under `dev/scripts/checks/mutation_bypass_graph_closure/`; proves raw-git mutation callsites still route through the governed executor surface. |
-| `dev/scripts/checks/check_agents_contract.py` | AGENTS boot-card contract gate | Verifies `AGENTS.md` is a generated projection-only `InstructionBootCard` with the required bootstrap sections, command routes, provenance markers, size budgets, and forbidden authority-claim checks. |
+| `dev/scripts/checks/check_agents_contract.py` | AGENTS boot-card contract gate | Verifies `AGENTS.md` is a generated projection-only `InstructionBootCard` with the required bootstrap sections, command routes, valid role discovery, help-discovery commands, provenance markers, size budgets, and forbidden authority-claim/role-placeholder checks. |
 | `dev/scripts/checks/check_agents_bundle_render.py` | AGENTS boot-card render compatibility gate | Backward-compatible guard for existing bundles; delegates to `render-surfaces` for the `agents_boot_card` projection instead of treating AGENTS as command-bundle authority. |
 | `dev/scripts/checks/check_bootstrap.py` | Check bootstrap helper | Shared import-resolution and UTC runtime-error/timestamp helpers used by standalone guard scripts; not invoked directly by bundles. |
 | `dev/scripts/checks/check_active_plan_sync.py` | Active-plan sync gate | Verifies `dev/active/INDEX.md` registry coverage, tracker authority, mirrored-spec phase headings, cross-doc links, execution-plan metadata/marker/section parity (including `Session Resume`), the typed umbrella-plan phase/task contract for `dev/active/ai_governance_platform.md`, `MP-*` scope parity between index/spec docs and `MASTER_PLAN`, archive-vs-active doc boundaries for the reduced active owner set, and `MASTER_PLAN` Status Snapshot release metadata freshness. |
@@ -2166,8 +2169,9 @@ Machine-first output note:
   - `AGENTS.md` is the shared first-hop AI boot card. `CLAUDE.md` remains an
     ignored local peer projection for provider-specific startup, but `CODEX.md`
     is not a repo surface; Codex uses `AGENTS.md`. The generated boot card owns
-    the memory-continuity warning so local notes cannot become process
-    authority by omission.
+    role discovery, help-discovery commands, and the memory-continuity warning
+    so local notes or generic AI role names cannot become process authority by
+    omission.
   - The same render pass derives boot-card routing from typed startup and
     governance context, so repo policy JSON does not carry duplicate bootstrap
     prose or a local Codex boot-card target.

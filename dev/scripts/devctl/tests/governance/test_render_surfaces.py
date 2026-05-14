@@ -173,6 +173,14 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             rendered_text,
         )
         self.assertIn(
+            "Valid `--role` choices for `session`, `startup-context`, and `session-resume`: `reviewer`, `implementer`, `dashboard`, or `observer`.",
+            rendered_text,
+        )
+        self.assertIn(
+            "python3 dev/scripts/devctl.py session --help",
+            rendered_text,
+        )
+        self.assertIn(
             "projection_only: true",
             rendered_text,
         )
@@ -198,6 +206,10 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
         self.assertIn("platform-contracts", rendered_text)
         self.assertIn("develop next", rendered_text)
         self.assertIn("develop show", rendered_text)
+        self.assertIn("python3 dev/scripts/devctl.py session --help", rendered_text)
+        self.assertIn("python3 dev/scripts/devctl.py develop --help", rendered_text)
+        self.assertNotIn("--role <role>", rendered_text)
+        self.assertNotIn("--actor <actor>", rendered_text)
         for forbidden in agents_surface.forbidden_contains:
             self.assertNotIn(forbidden, rendered_text)
         self.assertIn(

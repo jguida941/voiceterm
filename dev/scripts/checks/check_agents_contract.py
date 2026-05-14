@@ -18,9 +18,11 @@ if str(REPO_ROOT) not in sys.path:
 
 from dev.scripts.devctl.governance.instruction_boot_card import (  # noqa: E402
     FORBIDDEN_BOOT_CLAIMS,
+    FORBIDDEN_BOOT_ROLE_PLACEHOLDERS,
     INSTRUCTION_BOOT_CARD_CONTRACT_ID,
     REQUIRED_BOOT_COMMANDS,
     REQUIRED_BOOT_SECTIONS,
+    SESSION_ROLE_CHOICES,
 )
 
 AGENTS_PATH = REPO_ROOT / "AGENTS.md"
@@ -70,6 +72,14 @@ def _build_report() -> dict:
         if not _contains_command_token(text, command)
     ]
     forbidden_claims = [claim for claim in FORBIDDEN_BOOT_CLAIMS if claim in text]
+    missing_role_choices = [
+        role for role in SESSION_ROLE_CHOICES if f"`{role}`" not in text
+    ]
+    forbidden_role_placeholders = [
+        placeholder
+        for placeholder in FORBIDDEN_BOOT_ROLE_PLACEHOLDERS
+        if placeholder in text
+    ]
     over_line_budget = line_count > MAX_BOOT_CARD_LINES
     over_byte_budget = byte_count > MAX_BOOT_CARD_BYTES
 
@@ -78,6 +88,8 @@ def _build_report() -> dict:
         or missing_markers
         or missing_commands
         or forbidden_claims
+        or missing_role_choices
+        or forbidden_role_placeholders
         or over_line_budget
         or over_byte_budget
     )
@@ -95,6 +107,8 @@ def _build_report() -> dict:
         "missing_markers": missing_markers,
         "missing_commands": missing_commands,
         "forbidden_claims": forbidden_claims,
+        "missing_role_choices": missing_role_choices,
+        "forbidden_role_placeholders": forbidden_role_placeholders,
         "over_line_budget": over_line_budget,
         "over_byte_budget": over_byte_budget,
     }
@@ -116,6 +130,8 @@ def _render_md(report: dict) -> str:
         "missing_markers",
         "missing_commands",
         "forbidden_claims",
+        "missing_role_choices",
+        "forbidden_role_placeholders",
     ):
         value = report[key]
         lines.append(f"- {key}: " + (", ".join(value) if value else "none"))

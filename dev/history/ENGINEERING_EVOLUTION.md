@@ -15438,6 +15438,29 @@ Evidence:
 - `dev/scripts/devctl/tests/review_channel/test_bridge_projection_mode_defaults.py`
 - `dev/scripts/devctl/tests/runtime/test_startup_context.py`
 
+### 2026-05-14 - Boot cards expose valid role choices and help discovery
+
+Generated AGENTS/CLAUDE boot cards now enumerate the valid session roles
+(`reviewer`, `implementer`, `dashboard`, `observer`) and include first-hop help
+commands before the run-in-order sequence. The shared `AGENTS.md` projection no
+longer renders `--role <role>` / `--actor <actor>` placeholders; it uses the
+Codex reviewer lane by default and tells agents to switch only when typed
+startup authority, operator direction, or session assignment says to.
+
+The AGENTS contract guard now fails placeholder/invalid-role examples and
+requires all valid role choices and help-discovery commands, closing the
+recurrent fresh-session false-start where agents guessed `codex` or
+`coding-agent` as a role.
+
+Evidence:
+
+- `dev/scripts/devctl/governance/instruction_boot_card.py`
+- `dev/scripts/checks/check_agents_contract.py`
+- `AGENTS.md`
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/devctl/tests/checks/test_check_agents_contract.py`
+- `dev/scripts/devctl/tests/governance/test_render_surfaces.py`
+
 ### 2026-05-14 - MP377 reviewer-mode slice closure is recorded in typed state
 
 The reviewer-mode role-binding symmetry slice now has typed closure evidence:

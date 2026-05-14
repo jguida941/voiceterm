@@ -6648,6 +6648,11 @@ become the main product surface.
     live `devctl session --role implementer --include-review-status always
     --format json` emitted a complete `SessionOrientationPacket` with all four
     child reducers parsed.
+    2026-05-14 update: `MP377-BOOT-CARD-ROLE-DISCOVERY-S1` closes the adjacent
+    fresh-session role-discovery smell by rendering concrete AGENTS/CLAUDE
+    role examples, enumerating `reviewer`, `implementer`, `dashboard`, and
+    `observer`, surfacing help commands, and teaching `check_agents_contract.py`
+    to reject `--role <role>`/invalid-role placeholders.
   - [ ] `MP377-P0-T22AN-AD` now owns Claude `rev_pkt_2863` slash-domain
     architecture: split canonical slash entry points by typed backend domain
     while keeping current `/develop` role presets as compatibility aliases

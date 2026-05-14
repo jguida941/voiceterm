@@ -10,6 +10,7 @@ INSTRUCTION_BOOT_CARD_SCHEMA_VERSION = 1
 
 REQUIRED_BOOT_SECTIONS = (
     "This is projection-only",
+    "Role and Help Discovery",
     "Run in order",
     "Typed authority",
     "Projection-only surfaces",
@@ -20,12 +21,17 @@ REQUIRED_BOOT_SECTIONS = (
 )
 
 REQUIRED_BOOT_COMMANDS = (
+    "devctl.py --help",
     "session --role",
+    "session --help",
     "startup-context",
     "session-resume",
     "review-channel status",
+    "review-channel --action post --help",
     "context-graph --mode bootstrap",
+    "context-graph --help",
     "develop next",
+    "develop --help",
     "enforce-final-response-gate",
     "system-map",
     "system-picture",
@@ -39,6 +45,13 @@ FORBIDDEN_BOOT_CLAIMS = (
     "AGENTS.md is canonical authority",
     "CLAUDE.md is canonical authority",
     "VoiceTerm is hidden default platform authority",
+)
+
+SESSION_ROLE_CHOICES = ("reviewer", "implementer", "dashboard", "observer")
+FORBIDDEN_BOOT_ROLE_PLACEHOLDERS = (
+    "--role <role>",
+    "--role coding-agent",
+    "--role codex",
 )
 
 
@@ -85,6 +98,15 @@ def build_instruction_boot_card(
         "- Durable process authority lives in typed state, active owner docs, repo-pack policy, contracts, receipts, and guards.",
         "- VoiceTerm is this repo's first-party adopter/client of the portable governance platform.",
         "- Resolve repo behavior through `ProjectGovernance`, repo-pack policy, and typed runtime contracts.",
+        "",
+        "## Role and Help Discovery",
+        "",
+        f"- Valid `--role` choices for `session`, `startup-context`, and `session-resume`: {_role_choices_text()}.",
+        f"- This surface's examples use `--role {card.role_arg}` and `--actor {card.actor_arg}`; switch only when typed startup authority, operator direction, or session assignment says to.",
+        "- Discover command shape before guessing: `python3 dev/scripts/devctl.py --help`.",
+        "- Inspect session bootstrap help: `python3 dev/scripts/devctl.py session --help`.",
+        "- Inspect packet posting help: `python3 dev/scripts/devctl.py review-channel --action post --help`.",
+        "- Inspect controller and graph help: `python3 dev/scripts/devctl.py develop --help` and `python3 dev/scripts/devctl.py context-graph --help`.",
         "",
         "## Run in order",
         "",
@@ -193,17 +215,24 @@ def _surface_role(*, surface_id: str, output_path: str) -> tuple[str, str]:
     text = f"{surface_id} {output_path}".lower()
     if "claude" in text:
         return "implementer", "claude"
-    if "codex" in text:
+    if "codex" in text or "agents_boot_card" in text or "agents.md" in text:
         return "reviewer", "codex"
-    return "<role>", "<actor>"
+    return "reviewer", "codex"
+
+
+def _role_choices_text() -> str:
+    head = ", ".join(f"`{role}`" for role in SESSION_ROLE_CHOICES[:-1])
+    return f"{head}, or `{SESSION_ROLE_CHOICES[-1]}`"
 
 
 __all__ = [
     "FORBIDDEN_BOOT_CLAIMS",
+    "FORBIDDEN_BOOT_ROLE_PLACEHOLDERS",
     "INSTRUCTION_BOOT_CARD_CONTRACT_ID",
     "INSTRUCTION_BOOT_CARD_SCHEMA_VERSION",
     "InstructionBootCard",
     "REQUIRED_BOOT_COMMANDS",
     "REQUIRED_BOOT_SECTIONS",
+    "SESSION_ROLE_CHOICES",
     "build_instruction_boot_card",
 ]

@@ -4879,7 +4879,12 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       durable authority. The generated boot card now includes the canonical
       memory-is-continuity rule required by `check_memory_not_authority.py`,
       so local notes stay continuity hints instead of process authority. The
-      managed pre-commit hook is now a read-only `commit_permission` gate, and
+      2026-05-14 role-discovery follow-up makes that first-hop boot card
+      enumerate `reviewer`, `implementer`, `dashboard`, and `observer`, renders
+      concrete AGENTS/CLAUDE role+actor examples, surfaces help-discovery
+      commands, and extends `check_agents_contract.py` so placeholder or
+      invalid role examples fail the generated-surface contract. The managed
+      pre-commit hook is now a read-only `commit_permission` gate, and
       the post-commit ReviewSnapshot receipt hook is time-bounded and fail-open
       so typed guard freshness, not a hanging hook subprocess, owns receipt
       proof after commits.

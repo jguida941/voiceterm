@@ -1331,7 +1331,9 @@ Three quality layers matter in practice:
   `devctl push`.
 - The shared `AGENTS.md` boot card and ignored local `CLAUDE.md` peer
   projection both render from typed authority in
-  `dev/scripts/devctl/governance/task_router_contract.py`. When the touched
+  `dev/scripts/devctl/governance/instruction_boot_card.py`. They must name the
+  valid session roles (`reviewer`, `implementer`, `dashboard`, `observer`) and
+  show help commands before the run-in-order sequence. When the touched
   scope is mixed or unclear, run
   `python3 dev/scripts/devctl.py check-router --format md` instead of relying
   on memory or a stale prose copy.
@@ -1341,7 +1343,8 @@ Three quality layers matter in practice:
   templates, context values, or generated starter outputs. The policy generates
   `AGENTS.md` as the shared tracked boot card and must not materialize a
   `CODEX.md` boot-card surface. The boot-card renderer also owns the memory
-  continuity rule required by `check_memory_not_authority.py`.
+  continuity rule required by `check_memory_not_authority.py`, plus the
+  role/help discovery required by `check_agents_contract.py`.
 - The managed pre-commit hook is read-only: it evaluates the typed
   `commit_permission` boundary and never refreshes, stages, or writes
   ReviewSnapshot/bridge projections while git is preparing the commit index.
@@ -1810,7 +1813,7 @@ Why this model is safe:
 | Workflow shell anti-pattern drift | `python3 dev/scripts/checks/check_workflow_shell_hygiene.py` | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
 | Workflow action pinning drift | `python3 dev/scripts/checks/check_workflow_action_pinning.py` | `tooling_control_plane.yml` + `workflow_lint.yml` |
 | Check-script enforcement lane drift | `python3 dev/scripts/checks/check_guard_enforcement_inventory.py` | `tooling_control_plane.yml` + `release_preflight.yml` (new shared guards must also land in typed quality-policy + bundle/workflow parity) |
-| AGENTS boot-card projection drift | `python3 dev/scripts/checks/check_agents_bundle_render.py` plus `python3 dev/scripts/devctl.py render-surfaces --write --format md` to regenerate | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
+| AGENTS boot-card projection drift | `python3 dev/scripts/checks/check_agents_bundle_render.py` plus `python3 dev/scripts/checks/check_agents_contract.py` for role/help discovery; use `python3 dev/scripts/devctl.py render-surfaces --write --format md` to regenerate | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
 | Durable guide/playbook coverage drift | `python3 dev/scripts/checks/check_guide_contract_sync.py` | `tooling_control_plane.yml` + `release_preflight.yml` + `docs-check --strict-tooling` |
 | Instruction/starter surface drift | `python3 dev/scripts/checks/check_instruction_surface_sync.py` (`python3 dev/scripts/devctl.py render-surfaces --write --format md` to regenerate) | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
 | Python broad-except drift (new `except Exception` / `BaseException` without rationale) | `python3 dev/scripts/checks/check_python_broad_except.py --since-ref origin/develop --head-ref HEAD` | `tooling_control_plane.yml` + `release_preflight.yml` + `devctl check --profile ci` AI guard |
@@ -2730,7 +2733,7 @@ Docs governance guardrails:
   `devctl progress-status`; this is progress instrumentation only and does not
   wake packet handlers or launch conductors.
 - `devctl` structured status reports for `check`/`triage` now emit UTC timestamps for deterministic run-correlation across local + CI artifacts.
-- `python3 dev/scripts/checks/check_agents_contract.py` validates that `AGENTS.md` is a generated projection-only `InstructionBootCard` with required bootstrap sections, command routes, provenance markers, size budgets, and forbidden authority-claim checks.
+- `python3 dev/scripts/checks/check_agents_contract.py` validates that `AGENTS.md` is a generated projection-only `InstructionBootCard` with required bootstrap sections, command routes, valid session role discovery, help-discovery commands, provenance markers, size budgets, and forbidden authority-claim/role-placeholder checks.
 - `python3 dev/scripts/checks/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, active-doc cross-link integrity, execution-plan metadata/marker/section parity, the typed umbrella-plan phase/task contract, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`. The same guard now runs in the default AI guard lane, so `devctl check --profile ci` and governed commit bundles no longer rely on docs-only enforcement for plan drift.
 - `python3 dev/scripts/checks/check_release_version_parity.py` validates Cargo/PyPI/macOS release version parity.
 - `find . -maxdepth 1 -type f -name '--*'` catches accidental root-level argument artifact files.
