@@ -15451,3 +15451,27 @@ Evidence:
 - `dev/scripts/devctl/review_channel/event_render.py`
 - `dev/scripts/devctl/tests/review_channel/test_event_post_wake.py`
 - `dev/scripts/devctl/tests/review_channel/test_event_render_typed_sections.py`
+
+### 2026-05-14 - Remote Evidence Queue path freshness
+
+Remote validation evidence can now be reconciled against the current tree
+without relying on agent memory. The new
+`dev/scripts/devctl/remote_evidence_queue/` package defines
+`RemoteValidationReceipt` plus path-freshness helpers that map a
+`FindingRecord.file_path` from `applies_to_tree` to `current_tree`, returning
+current, stale-but-relevant, or stale-and-superseded evidence. The helper
+reuses existing git changed-path utilities and treats renamed paths as still
+relevant.
+
+`CommitReceipt` and `RunRecord` gained additive `tree_content_hash` fields so
+remote artifacts can bind to the same tree identity as validation and commit
+receipts. This keeps remote proof on the existing evidence chain instead of
+creating a parallel receipt authority.
+
+Evidence:
+
+- `dev/scripts/devctl/remote_evidence_queue/models.py`
+- `dev/scripts/devctl/remote_evidence_queue/path_freshness.py`
+- `dev/scripts/devctl/runtime/commit_receipt.py`
+- `dev/scripts/devctl/runtime/action_contracts.py`
+- `dev/scripts/devctl/tests/remote_evidence_queue/test_path_freshness.py`

@@ -14694,3 +14694,27 @@ Evidence:
 - `dev/scripts/devctl/review_channel/event_projection_bridge_state.py`
 - `dev/scripts/devctl/tests/review_channel/test_bridge_projection_mode_defaults.py`
 - `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+
+## 2026-05-14 — Remote Evidence Queue path freshness
+
+The first Remote Evidence Queue substrate slice keeps remote proof tied to
+existing local contracts. `dev/scripts/devctl/remote_evidence_queue/` defines
+`RemoteValidationReceipt` and a current-tree path-freshness helper that maps a
+`FindingRecord.file_path` plus `applies_to_tree/current_tree` into
+`current`, `stale_but_relevant`, or `stale_and_superseded` evidence. The helper
+uses the existing publication-sync git path-diff substrate and treats renamed
+paths as still relevant.
+
+`CommitReceipt` and `RunRecord` now carry additive `tree_content_hash` fields
+so remote evidence can bind to the same tree identity as validation and commit
+receipts. This is an evolution of the existing receipt chain, not a parallel
+remote-proof authority. The remaining follow-up from `rev_pkt_3996` is an
+explicit Finding-to-next-action bridge.
+
+Evidence:
+
+- `dev/scripts/devctl/remote_evidence_queue/models.py`
+- `dev/scripts/devctl/remote_evidence_queue/path_freshness.py`
+- `dev/scripts/devctl/runtime/commit_receipt.py`
+- `dev/scripts/devctl/runtime/action_contracts.py`
+- `dev/scripts/devctl/tests/remote_evidence_queue/test_path_freshness.py`

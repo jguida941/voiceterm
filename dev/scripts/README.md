@@ -3162,6 +3162,18 @@ Receipt-state evidence note:
   decorator unless a typed plan explicitly migrates the existing receipt
   lifecycle.
 
+Remote Evidence Queue note:
+- `dev/scripts/devctl/remote_evidence_queue/` owns the first async-proof
+  reconciliation substrate: `RemoteValidationReceipt` plus
+  `find_finding_affected_paths_in_current_tree()`.
+- The path-freshness helper maps `FindingRecord.file_path` from an
+  `applies_to_tree` to `current_tree` using the existing publication-sync git
+  path-diff helpers. Present or renamed paths remain relevant; removed paths
+  are superseded.
+- `CommitReceipt` and `RunRecord` carry additive `tree_content_hash` fields so
+  remote proof can bind to validation/commit tree identity without a parallel
+  receipt universe.
+
 Typestate-result note:
 - `dev/scripts/devctl/runtime/bypass_activation_result.py`,
   `dev/scripts/devctl/runtime/task_complete_result.py`, and

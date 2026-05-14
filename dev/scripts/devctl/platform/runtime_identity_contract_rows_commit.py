@@ -17,6 +17,11 @@ COMMIT_RECEIPT_CONTRACTS: tuple[ContractSpec, ...] = (
         required_fields=(
             ContractField("receipt_id", "str", "Stable receipt ref for the governed commit."),
             ContractField("commit_sha", "str", "Commit SHA produced by the governed commit path."),
+            ContractField(
+                "tree_content_hash",
+                "str",
+                "Tree content identity bound to the validation snapshot.",
+            ),
             ContractField("pipeline_id", "str", "Remote commit pipeline that produced the commit."),
             ContractField(
                 "pipeline_generation_id",
@@ -62,4 +67,3 @@ COMMIT_RECEIPT_CONTRACTS: tuple[ContractSpec, ...] = (
         startup_surface_tokens=("receipt_id", "commit_sha", "reviewer_ack_packet_id"),
     ),
 )
-

@@ -87,6 +87,11 @@ RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
                 "list[str]",
                 "Materialized artifacts emitted during the episode.",
             ),
+            ContractField(
+                "tree_content_hash",
+                "str",
+                "Tree content identity observed or validated by the run.",
+            ),
             ContractField("status", "str", "Execution status for the governed run."),
             ContractField("findings_count", "int", "Finding count emitted during the run."),
             ContractField("started_at", "str", "UTC start timestamp for the run."),

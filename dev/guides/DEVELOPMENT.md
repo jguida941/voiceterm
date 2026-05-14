@@ -3077,6 +3077,17 @@ uses `require_receipt_state()` to require `validation_passed` evidence when a
 commit SHA exists. Keep new enforcement inside these receipt contracts unless
 a typed plan explicitly migrates the lifecycle.
 
+**Remote Evidence Queue:**
+
+Remote validation proof that arrives after later commits must reconcile through
+existing local contracts. `dev/scripts/devctl/remote_evidence_queue/` owns the
+`RemoteValidationReceipt` model and path-freshness helper for mapping a
+`FindingRecord` from `applies_to_tree` onto `current_tree`. Renamed or still
+present paths remain `stale_but_relevant`; removed paths become
+`stale_and_superseded`. `CommitReceipt` and `RunRecord` expose additive
+`tree_content_hash` fields so remote evidence can bind to the same tree
+identity as validation and commit receipts.
+
 **Test with different backends:**
 
 ```bash

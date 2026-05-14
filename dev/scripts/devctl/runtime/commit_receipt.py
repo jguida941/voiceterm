@@ -36,6 +36,7 @@ class CommitReceipt:
     contract_id: str = COMMIT_RECEIPT_CONTRACT_ID
     receipt_id: str = ""
     commit_sha: str = ""
+    tree_content_hash: str = ""
     pipeline_id: str = ""
     pipeline_generation_id: str = ""
     plan_row_id: str = ""
@@ -87,6 +88,7 @@ def build_commit_receipt(
     validation_receipt_id = as_receipt_id(
         coerce_string(validation.receipt_id) if validation is not None else ""
     )
+    tree_content_hash = _tree_content_hash(pipeline)
     pre_state = _validation_receipt_state(validation)
     if validation is not None and commit_sha:
         require_receipt_state(
@@ -111,6 +113,7 @@ def build_commit_receipt(
             _ref("packet", reviewer_ack_packet_id),
             _ref("packet", approval_packet_id),
             resolved_audit_ref,
+            _ref("tree_content_hash", tree_content_hash),
             _validation_receipt_ref(validation_receipt_id),
             _guard_action_ref(pipeline.guard_action_id),
             _ref(
@@ -122,6 +125,7 @@ def build_commit_receipt(
     return CommitReceipt(
         receipt_id=_ref("commit_receipt", commit_sha),
         commit_sha=commit_sha,
+        tree_content_hash=tree_content_hash,
         pipeline_id=coerce_string(pipeline.pipeline_id),
         pipeline_generation_id=coerce_string(pipeline.generation_id),
         plan_row_id=plan_row_id,
@@ -155,6 +159,7 @@ def commit_receipt_from_mapping(payload: Mapping[str, object]) -> CommitReceipt:
         or COMMIT_RECEIPT_CONTRACT_ID,
         receipt_id=coerce_string(mapping.get("receipt_id")),
         commit_sha=coerce_string(mapping.get("commit_sha")),
+        tree_content_hash=coerce_string(mapping.get("tree_content_hash")),
         pipeline_id=coerce_string(mapping.get("pipeline_id")),
         pipeline_generation_id=coerce_string(mapping.get("pipeline_generation_id")),
         plan_row_id=coerce_string(mapping.get("plan_row_id")),
@@ -207,6 +212,19 @@ def _plan_row_id(pipeline: RemoteCommitPipelineContract) -> str:
         if value:
             return value
     return ""
+
+
+def _tree_content_hash(pipeline: RemoteCommitPipelineContract) -> str:
+    validation = pipeline.validation_receipt
+    if validation is not None:
+        value = coerce_string(getattr(validation, "staged_tree_hash", ""))
+        if value:
+            return value
+    intent_value = coerce_string(getattr(pipeline.intent, "staged_tree_hash", ""))
+    if intent_value:
+        return intent_value
+    plan = getattr(pipeline.intent, "validation_plan", None)
+    return coerce_string(getattr(plan, "staged_tree_hash", ""))
 
 
 def _unique_refs(values: Iterable[str]) -> tuple[str, ...]:

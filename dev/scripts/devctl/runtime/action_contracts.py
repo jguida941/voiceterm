@@ -39,6 +39,7 @@ class RunRecord:
     run_id: str
     action_id: str
     artifact_paths: tuple[str, ...]
+    tree_content_hash: str = ""
     status: str = "unknown"
     findings_count: int = 0
     started_at: str = ""
@@ -251,6 +252,7 @@ def run_record_from_mapping(payload: Mapping[str, object]) -> RunRecord:
         run_id=coerce_string(payload.get("run_id")),
         action_id=coerce_string(payload.get("action_id")),
         artifact_paths=coerce_string_items(payload.get("artifact_paths")),
+        tree_content_hash=coerce_string(payload.get("tree_content_hash")),
         status=coerce_string(payload.get("status")) or "unknown",
         findings_count=coerce_int(payload.get("findings_count")),
         started_at=coerce_string(payload.get("started_at")),

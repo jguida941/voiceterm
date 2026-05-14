@@ -8366,3 +8366,10 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
 - [ ] `PKT-BIND-REV-PKT-3991` Packet finding: VERIFICATION SYNTHESIS — operator's deep-research framing (2026-05-14T02:09Z) verified against codebase by 3 sub-agents. 90% MAPS TO EXISTING infrastructure (all 7 adoption commands + 10 spine contracts + 9-repo matrix + ... (source `rev_pkt_3991`; target `plan:MP-377`; posted `2026-05-14T02:12:03.654955Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3992` Packet finding: OPERATOR-DRIVEN: Remote Evidence Runner — async typed validation with cloud-backed receipts. 8 sub-agents verified ~70% substrate present (cloud-execution wired with 31 workflows + 14 workflow_dispatch + 6 cron, ingest-ex... (source `rev_pkt_3992`; target `plan:MP-377`; posted `2026-05-14T02:24:05.578240Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-3996` Packet finding: REFINES rev_pkt_3993 Remote Evidence Queue with 3 minimal substrate-fill gaps from 3-agent second-pass verification: (1) Working-backward detection MISSING — needs find_finding_affected_paths_in_current_tree() reusing exi... (source `rev_pkt_3996`; target `plan:MP-377`; posted `2026-05-14T02:37:10.020753Z`; binding `plan_row`).
+  - 2026-05-14 `MP377-REMOTE-EVIDENCE-QUEUE-PATH-FRESHNESS-S1` landed the
+    first Remote Evidence Queue substrate slice from `rev_pkt_3996`:
+    `RemoteValidationReceipt` models, current-tree path freshness for
+    `FindingRecord` evidence using existing git changed-path utilities, and
+    additive `tree_content_hash` identity on `CommitReceipt` and `RunRecord`.
+    The Finding-to-next-action bridge remains the next Remote Evidence Queue
+    follow-up.

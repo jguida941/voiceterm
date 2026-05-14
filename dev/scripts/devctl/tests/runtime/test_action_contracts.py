@@ -50,6 +50,7 @@ def test_run_record_from_mapping_normalizes_artifacts_and_findings() -> None:
             "run_id": "run-123",
             "action_id": "triage-loop",
             "artifact_paths": ["dev/reports/a.md", "", None],
+            "tree_content_hash": "tree-1",
             "status": "complete",
             "findings_count": "4",
             "correlation_id": "corr-1",
@@ -60,6 +61,7 @@ def test_run_record_from_mapping_normalizes_artifacts_and_findings() -> None:
     assert record.run_id == "run-123"
     assert record.action_id == "triage-loop"
     assert record.artifact_paths == ("dev/reports/a.md",)
+    assert record.tree_content_hash == "tree-1"
     assert record.status == "complete"
     assert record.findings_count == 4
     assert record.correlation_id == "corr-1"

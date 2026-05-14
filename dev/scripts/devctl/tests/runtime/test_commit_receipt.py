@@ -48,6 +48,7 @@ def test_commit_receipt_bundles_reviewer_ack_and_audit_chain() -> None:
     assert receipt.contract_id == COMMIT_RECEIPT_CONTRACT_ID
     assert receipt.receipt_id == "commit_receipt:abc123"
     assert receipt.commit_sha == "abc123"
+    assert receipt.tree_content_hash == "tree-1"
     assert receipt.plan_row_id == "MP377-COMMIT-RECEIPT-EVIDENCE-CHAIN-S1"
     assert receipt.reviewer_ack_packet_id == "rev_pkt_accept"
     assert receipt.approval_packet_id == "rev_pkt_request"
@@ -56,6 +57,7 @@ def test_commit_receipt_bundles_reviewer_ack_and_audit_chain() -> None:
     assert receipt.pre_state == VALIDATION_PASSED_STATE
     assert receipt.post_state == COMMIT_RECORDED_STATE
     assert "commit:abc123" in receipt.evidence_refs
+    assert "tree_content_hash:tree-1" in receipt.evidence_refs
     assert "packet:rev_pkt_accept" in receipt.evidence_refs
     assert "validation_receipt:val-1" in receipt.evidence_refs
     assert "guard_action:guard-1" in receipt.evidence_refs
@@ -71,6 +73,7 @@ def test_commit_receipt_round_trips_artifact(tmp_path: Path) -> None:
     parsed = commit_receipt_from_mapping(json.loads((tmp_path / relpath).read_text()))
 
     assert parsed.commit_sha == "abc123"
+    assert parsed.tree_content_hash == "tree-1"
     assert parsed.reviewer_ack_packet_id == "rev_pkt_accept"
     assert parsed.audit_synthesis_ref == "validation_receipt:val-1"
     assert parsed.pre_state == VALIDATION_PASSED_STATE
