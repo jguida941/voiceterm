@@ -6060,7 +6060,12 @@ become the main product surface.
     the same governed bootstrap/probe/check path on every new repo and keep
     the matrix current in `dev/active/portable_code_governance.md`. The fixed
     seeded reserves behind Wave 1 are `vector_space`, `yamllint`, and
-    `MemLite`.
+    `MemLite`. 2026-05-14 fixture-gate evidence for
+    `MP377-ADOPTER-PILOT-GATE-S1` now lives in
+    `dev/active/portable_code_governance.md`: two non-VoiceTerm fixture
+    adopters bootstrapped through starter repo-pack policy and completed
+    `probe-report --repo-path --adoption-scan` after one source-repo probe
+    wrapper crash was fixed inline.
   - [ ] Classify every external-repo failure as `engine_bug` or
     `adopter_finding`, rerun the newly failing repo plus every previously
     tested repo after each engine fix, and only import/adjudicate adopter

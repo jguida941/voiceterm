@@ -119,6 +119,29 @@ honest with one governed external Python corpus loop:
 Do not treat the two rows above as generality proof. They are the current
 adversarial samples and regression anchors for the next corpus expansion.
 
+## Fixture Adopter Gate Evidence
+
+- 2026-05-14: Closed `MP377-ADOPTER-PILOT-GATE-S1` against two fresh
+  non-VoiceTerm fixture adopters:
+  `/tmp/codex-voice-adopter-proof.ZyroVx/greenfield_python` and
+  `/tmp/codex-voice-adopter-proof.ZyroVx/existing_plan_python`.
+  `governance-bootstrap --target-repo ... --force-starter-policy` completed
+  for both repos with starter repo-pack policy, portable quality presets,
+  setup guide, and mutation-bypass proof written target-locally.
+  `probe-report --repo-path ... --adoption-scan` completed for both repos
+  after fixing the source-repo probe wrapper crash in
+  `dev/scripts/checks/review_probes/probe_event_field_naming_consistency.py`;
+  both runs reported `ok=true`, `25` probes, no report errors, and `508`
+  target-scoped hints under each fixture repo's
+  `dev/reports/probes/latest/summary.json`.
+  `check --profile ci/quick --repo-path ... --adoption-scan` reached
+  repo-pack policy and failed only the expected Step-0/full-stack authority
+  blockers for starter fixtures (`dev/active/INDEX.md`,
+  registry-path integrity for source-repo guard files, and
+  `dev/guides/SYSTEM_MAP.md`). Per this lane's protocol, those failures stay
+  classified as `MP-377` architecture blockers, not adopter code findings or
+  portability generality proof.
+
 ## Current Corpus-First Execution Order
 
 For the current portability slice, do this before widening broader product or

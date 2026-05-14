@@ -45,6 +45,10 @@ For MCP-as-adapter rules and extension policy, see
 `dev/guides/MCP_DEVCTL_ALIGNMENT.md`.
 For portable-governance exports, benchmark planning, and multi-repo adoption,
 see `dev/guides/PORTABLE_CODE_GOVERNANCE.md`.
+For MP-377 fixture-adopter gate evidence, use the dated section in
+`dev/active/portable_code_governance.md`; it records the two non-VoiceTerm
+fixture reruns, the source-repo probe wrapper fix, and the remaining
+Step-0/full-stack authority blockers.
 For the broader standalone-governance product architecture, repo-pack
 extraction, and frontend/runtime convergence plan, see
 `dev/active/ai_governance_platform.md` and

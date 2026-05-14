@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-05-13
+**Last Updated:** 2026-05-14
 
 ## At a Glance
 
@@ -36,6 +36,26 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-05-14 - Fixture adopters prove the portable gate and expose one probe wrapper bug
+
+MP-377 adopter-gate work reran the portable bootstrap/probe path against two
+fresh non-VoiceTerm fixture repos: a greenfield Python repo and an existing-plan
+Python repo. Both fixtures bootstrapped through starter repo-pack policy and
+completed `probe-report --repo-path ... --adoption-scan` with target-local
+artifacts after one source-repo probe wrapper crash was fixed.
+
+Change: `probe_event_field_naming_consistency` now returns through the shared
+`emit_probe_report(..., output_format=...)` API on both empty-log and populated
+log paths. The active portability plan records the fixture evidence and keeps
+the remaining starter-fixture `check --profile ci/quick` failures classified as
+MP-377 Step-0/full-stack authority blockers rather than adopter code findings.
+
+Evidence:
+
+- `dev/scripts/checks/review_probes/probe_event_field_naming_consistency.py`
+- `dev/active/portable_code_governance.md`
+- `dev/state/plan_index.jsonl`
 
 ### 2026-05-13 - Remote-control dogfood hardens push and review-channel ergonomics
 

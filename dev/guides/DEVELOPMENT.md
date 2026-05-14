@@ -2570,6 +2570,12 @@ Structured audit/event ledgers are separate from that handoff surface:
      Do not widen the repo corpus while the current proof set still exposes
      unfixed engine bugs unless the deferral plus exit criteria are written
      into the owning active plan.
+     The 2026-05-14 MP-377 fixture gate followed this rule: a
+     `probe_event_field_naming_consistency` wrapper crash was fixed in the
+     source repo, both fixture adopters were rerun, and the remaining
+     starter-fixture `check --profile ci/quick` failures stayed classified as
+     Step-0/full-stack authority blockers in
+     `dev/active/portable_code_governance.md`.
   4. Once the run is honest, import the target findings with
      `governance-import-findings`, then adjudicate important outcomes with
      `governance-review --record`.

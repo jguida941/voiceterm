@@ -89,8 +89,7 @@ def main(argv: list[str] | None = None) -> int:
             files_scanned=0,
             files_with_hints=0,
         )
-        emit_probe_report(report, args.format)
-        return 0
+        return emit_probe_report(report, output_format=args.format)
 
     inventory = _scan_event_log(event_log)
     risk_hints = _flag_known_consumer_mismatches(inventory)
@@ -100,8 +99,7 @@ def main(argv: list[str] | None = None) -> int:
         files_scanned=1,
         files_with_hints=(1 if risk_hints else 0),
     )
-    emit_probe_report(report, output_format=args.format)
-    return 0
+    return emit_probe_report(report, output_format=args.format)
 
 
 def _resolve_event_log() -> Path | None:
