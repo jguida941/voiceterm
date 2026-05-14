@@ -51,6 +51,7 @@ from .packet_text_fields import (
 VALID_AGENT_IDS = frozenset(default_packet_agent_ids())
 COMMIT_APPROVAL_PACKET_KIND = "commit_approval"
 ACTION_REQUEST_PACKET_KIND = "action_request"
+AUTOMATION_OPPORTUNITY_PACKET_KIND = "automation_opportunity"
 VALID_PACKET_KINDS = {
     "finding",
     "question",
@@ -63,6 +64,7 @@ VALID_PACKET_KINDS = {
     "plan_gap_review",
     "plan_patch_review",
     "plan_ready_gate",
+    AUTOMATION_OPPORTUNITY_PACKET_KIND,
     COMMIT_APPROVAL_PACKET_KIND,
 } | SESSION_TERMINATION_PACKET_KINDS | COLLABORATION_LIFECYCLE_PACKET_KINDS
 CARRIER_PACKET_KINDS = carrier_packet_kinds(VALID_PACKET_KINDS)
@@ -94,6 +96,7 @@ POST_TYPED_EVIDENCE_REQUIRED_PACKET_KINDS = frozenset(
         REVIEW_FAILED_PACKET_KIND,
         GOAL_PROGRESS_PACKET_KIND,
         TASK_PRODUCED_PACKET_KIND,
+        AUTOMATION_OPPORTUNITY_PACKET_KIND,
     }
 )
 

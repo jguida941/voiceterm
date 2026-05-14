@@ -37,6 +37,26 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-14 - Automation opportunity packets stay advisory and evidence-bound
+
+Review-channel now has a dedicated `automation_opportunity` packet kind for
+automation candidates discovered from plan sections, packet bodies, and guard
+evidence. The kind composes with existing packet transport: posts require typed
+evidence refs, may carry plan target/anchor/intake metadata, and remain carrier
+packets rather than plan proposals.
+
+The validator rejects mutation and runtime guard fields on this kind, so an
+accepted opportunity still has to become executable through the existing
+plan-ingestion path. That keeps automation discovery visible without creating a
+parallel planning or authority surface.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/packet_contract.py`
+- `dev/scripts/devctl/review_channel/packet_target_validation.py`
+- `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_post_action.py`
+
 ### 2026-05-14 - Bilateral agent-loop policy becomes a typed contract
 
 MP-377 added `AgentLoopBilateralProtocol` as the seven-property policy verdict

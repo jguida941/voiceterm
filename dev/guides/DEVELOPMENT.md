@@ -179,6 +179,13 @@ Use docs like this:
   content commit's handoff parent. Startup-context must still report
   `runtime_missing` / `no_live_agents`. Prose-only runtime
 	  requests remain packet history, not executable bridge authority.
+- Advisory automation discoveries use the same packet lane, but a separate
+  non-authoritative kind: post `review-channel` packets with
+  `--kind automation_opportunity`, typed evidence, and optional plan context
+  (`--target-kind plan`, `--target-ref`, `--anchor-ref`, `--intake-ref`).
+  These packets may identify plan sections and evidence refs, but they cannot
+  carry `--mutation-op` or runtime guard fields; accepted work must move
+  through the existing plan-ingestion path before it becomes executable.
 - The same event-backed packet path now carries typed delivery/execution
   receipts. `post` seeds `delivery_emitted_at_utc`, actor-matched `inbox` /
   `watch` polls stamp `delivery_observed_at_utc` / `delivery_observed_by`, and

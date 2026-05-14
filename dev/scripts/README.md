@@ -619,6 +619,14 @@ Portability note:
   prove a remote lane actually saw and started the request instead of only
   inferring from queue length. Prose-only runtime requests stay in packet
   history but are not projected into the bridge execution queue.
+- `review-channel --action post --kind automation_opportunity` is the typed
+  carrier for advisory automation candidates found from plan sections,
+  packet bodies, or guard evidence. It requires typed evidence via
+  `--evidence-ref`, `--evidence-artifact-path`, `--action-result-id`,
+  `--commit-sha`, or plan-revision refs, and may carry non-authoritative
+  `--target-kind plan`, `--target-ref`, `--anchor-ref`, and `--intake-ref`
+  metadata. It must not carry `--mutation-op` or runtime guard fields; promote
+  accepted work through the existing plan-ingestion path instead.
 - `review-channel --action apply` is evidence-bound when it claims work was
   completed. The apply event must carry `PacketGuardAttestation` through
   `--attestation-kind` plus the relevant `--run-record-id`,

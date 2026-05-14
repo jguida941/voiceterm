@@ -20,6 +20,7 @@ from dev.scripts.devctl.review_channel.events import (
     transition_packet,
 )
 from dev.scripts.devctl.review_channel.packet_contract import (
+    AUTOMATION_OPPORTUNITY_PACKET_KIND,
     PacketGuardBundleEvidenceFields,
     PacketPostRequest,
     PacketRuntimeApprovalFields,
@@ -28,6 +29,7 @@ from dev.scripts.devctl.review_channel.packet_contract import (
     VALID_PACKET_KINDS,
     packet_kind_schema,
     plan_proposal_for_request,
+    post_kind_requires_typed_evidence,
     validate_post_request,
 )
 from dev.scripts.devctl.review_channel.packet_attestation import (
@@ -338,6 +340,61 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                 valid_agent_ids=("system", "codex"),
             )
 
+    def test_automation_opportunity_packets_allow_non_authoritative_plan_context(
+        self,
+    ) -> None:
+        request = PacketPostRequest(
+            from_agent="codex",
+            to_agent="claude",
+            kind=AUTOMATION_OPPORTUNITY_PACKET_KIND,
+            summary="Derived automation opportunity",
+            body="Typed packet evidence identifies a bounded automation follow-up.",
+            evidence_refs=("packet:rev_pkt_2814", "section:MP-377"),
+            target=PacketTargetFields.from_values(
+                target_kind="plan",
+                target_ref="plan://MP-377/platform_authority_loop",
+                anchor_refs=["MP-377", "rev_pkt_2814"],
+                intake_ref="packet:rev_pkt_2814",
+                target_role="implementer",
+                target_session_id="session-claude",
+            ),
+        )
+
+        validate_post_request(request, valid_agent_ids=("codex", "claude"))
+
+        self.assertIn(AUTOMATION_OPPORTUNITY_PACKET_KIND, VALID_PACKET_KINDS)
+        self.assertEqual(
+            request.target.anchor_refs,
+            ("section:MP-377", "packet:rev_pkt_2814"),
+        )
+        self.assertFalse(plan_proposal_for_request(request).has_values())
+        self.assertTrue(
+            post_kind_requires_typed_evidence(AUTOMATION_OPPORTUNITY_PACKET_KIND)
+        )
+
+    def test_automation_opportunity_packets_reject_plan_mutation_fields(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(ValueError, "Plan mutation fields"):
+            validate_post_request(
+                PacketPostRequest(
+                    from_agent="codex",
+                    to_agent="claude",
+                    kind=AUTOMATION_OPPORTUNITY_PACKET_KIND,
+                    summary="Invalid mutating automation opportunity",
+                    body="Automation opportunity packets are advisory only.",
+                    evidence_refs=("packet:rev_pkt_2814",),
+                    target=PacketTargetFields.from_values(
+                        target_kind="plan",
+                        target_ref="plan://MP-377/platform_authority_loop",
+                        anchor_refs=["section:MP-377"],
+                        intake_ref="packet:rev_pkt_2814",
+                        mutation_op="append_progress_log",
+                    ),
+                ),
+                valid_agent_ids=("codex", "claude"),
+            )
+
     def test_normal_post_derives_plan_intent_context(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -434,6 +491,44 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                 )
 
                 self.assertEqual(args.kind, kind)
+
+    def test_cli_accepts_automation_opportunity_packet_context(self) -> None:
+        parser = build_parser()
+
+        args = parser.parse_args(
+            [
+                "review-channel",
+                "--action",
+                "post",
+                "--from-agent",
+                "codex",
+                "--to-agent",
+                "claude",
+                "--kind",
+                AUTOMATION_OPPORTUNITY_PACKET_KIND,
+                "--summary",
+                "Automation opportunity",
+                "--body",
+                "Typed evidence identifies a bounded automation follow-up.",
+                "--evidence-ref",
+                "packet:rev_pkt_2814",
+                "--target-kind",
+                "plan",
+                "--target-ref",
+                "plan://MP-377/platform_authority_loop",
+                "--anchor-ref",
+                "section:MP-377",
+                "--intake-ref",
+                "packet:rev_pkt_2814",
+            ]
+        )
+
+        self.assertEqual(args.kind, AUTOMATION_OPPORTUNITY_PACKET_KIND)
+        self.assertEqual(args.evidence_ref, ["packet:rev_pkt_2814"])
+        self.assertEqual(args.target_kind, "plan")
+        self.assertEqual(args.target_ref, "plan://MP-377/platform_authority_loop")
+        self.assertEqual(args.anchor_ref, ["section:MP-377"])
+        self.assertEqual(args.intake_ref, "packet:rev_pkt_2814")
 
     def test_cli_accepts_runtime_commit_approval_fields(self) -> None:
         parser = build_parser()

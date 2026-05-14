@@ -38,7 +38,7 @@ VALID_PLAN_MUTATION_OPS = {
     "set_checklist_state",
 }
 RUNTIME_TARGET_PACKET_KINDS = {"commit_approval"}
-NON_AUTHORITATIVE_TARGET_PACKET_KINDS = {"finding"}
+NON_AUTHORITATIVE_TARGET_PACKET_KINDS = {"finding", "automation_opportunity"}
 ANCHOR_REF_RE = re.compile(
     r"^(checklist|section|session_resume|progress|audit|packet):[A-Za-z0-9][A-Za-z0-9._-]*$"
 )

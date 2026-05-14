@@ -8,6 +8,9 @@ from types import SimpleNamespace
 import pytest
 
 from dev.scripts.devctl.commands.review_channel import event_post_action
+from dev.scripts.devctl.review_channel.packet_contract import (
+    AUTOMATION_OPPORTUNITY_PACKET_KIND,
+)
 
 
 def _args(
@@ -70,6 +73,26 @@ def test_claude_audit_packets_do_not_use_codex_publish_guard(monkeypatch) -> Non
 
     event_post_action._require_commit_or_clean_worktree_for_publish(
         Path("/repo"),
+        args,
+        event_post_action._post_evidence_refs(args),
+    )
+
+
+def test_automation_opportunity_requires_typed_evidence() -> None:
+    args = _args(kind=AUTOMATION_OPPORTUNITY_PACKET_KIND)
+
+    with pytest.raises(ValueError, match="requires typed evidence"):
+        event_post_action._require_typed_evidence_for_post(
+            args,
+            event_post_action._post_evidence_refs(args),
+        )
+
+
+def test_automation_opportunity_accepts_typed_evidence() -> None:
+    args = _args(kind=AUTOMATION_OPPORTUNITY_PACKET_KIND)
+    args.evidence_ref = ["packet:rev_pkt_2814"]
+
+    event_post_action._require_typed_evidence_for_post(
         args,
         event_post_action._post_evidence_refs(args),
     )

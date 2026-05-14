@@ -8382,3 +8382,9 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
     `derived_state_invalidated` / `derived_state_invalidation` fields so plan,
     startup, inbox, work-board, agent-loop, and `/develop next` consumers can
     reload from typed evidence after plan authority changes.
+  - 2026-05-14 `MP377-AUTOMATION-FLAGGING-PACKET-KIND-S1` adds
+    `automation_opportunity` as an advisory review-channel packet kind for
+    automation candidates. It stays on the existing packet carrier surface:
+    typed evidence is required, plan target/anchor/intake refs are allowed as
+    non-authoritative context, and mutation/runtime guard fields remain
+    rejected so executable work still flows through plan ingestion.
