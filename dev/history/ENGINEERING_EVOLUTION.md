@@ -15417,3 +15417,17 @@ Evidence:
 - `dev/scripts/devctl/review_channel/event_projection_bridge_state.py`
 - `dev/scripts/devctl/tests/review_channel/test_bridge_projection_mode_defaults.py`
 - `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+
+### 2026-05-14 - MP377 reviewer-mode slice closure is recorded in typed state
+
+The reviewer-mode role-binding symmetry slice now has typed closure evidence:
+`MP377-AUTHORITY-REVIEWER-MODE-SYMMETRY-S1` moved from `queued` to `applied`
+with commit and ReviewSnapshot receipt refs. The same plan-state update also
+records the latest packet binding row surfaced during controller polling.
+
+Evidence:
+
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/state/plan_source_snapshots.jsonl`
+- `dev/active/MASTER_PLAN.md`
