@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `7f29e975cb38` — MP378: record human-summary packet binding
-- Tree hash: `9b46bfbb6c50`
-- Generation stamp: `snap-a7bbb62d35b1`
-- Generated at (UTC): 2026-05-14T17:33:48Z
+- HEAD: `03379dd76b49` — MP378: guard task packet binding completeness
+- Tree hash: `81ee491393b8`
+- Generation stamp: `snap-c7a8c0c23994`
+- Generated at (UTC): 2026-05-14T18:22:30Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 62 files, +5088/-576
+- Delta since last snapshot: 25 commits, 72 files, +6011/-645
 - Governance findings: 44 open / 0 fixed / 44 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `7f29e975cb385839e36bc30ad399120fbfb9ca0b`
+- HEAD SHA: `03379dd76b490cf6860bf87542d46c3b2fa0272f`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-14T13:32:54-04:00
+- HEAD timestamp (UTC): 2026-05-14T14:21:36-04:00
 
 ## 2. Governance state
 
@@ -44,7 +44,7 @@ production client (VoiceTerm...
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (push_preflight_running)
 - publication_backlog: urgent
-- publication_guidance: 69 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 71 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -64,12 +64,12 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `7f29e975cb38`
+Range: last 25 commits ending at `03379dd76b49`
 
-- commits: 24
-- files changed: 62
-- insertions: +5088
-- deletions: -576
+- commits: 25
+- files changed: 72
+- insertions: +6011
+- deletions: -645
 - bundle classes touched: tooling, docs
 - authority surfaces touched: 1 file(s)
 
@@ -77,52 +77,62 @@ Range: last 24 commits ending at `7f29e975cb38`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `7f29e975` | MP378: record human-summary packet binding | 2 | +2/-0 | tooling |  |
-| 2 | `58ad460a` | Refresh external review snapshot for 6aaaacf7 | 2 | +45/-45 | docs |  |
-| 3 | `6aaaacf7` | MP378: close raw-git hook receipt plan row | 3 | +3/-0 | tooling |  |
-| 4 | `c891ec57` | Refresh external review snapshot for 209c52fe | 2 | +59/-59 | docs |  |
-| 5 | `209c52fe` | MP378: fix raw git hook receipt target | 2 | +67/-2 | tooling |  |
-| 6 | `9116c3fb` | Refresh external review snapshot for b1f2fdc8 | 2 | +56/-56 | docs |  |
-| 7 | `b1f2fdc8` | MP378: close raw-git receipt plan row | 4 | +5/-0 | tooling |  |
-| 8 | `21bedcee` | Refresh external review snapshot for 72a16eaf | 2 | +64/-65 | docs |  |
-| 9 | `72a16eaf` | MP378: add raw git bypass receipts | 19 | +1210/-15 | tooling |  |
-| 10 | `145da853` | MP378: record raw-git receipt mandate | 3 | +8/-0 | tooling |  |
-| 11 | `13419479` | Refresh external review snapshot for 92545abb | 2 | +62/-60 | docs |  |
-| 12 | `92545abb` | MP378: record raw-push operator directive | 4 | +9/-1 | tooling |  |
-| 13 | `45dc468b` | MP378: record Guard P1 review closure | 4 | +21/-1 | tooling |  |
-| 14 | `e9797b30` | MP378: close plan-index continuity guard rows | 3 | +12/-3 | tooling |  |
-| 15 | `0cd7b4e3` | Refresh external review snapshot for eb871172 | 2 | +61/-62 | docs |  |
-| 16 | `eb871172` | MP378: add plan-index commit continuity guard | 17 | +763/-10 | tooling |  |
-| 17 | `1dc4bd2c` | Refresh external review snapshot for 7357c966 | 2 | +64/-65 | docs |  |
-| 18 | `7357c966` | Record S4 review acceptance packet binding | 3 | +7/-5 | tooling |  |
-| 19 | `c30ba06f` | Refresh external review snapshot for 8b4e647e | 1 | +104/-94 | tooling |  |
-| 20 | `8b4e647e` | MP378: add session liveness reconciler | 22 | +989/-14 | tooling |  |
-| 21 | `39216f9d` | MP378: enforce system map contract coverage | 20 | +533/-5 | tooling |  |
-| 22 | `9fd28931` | MP378: close classifier attestation plan row | 3 | +3/-1 | tooling |  |
-| 23 | `1b33360d` | MP378: add classifier safety attestation | 19 | +938/-12 | tooling |  |
-| 24 | `68dc3810` | MP378: close session status plan row | 3 | +3/-1 | tooling |  |
+| 1 | `03379dd7` | MP378: guard task packet binding completeness | 21 | +863/-5 | tooling |  |
+| 2 | `7bafd1e7` | Refresh external review snapshot for 7f29e975 | 2 | +63/-65 | docs |  |
+| 3 | `7f29e975` | MP378: record human-summary packet binding | 2 | +2/-0 | tooling |  |
+| 4 | `58ad460a` | Refresh external review snapshot for 6aaaacf7 | 2 | +45/-45 | docs |  |
+| 5 | `6aaaacf7` | MP378: close raw-git hook receipt plan row | 3 | +3/-0 | tooling |  |
+| 6 | `c891ec57` | Refresh external review snapshot for 209c52fe | 2 | +59/-59 | docs |  |
+| 7 | `209c52fe` | MP378: fix raw git hook receipt target | 2 | +67/-2 | tooling |  |
+| 8 | `9116c3fb` | Refresh external review snapshot for b1f2fdc8 | 2 | +56/-56 | docs |  |
+| 9 | `b1f2fdc8` | MP378: close raw-git receipt plan row | 4 | +5/-0 | tooling |  |
+| 10 | `21bedcee` | Refresh external review snapshot for 72a16eaf | 2 | +64/-65 | docs |  |
+| 11 | `72a16eaf` | MP378: add raw git bypass receipts | 19 | +1210/-15 | tooling |  |
+| 12 | `145da853` | MP378: record raw-git receipt mandate | 3 | +8/-0 | tooling |  |
+| 13 | `13419479` | Refresh external review snapshot for 92545abb | 2 | +62/-60 | docs |  |
+| 14 | `92545abb` | MP378: record raw-push operator directive | 4 | +9/-1 | tooling |  |
+| 15 | `45dc468b` | MP378: record Guard P1 review closure | 4 | +21/-1 | tooling |  |
+| 16 | `e9797b30` | MP378: close plan-index continuity guard rows | 3 | +12/-3 | tooling |  |
+| 17 | `0cd7b4e3` | Refresh external review snapshot for eb871172 | 2 | +61/-62 | docs |  |
+| 18 | `eb871172` | MP378: add plan-index commit continuity guard | 17 | +763/-10 | tooling |  |
+| 19 | `1dc4bd2c` | Refresh external review snapshot for 7357c966 | 2 | +64/-65 | docs |  |
+| 20 | `7357c966` | Record S4 review acceptance packet binding | 3 | +7/-5 | tooling |  |
+| 21 | `c30ba06f` | Refresh external review snapshot for 8b4e647e | 1 | +104/-94 | tooling |  |
+| 22 | `8b4e647e` | MP378: add session liveness reconciler | 22 | +989/-14 | tooling |  |
+| 23 | `39216f9d` | MP378: enforce system map contract coverage | 20 | +533/-5 | tooling |  |
+| 24 | `9fd28931` | MP378: close classifier attestation plan row | 3 | +3/-1 | tooling |  |
+| 25 | `1b33360d` | MP378: add classifier safety attestation | 19 | +938/-12 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `.github/workflows/README.md` | tooling | +2/-2 |
-| `.github/workflows/release_preflight.yml` | tooling | +2/-0 |
-| `.github/workflows/tooling_control_plane.yml` | tooling | +6/-0 |
+| `.github/workflows/release_preflight.yml` | tooling | +3/-0 |
+| `.github/workflows/tooling_control_plane.yml` | tooling | +9/-0 |
 | `.gitignore` | tooling | +3/-0 |
-| `bridge.md` | docs | +34/-34 |
-| `dev/active/MASTER_PLAN.md` | tooling | +62/-5 |
-| `dev/active/ai_governance_platform.md` | tooling | +41/-4 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +494/-484 |
-| `dev/guides/DEVELOPMENT.md` | docs | +27/-1 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +67/-29 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +117/-3 |
-| `dev/scripts/README.md` | tooling | +32/-1 |
+| `bridge.md` | docs | +37/-37 |
+| `dev/active/MASTER_PLAN.md` | tooling | +68/-7 |
+| `dev/active/ai_governance_platform.md` | tooling | +45/-5 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +554/-546 |
+| `dev/guides/DEVELOPMENT.md` | docs | +33/-1 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +69/-31 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +136/-3 |
+| `dev/scripts/README.md` | tooling | +33/-1 |
+| `dev/scripts/checks/check_packet_pkt_bind_completeness.py` | tooling | +12/-0 |
 | `dev/scripts/checks/check_plan_index_commit_continuity.py` | tooling | +379/-0 |
 | `dev/scripts/checks/check_systemmap_covers_contract_registry.py` | tooling | +12/-0 |
+| `dev/scripts/checks/packet_pkt_bind_completeness/__init__.py` | tooling | +6/-0 |
+| `dev/scripts/checks/packet_pkt_bind_completeness/command.py` | tooling | +47/-0 |
+| `dev/scripts/checks/packet_pkt_bind_completeness/constants.py` | tooling | +29/-0 |
+| `dev/scripts/checks/packet_pkt_bind_completeness/core.py` | tooling | +198/-0 |
+| `dev/scripts/checks/packet_pkt_bind_completeness/models.py` | tooling | +34/-0 |
+| `dev/scripts/checks/packet_pkt_bind_completeness/readers.py` | tooling | +134/-0 |
+| `dev/scripts/checks/packet_pkt_bind_completeness/render.py` | tooling | +65/-0 |
+| `dev/scripts/checks/packet_pkt_bind_completeness/time_support.py` | tooling | +39/-0 |
 | `dev/scripts/checks/systemmap_covers_contract_registry/__init__.py` | tooling | +1/-0 |
 | `dev/scripts/checks/systemmap_covers_contract_registry/command.py` | tooling | +226/-0 |
-| `dev/scripts/devctl/bundles/registry.py` | tooling | +2/-0 |
+| `dev/scripts/devctl/bundles/registry.py` | tooling | +3/-0 |
 | `dev/scripts/devctl/cli.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/cli_parser/entrypoint.py` | tooling | +3/-0 |
 | `dev/scripts/devctl/commands/bypass/command.py` | tooling | +154/-2 |
@@ -131,22 +141,13 @@ Range: last 24 commits ending at `7f29e975cb38`
 | `dev/scripts/devctl/commands/listing.py` | tooling | +1/-1 |
 | `dev/scripts/devctl/commands/listing/__init__.py` | tooling | +1/-0 |
 | `dev/scripts/devctl/commands/raw_git.py` | tooling | +379/-2 |
-| `dev/scripts/devctl/governance/script_catalog_registry.py` | tooling | +5/-0 |
+| `dev/scripts/devctl/governance/script_catalog_registry.py` | tooling | +6/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_bypass_lifecycle.py` | tooling | +135/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_review_core.py` | tooling | +81/-0 |
 | `dev/scripts/devctl/platform/system_map.py` | tooling | +56/-1 |
 | `dev/scripts/devctl/platform/system_map_models.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/review_channel/status_projection_helpers.py` | tooling | +8/-0 |
-| `dev/scripts/devctl/runtime/classifier_safety_attestation.py` | tooling | +241/-0 |
-| `dev/scripts/devctl/runtime/raw_git_bypass_receipts.py` | tooling | +398/-0 |
-| `dev/scripts/devctl/runtime/session_liveness_reconciler.py` | tooling | +348/-0 |
-| `dev/scripts/devctl/tests/checks/test_check_plan_index_commit_continuity.py` | tooling | +310/-0 |
-| `dev/scripts/devctl/tests/checks/test_check_systemmap_covers_contract_registry.py` | tooling | +128/-0 |
-| `dev/scripts/devctl/tests/commands/check/test_check_router.py` | tooling | +4/-0 |
-| `dev/scripts/devctl/tests/commands/test_bypass_command.py` | tooling | +170/-0 |
-| `dev/scripts/devctl/tests/commands/test_raw_git.py` | tooling | +197/-0 |
-| `dev/scripts/devctl/tests/governance/test_bundle_registry.py` | tooling | +2/-0 |
-| _22 more files trimmed_ | | |
+| _32 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -210,6 +211,10 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`03379dd7`** — MP378: guard task packet binding completeness
+  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
+- **`7bafd1e7`** — Refresh external review snapshot for 7f29e975
+  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
 - **`7f29e975`** — MP378: record human-summary packet binding
   - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
 - **`58ad460a`** — Refresh external review snapshot for 6aaaacf7
@@ -260,8 +265,6 @@ Recent findings:
 - **`1b33360d`** — MP378: add classifier safety attestation
   - Decision: .claude/settings.local.json stays gitignored operator-local projection state; BypassLifecycle/BypassReceipt remain the durable authority. Decision: if Bash(*) already dominates the provider classifier allow-list, project the receipt-scoped rules but emit classifier_dominated_by_bash_wildcard in the projection result/settings bridge so S3 does not imply narrower operational effect until a later hardening slice removes the wildcard. Adds direct runtime tests plus CLI lockstep tests, platform contract registry/fixtures, docs, and generated surface refresh.
   - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
-- **`68dc3810`** — MP378: close session status plan row
-  - evolution: Review-channel now has a dedicated `automation_opportunity` packet kind for automation candidates discovered from plan sections, packet bodies, and guard evidence. The kind composes with existing packet transport: posts…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -305,4 +308,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-a7bbb62d35b1` binds this file to HEAD `7f29e975cb38`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-c7a8c0c23994` binds this file to HEAD `03379dd76b49`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
