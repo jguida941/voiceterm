@@ -139,6 +139,9 @@ Testing_Guide.md
 **/.voiceterm/memory/
 dev/state/relaunch_loop/
 dev/state/remote_control/
+dev/state/bypass_lifecycles.jsonl
+dev/state/governed_exception_lifecycles.jsonl
+dev/state/raw_git_bypass_receipts.jsonl
 
 # Local scanner scratch artifacts (external tools)
 /cvelist

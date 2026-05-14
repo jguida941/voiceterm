@@ -62,6 +62,7 @@ from ..commands import (
     pypi,
     quality_policy,
     ralph_status,
+    raw_git,
     release,
     release_gates,
     release_notes,
@@ -246,6 +247,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_failure_cleanup_parser(sub, default_ci_limit=DEFAULT_CI_LIMIT)
     add_reports_cleanup_parser(sub)
     add_python_tests_parser(sub)
+    raw_git.add_parser(sub)
     add_commit_parser(sub)
     add_push_parser(sub)
     add_sync_parser(sub)
@@ -366,6 +368,7 @@ COMMAND_HANDLERS = {
     "exceptions": governance_exceptions.run,
     "probe-report": probe_report.run,
     "quality-policy": quality_policy.run,
+    "raw-git": raw_git.run,
     "launcher-check": simple_lanes.run_launcher_check,
     "launcher-probes": simple_lanes.run_launcher_probes,
     "launcher-policy": simple_lanes.run_launcher_policy,

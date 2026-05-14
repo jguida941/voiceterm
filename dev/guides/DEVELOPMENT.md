@@ -250,6 +250,14 @@ Use docs like this:
   means status/doctor must recommend
   `--terminal none`, and explicit visible Terminal.app launch/recover requests
   must be rejected before local Terminal profile lookup or provider prompts.
+- Operator-authorized raw git must still leave typed evidence. Use
+  `python3 dev/scripts/devctl.py raw-git commit --no-verify -m "<message>"`
+  or `python3 dev/scripts/devctl.py raw-git push --no-verify` for the current
+  raw cadence instead of invoking `git commit` / `git push` directly. The
+  wrapper writes `RawGitBypassReceipt` rows, validates lifecycle-backed
+  authority against active `BypassLifecycle` state before write, links each
+  operation to `GovernedExceptionLifecycle`, and refuses to emit receipts for
+  help, dry-run, or unchanged-HEAD no-ops.
 - The `ensure-follow` reviewer-wake path
   (`dev/scripts/devctl/review_channel/reviewer_follow_guard.py::launch_waiting_reviewer_conductor`)
   shares the same auto-elevation seam, so a remote-control reviewer

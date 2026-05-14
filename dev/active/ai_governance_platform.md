@@ -174,6 +174,14 @@ Current ingestion status:
   post-mandate plan rows, including task-start bindings and guard charters,
   when they lack a commit anchor, `PlanIntentReceipt`, or `TypedAction`
   evidence while keeping legacy gaps visible for later cleanup.
+- 2026-05-14 raw-git receipt substrate: `rev_pkt_4022` makes raw
+  `git commit --no-verify` / `git push` a typed evidence concern instead of an
+  invisible operator bypass. `RawGitBypassReceipt` records the verb, commit or
+  push range, skipped hooks, affected paths, authority evidence, and linked
+  `GovernedExceptionLifecycle`; `devctl raw-git commit|push` is the thin
+  wrapper that runs git, rejects no-op commit/push attempts, validates
+  lifecycle-backed authority before write, and appends the receipt to
+  `dev/state/raw_git_bypass_receipts.jsonl`.
 
 2026-05-06 governed exception lifecycle correction:
 - `MP377-P0-EXC-S1` replaces the earlier raw-bypass receipt direction with a

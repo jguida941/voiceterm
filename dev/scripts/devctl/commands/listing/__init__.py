@@ -21,6 +21,7 @@ COMMANDS = [
     "hygiene",
     "publication-sync",
     "push",
+    "raw-git",
     "review-channel",
     "sync",
     "integrations-sync",

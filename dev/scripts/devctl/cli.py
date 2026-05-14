@@ -11,6 +11,7 @@ import sys
 from .commands.python_test_runner import command as python_test_command
 from .commands.reporting import dogfood, progress_status
 from .commands import demo as demo_command
+from .commands import raw_git as raw_git_command
 from .commands.bypass import command as bypass_command
 from .commands.development import command as development_command
 from .commands.governance import (
@@ -31,6 +32,7 @@ COMMAND_HANDLERS = {
     "dogfood": dogfood.run,
     "exceptions": governance_exceptions.run,
     "progress-status": progress_status.run,
+    "raw-git": raw_git_command.run,
     "relaunch-loop": relaunch_loop.run,
     "remote-control": remote_control_command.run,
     "session": governance_session.run,

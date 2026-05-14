@@ -15686,6 +15686,11 @@ before starting S5.
 
 `rev_pkt_4022` immediately refines that push posture: raw git operations also
 need typed receipt integration so `--no-verify` commit/push paths do not become
-an untracked authority bypass. The next arch-fix sidebar is a
-`RawGitBypassReceipt` foundation plus an emitting wrapper or hook and a later
-receipt-completeness guard over commits since the MP-378 mandate.
+an untracked authority bypass. The arch-fix sidebar now starts that substrate
+with `RawGitBypassReceipt` and the `devctl raw-git commit|push` wrapper, which
+runs the requested git verb and appends typed evidence for the commit SHA or
+push range, skipped hooks, affected paths, operator/bypass authority, and a
+linked `GovernedExceptionLifecycle`. The wrapper rejects no-op raw-git
+executions and validates lifecycle-backed authority before receipt write. A
+later receipt-completeness guard still needs to enforce the contract over the
+commit range since the MP-378 mandate.

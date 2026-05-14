@@ -298,6 +298,8 @@ python3 dev/scripts/devctl.py review-channel --action doctor --terminal none --f
 python3 dev/scripts/devctl.py review-channel --action reviewer-heartbeat --reviewer-mode single_agent --reason local-dev-pass --terminal none --format md
 python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --checkpoint-payload-file /tmp/reviewer-checkpoint.json --expected-instruction-revision <live-revision> --expected-implementer-state-hash <live-implementer-state-hash> --terminal none --format md
 python3 dev/scripts/devctl.py bypass grant --scope edit-only --reason "<operator reason>" --format json
+python3 dev/scripts/devctl.py raw-git commit --no-verify -m "<slice message>"
+python3 dev/scripts/devctl.py raw-git push --no-verify
 python3 dev/scripts/devctl.py launcher-check
 python3 dev/scripts/devctl.py launcher-probes
 python3 dev/scripts/devctl.py launcher-policy
@@ -347,6 +349,15 @@ Compatibility note:
   launch-deadlock fallback adapters retained for audit/recovery continuity.
   Prefer `devctl bypass grant` for fresh bootstrap receipts and keep new
   operator-run commands short enough to avoid adding wrapper debt.
+- Keep operator-authorized raw git visible to typed governance. Use
+  `devctl raw-git commit|push` for raw cadence: it still runs the git verb, but
+  appends `RawGitBypassReceipt` evidence to
+  `dev/state/raw_git_bypass_receipts.jsonl` with the commit SHA or push range,
+  skipped hooks, affected paths, actor, authority evidence, and the linked
+  `GovernedExceptionLifecycle` id. Lifecycle-backed raw-git authority is
+  validated against active `BypassLifecycle` state before the receipt is
+  written, and no-op help/dry-run/unchanged-head executions do not emit
+  receipts.
 - Keep stale-bridge repair portable as well: `review-channel` auto-refresh must
   use the bridge snapshot/liveness contract instead of depending only on
   `check_review_channel_bridge.py` freshness output, because that guard

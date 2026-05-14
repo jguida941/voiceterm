@@ -161,6 +161,83 @@ BYPASS_LIFECYCLE_CONTRACTS: tuple[ContractSpec, ...] = (
         ),
     ),
     ContractSpec(
+        contract_id="RawGitBypassReceipt",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed receipt for operator-authorized raw git commit/push paths. "
+            "It validates lifecycle-backed authority before write and links "
+            "each raw operation into GovernedExceptionLifecycle evidence."
+        ),
+        required_fields=(
+            ContractField("receipt_id", "str", "Stable raw-git receipt id."),
+            ContractField("git_verb", "RawGitVerb", "Raw git verb executed."),
+            ContractField("commit_sha", "str", "New commit SHA for commit operations."),
+            ContractField(
+                "push_range",
+                "tuple[str, str]",
+                "Base and head SHA range proven by a push operation.",
+            ),
+            ContractField(
+                "affected_paths",
+                "tuple[str, ...]",
+                "Paths observed in the committed or pushed range.",
+            ),
+            ContractField(
+                "bypass_authority",
+                "RawGitBypassAuthority",
+                "Typed authority source for the raw git bypass.",
+            ),
+            ContractField(
+                "bypass_lifecycle_id",
+                "str",
+                "BypassLifecycle or BypassReceipt ref when lifecycle-backed authority is claimed.",
+            ),
+            ContractField(
+                "governed_exception_id",
+                "str",
+                "GovernedExceptionLifecycle row linked to the raw git operation.",
+            ),
+            ContractField(
+                "operator_quote_evidence_ref",
+                "str",
+                "Operator packet or quoted evidence authorizing the raw operation.",
+            ),
+            ContractField("executed_at_utc", "str", "Execution timestamp."),
+            ContractField("executed_by_actor", "str", "Actor that ran the raw git wrapper."),
+            ContractField(
+                "skipped_pre_hooks",
+                "tuple[str, ...]",
+                "Git hooks skipped by --no-verify or -n.",
+            ),
+            ContractField("git_args", "tuple[str, ...]", "Literal git argv forwarded."),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.raw_git_bypass_receipts:"
+            "RawGitBypassReceipt"
+        ),
+        startup_surface_tokens=("receipt_id", "git_verb", "governed_exception_id"),
+        cross_links=(
+            CrossLinkSpec(
+                "bypass_lifecycle_id",
+                "BypassLifecycle",
+                "receipt_proves",
+                target_node_kind="typed_contract",
+                target_resolver="bypass_lifecycle_or_receipt_id",
+                required_when="bypass_authority == bypass_lifecycle_receipt",
+                validation_policy="must_resolve_for_lifecycle_authority",
+            ),
+            CrossLinkSpec(
+                "governed_exception_id",
+                "GovernedExceptionLifecycle",
+                "receipt_proves",
+                target_node_kind="typed_contract",
+                target_resolver="governed_exception_lifecycle_id",
+                required=True,
+                validation_policy="must_resolve",
+            ),
+        ),
+    ),
+    ContractSpec(
         contract_id="BypassExpiry",
         owner_layer="governance_runtime",
         purpose=(
