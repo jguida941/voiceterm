@@ -73,16 +73,15 @@ def derived_state_invalidation_payload(
     spec: DerivedStateInvalidationInput,
 ) -> dict[str, object]:
     """Return a normalized invalidation payload for existing evidence rows."""
-    payload: dict[str, object] = {
-        "contract_id": spec.contract_id,
-        "schema_version": DERIVED_STATE_INVALIDATION_SCHEMA_VERSION,
-        "source": _text(spec.source),
-        "producer_id": _text(spec.producer_id),
-        "producer_kind": _text(spec.producer_kind),
-        "invalidated": bool(spec.invalidated),
-        "invalidated_consumers": _text_list(spec.invalidated_consumers),
-        "next_consumer_action": _text(spec.next_consumer_action),
-    }
+    payload: dict[str, object] = {}
+    payload["contract_id"] = spec.contract_id
+    payload["schema_version"] = DERIVED_STATE_INVALIDATION_SCHEMA_VERSION
+    payload["source"] = _text(spec.source)
+    payload["producer_id"] = _text(spec.producer_id)
+    payload["producer_kind"] = _text(spec.producer_kind)
+    payload["invalidated"] = bool(spec.invalidated)
+    payload["invalidated_consumers"] = _text_list(spec.invalidated_consumers)
+    payload["next_consumer_action"] = _text(spec.next_consumer_action)
     _put_text(payload, "source_event_id", spec.source_event_id)
     _put_text(payload, "source_ref", spec.source_ref)
     _put_text(payload, "event_type", spec.event_type)
