@@ -5,6 +5,7 @@ from __future__ import annotations
 import fcntl
 import hashlib
 import json
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -91,27 +92,12 @@ def load_events(events_path: Path) -> list[dict[str, object]]:
     """Load the append-only event log."""
     if not events_path.exists():
         return []
-    events: list[dict[str, object]] = []
-    for line_number, raw_line in enumerate(
-        events_path.read_text(encoding="utf-8").splitlines(),
-        start=1,
-    ):
-        stripped = raw_line.strip()
-        if not stripped:
-            continue
-        try:
-            payload = json.loads(stripped)
-        except json.JSONDecodeError as exc:
-            raise ValueError(
-                f"Invalid review-channel trace event at line {line_number}: {exc}"
-            ) from exc
-        if not isinstance(payload, dict):
-            raise ValueError(
-                f"Invalid review-channel trace event at line {line_number}: "
-                "expected top-level object"
-            )
-        events.append(payload)
-    return events
+    return list(
+        _iter_event_rows(
+            events_path,
+            fail_as_corrupt_log=False,
+        )
+    )
 
 
 def append_event(
@@ -282,25 +268,42 @@ def _read_events_under_lock(events_path: Path) -> list[dict[str, object]]:
     """
     if not events_path.exists():
         return []
-    events: list[dict[str, object]] = []
-    for line_num, line in enumerate(events_path.read_text(encoding="utf-8").splitlines(), 1):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            row = json.loads(line)
-        except json.JSONDecodeError as exc:
-            raise ValueError(
-                f"Malformed event log at {events_path}:{line_num} — "
-                f"cannot allocate event_id from corrupt trace: {exc}"
-            ) from exc
-        if not isinstance(row, dict):
-            raise ValueError(
-                f"Non-object row at {events_path}:{line_num} — "
-                f"event log rows must be JSON objects"
-            )
-        events.append(row)
-    return events
+    return list(_iter_event_rows(events_path, fail_as_corrupt_log=True))
+
+
+def _iter_event_rows(
+    events_path: Path,
+    *,
+    fail_as_corrupt_log: bool,
+) -> Iterable[dict[str, object]]:
+    """Yield event rows without materializing the raw trace text."""
+    with events_path.open("r", encoding="utf-8") as handle:
+        for line_number, raw_line in enumerate(handle, start=1):
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError as exc:
+                if fail_as_corrupt_log:
+                    raise ValueError(
+                        f"Malformed event log at {events_path}:{line_number} — "
+                        f"cannot allocate event_id from corrupt trace: {exc}"
+                    ) from exc
+                raise ValueError(
+                    f"Invalid review-channel trace event at line {line_number}: {exc}"
+                ) from exc
+            if not isinstance(row, dict):
+                if fail_as_corrupt_log:
+                    raise ValueError(
+                        f"Non-object row at {events_path}:{line_number} — "
+                        f"event log rows must be JSON objects"
+                    )
+                raise ValueError(
+                    f"Invalid review-channel trace event at line {line_number}: "
+                    "expected top-level object"
+                )
+            yield row
 
 
 def artifact_paths_to_dict(

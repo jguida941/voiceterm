@@ -10,6 +10,7 @@ import pytest
 
 from dev.scripts.devctl.review_channel.event_store import (
     append_event,
+    load_events,
     next_event_id,
     next_packet_id,
 )
@@ -114,6 +115,50 @@ def test_append_event_single_write_atomicity() -> None:
         assert len(lines) == 1
         parsed = json.loads(lines[0])
         assert parsed["event_id"] == "rev_evt_0001"
+
+
+def test_load_events_streams_without_read_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        events_path = Path(tmpdir) / "trace.ndjson"
+        events_path.write_text(
+            json.dumps({"event_id": "rev_evt_0001"}, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+        def fail_read_text(*args: object, **kwargs: object) -> str:
+            raise AssertionError("load_events must stream trace rows")
+
+        monkeypatch.setattr(Path, "read_text", fail_read_text)
+
+        assert load_events(events_path) == [{"event_id": "rev_evt_0001"}]
+
+
+def test_append_event_locked_read_streams_without_read_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        events_path = Path(tmpdir) / "trace.ndjson"
+        events_path.write_text(
+            json.dumps(
+                {"event_id": "rev_evt_0001", "idempotency_key": "seed"},
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        def fail_read_text(*args: object, **kwargs: object) -> str:
+            raise AssertionError("append_event must stream trace rows under lock")
+
+        monkeypatch.setattr(Path, "read_text", fail_read_text)
+
+        written = append_event(
+            events_path,
+            {"idempotency_key": "key_new", "event_type": "test"},
+            existing_events=[],
+        )
+
+        assert written["event_id"] == "rev_evt_0002"
 
 
 def test_append_event_allocates_id_from_disk_not_snapshot() -> None:

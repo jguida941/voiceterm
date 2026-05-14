@@ -81,7 +81,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-05-14T20:18:58Z`
 - Last Codex poll (Local America/New_York): `2026-05-14 16:18:58 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `36e36ba5058c68e470594eb3af028ff043e947c3e2d6395c5a2f2b5ef1fc5f5a`
+- Last non-audit worktree hash: `26fef871088028ffbe9c2751ad9bd19c780f86c2547a2dffb47bdf5a1d0cabd2`
 - Current instruction revision: ``
 
 ## Protocol
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-132 pending review packet(s)
+131 pending review packet(s)
 
 ## Implementer Status
 
@@ -142,7 +142,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Last Reviewed Scope
 
-MP-355
+MP-377
 
 ## Action Requests
 
