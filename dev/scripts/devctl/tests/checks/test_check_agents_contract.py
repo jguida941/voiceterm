@@ -14,7 +14,7 @@ from dev.scripts.devctl.governance.instruction_boot_card import (
     build_instruction_boot_card,
 )
 
-SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/check_agents_contract.py"
+SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/agents_contract/command.py"
 
 
 def _load_script_module():
@@ -22,7 +22,7 @@ def _load_script_module():
         "check_agents_contract_script", SCRIPT_PATH
     )
     if spec is None or spec.loader is None:
-        raise RuntimeError("unable to load check_agents_contract.py")
+        raise RuntimeError("unable to load agents_contract/command.py")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
