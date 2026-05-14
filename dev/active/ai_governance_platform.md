@@ -173,7 +173,10 @@ Current ingestion status:
   `check_plan_index_commit_continuity.py`, which blocks governed MP-378 and
   post-mandate plan rows, including task-start bindings and guard charters,
   when they lack a commit anchor, `PlanIntentReceipt`, or `TypedAction`
-  evidence while keeping legacy gaps visible for later cleanup.
+  evidence while keeping legacy gaps visible for later cleanup. Guard P2 is
+  `check_packet_pkt_bind_completeness.py`, which scans review-channel packet
+  events and `plan_index.jsonl` so new Codex `task_started` packets cannot
+  remain attention-only without a durable `PKT-BIND-REV-PKT-*` row.
 - 2026-05-14 raw-git receipt substrate: `rev_pkt_4022` makes raw
   `git commit --no-verify` / `git push` a typed evidence concern instead of an
   invisible operator bypass. `RawGitBypassReceipt` records the verb, commit or

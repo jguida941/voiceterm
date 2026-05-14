@@ -57,6 +57,25 @@ Evidence:
 - `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
 - `dev/scripts/devctl/tests/review_channel/test_event_post_action.py`
 
+### 2026-05-14 - Packet starts must bind into typed plan state
+
+MP-378 Guard P2 added `check_packet_pkt_bind_completeness.py` so Codex
+`task_started` packets cannot remain as attention-only transport. The guard
+reads review-channel packet events and `plan_index.jsonl`, enforces
+post-`rev_pkt_4017` packets after the grace window or paired `task_produced`
+deadline, and reports older packet-start misses as legacy debt.
+
+The guard is in the shared tooling/release governance bundle and both workflow
+lanes, making packet-binding continuity a CI property rather than a reviewer
+memory habit.
+
+Evidence:
+
+- `dev/scripts/checks/check_packet_pkt_bind_completeness.py`
+- `dev/scripts/devctl/tests/checks/test_check_packet_pkt_bind_completeness.py`
+- `.github/workflows/tooling_control_plane.yml`
+- `.github/workflows/release_preflight.yml`
+
 ### 2026-05-14 - Session status projection answers completion versus death
 
 MP-378 added `SessionStatusProjection` as the single typed read model for

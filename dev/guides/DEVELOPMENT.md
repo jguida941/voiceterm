@@ -1542,6 +1542,12 @@ Three quality layers matter in practice:
   anchor plus `plan_intent_receipt:` and `typed_action:` evidence. Legacy gaps
   are visible in the report, but new MP-378 continuity rows must carry the
   proof triple before the tooling/release bundles pass.
+- Packet-start continuity is guarded by
+  `check_packet_pkt_bind_completeness.py`: new Codex `task_started` packets
+  need a durable `PKT-BIND-REV-PKT-*` row before the configured grace window
+  closes or before a paired `task_produced` packet lands. Historical misses are
+  reported as legacy gaps so cleanup remains visible without blocking forward
+  enforcement.
 - Treat moved public `dev/scripts/**` entrypoints and compatibility shims as
   smoke/integration surfaces, not pure unit seams: direct module tests are not
   enough when script mode, package mode, and public CLI/root-entrypoint

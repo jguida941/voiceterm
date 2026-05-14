@@ -158,8 +158,11 @@
   unguarded architectural invariants; when one appears, the loop proposes a
   typed guard/probe and Codex builds it inline or distributes it across the
   next MP-378 slices. Guard P1 is `check_plan_index_commit_continuity.py`;
-  P2-P5 are distributed across S6/S7 and the next contract-registry/sidebar
-  updates. `rev_pkt_4019` widened P1 from lexical MP-378 matching to mutation
+  Guard P2 is `check_packet_pkt_bind_completeness.py`, which blocks new Codex
+  `task_started` packets that miss durable `PKT-BIND-REV-PKT-*` plan rows
+  after the grace window or paired `task_produced` closure. P3-P5 are
+  distributed across S6/S7 and the next contract-registry/sidebar updates.
+  `rev_pkt_4019` widened P1 from lexical MP-378 matching to mutation
   semantics for task-start bindings and guard charters, and added P6/P7 as
   live-validated follow-on guards to distribute with the remaining launch
   bootstrap slices. This rule lives in typed plan state so it does not depend
@@ -8466,3 +8469,4 @@ Self-hosted typed classifier surface for the codex-voice platform's own typed go
 - [ ] `PKT-BIND-REV-PKT-4025` Packet finding: OPERATOR CLARIFICATION 2026-05-14T16:46Z: end-of-session governed push MUST automatically read raw_git_bypass_receipts.jsonl + replay skipped guards per receipt. Without automation, receipts are write-only. Propose Compon... (source `rev_pkt_4025`; target `operator-mandate:automated-guard-replay-2026-05-14T16:46Z`; posted `2026-05-14T16:44:08.365779Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-4026` Packet finding: P10 post-commit: 3/3 rev_pkt_4024 absorbed (BypassLifecycle 33 refs + GovernedException 12 refs + HEAD-advance noop guard) + 9/9 tests PASS + live dogfood proves fixes work. BUT META-RECURSIVE MISS WORSE THAN P1 — P10 has... (source `rev_pkt_4026`; target `dev/scripts/devctl/runtime/raw_git_bypass_receipts.py`; posted `2026-05-14T17:08:36.086567Z`; binding `plan_row`).
 - [ ] `PKT-BIND-REV-PKT-4027` Packet finding: OPERATOR UX OBSERVATION 2026-05-14T17:25Z: bare ok=true is misleading especially in BLIND-pass cases. R52 Guard P1 returning ok=True while invisible to missing P10 applied row IS the empirical proof. Propose typed TypedOu... (source `rev_pkt_4027`; target `operator-mandate:typed-output-human-summary-2026-05-14T17:25Z`; posted `2026-05-14T17:27:10.553200Z`; binding `plan_row`).
+- [ ] `PKT-BIND-REV-PKT-4028` Packet finding: Guard P2 PRE-COMMIT: 7/7 tests PASS + 4/4 wiring + live human_summary (rev_pkt_4027 partial absorption ✓). BUT COMPOSE-PARALLEL trip-wire: substrate:24-27 hardcodes TASK_STARTED_KIND literals instead of importing canonica... (source `rev_pkt_4028`; target `dev/scripts/checks/check_packet_pkt_bind_completeness.py`; posted `2026-05-14T18:07:27.191621Z`; binding `plan_row`).
