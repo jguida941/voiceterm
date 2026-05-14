@@ -85,6 +85,15 @@ Current ingestion status:
   final-gate/operator-override decisions, launch scripts, and review-channel
   recovery all read the same typed state rather than raw provider flags or
   bridge prose.
+- 2026-05-14 agent-supervise execution bridge: MP-377 closes the report-only
+  gap in `AgentSuperviseReport` without creating a second watchdog or launcher.
+  `agent-supervise` remains read-only by default, and `--execute` runs the
+  existing headless review-channel launch command through `subprocess.Popen`
+  only when `SpawnDeadAgentAction` is present. The resulting
+  `AgentSuperviseLaunchResult` records the command, PID, status, and error
+  proof so host process resurrection stays bound to the live
+  `continuation_anchor`, active `BypassReceipt`, and green `LoopAutonomyState`
+  gates.
 - 2026-05-13 P102 typestate foundation: the first transition-metadata slice
   stays inside the existing lifecycle family. `BypassLifecycle` reducers now
   carry `@governed_transition` metadata, a repo-owned

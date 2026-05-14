@@ -8,6 +8,7 @@ from pathlib import Path
 
 from dev.scripts.devctl.runtime.agent_supervise_driver import (
     AgentSuperviseInput,
+    execute_agent_supervision_spawn,
     evaluate_agent_supervision,
 )
 from dev.scripts.devctl.runtime.lifetime_bypass_mode import (
@@ -149,3 +150,88 @@ def test_supervise_driver_healthy_when_no_exit_or_freeze(tmp_path: Path) -> None
     assert report.status == "healthy"
     assert report.trigger_reason == ""
     assert report.spawn_action is None
+
+
+def test_supervise_driver_execute_launches_authorized_spawn(tmp_path: Path) -> None:
+    now = datetime(2026, 5, 12, 0, 20, tzinfo=UTC)
+    session = _session_file(tmp_path, mtime_epoch=now.timestamp() - 901)
+    launched: dict[str, object] = {}
+
+    class _Process:
+        pid = 12345
+
+    def _launcher(args: list[str], **kwargs: object) -> _Process:
+        launched["args"] = args
+        launched["kwargs"] = kwargs
+        return _Process()
+
+    report = evaluate_agent_supervision(
+        AgentSuperviseInput(
+            session_path=session,
+            pid=0,
+            repo_root=tmp_path,
+            review_state=_review_state(),
+            bypass_receipt=_receipt(),
+            now_utc=now,
+            staleness_threshold_seconds=900,
+        )
+    )
+
+    executed = execute_agent_supervision_spawn(
+        report,
+        launcher=_launcher,
+        cwd=tmp_path,
+    )
+
+    assert executed.launch_result is not None
+    assert executed.launch_result.status == "spawned"
+    assert executed.launch_result.pid == 12345
+    assert launched["args"] == [
+        "python3",
+        "dev/scripts/devctl.py",
+        "review-channel",
+        "--action",
+        "launch",
+        "--remote-role",
+        "reviewer",
+        "--policy-hint",
+        "review_only",
+        "--terminal",
+        "none",
+        "--format",
+        "md",
+    ]
+    kwargs = launched["kwargs"]
+    assert isinstance(kwargs, dict)
+    assert kwargs["cwd"] == tmp_path
+
+
+def test_supervise_driver_execute_refuses_without_authorized_spawn(
+    tmp_path: Path,
+) -> None:
+    now = datetime(2026, 5, 12, 0, 20, tzinfo=UTC)
+    session = _session_file(tmp_path, mtime_epoch=now.timestamp() - 901)
+    launched = False
+
+    def _launcher(args: list[str], **kwargs: object) -> object:
+        nonlocal launched
+        launched = True
+        return object()
+
+    report = evaluate_agent_supervision(
+        AgentSuperviseInput(
+            session_path=session,
+            repo_root=tmp_path,
+            review_state=_review_state(packets=[]),
+            bypass_receipt=_receipt(),
+            now_utc=now,
+            staleness_threshold_seconds=900,
+        )
+    )
+
+    executed = execute_agent_supervision_spawn(report, launcher=_launcher, cwd=tmp_path)
+
+    assert launched is False
+    assert executed.launch_result is not None
+    assert executed.launch_result.status == "not_authorized"
+    assert executed.launch_result.reason == "spawn_action_missing"

@@ -10,7 +10,9 @@ from ...common import add_standard_output_arguments, emit_output, write_output
 from ...config import REPO_ROOT
 from ...runtime.agent_supervise_driver import (
     AgentSuperviseInput,
+    AgentSuperviseLaunchResult,
     AgentSuperviseReport,
+    execute_agent_supervision_spawn,
     evaluate_agent_supervision,
 )
 from ...runtime.lifetime_bypass_mode import (
@@ -35,6 +37,12 @@ def add_parser(sub) -> None:
     parser.add_argument("--review-state-path", default="")
     parser.add_argument("--bypass-receipt-file", default="")
     parser.add_argument("--bypass-receipt-json", default="")
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        default=False,
+        help="Launch the authorized replacement agent when supervision gates pass",
+    )
     parser.add_argument(
         "--staleness-threshold-seconds",
         "--threshold-seconds",
@@ -66,6 +74,8 @@ def run(args: Any) -> int:
             ),
         )
     )
+    if bool(getattr(args, "execute", False)):
+        report = execute_agent_supervision_spawn(report)
     payload = report.to_dict()
     output = json.dumps(payload, indent=2, sort_keys=True)
     if getattr(args, "format", "md") != "json":
@@ -77,7 +87,13 @@ def run(args: Any) -> int:
         pipe_args=getattr(args, "pipe_args", None),
         writer=write_output,
     )
-    return 0 if report.status in {"healthy", "spawn_authorized"} else 1
+    if report.status == "healthy":
+        return 0
+    if report.status != "spawn_authorized":
+        return 1
+    if bool(getattr(args, "execute", False)):
+        return _execute_exit_code(report.launch_result)
+    return 0
 
 
 def _load_review_state(path: str) -> dict[str, object]:
@@ -145,7 +161,25 @@ def _render_markdown(report: AgentSuperviseReport) -> str:
             "- continuation_anchor_packet_id: "
             f"{report.spawn_action.continuation_anchor_packet_id}"
         )
+    if report.launch_result is not None:
+        _render_launch_result(lines, report.launch_result)
     return "\n".join(lines)
+
+
+def _execute_exit_code(result: AgentSuperviseLaunchResult | None) -> int:
+    return 0 if result is not None and result.status == "spawned" else 1
+
+
+def _render_launch_result(
+    lines: list[str],
+    result: AgentSuperviseLaunchResult,
+) -> None:
+    lines.extend(["", "## Launch Result"])
+    lines.append(f"- status: {result.status}")
+    if result.pid:
+        lines.append(f"- pid: {result.pid}")
+    if result.error:
+        lines.append(f"- error: {result.error}")
 
 
 __all__ = ["add_parser", "run"]

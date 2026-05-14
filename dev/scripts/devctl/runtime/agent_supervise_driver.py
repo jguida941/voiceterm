@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
+import shlex
+import subprocess
+from typing import Protocol
 
 from ..config import REPO_ROOT
 from ..commands.rollout_tail.discovery import (
@@ -26,7 +29,25 @@ from .value_coercion import coerce_int, coerce_mapping, coerce_string
 
 AGENT_SUPERVISE_REPORT_CONTRACT_ID = "AgentSuperviseReport"
 AGENT_SUPERVISE_REPORT_SCHEMA_VERSION = 1
+AGENT_SUPERVISE_LAUNCH_RESULT_CONTRACT_ID = "AgentSuperviseLaunchResult"
+AGENT_SUPERVISE_LAUNCH_RESULT_SCHEMA_VERSION = 1
 DEFAULT_AGENT_SUPERVISE_STALENESS_SECONDS = 900
+
+
+class AgentSuperviseLauncher(Protocol):
+    """Callable boundary for launching an authorized replacement process."""
+
+    def __call__(
+        self,
+        args: list[str],
+        *,
+        cwd: Path,
+        stdin: int,
+        stdout: int,
+        stderr: int,
+        start_new_session: bool,
+    ) -> subprocess.Popen[object]:
+        """Launch a replacement agent command."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +66,22 @@ class AgentSuperviseInput:
     bypass_receipt: BypassReceipt | None = None
     staleness_threshold_seconds: int = DEFAULT_AGENT_SUPERVISE_STALENESS_SECONDS
     now_utc: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class AgentSuperviseLaunchResult:
+    """Typed result for the report-to-action supervision boundary."""
+
+    status: str
+    command: tuple[str, ...] = ()
+    pid: int = 0
+    reason: str = ""
+    error: str = ""
+    schema_version: int = AGENT_SUPERVISE_LAUNCH_RESULT_SCHEMA_VERSION
+    contract_id: str = AGENT_SUPERVISE_LAUNCH_RESULT_CONTRACT_ID
+
+    def to_dict(self) -> dict[str, object]:
+        return json_ready_dict(asdict(self))
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +108,7 @@ class AgentSuperviseReport:
     trigger_reason: str = ""
     spawn_action: SpawnDeadAgentAction | None = None
     next_command: str = ""
+    launch_result: AgentSuperviseLaunchResult | None = None
     blocked_reasons: tuple[str, ...] = ()
     schema_version: int = AGENT_SUPERVISE_REPORT_SCHEMA_VERSION
     contract_id: str = AGENT_SUPERVISE_REPORT_CONTRACT_ID
@@ -79,6 +117,8 @@ class AgentSuperviseReport:
         payload = json_ready_dict(asdict(self))
         if self.spawn_action is not None:
             payload["spawn_action"] = self.spawn_action.to_dict()
+        if self.launch_result is not None:
+            payload["launch_result"] = self.launch_result.to_dict()
         return payload
 
 
@@ -196,6 +236,54 @@ def evaluate_agent_supervision(inputs: AgentSuperviseInput) -> AgentSuperviseRep
         spawn_action=spawn_action,
         next_command=next_command,
         blocked_reasons=blocked,
+    )
+
+
+def execute_agent_supervision_spawn(
+    report: AgentSuperviseReport,
+    *,
+    launcher: AgentSuperviseLauncher | None = None,
+    cwd: Path = REPO_ROOT,
+) -> AgentSuperviseReport:
+    """Run the authorized replacement command and attach typed launch proof."""
+    command = shlex.split(report.next_command)
+    if report.spawn_action is None or not command:
+        return replace(
+            report,
+            launch_result=AgentSuperviseLaunchResult(
+                status="not_authorized",
+                command=tuple(command),
+                reason="spawn_action_missing",
+            ),
+        )
+    launch = launcher or subprocess.Popen
+    try:
+        process = launch(
+            command,
+            cwd=cwd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except OSError as exc:
+        return replace(
+            report,
+            launch_result=AgentSuperviseLaunchResult(
+                status="spawn_failed",
+                command=tuple(command),
+                reason="subprocess_launch_failed",
+                error=str(exc),
+            ),
+        )
+    return replace(
+        report,
+        launch_result=AgentSuperviseLaunchResult(
+            status="spawned",
+            command=tuple(command),
+            pid=int(getattr(process, "pid", 0) or 0),
+            reason=report.spawn_action.reason,
+        ),
     )
 
 
@@ -325,10 +413,15 @@ def _launch_command(*, role: str) -> str:
 
 
 __all__ = [
+    "AGENT_SUPERVISE_LAUNCH_RESULT_CONTRACT_ID",
+    "AGENT_SUPERVISE_LAUNCH_RESULT_SCHEMA_VERSION",
     "AGENT_SUPERVISE_REPORT_CONTRACT_ID",
     "AGENT_SUPERVISE_REPORT_SCHEMA_VERSION",
     "DEFAULT_AGENT_SUPERVISE_STALENESS_SECONDS",
     "AgentSuperviseInput",
+    "AgentSuperviseLaunchResult",
+    "AgentSuperviseLauncher",
     "AgentSuperviseReport",
+    "execute_agent_supervision_spawn",
     "evaluate_agent_supervision",
 ]

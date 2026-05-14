@@ -73,6 +73,12 @@
   `MP377-CODEX-SPAWN-AUTHORITY-S1` adds typed `SpawnDeadAgentAction`
   composing with `LifetimeBypassMode` so dead-agent resurrection becomes a
   typed-pipeline-native action instead of bash-permission grants;
+  `MP377-AGENT-SUPERVISE-DRIVER-S1` wires that authority into
+  `agent-supervise --execute`: the default report remains read-only, while
+  the explicit execute path emits `AgentSuperviseLaunchResult` and starts the
+  existing headless review-channel launch command only after a live
+  `continuation_anchor`, active `BypassReceipt`, and green `LoopAutonomyState`
+  produce `SpawnDeadAgentAction`;
   `MP377-LIFETIME-BYPASS-MODE-S1` adds `LifetimeBypassMode` typed authority
   with `BypassReceipt(receipt_id, reason, operator_signature,
   ai_approval_evidence, requested_authority_scope, expires_at_utc_optional)`

@@ -55,6 +55,24 @@ Evidence:
 - `dev/scripts/devctl/tests/runtime/test_agent_loop_bilateral_protocol.py`
 - `dev/scripts/devctl/platform/runtime_identity_contract_rows.py`
 
+### 2026-05-14 - Agent supervise crosses from report to authorized subprocess action
+
+MP-377 extended `agent-supervise` from a report-only outer-loop reducer into an
+explicit typed execution bridge. The default command still reports liveness and
+spawn authority only; `--execute` now runs the existing headless review-channel
+launch command through `subprocess.Popen` after `SpawnDeadAgentAction` proves
+the live continuation anchor, active bypass receipt, and loop-autonomy gates.
+
+Change: `AgentSuperviseLaunchResult` records subprocess command, PID, status,
+and error proof, and command/runtime tests cover both authorized launch and
+denied execution paths without creating another watchdog or parallel launcher.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/agent_supervise_driver.py`
+- `dev/scripts/devctl/commands/runtime/agent_supervise.py`
+- `dev/scripts/devctl/tests/runtime/test_agent_supervise_driver.py`
+
 ### 2026-05-14 - Fixture adopters prove the portable gate and expose one probe wrapper bug
 
 MP-377 adopter-gate work reran the portable bootstrap/probe path against two

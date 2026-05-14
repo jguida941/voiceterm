@@ -74,6 +74,12 @@ Use docs like this:
   typed state, default requested worker fanout is zero unless explicitly
   requested, and `bridge.md` remains a compatibility projection until native
   `CollaborationSession` worker topology lands.
+- Agent-supervision recovery stays typed and explicit. Use `devctl
+  agent-supervise --format json` to inspect host/process liveness. Add
+  `--execute` only when the report contains `SpawnDeadAgentAction`; the command
+  then records `AgentSuperviseLaunchResult` and runs the existing headless
+  review-channel launch command through subprocess, rather than inventing a
+  parallel watchdog or launch surface.
 - Review-channel promotion/follow automation is fail-closed on explicit state
   markers only. When you touch bridge promotion/readiness code, treat the
   first verdict/instruction item or typed `current_session` state as authority;

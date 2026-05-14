@@ -653,8 +653,11 @@ Portability note:
   failures. It composes the existing rollout/agent-mind activity age,
   continuation anchor, `LoopAutonomyState`, `BypassReceipt`, and
   `compute_spawn_authority()` gates; it reports process-exit or freeze evidence
-  and the existing headless review-channel launch command, but does not create a
-  second watchdog, heartbeat, dashboard, or relaunch loop.
+  and the existing headless review-channel launch command. `--execute` crosses
+  the report-to-action boundary only after `SpawnDeadAgentAction` is present,
+  starts that command with `subprocess.Popen`, and emits
+  `AgentSuperviseLaunchResult`; it does not create a second watchdog,
+  heartbeat, dashboard, or relaunch loop.
 - Runtime liveness is projected through `SessionLivenessSignal` in
   `devctl.runtime` with the states `alive`, `degraded`,
   `detached_runtime_only`, and `dead`. Review-channel status emits
