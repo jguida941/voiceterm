@@ -78,10 +78,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-14T04:13:49Z`
-- Last Codex poll (Local America/New_York): `2026-05-14 00:13:49 EDT`
+- Last Codex poll: `2026-05-14T04:35:56Z`
+- Last Codex poll (Local America/New_York): `2026-05-14 00:35:56 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `555d4020702d0591ad64ed8c7acea20643499b32ecd5c37c7423f5a5f6d93659`
+- Last non-audit worktree hash: `b3cc5d534e8b132336c10473f65a7b5b88295f2cb8d62f168d0b6b1c84ae003f`
 - Current instruction revision: ``
 
 ## Protocol
