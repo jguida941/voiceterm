@@ -153,13 +153,14 @@ def build_event_current_session(
     implementer_ack = (
         event_implementer_ack(review_state) if live_instruction_present else ""
     )
+    event_ack_is_substantive = _event_ack_is_substantive(implementer_ack)
     implementer_ack_revision = (
         str(
             bridge_liveness.get("implementer_ack_revision")
             or bridge_liveness.get("claude_ack_revision")
             or ""
         )
-        if live_instruction_present
+        if live_instruction_present and event_ack_is_substantive
         else ""
     )
     ack_current = (
@@ -167,7 +168,7 @@ def build_event_current_session(
             bridge_liveness.get("implementer_ack_current")
             or bridge_liveness.get("claude_ack_current")
         )
-        if live_instruction_present
+        if live_instruction_present and event_ack_is_substantive
         else False
     )
     implementer_status = event_agent_status(review_state, implementer_provider)
@@ -233,3 +234,8 @@ def _bridge_liveness_implementer_ack(
         if value and _is_substantive_text(value):
             return value
     return ""
+
+
+def _event_ack_is_substantive(implementer_ack: str) -> bool:
+    normalized = str(implementer_ack or "").strip().lower().lstrip("- ").strip()
+    return bool(normalized and normalized not in {"pending", "missing"})

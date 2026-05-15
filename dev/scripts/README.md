@@ -900,9 +900,10 @@ Portability note:
   `- acknowledged current instruction revision: <rev>` or
   `- acknowledged; instruction-rev: <rev>`. Bridge-backed `current_session`,
   live bridge validation, and `review-channel --action bridge-poll` now share
-  that same parser. If typed `current_session` ACK state is unknown, fall back
-  to `bridge.claude_ack_current` before reading bridge prose or inventing a
-  third parser. Prefer provider-neutral bridge aliases
+  that same parser. Bridge text is compatibility output, not ACK authority:
+  bridge-backed current-session selection keeps ACK state missing unless
+  typed `current_session` / `latest_implementer_ack` state backs the same
+  instruction revision. Prefer provider-neutral bridge aliases
   (`implementer_ack*`, `implementer_status`, `reviewer_poll_state`,
   `last_reviewer_poll_*`) when present; legacy `claude_*` / `codex_*` fields
   remain compatibility outputs for bridge/render parity.

@@ -1631,6 +1631,106 @@ def test_resolve_current_session_authority_keeps_prior_typed_session_when_bridge
     assert resolved.open_findings == "- typed findings"
 
 
+def test_resolve_current_session_authority_rejects_bridge_ack_without_typed_event() -> None:
+    resolved = resolve_current_session_authority(
+        snapshot=BridgeSnapshot(
+            metadata={"current_instruction_revision": "typed-rev-999"},
+            sections={
+                "Current Instruction For Implementer": "Use typed authority.",
+                "Implementer Status": "- active",
+                "Implementer Questions": "",
+                "Implementer Ack": (
+                    "- acknowledged current instruction revision: `typed-rev-999`"
+                ),
+                "Open Findings": "- typed findings",
+                "Last Reviewed Scope": "MP-188",
+            },
+        ),
+        bridge_liveness={
+            "current_instruction_revision": "typed-rev-999",
+            "claude_ack_revision": "typed-rev-999",
+            "claude_ack_current": True,
+            "reviewer_freshness": "fresh",
+        },
+        prior_review_state={
+            "current_session": {
+                "current_instruction": "Use typed authority.",
+                "current_instruction_revision": "typed-rev-999",
+                "implementer_status": "- active",
+                "implementer_ack": "",
+                "implementer_ack_revision": "",
+                "implementer_ack_state": "missing",
+                "implementer_state_hash": "typed-hash",
+                "open_findings": "- typed findings",
+                "last_reviewed_scope": "MP-188",
+            }
+        },
+    )
+
+    assert resolved.implementer_ack == ""
+    assert resolved.implementer_ack_revision == ""
+    assert resolved.implementer_ack_state == "missing"
+
+
+def test_resolve_current_session_authority_uses_typed_ack_event() -> None:
+    resolved = resolve_current_session_authority(
+        snapshot=BridgeSnapshot(
+            metadata={"current_instruction_revision": "typed-rev-999"},
+            sections={
+                "Current Instruction For Implementer": "Use typed authority.",
+                "Implementer Status": "- active",
+                "Implementer Questions": "",
+                "Implementer Ack": "- stale bridge-only text",
+                "Open Findings": "- typed findings",
+                "Last Reviewed Scope": "MP-188",
+            },
+        ),
+        bridge_liveness={
+            "current_instruction_revision": "typed-rev-999",
+            "claude_ack_revision": "",
+            "claude_ack_current": False,
+            "reviewer_freshness": "fresh",
+        },
+        prior_review_state={
+            "queue": {
+                "pending_total": 0,
+                "pending_claude": 0,
+                "derived_next_instruction": "",
+            },
+            "registry": {
+                "agents": [
+                    {
+                        "agent_id": "claude",
+                        "job_state": "- active",
+                    }
+                ]
+            },
+            "latest_implementer_ack": {
+                "current_instruction_revision": "typed-rev-999",
+                "implementer_ack": (
+                    "- acknowledged current instruction revision: `typed-rev-999`"
+                ),
+            },
+            "current_session": {
+                "current_instruction": "Use typed authority.",
+                "current_instruction_revision": "typed-rev-999",
+                "implementer_status": "- active",
+                "implementer_ack": "",
+                "implementer_ack_revision": "",
+                "implementer_ack_state": "missing",
+                "open_findings": "- typed findings",
+                "last_reviewed_scope": "MP-188",
+            },
+        },
+    )
+
+    assert resolved.implementer_ack == (
+        "- acknowledged current instruction revision: `typed-rev-999`"
+    )
+    assert resolved.implementer_ack_revision == "typed-rev-999"
+    assert resolved.implementer_ack_state == "current"
+
+
 def test_resolve_current_session_authority_prefers_active_packet_instruction_over_blank_prior() -> None:
     resolved = resolve_current_session_authority(
         snapshot=BridgeSnapshot(

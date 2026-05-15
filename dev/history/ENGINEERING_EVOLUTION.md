@@ -37,6 +37,26 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-15 - Bridge ACK projection stops outranking typed ACK state
+
+The R126 review-channel audit found a projection-authority drift: `bridge.md`
+could display an acknowledged implementer revision while typed
+`current_session.implementer_ack_state` remained empty. Fresh sessions reading
+the compatibility bridge could therefore treat bridge prose as proof that the
+typed ACK never recorded.
+
+Change: bridge-backed current-session resolution now strips bridge-only ACK
+claims unless typed `current_session` / `latest_implementer_ack` state backs the
+same instruction revision. Typed ACK payloads still project as current; raw
+bridge prose alone cannot advance ACK freshness.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/current_session_projection.py`
+- `dev/scripts/devctl/review_channel/current_session_event_state.py`
+- `dev/scripts/devctl/review_channel/current_session_authority.py`
+- `dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`
+
 ### 2026-05-15 - Governed push preflight enforces canonical governance docs
 
 The governed push dogfood run reached the release bundle but stopped before

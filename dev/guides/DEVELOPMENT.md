@@ -732,10 +732,11 @@ Three quality layers matter in practice:
     `- acknowledged current instruction revision: <rev>` or
     `- acknowledged; instruction-rev: <rev>`. `current_session`,
     `bridge-poll`, and live bridge validation now share that same parser; do
-    not invent a repo-local third phrasing rule.
-    When `current_session` ACK state is unknown, consumers should fall back to
-    typed `bridge.claude_ack_current` before trying to infer anything from
-    bridge prose. Prefer provider-neutral bridge aliases
+    not invent a repo-local third phrasing rule. Bridge text is compatibility
+    output, not ACK authority: bridge-backed current-session selection must
+    keep ACK state missing unless typed `current_session` /
+    `latest_implementer_ack` state backs the same instruction revision.
+    Prefer provider-neutral bridge aliases
     (`implementer_ack*`, `implementer_status`, `reviewer_poll_state`,
     `last_reviewer_poll_*`) when present; the legacy `claude_*` /
     `codex_*` fields remain compatibility outputs for bridge/render parity.
