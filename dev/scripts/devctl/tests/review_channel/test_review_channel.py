@@ -28,6 +28,9 @@ from dev.scripts.devctl.commands.review_channel import (
     _follow_runtime as review_channel_follow_runtime,
 )
 from dev.scripts.devctl.commands.review_channel import _wait as review_channel_wait_mod
+from dev.scripts.devctl.commands.review_channel._reset_implementer import (
+    run_reset_implementer_state_action,
+)
 from dev.scripts.devctl.commands.review_channel import (
     bridge_action_support as review_channel_bridge_action_support,
 )
@@ -40,6 +43,7 @@ from dev.scripts.devctl.commands.review_channel import (
 from dev.scripts.devctl.commands.review_channel import (
     status as review_channel_status_mod,
 )
+from dev.scripts.devctl.commands.review_channel_command import RuntimePaths
 from dev.scripts.devctl.commands.review_channel.bridge_launch_control import (
     LaunchSessionRequest as BridgeLaunchSessionRequest,
 )
@@ -708,6 +712,29 @@ class ReviewChannelParserTests(unittest.TestCase):
         self.assertEqual(args.action, "reset-implementer-state")
         self.assertEqual(args.reviewer_mode, "active_dual_agent")
         self.assertEqual(args.reason, "stale-implementer-launch-block")
+
+    def test_cli_accepts_reset_roles_action(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "review-channel",
+                "--action",
+                "reset-roles",
+                "--reviewer-mode",
+                "active_dual_agent",
+                "--reason",
+                "provider-role-inversion-recovery",
+                "--terminal",
+                "none",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(args.command, "review-channel")
+        self.assertEqual(args.action, "reset-roles")
+        self.assertEqual(args.reviewer_mode, "active_dual_agent")
+        self.assertEqual(args.reason, "provider-role-inversion-recovery")
 
     def test_cli_defaults_follow_cadence_settings(self) -> None:
         parser = build_parser()
@@ -7968,6 +7995,69 @@ class ReviewChannelFollowLoopTests(unittest.TestCase):
 
 
 class ReviewChannelCommandTests(unittest.TestCase):
+    def test_reset_roles_alias_resets_implementer_sections(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(
+                _build_bridge_text(
+                    claude_status="- stale implementer status",
+                    claude_ack="- stale ack",
+                ),
+                encoding="utf-8",
+            )
+            args = SimpleNamespace(
+                action="reset-roles",
+                reason="provider-role-inversion-recovery",
+            )
+            paths = RuntimePaths(
+                review_channel_path=review_channel_path,
+                bridge_path=bridge_path,
+                rollover_dir=root / "dev/reports/review_channel/rollovers",
+                status_dir=root / "dev/reports/review_channel/latest",
+            )
+
+            report, rc = run_reset_implementer_state_action(
+                args=args,
+                repo_root=root,
+                paths=paths,
+                run_status_action_fn=lambda **_: (
+                    {"command": "review-channel", "action": "status"},
+                    0,
+                ),
+            )
+
+            self.assertEqual(rc, 0)
+            self.assertEqual(report["action"], "reset-roles")
+            self.assertTrue(report["ok"])
+            self.assertTrue(report["implementer_state_reset"]["changed"])
+            self.assertEqual(report["role_reset"]["action"], "reset-roles")
+            self.assertEqual(report["role_reset"]["target_role"], "implementer")
+            self.assertEqual(
+                report["role_reset"]["reset_scope"],
+                "implementer_owned_bridge_sections",
+            )
+
+            snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                snapshot.sections.get("Implementer Status", "").strip(),
+                "- pending",
+            )
+            self.assertEqual(
+                snapshot.sections.get("Implementer Questions", "").strip(),
+                "- None recorded.",
+            )
+            self.assertEqual(
+                snapshot.sections.get("Implementer Ack", "").strip(),
+                "- pending",
+            )
+
     def test_implementer_wait_returns_after_reviewer_owned_bridge_change(self) -> None:
         baseline_revision = "aaaaaaaaaaaa"
         updated_revision = "bbbbbbbbbbbb"

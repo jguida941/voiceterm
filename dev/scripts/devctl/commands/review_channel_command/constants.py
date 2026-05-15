@@ -88,6 +88,7 @@ class ReviewChannelAction(StrEnum):
     REVIEWER_CHECKPOINT = "reviewer-checkpoint"
     IMPLEMENTER_ACK = "implementer-ack"
     RESET_IMPLEMENTER_STATE = "reset-implementer-state"
+    RESET_ROLES = "reset-roles"
     PROMOTE = "promote"
     POST = "post"
     WATCH = "watch"

@@ -168,7 +168,10 @@ def _dispatch_action(
             repo_root=repo_root,
             paths=paths,
         )
-    elif action is ReviewChannelAction.RESET_IMPLEMENTER_STATE:
+    elif action in (
+        ReviewChannelAction.RESET_IMPLEMENTER_STATE,
+        ReviewChannelAction.RESET_ROLES,
+    ):
         result = _run_reset_implementer_state_action(
             args=args,
             repo_root=repo_root,

@@ -30,6 +30,7 @@ REVIEW_ACTION_CHOICES = (
     "reviewer-checkpoint",
     "implementer-ack",
     "reset-implementer-state",
+    "reset-roles",
     "promote",
     "post",
     "watch",
