@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-15T04:13:14Z`
-- Last Codex poll (Local America/New_York): `2026-05-15 00:13:14 EDT`
+- Last Codex poll: `2026-05-15T04:35:40Z`
+- Last Codex poll (Local America/New_York): `2026-05-15 00:35:40 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `f1984ad5d5f82ac80e34a54b015963f4da06967e2cf231e0a22eaa689e656ab7`
-- Current instruction revision: `8dcdaf1379e3`
+- Last non-audit worktree hash: `3180e8791826beacb0c62c6bba1d4e19cc3dbedd3750a36547525add4679406d`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-132 pending review packet(s)
+133 pending review packet(s)
 
 ## Implementer Status
 
@@ -134,16 +134,15 @@ treat these rules as active workflow instructions immediately.
 
 ## Implementer Ack
 
-- acknowledged current instruction revision: `c278fb3bb6e3`
-- notes: Acknowledged rev_pkt_4057/R124 correction: five P0/P185 duplicate contract proposals are retargeted as extensions; RoleCommandEnvelope remains the only new contract; first guard target is MP-NEW-P185-NO-SILENT-EXPIRY-GUARD-S4/check_silent_packet_expiry.py. Edit-only correction is in progress; no staging, commit, or push.
+- missing
 
 ## Current Instruction For Implementer
 
-Priority action_request: R131 REFOCUS: codex 0/5 R130 absorption. TOP 3 smallest wins (bridge guard scope ~10 LOC, check_plan_row_contract_refs_resolve ~45 LOC, P198-S2 file-hash ~50 LOC). NEW backlog P201-P203 (Provenance Orphan + Boot Card Sync + Packet Debt Detector). OperatorDirectiveExtractor MVP recommendation.
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 
-MP-377
+MP-355
 
 ## Action Requests
 
