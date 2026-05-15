@@ -15811,6 +15811,21 @@ rows that are part of the enforced mutation classes.
 
 Closure evidence:
 
+### 2026-05-15 - Guard-run classifies extension versus build work
+
+The R126 automation triplet now has a `guard-run --check extend-discipline`
+path for the duplicate-scope discipline that was previously manual. The check
+reads git status and numstat evidence, classifies dirty paths as tracked
+extension work or new build paths, and returns `extended`, `built`,
+`untracked_audit`, `diff_audit`, and a verdict. Manual mode is report-only;
+auto mode fails closed when new build paths appear.
+
+Evidence:
+
+- `dev/scripts/devctl/extend_discipline.py`
+- `dev/scripts/devctl/commands/guard_run.py`
+- `dev/scripts/devctl/tests/test_guard_run.py`
+
 - `MP-378-ARCH-SELF-IMPROVEMENT-LOOP-S1`
 - `MP-378-GUARD-P1-PLAN-INDEX-CONTINUITY`
 - `PKT-BIND-REV-PKT-4013`

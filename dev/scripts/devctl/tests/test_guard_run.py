@@ -10,6 +10,7 @@ from unittest import TestCase, mock
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import guard_run
 from dev.scripts.devctl.config import REPO_ROOT
+from dev.scripts.devctl.extend_discipline import classify_extend_discipline
 from dev.scripts.devctl.guard_run_core import GuardGitSnapshot
 from dev.scripts.devctl.watchdog.episode import build_guarded_coding_episode
 
@@ -40,8 +41,97 @@ class GuardRunParserTests(TestCase):
         self.assertIsNone(args.provider)
         self.assertEqual(args.retry_count, 0)
 
+    def test_cli_accepts_extend_discipline_check(self) -> None:
+        args = build_parser().parse_args(
+            [
+                "guard-run",
+                "--check",
+                "extend-discipline",
+                "--extend-discipline-mode",
+                "auto",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(args.command, "guard-run")
+        self.assertEqual(args.check, "extend-discipline")
+        self.assertEqual(args.extend_discipline_mode, "auto")
+        self.assertEqual(args.guarded_command, [])
+
 
 class GuardRunCommandTests(TestCase):
+    def test_extend_discipline_classifies_mixed_work(self) -> None:
+        report = classify_extend_discipline(
+            status_lines=[
+                " M dev/scripts/devctl/commands/guard_run.py",
+                "?? dev/scripts/devctl/extend_discipline.py",
+            ],
+            diff_lines=[
+                "12\t3\tdev/scripts/devctl/commands/guard_run.py",
+            ],
+        )
+
+        self.assertEqual(report["verdict"], "MIXED")
+        self.assertTrue(report["ok"])
+        self.assertTrue(report["attention_required"])
+        self.assertEqual(report["extended"][0]["classification"], "extended")
+        self.assertEqual(report["built"][0]["classification"], "built")
+        self.assertEqual(report["untracked_audit"]["paths"], ["dev/scripts/devctl/extend_discipline.py"])
+        self.assertEqual(report["diff_audit"]["diff_churn"], 15)
+
+    def test_extend_discipline_auto_mode_fails_on_build_paths(self) -> None:
+        report = classify_extend_discipline(
+            status_lines=["A  dev/scripts/devctl/new_guard.py"],
+            diff_lines=["8\t0\tdev/scripts/devctl/new_guard.py"],
+            mode="auto",
+        )
+
+        self.assertEqual(report["verdict"], "BUILD")
+        self.assertFalse(report["ok"])
+        self.assertIn("New build paths detected", report["errors"][0])
+
+    @mock.patch("dev.scripts.devctl.commands.guard_run.emit_output")
+    @mock.patch("dev.scripts.devctl.commands.guard_run.build_extend_discipline_report")
+    def test_guard_run_check_extend_discipline_uses_report_path(
+        self,
+        report_mock,
+        emit_output_mock,
+    ) -> None:
+        report_mock.return_value = {
+            "command": "guard-run",
+            "check": "extend-discipline",
+            "toggle_id": "ExtensionVsBuildVerificationAutomation",
+            "mode": "manual",
+            "ok": True,
+            "status": "ok",
+            "verdict": "EXTEND",
+            "extended": [],
+            "built": [],
+            "untracked_audit": {"count": 0, "paths": []},
+            "diff_audit": {"diff_churn": 0},
+            "warnings": [],
+            "errors": [],
+        }
+        emit_output_mock.return_value = 0
+        args = build_parser().parse_args(
+            [
+                "guard-run",
+                "--check",
+                "extend-discipline",
+                "--format",
+                "json",
+            ]
+        )
+
+        rc = guard_run.run(args)
+
+        self.assertEqual(rc, 0)
+        report_mock.assert_called_once_with(mode="manual")
+        payload = json.loads(emit_output_mock.call_args.args[0])
+        self.assertEqual(payload["check"], "extend-discipline")
+        self.assertEqual(payload["verdict"], "EXTEND")
+
     @mock.patch("dev.scripts.devctl.commands.guard_run.emit_guarded_coding_episode")
     @mock.patch("dev.scripts.devctl.commands.guard_run.write_output")
     @mock.patch("dev.scripts.devctl.commands.guard_run.run_cmd")

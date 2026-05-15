@@ -78,12 +78,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-15T11:31:40Z`
-- Last Codex poll (Local America/New_York): `2026-05-15 07:31:40 EDT`
+- Last Codex poll: `2026-05-15T12:00:15Z`
+- Last Codex poll (Local America/New_York): `2026-05-15 08:00:15 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `7af35bccf9213e5cd02d31e0c230fe9ef5f9a1909eb489e75e6a8ce2e564ea81`
-- Current instruction revision: ``
-
+- Last non-audit worktree hash: `f2b1f6cf8cd1e3a5bee10230c013c4ae334087aa0e0dce881559ac00bd83e82a`
+- Current instruction revision: `80a7b4a46c27`
+- Last checkpoint action: `reviewer-checkpoint`
+- Head at push time: `b86a2a0ae369b141a80a2f71c07a381f05510260`
 ## Protocol
 
 1. Codex should poll this file periodically while coding.
@@ -114,19 +115,19 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: operator-manual-override; observed-tree: 507d2bf56cd0; reviewed-tree: 507d2bf56cd0; instruction-rev: 756595df3962).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: operator-manual-override; observed-tree: f2b1f6cf8cd1; reviewed-tree: f2b1f6cf8cd1; instruction-rev: 80a7b4a46c27).
 
 ## Current Verdict
 
-- reviewer state unavailable
+Checkpoint: operator-authorized continuation per override briefing; Codex is continuing MP-NEW-P188 automation work.
 
 ## Open Findings
 
-147 pending review packet(s)
+No checkpoint findings; this write is only to unblock typed startup authority for the active edit slice.
 
 ## Implementer Status
 
-- Status unavailable.
+- pending
 
 ## Implementer Questions
 
@@ -134,15 +135,17 @@ treat these rules as active workflow instructions immediately.
 
 ## Implementer Ack
 
-- missing
+- pending
 
 ## Current Instruction For Implementer
 
-- Await reviewer instruction refresh.
+Continue MP-NEW-P188-AUTOMATION-TRIPLET-S1: validate guard-run extension-vs-build verification, then commit and report task_progress.
 
 ## Last Reviewed Scope
 
-MP-377
+- dev/scripts/devctl/extend_discipline.py
+- dev/scripts/devctl/commands/guard_run.py
+- dev/scripts/devctl/cli_parser/hygiene.py
 
 ## Action Requests
 

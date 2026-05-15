@@ -8,6 +8,10 @@ import time
 
 from ..common import cmd_str, emit_output, pipe_output, run_cmd, write_output
 from ..config import REPO_ROOT
+from ..extend_discipline import (
+    build_extend_discipline_markdown,
+    build_extend_discipline_report,
+)
 from ..guard_run_core import (
     GuardGitSnapshot,
     GuardRunRequest,
@@ -200,6 +204,32 @@ def build_guard_run_report(
 
 def run(args) -> int:
     """Run a local command with guaranteed post-run process hygiene follow-up."""
+    if getattr(args, "check", None) == "extend-discipline":
+        report = build_extend_discipline_report(
+            mode=str(getattr(args, "extend_discipline_mode", "manual")),
+        )
+        if list(getattr(args, "guarded_command", [])):
+            report["warnings"].append(
+                "`guard-run --check extend-discipline` is report-only; guarded_command was ignored."
+            )
+            report["status"] = "attention" if report["ok"] else report["status"]
+        output = (
+            json.dumps(report, indent=2)
+            if args.format == "json"
+            else build_extend_discipline_markdown(report)
+        )
+        pipe_rc = emit_output(
+            output,
+            output_path=args.output,
+            pipe_command=args.pipe_command,
+            pipe_args=args.pipe_args,
+            writer=write_output,
+            piper=pipe_output,
+        )
+        if pipe_rc != 0:
+            return pipe_rc
+        return 0 if report["ok"] else 1
+
     request = GuardRunRequest(
         command_args=list(getattr(args, "guarded_command", [])),
         cwd=getattr(args, "cwd", None),

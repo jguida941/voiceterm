@@ -102,6 +102,17 @@ def add_process_hygiene_parsers(sub: argparse._SubParsersAction) -> None:
         help="Print the guarded command and follow-up without executing them",
     )
     guard_run_cmd.add_argument(
+        "--check",
+        choices=["extend-discipline"],
+        help="Run a built-in guard-run verification check instead of a guarded command",
+    )
+    guard_run_cmd.add_argument(
+        "--extend-discipline-mode",
+        choices=["auto", "manual", "disabled"],
+        default="manual",
+        help="Extension-vs-build verification mode for --check extend-discipline",
+    )
+    guard_run_cmd.add_argument(
         "--provider",
         choices=["unknown", "codex", "claude", "shared"],
         help="Optional watchdog provider tag for the emitted episode artifact",

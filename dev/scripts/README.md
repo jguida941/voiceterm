@@ -756,6 +756,12 @@ Portability note:
   ACK surface. `review-channel --action check-ack-freshness --format json`
   is the on-demand typed health probe for comparing visible ACK projection
   text with typed `implementer_ack` event/current-session authority.
+- `guard-run --check extend-discipline --format json` is the on-demand
+  `ExtensionVsBuildVerificationAutomation` probe. It classifies current git
+  dirt as tracked-path extension, new-path build, or mixed work and reports
+  `extended`, `built`, `untracked_audit`, `diff_audit`, and `verdict`; pass
+  `--extend-discipline-mode auto` when the caller wants new build paths to
+  fail closed instead of reporting attention in manual mode.
 - `review-channel --action operator-inbox` is the read-only operator queue
   alias over that same typed packet lane. It fixes `target=operator`,
   defaults to `--status pending`, and intentionally does not stamp

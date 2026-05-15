@@ -1734,6 +1734,10 @@ fallback bug into its fix).
 6. If you need to run raw Rust tests or test binaries directly, prefer:
    - `python3 dev/scripts/devctl.py guard-run --cwd rust -- cargo test ...`
    - This enforces the required post-run hygiene follow-up automatically.
+   - Use `python3 dev/scripts/devctl.py guard-run --check extend-discipline --format json`
+     as the report-only extension-vs-build audit for dirty work. Manual mode
+     reports `BUILD` / `MIXED` as attention; `--extend-discipline-mode auto`
+     fails closed on new build paths.
    - `guard-run`, `check`, and `probe-report` now reuse the interpreter that
      launched `dev/scripts/devctl.py` for repo-owned Python subprocesses, so
      use `python3.11 dev/scripts/devctl.py ...` on machines where `python3`
