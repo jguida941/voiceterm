@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `65b42f884f63` — Refresh external review snapshot for eb5dbc30
-- Tree hash: `4b2e37aa70bd`
-- Generation stamp: `snap-c70e3d02e8b1`
-- Generated at (UTC): 2026-05-15T05:27:41Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `a87c21a7e6ed` — Receipt: refresh ground-truth probe preflight
+- Tree hash: `6b352fb6b53c`
+- Generation stamp: `snap-0ad75d1c7d20`
+- Generated at (UTC): 2026-05-15T05:32:09Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 46 files, +3036/-1539
+- Delta since last snapshot: 24 commits, 46 files, +3034/-1532
 - Governance findings: 44 open / 0 fixed / 44 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,23 +28,23 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `65b42f884f63a843ad3f47fe69a16ed4ebda4c65`
+- HEAD SHA: `a87c21a7e6ed0697d75a1e17fa65e855e1446f69`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-15T01:15:39-04:00
+- HEAD timestamp (UTC): 2026-05-15T01:31:25-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_present
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 1
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 19 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 20 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -60,47 +60,47 @@ production client (VoiceTerm...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `65b42f884f63`
+Range: last 24 commits ending at `a87c21a7e6ed`
 
 - commits: 24
 - files changed: 46
-- insertions: +3036
-- deletions: -1539
-- bundle classes touched: docs, tooling
+- insertions: +3034
+- deletions: -1532
+- bundle classes touched: tooling, docs
 - authority surfaces touched: 2 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `65b42f88` | Refresh external review snapshot for eb5dbc30 | 2 | +60/-60 | docs |  |
-| 2 | `eb5dbc30` | Checks: align sync guard with runtime attention | 4 | +224/-82 | tooling |  |
-| 3 | `9ae64f25` | Refresh external review snapshot for cd177c3e | 2 | +60/-61 | docs |  |
-| 4 | `cd177c3e` | Docs: catalog runtime bridge separation guard | 2 | +53/-53 | tooling |  |
-| 5 | `3c98c2ed` | Refresh external review snapshot for 372ea699 | 2 | +66/-68 | docs |  |
-| 6 | `372ea699` | Docs: record governed push docs-check repair | 5 | +106/-56 | tooling |  |
-| 7 | `b34748b3` | Refresh policy-owned generated surfaces for 8353fc05 | 1 | +28/-27 | docs |  |
-| 8 | `8353fc05` | Refresh external review snapshot for e9aad0df | 2 | +62/-60 | docs |  |
-| 9 | `e9aad0df` | MP188-S1.1: expand bridge guard FORBIDDEN_MODULE_FRAGMENTS… | 10 | +219/-88 | tooling |  |
-| 10 | `1b42c70e` | Refresh external review snapshot for df492548 | 2 | +55/-55 | docs |  |
-| 11 | `df492548` | MP197: ingest continuous proof scheduler plan | 5 | +160/-50 | tooling |  |
-| 12 | `1ec9c8b1` | Refresh external review snapshot for dbd12b71 | 2 | +73/-75 | docs |  |
-| 13 | `dbd12b71` | MP188: add runtime bridge separation guard | 14 | +472/-56 | tooling |  |
-| 14 | `56d9ceb3` | Refresh external review snapshot for 8d406cee | 2 | +59/-59 | docs |  |
-| 15 | `8d406cee` | MP189: ingest R127 wake continuity plan | 5 | +74/-50 | tooling |  |
-| 16 | `c99b616c` | Refresh external review snapshot for 763075f1 | 2 | +67/-64 | docs |  |
-| 17 | `763075f1` | MP188: register ingestion provenance | 11 | +142/-56 | tooling |  |
-| 18 | `31dee106` | Refresh external review snapshot for b7b13c45 | 2 | +64/-64 | docs |  |
-| 19 | `b7b13c45` | MP186: retarget R125 duplicate corrections | 18 | +303/-62 | tooling |  |
-| 20 | `644389cd` | Refresh external review snapshot for 9272e871 | 2 | +63/-63 | docs |  |
-| 21 | `9272e871` | MP381: stabilize push authorization during preflight | 12 | +270/-124 | tooling |  |
-| 22 | `b049ba3a` | Refresh external review snapshot for 868e35c9 | 2 | +72/-77 | docs |  |
-| 23 | `868e35c9` | MP381: read canonical push authorization | 14 | +223/-64 | tooling |  |
-| 24 | `aee417b6` | Refresh external review snapshot for 866ce516 | 2 | +61/-65 | docs |  |
+| 1 | `a87c21a7` | Receipt: refresh ground-truth probe preflight | 2 | +59/-58 | tooling |  |
+| 2 | `65b42f88` | Refresh external review snapshot for eb5dbc30 | 2 | +60/-60 | docs |  |
+| 3 | `eb5dbc30` | Checks: align sync guard with runtime attention | 4 | +224/-82 | tooling |  |
+| 4 | `9ae64f25` | Refresh external review snapshot for cd177c3e | 2 | +60/-61 | docs |  |
+| 5 | `cd177c3e` | Docs: catalog runtime bridge separation guard | 2 | +53/-53 | tooling |  |
+| 6 | `3c98c2ed` | Refresh external review snapshot for 372ea699 | 2 | +66/-68 | docs |  |
+| 7 | `372ea699` | Docs: record governed push docs-check repair | 5 | +106/-56 | tooling |  |
+| 8 | `b34748b3` | Refresh policy-owned generated surfaces for 8353fc05 | 1 | +28/-27 | docs |  |
+| 9 | `8353fc05` | Refresh external review snapshot for e9aad0df | 2 | +62/-60 | docs |  |
+| 10 | `e9aad0df` | MP188-S1.1: expand bridge guard FORBIDDEN_MODULE_FRAGMENTS… | 10 | +219/-88 | tooling |  |
+| 11 | `1b42c70e` | Refresh external review snapshot for df492548 | 2 | +55/-55 | docs |  |
+| 12 | `df492548` | MP197: ingest continuous proof scheduler plan | 5 | +160/-50 | tooling |  |
+| 13 | `1ec9c8b1` | Refresh external review snapshot for dbd12b71 | 2 | +73/-75 | docs |  |
+| 14 | `dbd12b71` | MP188: add runtime bridge separation guard | 14 | +472/-56 | tooling |  |
+| 15 | `56d9ceb3` | Refresh external review snapshot for 8d406cee | 2 | +59/-59 | docs |  |
+| 16 | `8d406cee` | MP189: ingest R127 wake continuity plan | 5 | +74/-50 | tooling |  |
+| 17 | `c99b616c` | Refresh external review snapshot for 763075f1 | 2 | +67/-64 | docs |  |
+| 18 | `763075f1` | MP188: register ingestion provenance | 11 | +142/-56 | tooling |  |
+| 19 | `31dee106` | Refresh external review snapshot for b7b13c45 | 2 | +64/-64 | docs |  |
+| 20 | `b7b13c45` | MP186: retarget R125 duplicate corrections | 18 | +303/-62 | tooling |  |
+| 21 | `644389cd` | Refresh external review snapshot for 9272e871 | 2 | +63/-63 | docs |  |
+| 22 | `9272e871` | MP381: stabilize push authorization during preflight | 12 | +270/-124 | tooling |  |
+| 23 | `b049ba3a` | Refresh external review snapshot for 868e35c9 | 2 | +72/-77 | docs |  |
+| 24 | `868e35c9` | MP381: read canonical push authorization | 14 | +223/-64 | tooling |  |
 
 ### Files
 
@@ -108,10 +108,10 @@ Range: last 24 commits ending at `65b42f884f63`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +1/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +3/-0 |
-| `bridge.md` | docs | +82/-82 |
+| `bridge.md` | docs | +79/-79 |
 | `dev/active/MASTER_PLAN.md` | tooling | +201/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +20/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1312/-1319 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1312/-1315 |
 | `dev/audits/r98_push_authorization_projection_path.md` | tooling | +31/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +16/-0 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +29/-28 |
@@ -215,6 +215,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`a87c21a7`** — Receipt: refresh ground-truth probe preflight
+  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
 - **`65b42f88`** — Refresh external review snapshot for eb5dbc30
   - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
 - **`eb5dbc30`** — Checks: align sync guard with runtime attention
@@ -264,8 +266,6 @@ Recent findings:
   - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`868e35c9`** — MP381: read canonical push authorization
   - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
-- **`aee417b6`** — Refresh external review snapshot for 866ce516
-  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -284,10 +284,10 @@ Recent findings:
 - open governance findings: 44
 
 ### Startup advisories
-- checkpoint_before_continue: dirty_after_local_checkpoint
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Relaunch the reviewer loop immediately.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/pipeline/command.py`): dogfood.command.pipeline: Auto-ingested devctl finalization failure rc=1.
@@ -309,4 +309,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-c70e3d02e8b1` binds this file to HEAD `65b42f884f63`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-0ad75d1c7d20` binds this file to HEAD `a87c21a7e6ed`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
