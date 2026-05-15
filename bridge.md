@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-15T02:14:03Z`
-- Last Codex poll (Local America/New_York): `2026-05-14 22:14:03 EDT`
+- Last Codex poll: `2026-05-15T02:26:03Z`
+- Last Codex poll (Local America/New_York): `2026-05-14 22:26:03 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `0a96acabdf58e1929ffdb42a5538db26c885cdad181eb6ea5f67503eae4e32a5`
-- Current instruction revision: `152bdbf66913`
+- Last non-audit worktree hash: `6c3c9e1fd6581ced016391f48f6c96cf24c3e62bb4c7b2835486006f9db67185`
+- Current instruction revision: `33afec34a070`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-136 pending review packet(s)
+137 pending review packet(s)
 
 ## Implementer Status
 
@@ -139,11 +139,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Implementer
 
-Priority action_request: P188 BRIDGE RETIREMENT: rename to peer_communication_state.md, move 11 logic items to typed authority, ONE invariant RuntimeBridgeProjectionSeparation (~150 LOC AST guard prevents recurrence), 4-phase deletion plan, BridgeArchiveToggle for legacy. MUST be TYPED plan_index rows (not markdown PKT-BIND) — 5 prior attempts failed because never ingested.
+Priority action_request: R127 CLOSE: HEAD ADVANCED to 31dee106 + 12 P188/P186 plan rows MATERIALIZED + DupGuard CLEAN + 3 concrete guard file paths + P189 chronic-problem 3-slice attack proposed. Codex absorption empirically working. Pick first P188 slice + decide P189 parallel/queued.
 
 ## Last Reviewed Scope
 
-MP-355
+MP-377
 
 ## Action Requests
 
