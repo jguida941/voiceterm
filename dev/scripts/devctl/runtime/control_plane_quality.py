@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .value_coercion import coerce_string
+from .value_coercion import coerce_bool, coerce_mapping, coerce_string
 
 
 def resolve_quality(
@@ -17,7 +17,12 @@ def resolve_quality(
         return {"last_guard_ok": True, "check_details": ()}
     if _push_report_is_stale(push_report, current_head=current_head):
         return {"last_guard_ok": True, "check_details": ()}
-    preflight = push_report.get("preflight_step", {}) or {}
+    preflight_step = push_report.get("preflight_step")
+    if not isinstance(preflight_step, dict):
+        if _push_report_has_success_without_preflight(push_report):
+            return {"last_guard_ok": True, "check_details": ()}
+        preflight_step = {}
+    preflight = preflight_step
     rc = preflight.get("returncode", -1)
     guard_ok = rc == 0 if isinstance(rc, int) else True
     details: list[dict[str, str]] = []
@@ -35,6 +40,19 @@ def resolve_quality(
                         "violation": coerce_string(violation.get("summary")),
                     })
     return {"last_guard_ok": guard_ok, "check_details": tuple(details)}
+
+
+def _push_report_has_success_without_preflight(push_report: dict[str, Any]) -> bool:
+    if push_report.get("ok") is not True:
+        return False
+    push_stages = coerce_mapping(push_report.get("push_stages"))
+    if not (
+        coerce_bool(push_report.get("published_remote"))
+        or coerce_bool(push_stages.get("published_remote"))
+    ):
+        return False
+    violations = push_report.get("violations")
+    return not isinstance(violations, list) or not violations
 
 
 def _push_report_is_stale(

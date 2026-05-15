@@ -679,6 +679,26 @@ class BuildWithPushReportTests(unittest.TestCase):
         self.assertTrue(model.last_guard_ok)
         self.assertEqual(model.top_blocker, "none")
 
+    def test_branch_already_pushed_report_without_preflight_does_not_block(self) -> None:
+        sources = _empty_sources()
+        sources["push_report"] = {
+            "head_commit": _base_git()["head"],
+            "ok": True,
+            "status": "published_remote",
+            "reason": "branch_already_pushed",
+            "preflight_step": None,
+            "published_remote": True,
+            "post_push_green": False,
+            "violations": [],
+        }
+        model = build_control_plane_read_model(
+            Path("/tmp/nonexistent"),
+            sources_override=sources,
+            git_override=_base_git(),
+        )
+        self.assertTrue(model.last_guard_ok)
+        self.assertEqual(model.top_blocker, "none")
+
 
 class BuildWithDaemonHeartbeatsTests(unittest.TestCase):
     """Build from daemon heartbeat data."""
@@ -755,6 +775,28 @@ class ResolverUnitTests(unittest.TestCase):
             current_head="new-head",
         )
         self.assertTrue(q["last_guard_ok"])
+        self.assertEqual(q["check_details"], ())
+
+    def test_resolve_quality_accepts_successful_report_without_preflight(self) -> None:
+        q = resolve_quality({
+            "ok": True,
+            "status": "published_remote",
+            "preflight_step": None,
+            "published_remote": True,
+            "violations": [],
+        })
+        self.assertTrue(q["last_guard_ok"])
+        self.assertEqual(q["check_details"], ())
+
+    def test_resolve_quality_blocks_unpublished_report_without_preflight(self) -> None:
+        q = resolve_quality({
+            "ok": True,
+            "status": "local_only",
+            "preflight_step": None,
+            "published_remote": False,
+            "violations": [],
+        })
+        self.assertFalse(q["last_guard_ok"])
         self.assertEqual(q["check_details"], ())
 
     def test_resolve_reviewer_defaults(self) -> None:
