@@ -16075,3 +16075,18 @@ Evidence:
 - `dev/scripts/checks/check_feature_has_proof_receipt.py`
 - `dev/scripts/devctl/tests/commands/test_raw_git.py`
 - `dev/scripts/devctl/tests/checks/test_check_feature_has_proof_receipt.py`
+
+### 2026-05-15 - Packet plan range decomposition keeps title spans typed
+
+R166 dogfood reproduced a reducer bug in `develop ingest-plan`: expanded
+`MP-NEW-* S1..S5` ranges reused the raw source line for every generated row,
+so S1 rows could inherit `..S5` and later rows could inherit the whole literal
+range clause as their title. The packet-plan decomposer now keeps each range as
+typed `DecomposedRange` data with source spans, strips matched range tokens
+before title extraction, and has focused regression coverage for both suffix
+and literal-range leakage.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/plan_intake_decomposition.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`

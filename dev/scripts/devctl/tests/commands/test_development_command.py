@@ -48,6 +48,9 @@ from dev.scripts.devctl.commands.development.orchestration_inputs import (
 from dev.scripts.devctl.commands.development.packet_attention import (
     packet_attention_from_review_state,
 )
+from dev.scripts.devctl.commands.development.plan_intake_decomposition import (
+    decomposed_packet_rows,
+)
 from dev.scripts.devctl.commands.development.status_summary import (
     status_for_report,
     summary_for_action,
@@ -3322,6 +3325,38 @@ def test_develop_ingest_plan_packet_materializes_mp_new_rows(
     assert all(row["sourced_from_packets"] == ["rev_pkt_9101"] for row in rows)
     assert rows[-1]["title"] == "SessionProblemLog contract + StrEnum + jsonl storage"
     assert not any(row["row_id"].startswith("PKT-BIND-") for row in rows)
+
+
+def test_decomposed_packet_rows_range_titles_strip_matched_range_token() -> None:
+    rows = decomposed_packet_rows(
+        "\n".join(
+            [
+                "- MP-NEW-P210-EXTEND-SYSTEM-PICTURE-S1..S3 - Extend system picture graph",
+                "For rev_pkt_4106 -> MP-NEW-P204-S1..S2",
+            ]
+        )
+    )
+    rows_by_id = {row.row_id: row for row in rows}
+
+    assert tuple(rows_by_id) == (
+        "MP-NEW-P210-EXTEND-SYSTEM-PICTURE-S1",
+        "MP-NEW-P210-EXTEND-SYSTEM-PICTURE-S2",
+        "MP-NEW-P210-EXTEND-SYSTEM-PICTURE-S3",
+        "MP-NEW-P204-S1",
+        "MP-NEW-P204-S2",
+    )
+    for row_id in (
+        "MP-NEW-P210-EXTEND-SYSTEM-PICTURE-S1",
+        "MP-NEW-P210-EXTEND-SYSTEM-PICTURE-S2",
+        "MP-NEW-P210-EXTEND-SYSTEM-PICTURE-S3",
+    ):
+        assert rows_by_id[row_id].title == "Extend system picture graph"
+    for row in rows:
+        assert not row.title.startswith("..")
+        assert "S1..S" not in row.title
+    assert rows_by_id["MP-NEW-P204-S1"].title == (
+        "Materialize packet closure row MP-NEW-P204-S1"
+    )
 
 
 def test_develop_ingest_plan_packet_falls_back_to_event_log(

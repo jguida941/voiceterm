@@ -27,6 +27,23 @@ class DecomposedPlanRow:
     source_line: int
 
 
+@dataclass(frozen=True, slots=True)
+class DecomposedRange:
+    """One MP-NEW Sx..Sy range with its source span preserved."""
+
+    prefix: str
+    start: int
+    end: int
+    span_start: int
+    span_end: int
+    source_line_index: int
+
+    def row_ids(self) -> tuple[str, ...]:
+        return tuple(
+            f"{self.prefix}{value}" for value in range(self.start, self.end + 1)
+        )
+
+
 def decomposed_packet_rows(body: str) -> tuple[DecomposedPlanRow, ...]:
     """Return MP-NEW closure rows named in a packet body.
 
@@ -37,16 +54,28 @@ def decomposed_packet_rows(body: str) -> tuple[DecomposedPlanRow, ...]:
     lines = body.splitlines()
     rows: list[DecomposedPlanRow] = []
     seen: set[str] = set()
+    seen_ranges: set[tuple[str, int, int, int]] = set()
     for index, line in enumerate(lines, start=1):
-        for row_id in _expanded_ranges(line):
-            _append_row(
-                rows,
-                seen=seen,
-                row_id=row_id,
-                title=_title_for_line(row_id, line, lines, index),
-                source_line=index,
+        ranges = _expanded_ranges(line, index)
+        line_without_ranges = _strip_ranges(line, ranges)
+        for expanded_range in ranges:
+            range_key = (
+                expanded_range.prefix,
+                expanded_range.start,
+                expanded_range.end,
+                expanded_range.source_line_index,
             )
-        line_without_ranges = _MP_NEW_RANGE_RE.sub("", line)
+            if range_key in seen_ranges:
+                continue
+            seen_ranges.add(range_key)
+            for row_id in expanded_range.row_ids():
+                _append_row(
+                    rows,
+                    seen=seen,
+                    row_id=row_id,
+                    title=_title_for_line(row_id, line_without_ranges, lines, index),
+                    source_line=index,
+                )
         for match in _MP_NEW_ROW_RE.finditer(line_without_ranges):
             row_id = match.group("row_id")
             if row_id in seen:
@@ -55,7 +84,7 @@ def decomposed_packet_rows(body: str) -> tuple[DecomposedPlanRow, ...]:
                 rows,
                 seen=seen,
                 row_id=row_id,
-                title=_title_for_line(row_id, line, lines, index),
+                title=_title_for_line(row_id, line_without_ranges, lines, index),
                 source_line=index,
             )
     return tuple(rows)
@@ -81,16 +110,34 @@ def _append_row(
     )
 
 
-def _expanded_ranges(line: str) -> tuple[str, ...]:
-    row_ids: list[str] = []
+def _expanded_ranges(line: str, line_index: int) -> tuple[DecomposedRange, ...]:
+    ranges: list[DecomposedRange] = []
     for match in _MP_NEW_RANGE_RE.finditer(line):
         prefix = match.group("prefix")
         start = int(match.group("start"))
         end = int(match.group("end"))
         if end < start or end - start > 25:
             continue
-        row_ids.extend(f"{prefix}{value}" for value in range(start, end + 1))
-    return tuple(row_ids)
+        ranges.append(
+            DecomposedRange(
+                prefix=prefix,
+                start=start,
+                end=end,
+                span_start=match.start(),
+                span_end=match.end(),
+                source_line_index=line_index,
+            )
+        )
+    return tuple(ranges)
+
+
+def _strip_ranges(line: str, ranges: tuple[DecomposedRange, ...]) -> str:
+    cleaned = line
+    for expanded_range in sorted(ranges, key=lambda item: item.span_start, reverse=True):
+        cleaned = (
+            cleaned[: expanded_range.span_start] + cleaned[expanded_range.span_end :]
+        )
+    return cleaned
 
 
 def _title_for_line(
@@ -125,6 +172,8 @@ def _suffix_title(value: str) -> str:
     suffix = text(value).strip("` ,")
     if suffix.startswith(")"):
         suffix = text(suffix[1:])
+    if suffix.endswith(("->", "→")):
+        return ""
     if not suffix:
         return ""
     for delimiter in (" — ", " - ", ": "):
@@ -138,6 +187,8 @@ def _suffix_title(value: str) -> str:
 def _prefix_title(value: str) -> str:
     prefix = _clean_title(value)
     if not prefix:
+        return ""
+    if prefix.endswith(("->", "→")):
         return ""
     if len(prefix) > 120:
         return ""

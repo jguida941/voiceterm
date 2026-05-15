@@ -232,7 +232,10 @@ Use docs like this:
   Packet bodies that already name concrete `MP-NEW-*` closure rows or bounded
   slice ranges are decomposed into those rows before the fallback
   `PKT-BIND-REV-PKT-*` intake row is used, so synthesis packets do not remain
-  opaque backlog when they contain executable row ids.
+  opaque backlog when they contain executable row ids. Range expansion keeps
+  the matched `Sx..Sy` source span in typed `DecomposedRange` data and strips
+  that token before title extraction, so generated rows do not inherit `..S5`
+  suffixes or literal range text as their `PlanRow.title`.
 - Headless `review-channel --action launch` (and `--action recover`) now
   auto-elevate `--approval-mode` to `trusted` when typed
   `interaction_mode == "remote_control"` and the operator did not pass an

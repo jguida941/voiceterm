@@ -2355,7 +2355,10 @@ Machine-first output note:
   For packet sources, the row builder now first decomposes packet text that
   explicitly names `MP-NEW-*` rows or bounded ranges such as
   `MP-NEW-P204-S1..S4`. Only packets without concrete closure ids fall back to
-  a single `PKT-BIND-REV-PKT-*` intake row.
+  a single `PKT-BIND-REV-PKT-*` intake row. Range tokens are represented as
+  typed spans before row-title extraction; the reducer removes the matched
+  `Sx..Sy` text from the candidate title line so expanded rows do not receive
+  `..S*` suffixes or copied range literals as titles.
   Packet attention is not a launch signal and is not proof that a visible
   terminal resumed. Packet post, delivery, follow-loop attention, inbox/watch,
   and packet-backed control paths may record typed attention and feed plan or

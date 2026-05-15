@@ -182,6 +182,12 @@
   intake. R148/R155 packet synthesis materialized P204, P205, P206, P207, and
   P209 rows into `dev/state/plan_index.jsonl` so packet findings become
   executable queue rows instead of attention-only backlog.
+- 2026-05-15 range-title decomposer hardening (R166 Phase 0a):
+  `develop ingest-plan` now preserves `MP-NEW-* Sx..Sy` range spans as typed
+  `DecomposedRange` data before extracting titles. The reducer strips the
+  matched range token before suffix/prefix evaluation, preventing `..S5` and
+  full literal `S1..S5` leakage in generated `PlanRow.title` values while
+  keeping range expansion and direct row extraction on the same authority path.
 - 2026-05-15 MP377 checkpoint automation reducer fix: edit-only operator
   override for `MP377-P0-CHECKPOINT-AUTOMATION-S1` no longer collapses to
   `wait_for_scoped_packet` when no packet is claimable. `agent-loop` now emits
