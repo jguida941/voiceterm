@@ -200,6 +200,14 @@ def _validate_args(
             "fresh-session ACK stays fail-closed."
         )
 
+    if (
+        getattr(args, "recovery_probe", False)
+        and normalized_action is not ReviewChannelAction.STATUS
+    ):
+        raise ValueError(
+            "--recovery-probe is only valid for review-channel --action status."
+        )
+
     if normalized_action is ReviewChannelAction.POST:
         _validate_required_args(args, POST_REQUIRED_ARGS)
         if bool(getattr(args, "body", None)) == bool(getattr(args, "body_file", None)):

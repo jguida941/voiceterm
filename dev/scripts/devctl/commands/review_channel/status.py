@@ -43,6 +43,7 @@ from .doctor_support import (
     build_doctor_report,
     resolve_status_recommended_command,
 )
+from .cli_health_probe import attach_cli_health_probe_if_requested
 from .status_runtime_projection import (
     refresh_report_runtime_snapshot as _refresh_report_runtime_snapshot,
 )
@@ -287,6 +288,7 @@ def _run_status_action(
                 if not isinstance(report.get("authority_snapshot"), dict):
                     project_authority_snapshot(report, caller_role="observer")
                 normalize_read_only_status_ok(report)
+                attach_cli_health_probe_if_requested(report, args=args, exit_code=exit_code)
                 return report, exit_code
 
             fallback_warnings.append(
@@ -296,20 +298,24 @@ def _run_status_action(
             )
 
     if not fallback_warnings:
-        return _run_bridge_status(
+        report, exit_code = _run_bridge_status(
             args=args,
             repo_root=repo_root,
             paths=runtime_paths,
         )
+        attach_cli_health_probe_if_requested(report, args=args, exit_code=exit_code)
+        return report, exit_code
 
     try:
-        return _run_bridge_status(
+        report, exit_code = _run_bridge_status(
             args=args,
             repo_root=repo_root,
             paths=runtime_paths,
             extra_warnings=fallback_warnings,
             report_execution_mode="markdown-bridge",
         )
+        attach_cli_health_probe_if_requested(report, args=args, exit_code=exit_code)
+        return report, exit_code
     except ValueError as exc:
         raise ValueError(
             f"{fallback_warnings[-1]} Markdown-bridge fallback was unavailable: {exc}"

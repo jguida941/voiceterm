@@ -95,6 +95,25 @@ def _build_review_channel_parser(sub: argparse._SubParsersAction) -> argparse.Ar
             "scheduled is reserved for poller use."
         ),
     )
+    cmd.add_argument(
+        "--recovery-probe",
+        action="store_true",
+        help=(
+            "Attach the CLIHealthProbeAutomation recovery probe to "
+            "`review-channel --action status` output."
+        ),
+    )
+    cmd.add_argument(
+        "--recovery-probe-mode",
+        choices=["scheduled", "on_error", "disabled"],
+        default="scheduled",
+        help=(
+            "P152 toggle mode for `--recovery-probe`: scheduled always "
+            "emits probe evidence, on_error emits active recovery evidence "
+            "only when status detects a recovery condition, and disabled "
+            "records a disabled probe."
+        ),
+    )
     return cmd
 
 

@@ -78,12 +78,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-15T12:06:32Z`
-- Last Codex poll (Local America/New_York): `2026-05-15 08:06:32 EDT`
+- Last Codex poll: `2026-05-15T12:31:26Z`
+- Last Codex poll (Local America/New_York): `2026-05-15 08:31:26 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `abd04723b62d33cf678ba6f9261ebb02b30797da7810bd9ba3b91fa45b2d8a97`
-- Current instruction revision: `80a7b4a46c27`
-
+- Last non-audit worktree hash: `05815741e9a3477777e250c18f576a2efb3d9e7815b9c7bc10d5f8fed309cc6c`
+- Current instruction revision: `5e7968e635e4`
+- Last checkpoint action: `reviewer-checkpoint`
+- Head at push time: `330f19369c49b7ff21f472ed384bf14622dd6092`
 ## Protocol
 
 1. Codex should poll this file periodically while coding.
@@ -114,15 +115,15 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: operator-manual-override; observed-tree: f2b1f6cf8cd1; reviewed-tree: f2b1f6cf8cd1; instruction-rev: 80a7b4a46c27).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: operator-manual-override; observed-tree: 05815741e9a3; reviewed-tree: 05815741e9a3; instruction-rev: 5e7968e635e4).
 
 ## Current Verdict
 
-- reviewer state unavailable
+Checkpoint: operator-authorized continuation while validating MP-NEW-P188 CLI health probe automation.
 
 ## Open Findings
 
-148 pending review packet(s)
+No new checkpoint findings; this checkpoint records the current R126 recovery-probe source/docs scope so guards can continue.
 
 ## Implementer Status
 
@@ -134,15 +135,26 @@ treat these rules as active workflow instructions immediately.
 
 ## Implementer Ack
 
-- missing
+- pending
 
 ## Current Instruction For Implementer
 
-Continue MP-NEW-P188-AUTOMATION-TRIPLET-S1: validate guard-run extension-vs-build verification, then commit and report task_progress.
+Continue MP-NEW-P188-AUTOMATION-TRIPLET-S1: validate CLI health probe automation, then commit and report task_progress.
 
 ## Last Reviewed Scope
 
-MP-377
+- dev/scripts/devctl/commands/review_channel/cli_health_probe.py
+- dev/scripts/devctl/commands/review_channel/status.py
+- dev/scripts/devctl/commands/review_channel/bridge_render.py
+- dev/scripts/devctl/commands/review_channel_command/validation.py
+- dev/scripts/devctl/review_channel/parser.py
+- dev/scripts/devctl/review_channel/event_render.py
+- dev/scripts/devctl/tests/review_channel/test_cli_health_probe.py
+- dev/scripts/README.md
+- dev/guides/DEVELOPMENT.md
+- dev/guides/SYSTEM_MAP.md
+- dev/active/MASTER_PLAN.md
+- dev/history/ENGINEERING_EVOLUTION.md
 
 ## Action Requests
 

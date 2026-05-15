@@ -27,6 +27,9 @@ from ..commands.review_channel_bridge_render import (
 from ..commands.review_channel.status_readiness import (
     append_runtime_readiness_markdown,
 )
+from ..commands.review_channel.cli_health_probe import (
+    append_cli_health_probe_markdown,
+)
 
 
 def render_event_md(report: dict) -> str:
@@ -68,6 +71,7 @@ def render_event_md(report: dict) -> str:
     )
     _append_ack_freshness(lines, report.get("ack_freshness"))
     append_runtime_readiness_markdown(lines, report)
+    append_cli_health_probe_markdown(lines, report.get("cli_health_probe"))
     append_common_report_sections(lines, report)
     append_doctor_markdown(lines, report.get("doctor"))
     packet = report.get("packet")

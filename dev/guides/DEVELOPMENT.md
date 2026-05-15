@@ -739,6 +739,14 @@ Three quality layers matter in practice:
     Use `review-channel --action check-ack-freshness --format json` for the
     on-demand typed health probe when bridge-visible ACK text and typed ACK
     state need to be compared without polling `bridge.md` by hand.
+    Use
+    `review-channel --action status --recovery-probe --format json`
+    when you need the R126 CLI recovery probe: it attaches
+    `CLIHealthProbeAutomation` evidence from status, doctor, recovery
+    assessment, runtime-readiness, authority, and recommended-command fields.
+    `--recovery-probe-mode scheduled` always emits the probe, `on_error`
+    activates only when those typed signals need recovery attention, and
+    `disabled` records the P152 toggle as off.
     Prefer provider-neutral bridge aliases
     (`implementer_ack*`, `implementer_status`, `reviewer_poll_state`,
     `last_reviewer_poll_*`) when present; the legacy `claude_*` /

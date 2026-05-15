@@ -15831,6 +15831,21 @@ Evidence:
 - `PKT-BIND-REV-PKT-4013`
 - `PKT-BIND-REV-PKT-4018`
 
+### 2026-05-15 - Status carries CLI recovery probe evidence
+
+The R126 automation triplet now has `review-channel --action status
+--recovery-probe`, which attaches `CLIHealthProbeAutomation` to the existing
+status payload. The probe supports scheduled, on-error, and disabled P152
+modes, and it derives recovery evidence from the typed doctor, recovery
+assessment, runtime-readiness, authority snapshot, and recommended-command
+fields instead of introducing a separate recovery authority path.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel/cli_health_probe.py`
+- `dev/scripts/devctl/commands/review_channel/status.py`
+- `dev/scripts/devctl/tests/review_channel/test_cli_health_probe.py`
+
 The same review window introduced `rev_pkt_4021`, which retires the earlier
 push-batching override and changes the active operator cadence to raw
 `git push` after each validated slice. The first application is the Guard P1
