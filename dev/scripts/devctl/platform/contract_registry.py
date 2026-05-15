@@ -34,12 +34,12 @@ def build_contract_registry_rows(
         rows.append(
             ContractRegistryRow(
                 registered_contract_id=contract.contract_id,
-                entry_kind="shared_contract",
+                entry_kind=contract.registry_entry_kind,
                 python_owner_path=_runtime_owner_path(contract),
                 rust_owner_path="",
                 fixture_path=_fixture_path(contract.contract_id, schema_version),
                 registered_schema_version=schema_version,
-                ownership_mode="python_only",
+                ownership_mode=contract.registry_ownership_mode,
                 parity_command=DEFAULT_CONTRACT_REGISTRY_PARITY_COMMAND,
             )
         )

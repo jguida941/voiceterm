@@ -2,10 +2,35 @@
 
 from __future__ import annotations
 
+from ..runtime.master_plan_contract import IngestionProvenance
 from ..runtime.plan_source_retention_models import PlanSourceSnapshot
 from .contracts import ContractField, ContractSpec, CrossLinkSpec
 
 PLAN_INTAKE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
+    ContractSpec(
+        contract_id="IngestionProvenance",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed source-composition evidence recording where a plan row or "
+            "other ingested authority signal came from before projection."
+        ),
+        required_fields=(
+            ContractField("source_file", "str", "Source path or packet reference."),
+            ContractField("source_line", "int", "Source line when available."),
+            ContractField("source_kind", "str", "Source family observed by ingestion."),
+            ContractField("source_hash", "str", "Stable hash of the ingested source."),
+            ContractField("observed_at_utc", "str", "UTC timestamp when the source was observed."),
+            ContractField(
+                "section_authority",
+                "str",
+                "Typed authority or reducer section that accepted the source.",
+            ),
+        ),
+        runtime_model=f"{IngestionProvenance.__module__}:{IngestionProvenance.__qualname__}",
+        startup_surface_tokens=("source_file", "source_kind", "section_authority"),
+        registry_entry_kind="authority_composition",
+        registry_ownership_mode="system",
+    ),
     ContractSpec(
         contract_id="PlanIntentIngestionReceipt",
         owner_layer="governance_runtime",

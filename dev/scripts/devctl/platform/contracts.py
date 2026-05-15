@@ -51,6 +51,8 @@ class ContractSpec:
     runtime_model: str = ""
     startup_surface_tokens: tuple[str, ...] = ()
     cross_links: tuple[CrossLinkSpec, ...] = ()
+    registry_entry_kind: str = "shared_contract"
+    registry_ownership_mode: str = "python_only"
 
 
 @dataclass(frozen=True, slots=True)

@@ -180,7 +180,7 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField(
                 "entry_kind",
                 "str",
-                "shared_contract or artifact_schema.",
+                "shared_contract, artifact_schema, or authority_composition.",
             ),
             ContractField(
                 "python_owner_path",
@@ -205,7 +205,7 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField(
                 "ownership_mode",
                 "str",
-                "python_only, rust_only, shared, or rust_primary.",
+                "python_only, rust_only, shared, rust_primary, or system.",
             ),
             ContractField(
                 "parity_command",

@@ -13,9 +13,11 @@ CONTRACT_REGISTRY_STORE_REL = "dev/state/contract_registry.jsonl"
 DEFAULT_CONTRACT_REGISTRY_PARITY_COMMAND = (
     "python3 dev/scripts/checks/check_platform_contract_closure.py --format json"
 )
-CONTRACT_REGISTRY_ENTRY_KINDS = frozenset({"artifact_schema", "shared_contract"})
+CONTRACT_REGISTRY_ENTRY_KINDS = frozenset(
+    {"artifact_schema", "authority_composition", "shared_contract"}
+)
 CONTRACT_REGISTRY_OWNERSHIP_MODES = frozenset(
-    {"python_only", "rust_only", "shared", "rust_primary"}
+    {"python_only", "rust_only", "shared", "rust_primary", "system"}
 )
 
 

@@ -8565,3 +8565,26 @@ constraints; dogfood proof is required before applying an optimization.
 - [ ] `MP-NEW-P187-TOKEN-OPTIMIZATION-DESIGN-S1` Design and choose token optimizations without capability or context loss.
 - [ ] `MP-NEW-P187-TOKEN-OPTIMIZATION-DOGFOOD-RECEIPT-S2` Design `TokenOptimizationDogfoodReceipt` extending `FeatureLifecycleProof` and `DogfoodRecord`.
 - [ ] `MP-NEW-P187-ZERO-TRADEOFF-APPLY-S3` Apply zero-tradeoff token optimizations only after the dogfood receipt design exists.
+
+### MP-NEW P188 R126 Registry and Bridge Retirement Intake
+
+Recovered on 2026-05-15 from `rev_pkt_4060` and `rev_pkt_4063`. These
+rows are typed `plan_index.jsonl` intake, not markdown-only PKT-BIND entries.
+Bridge retirement uses `peer_communication_state.md` as the replacement
+projection name and must be dogfooded in live R-rounds before deleting
+`bridge.md`.
+
+- [ ] `MP-NEW-P188-INGESTION-PROVENANCE-REGISTRATION-S1` Register `IngestionProvenance` as an authority-composition/system contract in the platform blueprint and contract registry.
+  - progress 2026-05-15: implementing as a blueprint-backed registry row so closure checks generate and verify the same `authority_composition` / `system` classification.
+- [ ] `MP-NEW-P188-IMPLEMENTER-ACK-TYPED-PROJECTION-FIX-S1` Fix implementer ack projection drift by wiring the visible ack state back to typed events instead of bridge text.
+- [ ] `MP-NEW-P188-AUTOMATION-TRIPLET-S1` Add the R126 automation triplet: implementer-ack freshness projection, extension-vs-build verification, and CLI health probe automation.
+- [ ] `MP-NEW-P188-SYSTEM-MAP-BACKLOG-PROMOTION-S1` Promote the R126 SystemMapIntegration backlog items into durable plan authority.
+- [ ] `MP-NEW-P188-PEER-COMMUNICATION-STATE-SNAPSHOT-S1` Define `PeerCommunicationStateSnapshot` as the typed source for the replacement projection.
+  - sequence 2026-05-15: build the snapshot contract first, then the runtime-bridge separation guard, then the renderer/surface guard.
+- [ ] `MP-NEW-P188-PEER-COMMUNICATION-STATE-RENDERER-S2` Build the pure renderer and surface guard for `peer_communication_state.md`.
+- [ ] `MP-NEW-P188-RUNTIME-BRIDGE-PROJECTION-SEPARATION-GUARD-S3` Add `RuntimeBridgeProjectionSeparation` so runtime modules cannot depend on bridge projection helpers.
+- [ ] `MP-NEW-P188-LOGIC-MIGRATION-3-BLOCKERS-S4` Move the three bridge logic blockers to typed authority: poll status parsing, bridge-guarded reset, and promotion checklist parsing.
+- [ ] `MP-NEW-P188-BRIDGE-RETIREMENT-DEADLINE-S5` Define `BridgeRetirementDeadline` with hard dates.
+  - date choice 2026-05-15: deprecation announce `2026-05-15`, archive mode `2026-06-14`, typed authority live `2026-07-14`, bridge writing stops `2026-08-13`, code removal complete `2026-11-11`.
+- [ ] `MP-NEW-P188-BRIDGE-ARCHIVE-TOGGLE-S6` Add `BridgeArchiveToggle` for historical and legacy-compatibility bridge views.
+- [ ] `MP-NEW-P188-BRIDGE-DELETION-PHASE-4-S7` Delete `bridge.md` only after the new typed projection is dogfooded and bridge readers/writers are retired.
