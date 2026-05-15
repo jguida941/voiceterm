@@ -90,6 +90,30 @@ DEVELOPMENT_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         ),
     ),
     ContractSpec(
+        contract_id="OperatorCommandWrapper",
+        owner_layer="governance_commands",
+        purpose=(
+            "Typed wrapper payload that renders long operator-runnable "
+            "commands into scan-friendly multiline shell while preserving the "
+            "original command text."
+        ),
+        required_fields=(
+            ContractField("wrapper_id", "str", "Stable wrapper id for this command."),
+            ContractField("source", "str", "Report field that emitted the command."),
+            ContractField("original_command", "str", "Original runnable command."),
+            ContractField(
+                "wrapped_command",
+                "str",
+                "Multiline shell form safe for operator copy/paste.",
+            ),
+            ContractField("command_length", "int", "Original command length."),
+            ContractField("threshold", "int", "Inline length threshold."),
+            ContractField("reason", "str", "Reason the wrapper was generated."),
+        ),
+        runtime_model="dev.scripts.devctl.commands.development.models:OperatorCommandWrapper",
+        startup_surface_tokens=("wrapper_id", "source", "wrapped_command"),
+    ),
+    ContractSpec(
         contract_id="DevelopmentLoopReport",
         owner_layer="governance_commands",
         purpose=(
@@ -232,6 +256,14 @@ DEVELOPMENT_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "next_commands",
                 "tuple[str, ...]",
                 "Bounded next commands selected by the controller.",
+            ),
+            ContractField(
+                "operator_command_wrappers",
+                "tuple[OperatorCommandWrapper, ...]",
+                (
+                    "Multiline wrappers generated for operator-runnable "
+                    "commands longer than the inline threshold."
+                ),
             ),
             ContractField(
                 "next_step_command",

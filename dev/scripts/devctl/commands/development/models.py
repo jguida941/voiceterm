@@ -77,6 +77,21 @@ class DevelopmentDiscoverySnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class OperatorCommandWrapper:
+    """Runnable wrapped form for one long operator-facing command."""
+
+    wrapper_id: str
+    source: str
+    original_command: str
+    wrapped_command: str
+    command_length: int
+    threshold: int = 100
+    reason: str = "operator_command_exceeds_inline_threshold"
+    contract_id: str = "OperatorCommandWrapper"
+    schema_version: int = 1
+
+
+@dataclass(frozen=True, slots=True)
 class DevelopmentGroundTruthProbe:
     """One probe result in a design-preflight pass."""
 
@@ -302,6 +317,7 @@ class DevelopmentLoopReport:
     discovery: DevelopmentDiscoverySnapshot
     required_checks: tuple[str, ...]
     next_commands: tuple[str, ...]
+    operator_command_wrappers: tuple[OperatorCommandWrapper, ...] = ()
     next_step_command: str = ""
     lifecycle: DevelopmentLifecyclePlan | None = None
     campaign: DevelopmentCampaignReport | None = None

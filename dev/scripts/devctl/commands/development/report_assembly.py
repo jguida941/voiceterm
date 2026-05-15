@@ -18,6 +18,7 @@ from .attention_commands import (
 from .lifecycle import lifecycle_plan
 from .models import DevelopmentLoopReport
 from .next_slice import select_next_slice
+from .operator_command_wrappers import build_operator_command_wrappers
 from .packet_debt import packet_debt_payload
 from .peer_mind import peer_mind_snapshots
 from .report import (
@@ -92,6 +93,23 @@ def build_report_impl(args: Any) -> DevelopmentLoopReport:
         blockers=blockers,
         final_parts_type=_FinalParts,
     )
+    next_step_command = _next_step_command_for_report(
+        final_response_gate=final.final_response_gate,
+        continuation=final.continuation,
+        packet_attention_required=(
+            core.packet_attention.attention_required
+            and core.packet_attention.authority_affecting
+        ),
+        packet_attention_command=core.packet_attention.required_command,
+        next_commands=core.next_commands,
+    )
+    operator_command_wrappers = build_operator_command_wrappers(
+        _operator_command_sources(
+            core=core,
+            final=final,
+            next_step_command=next_step_command,
+        )
+    )
     return DevelopmentLoopReport(
         action=core.action,
         status=final.status,
@@ -117,16 +135,8 @@ def build_report_impl(args: Any) -> DevelopmentLoopReport:
         discovery=discovery_snapshot(REPO_ROOT),
         required_checks=core.required_checks,
         next_commands=core.next_commands,
-        next_step_command=_next_step_command_for_report(
-            final_response_gate=final.final_response_gate,
-            continuation=final.continuation,
-            packet_attention_required=(
-                core.packet_attention.attention_required
-                and core.packet_attention.authority_affecting
-            ),
-            packet_attention_command=core.packet_attention.required_command,
-            next_commands=core.next_commands,
-        ),
+        operator_command_wrappers=operator_command_wrappers,
+        next_step_command=next_step_command,
         lifecycle=lifecycle_plan(
             action=core.action,
             actor=core.actor,
@@ -151,6 +161,76 @@ def build_report_impl(args: Any) -> DevelopmentLoopReport:
             actor_source=core.actor_source,
         ),
     )
+
+
+def _operator_command_sources(
+    *,
+    core: _ReportCore,
+    final: _FinalParts,
+    next_step_command: str,
+) -> tuple[tuple[str, str], ...]:
+    sources: list[tuple[str, str]] = [
+        ("next_step_command", next_step_command),
+        (
+            "packet_attention.required_command",
+            str(getattr(core.packet_attention, "required_command", "") or ""),
+        ),
+        (
+            "continuation.next_required_command",
+            str(getattr(final.continuation, "next_required_command", "") or ""),
+        ),
+        (
+            "continuation.required_packet_command",
+            str(getattr(final.continuation, "required_packet_command", "") or ""),
+        ),
+        (
+            "final_response_gate.next_required_command",
+            _object_field(final.final_response_gate, "next_required_command"),
+        ),
+        (
+            "final_response_gate.required_packet_command",
+            _object_field(final.final_response_gate, "required_packet_command"),
+        ),
+        (
+            "reviewer_response_shape.next_required_command",
+            _object_field(final.reviewer_response_shape, "next_required_command"),
+        ),
+    ]
+    sources.extend(
+        (f"required_checks[{index}]", command)
+        for index, command in enumerate(core.required_checks)
+    )
+    sources.extend(
+        (f"next_commands[{index}]", command)
+        for index, command in enumerate(core.next_commands)
+    )
+    campaign = final.campaign
+    for key in (
+        "pending_packet_required_command",
+        "codex_next_command",
+        "claude_next_command",
+    ):
+        sources.append((f"campaign.{key}", _object_field(campaign, key)))
+    roles = _raw_object_field(campaign, "roles", default=())
+    if isinstance(roles, tuple):
+        for index, role in enumerate(roles):
+            sources.append(
+                (
+                    f"campaign.roles[{index}].next_command",
+                    _object_field(role, "next_command"),
+                )
+            )
+    return tuple(sources)
+
+
+def _object_field(value: Any, key: str, *, default: object = "") -> str:
+    return str(_raw_object_field(value, key, default=default) or "")
+
+
+def _raw_object_field(value: Any, key: str, *, default: object = "") -> object:
+    if isinstance(value, dict):
+        return value.get(key, default)
+    return getattr(value, key, default)
 
 
 def _build_core(args: Any) -> _ReportCore:

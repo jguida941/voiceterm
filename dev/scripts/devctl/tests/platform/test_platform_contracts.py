@@ -185,6 +185,8 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "peer_minds" in contract_map["DevelopmentLoopReport"]
     assert "reviewer_response_shape" in contract_map["DevelopmentLoopReport"]
     assert "packet_debt_remediation" in contract_map["DevelopmentLoopReport"]
+    assert "operator_command_wrappers" in contract_map["DevelopmentLoopReport"]
+    assert "wrapped_command" in contract_map["OperatorCommandWrapper"]
     assert "repo_state_fingerprint" in contract_map["BaselineAuthorityInventoryReceipt"]
     assert "state_store_entries" in contract_map["BaselineAuthorityInventoryReceipt"]
     assert "direct_write_sites" in contract_map["BaselineAuthorityInventoryReceipt"]

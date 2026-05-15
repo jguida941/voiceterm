@@ -21,6 +21,9 @@ from dev.scripts.devctl.commands.development import packet_debt as development_p
 from dev.scripts.devctl.commands.development import plan_intake
 from dev.scripts.devctl.commands.development import plan_intake_phase0
 from dev.scripts.devctl.commands.development import report as development_report
+from dev.scripts.devctl.commands.development.operator_command_wrappers import (
+    build_operator_command_wrappers,
+)
 from dev.scripts.devctl.commands.development.actor_resolution import resolve_actor
 from dev.scripts.devctl.commands.development.campaign import campaign_report
 from dev.scripts.devctl.commands.development.models import (
@@ -170,6 +173,63 @@ def test_develop_status_renders_topology_and_scaling(capsys) -> None:
     )
     assert "intake_fanout" in payload["topology"]["scaling"]["mode_ids"]
     assert "WorkerPacket" in payload["topology"]["scaling"]["route_outputs"]
+    assert "operator_command_wrappers" in payload
+
+
+def test_operator_command_wrappers_wrap_long_commands() -> None:
+    long_command = (
+        "python3 dev/scripts/devctl.py develop collaboration-profile "
+        "--collaboration-mode agent_sync --role-preset architect --format md"
+    )
+
+    wrappers = build_operator_command_wrappers(
+        (
+            ("short", "python3 dev/scripts/devctl.py develop next --format md"),
+            ("long", long_command),
+            ("duplicate", long_command),
+        )
+    )
+
+    assert len(wrappers) == 1
+    wrapper = wrappers[0]
+    assert wrapper.contract_id == "OperatorCommandWrapper"
+    assert wrapper.source == "long"
+    assert wrapper.original_command == long_command
+    assert wrapper.command_length > wrapper.threshold
+    assert " \\\n  " in wrapper.wrapped_command
+
+
+def test_develop_report_emits_wrappers_for_long_operator_commands(capsys) -> None:
+    args = cli.build_parser().parse_args(
+        ["develop", "collaboration-profile", "--format", "json"]
+    )
+
+    rc = cli.COMMAND_HANDLERS[args.command](args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    wrappers = payload["operator_command_wrappers"]
+    assert wrappers
+    assert any(wrapper["command_length"] > 100 for wrapper in wrappers)
+    assert all(
+        wrapper["contract_id"] == "OperatorCommandWrapper"
+        for wrapper in wrappers
+    )
+    assert any(" \\\n  " in wrapper["wrapped_command"] for wrapper in wrappers)
+
+
+def test_develop_report_renders_operator_command_wrappers(capsys) -> None:
+    args = cli.build_parser().parse_args(
+        ["develop", "collaboration-profile", "--format", "md"]
+    )
+
+    rc = cli.COMMAND_HANDLERS[args.command](args)
+
+    assert rc == 0
+    output = capsys.readouterr().out
+    assert "## Operator Command Wrappers" in output
+    assert "```sh" in output
+    assert " \\\n  " in output
 
 
 def test_develop_report_passes_proposed_response_text_to_shape_gate(

@@ -44,6 +44,7 @@ def render_markdown(report: DevelopmentLoopReport) -> str:
     _append_list(lines, "Warnings", payload["warnings"])
     _append_list(lines, "Required Checks", payload["required_checks"])
     _append_list(lines, "Next Commands", payload["next_commands"])
+    lines.extend(_operator_command_wrapper_lines(payload.get("operator_command_wrappers")))
     return "\n".join(lines)
 
 
@@ -581,6 +582,25 @@ def _reviewer_response_shape_lines(shape) -> list[str]:
         f"- allowed_response_kinds: {_list_label_text(shape.get('allowed_response_kinds'))}",
         f"- violations: {_list_label_text(shape.get('violations'))}",
     ]
+
+
+def _operator_command_wrapper_lines(wrappers) -> list[str]:
+    if not isinstance(wrappers, list) or not wrappers:
+        return []
+    lines = ["", "## Operator Command Wrappers", ""]
+    for wrapper in wrappers:
+        if not isinstance(wrapper, dict):
+            continue
+        lines.append(
+            "- "
+            f"{wrapper.get('wrapper_id') or '(unknown)'}: "
+            f"{wrapper.get('source') or '(unknown)'} "
+            f"({wrapper.get('command_length')} chars)"
+        )
+        lines.append("```sh")
+        lines.append(str(wrapper.get("wrapped_command") or ""))
+        lines.append("```")
+    return lines
 
 
 def _learning_lines(learning) -> list[str]:
