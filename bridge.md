@@ -78,13 +78,12 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-15T12:31:26Z`
-- Last Codex poll (Local America/New_York): `2026-05-15 08:31:26 EDT`
+- Last Codex poll: `2026-05-15T12:33:17Z`
+- Last Codex poll (Local America/New_York): `2026-05-15 08:33:17 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `05815741e9a3477777e250c18f576a2efb3d9e7815b9c7bc10d5f8fed309cc6c`
 - Current instruction revision: `5e7968e635e4`
-- Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `330f19369c49b7ff21f472ed384bf14622dd6092`
+
 ## Protocol
 
 1. Codex should poll this file periodically while coding.
@@ -119,11 +118,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Verdict
 
-Checkpoint: operator-authorized continuation while validating MP-NEW-P188 CLI health probe automation.
+- reviewer state unavailable
 
 ## Open Findings
 
-No new checkpoint findings; this checkpoint records the current R126 recovery-probe source/docs scope so guards can continue.
+149 pending review packet(s)
 
 ## Implementer Status
 
@@ -135,7 +134,7 @@ No new checkpoint findings; this checkpoint records the current R126 recovery-pr
 
 ## Implementer Ack
 
-- pending
+- missing
 
 ## Current Instruction For Implementer
 
@@ -143,18 +142,7 @@ Continue MP-NEW-P188-AUTOMATION-TRIPLET-S1: validate CLI health probe automation
 
 ## Last Reviewed Scope
 
-- dev/scripts/devctl/commands/review_channel/cli_health_probe.py
-- dev/scripts/devctl/commands/review_channel/status.py
-- dev/scripts/devctl/commands/review_channel/bridge_render.py
-- dev/scripts/devctl/commands/review_channel_command/validation.py
-- dev/scripts/devctl/review_channel/parser.py
-- dev/scripts/devctl/review_channel/event_render.py
-- dev/scripts/devctl/tests/review_channel/test_cli_health_probe.py
-- dev/scripts/README.md
-- dev/guides/DEVELOPMENT.md
-- dev/guides/SYSTEM_MAP.md
-- dev/active/MASTER_PLAN.md
-- dev/history/ENGINEERING_EVOLUTION.md
+MP-377
 
 ## Action Requests
 
