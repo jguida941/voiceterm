@@ -8627,3 +8627,56 @@ report-only projection-authority guard before snapshot and renderer work.
 - [ ] `MP-NEW-P193-S2-CHECK-CONTRACT-VALUE-DOMAINS-GUARD` Add a value-domain guard so declared runtime contract enums cannot drift silently.
 - [ ] `MP-NEW-P194-S1-REPO-EXTRACTION-PHASE-1` Queue governance-platform repo extraction behind P188 landing.
 - [ ] `MP-NEW-P194-S2-FILE-MIGRATION-RECEIPT-CONTRACT` Define `FileMigrationReceipt` for future platform extraction moves.
+
+### MP-NEW P195-P197 Async Proof, Runtime Proof Cache, and Scheduler Intake
+
+Recovered on 2026-05-15 from `rev_pkt_4071`, `rev_pkt_4072`, and
+`rev_pkt_4075`. P195 frames async cloud proof as an authority primitive:
+cloud proof makes unproven Python unauthorized, not equivalent to Rust.
+P196 sharpens the runtime role: runtime verifies precomputed proof instead of
+executing expensive proof inline. P197 adds the missing scheduler layer so the
+AI can continue on path-disjoint safe work while cloud proof is pending.
+
+Response decisions:
+- First proof-family implementation slice: start with P197 S1 scheduler
+  contracts, then immediately land P197 S2 path-overlap-only
+  `SafeContinuationDecision`; controller authority still selects the active
+  slice.
+- Use append-only JSONL for the initial `ProofIndex`; it matches existing
+  durable state patterns and is sufficient before indexed volume appears.
+- First push/runtime hook target is `devctl push --execute`; it is the
+  highest-leverage authority gate for proof lookup and stale-proof rejection.
+- First workflow target for dispatch is `release_attestation.yml` unless the
+  workflow audit proves a new thin `proof.yml` is safer; release attestation is
+  already SHA-parameterized.
+- `CloudProofReceipt` should extend the `ValidationReceipt` proof chain rather
+  than become a parallel sibling authority path.
+- `CodeIdentity` composite identity should be SHA256 over canonical JSON
+  serialization of its stable fields.
+- P197 `SafeContinuationDecision` MVP uses path overlap only; graph-walk,
+  contract-id overlap, and projection overlap are later scheduler refinements.
+- `ProofExecutionToggle` composes with existing `ToggleReceipt` and
+  `BypassLifecycle`; default mode should be `hybrid`.
+- P195 S5, P196 S5, and P197 S6 are keystone dogfood tests; stale proof and
+  pending-proof continuation must be tested before marking the earlier proof
+  slices applied.
+
+- [ ] `MP-NEW-P195-ASYNC-CLOUD-PROOF-S1` Define `RepoSnapshotIdentity`, `CloudProofRequest`, and `CloudProofApplicability` contracts for async cloud proof.
+- [ ] `MP-NEW-P195-ASYNC-CLOUD-PROOF-S2` Build `AsyncProofQueueState` and reconciliation logic for queued cloud proof requests.
+- [ ] `MP-NEW-P195-ASYNC-CLOUD-PROOF-S3` Wire one GitHub Actions workflow as an async cloud proof target and capture artifacts.
+- [ ] `MP-NEW-P195-ASYNC-CLOUD-PROOF-S4` Emit `CloudProofReceipt` or `ValidationReceipt` only when proof applies to the exact snapshot, and block high-risk push when mismatched.
+- [ ] `MP-NEW-P195-ASYNC-CLOUD-PROOF-S5` Dogfood stale-proof handling: proof for SHA A must become historical-only after SHA B.
+- [ ] `MP-NEW-P195-ASYNC-CLOUD-PROOF-S6` Route failed cloud proofs into scoped `RepairPacket` and reproof loop.
+- [ ] `MP-NEW-P196-AHEAD-OF-RUNTIME-PROOF-CACHE-S1` Create `CodeIdentity`, `ProofReceipt`, and `RuntimeProofLookup` contracts for proof-verifier runtime.
+- [ ] `MP-NEW-P196-AHEAD-OF-RUNTIME-PROOF-CACHE-S2` Add append-only JSONL `ProofIndex` storage and lookup API.
+- [ ] `MP-NEW-P196-AHEAD-OF-RUNTIME-PROOF-CACHE-S3` Make one CI workflow emit `proof_receipt.json` and ingest it into `ProofIndex`.
+- [ ] `MP-NEW-P196-AHEAD-OF-RUNTIME-PROOF-CACHE-S4` Gate `devctl push --execute` through `CodeIdentity` lookup and `ProofAuthorityDecision`.
+- [ ] `MP-NEW-P196-AHEAD-OF-RUNTIME-PROOF-CACHE-S5` Dogfood stale proof: SHA A proof must not authorize SHA B runtime.
+- [ ] `MP-NEW-P196-AHEAD-OF-RUNTIME-PROOF-CACHE-S6` Add `BypassWithoutProofReceipt` path composed with `BypassLifecycle`.
+- [ ] `MP-NEW-P197-CONTINUOUS-PROOF-SCHEDULER-S1` Define `ProofTargetSnapshot`, `CloudProofRequest`, `ProofApplicability`, and `ProofQueueState` scheduler contracts.
+- [ ] `MP-NEW-P197-CONTINUOUS-PROOF-SCHEDULER-S2` Implement `SafeContinuationDecision` MVP using path-overlap-only logic.
+- [ ] `MP-NEW-P197-CONTINUOUS-PROOF-SCHEDULER-S3` Wire a GitHub Actions proof target for `CloudProofRequest` dispatch.
+- [ ] `MP-NEW-P197-CONTINUOUS-PROOF-SCHEDULER-S4` Poll or ingest workflow result and reconcile against `ProofTargetSnapshot`.
+- [ ] `MP-NEW-P197-CONTINUOUS-PROOF-SCHEDULER-S5` Emit `ValidationReceipt`, `ProofRepairPacket`, or `StaleProofReceipt` from `ProofApplicability`.
+- [ ] `MP-NEW-P197-CONTINUOUS-PROOF-SCHEDULER-S6` Dogfood the scheduler loop proving AI can work on path-disjoint slice B while slice A proof is pending.
+- [ ] `MP-NEW-P197-PROOF-EXECUTION-MODE-TOGGLE-S7` Add `ProofExecutionMode` and `ProofExecutionToggle` plus `devctl proof` mode CLI composed with `ToggleReceipt` and `BypassLifecycle`.
