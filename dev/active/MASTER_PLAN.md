@@ -8588,3 +8588,15 @@ projection name and must be dogfooded in live R-rounds before deleting
   - date choice 2026-05-15: deprecation announce `2026-05-15`, archive mode `2026-06-14`, typed authority live `2026-07-14`, bridge writing stops `2026-08-13`, code removal complete `2026-11-11`.
 - [ ] `MP-NEW-P188-BRIDGE-ARCHIVE-TOGGLE-S6` Add `BridgeArchiveToggle` for historical and legacy-compatibility bridge views.
 - [ ] `MP-NEW-P188-BRIDGE-DELETION-PHASE-4-S7` Delete `bridge.md` only after the new typed projection is dogfooded and bridge readers/writers are retired.
+
+### MP-NEW P189 R127 Projection-Gap Closure Intake
+
+Recovered on 2026-05-15 from `rev_pkt_4064`. P189 composes with the P188
+typed-emitter chain, but it is queued after P188 Phase 1 unless the controller
+explicitly grants a parallel read-only or isolated-worker lane.
+
+- [ ] `MP-NEW-P189-WAKE-CONTINUITY-STATE-S1` Define `WakeContinuityState` and `ReviewerGateState` typed contracts for projection-gap closure.
+- [ ] `MP-NEW-P189-WAKE-CONTINUITY-STATE-S2` Wire typed wake-continuity emitters through `authority_snapshot_build.py`.
+- [ ] `MP-NEW-P189-WAKE-CONTINUITY-STATE-S3` Project wake-continuity state from typed collaboration state in `authority_snapshot_projection.py`.
+- [ ] `MP-NEW-P127-CODEX-COMMIT-LANDED-S1` Record R127 codex absorption proof for the governed commit and P188/P186 materialization path.
+  - response 2026-05-15: acknowledge P188/P186 rows materialized; first P188 coding slice remains `MP-NEW-P188-PEER-COMMUNICATION-STATE-SNAPSHOT-S1`; P189 is queued after P188 Phase 1 by default; guard file paths from `rev_pkt_4064` are accepted as concrete build targets.
