@@ -8773,4 +8773,11 @@ auditable while new post-mandate commits must resolve.
 - [ ] `MP-NEW-P220-PHASE-0B-EXPANDED-P40-S1` Add `check_commit_message_row_id_resolves.py` so commit row refs resolve in `plan_index`, packet refs prove MP-NEW decomposition instead of PKT-BIND-only intake, corrupted persisted row titles fail, and applied/completed rows require commit-anchor evidence.
   - progress 2026-05-15: implemented the guard, repo-policy mandate, contract registry row, schema fixtures, workflow wiring, script catalog entry, platform contract row, and focused P40 acceptance tests while leaving Phase 0c `commit_anchor_ref` runtime tests red for the next slice.
   - progress 2026-05-15: hardened the guard after R174 review by widening the enforced row-prefix policy to the P207/P208/P218/P219/P220 families, decoupling packet-decomposition validation from row-prefix enforcement, and echoing scan-range metadata (`head_ref`, `since_ref`, `max_count`, `observed_at_utc`, and active prefixes) in the report.
+- [ ] `MP-NEW-P220-PHASE-0B-PACKET-DECOMP-POLICY-S1` Make packet-decomposition completeness consume the same repo-policy `enforced_row_prefixes` as row-id checks, so off-mandate `MP-NEW-*` rows cannot satisfy packet decomposition.
+  - progress 2026-05-15: patched `_packet_decomposition_violation()` to receive active prefixes, reject PKT-BIND rows as decomposition, and count only policy-enforced implementation rows; added regression tests for off-policy and P207 policy-prefix behavior.
 - [ ] `MP-NEW-P220-PHASE-0C-COMMIT-ANCHOR-REF-S1` Add the `PlanRow.commit_anchor_ref` field and hydration on applied transitions after the P40 guard is in place.
+- [ ] `MP-NEW-P221-S1` Add `LocalIDETaskProjection` as the projection-only local task contract over canonical PlanRow authority.
+- [ ] `MP-NEW-P221-S2` Add a TaskProjectionReceipt guard so local task projections mirror PlanRows and closure evidence.
+- [ ] `MP-NEW-P221-S3` Render PlanRows into agent-local task surfaces without granting those projections authority.
+- [ ] `MP-NEW-P222-MEMORY-INGESTION-S1` Add `MemorySignalIngestionReceipt` with a typed disposition enum.
+- [ ] `MP-NEW-P222-MEMORY-INGESTION-S2` Guard memory claims so they are typed receipts or explicitly ignored.

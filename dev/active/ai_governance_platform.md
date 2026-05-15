@@ -14891,6 +14891,13 @@ instead of decomposed `MP-NEW-*` implementation rows, persisted row titles that
 still contain range-corruption markers, and applied/completed rows that lack
 commit-anchor evidence.
 
+R175 tightened packet decomposition: the helper still evaluates every cited
+packet independently, but decomposed implementation rows must satisfy the
+active repo-policy `enforced_row_prefixes` rather than any hard-coded
+`MP-NEW-*` family. The same packet also materialized P221 local task projection
+rows and P222 memory-ingestion rows so task and memory surfaces can dissolve
+into typed substrate instead of becoming parallel authority.
+
 This guard composes with `FeatureProofReceipt` and `CommitReceipt`: the commit
 can carry human-readable provenance, but the guard ensures that provenance is
 backed by durable plan rows before the feature proof can be treated as shipped.

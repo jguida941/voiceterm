@@ -114,6 +114,54 @@ def test_packet_decomposition_not_skipped_for_unenforced_row_prefix(
     assert report.violations[0]["reason"] == "packet_only_pkt_bind_rows"
 
 
+def test_packet_decomposition_ignores_plan_rows_outside_policy_prefixes(
+    tmp_path: Path,
+) -> None:
+    _write_plan_index(
+        tmp_path,
+        [
+            _row("PKT-BIND-REV-PKT-4134", mutation_op="review_only"),
+            _row("MP-NEW-P999-UNSCOPED-S1", mutation_op="ingest_plan_intent"),
+        ],
+    )
+    _write_guard_policy(tmp_path, prefixes=["MP-NEW-P220-"])
+
+    report = _evaluate(
+        tmp_path,
+        (
+            "abc1234\x002026-05-15T22:40:00+00:00\n"
+            "MP-NEW-P220-S1: work\n\nPacket: rev_pkt_4134\n\x1e\n"
+        ),
+    )
+
+    assert report.ok is False
+    assert report.violations[0]["reason"] == "packet_only_pkt_bind_rows"
+
+
+def test_packet_decomposition_accepts_policy_prefix_plan_rows(
+    tmp_path: Path,
+) -> None:
+    _write_plan_index(
+        tmp_path,
+        [
+            _row("PKT-BIND-REV-PKT-4134", mutation_op="review_only"),
+            _row("MP-NEW-P207-S5-FPR-V2-CONTRACTREF-S1", mutation_op="ingest_plan_intent"),
+        ],
+    )
+    _write_guard_policy(tmp_path, prefixes=["MP-NEW-P207-"])
+
+    report = _evaluate(
+        tmp_path,
+        (
+            "abc1234\x002026-05-15T22:40:00+00:00\n"
+            "MP-NEW-P207-S5-FPR-V2-CONTRACTREF-S1: work\n\nPacket: rev_pkt_4134\n\x1e\n"
+        ),
+    )
+
+    assert report.ok is True
+    assert report.violation_count == 0
+
+
 def test_commit_with_mp_new_row_having_ingest_plan_intent_passes(
     tmp_path: Path,
 ) -> None:

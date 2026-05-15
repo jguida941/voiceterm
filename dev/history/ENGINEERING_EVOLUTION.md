@@ -16118,6 +16118,12 @@ active P207/P208/P218/P219/P220 families, evaluates packet refs independently
 from row-prefix enforcement, and emits its scanned range plus mandate metadata
 so review receipts can prove what was checked.
 
+R175 then found the remaining mirror bug: the packet-decomposition helper still
+accepted any hard-coded `MP-NEW-*` row as decomposed work. The helper now
+receives the active policy prefixes directly and counts only policy-enforced
+implementation rows as packet decomposition, with regressions covering both
+off-policy rows and the newly enforced P207 family.
+
 Evidence:
 
 - `dev/config/devctl_repo_policy.json`

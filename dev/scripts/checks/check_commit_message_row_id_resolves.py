@@ -103,6 +103,7 @@ def evaluate_commit_message_row_id_resolves(
                 commit=commit,
                 packet_id=packet_id,
                 rows=rows,
+                enforced_prefixes=enforced_prefixes,
             )
             if packet_violation is not None:
                 violations.append(packet_violation)
@@ -209,6 +210,7 @@ def _packet_decomposition_violation(
     commit: CommitMessage,
     packet_id: str,
     rows: list[dict[str, object]],
+    enforced_prefixes: tuple[str, ...],
 ) -> dict[str, object] | None:
     packet_rows = [row for row in rows if packet_id in _row_packet_refs(row)]
     if not packet_rows:
@@ -221,7 +223,7 @@ def _packet_decomposition_violation(
     decomposed_rows = [
         row
         for row in packet_rows
-        if str(row.get("row_id") or "").startswith("MP-NEW-")
+        if _row_decomposes_packet(row, enforced_prefixes)
         and str(row.get("mutation_op") or "") == "ingest_plan_intent"
     ]
     pkt_bind_rows = [
@@ -235,6 +237,16 @@ def _packet_decomposition_violation(
             expected_action="materialize_mp_new_plan_rows",
         )
     return None
+
+
+def _row_decomposes_packet(
+    row: dict[str, object],
+    enforced_prefixes: tuple[str, ...],
+) -> bool:
+    row_id = str(row.get("row_id") or "")
+    if not row_id or row_id.startswith("PKT-BIND-"):
+        return False
+    return _row_ref_enforced(row_id, enforced_prefixes)
 
 
 def _row_packet_refs(row: dict[str, object]) -> set[str]:

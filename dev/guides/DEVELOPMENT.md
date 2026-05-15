@@ -288,8 +288,9 @@ Use docs like this:
   the full row id that owns the work, and cite only packets that have durable
   plan-row materialization or durable ingestion evidence. The guard now echoes
   its scanned commit range, policy observation timestamp, and enforced row
-  prefixes, and packet-decomposition checks run independently from row-prefix
-  enforcement so a packet cite cannot hide behind an unenforced row family.
+  prefixes. Packet-decomposition checks always run for cited packets, and the
+  decomposed implementation rows must satisfy the same active policy prefixes
+  rather than a hard-coded `MP-NEW-*` shortcut.
 - The `ensure-follow` reviewer-wake path
   (`dev/scripts/devctl/review_channel/reviewer_follow_guard.py::launch_waiting_reviewer_conductor`)
   shares the same auto-elevation seam, so a remote-control reviewer
