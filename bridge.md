@@ -78,13 +78,12 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-15T12:00:15Z`
-- Last Codex poll (Local America/New_York): `2026-05-15 08:00:15 EDT`
+- Last Codex poll: `2026-05-15T12:06:32Z`
+- Last Codex poll (Local America/New_York): `2026-05-15 08:06:32 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `f2b1f6cf8cd1e3a5bee10230c013c4ae334087aa0e0dce881559ac00bd83e82a`
+- Last non-audit worktree hash: `abd04723b62d33cf678ba6f9261ebb02b30797da7810bd9ba3b91fa45b2d8a97`
 - Current instruction revision: `80a7b4a46c27`
-- Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `b86a2a0ae369b141a80a2f71c07a381f05510260`
+
 ## Protocol
 
 1. Codex should poll this file periodically while coding.
@@ -119,11 +118,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Verdict
 
-Checkpoint: operator-authorized continuation per override briefing; Codex is continuing MP-NEW-P188 automation work.
+- reviewer state unavailable
 
 ## Open Findings
 
-No checkpoint findings; this write is only to unblock typed startup authority for the active edit slice.
+148 pending review packet(s)
 
 ## Implementer Status
 
@@ -135,7 +134,7 @@ No checkpoint findings; this write is only to unblock typed startup authority fo
 
 ## Implementer Ack
 
-- pending
+- missing
 
 ## Current Instruction For Implementer
 
@@ -143,9 +142,7 @@ Continue MP-NEW-P188-AUTOMATION-TRIPLET-S1: validate guard-run extension-vs-buil
 
 ## Last Reviewed Scope
 
-- dev/scripts/devctl/extend_discipline.py
-- dev/scripts/devctl/commands/guard_run.py
-- dev/scripts/devctl/cli_parser/hygiene.py
+MP-377
 
 ## Action Requests
 

@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `f4ea765bba1e` — MP-NEW-P188-S2: add implementer ack freshness check
-- Tree hash: `a88d5579ad25`
-- Generation stamp: `snap-21d2afbf5ee0`
-- Generated at (UTC): 2026-05-15T11:46:47Z
+- HEAD: `f3ac84bcd58e` — MP-NEW-P188-S3: add extension discipline guard-run check
+- Tree hash: `bd9c54d166d8`
+- Generation stamp: `snap-12c4746c60be`
+- Generated at (UTC): 2026-05-15T12:07:06Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `local_terminal`)
+- Reviewer mode: `single_agent` (interaction: `single_agent`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 93 files, +5319/-819
+- Delta since last snapshot: 25 commits, 97 files, +5825/-890
 - Governance findings: 44 open / 0 fixed / 44 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `f4ea765bba1e83f0cf077b78c51d28b171d24e3a`
+- HEAD SHA: `f3ac84bcd58eb09ccd86e50487318bf1b72d7dff`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-15T07:45:37-04:00
+- HEAD timestamp (UTC): 2026-05-15T08:05:56-04:00
 
 ## 2. Governance state
 
@@ -44,13 +44,13 @@ production client (VoiceTerm...
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 30 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 32 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `local_terminal`
+- interaction_mode: `single_agent`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -64,42 +64,43 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `f4ea765bba1e`
+Range: last 25 commits ending at `f3ac84bcd58e`
 
-- commits: 24
-- files changed: 93
-- insertions: +5319
-- deletions: -819
-- bundle classes touched: tooling, docs
+- commits: 25
+- files changed: 97
+- insertions: +5825
+- deletions: -890
+- bundle classes touched: docs, tooling
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `f4ea765b` | MP-NEW-P188-S2: add implementer ack freshness check | 12 | +458/-2 | tooling |  |
-| 2 | `bfff8e8e` | Refresh external review snapshot for 98e5e5de | 2 | +79/-85 | docs |  |
-| 3 | `98e5e5de` | MP-NEW-P188-S1: keep implementer ack typed | 8 | +261/-14 | tooling |  |
-| 4 | `f5cee955` | Refresh external review snapshot for 722ee4ec | 2 | +58/-55 | docs |  |
-| 5 | `722ee4ec` | MP-NEW-P198-S2: add file-hash finding applicability | 24 | +798/-31 | tooling |  |
-| 6 | `368cdc3c` | Refresh external review snapshot for 61069b1f | 2 | +62/-58 | docs |  |
-| 7 | `61069b1f` | MP378-S7: add operator command wrappers | 12 | +371/-28 | tooling |  |
-| 8 | `8b430a4a` | Refresh external review snapshot for 40689268 | 2 | +51/-51 | docs |  |
-| 9 | `40689268` | MP378-S5: add provider-neutral role reset action | 5 | +114/-6 | tooling |  |
-| 10 | `4e0f0759` | Refresh external review snapshot for fce1ff08 | 2 | +61/-61 | docs |  |
-| 11 | `fce1ff08` | MP378-S6: keep bypass lifecycle store local | 14 | +417/-13 | tooling |  |
-| 12 | `e94ef530` | Refresh external review snapshot for 85c11e92 | 2 | +59/-59 | docs |  |
-| 13 | `85c11e92` | MP378-P4: add typed namespace composition guard | 29 | +737/-8 | tooling |  |
-| 14 | `581f1432` | Refresh external review snapshot for 22833c80 | 2 | +50/-50 | docs |  |
-| 15 | `22833c80` | MP378-P5: report authority contract registry gaps | 2 | +262/-0 | tooling |  |
-| 16 | `606db95e` | Refresh external review snapshot for b0e6e5ff | 2 | +57/-57 | docs |  |
-| 17 | `b0e6e5ff` | MP378-P3: add commit body packet anchor guard | 10 | +353/-25 | tooling |  |
-| 18 | `8f15df5c` | Refresh external review snapshot for 77bbcd00 | 2 | +57/-57 | docs |  |
-| 19 | `77bbcd00` | MP378-P7: add task started ADR precedent guard | 10 | +567/-8 | tooling |  |
-| 20 | `4b2f1fd5` | Refresh external review snapshot for 8d188534 | 2 | +61/-64 | docs |  |
-| 21 | `8d188534` | MP-GUARD-REGISTRY-S1: register guard contracts | 3 | +115/-29 | tooling |  |
-| 22 | `95e759dc` | Refresh external review snapshot for 87460712 | 2 | +60/-57 | docs |  |
-| 23 | `87460712` | MP193-S1: add check_action_result_status_domain guard (P193) | 1 | +210/-0 | tooling |  |
-| 24 | `c2c4149e` | Refresh policy-owned generated surfaces for 57a978d7 | 1 | +1/-1 | docs |  |
+| 1 | `f3ac84bc` | MP-NEW-P188-S3: add extension discipline guard-run check | 10 | +447/-13 | tooling |  |
+| 2 | `b86a2a0a` | Refresh external review snapshot for f4ea765b | 2 | +60/-59 | docs |  |
+| 3 | `f4ea765b` | MP-NEW-P188-S2: add implementer ack freshness check | 12 | +458/-2 | tooling |  |
+| 4 | `bfff8e8e` | Refresh external review snapshot for 98e5e5de | 2 | +79/-85 | docs |  |
+| 5 | `98e5e5de` | MP-NEW-P188-S1: keep implementer ack typed | 8 | +261/-14 | tooling |  |
+| 6 | `f5cee955` | Refresh external review snapshot for 722ee4ec | 2 | +58/-55 | docs |  |
+| 7 | `722ee4ec` | MP-NEW-P198-S2: add file-hash finding applicability | 24 | +798/-31 | tooling |  |
+| 8 | `368cdc3c` | Refresh external review snapshot for 61069b1f | 2 | +62/-58 | docs |  |
+| 9 | `61069b1f` | MP378-S7: add operator command wrappers | 12 | +371/-28 | tooling |  |
+| 10 | `8b430a4a` | Refresh external review snapshot for 40689268 | 2 | +51/-51 | docs |  |
+| 11 | `40689268` | MP378-S5: add provider-neutral role reset action | 5 | +114/-6 | tooling |  |
+| 12 | `4e0f0759` | Refresh external review snapshot for fce1ff08 | 2 | +61/-61 | docs |  |
+| 13 | `fce1ff08` | MP378-S6: keep bypass lifecycle store local | 14 | +417/-13 | tooling |  |
+| 14 | `e94ef530` | Refresh external review snapshot for 85c11e92 | 2 | +59/-59 | docs |  |
+| 15 | `85c11e92` | MP378-P4: add typed namespace composition guard | 29 | +737/-8 | tooling |  |
+| 16 | `581f1432` | Refresh external review snapshot for 22833c80 | 2 | +50/-50 | docs |  |
+| 17 | `22833c80` | MP378-P5: report authority contract registry gaps | 2 | +262/-0 | tooling |  |
+| 18 | `606db95e` | Refresh external review snapshot for b0e6e5ff | 2 | +57/-57 | docs |  |
+| 19 | `b0e6e5ff` | MP378-P3: add commit body packet anchor guard | 10 | +353/-25 | tooling |  |
+| 20 | `8f15df5c` | Refresh external review snapshot for 77bbcd00 | 2 | +57/-57 | docs |  |
+| 21 | `77bbcd00` | MP378-P7: add task started ADR precedent guard | 10 | +567/-8 | tooling |  |
+| 22 | `4b2f1fd5` | Refresh external review snapshot for 8d188534 | 2 | +61/-64 | docs |  |
+| 23 | `8d188534` | MP-GUARD-REGISTRY-S1: register guard contracts | 3 | +115/-29 | tooling |  |
+| 24 | `95e759dc` | Refresh external review snapshot for 87460712 | 2 | +60/-57 | docs |  |
+| 25 | `87460712` | MP193-S1: add check_action_result_status_domain guard (P193) | 1 | +210/-0 | tooling |  |
 
 ### Files
 
@@ -107,14 +108,14 @@ Range: last 24 commits ending at `f4ea765bba1e`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +4/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +12/-0 |
-| `bridge.md` | docs | +39/-39 |
-| `dev/active/MASTER_PLAN.md` | tooling | +2/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +616/-615 |
+| `bridge.md` | docs | +58/-55 |
+| `dev/active/MASTER_PLAN.md` | tooling | +3/-0 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +672/-670 |
 | `dev/config/devctl_repo_policy.json` | tooling | +20/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +8/-4 |
+| `dev/guides/DEVELOPMENT.md` | docs | +12/-4 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +125/-123 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +27/-0 |
-| `dev/scripts/README.md` | tooling | +8/-4 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +42/-0 |
+| `dev/scripts/README.md` | tooling | +14/-4 |
 | `dev/scripts/checks/check_action_result_status_domain.py` | tooling | +210/-0 |
 | `dev/scripts/checks/check_commit_body_packet_anchors.py` | tooling | +213/-0 |
 | `dev/scripts/checks/check_runtime_state_ignore_posture.py` | tooling | +219/-0 |
@@ -122,16 +123,19 @@ Range: last 24 commits ending at `f4ea765bba1e`
 | `dev/scripts/checks/check_typed_namespace_composition.py` | tooling | +247/-0 |
 | `dev/scripts/checks/systemmap_covers_contract_registry/command.py` | tooling | +212/-0 |
 | `dev/scripts/devctl/bundles/registry.py` | tooling | +4/-0 |
+| `dev/scripts/devctl/cli_parser/hygiene.py` | tooling | +11/-0 |
 | `dev/scripts/devctl/commands/development/models.py` | tooling | +16/-0 |
 | `dev/scripts/devctl/commands/development/operator_command_wrappers.py` | tooling | +75/-0 |
 | `dev/scripts/devctl/commands/development/plan_intake_phase0.py` | tooling | +2/-7 |
 | `dev/scripts/devctl/commands/development/render.py` | tooling | +20/-0 |
 | `dev/scripts/devctl/commands/development/report_assembly.py` | tooling | +90/-10 |
+| `dev/scripts/devctl/commands/guard_run.py` | tooling | +30/-0 |
 | `dev/scripts/devctl/commands/review_channel/__init__.py` | tooling | +4/-1 |
 | `dev/scripts/devctl/commands/review_channel/_reset_implementer.py` | tooling | +18/-5 |
 | `dev/scripts/devctl/commands/review_channel/event_ack_freshness_action.py` | tooling | +35/-0 |
 | `dev/scripts/devctl/commands/review_channel/event_handler.py` | tooling | +3/-0 |
 | `dev/scripts/devctl/commands/review_channel_command/constants.py` | tooling | +3/-0 |
+| `dev/scripts/devctl/extend_discipline.py` | tooling | +274/-0 |
 | `dev/scripts/devctl/governance/script_catalog_registry.py` | tooling | +7/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_development.py` | tooling | +32/-0 |
@@ -142,10 +146,7 @@ Range: last 24 commits ending at `f4ea765bba1e`
 | `dev/scripts/devctl/review_channel/current_session_event_state.py` | tooling | +8/-2 |
 | `dev/scripts/devctl/review_channel/current_session_projection.py` | tooling | +123/-1 |
 | `dev/scripts/devctl/review_channel/event_render.py` | tooling | +23/-0 |
-| `dev/scripts/devctl/review_channel/parser.py` | tooling | +11/-0 |
-| `dev/scripts/devctl/runtime/file_hashes.py` | tooling | +27/-0 |
-| `dev/scripts/devctl/runtime/quality_repair_scheduler.py` | tooling | +161/-0 |
-| _53 more files trimmed_ | | |
+| _57 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -209,6 +210,10 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`f3ac84bc`** — MP-NEW-P188-S3: add extension discipline guard-run check
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
+- **`b86a2a0a`** — Refresh external review snapshot for f4ea765b
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`f4ea765b`** — MP-NEW-P188-S2: add implementer ack freshness check
   - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`bfff8e8e`** — Refresh external review snapshot for 98e5e5de
@@ -258,8 +263,6 @@ Recent findings:
   - {pass, fail, unknown, defer}. Surfaces the canonical 'typed boundary
   - lie' from GUARD_AUDIT_FINDINGS.md — declared closed domain + emitted
   - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
-- **`c2c4149e`** — Refresh policy-owned generated surfaces for 57a978d7
-  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -303,4 +306,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-21d2afbf5ee0` binds this file to HEAD `f4ea765bba1e`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-12c4746c60be` binds this file to HEAD `f3ac84bcd58e`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
