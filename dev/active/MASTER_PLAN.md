@@ -8721,4 +8721,5 @@ R131 / rev_pkt_4083 intake decisions:
 
 - [ ] `MP-NEW-P201-PROVENANCE-CONTRACT-ORPHAN-CLOSURE-S1` Register supply-chain provenance contracts with typed contract authority so provenance rows do not remain orphaned from the registry.
 - [ ] `MP-NEW-P202-BOOT-CARD-SURFACE-INSTRUCTION-SYNC-S1` Add an instruction-surface sync guard for boot-card role clarity, target-kind guidance, and shell-escape friction.
+  - progress 2026-05-15: `InstructionBootCard` rendering and `check_instruction_surface_sync.py` now enforce role-choice clarity, typed `--target-kind` / `--target-ref` packet guidance, and `Operator Command Wrappers` shell-escape guidance; `AGENTS.md` was regenerated from the strengthened contract.
 - [ ] `MP-NEW-P203-DECIDED-PACKET-DEBT-DETECTOR-S1` Add decided-packet debt detection and packet batch triage for acked-but-unbuilt packet classes.

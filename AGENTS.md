@@ -17,6 +17,8 @@
 - Inspect session bootstrap help: `python3 dev/scripts/devctl.py session --help`.
 - Inspect packet posting help: `python3 dev/scripts/devctl.py review-channel --action post --help`.
 - Inspect controller and graph help: `python3 dev/scripts/devctl.py develop --help` and `python3 dev/scripts/devctl.py context-graph --help`.
+- Packet writes that affect plan, policy, artifact, or runtime authority must use typed `--target-kind` / `--target-ref` fields from packet-post help; packet ids alone are provenance.
+- When `develop` emits `Operator Command Wrappers`, run the wrapped command block instead of reconstructing long inline commands.
 
 ## Run in order
 

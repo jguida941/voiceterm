@@ -26,7 +26,7 @@ REQUIRED_BOOT_COMMANDS = (
     "session --help",
     "startup-context",
     "session-resume",
-    "review-channel status",
+    "review-channel --action status",
     "review-channel --action post --help",
     "context-graph --mode bootstrap",
     "context-graph --help",
@@ -52,6 +52,16 @@ FORBIDDEN_BOOT_ROLE_PLACEHOLDERS = (
     "--role <role>",
     "--role coding-agent",
     "--role codex",
+)
+REQUIRED_BOOT_ROLE_GUIDANCE = (
+    "Valid `--role` choices for `session`, `startup-context`, and `session-resume`",
+    "switch only when typed startup authority, operator direction, or session assignment says to",
+)
+REQUIRED_BOOT_TARGET_KIND_GUIDANCE = (
+    "Packet writes that affect plan, policy, artifact, or runtime authority must use typed `--target-kind` / `--target-ref` fields",
+)
+REQUIRED_BOOT_SHELL_ESCAPE_GUIDANCE = (
+    "When `develop` emits `Operator Command Wrappers`, run the wrapped command block",
 )
 
 
@@ -107,6 +117,8 @@ def build_instruction_boot_card(
         "- Inspect session bootstrap help: `python3 dev/scripts/devctl.py session --help`.",
         "- Inspect packet posting help: `python3 dev/scripts/devctl.py review-channel --action post --help`.",
         "- Inspect controller and graph help: `python3 dev/scripts/devctl.py develop --help` and `python3 dev/scripts/devctl.py context-graph --help`.",
+        "- Packet writes that affect plan, policy, artifact, or runtime authority must use typed `--target-kind` / `--target-ref` fields from packet-post help; packet ids alone are provenance.",
+        "- When `develop` emits `Operator Command Wrappers`, run the wrapped command block instead of reconstructing long inline commands.",
         "",
         "## Run in order",
         "",
@@ -232,7 +244,10 @@ __all__ = [
     "INSTRUCTION_BOOT_CARD_SCHEMA_VERSION",
     "InstructionBootCard",
     "REQUIRED_BOOT_COMMANDS",
+    "REQUIRED_BOOT_ROLE_GUIDANCE",
     "REQUIRED_BOOT_SECTIONS",
+    "REQUIRED_BOOT_SHELL_ESCAPE_GUIDANCE",
+    "REQUIRED_BOOT_TARGET_KIND_GUIDANCE",
     "SESSION_ROLE_CHOICES",
     "build_instruction_boot_card",
 ]

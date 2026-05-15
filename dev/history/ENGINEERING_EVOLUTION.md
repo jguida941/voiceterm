@@ -49,6 +49,21 @@ Evidence:
 - `dev/scripts/checks/runtime_bridge_projection_separation/command.py`
 - `dev/scripts/devctl/tests/checks/test_check_runtime_bridge_projection_separation.py`
 
+### 2026-05-15 - Boot-card sync guard hardens instruction content
+
+The P202 instruction-surface work moved role clarity, target-kind packet
+guidance, and shell-escape friction out of operator memory and into the
+generated boot-card contract. `InstructionBootCard` now renders those cues, and
+`check_instruction_surface_sync.py` fails if they disappear from the generated
+surface.
+
+Evidence:
+
+- `dev/scripts/devctl/governance/instruction_boot_card.py`
+- `dev/scripts/devctl/governance/surface_instruction_runtime.py`
+- `dev/scripts/devctl/tests/governance/test_render_surfaces.py`
+- `AGENTS.md`
+
 ### 2026-05-15 - Bridge ACK projection stops outranking typed ACK state
 
 The R126 review-channel audit found a projection-authority drift: `bridge.md`

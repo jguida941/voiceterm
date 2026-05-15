@@ -6,7 +6,17 @@ from pathlib import Path
 from typing import Any
 
 from ..common_io import resolve_repo_path
-from .instruction_boot_card import build_instruction_boot_card
+from .instruction_boot_card import (
+    FORBIDDEN_BOOT_CLAIMS,
+    FORBIDDEN_BOOT_ROLE_PLACEHOLDERS,
+    INSTRUCTION_BOOT_CARD_CONTRACT_ID,
+    REQUIRED_BOOT_COMMANDS,
+    REQUIRED_BOOT_ROLE_GUIDANCE,
+    REQUIRED_BOOT_SECTIONS,
+    REQUIRED_BOOT_SHELL_ESCAPE_GUIDANCE,
+    REQUIRED_BOOT_TARGET_KIND_GUIDANCE,
+    build_instruction_boot_card,
+)
 from .surface_runtime_common import (
     base_surface_entry,
     diff_preview,
@@ -109,9 +119,19 @@ def _instruction_boot_card_contract_error(
     spec: Any,
     rendered_text: str,
 ) -> dict[str, Any] | None:
-    missing_contains = missing_required_contains(rendered_text, spec.required_contains)
+    required_contains = (
+        spec.required_contains
+        + _instruction_boot_card_required_contains()
+    )
+    forbidden_contract_contains = (
+        FORBIDDEN_BOOT_CLAIMS
+        + FORBIDDEN_BOOT_ROLE_PLACEHOLDERS
+    )
+    missing_contains = missing_required_contains(rendered_text, required_contains)
     forbidden_contains = [
-        snippet for snippet in spec.forbidden_contains if snippet in rendered_text
+        snippet
+        for snippet in spec.forbidden_contains + forbidden_contract_contains
+        if snippet in rendered_text
     ]
     line_count = len(rendered_text.splitlines())
     byte_count = len(rendered_text.encode("utf-8"))
@@ -135,3 +155,14 @@ def _instruction_boot_card_contract_error(
         "line_count": line_count,
         "byte_count": byte_count,
     }
+
+
+def _instruction_boot_card_required_contains() -> tuple[str, ...]:
+    return (
+        INSTRUCTION_BOOT_CARD_CONTRACT_ID,
+        *REQUIRED_BOOT_SECTIONS,
+        *REQUIRED_BOOT_COMMANDS,
+        *REQUIRED_BOOT_ROLE_GUIDANCE,
+        *REQUIRED_BOOT_TARGET_KIND_GUIDANCE,
+        *REQUIRED_BOOT_SHELL_ESCAPE_GUIDANCE,
+    )

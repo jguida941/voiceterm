@@ -167,6 +167,9 @@ and `CODEX.md` is not generated as a repo surface. Keep them synced with
 memory or stale starter prose. Generated boot cards must also enumerate the
 valid session roles (`reviewer`, `implementer`, `dashboard`, `observer`) and
 show help-discovery commands so fresh agents do not guess invalid role names.
+They must preserve typed packet-target guidance (`--target-kind` /
+`--target-ref`) and direct agents to run `Operator Command Wrappers` verbatim
+instead of reconstructing shell-sensitive commands from prose.
 `AGENTS.md` also states the canonical memory-is-continuity rule enforced by
 `check_memory_not_authority.py`.
 Reviewer bootstrap note: repo-owned Codex conductors still begin with

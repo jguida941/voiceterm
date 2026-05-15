@@ -14,9 +14,14 @@ from dev.scripts.devctl import cli
 from dev.scripts.devctl.commands import listing
 from dev.scripts.devctl.commands.governance import render_surfaces
 from dev.scripts.devctl.governance.instruction_boot_card import (
+    REQUIRED_BOOT_SHELL_ESCAPE_GUIDANCE,
     build_instruction_boot_card,
 )
-from dev.scripts.devctl.governance import surface_runtime, surfaces
+from dev.scripts.devctl.governance import (
+    surface_instruction_runtime,
+    surface_runtime,
+    surfaces,
+)
 
 
 class RenderSurfacesParserTests(unittest.TestCase):
@@ -177,6 +182,14 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             rendered_text,
         )
         self.assertIn(
+            "typed `--target-kind` / `--target-ref` fields",
+            rendered_text,
+        )
+        self.assertIn(
+            "When `develop` emits `Operator Command Wrappers`",
+            rendered_text,
+        )
+        self.assertIn(
             "python3 dev/scripts/devctl.py session --help",
             rendered_text,
         )
@@ -215,6 +228,31 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
         self.assertIn(
             "system_picture",
             {entry.command_id for entry in build_system_catalog().bootstrap_commands},
+        )
+
+    def test_instruction_surface_guard_enforces_boot_card_p202_guidance(self) -> None:
+        policy = surfaces.load_surface_policy()
+        agents_surface = next(
+            entry for entry in policy.surfaces if entry.surface_id == "agents_boot_card"
+        )
+        rendered_text = build_instruction_boot_card(
+            surface_id=agents_surface.surface_id,
+            output_path=agents_surface.output_path,
+            source_path=agents_surface.source_path or "",
+            repo_pack_id=policy.context["repo_pack_id"],
+            repo_pack_version=policy.context["repo_pack_version"],
+        )
+
+        contract_error = surface_instruction_runtime._instruction_boot_card_contract_error(
+            agents_surface,
+            rendered_text.replace(REQUIRED_BOOT_SHELL_ESCAPE_GUIDANCE[0], ""),
+        )
+
+        self.assertIsNotNone(contract_error)
+        assert contract_error is not None
+        self.assertIn(
+            REQUIRED_BOOT_SHELL_ESCAPE_GUIDANCE[0],
+            contract_error["missing_required_contains"],
         )
 
 

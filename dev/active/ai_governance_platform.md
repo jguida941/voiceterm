@@ -189,6 +189,12 @@ Current ingestion status:
   The expanded baseline exposes bridge projection imports/calls before P188
   promotes typed snapshots, renderers, absent-bridge dogfood, and bridge-reader
   migration into strict projection-authority enforcement.
+- 2026-05-15 boot-card instruction-sync guard: generated
+  `InstructionBootCard` surfaces now carry and enforce explicit role-choice
+  guidance, typed packet `--target-kind` / `--target-ref` guidance, and
+  `Operator Command Wrappers` usage so long shell-sensitive reducer commands
+  stay runnable after copy/paste or compaction. `check_instruction_surface_sync`
+  fails if those contract tokens disappear from the renderer output.
 - 2026-05-14 raw-git receipt substrate: `rev_pkt_4022` makes raw
   `git commit --no-verify` / `git push` a typed evidence concern instead of an
   invisible operator bypass. `RawGitBypassReceipt` records the verb, commit or
