@@ -26,6 +26,7 @@ _MUTATION_ACTIONS = frozenset(
 _EDIT_ONLY_BLOCKED_COMMANDS = frozenset(
     {
         GOVERNED_CHECKPOINT_COMMIT,
+        "continue_scoped_implementation_edit",
         "repair_startup_authority",
     }
 )

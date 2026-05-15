@@ -9,6 +9,7 @@ from ..review_channel.packet_loop_attention import packet_body_attention_require
 from .agent_loop_blocker_actions import required_action_for_blocker
 from .agent_loop_decision_builder import (
     CONTINUE_TO_GOAL_ACTION,
+    SCOPED_IMPLEMENTATION_EDIT_ACTION,
     attention_reason,
     body_open_decision,
     body_open_required,
@@ -305,6 +306,24 @@ def observer_decision(ctx: AgentLoopContext, packets: PacketState) -> AgentLoopD
     )
 
 
+def operator_override_plan_edit_decision(
+    ctx: AgentLoopContext,
+) -> AgentLoopDecision:
+    return decision(
+        ctx,
+        "work",
+        SCOPED_IMPLEMENTATION_EDIT_ACTION,
+        "operator_override_plan_target",
+        lifecycle_state="needs_attention",
+        decision_code=CONTINUE_TO_GOAL_ACTION,
+        reason_code="operator_override_edit_only_plan_target",
+        should_continue_loop=True,
+        safe_to_continue=True,
+        may_mutate=ctx.may_mutate,
+        plan_target_ref=ctx.requested_plan_ref,
+    )
+
+
 def wait_decision(ctx: AgentLoopContext) -> AgentLoopDecision:
     return decision(
         ctx,
@@ -333,6 +352,7 @@ __all__ = [
     "continuation_anchor_missing_decision",
     "executing_decision",
     "observer_decision",
+    "operator_override_plan_edit_decision",
     "packet_attention_pending_decision",
     "pending_review_packet_decision",
     "requested_packet_body_open_decision",

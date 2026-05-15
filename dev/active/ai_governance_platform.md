@@ -73,6 +73,20 @@ Current ingestion status:
   Codex. Live proof: the gate returns that override, the follow-up
   `/develop next` lands in `operator_override_edit`, and stage/commit/push
   remain blocked.
+- 2026-05-15 MP377 checkpoint-automation dogfood found the adjacent no-packet
+  continuation hole: a live `agent-loop --mode plan --plan
+  MP377-P0-CHECKPOINT-AUTOMATION-S1 --operator-override` tick had valid
+  `AgentLoopOperatorOverride` proof, but still returned
+  `wait_for_scoped_packet` and a self-recursive `next_command`. The reducer now
+  maps that shape to `continue_scoped_implementation_edit`, keeps
+  `loop_mode=operator_override_edit`, grants only `implementation.edit`, and
+  leaves staging/commit/push blocked until their separate typed gates pass.
+  Live proof returns `proof_state=satisfied`, `target_kind=plan`, and
+  `next_command=""` for the MP377 plan target. The same routed bundle surfaced
+  a schema-migration blocker for `TaskStartedAdrPrecedentLinkingGuard`; the
+  guard now has a planned `DurableSchemaPolicy` over the review-channel event
+  log so its report-only task-start evidence contract remains tied to explicit
+  migration and rollback policy.
 - 2026-05-12 bypass-launch blocker repair: blanket trusted/headless launch
   elevation now has a typed lifecycle boundary. `BypassRequest` evaluates into
   `BypassEvaluation`, produces a scoped `BypassReceipt`, and remains usable only

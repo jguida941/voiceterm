@@ -58,6 +58,11 @@ For MP-377 bilateral agent-loop policy, use
 it records the seven typed-state properties and composes with existing
 session, command-evidence, and receipt contracts before eventbus/session
 automation is allowed to rely on it.
+For MP377 plan-targeted edit-only repair, `agent-loop` may project
+`continue_scoped_implementation_edit` when the operator override is active and
+no scoped packet is claimable. That decision grants only `implementation.edit`:
+`next_command` stays empty, while stage, commit, and push remain blocked until
+their own typed proof gates pass.
 For the broader standalone-governance product architecture, repo-pack
 extraction, and frontend/runtime convergence plan, see
 `dev/active/ai_governance_platform.md` and

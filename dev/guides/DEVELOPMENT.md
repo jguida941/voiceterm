@@ -110,6 +110,13 @@ Use docs like this:
   "stage missing imported file(s)" instead of an executable command, the final
   gate must surface the scoped override command rather than handing that prose
   back as the next step.
+- If `agent-loop` is invoked with an active edit-only operator override for a
+  typed plan target and no scoped packet is currently claimable, it must return
+  `required_action=continue_scoped_implementation_edit`,
+  `loop_mode=operator_override_edit`, `may_mutate=true`, and an empty
+  `next_command`. The self-recursive loop command remains cadence metadata, not
+  an executable next action, so Codex can continue the scoped implementation
+  repair without gaining staging, commit, or push authority.
 - Governed checkpoint retries must not preserve a stale partial index after a
   guard failure and repair. If non-receipt unstaged work remains, `devctl commit`
   rebuilds the stage action so the checkpoint records the latest source state

@@ -45,6 +45,9 @@ from .projection_provenance import (
     projection_observed_fields,
     projection_source_identity,
 )
+from .recovery_command_suppression import (
+    suppress_legacy_recovery_command_when_remote_only,
+)
 from .reviewer_runtime_contract import ReviewerRuntimeInputs
 
 
@@ -281,13 +284,13 @@ def _apply_review_state_enrichment(
         row.to_dict() for row in build_round_proofs_from_review_state(review_state)
     ]
 
-    review_state = _apply_runtime_route_projections(review_state, runtime)
     review_state["commit_pipeline"] = runtime.commit_pipeline.to_dict()
     review_state["push_authorization"] = push_authorization_payload(
         runtime.commit_pipeline
     )
     review_state["recovery_assessment"] = asdict(runtime.recovery_assessment)
     review_state["attention"] = runtime.attention
+    review_state = _apply_runtime_route_projections(review_state, runtime)
     # Per Codex rev_pkt_2326/2361/2367/2386: typed coordination_state
     # supersedes legacy recovery commands. When recovery_eligibility is
     # remote_only or blocked, suppress decision.command and
@@ -295,7 +298,7 @@ def _apply_review_state_enrichment(
     # agrees with bridge-poll/turn-authority/dashboard, which already
     # gate on the same field. Otherwise check_review_surface_consistency
     # flags disk-vs-authority parity drift on decision_command.
-    _suppress_legacy_recovery_command_when_remote_only(review_state)
+    suppress_legacy_recovery_command_when_remote_only(review_state)
     review_state["bridge"] = build_event_bridge_state_projection(
         review_state=review_state,
         bridge_liveness=runtime.typed_bridge_liveness,
@@ -355,6 +358,7 @@ def _apply_review_state_enrichment(
             inferred_fields=PROVENANCE_INFERRED_FIELDS,
         ),
     )
+    suppress_legacy_recovery_command_when_remote_only(review_state)
 
     return review_state, enrichment_extras(
         bridge_liveness=runtime.typed_bridge_liveness,
@@ -422,36 +426,6 @@ def _apply_attention_route_projections(
         review_state=review_state,
     ).to_dict()
     return review_state
-
-
-def _suppress_legacy_recovery_command_when_remote_only(
-    review_state: dict[str, object],
-) -> None:
-    """Mute legacy local-commit recovery command when typed eligibility says no.
-
-    Per Codex rev_pkt_2326/2361/2367/2386: when typed
-    ``coordination_state.recovery_eligibility`` is ``remote_only`` or
-    ``blocked``, the producer must suppress
-    ``recovery_assessment.decision.command`` and
-    ``attention.recommended_command``. Bridge-poll, turn-authority, and
-    dashboard already gate on the same field; suppressing at the
-    producer keeps the on-disk review_state.json artifact in parity with
-    the consumer surfaces.
-    """
-    coord = review_state.get("coordination_state")
-    if not isinstance(coord, dict):
-        return
-    eligibility = str(coord.get("recovery_eligibility") or "").strip()
-    if eligibility not in {"remote_only", "blocked"}:
-        return
-    assessment = review_state.get("recovery_assessment")
-    if isinstance(assessment, dict):
-        decision = assessment.get("decision")
-        if isinstance(decision, dict) and decision.get("command"):
-            decision["command"] = ""
-    attention = review_state.get("attention")
-    if isinstance(attention, dict) and attention.get("recommended_command"):
-        attention["recommended_command"] = ""
 
 
 def _attach_packet_surface_provenance(

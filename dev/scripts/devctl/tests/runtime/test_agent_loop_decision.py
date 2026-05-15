@@ -1754,6 +1754,61 @@ def test_operator_override_satisfies_plan_wake_proof_without_packet() -> None:
     assert "vcs.commit" in decision.blocked_actions
 
 
+def test_operator_override_plan_target_without_packet_continues_scoped_edit() -> None:
+    decision = build_agent_loop_decision(
+        review_state=_state(),
+        dashboard={"now": {}},
+        actor_id="codex",
+        actor_role="reviewer",
+        loop_intent="plan",
+        requested_plan_ref="MP377-P0-CHECKPOINT-AUTOMATION-S1",
+        master_plan={
+            "contract_id": "MasterPlan",
+            "rows": [
+                {
+                    "contract_id": "PlanRow",
+                    "row_id": "MP377-P0-CHECKPOINT-AUTOMATION-S1",
+                    "status": "active",
+                }
+            ],
+        },
+        operator_override_requested=True,
+        operator_override_reason="no_scoped_active_packet",
+    )
+
+    assert decision.loop_state == "work"
+    assert decision.required_action == "continue_scoped_implementation_edit"
+    assert decision.lifecycle_state == "needs_attention"
+    assert decision.decision == "continue_to_goal"
+    assert decision.reason_code == "operator_override_edit_only_plan_target"
+    assert decision.loop_mode == "operator_override_edit"
+    assert decision.safe_to_continue is True
+    assert decision.may_mutate is True
+    assert decision.can_run_next_command is False
+    assert decision.next_command == ""
+    assert decision.next_loop_command.startswith(
+        "python3 dev/scripts/devctl.py agent-loop --format json "
+        "--actor codex --role reviewer --mode plan "
+        "--plan MP377-P0-CHECKPOINT-AUTOMATION-S1 --operator-override"
+    )
+    assert decision.plan_target_ref == "MP377-P0-CHECKPOINT-AUTOMATION-S1"
+    assert decision.target_kind == "plan"
+    assert decision.target_ref == "MP377-P0-CHECKPOINT-AUTOMATION-S1"
+    assert decision.proof_state == "satisfied"
+    assert decision.missing_proofs == ()
+    assert decision.operator_override.active is True
+    assert decision.operator_override.target_kind == "plan"
+    assert decision.operator_override.target_ref == "MP377-P0-CHECKPOINT-AUTOMATION-S1"
+    assert "implementation.edit" in decision.allowed_actions
+    assert "vcs.stage" in decision.blocked_actions
+    assert "vcs.commit" in decision.blocked_actions
+    assert "vcs.push" in decision.blocked_actions
+    assert (
+        decision.policy_reason
+        == "operator_override_edit_only_allows_scoped_implementation"
+    )
+
+
 def test_operator_override_request_command_surfaces_for_scoped_blocker() -> None:
     decision = build_agent_loop_decision(
         review_state=_state(),

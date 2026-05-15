@@ -13,6 +13,9 @@ from dev.scripts.devctl.commands.review_channel.status_runtime_projection import
 from dev.scripts.devctl.review_channel.agent_work_board_posture import (
     apply_work_board_session_posture,
 )
+from dev.scripts.devctl.review_channel.recovery_command_suppression import (
+    suppress_legacy_recovery_command_when_remote_only,
+)
 
 
 def test_status_bundle_preserves_event_runtime_addenda() -> None:
@@ -74,6 +77,41 @@ def test_status_bundle_preserves_event_runtime_addenda() -> None:
     )
     assert merged["reviewer_runtime"]["packet_attention"]["latest_inbox_event_id"] == "rev_evt_1"
     assert merged["reviewer_runtime"]["inbox_observation"]["last_inbox_event_id"] == "rev_evt_1"
+
+
+def test_status_bundle_suppresses_remote_only_legacy_recovery_commands() -> None:
+    review_state = {
+        "coordination_state": {
+            "recovery_eligibility": "remote_only",
+        },
+        "recovery_assessment": {
+            "decision": {
+                "command": "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\"",
+            }
+        },
+        "attention": {
+            "recommended_command": (
+                "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\""
+            ),
+        },
+        "_compat": {
+            "doctor": {
+                "recommended_command": (
+                    "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\""
+                ),
+                "decision_command": (
+                    "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\""
+                ),
+            }
+        },
+    }
+
+    suppress_legacy_recovery_command_when_remote_only(review_state)
+
+    assert review_state["recovery_assessment"]["decision"]["command"] == ""
+    assert review_state["attention"]["recommended_command"] == ""
+    assert review_state["_compat"]["doctor"]["recommended_command"] == ""
+    assert review_state["_compat"]["doctor"]["decision_command"] == ""
 
 
 def test_status_bundle_refreshes_preserved_work_board_runtime_identity() -> None:

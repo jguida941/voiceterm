@@ -25,6 +25,9 @@ from .projection_bundle import (
     projection_paths_for_root,
     write_projection_bundle,
 )
+from .recovery_command_suppression import (
+    suppress_legacy_recovery_command_when_remote_only,
+)
 from .pending_packets import load_pending_packet_queue
 from .promotion import derive_promotion_candidate
 from .status_projection import build_bridge_review_state
@@ -98,7 +101,9 @@ def write_status_projection_bundle(
         snapshot=snapshot,
         timestamp=timestamp,
     )
+    suppress_legacy_recovery_command_when_remote_only(review_state)
     review_state = canonicalize_projection_review_state(review_state)
+    suppress_legacy_recovery_command_when_remote_only(review_state)
     refreshed_work_board = refresh_preserved_work_board_runtime_identity(
         review_state.get("agent_work_board"),
         collaboration=review_state.get("collaboration"),

@@ -197,6 +197,53 @@ def test_prepare_projection_bundle_freezes_parity_fields_across_surfaces() -> No
     assert compact["doctor"]["zref"] == "zref_frozen"
 
 
+def test_prepare_projection_bundle_suppresses_remote_only_compat_doctor_commands() -> None:
+    review_state = _minimal_review_state()
+    review_state.update(
+        {
+            "coordination_state": {"recovery_eligibility": "remote_only"},
+            "recovery_assessment": {
+                "diagnosis": {"status": "checkpoint_required"},
+                "decision": {
+                    "action_id": "cut_checkpoint",
+                    "command": "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\"",
+                },
+            },
+            "attention": {
+                "status": "checkpoint_required",
+                "recommended_command": (
+                    "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\""
+                ),
+            },
+            "_compat": {
+                "doctor": {
+                    "decision_command": (
+                        "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\""
+                    ),
+                    "recommended_command": (
+                        "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\""
+                    ),
+                }
+            },
+        }
+    )
+
+    contents = projection_bundle_mod.prepare_projection_bundle_contents(
+        review_state=review_state,
+        agent_registry={"schema_version": 1, "agents": []},
+        action="status",
+    )
+    persisted = json.loads(contents.review_state_json)
+    compact = json.loads(contents.compact_json)
+
+    assert persisted["recovery_assessment"]["decision"]["command"] == ""
+    assert persisted["attention"]["recommended_command"] == ""
+    assert persisted["_compat"]["doctor"]["decision_command"] == ""
+    assert persisted["_compat"]["doctor"]["recommended_command"] == ""
+    assert compact["recovery_assessment"]["decision"]["command"] == ""
+    assert compact["doctor"]["decision_command"] == ""
+
+
 def test_read_only_event_bundle_reduces_event_log_without_artifact_writes(
     tmp_path: Path,
     monkeypatch,

@@ -15,6 +15,9 @@ from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
     RemoteCommitPipelineContract,
 )
 from dev.scripts.devctl.runtime.review_state_models import (
+    RecoveryAssessmentState,
+    RecoveryDecisionState,
+    RecoveryDiagnosisState,
     ReviewCurrentSessionState,
 )
 from dev.scripts.devctl.runtime.reviewer_runtime_models import (
@@ -213,6 +216,173 @@ def test_enrich_event_review_state_attaches_push_truth(
     assert enriched["session_status_projection"]["rows"]
     runtime_inputs = _reviewer_runtime_mock.call_args.args[0]
     assert runtime_inputs.bridge_liveness["effective_reviewer_mode"] == "tools_only"
+
+
+@patch(
+    "dev.scripts.devctl.review_channel.agent_work_board_projection.build_agent_work_board_projection",
+    return_value={
+        "schema_version": 1,
+        "contract_id": "AgentWorkBoardProjection",
+        "source_latest_event_id": "evt-remote",
+        "event_index": "evt-remote",
+        "projection_refresh_seq": 1,
+        "refreshed_at_utc": "2026-04-04T00:00:00Z",
+        "rows": [
+            {
+                "actor_id": "codex",
+                "provider": "codex",
+                "role": "reviewer",
+                "session_id": "codex-1",
+                "status": "working",
+                "confidence_class": "direct_typed_event",
+                "idle_seconds": 0,
+                "stale_after_seconds": 600,
+            },
+            {
+                "actor_id": "claude",
+                "provider": "claude",
+                "role": "implementer",
+                "session_id": "claude-1",
+                "status": "polling",
+                "confidence_class": "direct_typed_event",
+                "idle_seconds": 0,
+                "stale_after_seconds": 600,
+            },
+        ],
+        "barriers": [],
+    },
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_recovery_assessment",
+    return_value=RecoveryAssessmentState(
+        diagnosis=RecoveryDiagnosisState(
+            status="implementer_state_reset_required",
+            root_cause="legacy local recovery command must be hidden remotely",
+        ),
+        decision=RecoveryDecisionState(
+            action_id="reset_implementer_state",
+            command="python3 dev/scripts/devctl.py review-channel --action reset-implementer-state --terminal none --format md",
+            execution_owner="system",
+        ),
+    ),
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_service_identity_state",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_attach_auth_policy_state",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_typed_bridge_liveness",
+    side_effect=lambda **kwargs: {
+        **kwargs["bridge_liveness"],
+        "reviewer_mode": "active_dual_agent",
+        "effective_reviewer_mode": "tools_only",
+    },
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_attach_auth_policy",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_service_identity",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_event_bridge_state_projection",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection_assembly.build_surface_snapshot_id",
+    return_value="snap-remote",
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.load_remote_commit_pipeline_contract",
+    return_value=RemoteCommitPipelineContract(),
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_reviewer_runtime_contract",
+    return_value=_REVIEWER_RUNTIME,
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_collaboration_session",
+    return_value=_DummyCollaboration(
+        participants=(
+            SimpleNamespace(
+                provider="claude",
+                agent_id="claude",
+                role="implementer",
+                live=True,
+            ),
+        ),
+    ),
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_event_current_session",
+    return_value=_current_session(),
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.attach_conductor_session_state",
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_bridge_push_enforcement_state",
+    return_value={
+        "current_branch": "feature/demo",
+        "current_head_commit": "abc123",
+        "default_remote": "origin",
+        "worktree_clean": True,
+        "worktree_dirty": False,
+        "checkpoint_required": False,
+        "safe_to_continue_editing": True,
+    },
+)
+def test_enrich_event_review_state_suppresses_legacy_recovery_command_when_remote_only(
+    _push_enforcement_mock,
+    _attach_conductor_session_state_mock,
+    _current_session_mock,
+    _collaboration_mock,
+    _reviewer_runtime_mock,
+    _pipeline_mock,
+    _snapshot_id_mock,
+    _bridge_state_mock,
+    _service_identity_mock,
+    _attach_auth_policy_mock,
+    _typed_bridge_liveness_mock,
+    _attach_auth_policy_state_mock,
+    _service_identity_state_mock,
+    _recovery_assessment_mock,
+    _work_board_mock,
+) -> None:
+    review_state = {
+        "timestamp": "2026-04-04T00:00:00Z",
+        "review": {"plan_id": "MP-377", "session_id": "sess-remote"},
+        "queue": {},
+        "_compat": {"runtime": {"daemons": {}}},
+    }
+
+    with patch(
+        "dev.scripts.devctl.review_channel.event_projection_context.load_bridge_inputs",
+        return_value=("", None),
+    ), patch(
+        "dev.scripts.devctl.review_channel.event_projection_assembly.read_agent_mind_projection",
+        return_value={},
+    ):
+        enriched, _extras = enrich_event_review_state(
+            review_state=review_state,
+            context=EventProjectionContext(
+                repo_root=Path("."),
+                review_channel_path=Path("dev/active/review_channel.md"),
+                projections_root=Path("dev/reports/review_channel/latest"),
+            ),
+        )
+
+    assert enriched["coordination_state"]["recovery_eligibility"] == "remote_only"
+    assert enriched["recovery_assessment"]["decision"]["command"] == ""
+    assert enriched["attention"]["recommended_command"] == ""
+    assert enriched["_compat"]["doctor"]["decision_command"] == ""
+    assert enriched["_compat"]["doctor"]["recommended_command"] == ""
 
 
 _SNAPSHOT_PUSH_ENFORCEMENT: dict[str, object] = {

@@ -160,6 +160,20 @@ def durable_schema_policies() -> tuple[DurableSchemaPolicy, ...]:
             owning_row="MP377-PLAN-INGESTION-RECEIPT-SPINE-S1",
         ),
         DurableSchemaPolicy(
+            contract_id="TaskStartedAdrPrecedentLinkingGuard",
+            store_path="dev/reports/review_channel/events/trace.ndjson",
+            store_authority=(
+                "dev.scripts.devctl.review_channel.event_store:append_event"
+            ),
+            schema_version_field="schema_version",
+            compatibility_window="Review-channel event rows remain append-only while task-start guard fields are additive and report-only.",
+            migration_path="Add task_started packet evidence fields through review-channel event writers, update guard parsing, and preserve older rows as legacy gaps.",
+            rollback_path="Keep older event rows readable; classify missing new evidence as legacy/report-only until strict enforcement is selected.",
+            store_authority_status="planned",
+            owning_row="MP-378-ARCH-SELF-IMPROVEMENT-LOOP-S1",
+            notes="Existing event writer is lock-based; shared state-store authority migration is planned separately.",
+        ),
+        DurableSchemaPolicy(
             contract_id="AgentSessionOutcome",
             store_path="provider-session-log-path",
             store_authority=(

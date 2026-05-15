@@ -17,6 +17,7 @@ from .agent_loop_decision_support import (
     continuation_anchor_missing_decision,
     executing_decision,
     observer_decision,
+    operator_override_plan_edit_decision,
     packet_attention_pending_decision,
     pending_review_packet_decision,
     requested_packet_body_open_decision,
@@ -137,6 +138,12 @@ def _active_runtime_decision(
         return active_packet_decision(ctx, packets)
     if role_is_observer(ctx.role):
         return observer_decision(ctx, packets)
+    if (
+        ctx.operator_override.edit_allowed
+        and ctx.operator_override.target_kind == "plan"
+        and ctx.requested_plan_ref
+    ):
+        return operator_override_plan_edit_decision(ctx)
     return wait_decision(ctx)
 
 

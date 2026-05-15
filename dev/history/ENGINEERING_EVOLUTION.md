@@ -37,6 +37,30 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-15 - Agent-loop edit-only plan override exits wait loop
+
+The MP377 checkpoint automation slice exposed a reducer mismatch: an active
+edit-only operator override for a typed plan target could still return
+`wait_for_scoped_packet` when no scoped packet was claimable, making the
+operational `next_command` a self-recursive `agent-loop` invocation.
+
+Change: plan-targeted edit-only override now resolves to
+`continue_scoped_implementation_edit`. The decision stays in
+`operator_override_edit`, grants only `implementation.edit`, leaves staging,
+commit, and push blocked, and returns an empty executable `next_command`.
+The same tooling-bundle pass added a planned `DurableSchemaPolicy` row for
+`TaskStartedAdrPrecedentLinkingGuard`, binding that report-only guard's
+review-channel event-log dependency to explicit migration and rollback policy.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/agent_loop_decision.py`
+- `dev/scripts/devctl/runtime/agent_loop_decision_support.py`
+- `dev/scripts/devctl/runtime/agent_loop_decision_builder.py`
+- `dev/scripts/devctl/runtime/agent_loop_policy.py`
+- `dev/scripts/devctl/platform/schema_migration_spine.py`
+- `dev/scripts/devctl/tests/runtime/test_agent_loop_decision.py`
+
 ### 2026-05-15 - Feature proof receipts become commit evidence
 
 The R148 operator mandate exposed a process gap: feature commits could carry

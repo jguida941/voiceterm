@@ -29,6 +29,9 @@ from .projection_bundle_payloads import (
     build_full_projection,
 )
 from .projection_observation import build_observation_projection
+from .recovery_command_suppression import (
+    suppress_legacy_recovery_command_when_remote_only,
+)
 
 _TYPED_REVIEW_STATE_KEYS = (
     "schema_version",
@@ -111,6 +114,7 @@ def prepare_projection_bundle_contents(
 ) -> ReviewChannelProjectionBundleContents:
     """Build all projection files from one canonicalized review-state snapshot."""
     review_state_payload = canonicalize_projection_review_state(review_state)
+    suppress_legacy_recovery_command_when_remote_only(review_state_payload)
     compact = build_compact_projection(review_state_payload)
     actions = build_actions_projection(review_state_payload)
     full = build_full_projection(

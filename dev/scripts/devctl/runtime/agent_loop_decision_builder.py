@@ -13,6 +13,7 @@ from .typed_gate_failure import TypedGateFailure
 from .value_coercion import coerce_bool, coerce_int, coerce_text as _text
 
 CONTINUE_TO_GOAL_ACTION = "continue_to_goal"
+SCOPED_IMPLEMENTATION_EDIT_ACTION = "continue_scoped_implementation_edit"
 
 
 def decision(
@@ -57,7 +58,8 @@ def decision(
     )
     effective_may_mutate = may_mutate or (
         ctx.operator_override.edit_allowed
-        and required_action == "repair_startup_authority"
+        and required_action
+        in {"repair_startup_authority", SCOPED_IMPLEMENTATION_EDIT_ACTION}
     )
     next_command = next_command_for_turn(
         ctx=command_ctx,
@@ -240,7 +242,11 @@ def next_command_for_turn(
     if (
         ctx.operator_override.edit_allowed
         and required_action
-        in {"repair_startup_authority", "governed_checkpoint_commit"}
+        in {
+            "repair_startup_authority",
+            "governed_checkpoint_commit",
+            SCOPED_IMPLEMENTATION_EDIT_ACTION,
+        }
     ):
         return ""
     if (
@@ -344,6 +350,17 @@ def readable_decision_fields(
             "why_not_done": (
                 "A scoped packet is pending, so final response is denied "
                 "until the loop handles that packet's typed goal."
+            ),
+            "user_continue_state": "must_continue",
+        }
+    if required_action == SCOPED_IMPLEMENTATION_EDIT_ACTION:
+        return {
+            "user_action": "Continue scoped implementation edits",
+            "continuation_goal": goal,
+            "why_not_done": (
+                "An edit-only operator override is active for this plan target; "
+                "implementation edits may continue while staging, commit, and "
+                "push remain blocked."
             ),
             "user_continue_state": "must_continue",
         }

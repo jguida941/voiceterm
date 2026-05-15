@@ -182,6 +182,16 @@
   intake. R148/R155 packet synthesis materialized P204, P205, P206, P207, and
   P209 rows into `dev/state/plan_index.jsonl` so packet findings become
   executable queue rows instead of attention-only backlog.
+- 2026-05-15 MP377 checkpoint automation reducer fix: edit-only operator
+  override for `MP377-P0-CHECKPOINT-AUTOMATION-S1` no longer collapses to
+  `wait_for_scoped_packet` when no packet is claimable. `agent-loop` now emits
+  `continue_scoped_implementation_edit` with `operator_override_edit`,
+  `may_mutate=true`, and an empty `next_command`, preserving scoped
+  implementation authority while stage, commit, and push remain explicitly
+  blocked. The same proof pass added the missing planned
+  `DurableSchemaPolicy` row for `TaskStartedAdrPrecedentLinkingGuard` so the
+  tooling bundle's schema-migration spine stays green over the existing
+  review-channel event log.
 - 2026-04-20 persistence-loop unblock (subordinate to
   `dev/active/autonomous_governance_loop_v2.md` MP-377): headless
   `review-channel --action launch | recover` now auto-elevate
