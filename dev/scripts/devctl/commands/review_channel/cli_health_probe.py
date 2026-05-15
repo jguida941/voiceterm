@@ -195,7 +195,12 @@ def _assess_status(
         conditions.append("runtime_readiness:blocked")
     if authority_required_action not in _BENIGN_REQUIRED_ACTIONS:
         conditions.append(f"required_action:{authority_required_action}")
-    if recommended_command and recommended_command_source in _RECOVERY_COMMAND_SOURCES:
+    if _recommended_command_requires_recovery(
+        recommended_command=recommended_command,
+        recommended_command_source=recommended_command_source,
+        authority_required_action=authority_required_action,
+        readiness_status=readiness_status,
+    ):
         conditions.append(f"recommended_command_source:{recommended_command_source}")
     if recovery_command:
         conditions.append("recovery_command_present")
@@ -238,6 +243,27 @@ def _benign_readiness_block(readiness: Mapping[str, object]) -> bool:
     if "dev/scripts/devctl.py push --execute" in command:
         return True
     return bool(blockers) and blockers.issubset({"vcs.commit", "vcs.push"})
+
+
+def _recommended_command_requires_recovery(
+    *,
+    recommended_command: str,
+    recommended_command_source: str,
+    authority_required_action: str,
+    readiness_status: str,
+) -> bool:
+    if not recommended_command:
+        return False
+    if recommended_command_source not in _RECOVERY_COMMAND_SOURCES:
+        return False
+    if (
+        recommended_command_source == "authority_snapshot"
+        and authority_required_action in _BENIGN_REQUIRED_ACTIONS
+        and readiness_status != "blocked"
+        and "review-channel --action status" in recommended_command
+    ):
+        return False
+    return True
 
 
 def _evidence(

@@ -92,6 +92,39 @@ def test_on_error_probe_stays_inactive_for_healthy_status() -> None:
     assert report["requires_recovery"] is False
 
 
+def test_on_error_probe_ignores_benign_authority_status_poll() -> None:
+    status_report = _healthy_status_report()
+    status_report.update(
+        {
+            "recommended_command": (
+                "python3 dev/scripts/devctl.py review-channel --action status "
+                "--terminal none --format json"
+            ),
+            "recommended_command_source": "authority_snapshot",
+            "runtime_readiness": {
+                "status": "ready",
+                "system_ok": True,
+                "recommended_command_blockers": [],
+            },
+            "authority_snapshot": {
+                "safe_to_continue": False,
+                "required_action": "continue_scoped_loop",
+                "blocked_actions": ["implementation.edit", "vcs.push"],
+            },
+        }
+    )
+
+    report = build_cli_health_probe_report(
+        status_report=status_report,
+        exit_code=0,
+        mode="on_error",
+    )
+
+    assert report["active"] is False
+    assert report["status"] == "not_triggered"
+    assert report["requires_recovery"] is False
+
+
 def test_on_error_probe_surfaces_recovery_condition() -> None:
     status_report = _healthy_status_report()
     status_report.update(
