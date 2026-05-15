@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `722ee4ec1266` — MP-NEW-P198-S2: add file-hash finding applicability
-- Tree hash: `1ff211f9090b`
-- Generation stamp: `snap-beb06d32787a`
-- Generated at (UTC): 2026-05-15T11:10:43Z
+- HEAD: `98e5e5deeca4` — MP-NEW-P188-S1: keep implementer ack typed
+- Tree hash: `c3b8ba9f12c6`
+- Generation stamp: `snap-64a791e882c4`
+- Generated at (UTC): 2026-05-15T11:29:05Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 87 files, +4886/-816
+- Delta since last snapshot: 24 commits, 90 files, +4867/-790
 - Governance findings: 44 open / 0 fixed / 44 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `722ee4ec1266990520135124b46a4b1d0c76b513`
+- HEAD SHA: `98e5e5deeca4e144e3890257dc285c049895d3f7`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-15T07:09:36-04:00
+- HEAD timestamp (UTC): 2026-05-15T07:27:55-04:00
 
 ## 2. Governance state
 
@@ -44,7 +44,7 @@ production client (VoiceTerm...
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 26 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 28 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -64,43 +64,42 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `722ee4ec1266`
+Range: last 24 commits ending at `98e5e5deeca4`
 
-- commits: 25
-- files changed: 87
-- insertions: +4886
-- deletions: -816
-- bundle classes touched: docs, tooling
+- commits: 24
+- files changed: 90
+- insertions: +4867
+- deletions: -790
+- bundle classes touched: tooling, docs
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `722ee4ec` | MP-NEW-P198-S2: add file-hash finding applicability | 24 | +798/-31 | tooling |  |
-| 2 | `368cdc3c` | Refresh external review snapshot for 61069b1f | 2 | +62/-58 | docs |  |
-| 3 | `61069b1f` | MP378-S7: add operator command wrappers | 12 | +371/-28 | tooling |  |
-| 4 | `8b430a4a` | Refresh external review snapshot for 40689268 | 2 | +51/-51 | docs |  |
-| 5 | `40689268` | MP378-S5: add provider-neutral role reset action | 5 | +114/-6 | tooling |  |
-| 6 | `4e0f0759` | Refresh external review snapshot for fce1ff08 | 2 | +61/-61 | docs |  |
-| 7 | `fce1ff08` | MP378-S6: keep bypass lifecycle store local | 14 | +417/-13 | tooling |  |
-| 8 | `e94ef530` | Refresh external review snapshot for 85c11e92 | 2 | +59/-59 | docs |  |
-| 9 | `85c11e92` | MP378-P4: add typed namespace composition guard | 29 | +737/-8 | tooling |  |
-| 10 | `581f1432` | Refresh external review snapshot for 22833c80 | 2 | +50/-50 | docs |  |
-| 11 | `22833c80` | MP378-P5: report authority contract registry gaps | 2 | +262/-0 | tooling |  |
-| 12 | `606db95e` | Refresh external review snapshot for b0e6e5ff | 2 | +57/-57 | docs |  |
-| 13 | `b0e6e5ff` | MP378-P3: add commit body packet anchor guard | 10 | +353/-25 | tooling |  |
-| 14 | `8f15df5c` | Refresh external review snapshot for 77bbcd00 | 2 | +57/-57 | docs |  |
-| 15 | `77bbcd00` | MP378-P7: add task started ADR precedent guard | 10 | +567/-8 | tooling |  |
-| 16 | `4b2f1fd5` | Refresh external review snapshot for 8d188534 | 2 | +61/-64 | docs |  |
-| 17 | `8d188534` | MP-GUARD-REGISTRY-S1: register guard contracts | 3 | +115/-29 | tooling |  |
-| 18 | `95e759dc` | Refresh external review snapshot for 87460712 | 2 | +60/-57 | docs |  |
-| 19 | `87460712` | MP193-S1: add check_action_result_status_domain guard (P193) | 1 | +210/-0 | tooling |  |
-| 20 | `c2c4149e` | Refresh policy-owned generated surfaces for 57a978d7 | 1 | +1/-1 | docs |  |
-| 21 | `57a978d7` | Refresh external review snapshot for c5219b9a | 2 | +58/-58 | docs |  |
-| 22 | `c5219b9a` | MP-NEW-P200-S1: add operator directive role enum | 2 | +27/-0 | tooling |  |
-| 23 | `2644aff7` | Refresh external review snapshot for f078228a | 2 | +86/-93 | docs |  |
-| 24 | `f078228a` | MP-CONTROL-PLANE-S1: extend control_plane_quality preflight… | 2 | +62/-2 | tooling |  |
-| 25 | `23d481ad` | MP181-S1: add check_context_graph_snapshot_freshness guard… | 3 | +190/-0 | tooling |  |
+| 1 | `98e5e5de` | MP-NEW-P188-S1: keep implementer ack typed | 8 | +261/-14 | tooling |  |
+| 2 | `f5cee955` | Refresh external review snapshot for 722ee4ec | 2 | +58/-55 | docs |  |
+| 3 | `722ee4ec` | MP-NEW-P198-S2: add file-hash finding applicability | 24 | +798/-31 | tooling |  |
+| 4 | `368cdc3c` | Refresh external review snapshot for 61069b1f | 2 | +62/-58 | docs |  |
+| 5 | `61069b1f` | MP378-S7: add operator command wrappers | 12 | +371/-28 | tooling |  |
+| 6 | `8b430a4a` | Refresh external review snapshot for 40689268 | 2 | +51/-51 | docs |  |
+| 7 | `40689268` | MP378-S5: add provider-neutral role reset action | 5 | +114/-6 | tooling |  |
+| 8 | `4e0f0759` | Refresh external review snapshot for fce1ff08 | 2 | +61/-61 | docs |  |
+| 9 | `fce1ff08` | MP378-S6: keep bypass lifecycle store local | 14 | +417/-13 | tooling |  |
+| 10 | `e94ef530` | Refresh external review snapshot for 85c11e92 | 2 | +59/-59 | docs |  |
+| 11 | `85c11e92` | MP378-P4: add typed namespace composition guard | 29 | +737/-8 | tooling |  |
+| 12 | `581f1432` | Refresh external review snapshot for 22833c80 | 2 | +50/-50 | docs |  |
+| 13 | `22833c80` | MP378-P5: report authority contract registry gaps | 2 | +262/-0 | tooling |  |
+| 14 | `606db95e` | Refresh external review snapshot for b0e6e5ff | 2 | +57/-57 | docs |  |
+| 15 | `b0e6e5ff` | MP378-P3: add commit body packet anchor guard | 10 | +353/-25 | tooling |  |
+| 16 | `8f15df5c` | Refresh external review snapshot for 77bbcd00 | 2 | +57/-57 | docs |  |
+| 17 | `77bbcd00` | MP378-P7: add task started ADR precedent guard | 10 | +567/-8 | tooling |  |
+| 18 | `4b2f1fd5` | Refresh external review snapshot for 8d188534 | 2 | +61/-64 | docs |  |
+| 19 | `8d188534` | MP-GUARD-REGISTRY-S1: register guard contracts | 3 | +115/-29 | tooling |  |
+| 20 | `95e759dc` | Refresh external review snapshot for 87460712 | 2 | +60/-57 | docs |  |
+| 21 | `87460712` | MP193-S1: add check_action_result_status_domain guard (P193) | 1 | +210/-0 | tooling |  |
+| 22 | `c2c4149e` | Refresh policy-owned generated surfaces for 57a978d7 | 1 | +1/-1 | docs |  |
+| 23 | `57a978d7` | Refresh external review snapshot for c5219b9a | 2 | +58/-58 | docs |  |
+| 24 | `c5219b9a` | MP-NEW-P200-S1: add operator directive role enum | 2 | +27/-0 | tooling |  |
 
 ### Files
 
@@ -108,18 +107,19 @@ Range: last 25 commits ending at `722ee4ec1266`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +4/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +12/-0 |
-| `bridge.md` | docs | +41/-41 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +621/-624 |
+| `bridge.md` | docs | +36/-36 |
+| `dev/active/MASTER_PLAN.md` | tooling | +1/-0 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +598/-591 |
 | `dev/config/devctl_repo_policy.json` | tooling | +20/-0 |
+| `dev/guides/DEVELOPMENT.md` | docs | +5/-4 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +124/-122 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +20/-0 |
+| `dev/scripts/README.md` | tooling | +4/-3 |
 | `dev/scripts/checks/check_action_result_status_domain.py` | tooling | +210/-0 |
 | `dev/scripts/checks/check_commit_body_packet_anchors.py` | tooling | +213/-0 |
-| `dev/scripts/checks/check_context_graph_snapshot_freshness.py` | tooling | +12/-0 |
 | `dev/scripts/checks/check_runtime_state_ignore_posture.py` | tooling | +219/-0 |
 | `dev/scripts/checks/check_task_started_adr_precedent_linking.py` | tooling | +330/-0 |
 | `dev/scripts/checks/check_typed_namespace_composition.py` | tooling | +247/-0 |
-| `dev/scripts/checks/context_graph_snapshot_freshness/__init__.py` | tooling | +1/-0 |
-| `dev/scripts/checks/context_graph_snapshot_freshness/command.py` | tooling | +177/-0 |
 | `dev/scripts/checks/systemmap_covers_contract_registry/command.py` | tooling | +212/-0 |
 | `dev/scripts/devctl/bundles/registry.py` | tooling | +4/-0 |
 | `dev/scripts/devctl/commands/development/models.py` | tooling | +16/-0 |
@@ -135,18 +135,17 @@ Range: last 25 commits ending at `722ee4ec1266`
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_development.py` | tooling | +32/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_plan_intake.py` | tooling | +237/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_quality_repair.py` | tooling | +133/-0 |
+| `dev/scripts/devctl/review_channel/current_session_authority.py` | tooling | +0/-4 |
+| `dev/scripts/devctl/review_channel/current_session_event_state.py` | tooling | +8/-2 |
+| `dev/scripts/devctl/review_channel/current_session_projection.py` | tooling | +123/-1 |
 | `dev/scripts/devctl/review_channel/parser.py` | tooling | +1/-0 |
-| `dev/scripts/devctl/runtime/control_plane_quality.py` | tooling | +20/-2 |
 | `dev/scripts/devctl/runtime/file_hashes.py` | tooling | +27/-0 |
 | `dev/scripts/devctl/runtime/quality_repair_scheduler.py` | tooling | +161/-0 |
 | `dev/scripts/devctl/runtime/role_profile.py` | tooling | +14/-0 |
 | `dev/scripts/devctl/runtime/session_liveness_reconciler.py` | tooling | +3/-0 |
 | `dev/scripts/devctl/tests/checks/test_check_commit_body_packet_anchors.py` | tooling | +61/-0 |
 | `dev/scripts/devctl/tests/checks/test_check_runtime_state_ignore_posture.py` | tooling | +92/-0 |
-| `dev/scripts/devctl/tests/checks/test_check_systemmap_covers_contract_registry.py` | tooling | +50/-0 |
-| `dev/scripts/devctl/tests/checks/test_check_task_started_adr_precedent_linking.py` | tooling | +163/-0 |
-| `dev/scripts/devctl/tests/checks/test_check_typed_namespace_composition.py` | tooling | +89/-0 |
-| _47 more files trimmed_ | | |
+| _50 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -209,62 +208,57 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`98e5e5de`** — MP-NEW-P188-S1: keep implementer ack typed
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
+- **`f5cee955`** — Refresh external review snapshot for 722ee4ec
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`722ee4ec`** — MP-NEW-P198-S2: add file-hash finding applicability
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`368cdc3c`** — Refresh external review snapshot for 61069b1f
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`61069b1f`** — MP378-S7: add operator command wrappers
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`8b430a4a`** — Refresh external review snapshot for 40689268
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`40689268`** — MP378-S5: add provider-neutral role reset action
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`4e0f0759`** — Refresh external review snapshot for fce1ff08
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`fce1ff08`** — MP378-S6: keep bypass lifecycle store local
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`e94ef530`** — Refresh external review snapshot for 85c11e92
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`85c11e92`** — MP378-P4: add typed namespace composition guard
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`581f1432`** — Refresh external review snapshot for 22833c80
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`22833c80`** — MP378-P5: report authority contract registry gaps
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`606db95e`** — Refresh external review snapshot for b0e6e5ff
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`b0e6e5ff`** — MP378-P3: add commit body packet anchor guard
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`8f15df5c`** — Refresh external review snapshot for 77bbcd00
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`77bbcd00`** — MP378-P7: add task started ADR precedent guard
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`4b2f1fd5`** — Refresh external review snapshot for 8d188534
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`8d188534`** — MP-GUARD-REGISTRY-S1: register guard contracts
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`95e759dc`** — Refresh external review snapshot for 87460712
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`87460712`** — MP193-S1: add check_action_result_status_domain guard (P193)
   - Scans repo for status= keyword literals NOT in ActionOutcome.ALL =
   - {pass, fail, unknown, defer}. Surfaces the canonical 'typed boundary
   - lie' from GUARD_AUDIT_FINDINGS.md — declared closed domain + emitted
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`c2c4149e`** — Refresh policy-owned generated surfaces for 57a978d7
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`57a978d7`** — Refresh external review snapshot for c5219b9a
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 - **`c5219b9a`** — MP-NEW-P200-S1: add operator directive role enum
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
-- **`2644aff7`** — Refresh external review snapshot for f078228a
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
-- **`f078228a`** — MP-CONTROL-PLANE-S1: extend control_plane_quality preflight handling
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
-- **`23d481ad`** — MP181-S1: add check_context_graph_snapshot_freshness guard (P181)
-  - Mirrors check_review_snapshot_freshness package pattern. Validates
-  - that the latest ContextGraphSnapshot in dev/reports/graph_snapshots/
-  - matches current HEAD commit hash; reports drift in report-only mode.
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+  - evolution: The R126 review-channel audit found a projection-authority drift: `bridge.md` could display an acknowledged implementer revision while typed `current_session.implementer_ack_state` remained empty. Fresh sessions reading…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -308,4 +302,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-beb06d32787a` binds this file to HEAD `722ee4ec1266`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-64a791e882c4` binds this file to HEAD `98e5e5deeca4`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
