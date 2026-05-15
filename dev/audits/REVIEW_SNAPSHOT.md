@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `8746071251bf` — MP193-S1: add check_action_result_status_domain guard (P193)
-- Tree hash: `c80e0a48a013`
-- Generation stamp: `snap-7788e298d0cc`
-- Generated at (UTC): 2026-05-15T09:08:22Z
+- HEAD: `8d188534c873` — MP-GUARD-REGISTRY-S1: register guard contracts
+- Tree hash: `b79e065b6c90`
+- Generation stamp: `snap-104aaf1c51f9`
+- Generated at (UTC): 2026-05-15T09:24:00Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 45 files, +2421/-1130
+- Delta since last snapshot: 24 commits, 41 files, +2315/-1068
 - Governance findings: 44 open / 0 fixed / 44 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `8746071251bf65ce0c06e759ecf5bb8476e52553`
+- HEAD SHA: `8d188534c873e1ed1c620f4cf46aa9455b8ce2de`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-15T05:07:19-04:00
+- HEAD timestamp (UTC): 2026-05-15T05:22:57-04:00
 
 ## 2. Governance state
 
@@ -44,7 +44,7 @@ production client (VoiceTerm...
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 8 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 10 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -64,77 +64,73 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `8746071251bf`
+Range: last 24 commits ending at `8d188534c873`
 
 - commits: 24
-- files changed: 45
-- insertions: +2421
-- deletions: -1130
-- bundle classes touched: tooling, docs
+- files changed: 41
+- insertions: +2315
+- deletions: -1068
+- bundle classes touched: docs, tooling
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `87460712` | MP193-S1: add check_action_result_status_domain guard (P193) | 1 | +210/-0 | tooling |  |
-| 2 | `c2c4149e` | Refresh policy-owned generated surfaces for 57a978d7 | 1 | +1/-1 | docs |  |
-| 3 | `57a978d7` | Refresh external review snapshot for c5219b9a | 2 | +58/-58 | docs |  |
-| 4 | `c5219b9a` | MP-NEW-P200-S1: add operator directive role enum | 2 | +27/-0 | tooling |  |
-| 5 | `2644aff7` | Refresh external review snapshot for f078228a | 2 | +86/-93 | docs |  |
-| 6 | `f078228a` | MP-CONTROL-PLANE-S1: extend control_plane_quality preflight… | 2 | +62/-2 | tooling |  |
-| 7 | `23d481ad` | MP181-S1: add check_context_graph_snapshot_freshness guard… | 3 | +190/-0 | tooling |  |
-| 8 | `b9359b7b` | MP122-S1: add check_plan_row_contract_refs_resolve guard (P… | 1 | +207/-0 | tooling |  |
-| 9 | `94f106ca` | Refresh policy-owned generated surfaces for a0c651e6 | 1 | +1/-1 | docs |  |
-| 10 | `a0c651e6` | Refresh external review snapshot for 2a767eba | 2 | +61/-61 | docs |  |
-| 11 | `2a767eba` | Layout: convert crowded roots to shims | 5 | +119/-123 | tooling |  |
-| 12 | `e0d2bb56` | Refresh external review snapshot for 895c1f0d | 2 | +57/-59 | docs |  |
-| 13 | `895c1f0d` | Fixtures: cover new schema contracts | 16 | +350/-64 | tooling |  |
-| 14 | `0df3d73c` | Refresh external review snapshot for a87c21a7 | 2 | +55/-55 | docs |  |
-| 15 | `a87c21a7` | Receipt: refresh ground-truth probe preflight | 2 | +59/-58 | tooling |  |
-| 16 | `65b42f88` | Refresh external review snapshot for eb5dbc30 | 2 | +60/-60 | docs |  |
-| 17 | `eb5dbc30` | Checks: align sync guard with runtime attention | 4 | +224/-82 | tooling |  |
-| 18 | `9ae64f25` | Refresh external review snapshot for cd177c3e | 2 | +60/-61 | docs |  |
-| 19 | `cd177c3e` | Docs: catalog runtime bridge separation guard | 2 | +53/-53 | tooling |  |
-| 20 | `3c98c2ed` | Refresh external review snapshot for 372ea699 | 2 | +66/-68 | docs |  |
-| 21 | `372ea699` | Docs: record governed push docs-check repair | 5 | +106/-56 | tooling |  |
-| 22 | `b34748b3` | Refresh policy-owned generated surfaces for 8353fc05 | 1 | +28/-27 | docs |  |
-| 23 | `8353fc05` | Refresh external review snapshot for e9aad0df | 2 | +62/-60 | docs |  |
-| 24 | `e9aad0df` | MP188-S1.1: expand bridge guard FORBIDDEN_MODULE_FRAGMENTS… | 10 | +219/-88 | tooling |  |
+| 1 | `8d188534` | MP-GUARD-REGISTRY-S1: register guard contracts | 3 | +115/-29 | tooling |  |
+| 2 | `95e759dc` | Refresh external review snapshot for 87460712 | 2 | +60/-57 | docs |  |
+| 3 | `87460712` | MP193-S1: add check_action_result_status_domain guard (P193) | 1 | +210/-0 | tooling |  |
+| 4 | `c2c4149e` | Refresh policy-owned generated surfaces for 57a978d7 | 1 | +1/-1 | docs |  |
+| 5 | `57a978d7` | Refresh external review snapshot for c5219b9a | 2 | +58/-58 | docs |  |
+| 6 | `c5219b9a` | MP-NEW-P200-S1: add operator directive role enum | 2 | +27/-0 | tooling |  |
+| 7 | `2644aff7` | Refresh external review snapshot for f078228a | 2 | +86/-93 | docs |  |
+| 8 | `f078228a` | MP-CONTROL-PLANE-S1: extend control_plane_quality preflight… | 2 | +62/-2 | tooling |  |
+| 9 | `23d481ad` | MP181-S1: add check_context_graph_snapshot_freshness guard… | 3 | +190/-0 | tooling |  |
+| 10 | `b9359b7b` | MP122-S1: add check_plan_row_contract_refs_resolve guard (P… | 1 | +207/-0 | tooling |  |
+| 11 | `94f106ca` | Refresh policy-owned generated surfaces for a0c651e6 | 1 | +1/-1 | docs |  |
+| 12 | `a0c651e6` | Refresh external review snapshot for 2a767eba | 2 | +61/-61 | docs |  |
+| 13 | `2a767eba` | Layout: convert crowded roots to shims | 5 | +119/-123 | tooling |  |
+| 14 | `e0d2bb56` | Refresh external review snapshot for 895c1f0d | 2 | +57/-59 | docs |  |
+| 15 | `895c1f0d` | Fixtures: cover new schema contracts | 16 | +350/-64 | tooling |  |
+| 16 | `0df3d73c` | Refresh external review snapshot for a87c21a7 | 2 | +55/-55 | docs |  |
+| 17 | `a87c21a7` | Receipt: refresh ground-truth probe preflight | 2 | +59/-58 | tooling |  |
+| 18 | `65b42f88` | Refresh external review snapshot for eb5dbc30 | 2 | +60/-60 | docs |  |
+| 19 | `eb5dbc30` | Checks: align sync guard with runtime attention | 4 | +224/-82 | tooling |  |
+| 20 | `9ae64f25` | Refresh external review snapshot for cd177c3e | 2 | +60/-61 | docs |  |
+| 21 | `cd177c3e` | Docs: catalog runtime bridge separation guard | 2 | +53/-53 | tooling |  |
+| 22 | `3c98c2ed` | Refresh external review snapshot for 372ea699 | 2 | +66/-68 | docs |  |
+| 23 | `372ea699` | Docs: record governed push docs-check repair | 5 | +106/-56 | tooling |  |
+| 24 | `b34748b3` | Refresh policy-owned generated surfaces for 8353fc05 | 1 | +28/-27 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `bridge.md` | docs | +50/-51 |
-| `dev/active/MASTER_PLAN.md` | tooling | +37/-0 |
+| `bridge.md` | docs | +42/-43 |
 | `dev/active/ai_governance_platform.md` | tooling | +10/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +954/-969 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +880/-888 |
 | `dev/guides/DEVELOPMENT.md` | docs | +7/-0 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +30/-29 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +57/-56 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +25/-1 |
 | `dev/scripts/README.md` | tooling | +7/-0 |
 | `dev/scripts/checks/check_action_result_status_domain.py` | tooling | +210/-0 |
 | `dev/scripts/checks/check_context_graph_snapshot_freshness.py` | tooling | +12/-0 |
 | `dev/scripts/checks/check_plan_row_contract_refs_resolve.py` | tooling | +207/-0 |
-| `dev/scripts/checks/check_runtime_bridge_projection_separation.py` | tooling | +25/-27 |
+| `dev/scripts/checks/check_runtime_bridge_projection_separation.py` | tooling | +1/-26 |
 | `dev/scripts/checks/context_graph_snapshot_freshness/__init__.py` | tooling | +1/-0 |
 | `dev/scripts/checks/context_graph_snapshot_freshness/command.py` | tooling | +177/-0 |
 | `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop.py` | tooling | +56/-11 |
 | `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_pending.py` | tooling | +14/-3 |
-| `dev/scripts/checks/runtime_bridge_projection_separation/command.py` | tooling | +26/-2 |
+| `dev/scripts/checks/runtime_bridge_projection_separation/command.py` | tooling | +18/-1 |
 | `dev/scripts/devctl/commands/quality_policy.py` | tooling | +6/-34 |
-| `dev/scripts/devctl/platform/runtime_state_contract_rows_plan_intake.py` | tooling | +24/-0 |
+| `dev/scripts/devctl/platform/runtime_state_contract_rows_plan_intake.py` | tooling | +83/-0 |
 | `dev/scripts/devctl/quality_policy/command.py` | tooling | +32/-0 |
 | `dev/scripts/devctl/runtime/control_plane_quality.py` | tooling | +20/-2 |
 | `dev/scripts/devctl/runtime/role_profile.py` | tooling | +14/-0 |
 | `dev/scripts/devctl/tests/checks/test_check_multi_agent_sync_runtime_truth.py` | tooling | +90/-0 |
 | `dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py` | tooling | +42/-0 |
 | `dev/scripts/devctl/tests/runtime/test_role_profile.py` | tooling | +13/-0 |
-| `dev/state/contract_registry.jsonl` | tooling | +1/-0 |
+| `dev/state/contract_registry.jsonl` | tooling | +5/-2 |
 | `dev/state/ground_truth_probe_receipts.jsonl` | tooling | +1/-0 |
-| `dev/state/plan_index.jsonl` | tooling | +15/-0 |
-| `dev/state/plan_ingestion_receipts.jsonl` | tooling | +15/-0 |
-| `dev/state/plan_source_snapshots.jsonl` | tooling | +15/-0 |
 | `dev/test_data/schema_fixtures/AffectedTestSelection/1/invalid/missing-required-field.json` | tooling | +19/-0 |
 | `dev/test_data/schema_fixtures/AffectedTestSelection/1/invalid/schema-version-mismatch.json` | tooling | +20/-0 |
 | `dev/test_data/schema_fixtures/AffectedTestSelection/1/valid/registry-row.json` | tooling | +18/-0 |
@@ -145,7 +141,11 @@ Range: last 24 commits ending at `8746071251bf`
 | `dev/test_data/schema_fixtures/IngestionProvenance/1/invalid/schema-version-mismatch.json` | tooling | +20/-0 |
 | `dev/test_data/schema_fixtures/IngestionProvenance/1/valid/registry-row.json` | tooling | +18/-0 |
 | `dev/test_data/schema_fixtures/RoleCommandEnvelope/1/invalid/missing-required-field.json` | tooling | +19/-0 |
-| _5 more files trimmed_ | | |
+| `dev/test_data/schema_fixtures/RoleCommandEnvelope/1/invalid/schema-version-mismatch.json` | tooling | +20/-0 |
+| `dev/test_data/schema_fixtures/RoleCommandEnvelope/1/valid/registry-row.json` | tooling | +18/-0 |
+| `dev/test_data/schema_fixtures/TokenOptimizationDogfoodReceipt/1/invalid/missing-required-field.json` | tooling | +19/-0 |
+| `dev/test_data/schema_fixtures/TokenOptimizationDogfoodReceipt/1/invalid/schema-version-mismatch.json` | tooling | +20/-0 |
+| _1 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -203,6 +203,10 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`8d188534`** — MP-GUARD-REGISTRY-S1: register guard contracts
+  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+- **`95e759dc`** — Refresh external review snapshot for 87460712
+  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
 - **`87460712`** — MP193-S1: add check_action_result_status_domain guard (P193)
   - Scans repo for status= keyword literals NOT in ActionOutcome.ALL =
   - {pass, fail, unknown, defer}. Surfaces the canonical 'typed boundary
@@ -254,13 +258,6 @@ Recent findings:
   - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
 - **`b34748b3`** — Refresh policy-owned generated surfaces for 8353fc05
   - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
-- **`8353fc05`** — Refresh external review snapshot for e9aad0df
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
-- **`e9aad0df`** — MP188-S1.1: expand bridge guard FORBIDDEN_MODULE_FRAGMENTS to commands/bridge_*
-  - Adds 4 patterns to runtime bridge projection separation guard so future
-  - commands/bridge_*.py modules cannot become an authority surface (per
-  - ProjectionSurfaceAuthorityRule P191 + R130 TDD-Gap finding that the
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -304,4 +301,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-7788e298d0cc` binds this file to HEAD `8746071251bf`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-104aaf1c51f9` binds this file to HEAD `8d188534c873`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
