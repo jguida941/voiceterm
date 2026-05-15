@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `b14770b58a6f` — MP377-P0: speed system-picture graph freshness
-- Tree hash: `9c20ea7d6217`
-- Generation stamp: `snap-f458e1460f9b`
-- Generated at (UTC): 2026-05-15T19:50:45Z
+- HEAD: `52f7c49f85aa` — MP-NEW-P207-S4: fail closed on raw-git feature proof emission
+- Tree hash: `d380ef10ae88`
+- Generation stamp: `snap-c56b3e722ed4`
+- Generated at (UTC): 2026-05-15T20:08:38Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 105 files, +5886/-953
+- Delta since last snapshot: 24 commits, 101 files, +5565/-950
 - Governance findings: 44 open / 0 fixed / 44 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `b14770b58a6f91c1ebb7b046eac4b52a3af291a6`
+- HEAD SHA: `52f7c49f85aa33e98bee10c256bec406ca1b53bc`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-15T15:50:09-04:00
+- HEAD timestamp (UTC): 2026-05-15T16:08:03-04:00
 
 ## 2. Governance state
 
@@ -43,8 +43,8 @@ production client (VoiceTerm...
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
-- publication_backlog: recommended
-- publication_guidance: 3 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_backlog: queued
+- publication_guidance: 1 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -64,12 +64,12 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `b14770b58a6f`
+Range: last 24 commits ending at `52f7c49f85aa`
 
 - commits: 24
-- files changed: 105
-- insertions: +5886
-- deletions: -953
+- files changed: 101
+- insertions: +5565
+- deletions: -950
 - bundle classes touched: tooling, docs
 - authority surfaces touched: 2 file(s)
 
@@ -77,30 +77,30 @@ Range: last 24 commits ending at `b14770b58a6f`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `b14770b5` | MP377-P0: speed system-picture graph freshness | 2 | +9/-4 | tooling |  |
-| 2 | `62675b25` | Refresh external review snapshot for bf73cf9b | 2 | +75/-73 | docs |  |
-| 3 | `bf73cf9b` | MP377-P0: allow edit-only plan override and align review re… | 19 | +494/-35 | tooling |  |
-| 4 | `881b1cb5` | Refresh external review snapshot for 69f6fe21 | 2 | +53/-51 | docs |  |
-| 5 | `69f6fe21` | reconcile governance plan rows from rev_pkt_4128 | 4 | +55/-7 | tooling |  |
-| 6 | `43607fa3` | Refresh external review snapshot for 35fbdaf0 | 2 | +104/-95 | docs |  |
-| 7 | `35fbdaf0` | raw-git: emit feature proof receipts | 19 | +812/-11 | tooling |  |
-| 8 | `c39b26ef` | ingest-plan: materialize MP-NEW packet closure rows | 12 | +367/-8 | tooling |  |
-| 9 | `d6fbbf81` | MP-NEW-P207: add FeatureProofReceipt emission | 25 | +693/-23 | tooling |  |
-| 10 | `81711617` | Refresh external review snapshot for a76b9b88 | 2 | +72/-67 | docs |  |
-| 11 | `a76b9b88` | master-state-red: fix schema fixtures + dedup + system map… | 29 | +796/-50 | tooling |  |
-| 12 | `bfbcfe48` | Refresh external review snapshot for 7ebc3232 | 2 | +64/-62 | docs |  |
-| 13 | `7ebc3232` | MP-NEW-P203: add decided packet debt triage | 27 | +660/-24 | tooling |  |
-| 14 | `ded04ead` | Refresh external review snapshot for 7e366df7 | 2 | +57/-57 | docs |  |
-| 15 | `7e366df7` | MP-NEW-P202: harden boot-card instruction sync | 9 | +117/-5 | tooling |  |
-| 16 | `d2f2128d` | Refresh external review snapshot for 6b2937ef | 2 | +82/-82 | docs |  |
-| 17 | `6b2937ef` | MP-NEW-P188-BRIDGE-GUARD-S2: expand bridge separation scope | 8 | +89/-10 | tooling |  |
-| 18 | `be1ae2c4` | Refresh external review snapshot for ea2b4491 | 2 | +59/-59 | docs |  |
-| 19 | `ea2b4491` | MP-NEW-P188-S4: quiet benign CLI health probe | 2 | +60/-1 | tooling |  |
-| 20 | `a33e004f` | Refresh external review snapshot for 00ecc940 | 2 | +64/-79 | docs |  |
-| 21 | `00ecc940` | MP-NEW-P188-S4: add CLI health recovery probe | 13 | +533/-14 | tooling |  |
-| 22 | `330f1936` | Refresh external review snapshot for f3ac84bc | 2 | +64/-64 | docs |  |
-| 23 | `f3ac84bc` | MP-NEW-P188-S3: add extension discipline guard-run check | 10 | +447/-13 | tooling |  |
-| 24 | `b86a2a0a` | Refresh external review snapshot for f4ea765b | 2 | +60/-59 | docs |  |
+| 1 | `52f7c49f` | MP-NEW-P207-S4: fail closed on raw-git feature proof emissi… | 3 | +128/-11 | tooling |  |
+| 2 | `023b3213` | Refresh external review snapshot for b14770b5 | 2 | +58/-58 | docs |  |
+| 3 | `b14770b5` | MP377-P0: speed system-picture graph freshness | 2 | +9/-4 | tooling |  |
+| 4 | `62675b25` | Refresh external review snapshot for bf73cf9b | 2 | +75/-73 | docs |  |
+| 5 | `bf73cf9b` | MP377-P0: allow edit-only plan override and align review re… | 19 | +494/-35 | tooling |  |
+| 6 | `881b1cb5` | Refresh external review snapshot for 69f6fe21 | 2 | +53/-51 | docs |  |
+| 7 | `69f6fe21` | reconcile governance plan rows from rev_pkt_4128 | 4 | +55/-7 | tooling |  |
+| 8 | `43607fa3` | Refresh external review snapshot for 35fbdaf0 | 2 | +104/-95 | docs |  |
+| 9 | `35fbdaf0` | raw-git: emit feature proof receipts | 19 | +812/-11 | tooling |  |
+| 10 | `c39b26ef` | ingest-plan: materialize MP-NEW packet closure rows | 12 | +367/-8 | tooling |  |
+| 11 | `d6fbbf81` | MP-NEW-P207: add FeatureProofReceipt emission | 25 | +693/-23 | tooling |  |
+| 12 | `81711617` | Refresh external review snapshot for a76b9b88 | 2 | +72/-67 | docs |  |
+| 13 | `a76b9b88` | master-state-red: fix schema fixtures + dedup + system map… | 29 | +796/-50 | tooling |  |
+| 14 | `bfbcfe48` | Refresh external review snapshot for 7ebc3232 | 2 | +64/-62 | docs |  |
+| 15 | `7ebc3232` | MP-NEW-P203: add decided packet debt triage | 27 | +660/-24 | tooling |  |
+| 16 | `ded04ead` | Refresh external review snapshot for 7e366df7 | 2 | +57/-57 | docs |  |
+| 17 | `7e366df7` | MP-NEW-P202: harden boot-card instruction sync | 9 | +117/-5 | tooling |  |
+| 18 | `d2f2128d` | Refresh external review snapshot for 6b2937ef | 2 | +82/-82 | docs |  |
+| 19 | `6b2937ef` | MP-NEW-P188-BRIDGE-GUARD-S2: expand bridge separation scope | 8 | +89/-10 | tooling |  |
+| 20 | `be1ae2c4` | Refresh external review snapshot for ea2b4491 | 2 | +59/-59 | docs |  |
+| 21 | `ea2b4491` | MP-NEW-P188-S4: quiet benign CLI health probe | 2 | +60/-1 | tooling |  |
+| 22 | `a33e004f` | Refresh external review snapshot for 00ecc940 | 2 | +64/-79 | docs |  |
+| 23 | `00ecc940` | MP-NEW-P188-S4: add CLI health recovery probe | 13 | +533/-14 | tooling |  |
+| 24 | `330f1936` | Refresh external review snapshot for f3ac84bc | 2 | +64/-64 | docs |  |
 
 ### Files
 
@@ -109,14 +109,14 @@ Range: last 24 commits ending at `b14770b58a6f`
 | `.github/workflows/release_preflight.yml` | tooling | +4/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +12/-0 |
 | `AGENTS.md` | docs | +3/-0 |
-| `bridge.md` | docs | +87/-87 |
-| `dev/active/MASTER_PLAN.md` | tooling | +38/-2 |
+| `bridge.md` | docs | +72/-75 |
+| `dev/active/MASTER_PLAN.md` | tooling | +37/-2 |
 | `dev/active/ai_governance_platform.md` | tooling | +43/-3 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +705/-684 |
-| `dev/guides/DEVELOPMENT.md` | docs | +49/-4 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +70/-70 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +185/-0 |
-| `dev/scripts/README.md` | tooling | +43/-2 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +703/-683 |
+| `dev/guides/DEVELOPMENT.md` | docs | +45/-4 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +69/-69 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +170/-0 |
+| `dev/scripts/README.md` | tooling | +37/-2 |
 | `dev/scripts/checks/_ast_helpers.py` | tooling | +20/-0 |
 | `dev/scripts/checks/check_action_result_status_domain.py` | tooling | +30/-17 |
 | `dev/scripts/checks/check_feature_has_proof_receipt.py` | tooling | +239/-0 |
@@ -124,18 +124,15 @@ Range: last 24 commits ending at `b14770b58a6f`
 | `dev/scripts/checks/schema_fixture_handshake/command.py` | tooling | +36/-0 |
 | `dev/scripts/checks/schema_fixture_handshake/git_tracking.py` | tooling | +38/-0 |
 | `dev/scripts/devctl/bundles/registry.py` | tooling | +1/-0 |
-| `dev/scripts/devctl/cli_parser/hygiene.py` | tooling | +11/-0 |
 | `dev/scripts/devctl/commands/development/plan_intake.py` | tooling | +4/-1 |
 | `dev/scripts/devctl/commands/development/plan_intake_decomposition.py` | tooling | +158/-1 |
 | `dev/scripts/devctl/commands/development/plan_intake_rows.py` | tooling | +52/-0 |
-| `dev/scripts/devctl/commands/guard_run.py` | tooling | +30/-0 |
-| `dev/scripts/devctl/commands/raw_git.py` | tooling | +339/-1 |
+| `dev/scripts/devctl/commands/raw_git.py` | tooling | +397/-12 |
 | `dev/scripts/devctl/commands/review_channel/bridge_render.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/commands/review_channel/cli_health_probe.py` | tooling | +320/-1 |
 | `dev/scripts/devctl/commands/review_channel/status.py` | tooling | +8/-2 |
 | `dev/scripts/devctl/commands/review_channel_command/validation.py` | tooling | +8/-0 |
 | `dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py` | tooling | +20/-0 |
-| `dev/scripts/devctl/extend_discipline.py` | tooling | +274/-0 |
 | `dev/scripts/devctl/governance/instruction_boot_card.py` | tooling | +17/-1 |
 | `dev/scripts/devctl/governance/script_catalog_registry.py` | tooling | +7/-0 |
 | `dev/scripts/devctl/governance/surface_instruction_runtime.py` | tooling | +34/-3 |
@@ -146,7 +143,10 @@ Range: last 24 commits ending at `b14770b58a6f`
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_plan_intake.py` | tooling | +3/-2 |
 | `dev/scripts/devctl/platform/schema_migration_spine.py` | tooling | +14/-0 |
 | `dev/scripts/devctl/platform/system_picture.py` | tooling | +7/-2 |
-| _65 more files trimmed_ | | |
+| `dev/scripts/devctl/review_channel/event_projection_assembly.py` | tooling | +6/-32 |
+| `dev/scripts/devctl/review_channel/event_render.py` | tooling | +4/-0 |
+| `dev/scripts/devctl/review_channel/packet_debt_remediation.py` | tooling | +10/-0 |
+| _61 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -214,6 +214,11 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`52f7c49f`** — MP-NEW-P207-S4: fail closed on raw-git feature proof emission
+  - Make raw-git return ok=false and a nonzero exit when required FeatureProofReceipt emission fails, instead of downgrading the failure to a warning. Add a regression that simulates a proof-store write failure and verifies the raw git receipt remains auditable while the command fails closed.\n\nProof:\n- python3 -m py_compile dev/scripts/devctl/commands/raw_git.py dev/scripts/devctl/runtime/feature_proof_receipt.py dev/scripts/devctl/tests/commands/test_raw_git.py\n- python3 dev/scripts/devctl.py test-python --suite devctl --path dev/scripts/devctl/tests/commands/test_raw_git.py --timeout-seconds 420 --per-test-timeout-seconds 90 --parallel-workers 1\n- python3 dev/scripts/devctl.py test-python --suite devctl --path dev/scripts/devctl/tests/checks/test_check_feature_has_proof_receipt.py --timeout-seconds 420 --per-test-timeout-seconds 90 --parallel-workers 1\n\nComposes with: rev_pkt_4129, rev_pkt_4131, MP-NEW-P207-S4.
+  - evolution: The MP377 checkpoint automation slice exposed a reducer mismatch: an active edit-only operator override for a typed plan target could still return `wait_for_scoped_packet` when no scoped packet was claimable, making the…
+- **`023b3213`** — Refresh external review snapshot for b14770b5
+  - evolution: The MP377 checkpoint automation slice exposed a reducer mismatch: an active edit-only operator override for a typed plan target could still return `wait_for_scoped_packet` when no scoped packet was claimable, making the…
 - **`b14770b5`** — MP377-P0: speed system-picture graph freshness
   - Use the bounded latest ContextGraphSnapshot resolver inside SystemPicture instead of loading the full graph snapshot archive. This keeps check_system_picture_freshness usable on the current repo archive, which is over 22 GB.\n\nProof:\n- python3 -m py_compile dev/scripts/devctl/platform/system_picture.py dev/scripts/devctl/tests/platform/test_system_picture.py\n- python3 dev/scripts/devctl.py test-python --suite devctl --path dev/scripts/devctl/tests/platform/test_system_picture.py --timeout-seconds 420 --per-test-timeout-seconds 90 --parallel-workers 1\n- python3 dev/scripts/devctl.py test-python --suite devctl --path dev/scripts/devctl/tests/context_graph/test_snapshot.py --timeout-seconds 420 --per-test-timeout-seconds 90 --parallel-workers 1\n- python3 dev/scripts/checks/check_system_picture_freshness.py --format md\n\nComposes with: MP377-P0-CHECKPOINT-AUTOMATION-S1 and R148/R159 proof-gate dogfood.
   - evolution: The MP377 checkpoint automation slice exposed a reducer mismatch: an active edit-only operator override for a typed plan target could still return `wait_for_scoped_packet` when no scoped packet was claimable, making the…
@@ -276,10 +281,6 @@ Recent findings:
   - evolution: The MP377 checkpoint automation slice exposed a reducer mismatch: an active edit-only operator override for a typed plan target could still return `wait_for_scoped_packet` when no scoped packet was claimable, making the…
 - **`330f1936`** — Refresh external review snapshot for f3ac84bc
   - evolution: The MP377 checkpoint automation slice exposed a reducer mismatch: an active edit-only operator override for a typed plan target could still return `wait_for_scoped_packet` when no scoped packet was claimable, making the…
-- **`f3ac84bc`** — MP-NEW-P188-S3: add extension discipline guard-run check
-  - evolution: The MP377 checkpoint automation slice exposed a reducer mismatch: an active edit-only operator override for a typed plan target could still return `wait_for_scoped_packet` when no scoped packet was claimable, making the…
-- **`b86a2a0a`** — Refresh external review snapshot for f4ea765b
-  - evolution: The MP377 checkpoint automation slice exposed a reducer mismatch: an active edit-only operator override for a typed plan target could still return `wait_for_scoped_packet` when no scoped packet was claimable, making the…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -323,4 +324,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-f458e1460f9b` binds this file to HEAD `b14770b58a6f`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-c56b3e722ed4` binds this file to HEAD `52f7c49f85aa`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
