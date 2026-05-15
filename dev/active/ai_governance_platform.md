@@ -183,6 +183,12 @@ Current ingestion status:
   `check_packet_pkt_bind_completeness.py`, which scans review-channel packet
   events and `plan_index.jsonl` so new Codex `task_started` packets cannot
   remain attention-only without a durable `PKT-BIND-REV-PKT-*` row.
+- 2026-05-15 bridge-reader migration guard: `BridgeSeparationGuard` remains
+  report-only, but its scan roots now cover `dev/scripts/devctl/runtime/`,
+  `dev/scripts/devctl/review_channel/`, and `dev/scripts/devctl/commands/`.
+  The expanded baseline exposes bridge projection imports/calls before P188
+  promotes typed snapshots, renderers, absent-bridge dogfood, and bridge-reader
+  migration into strict projection-authority enforcement.
 - 2026-05-14 raw-git receipt substrate: `rev_pkt_4022` makes raw
   `git commit --no-verify` / `git push` a typed evidence concern instead of an
   invisible operator bypass. `RawGitBypassReceipt` records the verb, commit or

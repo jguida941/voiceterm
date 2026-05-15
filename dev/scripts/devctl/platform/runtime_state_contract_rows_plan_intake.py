@@ -36,14 +36,15 @@ PLAN_INTAKE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         owner_layer="governance_core",
         purpose=(
             "Typed authority-composition row for the report-only guard that "
-            "keeps runtime modules from depending on bridge projection helpers."
+            "keeps control-plane modules from depending on bridge projection helpers."
         ),
         required_fields=(
             ContractField("guard_id", "str", "Stable guard identifier used in plan and guard evidence."),
             ContractField("ok", "bool", "Whether the report command executed successfully."),
             ContractField("report_only", "bool", "Whether current violations are advisory instead of failing."),
             ContractField("would_fail", "bool", "Whether strict enforcement would fail on current findings."),
-            ContractField("checked_paths", "tuple[str, ...]", "Runtime paths scanned by the guard."),
+            ContractField("scan_roots", "tuple[str, ...]", "Control-plane roots scanned by the guard."),
+            ContractField("checked_paths", "tuple[str, ...]", "Control-plane paths scanned by the guard."),
             ContractField("violation_count", "int", "Number of bridge-projection dependency findings."),
             ContractField("violations", "tuple[dict[str, object], ...]", "Machine-readable guard findings."),
             ContractField("migration_policy", "str", "Policy explaining when the guard can become strict."),

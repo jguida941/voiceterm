@@ -8708,6 +8708,7 @@ R130 / rev_pkt_4082 intake decisions:
 - The bridge implementer-ack projection defect from R126 is still open and needs a focused repair row.
 
 - [ ] `MP-NEW-P188-BRIDGE-GUARD-SCOPE-EXPANSION-S2` Expand `BridgeSeparationGuard` scope beyond `dev/scripts/devctl/runtime/` to cover review-channel and command bridge readers before strict enforcement.
+  - progress 2026-05-15: expanded the report-only guard roots to `dev/scripts/devctl/runtime/`, `dev/scripts/devctl/review_channel/`, and `dev/scripts/devctl/commands/`; current dogfood scans 1,347 files and surfaces 169 bridge-reader violations without enforcing yet.
 - [ ] `MP-NEW-P122-PLAN-ROW-CONTRACT-REFS-RESOLVE-GUARD-S1` Add `check_plan_row_contract_refs_resolve.py` to catch plan-row contract refs that do not resolve to registered contracts or typed owners.
 - [ ] `MP-NEW-P200-OPERATOR-AS-TYPED-ROLE-S1` Add a typed operator role and `OperatorDirectivePacket` path so operator directives route as first-class runtime attention.
 - [ ] `MP-NEW-P185-PACKET-BACKLOG-DISPOSITION-S2` Reduce pending/stale packet backlog with durable disposition coverage so meta-capture work cannot silently disappear.

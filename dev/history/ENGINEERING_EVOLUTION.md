@@ -37,6 +37,18 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-15 - Bridge separation guard expands beyond runtime
+
+The P188 bridge-retirement work needed the report-only projection-authority
+guard to expose bridge-reader debt outside `dev/scripts/devctl/runtime/`.
+Before strict enforcement, the guard now scans runtime, review-channel, and
+command surfaces and records the current bridge-reader baseline.
+
+Evidence:
+
+- `dev/scripts/checks/runtime_bridge_projection_separation/command.py`
+- `dev/scripts/devctl/tests/checks/test_check_runtime_bridge_projection_separation.py`
+
 ### 2026-05-15 - Bridge ACK projection stops outranking typed ACK state
 
 The R126 review-channel audit found a projection-authority drift: `bridge.md`

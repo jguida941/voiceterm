@@ -77,6 +77,46 @@ def bad(payload):
         rules = {str(item.get("rule", "")) for item in report["violations"]}
         self.assertIn("runtime_bridge_projection_call", rules)
 
+    def test_scans_review_channel_and_commands_roots(self) -> None:
+        root = self._repo()
+        self._write(
+            root,
+            "dev/scripts/devctl/review_channel/non_bridge_reader.py",
+            "from .bridge_projection import render_bridge_projection\n",
+        )
+        self._write(
+            root,
+            "dev/scripts/devctl/commands/review_channel/non_bridge_reader.py",
+            """
+from .bridge_support import bridge_support
+
+
+def bad(payload):
+    return build_runtime_bridge_state(payload)
+""",
+        )
+
+        report = self.script._build_report(root=root)
+
+        checked_paths = set(report["checked_paths"])
+        self.assertIn(
+            "dev/scripts/devctl/review_channel/non_bridge_reader.py",
+            checked_paths,
+        )
+        self.assertIn(
+            "dev/scripts/devctl/commands/review_channel/non_bridge_reader.py",
+            checked_paths,
+        )
+        violation_paths = {str(item.get("path", "")) for item in report["violations"]}
+        self.assertIn(
+            "dev/scripts/devctl/review_channel/non_bridge_reader.py",
+            violation_paths,
+        )
+        self.assertIn(
+            "dev/scripts/devctl/commands/review_channel/non_bridge_reader.py",
+            violation_paths,
+        )
+
     def test_allows_non_bridge_runtime_helpers(self) -> None:
         root = self._repo()
         self._write(

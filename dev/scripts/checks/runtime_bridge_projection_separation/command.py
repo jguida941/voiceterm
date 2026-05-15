@@ -19,17 +19,30 @@ if str(REPO_ROOT) not in sys.path:
 
 
 RUNTIME_ROOT = "dev/scripts/devctl/runtime"
+REVIEW_CHANNEL_ROOT = "dev/scripts/devctl/review_channel"
+COMMANDS_ROOT = "dev/scripts/devctl/commands"
+SCAN_ROOTS = (
+    RUNTIME_ROOT,
+    REVIEW_CHANNEL_ROOT,
+    COMMANDS_ROOT,
+)
 BRIDGE_SEPARATION_GUARD_CONTRACT_ID = "BridgeSeparationGuard"
 RUNTIME_BRIDGE_PROJECTION_SEPARATION_GUARD_ID = "RuntimeBridgeProjectionSeparation"
 FORBIDDEN_MODULE_FRAGMENTS = (
     "dev.scripts.devctl.review_channel.bridge_",
     "dev.scripts.devctl.review_channel.bridge.",
+    "dev.scripts.devctl.commands.review_channel.bridge_",
+    "dev.scripts.devctl.commands.review_channel.bridge.",
     "review_channel.bridge_",
     "review_channel.bridge.",
+    "commands.review_channel.bridge_",
+    "commands.review_channel.bridge.",
     "dev.scripts.devctl.commands.bridge_",
     "dev.scripts.devctl.commands.bridge.",
     "commands.bridge_",
     "commands.bridge.",
+    ".bridge_",
+    ".bridge.",
 )
 
 
@@ -41,6 +54,7 @@ class BridgeSeparationGuard:
     ok: bool
     report_only: bool
     would_fail: bool
+    scan_roots: tuple[str, ...] = field(default_factory=tuple)
     checked_paths: tuple[str, ...] = field(default_factory=tuple)
     violation_count: int = 0
     violations: tuple[dict[str, object], ...] = field(default_factory=tuple)
@@ -128,7 +142,7 @@ def _scan_import_node(node: ast.Import | ast.ImportFrom, rel_path: str, text: st
             rel_path=rel_path,
             text=text,
             node=node,
-            detail="Runtime code must not import bridge projection modules.",
+            detail="Scanned control-plane code must not import bridge projection modules.",
         )
     ]
 
@@ -143,7 +157,7 @@ def _scan_call_node(node: ast.Call, rel_path: str, text: str) -> list[Violation]
             rel_path=rel_path,
             text=text,
             node=node,
-            detail="Runtime code must not call bridge-derived helper APIs.",
+            detail="Scanned control-plane code must not call bridge-derived helper APIs.",
         )
     ]
 
@@ -179,12 +193,13 @@ def _scan_file(path: Path, root: Path) -> list[Violation]:
 
 def _build_report(root: Path | None = None) -> dict[str, object]:
     repo_root = root or REPO_ROOT
-    runtime_root = repo_root / RUNTIME_ROOT
     checked_paths: list[str] = []
     violations: list[Violation] = []
-    for path in sorted(runtime_root.rglob("*.py")):
-        checked_paths.append(_relative(path, repo_root))
-        violations.extend(_scan_file(path, repo_root))
+    for scan_root in SCAN_ROOTS:
+        root_path = repo_root / scan_root
+        for path in sorted(root_path.rglob("*.py")):
+            checked_paths.append(_relative(path, repo_root))
+            violations.extend(_scan_file(path, repo_root))
     return {
         "command": "check_runtime_bridge_projection_separation",
         "ok": True,
@@ -193,12 +208,14 @@ def _build_report(root: Path | None = None) -> dict[str, object]:
         "contract_id": BRIDGE_SEPARATION_GUARD_CONTRACT_ID,
         "guard_id": RUNTIME_BRIDGE_PROJECTION_SEPARATION_GUARD_ID,
         "schema_version": 1,
+        "scan_roots": list(SCAN_ROOTS),
         "checked_paths": checked_paths,
         "violation_count": len(violations),
         "violations": [asdict(violation) for violation in violations],
         "migration_policy": (
             "Report-only until P188 typed snapshot, renderer, absent-bridge dogfood, "
-            "and bridge-reader migration establish the strict baseline."
+            "bridge-reader migration, and scoped review-channel/commands baselines "
+            "establish the strict baseline."
         ),
     }
 
@@ -208,6 +225,7 @@ def _render_md(report: dict[str, object]) -> str:
     lines.append(f"- ok: {report.get('ok', False)}")
     lines.append(f"- report_only: {report.get('report_only', False)}")
     lines.append(f"- would_fail: {report.get('would_fail', False)}")
+    lines.append(f"- scan_roots: {', '.join(report.get('scan_roots', []))}")
     lines.append(f"- checked_paths: {len(report.get('checked_paths', []))}")
     lines.append(f"- violation_count: {report.get('violation_count', 0)}")
     if report.get("violations"):
