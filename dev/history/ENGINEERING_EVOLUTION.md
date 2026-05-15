@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-05-14
+**Last Updated:** 2026-05-15
 
 ## At a Glance
 
@@ -36,6 +36,30 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-05-15 - Governed push preflight enforces canonical governance docs
+
+The governed push dogfood run reached the release bundle but stopped before
+publication. `devctl push --execute` created the managed generated-surface
+receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked because
+`docs-check --strict-tooling` saw governance substrate, guard, workflow, and
+publication-policy changes without the canonical AI-governance plan update.
+
+Change: the active product plan, engineering evolution log, development guide,
+and scripts reference now document the same docs-governance contract. Tooling
+or publication-control-plane changes must update
+`dev/active/ai_governance_platform.md` when the repo policy rule
+`ai_governance_platform_plan` fires, and must keep maintainer docs plus this
+evolution log current before rerunning `devctl push --execute`.
+
+Evidence:
+
+- `dev/reports/push/latest_push_report.json`
+- `dev/reports/push/latest_check_router_preflight.json`
+- `rev_pkt_4084`
+- `dev/active/ai_governance_platform.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
 
 ### 2026-05-14 - R98 packet findings become MP-381 rows and proposal contracts
 

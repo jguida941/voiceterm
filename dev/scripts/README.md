@@ -561,6 +561,12 @@ Portability note:
   `pipeline_authorized_phase` so docs-check and live projection guards remain
   planned evidence while unrelated live-worktree failures become annotated
   advisory data for the authorized push phase.
+- `docs-check --strict-tooling` resolves required maintainer and canonical-plan
+  docs from repo policy. When it reports `ai_governance_platform_plan`, update
+  `dev/active/ai_governance_platform.md`; when tooling, workflow, release, or
+  guard behavior changes, update `dev/guides/DEVELOPMENT.md`,
+  `dev/scripts/README.md`, and `dev/history/ENGINEERING_EVOLUTION.md` before
+  rerunning governed push.
 - Path-scoped docs-governance helpers are expected to reuse one resolved
   docs/policy contract per repo + policy path. If `docs-check --since-ref ...`
   starts rescanning governance inside per-file loops, treat that as a bug in

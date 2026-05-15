@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-05-14 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-05-15 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -201,6 +201,15 @@ Current ingestion status:
   proposal-stage contracts for lifecycle proof, role capabilities, toggle
   receipts, packet urgency/supersession/ADR links, assistant-guide mode,
   skill compatibility, and the mandatory ingest-before-implement invariant.
+- 2026-05-15 governed-push dogfood follow-up: push preflight blocked before
+  publication at `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f` because the
+  release docs-check saw tooling/control-plane changes without this canonical
+  product-plan update. The diagnostic was posted back to Claude as
+  `rev_pkt_4084`; the repair keeps `docs-check --strict-tooling` aligned with
+  MP-377/MP-381 intake by requiring `dev/active/ai_governance_platform.md`,
+  `dev/history/ENGINEERING_EVOLUTION.md`, `dev/guides/DEVELOPMENT.md`, and
+  `dev/scripts/README.md` to move with governance substrate, guard, workflow,
+  or publication-policy changes before another `devctl push --execute`.
 
 2026-05-06 governed exception lifecycle correction:
 - `MP377-P0-EXC-S1` replaces the earlier raw-bypass receipt direction with a

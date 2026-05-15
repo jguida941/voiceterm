@@ -630,6 +630,13 @@ Three quality layers matter in practice:
   projection guards still run and preserve their original failures as advisory
   evidence instead of hiding the guard or blocking an already-authorized commit
   range for unrelated worktree dirt.
+- `docs-check --strict-tooling` is also the publication-time contract for
+  governance substrate and process documentation. If repo policy reports the
+  `ai_governance_platform_plan` rule, update
+  `dev/active/ai_governance_platform.md` in the same change. Tooling,
+  workflow, release, or guard changes must also keep this guide,
+  `dev/scripts/README.md`, and `dev/history/ENGINEERING_EVOLUTION.md` current
+  before rerunning `python3 dev/scripts/devctl.py push --execute`.
 - When a policy-backed slice needs a simpler human-facing entrypoint, prefer a
   short wrapper command over asking maintainers to remember raw policy paths.
   Current examples: `python3 dev/scripts/devctl.py launcher-check`,
