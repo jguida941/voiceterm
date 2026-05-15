@@ -8,6 +8,9 @@ Dry-run mode reports stale attachments without mutation; `kill_stale` detaches
 stale artifacts and may terminate a live stale PID through the injected
 `ProcessKiller`. Review-channel liveness signals remain downstream read models
 over the repaired attachment state, not a second cleanup authority.
+typed-namespace-non-composition-rationale: this module repairs the persisted
+remote-control attachment authority below the session_liveness_signal read model
+instead of composing directly with that signal family.
 """
 
 from __future__ import annotations

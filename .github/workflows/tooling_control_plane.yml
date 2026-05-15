@@ -397,6 +397,9 @@ jobs:
       - name: Run task-started ADR precedent guard
         run: python3 dev/scripts/checks/check_task_started_adr_precedent_linking.py
 
+      - name: Run typed-namespace composition guard
+        run: python3 dev/scripts/checks/check_typed_namespace_composition.py
+
       - name: Run substrate repo-portability guard
         run: python3 dev/scripts/checks/check_substrate_is_repo_portable.py
 

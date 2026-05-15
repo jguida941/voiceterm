@@ -1,0 +1,20 @@
+{
+  "contract_id": "ContextGraphSnapshotFreshnessGuard",
+  "entry_kind": "authority_composition",
+  "expected_result": "reject",
+  "fixture_role": "invalid",
+  "invalid_reason": "schema_version_mismatch",
+  "ownership_mode": "python_only",
+  "parity_command": "python3 dev/scripts/checks/check_platform_contract_closure.py --format json",
+  "payload": {
+    "contract_id": "ContextGraphSnapshotFreshnessGuard",
+    "schema_version": 2
+  },
+  "python_owner_path": "dev/scripts/checks/context_graph_snapshot_freshness/command.py",
+  "registered_schema_version": 1,
+  "registry_path": "dev/state/contract_registry.jsonl",
+  "rust_owner_path": "",
+  "schema_fixture_contract_id": "PlatformSchemaFixture",
+  "schema_fixture_version": 1,
+  "schema_version": 2
+}

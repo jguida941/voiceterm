@@ -189,6 +189,42 @@ PLAN_INTAKE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         registry_entry_kind="authority_composition",
     ),
     ContractSpec(
+        contract_id="TypedNamespaceCompositionGuard",
+        owner_layer="governance_core",
+        purpose=(
+            "Guard requiring typed namespace authority files to import their "
+            "canonical authority module or document explicit non-composition "
+            "rationale."
+        ),
+        required_fields=(
+            ContractField("guard_id", "str", "Stable guard identifier."),
+            ContractField("ok", "bool", "Whether the guard passed."),
+            ContractField("report_only", "bool", "Whether findings are advisory."),
+            ContractField("would_fail", "bool", "Whether strict mode would fail."),
+            ContractField("scanned_file_count", "int", "Namespace files scanned."),
+            ContractField("canonical_file_count", "int", "Canonical files skipped."),
+            ContractField(
+                "composed_file_count",
+                "int",
+                "Files importing their canonical authority.",
+            ),
+            ContractField(
+                "rationale_file_count",
+                "int",
+                "Files with explicit non-composition rationale.",
+            ),
+            ContractField("violation_count", "int", "Composition violations found."),
+            ContractField("violations", "tuple[dict[str, object], ...]", "Findings."),
+            ContractField("errors", "tuple[str, ...]", "Read or parse errors."),
+        ),
+        runtime_model=(
+            "dev.scripts.checks.check_typed_namespace_composition:"
+            "TypedNamespaceCompositionGuard"
+        ),
+        startup_surface_tokens=("guard_id", "violation_count", "composed_file_count"),
+        registry_entry_kind="authority_composition",
+    ),
+    ContractSpec(
         contract_id="CommitBodyPacketAnchorsGuard",
         owner_layer="governance_core",
         purpose=(
