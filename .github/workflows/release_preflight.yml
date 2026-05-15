@@ -187,6 +187,7 @@ jobs:
           python3 dev/scripts/checks/check_governed_transitions.py
           python3 dev/scripts/checks/check_memory_not_authority.py
           python3 dev/scripts/checks/check_commit_body_packet_anchors.py
+          python3 dev/scripts/checks/check_commit_message_row_id_resolves.py
           python3 dev/scripts/checks/check_packet_pkt_bind_completeness.py
           python3 dev/scripts/checks/check_plan_index_commit_continuity.py
           python3 dev/scripts/checks/check_feature_has_proof_receipt.py

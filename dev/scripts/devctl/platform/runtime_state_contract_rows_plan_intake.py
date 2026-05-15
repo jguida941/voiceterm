@@ -294,6 +294,39 @@ PLAN_INTAKE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         registry_entry_kind="authority_composition",
     ),
     ContractSpec(
+        contract_id="CommitMessageRowIdResolvesGuard",
+        owner_layer="governance_core",
+        purpose=(
+            "Guard checking commit-message MP row references, packet "
+            "decomposition evidence, corrupted persisted titles, and applied "
+            "row commit anchors."
+        ),
+        required_fields=(
+            ContractField("guard_id", "str", "Stable guard identifier."),
+            ContractField("ok", "bool", "Whether the guard passed."),
+            ContractField("scanned_commit_count", "int", "Commits scanned."),
+            ContractField("referenced_row_count", "int", "Referenced rows found."),
+            ContractField("violation_count", "int", "Violations found."),
+            ContractField(
+                "violations",
+                "tuple[dict[str, object], ...]",
+                "Sample findings.",
+            ),
+            ContractField("errors", "tuple[str, ...]", "Read or git errors."),
+            ContractField("warnings", "tuple[str, ...]", "Non-blocking warnings."),
+        ),
+        runtime_model=(
+            "dev.scripts.checks.check_commit_message_row_id_resolves:"
+            "CommitMessageRowIdResolvesGuard"
+        ),
+        startup_surface_tokens=(
+            "guard_id",
+            "referenced_row_count",
+            "violation_count",
+        ),
+        registry_entry_kind="authority_composition",
+    ),
+    ContractSpec(
         contract_id="PlanIntentIngestionReceipt",
         owner_layer="governance_runtime",
         purpose=(

@@ -279,6 +279,14 @@ Use docs like this:
   operation to `GovernedExceptionLifecycle`, emits or updates
   `FeatureProofReceipt` artifacts for raw commits and pushed commit ranges,
   and refuses to emit receipts for help, dry-run, or unchanged-HEAD no-ops.
+- MP slice commit messages must also resolve to durable typed plan authority.
+  `check_commit_message_row_id_resolves.py` reads the post-mandate guard
+  window from repo policy, then checks commit row ids against
+  `dev/state/plan_index.jsonl`, packet references against decomposed
+  `MP-NEW-*` rows, persisted row titles for range-corruption markers, and
+  applied/completed rows for commit-anchor evidence. Keep commit subjects on
+  the full row id that owns the work, and cite only packets that have durable
+  plan-row materialization or durable ingestion evidence.
 - The `ensure-follow` reviewer-wake path
   (`dev/scripts/devctl/review_channel/reviewer_follow_guard.py::launch_waiting_reviewer_conductor`)
   shares the same auto-elevation seam, so a remote-control reviewer

@@ -27,6 +27,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("clippy_high_signal", "check_clippy_high_signal.py"),
     ("command_source_validation", "check_command_source_validation.py"),
     ("commit_body_packet_anchors", "check_commit_body_packet_anchors.py"),
+    ("commit_message_row_id_resolves", "check_commit_message_row_id_resolves.py"),
     ("contract_connectivity", "check_contract_connectivity.py"),
     (
         "context_graph_snapshot_freshness",

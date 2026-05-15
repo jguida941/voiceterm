@@ -8761,3 +8761,15 @@ R131 / rev_pkt_4083 intake decisions:
   - progress 2026-05-15: `PacketDebtRemediationReport` now emits `DecidedPacketDebtDetector` and `PacketBatchTriage` summaries over carry-forward debt; live `develop audit-packets` groups ACKed-but-unbuilt packets by reason, target, and recommended durable-ingestion action.
   - progress 2026-05-15: `check_schema_fixture_handshake.py` now enforces git tracking for valid and invalid fixture JSON files in worktrees, closing the ignored-fixture gap found while adding P203 contract fixtures.
 - [ ] `PKT-BIND-REV-PKT-4122` Packet work: Continuation anchor R148+ 8h - codex must continue cached-hammock loop with operator-override edit-only + raw-git plan-execution; fix 3 RED conditions + commit/push 28 files + absorb 3 REVIVE expired + wire FeatureProofRecei... (source `rev_pkt_4122`; target `cached_hammock_plan_P1_P204`; posted `2026-05-15T16:45:27.785427Z`; binding `plan_row`).
+
+### MP-NEW P220 Commit-Message Row Authority
+
+Recovered from `rev_pkt_4134`/`rev_pkt_4136` during the R170/R171 dogfood
+loop. P220 closes the gap where commits could cite MP row ids, packet ids, or
+packet-derived titles that no longer matched durable plan authority. The
+expanded P40 guard is intentionally policy-windowed so historical commits stay
+auditable while new post-mandate commits must resolve.
+
+- [ ] `MP-NEW-P220-PHASE-0B-EXPANDED-P40-S1` Add `check_commit_message_row_id_resolves.py` so commit row refs resolve in `plan_index`, packet refs prove MP-NEW decomposition instead of PKT-BIND-only intake, corrupted persisted row titles fail, and applied/completed rows require commit-anchor evidence.
+  - progress 2026-05-15: implemented the guard, repo-policy mandate, contract registry row, schema fixtures, workflow wiring, script catalog entry, platform contract row, and focused P40 acceptance tests while leaving Phase 0c `commit_anchor_ref` runtime tests red for the next slice.
+- [ ] `MP-NEW-P220-PHASE-0C-COMMIT-ANCHOR-REF-S1` Add the `PlanRow.commit_anchor_ref` field and hydration on applied transitions after the P40 guard is in place.

@@ -388,6 +388,9 @@ jobs:
       - name: Run commit-body packet anchor guard
         run: python3 dev/scripts/checks/check_commit_body_packet_anchors.py
 
+      - name: Run commit-message row id resolution guard
+        run: python3 dev/scripts/checks/check_commit_message_row_id_resolves.py
+
       - name: Run packet PKT-BIND completeness guard
         run: python3 dev/scripts/checks/check_packet_pkt_bind_completeness.py
 

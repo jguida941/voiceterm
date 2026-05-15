@@ -16090,3 +16090,21 @@ Evidence:
 
 - `dev/scripts/devctl/commands/development/plan_intake_decomposition.py`
 - `dev/scripts/devctl/tests/commands/test_development_command.py`
+
+### 2026-05-15 - Commit messages must resolve to typed plan rows
+
+R171 dogfood found the next failure mode after packet range-title repair:
+feature commits could still cite row ids or packet ids whose durable plan
+authority was missing, only PKT-BIND-level, or title-corrupted. The new
+`CommitMessageRowIdResolvesGuard` closes that path with a repo-policy mandate
+window, a registered platform contract, schema fixtures, CI workflow wiring,
+and focused tests for missing rows, packet decomposition, legacy MP377 row ids,
+corrupted row titles, and applied-row commit-anchor requirements.
+
+Evidence:
+
+- `dev/scripts/checks/check_commit_message_row_id_resolves.py`
+- `dev/scripts/devctl/tests/checks/test_check_commit_message_row_id_resolves.py`
+- `dev/scripts/devctl/tests/checks/test_check_packet_decomposition_completeness.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_plan_intake.py`
+- `dev/state/contract_registry.jsonl`

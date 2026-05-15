@@ -62,6 +62,21 @@ def test_commit_subject_with_matching_row_id_passes(tmp_path: Path) -> None:
     assert report.violation_count == 0
 
 
+def test_commit_subject_with_legacy_mp377_row_id_passes(tmp_path: Path) -> None:
+    _write_plan_index(
+        tmp_path,
+        [_row("MP377-P0-T22AN-AB", title="Existing reducer-selected row")],
+    )
+
+    report = _evaluate(
+        tmp_path,
+        "abc1234\nMP377-P0-T22AN-AB: continue selected reducer row\n\x1e\n",
+    )
+
+    assert report.ok is True
+    assert report.violation_count == 0
+
+
 def test_commit_subject_without_matching_row_fails(tmp_path: Path) -> None:
     _write_plan_index(tmp_path, [])
 
@@ -104,3 +119,23 @@ def test_applied_commit_requires_commit_anchor_ref_field(tmp_path: Path) -> None
 
     assert report.ok is False
     assert report.violations[0]["reason"] == "applied_row_missing_commit_anchor_ref"
+
+
+def test_commit_subject_with_corrupted_row_title_fails(tmp_path: Path) -> None:
+    _write_plan_index(
+        tmp_path,
+        [
+            _row(
+                "MP-NEW-P210-EXTEND-SYSTEM-PICTURE-S1",
+                title="MP-NEW-P210-EXTEND-SYSTEM-PICTURE-S1..S5",
+            )
+        ],
+    )
+
+    report = _evaluate(
+        tmp_path,
+        "abc1234\nMP-NEW-P210-EXTEND-SYSTEM-PICTURE-S1: Extend graph\n\x1e\n",
+    )
+
+    assert report.ok is False
+    assert report.violations[0]["reason"] == "corrupted_title_persisted"

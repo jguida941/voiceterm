@@ -14880,6 +14880,29 @@ Evidence:
 - `dev/scripts/devctl/review_channel/session_liveness_events.py`
 - `dev/scripts/devctl/tests/runtime/test_derived_state_invalidation.py`
 
+## 2026-05-15 - Commit-message row authority guard
+
+P220 adds an enforcement lane for the commit messages that carry plan and
+packet authority through the raw-git loop. `check_commit_message_row_id_resolves.py`
+is policy-windowed by repo-pack mandate data and checks only current
+post-mandate row families. It rejects commit MP row ids that have no
+`plan_index` row, packet refs that only landed as `PKT-BIND-*` review rows
+instead of decomposed `MP-NEW-*` implementation rows, persisted row titles that
+still contain range-corruption markers, and applied/completed rows that lack
+commit-anchor evidence.
+
+This guard composes with `FeatureProofReceipt` and `CommitReceipt`: the commit
+can carry human-readable provenance, but the guard ensures that provenance is
+backed by durable plan rows before the feature proof can be treated as shipped.
+
+Evidence:
+
+- `dev/scripts/checks/check_commit_message_row_id_resolves.py`
+- `dev/scripts/devctl/tests/checks/test_check_commit_message_row_id_resolves.py`
+- `dev/scripts/devctl/tests/checks/test_check_packet_decomposition_completeness.py`
+- `dev/state/contract_registry.jsonl`
+- `dev/test_data/schema_fixtures/CommitMessageRowIdResolvesGuard/1`
+
 ## 2026-05-14 - Repo-portability guard for shared substrates
 
 Guard P16 adds a typed `RepoPortabilityCheck` contract and the
