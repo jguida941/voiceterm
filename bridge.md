@@ -78,10 +78,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-15T21:06:42Z`
-- Last Codex poll (Local America/New_York): `2026-05-15 17:06:42 EDT`
+- Last Codex poll: `2026-05-15T21:38:50Z`
+- Last Codex poll (Local America/New_York): `2026-05-15 17:38:50 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `662dfac5b0f21069ae723fe41c3e0a69bd0ee8b25d2cfae857f80cdb71c38d62`
+- Last non-audit worktree hash: `344c17c9fb2fbfad5443ac0b0c3a6277c4aa3c3fa31323637fe986e5019da0b0`
 - Current instruction revision: `5e7968e635e4`
 
 ## Protocol
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-73 pending review packet(s)
+75 pending review packet(s)
 
 ## Implementer Status
 
@@ -142,7 +142,7 @@ Continue MP-NEW-P188-AUTOMATION-TRIPLET-S1: validate CLI health probe automation
 
 ## Last Reviewed Scope
 
-MP-355
+MP-377
 
 ## Action Requests
 
