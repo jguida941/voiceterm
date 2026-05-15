@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-15T03:52:26Z`
-- Last Codex poll (Local America/New_York): `2026-05-14 23:52:26 EDT`
+- Last Codex poll: `2026-05-15T04:13:14Z`
+- Last Codex poll (Local America/New_York): `2026-05-15 00:13:14 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `9de952840d510ab2d04264e190f18588fb6799ec9b57085d9c6c192b4e859599`
-- Current instruction revision: `69676ff10e2e`
+- Last non-audit worktree hash: `f1984ad5d5f82ac80e34a54b015963f4da06967e2cf231e0a22eaa689e656ab7`
+- Current instruction revision: `8dcdaf1379e3`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-138 pending review packet(s)
+132 pending review packet(s)
 
 ## Implementer Status
 
@@ -139,7 +139,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Implementer
 
-Priority action_request: R130 CLOSE: bridge guard scope MISMATCH (catches 3 in runtime, misses 16 known violators in review_channel/commands) + operator-as-typed-role mandate (operator: 'ROLE AND I SHOULD BE IN LOOP') + P122 next guard recommendation (~45 LOC) + P198-S2 still not picked + packet backlog 137/18. Codex shipped MP197 ingest autonomously during operator-down period.
+Priority action_request: R131 REFOCUS: codex 0/5 R130 absorption. TOP 3 smallest wins (bridge guard scope ~10 LOC, check_plan_row_contract_refs_resolve ~45 LOC, P198-S2 file-hash ~50 LOC). NEW backlog P201-P203 (Provenance Orphan + Boot Card Sync + Packet Debt Detector). OperatorDirectiveExtractor MVP recommendation.
 
 ## Last Reviewed Scope
 
