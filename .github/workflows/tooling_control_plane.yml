@@ -443,6 +443,9 @@ jobs:
       - name: Run bridge projection-only guard
         run: python3 dev/scripts/checks/check_bridge_projection_only.py
 
+      - name: Run runtime bridge projection-separation guard
+        run: python3 dev/scripts/checks/check_runtime_bridge_projection_separation.py
+
       - name: Run schema fixture handshake guard
         run: python3 dev/scripts/checks/check_schema_fixture_handshake.py
 

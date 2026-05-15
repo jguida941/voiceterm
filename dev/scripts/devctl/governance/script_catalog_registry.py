@@ -74,6 +74,10 @@ _CHECK_SCRIPT_ENTRIES = (
     ("registry_path_integrity", "check_registry_path_integrity.py"),
     ("review_surface_consistency", "check_review_surface_consistency.py"),
     ("review_channel_bridge", "check_review_channel_bridge.py"),
+    (
+        "runtime_bridge_projection_separation",
+        "check_runtime_bridge_projection_separation.py",
+    ),
     ("schema_fixture_handshake", "check_schema_fixture_handshake.py"),
     ("schema_migration_spine", "check_schema_migration_spine.py"),
     ("schema_version_monotonic", "check_schema_version_monotonic.py"),

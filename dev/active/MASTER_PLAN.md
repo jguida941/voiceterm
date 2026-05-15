@@ -8600,3 +8600,30 @@ explicitly grants a parallel read-only or isolated-worker lane.
 - [ ] `MP-NEW-P189-WAKE-CONTINUITY-STATE-S3` Project wake-continuity state from typed collaboration state in `authority_snapshot_projection.py`.
 - [ ] `MP-NEW-P127-CODEX-COMMIT-LANDED-S1` Record R127 codex absorption proof for the governed commit and P188/P186 materialization path.
   - response 2026-05-15: acknowledge P188/P186 rows materialized; first P188 coding slice remains `MP-NEW-P188-PEER-COMMUNICATION-STATE-SNAPSHOT-S1`; P189 is queued after P188 Phase 1 by default; guard file paths from `rev_pkt_4064` are accepted as concrete build targets.
+
+### MP-NEW P191-P194 Strategic Runtime Coordination Intake
+
+Recovered on 2026-05-15 from `rev_pkt_4069`. This supersedes the earlier
+P188 projection name and slice order: the replacement projection name is now
+`runtime_coordination_state.md`, and the first implementation slice is the
+report-only projection-authority guard before snapshot and renderer work.
+
+- [ ] `MP-NEW-P188-S1-RUNTIME-BRIDGE-PROJECTION-SEPARATION-GUARD-REPORT-ONLY` Add report-only `RuntimeBridgeProjectionSeparation` / projection-authority guard coverage with explicit current violations.
+  - progress 2026-05-15: added `check_runtime_bridge_projection_separation.py` as report-only runtime AST scanner and registered it in the script catalog.
+- [ ] `MP-NEW-P188-S2-PROJECTION-SURFACE-CONTRACT-EXTENSION` Extend `SurfaceProvenance` with renderer, allowed readers/writers, authority, archive policy, and drift guard fields.
+- [ ] `MP-NEW-P188-S3-RUNTIME-COORDINATION-STATE-SNAPSHOT` Define `RuntimeCoordinationStateSnapshot` / `AgentCoordinationStateSnapshot`.
+- [ ] `MP-NEW-P188-S4-RENDER-RUNTIME-COORDINATION-STATE` Render `runtime_coordination_state.md` from the typed coordination snapshot.
+- [ ] `MP-NEW-P188-S5-ABSENT-BRIDGE-DOGFOOD-TEST` Prove startup, session, dashboard, and status paths work without `bridge.md`.
+- [ ] `MP-NEW-P188-S6-BRIDGE-LOGIC-READER-MIGRATION` Migrate the three bridge logic readers to typed authority.
+- [ ] `MP-NEW-P188-S7-BRIDGE-DEMOTE-TO-LEGACY-ARCHIVE` Demote `bridge.md` to legacy archive-only generation.
+- [ ] `MP-NEW-P191-S1-REMOTE-EVIDENCE-QUEUE-SUBSYSTEM` Build the async cloud proof RemoteEvidenceQueue subsystem.
+  - response 2026-05-15: queue behind P188 guard-first landing unless controller grants a disjoint lane.
+- [ ] `MP-NEW-P191-S2-REMOTE-VALIDATION-RECEIPT-CONTRACT` Define `RemoteValidationReceipt` as an extension of `ValidationReceipt`.
+- [ ] `MP-NEW-P191-S3-PUSH-PIPELINE-ASYNC-PROOF-HOOK` Hook remote evidence queue reconciliation into the governed push pipeline for high-risk profiles.
+- [ ] `MP-NEW-P192-S1-REVIEW-INDEPENDENCE-LEVEL-CONTRACT` Define the seven-level `ReviewIndependenceLevel` vocabulary.
+- [ ] `MP-NEW-P192-S2-RISK-TIERED-REVIEW-POLICY-CONTRACT` Define risk-tiered review policy over action types and independence requirements.
+- [ ] `MP-NEW-P193-S1-ACTION-RESULT-STATUS-DOMAIN-FIX` Remap `command_runner.py` ActionResult status emissions into the declared `ActionOutcome` domain.
+  - response 2026-05-15: accept as the smallest concrete follow-up win once the active P188 guard slice is checkpointed.
+- [ ] `MP-NEW-P193-S2-CHECK-CONTRACT-VALUE-DOMAINS-GUARD` Add a value-domain guard so declared runtime contract enums cannot drift silently.
+- [ ] `MP-NEW-P194-S1-REPO-EXTRACTION-PHASE-1` Queue governance-platform repo extraction behind P188 landing.
+- [ ] `MP-NEW-P194-S2-FILE-MIGRATION-RECEIPT-CONTRACT` Define `FileMigrationReceipt` for future platform extraction moves.
