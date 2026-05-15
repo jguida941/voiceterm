@@ -30,6 +30,7 @@ from ..runtime.raw_git_bypass_receipts import (
 )
 from ..runtime.feature_proof_receipt import (
     FeatureProofReceipt,
+    FeatureProofReceiptEmissionFailure,
     feature_proof_receipt_artifact_relpath,
     feature_proof_receipt_from_mapping,
     write_feature_proof_receipt_artifact,
@@ -296,15 +297,28 @@ def run_raw_git_action(
         governed_exception_store_path=governed_exception_store_path,
     )
     receipt = write_result.receipt
-    proof_paths, proof_warnings = _record_feature_proof_receipts(
-        args,
-        runner=runner,
-        repo_root=repo_root,
-        receipt=receipt,
-        store_path=store_path,
-        governed_exception_store_path=governed_exception_store_path,
-        before_ahead=before_ahead,
-    )
+    try:
+        proof_paths, proof_warnings = _record_feature_proof_receipts(
+            args,
+            runner=runner,
+            repo_root=repo_root,
+            receipt=receipt,
+            store_path=store_path,
+            governed_exception_store_path=governed_exception_store_path,
+            before_ahead=before_ahead,
+        )
+    except FeatureProofReceiptEmissionFailure as exc:
+        return (
+            _feature_proof_failure_report(
+                verb=verb,
+                receipt=receipt,
+                write_result=write_result,
+                store_path=store_path,
+                command_result=command_result,
+                error=str(exc),
+            ),
+            1,
+        )
     report = {
         "command": "raw-git",
         "action": verb.value,
@@ -402,8 +416,10 @@ def _record_feature_proof_receipts(
                 )
                 if relpath:
                     paths.append(relpath)
-    except Exception as exc:  # pragma: no cover - defensive evidence debt path
-        warnings.append(f"feature_proof_receipt_write_failed:{exc}")
+    except Exception as exc:
+        raise FeatureProofReceiptEmissionFailure(
+            f"feature_proof_receipt_write_failed:{exc}"
+        ) from exc
     return tuple(paths), tuple(warnings)
 
 
@@ -650,6 +666,37 @@ def _skipped_pre_hooks(verb: RawGitVerb, git_args: tuple[str, ...]) -> tuple[str
     if verb is RawGitVerb.COMMIT:
         return ("pre-commit", "commit-msg")
     return ("pre-push",)
+
+
+def _feature_proof_failure_report(
+    *,
+    verb: RawGitVerb,
+    receipt: Any,
+    write_result: Any,
+    store_path: Path,
+    command_result: GitCommandResult,
+    error: str,
+) -> dict[str, object]:
+    """Return a fail-closed report when required proof emission fails."""
+    warning = error or "feature_proof_receipt_write_failed"
+    return {
+        "command": "raw-git",
+        "action": verb.value,
+        "ok": False,
+        "reason": "feature_proof_receipt_write_failed",
+        "error": warning,
+        "receipt_id": getattr(receipt, "receipt_id", ""),
+        "store_path": display_path(store_path),
+        "feature_proof_receipt_paths": [],
+        "feature_proof_receipt_warnings": [warning],
+        "receipt": receipt.to_dict() if hasattr(receipt, "to_dict") else {},
+        "write_result": write_result.to_dict()
+        if hasattr(write_result, "to_dict")
+        else {},
+        "git_returncode": command_result.returncode,
+        "git_stdout": command_result.stdout,
+        "git_stderr": command_result.stderr,
+    }
 
 
 def _git_failure_report(

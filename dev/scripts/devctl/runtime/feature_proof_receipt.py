@@ -82,6 +82,10 @@ class FeatureProofReceipt:
         return payload
 
 
+class FeatureProofReceiptEmissionFailure(RuntimeError):
+    """Raised when a required FeatureProofReceipt cannot be emitted."""
+
+
 def feature_proof_receipt_from_mapping(
     payload: Mapping[str, object],
 ) -> FeatureProofReceipt:
@@ -159,6 +163,7 @@ __all__ = [
     "FEATURE_PROOF_RECEIPT_CONTRACT_ID",
     "FEATURE_PROOF_RECEIPT_SCHEMA_VERSION",
     "FeatureProofReceipt",
+    "FeatureProofReceiptEmissionFailure",
     "RealLifeTestStatus",
     "feature_proof_receipt_artifact_relpath",
     "feature_proof_receipt_from_mapping",
