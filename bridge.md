@@ -81,8 +81,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-05-15T09:40:06Z`
 - Last Codex poll (Local America/New_York): `2026-05-15 05:40:06 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `5cb0b131361c55468129eb607b810f0e9012ec7b7d307756b7fdb50f20b8ec7f`
-- Current instruction revision: `34ffb1bff0aa`
+- Last non-audit worktree hash: `5c8f28aff071b6814d0bf64c32e1d022c19b42eba258f07da645b9a580c2c582`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -138,7 +138,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Implementer
 
-Priority action_request: R138 8-role fleet findings — 5 GAPS for codex: GAP1=OperatorDirectivePacket missing (P200-S2 ~30LOC), GAP2=3 NEW guard contracts NOT REGISTERED (orphan detector itself orphan), GAP3=push validation_failed=0% FeatureLifecycleProof coverage, GAP4=5 contract-registry duplicates, GAP5=MP193 174 false positives.
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 
