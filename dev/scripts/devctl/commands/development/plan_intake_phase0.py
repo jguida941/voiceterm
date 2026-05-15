@@ -13,6 +13,7 @@ from ...bundles.registry import BUNDLE_REGISTRY
 from ...governance.script_catalog_registry import CHECK_SCRIPT_RELATIVE_PATHS
 from ...governance.system_catalog import build_system_catalog
 from ...runtime.master_plan_contract import PlanRow
+from ...runtime.file_hashes import existing_file_hashes
 from ...runtime.plan_ingestion_phase0_models import (
     CommandManifestProof,
     GuardMaturityRecord,
@@ -1078,13 +1079,7 @@ def _existing_file_hashes(
     repo_root: Path,
     relative_paths: tuple[str, ...],
 ) -> dict[str, str]:
-    hashes: dict[str, str] = {}
-    for relative in relative_paths:
-        path = repo_root / relative
-        if not path.exists() or not path.is_file():
-            continue
-        hashes[relative] = _hash_bytes(path.read_bytes())
-    return hashes
+    return existing_file_hashes(repo_root, relative_paths)
 
 
 def _dependency_lockfile_hashes(repo_root: Path) -> dict[str, str]:
