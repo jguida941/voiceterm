@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `31dee1063639` — Refresh external review snapshot for b7b13c45
-- Tree hash: `2a2cfc1bd2cd`
-- Generation stamp: `snap-6672f162130e`
-- Generated at (UTC): 2026-05-15T02:11:41Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `763075f17de8` — MP188: register ingestion provenance
+- Tree hash: `1b03b32b8f95`
+- Generation stamp: `snap-4c8acf55432d`
+- Generated at (UTC): 2026-05-15T02:16:15Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 547 files, +13967/-1140
+- Delta since last snapshot: 24 commits, 551 files, +14106/-1196
 - Governance findings: 44 open / 0 fixed / 44 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,23 +28,23 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `31dee10636393dbc53b6f01d2630c3edaaf73ea4`
+- HEAD SHA: `763075f17de87c345fe75690131bd9953351dd48`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-14T21:57:18-04:00
+- HEAD timestamp (UTC): 2026-05-14T22:15:33-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_present
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 10
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `post_push_green` (push_completed)
 - publication_backlog: recommended
-- publication_guidance: 2 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 3 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -60,47 +60,47 @@ production client (VoiceTerm...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `31dee1063639`
+Range: last 24 commits ending at `763075f17de8`
 
 - commits: 24
-- files changed: 547
-- insertions: +13967
-- deletions: -1140
-- bundle classes touched: docs, tooling
-- authority surfaces touched: 5 file(s)
+- files changed: 551
+- insertions: +14106
+- deletions: -1196
+- bundle classes touched: tooling, docs
+- authority surfaces touched: 6 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `31dee106` | Refresh external review snapshot for b7b13c45 | 2 | +64/-64 | docs |  |
-| 2 | `b7b13c45` | MP186: retarget R125 duplicate corrections | 18 | +303/-62 | tooling |  |
-| 3 | `644389cd` | Refresh external review snapshot for 9272e871 | 2 | +63/-63 | docs |  |
-| 4 | `9272e871` | MP381: stabilize push authorization during preflight | 12 | +270/-124 | tooling |  |
-| 5 | `b049ba3a` | Refresh external review snapshot for 868e35c9 | 2 | +72/-77 | docs |  |
-| 6 | `868e35c9` | MP381: read canonical push authorization | 14 | +223/-64 | tooling |  |
-| 7 | `aee417b6` | Refresh external review snapshot for 866ce516 | 2 | +61/-65 | docs |  |
-| 8 | `866ce516` | MP381: fix review-channel self-stop preflight | 12 | +177/-61 | tooling |  |
-| 9 | `ff501228` | Refresh external review snapshot for d3b7a100 | 2 | +72/-68 | docs |  |
-| 10 | `d3b7a100` | MP381: ingest R98 governance findings | 490 | +10105/-155 | tooling |  |
-| 11 | `92488df1` | MP377: checkpoint packet-pressure bridge refresh | 1 | +1/-1 | docs |  |
-| 12 | `ec6f330e` | MP378: summarize locked review events | 4 | +244/-53 | tooling |  |
-| 13 | `e991f288` | MP377: checkpoint packet-pressure reductions | 3 | +3/-1 | tooling |  |
-| 14 | `744a4aa9` | MP378: stream review-channel event reads | 5 | +93/-43 | tooling |  |
-| 15 | `5fed0004` | MP377: checkpoint reviewer-mode packet reduction | 3 | +4/-2 | tooling |  |
-| 16 | `8bd100f9` | MP377: checkpoint packet queue reductions | 3 | +9/-6 | tooling |  |
-| 17 | `22cfecd2` | MP377: checkpoint repair field and portability guard | 38 | +1154/-51 | tooling |  |
-| 18 | `d0b53c26` | MP378: close packet binding guard plan row | 4 | +5/-0 | tooling |  |
-| 19 | `94db6e01` | Refresh external review snapshot for 03379dd7 | 2 | +68/-65 | docs |  |
-| 20 | `03379dd7` | MP378: guard task packet binding completeness | 21 | +863/-5 | tooling |  |
-| 21 | `7bafd1e7` | Refresh external review snapshot for 7f29e975 | 2 | +63/-65 | docs |  |
-| 22 | `7f29e975` | MP378: record human-summary packet binding | 2 | +2/-0 | tooling |  |
-| 23 | `58ad460a` | Refresh external review snapshot for 6aaaacf7 | 2 | +45/-45 | docs |  |
-| 24 | `6aaaacf7` | MP378: close raw-git hook receipt plan row | 3 | +3/-0 | tooling |  |
+| 1 | `763075f1` | MP188: register ingestion provenance | 11 | +142/-56 | tooling |  |
+| 2 | `31dee106` | Refresh external review snapshot for b7b13c45 | 2 | +64/-64 | docs |  |
+| 3 | `b7b13c45` | MP186: retarget R125 duplicate corrections | 18 | +303/-62 | tooling |  |
+| 4 | `644389cd` | Refresh external review snapshot for 9272e871 | 2 | +63/-63 | docs |  |
+| 5 | `9272e871` | MP381: stabilize push authorization during preflight | 12 | +270/-124 | tooling |  |
+| 6 | `b049ba3a` | Refresh external review snapshot for 868e35c9 | 2 | +72/-77 | docs |  |
+| 7 | `868e35c9` | MP381: read canonical push authorization | 14 | +223/-64 | tooling |  |
+| 8 | `aee417b6` | Refresh external review snapshot for 866ce516 | 2 | +61/-65 | docs |  |
+| 9 | `866ce516` | MP381: fix review-channel self-stop preflight | 12 | +177/-61 | tooling |  |
+| 10 | `ff501228` | Refresh external review snapshot for d3b7a100 | 2 | +72/-68 | docs |  |
+| 11 | `d3b7a100` | MP381: ingest R98 governance findings | 490 | +10105/-155 | tooling |  |
+| 12 | `92488df1` | MP377: checkpoint packet-pressure bridge refresh | 1 | +1/-1 | docs |  |
+| 13 | `ec6f330e` | MP378: summarize locked review events | 4 | +244/-53 | tooling |  |
+| 14 | `e991f288` | MP377: checkpoint packet-pressure reductions | 3 | +3/-1 | tooling |  |
+| 15 | `744a4aa9` | MP378: stream review-channel event reads | 5 | +93/-43 | tooling |  |
+| 16 | `5fed0004` | MP377: checkpoint reviewer-mode packet reduction | 3 | +4/-2 | tooling |  |
+| 17 | `8bd100f9` | MP377: checkpoint packet queue reductions | 3 | +9/-6 | tooling |  |
+| 18 | `22cfecd2` | MP377: checkpoint repair field and portability guard | 38 | +1154/-51 | tooling |  |
+| 19 | `d0b53c26` | MP378: close packet binding guard plan row | 4 | +5/-0 | tooling |  |
+| 20 | `94db6e01` | Refresh external review snapshot for 03379dd7 | 2 | +68/-65 | docs |  |
+| 21 | `03379dd7` | MP378: guard task packet binding completeness | 21 | +863/-5 | tooling |  |
+| 22 | `7bafd1e7` | Refresh external review snapshot for 7f29e975 | 2 | +63/-65 | docs |  |
+| 23 | `7f29e975` | MP378: record human-summary packet binding | 2 | +2/-0 | tooling |  |
+| 24 | `58ad460a` | Refresh external review snapshot for 6aaaacf7 | 2 | +45/-45 | docs |  |
 
 ### Files
 
@@ -109,9 +109,9 @@ Range: last 24 commits ending at `31dee1063639`
 | `.github/workflows/release_preflight.yml` | tooling | +2/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +6/-0 |
 | `bridge.md` | docs | +62/-61 |
-| `dev/active/MASTER_PLAN.md` | tooling | +102/-2 |
+| `dev/active/MASTER_PLAN.md` | tooling | +125/-2 |
 | `dev/active/ai_governance_platform.md` | tooling | +57/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +815/-809 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +865/-859 |
 | `dev/audits/r98_packet_4030_4038_plan_capture.md` | tooling | +75/-0 |
 | `dev/audits/r98_push_authorization_projection_path.md` | tooling | +31/-0 |
 | `dev/audits/r98_push_preflight_review_channel_timeout.md` | tooling | +23/-0 |
@@ -141,12 +141,12 @@ Range: last 24 commits ending at `31dee1063639`
 | `dev/scripts/devctl/commands/vcs/push_publication_gate.py` | tooling | +115/-0 |
 | `dev/scripts/devctl/governance/push_state_authorization.py` | tooling | +3/-8 |
 | `dev/scripts/devctl/governance/script_catalog_registry.py` | tooling | +2/-0 |
-| `dev/scripts/devctl/platform/runtime_state_contract_rows.py` | tooling | +6/-0 |
+| `dev/scripts/devctl/platform/contract_registry.py` | tooling | +2/-2 |
+| `dev/scripts/devctl/platform/contract_registry_models.py` | tooling | +4/-2 |
+| `dev/scripts/devctl/platform/contracts.py` | tooling | +2/-0 |
+| `dev/scripts/devctl/platform/runtime_state_contract_rows.py` | tooling | +8/-2 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_governance_proposed.py` | tooling | +335/-0 |
-| `dev/scripts/devctl/platform/runtime_state_contract_rows_pipeline.py` | tooling | +5/-0 |
-| `dev/scripts/devctl/platform/runtime_state_contract_rows_review_core.py` | tooling | +45/-0 |
-| `dev/scripts/devctl/platform/runtime_state_contract_rows_review_pipeline.py` | tooling | +43/-0 |
-| _507 more files trimmed_ | | |
+| _511 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -195,12 +195,15 @@ Recent findings:
 
 ### Targeted hints
 
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/platform/contracts.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/remote_commit_pipeline_artifact.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/remote_commit_pipeline_models.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/commands/check/test_check_router.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/vcs/test_governed_executor.py`) — Review contract-level invariants for this file
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/runtime_state_contract_rows.py`) — Commit b7b13c45 changed dev/scripts/devctl/platform/runtime_state_contract_rows.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/contract_registry_models.py`) — Commit 763075f1 changed dev/scripts/devctl/platform/contract_registry_models.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/contracts.py`) — Commit 763075f1 changed dev/scripts/devctl/platform/contracts.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/runtime_state_contract_rows.py`) — Commit 763075f1 changed dev/scripts/devctl/platform/runtime_state_contract_rows.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/governance_proposed_contracts.py`) — Commit b7b13c45 changed dev/scripts/devctl/runtime/governance_proposed_contracts.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/master_plan_contract.py`) — Commit b7b13c45 changed dev/scripts/devctl/runtime/master_plan_contract.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/remote_commit_pipeline_models.py`) — Commit 22cfecd2 changed dev/scripts/devctl/runtime/remote_commit_pipeline_models.py
@@ -218,6 +221,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`763075f1`** — MP188: register ingestion provenance
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`31dee106`** — Refresh external review snapshot for b7b13c45
   - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`b7b13c45`** — MP186: retarget R125 duplicate corrections
@@ -268,8 +273,6 @@ Recent findings:
   - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`58ad460a`** — Refresh external review snapshot for 6aaaacf7
   - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
-- **`6aaaacf7`** — MP378: close raw-git hook receipt plan row
-  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -288,10 +291,10 @@ Recent findings:
 - open governance findings: 44
 
 ### Startup advisories
-- checkpoint_before_continue: dirty_after_local_checkpoint
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Relaunch the reviewer loop immediately.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/pipeline/command.py`): dogfood.command.pipeline: Auto-ingested devctl finalization failure rc=1.
@@ -313,4 +316,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-6672f162130e` binds this file to HEAD `31dee1063639`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-4c8acf55432d` binds this file to HEAD `763075f17de8`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

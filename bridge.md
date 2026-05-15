@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-15T01:55:48Z`
-- Last Codex poll (Local America/New_York): `2026-05-14 21:55:48 EDT`
+- Last Codex poll: `2026-05-15T02:14:03Z`
+- Last Codex poll (Local America/New_York): `2026-05-14 22:14:03 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `4f93d7b70607d9022f6f56290f0967d9799ed860b53496ae9e41d92f3c4ecc55`
-- Current instruction revision: `fbe248802f49`
+- Last non-audit worktree hash: `0a96acabdf58e1929ffdb42a5538db26c885cdad181eb6ea5f67503eae4e32a5`
+- Current instruction revision: `152bdbf66913`
 
 ## Protocol
 
@@ -139,7 +139,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Implementer
 
-Priority action_request: R125 FULL: 3 more duplicates + 0% orphan reconcile + TDD-Gap PacketExpiryMaterialization probe + 3 token-opt agents (15-18K/round + 68K/session potential) — CODEX DESIGNS+CHOOSES, BOTH DOGFOOD. Constraints: no capability removed, no context lost. Confirms R124 ack + extension-discipline empirically working.
+Priority action_request: P188 BRIDGE RETIREMENT: rename to peer_communication_state.md, move 11 logic items to typed authority, ONE invariant RuntimeBridgeProjectionSeparation (~150 LOC AST guard prevents recurrence), 4-phase deletion plan, BridgeArchiveToggle for legacy. MUST be TYPED plan_index rows (not markdown PKT-BIND) — 5 prior attempts failed because never ingested.
 
 ## Last Reviewed Scope
 
