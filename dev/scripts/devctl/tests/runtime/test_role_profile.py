@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from dev.scripts.devctl.runtime.role_profile import (
     DEFAULT_PROVIDER_ROLE_MAP,
+    OPERATOR_DIRECTIVE_CAPABILITIES,
     default_provider_for_role,
     normalize_tandem_role,
+    OperatorRole,
     RoleProfile,
     TandemProfile,
     TandemRole,
@@ -23,6 +25,17 @@ class TestTandemRole:
 
     def test_role_is_str_enum(self):
         assert isinstance(TandemRole.REVIEWER, str)
+
+
+class TestOperatorRole:
+    def test_human_operator_role_and_capabilities(self):
+        assert OperatorRole.HUMAN_OPERATOR == "human_operator"
+        assert OPERATOR_DIRECTIVE_CAPABILITIES == (
+            "directive_authority",
+            "bypass_authority",
+            "override_authority",
+            "dogfood_witness",
+        )
 
 
 class TestRoleForProvider:

@@ -28,6 +28,20 @@ class TandemRole(StrEnum):
     OPERATOR = "operator"
 
 
+class OperatorRole(StrEnum):
+    """First-class operator directive sources in runtime routing."""
+
+    HUMAN_OPERATOR = "human_operator"
+
+
+OPERATOR_DIRECTIVE_CAPABILITIES: tuple[str, ...] = (
+    "directive_authority",
+    "bypass_authority",
+    "override_authority",
+    "dogfood_witness",
+)
+
+
 # Default provider-to-role mapping for the current VoiceTerm tandem loop.
 # Other repos or configurations can override this via repo-pack policy.
 DEFAULT_PROVIDER_ROLE_MAP: dict[str, TandemRole] = {
