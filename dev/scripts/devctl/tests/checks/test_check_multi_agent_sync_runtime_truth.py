@@ -7,6 +7,7 @@ from pathlib import Path
 from dev.scripts.checks.multi_agent_sync import api as check_multi_agent_sync
 from dev.scripts.checks.multi_agent_sync import runtime_truth
 from dev.scripts.checks.multi_agent_sync.report import render_md
+from dev.scripts.devctl.review_channel.packet_body_observation import packet_body_digest
 from dev.scripts.devctl.tests.checks.test_check_multi_agent_sync import (
     _instruction_row,
     _master_row,
@@ -252,6 +253,95 @@ class CheckMultiAgentSyncRuntimeTruthTests(unittest.TestCase):
                 for err in result["errors"]
             )
         )
+
+    @patch(
+        "dev.scripts.checks.multi_agent_sync.runtime_truth."
+        "resolved_review_state_relative_path"
+    )
+    @patch("dev.scripts.checks.multi_agent_sync.runtime_truth.load_review_state_payload")
+    def test_runtime_truth_allows_observed_communication_only_work_board_focus(
+        self,
+        load_payload_mock,
+        relpath_mock,
+    ) -> None:
+        relpath_mock.return_value = "dev/reports/review_channel/projections/latest/review_state.json"
+        packet = {
+            "packet_id": "rev_pkt_notice",
+            "from_agent": "claude",
+            "to_agent": "codex",
+            "kind": "action_request",
+            "body": "Receipt-only coordination packet.",
+            "status": "acked",
+            "lifecycle_current_state": "in_progress",
+            "latest_event_id": "rev_evt_10",
+            "target_role": "implementer",
+            "target_session_id": "s-codex",
+            "requested_action": "review_only",
+            "policy_hint": "review_only",
+            "packet_creation_binding": {"binding_target_kind": "communication_only"},
+        }
+        packet["body_observation_events"] = [
+            {
+                "body_observed_by": "codex",
+                "body_observed_role": "implementer",
+                "body_observed_session_id": "s-codex",
+                "body_digest": packet_body_digest(packet),
+            }
+        ]
+        load_payload_mock.return_value = {
+            "collaboration": {
+                "participants": [],
+                "delegated_work": [],
+                "ready_gates": [],
+            },
+            "registry": {"agents": []},
+            "agent_sync": {
+                "agents": {
+                    "codex": {
+                        "pending_packets_to_me": ["rev_pkt_notice"],
+                    }
+                }
+            },
+            "agent_work_board": {
+                "rows": [
+                    {
+                        "actor_id": "codex",
+                        "role": "implementer",
+                        "session_id": "s-codex",
+                        "active_packet_id": "rev_pkt_notice",
+                        "attention_packet_id": "rev_pkt_notice",
+                        "executing_packet_id": "rev_pkt_notice",
+                    }
+                ]
+            },
+            "agent_loop_decisions": [
+                {
+                    "actor_id": "codex",
+                    "actor_role": "implementer",
+                    "session_id": "s-codex",
+                    "active_packet_id": "",
+                    "attention_packet_id": "",
+                    "pending_packet_count": 0,
+                }
+            ],
+            "reviewer_runtime": {
+                "packet_attention": {
+                    "observation_actor_id": "",
+                    "pending_packet_count": 0,
+                    "wake_required": False,
+                    "stale_reason": "actor_identity_ambiguous",
+                }
+            },
+            "packets": [packet],
+        }
+
+        result = runtime_truth.evaluate_runtime_truth(
+            repo_root=Path("/repo"),
+            planned_agent_ids=[],
+        )
+
+        self.assertTrue(result["checked"])
+        self.assertFalse(result["errors"])
 
     @patch(
         "dev.scripts.checks.multi_agent_sync.runtime_truth."

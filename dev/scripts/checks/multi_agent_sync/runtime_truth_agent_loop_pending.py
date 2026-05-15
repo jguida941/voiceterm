@@ -9,7 +9,7 @@ from dev.scripts.devctl.review_channel.agent_sync_readers import (
     agent_sync_pending_packet_ids_from_row,
 )
 from dev.scripts.devctl.review_channel.packet_loop_attention import (
-    packet_requires_loop_attention,
+    packet_requires_runtime_attention,
 )
 
 _NON_AGENT_LOOP_TARGETS = frozenset({"operator", "system"})
@@ -29,7 +29,11 @@ def pending_packet_agents(
         if agent in _NON_AGENT_LOOP_TARGETS:
             continue
         packet_ids = agent_sync_pending_packet_ids_from_row(row)
-        if has_runtime_attention_packet(packet_ids, packet_index):
+        if has_runtime_attention_packet(
+            packet_ids,
+            packet_index,
+            actor_id=agent,
+        ):
             pending.append(agent)
     return sorted(pending)
 
@@ -55,6 +59,8 @@ def packet_index_by_id(
 def has_runtime_attention_packet(
     packet_ids: tuple[str, ...],
     packet_index: Mapping[str, Mapping[str, object]],
+    *,
+    actor_id: str = "",
 ) -> bool:
     for packet_id in packet_ids:
         if not packet_id:
@@ -62,6 +68,11 @@ def has_runtime_attention_packet(
         packet = packet_index.get(packet_id)
         if packet is None:
             return True
-        if packet_requires_loop_attention(packet):
+        if packet_requires_runtime_attention(
+            packet,
+            actor=actor_id,
+            role=coerce_text(packet.get("target_role")),
+            session=coerce_text(packet.get("target_session_id")),
+        ):
             return True
     return False

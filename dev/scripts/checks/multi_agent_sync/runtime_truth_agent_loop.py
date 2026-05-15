@@ -9,6 +9,9 @@ from dev.scripts.devctl.runtime.value_coercion import (
     coerce_mapping,
     coerce_text,
 )
+from dev.scripts.devctl.review_channel.packet_loop_attention import (
+    packet_requires_runtime_attention,
+)
 
 if __package__:
     from .runtime_truth_agent_loop_focus import packet_focus_errors
@@ -49,12 +52,13 @@ def agent_loop_decision_errors(payload: Mapping[str, object]) -> list[str]:
         ]
 
     errors: list[str] = []
-    errors.extend(_work_board_decision_errors(work_rows, decision_rows))
+    packet_index = _packet_index_by_id(packet_rows(payload))
+    errors.extend(_work_board_decision_errors(work_rows, decision_rows, packet_index))
     sync_agents = coerce_mapping(coerce_mapping(payload.get("agent_sync")).get("agents"))
     pending_agents = {
         agent
         for agent in pending_packet_agents(sync_agents, packet_rows=packet_rows(payload))
-        if _pending_agent_requires_loop_decision(agent, work_rows)
+        if _pending_agent_requires_loop_decision(agent, work_rows, packet_index)
     }
     decision_pending_agents = {
         coerce_text(row.get("actor_id"))
@@ -92,6 +96,7 @@ def agent_loop_decision_rows(
 def _work_board_decision_errors(
     work_rows: list[Mapping[str, object]],
     decision_rows: list[Mapping[str, object]],
+    packet_index: Mapping[str, Mapping[str, object]],
 ) -> list[str]:
     decisions_by_key = {
         _agent_loop_key(row): row
@@ -100,7 +105,7 @@ def _work_board_decision_errors(
     }
     errors: list[str] = []
     for row in work_rows:
-        if not _work_board_row_requires_loop_decision(row):
+        if not _work_board_row_requires_loop_decision(row, packet_index):
             continue
         key = _work_board_key(row)
         if not key:
@@ -116,13 +121,29 @@ def _work_board_decision_errors(
     return errors
 
 
-def _work_board_row_requires_loop_decision(row: Mapping[str, object]) -> bool:
-    if (
-        coerce_text(row.get("active_packet_id"))
-        or coerce_text(row.get("attention_packet_id"))
-        or coerce_text(row.get("executing_packet_id"))
-    ):
-        return True
+def _work_board_row_requires_loop_decision(
+    row: Mapping[str, object],
+    packet_index: Mapping[str, Mapping[str, object]] | None = None,
+) -> bool:
+    packet_ids = _work_board_packet_ids(row)
+    if packet_ids:
+        if packet_index is None:
+            return True
+        actor = coerce_text(row.get("actor_id"))
+        role = coerce_text(row.get("role"))
+        session = coerce_text(row.get("session_id"))
+        for packet_id in packet_ids:
+            packet = packet_index.get(packet_id)
+            if packet is None:
+                return True
+            if packet_requires_runtime_attention(
+                packet,
+                actor=actor,
+                role=role,
+                session=session,
+            ):
+                return True
+        return False
     if coerce_text(row.get("confidence_class")) == "stale":
         return False
     stale_after = coerce_int(row.get("stale_after_seconds"))
@@ -133,6 +154,7 @@ def _work_board_row_requires_loop_decision(row: Mapping[str, object]) -> bool:
 def _pending_agent_requires_loop_decision(
     agent: str,
     work_rows: list[Mapping[str, object]],
+    packet_index: Mapping[str, Mapping[str, object]],
 ) -> bool:
     """Mirror work-board loop authority for pending packet count checks."""
     routed_rows = [
@@ -142,7 +164,30 @@ def _pending_agent_requires_loop_decision(
     ]
     if not routed_rows:
         return True
-    return any(_work_board_row_requires_loop_decision(row) for row in routed_rows)
+    return any(
+        _work_board_row_requires_loop_decision(row, packet_index)
+        for row in routed_rows
+    )
+
+
+def _work_board_packet_ids(row: Mapping[str, object]) -> tuple[str, ...]:
+    packet_ids: list[str] = []
+    for key in ("active_packet_id", "attention_packet_id", "executing_packet_id"):
+        packet_id = coerce_text(row.get(key))
+        if packet_id and packet_id not in packet_ids:
+            packet_ids.append(packet_id)
+    return tuple(packet_ids)
+
+
+def _packet_index_by_id(
+    rows: list[Mapping[str, object]],
+) -> dict[str, Mapping[str, object]]:
+    indexed: dict[str, Mapping[str, object]] = {}
+    for row in rows:
+        packet_id = coerce_text(row.get("packet_id"))
+        if packet_id:
+            indexed[packet_id] = row
+    return indexed
 
 
 def _work_board_key(row: Mapping[str, object]) -> str:
