@@ -17,7 +17,15 @@ def _write_guard_policy(
     *,
     prefixes: list[str],
     observed_at_utc: str = "2026-05-15T21:59:46Z",
+    phase_0c_observed_at_utc: str = "",
 ) -> Path:
+    mandate = {
+        "mandate_packet_id": "rev_pkt_4136",
+        "observed_at_utc": observed_at_utc,
+        "enforced_row_prefixes": prefixes,
+    }
+    if phase_0c_observed_at_utc:
+        mandate["phase_0c_observed_at_utc"] = phase_0c_observed_at_utc
     path = tmp_path / "dev/config/devctl_repo_policy.json"
     path.parent.mkdir(parents=True)
     path.write_text(
@@ -25,11 +33,7 @@ def _write_guard_policy(
             {
                 "repo_governance": {
                     "guard_mandates": {
-                        "check_commit_message_row_id_resolves": {
-                            "mandate_packet_id": "rev_pkt_4136",
-                            "observed_at_utc": observed_at_utc,
-                            "enforced_row_prefixes": prefixes,
-                        }
+                        "check_commit_message_row_id_resolves": mandate
                     }
                 }
             },
@@ -46,6 +50,7 @@ def _row(
     title: str = "Build guard",
     status: str = "queued",
     commit_anchor_ref: str = "",
+    anchor_refs: list[str] | None = None,
 ) -> dict:
     return {
         "contract_id": "PlanRow",
@@ -55,6 +60,7 @@ def _row(
         "status": status,
         "sdlc_stage": "impl",
         "commit_anchor_ref": commit_anchor_ref,
+        "anchor_refs": anchor_refs or [],
         "provenance": {
             "contract_id": "IngestionProvenance",
             "schema_version": 1,
@@ -166,6 +172,57 @@ def test_applied_commit_requires_commit_anchor_ref_field(tmp_path: Path) -> None
     assert report.violations[0]["reason"] == "applied_row_missing_commit_anchor_ref"
 
 
+def test_pre_phase_0c_applied_row_accepts_legacy_commit_anchor_ref(
+    tmp_path: Path,
+) -> None:
+    _write_plan_index(
+        tmp_path,
+        [
+            _row(
+                "MP-NEW-P220-PHASE-0C-COMMIT-ANCHOR-REF-S1",
+                status="applied",
+                anchor_refs=["commit:52f7c49f"],
+            )
+        ],
+    )
+
+    report = _evaluate(
+        tmp_path,
+        "52f7c49f\nMP-NEW-P220-PHASE-0C-COMMIT-ANCHOR-REF-S1: apply field\n\x1e\n",
+    )
+
+    assert report.ok is True
+    assert report.violation_count == 0
+
+
+def test_post_phase_0c_requires_typed_commit_anchor_ref_field(
+    tmp_path: Path,
+) -> None:
+    _write_plan_index(
+        tmp_path,
+        [
+            _row(
+                "MP-NEW-P220-PHASE-0C-COMMIT-ANCHOR-REF-S1",
+                status="applied",
+                anchor_refs=["commit:52f7c49f"],
+            )
+        ],
+    )
+    _write_guard_policy(
+        tmp_path,
+        prefixes=["MP-NEW-P220-"],
+        phase_0c_observed_at_utc="2026-05-15T23:20:00Z",
+    )
+
+    report = _evaluate(
+        tmp_path,
+        "52f7c49f\nMP-NEW-P220-PHASE-0C-COMMIT-ANCHOR-REF-S1: apply field\n\x1e\n",
+    )
+
+    assert report.ok is False
+    assert report.violations[0]["reason"] == "applied_row_missing_commit_anchor_ref"
+
+
 def test_commit_subject_with_corrupted_row_title_fails(tmp_path: Path) -> None:
     _write_plan_index(
         tmp_path,
@@ -207,3 +264,31 @@ def test_report_echoes_scan_range_metadata(tmp_path: Path) -> None:
     assert report.range_mode == "max_count"
     assert report.max_count == 200
     assert report.observed_at_utc == "2026-05-15T21:59:46Z"
+
+
+def test_report_echoes_requested_strict_ref_range_metadata(tmp_path: Path) -> None:
+    from dev.scripts.checks.check_commit_message_row_id_resolves import (
+        evaluate_commit_message_row_id_resolves,
+    )
+
+    _write_plan_index(tmp_path, [])
+    _write_guard_policy(tmp_path, prefixes=["MP-NEW-P220-"])
+
+    report = evaluate_commit_message_row_id_resolves(
+        repo_root=tmp_path,
+        log_text=(
+            "newsha\x002026-05-15T22:40:00+00:00\n"
+            "docs: no row\n\x1e\n"
+            "oldsha\x002026-05-15T22:39:00+00:00\n"
+            "docs: no row\n\x1e\n"
+        ),
+        plan_index_path=tmp_path / "dev/state/plan_index.jsonl",
+        since_ref="@{u}",
+        head_ref="HEAD",
+    )
+
+    assert report.range_mode == "ref_range"
+    assert report.since_ref == "@{u}"
+    assert report.head_ref == "HEAD"
+    assert report.newest_scanned_commit == "newsha"
+    assert report.oldest_scanned_commit == "oldsha"

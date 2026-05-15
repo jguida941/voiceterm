@@ -195,6 +195,7 @@
       "check_commit_message_row_id_resolves": {
         "mandate_packet_id": "rev_pkt_4136",
         "observed_at_utc": "2026-05-15T21:59:46Z",
+        "phase_0c_observed_at_utc": "2026-05-15T23:20:00Z",
         "enforced_row_prefixes": [
           "MP-NEW-P207-",
           "MP-NEW-P208-",
@@ -203,6 +204,14 @@
           "MP-NEW-P220-",
           "MP-377-P0-",
           "MP377-P0-"
+        ],
+        "valid_packet_dispositions": [
+          "ingest_plan_intent",
+          "decided_no_op",
+          "superseded",
+          "rejected_with_evidence",
+          "duplicate_of_existing_row",
+          "already_covered"
         ]
       },
       "check_packet_pkt_bind_completeness": {

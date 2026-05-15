@@ -13,6 +13,7 @@ from ..runtime.master_plan_contract import (
     MasterPlan,
     PlanRow,
     SDLCStage,
+    hydrate_plan_row_commit_anchor_ref,
 )
 from ..runtime.master_plan_store import upsert_plan_row_jsonl
 from ..runtime.plan_ref import canonical_plan_ref
@@ -174,29 +175,32 @@ def _typed_plan_row(
         f"packet_attestation:{event_id}" if event_id else ""
     )
     source_hash = _content_hash(packet)
-    return PlanRow(
-        row_id=f"PKT-{_task_slug(packet_id)}",
-        title=summary,
-        status="applied",
-        sdlc_stage=SDLCStage.IMPL,
-        sourced_from_packets=(packet_id,),
-        work_evidence_ids=(evidence_id,) if evidence_id else (),
-        plan_revision_at_write=master_plan.plan_revision or target_revision,
-        source_doc_path=master_plan.source_path or master_plan.projection_path,
-        source_line=0,
-        content_hash=source_hash,
-        provenance=IngestionProvenance(
-            source_file=master_plan.source_path or master_plan.projection_path,
+    return hydrate_plan_row_commit_anchor_ref(
+        PlanRow(
+            row_id=f"PKT-{_task_slug(packet_id)}",
+            title=summary,
+            status="applied",
+            sdlc_stage=SDLCStage.IMPL,
+            sourced_from_packets=(packet_id,),
+            work_evidence_ids=(evidence_id,) if evidence_id else (),
+            plan_revision_at_write=master_plan.plan_revision or target_revision,
+            source_doc_path=master_plan.source_path or master_plan.projection_path,
             source_line=0,
-            source_kind="PacketPlanIntegration",
-            source_hash=source_hash,
-            observed_at_utc=_text(event.get("timestamp_utc")),
-            section_authority="packet_applied",
-        ),
-        target_ref=target_ref,
-        mutation_op=_text(packet.get("mutation_op"))
-        or _text(packet.get("requested_action")),
-        anchor_refs=tuple(_string_rows(packet.get("anchor_refs"))),
+            content_hash=source_hash,
+            provenance=IngestionProvenance(
+                source_file=master_plan.source_path or master_plan.projection_path,
+                source_line=0,
+                source_kind="PacketPlanIntegration",
+                source_hash=source_hash,
+                observed_at_utc=_text(event.get("timestamp_utc")),
+                section_authority="packet_applied",
+            ),
+            target_ref=target_ref,
+            mutation_op=_text(packet.get("mutation_op"))
+            or _text(packet.get("requested_action")),
+            anchor_refs=tuple(_string_rows(packet.get("anchor_refs"))),
+            applied_at_utc=_text(event.get("timestamp_utc")),
+        )
     )
 
 

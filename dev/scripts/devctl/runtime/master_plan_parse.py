@@ -16,6 +16,7 @@ from .master_plan_contract import (
     PLAN_PROPOSAL_CONTRACT_ID,
     PLAN_ROW_CONTRACT_ID,
     ExplainBackReceipt,
+    commit_anchor_ref_from_anchor_refs,
     IngestedDoc,
     IngestionDrift,
     IngestionPolicy,
@@ -78,12 +79,17 @@ def ingestion_provenance_from_mapping(
 def plan_row_from_mapping(payload: Mapping[str, object]) -> PlanRow:
     schema_version = coerce_int(payload.get("schema_version"))
     contract_id = coerce_string(payload.get("contract_id"))
+    anchor_refs = coerce_string_items(payload.get("anchor_refs"))
+    status = coerce_string(payload.get("status")) or "open"
+    commit_anchor_ref = coerce_string(payload.get("commit_anchor_ref"))
+    if status in {"applied", "completed"} and not commit_anchor_ref:
+        commit_anchor_ref = commit_anchor_ref_from_anchor_refs(anchor_refs)
     return PlanRow(
         schema_version=schema_version or MASTER_PLAN_SCHEMA_VERSION,
         contract_id=contract_id or PLAN_ROW_CONTRACT_ID,
         row_id=coerce_string(payload.get("row_id")),
         title=coerce_string(payload.get("title")),
-        status=coerce_string(payload.get("status")) or "open",
+        status=status,
         sdlc_stage=SDLCStage.normalize(payload.get("sdlc_stage")),
         row_kind=coerce_string(payload.get("row_kind")) or "task",
         sourced_from_packets=coerce_string_items(payload.get("sourced_from_packets")),
@@ -95,9 +101,11 @@ def plan_row_from_mapping(payload: Mapping[str, object]) -> PlanRow:
         source_line=coerce_int(payload.get("source_line")),
         content_hash=coerce_string(payload.get("content_hash")),
         provenance=ingestion_provenance_from_mapping(payload),
-        anchor_refs=coerce_string_items(payload.get("anchor_refs")),
+        anchor_refs=anchor_refs,
         target_ref=coerce_string(payload.get("target_ref")),
         mutation_op=coerce_string(payload.get("mutation_op")),
+        commit_anchor_ref=commit_anchor_ref,
+        applied_at_utc=coerce_string(payload.get("applied_at_utc")),
     )
 
 

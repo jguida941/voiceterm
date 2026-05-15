@@ -12,7 +12,19 @@ def _write_plan_index(tmp_path: Path, rows: list[dict]) -> Path:
     return path
 
 
-def _write_guard_policy(tmp_path: Path, *, prefixes: list[str]) -> Path:
+def _write_guard_policy(
+    tmp_path: Path,
+    *,
+    prefixes: list[str],
+    valid_packet_dispositions: list[str] | None = None,
+) -> Path:
+    mandate = {
+        "mandate_packet_id": "rev_pkt_4136",
+        "observed_at_utc": "2026-05-15T21:59:46Z",
+        "enforced_row_prefixes": prefixes,
+    }
+    if valid_packet_dispositions is not None:
+        mandate["valid_packet_dispositions"] = valid_packet_dispositions
     path = tmp_path / "dev/config/devctl_repo_policy.json"
     path.parent.mkdir(parents=True)
     path.write_text(
@@ -20,11 +32,7 @@ def _write_guard_policy(tmp_path: Path, *, prefixes: list[str]) -> Path:
             {
                 "repo_governance": {
                     "guard_mandates": {
-                        "check_commit_message_row_id_resolves": {
-                            "mandate_packet_id": "rev_pkt_4136",
-                            "observed_at_utc": "2026-05-15T21:59:46Z",
-                            "enforced_row_prefixes": prefixes,
-                        }
+                        "check_commit_message_row_id_resolves": mandate
                     }
                 }
             },
@@ -160,6 +168,63 @@ def test_packet_decomposition_accepts_policy_prefix_plan_rows(
 
     assert report.ok is True
     assert report.violation_count == 0
+
+
+def test_packet_decomposition_accepts_policy_valid_terminal_disposition(
+    tmp_path: Path,
+) -> None:
+    _write_plan_index(
+        tmp_path,
+        [
+            _row("PKT-BIND-REV-PKT-4134", mutation_op="review_only"),
+            _row("MP-NEW-P220-DECIDED-NO-OP-S1", mutation_op="decided_no_op"),
+        ],
+    )
+    _write_guard_policy(
+        tmp_path,
+        prefixes=["MP-NEW-P220-"],
+        valid_packet_dispositions=[
+            "ingest_plan_intent",
+            "decided_no_op",
+            "superseded",
+            "rejected_with_evidence",
+        ],
+    )
+
+    report = _evaluate(
+        tmp_path,
+        (
+            "abc1234\x002026-05-15T22:40:00+00:00\n"
+            "MP-NEW-P220-DECIDED-NO-OP-S1: decide no-op\n\nPacket: rev_pkt_4134\n\x1e\n"
+        ),
+    )
+
+    assert report.ok is True
+    assert report.violation_count == 0
+
+
+def test_packet_decomposition_rejects_terminal_disposition_without_policy(
+    tmp_path: Path,
+) -> None:
+    _write_plan_index(
+        tmp_path,
+        [
+            _row("PKT-BIND-REV-PKT-4134", mutation_op="review_only"),
+            _row("MP-NEW-P220-DECIDED-NO-OP-S1", mutation_op="decided_no_op"),
+        ],
+    )
+    _write_guard_policy(tmp_path, prefixes=["MP-NEW-P220-"])
+
+    report = _evaluate(
+        tmp_path,
+        (
+            "abc1234\x002026-05-15T22:40:00+00:00\n"
+            "MP-NEW-P220-DECIDED-NO-OP-S1: decide no-op\n\nPacket: rev_pkt_4134\n\x1e\n"
+        ),
+    )
+
+    assert report.ok is False
+    assert report.violations[0]["reason"] == "packet_only_pkt_bind_rows"
 
 
 def test_commit_with_mp_new_row_having_ingest_plan_intent_passes(

@@ -16130,3 +16130,23 @@ Evidence:
 - `dev/scripts/checks/check_commit_message_row_id_resolves.py`
 - `dev/scripts/devctl/tests/checks/test_check_commit_message_row_id_resolves.py`
 - `dev/scripts/devctl/tests/checks/test_check_packet_decomposition_completeness.py`
+
+### 2026-05-15 - Plan-row closure gets typed commit anchors
+
+R177 dogfood found that code commits were landing faster than `PlanRow`
+closure state could prove them. Phase 0c adds `PlanRow.commit_anchor_ref` and
+`PlanRow.applied_at_utc`, bumps the additive plan-row schema to v2, parses and
+serializes the fields through plan-index authority, hydrates commit anchors
+from legacy `commit:` refs on applied/completed transitions, and exposes a
+typed validator consumed by the P40 commit-message guard. The same guard now
+switches to strict typed-field enforcement once `phase_0c_observed_at_utc` is
+present, accepts policy-owned terminal packet dispositions, and supports strict
+`--since-ref/--head-ref` scans for unpublished ranges.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/master_plan_contract.py`
+- `dev/scripts/devctl/runtime/master_plan_parse.py`
+- `dev/scripts/devctl/commands/development/plan_intake.py`
+- `dev/scripts/checks/check_commit_message_row_id_resolves.py`
+- `dev/scripts/devctl/tests/runtime/test_master_plan_contract_applied_commit_sha.py`

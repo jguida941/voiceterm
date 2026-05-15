@@ -14907,11 +14907,25 @@ decomposition runs independently of row-prefix enforcement, and the guard
 reports its scanned range plus mandate metadata so reviewers can tell exactly
 which commits and policy window were evaluated.
 
+R177 Phase 0c adds `PlanRow.commit_anchor_ref` as the typed closure field and
+bumps the additive plan-row schema to v2 with `PlanRow.applied_at_utc`. Plan
+ingestion now hydrates commit anchors from legacy `commit:` refs when rows move
+to applied/completed, and the P40 guard switches to strict typed-field
+validation after the policy `phase_0c_observed_at_utc` timestamp. The guard
+also consumes policy-owned `valid_packet_dispositions` (`decided_no_op`,
+`superseded`, `rejected_with_evidence`, `duplicate_of_existing_row`, and
+`already_covered`) so packet closure can be a typed decision instead of silent
+absence, and supports `--since-ref/--head-ref` for strict unpublished-range
+scans.
+
 Evidence:
 
 - `dev/scripts/checks/check_commit_message_row_id_resolves.py`
+- `dev/scripts/devctl/runtime/master_plan_contract.py`
+- `dev/scripts/devctl/commands/development/plan_intake.py`
 - `dev/scripts/devctl/tests/checks/test_check_commit_message_row_id_resolves.py`
 - `dev/scripts/devctl/tests/checks/test_check_packet_decomposition_completeness.py`
+- `dev/scripts/devctl/tests/runtime/test_master_plan_contract_applied_commit_sha.py`
 - `dev/state/contract_registry.jsonl`
 - `dev/test_data/schema_fixtures/CommitMessageRowIdResolvesGuard/1`
 

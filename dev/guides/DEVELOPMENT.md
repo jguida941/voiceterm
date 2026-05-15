@@ -290,7 +290,16 @@ Use docs like this:
   its scanned commit range, policy observation timestamp, and enforced row
   prefixes. Packet-decomposition checks always run for cited packets, and the
   decomposed implementation rows must satisfy the same active policy prefixes
-  rather than a hard-coded `MP-NEW-*` shortcut.
+  rather than a hard-coded `MP-NEW-*` shortcut. Phase 0c adds the typed
+  `PlanRow.commit_anchor_ref` field: after
+  `phase_0c_observed_at_utc` is present in policy, applied/completed rows must
+  carry that field instead of relying on legacy `anchor_refs=["commit:..."]`.
+  Packet decomposition also consumes policy-owned `valid_packet_dispositions`
+  so `decided_no_op`, `superseded`, `rejected_with_evidence`,
+  `duplicate_of_existing_row`, and `already_covered` rows can close packets
+  without pretending every packet requires implementation. Use
+  `--since-ref @{u} --head-ref HEAD` for strict unpublished-range scans before
+  publication.
 - The `ensure-follow` reviewer-wake path
   (`dev/scripts/devctl/review_channel/reviewer_follow_guard.py::launch_waiting_reviewer_conductor`)
   shares the same auto-elevation seam, so a remote-control reviewer

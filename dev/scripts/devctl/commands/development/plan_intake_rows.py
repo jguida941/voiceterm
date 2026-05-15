@@ -6,7 +6,11 @@ from dataclasses import replace
 from typing import Any
 
 from ...governance.master_plan_ingestion import MarkdownChecklistAdapter
-from ...runtime.master_plan_contract import PlanRow, SDLCStage
+from ...runtime.master_plan_contract import (
+    PlanRow,
+    SDLCStage,
+    hydrate_plan_row_commit_anchor_ref,
+)
 from .plan_intake_decomposition import decomposed_packet_rows
 from .plan_intake_evidence import anchor_refs, dedupe, work_evidence_refs
 from .plan_intake_phase0 import ParsedPlanAuthoritySections
@@ -203,20 +207,28 @@ def _row_with_intent_defaults(
     source_hash: str,
     observed_at: str,
 ) -> PlanRow:
-    row_anchor_refs = dedupe(list(row.anchor_refs) + list(getattr(args, "anchor_refs", ()) or ()))
-    return replace(
-        row,
-        source_doc_path=source.ref,
-        content_hash=source_hash,
-        provenance=provenance(
-            source,
-            source_hash=source_hash,
-            observed_at=observed_at,
-            source_line=row.source_line,
-        ),
-        anchor_refs=row_anchor_refs,
-        target_ref=text(getattr(args, "target_ref", "")) or row.target_ref,
-        mutation_op=text(getattr(args, "mutation_op", "")) or row.mutation_op or "ingest_plan_intent",
+    row_anchor_refs = dedupe(
+        list(row.anchor_refs) + list(getattr(args, "anchor_refs", ()) or ())
+    )
+    return hydrate_plan_row_commit_anchor_ref(
+        replace(
+            row,
+            source_doc_path=source.ref,
+            content_hash=source_hash,
+            provenance=provenance(
+                source,
+                source_hash=source_hash,
+                observed_at=observed_at,
+                source_line=row.source_line,
+            ),
+            anchor_refs=row_anchor_refs,
+            target_ref=text(getattr(args, "target_ref", "")) or row.target_ref,
+            mutation_op=(
+                text(getattr(args, "mutation_op", ""))
+                or row.mutation_op
+                or "ingest_plan_intent"
+            ),
+        )
     )
 
 

@@ -10,7 +10,11 @@ from typing import Any
 
 from ...common import emit_output, write_output
 from ...config import REPO_ROOT
-from ...runtime.master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL, PlanRow
+from ...runtime.master_plan_contract import (
+    DEFAULT_MASTER_PLAN_STORE_REL,
+    PlanRow,
+    hydrate_plan_row_commit_anchor_ref,
+)
 from ...runtime.master_plan_store import (
     read_plan_rows_jsonl,
     upsert_plan_rows_jsonl,
@@ -392,18 +396,14 @@ def _merge_row_with_existing(
     existing: PlanRow | None,
 ) -> PlanRow:
     if existing is None:
-        return row
+        return hydrate_commit_anchor_ref_for_applied_row(row)
     preserve_existing_title = bool(
         text(getattr(args, "plan_row_id", "")) and not text(getattr(args, "title", ""))
     )
-    return replace(
+    merged = replace(
         row,
         title=existing.title if preserve_existing_title else row.title,
-        status=(
-            row.status
-            if _explicit_arg(args, "plan_status", default="queued")
-            else existing.status
-        ),
+        status=_merged_status(args, row=row, existing=existing),
         sdlc_stage=(
             row.sdlc_stage
             if _explicit_arg(args, "sdlc_stage", default="spec")
@@ -427,7 +427,24 @@ def _merge_row_with_existing(
             existing.contradicts_packets,
             row.contradicts_packets,
         ),
+        commit_anchor_ref=row.commit_anchor_ref or existing.commit_anchor_ref,
+        applied_at_utc=row.applied_at_utc or existing.applied_at_utc,
     )
+    return hydrate_commit_anchor_ref_for_applied_row(merged)
+
+
+def hydrate_commit_anchor_ref_for_applied_row(row: PlanRow) -> PlanRow:
+    """Populate the typed commit anchor field from legacy commit anchor refs."""
+
+    return hydrate_plan_row_commit_anchor_ref(row)
+
+
+def _merged_status(args: Any, *, row: PlanRow, existing: PlanRow) -> str:
+    if _explicit_arg(args, "plan_status", default="queued"):
+        return row.status
+    if existing.status == "open" and row.status == "queued":
+        return row.status
+    return existing.status
 
 
 def _explicit_arg(args: Any, name: str, *, default: str = "") -> bool:

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 
 from .value_coercion import coerce_string
 
 MASTER_PLAN_CONTRACT_ID = "MasterPlan"
-MASTER_PLAN_SCHEMA_VERSION = 1
+MASTER_PLAN_SCHEMA_VERSION = 2
 PLAN_ROW_CONTRACT_ID = "PlanRow"
 LINKED_DOC_CONTRACT_ID = "LinkedDoc"
 PLAN_PROPOSAL_CONTRACT_ID = "PlanProposal"
@@ -96,6 +96,37 @@ class AffectedTestSelection:
 
 
 @dataclass(frozen=True, slots=True)
+class PlanRowCommitAnchorRefViolation:
+    """One PlanRow commit-anchor validation failure."""
+
+    row_id: str
+    status: str
+    reason: str
+    expected_action: str
+    schema_version: int = MASTER_PLAN_SCHEMA_VERSION
+    contract_id: str = "PlanRowCommitAnchorRefViolation"
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class PlanRowCommitAnchorRefReport:
+    """Validation report for applied/completed PlanRow commit anchors."""
+
+    ok: bool
+    row_id: str
+    violations: tuple[PlanRowCommitAnchorRefViolation, ...] = ()
+    schema_version: int = MASTER_PLAN_SCHEMA_VERSION
+    contract_id: str = "PlanRowCommitAnchorRefReport"
+
+    def to_dict(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["violations"] = [violation.to_dict() for violation in self.violations]
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
 class PlanRow:
     """One typed master-plan row.
 
@@ -122,6 +153,8 @@ class PlanRow:
     anchor_refs: tuple[str, ...] = ()
     target_ref: str = ""
     mutation_op: str = ""
+    commit_anchor_ref: str = ""
+    applied_at_utc: str = ""
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
@@ -131,6 +164,51 @@ class PlanRow:
         payload["work_evidence_ids"] = list(self.work_evidence_ids)
         payload["anchor_refs"] = list(self.anchor_refs)
         return payload
+
+
+def validate_plan_row_commit_anchor_ref(
+    row: PlanRow,
+) -> PlanRowCommitAnchorRefReport:
+    """Require typed commit anchors once a PlanRow is applied or completed."""
+
+    if row.status not in {"applied", "completed"} or row.commit_anchor_ref:
+        return PlanRowCommitAnchorRefReport(ok=True, row_id=row.row_id)
+    return PlanRowCommitAnchorRefReport(
+        ok=False,
+        row_id=row.row_id,
+        violations=(
+            PlanRowCommitAnchorRefViolation(
+                row_id=row.row_id,
+                status=row.status,
+                reason="applied_row_missing_commit_anchor_ref",
+                expected_action="hydrate_commit_anchor_ref",
+            ),
+        ),
+    )
+
+
+PlanRowCommitAnchorRefValidationReport = PlanRowCommitAnchorRefReport
+
+
+def commit_anchor_ref_from_anchor_refs(anchor_refs: tuple[str, ...]) -> str:
+    """Return the first typed commit anchor ref from a PlanRow anchor list."""
+
+    for anchor_ref in anchor_refs:
+        text_ref = coerce_string(anchor_ref)
+        if text_ref.startswith("commit:"):
+            return text_ref
+    return ""
+
+
+def hydrate_plan_row_commit_anchor_ref(row: PlanRow) -> PlanRow:
+    """Populate the typed commit-anchor field from legacy commit anchor refs."""
+
+    if row.status not in {"applied", "completed"} or row.commit_anchor_ref:
+        return row
+    commit_anchor_ref = commit_anchor_ref_from_anchor_refs(row.anchor_refs)
+    if not commit_anchor_ref:
+        return row
+    return replace(row, commit_anchor_ref=commit_anchor_ref)
 
 
 @dataclass(frozen=True, slots=True)
@@ -289,7 +367,9 @@ __all__ = [
     "MASTER_PLAN_SCHEMA_VERSION",
     "PLAN_PROPOSAL_CONTRACT_ID",
     "PLAN_ROW_CONTRACT_ID",
+    "commit_anchor_ref_from_anchor_refs",
     "ExplainBackReceipt",
+    "hydrate_plan_row_commit_anchor_ref",
     "IngestedDoc",
     "IngestionDrift",
     "IngestionPolicy",
@@ -297,6 +377,10 @@ __all__ = [
     "LinkedDoc",
     "MasterPlan",
     "PlanProposal",
+    "PlanRowCommitAnchorRefReport",
+    "PlanRowCommitAnchorRefValidationReport",
+    "PlanRowCommitAnchorRefViolation",
     "PlanRow",
     "SDLCStage",
+    "validate_plan_row_commit_anchor_ref",
 ]
