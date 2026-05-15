@@ -48,6 +48,7 @@ from .event_action_support import (
     EventActionContext,
     run_inbox_like_action,
 )
+from .event_ack_freshness_action import run_check_ack_freshness_action
 from .event_handler_side_effects import (
     run_implementer_ack_with_bridge_sync,
     run_post_action_with_side_effects,
@@ -232,6 +233,8 @@ def _run_loaded_bundle_action(
         )
     if args.action == "sync-status":
         return run_sync_status_action(args=args, bundle=bundle)
+    if args.action == "check-ack-freshness":
+        return run_check_ack_freshness_action(context=context, bundle=bundle)
     if args.action == "expire-packets":
         return run_expire_packets_action(context=context)
     if args.action == "watch":

@@ -736,6 +736,9 @@ Three quality layers matter in practice:
     output, not ACK authority: bridge-backed current-session selection must
     keep ACK state missing unless typed `current_session` /
     `latest_implementer_ack` state backs the same instruction revision.
+    Use `review-channel --action check-ack-freshness --format json` for the
+    on-demand typed health probe when bridge-visible ACK text and typed ACK
+    state need to be compared without polling `bridge.md` by hand.
     Prefer provider-neutral bridge aliases
     (`implementer_ack*`, `implementer_status`, `reviewer_poll_state`,
     `last_reviewer_poll_*`) when present; the legacy `claude_*` /

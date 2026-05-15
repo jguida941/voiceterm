@@ -50,11 +50,18 @@ claims unless typed `current_session` / `latest_implementer_ack` state backs the
 same instruction revision. Typed ACK payloads still project as current; raw
 bridge prose alone cannot advance ACK freshness.
 
+Follow-up: `review-channel --action check-ack-freshness --format json` now
+emits `ImplementerAckFreshnessProjection` from typed ACK events/current-session
+state and compares it with the compatibility bridge projection. The on-demand
+P152 mode fails closed on bridge-only or stale visible ACK claims.
+
 Evidence:
 
 - `dev/scripts/devctl/review_channel/current_session_projection.py`
 - `dev/scripts/devctl/review_channel/current_session_event_state.py`
 - `dev/scripts/devctl/review_channel/current_session_authority.py`
+- `dev/scripts/devctl/review_channel/ack_freshness_authority.py`
+- `dev/scripts/devctl/commands/review_channel/event_ack_freshness_action.py`
 - `dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`
 
 ### 2026-05-15 - Governed push preflight enforces canonical governance docs

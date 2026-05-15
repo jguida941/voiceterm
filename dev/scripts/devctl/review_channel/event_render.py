@@ -66,6 +66,7 @@ def render_event_md(report: dict) -> str:
         lines,
         report.get("packet_attention") or report.get("reviewer_wake"),
     )
+    _append_ack_freshness(lines, report.get("ack_freshness"))
     append_runtime_readiness_markdown(lines, report)
     append_common_report_sections(lines, report)
     append_doctor_markdown(lines, report.get("doctor"))
@@ -191,6 +192,28 @@ def _append_packet_attention(lines: list[str], wake: object) -> None:
     if isinstance(warnings, list) and warnings:
         for warning in warnings:
             lines.append(f"- warning: {warning}")
+
+
+def _append_ack_freshness(lines: list[str], ack_freshness: object) -> None:
+    if not isinstance(ack_freshness, dict) or not ack_freshness:
+        return
+    lines.append("")
+    lines.append("## Implementer ACK Freshness")
+    lines.append(f"- status: {ack_freshness.get('status') or '(unknown)'}")
+    lines.append(
+        "- current_instruction_revision: "
+        f"{ack_freshness.get('current_instruction_revision') or '(none)'}"
+    )
+    typed_ack = ack_freshness.get("typed_ack")
+    if isinstance(typed_ack, dict):
+        lines.append(f"- typed_ack_current: {bool(typed_ack.get('current'))}")
+        lines.append(f"- typed_ack_source: {typed_ack.get('source') or '(none)'}")
+        lines.append(f"- typed_ack_revision: {typed_ack.get('revision') or '(none)'}")
+    bridge_ack = ack_freshness.get("bridge_visible_ack")
+    if isinstance(bridge_ack, dict):
+        lines.append(f"- bridge_ack_visible: {bool(bridge_ack.get('visible'))}")
+        lines.append(f"- bridge_ack_revision: {bridge_ack.get('revision') or '(none)'}")
+    lines.append(f"- detail: {ack_freshness.get('detail') or '(none)'}")
 
 
 def _append_derived_state_invalidation(lines: list[str], wake: dict) -> None:

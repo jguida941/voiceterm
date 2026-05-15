@@ -2,8 +2,16 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
+from dev.scripts.devctl.commands.review_channel.event_ack_freshness_action import (
+    run_check_ack_freshness_action,
+)
 from dev.scripts.devctl.commands.review_channel._bridge_poll import (
     build_bridge_poll_result,
+)
+from dev.scripts.devctl.commands.review_channel.event_action_support import (
+    EventActionContext,
 )
 from dev.scripts.devctl.review_channel.bridge_projection_state import (
     build_bridge_projection_state,
@@ -20,6 +28,9 @@ from dev.scripts.devctl.review_channel.reviewer_state_normalize import (
 from dev.scripts.devctl.review_channel.ack_contract import (
     extract_implementer_ack_revision,
     packet_ack_is_transport_lifecycle_line,
+)
+from dev.scripts.devctl.review_channel.ack_freshness_authority import (
+    build_implementer_ack_freshness_projection,
 )
 from dev.scripts.devctl.review_channel.handoff import extract_bridge_snapshot
 
@@ -208,3 +219,133 @@ def test_build_bridge_poll_result_prefers_typed_current_session_authority() -> N
     assert result.changed_since_last_ack is False
     assert result.reviewed_hash_current is True
     assert result.review_needed is False
+
+
+def test_ack_freshness_projection_rejects_bridge_only_current_ack() -> None:
+    revision = "c278fb3bb6e3"
+    projection = build_implementer_ack_freshness_projection(
+        review_state=_review_state(
+            revision=revision,
+            bridge_ack=f"- acknowledged current instruction revision: `{revision}`",
+            typed_ack_state="missing",
+        ),
+        events=(),
+    )
+
+    assert projection["ok"] is False
+    assert projection["status"] == "bridge_only_drift"
+    assert projection["bridge_visible_ack"]["visible"] is True
+    assert projection["typed_ack"]["current"] is False
+
+
+def test_ack_freshness_projection_accepts_typed_ack_event() -> None:
+    revision = "c278fb3bb6e3"
+    projection = build_implementer_ack_freshness_projection(
+        review_state=_review_state(
+            revision=revision,
+            bridge_ack=f"- acknowledged current instruction revision: `{revision}`",
+        ),
+        events=(_implementer_ack_event(revision),),
+    )
+
+    assert projection["ok"] is True
+    assert projection["status"] == "current"
+    assert projection["typed_ack"]["source"] == "implementer_ack_event"
+
+
+def test_check_ack_freshness_action_sets_exit_code_from_projection() -> None:
+    revision = "c278fb3bb6e3"
+    args = SimpleNamespace(
+        action="check-ack-freshness",
+        ack_freshness_mode="on_demand",
+    )
+    context = EventActionContext(
+        args=args,
+        repo_root=None,
+        review_channel_path=None,
+        artifact_paths=None,
+        build_event_report_fn=_base_event_report,
+    )
+    bundle = SimpleNamespace(
+        review_state=_review_state(
+            revision=revision,
+            bridge_ack=f"- acknowledged current instruction revision: `{revision}`",
+            typed_ack_state="missing",
+        ),
+        events=[],
+    )
+
+    report, exit_code = run_check_ack_freshness_action(
+        context=context,
+        bundle=bundle,
+    )
+
+    assert exit_code == 1
+    assert report["ok"] is False
+    assert report["ack_freshness"]["status"] == "bridge_only_drift"
+
+
+def _review_state(
+    *,
+    revision: str,
+    bridge_ack: str,
+    typed_ack_state: str = "current",
+) -> dict[str, object]:
+    return {
+        "current_session": {
+            "current_instruction": "- Build typed ACK projection.",
+            "current_instruction_revision": revision,
+            "implementer_status": "- working",
+            "implementer_ack": "",
+            "implementer_ack_revision": "",
+            "implementer_ack_state": typed_ack_state,
+        },
+        "_compat": {
+            "bridge_projection": {
+                "sections": {
+                    "Implementer Ack": bridge_ack,
+                }
+            }
+        },
+    }
+
+
+def _implementer_ack_event(revision: str) -> dict[str, object]:
+    return {
+        "event_id": "rev_evt_1",
+        "event_type": "review_channel.implementer_ack",
+        "schema_version": 1,
+        "source": "review_channel",
+        "session_id": "local-review",
+        "plan_id": "MP-NEW-P188",
+        "project_id": "project-1",
+        "timestamp_utc": "2026-05-15T00:00:00Z",
+        "idempotency_key": f"review_channel.implementer_ack:revision={revision}",
+        "nonce": "abc123",
+        "payload": {
+            "actor": "claude",
+            "actor_role": "implementer",
+            "target_role": "implementer",
+            "target_session_id": "",
+            "current_instruction_revision": revision,
+            "acknowledged_at_utc": "2026-05-15T00:00:00Z",
+            "notes": "",
+            "implementer_ack": (
+                f"- acknowledged current instruction revision: `{revision}`"
+            ),
+        },
+    }
+
+
+def _base_event_report(**_kwargs) -> tuple[dict[str, object], int]:
+    return (
+        {
+            "ok": True,
+            "exit_ok": True,
+            "exit_code": 0,
+            "status": "ok",
+            "errors": [],
+            "warnings": [],
+        },
+        0,
+    )

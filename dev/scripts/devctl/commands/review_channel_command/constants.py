@@ -101,6 +101,7 @@ class ReviewChannelAction(StrEnum):
     APPLY = "apply"
     HISTORY = "history"
     SHOW = "show"
+    CHECK_ACK_FRESHNESS = "check-ack-freshness"
     BRIDGE_POLL = "bridge-poll"
     RENDER_BRIDGE = "render-bridge"
     ATTACH_REMOTE_CONTROL = "attach-remote-control"
@@ -120,6 +121,7 @@ EVENT_ACTION_SET = frozenset(
         ReviewChannelAction.APPLY,
         ReviewChannelAction.HISTORY,
         ReviewChannelAction.SHOW,
+        ReviewChannelAction.CHECK_ACK_FRESHNESS,
     }
 )
 REVIEWER_STATE_ACTION_SET = frozenset(

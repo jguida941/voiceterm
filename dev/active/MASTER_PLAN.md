@@ -8579,6 +8579,7 @@ projection name and must be dogfooded in live R-rounds before deleting
 - [ ] `MP-NEW-P188-IMPLEMENTER-ACK-TYPED-PROJECTION-FIX-S1` Fix implementer ack projection drift by wiring the visible ack state back to typed events instead of bridge text.
   - progress 2026-05-15: bridge-backed current-session resolution no longer lets bridge-only ACK text make `implementer_ack_state=current`; it overlays typed `latest_implementer_ack` for the matching instruction revision and otherwise keeps ACK state missing.
 - [ ] `MP-NEW-P188-AUTOMATION-TRIPLET-S1` Add the R126 automation triplet: implementer-ack freshness projection, extension-vs-build verification, and CLI health probe automation.
+  - progress 2026-05-15: added `review-channel --action check-ack-freshness` as the on-demand P152 mode for `ImplementerAckFreshnessProjection`; it reads typed implementer ACK events/current-session state and reports bridge-visible ACK drift.
 - [ ] `MP-NEW-P188-SYSTEM-MAP-BACKLOG-PROMOTION-S1` Promote the R126 SystemMapIntegration backlog items into durable plan authority.
 - [ ] `MP-NEW-P188-PEER-COMMUNICATION-STATE-SNAPSHOT-S1` Define `PeerCommunicationStateSnapshot` as the typed source for the replacement projection.
   - sequence 2026-05-15: build the snapshot contract first, then the runtime-bridge separation guard, then the renderer/surface guard.

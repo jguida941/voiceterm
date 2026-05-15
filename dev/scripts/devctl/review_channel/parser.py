@@ -43,6 +43,7 @@ REVIEW_ACTION_CHOICES = (
     "apply",
     "history",
     "show",
+    "check-ack-freshness",
     "bridge-poll",
     "render-bridge",
     "attach-remote-control",
@@ -83,6 +84,15 @@ def _build_review_channel_parser(sub: argparse._SubParsersAction) -> argparse.Ar
         help=(
             "Auto-detect the current review-channel transport. Today only the "
             "markdown bridge is implemented; overlay mode is reserved for later."
+        ),
+    )
+    cmd.add_argument(
+        "--ack-freshness-mode",
+        choices=["on_demand", "scheduled", "disabled"],
+        default="on_demand",
+        help=(
+            "Automation-toggle mode for `--action check-ack-freshness`; "
+            "scheduled is reserved for poller use."
         ),
     )
     return cmd
