@@ -56,6 +56,89 @@ PLAN_INTAKE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         registry_entry_kind="authority_composition",
     ),
     ContractSpec(
+        contract_id="PlanRowContractRefsResolveGuard",
+        owner_layer="governance_core",
+        purpose=(
+            "Report-only guard proving PlanRow contract references resolve "
+            "against the repo-owned contract registry."
+        ),
+        required_fields=(
+            ContractField("guard_id", "str", "Stable guard identifier."),
+            ContractField("ok", "bool", "Whether the guard executed successfully."),
+            ContractField("report_only", "bool", "Whether findings are advisory."),
+            ContractField("would_fail", "bool", "Whether strict mode would fail."),
+            ContractField("plan_row_count", "int", "PlanRow rows scanned."),
+            ContractField(
+                "registered_contract_count",
+                "int",
+                "Registered contract ids available for resolution.",
+            ),
+            ContractField("orphan_count", "int", "Unresolved contract refs found."),
+            ContractField("orphan_rate", "float", "Unresolved contract-ref rate."),
+            ContractField("orphans", "tuple[dict[str, object], ...]", "Sample orphan refs."),
+        ),
+        runtime_model=(
+            "dev.scripts.checks.check_plan_row_contract_refs_resolve:"
+            "PlanRowContractRefsResolveGuard"
+        ),
+        startup_surface_tokens=("guard_id", "orphan_count", "orphan_rate"),
+        registry_entry_kind="authority_composition",
+    ),
+    ContractSpec(
+        contract_id="ContextGraphSnapshotFreshnessGuard",
+        owner_layer="governance_core",
+        purpose=(
+            "Report-only guard detecting drift between the latest "
+            "ContextGraphSnapshot artifact and current HEAD."
+        ),
+        required_fields=(
+            ContractField("guard_id", "str", "Stable guard identifier."),
+            ContractField("ok", "bool", "Whether the guard executed successfully."),
+            ContractField("report_only", "bool", "Whether findings are advisory."),
+            ContractField("would_fail", "bool", "Whether strict mode would fail."),
+            ContractField("head_sha", "str", "Current git HEAD checked."),
+            ContractField("latest_snapshot_path", "str", "Latest snapshot artifact path."),
+            ContractField(
+                "latest_snapshot_commit_hash",
+                "str",
+                "Commit hash recorded by the latest snapshot.",
+            ),
+            ContractField("snapshot_count", "int", "Snapshot artifacts found."),
+            ContractField("drift", "bool", "Whether the latest snapshot is stale."),
+            ContractField("detail", "str", "Human-readable drift detail."),
+        ),
+        runtime_model=(
+            "dev.scripts.checks.context_graph_snapshot_freshness.command:"
+            "ContextGraphSnapshotFreshnessGuard"
+        ),
+        startup_surface_tokens=("guard_id", "drift", "latest_snapshot_commit_hash"),
+        registry_entry_kind="authority_composition",
+    ),
+    ContractSpec(
+        contract_id="ActionResultStatusDomainGuard",
+        owner_layer="governance_core",
+        purpose=(
+            "Report-only guard checking emitted ActionResult.status literals "
+            "against the declared ActionOutcome domain."
+        ),
+        required_fields=(
+            ContractField("guard_id", "str", "Stable guard identifier."),
+            ContractField("ok", "bool", "Whether the guard executed successfully."),
+            ContractField("report_only", "bool", "Whether findings are advisory."),
+            ContractField("would_fail", "bool", "Whether strict mode would fail."),
+            ContractField("declared_domain", "tuple[str, ...]", "Allowed status literals."),
+            ContractField("files_scanned", "int", "Python files scanned."),
+            ContractField("violation_count", "int", "Out-of-domain literals found."),
+            ContractField("violations", "tuple[dict[str, object], ...]", "Sample findings."),
+        ),
+        runtime_model=(
+            "dev.scripts.checks.check_action_result_status_domain:"
+            "ActionResultStatusDomainGuard"
+        ),
+        startup_surface_tokens=("guard_id", "violation_count", "declared_domain"),
+        registry_entry_kind="authority_composition",
+    ),
+    ContractSpec(
         contract_id="PlanIntentIngestionReceipt",
         owner_layer="governance_runtime",
         purpose=(
