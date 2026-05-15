@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `b049ba3a2022` — Refresh external review snapshot for 868e35c9
-- Tree hash: `f8f0de1dd303`
-- Generation stamp: `snap-f4cc042ebfb0`
-- Generated at (UTC): 2026-05-15T00:16:32Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `9272e871d1a0` — MP381: stabilize push authorization during preflight
+- Tree hash: `fe04d98cb522`
+- Generation stamp: `snap-96152d12294a`
+- Generated at (UTC): 2026-05-15T00:22:00Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 538 files, +13454/-944
+- Delta since last snapshot: 24 commits, 541 files, +13719/-1068
 - Governance findings: 44 open / 0 fixed / 44 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,23 +28,23 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `b049ba3a20224c50743d32237fa1d486cb2cecef`
+- HEAD SHA: `9272e871d1a0334d097fe0c581733ff6109ab94d`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-14T19:20:59-04:00
+- HEAD timestamp (UTC): 2026-05-14T20:21:15-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_present
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 10
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 6 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 7 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -60,16 +60,16 @@ production client (VoiceTerm...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `b049ba3a2022`
+Range: last 24 commits ending at `9272e871d1a0`
 
 - commits: 24
-- files changed: 538
-- insertions: +13454
-- deletions: -944
+- files changed: 541
+- insertions: +13719
+- deletions: -1068
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 5 file(s)
 
@@ -77,30 +77,30 @@ Range: last 24 commits ending at `b049ba3a2022`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `b049ba3a` | Refresh external review snapshot for 868e35c9 | 2 | +72/-77 | docs |  |
-| 2 | `868e35c9` | MP381: read canonical push authorization | 14 | +223/-64 | tooling |  |
-| 3 | `aee417b6` | Refresh external review snapshot for 866ce516 | 2 | +61/-65 | docs |  |
-| 4 | `866ce516` | MP381: fix review-channel self-stop preflight | 12 | +177/-61 | tooling |  |
-| 5 | `ff501228` | Refresh external review snapshot for d3b7a100 | 2 | +72/-68 | docs |  |
-| 6 | `d3b7a100` | MP381: ingest R98 governance findings | 490 | +10105/-155 | tooling |  |
-| 7 | `92488df1` | MP377: checkpoint packet-pressure bridge refresh | 1 | +1/-1 | docs |  |
-| 8 | `ec6f330e` | MP378: summarize locked review events | 4 | +244/-53 | tooling |  |
-| 9 | `e991f288` | MP377: checkpoint packet-pressure reductions | 3 | +3/-1 | tooling |  |
-| 10 | `744a4aa9` | MP378: stream review-channel event reads | 5 | +93/-43 | tooling |  |
-| 11 | `5fed0004` | MP377: checkpoint reviewer-mode packet reduction | 3 | +4/-2 | tooling |  |
-| 12 | `8bd100f9` | MP377: checkpoint packet queue reductions | 3 | +9/-6 | tooling |  |
-| 13 | `22cfecd2` | MP377: checkpoint repair field and portability guard | 38 | +1154/-51 | tooling |  |
-| 14 | `d0b53c26` | MP378: close packet binding guard plan row | 4 | +5/-0 | tooling |  |
-| 15 | `94db6e01` | Refresh external review snapshot for 03379dd7 | 2 | +68/-65 | docs |  |
-| 16 | `03379dd7` | MP378: guard task packet binding completeness | 21 | +863/-5 | tooling |  |
-| 17 | `7bafd1e7` | Refresh external review snapshot for 7f29e975 | 2 | +63/-65 | docs |  |
-| 18 | `7f29e975` | MP378: record human-summary packet binding | 2 | +2/-0 | tooling |  |
-| 19 | `58ad460a` | Refresh external review snapshot for 6aaaacf7 | 2 | +45/-45 | docs |  |
-| 20 | `6aaaacf7` | MP378: close raw-git hook receipt plan row | 3 | +3/-0 | tooling |  |
-| 21 | `c891ec57` | Refresh external review snapshot for 209c52fe | 2 | +59/-59 | docs |  |
-| 22 | `209c52fe` | MP378: fix raw git hook receipt target | 2 | +67/-2 | tooling |  |
-| 23 | `9116c3fb` | Refresh external review snapshot for b1f2fdc8 | 2 | +56/-56 | docs |  |
-| 24 | `b1f2fdc8` | MP378: close raw-git receipt plan row | 4 | +5/-0 | tooling |  |
+| 1 | `9272e871` | MP381: stabilize push authorization during preflight | 12 | +270/-124 | tooling |  |
+| 2 | `b049ba3a` | Refresh external review snapshot for 868e35c9 | 2 | +72/-77 | docs |  |
+| 3 | `868e35c9` | MP381: read canonical push authorization | 14 | +223/-64 | tooling |  |
+| 4 | `aee417b6` | Refresh external review snapshot for 866ce516 | 2 | +61/-65 | docs |  |
+| 5 | `866ce516` | MP381: fix review-channel self-stop preflight | 12 | +177/-61 | tooling |  |
+| 6 | `ff501228` | Refresh external review snapshot for d3b7a100 | 2 | +72/-68 | docs |  |
+| 7 | `d3b7a100` | MP381: ingest R98 governance findings | 490 | +10105/-155 | tooling |  |
+| 8 | `92488df1` | MP377: checkpoint packet-pressure bridge refresh | 1 | +1/-1 | docs |  |
+| 9 | `ec6f330e` | MP378: summarize locked review events | 4 | +244/-53 | tooling |  |
+| 10 | `e991f288` | MP377: checkpoint packet-pressure reductions | 3 | +3/-1 | tooling |  |
+| 11 | `744a4aa9` | MP378: stream review-channel event reads | 5 | +93/-43 | tooling |  |
+| 12 | `5fed0004` | MP377: checkpoint reviewer-mode packet reduction | 3 | +4/-2 | tooling |  |
+| 13 | `8bd100f9` | MP377: checkpoint packet queue reductions | 3 | +9/-6 | tooling |  |
+| 14 | `22cfecd2` | MP377: checkpoint repair field and portability guard | 38 | +1154/-51 | tooling |  |
+| 15 | `d0b53c26` | MP378: close packet binding guard plan row | 4 | +5/-0 | tooling |  |
+| 16 | `94db6e01` | Refresh external review snapshot for 03379dd7 | 2 | +68/-65 | docs |  |
+| 17 | `03379dd7` | MP378: guard task packet binding completeness | 21 | +863/-5 | tooling |  |
+| 18 | `7bafd1e7` | Refresh external review snapshot for 7f29e975 | 2 | +63/-65 | docs |  |
+| 19 | `7f29e975` | MP378: record human-summary packet binding | 2 | +2/-0 | tooling |  |
+| 20 | `58ad460a` | Refresh external review snapshot for 6aaaacf7 | 2 | +45/-45 | docs |  |
+| 21 | `6aaaacf7` | MP378: close raw-git hook receipt plan row | 3 | +3/-0 | tooling |  |
+| 22 | `c891ec57` | Refresh external review snapshot for 209c52fe | 2 | +59/-59 | docs |  |
+| 23 | `209c52fe` | MP378: fix raw git hook receipt target | 2 | +67/-2 | tooling |  |
+| 24 | `9116c3fb` | Refresh external review snapshot for b1f2fdc8 | 2 | +56/-56 | docs |  |
 
 ### Files
 
@@ -108,18 +108,18 @@ Range: last 24 commits ending at `b049ba3a2022`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +2/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +6/-0 |
-| `bridge.md` | docs | +46/-46 |
+| `bridge.md` | docs | +51/-51 |
 | `dev/active/MASTER_PLAN.md` | tooling | +55/-2 |
-| `dev/active/ai_governance_platform.md` | tooling | +52/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +703/-698 |
+| `dev/active/ai_governance_platform.md` | tooling | +57/-1 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +752/-747 |
 | `dev/audits/r98_packet_4030_4038_plan_capture.md` | tooling | +75/-0 |
 | `dev/audits/r98_push_authorization_projection_path.md` | tooling | +31/-0 |
 | `dev/audits/r98_push_preflight_review_channel_timeout.md` | tooling | +23/-0 |
 | `dev/config/devctl_repo_policy.json` | tooling | +34/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +35/-1 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +40/-37 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +130/-0 |
-| `dev/scripts/README.md` | tooling | +23/-2 |
+| `dev/guides/DEVELOPMENT.md` | docs | +39/-1 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +41/-38 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +145/-0 |
+| `dev/scripts/README.md` | tooling | +27/-3 |
 | `dev/scripts/checks/check_packet_pkt_bind_completeness.py` | tooling | +19/-0 |
 | `dev/scripts/checks/check_plan_index_commit_continuity.py` | tooling | +29/-17 |
 | `dev/scripts/checks/check_substrate_is_repo_portable.py` | tooling | +10/-0 |
@@ -138,15 +138,15 @@ Range: last 24 commits ending at `b049ba3a2022`
 | `dev/scripts/devctl/commands/review_channel/_stop.py` | tooling | +14/-0 |
 | `dev/scripts/devctl/commands/review_channel/event_handler.py` | tooling | +9/-10 |
 | `dev/scripts/devctl/commands/vcs/governed_executor.py` | tooling | +1/-1 |
+| `dev/scripts/devctl/commands/vcs/push.py` | tooling | +17/-66 |
+| `dev/scripts/devctl/commands/vcs/push_publication_gate.py` | tooling | +115/-0 |
 | `dev/scripts/devctl/governance/push_state_authorization.py` | tooling | +3/-8 |
 | `dev/scripts/devctl/governance/script_catalog_registry.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows.py` | tooling | +4/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_governance_proposed.py` | tooling | +335/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_pipeline.py` | tooling | +5/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_review_core.py` | tooling | +45/-0 |
-| `dev/scripts/devctl/review_channel/event_store.py` | tooling | +219/-87 |
-| `dev/scripts/devctl/review_channel/packet_post_idempotency.py` | tooling | +29/-3 |
-| _498 more files trimmed_ | | |
+| _501 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -217,6 +217,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`9272e871`** — MP381: stabilize push authorization during preflight
+  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`b049ba3a`** — Refresh external review snapshot for 868e35c9
   - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`868e35c9`** — MP381: read canonical push authorization
@@ -267,8 +269,6 @@ Recent findings:
   - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`9116c3fb`** — Refresh external review snapshot for b1f2fdc8
   - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
-- **`b1f2fdc8`** — MP378: close raw-git receipt plan row
-  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -287,10 +287,10 @@ Recent findings:
 - open governance findings: 44
 
 ### Startup advisories
-- checkpoint_before_continue: dirty_after_local_checkpoint
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Relaunch the reviewer loop immediately.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/pipeline/command.py`): dogfood.command.pipeline: Auto-ingested devctl finalization failure rc=1.
@@ -312,4 +312,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-f4cc042ebfb0` binds this file to HEAD `b049ba3a2022`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-96152d12294a` binds this file to HEAD `9272e871d1a0`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
