@@ -458,6 +458,15 @@ jobs:
       - name: Run runtime bridge projection-separation guard
         run: python3 dev/scripts/checks/check_runtime_bridge_projection_separation.py
 
+      - name: Run plan-row contract refs guard
+        run: python3 dev/scripts/checks/check_plan_row_contract_refs_resolve.py
+
+      - name: Run context-graph snapshot freshness guard
+        run: python3 dev/scripts/checks/check_context_graph_snapshot_freshness.py
+
+      - name: Run ActionResult status-domain guard
+        run: python3 dev/scripts/checks/check_action_result_status_domain.py
+
       - name: Run schema fixture handshake guard
         run: python3 dev/scripts/checks/check_schema_fixture_handshake.py
 

@@ -71,6 +71,10 @@ typed operator mode, packet-backed action requests, dashboard projections, and
 repo-owned auto-poll/update cadence, see
 `dev/active/remote_control_runtime.md` after
 `dev/active/remote_commit_pipeline.md`.
+Operator directive source ids live in
+`dev/scripts/devctl/runtime/role_profile.py::OperatorRole`; keep
+`human_operator`, `agent_runtime`, `automation_loop`, and `remote_operator`
+typed there before projecting operator text through packets or dashboards.
 For the bounded loop-v2 convergence work that must turn
 `startup-context` / `WorkIntakePacket`, `PlanningIRSnapshot`,
 `findings-priority`, `ControlPlaneReadModel`, `AutoModeState`, `monitor`,
@@ -2031,7 +2035,7 @@ summary over the selected snapshot window.
 | `dev/scripts/checks/check_bridge_projection_only.py` | Bridge projection-only guard | Blocks repaired bridge/current-session/status projection compatibility surfaces from becoming backend authority again. It scans the known review-channel bridge projection seams for bridge-as-authority regressions, ACK compatibility literal misuse, and bridge-poll fallback violations. This guard is wired through the quality-policy defaults, `bundle.tooling`, `bundle.release`, `tooling_control_plane.yml`, and `release_preflight.yml`; do not leave it as catalog-only advisory state. |
 | `dev/scripts/checks/check_runtime_bridge_projection_separation.py` | Runtime bridge projection-separation guard | Stable shim entrypoint for the runtime bridge projection-separation guard while the implementation lives under `dev/scripts/checks/runtime_bridge_projection_separation/`; report-only scan of runtime, review-channel, and command surfaces before bridge-reader migration can make projection-authority enforcement strict. |
 | `dev/scripts/checks/check_check_cli_test_parity.py` | Check CLI/test parity guard | Verifies managed check CLI entrypoints and their focused tests share one evaluator contract so guard behavior cannot drift between command output and test fixtures. |
-| `dev/scripts/checks/check_schema_fixture_handshake.py` | Schema fixture handshake guard | Verifies registered platform contracts have fixture roots with valid and invalid JSON examples, including required invalid cases for missing fields and schema-version mismatch. |
+| `dev/scripts/checks/check_schema_fixture_handshake.py` | Schema fixture handshake guard | Verifies registered platform contracts have fixture roots with valid and invalid JSON examples, including required invalid cases for missing fields and schema-version mismatch, and fails when fixture JSON files are not git-tracked in a worktree. |
 | `dev/scripts/checks/check_schema_migration_spine.py` | Schema migration spine guard | Validates durable state contracts declare migration/store-authority policy before later governance rows can treat schema and rollback semantics as authoritative. |
 | `dev/scripts/checks/check_schema_version_monotonic.py` | Schema version monotonicity guard | Ensures registered schema fixture paths end in the registered schema version and reuse the fixture-handshake coverage so schema bumps cannot silently bypass fixtures. |
 | `dev/scripts/checks/check_state_store_authority.py` | State-store authority guard | Validates registered durable stores route through the declared state-store authority writer instead of ad hoc JSON/JSONL writes. Planned policies remain visible without blocking until their owning row promotes them. |

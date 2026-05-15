@@ -17,6 +17,11 @@ except ModuleNotFoundError:
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+try:
+    from _ast_helpers import _call_name
+except ModuleNotFoundError:
+    from dev.scripts.checks._ast_helpers import _call_name
+
 
 RUNTIME_ROOT = "dev/scripts/devctl/runtime"
 REVIEW_CHANNEL_ROOT = "dev/scripts/devctl/review_channel"
@@ -84,14 +89,6 @@ def _excerpt_for_line(text: str, line: int) -> str:
     lines = text.splitlines()
     if 1 <= line <= len(lines):
         return lines[line - 1].strip()
-    return ""
-
-
-def _call_name(node: ast.AST) -> str:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return node.attr
     return ""
 
 

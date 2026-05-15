@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .governance_proposed_contracts import FeatureLifecycleProof, LifecycleReceipt
 from .remote_commit_pipeline_models import RemoteCommitPipelineContract
 from .receipt_state_gate import require_receipt_state
 from .typed_ids import ReceiptId, as_receipt_id, id_text
@@ -17,6 +18,14 @@ from .value_coercion import coerce_int, coerce_mapping, coerce_string, coerce_st
 COMMIT_RECEIPT_CONTRACT_ID = "CommitReceipt"
 COMMIT_RECEIPT_SCHEMA_VERSION = 1
 COMMIT_RECEIPT_ARTIFACT_ROOT = "dev/reports/commit_receipts"
+FEATURE_LIFECYCLE_PROOF_ARTIFACT_ROOT = "dev/reports/feature_lifecycle_proofs"
+FEATURE_LIFECYCLE_REQUIRED_RECEIPT_KINDS = (
+    "validation",
+    "commit",
+    "review",
+    "audit",
+    "tree",
+)
 VALIDATION_PASSED_STATE = "validation_passed"
 VALIDATION_FAILED_STATE = "validation_failed"
 VALIDATION_UNKNOWN_STATE = "validation_unknown"
@@ -201,6 +210,51 @@ def write_commit_receipt_artifact(
     return relpath
 
 
+def build_feature_lifecycle_proof(
+    pipeline: RemoteCommitPipelineContract,
+    commit_receipt: CommitReceipt,
+) -> FeatureLifecycleProof:
+    """Build per-commit proof coverage from the governed commit evidence chain."""
+    receipts = _feature_lifecycle_receipts(pipeline, commit_receipt)
+    observed_kinds = {receipt.receipt_kind for receipt in receipts}
+    missing = tuple(
+        kind
+        for kind in FEATURE_LIFECYCLE_REQUIRED_RECEIPT_KINDS
+        if kind not in observed_kinds
+    )
+    total = len(FEATURE_LIFECYCLE_REQUIRED_RECEIPT_KINDS)
+    completeness = (total - len(missing)) / total if total else 1.0
+    return FeatureLifecycleProof(
+        feature_id=(
+            commit_receipt.plan_row_id
+            or commit_receipt.pipeline_id
+            or commit_receipt.commit_sha
+        ),
+        commit_sha=commit_receipt.commit_sha,
+        receipts=receipts,
+        completeness_score=round(completeness, 3),
+        missing_receipt_kinds=missing,
+    )
+
+
+def feature_lifecycle_proof_artifact_relpath(commit_sha: str) -> str:
+    """Return the repo-relative artifact path for one feature proof."""
+    token = _path_token(commit_sha) or "unknown"
+    return f"{FEATURE_LIFECYCLE_PROOF_ARTIFACT_ROOT}/{token}.json"
+
+
+def write_feature_lifecycle_proof_artifact(
+    repo_root: Path,
+    proof: FeatureLifecycleProof,
+) -> str:
+    """Materialize a FeatureLifecycleProof artifact and return its relpath."""
+    relpath = feature_lifecycle_proof_artifact_relpath(proof.commit_sha)
+    path = repo_root / relpath
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(proof.to_dict(), indent=2, sort_keys=True) + "\n")
+    return relpath
+
+
 def _plan_row_id(pipeline: RemoteCommitPipelineContract) -> str:
     validation = pipeline.validation_receipt
     plan = pipeline.intent.validation_plan
@@ -225,6 +279,81 @@ def _tree_content_hash(pipeline: RemoteCommitPipelineContract) -> str:
         return intent_value
     plan = getattr(pipeline.intent, "validation_plan", None)
     return coerce_string(getattr(plan, "staged_tree_hash", ""))
+
+
+def _feature_lifecycle_receipts(
+    pipeline: RemoteCommitPipelineContract,
+    commit_receipt: CommitReceipt,
+) -> tuple[LifecycleReceipt, ...]:
+    receipts: list[LifecycleReceipt] = []
+    validation = pipeline.validation_receipt
+    if validation is not None and coerce_string(validation.receipt_id):
+        receipts.append(
+            _lifecycle_receipt(
+                "validation",
+                commit_receipt,
+                _validation_receipt_ref(as_receipt_id(validation.receipt_id)),
+                (
+                    f"validation {validation.post_state or validation.status} "
+                    f"for bundle {validation.bundle_id}"
+                ),
+                executed_at_utc=coerce_string(validation.emitted_at_utc),
+            )
+        )
+    if commit_receipt.receipt_id:
+        receipts.append(
+            _lifecycle_receipt(
+                "commit",
+                commit_receipt,
+                commit_receipt.receipt_id,
+                f"commit {commit_receipt.commit_sha} recorded",
+            )
+        )
+    if commit_receipt.reviewer_ack_packet_id:
+        receipts.append(
+            _lifecycle_receipt(
+                "review",
+                commit_receipt,
+                _ref("packet", commit_receipt.reviewer_ack_packet_id),
+                "review or approval packet bound to commit receipt",
+            )
+        )
+    if commit_receipt.audit_synthesis_ref:
+        receipts.append(
+            _lifecycle_receipt(
+                "audit",
+                commit_receipt,
+                commit_receipt.audit_synthesis_ref,
+                "audit or validation synthesis bound to commit receipt",
+            )
+        )
+    if commit_receipt.tree_content_hash:
+        receipts.append(
+            _lifecycle_receipt(
+                "tree",
+                commit_receipt,
+                _ref("tree_content_hash", commit_receipt.tree_content_hash),
+                "tree content hash bound to validation and commit evidence",
+            )
+        )
+    return tuple(receipts)
+
+
+def _lifecycle_receipt(
+    receipt_kind: str,
+    commit_receipt: CommitReceipt,
+    evidence_ref: str,
+    proof_summary: str,
+    *,
+    executed_at_utc: str = "",
+) -> LifecycleReceipt:
+    return LifecycleReceipt(
+        receipt_kind=receipt_kind,
+        actor=commit_receipt.produced_by,
+        executed_at_utc=executed_at_utc or commit_receipt.recorded_at_utc,
+        evidence_ref=evidence_ref,
+        proof_summary=proof_summary,
+    )
 
 
 def _unique_refs(values: Iterable[str]) -> tuple[str, ...]:
@@ -284,11 +413,15 @@ __all__ = [
     "COMMIT_RECEIPT_CONTRACT_ID",
     "COMMIT_RECEIPT_SCHEMA_VERSION",
     "COMMIT_RECORDED_STATE",
+    "FEATURE_LIFECYCLE_PROOF_ARTIFACT_ROOT",
     "CommitReceipt",
     "CommitReceiptStateRequired",
     "VALIDATION_PASSED_STATE",
     "build_commit_receipt",
+    "build_feature_lifecycle_proof",
     "commit_receipt_artifact_relpath",
     "commit_receipt_from_mapping",
+    "feature_lifecycle_proof_artifact_relpath",
     "write_commit_receipt_artifact",
+    "write_feature_lifecycle_proof_artifact",
 ]

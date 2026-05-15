@@ -208,6 +208,9 @@ jobs:
           python3 dev/scripts/checks/check_review_channel_bridge.py
           python3 dev/scripts/checks/check_bridge_projection_only.py
           python3 dev/scripts/checks/check_runtime_bridge_projection_separation.py
+          python3 dev/scripts/checks/check_plan_row_contract_refs_resolve.py
+          python3 dev/scripts/checks/check_context_graph_snapshot_freshness.py
+          python3 dev/scripts/checks/check_action_result_status_domain.py
           python3 dev/scripts/checks/check_schema_fixture_handshake.py
           python3 dev/scripts/checks/check_schema_migration_spine.py
           python3 dev/scripts/checks/check_schema_version_monotonic.py

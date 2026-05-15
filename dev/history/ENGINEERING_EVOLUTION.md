@@ -15965,3 +15965,30 @@ Evidence:
 - `dev/scripts/devctl/review_channel/packet_debt_remediation_contracts.py`
 - `dev/scripts/devctl/review_channel/packet_lifecycle_clock.py`
 - `dev/scripts/devctl/tests/review_channel/test_packet_debt_remediation.py`
+
+### 2026-05-15 - Schema fixture handshake rejects untracked fixtures
+
+MP-378 follow-up dogfood found that new schema fixture JSON files could pass
+the local fixture handshake while remaining ignored by generic `*.json` rules.
+The handshake now detects git worktrees and fails valid or invalid fixture
+files that are not tracked, with coverage counters showing whether tracking
+was enforced and how many fixtures were checked.
+
+Evidence:
+
+- `dev/scripts/checks/schema_fixture_handshake/command.py`
+- `dev/scripts/checks/schema_fixture_handshake/git_tracking.py`
+- `dev/scripts/devctl/tests/checks/test_check_schema_fixture_handshake.py`
+
+### 2026-05-15 - Operator directive sources become typed role ids
+
+P200 started by aligning `OperatorRole` with the operator directive sources
+already exposed in caller authority: `human_operator`, `agent_runtime`,
+`automation_loop`, and `remote_operator`. Human and remote operator aliases now
+normalize into the tandem operator lane, so operator text can move toward
+first-class packet routing without relying on ad hoc chat labels.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/role_profile.py`
+- `dev/scripts/devctl/tests/runtime/test_role_profile.py`

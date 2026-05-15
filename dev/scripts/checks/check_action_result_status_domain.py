@@ -8,9 +8,9 @@ ActionResult.status is declared as a closed domain ActionOutcome.ALL =
 declared set. This is the canonical "typed boundary lie" the operator
 flagged as architecture inversion.
 
-This guard scans repo for `status="<literal>"` patterns and flags any
-literal not in ActionOutcome.ALL. Report-only mode initially per P188
-discipline (would_fail tracks but does not block).
+This guard scans repo for `status="<literal>"` values passed to ActionResult
+envelopes and flags any literal not in ActionOutcome.ALL. Report-only mode
+initially per P188 discipline (would_fail tracks but does not block).
 
 Composes with: ActionOutcome enum (action_contracts.py:84) + check_runtime_bridge_projection_separation
 + check_plan_row_contract_refs_resolve (sibling guards landed this session).
@@ -33,6 +33,11 @@ except ModuleNotFoundError:
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+try:
+    from _ast_helpers import _call_name
+except ModuleNotFoundError:
+    from dev.scripts.checks._ast_helpers import _call_name
+
 
 COMMAND = "check_action_result_status_domain"
 ACTION_RESULT_STATUS_DOMAIN_GUARD_ID = "ActionResultStatusDomain"
@@ -40,6 +45,7 @@ ACTION_RESULT_STATUS_DOMAIN_CONTRACT_ID = "ActionResultStatusDomainGuard"
 
 # ActionOutcome.ALL from dev/scripts/devctl/runtime/action_contracts.py:84
 ACTION_OUTCOME_ALL = frozenset({"pass", "fail", "unknown", "defer"})
+ACTION_RESULT_STATUS_CALLS = frozenset({"ActionResult", "ActionResultFields"})
 
 # Scan these directories for status= literals; skip tests + fixtures
 SCAN_ROOTS = (
@@ -89,8 +95,12 @@ class StatusDomainViolation:
         }
 
 
-def _should_skip(path: Path) -> bool:
-    return any(fragment in str(path) for fragment in SKIP_PATH_FRAGMENTS)
+def _should_skip(path: Path, repo_root: Path) -> bool:
+    try:
+        rel_path = "/" + path.relative_to(repo_root).as_posix()
+    except ValueError:
+        rel_path = "/" + path.as_posix()
+    return any(fragment in rel_path for fragment in SKIP_PATH_FRAGMENTS)
 
 
 def _excerpt_for_line(text: str, line: int) -> str:
@@ -121,20 +131,23 @@ def _scan_file(path: Path, repo_root: Path) -> list[StatusDomainViolation]:
         return []
     violations: list[StatusDomainViolation] = []
     for node in ast.walk(tree):
-        if not isinstance(node, ast.keyword):
+        if not isinstance(node, ast.Call):
             continue
-        literal = _scan_keyword_status_literal(node)
-        if not literal or literal in ACTION_OUTCOME_ALL:
+        if _call_name(node.func) not in ACTION_RESULT_STATUS_CALLS:
             continue
-        line = getattr(node, "lineno", 1)
-        violations.append(
-            StatusDomainViolation(
-                path=rel_path,
-                line=line,
-                literal=literal,
-                excerpt=_excerpt_for_line(text, line),
+        for keyword in node.keywords:
+            literal = _scan_keyword_status_literal(keyword)
+            if not literal or literal in ACTION_OUTCOME_ALL:
+                continue
+            line = getattr(keyword, "lineno", getattr(node, "lineno", 1))
+            violations.append(
+                StatusDomainViolation(
+                    path=rel_path,
+                    line=line,
+                    literal=literal,
+                    excerpt=_excerpt_for_line(text, line),
+                )
             )
-        )
     return violations
 
 
@@ -150,7 +163,7 @@ def evaluate_action_result_status_domain(
         if not root.exists():
             continue
         for path in sorted(root.rglob("*.py")):
-            if path in seen or _should_skip(path):
+            if path in seen or _should_skip(path, repo_root):
                 continue
             seen.add(path)
             files_scanned += 1

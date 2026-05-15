@@ -8508,6 +8508,7 @@ Captured from `rev_pkt_4030` through `rev_pkt_4038` via
 - [ ] `MP-NEW-019` Class 19: require typed-output human_summary fields so `ok=true` cannot hide blind-pass or partial-proof cases.
 - [ ] `MP-NEW-020` Class 20: run repo-portability checks on every new substrate and migrate hardcoded repo literals to repo-pack policy.
 - [ ] `MP-NEW-021` Class 21: implement FeatureLifecycleProof receipts on every commit, including build, test, dogfood, review, portability, and push evidence.
+  - progress 2026-05-15: governed commit success now emits `FeatureLifecycleProof` artifacts under `dev/reports/feature_lifecycle_proofs/` beside `CommitReceipt`, with validation, commit, review, audit, and tree evidence coverage recorded from the existing commit pipeline.
 - [ ] `MP-NEW-022` Class 22: implement queue-attention reducers and bypass reasoning for stalled queued rows.
 - [ ] `MP-NEW-023` Class 23: implement composable toggle-receipt governance and assistant-guide mode without bypassing governance invariants.
 - [ ] `MP-NEW-024` Class 24: implement skill-loading governance compatibility with SkillManifest, SkillLoadReceipt, and SkillCompatibilityValidator contracts.
@@ -8629,6 +8630,7 @@ report-only projection-authority guard before snapshot and renderer work.
 - [ ] `MP-NEW-P193-S1-ACTION-RESULT-STATUS-DOMAIN-FIX` Remap `command_runner.py` ActionResult status emissions into the declared `ActionOutcome` domain.
   - response 2026-05-15: accept as the smallest concrete follow-up win once the active P188 guard slice is checkpointed.
 - [ ] `MP-NEW-P193-S2-CHECK-CONTRACT-VALUE-DOMAINS-GUARD` Add a value-domain guard so declared runtime contract enums cannot drift silently.
+  - progress 2026-05-15: narrowed `check_action_result_status_domain.py` to AST calls constructing `ActionResult` / `ActionResultFields`, dropping the live report from 174 false positives to 0 while preserving focused tests for out-of-domain envelope literals.
 - [ ] `MP-NEW-P194-S1-REPO-EXTRACTION-PHASE-1` Queue governance-platform repo extraction behind P188 landing.
 - [ ] `MP-NEW-P194-S2-FILE-MIGRATION-RECEIPT-CONTRACT` Define `FileMigrationReceipt` for future platform extraction moves.
 
@@ -8711,6 +8713,8 @@ R130 / rev_pkt_4082 intake decisions:
   - progress 2026-05-15: expanded the report-only guard roots to `dev/scripts/devctl/runtime/`, `dev/scripts/devctl/review_channel/`, and `dev/scripts/devctl/commands/`; current dogfood scans 1,347 files and surfaces 169 bridge-reader violations without enforcing yet.
 - [ ] `MP-NEW-P122-PLAN-ROW-CONTRACT-REFS-RESOLVE-GUARD-S1` Add `check_plan_row_contract_refs_resolve.py` to catch plan-row contract refs that do not resolve to registered contracts or typed owners.
 - [ ] `MP-NEW-P200-OPERATOR-AS-TYPED-ROLE-S1` Add a typed operator role and `OperatorDirectivePacket` path so operator directives route as first-class runtime attention.
+  - progress 2026-05-15: started the role side by expanding `OperatorRole` source ids to `human_operator`, `agent_runtime`, `automation_loop`, and `remote_operator`, and by normalizing human/remote operator provider aliases into the operator lane.
+  - progress 2026-05-15: added `OperatorDirectivePacket` marshalling with directive id, operator source role, target role/session, scope, capability tuple, evidence refs, and expiry fields so operator instructions can cross packet/runtime boundaries as typed data instead of prose-only routing.
 - [ ] `MP-NEW-P185-PACKET-BACKLOG-DISPOSITION-S2` Reduce pending/stale packet backlog with durable disposition coverage so meta-capture work cannot silently disappear.
 - [ ] `MP-NEW-R126-BRIDGE-ACK-PROJECTION-REPAIR-S1` Repair the bridge implementer-ack projection bug so typed acknowledgements render accurately in projection-only bridge surfaces.
 
@@ -8724,3 +8728,5 @@ R131 / rev_pkt_4083 intake decisions:
   - progress 2026-05-15: `InstructionBootCard` rendering and `check_instruction_surface_sync.py` now enforce role-choice clarity, typed `--target-kind` / `--target-ref` packet guidance, and `Operator Command Wrappers` shell-escape guidance; `AGENTS.md` was regenerated from the strengthened contract.
 - [ ] `MP-NEW-P203-DECIDED-PACKET-DEBT-DETECTOR-S1` Add decided-packet debt detection and packet batch triage for acked-but-unbuilt packet classes.
   - progress 2026-05-15: `PacketDebtRemediationReport` now emits `DecidedPacketDebtDetector` and `PacketBatchTriage` summaries over carry-forward debt; live `develop audit-packets` groups ACKed-but-unbuilt packets by reason, target, and recommended durable-ingestion action.
+  - progress 2026-05-15: `check_schema_fixture_handshake.py` now enforces git tracking for valid and invalid fixture JSON files in worktrees, closing the ignored-fixture gap found while adding P203 contract fixtures.
+- [ ] `PKT-BIND-REV-PKT-4122` Packet work: Continuation anchor R148+ 8h - codex must continue cached-hammock loop with operator-override edit-only + raw-git plan-execution; fix 3 RED conditions + commit/push 28 files + absorb 3 REVIVE expired + wire FeatureProofRecei... (source `rev_pkt_4122`; target `cached_hammock_plan_P1_P204`; posted `2026-05-15T16:45:27.785427Z`; binding `plan_row`).

@@ -144,6 +144,12 @@ Use docs like this:
 - Packet actor/target CLI fields are intentionally parser-loose now: repo-owned
   validation resolves legal ids from typed collaboration/runtime state or
   repo-owned session metadata instead of a fixed provider-choice list.
+- Operator directive routing uses the typed
+  `runtime/role_profile.py::OperatorRole` source ids
+  (`human_operator`, `agent_runtime`, `automation_loop`, `remote_operator`);
+  `human_operator` and `remote_operator` normalize into the operator lane for
+  tandem-role routing, while caller authority still limits what each source
+  can do.
 - Remote commit/push operator approval now uses the same packet path instead of
   bridge prose. For that slice, post `review-channel` packets with
   `--kind commit_approval --target-kind runtime --target-ref remote_commit_pipeline:<pipeline_id>`
@@ -3133,6 +3139,9 @@ function, and `dev/state/transition_modules.jsonl` lists modules that must be
 imported for deterministic registration. Add or update platform contract rows
 and schema fixtures when adding a new transition contract family, then run
 `check_schema_fixture_handshake.py` and `check_platform_contract_closure.py`.
+Fixture JSON files must be git-tracked even though repository ignore rules may
+match generic `*.json` paths; use forced staging for new
+`dev/test_data/schema_fixtures/.../*.json` files when needed.
 Transitions that need runtime checks can opt in with `runtime_enforced=True`
 and resolver functions that emit the same state refs declared in `requires`
 and `produces`; illegal refs raise `TransitionStateViolation`. Leave ordinary

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dev.scripts.devctl.runtime.role_profile import (
     DEFAULT_PROVIDER_ROLE_MAP,
     OPERATOR_DIRECTIVE_CAPABILITIES,
+    OperatorDirectivePacket,
     default_provider_for_role,
     normalize_tandem_role,
     OperatorRole,
@@ -12,6 +13,7 @@ from dev.scripts.devctl.runtime.role_profile import (
     TandemProfile,
     TandemRole,
     build_default_tandem_profile,
+    operator_directive_packet_from_mapping,
     role_for_provider,
     role_profile_from_mapping,
 )
@@ -30,12 +32,52 @@ class TestTandemRole:
 class TestOperatorRole:
     def test_human_operator_role_and_capabilities(self):
         assert OperatorRole.HUMAN_OPERATOR == "human_operator"
+        assert OperatorRole.AGENT_RUNTIME == "agent_runtime"
+        assert OperatorRole.AUTOMATION_LOOP == "automation_loop"
+        assert OperatorRole.REMOTE_OPERATOR == "remote_operator"
         assert OPERATOR_DIRECTIVE_CAPABILITIES == (
             "directive_authority",
             "bypass_authority",
             "override_authority",
             "dogfood_witness",
         )
+
+
+class TestOperatorDirectivePacket:
+    def test_packet_marshal_defaults_to_operator_capabilities(self):
+        packet = OperatorDirectivePacket(
+            directive_id="directive-1",
+            operator_role=OperatorRole.HUMAN_OPERATOR.value,
+            issued_by="operator",
+            target_role="implementer",
+            target_session_id="session-1",
+            scope="edit-only",
+            summary="continue current slice",
+        )
+
+        payload = packet.to_dict()
+
+        assert payload["contract_id"] == "OperatorDirectivePacket"
+        assert payload["capabilities"] == OPERATOR_DIRECTIVE_CAPABILITIES
+        assert payload["operator_role"] == "human_operator"
+
+    def test_packet_from_mapping_normalizes_operator_source(self):
+        packet = operator_directive_packet_from_mapping(
+            {
+                "directive_id": "directive-2",
+                "operator_role": "remote operator",
+                "target_role": "implementer",
+                "target_session_id": "session-2",
+                "scope": "edit-and-commit",
+                "summary": "stage governed checkpoint",
+                "evidence_refs": ["operator:2026-05-15"],
+            }
+        )
+
+        assert packet.operator_role == OperatorRole.REMOTE_OPERATOR.value
+        assert packet.issued_by == OperatorRole.REMOTE_OPERATOR.value
+        assert packet.capabilities == OPERATOR_DIRECTIVE_CAPABILITIES
+        assert packet.evidence_refs == ("operator:2026-05-15",)
 
 
 class TestRoleForProvider:
@@ -50,6 +92,8 @@ class TestRoleForProvider:
 
     def test_operator_is_operator(self):
         assert role_for_provider("operator") == TandemRole.OPERATOR
+        assert role_for_provider("human_operator") == TandemRole.OPERATOR
+        assert role_for_provider("remote_operator") == TandemRole.OPERATOR
 
     def test_unknown_defaults_to_implementer(self):
         assert role_for_provider("gemini") == TandemRole.IMPLEMENTER
@@ -68,6 +112,7 @@ class TestRoleHelpers:
         assert normalize_tandem_role("review") == TandemRole.REVIEWER
         assert normalize_tandem_role("coder") == TandemRole.IMPLEMENTER
         assert normalize_tandem_role("approver") == TandemRole.OPERATOR
+        assert normalize_tandem_role("remote operator") == TandemRole.OPERATOR
 
     def test_default_provider_for_role_uses_default_mapping(self):
         assert default_provider_for_role("reviewer") == "codex"

@@ -24,6 +24,10 @@ from dev.scripts.devctl.platform.contract_registry import (
 from dev.scripts.devctl.platform.contract_registry_models import (
     ContractRegistryRow,
 )
+from dev.scripts.checks.schema_fixture_handshake.git_tracking import (
+    git_path_tracked,
+    inside_git_worktree,
+)
 
 SCHEMA_FIXTURE_CONTRACT_ID = "PlatformSchemaFixture"
 SCHEMA_FIXTURE_VERSION = 1
@@ -56,6 +60,8 @@ def evaluate_schema_fixture_handshake(
     fixture_roots_checked = 0
     valid_fixtures_checked = 0
     invalid_fixtures_checked = 0
+    tracked_fixtures_checked = 0
+    git_tracking_enforced = inside_git_worktree(repo_root)
 
     for row in rows:
         root = repo_root / row.fixture_path
@@ -99,11 +105,17 @@ def evaluate_schema_fixture_handshake(
         for fixture_path in valid_files:
             valid_fixtures_checked += 1
             violations.extend(_validate_fixture(row, fixture_path, expected_role="valid"))
+            if git_tracking_enforced:
+                tracked_fixtures_checked += 1
+                violations.extend(_validate_fixture_tracked(row, fixture_path, repo_root))
         invalid_reasons: set[str] = set()
         for fixture_path in invalid_files:
             invalid_fixtures_checked += 1
             fixture_violations, reason = _validate_invalid_fixture(row, fixture_path)
             violations.extend(fixture_violations)
+            if git_tracking_enforced:
+                tracked_fixtures_checked += 1
+                violations.extend(_validate_fixture_tracked(row, fixture_path, repo_root))
             if reason:
                 invalid_reasons.add(reason)
         missing_reasons = sorted(REQUIRED_INVALID_REASONS - invalid_reasons)
@@ -125,6 +137,8 @@ def evaluate_schema_fixture_handshake(
         "fixture_roots_checked": fixture_roots_checked,
         "valid_fixtures_checked": valid_fixtures_checked,
         "invalid_fixtures_checked": invalid_fixtures_checked,
+        "git_tracking_enforced": git_tracking_enforced,
+        "tracked_fixtures_checked": tracked_fixtures_checked,
         "ok": not violations,
     }
     return coverage, tuple(violations)
@@ -237,6 +251,26 @@ def _text(value: object) -> str:
     return str(value or "").strip()
 
 
+def _validate_fixture_tracked(
+    row: ContractRegistryRow,
+    fixture_path: Path,
+    repo_root: Path,
+) -> tuple[SchemaFixtureViolation, ...]:
+    if git_path_tracked(repo_root=repo_root, path=fixture_path):
+        return ()
+    return (
+        _violation(
+            row,
+            fixture_path,
+            "untracked-fixture",
+            (
+                "Schema fixtures must be git-tracked so ignored JSON files "
+                "cannot satisfy the guard locally while disappearing from commits."
+            ),
+        ),
+    )
+
+
 def _violation(
     row: ContractRegistryRow,
     path: Path,
@@ -266,6 +300,8 @@ def render_md(report: dict[str, object]) -> str:
     lines.append(f"- fixture_roots_checked: {report.get('fixture_roots_checked', 0)}")
     lines.append(f"- valid_fixtures_checked: {report.get('valid_fixtures_checked', 0)}")
     lines.append(f"- invalid_fixtures_checked: {report.get('invalid_fixtures_checked', 0)}")
+    lines.append(f"- git_tracking_enforced: {report.get('git_tracking_enforced', False)}")
+    lines.append(f"- tracked_fixtures_checked: {report.get('tracked_fixtures_checked', 0)}")
     violations = report.get("violations", [])
     lines.append(f"- violations: {len(violations) if isinstance(violations, list) else 0}")
     if isinstance(violations, list) and violations:

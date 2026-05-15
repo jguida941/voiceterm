@@ -17,7 +17,7 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from .enum_compat import StrEnum
-from .value_coercion import coerce_string
+from .value_coercion import coerce_string, coerce_string_items
 
 
 class TandemRole(StrEnum):
@@ -32,6 +32,9 @@ class OperatorRole(StrEnum):
     """First-class operator directive sources in runtime routing."""
 
     HUMAN_OPERATOR = "human_operator"
+    AGENT_RUNTIME = "agent_runtime"
+    AUTOMATION_LOOP = "automation_loop"
+    REMOTE_OPERATOR = "remote_operator"
 
 
 OPERATOR_DIRECTIVE_CAPABILITIES: tuple[str, ...] = (
@@ -50,13 +53,17 @@ DEFAULT_PROVIDER_ROLE_MAP: dict[str, TandemRole] = {
     "cursor": TandemRole.IMPLEMENTER,
     "operator": TandemRole.OPERATOR,
     "human": TandemRole.OPERATOR,
+    "human_operator": TandemRole.OPERATOR,
+    "remote_operator": TandemRole.OPERATOR,
 }
 
 _REVIEWER_ROLE_ALIASES = frozenset({"review", "reviewer"})
 _IMPLEMENTER_ROLE_ALIASES = frozenset(
     {"code", "coder", "coding", "implement", "implementer"}
 )
-_OPERATOR_ROLE_ALIASES = frozenset({"operator", "approver"})
+_OPERATOR_ROLE_ALIASES = frozenset(
+    {"operator", "approver", "human_operator", "remote_operator"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +81,29 @@ class RoleProfile:
     display_name: str
     capabilities: tuple[str, ...]
     active: bool = True
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class OperatorDirectivePacket:
+    """Typed packet envelope for first-class operator directives."""
+
+    directive_id: str
+    operator_role: str
+    issued_by: str
+    target_role: str
+    target_session_id: str
+    scope: str
+    summary: str
+    body: str = ""
+    capabilities: tuple[str, ...] = OPERATOR_DIRECTIVE_CAPABILITIES
+    evidence_refs: tuple[str, ...] = ()
+    issued_at_utc: str = ""
+    expires_at_utc: str = ""
+    schema_version: int = 1
+    contract_id: str = "OperatorDirectivePacket"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -121,7 +151,7 @@ def normalize_tandem_role(role: str | TandemRole | None) -> TandemRole | None:
     """Return one canonical tandem role or ``None`` for unknown text."""
     if isinstance(role, TandemRole):
         return role
-    normalized = coerce_string(role).lower()
+    normalized = coerce_string(role).lower().replace("-", "_").replace(" ", "_")
     if not normalized:
         return None
     if normalized in _REVIEWER_ROLE_ALIASES:
@@ -171,6 +201,48 @@ def role_profile_from_mapping(payload: Mapping[str, object]) -> RoleProfile:
         capabilities=capabilities,
         active=bool(payload.get("active", True)),
     )
+
+
+def operator_directive_packet_from_mapping(
+    payload: Mapping[str, object],
+) -> OperatorDirectivePacket:
+    """Parse an operator directive packet from a JSON-like mapping."""
+    operator_role = _operator_role_value(payload.get("operator_role"))
+    capabilities = coerce_string_items(payload.get("capabilities"))
+    return OperatorDirectivePacket(
+        directive_id=coerce_string(payload.get("directive_id")),
+        operator_role=operator_role.value,
+        issued_by=coerce_string(payload.get("issued_by")) or operator_role.value,
+        target_role=coerce_string(payload.get("target_role")),
+        target_session_id=coerce_string(payload.get("target_session_id")),
+        scope=coerce_string(payload.get("scope")),
+        summary=coerce_string(payload.get("summary")),
+        body=coerce_string(payload.get("body")),
+        capabilities=capabilities or OPERATOR_DIRECTIVE_CAPABILITIES,
+        evidence_refs=coerce_string_items(payload.get("evidence_refs")),
+        issued_at_utc=coerce_string(payload.get("issued_at_utc")),
+        expires_at_utc=coerce_string(payload.get("expires_at_utc")),
+        schema_version=int(payload.get("schema_version") or 1),
+        contract_id=(
+            coerce_string(payload.get("contract_id")) or "OperatorDirectivePacket"
+        ),
+    )
+
+
+def _operator_role_value(value: object) -> OperatorRole:
+    normalized = coerce_string(value).lower().replace("-", "_").replace(" ", "_")
+    if normalized in {"operator", "human"}:
+        normalized = OperatorRole.HUMAN_OPERATOR.value
+    if normalized == "remote":
+        normalized = OperatorRole.REMOTE_OPERATOR.value
+    if normalized == "automation":
+        normalized = OperatorRole.AUTOMATION_LOOP.value
+    if normalized == "agent":
+        normalized = OperatorRole.AGENT_RUNTIME.value
+    try:
+        return OperatorRole(normalized)
+    except ValueError:
+        return OperatorRole.HUMAN_OPERATOR
 
 
 def build_default_tandem_profile(

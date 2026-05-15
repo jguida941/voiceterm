@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,6 +15,9 @@ class LifecycleReceipt:
     schema_version: int = 1
     contract_id: str = "LifecycleReceipt"
 
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
 
 @dataclass(frozen=True, slots=True)
 class FeatureLifecycleProof:
@@ -25,6 +28,12 @@ class FeatureLifecycleProof:
     missing_receipt_kinds: tuple[str, ...]
     schema_version: int = 1
     contract_id: str = "FeatureLifecycleProof"
+
+    def to_dict(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["receipts"] = [receipt.to_dict() for receipt in self.receipts]
+        payload["missing_receipt_kinds"] = list(self.missing_receipt_kinds)
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
