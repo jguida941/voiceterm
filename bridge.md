@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-15T03:08:34Z`
-- Last Codex poll (Local America/New_York): `2026-05-14 23:08:34 EDT`
+- Last Codex poll: `2026-05-15T03:52:26Z`
+- Last Codex poll (Local America/New_York): `2026-05-14 23:52:26 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `195165e650d60ead9ef3f71743753c2dc2b30ee3e267e0fd453a1de88e77ff82`
-- Current instruction revision: `c7e1bda21e42`
+- Last non-audit worktree hash: `9de952840d510ab2d04264e190f18588fb6799ec9b57085d9c6c192b4e859599`
+- Current instruction revision: `69676ff10e2e`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-140 pending review packet(s)
+138 pending review packet(s)
 
 ## Implementer Status
 
@@ -139,7 +139,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Implementer
 
-Priority action_request: P197 SCHEDULER LAYER: extends P195+P196 with the missing SCHEDULER intelligence. 12 typed contracts + ProofDependencyGraph + SafeContinuationDecision (tells AI what's safe while proof pending) + 12-state ProofApplicability + cloud-vs-local TOGGLE per P152 (cloud_only|local_only|hybrid|disabled). 6-slice attack with S6 dogfood as keystone. Breakthrough: 'The AI works ahead. The cloud proves behind.'
+Priority action_request: R130 CLOSE: bridge guard scope MISMATCH (catches 3 in runtime, misses 16 known violators in review_channel/commands) + operator-as-typed-role mandate (operator: 'ROLE AND I SHOULD BE IN LOOP') + P122 next guard recommendation (~45 LOC) + P198-S2 still not picked + packet backlog 137/18. Codex shipped MP197 ingest autonomously during operator-down period.
 
 ## Last Reviewed Scope
 

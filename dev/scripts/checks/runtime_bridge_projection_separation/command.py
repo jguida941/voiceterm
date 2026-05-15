@@ -19,11 +19,17 @@ if str(REPO_ROOT) not in sys.path:
 
 
 RUNTIME_ROOT = "dev/scripts/devctl/runtime"
+BRIDGE_SEPARATION_GUARD_CONTRACT_ID = "BridgeSeparationGuard"
+RUNTIME_BRIDGE_PROJECTION_SEPARATION_GUARD_ID = "RuntimeBridgeProjectionSeparation"
 FORBIDDEN_MODULE_FRAGMENTS = (
     "dev.scripts.devctl.review_channel.bridge_",
     "dev.scripts.devctl.review_channel.bridge.",
     "review_channel.bridge_",
     "review_channel.bridge.",
+    "dev.scripts.devctl.commands.bridge_",
+    "dev.scripts.devctl.commands.bridge.",
+    "commands.bridge_",
+    "commands.bridge.",
 )
 
 
@@ -167,7 +173,8 @@ def _build_report(root: Path | None = None) -> dict[str, object]:
         "ok": True,
         "would_fail": bool(violations),
         "report_only": True,
-        "contract_id": "RuntimeBridgeProjectionSeparation",
+        "contract_id": BRIDGE_SEPARATION_GUARD_CONTRACT_ID,
+        "guard_id": RUNTIME_BRIDGE_PROJECTION_SEPARATION_GUARD_ID,
         "schema_version": 1,
         "checked_paths": checked_paths,
         "violation_count": len(violations),

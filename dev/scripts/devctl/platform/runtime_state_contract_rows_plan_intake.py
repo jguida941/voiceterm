@@ -32,6 +32,30 @@ PLAN_INTAKE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         registry_ownership_mode="system",
     ),
     ContractSpec(
+        contract_id="BridgeSeparationGuard",
+        owner_layer="governance_core",
+        purpose=(
+            "Typed authority-composition row for the report-only guard that "
+            "keeps runtime modules from depending on bridge projection helpers."
+        ),
+        required_fields=(
+            ContractField("guard_id", "str", "Stable guard identifier used in plan and guard evidence."),
+            ContractField("ok", "bool", "Whether the report command executed successfully."),
+            ContractField("report_only", "bool", "Whether current violations are advisory instead of failing."),
+            ContractField("would_fail", "bool", "Whether strict enforcement would fail on current findings."),
+            ContractField("checked_paths", "tuple[str, ...]", "Runtime paths scanned by the guard."),
+            ContractField("violation_count", "int", "Number of bridge-projection dependency findings."),
+            ContractField("violations", "tuple[dict[str, object], ...]", "Machine-readable guard findings."),
+            ContractField("migration_policy", "str", "Policy explaining when the guard can become strict."),
+        ),
+        runtime_model=(
+            "dev.scripts.checks.check_runtime_bridge_projection_separation:"
+            "BridgeSeparationGuard"
+        ),
+        startup_surface_tokens=("guard_id", "report_only", "would_fail"),
+        registry_entry_kind="authority_composition",
+    ),
+    ContractSpec(
         contract_id="PlanIntentIngestionReceipt",
         owner_layer="governance_runtime",
         purpose=(

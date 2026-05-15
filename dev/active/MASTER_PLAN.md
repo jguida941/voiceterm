@@ -8680,3 +8680,40 @@ Response decisions:
 - [ ] `MP-NEW-P197-CONTINUOUS-PROOF-SCHEDULER-S5` Emit `ValidationReceipt`, `ProofRepairPacket`, or `StaleProofReceipt` from `ProofApplicability`.
 - [ ] `MP-NEW-P197-CONTINUOUS-PROOF-SCHEDULER-S6` Dogfood the scheduler loop proving AI can work on path-disjoint slice B while slice A proof is pending.
 - [ ] `MP-NEW-P197-PROOF-EXECUTION-MODE-TOGGLE-S7` Add `ProofExecutionMode` and `ProofExecutionToggle` plus `devctl proof` mode CLI composed with `ToggleReceipt` and `BypassLifecycle`.
+
+P198/P199 intake decisions:
+- P198 adds the proof scheduler output side: `CloudFinding -> FindingApplicability -> RepairPacket`, with `StaleFindingReceipt` for findings invalidated by code movement.
+- The MVP applicability algorithm is file-hash-only; AST, symbol, and graph reconciliation are later refinements.
+- AI repair authority must derive from typed `CloudFinding` records, not raw CI logs.
+- The first workflow target for P198 S3 is `release_attestation.yml` unless a new thin `proof.yml` is proven safer during implementation.
+- P198 S5/S6 are keystone dogfood checks: current-vs-stale cloud findings must pass before earlier P198 slices can be marked applied.
+- P199 found `IngestionProvenance` already registered under the current `PlatformContractRegistryRow` schema; only the missing `BridgeSeparationGuard` registry row is added.
+
+- [ ] `MP-NEW-P198-QUALITY-REPAIR-SCHEDULER-S1` Define `CloudFinding`, `FindingAffectedScope`, `FindingApplicability`, `RepairPacket`, and `StaleFindingReceipt` contracts for machine-readable cloud quality findings.
+- [ ] `MP-NEW-P198-QUALITY-REPAIR-SCHEDULER-S2` Implement file-hash-only `FindingApplicability` reconciliation so current findings can authorize `RepairPacket` emission and changed files become stale or reconciliation-only evidence.
+- [ ] `MP-NEW-P198-QUALITY-REPAIR-SCHEDULER-S3` Wire one GitHub Actions proof target to emit `cloud_findings.json` and `proof_receipt.json` artifacts.
+- [ ] `MP-NEW-P198-QUALITY-REPAIR-SCHEDULER-S4` Add local runtime polling or fetch support that converts currently applicable `CloudFinding` records into `RepairPacket` records while archiving stale findings as historical evidence.
+- [ ] `MP-NEW-P198-QUALITY-REPAIR-SCHEDULER-S5` Dogfood the current-finding loop: unchanged file hash keeps `CloudFinding` current, emits `RepairPacket`, guides repair, runs local recheck, and creates a new proof snapshot.
+- [ ] `MP-NEW-P198-QUALITY-REPAIR-SCHEDULER-S6` Dogfood stale-finding handling: when an affected file changed after the cloud snapshot, mark the `CloudFinding` stale or needing reconciliation and do not emit direct repair authority.
+- [ ] `MP-NEW-P199-CONTRACT-REGISTRY-ORPHAN-CLOSURE-S1` Preserve the existing `IngestionProvenance` registry authority and register `BridgeSeparationGuard` with the current platform contract registry schema.
+
+R130 / rev_pkt_4082 intake decisions:
+- `MP-NEW-P198-QUALITY-REPAIR-SCHEDULER-S2` already exists and remains the selected P198 implementation row; rev_pkt_4082 reinforces priority without creating a duplicate row.
+- `BridgeSeparationGuard` cannot promote beyond report-only until the guard scans `dev/scripts/devctl/review_channel/` and `dev/scripts/devctl/commands/` in addition to runtime modules.
+- Operator text must become a typed role/directive path instead of routing only as ad-hoc chat through another agent.
+- The bridge implementer-ack projection defect from R126 is still open and needs a focused repair row.
+
+- [ ] `MP-NEW-P188-BRIDGE-GUARD-SCOPE-EXPANSION-S2` Expand `BridgeSeparationGuard` scope beyond `dev/scripts/devctl/runtime/` to cover review-channel and command bridge readers before strict enforcement.
+- [ ] `MP-NEW-P122-PLAN-ROW-CONTRACT-REFS-RESOLVE-GUARD-S1` Add `check_plan_row_contract_refs_resolve.py` to catch plan-row contract refs that do not resolve to registered contracts or typed owners.
+- [ ] `MP-NEW-P200-OPERATOR-AS-TYPED-ROLE-S1` Add a typed operator role and `OperatorDirectivePacket` path so operator directives route as first-class runtime attention.
+- [ ] `MP-NEW-P185-PACKET-BACKLOG-DISPOSITION-S2` Reduce pending/stale packet backlog with durable disposition coverage so meta-capture work cannot silently disappear.
+- [ ] `MP-NEW-R126-BRIDGE-ACK-PROJECTION-REPAIR-S1` Repair the bridge implementer-ack projection bug so typed acknowledgements render accurately in projection-only bridge surfaces.
+
+R131 / rev_pkt_4083 intake decisions:
+- First implementation pick is `MP-NEW-P188-BRIDGE-GUARD-SCOPE-EXPANSION-S2`, the smallest concrete win and a prerequisite before any strict bridge-guard enforcement.
+- `MP-NEW-P122-PLAN-ROW-CONTRACT-REFS-RESOLVE-GUARD-S1` and `MP-NEW-P198-QUALITY-REPAIR-SCHEDULER-S2` remain the next smallest wins after the bridge-scope refinement.
+- OperatorDirectiveExtractor is captured under `MP-NEW-P200-OPERATOR-AS-TYPED-ROLE-S1`; defer implementation until after the bridge/P122/P198 small-win queue unless a fresh operator directive reprioritizes it.
+
+- [ ] `MP-NEW-P201-PROVENANCE-CONTRACT-ORPHAN-CLOSURE-S1` Register supply-chain provenance contracts with typed contract authority so provenance rows do not remain orphaned from the registry.
+- [ ] `MP-NEW-P202-BOOT-CARD-SURFACE-INSTRUCTION-SYNC-S1` Add an instruction-surface sync guard for boot-card role clarity, target-kind guidance, and shell-escape friction.
+- [ ] `MP-NEW-P203-DECIDED-PACKET-DEBT-DETECTOR-S1` Add decided-packet debt detection and packet batch triage for acked-but-unbuilt packet classes.
