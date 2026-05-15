@@ -43,7 +43,7 @@ except ModuleNotFoundError:  # pragma: no cover
 
 from .common import resolve_repo_python_command
 from .config import REPO_ROOT, get_repo_root
-from .probe_report.artifacts import write_probe_artifacts
+from .probe_report.artifacts import probe_engine_governance, write_probe_artifacts
 from .probe_topology import (
     build_probe_topology_artifact,
     build_review_packet,
@@ -262,6 +262,8 @@ def build_probe_report(
         summary=summary,
         decision_packets=decision_packets,
     )
+    engine_governance = probe_engine_governance()
+    summary["engine_governance"] = engine_governance
     warnings.extend(topology.get("warnings", []))
     review_packet = build_review_packet(
         summary=summary,
@@ -300,6 +302,7 @@ def build_probe_report(
         "probe_count": len(quality_policy.review_probe_checks),
     }
     report["repo_root"] = str(effective_root)
+    report["engine_governance"] = engine_governance
     report["summary"] = summary
     report["findings"] = list(risk_hints)
     report["risk_hints"] = risk_hints

@@ -116,6 +116,17 @@ class RoleCreationAction:
         return payload
 
 
+@dataclass(frozen=True, slots=True)
+class RoleCommandEnvelope:
+    role_id: str
+    available_commands: tuple[str, ...]
+    enforcement_mode: str
+    fleet_review_toggle: str
+    operator_toggle_receipt: str
+    schema_version: int = 1
+    contract_id: str = "RoleCommandEnvelope"
+
+
 def normalize_custom_role_id(value: object) -> str:
     """Normalize operator role ids without touching TandemRole."""
     text = coerce_string(value).lower().replace("-", "_").replace(" ", "_")

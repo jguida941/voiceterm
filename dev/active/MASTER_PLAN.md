@@ -8518,3 +8518,50 @@ Captured from `rev_pkt_4030` through `rev_pkt_4038` via
 - [ ] `MP-NEW-029` Governed push preflight follow-up: prevent review-channel detached-runtime stop from self-signaling the current controller process, and keep the focused review-channel test inside the governed-push preflight proof path.
 - [ ] `MP-NEW-030` Governed push publication follow-up: load `PushAuthorizationRecord` from the canonical event-backed commit-pipeline projection before falling back to legacy review-status roots, so governed push can consume the authorization emitted by governed commit.
   - progress 2026-05-14: executor-routed push now also passes its in-process `RemoteCommitPipelineContract` to the publication gate, covering the dogfood case where preflight projection refreshes momentarily regenerate `commit_pipeline.json` without the local authorization.
+- [ ] `PKT-BIND-REV-PKT-4054` Packet decision: R123 response: governed-push rationale and next-slice routing (source `rev_pkt_4054`; target `plan:MP-377`; posted `2026-05-15T00:48:49.255269Z`; binding `plan_row`).
+
+### MP-NEW P171-P185 Packet Recovery and No-Silent-Expiry Intake
+
+Recovered on 2026-05-15 from `rev_pkt_4046` through `rev_pkt_4055`,
+including the `clock_expired_without_disposition` packet bodies and the
+R123 `rev_pkt_4053` follow-up. These rows are spec-stage intake; implementation
+must still follow the selected slice authority.
+
+- [ ] `MP-NEW-P171-STATE-REREVIEW-OBSERVABILITY-S1` Surface existing pre-mutation and push state-rereview evidence in agent-facing projections.
+- [ ] `MP-NEW-P171-ACTION-REQUEST-PRE-IMPL-REREVIEW-S1` Require state rereview before action_request-driven implementation mutation.
+  - correction 2026-05-15: `rev_pkt_4059` classifies this as an `ActionRequest` extension; do not create a sibling `PreImplementationStateRereview` contract.
+- [ ] `MP-NEW-P172-REVERSE-AUDIT-ORPHANS-S1` Reverse-audit SYSTEM_MAP-to-code orphans and drift suspects before mutation.
+- [ ] `MP-NEW-P173-ROLE-COMMAND-ENVELOPE-S1` Define role command envelopes with typed enforcement modes and toggle receipts.
+- [ ] `MP-NEW-P174-AI-PROBE-ENGINE-GOVERNANCE-S1` Route AI-generated architecture proposals through probe evidence before mutation.
+  - correction 2026-05-15: `rev_pkt_4059` classifies this as a `ProbeReport` extension; route engine-governance fields through the existing probe report contract.
+- [ ] `MP-NEW-P176-PROBE-REPORT-TDD-EXTENSION-S1` Extend `ProbeReport` for TDD gap-finder evidence instead of creating `TDDGapProbe`.
+- [ ] `MP-NEW-P177-COMMAND-OUTPUT-OBSERVATION-GUARD-S1` Require command-output observation receipts before mutation, commit, stop, or success claims.
+  - correction 2026-05-15: `rev_pkt_4057` re-targets this away from a parallel receipt and onto `ActionRequestDeliveryReceipt` extension.
+- [ ] `MP-NEW-P177-EXTEND-ACTION-REQUEST-DELIVERY-RECEIPT-S1` Extend `ActionRequestDeliveryReceipt` with command output observation fields.
+  - correction 2026-05-15: `rev_pkt_4059` keeps this as an `ActionRequestDeliveryReceipt` subfield extension, not a new sibling row.
+- [ ] `MP-NEW-P179-CONTRACT-LINKED-AFFECTED-TEST-SELECTION-S1` Select affected tests by contract links, then run connected higher-level proof before closure.
+- [ ] `MP-NEW-P179-CONTRACT-ORPHAN-FIX-S1` Drive PlanRow-to-contract registry orphan rate down by adding missing contracts or repairing refs.
+- [ ] `MP-NEW-P180-ZGRAPH-PROJECTION-OVER-CONTEXTGRAPH-S1` Evaluate ZGraph as a projection over `ContextGraphSnapshot` without becoming governance authority.
+- [ ] `MP-NEW-P181-POST-COMMIT-CONTEXTGRAPH-REFRESH-S1` Refresh `ContextGraphSnapshot` from the post-commit hook with freshness checks.
+- [ ] `MP-NEW-P182-GRAPH-INFORMED-DETERMINISTIC-GUARDING-S1` Add graph edges needed for deterministic contract-aware guard and test selection.
+- [ ] `MP-NEW-P183-ZGRAPH-LICENSE-VENDORING-DECISION-S1` Resolve ZGraph license, vendoring, dependency, and pinning blockers before production use.
+- [ ] `MP-NEW-P184-FLEET-FINDINGS-CONSOLIDATION-S1` Consolidate R123 fleet findings and route corrected probe outcomes into typed follow-up slices.
+- [ ] `MP-NEW-P185-NO-SILENT-PACKET-EXPIRY-S1` Add `PacketExpiryPolicy` and `PacketDispositionReceipt`, with action_request packets requiring explicit disposition before archival.
+  - correction 2026-05-15: `rev_pkt_4057` supersedes the new-contract framing; extend existing packet lifecycle contracts instead.
+- [ ] `MP-NEW-P185-EXPIRED-PACKET-RECOVERY-S2` Recover expired and pending packets into explicit typed dispositions.
+- [ ] `MP-NEW-P185-NO-SILENT-EXPIRY-GUARD-S3` Add `check_no_silent_packet_expiry.py` and wire it after migration baseline.
+- [ ] `MP-NEW-P185-EXTEND-PACKET-EXPIRY-MATERIALIZATION-S1` Extend `PacketExpiryMaterialization` with expiry mode and disposition-required fields.
+- [ ] `MP-NEW-P185-EXTEND-PACKET-DISPOSITION-S2` Extend `PacketDisposition` with actor, timestamp, and materialization provenance.
+- [ ] `MP-NEW-P185-RECOVER-1071-EXPIRED-S3` Run packet recovery sweep that emits explicit `PacketDisposition` records for expired packets.
+- [ ] `MP-NEW-P185-NO-SILENT-EXPIRY-GUARD-S4` Extend packet PKT-BIND completeness guard to block silent packet expiry.
+
+### MP-NEW P186-P187 R125 Duplicate Correction and Token Optimization Intake
+
+Recovered on 2026-05-15 from `rev_pkt_4059`. These rows keep all
+token-saving work behind explicit no-capability-removed and no-context-lost
+constraints; dogfood proof is required before applying an optimization.
+
+- [ ] `MP-NEW-P186-DUPLICATE-CORRECTION-S1` Consolidate P171/P174/P177 misframed duplicate rows into existing contract extensions.
+- [ ] `MP-NEW-P187-TOKEN-OPTIMIZATION-DESIGN-S1` Design and choose token optimizations without capability or context loss.
+- [ ] `MP-NEW-P187-TOKEN-OPTIMIZATION-DOGFOOD-RECEIPT-S2` Design `TokenOptimizationDogfoodReceipt` extending `FeatureLifecycleProof` and `DogfoodRecord`.
+- [ ] `MP-NEW-P187-ZERO-TRADEOFF-APPLY-S3` Apply zero-tradeoff token optimizations only after the dogfood receipt design exists.

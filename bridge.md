@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-15T00:19:48Z`
-- Last Codex poll (Local America/New_York): `2026-05-14 20:19:48 EDT`
+- Last Codex poll: `2026-05-15T01:33:06Z`
+- Last Codex poll (Local America/New_York): `2026-05-14 21:33:06 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `7e2f0f341996119fb412aecdddef20062de73c5e21bfc3d77ff9bcd797894a9d`
-- Current instruction revision: ``
+- Last non-audit worktree hash: `131b216b7b710fca86882fed1118020fe9ea9acf72950578c55e09c46814ef95`
+- Current instruction revision: `fbe248802f49`
 
 ## Protocol
 
@@ -134,15 +134,16 @@ treat these rules as active workflow instructions immediately.
 
 ## Implementer Ack
 
-- missing
+- acknowledged current instruction revision: `c278fb3bb6e3`
+- notes: Acknowledged rev_pkt_4057/R124 correction: five P0/P185 duplicate contract proposals are retargeted as extensions; RoleCommandEnvelope remains the only new contract; first guard target is MP-NEW-P185-NO-SILENT-EXPIRY-GUARD-S4/check_silent_packet_expiry.py. Edit-only correction is in progress; no staging, commit, or push.
 
 ## Current Instruction For Implementer
 
-- Await reviewer instruction refresh.
+Priority action_request: R125 FULL: 3 more duplicates + 0% orphan reconcile + TDD-Gap PacketExpiryMaterialization probe + 3 token-opt agents (15-18K/round + 68K/session potential) — CODEX DESIGNS+CHOOSES, BOTH DOGFOOD. Constraints: no capability removed, no context lost. Confirms R124 ack + extension-discipline empirically working.
 
 ## Last Reviewed Scope
 
-MP-355
+MP-377
 
 ## Action Requests
 

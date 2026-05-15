@@ -24,6 +24,10 @@ _DELIVERY_FIELDS = (
     "apply_pending_after_execution_at_utc",
     "apply_pending_after_execution_by",
     "apply_pending_after_execution_reason",
+    "command_output_observed_at_utc",
+    "command_output_observed_by",
+    "command_output_ref",
+    "command_output_summary",
 )
 
 
@@ -229,6 +233,10 @@ def _merge_receipt_defaults(
     merged.setdefault("apply_pending_after_execution_at_utc", "")
     merged.setdefault("apply_pending_after_execution_by", "")
     merged.setdefault("apply_pending_after_execution_reason", "")
+    merged.setdefault("command_output_observed_at_utc", "")
+    merged.setdefault("command_output_observed_by", "")
+    merged.setdefault("command_output_ref", "")
+    merged.setdefault("command_output_summary", "")
     return merged
 
 

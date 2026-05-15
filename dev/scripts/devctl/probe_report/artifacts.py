@@ -24,6 +24,15 @@ from ..probe_topology import (
 )
 
 
+def probe_engine_governance() -> dict[str, Any]:
+    return {
+        "proposal_engine": "review_probe_report",
+        "ai_generated_architecture_requires_probe_evidence": True,
+        "mutation_requires_plan_row": True,
+        "contract_extension_preferred_over_sibling_creation": True,
+    }
+
+
 def write_probe_artifacts(
     *,
     output_root: Path,

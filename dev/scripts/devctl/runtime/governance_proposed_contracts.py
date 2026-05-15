@@ -339,4 +339,3 @@ class PacketPlanIngestionMapping:
     source_hash: str
     schema_version: int = 1
     contract_id: str = "PacketPlanIngestionMapping"
-

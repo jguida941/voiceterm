@@ -11,6 +11,7 @@ from .runtime_state_contract_rows_governance_proposed import (
     GOVERNANCE_PROPOSED_STATE_CONTRACTS,
 )
 from .runtime_state_contract_rows_review_pipeline import (
+    GOVERNANCE_EXTENSION_STATE_CONTRACTS,
     REVIEW_PIPELINE_STATE_CONTRACTS,
 )
 from .runtime_state_contract_rows_relaunch_loop import RELAUNCH_LOOP_STATE_CONTRACTS
@@ -497,6 +498,7 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     ),
     *DEVELOPMENT_STATE_CONTRACTS,
     *GOVERNED_EXCEPTION_STATE_CONTRACTS,
+    *GOVERNANCE_EXTENSION_STATE_CONTRACTS,
     *GOVERNANCE_PROPOSED_STATE_CONTRACTS,
     *REVIEW_PIPELINE_STATE_CONTRACTS,
     *RELAUNCH_LOOP_STATE_CONTRACTS,

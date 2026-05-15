@@ -83,6 +83,19 @@ class LinkedDoc:
 
 
 @dataclass(frozen=True, slots=True)
+class AffectedTestSelection:
+    selection_id: str
+    changed_paths: tuple[str, ...]
+    contract_refs: tuple[str, ...]
+    local_test_refs: tuple[str, ...]
+    connected_test_refs: tuple[str, ...]
+    selection_reason: str
+    selected_at_utc: str
+    schema_version: int = MASTER_PLAN_SCHEMA_VERSION
+    contract_id: str = "AffectedTestSelection"
+
+
+@dataclass(frozen=True, slots=True)
 class PlanRow:
     """One typed master-plan row.
 

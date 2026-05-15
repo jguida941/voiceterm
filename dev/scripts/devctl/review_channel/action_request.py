@@ -66,6 +66,7 @@ class ActionRequest:
     action: str
     payload: str
     status: str
+    pre_impl_rereview: str = ""
 
 
 def parse_action_requests(text: str) -> list[ActionRequest]:
@@ -164,6 +165,7 @@ def action_requests_from_packets(
                 action=requested_action,
                 payload=_packet_payload(packet),
                 status=ActionStatus.PENDING.value,
+                pre_impl_rereview=str(packet.get("pre_impl_rereview") or "").strip(),
             )
         )
     return results
