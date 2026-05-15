@@ -188,6 +188,10 @@
       ]
     },
     "guard_mandates": {
+      "check_commit_body_packet_anchors": {
+        "mandate_packet_id": "rev_pkt_4017",
+        "observed_at_utc": "2026-05-14T15:37:25Z"
+      },
       "check_packet_pkt_bind_completeness": {
         "mandate_packet_id": "rev_pkt_4017",
         "observed_at_utc": "2026-05-14T15:37:25Z"
@@ -206,6 +210,7 @@
     },
     "repo_portability": {
       "target_paths": [
+        "dev/scripts/checks/check_commit_body_packet_anchors.py",
         "dev/scripts/checks/check_plan_index_commit_continuity.py",
         "dev/scripts/checks/packet_pkt_bind_completeness",
         "dev/scripts/checks/check_task_started_adr_precedent_linking.py",

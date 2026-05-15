@@ -25,6 +25,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("cli_flags_parity", "check_cli_flags_parity.py"),
     ("clippy_high_signal", "check_clippy_high_signal.py"),
     ("command_source_validation", "check_command_source_validation.py"),
+    ("commit_body_packet_anchors", "check_commit_body_packet_anchors.py"),
     ("contract_connectivity", "check_contract_connectivity.py"),
     ("duplication_audit", "check_duplication_audit.py"),
     ("duplication_audit_support", "check_duplication_audit_support.py"),

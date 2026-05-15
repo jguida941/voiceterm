@@ -385,6 +385,9 @@ jobs:
       - name: Run memory-not-authority guard
         run: python3 dev/scripts/checks/check_memory_not_authority.py
 
+      - name: Run commit-body packet anchor guard
+        run: python3 dev/scripts/checks/check_commit_body_packet_anchors.py
+
       - name: Run packet PKT-BIND completeness guard
         run: python3 dev/scripts/checks/check_packet_pkt_bind_completeness.py
 

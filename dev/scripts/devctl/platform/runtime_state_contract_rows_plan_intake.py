@@ -189,6 +189,48 @@ PLAN_INTAKE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         registry_entry_kind="authority_composition",
     ),
     ContractSpec(
+        contract_id="CommitBodyPacketAnchorsGuard",
+        owner_layer="governance_core",
+        purpose=(
+            "Report-only guard checking MP slice commit messages preserve "
+            "review-channel packet or task_started provenance anchors."
+        ),
+        required_fields=(
+            ContractField("guard_id", "str", "Stable guard identifier."),
+            ContractField("ok", "bool", "Whether the guard executed successfully."),
+            ContractField("report_only", "bool", "Whether findings are advisory."),
+            ContractField("would_fail", "bool", "Whether strict mode would fail."),
+            ContractField("max_count", "int", "Maximum commits scanned."),
+            ContractField("scanned_commit_count", "int", "Commits scanned."),
+            ContractField(
+                "mp_slice_commit_count",
+                "int",
+                "MP slice commits scanned.",
+            ),
+            ContractField(
+                "violation_count",
+                "int",
+                "Commits missing packet anchors.",
+            ),
+            ContractField(
+                "violations",
+                "tuple[dict[str, object], ...]",
+                "Sample findings.",
+            ),
+            ContractField("errors", "tuple[str, ...]", "Git log errors."),
+        ),
+        runtime_model=(
+            "dev.scripts.checks.check_commit_body_packet_anchors:"
+            "CommitBodyPacketAnchorsGuard"
+        ),
+        startup_surface_tokens=(
+            "guard_id",
+            "violation_count",
+            "mp_slice_commit_count",
+        ),
+        registry_entry_kind="authority_composition",
+    ),
+    ContractSpec(
         contract_id="PlanIntentIngestionReceipt",
         owner_layer="governance_runtime",
         purpose=(
