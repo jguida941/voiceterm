@@ -6,7 +6,7 @@ import argparse
 import ast
 import json
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 try:
@@ -31,6 +31,23 @@ FORBIDDEN_MODULE_FRAGMENTS = (
     "commands.bridge_",
     "commands.bridge.",
 )
+
+
+@dataclass(frozen=True, slots=True)
+class BridgeSeparationGuard:
+    """Registry-facing contract for the runtime bridge-separation guard report."""
+
+    guard_id: str
+    ok: bool
+    report_only: bool
+    would_fail: bool
+    checked_paths: tuple[str, ...] = field(default_factory=tuple)
+    violation_count: int = 0
+    violations: tuple[dict[str, object], ...] = field(default_factory=tuple)
+    migration_policy: str = ""
+    schema_version: int = 1
+    contract_id: str = "BridgeSeparationGuard"
+    command: str = "check_runtime_bridge_projection_separation"
 
 
 @dataclass(frozen=True)
