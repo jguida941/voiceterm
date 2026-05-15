@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-15T02:49:52Z`
-- Last Codex poll (Local America/New_York): `2026-05-14 22:49:52 EDT`
+- Last Codex poll: `2026-05-15T02:56:14Z`
+- Last Codex poll (Local America/New_York): `2026-05-14 22:56:14 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `d595c6f7a50b913af05bb4c065e63c6c13fc6bd1e2f7c9b685dc599fb29c89fa`
-- Current instruction revision: `2dcf0139012e`
+- Current instruction revision: `c7e1bda21e42`
 
 ## Protocol
 
@@ -139,7 +139,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Implementer
 
-Priority action_request: P196 SHARPENED: AHEAD-OF-RUNTIME PROOF CACHE. 'The runtime does not prove. The runtime verifies proof.' Runtime moves from proof-executor to proof-verifier. 7 new contracts (CodeIdentity + ProofReceipt + ProofIndex + RuntimeProofLookup + ProofApplicability + ProofAuthorityDecision + BypassWithoutProofReceipt) + 6-slice attack with stale-proof dogfood as KEYSTONE. Sharpens P195 framing.
+Priority action_request: P197 SCHEDULER LAYER: extends P195+P196 with the missing SCHEDULER intelligence. 12 typed contracts + ProofDependencyGraph + SafeContinuationDecision (tells AI what's safe while proof pending) + 12-state ProofApplicability + cloud-vs-local TOGGLE per P152 (cloud_only|local_only|hybrid|disabled). 6-slice attack with S6 dogfood as keystone. Breakthrough: 'The AI works ahead. The cloud proves behind.'
 
 ## Last Reviewed Scope
 
