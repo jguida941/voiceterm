@@ -266,8 +266,9 @@ Use docs like this:
   raw cadence instead of invoking `git commit` / `git push` directly. The
   wrapper writes `RawGitBypassReceipt` rows, validates lifecycle-backed
   authority against active `BypassLifecycle` state before write, links each
-  operation to `GovernedExceptionLifecycle`, and refuses to emit receipts for
-  help, dry-run, or unchanged-HEAD no-ops.
+  operation to `GovernedExceptionLifecycle`, emits or updates
+  `FeatureProofReceipt` artifacts for raw commits and pushed commit ranges,
+  and refuses to emit receipts for help, dry-run, or unchanged-HEAD no-ops.
 - The `ensure-follow` reviewer-wake path
   (`dev/scripts/devctl/review_channel/reviewer_follow_guard.py::launch_waiting_reviewer_conductor`)
   shares the same auto-elevation seam, so a remote-control reviewer
@@ -1908,6 +1909,7 @@ Why this model is safe:
 | Workflow shell anti-pattern drift | `python3 dev/scripts/checks/check_workflow_shell_hygiene.py` | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
 | Workflow action pinning drift | `python3 dev/scripts/checks/check_workflow_action_pinning.py` | `tooling_control_plane.yml` + `workflow_lint.yml` |
 | Check-script enforcement lane drift | `python3 dev/scripts/checks/check_guard_enforcement_inventory.py` | `tooling_control_plane.yml` + `release_preflight.yml` (new shared guards must also land in typed quality-policy + bundle/workflow parity) |
+| Feature proof receipt drift | `python3 dev/scripts/checks/check_feature_has_proof_receipt.py --since-ref <base> --head-ref HEAD` | `bundle.tooling` + `bundle.release` shared governance checks |
 | Repo-portable governance substrate drift | `python3 dev/scripts/checks/check_substrate_is_repo_portable.py` | `tooling_control_plane.yml` + `release_preflight.yml` |
 | AGENTS boot-card projection drift | `python3 dev/scripts/checks/check_agents_bundle_render.py` plus `python3 dev/scripts/checks/check_agents_contract.py` for role/help discovery; use `python3 dev/scripts/devctl.py render-surfaces --write --format md` to regenerate | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
 | Durable guide/playbook coverage drift | `python3 dev/scripts/checks/check_guide_contract_sync.py` | `tooling_control_plane.yml` + `release_preflight.yml` + `docs-check --strict-tooling` |

@@ -16034,3 +16034,20 @@ Evidence:
 
 - `dev/scripts/devctl/runtime/role_profile.py`
 - `dev/scripts/devctl/tests/runtime/test_role_profile.py`
+
+### 2026-05-15 - Raw-git path emits feature proof receipts
+
+R156 dogfood showed that governed commit emission was not enough: the
+operator-authorized raw-git loop bypassed the governed executor hook. The
+`devctl raw-git` wrapper now writes `FeatureProofReceipt` artifacts for raw
+commits and updates pushed commit ranges with the push bypass receipt. The new
+`check_feature_has_proof_receipt.py` guard fails when a commit in the selected
+range lacks a valid receipt for its SHA, and the guard is registered in the
+shared governance bundle.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/raw_git.py`
+- `dev/scripts/checks/check_feature_has_proof_receipt.py`
+- `dev/scripts/devctl/tests/commands/test_raw_git.py`
+- `dev/scripts/devctl/tests/checks/test_check_feature_has_proof_receipt.py`

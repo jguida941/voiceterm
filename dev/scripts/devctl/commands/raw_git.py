@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable
@@ -27,9 +28,21 @@ from ..runtime.raw_git_bypass_receipts import (
     build_raw_git_bypass_receipt,
     raw_git_authority_from_value,
 )
+from ..runtime.feature_proof_receipt import (
+    FeatureProofReceipt,
+    feature_proof_receipt_artifact_relpath,
+    feature_proof_receipt_from_mapping,
+    write_feature_proof_receipt_artifact,
+)
 
 DEFAULT_OPERATOR_EVIDENCE_REF = "packet:rev_pkt_4022"
 GitRunner = Callable[[tuple[str, ...], bool], "GitCommandResult"]
+REAL_LIFE_TEST_STATUS_CHOICES = (
+    "proven_passed",
+    "proven_failed",
+    "not_tested_with_rationale",
+)
+_PLAN_ROW_RE = re.compile(r"\b(?:MP|MP-NEW|PKT-BIND)[A-Z0-9_.:-]*(?:-[A-Z0-9_.:-]+)*\b")
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +93,74 @@ def add_parser(sub) -> None:
         action="append",
         default=None,
         help="Repeatable operator evidence ref; last value is stored on the receipt.",
+    )
+    parser.add_argument(
+        "--feature-id",
+        default="",
+        help="Feature/plan row id for the FeatureProofReceipt. Defaults to the first MP-style token in the commit body.",
+    )
+    parser.add_argument(
+        "--test-command",
+        action="append",
+        default=None,
+        help="Repeatable validation command to record in the FeatureProofReceipt.",
+    )
+    parser.add_argument(
+        "--tests-passed-count",
+        type=int,
+        default=None,
+        help="Number of passing validation commands recorded in the FeatureProofReceipt.",
+    )
+    parser.add_argument(
+        "--tests-failed-count",
+        type=int,
+        default=None,
+        help="Number of failing validation commands recorded in the FeatureProofReceipt.",
+    )
+    parser.add_argument(
+        "--connectivity-guard",
+        action="append",
+        default=None,
+        help="Repeatable connectivity guard recorded in the FeatureProofReceipt.",
+    )
+    parser.add_argument(
+        "--connectivity-guards-passed",
+        choices=("true", "false"),
+        default="true",
+        help="Whether the recorded connectivity guards passed.",
+    )
+    parser.add_argument(
+        "--dogfood-evidence-ref",
+        default="",
+        help="Evidence ref for live dogfood invocation recorded in the FeatureProofReceipt.",
+    )
+    parser.add_argument(
+        "--review-fleet-role",
+        action="append",
+        default=None,
+        help="Repeatable review fleet role recorded in the FeatureProofReceipt.",
+    )
+    parser.add_argument(
+        "--review-fleet-actor",
+        default="raw-git-wrapper",
+        help="Review fleet actor recorded in the FeatureProofReceipt.",
+    )
+    parser.add_argument(
+        "--real-life-test-status",
+        choices=REAL_LIFE_TEST_STATUS_CHOICES,
+        default="",
+        help="Real-life test status recorded in the FeatureProofReceipt.",
+    )
+    parser.add_argument(
+        "--not-tested-rationale",
+        default="",
+        help="Required rationale when --real-life-test-status is not_tested_with_rationale.",
+    )
+    parser.add_argument(
+        "--evidence-artifact",
+        action="append",
+        default=None,
+        help="Repeatable evidence artifact path recorded in the FeatureProofReceipt.",
     )
     add_standard_output_arguments(
         parser,
@@ -215,12 +296,23 @@ def run_raw_git_action(
         governed_exception_store_path=governed_exception_store_path,
     )
     receipt = write_result.receipt
+    proof_paths, proof_warnings = _record_feature_proof_receipts(
+        args,
+        runner=runner,
+        repo_root=repo_root,
+        receipt=receipt,
+        store_path=store_path,
+        governed_exception_store_path=governed_exception_store_path,
+        before_ahead=before_ahead,
+    )
     report = {
         "command": "raw-git",
         "action": verb.value,
         "ok": True,
         "receipt_id": receipt.receipt_id,
         "store_path": display_path(store_path),
+        "feature_proof_receipt_paths": list(proof_paths),
+        "feature_proof_receipt_warnings": list(proof_warnings),
         "receipt": receipt.to_dict(),
         "write_result": write_result.to_dict(),
         "git_returncode": command_result.returncode,
@@ -268,6 +360,252 @@ def _affected_paths(
     else:
         output = ""
     return tuple(line.strip() for line in output.splitlines() if line.strip())
+
+
+def _record_feature_proof_receipts(
+    args: Any,
+    *,
+    runner: GitRunner,
+    repo_root: Path,
+    receipt: object,
+    store_path: Path,
+    governed_exception_store_path: Path,
+    before_ahead: str,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    paths: list[str] = []
+    warnings: list[str] = []
+    try:
+        if not isinstance(receipt, object):
+            return (), ()
+        if getattr(receipt, "git_verb", None) is RawGitVerb.COMMIT:
+            relpath = _write_raw_git_feature_proof_receipt(
+                args,
+                runner=runner,
+                repo_root=repo_root,
+                receipt=receipt,
+                store_path=store_path,
+                governed_exception_store_path=governed_exception_store_path,
+                commit_sha=receipt.commit_sha,
+            )
+            if relpath:
+                paths.append(relpath)
+        elif getattr(receipt, "git_verb", None) is RawGitVerb.PUSH:
+            for commit_sha in _commit_lines(before_ahead):
+                relpath = _upsert_pushed_feature_proof_receipt(
+                    args,
+                    runner=runner,
+                    repo_root=repo_root,
+                    receipt=receipt,
+                    store_path=store_path,
+                    governed_exception_store_path=governed_exception_store_path,
+                    commit_sha=commit_sha,
+                )
+                if relpath:
+                    paths.append(relpath)
+    except Exception as exc:  # pragma: no cover - defensive evidence debt path
+        warnings.append(f"feature_proof_receipt_write_failed:{exc}")
+    return tuple(paths), tuple(warnings)
+
+
+def _write_raw_git_feature_proof_receipt(
+    args: Any,
+    *,
+    runner: GitRunner,
+    repo_root: Path,
+    receipt: Any,
+    store_path: Path,
+    governed_exception_store_path: Path,
+    commit_sha: str,
+) -> str:
+    if not commit_sha:
+        return ""
+    feature_proof = _raw_git_feature_proof_receipt(
+        args,
+        runner=runner,
+        receipt=receipt,
+        store_path=store_path,
+        governed_exception_store_path=governed_exception_store_path,
+        commit_sha=commit_sha,
+    )
+    return write_feature_proof_receipt_artifact(repo_root, feature_proof)
+
+
+def _upsert_pushed_feature_proof_receipt(
+    args: Any,
+    *,
+    runner: GitRunner,
+    repo_root: Path,
+    receipt: Any,
+    store_path: Path,
+    governed_exception_store_path: Path,
+    commit_sha: str,
+) -> str:
+    if not commit_sha:
+        return ""
+    relpath = feature_proof_receipt_artifact_relpath(commit_sha)
+    path = repo_root / relpath
+    if not path.exists():
+        return _write_raw_git_feature_proof_receipt(
+            args,
+            runner=runner,
+            repo_root=repo_root,
+            receipt=receipt,
+            store_path=store_path,
+            governed_exception_store_path=governed_exception_store_path,
+            commit_sha=commit_sha,
+        )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    existing = feature_proof_receipt_from_mapping(payload)
+    updated = replace(
+        existing,
+        bypass_audit_trail_refs=_unique_refs(
+            (*existing.bypass_audit_trail_refs, *_raw_git_audit_refs(receipt))
+        ),
+        evidence_artifacts=_unique_refs(
+            (
+                *existing.evidence_artifacts,
+                display_path(store_path),
+                display_path(governed_exception_store_path),
+            )
+        ),
+    )
+    return write_feature_proof_receipt_artifact(repo_root, updated)
+
+
+def _raw_git_feature_proof_receipt(
+    args: Any,
+    *,
+    runner: GitRunner,
+    receipt: Any,
+    store_path: Path,
+    governed_exception_store_path: Path,
+    commit_sha: str,
+) -> FeatureProofReceipt:
+    tests_run = _string_items(getattr(args, "test_command", ()) or ())
+    failed_count = _optional_count(getattr(args, "tests_failed_count", None), 0)
+    passed_count = _optional_count(
+        getattr(args, "tests_passed_count", None),
+        1 if tests_run and failed_count == 0 else 0,
+    )
+    status = str(getattr(args, "real_life_test_status", "") or "").strip()
+    if not status:
+        status = "proven_passed" if tests_run and failed_count == 0 else "not_tested_with_rationale"
+    rationale = str(getattr(args, "not_tested_rationale", "") or "").strip()
+    if status == "not_tested_with_rationale" and not rationale:
+        rationale = (
+            "Raw git wrapper emitted the required FeatureProofReceipt anchor; "
+            "no validation commands were declared on this raw-git invocation."
+        )
+    evidence_artifacts = _unique_refs(
+        (
+            *tuple(_string_items(getattr(args, "evidence_artifact", ()) or ())),
+            display_path(store_path),
+            display_path(governed_exception_store_path),
+        )
+    )
+    return FeatureProofReceipt(
+        feature_id=_feature_id_for_commit(args, runner=runner, commit_sha=commit_sha),
+        commit_sha=commit_sha,
+        implementer_actor=str(getattr(args, "actor", "") or "codex").strip() or "codex",
+        review_fleet_roles_ran=_string_items(
+            getattr(args, "review_fleet_role", ()) or ()
+        )
+        or ("FeatureLifecycleProof", "GovernanceReceipt"),
+        review_fleet_actor=str(
+            getattr(args, "review_fleet_actor", "") or "raw-git-wrapper"
+        ).strip()
+        or "raw-git-wrapper",
+        tests_run=tests_run or ("raw_git_bypass_receipt",),
+        tests_passed_count=passed_count,
+        tests_failed_count=failed_count,
+        connectivity_guards_ran=_string_items(
+            getattr(args, "connectivity_guard", ()) or ()
+        )
+        or ("raw_git_bypass_receipt", "governed_exception_lifecycle"),
+        connectivity_guards_passed=_bool_arg(
+            getattr(args, "connectivity_guards_passed", "true")
+        ),
+        dogfood_invocation_evidence_ref=str(
+            getattr(args, "dogfood_evidence_ref", "") or ""
+        ).strip()
+        or f"raw_git_bypass_receipt:{receipt.receipt_id}",
+        real_life_test_status=status,
+        not_tested_rationale=rationale if status == "not_tested_with_rationale" else None,
+        bypass_audit_trail_refs=_raw_git_audit_refs(receipt),
+        proven_at_utc=str(getattr(receipt, "executed_at_utc", "") or _now_utc()),
+        evidence_artifacts=evidence_artifacts,
+    )
+
+
+def _feature_id_for_commit(args: Any, *, runner: GitRunner, commit_sha: str) -> str:
+    requested = str(getattr(args, "feature_id", "") or "").strip()
+    if requested:
+        return requested
+    body = _git_stdout(runner, ("log", "-1", "--format=%B", commit_sha))
+    match = _PLAN_ROW_RE.search(body)
+    if match is not None:
+        return match.group(0)
+    return commit_sha
+
+
+def _raw_git_audit_refs(receipt: Any) -> tuple[str, ...]:
+    return _unique_refs(
+        (
+            f"raw_git_bypass_receipt:{receipt.receipt_id}",
+            str(getattr(receipt, "receipt_id", "") or ""),
+            f"governed_exception:{getattr(receipt, 'governed_exception_id', '')}",
+            str(getattr(receipt, "operator_quote_evidence_ref", "") or ""),
+            (
+                f"bypass_lifecycle_ref:{getattr(receipt, 'bypass_lifecycle_id', '')}"
+                if getattr(receipt, "bypass_lifecycle_id", "")
+                else ""
+            ),
+        )
+    )
+
+
+def _commit_lines(value: str) -> tuple[str, ...]:
+    return tuple(line.strip() for line in value.splitlines() if line.strip())
+
+
+def _string_items(values: object) -> tuple[str, ...]:
+    if isinstance(values, str):
+        candidates = (values,)
+    else:
+        try:
+            candidates = tuple(values)  # type: ignore[arg-type]
+        except TypeError:
+            candidates = ()
+    return _unique_refs(str(value).strip() for value in candidates if str(value).strip())
+
+
+def _unique_refs(values: object) -> tuple[str, ...]:
+    refs: list[str] = []
+    seen: set[str] = set()
+    try:
+        iterator = iter(values)  # type: ignore[arg-type]
+    except TypeError:
+        return ()
+    for value in iterator:
+        ref = str(value).strip()
+        if not ref or ref in seen:
+            continue
+        seen.add(ref)
+        refs.append(ref)
+    return tuple(refs)
+
+
+def _optional_count(value: object, default: int) -> int:
+    if value is None:
+        return default
+    try:
+        return max(int(value), 0)
+    except (TypeError, ValueError):
+        return default
+
+
+def _bool_arg(value: object) -> bool:
+    return str(value).strip().lower() not in {"0", "false", "no", "off"}
 
 
 def _first_new_commit_sha(

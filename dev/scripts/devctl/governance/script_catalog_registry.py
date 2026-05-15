@@ -35,6 +35,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("duplication_audit", "check_duplication_audit.py"),
     ("duplication_audit_support", "check_duplication_audit_support.py"),
     ("duplicate_types", "check_duplicate_types.py"),
+    ("feature_has_proof_receipt", "check_feature_has_proof_receipt.py"),
     ("guard_enforcement_inventory", "check_guard_enforcement_inventory.py"),
     ("ground_truth_probe_gate", "check_ground_truth_probe_gate.py"),
     ("governed_transitions", "check_governed_transitions.py"),

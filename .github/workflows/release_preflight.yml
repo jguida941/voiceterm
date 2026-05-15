@@ -189,6 +189,7 @@ jobs:
           python3 dev/scripts/checks/check_commit_body_packet_anchors.py
           python3 dev/scripts/checks/check_packet_pkt_bind_completeness.py
           python3 dev/scripts/checks/check_plan_index_commit_continuity.py
+          python3 dev/scripts/checks/check_feature_has_proof_receipt.py
           python3 dev/scripts/checks/check_task_started_adr_precedent_linking.py
           python3 dev/scripts/checks/check_typed_namespace_composition.py
           python3 dev/scripts/checks/check_runtime_state_ignore_posture.py

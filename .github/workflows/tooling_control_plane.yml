@@ -394,6 +394,9 @@ jobs:
       - name: Run plan-index commit continuity guard
         run: python3 dev/scripts/checks/check_plan_index_commit_continuity.py
 
+      - name: Run feature proof receipt guard
+        run: python3 dev/scripts/checks/check_feature_has_proof_receipt.py
+
       - name: Run task-started ADR precedent guard
         run: python3 dev/scripts/checks/check_task_started_adr_precedent_linking.py
 

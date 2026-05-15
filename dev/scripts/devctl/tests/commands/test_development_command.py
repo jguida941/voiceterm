@@ -3282,6 +3282,7 @@ def test_develop_ingest_plan_packet_materializes_mp_new_rows(
                         "body": "\n".join(
                             [
                                 "MP-NEW-P208 verdict is context, not a row.",
+                                "MP-NEW-P210-SYSTEM-PICTURE-EXTENSION family is context, not a closure row.",
                                 "For rev_pkt_4106 -> MP-NEW-P204-S1..S3",
                                 "- `MP-NEW-P206-REPO-SEMANTIC-CLASSIFIER-S1` - Repo semantic classifier",
                                 '{ "slice_id": "MP-NEW-P209-SESSION-PROBLEM-LOGGER-S1",',

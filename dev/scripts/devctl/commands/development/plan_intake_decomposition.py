@@ -9,7 +9,7 @@ from .plan_intake_titles import truncate
 from .plan_intake_support import text
 
 _MP_NEW_ROW_RE = re.compile(
-    r"\b(?P<row_id>MP-NEW-P\d+(?:-[A-Z0-9][A-Z0-9._]*)+)\b"
+    r"\b(?P<row_id>MP-NEW-P\d+(?:-[A-Z0-9][A-Z0-9._]*)*-S\d+)\b"
 )
 _MP_NEW_RANGE_RE = re.compile(
     r"\b(?P<prefix>MP-NEW-P\d+(?:-[A-Z0-9][A-Z0-9._]*)*-S)"

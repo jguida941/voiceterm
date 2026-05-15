@@ -202,9 +202,10 @@ Current ingestion status:
   implementer, review-fleet roles, tests, connectivity guards, dogfood
   evidence, real-life test status, bypass refs, and evidence artifacts.
   Governed commit success now emits the receipt under
-  `dev/reports/feature_proof_receipts/<sha>.json`; raw-git plan-execution
-  commits must produce equivalent manual receipts before they are described as
-  shipped.
+  `dev/reports/feature_proof_receipts/<sha>.json`; raw-git plan-execution now
+  emits equivalent receipts from `devctl raw-git commit` and updates pushed
+  commit ranges from `devctl raw-git push`. `check_feature_has_proof_receipt.py`
+  blocks missing per-commit proof artifacts in the selected commit range.
 - 2026-05-14 raw-git receipt substrate: `rev_pkt_4022` makes raw
   `git commit --no-verify` / `git push` a typed evidence concern instead of an
   invisible operator bypass. `RawGitBypassReceipt` records the verb, commit or
