@@ -2297,6 +2297,9 @@ python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1 --format m
 # top-level next_step_command, and first Next Commands row come from
 # PacketAttentionIngestionDecision.next_command, normally the bounded
 # `review-channel --action show --packet-id ...` packet read surface.
+# The same report includes DecidedPacketDebtDetector and PacketBatchTriage so
+# ACKed-but-unbuilt packet classes are counted and grouped by reason, target,
+# and recommended durable-ingestion action before any drain writes run.
 
 # MP377-P0-T22AN-AM follow-up: reviewer/architect/operator/system packets for
 # the current slice must become continuous typed peer attention. High-relevance

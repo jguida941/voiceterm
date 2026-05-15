@@ -11,6 +11,7 @@ from ..config import REPO_ROOT
 CHECKS_DIR = "dev/scripts/checks"
 
 _CHECK_SCRIPT_ENTRIES = (
+    ("action_result_status_domain", "check_action_result_status_domain.py"),
     ("active_plan_sync", "check_active_plan_sync.py"),
     ("architecture_surface_sync", "check_architecture_surface_sync.py"),
     ("review_snapshot_freshness", "check_review_snapshot_freshness.py"),
@@ -27,6 +28,10 @@ _CHECK_SCRIPT_ENTRIES = (
     ("command_source_validation", "check_command_source_validation.py"),
     ("commit_body_packet_anchors", "check_commit_body_packet_anchors.py"),
     ("contract_connectivity", "check_contract_connectivity.py"),
+    (
+        "context_graph_snapshot_freshness",
+        "check_context_graph_snapshot_freshness.py",
+    ),
     ("duplication_audit", "check_duplication_audit.py"),
     ("duplication_audit_support", "check_duplication_audit_support.py"),
     ("duplicate_types", "check_duplicate_types.py"),
@@ -44,6 +49,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("package_layout", "check_package_layout.py"),
     ("packet_pkt_bind_completeness", "check_packet_pkt_bind_completeness.py"),
     ("plan_index_commit_continuity", "check_plan_index_commit_continuity.py"),
+    ("plan_row_contract_refs_resolve", "check_plan_row_contract_refs_resolve.py"),
     (
         "task_started_adr_precedent_linking",
         "check_task_started_adr_precedent_linking.py",

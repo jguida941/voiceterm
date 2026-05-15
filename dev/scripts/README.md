@@ -2285,6 +2285,9 @@ Machine-first output note:
   remain authority. `audit-packets` renders `PacketDebtRemediationReport` so
   ACKed or expired packets with durable intent are routed toward
   plan/finding/lifecycle ownership instead of living only in packet transport.
+  The report also emits `DecidedPacketDebtDetector` and `PacketBatchTriage`
+  summaries so ACKed-but-unbuilt packets are visible as detector debt and
+  grouped by reason, target, and durable-ingestion action.
   When packet attention already required `audit-packets`, the continuation
   path now promotes `PacketAttentionIngestionDecision.next_command` into the
   report's `next_step_command` and first `next_commands` row, so automation can

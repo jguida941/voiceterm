@@ -15947,3 +15947,21 @@ Additional evidence:
 - `dev/scripts/devctl/commands/vcs/push.py`
 - `dev/scripts/devctl/commands/vcs/push_publication_gate.py`
 - `dev/scripts/devctl/tests/vcs/test_push.py`
+
+### 2026-05-15 - Packet debt exposes decided backlog batches
+
+P203 turned the ACKed-but-unbuilt packet backlog into typed packet-debt
+summaries. `PacketDebtRemediationReport` now carries a
+`DecidedPacketDebtDetector` count for decided packets without terminal or
+durable ownership evidence, plus `PacketBatchTriage` rows that cluster debt by
+reason, target ref, and recommended ingestion action. The lifecycle clock also
+keeps transport expiry separate from durable-binding expiry so archived packets
+with no durable owner stay visible to the remediation report.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/packet_debt_remediation.py`
+- `dev/scripts/devctl/review_channel/packet_debt_triage.py`
+- `dev/scripts/devctl/review_channel/packet_debt_remediation_contracts.py`
+- `dev/scripts/devctl/review_channel/packet_lifecycle_clock.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_debt_remediation.py`

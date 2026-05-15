@@ -30,6 +30,7 @@ from .packet_debt_remediation_contracts import (
     durable_ingestion_event,
     receipt_from_binding,
 )
+from .packet_debt_triage import decided_packet_debt_detector, packet_batch_triage
 
 DEFAULT_PACKET_DEBT_REMEDIATION_LIMIT = 30
 _PLAN_INGESTIBLE_KINDS = frozenset(
@@ -94,6 +95,13 @@ def packet_debt_remediation_report(
         )
         for debt in debts[: max(0, inputs.limit)]
     ]
+    triage = packet_batch_triage(
+        debts=debts,
+        packet_by_id=packet_by_id,
+        target_ref_for_packet=_target_ref,
+        action_for_packet=_recommended_action,
+        cluster_id_for=_cluster_id,
+    )
     return PacketDebtRemediationReport(
         generated_at_utc=utc_timestamp(),
         source_review_state_path=_repo_relative(
@@ -103,6 +111,8 @@ def packet_debt_remediation_report(
         write_enabled=inputs.write,
         rows=tuple(rows),
         total_debt_count=len(debts),
+        decided_packet_debt=decided_packet_debt_detector(debts),
+        batch_triage=triage,
     )
 
 

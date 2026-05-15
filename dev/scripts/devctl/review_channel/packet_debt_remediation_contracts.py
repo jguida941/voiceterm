@@ -5,6 +5,9 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 
 PACKET_DURABLE_INGESTION_CONTRACT_ID = "PacketDurableIngestionReceipt"
+DECIDED_PACKET_DEBT_DETECTOR_CONTRACT_ID = "DecidedPacketDebtDetector"
+PACKET_BATCH_TRIAGE_CONTRACT_ID = "PacketBatchTriage"
+PACKET_BATCH_TRIAGE_ROW_CONTRACT_ID = "PacketBatchTriageRow"
 PACKET_DEBT_REMEDIATION_CONTRACT_ID = "PacketDebtRemediationReport"
 PACKET_DEBT_REMEDIATION_ROW_CONTRACT_ID = "PacketDebtRemediationRow"
 PACKET_DEBT_REMEDIATION_SCHEMA_VERSION = 1
@@ -62,6 +65,61 @@ class PacketDebtRemediationRow:
 
 
 @dataclass(frozen=True, slots=True)
+class DecidedPacketDebtDetector:
+    """Detector summary for ACKed packets that still lack durable ownership."""
+
+    reason: str
+    total_count: int
+    sample_packet_ids: tuple[str, ...]
+    kind_counts: dict[str, int]
+    status_counts: dict[str, int]
+    contract_id: str = DECIDED_PACKET_DEBT_DETECTOR_CONTRACT_ID
+    schema_version: int = PACKET_DEBT_REMEDIATION_SCHEMA_VERSION
+
+    def to_dict(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["sample_packet_ids"] = list(self.sample_packet_ids)
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class PacketBatchTriageRow:
+    """One packet-debt cluster sharing reason, target, and next action."""
+
+    cluster_id: str
+    reason: str
+    recommended_action: str
+    target_ref: str
+    packet_count: int
+    sample_packet_ids: tuple[str, ...]
+    kind_counts: dict[str, int]
+    status_counts: dict[str, int]
+    contract_id: str = PACKET_BATCH_TRIAGE_ROW_CONTRACT_ID
+    schema_version: int = PACKET_DEBT_REMEDIATION_SCHEMA_VERSION
+
+    def to_dict(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["sample_packet_ids"] = list(self.sample_packet_ids)
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class PacketBatchTriage:
+    """Bounded cluster summary for packet debt classes."""
+
+    rows: tuple[PacketBatchTriageRow, ...]
+    total_cluster_count: int
+    largest_batch_size: int = 0
+    contract_id: str = PACKET_BATCH_TRIAGE_CONTRACT_ID
+    schema_version: int = PACKET_DEBT_REMEDIATION_SCHEMA_VERSION
+
+    def to_dict(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["rows"] = [row.to_dict() for row in self.rows]
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
 class PacketDebtRemediationReport:
     """Bounded report used by /develop and probes to drain packet debt."""
 
@@ -70,6 +128,8 @@ class PacketDebtRemediationReport:
     write_enabled: bool
     rows: tuple[PacketDebtRemediationRow, ...]
     total_debt_count: int = 0
+    decided_packet_debt: DecidedPacketDebtDetector | None = None
+    batch_triage: PacketBatchTriage | None = None
     contract_id: str = PACKET_DEBT_REMEDIATION_CONTRACT_ID
     schema_version: int = PACKET_DEBT_REMEDIATION_SCHEMA_VERSION
 
@@ -90,6 +150,12 @@ class PacketDebtRemediationReport:
         payload["receipt_counts"] = _counts(
             row.receipt.status for row in self.rows if row.receipt is not None
         )
+        payload["decided_packet_debt"] = (
+            self.decided_packet_debt.to_dict()
+            if self.decided_packet_debt
+            else None
+        )
+        payload["batch_triage"] = self.batch_triage.to_dict() if self.batch_triage else None
         payload["rows"] = row_payloads
         return payload
 
@@ -167,11 +233,17 @@ def _counts(values) -> dict[str, int]:
 
 
 __all__ = [
+    "DECIDED_PACKET_DEBT_DETECTOR_CONTRACT_ID",
+    "PACKET_BATCH_TRIAGE_CONTRACT_ID",
+    "PACKET_BATCH_TRIAGE_ROW_CONTRACT_ID",
     "PACKET_DEBT_REMEDIATION_CONTRACT_ID",
     "PACKET_DEBT_REMEDIATION_ROW_CONTRACT_ID",
     "PACKET_DEBT_REMEDIATION_SCHEMA_VERSION",
     "PACKET_DURABLE_INGESTION_CONTRACT_ID",
     "PACKET_DURABLE_INGESTION_EVENT_TYPES",
+    "DecidedPacketDebtDetector",
+    "PacketBatchTriage",
+    "PacketBatchTriageRow",
     "PacketDebtRemediationReport",
     "PacketDebtRemediationRow",
     "PacketDurableIngestionReceipt",

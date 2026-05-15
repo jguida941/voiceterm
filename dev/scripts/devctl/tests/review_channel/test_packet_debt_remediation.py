@@ -131,6 +131,70 @@ def test_packet_debt_remediation_reports_total_debt_beyond_limit(
     assert payload["omitted_debt_count"] == 1
 
 
+def test_packet_debt_remediation_groups_decided_packet_debt(
+    tmp_path: Path,
+) -> None:
+    _master_plan(tmp_path)
+    base_packet = {
+        "kind": "finding",
+        "status": "acked",
+        "lifecycle_current_state": "acknowledged",
+        "from_agent": "claude",
+        "to_agent": "codex",
+        "body": "Architecture finding needs durable plan state.",
+        "plan_id": "MP-377",
+        "anchor_refs": ["MP377-P0-T22AN-F"],
+        "acted_on_events": [],
+    }
+    first = {
+        **base_packet,
+        "packet_id": "rev_pkt_61",
+        "summary": "First decided packet",
+    }
+    second = {
+        **base_packet,
+        "packet_id": "rev_pkt_62",
+        "summary": "Second decided packet",
+    }
+    pending = {
+        **base_packet,
+        "packet_id": "rev_pkt_63",
+        "status": "pending",
+        "summary": "Pending packet",
+    }
+    review_state_path = tmp_path / "dev/reports/review_channel/projections/latest/review_state.json"
+    review_state_path.parent.mkdir(parents=True, exist_ok=True)
+    review_state_path.write_text(
+        json.dumps({"packets": [first, second, pending]}),
+        encoding="utf-8",
+    )
+
+    report = packet_debt_remediation_report(
+        PacketDebtRemediationInputs(
+            repo_root=tmp_path,
+            artifact_paths=resolve_artifact_paths(repo_root=tmp_path),
+            review_state_path=review_state_path,
+            plan_store_path=tmp_path / "dev/state/plan_index.jsonl",
+            limit=1,
+        )
+    )
+
+    payload = report.to_dict()
+    detector = payload["decided_packet_debt"]
+    assert detector["contract_id"] == "DecidedPacketDebtDetector"
+    assert detector["total_count"] == 2
+    assert detector["sample_packet_ids"] == ["rev_pkt_61", "rev_pkt_62"]
+    assert detector["kind_counts"] == {"finding": 2}
+    assert detector["status_counts"] == {"acked": 2}
+    triage = payload["batch_triage"]
+    assert triage["contract_id"] == "PacketBatchTriage"
+    assert triage["total_cluster_count"] == 2
+    assert triage["largest_batch_size"] == 2
+    assert triage["rows"][0]["packet_count"] == 2
+    assert triage["rows"][0]["recommended_action"] == "ingest_plan_row"
+    assert triage["rows"][0]["sample_packet_ids"] == ["rev_pkt_61", "rev_pkt_62"]
+
+
 def test_packet_debt_remediation_write_inserts_plan_row_and_receipt(
     tmp_path: Path,
 ) -> None:
