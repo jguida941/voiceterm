@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `61069b1f6f9c` — MP378-S7: add operator command wrappers
-- Tree hash: `142e7f8430d7`
-- Generation stamp: `snap-78c8ea8d47c8`
-- Generated at (UTC): 2026-05-15T10:56:14Z
+- HEAD: `722ee4ec1266` — MP-NEW-P198-S2: add file-hash finding applicability
+- Tree hash: `1ff211f9090b`
+- Generation stamp: `snap-beb06d32787a`
+- Generated at (UTC): 2026-05-15T11:10:43Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 67 files, +4233/-727
+- Delta since last snapshot: 25 commits, 87 files, +4886/-816
 - Governance findings: 44 open / 0 fixed / 44 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `61069b1f6f9cac25dad183ea9a22e1c98f030311`
+- HEAD SHA: `722ee4ec1266990520135124b46a4b1d0c76b513`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-15T06:55:07-04:00
+- HEAD timestamp (UTC): 2026-05-15T07:09:36-04:00
 
 ## 2. Governance state
 
@@ -44,7 +44,7 @@ production client (VoiceTerm...
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 24 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 26 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -64,42 +64,43 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `61069b1f6f9c`
+Range: last 25 commits ending at `722ee4ec1266`
 
-- commits: 24
-- files changed: 67
-- insertions: +4233
-- deletions: -727
+- commits: 25
+- files changed: 87
+- insertions: +4886
+- deletions: -816
 - bundle classes touched: docs, tooling
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `61069b1f` | MP378-S7: add operator command wrappers | 12 | +371/-28 | tooling |  |
-| 2 | `8b430a4a` | Refresh external review snapshot for 40689268 | 2 | +51/-51 | docs |  |
-| 3 | `40689268` | MP378-S5: add provider-neutral role reset action | 5 | +114/-6 | tooling |  |
-| 4 | `4e0f0759` | Refresh external review snapshot for fce1ff08 | 2 | +61/-61 | docs |  |
-| 5 | `fce1ff08` | MP378-S6: keep bypass lifecycle store local | 14 | +417/-13 | tooling |  |
-| 6 | `e94ef530` | Refresh external review snapshot for 85c11e92 | 2 | +59/-59 | docs |  |
-| 7 | `85c11e92` | MP378-P4: add typed namespace composition guard | 29 | +737/-8 | tooling |  |
-| 8 | `581f1432` | Refresh external review snapshot for 22833c80 | 2 | +50/-50 | docs |  |
-| 9 | `22833c80` | MP378-P5: report authority contract registry gaps | 2 | +262/-0 | tooling |  |
-| 10 | `606db95e` | Refresh external review snapshot for b0e6e5ff | 2 | +57/-57 | docs |  |
-| 11 | `b0e6e5ff` | MP378-P3: add commit body packet anchor guard | 10 | +353/-25 | tooling |  |
-| 12 | `8f15df5c` | Refresh external review snapshot for 77bbcd00 | 2 | +57/-57 | docs |  |
-| 13 | `77bbcd00` | MP378-P7: add task started ADR precedent guard | 10 | +567/-8 | tooling |  |
-| 14 | `4b2f1fd5` | Refresh external review snapshot for 8d188534 | 2 | +61/-64 | docs |  |
-| 15 | `8d188534` | MP-GUARD-REGISTRY-S1: register guard contracts | 3 | +115/-29 | tooling |  |
-| 16 | `95e759dc` | Refresh external review snapshot for 87460712 | 2 | +60/-57 | docs |  |
-| 17 | `87460712` | MP193-S1: add check_action_result_status_domain guard (P193) | 1 | +210/-0 | tooling |  |
-| 18 | `c2c4149e` | Refresh policy-owned generated surfaces for 57a978d7 | 1 | +1/-1 | docs |  |
-| 19 | `57a978d7` | Refresh external review snapshot for c5219b9a | 2 | +58/-58 | docs |  |
-| 20 | `c5219b9a` | MP-NEW-P200-S1: add operator directive role enum | 2 | +27/-0 | tooling |  |
-| 21 | `2644aff7` | Refresh external review snapshot for f078228a | 2 | +86/-93 | docs |  |
-| 22 | `f078228a` | MP-CONTROL-PLANE-S1: extend control_plane_quality preflight… | 2 | +62/-2 | tooling |  |
-| 23 | `23d481ad` | MP181-S1: add check_context_graph_snapshot_freshness guard… | 3 | +190/-0 | tooling |  |
-| 24 | `b9359b7b` | MP122-S1: add check_plan_row_contract_refs_resolve guard (P… | 1 | +207/-0 | tooling |  |
+| 1 | `722ee4ec` | MP-NEW-P198-S2: add file-hash finding applicability | 24 | +798/-31 | tooling |  |
+| 2 | `368cdc3c` | Refresh external review snapshot for 61069b1f | 2 | +62/-58 | docs |  |
+| 3 | `61069b1f` | MP378-S7: add operator command wrappers | 12 | +371/-28 | tooling |  |
+| 4 | `8b430a4a` | Refresh external review snapshot for 40689268 | 2 | +51/-51 | docs |  |
+| 5 | `40689268` | MP378-S5: add provider-neutral role reset action | 5 | +114/-6 | tooling |  |
+| 6 | `4e0f0759` | Refresh external review snapshot for fce1ff08 | 2 | +61/-61 | docs |  |
+| 7 | `fce1ff08` | MP378-S6: keep bypass lifecycle store local | 14 | +417/-13 | tooling |  |
+| 8 | `e94ef530` | Refresh external review snapshot for 85c11e92 | 2 | +59/-59 | docs |  |
+| 9 | `85c11e92` | MP378-P4: add typed namespace composition guard | 29 | +737/-8 | tooling |  |
+| 10 | `581f1432` | Refresh external review snapshot for 22833c80 | 2 | +50/-50 | docs |  |
+| 11 | `22833c80` | MP378-P5: report authority contract registry gaps | 2 | +262/-0 | tooling |  |
+| 12 | `606db95e` | Refresh external review snapshot for b0e6e5ff | 2 | +57/-57 | docs |  |
+| 13 | `b0e6e5ff` | MP378-P3: add commit body packet anchor guard | 10 | +353/-25 | tooling |  |
+| 14 | `8f15df5c` | Refresh external review snapshot for 77bbcd00 | 2 | +57/-57 | docs |  |
+| 15 | `77bbcd00` | MP378-P7: add task started ADR precedent guard | 10 | +567/-8 | tooling |  |
+| 16 | `4b2f1fd5` | Refresh external review snapshot for 8d188534 | 2 | +61/-64 | docs |  |
+| 17 | `8d188534` | MP-GUARD-REGISTRY-S1: register guard contracts | 3 | +115/-29 | tooling |  |
+| 18 | `95e759dc` | Refresh external review snapshot for 87460712 | 2 | +60/-57 | docs |  |
+| 19 | `87460712` | MP193-S1: add check_action_result_status_domain guard (P193) | 1 | +210/-0 | tooling |  |
+| 20 | `c2c4149e` | Refresh policy-owned generated surfaces for 57a978d7 | 1 | +1/-1 | docs |  |
+| 21 | `57a978d7` | Refresh external review snapshot for c5219b9a | 2 | +58/-58 | docs |  |
+| 22 | `c5219b9a` | MP-NEW-P200-S1: add operator directive role enum | 2 | +27/-0 | tooling |  |
+| 23 | `2644aff7` | Refresh external review snapshot for f078228a | 2 | +86/-93 | docs |  |
+| 24 | `f078228a` | MP-CONTROL-PLANE-S1: extend control_plane_quality preflight… | 2 | +62/-2 | tooling |  |
+| 25 | `23d481ad` | MP181-S1: add check_context_graph_snapshot_freshness guard… | 3 | +190/-0 | tooling |  |
 
 ### Files
 
@@ -107,14 +108,13 @@ Range: last 24 commits ending at `61069b1f6f9c`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +4/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +12/-0 |
-| `bridge.md` | docs | +36/-36 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +564/-571 |
+| `bridge.md` | docs | +41/-41 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +621/-624 |
 | `dev/config/devctl_repo_policy.json` | tooling | +20/-0 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +99/-98 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +124/-122 |
 | `dev/scripts/checks/check_action_result_status_domain.py` | tooling | +210/-0 |
 | `dev/scripts/checks/check_commit_body_packet_anchors.py` | tooling | +213/-0 |
 | `dev/scripts/checks/check_context_graph_snapshot_freshness.py` | tooling | +12/-0 |
-| `dev/scripts/checks/check_plan_row_contract_refs_resolve.py` | tooling | +207/-0 |
 | `dev/scripts/checks/check_runtime_state_ignore_posture.py` | tooling | +219/-0 |
 | `dev/scripts/checks/check_task_started_adr_precedent_linking.py` | tooling | +330/-0 |
 | `dev/scripts/checks/check_typed_namespace_composition.py` | tooling | +247/-0 |
@@ -124,16 +124,21 @@ Range: last 24 commits ending at `61069b1f6f9c`
 | `dev/scripts/devctl/bundles/registry.py` | tooling | +4/-0 |
 | `dev/scripts/devctl/commands/development/models.py` | tooling | +16/-0 |
 | `dev/scripts/devctl/commands/development/operator_command_wrappers.py` | tooling | +75/-0 |
+| `dev/scripts/devctl/commands/development/plan_intake_phase0.py` | tooling | +2/-7 |
 | `dev/scripts/devctl/commands/development/render.py` | tooling | +20/-0 |
 | `dev/scripts/devctl/commands/development/report_assembly.py` | tooling | +90/-10 |
 | `dev/scripts/devctl/commands/review_channel/__init__.py` | tooling | +4/-1 |
 | `dev/scripts/devctl/commands/review_channel/_reset_implementer.py` | tooling | +18/-5 |
 | `dev/scripts/devctl/commands/review_channel_command/constants.py` | tooling | +1/-0 |
 | `dev/scripts/devctl/governance/script_catalog_registry.py` | tooling | +7/-0 |
+| `dev/scripts/devctl/platform/runtime_state_contract_rows.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_development.py` | tooling | +32/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_plan_intake.py` | tooling | +237/-0 |
+| `dev/scripts/devctl/platform/runtime_state_contract_rows_quality_repair.py` | tooling | +133/-0 |
 | `dev/scripts/devctl/review_channel/parser.py` | tooling | +1/-0 |
 | `dev/scripts/devctl/runtime/control_plane_quality.py` | tooling | +20/-2 |
+| `dev/scripts/devctl/runtime/file_hashes.py` | tooling | +27/-0 |
+| `dev/scripts/devctl/runtime/quality_repair_scheduler.py` | tooling | +161/-0 |
 | `dev/scripts/devctl/runtime/role_profile.py` | tooling | +14/-0 |
 | `dev/scripts/devctl/runtime/session_liveness_reconciler.py` | tooling | +3/-0 |
 | `dev/scripts/devctl/tests/checks/test_check_commit_body_packet_anchors.py` | tooling | +61/-0 |
@@ -141,11 +146,7 @@ Range: last 24 commits ending at `61069b1f6f9c`
 | `dev/scripts/devctl/tests/checks/test_check_systemmap_covers_contract_registry.py` | tooling | +50/-0 |
 | `dev/scripts/devctl/tests/checks/test_check_task_started_adr_precedent_linking.py` | tooling | +163/-0 |
 | `dev/scripts/devctl/tests/checks/test_check_typed_namespace_composition.py` | tooling | +89/-0 |
-| `dev/scripts/devctl/tests/commands/test_development_command.py` | tooling | +60/-0 |
-| `dev/scripts/devctl/tests/platform/test_platform_contracts.py` | tooling | +2/-0 |
-| `dev/scripts/devctl/tests/review_channel/test_review_channel.py` | tooling | +90/-0 |
-| `dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py` | tooling | +42/-0 |
-| _27 more files trimmed_ | | |
+| _47 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -194,7 +195,8 @@ Recent findings:
 
 ### Targeted hints
 
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/platform/test_platform_contracts.py`) — Commit 61069b1f changed dev/scripts/devctl/tests/platform/test_platform_contracts.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/runtime_state_contract_rows.py`) — Commit 722ee4ec changed dev/scripts/devctl/platform/runtime_state_contract_rows.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/platform/test_platform_contracts.py`) — Commit 722ee4ec changed dev/scripts/devctl/tests/platform/test_platform_contracts.py
 
 ### Suggested verification commands
 
@@ -207,6 +209,10 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`722ee4ec`** — MP-NEW-P198-S2: add file-hash finding applicability
+  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+- **`368cdc3c`** — Refresh external review snapshot for 61069b1f
+  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
 - **`61069b1f`** — MP378-S7: add operator command wrappers
   - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
 - **`8b430a4a`** — Refresh external review snapshot for 40689268
@@ -259,9 +265,6 @@ Recent findings:
   - that the latest ContextGraphSnapshot in dev/reports/graph_snapshots/
   - matches current HEAD commit hash; reports drift in report-only mode.
   - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
-- **`b9359b7b`** — MP122-S1: add check_plan_row_contract_refs_resolve guard (P122)
-  - Validates plan_index PlanRow contract refs resolve in contract_registry.
-  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -305,4 +308,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-78c8ea8d47c8` binds this file to HEAD `61069b1f6f9c`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-beb06d32787a` binds this file to HEAD `722ee4ec1266`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
