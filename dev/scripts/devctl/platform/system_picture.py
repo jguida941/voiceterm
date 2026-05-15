@@ -7,9 +7,9 @@ from pathlib import Path
 
 from ..common import resolve_repo_path
 from ..config import get_repo_root
+from ..context_graph.latest_snapshot import latest_context_graph_snapshot_path
 from ..context_graph.snapshot_store import (
     format_context_graph_snapshot_path,
-    list_context_graph_snapshots,
     load_context_graph_snapshot,
 )
 from ..governance.push_state import current_head_commit_sha
@@ -140,7 +140,12 @@ def build_system_picture_snapshot(
         excluded_rel_paths=(),
     )
 
-    snapshot_paths = list_context_graph_snapshots(repo_root=resolved_root)
+    latest_graph_snapshot_path = latest_context_graph_snapshot_path(
+        repo_root=resolved_root,
+    )
+    snapshot_paths = (
+        (latest_graph_snapshot_path,) if latest_graph_snapshot_path is not None else ()
+    )
     review_state_path_val = resolve_review_state_path(resolved_root, governance=startup_context.governance)
     quality_signals = load_startup_quality_signals(resolved_root)
     control_plane = build_control_plane_read_model(

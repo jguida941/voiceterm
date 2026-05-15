@@ -287,8 +287,8 @@ def test_build_system_picture_snapshot_reads_typed_sources() -> None:
                 return_value="tree456",
             ),
             patch(
-                "dev.scripts.devctl.platform.system_picture.list_context_graph_snapshots",
-                return_value=(repo_root / "dev/reports/graph_snapshots/latest.json",),
+                "dev.scripts.devctl.platform.system_picture.latest_context_graph_snapshot_path",
+                return_value=repo_root / "dev/reports/graph_snapshots/latest.json",
             ),
             patch(
                 "dev.scripts.devctl.platform.system_picture.load_context_graph_snapshot",
