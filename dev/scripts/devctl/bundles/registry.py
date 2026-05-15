@@ -145,6 +145,7 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
     check_script_shell_command("plan_index_commit_continuity"),
     check_script_shell_command("task_started_adr_precedent_linking"),
     check_script_shell_command("typed_namespace_composition"),
+    check_script_shell_command("runtime_state_ignore_posture"),
     check_script_shell_command("substrate_is_repo_portable"),
     check_script_shell_command("architecture_surface_sync"),
     check_script_shell_command("review_snapshot_freshness"),

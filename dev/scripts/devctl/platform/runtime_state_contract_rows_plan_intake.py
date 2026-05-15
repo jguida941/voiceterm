@@ -225,6 +225,32 @@ PLAN_INTAKE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         registry_entry_kind="authority_composition",
     ),
     ContractSpec(
+        contract_id="RuntimeStateIgnorePostureGuard",
+        owner_layer="governance_core",
+        purpose=(
+            "Guard requiring local runtime-state receipt stores to be covered "
+            "by git ignore rules and absent from the tracked index."
+        ),
+        required_fields=(
+            ContractField("guard_id", "str", "Stable guard identifier."),
+            ContractField("ok", "bool", "Whether the guard passed."),
+            ContractField("report_only", "bool", "Whether findings are advisory."),
+            ContractField("would_fail", "bool", "Whether strict mode would fail."),
+            ContractField("checked_path_count", "int", "Runtime-state paths checked."),
+            ContractField("ignored_path_count", "int", "Paths covered by ignore rules."),
+            ContractField("tracked_path_count", "int", "Paths still tracked by git."),
+            ContractField("violation_count", "int", "Ignore posture violations found."),
+            ContractField("violations", "tuple[dict[str, object], ...]", "Findings."),
+            ContractField("errors", "tuple[str, ...]", "Git command errors."),
+        ),
+        runtime_model=(
+            "dev.scripts.checks.check_runtime_state_ignore_posture:"
+            "RuntimeStateIgnorePostureGuard"
+        ),
+        startup_surface_tokens=("guard_id", "tracked_path_count", "violation_count"),
+        registry_entry_kind="authority_composition",
+    ),
+    ContractSpec(
         contract_id="CommitBodyPacketAnchorsGuard",
         owner_layer="governance_core",
         purpose=(

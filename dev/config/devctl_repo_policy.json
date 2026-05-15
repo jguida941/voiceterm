@@ -210,6 +210,10 @@
       "check_typed_namespace_composition": {
         "mandate_packet_id": "rev_pkt_4017",
         "observed_at_utc": "2026-05-14T15:37:25Z"
+      },
+      "check_runtime_state_ignore_posture": {
+        "mandate_packet_id": "rev_pkt_4017",
+        "observed_at_utc": "2026-05-14T15:37:25Z"
       }
     },
     "repo_portability": {
@@ -219,6 +223,7 @@
         "dev/scripts/checks/packet_pkt_bind_completeness",
         "dev/scripts/checks/check_task_started_adr_precedent_linking.py",
         "dev/scripts/checks/check_typed_namespace_composition.py",
+        "dev/scripts/checks/check_runtime_state_ignore_posture.py",
         "dev/scripts/checks/systemmap_covers_contract_registry"
       ],
       "ignore_paths": [

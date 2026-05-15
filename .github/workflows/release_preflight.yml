@@ -191,6 +191,7 @@ jobs:
           python3 dev/scripts/checks/check_plan_index_commit_continuity.py
           python3 dev/scripts/checks/check_task_started_adr_precedent_linking.py
           python3 dev/scripts/checks/check_typed_namespace_composition.py
+          python3 dev/scripts/checks/check_runtime_state_ignore_posture.py
           python3 dev/scripts/checks/check_substrate_is_repo_portable.py
           python3 dev/scripts/checks/check_architecture_surface_sync.py --since-ref "${{ steps.ai_guard_range.outputs.since }}" --head-ref "${{ steps.ai_guard_range.outputs.head }}"
           python3 dev/scripts/checks/check_review_snapshot_freshness.py

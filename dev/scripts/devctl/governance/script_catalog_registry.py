@@ -49,6 +49,7 @@ _CHECK_SCRIPT_ENTRIES = (
         "check_task_started_adr_precedent_linking.py",
     ),
     ("typed_namespace_composition", "check_typed_namespace_composition.py"),
+    ("runtime_state_ignore_posture", "check_runtime_state_ignore_posture.py"),
     ("substrate_is_repo_portable", "check_substrate_is_repo_portable.py"),
     ("platform_layer_boundaries", "check_platform_layer_boundaries.py"),
     ("platform_contract_closure", "check_platform_contract_closure.py"),
