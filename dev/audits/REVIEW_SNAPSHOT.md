@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `35fbdaf05a20` — raw-git: emit feature proof receipts
-- Tree hash: `e37ad3d96031`
-- Generation stamp: `snap-841e9a7d81a8`
-- Generated at (UTC): 2026-05-15T18:32:49Z
+- HEAD: `69f6fe218989` — reconcile governance plan rows from rev_pkt_4128
+- Tree hash: `ca5050bb7be3`
+- Generation stamp: `snap-c4bca8e1842f`
+- Generated at (UTC): 2026-05-15T18:44:18Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 119 files, +6812/-933
+- Delta since last snapshot: 24 commits, 99 files, +6111/-946
 - Governance findings: 44 open / 0 fixed / 44 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `35fbdaf05a205025a1e8fc69432032787894ffde`
+- HEAD SHA: `69f6fe21898978fc58b0245eab04759a1e7a9d5c`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-15T14:32:13-04:00
+- HEAD timestamp (UTC): 2026-05-15T14:43:43-04:00
 
 ## 2. Governance state
 
@@ -64,12 +64,12 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `35fbdaf05a20`
+Range: last 24 commits ending at `69f6fe218989`
 
 - commits: 24
-- files changed: 119
-- insertions: +6812
-- deletions: -933
+- files changed: 99
+- insertions: +6111
+- deletions: -946
 - bundle classes touched: tooling, docs
 - authority surfaces touched: 2 file(s)
 
@@ -77,30 +77,30 @@ Range: last 24 commits ending at `35fbdaf05a20`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `35fbdaf0` | raw-git: emit feature proof receipts | 19 | +812/-11 | tooling |  |
-| 2 | `c39b26ef` | ingest-plan: materialize MP-NEW packet closure rows | 12 | +367/-8 | tooling |  |
-| 3 | `d6fbbf81` | MP-NEW-P207: add FeatureProofReceipt emission | 25 | +693/-23 | tooling |  |
-| 4 | `81711617` | Refresh external review snapshot for a76b9b88 | 2 | +72/-67 | docs |  |
-| 5 | `a76b9b88` | master-state-red: fix schema fixtures + dedup + system map… | 29 | +796/-50 | tooling |  |
-| 6 | `bfbcfe48` | Refresh external review snapshot for 7ebc3232 | 2 | +64/-62 | docs |  |
-| 7 | `7ebc3232` | MP-NEW-P203: add decided packet debt triage | 27 | +660/-24 | tooling |  |
-| 8 | `ded04ead` | Refresh external review snapshot for 7e366df7 | 2 | +57/-57 | docs |  |
-| 9 | `7e366df7` | MP-NEW-P202: harden boot-card instruction sync | 9 | +117/-5 | tooling |  |
-| 10 | `d2f2128d` | Refresh external review snapshot for 6b2937ef | 2 | +82/-82 | docs |  |
-| 11 | `6b2937ef` | MP-NEW-P188-BRIDGE-GUARD-S2: expand bridge separation scope | 8 | +89/-10 | tooling |  |
-| 12 | `be1ae2c4` | Refresh external review snapshot for ea2b4491 | 2 | +59/-59 | docs |  |
-| 13 | `ea2b4491` | MP-NEW-P188-S4: quiet benign CLI health probe | 2 | +60/-1 | tooling |  |
-| 14 | `a33e004f` | Refresh external review snapshot for 00ecc940 | 2 | +64/-79 | docs |  |
-| 15 | `00ecc940` | MP-NEW-P188-S4: add CLI health recovery probe | 13 | +533/-14 | tooling |  |
-| 16 | `330f1936` | Refresh external review snapshot for f3ac84bc | 2 | +64/-64 | docs |  |
-| 17 | `f3ac84bc` | MP-NEW-P188-S3: add extension discipline guard-run check | 10 | +447/-13 | tooling |  |
-| 18 | `b86a2a0a` | Refresh external review snapshot for f4ea765b | 2 | +60/-59 | docs |  |
-| 19 | `f4ea765b` | MP-NEW-P188-S2: add implementer ack freshness check | 12 | +458/-2 | tooling |  |
-| 20 | `bfff8e8e` | Refresh external review snapshot for 98e5e5de | 2 | +79/-85 | docs |  |
-| 21 | `98e5e5de` | MP-NEW-P188-S1: keep implementer ack typed | 8 | +261/-14 | tooling |  |
-| 22 | `f5cee955` | Refresh external review snapshot for 722ee4ec | 2 | +58/-55 | docs |  |
-| 23 | `722ee4ec` | MP-NEW-P198-S2: add file-hash finding applicability | 24 | +798/-31 | tooling |  |
-| 24 | `368cdc3c` | Refresh external review snapshot for 61069b1f | 2 | +62/-58 | docs |  |
+| 1 | `69f6fe21` | reconcile governance plan rows from rev_pkt_4128 | 4 | +55/-7 | tooling |  |
+| 2 | `43607fa3` | Refresh external review snapshot for 35fbdaf0 | 2 | +104/-95 | docs |  |
+| 3 | `35fbdaf0` | raw-git: emit feature proof receipts | 19 | +812/-11 | tooling |  |
+| 4 | `c39b26ef` | ingest-plan: materialize MP-NEW packet closure rows | 12 | +367/-8 | tooling |  |
+| 5 | `d6fbbf81` | MP-NEW-P207: add FeatureProofReceipt emission | 25 | +693/-23 | tooling |  |
+| 6 | `81711617` | Refresh external review snapshot for a76b9b88 | 2 | +72/-67 | docs |  |
+| 7 | `a76b9b88` | master-state-red: fix schema fixtures + dedup + system map… | 29 | +796/-50 | tooling |  |
+| 8 | `bfbcfe48` | Refresh external review snapshot for 7ebc3232 | 2 | +64/-62 | docs |  |
+| 9 | `7ebc3232` | MP-NEW-P203: add decided packet debt triage | 27 | +660/-24 | tooling |  |
+| 10 | `ded04ead` | Refresh external review snapshot for 7e366df7 | 2 | +57/-57 | docs |  |
+| 11 | `7e366df7` | MP-NEW-P202: harden boot-card instruction sync | 9 | +117/-5 | tooling |  |
+| 12 | `d2f2128d` | Refresh external review snapshot for 6b2937ef | 2 | +82/-82 | docs |  |
+| 13 | `6b2937ef` | MP-NEW-P188-BRIDGE-GUARD-S2: expand bridge separation scope | 8 | +89/-10 | tooling |  |
+| 14 | `be1ae2c4` | Refresh external review snapshot for ea2b4491 | 2 | +59/-59 | docs |  |
+| 15 | `ea2b4491` | MP-NEW-P188-S4: quiet benign CLI health probe | 2 | +60/-1 | tooling |  |
+| 16 | `a33e004f` | Refresh external review snapshot for 00ecc940 | 2 | +64/-79 | docs |  |
+| 17 | `00ecc940` | MP-NEW-P188-S4: add CLI health recovery probe | 13 | +533/-14 | tooling |  |
+| 18 | `330f1936` | Refresh external review snapshot for f3ac84bc | 2 | +64/-64 | docs |  |
+| 19 | `f3ac84bc` | MP-NEW-P188-S3: add extension discipline guard-run check | 10 | +447/-13 | tooling |  |
+| 20 | `b86a2a0a` | Refresh external review snapshot for f4ea765b | 2 | +60/-59 | docs |  |
+| 21 | `f4ea765b` | MP-NEW-P188-S2: add implementer ack freshness check | 12 | +458/-2 | tooling |  |
+| 22 | `bfff8e8e` | Refresh external review snapshot for 98e5e5de | 2 | +79/-85 | docs |  |
+| 23 | `98e5e5de` | MP-NEW-P188-S1: keep implementer ack typed | 8 | +261/-14 | tooling |  |
+| 24 | `f5cee955` | Refresh external review snapshot for 722ee4ec | 2 | +58/-55 | docs |  |
 
 ### Files
 
@@ -109,12 +109,12 @@ Range: last 24 commits ending at `35fbdaf05a20`
 | `.github/workflows/release_preflight.yml` | tooling | +4/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +12/-0 |
 | `AGENTS.md` | docs | +3/-0 |
-| `bridge.md` | docs | +89/-89 |
+| `bridge.md` | docs | +88/-88 |
 | `dev/active/MASTER_PLAN.md` | tooling | +30/-2 |
 | `dev/active/ai_governance_platform.md` | tooling | +29/-3 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +670/-661 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +713/-699 |
 | `dev/guides/DEVELOPMENT.md` | docs | +50/-8 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +95/-94 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +70/-70 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +188/-0 |
 | `dev/scripts/README.md` | tooling | +46/-6 |
 | `dev/scripts/checks/_ast_helpers.py` | tooling | +20/-0 |
@@ -127,7 +127,6 @@ Range: last 24 commits ending at `35fbdaf05a20`
 | `dev/scripts/devctl/cli_parser/hygiene.py` | tooling | +11/-0 |
 | `dev/scripts/devctl/commands/development/plan_intake.py` | tooling | +4/-1 |
 | `dev/scripts/devctl/commands/development/plan_intake_decomposition.py` | tooling | +158/-1 |
-| `dev/scripts/devctl/commands/development/plan_intake_phase0.py` | tooling | +2/-7 |
 | `dev/scripts/devctl/commands/development/plan_intake_rows.py` | tooling | +52/-0 |
 | `dev/scripts/devctl/commands/guard_run.py` | tooling | +30/-0 |
 | `dev/scripts/devctl/commands/raw_git.py` | tooling | +339/-1 |
@@ -145,8 +144,9 @@ Range: last 24 commits ending at `35fbdaf05a20`
 | `dev/scripts/devctl/governance/surface_instruction_runtime.py` | tooling | +34/-3 |
 | `dev/scripts/devctl/platform/artifact_schema_rows.py` | tooling | +17/-0 |
 | `dev/scripts/devctl/platform/runtime_identity_contract_rows_commit.py` | tooling | +81/-0 |
-| `dev/scripts/devctl/platform/runtime_state_contract_rows.py` | tooling | +2/-0 |
-| _79 more files trimmed_ | | |
+| `dev/scripts/devctl/platform/runtime_state_contract_rows_development_roles.py` | tooling | +30/-0 |
+| `dev/scripts/devctl/platform/runtime_state_contract_rows_packet_debt.py` | tooling | +108/-0 |
+| _59 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -202,7 +202,6 @@ Recent findings:
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/review_channel/packet_debt_remediation_contracts.py`) — Commit 7ebc3232 changed dev/scripts/devctl/review_channel/packet_debt_remediation_contracts.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/packet_debt_remediation_contracts.py`) — Commit 7ebc3232 changed dev/scripts/devctl/runtime/packet_debt_remediation_contracts.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/review_channel/test_ack_contract.py`) — Commit f4ea765b changed dev/scripts/devctl/tests/review_channel/test_ack_contract.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/runtime_state_contract_rows.py`) — Commit 722ee4ec changed dev/scripts/devctl/platform/runtime_state_contract_rows.py
 
 ### Suggested verification commands
 
@@ -216,6 +215,13 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`69f6fe21`** — reconcile governance plan rows from rev_pkt_4128
+  - - Absorb rev_pkt_4128 architectural correction into plan rows
+  - - Materialize P212-P214 governance follow-up slices
+  - - Record GovernanceReconciliationReceipt rejecting UnifiedSystemProjection
+  - evolution: The R148 operator mandate exposed a process gap: feature commits could carry validation and lifecycle receipts while still lacking a single operator-facing artifact that says who reviewed, what ran, how connectivity was…
+- **`43607fa3`** — Refresh external review snapshot for 35fbdaf0
+  - evolution: The R148 operator mandate exposed a process gap: feature commits could carry validation and lifecycle receipts while still lacking a single operator-facing artifact that says who reviewed, what ran, how connectivity was…
 - **`35fbdaf0`** — raw-git: emit feature proof receipts
   - - Emit FeatureProofReceipt artifacts from devctl raw-git commit
   - - Update pushed commit ranges with raw-git push receipt evidence
@@ -272,10 +278,6 @@ Recent findings:
   - evolution: The R148 operator mandate exposed a process gap: feature commits could carry validation and lifecycle receipts while still lacking a single operator-facing artifact that says who reviewed, what ran, how connectivity was…
 - **`f5cee955`** — Refresh external review snapshot for 722ee4ec
   - evolution: The R148 operator mandate exposed a process gap: feature commits could carry validation and lifecycle receipts while still lacking a single operator-facing artifact that says who reviewed, what ran, how connectivity was…
-- **`722ee4ec`** — MP-NEW-P198-S2: add file-hash finding applicability
-  - evolution: The R148 operator mandate exposed a process gap: feature commits could carry validation and lifecycle receipts while still lacking a single operator-facing artifact that says who reviewed, what ran, how connectivity was…
-- **`368cdc3c`** — Refresh external review snapshot for 61069b1f
-  - evolution: The R148 operator mandate exposed a process gap: feature commits could carry validation and lifecycle receipts while still lacking a single operator-facing artifact that says who reviewed, what ran, how connectivity was…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -319,4 +321,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-841e9a7d81a8` binds this file to HEAD `35fbdaf05a20`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-c4bca8e1842f` binds this file to HEAD `69f6fe218989`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
