@@ -14894,6 +14894,11 @@ commit-anchor evidence.
 This guard composes with `FeatureProofReceipt` and `CommitReceipt`: the commit
 can carry human-readable provenance, but the guard ensures that provenance is
 backed by durable plan rows before the feature proof can be treated as shipped.
+R174 hardening keeps that check from becoming another scaffold: row-prefix
+policy now covers the active P207/P208/P218/P219/P220 families, packet
+decomposition runs independently of row-prefix enforcement, and the guard
+reports its scanned range plus mandate metadata so reviewers can tell exactly
+which commits and policy window were evaluated.
 
 Evidence:
 

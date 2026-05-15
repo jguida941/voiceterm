@@ -307,6 +307,26 @@ PLAN_INTAKE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("scanned_commit_count", "int", "Commits scanned."),
             ContractField("referenced_row_count", "int", "Referenced rows found."),
             ContractField("violation_count", "int", "Violations found."),
+            ContractField("since_ref", "str", "Oldest scanned commit SHA."),
+            ContractField(
+                "oldest_scanned_commit",
+                "str",
+                "Oldest scanned commit SHA, echoed for report clarity.",
+            ),
+            ContractField("head_ref", "str", "Newest scanned commit SHA."),
+            ContractField(
+                "newest_scanned_commit",
+                "str",
+                "Newest scanned commit SHA, echoed for report clarity.",
+            ),
+            ContractField("range_mode", "str", "Commit range selection mode."),
+            ContractField("max_count", "int", "Maximum commits requested."),
+            ContractField("observed_at_utc", "str", "Mandate observation timestamp."),
+            ContractField(
+                "enforced_row_prefixes",
+                "tuple[str, ...]",
+                "Plan-row prefixes enforced by this guard.",
+            ),
             ContractField(
                 "violations",
                 "tuple[dict[str, object], ...]",

@@ -12,6 +12,29 @@ def _write_plan_index(tmp_path: Path, rows: list[dict]) -> Path:
     return path
 
 
+def _write_guard_policy(tmp_path: Path, *, prefixes: list[str]) -> Path:
+    path = tmp_path / "dev/config/devctl_repo_policy.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        json.dumps(
+            {
+                "repo_governance": {
+                    "guard_mandates": {
+                        "check_commit_message_row_id_resolves": {
+                            "mandate_packet_id": "rev_pkt_4136",
+                            "observed_at_utc": "2026-05-15T21:59:46Z",
+                            "enforced_row_prefixes": prefixes,
+                        }
+                    }
+                }
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
 def _row(row_id: str, *, mutation_op: str, packet_id: str = "rev_pkt_4134") -> dict:
     return {
         "contract_id": "PlanRow",
@@ -64,6 +87,27 @@ def test_commit_with_only_pkt_bind_row_fails(tmp_path: Path) -> None:
     report = _evaluate(
         tmp_path,
         "abc1234\nMP-NEW-P220-S1: work\n\nPacket: rev_pkt_4134\n\x1e\n",
+    )
+
+    assert report.ok is False
+    assert report.violations[0]["reason"] == "packet_only_pkt_bind_rows"
+
+
+def test_packet_decomposition_not_skipped_for_unenforced_row_prefix(
+    tmp_path: Path,
+) -> None:
+    _write_plan_index(
+        tmp_path,
+        [_row("PKT-BIND-REV-PKT-4134", mutation_op="review_only")],
+    )
+    _write_guard_policy(tmp_path, prefixes=["MP-NEW-P220-"])
+
+    report = _evaluate(
+        tmp_path,
+        (
+            "abc1234\x002026-05-15T22:40:00+00:00\n"
+            "MP-NEW-P219-S1: work\n\nPacket: rev_pkt_4134\n\x1e\n"
+        ),
     )
 
     assert report.ok is False

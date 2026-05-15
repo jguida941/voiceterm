@@ -8772,4 +8772,5 @@ auditable while new post-mandate commits must resolve.
 
 - [ ] `MP-NEW-P220-PHASE-0B-EXPANDED-P40-S1` Add `check_commit_message_row_id_resolves.py` so commit row refs resolve in `plan_index`, packet refs prove MP-NEW decomposition instead of PKT-BIND-only intake, corrupted persisted row titles fail, and applied/completed rows require commit-anchor evidence.
   - progress 2026-05-15: implemented the guard, repo-policy mandate, contract registry row, schema fixtures, workflow wiring, script catalog entry, platform contract row, and focused P40 acceptance tests while leaving Phase 0c `commit_anchor_ref` runtime tests red for the next slice.
+  - progress 2026-05-15: hardened the guard after R174 review by widening the enforced row-prefix policy to the P207/P208/P218/P219/P220 families, decoupling packet-decomposition validation from row-prefix enforcement, and echoing scan-range metadata (`head_ref`, `since_ref`, `max_count`, `observed_at_utc`, and active prefixes) in the report.
 - [ ] `MP-NEW-P220-PHASE-0C-COMMIT-ANCHOR-REF-S1` Add the `PlanRow.commit_anchor_ref` field and hydration on applied transitions after the P40 guard is in place.

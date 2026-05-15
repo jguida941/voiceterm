@@ -196,8 +196,11 @@
         "mandate_packet_id": "rev_pkt_4136",
         "observed_at_utc": "2026-05-15T21:59:46Z",
         "enforced_row_prefixes": [
+          "MP-NEW-P207-",
+          "MP-NEW-P208-",
+          "MP-NEW-P218-",
+          "MP-NEW-P219-",
           "MP-NEW-P220-",
-          "MP-NEW-P207-S6-",
           "MP-377-P0-",
           "MP377-P0-"
         ]

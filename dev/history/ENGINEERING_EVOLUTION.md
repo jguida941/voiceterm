@@ -16108,3 +16108,19 @@ Evidence:
 - `dev/scripts/devctl/tests/checks/test_check_packet_decomposition_completeness.py`
 - `dev/scripts/devctl/platform/runtime_state_contract_rows_plan_intake.py`
 - `dev/state/contract_registry.jsonl`
+
+### 2026-05-15 - Commit-message row authority guard reports its enforcement window
+
+R174 dogfood found that the first P40 guard version could miss active plan
+families and could skip packet-decomposition checks when a commit also cited an
+unenforced row prefix. The guard now widens the repo-policy prefixes for the
+active P207/P208/P218/P219/P220 families, evaluates packet refs independently
+from row-prefix enforcement, and emits its scanned range plus mandate metadata
+so review receipts can prove what was checked.
+
+Evidence:
+
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/checks/check_commit_message_row_id_resolves.py`
+- `dev/scripts/devctl/tests/checks/test_check_commit_message_row_id_resolves.py`
+- `dev/scripts/devctl/tests/checks/test_check_packet_decomposition_completeness.py`

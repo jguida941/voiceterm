@@ -12,6 +12,34 @@ def _write_plan_index(tmp_path: Path, rows: list[dict]) -> Path:
     return path
 
 
+def _write_guard_policy(
+    tmp_path: Path,
+    *,
+    prefixes: list[str],
+    observed_at_utc: str = "2026-05-15T21:59:46Z",
+) -> Path:
+    path = tmp_path / "dev/config/devctl_repo_policy.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        json.dumps(
+            {
+                "repo_governance": {
+                    "guard_mandates": {
+                        "check_commit_message_row_id_resolves": {
+                            "mandate_packet_id": "rev_pkt_4136",
+                            "observed_at_utc": observed_at_utc,
+                            "enforced_row_prefixes": prefixes,
+                        }
+                    }
+                }
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
 def _row(
     row_id: str,
     *,
@@ -89,6 +117,23 @@ def test_commit_subject_without_matching_row_fails(tmp_path: Path) -> None:
     assert report.violations[0]["reason"] == "missing_plan_row"
 
 
+def test_policy_enforces_p207_s5_family(tmp_path: Path) -> None:
+    _write_plan_index(tmp_path, [])
+    _write_guard_policy(tmp_path, prefixes=["MP-NEW-P207-"])
+
+    report = _evaluate(
+        tmp_path,
+        (
+            "abc1234\x002026-05-15T22:40:00+00:00\n"
+            "MP-NEW-P207-S5-FPR-V2-CONTRACTREF-S1: extend contract ref\n\x1e\n"
+        ),
+    )
+
+    assert report.ok is False
+    assert report.violations[0]["reason"] == "missing_plan_row"
+    assert report.enforced_row_prefixes == ("MP-NEW-P207-",)
+
+
 def test_refresh_external_review_snapshot_is_allowlisted(tmp_path: Path) -> None:
     _write_plan_index(tmp_path, [])
 
@@ -139,3 +184,26 @@ def test_commit_subject_with_corrupted_row_title_fails(tmp_path: Path) -> None:
 
     assert report.ok is False
     assert report.violations[0]["reason"] == "corrupted_title_persisted"
+
+
+def test_report_echoes_scan_range_metadata(tmp_path: Path) -> None:
+    _write_plan_index(tmp_path, [])
+    _write_guard_policy(tmp_path, prefixes=["MP-NEW-P220-"])
+
+    report = _evaluate(
+        tmp_path,
+        (
+            "newsha\x002026-05-15T22:40:00+00:00\n"
+            "docs: no row\n\x1e\n"
+            "oldsha\x002026-05-15T22:39:00+00:00\n"
+            "docs: no row\n\x1e\n"
+        ),
+    )
+
+    assert report.head_ref == "newsha"
+    assert report.newest_scanned_commit == "newsha"
+    assert report.since_ref == "oldsha"
+    assert report.oldest_scanned_commit == "oldsha"
+    assert report.range_mode == "max_count"
+    assert report.max_count == 200
+    assert report.observed_at_utc == "2026-05-15T21:59:46Z"

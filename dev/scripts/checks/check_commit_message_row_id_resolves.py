@@ -38,6 +38,14 @@ class CommitMessageRowIdResolvesGuard:
     scanned_commit_count: int
     referenced_row_count: int
     violation_count: int
+    since_ref: str = ""
+    oldest_scanned_commit: str = ""
+    head_ref: str = ""
+    newest_scanned_commit: str = ""
+    range_mode: str = "max_count"
+    max_count: int = DEFAULT_MAX_COUNT
+    observed_at_utc: str = ""
+    enforced_row_prefixes: tuple[str, ...] = field(default_factory=tuple)
     violations: tuple[dict[str, object], ...] = field(default_factory=tuple)
     errors: tuple[str, ...] = field(default_factory=tuple)
     warnings: tuple[str, ...] = field(default_factory=tuple)
@@ -91,8 +99,6 @@ def evaluate_commit_message_row_id_resolves(
             row_id for row_id in row_refs if _row_ref_enforced(row_id, enforced_prefixes)
         )
         for packet_id in packet_refs:
-            if row_refs and not enforced_row_refs:
-                continue
             packet_violation = _packet_decomposition_violation(
                 commit=commit,
                 packet_id=packet_id,
@@ -142,6 +148,14 @@ def evaluate_commit_message_row_id_resolves(
         scanned_commit_count=len(commits),
         referenced_row_count=referenced_row_count,
         violation_count=len(violations),
+        since_ref=commits[-1].commit_sha if commits else "",
+        oldest_scanned_commit=commits[-1].commit_sha if commits else "",
+        head_ref=commits[0].commit_sha if commits else "",
+        newest_scanned_commit=commits[0].commit_sha if commits else "",
+        range_mode="max_count",
+        max_count=max_count,
+        observed_at_utc=observed_at_utc,
+        enforced_row_prefixes=enforced_prefixes,
         violations=tuple(violations),
         errors=tuple(errors),
         warnings=tuple(warnings),
@@ -333,6 +347,17 @@ def _render_md(report: CommitMessageRowIdResolvesGuard) -> str:
     lines = [f"# {COMMAND}", ""]
     lines.append(f"- ok: {report.ok}")
     lines.append(f"- scanned_commit_count: {report.scanned_commit_count}")
+    lines.append(f"- since_ref: {report.since_ref}")
+    lines.append(f"- oldest_scanned_commit: {report.oldest_scanned_commit}")
+    lines.append(f"- head_ref: {report.head_ref}")
+    lines.append(f"- newest_scanned_commit: {report.newest_scanned_commit}")
+    lines.append(f"- range_mode: {report.range_mode}")
+    lines.append(f"- max_count: {report.max_count}")
+    lines.append(f"- observed_at_utc: {report.observed_at_utc}")
+    lines.append(
+        "- enforced_row_prefixes: "
+        + (", ".join(report.enforced_row_prefixes) if report.enforced_row_prefixes else "(none)")
+    )
     lines.append(f"- referenced_row_count: {report.referenced_row_count}")
     lines.append(f"- violation_count: {report.violation_count}")
     if report.errors:
