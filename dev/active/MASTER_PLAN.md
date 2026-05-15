@@ -167,6 +167,14 @@
   live-validated follow-on guards to distribute with the remaining launch
   bootstrap slices. This rule lives in typed plan state so it does not depend
   on memory or chat attention.
+- 2026-05-15 feature-proof receipt mandate (MP-378/P207 bridge): every new
+  shipped feature/source commit now needs a `FeatureProofReceipt` artifact
+  keyed by commit SHA. The receipt records the feature id, implementer,
+  review-fleet roles, tests, connectivity guards, dogfood evidence, real-life
+  test status, bypass refs, and supporting artifacts. Governed commit emission
+  writes it beside `CommitReceipt` and `FeatureLifecycleProof`; raw-git
+  operator-bypass commits must still produce equivalent manual proof before
+  claiming shipped work.
 - 2026-04-20 persistence-loop unblock (subordinate to
   `dev/active/autonomous_governance_loop_v2.md` MP-377): headless
   `review-channel --action launch | recover` now auto-elevate

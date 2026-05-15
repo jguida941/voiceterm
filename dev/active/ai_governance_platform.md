@@ -195,6 +195,16 @@ Current ingestion status:
   `Operator Command Wrappers` usage so long shell-sensitive reducer commands
   stay runnable after copy/paste or compaction. `check_instruction_surface_sync`
   fails if those contract tokens disappear from the renderer output.
+- 2026-05-15 feature proof receipt boundary: `FeatureProofReceipt` is the
+  operator-facing commit proof artifact for shipped feature work. It composes
+  with `CommitReceipt`, `FeatureLifecycleProof`, raw-git bypass receipts, and
+  governed exception evidence by recording the feature id, commit SHA,
+  implementer, review-fleet roles, tests, connectivity guards, dogfood
+  evidence, real-life test status, bypass refs, and evidence artifacts.
+  Governed commit success now emits the receipt under
+  `dev/reports/feature_proof_receipts/<sha>.json`; raw-git plan-execution
+  commits must produce equivalent manual receipts before they are described as
+  shipped.
 - 2026-05-14 raw-git receipt substrate: `rev_pkt_4022` makes raw
   `git commit --no-verify` / `git push` a typed evidence concern instead of an
   invisible operator bypass. `RawGitBypassReceipt` records the verb, commit or

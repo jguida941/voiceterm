@@ -62,6 +62,7 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "AgentLoopBilateralProtocol" in contract_ids
     assert "PreDecisionComposabilityWindow" in contract_ids
     assert "CommitReceipt" in contract_ids
+    assert "FeatureProofReceipt" in contract_ids
     assert "GoalProgressReceipt" in contract_ids
     assert "FailurePacket" in contract_ids
     assert "LocalServiceEndpoint" in contract_ids
@@ -89,6 +90,7 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "ReviewerAuditReceipt" in artifact_ids
     assert "SessionActivityLog" in artifact_ids
     assert "CommitReceipt" in artifact_ids
+    assert "FeatureProofReceipt" in artifact_ids
     assert "GoalProgressReceipt" in artifact_ids
 
 
@@ -153,6 +155,11 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "pre_state" in contract_map["CommitReceipt"]
     assert "post_state" in contract_map["CommitReceipt"]
     assert "evidence_refs" in contract_map["CommitReceipt"]
+    assert "review_fleet_roles_ran" in contract_map["FeatureProofReceipt"]
+    assert "connectivity_guards_ran" in contract_map["FeatureProofReceipt"]
+    assert "dogfood_invocation_evidence_ref" in contract_map["FeatureProofReceipt"]
+    assert "real_life_test_status" in contract_map["FeatureProofReceipt"]
+    assert "bypass_audit_trail_refs" in contract_map["FeatureProofReceipt"]
     assert "progress_percentage_toward_goal" in contract_map["GoalProgressReceipt"]
     assert "continuation_anchor_packet_id" in contract_map["GoalProgressReceipt"]
     assert "latest_progress_packet_id" in contract_map["GoalProgressReceipt"]

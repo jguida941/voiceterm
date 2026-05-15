@@ -201,6 +201,7 @@ def build_instruction_boot_card(
         "- For governance/runtime contract changes, run `python3 dev/scripts/devctl.py platform-contracts --format md` and `python3 dev/scripts/checks/check_platform_contract_closure.py --format md`.",
         "- The managed pre-commit hook is a read-only commit-permission gate; post-commit ReviewSnapshot receipt hooks are time-bounded and fail-open.",
         "- Managed ReviewSnapshot/generated-surface receipt detection uses the shared receipt-prefix registry; do not add per-command receipt-prefix forks.",
+        "- New feature/source commits must materialize `FeatureProofReceipt` evidence under `dev/reports/feature_proof_receipts/` so tests, connectivity guards, dogfood status, review roles, and bypass refs are inspectable by commit SHA.",
         "- Codex-authored `task_produced` closure packets require commit evidence or a clean worktree; dirty-tree interim evidence must use non-closure packet kinds.",
         "- Governed checkpoint retries must restage non-receipt unstaged work instead of preserving stale partial indexes.",
         "- Governed push writes `dev/reports/push/latest_push_report.json`; legacy `latest.json` is only a read fallback.",

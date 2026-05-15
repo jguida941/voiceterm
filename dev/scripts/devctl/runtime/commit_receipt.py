@@ -8,6 +8,12 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .feature_proof_receipt import (
+    FEATURE_PROOF_RECEIPT_ARTIFACT_ROOT,
+    FeatureProofReceipt,
+    feature_proof_receipt_artifact_relpath,
+    write_feature_proof_receipt_artifact,
+)
 from .governance_proposed_contracts import FeatureLifecycleProof, LifecycleReceipt
 from .remote_commit_pipeline_models import RemoteCommitPipelineContract
 from .receipt_state_gate import require_receipt_state
@@ -255,6 +261,90 @@ def write_feature_lifecycle_proof_artifact(
     return relpath
 
 
+def build_feature_proof_receipt(
+    pipeline: RemoteCommitPipelineContract,
+    commit_receipt: CommitReceipt,
+    *,
+    lifecycle_proof: FeatureLifecycleProof | None = None,
+    evidence_artifacts: Iterable[str] = (),
+) -> FeatureProofReceipt:
+    """Build the operator-facing proof receipt for a shipped commit."""
+    validation = pipeline.validation_receipt
+    validation_passed = (
+        commit_receipt.pre_state == VALIDATION_PASSED_STATE
+        and commit_receipt.post_state == COMMIT_RECORDED_STATE
+    )
+    validation_plan_id = (
+        coerce_string(validation.plan_id) if validation is not None else ""
+    )
+    validation_bundle_id = (
+        coerce_string(validation.bundle_id) if validation is not None else ""
+    )
+    guard_ref = _guard_action_ref(pipeline.guard_action_id)
+    tests_run = _unique_refs(
+        (
+            _ref("validation_plan", validation_plan_id),
+            _ref("validation_bundle", validation_bundle_id),
+            guard_ref,
+        )
+    )
+    connectivity_guards = _unique_refs(
+        (
+            guard_ref,
+            _validation_receipt_ref(
+                as_receipt_id(
+                    coerce_string(validation.receipt_id)
+                    if validation is not None
+                    else ""
+                )
+            ),
+            commit_receipt.audit_synthesis_ref,
+        )
+    )
+    artifacts = _unique_refs(
+        (
+            *tuple(coerce_string(path) for path in evidence_artifacts),
+            commit_receipt_artifact_relpath(commit_receipt.commit_sha),
+            (
+                feature_lifecycle_proof_artifact_relpath(commit_receipt.commit_sha)
+                if lifecycle_proof is not None
+                else ""
+            ),
+        )
+    )
+    dogfood_ref = (
+        artifacts[-1]
+        if artifacts
+        else commit_receipt.audit_synthesis_ref
+        or _validation_receipt_ref(as_receipt_id(commit_receipt.validation_receipt_id))
+        or commit_receipt.receipt_id
+    )
+    return FeatureProofReceipt(
+        feature_id=(
+            commit_receipt.plan_row_id
+            or commit_receipt.pipeline_id
+            or commit_receipt.commit_sha
+        ),
+        commit_sha=commit_receipt.commit_sha,
+        implementer_actor=commit_receipt.produced_by,
+        review_fleet_roles_ran=_feature_proof_review_roles(commit_receipt),
+        review_fleet_actor=(
+            "review-channel" if commit_receipt.reviewer_ack_packet_id else "devctl"
+        ),
+        tests_run=tests_run or ("governed_commit_validation",),
+        tests_passed_count=1 if validation_passed else 0,
+        tests_failed_count=0 if validation_passed else 1,
+        connectivity_guards_ran=connectivity_guards or tests_run,
+        connectivity_guards_passed=validation_passed,
+        dogfood_invocation_evidence_ref=dogfood_ref,
+        real_life_test_status="proven_passed" if validation_passed else "proven_failed",
+        not_tested_rationale=None,
+        bypass_audit_trail_refs=_bypass_audit_trail_refs(commit_receipt),
+        proven_at_utc=commit_receipt.recorded_at_utc,
+        evidence_artifacts=artifacts,
+    )
+
+
 def _plan_row_id(pipeline: RemoteCommitPipelineContract) -> str:
     validation = pipeline.validation_receipt
     plan = pipeline.intent.validation_plan
@@ -356,6 +446,27 @@ def _lifecycle_receipt(
     )
 
 
+def _feature_proof_review_roles(
+    commit_receipt: CommitReceipt,
+) -> tuple[str, ...]:
+    roles: list[str] = []
+    if commit_receipt.reviewer_ack_packet_id:
+        roles.append("GovernanceReceipt")
+    if commit_receipt.audit_synthesis_ref or commit_receipt.validation_receipt_id:
+        roles.append("GuardsPerRound")
+    if commit_receipt.evidence_refs:
+        roles.append("ArchitectureReview")
+    return tuple(roles or ("review_channel_not_recorded",))
+
+
+def _bypass_audit_trail_refs(commit_receipt: CommitReceipt) -> tuple[str, ...]:
+    return _unique_refs(
+        ref
+        for ref in commit_receipt.evidence_refs
+        if ref.startswith(("raw_git", "bypass", "governed_exception"))
+    )
+
+
 def _unique_refs(values: Iterable[str]) -> tuple[str, ...]:
     refs: list[str] = []
     seen: set[str] = set()
@@ -413,15 +524,20 @@ __all__ = [
     "COMMIT_RECEIPT_CONTRACT_ID",
     "COMMIT_RECEIPT_SCHEMA_VERSION",
     "COMMIT_RECORDED_STATE",
+    "FEATURE_PROOF_RECEIPT_ARTIFACT_ROOT",
     "FEATURE_LIFECYCLE_PROOF_ARTIFACT_ROOT",
     "CommitReceipt",
     "CommitReceiptStateRequired",
+    "FeatureProofReceipt",
     "VALIDATION_PASSED_STATE",
     "build_commit_receipt",
     "build_feature_lifecycle_proof",
+    "build_feature_proof_receipt",
     "commit_receipt_artifact_relpath",
     "commit_receipt_from_mapping",
     "feature_lifecycle_proof_artifact_relpath",
+    "feature_proof_receipt_artifact_relpath",
     "write_commit_receipt_artifact",
     "write_feature_lifecycle_proof_artifact",
+    "write_feature_proof_receipt_artifact",
 ]

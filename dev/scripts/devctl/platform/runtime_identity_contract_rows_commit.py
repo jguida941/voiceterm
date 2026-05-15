@@ -66,4 +66,85 @@ COMMIT_RECEIPT_CONTRACTS: tuple[ContractSpec, ...] = (
         runtime_model="dev.scripts.devctl.runtime.commit_receipt:CommitReceipt",
         startup_surface_tokens=("receipt_id", "commit_sha", "reviewer_ack_packet_id"),
     ),
+    ContractSpec(
+        contract_id="FeatureProofReceipt",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Operator-facing per-feature proof receipt binding a feature slice, "
+            "commit SHA, review fleet roles, tests, connectivity guards, dogfood "
+            "evidence, and bypass audit refs."
+        ),
+        required_fields=(
+            ContractField(
+                "feature_id",
+                "str",
+                "Plan row or feature slice proven by the receipt.",
+            ),
+            ContractField("commit_sha", "str", "Commit SHA being proven."),
+            ContractField("implementer_actor", "str", "Actor that shipped the commit."),
+            ContractField(
+                "review_fleet_roles_ran",
+                "tuple[str, ...]",
+                "Review fleet roles with evidence in the proof chain.",
+            ),
+            ContractField(
+                "review_fleet_actor",
+                "str",
+                "Actor or channel that reviewed the work.",
+            ),
+            ContractField(
+                "tests_run",
+                "tuple[str, ...]",
+                "Test or validation commands/refs executed.",
+            ),
+            ContractField(
+                "tests_passed_count",
+                "int",
+                "Number of tests or validation groups that passed.",
+            ),
+            ContractField(
+                "tests_failed_count",
+                "int",
+                "Number of tests or validation groups that failed.",
+            ),
+            ContractField(
+                "connectivity_guards_ran",
+                "tuple[str, ...]",
+                "Connectivity guards proving the feature composes with the system.",
+            ),
+            ContractField(
+                "connectivity_guards_passed",
+                "bool",
+                "Whether connectivity guards passed.",
+            ),
+            ContractField(
+                "dogfood_invocation_evidence_ref",
+                "str",
+                "Artifact or receipt ref proving live invocation evidence.",
+            ),
+            ContractField("real_life_test_status", "str", "Real-life dogfood status."),
+            ContractField(
+                "not_tested_rationale",
+                "str | None",
+                "Required rationale when real-life testing is not available.",
+            ),
+            ContractField(
+                "bypass_audit_trail_refs",
+                "tuple[str, ...]",
+                "Bypass or governed exception refs composed into the proof.",
+            ),
+            ContractField(
+                "proven_at_utc",
+                "str",
+                "UTC timestamp when the proof was materialized.",
+            ),
+            ContractField(
+                "evidence_artifacts",
+                "tuple[str, ...]",
+                "Artifact paths supporting the proof.",
+            ),
+        ),
+        runtime_model="dev.scripts.devctl.runtime.feature_proof_receipt:FeatureProofReceipt",
+        startup_surface_tokens=("feature_id", "commit_sha", "real_life_test_status"),
+    ),
 )

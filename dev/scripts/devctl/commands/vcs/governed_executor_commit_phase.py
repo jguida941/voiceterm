@@ -16,8 +16,10 @@ from ...runtime.commit_packet_gate import (
 from ...runtime.commit_receipt import (
     build_commit_receipt,
     build_feature_lifecycle_proof,
+    build_feature_proof_receipt,
     write_commit_receipt_artifact,
     write_feature_lifecycle_proof_artifact,
+    write_feature_proof_receipt_artifact,
 )
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
 from ...runtime.vcs import run_git_capture
@@ -460,6 +462,18 @@ def _commit_success_result(
         proof = build_feature_lifecycle_proof(completed, receipt)
         artifact_paths.append(
             write_feature_lifecycle_proof_artifact(context.repo_root, proof)
+        )
+        feature_proof_receipt = build_feature_proof_receipt(
+            completed,
+            receipt,
+            lifecycle_proof=proof,
+            evidence_artifacts=artifact_paths,
+        )
+        artifact_paths.append(
+            write_feature_proof_receipt_artifact(
+                context.repo_root,
+                feature_proof_receipt,
+            )
         )
     except Exception as exc:
         # Commit is already durable; surface receipt write failure as evidence debt.

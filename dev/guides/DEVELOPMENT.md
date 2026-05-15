@@ -3194,8 +3194,14 @@ at existing action boundaries. `ValidationReceipt` records
 and guard-result snapshots. `CommitReceipt` records the validation state it
 builds on and the commit state it produces, and commit receipt construction
 uses `require_receipt_state()` to require `validation_passed` evidence when a
-commit SHA exists. Keep new enforcement inside these receipt contracts unless
-a typed plan explicitly migrates the lifecycle.
+commit SHA exists. `FeatureProofReceipt` is the operator-facing per-feature
+proof bundle emitted beside that commit receipt; it must bind the feature id,
+commit SHA, implementer, review-fleet roles, tests, connectivity guards,
+dogfood evidence, real-life test status, bypass refs, and evidence artifacts.
+Raw-git operator-bypass commits do not bypass this proof requirement: they
+must produce equivalent `dev/reports/feature_proof_receipts/<sha>.json`
+evidence before the work is described as shipped. Keep new enforcement inside
+these receipt contracts unless a typed plan explicitly migrates the lifecycle.
 
 **Remote Evidence Queue:**
 

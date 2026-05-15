@@ -25,10 +25,17 @@ from dev.scripts.devctl.runtime.commit_receipt import (
     VALIDATION_PASSED_STATE,
     build_commit_receipt,
     build_feature_lifecycle_proof,
+    build_feature_proof_receipt,
     commit_receipt_from_mapping,
     feature_lifecycle_proof_artifact_relpath,
+    feature_proof_receipt_artifact_relpath,
     write_commit_receipt_artifact,
     write_feature_lifecycle_proof_artifact,
+    write_feature_proof_receipt_artifact,
+)
+from dev.scripts.devctl.runtime.feature_proof_receipt import (
+    FeatureProofReceipt,
+    feature_proof_receipt_from_mapping,
 )
 from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
     CommitIntentState,
@@ -107,6 +114,69 @@ def test_feature_lifecycle_proof_covers_commit_chain(tmp_path: Path) -> None:
     assert parsed["completeness_score"] == 1.0
 
 
+def test_feature_proof_receipt_covers_operator_proof_chain(tmp_path: Path) -> None:
+    pipeline = _pipeline()
+    receipt = build_commit_receipt(pipeline, recorded_at_utc="2026-05-11T23:05:00Z")
+    lifecycle_proof = build_feature_lifecycle_proof(pipeline, receipt)
+    feature_proof = build_feature_proof_receipt(
+        pipeline,
+        receipt,
+        lifecycle_proof=lifecycle_proof,
+        evidence_artifacts=(
+            "dev/reports/commit_receipts/abc123.json",
+            "dev/reports/feature_lifecycle_proofs/abc123.json",
+        ),
+    )
+
+    assert feature_proof.contract_id == "FeatureProofReceipt"
+    assert feature_proof.schema_version == 1
+    assert feature_proof.feature_id == "MP377-COMMIT-RECEIPT-EVIDENCE-CHAIN-S1"
+    assert feature_proof.commit_sha == "abc123"
+    assert feature_proof.implementer_actor == "devctl"
+    assert "GovernanceReceipt" in feature_proof.review_fleet_roles_ran
+    assert feature_proof.review_fleet_actor == "review-channel"
+    assert "validation_bundle:runtime" in feature_proof.tests_run
+    assert feature_proof.tests_passed_count == 1
+    assert feature_proof.tests_failed_count == 0
+    assert feature_proof.connectivity_guards_passed is True
+    assert feature_proof.real_life_test_status == "proven_passed"
+    assert feature_proof.not_tested_rationale is None
+    assert (
+        feature_proof.dogfood_invocation_evidence_ref
+        == "dev/reports/feature_lifecycle_proofs/abc123.json"
+    )
+
+    relpath = write_feature_proof_receipt_artifact(tmp_path, feature_proof)
+    assert relpath == feature_proof_receipt_artifact_relpath("abc123")
+    parsed = feature_proof_receipt_from_mapping(
+        json.loads((tmp_path / relpath).read_text())
+    )
+    assert parsed.commit_sha == "abc123"
+    assert parsed.real_life_test_status == "proven_passed"
+
+
+def test_feature_proof_receipt_requires_not_tested_rationale() -> None:
+    with pytest.raises(ValueError, match="not_tested_rationale is required"):
+        FeatureProofReceipt(
+            feature_id="MP-TEST",
+            commit_sha="abc123",
+            implementer_actor="codex",
+            review_fleet_roles_ran=(),
+            review_fleet_actor="claude",
+            tests_run=(),
+            tests_passed_count=0,
+            tests_failed_count=0,
+            connectivity_guards_ran=(),
+            connectivity_guards_passed=False,
+            dogfood_invocation_evidence_ref="",
+            real_life_test_status="not_tested_with_rationale",
+            not_tested_rationale=None,
+            bypass_audit_trail_refs=(),
+            proven_at_utc="2026-05-15T17:00:00Z",
+            evidence_artifacts=(),
+        )
+
+
 def test_commit_receipt_rejects_commit_after_failed_validation() -> None:
     pipeline = _pipeline()
     assert pipeline.validation_receipt is not None
@@ -153,15 +223,23 @@ def test_governed_commit_success_emits_commit_receipt_artifact(tmp_path: Path) -
         for path in result.artifact_paths
         if path.startswith("dev/reports/feature_lifecycle_proofs/")
     ]
+    feature_proof_paths = [
+        path
+        for path in result.artifact_paths
+        if path.startswith("dev/reports/feature_proof_receipts/")
+    ]
     commit_result = persisted[-1].commit_result
     assert commit_result is not None
     assert result.ok is True
     assert receipt_paths == ["dev/reports/commit_receipts/abc123.json"]
     assert proof_paths == ["dev/reports/feature_lifecycle_proofs/abc123.json"]
+    assert feature_proof_paths == ["dev/reports/feature_proof_receipts/abc123.json"]
     assert (tmp_path / receipt_paths[0]).exists()
     assert (tmp_path / proof_paths[0]).exists()
+    assert (tmp_path / feature_proof_paths[0]).exists()
     assert receipt_paths[0] in commit_result.artifact_paths
     assert proof_paths[0] in commit_result.artifact_paths
+    assert feature_proof_paths[0] in commit_result.artifact_paths
 
 
 def _pipeline() -> RemoteCommitPipelineContract:

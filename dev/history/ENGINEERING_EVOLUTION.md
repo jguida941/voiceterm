@@ -37,6 +37,26 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-15 - Feature proof receipts become commit evidence
+
+The R148 operator mandate exposed a process gap: feature commits could carry
+validation and lifecycle receipts while still lacking a single operator-facing
+artifact that says who reviewed, what ran, how connectivity was proven, and
+whether the feature was dogfooded in the live system.
+
+Change: `FeatureProofReceipt` is now a registered runtime contract and artifact
+schema. Governed commit success emits
+`dev/reports/feature_proof_receipts/<sha>.json` beside `CommitReceipt` and
+`FeatureLifecycleProof`, and raw-git operator-bypass commits must produce the
+same proof shape manually before work is described as shipped.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/feature_proof_receipt.py`
+- `dev/scripts/devctl/runtime/commit_receipt.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py`
+- `dev/scripts/devctl/tests/runtime/test_commit_receipt.py`
+
 ### 2026-05-15 - Bridge separation guard expands beyond runtime
 
 The P188 bridge-retirement work needed the report-only projection-authority

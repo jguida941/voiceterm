@@ -166,6 +166,23 @@ def artifact_schemas() -> tuple[ArtifactSchemaSpec, ...]:
             rollback_path="Keep prior receipt fields readable until governed commit evidence can be retrieved by commit SHA.",
         ),
         ArtifactSchemaSpec(
+            contract_id="FeatureProofReceipt",
+            owner_layer="governance_runtime",
+            purpose=(
+                "Per-feature proof receipt artifact tying a shipped commit to review "
+                "fleet roles, executed tests, connectivity guards, dogfood evidence, "
+                "and bypass audit refs."
+            ),
+            schema_version=1,
+            emitter_path="dev/scripts/devctl/runtime/feature_proof_receipt.py",
+            constants_module="dev.scripts.devctl.runtime.feature_proof_receipt",
+            contract_id_attr="FEATURE_PROOF_RECEIPT_CONTRACT_ID",
+            schema_version_attr="FEATURE_PROOF_RECEIPT_SCHEMA_VERSION",
+            compatibility_window="additive fields only; feature proof receipts must remain readable by audit and publication tooling.",
+            migration_path="Add fields additively, update feature proof fixtures, then update governed commit and push proof readers.",
+            rollback_path="Keep prior proof fields readable until commit proof consumers can resolve by commit SHA.",
+        ),
+        ArtifactSchemaSpec(
             contract_id="GoalProgressReceipt",
             owner_layer="governance_runtime",
             purpose=(
