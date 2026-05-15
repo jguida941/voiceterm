@@ -41,6 +41,7 @@ class PublicationAuthorizationDecision:
 def publication_authorization_decision(
     *,
     repo_root: Path,
+    pipeline: RemoteCommitPipelineContract | None = None,
 ) -> PublicationAuthorizationDecision:
     """Return whether the current repo state may publish through `devctl push`."""
     try:
@@ -48,7 +49,7 @@ def publication_authorization_decision(
     except (OSError, ValueError):
         governance = None
     review_state = load_review_state(repo_root, governance=governance)
-    pipeline = _load_pipeline(repo_root)
+    pipeline = pipeline if pipeline is not None else _load_pipeline(repo_root)
     authorization = pipeline.push_authorization
     current_head = current_head_commit_sha(repo_root=repo_root)
     current_worktree_identity = worktree_identity_for_repo(repo_root)

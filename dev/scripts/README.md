@@ -1282,7 +1282,10 @@ Portability note:
   bridge/ReviewSnapshot/generated-surface receipt chain back to the approved
   content commit, the authorization reader looks first at the canonical
   event-backed `projections/latest/commit_pipeline.json` artifact before
-  falling back to legacy review-status roots, the approved-target identity
+  falling back to legacy review-status roots, executor-routed push validates
+  against its in-process `RemoteCommitPipelineContract` so an unrelated
+  projection refresh cannot transiently erase the authorization during
+  preflight, the approved-target identity
   finding path consumes the same chain proof instead of re-checking raw HEAD
   equality, and push preflight now
   runs `render-surfaces --write` plus

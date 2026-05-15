@@ -40,7 +40,6 @@ from .push_findings import (
     APPROVED_TARGET_IDENTITY_VIOLATION,
     BRANCH_IDENTITY_VIOLATION,
     PushFindingPayload,
-    append_approved_identity_errors,
     append_finding,
 )
 from .push_flow import (
@@ -56,10 +55,12 @@ from .push_pipeline_scope import (
     commit_pipeline_authorizes_publication_scope,
     refresh_authorized_preflight_head_after_managed_receipts,
 )
-from .push_preflight_commit import run_post_validation_auto_commit_repair_phase
 from .push_preflight_projection import (
     refresh_managed_projections_before_preflight,
-    repair_preflight_generated_changes_for_push,
+)
+from .push_publication_gate import (
+    PushPublicationGateInputs,
+    finish_preflight_before_publication,
 )
 from .push_preflight_timeout import (
     PUSH_PREFLIGHT_TIMEOUT_SECONDS,
@@ -220,56 +221,6 @@ def _live_current_branch(repo_root: Path) -> str:
     if code != 0:
         return ""
     return (branch or error or "").strip()
-
-
-def _append_publication_authorization_errors(
-    state: PushRunState,
-    *,
-    repo_root: Path = REPO_ROOT,
-    publication_authorization_fn=None,
-) -> None:
-    """Fail closed when publication proof for the current HEAD is missing."""
-    if state.errors:
-        return
-    if state.branch_has_remote and state.ahead == 0:
-        return
-    authorization_fn = (
-        publication_authorization_decision
-        if publication_authorization_fn is None
-        else publication_authorization_fn
-    )
-    decision = authorization_fn(repo_root=repo_root)
-    if decision.authorized:
-        authorization = decision.push_authorization
-        if authorization is not None:
-            state.approved_target_identity = authorization.approved_target_identity
-            state.approved_worktree_identity = str(
-                getattr(authorization, "worktree_identity", "") or ""
-            ).strip()
-            state.push_authorization_id = authorization.authorization_id
-            state.push_authorization_mode = authorization.approval_mode
-            state.push_authorization_head_commit = str(
-                getattr(authorization, "authorized_head_sha", "") or ""
-            ).strip()
-            append_approved_identity_errors(
-                state,
-                authorization=authorization,
-                repo_root=repo_root,
-                authorized_via_managed_receipt_chain=bool(
-                    getattr(
-                        decision,
-                        "authorized_via_managed_receipt_chain",
-                        False,
-                    )
-                ),
-            )
-        return
-    summary = str(decision.summary or decision.reason or "").strip()
-    detail = f" {summary}" if summary else ""
-    state.errors.append(
-        "Publication authorization blocks `devctl push`: "
-        f"reason=`{decision.reason}`.{detail}"
-    )
 
 
 def _protected_branch_errors(branch: str, policy) -> list[str]:
@@ -466,20 +417,20 @@ def run_push_action(
         run_cmd_fn=run_cmd_fn,
         commit_pipeline=commit_pipeline,
     )
-    head_commit = current_head_commit_sha(repo_root=repo_root) or head_commit
-    if run_cmd_fn is None:
-        run_post_validation_auto_commit_repair_phase(
-            state,
-            resolved_policy,
-            repo_root=repo_root,
-            repair_fn=repair_preflight_generated_changes_for_push,
-            validation_passed=not state.errors,
-        )
-    head_commit = current_head_commit_sha(repo_root=repo_root) or head_commit
-    _append_publication_authorization_errors(
+    head_commit = finish_preflight_before_publication(
         state,
-        repo_root=repo_root,
-        publication_authorization_fn=publication_authorization_fn,
+        resolved_policy,
+        PushPublicationGateInputs(
+            repo_root=repo_root,
+            run_cmd_fn=run_cmd_fn,
+            commit_pipeline=commit_pipeline,
+            publication_authorization_fn=(
+                publication_authorization_fn or publication_authorization_decision
+            ),
+            pass_commit_pipeline_to_authorization=publication_authorization_fn is None,
+            head_commit=head_commit,
+            current_head_fn=current_head_commit_sha,
+        ),
     )
     requested_approved_target_identity = str(
         getattr(args, "approved_target_identity", "") or ""

@@ -2796,6 +2796,10 @@ Docs governance guardrails:
   `dev/reports/review_channel/latest/commit_pipeline.json` is only a legacy
   fallback, so a stale bridge/status root cannot hide the
   `PushAuthorizationRecord` emitted by governed commit.
+- Executor-routed `devctl push` passes the current in-process
+  `RemoteCommitPipelineContract` into the publication gate. This keeps the
+  freshly emitted `PushAuthorizationRecord` stable even when preflight refreshes
+  review-channel projections before the actual git publication check.
 - Governed `devctl commit` streams `[devctl vcs] phase=...` progress through the irreversible git commit, and the managed post-commit hook announces the trailing ReviewSnapshot receipt refresh before and after its quiet `review-snapshot` call.
 - Long-running `run_cmd` child processes emit `[devctl progress]` no-output
   heartbeats on stderr and persist the same typed progress events for

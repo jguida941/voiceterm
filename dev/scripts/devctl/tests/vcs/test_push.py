@@ -411,6 +411,57 @@ class PushAuthorizedPipelineDirtyWorktreeTests(unittest.TestCase):
             )
             self.assertNotEqual(remote_before, receipt_head)
 
+    def test_governed_push_uses_in_process_pipeline_authorization_when_projection_stale(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root, _remote_root, branch = self._create_repo_with_ahead_commit(
+                Path(tmp_dir),
+                branch="feature/stale-projection-auth",
+            )
+            remote_before = _run_git(repo_root, "rev-parse", f"origin/{branch}")
+            head = push.current_head_commit_sha(repo_root=repo_root)
+
+            artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+            projections_root = Path(artifact_paths.projections_root)
+            projections_root.mkdir(parents=True, exist_ok=True)
+            stale_projected_pipeline = RemoteCommitPipelineContract(
+                pipeline_id="pipeline-test",
+                state="push_pending",
+                branch=branch,
+                remote="origin",
+                commit_sha=head,
+                approved_target_identity=f"devctl_commit:{head}",
+            )
+            persist_remote_commit_pipeline_contract(
+                stale_projected_pipeline,
+                output_root=projections_root,
+            )
+            pipeline = self._pipeline_for_head(repo_root, branch=branch, head=head)
+
+            with patch(
+                "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                return_value="git status --short",
+            ):
+                rc, report = push.run_push_action(
+                    make_args(execute=True),
+                    repo_root=repo_root,
+                    policy=make_policy(development_branch=branch),
+                    emit_output_report=False,
+                    run_cmd_fn=push.run_cmd,
+                    build_post_push_commands_fn=lambda _policy, **_kwargs: [],
+                    commit_pipeline=pipeline,
+                )
+
+            self.assertEqual(rc, 0)
+            self.assertEqual(report["status"], "post_push_green")
+            self.assertEqual(report["reason"], "push_completed")
+            self.assertEqual(
+                _run_git(repo_root, "rev-parse", f"origin/{branch}"),
+                head,
+            )
+            self.assertNotEqual(remote_before, head)
+
     def _create_repo_with_ahead_commit(
         self,
         tmp_root: Path,
@@ -4635,7 +4686,7 @@ class PushBridgeSyncTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch(
-        "dev.scripts.devctl.commands.vcs.push.repair_preflight_generated_changes_for_push"
+        "dev.scripts.devctl.commands.vcs.push_publication_gate.repair_preflight_generated_changes_for_push"
     )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")

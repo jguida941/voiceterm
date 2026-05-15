@@ -15824,3 +15824,18 @@ Evidence:
 - `dev/scripts/devctl/governance/push_state_authorization.py`
 - `dev/scripts/devctl/tests/runtime/test_push_authorization.py`
 - `dev/audits/r98_push_authorization_projection_path.md`
+
+Follow-up dogfood on the same publication path showed a second timing wedge:
+executor-routed push persisted a valid pending pipeline, but a preflight
+projection refresh could briefly regenerate `commit_pipeline.json` without the
+local `PushAuthorizationRecord`; the final blocked report then restored the
+record, making manual inspection look healthy. `publication_authorization_decision`
+now accepts an optional in-process `RemoteCommitPipelineContract`, and
+`run_push_action` supplies it for executor-routed pushes so the publication
+gate validates the pipeline that owns the push attempt.
+
+Additional evidence:
+
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/commands/vcs/push_publication_gate.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
