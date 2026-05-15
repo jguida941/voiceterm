@@ -391,6 +391,9 @@ jobs:
       - name: Run plan-index commit continuity guard
         run: python3 dev/scripts/checks/check_plan_index_commit_continuity.py
 
+      - name: Run task-started ADR precedent guard
+        run: python3 dev/scripts/checks/check_task_started_adr_precedent_linking.py
+
       - name: Run substrate repo-portability guard
         run: python3 dev/scripts/checks/check_substrate_is_repo_portable.py
 

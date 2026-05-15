@@ -139,6 +139,56 @@ PLAN_INTAKE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         registry_entry_kind="authority_composition",
     ),
     ContractSpec(
+        contract_id="TaskStartedAdrPrecedentLinkingGuard",
+        owner_layer="governance_core",
+        purpose=(
+            "Report-only guard checking codex task_started packets preserve "
+            "ADR precedent, evidence refs, packet anchors, and plan-family links."
+        ),
+        required_fields=(
+            ContractField("guard_id", "str", "Stable guard identifier."),
+            ContractField("ok", "bool", "Whether the guard executed successfully."),
+            ContractField("report_only", "bool", "Whether findings are advisory."),
+            ContractField("would_fail", "bool", "Whether strict mode would fail."),
+            ContractField(
+                "event_log_path",
+                "str",
+                "Review-channel event log scanned.",
+            ),
+            ContractField(
+                "task_started_count",
+                "int",
+                "Codex task_started packets scanned.",
+            ),
+            ContractField(
+                "precedent_linked_count",
+                "int",
+                "task_started packets that cite a preceding packet.",
+            ),
+            ContractField(
+                "violation_count",
+                "int",
+                "Packets missing ADR/evidence links.",
+            ),
+            ContractField(
+                "violations",
+                "tuple[dict[str, object], ...]",
+                "Sample findings.",
+            ),
+            ContractField("errors", "tuple[str, ...]", "Load or parse errors."),
+        ),
+        runtime_model=(
+            "dev.scripts.checks.check_task_started_adr_precedent_linking:"
+            "TaskStartedAdrPrecedentLinkingGuard"
+        ),
+        startup_surface_tokens=(
+            "guard_id",
+            "violation_count",
+            "precedent_linked_count",
+        ),
+        registry_entry_kind="authority_composition",
+    ),
+    ContractSpec(
         contract_id="PlanIntentIngestionReceipt",
         owner_layer="governance_runtime",
         purpose=(

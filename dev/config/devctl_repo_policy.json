@@ -198,12 +198,17 @@
         "enforced_row_prefixes": [
           "MP-378-"
         ]
+      },
+      "check_task_started_adr_precedent_linking": {
+        "mandate_packet_id": "rev_pkt_4019",
+        "observed_at_utc": "2026-05-14T16:08:07Z"
       }
     },
     "repo_portability": {
       "target_paths": [
         "dev/scripts/checks/check_plan_index_commit_continuity.py",
         "dev/scripts/checks/packet_pkt_bind_completeness",
+        "dev/scripts/checks/check_task_started_adr_precedent_linking.py",
         "dev/scripts/checks/systemmap_covers_contract_registry"
       ],
       "ignore_paths": [
