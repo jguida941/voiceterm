@@ -393,9 +393,12 @@ def _merge_row_with_existing(
 ) -> PlanRow:
     if existing is None:
         return row
+    preserve_existing_title = bool(
+        text(getattr(args, "plan_row_id", "")) and not text(getattr(args, "title", ""))
+    )
     return replace(
         row,
-        title=row.title if text(getattr(args, "title", "")) else existing.title,
+        title=existing.title if preserve_existing_title else row.title,
         status=(
             row.status
             if _explicit_arg(args, "plan_status", default="queued")

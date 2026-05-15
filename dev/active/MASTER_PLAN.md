@@ -175,6 +175,12 @@
   writes it beside `CommitReceipt` and `FeatureLifecycleProof`; raw-git
   operator-bypass commits must still produce equivalent manual proof before
   claiming shipped work.
+- 2026-05-15 meta-capture decomposer (R155/R156): `develop ingest-plan`
+  now decomposes packet bodies that already name concrete `MP-NEW-*` closure
+  rows or bounded slice ranges before falling back to opaque `PKT-BIND`
+  intake. R148/R155 packet synthesis materialized P204, P205, P206, P207, and
+  P209 rows into `dev/state/plan_index.jsonl` so packet findings become
+  executable queue rows instead of attention-only backlog.
 - 2026-04-20 persistence-loop unblock (subordinate to
   `dev/active/autonomous_governance_loop_v2.md` MP-377): headless
   `review-channel --action launch | recover` now auto-elevate

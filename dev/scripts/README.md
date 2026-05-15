@@ -2346,6 +2346,10 @@ Machine-first output note:
   `dev/state/plan_ingestion_receipts.jsonl`; duplicate, rejected, or obsolete
   sources still produce a terminal typed receipt so chat text and temp files
   remain evidence, not authority.
+  For packet sources, the row builder now first decomposes packet text that
+  explicitly names `MP-NEW-*` rows or bounded ranges such as
+  `MP-NEW-P204-S1..S4`. Only packets without concrete closure ids fall back to
+  a single `PKT-BIND-REV-PKT-*` intake row.
   Packet attention is not a launch signal and is not proof that a visible
   terminal resumed. Packet post, delivery, follow-loop attention, inbox/watch,
   and packet-backed control paths may record typed attention and feed plan or

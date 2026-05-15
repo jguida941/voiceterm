@@ -222,6 +222,10 @@ Use docs like this:
   through the repo-pack master-plan store and appends
   `PlanIntentIngestionReceipt` rows for accepted, duplicate, rejected, or
   obsolete outcomes, keeping source text as evidence rather than authority.
+  Packet bodies that already name concrete `MP-NEW-*` closure rows or bounded
+  slice ranges are decomposed into those rows before the fallback
+  `PKT-BIND-REV-PKT-*` intake row is used, so synthesis packets do not remain
+  opaque backlog when they contain executable row ids.
 - Headless `review-channel --action launch` (and `--action recover`) now
   auto-elevate `--approval-mode` to `trusted` when typed
   `interaction_mode == "remote_control"` and the operator did not pass an

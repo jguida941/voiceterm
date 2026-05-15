@@ -7,6 +7,7 @@ from typing import Any
 
 from ...governance.master_plan_ingestion import MarkdownChecklistAdapter
 from ...runtime.master_plan_contract import PlanRow, SDLCStage
+from .plan_intake_decomposition import decomposed_packet_rows
 from .plan_intake_evidence import anchor_refs, dedupe, work_evidence_refs
 from .plan_intake_phase0 import ParsedPlanAuthoritySections
 from .plan_intake_provenance import provenance
@@ -64,6 +65,20 @@ def rows_from_source(
         )
 
     if source.packet_payload:
+        decomposed_rows = decomposed_packet_rows(source.body)
+        if decomposed_rows:
+            return tuple(
+                _decomposed_packet_row(
+                    row_id=item.row_id,
+                    title=item.title,
+                    source_line=item.source_line,
+                    args=args,
+                    source=source,
+                    source_hash=source_hash,
+                    observed_at=observed_at,
+                )
+                for item in decomposed_rows
+            )
         return (
             _explicit_plan_row(
                 args,
@@ -74,6 +89,43 @@ def rows_from_source(
             ),
         )
     return ()
+
+
+def _decomposed_packet_row(
+    *,
+    row_id: str,
+    title: str,
+    source_line: int,
+    args: Any,
+    source: PlanIntentSource,
+    source_hash: str,
+    observed_at: str,
+) -> PlanRow:
+    packet = source.packet_payload
+    packet_id = text(packet.get("packet_id"))
+    return PlanRow(
+        row_id=row_id,
+        title=title or row_id,
+        status=text(getattr(args, "plan_status", "")) or "queued",
+        sdlc_stage=SDLCStage.normalize(
+            getattr(args, "sdlc_stage", ""),
+            default=SDLCStage.SPEC,
+        ),
+        sourced_from_packets=(packet_id,) if packet_id else (),
+        work_evidence_ids=work_evidence_refs(source, packet_id=packet_id),
+        source_doc_path=source.ref,
+        source_line=source_line,
+        content_hash=source_hash,
+        provenance=provenance(
+            source,
+            source_hash=source_hash,
+            observed_at=observed_at,
+            source_line=source_line,
+        ),
+        anchor_refs=anchor_refs(args, packet_id=packet_id),
+        target_ref=target_ref_from_source(args, source),
+        mutation_op=_mutation_op(args, source),
+    )
 
 
 def _plan_section_row(

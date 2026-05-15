@@ -1331,6 +1331,28 @@ Evidence:
 - `dev/state/plan_ingestion_receipts.jsonl`
 - `dev/scripts/devctl/tests/commands/test_development_command.py`
 
+### 2026-05-15 - Packet plan intake decomposes MP-NEW closure rows
+
+The R155 fleet synthesis showed a recurring meta-capture gap: packet bodies
+were ingested as `PKT-BIND-REV-PKT-*` rows even when they already named
+concrete `MP-NEW-*` closure rows. That kept actionable work hidden inside
+packet prose and let closure-rate regress while receipts claimed successful
+ingestion.
+
+Change: `develop ingest-plan --packet-id ...` now scans packet text for
+concrete `MP-NEW-*` row ids and bounded ranges like `MP-NEW-P204-S1..S4`
+before using the PKT-BIND fallback. Rows-to-ingest amendments can now update
+titles on existing rows while explicit `--plan-row-id` evidence merges still
+preserve owner titles unless the caller supplies `--title`.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/plan_intake_decomposition.py`
+- `dev/scripts/devctl/commands/development/plan_intake.py`
+- `dev/scripts/devctl/commands/development/plan_intake_rows.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `dev/state/plan_index.jsonl`
+
 ### 2026-05-02 - Governed commit failures now consume the failure packet router
 
 Fact: Plan r3 dogfooding showed that the `ActionResult.auto_executable` and

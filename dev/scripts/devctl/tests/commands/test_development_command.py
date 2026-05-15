@@ -3262,6 +3262,67 @@ def test_develop_ingest_plan_packet_uses_packet_evidence(
     assert "Patch review body" in snapshots[0]["source_text"]
 
 
+def test_develop_ingest_plan_packet_materializes_mp_new_rows(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(plan_intake, "REPO_ROOT", tmp_path)
+    state_path = (
+        tmp_path / "dev/reports/review_channel/projections/latest/review_state.json"
+    )
+    state_path.parent.mkdir(parents=True)
+    state_path.write_text(
+        json.dumps(
+            {
+                "packets": [
+                    {
+                        "packet_id": "rev_pkt_9101",
+                        "kind": "task_progress",
+                        "summary": "Meta-capture decomposer request",
+                        "body": "\n".join(
+                            [
+                                "MP-NEW-P208 verdict is context, not a row.",
+                                "For rev_pkt_4106 -> MP-NEW-P204-S1..S3",
+                                "- `MP-NEW-P206-REPO-SEMANTIC-CLASSIFIER-S1` - Repo semantic classifier",
+                                '{ "slice_id": "MP-NEW-P209-SESSION-PROBLEM-LOGGER-S1",',
+                                '  "title": "SessionProblemLog contract + StrEnum + jsonl storage" }',
+                            ]
+                        ),
+                        "target_ref": "plan:MP-377",
+                        "requested_action": "review_only",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    args = cli.build_parser().parse_args(
+        ["develop", "ingest-plan", "--packet-id", "rev_pkt_9101", "--format", "json"]
+    )
+
+    receipt = plan_intake.ingest_plan_intent(args, repo_root=tmp_path)
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "dev/state/plan_index.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+
+    assert receipt.status == "accepted"
+    assert receipt.row_ids == (
+        "MP-NEW-P204-S1",
+        "MP-NEW-P204-S2",
+        "MP-NEW-P204-S3",
+        "MP-NEW-P206-REPO-SEMANTIC-CLASSIFIER-S1",
+        "MP-NEW-P209-SESSION-PROBLEM-LOGGER-S1",
+    )
+    assert [row["row_id"] for row in rows] == list(receipt.row_ids)
+    assert all(row["sourced_from_packets"] == ["rev_pkt_9101"] for row in rows)
+    assert rows[-1]["title"] == "SessionProblemLog contract + StrEnum + jsonl storage"
+    assert not any(row["row_id"].startswith("PKT-BIND-") for row in rows)
+
+
 def test_develop_ingest_plan_packet_falls_back_to_event_log(
     tmp_path: Path,
     monkeypatch,
