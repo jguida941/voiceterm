@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `2a767eba8ecf` — Layout: convert crowded roots to shims
-- Tree hash: `336fb9f9d68b`
-- Generation stamp: `snap-7536cb8e109c`
-- Generated at (UTC): 2026-05-15T06:17:50Z
+- HEAD: `f078228a28a1` — MP-CONTROL-PLANE-S1: extend control_plane_quality preflight handling
+- Tree hash: `f7b1f88127c0`
+- Generation stamp: `snap-39b47e20a680`
+- Generated at (UTC): 2026-05-15T08:59:02Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 55 files, +2987/-1505
+- Delta since last snapshot: 24 commits, 48 files, +2858/-1273
 - Governance findings: 44 open / 0 fixed / 44 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `2a767eba8ecf73f9728d7edaa62d39fde20bc566`
+- HEAD SHA: `f078228a28a1fac650301e18cccfd00a688dfd10`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-15T02:17:05-04:00
+- HEAD timestamp (UTC): 2026-05-15T04:58:01-04:00
 
 ## 2. Governance state
 
@@ -42,9 +42,9 @@ production client (VoiceTerm...
 - staged_path_count: 0
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
-- latest_push_report_state: `blocked` (validation_failed)
-- publication_backlog: urgent
-- publication_guidance: 24 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- latest_push_report_state: `published_remote` (branch_already_pushed)
+- publication_backlog: recommended
+- publication_guidance: 3 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -64,43 +64,42 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `2a767eba8ecf`
+Range: last 24 commits ending at `f078228a28a1`
 
 - commits: 24
-- files changed: 55
-- insertions: +2987
-- deletions: -1505
+- files changed: 48
+- insertions: +2858
+- deletions: -1273
 - bundle classes touched: tooling, docs
-- authority surfaces touched: 1 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `2a767eba` | Layout: convert crowded roots to shims | 5 | +119/-123 | tooling |  |
-| 2 | `e0d2bb56` | Refresh external review snapshot for 895c1f0d | 2 | +57/-59 | docs |  |
-| 3 | `895c1f0d` | Fixtures: cover new schema contracts | 16 | +350/-64 | tooling |  |
-| 4 | `0df3d73c` | Refresh external review snapshot for a87c21a7 | 2 | +55/-55 | docs |  |
-| 5 | `a87c21a7` | Receipt: refresh ground-truth probe preflight | 2 | +59/-58 | tooling |  |
-| 6 | `65b42f88` | Refresh external review snapshot for eb5dbc30 | 2 | +60/-60 | docs |  |
-| 7 | `eb5dbc30` | Checks: align sync guard with runtime attention | 4 | +224/-82 | tooling |  |
-| 8 | `9ae64f25` | Refresh external review snapshot for cd177c3e | 2 | +60/-61 | docs |  |
-| 9 | `cd177c3e` | Docs: catalog runtime bridge separation guard | 2 | +53/-53 | tooling |  |
-| 10 | `3c98c2ed` | Refresh external review snapshot for 372ea699 | 2 | +66/-68 | docs |  |
-| 11 | `372ea699` | Docs: record governed push docs-check repair | 5 | +106/-56 | tooling |  |
-| 12 | `b34748b3` | Refresh policy-owned generated surfaces for 8353fc05 | 1 | +28/-27 | docs |  |
-| 13 | `8353fc05` | Refresh external review snapshot for e9aad0df | 2 | +62/-60 | docs |  |
-| 14 | `e9aad0df` | MP188-S1.1: expand bridge guard FORBIDDEN_MODULE_FRAGMENTS… | 10 | +219/-88 | tooling |  |
-| 15 | `1b42c70e` | Refresh external review snapshot for df492548 | 2 | +55/-55 | docs |  |
-| 16 | `df492548` | MP197: ingest continuous proof scheduler plan | 5 | +160/-50 | tooling |  |
-| 17 | `1ec9c8b1` | Refresh external review snapshot for dbd12b71 | 2 | +73/-75 | docs |  |
-| 18 | `dbd12b71` | MP188: add runtime bridge separation guard | 14 | +472/-56 | tooling |  |
-| 19 | `56d9ceb3` | Refresh external review snapshot for 8d406cee | 2 | +59/-59 | docs |  |
-| 20 | `8d406cee` | MP189: ingest R127 wake continuity plan | 5 | +74/-50 | tooling |  |
-| 21 | `c99b616c` | Refresh external review snapshot for 763075f1 | 2 | +67/-64 | docs |  |
-| 22 | `763075f1` | MP188: register ingestion provenance | 11 | +142/-56 | tooling |  |
-| 23 | `31dee106` | Refresh external review snapshot for b7b13c45 | 2 | +64/-64 | docs |  |
-| 24 | `b7b13c45` | MP186: retarget R125 duplicate corrections | 18 | +303/-62 | tooling |  |
+| 1 | `f078228a` | MP-CONTROL-PLANE-S1: extend control_plane_quality preflight… | 2 | +62/-2 | tooling |  |
+| 2 | `23d481ad` | MP181-S1: add check_context_graph_snapshot_freshness guard… | 3 | +190/-0 | tooling |  |
+| 3 | `b9359b7b` | MP122-S1: add check_plan_row_contract_refs_resolve guard (P… | 1 | +207/-0 | tooling |  |
+| 4 | `94f106ca` | Refresh policy-owned generated surfaces for a0c651e6 | 1 | +1/-1 | docs |  |
+| 5 | `a0c651e6` | Refresh external review snapshot for 2a767eba | 2 | +61/-61 | docs |  |
+| 6 | `2a767eba` | Layout: convert crowded roots to shims | 5 | +119/-123 | tooling |  |
+| 7 | `e0d2bb56` | Refresh external review snapshot for 895c1f0d | 2 | +57/-59 | docs |  |
+| 8 | `895c1f0d` | Fixtures: cover new schema contracts | 16 | +350/-64 | tooling |  |
+| 9 | `0df3d73c` | Refresh external review snapshot for a87c21a7 | 2 | +55/-55 | docs |  |
+| 10 | `a87c21a7` | Receipt: refresh ground-truth probe preflight | 2 | +59/-58 | tooling |  |
+| 11 | `65b42f88` | Refresh external review snapshot for eb5dbc30 | 2 | +60/-60 | docs |  |
+| 12 | `eb5dbc30` | Checks: align sync guard with runtime attention | 4 | +224/-82 | tooling |  |
+| 13 | `9ae64f25` | Refresh external review snapshot for cd177c3e | 2 | +60/-61 | docs |  |
+| 14 | `cd177c3e` | Docs: catalog runtime bridge separation guard | 2 | +53/-53 | tooling |  |
+| 15 | `3c98c2ed` | Refresh external review snapshot for 372ea699 | 2 | +66/-68 | docs |  |
+| 16 | `372ea699` | Docs: record governed push docs-check repair | 5 | +106/-56 | tooling |  |
+| 17 | `b34748b3` | Refresh policy-owned generated surfaces for 8353fc05 | 1 | +28/-27 | docs |  |
+| 18 | `8353fc05` | Refresh external review snapshot for e9aad0df | 2 | +62/-60 | docs |  |
+| 19 | `e9aad0df` | MP188-S1.1: expand bridge guard FORBIDDEN_MODULE_FRAGMENTS… | 10 | +219/-88 | tooling |  |
+| 20 | `1b42c70e` | Refresh external review snapshot for df492548 | 2 | +55/-55 | docs |  |
+| 21 | `df492548` | MP197: ingest continuous proof scheduler plan | 5 | +160/-50 | tooling |  |
+| 22 | `1ec9c8b1` | Refresh external review snapshot for dbd12b71 | 2 | +73/-75 | docs |  |
+| 23 | `dbd12b71` | MP188: add runtime bridge separation guard | 14 | +472/-56 | tooling |  |
+| 24 | `56d9ceb3` | Refresh external review snapshot for 8d406cee | 2 | +59/-59 | docs |  |
 
 ### Files
 
@@ -108,15 +107,19 @@ Range: last 24 commits ending at `2a767eba8ecf`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +1/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +3/-0 |
-| `bridge.md` | docs | +75/-75 |
-| `dev/active/MASTER_PLAN.md` | tooling | +199/-0 |
+| `bridge.md` | docs | +61/-62 |
+| `dev/active/MASTER_PLAN.md` | tooling | +117/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +10/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1312/-1316 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1094/-1102 |
 | `dev/guides/DEVELOPMENT.md` | docs | +7/-0 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +28/-27 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +29/-28 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +25/-1 |
 | `dev/scripts/README.md` | tooling | +7/-0 |
+| `dev/scripts/checks/check_context_graph_snapshot_freshness.py` | tooling | +12/-0 |
+| `dev/scripts/checks/check_plan_row_contract_refs_resolve.py` | tooling | +207/-0 |
 | `dev/scripts/checks/check_runtime_bridge_projection_separation.py` | tooling | +39/-27 |
+| `dev/scripts/checks/context_graph_snapshot_freshness/__init__.py` | tooling | +1/-0 |
+| `dev/scripts/checks/context_graph_snapshot_freshness/command.py` | tooling | +177/-0 |
 | `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop.py` | tooling | +56/-11 |
 | `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_pending.py` | tooling | +14/-3 |
 | `dev/scripts/checks/runtime_bridge_projection_separation/__init__.py` | tooling | +1/-0 |
@@ -124,29 +127,25 @@ Range: last 24 commits ending at `2a767eba8ecf`
 | `dev/scripts/devctl/bundles/registry.py` | tooling | +1/-0 |
 | `dev/scripts/devctl/commands/quality_policy.py` | tooling | +6/-34 |
 | `dev/scripts/devctl/governance/script_catalog_registry.py` | tooling | +4/-0 |
-| `dev/scripts/devctl/platform/contract_registry.py` | tooling | +2/-2 |
-| `dev/scripts/devctl/platform/contract_registry_models.py` | tooling | +4/-2 |
-| `dev/scripts/devctl/platform/contracts.py` | tooling | +2/-0 |
-| `dev/scripts/devctl/platform/runtime_state_contract_rows.py` | tooling | +4/-2 |
-| `dev/scripts/devctl/platform/runtime_state_contract_rows_plan_intake.py` | tooling | +49/-0 |
-| `dev/scripts/devctl/platform/runtime_state_contract_rows_review_pipeline.py` | tooling | +43/-0 |
-| `dev/scripts/devctl/probe_report/artifacts.py` | tooling | +9/-0 |
+| `dev/scripts/devctl/platform/runtime_state_contract_rows_plan_intake.py` | tooling | +24/-0 |
 | `dev/scripts/devctl/quality_policy/command.py` | tooling | +32/-0 |
-| `dev/scripts/devctl/review_channel/action_request.py` | tooling | +2/-0 |
-| `dev/scripts/devctl/review_channel/action_request_delivery.py` | tooling | +8/-0 |
-| `dev/scripts/devctl/review_probe_report.py` | tooling | +4/-1 |
-| `dev/scripts/devctl/runtime/evidence_receipts.py` | tooling | +21/-0 |
-| `dev/scripts/devctl/runtime/governance_proposed_contracts.py` | tooling | +0/-1 |
-| `dev/scripts/devctl/runtime/master_plan_contract.py` | tooling | +13/-0 |
-| `dev/scripts/devctl/runtime/role_customization.py` | tooling | +11/-0 |
+| `dev/scripts/devctl/runtime/control_plane_quality.py` | tooling | +20/-2 |
 | `dev/scripts/devctl/tests/checks/test_check_multi_agent_sync_runtime_truth.py` | tooling | +90/-0 |
 | `dev/scripts/devctl/tests/checks/test_check_runtime_bridge_projection_separation.py` | tooling | +95/-0 |
-| `dev/state/contract_registry.jsonl` | tooling | +5/-0 |
-| `dev/state/ground_truth_probe_receipts.jsonl` | tooling | +2/-0 |
-| `dev/state/plan_index.jsonl` | tooling | +89/-0 |
-| `dev/state/plan_ingestion_receipts.jsonl` | tooling | +92/-0 |
-| `dev/state/plan_source_snapshots.jsonl` | tooling | +91/-0 |
-| _15 more files trimmed_ | | |
+| `dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py` | tooling | +42/-0 |
+| `dev/state/contract_registry.jsonl` | tooling | +1/-0 |
+| `dev/state/ground_truth_probe_receipts.jsonl` | tooling | +1/-0 |
+| `dev/state/plan_index.jsonl` | tooling | +50/-0 |
+| `dev/state/plan_ingestion_receipts.jsonl` | tooling | +50/-0 |
+| `dev/state/plan_source_snapshots.jsonl` | tooling | +50/-0 |
+| `dev/test_data/schema_fixtures/AffectedTestSelection/1/invalid/missing-required-field.json` | tooling | +19/-0 |
+| `dev/test_data/schema_fixtures/AffectedTestSelection/1/invalid/schema-version-mismatch.json` | tooling | +20/-0 |
+| `dev/test_data/schema_fixtures/AffectedTestSelection/1/valid/registry-row.json` | tooling | +18/-0 |
+| `dev/test_data/schema_fixtures/BridgeSeparationGuard/1/invalid/missing-required-field.json` | tooling | +19/-0 |
+| `dev/test_data/schema_fixtures/BridgeSeparationGuard/1/invalid/schema-version-mismatch.json` | tooling | +20/-0 |
+| `dev/test_data/schema_fixtures/BridgeSeparationGuard/1/valid/registry-row.json` | tooling | +18/-0 |
+| `dev/test_data/schema_fixtures/IngestionProvenance/1/invalid/missing-required-field.json` | tooling | +19/-0 |
+| _8 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -193,27 +192,31 @@ Recent findings:
 
 ## 6. Reviewer hints — please verify
 
-### Targeted hints
-
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/platform/contracts.py`) — Review contract-level invariants for this file
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/contract_registry_models.py`) — Commit 763075f1 changed dev/scripts/devctl/platform/contract_registry_models.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/contracts.py`) — Commit 763075f1 changed dev/scripts/devctl/platform/contracts.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/runtime_state_contract_rows.py`) — Commit 763075f1 changed dev/scripts/devctl/platform/runtime_state_contract_rows.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/governance_proposed_contracts.py`) — Commit b7b13c45 changed dev/scripts/devctl/runtime/governance_proposed_contracts.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/master_plan_contract.py`) — Commit b7b13c45 changed dev/scripts/devctl/runtime/master_plan_contract.py
-
 ### Suggested verification commands
 
 - `python3 dev/scripts/devctl.py check --profile ci`
 - `python3 dev/scripts/devctl.py probe-report --format md`
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling`
-- `python3 dev/scripts/devctl.py governance-review --format md`
 - `python3 dev/scripts/devctl.py check-router --format md`
 
 ## 7. Reasoning — why these changes landed
 
 ### Per-commit rationale
 
+- **`f078228a`** — MP-CONTROL-PLANE-S1: extend control_plane_quality preflight handling
+  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+- **`23d481ad`** — MP181-S1: add check_context_graph_snapshot_freshness guard (P181)
+  - Mirrors check_review_snapshot_freshness package pattern. Validates
+  - that the latest ContextGraphSnapshot in dev/reports/graph_snapshots/
+  - matches current HEAD commit hash; reports drift in report-only mode.
+  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+- **`b9359b7b`** — MP122-S1: add check_plan_row_contract_refs_resolve guard (P122)
+  - Validates plan_index PlanRow contract refs resolve in contract_registry.
+  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+- **`94f106ca`** — Refresh policy-owned generated surfaces for a0c651e6
+  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
+- **`a0c651e6`** — Refresh external review snapshot for 2a767eba
+  - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
 - **`2a767eba`** — Layout: convert crowded roots to shims
   - evolution: The governed push dogfood run reached the release bundle but stopped before publication. `devctl push --execute` created the managed generated-surface receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked bec…
 - **`e0d2bb56`** — Refresh external review snapshot for 895c1f0d
@@ -254,16 +257,6 @@ Recent findings:
 - **`dbd12b71`** — MP188: add runtime bridge separation guard
   - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 - **`56d9ceb3`** — Refresh external review snapshot for 8d406cee
-  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
-- **`8d406cee`** — MP189: ingest R127 wake continuity plan
-  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
-- **`c99b616c`** — Refresh external review snapshot for 763075f1
-  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
-- **`763075f1`** — MP188: register ingestion provenance
-  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
-- **`31dee106`** — Refresh external review snapshot for b7b13c45
-  - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
-- **`b7b13c45`** — MP186: retarget R125 duplicate corrections
   - evolution: The R98 reviewer-loop handoff exposed nine live review packets (`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake. The closure published the pending 80-commit wall first, read the packet bodies…
 ### Active MP scope (from MASTER_PLAN.md)
 
@@ -308,4 +301,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-7536cb8e109c` binds this file to HEAD `2a767eba8ecf`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-39b47e20a680` binds this file to HEAD `f078228a28a1`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

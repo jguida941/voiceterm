@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-15T06:15:35Z`
-- Last Codex poll (Local America/New_York): `2026-05-15 02:15:35 EDT`
+- Last Codex poll: `2026-05-15T08:56:33Z`
+- Last Codex poll (Local America/New_York): `2026-05-15 04:56:33 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `f265c9a8ccf96ce6b47681d4a4ae2bd6978950c1bf41960f6c3ae683479f3b03`
-- Current instruction revision: ``
+- Last non-audit worktree hash: `b1c929f97335560687d05a7e2d5c0ca8c0e734bcc158559deac12d8eea15bf74`
+- Current instruction revision: `756595df3962`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer mode overridden for launch (requested=single_agent; prior=tools_only).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: operator-manual-override; observed-tree: 507d2bf56cd0; reviewed-tree: 507d2bf56cd0; instruction-rev: 756595df3962).
 
 ## Current Verdict
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-138 pending review packet(s)
+139 pending review packet(s)
 
 ## Implementer Status
 
-- Status unavailable.
+- pending
 
 ## Implementer Questions
 
@@ -138,11 +138,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Implementer
 
-- Await reviewer instruction refresh.
+Claude continues parallel inline fixes. Codex is handling the control-plane quality leftovers and then starting one Tier 2 slice under the operator-authorized continuation.
 
 ## Last Reviewed Scope
 
-MP-355
+MP-377
 
 ## Action Requests
 
