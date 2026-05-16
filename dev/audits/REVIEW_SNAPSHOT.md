@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `cdb1b09dbc44` — Refresh external review snapshot for 82d5e789
-- Tree hash: `40672d8c1a6f`
-- Generation stamp: `snap-10515c51e9d3`
-- Generated at (UTC): 2026-05-16T14:35:10Z
-- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- HEAD: `55c53a5b9517` — Add role-review lifecycle and pytest policy proof
+- Tree hash: `ddbc73bf0d79`
+- Generation stamp: `snap-597e662b59c8`
+- Generated at (UTC): 2026-05-16T14:39:41Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 161 files, +9573/-2786
+- Delta since last snapshot: 25 commits, 170 files, +10434/-2937
 - Governance findings: 44 open / 0 fixed / 44 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,23 +28,23 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `cdb1b09dbc44077de2c9eefe456755e876b17cfc`
+- HEAD SHA: `55c53a5b951771befb5f89ae0e977df078d3482e`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-16T03:16:15-04:00
+- HEAD timestamp (UTC): 2026-05-16T10:39:19-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_budget_exceeded
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 14
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
-- publication_backlog: recommended
-- publication_guidance: 4 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_backlog: urgent
+- publication_guidance: 5 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -60,17 +60,16 @@ production client (VoiceTerm...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
-- checkpoint_required: **yes**
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `cdb1b09dbc44`
+Range: last 25 commits ending at `55c53a5b9517`
 
-- commits: 24
-- files changed: 161
-- insertions: +9573
-- deletions: -2786
+- commits: 25
+- files changed: 170
+- insertions: +10434
+- deletions: -2937
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 3 file(s)
 
@@ -78,30 +77,31 @@ Range: last 24 commits ending at `cdb1b09dbc44`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `cdb1b09d` | Refresh external review snapshot for 82d5e789 | 2 | +44/-46 | docs |  |
-| 2 | `82d5e789` | MP-NEW-P230-OUTPUT-TRUTH-SPINE-S1: record closure receipts | 2 | +2/-1 | tooling |  |
-| 3 | `d0e99b9a` | Refresh external review snapshot for a3303fd5 | 2 | +88/-82 | docs |  |
-| 4 | `a3303fd5` | MP-NEW-P230-OUTPUT-TRUTH-SPINE-S1: ship keystone proof spine | 126 | +4318/-300 | tooling |  |
-| 5 | `e8dd613a` | Refresh external review snapshot for 850b9015 | 2 | +66/-66 | docs |  |
-| 6 | `850b9015` | MP-NEW-P229-COMMIT-TO-PLAN-ROW-REDUCER-S1: persist plan-row… | 4 | +74/-1 | tooling |  |
-| 7 | `9a3a0de4` | Refresh external review snapshot for 336c8c24 | 2 | +62/-63 | docs |  |
-| 8 | `336c8c24` | MP-NEW-P229-COMMIT-TO-PLAN-ROW-REDUCER-S1: close plan rows… | 18 | +659/-32 | tooling |  |
-| 9 | `fb449591` | Refresh external review snapshot for 051ac121 | 2 | +76/-72 | docs |  |
-| 10 | `051ac121` | MP-NEW-P220-PHASE-0C-COMMIT-ANCHOR-REF-S1: add typed plan-r… | 32 | +2341/-1650 | tooling |  |
-| 11 | `7bda6d5f` | Refresh external review snapshot for e83e34c4 | 2 | +64/-76 | docs |  |
-| 12 | `e83e34c4` | MP-NEW-P223-WAKE-INTERVAL-TOGGLE-S1: ingest wake loop caden… | 3 | +18/-2 | tooling |  |
-| 13 | `b28e1118` | Refresh external review snapshot for b0b79671 | 2 | +64/-67 | docs |  |
-| 14 | `b0b79671` | MP-NEW-P220-PHASE-0B-PACKET-DECOMP-POLICY-S1: enforce packe… | 10 | +115/-5 | tooling |  |
-| 15 | `31ed8016` | Refresh external review snapshot for bd560dd8 | 2 | +57/-51 | docs |  |
-| 16 | `bd560dd8` | MP-NEW-P220-PHASE-0B-EXPANDED-P40-S1: harden commit row aut… | 10 | +190/-5 | tooling |  |
-| 17 | `c5c10661` | Refresh external review snapshot for 5723a4dc | 2 | +60/-60 | docs |  |
-| 18 | `5723a4dc` | MP-NEW-P220-PHASE-0B-EXPANDED-P40-S1: add row-id guard | 17 | +613/-26 | tooling |  |
-| 19 | `de2facd0` | Refresh external review snapshot for 0acaba67 | 2 | +56/-55 | docs |  |
-| 20 | `0acaba67` | MP-NEW-P220-S1: add TDD acceptance tests | 7 | +351/-1 | tooling |  |
-| 21 | `5f6420b1` | Refresh external review snapshot for 71579a7e | 2 | +56/-55 | docs |  |
-| 22 | `71579a7e` | MP-NEW-P220-S1: repair packet range title decomposition | 9 | +145/-20 | tooling |  |
-| 23 | `1c0700a6` | Refresh external review snapshot for 55ee7b75 | 2 | +51/-49 | docs |  |
-| 24 | `55ee7b75` | MP377-P0: close checkpoint automation plan row | 3 | +3/-1 | tooling |  |
+| 1 | `55c53a5b` | Add role-review lifecycle and pytest policy proof | 16 | +861/-151 | tooling |  |
+| 2 | `cdb1b09d` | Refresh external review snapshot for 82d5e789 | 2 | +44/-46 | docs |  |
+| 3 | `82d5e789` | MP-NEW-P230-OUTPUT-TRUTH-SPINE-S1: record closure receipts | 2 | +2/-1 | tooling |  |
+| 4 | `d0e99b9a` | Refresh external review snapshot for a3303fd5 | 2 | +88/-82 | docs |  |
+| 5 | `a3303fd5` | MP-NEW-P230-OUTPUT-TRUTH-SPINE-S1: ship keystone proof spine | 126 | +4318/-300 | tooling |  |
+| 6 | `e8dd613a` | Refresh external review snapshot for 850b9015 | 2 | +66/-66 | docs |  |
+| 7 | `850b9015` | MP-NEW-P229-COMMIT-TO-PLAN-ROW-REDUCER-S1: persist plan-row… | 4 | +74/-1 | tooling |  |
+| 8 | `9a3a0de4` | Refresh external review snapshot for 336c8c24 | 2 | +62/-63 | docs |  |
+| 9 | `336c8c24` | MP-NEW-P229-COMMIT-TO-PLAN-ROW-REDUCER-S1: close plan rows… | 18 | +659/-32 | tooling |  |
+| 10 | `fb449591` | Refresh external review snapshot for 051ac121 | 2 | +76/-72 | docs |  |
+| 11 | `051ac121` | MP-NEW-P220-PHASE-0C-COMMIT-ANCHOR-REF-S1: add typed plan-r… | 32 | +2341/-1650 | tooling |  |
+| 12 | `7bda6d5f` | Refresh external review snapshot for e83e34c4 | 2 | +64/-76 | docs |  |
+| 13 | `e83e34c4` | MP-NEW-P223-WAKE-INTERVAL-TOGGLE-S1: ingest wake loop caden… | 3 | +18/-2 | tooling |  |
+| 14 | `b28e1118` | Refresh external review snapshot for b0b79671 | 2 | +64/-67 | docs |  |
+| 15 | `b0b79671` | MP-NEW-P220-PHASE-0B-PACKET-DECOMP-POLICY-S1: enforce packe… | 10 | +115/-5 | tooling |  |
+| 16 | `31ed8016` | Refresh external review snapshot for bd560dd8 | 2 | +57/-51 | docs |  |
+| 17 | `bd560dd8` | MP-NEW-P220-PHASE-0B-EXPANDED-P40-S1: harden commit row aut… | 10 | +190/-5 | tooling |  |
+| 18 | `c5c10661` | Refresh external review snapshot for 5723a4dc | 2 | +60/-60 | docs |  |
+| 19 | `5723a4dc` | MP-NEW-P220-PHASE-0B-EXPANDED-P40-S1: add row-id guard | 17 | +613/-26 | tooling |  |
+| 20 | `de2facd0` | Refresh external review snapshot for 0acaba67 | 2 | +56/-55 | docs |  |
+| 21 | `0acaba67` | MP-NEW-P220-S1: add TDD acceptance tests | 7 | +351/-1 | tooling |  |
+| 22 | `5f6420b1` | Refresh external review snapshot for 71579a7e | 2 | +56/-55 | docs |  |
+| 23 | `71579a7e` | MP-NEW-P220-S1: repair packet range title decomposition | 9 | +145/-20 | tooling |  |
+| 24 | `1c0700a6` | Refresh external review snapshot for 55ee7b75 | 2 | +51/-49 | docs |  |
+| 25 | `55ee7b75` | MP377-P0: close checkpoint automation plan row | 3 | +3/-1 | tooling |  |
 
 ### Files
 
@@ -109,10 +109,10 @@ Range: last 24 commits ending at `cdb1b09dbc44`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +4/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +12/-0 |
-| `bridge.md` | docs | +49/-49 |
-| `dev/active/MASTER_PLAN.md` | tooling | +58/-0 |
+| `bridge.md` | docs | +54/-54 |
+| `dev/active/MASTER_PLAN.md` | tooling | +59/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +86/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +702/-700 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +756/-759 |
 | `dev/config/devctl_repo_policy.json` | tooling | +24/-1 |
 | `dev/guides/DEVELOPMENT.md` | docs | +48/-6 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +70/-68 |
@@ -124,6 +124,11 @@ Range: last 24 commits ending at `cdb1b09dbc44`
 | `dev/scripts/checks/contract_registry_composite_key_uniqueness/command.py` | tooling | +326/-0 |
 | `dev/scripts/checks/non_trivial_output_proof/__init__.py` | tooling | +1/-0 |
 | `dev/scripts/checks/non_trivial_output_proof/command.py` | tooling | +333/-0 |
+| `dev/scripts/checks/pytest_runtime_policy/bundle_scan.py` | tooling | +30/-0 |
+| `dev/scripts/checks/pytest_runtime_policy/command.py` | tooling | +1/-80 |
+| `dev/scripts/checks/pytest_runtime_policy/config_policy.py` | tooling | +19/-0 |
+| `dev/scripts/checks/pytest_runtime_policy/reporting.py` | tooling | +32/-0 |
+| `dev/scripts/checks/pytest_runtime_policy/shell_command.py` | tooling | +150/-0 |
 | `dev/scripts/devctl/bundles/registry.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/commands/development/plan_intake.py` | tooling | +25/-8 |
 | `dev/scripts/devctl/commands/development/plan_intake_decomposition.py` | tooling | +64/-13 |
@@ -135,19 +140,14 @@ Range: last 24 commits ending at `cdb1b09dbc44`
 | `dev/scripts/devctl/context_graph/escalation.py` | tooling | +14/-3 |
 | `dev/scripts/devctl/governance/script_catalog_registry.py` | tooling | +6/-0 |
 | `dev/scripts/devctl/platform/contract_registry.py` | tooling | +34/-1 |
-| `dev/scripts/devctl/platform/runtime_identity_contract_rows_commit.py` | tooling | +121/-0 |
+| `dev/scripts/devctl/platform/runtime_identity_contract_rows_commit.py` | tooling | +123/-0 |
+| `dev/scripts/devctl/platform/runtime_identity_contract_rows_role_review.py` | tooling | +115/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_development.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_development_packets.py` | tooling | +55/-1 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_plan_intake.py` | tooling | +53/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_plan_keystones.py` | tooling | +95/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_review.py` | tooling | +24/-4 |
-| `dev/scripts/devctl/quality_policy/defaults.py` | tooling | +10/-0 |
-| `dev/scripts/devctl/review_channel/events.py` | tooling | +2/-34 |
-| `dev/scripts/devctl/review_channel/packet_plan_integration.py` | tooling | +26/-22 |
-| `dev/scripts/devctl/review_channel/post_expiry.py` | tooling | +56/-0 |
-| `dev/scripts/devctl/review_channel/promotion_context.py` | tooling | +5/-1 |
-| `dev/scripts/devctl/runtime/agent_loop_decision.py` | tooling | +5/-1 |
-| _121 more files trimmed_ | | |
+| _130 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -199,6 +199,7 @@ Recent findings:
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_startup_context.py`) — Review contract-level invariants for this file
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/platform/test_platform_contracts.py`) — Commit 55c53a5b changed dev/scripts/devctl/tests/platform/test_platform_contracts.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/bypass_lifecycle_models.py`) — Commit a3303fd5 changed dev/scripts/devctl/runtime/bypass_lifecycle_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/startup_context_models.py`) — Commit a3303fd5 changed dev/scripts/devctl/runtime/startup_context_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/master_plan_contract.py`) — Commit 051ac121 changed dev/scripts/devctl/runtime/master_plan_contract.py
@@ -215,6 +216,7 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`55c53a5b`** — Add role-review lifecycle and pytest policy proof
 - **`cdb1b09d`** — Refresh external review snapshot for 82d5e789
 - **`82d5e789`** — MP-NEW-P230-OUTPUT-TRUTH-SPINE-S1: record closure receipts
   - Refs: a3303fd531efc130ce357703968e2b0e46993a7c rev_pkt_4157 rev_pkt_4171
@@ -297,11 +299,10 @@ Recent findings:
 - open governance findings: 44
 
 ### Startup advisories
-- checkpoint_before_continue: staged_index_budget_exceeded
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Keep editing the current slice.
-- Move straight to the governed push path.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/pipeline/command.py`): dogfood.command.pipeline: Auto-ingested devctl finalization failure rc=1.
@@ -323,4 +324,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-10515c51e9d3` binds this file to HEAD `cdb1b09dbc44`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-597e662b59c8` binds this file to HEAD `55c53a5b9517`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
