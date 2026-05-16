@@ -147,4 +147,46 @@ COMMIT_RECEIPT_CONTRACTS: tuple[ContractSpec, ...] = (
         runtime_model="dev.scripts.devctl.runtime.feature_proof_receipt:FeatureProofReceipt",
         startup_surface_tokens=("feature_id", "commit_sha", "real_life_test_status"),
     ),
+    ContractSpec(
+        contract_id="PlanRowClosureReceipt",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed evidence that a proven raw-git commit was reduced back into "
+            "master-plan row state, including commit anchor and applied timestamp."
+        ),
+        required_fields=(
+            ContractField("receipt_id", "str", "Stable closure receipt id."),
+            ContractField("plan_row_id", "str", "Plan row reduced by the commit."),
+            ContractField("commit_sha", "str", "Commit SHA that proved the row."),
+            ContractField(
+                "feature_proof_receipt_path",
+                "str",
+                "FeatureProofReceipt artifact used as reducer input.",
+            ),
+            ContractField(
+                "previous_status",
+                "str",
+                "Plan row status before reduction.",
+            ),
+            ContractField("next_status", "str", "Plan row status after reduction."),
+            ContractField("outcome", "str", "Bounded reducer outcome."),
+            ContractField(
+                "commit_anchor_ref",
+                "str",
+                "Typed commit anchor written or confirmed on the row.",
+            ),
+            ContractField(
+                "applied_at_utc",
+                "str",
+                "UTC timestamp written or confirmed on the row.",
+            ),
+            ContractField("plan_index_path", "str", "Plan index authority path."),
+            ContractField("reducer", "str", "Reducer id that emitted this receipt."),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.commit_to_plan_row_reducer:"
+            "PlanRowClosureReceipt"
+        ),
+        startup_surface_tokens=("plan_row_id", "commit_sha", "outcome"),
+    ),
 )

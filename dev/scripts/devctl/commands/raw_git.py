@@ -35,6 +35,11 @@ from ..runtime.feature_proof_receipt import (
     feature_proof_receipt_from_mapping,
     write_feature_proof_receipt_artifact,
 )
+from ..runtime.commit_to_plan_row_reducer import (
+    CommitToPlanRowReductionResult,
+    PlanRowClosureReceipt,
+    reduce_feature_proof_to_plan_rows,
+)
 
 DEFAULT_OPERATOR_EVIDENCE_REF = "packet:rev_pkt_4022"
 GitRunner = Callable[[tuple[str, ...], bool], "GitCommandResult"]
@@ -392,7 +397,7 @@ def _record_feature_proof_receipts(
         if not isinstance(receipt, object):
             return (), ()
         if getattr(receipt, "git_verb", None) is RawGitVerb.COMMIT:
-            relpath = _write_raw_git_feature_proof_receipt(
+            relpath, closure_warnings = _write_raw_git_feature_proof_receipt(
                 args,
                 runner=runner,
                 repo_root=repo_root,
@@ -403,9 +408,10 @@ def _record_feature_proof_receipts(
             )
             if relpath:
                 paths.append(relpath)
+            warnings.extend(closure_warnings)
         elif getattr(receipt, "git_verb", None) is RawGitVerb.PUSH:
             for commit_sha in _commit_lines(before_ahead):
-                relpath = _upsert_pushed_feature_proof_receipt(
+                relpath, closure_warnings = _upsert_pushed_feature_proof_receipt(
                     args,
                     runner=runner,
                     repo_root=repo_root,
@@ -416,6 +422,7 @@ def _record_feature_proof_receipts(
                 )
                 if relpath:
                     paths.append(relpath)
+                warnings.extend(closure_warnings)
     except Exception as exc:
         raise FeatureProofReceiptEmissionFailure(
             f"feature_proof_receipt_write_failed:{exc}"
@@ -432,9 +439,9 @@ def _write_raw_git_feature_proof_receipt(
     store_path: Path,
     governed_exception_store_path: Path,
     commit_sha: str,
-) -> str:
+) -> tuple[str, tuple[str, ...]]:
     if not commit_sha:
-        return ""
+        return "", ()
     feature_proof = _raw_git_feature_proof_receipt(
         args,
         runner=runner,
@@ -443,7 +450,19 @@ def _write_raw_git_feature_proof_receipt(
         governed_exception_store_path=governed_exception_store_path,
         commit_sha=commit_sha,
     )
-    return write_feature_proof_receipt_artifact(repo_root, feature_proof)
+    relpath = write_feature_proof_receipt_artifact(repo_root, feature_proof)
+    closure_results = reduce_feature_proof_to_plan_rows(
+        repo_root=repo_root,
+        feature_proof=feature_proof,
+        feature_ids=_feature_ids_for_commit(
+            args,
+            runner=runner,
+            commit_sha=commit_sha,
+            primary_feature_id=feature_proof.feature_id,
+        ),
+        feature_proof_receipt_path=relpath,
+    )
+    return relpath, _plan_row_closure_warnings(closure_results)
 
 
 def _upsert_pushed_feature_proof_receipt(
@@ -455,9 +474,9 @@ def _upsert_pushed_feature_proof_receipt(
     store_path: Path,
     governed_exception_store_path: Path,
     commit_sha: str,
-) -> str:
+) -> tuple[str, tuple[str, ...]]:
     if not commit_sha:
-        return ""
+        return "", ()
     relpath = feature_proof_receipt_artifact_relpath(commit_sha)
     path = repo_root / relpath
     if not path.exists():
@@ -485,7 +504,32 @@ def _upsert_pushed_feature_proof_receipt(
             )
         ),
     )
-    return write_feature_proof_receipt_artifact(repo_root, updated)
+    relpath = write_feature_proof_receipt_artifact(repo_root, updated)
+    closure_results = reduce_feature_proof_to_plan_rows(
+        repo_root=repo_root,
+        feature_proof=updated,
+        feature_ids=_feature_ids_for_commit(
+            args,
+            runner=runner,
+            commit_sha=commit_sha,
+            primary_feature_id=updated.feature_id,
+        ),
+        feature_proof_receipt_path=relpath,
+    )
+    return relpath, _plan_row_closure_warnings(closure_results)
+
+
+def _plan_row_closure_warnings(
+    results: tuple[CommitToPlanRowReductionResult, ...],
+) -> tuple[str, ...]:
+    contract_id = PlanRowClosureReceipt.contract_id
+    warnings: list[str] = []
+    for result in results:
+        if result.warning:
+            warnings.append(f"{contract_id}:{result.plan_row_id}:{result.warning}")
+        elif not result.ok:
+            warnings.append(f"{contract_id}:{result.plan_row_id}:{result.outcome}")
+    return tuple(warnings)
 
 
 def _raw_git_feature_proof_receipt(
@@ -562,6 +606,23 @@ def _feature_id_for_commit(args: Any, *, runner: GitRunner, commit_sha: str) -> 
     if match is not None:
         return match.group(0)
     return commit_sha
+
+
+def _feature_ids_for_commit(
+    args: Any,
+    *,
+    runner: GitRunner,
+    commit_sha: str,
+    primary_feature_id: str,
+) -> tuple[str, ...]:
+    body = _git_stdout(runner, ("log", "-1", "--format=%B", commit_sha))
+    return _unique_refs(
+        (
+            primary_feature_id,
+            str(getattr(args, "feature_id", "") or "").strip(),
+            *tuple(match.group(0) for match in _PLAN_ROW_RE.finditer(body)),
+        )
+    )
 
 
 def _raw_git_audit_refs(receipt: Any) -> tuple[str, ...]:

@@ -382,8 +382,10 @@ Compatibility note:
   skipped hooks, affected paths, actor, authority evidence, and the linked
   `GovernedExceptionLifecycle` id. Lifecycle-backed raw-git authority is
   validated against active `BypassLifecycle` state before the receipt is
-  written, and no-op help/dry-run/unchanged-head executions do not emit
-  receipts.
+  written. After a `FeatureProofReceipt` is written, the wrapper reduces any
+  matching `PlanRow` ids in the commit body/FPR to applied state and appends a
+  `PlanRowClosureReceipt` in `dev/state/plan_row_closure_receipts.jsonl`.
+  No-op help/dry-run/unchanged-head executions do not emit receipts.
 - Keep stale-bridge repair portable as well: `review-channel` auto-refresh must
   use the bridge snapshot/liveness contract instead of depending only on
   `check_review_channel_bridge.py` freshness output, because that guard

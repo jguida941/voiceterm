@@ -278,7 +278,10 @@ Use docs like this:
   authority against active `BypassLifecycle` state before write, links each
   operation to `GovernedExceptionLifecycle`, emits or updates
   `FeatureProofReceipt` artifacts for raw commits and pushed commit ranges,
-  and refuses to emit receipts for help, dry-run, or unchanged-HEAD no-ops.
+  reduces matching `PlanRow` ids from the commit body/FPR back to
+  `status=applied` with `commit_anchor_ref`, `applied_at_utc`, and
+  `PlanRowClosureReceipt` evidence, and refuses to emit receipts for help,
+  dry-run, or unchanged-HEAD no-ops.
 - MP slice commit messages must also resolve to durable typed plan authority.
   `check_commit_message_row_id_resolves.py` reads the post-mandate guard
   window from repo policy, then checks commit row ids against

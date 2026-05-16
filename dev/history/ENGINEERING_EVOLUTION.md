@@ -16150,3 +16150,21 @@ Evidence:
 - `dev/scripts/devctl/commands/development/plan_intake.py`
 - `dev/scripts/checks/check_commit_message_row_id_resolves.py`
 - `dev/scripts/devctl/tests/runtime/test_master_plan_contract_applied_commit_sha.py`
+
+### 2026-05-15 - Raw-git feature proofs now close plan rows
+
+R185 dogfood found the remaining closure reducer gap: raw-git commits could
+emit `FeatureProofReceipt` artifacts while the owning `PlanRow` stayed queued.
+The raw-git wrapper now calls a typed commit-to-plan-row reducer after feature
+proof emission. The reducer extracts row ids from the receipt and commit body,
+transitions queued/in-progress/open rows to `applied`, writes
+`commit_anchor_ref` and `applied_at_utc`, and appends
+`PlanRowClosureReceipt` evidence to the plan-state receipt store.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/commit_to_plan_row_reducer.py`
+- `dev/scripts/devctl/commands/raw_git.py`
+- `dev/scripts/devctl/platform/runtime_identity_contract_rows_commit.py`
+- `dev/scripts/devctl/tests/commands/test_raw_git.py`
+- `dev/test_data/schema_fixtures/PlanRowClosureReceipt/1`

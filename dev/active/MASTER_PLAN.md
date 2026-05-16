@@ -8778,6 +8778,8 @@ auditable while new post-mandate commits must resolve.
   - progress 2026-05-15: patched `_packet_decomposition_violation()` to receive active prefixes, reject PKT-BIND rows as decomposition, and count only policy-enforced implementation rows; added regression tests for off-policy and P207 policy-prefix behavior.
 - [ ] `MP-NEW-P220-PHASE-0C-COMMIT-ANCHOR-REF-S1` Add the `PlanRow.commit_anchor_ref` field and hydration on applied transitions after the P40 guard is in place.
   - progress 2026-05-15: added `PlanRow.commit_anchor_ref`, `PlanRow.applied_at_utc`, schema v2 parser/serializer support, validator/report contracts, read fallback, and ingestion hydration from legacy `commit:` anchor refs whenever a row transitions to applied/completed.
+- [ ] `MP-NEW-P229-COMMIT-TO-PLAN-ROW-REDUCER-S1` Wire raw-git `FeatureProofReceipt` emission to reduce matching commit-body/FPR plan rows to applied state.
+  - progress 2026-05-15: added `PlanRowClosureReceipt`, a raw-git commit-to-plan-row reducer, registry/fixture coverage, and focused raw-git tests so proven commits can populate `commit_anchor_ref` and `applied_at_utc` without waiting for a later controller read.
 - [ ] `MP-NEW-P221-S1` Add `LocalIDETaskProjection` as the projection-only local task contract over canonical PlanRow authority.
 - [ ] `MP-NEW-P221-S2` Add a TaskProjectionReceipt guard so local task projections mirror PlanRows and closure evidence.
 - [ ] `MP-NEW-P221-S3` Render PlanRows into agent-local task surfaces without granting those projections authority.

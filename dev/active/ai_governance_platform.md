@@ -14918,12 +14918,23 @@ also consumes policy-owned `valid_packet_dispositions` (`decided_no_op`,
 absence, and supports `--since-ref/--head-ref` for strict unpublished-range
 scans.
 
+R185 closes the next reducer gap by wiring raw-git feature proof emission back
+into plan state. After `devctl raw-git commit|push` writes or updates a
+`FeatureProofReceipt`, it extracts matching row ids from the receipt and commit
+body, transitions queued/in-progress/open rows to `applied`, writes
+`commit_anchor_ref` plus `applied_at_utc`, and appends a
+`PlanRowClosureReceipt`. This makes the proof chain active at the commit
+boundary instead of leaving shipped rows queued until a later controller pass.
+
 Evidence:
 
 - `dev/scripts/checks/check_commit_message_row_id_resolves.py`
 - `dev/scripts/devctl/runtime/master_plan_contract.py`
+- `dev/scripts/devctl/runtime/commit_to_plan_row_reducer.py`
+- `dev/scripts/devctl/commands/raw_git.py`
 - `dev/scripts/devctl/commands/development/plan_intake.py`
 - `dev/scripts/devctl/tests/checks/test_check_commit_message_row_id_resolves.py`
+- `dev/scripts/devctl/tests/commands/test_raw_git.py`
 - `dev/scripts/devctl/tests/checks/test_check_packet_decomposition_completeness.py`
 - `dev/scripts/devctl/tests/runtime/test_master_plan_contract_applied_commit_sha.py`
 - `dev/state/contract_registry.jsonl`

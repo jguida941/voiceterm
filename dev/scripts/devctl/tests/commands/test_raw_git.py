@@ -13,6 +13,14 @@ from dev.scripts.devctl.runtime.feature_proof_receipt import (
     feature_proof_receipt_artifact_relpath,
     feature_proof_receipt_from_mapping,
 )
+from dev.scripts.devctl.runtime.commit_to_plan_row_reducer import (
+    DEFAULT_PLAN_ROW_CLOSURE_RECEIPT_STORE_REL,
+)
+from dev.scripts.devctl.runtime.master_plan_contract import PlanRow
+from dev.scripts.devctl.runtime.master_plan_store import (
+    read_plan_rows_jsonl,
+    write_plan_rows_jsonl,
+)
 from dev.scripts.devctl.runtime.raw_git_bypass_receipts import (
     read_raw_git_bypass_receipts,
 )
@@ -141,6 +149,101 @@ def test_raw_git_commit_wrapper_records_raw_commit_when_hook_advances_head(
     assert receipts[0].affected_paths == ("dev/state/plan_index.jsonl",)
     proof_path = tmp_path / feature_proof_receipt_artifact_relpath("raw123")
     assert proof_path.exists()
+
+
+def test_raw_git_commit_wrapper_transitions_plan_rows_to_applied(
+    tmp_path: Path,
+) -> None:
+    first_row = "MP-NEW-P229-COMMIT-TO-PLAN-ROW-REDUCER-S1"
+    second_row = "MP-NEW-P220-P40-TYPED-DISPOSITION-S3"
+    plan_index_path = tmp_path / "dev/state/plan_index.jsonl"
+    write_plan_rows_jsonl(
+        plan_index_path,
+        (
+            PlanRow(
+                row_id=first_row,
+                title="Close feature rows from raw git",
+                status="queued",
+                sdlc_stage="impl",
+                anchor_refs=("packet:rev_pkt_4147",),
+            ),
+            PlanRow(
+                row_id=second_row,
+                title="Close secondary row from commit body",
+                status="in_progress",
+                sdlc_stage="impl",
+            ),
+        ),
+    )
+    state = {"committed": False}
+
+    def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
+        if args == ("rev-parse", "HEAD"):
+            return GitCommandResult(0, "abc123\n" if state["committed"] else "base\n", "")
+        if args == ("rev-parse", "--verify", "@{u}"):
+            return GitCommandResult(1, "", "no upstream")
+        if args == ("commit", "--no-verify", "-m", "slice"):
+            state["committed"] = True
+            return GitCommandResult(0, "committed\n", "")
+        if args == ("rev-list", "--reverse", "base..abc123"):
+            return GitCommandResult(0, "abc123\n", "")
+        if args == ("diff-tree", "--no-commit-id", "--name-only", "-r", "abc123"):
+            return GitCommandResult(0, "dev/scripts/devctl/commands/raw_git.py\n", "")
+        if args == ("log", "-1", "--format=%B", "abc123"):
+            return GitCommandResult(
+                0,
+                (
+                    f"{first_row}: add reducer\n\n"
+                    f"Plan-Row: {second_row}\n"
+                    "Packet: rev_pkt_4147\n"
+                ),
+                "",
+            )
+        return GitCommandResult(1, "", "not found")
+
+    args = Namespace(
+        raw_git_action="commit",
+        git_args=["--no-verify", "-m", "slice"],
+        actor="codex",
+        authority="operator_witnessed",
+        bypass_lifecycle_id="",
+        operator_quote_evidence_ref=["packet:rev_pkt_4147"],
+        feature_id="",
+        test_command=["python3 dev/scripts/devctl.py test-python"],
+        tests_passed_count=1,
+        tests_failed_count=0,
+        connectivity_guard=["check_feature_has_proof_receipt"],
+        connectivity_guards_passed="true",
+        dogfood_evidence_ref="test:raw-git-plan-row-reducer",
+        review_fleet_role=["FeatureLifecycleProof"],
+        review_fleet_actor="claude",
+        real_life_test_status="proven_passed",
+        not_tested_rationale="",
+        evidence_artifact=["dev/state/plan_index.jsonl"],
+        store_path="dev/state/raw_git_bypass_receipts.jsonl",
+        bypass_lifecycle_store_path="dev/state/bypass_lifecycles.jsonl",
+        governed_exception_store_path="dev/state/governed_exception_lifecycles.jsonl",
+    )
+
+    report, rc = run_raw_git_action(args, repo_root=tmp_path, git_runner=fake_git)
+
+    assert rc == 0
+    assert report["ok"] is True
+    rows = {row.row_id: row for row in read_plan_rows_jsonl(plan_index_path)}
+    for row_id in (first_row, second_row):
+        row = rows[row_id]
+        assert row.status == "applied"
+        assert row.commit_anchor_ref == "commit:abc123"
+        assert row.applied_at_utc
+        assert "commit:abc123" in row.anchor_refs
+        assert (
+            "feature_proof_receipt:"
+            + feature_proof_receipt_artifact_relpath("abc123")
+        ) in row.work_evidence_ids
+    receipt_store = tmp_path / DEFAULT_PLAN_ROW_CLOSURE_RECEIPT_STORE_REL
+    receipt_lines = receipt_store.read_text(encoding="utf-8").splitlines()
+    assert len(receipt_lines) == 2
+    assert all("transitioned_to_applied" in line for line in receipt_lines)
 
 
 def test_raw_git_commit_wrapper_fails_closed_when_feature_proof_write_fails(
