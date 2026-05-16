@@ -30,6 +30,7 @@ from ...runtime.classifier_safety_attestation import (
     project_classifier_safety_attestation,
 )
 from ...runtime.state_store_authority import append_json_mapping
+from .expire import add_expire_parser, expire_action
 
 _SCOPE_BY_CLI_VALUE = {
     "edit-only": BypassAuthorityScope.EDIT_ONLY,
@@ -160,6 +161,7 @@ def add_parser(sub) -> None:
         format_choices=("json", "md"),
         default_format="json",
     )
+    add_expire_parser(action_sub)
 
 
 def run(args: Any) -> int:
@@ -169,6 +171,8 @@ def run(args: Any) -> int:
         report, rc = grant_action(args)
     elif action == "attest":
         report, rc = attest_action(args)
+    elif action == "expire":
+        report, rc = expire_action(args)
     else:
         report, rc = _error_report(action)
 

@@ -48,6 +48,31 @@ def test_bypass_parser_accepts_grant_scope_and_reason() -> None:
     assert "bypass" in COMMANDS
 
 
+def test_bypass_parser_accepts_expire_source_and_receipt() -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "bypass",
+            "expire",
+            "--receipt-id",
+            "bypass:test-grant",
+            "--source",
+            "time_bound",
+            "--reason",
+            "receipt expired",
+            "--format",
+            "json",
+        ]
+    )
+
+    assert args.command == "bypass"
+    assert args.bypass_action == "expire"
+    assert args.receipt_id == "bypass:test-grant"
+    assert args.source == "time_bound"
+    assert args.reason == "receipt expired"
+
+
 def test_bypass_grant_persists_active_lifecycle(
     tmp_path: Path,
     capsys,
@@ -142,6 +167,71 @@ def test_bypass_grant_maps_publish_scope(
     assert payload["receipt_id"] == "bypass:publish-grant"
     assert payload["scope"] == "edit_commit_and_push"
     assert payload["classifier_safety_attestation"]["ok"] is True
+
+
+def test_bypass_expire_persists_expired_lifecycle(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    parser = argparse.ArgumentParser()
+    sub = parser.add_subparsers(dest="command", required=True)
+    bypass.add_parser(sub)
+    store = tmp_path / "bypass_lifecycles.jsonl"
+    grant_args = parser.parse_args(
+        [
+            "bypass",
+            "grant",
+            "--scope",
+            "edit-only",
+            "--reason",
+            "operator approved temporary repair",
+            "--request-id",
+            "expire-grant",
+            "--store-path",
+            str(store),
+            "--classifier-settings-path",
+            str(tmp_path / "settings.local.json"),
+            "--format",
+            "json",
+        ]
+    )
+    assert bypass.run(grant_args) == 0
+    capsys.readouterr()
+
+    expire_args = parser.parse_args(
+        [
+            "bypass",
+            "expire",
+            "--receipt-id",
+            "bypass:expire-grant",
+            "--source",
+            "time_bound",
+            "--reason",
+            "receipt expired under stop anchor",
+            "--store-path",
+            str(store),
+            "--evidence-ref",
+            "stop_anchor:rev_pkt_test",
+            "--format",
+            "json",
+        ]
+    )
+
+    rc = bypass.run(expire_args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["action"] == "expire"
+    assert payload["receipt_id"] == "bypass:expire-grant"
+    assert payload["state"] == "bypass_expired"
+    assert payload["source"] == "time_bound"
+    lifecycles = load_bypass_lifecycles(store)
+    assert len(lifecycles) == 1
+    lifecycle = lifecycles[0]
+    assert lifecycle.state.value == "bypass_expired"
+    assert lifecycle.expiry is not None
+    assert lifecycle.expiry.evidence_refs == ("stop_anchor:rev_pkt_test",)
 
 
 def test_bypass_attest_projects_existing_active_lifecycle(
