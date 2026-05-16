@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from dev.scripts.devctl.review_channel.event_reducer import reduce_events
@@ -775,10 +776,20 @@ def test_plan_target_apply_appends_idempotent_master_plan_row(
     )
 
     text = master_plan.read_text(encoding="utf-8")
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "dev/state/plan_index.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
 
     assert first["status"] == "inserted"
     assert second["status"] == "already_present"
     assert first["path"].endswith("dev/state/plan_index.jsonl")
+    assert rows[0]["status"] == "open"
+    assert rows[0]["sdlc_stage"] == "spec"
+    assert rows[0]["applied_at_utc"] == ""
     assert text.count("source `rev_pkt_plan`") == 1
     assert "Generated Review Packet Plan Integrations" in text
     assert "`PKT-REV-PKT-PLAN`" in text

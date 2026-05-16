@@ -179,8 +179,8 @@ def _typed_plan_row(
         PlanRow(
             row_id=f"PKT-{_task_slug(packet_id)}",
             title=summary,
-            status="applied",
-            sdlc_stage=SDLCStage.IMPL,
+            status="open",
+            sdlc_stage=SDLCStage.SPEC,
             sourced_from_packets=(packet_id,),
             work_evidence_ids=(evidence_id,) if evidence_id else (),
             plan_revision_at_write=master_plan.plan_revision or target_revision,
@@ -199,7 +199,6 @@ def _typed_plan_row(
             mutation_op=_text(packet.get("mutation_op"))
             or _text(packet.get("requested_action")),
             anchor_refs=tuple(_string_rows(packet.get("anchor_refs"))),
-            applied_at_utc=_text(event.get("timestamp_utc")),
         )
     )
 
