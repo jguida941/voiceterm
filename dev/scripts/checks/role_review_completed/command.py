@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Require proven FeatureProofReceipts to cite non-trivial output proof."""
+"""Require declared review-fleet roles to carry terminal role-review refs."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ import sys
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 _CHECKS_DIR = Path(__file__).resolve().parents[1]
 if str(_CHECKS_DIR) not in sys.path:
@@ -31,28 +30,27 @@ _feature_proof_receipt = importlib.import_module(
 FEATURE_PROOF_RECEIPT_ARTIFACT_ROOT = (
     _feature_proof_receipt.FEATURE_PROOF_RECEIPT_ARTIFACT_ROOT
 )
-NonTrivialOutputProof = _feature_proof_receipt.NonTrivialOutputProof
-NonTrivialOutputProofRemediationFinding = (
-    _feature_proof_receipt.NonTrivialOutputProofRemediationFinding
-)
 feature_proof_receipt_from_mapping = (
     _feature_proof_receipt.feature_proof_receipt_from_mapping
 )
-validate_non_trivial_output_proof = (
-    _feature_proof_receipt.validate_non_trivial_output_proof
-)
+role_review_terminal_coverage_failure_reasons = importlib.import_module(
+    "dev.scripts.devctl.runtime.feature_proof_role_review"
+).role_review_terminal_coverage_failure_reasons
+RoleReviewCompletedRemediationFinding = importlib.import_module(
+    "dev.scripts.devctl.runtime.feature_proof_output_proof"
+).RoleReviewCompletedRemediationFinding
 append_jsonl = importlib.import_module(
     "dev.scripts.devctl.runtime.relaunch_loop_store"
 ).append_jsonl
 
-COMMAND = "check_non_trivial_output_proof"
+COMMAND = "check_role_review_completed"
 DEFAULT_REMEDIATION_LEDGER = (
-    "dev/state/non_trivial_output_proof_remediation_findings.jsonl"
+    "dev/state/role_review_completed_remediation_findings.jsonl"
 )
 
 
 @dataclass(frozen=True)
-class NonTrivialOutputProofViolation:
+class RoleReviewCompletedViolation:
     path: str
     commit_sha: str
     feature_id: str
@@ -65,13 +63,12 @@ class NonTrivialOutputProofViolation:
 
 
 @dataclass(frozen=True)
-class NonTrivialOutputProofGuardReport:
+class RoleReviewCompletedReport:
     command: str
     ok: bool
     receipt_root: str
     scan_count: int
     proven_passed_count: int
-    assertions_evaluated_count: int
     violation_count: int
     failure_reasons: tuple[str, ...] = ()
     violations: tuple[dict[str, object], ...] = field(default_factory=tuple)
@@ -80,23 +77,23 @@ class NonTrivialOutputProofGuardReport:
     remediation_findings_written: int = 0
     warnings: tuple[str, ...] = ()
     schema_version: int = 1
-    contract_id: str = "CheckNonTrivialOutputProofCommand"
+    contract_id: str = "CheckRoleReviewCompletedCommand"
 
 
-def evaluate_non_trivial_output_proof(
+def evaluate_role_review_completed(
     *,
     repo_root: Path = REPO_ROOT,
     receipt_root: Path | None = None,
     remediation_ledger: Path | None = None,
     allow_ledgered_findings: bool = True,
-) -> NonTrivialOutputProofGuardReport:
+) -> RoleReviewCompletedReport:
     root = receipt_root or repo_root / FEATURE_PROOF_RECEIPT_ARTIFACT_ROOT
     ledger = remediation_ledger or repo_root / DEFAULT_REMEDIATION_LEDGER
     ledgered_finding_ids = (
         _ledgered_finding_ids(ledger) if allow_ledgered_findings else frozenset()
     )
     warnings: list[str] = []
-    violations: list[NonTrivialOutputProofViolation] = []
+    violations: list[RoleReviewCompletedViolation] = []
     ledgered_violation_count = 0
     scan_count = 0
     proven_passed_count = 0
@@ -114,18 +111,14 @@ def evaluate_non_trivial_output_proof(
         if receipt.real_life_test_status != "proven_passed":
             continue
         proven_passed_count += 1
-        proof = validate_non_trivial_output_proof(
-            receipt,
-            repo_root=repo_root,
-            receipt_path=path,
-        )
-        if _proof_ok(proof):
+        failure_reasons = role_review_terminal_coverage_failure_reasons(receipt)
+        if not failure_reasons:
             continue
-        violation = NonTrivialOutputProofViolation(
+        violation = RoleReviewCompletedViolation(
             path=relpath,
             commit_sha=receipt.commit_sha,
             feature_id=receipt.feature_id,
-            failure_reasons=proof.failure_reasons,
+            failure_reasons=failure_reasons,
         )
         if _remediation_finding(violation.to_dict()).finding_id in ledgered_finding_ids:
             ledgered_violation_count += 1
@@ -140,13 +133,12 @@ def evaluate_non_trivial_output_proof(
             }
         )
     )
-    return NonTrivialOutputProofGuardReport(
+    return RoleReviewCompletedReport(
         command=COMMAND,
         ok=not violations,
         receipt_root=_display_path(root, repo_root),
         scan_count=scan_count,
         proven_passed_count=proven_passed_count,
-        assertions_evaluated_count=proven_passed_count * 4,
         violation_count=len(violations),
         failure_reasons=failure_reasons,
         violations=tuple(violation.to_dict() for violation in violations),
@@ -160,29 +152,24 @@ def evaluate_non_trivial_output_proof(
     )
 
 
-def _proof_ok(proof: NonTrivialOutputProof) -> bool:
-    return proof.ok
-
-
 def write_remediation_ledger(
-    report: NonTrivialOutputProofGuardReport,
+    report: RoleReviewCompletedReport,
     *,
     repo_root: Path = REPO_ROOT,
     ledger_path: Path | None = None,
-) -> NonTrivialOutputProofGuardReport:
+) -> RoleReviewCompletedReport:
     ledger = ledger_path or repo_root / DEFAULT_REMEDIATION_LEDGER
     written = 0
     for violation in report.violations:
         finding = _remediation_finding(violation)
         append_jsonl(ledger, finding.to_dict())
         written += 1
-    return NonTrivialOutputProofGuardReport(
+    return RoleReviewCompletedReport(
         command=report.command,
         ok=report.ok,
         receipt_root=report.receipt_root,
         scan_count=report.scan_count,
         proven_passed_count=report.proven_passed_count,
-        assertions_evaluated_count=report.assertions_evaluated_count,
         violation_count=report.violation_count,
         failure_reasons=report.failure_reasons,
         violations=report.violations,
@@ -195,15 +182,15 @@ def write_remediation_ledger(
 
 def _remediation_finding(
     violation: dict[str, object],
-) -> NonTrivialOutputProofRemediationFinding:
+) -> RoleReviewCompletedRemediationFinding:
     path = str(violation.get("path") or "")
     commit_sha = str(violation.get("commit_sha") or "")
     feature_id = str(violation.get("feature_id") or "")
     failure_reasons = tuple(str(item) for item in violation.get("failure_reasons") or ())
     finding_key = "\n".join((path, commit_sha, feature_id, *failure_reasons))
     digest = hashlib.sha256(finding_key.encode("utf-8")).hexdigest()[:16]
-    return NonTrivialOutputProofRemediationFinding(
-        finding_id=f"ntop-{digest}",
+    return RoleReviewCompletedRemediationFinding(
+        finding_id=f"role-review-{digest}",
         feature_proof_receipt_path=path,
         commit_sha=commit_sha,
         feature_id=feature_id,
@@ -216,21 +203,22 @@ def _remediation_finding(
 def _ledgered_finding_ids(path: Path) -> frozenset[str]:
     finding_ids: set[str] = set()
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        handle = path.open(encoding="utf-8")
     except OSError:
         return frozenset()
-    for line in lines:
-        if not line.strip():
-            continue
-        try:
-            payload = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(payload, dict):
-            continue
-        finding_id = str(payload.get("finding_id") or "").strip()
-        if finding_id:
-            finding_ids.add(finding_id)
+    with handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                finding_id = str(payload.get("finding_id") or "").strip()
+                if finding_id:
+                    finding_ids.add(finding_id)
     return frozenset(finding_ids)
 
 
@@ -245,13 +233,12 @@ def _utc_now() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def _render_md(report: NonTrivialOutputProofGuardReport) -> str:
+def _render_md(report: RoleReviewCompletedReport) -> str:
     lines = [f"# {COMMAND}", ""]
     lines.append(f"- ok: {report.ok}")
     lines.append(f"- receipt_root: `{report.receipt_root}`")
     lines.append(f"- scan_count: {report.scan_count}")
     lines.append(f"- proven_passed_count: {report.proven_passed_count}")
-    lines.append(f"- assertions_evaluated_count: {report.assertions_evaluated_count}")
     lines.append(f"- violation_count: {report.violation_count}")
     lines.append(f"- ledgered_violation_count: {report.ledgered_violation_count}")
     if report.remediation_ledger_path:
@@ -286,9 +273,13 @@ def _render_md(report: NonTrivialOutputProofGuardReport) -> str:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(prog=COMMAND, description=__doc__)
     parser.add_argument("--receipt-root", default="")
-    parser.add_argument("--write-remediation-ledger", action="store_true")
+    parser.add_argument(
+        "--write-remediation-ledger",
+        action="store_true",
+        help="Append unledgered violations to the role-review remediation ledger.",
+    )
     parser.add_argument("--remediation-ledger", default=DEFAULT_REMEDIATION_LEDGER)
     parser.add_argument(
         "--strict-no-ledger-baseline",
@@ -308,7 +299,7 @@ def main() -> int:
         ledger_path = Path(args.remediation_ledger)
         if not ledger_path.is_absolute():
             ledger_path = REPO_ROOT / ledger_path
-        report = evaluate_non_trivial_output_proof(
+        report = evaluate_role_review_completed(
             receipt_root=receipt_root,
             remediation_ledger=ledger_path,
             allow_ledgered_findings=not args.strict_no_ledger_baseline,

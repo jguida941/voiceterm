@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-05-16T15:19:39Z`
-- Last Codex poll (Local America/New_York): `2026-05-16 11:19:39 EDT`
+- Last Codex poll: `2026-05-16T16:58:57Z`
+- Last Codex poll (Local America/New_York): `2026-05-16 12:58:57 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `3594a4cf6c0768b39595e270c19535c331041a0eb5132891f95049349176302c`
-- Current instruction revision: `016b520d4192`
+- Last non-audit worktree hash: `904bf417d2862c3c776a4c81eba8a7b49b5dc9bde3cecd12d031d0d09d176d31`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-51 pending review packet(s)
+50 pending review packet(s)
 
 ## Implementer Status
 
@@ -138,11 +138,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Implementer
 
-Priority action_request: R265 handoff: stage P208 fixtures and B3 TTL drift slice
+- Cut a checkpoint before continuing to edit.
 
 ## Last Reviewed Scope
 
-MP-377
+MP-355
 
 ## Action Requests
 

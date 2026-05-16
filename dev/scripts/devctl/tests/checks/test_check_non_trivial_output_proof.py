@@ -34,6 +34,9 @@ def _receipt(
         bypass_audit_trail_refs=(),
         proven_at_utc="2026-05-16T04:00:00Z",
         evidence_artifacts=(evidence_ref,),
+        role_review_receipt_refs=(
+            "role_review_receipt:rev_pkt_4151:DogfoodTest:claude",
+        ),
     )
 
 
@@ -48,7 +51,7 @@ def test_non_trivial_output_proof_guard_passes_on_resolved_real_test(
     assert report.ok is True
     assert report.scan_count == 1
     assert report.proven_passed_count == 1
-    assert report.assertions_evaluated_count == 3
+    assert report.assertions_evaluated_count == 4
     assert report.failure_reasons == ()
 
 
@@ -68,7 +71,7 @@ def test_non_trivial_output_proof_guard_fails_closed_on_trivial_receipt(
 
     assert report.ok is False
     assert report.scan_count == 1
-    assert report.assertions_evaluated_count == 3
+    assert report.assertions_evaluated_count == 4
     assert report.violation_count == 1
     assert "no_real_tests" in report.failure_reasons
     assert any(

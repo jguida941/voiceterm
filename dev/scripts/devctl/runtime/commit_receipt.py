@@ -20,6 +20,12 @@ from .feature_proof_receipt import (
 from .governance_proposed_contracts import FeatureLifecycleProof, LifecycleReceipt
 from .remote_commit_pipeline_models import RemoteCommitPipelineContract
 from .receipt_state_gate import require_receipt_state
+from .ref_collections import unique_refs as _unique_refs
+from .role_review_commit_evidence import (
+    collect_role_review_commit_evidence,
+    feature_proof_review_roles,
+)
+from .role_review_lifecycle import RoleReviewAssignmentLifecycle
 from .typed_ids import ReceiptId, as_receipt_id, id_text
 from .value_coercion import coerce_int, coerce_mapping, coerce_string, coerce_string_items
 
@@ -72,6 +78,9 @@ class CommitReceipt:
     produced_by: str = "devctl"
     artifact_paths: tuple[str, ...] = ()
     evidence_refs: tuple[str, ...] = ()
+    role_review_roles: tuple[str, ...] = ()
+    role_review_receipt_refs: tuple[str, ...] = ()
+    role_review_timeout_refs: tuple[str, ...] = ()
     correlation_id: str = ""
     causation_id: str = ""
     run_id: str = ""
@@ -80,6 +89,9 @@ class CommitReceipt:
         payload = asdict(self)
         payload["artifact_paths"] = list(self.artifact_paths)
         payload["evidence_refs"] = list(self.evidence_refs)
+        payload["role_review_roles"] = list(self.role_review_roles)
+        payload["role_review_receipt_refs"] = list(self.role_review_receipt_refs)
+        payload["role_review_timeout_refs"] = list(self.role_review_timeout_refs)
         return payload
 
 
@@ -90,6 +102,7 @@ def build_commit_receipt(
     recorded_at_utc: str = "",
     produced_by: str = "devctl",
     artifact_paths: Iterable[str] = (),
+    role_review_lifecycles: Iterable[RoleReviewAssignmentLifecycle] | None = None,
 ) -> CommitReceipt:
     """Build the commit receipt evidence chain for a recorded pipeline."""
     commit_sha = coerce_string(pipeline.commit_sha)
@@ -124,6 +137,12 @@ def build_commit_receipt(
     )
     plan_row_id = _plan_row_id(pipeline)
     post_state = COMMIT_RECORDED_STATE if commit_sha else COMMIT_MISSING_SHA_STATE
+    lifecycles = (
+        tuple(role_review_lifecycles)
+        if role_review_lifecycles is not None
+        else pipeline.role_review_lifecycles
+    )
+    role_review_evidence = collect_role_review_commit_evidence(lifecycles)
     evidence_refs = _unique_refs(
         (
             _ref("commit", commit_sha),
@@ -138,6 +157,7 @@ def build_commit_receipt(
                 "action_result",
                 coerce_string(getattr(commit_result, "action_id", "")),
             ),
+            *role_review_evidence.all_refs,
         )
     )
     return CommitReceipt(
@@ -161,6 +181,9 @@ def build_commit_receipt(
         produced_by=coerce_string(produced_by) or "devctl",
         artifact_paths=tuple(coerce_string(path) for path in artifact_paths if coerce_string(path)),
         evidence_refs=evidence_refs,
+        role_review_roles=role_review_evidence.roles,
+        role_review_receipt_refs=role_review_evidence.receipt_refs,
+        role_review_timeout_refs=role_review_evidence.timeout_refs,
         correlation_id=coerce_string(getattr(commit_result, "correlation_id", "")),
         causation_id=coerce_string(getattr(commit_result, "causation_id", "")),
         run_id=coerce_string(getattr(commit_result, "run_id", "")),
@@ -195,6 +218,13 @@ def commit_receipt_from_mapping(payload: Mapping[str, object]) -> CommitReceipt:
         produced_by=coerce_string(mapping.get("produced_by")) or "devctl",
         artifact_paths=coerce_string_items(mapping.get("artifact_paths")),
         evidence_refs=coerce_string_items(mapping.get("evidence_refs")),
+        role_review_roles=coerce_string_items(mapping.get("role_review_roles")),
+        role_review_receipt_refs=coerce_string_items(
+            mapping.get("role_review_receipt_refs")
+        ),
+        role_review_timeout_refs=coerce_string_items(
+            mapping.get("role_review_timeout_refs")
+        ),
         correlation_id=coerce_string(mapping.get("correlation_id")),
         causation_id=coerce_string(mapping.get("causation_id")),
         run_id=coerce_string(mapping.get("run_id")),
@@ -331,7 +361,7 @@ def build_feature_proof_receipt(
         ),
         commit_sha=commit_receipt.commit_sha,
         implementer_actor=commit_receipt.produced_by,
-        review_fleet_roles_ran=_feature_proof_review_roles(commit_receipt),
+        review_fleet_roles_ran=feature_proof_review_roles(commit_receipt),
         review_fleet_actor=(
             "review-channel" if commit_receipt.reviewer_ack_packet_id else "devctl"
         ),
@@ -346,6 +376,8 @@ def build_feature_proof_receipt(
         bypass_audit_trail_refs=_bypass_audit_trail_refs(commit_receipt),
         proven_at_utc=commit_receipt.recorded_at_utc,
         evidence_artifacts=artifacts,
+        role_review_receipt_refs=commit_receipt.role_review_receipt_refs,
+        role_review_timeout_refs=commit_receipt.role_review_timeout_refs,
     )
     if repo_root is not None:
         require_non_circular_resolved_output_refs(receipt, repo_root=repo_root)
@@ -433,6 +465,21 @@ def _feature_lifecycle_receipts(
                 "tree content hash bound to validation and commit evidence",
             )
         )
+    for kind, refs, summary in (
+        (
+            "role_review",
+            commit_receipt.role_review_receipt_refs,
+            "role review receipt bound to commit receipt",
+        ),
+        (
+            "role_review_timeout",
+            commit_receipt.role_review_timeout_refs,
+            "role review timeout bound to commit receipt",
+        ),
+    ):
+        receipts.extend(
+            _lifecycle_receipt(kind, commit_receipt, ref, summary) for ref in refs
+        )
     return tuple(receipts)
 
 
@@ -453,37 +500,12 @@ def _lifecycle_receipt(
     )
 
 
-def _feature_proof_review_roles(
-    commit_receipt: CommitReceipt,
-) -> tuple[str, ...]:
-    roles: list[str] = []
-    if commit_receipt.reviewer_ack_packet_id:
-        roles.append("GovernanceReceipt")
-    if commit_receipt.audit_synthesis_ref or commit_receipt.validation_receipt_id:
-        roles.append("GuardsPerRound")
-    if commit_receipt.evidence_refs:
-        roles.append("ArchitectureReview")
-    return tuple(roles or ("review_channel_not_recorded",))
-
-
 def _bypass_audit_trail_refs(commit_receipt: CommitReceipt) -> tuple[str, ...]:
     return _unique_refs(
         ref
         for ref in commit_receipt.evidence_refs
         if ref.startswith(("raw_git", "bypass", "governed_exception"))
     )
-
-
-def _unique_refs(values: Iterable[str]) -> tuple[str, ...]:
-    refs: list[str] = []
-    seen: set[str] = set()
-    for value in values:
-        ref = coerce_string(value)
-        if not ref or ref in seen:
-            continue
-        seen.add(ref)
-        refs.append(ref)
-    return tuple(refs)
 
 
 def _validation_receipt_state(validation: object | None) -> str:

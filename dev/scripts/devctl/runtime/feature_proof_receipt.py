@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import ClassVar, Literal, cast
 
+from .feature_proof_role_review import role_review_terminal_coverage_failure_reasons
 from .value_coercion import (
     coerce_int,
     coerce_mapping,
@@ -55,6 +56,8 @@ class FeatureProofReceipt:
     bypass_audit_trail_refs: tuple[str, ...]
     proven_at_utc: str
     evidence_artifacts: tuple[str, ...]
+    role_review_receipt_refs: tuple[str, ...] = ()
+    role_review_timeout_refs: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.real_life_test_status not in _VALID_REAL_LIFE_TEST_STATUSES:
@@ -79,6 +82,8 @@ class FeatureProofReceipt:
         payload["connectivity_guards_ran"] = list(self.connectivity_guards_ran)
         payload["bypass_audit_trail_refs"] = list(self.bypass_audit_trail_refs)
         payload["evidence_artifacts"] = list(self.evidence_artifacts)
+        payload["role_review_receipt_refs"] = list(self.role_review_receipt_refs)
+        payload["role_review_timeout_refs"] = list(self.role_review_timeout_refs)
         return payload
 
 
@@ -120,6 +125,12 @@ def feature_proof_receipt_from_mapping(
         ),
         proven_at_utc=coerce_string(mapping.get("proven_at_utc")),
         evidence_artifacts=coerce_string_items(mapping.get("evidence_artifacts")),
+        role_review_receipt_refs=coerce_string_items(
+            mapping.get("role_review_receipt_refs")
+        ),
+        role_review_timeout_refs=coerce_string_items(
+            mapping.get("role_review_timeout_refs")
+        ),
     )
 
 
@@ -200,6 +211,7 @@ __all__ = [
     "RealLifeTestStatus",
     "feature_proof_receipt_artifact_relpath",
     "feature_proof_receipt_from_mapping",
+    "role_review_terminal_coverage_failure_reasons",
     "require_non_circular_resolved_output_refs",
     "validate_non_trivial_output_proof",
     "write_validated_feature_proof_receipt_artifact",

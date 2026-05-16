@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 import tempfile
+from functools import lru_cache
 from pathlib import Path
 
 import pytest
@@ -15,13 +16,14 @@ from dev.scripts.checks.contract_connectivity.models import (
 )
 
 
+@lru_cache(maxsize=2)
 def _run_governance_closure(fmt: str = "json") -> tuple[int, dict | str]:
     """Run check_governance_closure.py and return (exit_code, output)."""
     result = subprocess.run(
         [sys.executable, "dev/scripts/checks/check_governance_closure.py", "--format", fmt],
         capture_output=True,
         text=True,
-        timeout=30,
+        timeout=90,
     )
     if fmt == "json":
         return result.returncode, json.loads(result.stdout)

@@ -403,6 +403,9 @@ jobs:
       - name: Run non-trivial output proof guard
         run: python3 dev/scripts/checks/check_non_trivial_output_proof.py
 
+      - name: Run role-review completion guard
+        run: python3 dev/scripts/checks/check_role_review_completed.py
+
       - name: Run contract-registry composite-key uniqueness guard
         run: python3 dev/scripts/checks/check_contract_registry_composite_key_uniqueness.py
 

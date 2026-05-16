@@ -192,6 +192,7 @@ jobs:
           python3 dev/scripts/checks/check_plan_index_commit_continuity.py
           python3 dev/scripts/checks/check_feature_has_proof_receipt.py
           python3 dev/scripts/checks/check_non_trivial_output_proof.py
+          python3 dev/scripts/checks/check_role_review_completed.py
           python3 dev/scripts/checks/check_contract_registry_composite_key_uniqueness.py
           python3 dev/scripts/devctl.py test-python --suite devctl --path dev/scripts/devctl/tests/runtime/test_packet_kind_ttl.py
           python3 dev/scripts/checks/check_task_started_adr_precedent_linking.py

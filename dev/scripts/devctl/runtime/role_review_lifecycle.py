@@ -6,7 +6,12 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from typing import ClassVar, Literal, cast
 
-from .value_coercion import coerce_mapping, coerce_string, coerce_string_items
+from .value_coercion import (
+    coerce_mapping,
+    coerce_mapping_items,
+    coerce_string,
+    coerce_string_items,
+)
 
 ROLE_REVIEW_ASSIGNMENT_LIFECYCLE_CONTRACT_ID = "RoleReviewAssignmentLifecycle"
 ROLE_REVIEW_RECEIPT_CONTRACT_ID = "RoleReviewReceipt"
@@ -201,6 +206,15 @@ def role_review_assignment_lifecycle_from_mapping(
     )
 
 
+def role_review_assignment_lifecycles_from_value(
+    value: object,
+) -> tuple[RoleReviewAssignmentLifecycle, ...]:
+    return tuple(
+        role_review_assignment_lifecycle_from_mapping(item)
+        for item in coerce_mapping_items(value)
+    )
+
+
 def _coerce_role_review_assignment_status(
     value: object,
 ) -> RoleReviewAssignmentStatus:
@@ -272,6 +286,7 @@ __all__ = [
     "RoleReviewTimeout",
     "RoleReviewVerdict",
     "role_review_assignment_lifecycle_from_mapping",
+    "role_review_assignment_lifecycles_from_value",
     "role_review_receipt_from_mapping",
     "role_review_timeout_from_mapping",
 ]

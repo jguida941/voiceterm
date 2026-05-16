@@ -61,6 +61,21 @@ COMMIT_RECEIPT_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("produced_by", "str", "Actor/tool that produced the receipt."),
             ContractField("artifact_paths", "tuple[str, ...]", "Artifacts emitted by the commit boundary."),
             ContractField("evidence_refs", "tuple[str, ...]", "Refs proving the commit evidence chain."),
+            ContractField(
+                "role_review_roles",
+                "tuple[str, ...]",
+                "Review roles backed by explicit RoleReviewAssignmentLifecycle evidence.",
+            ),
+            ContractField(
+                "role_review_receipt_refs",
+                "tuple[str, ...]",
+                "Terminal RoleReviewReceipt refs bound to the commit receipt.",
+            ),
+            ContractField(
+                "role_review_timeout_refs",
+                "tuple[str, ...]",
+                "Terminal RoleReviewTimeout refs bound to the commit receipt.",
+            ),
             ContractField("correlation_id", "str", "Parent lineage shared across related receipts."),
             ContractField("causation_id", "str", "Immediate trigger lineage for this receipt."),
             ContractField("run_id", "str", "Bounded run lineage for this receipt."),
@@ -145,6 +160,16 @@ COMMIT_RECEIPT_CONTRACTS: tuple[ContractSpec, ...] = (
                 "tuple[str, ...]",
                 "Artifact paths supporting the proof.",
             ),
+            ContractField(
+                "role_review_receipt_refs",
+                "tuple[str, ...]",
+                "Terminal RoleReviewReceipt refs proving declared role reviews.",
+            ),
+            ContractField(
+                "role_review_timeout_refs",
+                "tuple[str, ...]",
+                "Terminal RoleReviewTimeout refs proving typed fallback when review timed out.",
+            ),
         ),
         runtime_model="dev.scripts.devctl.runtime.feature_proof_receipt:FeatureProofReceipt",
         startup_surface_tokens=("feature_id", "commit_sha", "real_life_test_status"),
@@ -161,6 +186,11 @@ COMMIT_RECEIPT_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("ref_resolves", "bool", "Whether evidence refs resolve on disk."),
             ContractField("has_real_tests", "bool", "Whether tests_run contains pytest node ids."),
             ContractField("not_circular", "bool", "Whether evidence avoids circular FPR refs."),
+            ContractField(
+                "role_review_terminal_refs_present",
+                "bool",
+                "Whether declared role-review fleet roles have terminal typed refs.",
+            ),
             ContractField("failure_reasons", "tuple[str, ...]", "Bounded failed proof axes."),
         ),
         runtime_model=(

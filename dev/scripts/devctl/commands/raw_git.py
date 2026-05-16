@@ -557,7 +557,7 @@ def _raw_git_feature_proof_receipt(
         review_fleet_roles_ran=_string_items(
             getattr(args, "review_fleet_role", ()) or ()
         )
-        or ("FeatureLifecycleProof", "GovernanceReceipt"),
+        or ("FeatureLifecycleProof",),
         review_fleet_actor=str(
             getattr(args, "review_fleet_actor", "") or "raw-git-wrapper"
         ).strip()

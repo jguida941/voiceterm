@@ -13,6 +13,7 @@ UTC = timezone.utc
 from .feature_proof_receipt import FeatureProofReceipt
 from .master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL, PlanRow
 from .master_plan_store import read_plan_rows_jsonl, upsert_plan_row_jsonl
+from .ref_collections import unique_refs as _unique_refs
 from .relaunch_loop_store import append_jsonl
 from .value_coercion import coerce_string
 
@@ -296,18 +297,6 @@ def _closure_receipt(
         applied_at_utc=applied_at_utc,
         plan_index_path=plan_index_path,
     )
-
-
-def _unique_refs(values: tuple[str, ...]) -> tuple[str, ...]:
-    refs: list[str] = []
-    seen: set[str] = set()
-    for value in values:
-        ref = coerce_string(value)
-        if not ref or ref in seen:
-            continue
-        seen.add(ref)
-        refs.append(ref)
-    return tuple(refs)
 
 
 def _display_path(path: Path, repo_root: Path) -> str:

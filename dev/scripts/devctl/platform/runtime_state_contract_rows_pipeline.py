@@ -349,6 +349,11 @@ PIPELINE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "str",
                 "Actor that recorded local-delivery terminal state.",
             ),
+            ContractField(
+                "role_review_lifecycles",
+                "tuple[RoleReviewAssignmentLifecycle, ...]",
+                "Terminal role-review assignments bound to role-routed commit evidence.",
+            ),
         ),
         runtime_model=(
             "dev.scripts.devctl.runtime.remote_commit_pipeline_models:"

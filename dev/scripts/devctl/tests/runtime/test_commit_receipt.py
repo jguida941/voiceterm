@@ -141,7 +141,7 @@ def test_feature_proof_receipt_covers_operator_proof_chain(tmp_path: Path) -> No
     assert feature_proof.feature_id == "MP377-COMMIT-RECEIPT-EVIDENCE-CHAIN-S1"
     assert feature_proof.commit_sha == "abc123"
     assert feature_proof.implementer_actor == "devctl"
-    assert "GovernanceReceipt" in feature_proof.review_fleet_roles_ran
+    assert "review_packet_acknowledged" in feature_proof.review_fleet_roles_ran
     assert feature_proof.review_fleet_actor == "review-channel"
     assert "validation_bundle:runtime" in feature_proof.tests_run
     assert feature_proof.tests_passed_count == 1
@@ -161,6 +161,32 @@ def test_feature_proof_receipt_covers_operator_proof_chain(tmp_path: Path) -> No
     )
     assert parsed.commit_sha == "abc123"
     assert parsed.real_life_test_status == "proven_passed"
+
+
+def test_commit_receipt_consumes_role_review_lifecycle_evidence() -> None:
+    lifecycle = _role_review_lifecycle()
+    pipeline = replace(_pipeline(), role_review_lifecycles=(lifecycle,))
+    receipt = build_commit_receipt(
+        pipeline,
+        recorded_at_utc="2026-05-11T23:05:00Z",
+    )
+    lifecycle_proof = build_feature_lifecycle_proof(pipeline, receipt)
+    feature_proof = build_feature_proof_receipt(
+        pipeline,
+        receipt,
+        lifecycle_proof=lifecycle_proof,
+    )
+
+    role_review_ref = "role_review_receipt:rev_pkt_4151:GovernanceReceipt:claude"
+    assert receipt.role_review_roles == ("GovernanceReceipt",)
+    assert receipt.role_review_receipt_refs == (role_review_ref,)
+    assert role_review_ref in receipt.evidence_refs
+    assert {item.receipt_kind for item in lifecycle_proof.receipts} >= {
+        "role_review"
+    }
+    assert "GovernanceReceipt" in feature_proof.review_fleet_roles_ran
+    assert feature_proof.role_review_receipt_refs == (role_review_ref,)
+    assert feature_proof.role_review_timeout_refs == ()
 
 
 def test_feature_proof_receipt_requires_not_tested_rationale() -> None:
@@ -311,12 +337,48 @@ def test_non_trivial_output_proof_validates_resolved_pytest_evidence(
         bypass_audit_trail_refs=(),
         proven_at_utc="2026-05-16T04:00:00Z",
         evidence_artifacts=("proof-output.txt",),
+        role_review_receipt_refs=(
+            "role_review_receipt:rev_pkt_4151:DogfoodTest:claude",
+        ),
     )
 
     proof = validate_non_trivial_output_proof(receipt, repo_root=tmp_path)
 
     assert proof.ok is True
     assert proof.failure_reasons == ()
+
+
+def test_non_trivial_output_proof_requires_terminal_role_review_ref(
+    tmp_path: Path,
+) -> None:
+    evidence = tmp_path / "proof-output.txt"
+    evidence.write_text("expected output\n", encoding="utf-8")
+    receipt = FeatureProofReceipt(
+        feature_id="MP-TEST",
+        commit_sha="abc123",
+        implementer_actor="codex",
+        review_fleet_roles_ran=("DogfoodTest",),
+        review_fleet_actor="claude",
+        tests_run=("dev/scripts/devctl/tests/test_sample.py::test_real",),
+        tests_passed_count=1,
+        tests_failed_count=0,
+        connectivity_guards_ran=("check_non_trivial_output_proof",),
+        connectivity_guards_passed=True,
+        dogfood_invocation_evidence_ref="proof-output.txt",
+        real_life_test_status="proven_passed",
+        not_tested_rationale=None,
+        bypass_audit_trail_refs=(),
+        proven_at_utc="2026-05-16T04:00:00Z",
+        evidence_artifacts=("proof-output.txt",),
+    )
+
+    proof = validate_non_trivial_output_proof(receipt, repo_root=tmp_path)
+
+    assert proof.role_review_terminal_refs_present is False
+    assert (
+        "missing_role_review_terminal_ref:DogfoodTest" in proof.failure_reasons
+    )
+    assert proof.ok is False
 
 
 def test_non_trivial_output_proof_flags_circular_shell_only_evidence(
@@ -373,6 +435,9 @@ def test_non_trivial_output_proof_resolves_pytest_node_ref(
         bypass_audit_trail_refs=(),
         proven_at_utc="2026-05-16T04:00:00Z",
         evidence_artifacts=("dev/scripts/devctl/tests/test_sample.py",),
+        role_review_receipt_refs=(
+            "role_review_receipt:rev_pkt_4151:DogfoodTest:claude",
+        ),
     )
 
     proof = validate_non_trivial_output_proof(receipt, repo_root=tmp_path)
@@ -411,6 +476,9 @@ def test_non_trivial_output_proof_allows_distinct_fpr_artifact_ref(
         proven_at_utc="2026-05-16T04:00:00Z",
         evidence_artifacts=(
             f"{FEATURE_PROOF_RECEIPT_ARTIFACT_ROOT}/other-commit.json",
+        ),
+        role_review_receipt_refs=(
+            "role_review_receipt:rev_pkt_4151:DogfoodTest:claude",
         ),
     )
 
@@ -543,6 +611,31 @@ def _pipeline() -> RemoteCommitPipelineContract:
             guard_action_id="guard-1",
         ),
         generation_id="gen-1",
+    )
+
+
+def _role_review_lifecycle() -> RoleReviewAssignmentLifecycle:
+    receipt = RoleReviewReceipt(
+        role="GovernanceReceipt",
+        packet_id="rev_pkt_4151",
+        reviewer_actor="claude",
+        verdict="approved",
+        proof_evidence_refs=("packet:rev_pkt_4151", "pytest::role-review"),
+        reviewed_at_utc="2026-05-16T13:05:00Z",
+    )
+    return RoleReviewAssignmentLifecycle(
+        assignment_id="role-review:rev_pkt_4151:GovernanceReceipt",
+        packet_id="rev_pkt_4151",
+        assigned_role="GovernanceReceipt",
+        assigned_actor="claude",
+        assigned_at_utc="2026-05-16T13:00:00Z",
+        due_at_utc="2026-05-16T13:10:00Z",
+        status="reviewed",
+        receipt=receipt,
+        timeout=None,
+        parent_bypass_lifecycle_ref="gel:bypass:bypass:grant-20260516T054109743503",
+        governed_exception_refs=("governed_exception:P208",),
+        evidence_refs=("packet:rev_pkt_4151",),
     )
 
 

@@ -5,7 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from .action_contracts import ActionResult, action_result_from_mapping
+from .action_contracts import ActionResult
+from .remote_commit_pipeline_parsers import RoleReviewAssignmentLifecycle
+from .remote_commit_pipeline_parsers import action_result_from_object as _action_result_from_object
+from .remote_commit_pipeline_parsers import role_review_lifecycles_from_object
 from .validation_contracts import (
     ValidationPlan,
     ValidationReceipt,
@@ -151,6 +154,7 @@ class RemoteCommitPipelineContract:
     local_delivery_reason: str = ""
     delivered_at_utc: str = ""
     delivered_by: str = ""
+    role_review_lifecycles: tuple[RoleReviewAssignmentLifecycle, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {}
@@ -208,6 +212,7 @@ class RemoteCommitPipelineContract:
         payload["local_delivery_reason"] = self.local_delivery_reason
         payload["delivered_at_utc"] = self.delivered_at_utc
         payload["delivered_by"] = self.delivered_by
+        payload["role_review_lifecycles"] = [item.to_dict() for item in self.role_review_lifecycles]
         return payload
 
 
@@ -336,11 +341,7 @@ def remote_commit_pipeline_contract_from_mapping(
         local_delivery_reason=coerce_string(mapping.get("local_delivery_reason")),
         delivered_at_utc=coerce_string(mapping.get("delivered_at_utc")),
         delivered_by=coerce_string(mapping.get("delivered_by")),
+        role_review_lifecycles=role_review_lifecycles_from_object(
+            mapping.get("role_review_lifecycles")
+        ),
     )
-
-
-def _action_result_from_object(value: object) -> ActionResult | None:
-    mapping = coerce_mapping(value)
-    if not mapping:
-        return None
-    return action_result_from_mapping(mapping)
