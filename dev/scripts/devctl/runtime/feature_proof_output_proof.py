@@ -14,6 +14,10 @@ from .feature_proof_receipt import (
     write_feature_proof_receipt_artifact,
 )
 from .feature_proof_role_review import role_review_terminal_coverage_failure_reasons
+from .feature_proof_test_refs import (
+    pytest_node_ref_candidates,
+    pytest_node_ref_resolves,
+)
 from .value_coercion import coerce_string
 
 NON_TRIVIAL_OUTPUT_PROOF_CONTRACT_ID = "NonTrivialOutputProof"
@@ -123,7 +127,7 @@ def validate_non_trivial_output_proof(
         if _is_circular_feature_proof_ref(root, ref, fpr=fpr, receipt_path=receipt_path)
     )
     role_review_failures = role_review_terminal_coverage_failure_reasons(fpr)
-    has_real_tests = any("::" in item for item in fpr.tests_run)
+    has_real_tests = _has_resolved_pytest_node(fpr, repo_root=root)
     failure_reasons: list[str] = []
     failure_reasons.extend(f"ref_unresolved:{ref}" for ref in unresolved)
     if not has_real_tests:
@@ -189,6 +193,13 @@ def write_validated_feature_proof_receipt_artifact(
 def _feature_proof_evidence_refs(fpr: FeatureProofReceipt) -> tuple[str, ...]:
     refs = (fpr.dogfood_invocation_evidence_ref, *fpr.evidence_artifacts)
     return tuple(ref for ref in (coerce_string(value) for value in refs) if ref)
+
+
+def _has_resolved_pytest_node(fpr: FeatureProofReceipt, *, repo_root: Path) -> bool:
+    return any(
+        pytest_node_ref_resolves(ref, repo_root=repo_root)
+        for ref in pytest_node_ref_candidates(fpr.tests_run)
+    )
 
 
 def _ref_filesystem_path(repo_root: Path, ref: str) -> str:

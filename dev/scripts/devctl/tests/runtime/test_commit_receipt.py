@@ -376,6 +376,7 @@ def test_non_trivial_output_proof_validates_resolved_pytest_evidence(
 ) -> None:
     evidence = tmp_path / "proof-output.txt"
     evidence.write_text("expected output\n", encoding="utf-8")
+    _write_sample_test(tmp_path)
     receipt = FeatureProofReceipt(
         feature_id="MP-TEST",
         commit_sha="abc123",
@@ -402,6 +403,78 @@ def test_non_trivial_output_proof_validates_resolved_pytest_evidence(
 
     assert proof.ok is True
     assert proof.failure_reasons == ()
+
+
+def test_non_trivial_output_proof_rejects_unresolved_pytest_node(
+    tmp_path: Path,
+) -> None:
+    evidence = tmp_path / "proof-output.txt"
+    evidence.write_text("expected output\n", encoding="utf-8")
+    _write_sample_test(tmp_path)
+    receipt = FeatureProofReceipt(
+        feature_id="MP-TEST",
+        commit_sha="abc123",
+        implementer_actor="codex",
+        review_fleet_roles_ran=("DogfoodTest",),
+        review_fleet_actor="claude",
+        tests_run=("dev/scripts/devctl/tests/test_sample.py::test_missing",),
+        tests_passed_count=1,
+        tests_failed_count=0,
+        connectivity_guards_ran=("check_non_trivial_output_proof",),
+        connectivity_guards_passed=True,
+        dogfood_invocation_evidence_ref="proof-output.txt",
+        real_life_test_status="proven_passed",
+        not_tested_rationale=None,
+        bypass_audit_trail_refs=(),
+        proven_at_utc="2026-05-16T04:00:00Z",
+        evidence_artifacts=("proof-output.txt",),
+        role_review_receipt_refs=(
+            "role_review_receipt:rev_pkt_4151:DogfoodTest:claude",
+        ),
+    )
+
+    proof = validate_non_trivial_output_proof(receipt, repo_root=tmp_path)
+
+    assert proof.has_real_tests is False
+    assert "no_real_tests" in proof.failure_reasons
+    assert proof.ok is False
+
+
+def test_non_trivial_output_proof_resolves_pytest_node_in_test_command(
+    tmp_path: Path,
+) -> None:
+    evidence = tmp_path / "proof-output.txt"
+    evidence.write_text("expected output\n", encoding="utf-8")
+    _write_sample_test(tmp_path)
+    node = "dev/scripts/devctl/tests/test_sample.py::test_real"
+    receipt = FeatureProofReceipt(
+        feature_id="MP-TEST",
+        commit_sha="abc123",
+        implementer_actor="codex",
+        review_fleet_roles_ran=("DogfoodTest",),
+        review_fleet_actor="claude",
+        tests_run=(
+            f"python3 dev/scripts/devctl.py test-python --suite devctl --path {node}",
+        ),
+        tests_passed_count=1,
+        tests_failed_count=0,
+        connectivity_guards_ran=("check_non_trivial_output_proof",),
+        connectivity_guards_passed=True,
+        dogfood_invocation_evidence_ref="proof-output.txt",
+        real_life_test_status="proven_passed",
+        not_tested_rationale=None,
+        bypass_audit_trail_refs=(),
+        proven_at_utc="2026-05-16T04:00:00Z",
+        evidence_artifacts=("proof-output.txt",),
+        role_review_receipt_refs=(
+            "role_review_receipt:rev_pkt_4151:DogfoodTest:claude",
+        ),
+    )
+
+    proof = validate_non_trivial_output_proof(receipt, repo_root=tmp_path)
+
+    assert proof.has_real_tests is True
+    assert proof.ok is True
 
 
 def test_non_trivial_output_proof_requires_terminal_role_review_ref(
@@ -505,6 +578,7 @@ def test_non_trivial_output_proof_resolves_pytest_node_ref(
 def test_non_trivial_output_proof_allows_distinct_fpr_artifact_ref(
     tmp_path: Path,
 ) -> None:
+    _write_sample_test(tmp_path)
     other_ref = (
         tmp_path
         / FEATURE_PROOF_RECEIPT_ARTIFACT_ROOT
@@ -673,6 +747,12 @@ def _pipeline() -> RemoteCommitPipelineContract:
 def _write_json(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("{}\n", encoding="utf-8")
+
+
+def _write_sample_test(repo_root: Path) -> None:
+    test_path = repo_root / "dev/scripts/devctl/tests/test_sample.py"
+    test_path.parent.mkdir(parents=True, exist_ok=True)
+    test_path.write_text("def test_real():\n    assert True\n", encoding="utf-8")
 
 
 def _role_review_lifecycle() -> RoleReviewAssignmentLifecycle:

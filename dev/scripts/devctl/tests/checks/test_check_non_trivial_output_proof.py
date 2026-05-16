@@ -44,6 +44,7 @@ def test_non_trivial_output_proof_guard_passes_on_resolved_real_test(
     tmp_path: Path,
 ) -> None:
     (tmp_path / "proof-output.txt").write_text("expected output\n", encoding="utf-8")
+    _write_test_file(tmp_path)
     write_feature_proof_receipt_artifact(tmp_path, _receipt("abc123"))
 
     report = evaluate_non_trivial_output_proof(repo_root=tmp_path)
@@ -97,3 +98,29 @@ def test_non_trivial_output_proof_guard_writes_remediation_ledger(
     assert "NonTrivialOutputProofRemediationFinding" in ledger.read_text(
         encoding="utf-8"
     )
+
+
+def test_non_trivial_output_proof_guard_rejects_fake_pytest_node(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "proof-output.txt").write_text("expected output\n", encoding="utf-8")
+    _write_test_file(tmp_path)
+    write_feature_proof_receipt_artifact(
+        tmp_path,
+        _receipt(
+            "badnode",
+            tests_run=("dev/scripts/devctl/tests/test_sample.py::test_missing",),
+        ),
+    )
+
+    report = evaluate_non_trivial_output_proof(repo_root=tmp_path)
+
+    assert report.ok is False
+    assert report.violation_count == 1
+    assert "no_real_tests" in report.failure_reasons
+
+
+def _write_test_file(repo_root: Path) -> None:
+    test_path = repo_root / "dev/scripts/devctl/tests/test_sample.py"
+    test_path.parent.mkdir(parents=True, exist_ok=True)
+    test_path.write_text("def test_real():\n    assert True\n", encoding="utf-8")
