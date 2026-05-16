@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from .contracts import ContractField, ContractSpec
+from .runtime_identity_contract_rows_role_review import ROLE_REVIEW_CONTRACTS
 
 
 COMMIT_RECEIPT_CONTRACTS: tuple[ContractSpec, ...] = (
+    *ROLE_REVIEW_CONTRACTS,
     ContractSpec(
         contract_id="CommitReceipt",
         owner_layer="governance_runtime",

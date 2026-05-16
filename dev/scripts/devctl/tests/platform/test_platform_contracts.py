@@ -63,6 +63,9 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "PreDecisionComposabilityWindow" in contract_ids
     assert "CommitReceipt" in contract_ids
     assert "FeatureProofReceipt" in contract_ids
+    assert "RoleReviewReceipt" in contract_ids
+    assert "RoleReviewTimeout" in contract_ids
+    assert "RoleReviewAssignmentLifecycle" in contract_ids
     assert "GoalProgressReceipt" in contract_ids
     assert "FailurePacket" in contract_ids
     assert "LocalServiceEndpoint" in contract_ids
@@ -160,6 +163,15 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "dogfood_invocation_evidence_ref" in contract_map["FeatureProofReceipt"]
     assert "real_life_test_status" in contract_map["FeatureProofReceipt"]
     assert "bypass_audit_trail_refs" in contract_map["FeatureProofReceipt"]
+    assert "reviewer_actor" in contract_map["RoleReviewReceipt"]
+    assert "proof_evidence_refs" in contract_map["RoleReviewReceipt"]
+    assert "fallback_authority" in contract_map["RoleReviewTimeout"]
+    assert "receipt" in contract_map["RoleReviewAssignmentLifecycle"]
+    assert "timeout" in contract_map["RoleReviewAssignmentLifecycle"]
+    assert "parent_bypass_lifecycle_ref" in contract_map[
+        "RoleReviewAssignmentLifecycle"
+    ]
+    assert "governed_exception_refs" in contract_map["RoleReviewAssignmentLifecycle"]
     assert "progress_percentage_toward_goal" in contract_map["GoalProgressReceipt"]
     assert "continuation_anchor_packet_id" in contract_map["GoalProgressReceipt"]
     assert "latest_progress_packet_id" in contract_map["GoalProgressReceipt"]

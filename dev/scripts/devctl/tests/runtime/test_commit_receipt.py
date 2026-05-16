@@ -44,6 +44,12 @@ from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
     PushAuthorizationRecord,
     RemoteCommitPipelineContract,
 )
+from dev.scripts.devctl.runtime.role_review_lifecycle import (
+    RoleReviewAssignmentLifecycle,
+    RoleReviewReceipt,
+    RoleReviewTimeout,
+    role_review_assignment_lifecycle_from_mapping,
+)
 from dev.scripts.devctl.runtime.validation_contracts import (
     ValidationPlan,
     ValidationReceipt,
@@ -177,6 +183,110 @@ def test_feature_proof_receipt_requires_not_tested_rationale() -> None:
             proven_at_utc="2026-05-15T17:00:00Z",
             evidence_artifacts=(),
         )
+
+
+def test_role_review_receipt_round_trips_p208_terminal_fields() -> None:
+    receipt = RoleReviewReceipt(
+        role="ArchitectureReview",
+        packet_id="rev_pkt_4151",
+        reviewer_actor="claude",
+        verdict="approved",
+        proof_evidence_refs=("packet:rev_pkt_4151", "test:role-review-node"),
+        reviewed_at_utc="2026-05-16T13:00:00Z",
+    )
+
+    payload = receipt.to_dict()
+
+    assert payload["contract_id"] == "RoleReviewReceipt"
+    assert payload["schema_version"] == 1
+    assert payload["role"] == "ArchitectureReview"
+    assert payload["packet_id"] == "rev_pkt_4151"
+    assert payload["reviewer_actor"] == "claude"
+    assert payload["verdict"] == "approved"
+    assert payload["proof_evidence_refs"] == [
+        "packet:rev_pkt_4151",
+        "test:role-review-node",
+    ]
+
+
+def test_role_review_assignment_lifecycle_binds_receipt_to_role_and_packet() -> None:
+    receipt = RoleReviewReceipt(
+        role="GovernanceReceipt",
+        packet_id="rev_pkt_4151",
+        reviewer_actor="claude",
+        verdict="approved",
+        proof_evidence_refs=("packet:rev_pkt_4151",),
+        reviewed_at_utc="2026-05-16T13:05:00Z",
+    )
+    lifecycle = RoleReviewAssignmentLifecycle(
+        assignment_id="role-review:rev_pkt_4151:GovernanceReceipt",
+        packet_id="rev_pkt_4151",
+        assigned_role="GovernanceReceipt",
+        assigned_actor="claude",
+        assigned_at_utc="2026-05-16T13:00:00Z",
+        due_at_utc="2026-05-16T13:10:00Z",
+        status="reviewed",
+        receipt=receipt,
+        timeout=None,
+        parent_bypass_lifecycle_ref="gel:bypass:bypass:grant-20260516T054109743503",
+        governed_exception_refs=("GovernedExceptionLifecycle:P208",),
+        evidence_refs=("packet:rev_pkt_4151",),
+    )
+    restored = role_review_assignment_lifecycle_from_mapping(lifecycle.to_dict())
+
+    assert restored.contract_id == "RoleReviewAssignmentLifecycle"
+    assert restored.receipt is not None
+    assert restored.receipt.role == "GovernanceReceipt"
+    assert restored.receipt.packet_id == "rev_pkt_4151"
+    assert (
+        restored.parent_bypass_lifecycle_ref
+        == "gel:bypass:bypass:grant-20260516T054109743503"
+    )
+    assert restored.governed_exception_refs == ("GovernedExceptionLifecycle:P208",)
+
+
+def test_role_review_assignment_requires_terminal_evidence() -> None:
+    with pytest.raises(ValueError, match="reviewed assignments require"):
+        RoleReviewAssignmentLifecycle(
+            assignment_id="role-review:rev_pkt_4151:DogfoodTest",
+            packet_id="rev_pkt_4151",
+            assigned_role="DogfoodTest",
+            assigned_actor="claude",
+            assigned_at_utc="2026-05-16T13:00:00Z",
+            due_at_utc="2026-05-16T13:10:00Z",
+            status="reviewed",
+            receipt=None,
+            timeout=None,
+            parent_bypass_lifecycle_ref=None,
+            governed_exception_refs=(),
+            evidence_refs=(),
+        )
+
+
+def test_role_review_assignment_accepts_typed_timeout_fallback() -> None:
+    timeout = RoleReviewTimeout(
+        role="DogfoodTest",
+        packet_id="rev_pkt_4151",
+        timed_out_at_utc="2026-05-16T13:11:00Z",
+        fallback_authority="gel:bypass:bypass:grant-20260516T054109743503",
+    )
+    lifecycle = RoleReviewAssignmentLifecycle(
+        assignment_id="role-review:rev_pkt_4151:DogfoodTest",
+        packet_id="rev_pkt_4151",
+        assigned_role="DogfoodTest",
+        assigned_actor="claude",
+        assigned_at_utc="2026-05-16T13:00:00Z",
+        due_at_utc="2026-05-16T13:10:00Z",
+        status="timed_out",
+        receipt=None,
+        timeout=timeout,
+        parent_bypass_lifecycle_ref="gel:bypass:bypass:grant-20260516T054109743503",
+        governed_exception_refs=("GovernedExceptionLifecycle:P208",),
+        evidence_refs=("packet:rev_pkt_4151", "timeout:DogfoodTest"),
+    )
+
+    assert lifecycle.timeout is timeout
+    assert lifecycle.to_dict()["timeout"] == timeout.to_dict()
 
 
 def test_non_trivial_output_proof_validates_resolved_pytest_evidence(
