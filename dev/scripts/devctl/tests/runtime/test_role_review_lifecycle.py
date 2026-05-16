@@ -68,11 +68,12 @@ def test_reviewed_lifecycle_requires_matching_receipt() -> None:
 
 
 def test_timed_out_lifecycle_requires_matching_timeout() -> None:
+    parent_ref = "gel:bypass:bypass:grant-20260516T054109743503"
     timeout = RoleReviewTimeout(
         role="architecture-review",
         packet_id="rev_pkt_4192",
         timed_out_at_utc="2026-05-16T16:58:00Z",
-        fallback_authority="operator:R260",
+        fallback_authority=parent_ref,
     )
     lifecycle = RoleReviewAssignmentLifecycle(
         assignment_id="role-review-rev_pkt_4192-timeout",
@@ -84,8 +85,8 @@ def test_timed_out_lifecycle_requires_matching_timeout() -> None:
         status="timed_out",
         receipt=None,
         timeout=timeout,
-        parent_bypass_lifecycle_ref=None,
-        governed_exception_refs=(),
+        parent_bypass_lifecycle_ref=parent_ref,
+        governed_exception_refs=("gel:exception:role-review-timeout",),
         evidence_refs=("packet:rev_pkt_4192",),
     )
 
@@ -94,7 +95,7 @@ def test_timed_out_lifecycle_requires_matching_timeout() -> None:
     assert payload["status"] == "timed_out"
     assert payload["receipt"] is None
     assert payload["timeout"]["contract_id"] == ROLE_REVIEW_TIMEOUT_CONTRACT_ID
-    assert payload["timeout"]["fallback_authority"] == "operator:R260"
+    assert payload["timeout"]["fallback_authority"] == parent_ref
     assert payload["timeout"]["timed_out_at_utc"] == "2026-05-16T16:58:00Z"
 
     with pytest.raises(ValueError, match="timed_out assignments require"):
@@ -106,6 +107,36 @@ def test_timed_out_lifecycle_requires_matching_timeout() -> None:
                 "timeout": None,
             }
         )
+
+
+def test_timed_out_lifecycle_requires_bypass_exception_chain() -> None:
+    parent_ref = "gel:bypass:bypass:grant-20260516T054109743503"
+    timeout = RoleReviewTimeout(
+        role="architecture-review",
+        packet_id="rev_pkt_4192",
+        timed_out_at_utc="2026-05-16T16:58:00Z",
+        fallback_authority=parent_ref,
+    )
+
+    with pytest.raises(ValueError, match="parent_bypass_lifecycle_ref"):
+        _timed_out_lifecycle(timeout=timeout, parent_bypass_lifecycle_ref=None)
+
+    with pytest.raises(ValueError, match="fallback_authority"):
+        _timed_out_lifecycle(
+            timeout=RoleReviewTimeout(
+                role="architecture-review",
+                packet_id="rev_pkt_4192",
+                timed_out_at_utc="2026-05-16T16:58:00Z",
+                fallback_authority="operator:R260",
+            ),
+            parent_bypass_lifecycle_ref=parent_ref,
+        )
+
+    with pytest.raises(ValueError, match="governed_exception_refs"):
+        _timed_out_lifecycle(timeout=timeout, governed_exception_refs=())
+
+    with pytest.raises(ValueError, match="evidence_refs"):
+        _timed_out_lifecycle(timeout=timeout, evidence_refs=())
 
 
 def test_assigned_lifecycle_rejects_terminal_evidence() -> None:
@@ -196,3 +227,28 @@ def _reviewed_lifecycle_kwargs() -> dict[str, object]:
 
 def _reviewed_lifecycle() -> RoleReviewAssignmentLifecycle:
     return RoleReviewAssignmentLifecycle(**_reviewed_lifecycle_kwargs())
+
+
+def _timed_out_lifecycle(
+    *,
+    timeout: RoleReviewTimeout,
+    parent_bypass_lifecycle_ref: str | None = (
+        "gel:bypass:bypass:grant-20260516T054109743503"
+    ),
+    governed_exception_refs: tuple[str, ...] = ("gel:exception:role-review-timeout",),
+    evidence_refs: tuple[str, ...] = ("packet:rev_pkt_4192",),
+) -> RoleReviewAssignmentLifecycle:
+    return RoleReviewAssignmentLifecycle(
+        assignment_id="role-review-rev_pkt_4192-timeout",
+        packet_id="rev_pkt_4192",
+        assigned_role="architecture-review",
+        assigned_actor="codex",
+        assigned_at_utc="2026-05-16T14:47:58Z",
+        due_at_utc="2026-05-16T16:47:58Z",
+        status="timed_out",
+        receipt=None,
+        timeout=timeout,
+        parent_bypass_lifecycle_ref=parent_bypass_lifecycle_ref,
+        governed_exception_refs=governed_exception_refs,
+        evidence_refs=evidence_refs,
+    )

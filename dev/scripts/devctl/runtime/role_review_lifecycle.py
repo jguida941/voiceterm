@@ -143,6 +143,12 @@ class RoleReviewAssignmentLifecycle:
                 terminal_packet_id=self.timeout.packet_id,
                 terminal_kind="timeout",
             )
+            _require_typed_timeout_fallback_chain(
+                parent_bypass_lifecycle_ref=self.parent_bypass_lifecycle_ref,
+                governed_exception_refs=self.governed_exception_refs,
+                evidence_refs=self.evidence_refs,
+                fallback_authority=self.timeout.fallback_authority,
+            )
         elif self.receipt is not None or self.timeout is not None:
             raise ValueError("assigned lifecycle state must not carry terminal evidence")
 
@@ -273,6 +279,30 @@ def _require_matching_role_review_terminal(
             f"{terminal_kind} packet {terminal_packet_id!r} does not match "
             f"assignment packet {packet_id!r}"
         )
+
+
+def _require_typed_timeout_fallback_chain(
+    *,
+    parent_bypass_lifecycle_ref: str | None,
+    governed_exception_refs: tuple[str, ...],
+    evidence_refs: tuple[str, ...],
+    fallback_authority: str,
+) -> None:
+    parent_ref = coerce_string(parent_bypass_lifecycle_ref)
+    if not parent_ref:
+        raise ValueError(
+            "timed_out role review assignments require parent_bypass_lifecycle_ref"
+        )
+    if coerce_string(fallback_authority) != parent_ref:
+        raise ValueError(
+            "timeout fallback_authority must match parent_bypass_lifecycle_ref"
+        )
+    if not tuple(ref for ref in governed_exception_refs if coerce_string(ref)):
+        raise ValueError(
+            "timed_out role review assignments require governed_exception_refs"
+        )
+    if not tuple(ref for ref in evidence_refs if coerce_string(ref)):
+        raise ValueError("timed_out role review assignments require evidence_refs")
 
 
 __all__ = [
