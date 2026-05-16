@@ -144,6 +144,8 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
     check_script_shell_command("packet_pkt_bind_completeness"),
     check_script_shell_command("plan_index_commit_continuity"),
     check_script_shell_command("feature_has_proof_receipt"),
+    check_script_shell_command("non_trivial_output_proof"),
+    check_script_shell_command("contract_registry_composite_key_uniqueness"),
     check_script_shell_command("task_started_adr_precedent_linking"),
     check_script_shell_command("typed_namespace_composition"),
     check_script_shell_command("runtime_state_ignore_posture"),

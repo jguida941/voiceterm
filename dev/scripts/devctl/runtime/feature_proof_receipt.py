@@ -158,14 +158,50 @@ def _path_token(value: str) -> str:
     return "".join(char for char in text if char.isalnum() or char in "._-")[:80]
 
 
+_NON_TRIVIAL_OUTPUT_PROOF_EXPORTS = frozenset(
+    {
+        "NON_TRIVIAL_OUTPUT_PROOF_CONTRACT_ID",
+        "NON_TRIVIAL_OUTPUT_PROOF_FINDING_CONTRACT_ID",
+        "NON_TRIVIAL_OUTPUT_PROOF_LEDGER_CONTRACT_ID",
+        "NON_TRIVIAL_OUTPUT_PROOF_SCHEMA_VERSION",
+        "NonTrivialOutputProof",
+        "NonTrivialOutputProofRemediationFinding",
+        "NonTrivialOutputProofRemediationFindingLedger",
+        "require_non_circular_resolved_output_refs",
+        "validate_non_trivial_output_proof",
+        "write_validated_feature_proof_receipt_artifact",
+    }
+)
+
+
+def __getattr__(name: str) -> object:
+    if name in _NON_TRIVIAL_OUTPUT_PROOF_EXPORTS:
+        from . import feature_proof_output_proof
+
+        value = getattr(feature_proof_output_proof, name)
+        globals()[name] = value
+        return value
+    raise AttributeError(name)
+
+
 __all__ = [
     "FEATURE_PROOF_RECEIPT_ARTIFACT_ROOT",
     "FEATURE_PROOF_RECEIPT_CONTRACT_ID",
     "FEATURE_PROOF_RECEIPT_SCHEMA_VERSION",
     "FeatureProofReceipt",
     "FeatureProofReceiptEmissionFailure",
+    "NON_TRIVIAL_OUTPUT_PROOF_CONTRACT_ID",
+    "NON_TRIVIAL_OUTPUT_PROOF_FINDING_CONTRACT_ID",
+    "NON_TRIVIAL_OUTPUT_PROOF_LEDGER_CONTRACT_ID",
+    "NON_TRIVIAL_OUTPUT_PROOF_SCHEMA_VERSION",
+    "NonTrivialOutputProof",
+    "NonTrivialOutputProofRemediationFinding",
+    "NonTrivialOutputProofRemediationFindingLedger",
     "RealLifeTestStatus",
     "feature_proof_receipt_artifact_relpath",
     "feature_proof_receipt_from_mapping",
+    "require_non_circular_resolved_output_refs",
+    "validate_non_trivial_output_proof",
+    "write_validated_feature_proof_receipt_artifact",
     "write_feature_proof_receipt_artifact",
 ]

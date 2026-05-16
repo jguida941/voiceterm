@@ -400,6 +400,15 @@ jobs:
       - name: Run feature proof receipt guard
         run: python3 dev/scripts/checks/check_feature_has_proof_receipt.py
 
+      - name: Run non-trivial output proof guard
+        run: python3 dev/scripts/checks/check_non_trivial_output_proof.py
+
+      - name: Run contract-registry composite-key uniqueness guard
+        run: python3 dev/scripts/checks/check_contract_registry_composite_key_uniqueness.py
+
+      - name: Run packet kind TTL tests
+        run: python3 dev/scripts/devctl.py test-python --suite devctl --path dev/scripts/devctl/tests/runtime/test_packet_kind_ttl.py
+
       - name: Run task-started ADR precedent guard
         run: python3 dev/scripts/checks/check_task_started_adr_precedent_linking.py
 

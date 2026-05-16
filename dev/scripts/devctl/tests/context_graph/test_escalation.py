@@ -92,6 +92,28 @@ class ContextEscalationPacketTests(unittest.TestCase):
         )
         self.assertIsNone(packet)
 
+    @patch("dev.scripts.devctl.context_graph.escalation.build_context_graph")
+    @patch("dev.scripts.devctl.context_graph.escalation._try_cached_graph")
+    def test_packet_can_fail_fast_without_full_scan(
+        self,
+        cached_graph_mock,
+        build_graph_mock,
+    ) -> None:
+        cached_graph_mock.return_value = None
+
+        packet = build_context_escalation_packet(
+            trigger="status",
+            query_terms=("MP-377",),
+            options={
+                "allow_full_scan": 0,
+                "max_cached_bytes": 123,
+            },
+        )
+
+        self.assertIsNone(packet)
+        cached_graph_mock.assert_called_once_with(max_cached_bytes=123)
+        build_graph_mock.assert_not_called()
+
     @patch("dev.scripts.devctl.context_graph.escalation.data_science_reliability_lines")
     @patch("dev.scripts.devctl.context_graph.escalation.watchdog_digest_lines")
     @patch("dev.scripts.devctl.context_graph.escalation.quality_feedback_lines")

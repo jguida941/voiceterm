@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -26,14 +25,14 @@ from ..runtime.raw_git_bypass_receipts import (
     RawGitVerb,
     append_raw_git_bypass_receipt,
     build_raw_git_bypass_receipt,
-    raw_git_authority_from_value,
 )
+from .vcs.raw_git_execution import raw_git_authority_preflight, subprocess_git_runner
 from ..runtime.feature_proof_receipt import (
     FeatureProofReceipt,
     FeatureProofReceiptEmissionFailure,
     feature_proof_receipt_artifact_relpath,
     feature_proof_receipt_from_mapping,
-    write_feature_proof_receipt_artifact,
+    write_validated_feature_proof_receipt_artifact as write_feature_proof_receipt_artifact,
 )
 from ..runtime.commit_to_plan_row_reducer import (
     CommitToPlanRowReductionResult,
@@ -210,11 +209,18 @@ def run_raw_git_action(
     action = str(getattr(args, "raw_git_action", "") or "").strip()
     if action not in {RawGitVerb.COMMIT.value, RawGitVerb.PUSH.value}:
         return _error_report("unknown_raw_git_action", action), 1
-    runner = git_runner or _subprocess_git_runner(repo_root)
     git_args = _normalized_git_args(getattr(args, "git_args", ()) or ())
     verb = RawGitVerb(action)
     if _is_git_help_request(git_args):
         return _git_noop_report(verb, git_args, "git_help_noop"), 0
+    preflight = raw_git_authority_preflight(args, repo_root=repo_root, verb=verb)
+    if not preflight.ok:
+        return _error_report("bypass_authority_invalid", preflight.error), 1
+    runner = git_runner or subprocess_git_runner(
+        repo_root,
+        result_factory=GitCommandResult,
+        extra_env=preflight.git_env,
+    )
 
     before_head = _git_stdout(runner, ("rev-parse", "HEAD"))
     before_upstream = _git_stdout(runner, ("rev-parse", "--verify", "@{u}"))
@@ -271,7 +277,7 @@ def run_raw_git_action(
         git_verb=verb,
         executed_at_utc=_now_utc(),
         executed_by_actor=str(getattr(args, "actor", "") or "codex").strip(),
-        bypass_authority=raw_git_authority_from_value(getattr(args, "authority", "")),
+        bypass_authority=preflight.bypass_authority,
         commit_sha=commit_sha if verb is RawGitVerb.COMMIT else "",
         push_range=push_range,
         affected_paths=affected_paths,
@@ -285,11 +291,6 @@ def run_raw_git_action(
         DEFAULT_RAW_GIT_BYPASS_RECEIPT_STORE_REL,
         repo_root=repo_root,
     )
-    bypass_lifecycle_store_path = resolve_repo_path(
-        getattr(args, "bypass_lifecycle_store_path", ""),
-        DEFAULT_BYPASS_LIFECYCLE_STORE_REL,
-        repo_root=repo_root,
-    )
     governed_exception_store_path = resolve_repo_path(
         getattr(args, "governed_exception_store_path", ""),
         Path("dev/state/governed_exception_lifecycles.jsonl"),
@@ -298,7 +299,7 @@ def run_raw_git_action(
     write_result = append_raw_git_bypass_receipt(
         store_path,
         receipt,
-        bypass_lifecycle_store_path=bypass_lifecycle_store_path,
+        bypass_lifecycle_store_path=preflight.bypass_lifecycle_store_path,
         governed_exception_store_path=governed_exception_store_path,
     )
     receipt = write_result.receipt
@@ -339,20 +340,6 @@ def run_raw_git_action(
         "git_stderr": command_result.stderr,
     }
     return report, 0
-
-
-def _subprocess_git_runner(repo_root: Path) -> GitRunner:
-    def _run(args: tuple[str, ...], capture: bool) -> GitCommandResult:
-        result = subprocess.run(
-            ("git", *args),
-            cwd=repo_root,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        return GitCommandResult(result.returncode, result.stdout, result.stderr)
-
-    return _run
 
 
 def _git_stdout(runner: GitRunner, args: tuple[str, ...]) -> str:
@@ -450,7 +437,7 @@ def _write_raw_git_feature_proof_receipt(
         governed_exception_store_path=governed_exception_store_path,
         commit_sha=commit_sha,
     )
-    relpath = write_feature_proof_receipt_artifact(repo_root, feature_proof)
+    relpath = write_feature_proof_receipt_artifact(repo_root, feature_proof, require_real_tests=True)
     closure_results = reduce_feature_proof_to_plan_rows(
         repo_root=repo_root,
         feature_proof=feature_proof,
@@ -504,7 +491,7 @@ def _upsert_pushed_feature_proof_receipt(
             )
         ),
     )
-    relpath = write_feature_proof_receipt_artifact(repo_root, updated)
+    relpath = write_feature_proof_receipt_artifact(repo_root, updated, receipt_path=path, require_real_tests=True)
     closure_results = reduce_feature_proof_to_plan_rows(
         repo_root=repo_root,
         feature_proof=updated,

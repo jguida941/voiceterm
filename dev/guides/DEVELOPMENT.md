@@ -682,6 +682,21 @@ Three quality layers matter in practice:
   workflow, release, or guard changes must also keep this guide,
   `dev/scripts/README.md`, and `dev/history/ENGINEERING_EVOLUTION.md` current
   before rerunning `python3 dev/scripts/devctl.py push --execute`.
+- Feature-proof truth is guarded separately from proof existence. Run
+  `check_feature_has_proof_receipt.py` to prove commits have FPR artifacts, and
+  `check_non_trivial_output_proof.py` to reject `proven_passed` receipts whose
+  evidence refs do not resolve, whose tests are shell strings instead of
+  pytest node ids, or whose artifacts point back at their own FPR directory.
+  Existing legacy failures must be carried as
+  `NonTrivialOutputProofRemediationFinding` rows, not silently rewritten.
+- Packet-pressure TTLs now live in runtime code, not dashboard interpretation:
+  `task_produced` packets expire after 30 days, `decision` after 14 days, and
+  `question`/`finding` after 7 days. Use the packet-kind TTL resolver and its
+  focused tests when changing packet lifecycle behavior.
+- Contract registry identity is the composite `(contract_id, schema_version)`.
+  The registry builder collapses same-owner artifact/runtime re-emissions, and
+  `check_contract_registry_composite_key_uniqueness.py` keeps divergent owner
+  forks visible as policy TODOs until a canonical owner path is chosen.
 - When a policy-backed slice needs a simpler human-facing entrypoint, prefer a
   short wrapper command over asking maintainers to remember raw policy paths.
   Current examples: `python3 dev/scripts/devctl.py launcher-check`,

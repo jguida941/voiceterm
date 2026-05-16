@@ -468,6 +468,7 @@ def _commit_success_result(
             receipt,
             lifecycle_proof=proof,
             evidence_artifacts=artifact_paths,
+            repo_root=context.repo_root,
         )
         artifact_paths.append(
             write_feature_proof_receipt_artifact(

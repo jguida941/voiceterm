@@ -35,5 +35,9 @@ def build_promotion_context_packet(
     return build_context_escalation_packet_fn(
         trigger="review-channel-promotion",
         query_terms=query_terms,
-        options={"max_chars": 700},
+        options={
+            "max_chars": 700,
+            "allow_full_scan": 0,
+            "max_cached_bytes": 12_000_000,
+        },
     )

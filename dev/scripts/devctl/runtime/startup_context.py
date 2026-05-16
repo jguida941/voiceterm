@@ -130,7 +130,8 @@ def _detect_reviewer_gate_from_typed_state(
         repo_root,
         governance=governance,
         review_status_dir=review_status_dir,
-        prefer_cached_projection=False,
+        prefer_cached_projection=True,
+        allow_live_refresh=True,
     )
     gov_mode = _governance_interaction_mode(governance)
     return _detect_reviewer_gate_from_review_state(state, governance_mode=gov_mode)

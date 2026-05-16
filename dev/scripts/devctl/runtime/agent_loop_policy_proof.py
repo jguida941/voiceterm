@@ -103,6 +103,8 @@ def required_proofs_for_intent(
                 "round_proof",
             ]
         )
+    elif required_action == "launch_peer_digest_sidecar":
+        base.extend(["packet_attention_evidence", "peer_digest_sidecar_observation"])
     elif (
         intent in {"wake", "packet", "plan"}
         or loop_state == "work"

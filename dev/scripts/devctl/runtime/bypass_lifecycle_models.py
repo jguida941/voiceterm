@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+from .enum_compat import StrEnum
 from .governed_exception_base import json_ready_dict
 from .value_coercion import coerce_mapping, coerce_string, coerce_string_items
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, assert_never
+from typing import Literal
 
 from .session_termination_policy import (
     CONTINUATION_ANCHOR_BODY_UNOBSERVED_ERROR,
@@ -11,6 +11,7 @@ from .session_termination_policy import (
     STOP_ANCHOR_BODY_UNOBSERVED_ERROR,
     TaskCompleteDecision,
 )
+from .typing_compat import assert_never
 
 
 @dataclass(frozen=True, slots=True)

@@ -30,6 +30,10 @@ _CHECK_SCRIPT_ENTRIES = (
     ("commit_message_row_id_resolves", "check_commit_message_row_id_resolves.py"),
     ("contract_connectivity", "check_contract_connectivity.py"),
     (
+        "contract_registry_composite_key_uniqueness",
+        "check_contract_registry_composite_key_uniqueness.py",
+    ),
+    (
         "context_graph_snapshot_freshness",
         "check_context_graph_snapshot_freshness.py",
     ),
@@ -37,6 +41,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("duplication_audit_support", "check_duplication_audit_support.py"),
     ("duplicate_types", "check_duplicate_types.py"),
     ("feature_has_proof_receipt", "check_feature_has_proof_receipt.py"),
+    ("non_trivial_output_proof", "check_non_trivial_output_proof.py"),
     ("guard_enforcement_inventory", "check_guard_enforcement_inventory.py"),
     ("ground_truth_probe_gate", "check_ground_truth_probe_gate.py"),
     ("governed_transitions", "check_governed_transitions.py"),

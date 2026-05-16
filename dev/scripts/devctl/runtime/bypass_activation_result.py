@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, assert_never
+from typing import Literal
 
 from .bypass_lifecycle_models import (
     BypassLifecycle,
     BypassLifecycleState,
     BypassReceipt,
 )
+from .typing_compat import assert_never
 
 
 @dataclass(frozen=True, slots=True)

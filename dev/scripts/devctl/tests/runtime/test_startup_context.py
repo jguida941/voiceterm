@@ -218,6 +218,43 @@ class TestStartupContextBuild(unittest.TestCase):
 
         self.assertIn(lifecycle.lifecycle_id, {row.lifecycle_id for row in collected})
 
+    def test_to_dict_compacts_bypass_lifecycle_projection(self) -> None:
+        lifecycle = evaluate_bypass_request(
+            BypassRequest(
+                request_id="startup-bypass",
+                scope=BypassAuthorityScope.EDIT_ONLY,
+                reason="operator approved startup bypass with long details",
+                actor="operator",
+                requested_at_utc="2026-05-12T16:10:00Z",
+                target_role="implementer",
+                target_surface="startup-context",
+                evidence_refs=(
+                    "packet:rev_pkt_3847",
+                    "packet:rev_pkt_3848",
+                    "packet:rev_pkt_3849",
+                    "packet:rev_pkt_3850",
+                ),
+            ),
+            BypassEvaluationInput(
+                operator_signature="operator",
+                ai_approval_evidence="packet:rev_pkt_3847",
+                evaluated_at_utc="2026-05-12T16:10:01Z",
+            ),
+        )
+
+        payload = StartupContext(bypass_lifecycles=(lifecycle,)).to_dict()
+
+        projected = payload["bypass_lifecycles"][0]
+        self.assertEqual(projected["lifecycle_id"], lifecycle.lifecycle_id)
+        self.assertEqual(projected["state"], lifecycle.state.value)
+        self.assertEqual(projected["scope"], "edit_only")
+        self.assertEqual(projected["target_role"], "implementer")
+        self.assertEqual(projected["approved_scope"], "edit_only")
+        self.assertEqual(projected["receipt_id"], lifecycle.receipt.receipt_id)
+        self.assertIn("granted_at_utc", projected)
+        self.assertNotIn("governed_exception", projected)
+        self.assertNotIn("reason", projected)
+
     def test_startup_mode_fields_match_authority_snapshot(self) -> None:
         ctx = _live_startup_context()
 
@@ -398,6 +435,21 @@ class TestStartupContextBuild(unittest.TestCase):
 
         self.assertEqual(registry["aspirational_gap_count"], 0)
         self.assertIn("TypedAction", registry["connected_contract_ids"])
+
+    def test_startup_connectivity_registry_skips_ast_reader_verification_by_default(
+        self,
+    ) -> None:
+        from dev.scripts.devctl.config import REPO_ROOT
+        from dev.scripts.devctl.runtime import startup_connectivity_registry as module
+
+        with patch.object(
+            module,
+            "find_missing_connection_findings",
+            side_effect=AssertionError("startup must not run AST reader verification"),
+        ):
+            registry = module.startup_connectivity_registry(REPO_ROOT)
+
+        self.assertEqual(registry["missing_connection_finding_count"], 0)
 
     def test_authority_snapshot_prefers_recovery_authority_over_startup_routing(
         self,
@@ -1119,7 +1171,8 @@ class TestStartupContextBuild(unittest.TestCase):
             repo_root,
             governance=None,
             review_status_dir=review_status_dir,
-            prefer_cached_projection=False,
+            prefer_cached_projection=True,
+            allow_live_refresh=False,
         )
         self.assertIs(result, sentinel)
 

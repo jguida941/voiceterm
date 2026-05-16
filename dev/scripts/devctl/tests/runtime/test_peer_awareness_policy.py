@@ -104,6 +104,33 @@ def test_agent_message_boundary_polls_peer_after_body_observed() -> None:
     assert any("agent-mind --agent claude" in command for command in decision.next_commands)
 
 
+def test_agent_message_boundary_launches_digest_sidecar_when_toggle_enabled() -> None:
+    decision = agent_message_boundary_decision(
+        packets=[_packet(observed=True)],
+        actor="codex",
+        actor_role="implementer",
+        session_id="sess-codex",
+        policy=default_peer_awareness_policy(
+            role="implementer",
+            work_class="long_running_subprocess",
+            peer_provider="claude",
+            digest_sidecar_enabled=True,
+            digest_sidecar_provider="claude",
+        ),
+        boundary_at_utc="2026-05-13T01:00:00Z",
+        last_peer_poll_at_utc="",
+        pending_packet_count=1,
+    )
+
+    assert decision.action == "launch_digest_sidecar"
+    assert decision.reason == "digest_sidecar_due_at_agent_message_emit"
+    assert decision.sidecar_required is True
+    assert decision.sidecar_provider == "claude"
+    assert decision.poll_due is True
+    assert any("review-channel --action inbox" in command for command in decision.next_commands)
+    assert any("agent-mind --agent claude" in command for command in decision.next_commands)
+
+
 def test_agent_message_boundary_polls_peer_after_cadence_expires() -> None:
     decision = agent_message_boundary_decision(
         packets=[],

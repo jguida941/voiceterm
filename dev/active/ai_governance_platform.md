@@ -14940,6 +14940,32 @@ Evidence:
 - `dev/state/contract_registry.jsonl`
 - `dev/test_data/schema_fixtures/CommitMessageRowIdResolvesGuard/1`
 
+## 2026-05-16 - Keystone proof hardening
+
+The next governance-quality slice moves proof truth, packet TTLs, and registry
+identity into executable contracts:
+
+- `NonTrivialOutputProof` is the output-truth spine for proven
+  `FeatureProofReceipt` artifacts. It requires evidence refs to resolve on
+  disk, real pytest node ids in `tests_run`, and no self-referential FPR
+  artifact or directory refs. Existing failing receipts are represented in
+  `dev/state/non_trivial_output_proof_remediation_findings.jsonl` as typed
+  remediation findings.
+- `packet_transport_expiry.py` now assigns default TTLs to long-lived packet
+  kinds: 30 days for `task_produced`, 14 days for `decision`, and 7 days for
+  `question` and `finding`. `packet_kind_ttl.py` exposes typed resolver
+  evidence for the latest unresolved packet of each kind.
+- `check_contract_registry_composite_key_uniqueness.py` enforces composite
+  contract-registry identity. Same-owner duplicate artifact/runtime rows are
+  deduped at registry-build time; the remaining `RustAuditReport` and
+  `SecurityReport` owner forks are explicit policy TODOs until an operator
+  chooses canonical owner paths.
+
+Verification should include the two new guard tests, packet TTL tests,
+platform contract closure, governance closure, registry path integrity, schema
+fixture handshake, and the system-map registry coverage guard before a
+publication attempt.
+
 ## 2026-05-14 - Repo-portability guard for shared substrates
 
 Guard P16 adds a typed `RepoPortabilityCheck` contract and the

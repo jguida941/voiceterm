@@ -2,19 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 
-from .session_route_scope import normalize_route_role, packet_matches_session_route
+from .peer_awareness_clock import long_running_cadence, peer_poll_due
+from .peer_awareness_packets import blocking_body_packet
+from .session_route_scope import normalize_route_role
 from .session_termination_body import (
-    packet_body_observed_by_route,
     packet_body_show_command,
-)
-from .session_termination_pending import (
-    packet_blocks_task_complete,
-    packet_is_active_anchor,
-    packet_sort_key,
 )
 
 PEER_AWARENESS_POLICY_CONTRACT_ID = "PeerAwarenessPolicy"
@@ -46,6 +41,8 @@ class PeerAwarenessPolicy:
     role: str = "implementer"
     work_class: str = "interactive_turn"
     peer_provider: str = ""
+    digest_sidecar_enabled: bool = False
+    digest_sidecar_provider: str = ""
     cadence_seconds: int = 900
     boundary_events: tuple[str, ...] = (TASK_BOUNDARY,)
     required_observations: tuple[str, ...] = (
@@ -73,7 +70,9 @@ class PeerAwarenessDecision:
     cadence_seconds: int = 0
     poll_due: bool = False
     body_open_required: bool = False
+    sidecar_required: bool = False
     blocking_packet_id: str = ""
+    sidecar_provider: str = ""
     next_commands: tuple[str, ...] = ()
     contract_id: str = PEER_AWARENESS_DECISION_CONTRACT_ID
     schema_version: int = PEER_AWARENESS_POLICY_SCHEMA_VERSION
@@ -89,16 +88,21 @@ def default_peer_awareness_policy(
     role: str,
     work_class: str = "interactive_turn",
     peer_provider: str = "",
+    digest_sidecar_enabled: bool = False,
+    digest_sidecar_provider: str = "",
 ) -> PeerAwarenessPolicy:
     """Return the repo-default peer-awareness policy for role/work class."""
     normalized_role = normalize_route_role(role) or "implementer"
     normalized_work_class = _text(work_class) or "interactive_turn"
+    sidecar_provider = _text(digest_sidecar_provider) or _text(peer_provider)
     if normalized_work_class in _LONG_RUNNING_WORK_CLASSES:
         return PeerAwarenessPolicy(
             role=normalized_role,
             work_class=normalized_work_class,
             peer_provider=_text(peer_provider),
-            cadence_seconds=_long_running_cadence(normalized_role),
+            digest_sidecar_enabled=bool(digest_sidecar_enabled),
+            digest_sidecar_provider=sidecar_provider,
+            cadence_seconds=long_running_cadence(normalized_role),
             boundary_events=(AGENT_MESSAGE_EMIT_BOUNDARY, SUBPROCESS_HEARTBEAT_BOUNDARY),
             required_observations=(
                 REVIEW_CHANNEL_INBOX_OBSERVATION,
@@ -111,6 +115,8 @@ def default_peer_awareness_policy(
             role=normalized_role,
             work_class=normalized_work_class,
             peer_provider=_text(peer_provider),
+            digest_sidecar_enabled=bool(digest_sidecar_enabled),
+            digest_sidecar_provider=sidecar_provider,
             cadence_seconds=300,
             boundary_events=(TASK_BOUNDARY, AGENT_MESSAGE_EMIT_BOUNDARY),
         )
@@ -118,6 +124,8 @@ def default_peer_awareness_policy(
         role=normalized_role,
         work_class=normalized_work_class,
         peer_provider=_text(peer_provider),
+        digest_sidecar_enabled=bool(digest_sidecar_enabled),
+        digest_sidecar_provider=sidecar_provider,
         cadence_seconds=900,
         boundary_events=(TASK_BOUNDARY,),
     )
@@ -142,7 +150,7 @@ def agent_message_boundary_decision(
         work_class="interactive_turn",
         peer_provider=peer_provider,
     )
-    blocking_packet = _blocking_body_packet(
+    blocking_packet = blocking_body_packet(
         packets,
         actor=actor,
         actor_role=resolved_policy.role if not actor_role else actor_role,
@@ -167,21 +175,40 @@ def agent_message_boundary_decision(
                 ),
             ),
         )
-    if _peer_poll_due(
+    if peer_poll_due(
         policy=resolved_policy,
         boundary_at_utc=boundary_at_utc,
         last_peer_poll_at_utc=last_peer_poll_at_utc,
         pending_packet_count=pending_packet_count,
+        agent_message_boundary=AGENT_MESSAGE_EMIT_BOUNDARY,
+        long_running_work_classes=_LONG_RUNNING_WORK_CLASSES,
     ):
+        sidecar_provider = (
+            resolved_policy.digest_sidecar_provider
+            or resolved_policy.peer_provider
+            or peer_provider
+        )
+        action = (
+            "launch_digest_sidecar"
+            if resolved_policy.digest_sidecar_enabled
+            else "poll_peer_state"
+        )
+        reason = (
+            "digest_sidecar_due_at_agent_message_emit"
+            if resolved_policy.digest_sidecar_enabled
+            else "peer_poll_due_at_agent_message_emit"
+        )
         return PeerAwarenessDecision(
-            action="poll_peer_state",
-            reason="peer_poll_due_at_agent_message_emit",
+            action=action,
+            reason=reason,
             peer_provider=resolved_policy.peer_provider,
             cadence_seconds=resolved_policy.cadence_seconds,
             poll_due=True,
+            sidecar_required=resolved_policy.digest_sidecar_enabled,
+            sidecar_provider=sidecar_provider,
             next_commands=peer_poll_commands(
                 actor=actor,
-                peer_provider=resolved_policy.peer_provider or peer_provider,
+                peer_provider=sidecar_provider,
             ),
         )
     return PeerAwarenessDecision(
@@ -203,107 +230,6 @@ def peer_poll_commands(*, actor: str, peer_provider: str) -> tuple[str, str]:
         "python3 dev/scripts/devctl.py agent-mind "
         f"--agent {peer} --since-cursor --project --format md --limit 20",
     )
-
-
-def _blocking_body_packet(
-    packets: Sequence[object] | object,
-    *,
-    actor: str,
-    actor_role: str,
-    session_id: str,
-    target_ref: str,
-) -> Mapping[str, object] | None:
-    rows = _packet_rows(packets)
-    candidates = [
-        packet
-        for packet in rows
-        if _packet_blocks_agent_message_boundary(packet)
-        and packet_matches_session_route(
-            packet,
-            session_id=session_id,
-            actor=actor,
-            actor_role=actor_role,
-            target_ref=target_ref,
-        )
-        and not packet_body_observed_by_route(
-            packet,
-            actor=actor,
-            actor_role=actor_role,
-            session_id=session_id,
-        )
-    ]
-    return sorted(candidates, key=packet_sort_key, reverse=True)[0] if candidates else None
-
-
-def _packet_blocks_agent_message_boundary(packet: Mapping[str, object]) -> bool:
-    kind = _text(packet.get("kind"))
-    if kind in {"stop_anchor", "continuation_anchor"}:
-        return packet_is_active_anchor(packet)
-    return packet_blocks_task_complete(packet) and packet_is_active_anchor(packet)
-
-
-def _peer_poll_due(
-    *,
-    policy: PeerAwarenessPolicy,
-    boundary_at_utc: str,
-    last_peer_poll_at_utc: str,
-    pending_packet_count: int,
-) -> bool:
-    if AGENT_MESSAGE_EMIT_BOUNDARY not in policy.boundary_events:
-        return False
-    if pending_packet_count > 0 and not _text(last_peer_poll_at_utc):
-        return True
-    boundary_at = _text(boundary_at_utc)
-    last_poll = _text(last_peer_poll_at_utc)
-    if not last_poll:
-        return policy.work_class in _LONG_RUNNING_WORK_CLASSES
-    if pending_packet_count > 0 and boundary_at and last_poll < boundary_at:
-        return True
-    if (
-        boundary_at
-        and last_poll < boundary_at
-        and policy.work_class in _LONG_RUNNING_WORK_CLASSES
-    ):
-        elapsed_seconds = _elapsed_seconds(last_poll, boundary_at)
-        if elapsed_seconds is None:
-            return True
-        return elapsed_seconds >= policy.cadence_seconds
-    return False
-
-
-def _long_running_cadence(role: str) -> int:
-    if role in {"dashboard", "observer", "reviewer"}:
-        return 300
-    return 300
-
-
-def _elapsed_seconds(start_utc: str, end_utc: str) -> float | None:
-    start = _parse_utc(start_utc)
-    end = _parse_utc(end_utc)
-    if start is None or end is None:
-        return None
-    return (end - start).total_seconds()
-
-
-def _parse_utc(value: str) -> datetime | None:
-    raw = _text(value)
-    if not raw:
-        return None
-    if raw.endswith("Z"):
-        raw = f"{raw[:-1]}+00:00"
-    try:
-        parsed = datetime.fromisoformat(raw)
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
-
-
-def _packet_rows(packets: Sequence[object] | object) -> tuple[Mapping[str, object], ...]:
-    if not isinstance(packets, Sequence) or isinstance(packets, (str, bytes)):
-        return ()
-    return tuple(packet for packet in packets if isinstance(packet, Mapping))
 
 
 def _text(value: object) -> str:

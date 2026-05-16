@@ -17,14 +17,22 @@ from ..platform.connectivity_registry_models import (
 )
 
 
-def startup_connectivity_registry(repo_root: Path) -> dict[str, object]:
+def startup_connectivity_registry(
+    repo_root: Path,
+    *,
+    verify_readers: bool = False,
+) -> dict[str, object]:
     """Project the connectivity registry summary into the startup payload."""
     registry = build_connectivity_registry_snapshot(repo_root=repo_root)
-    missing_connection_findings = find_missing_connection_findings(
-        registry=registry,
-        required_reader_ids=CONNECTIVITY_REGISTRY_READER_IDS,
-        row_reader_ids=CONNECTIVITY_REGISTRY_ROW_READER_IDS,
-        repo_root=repo_root,
+    missing_connection_findings = (
+        find_missing_connection_findings(
+            registry=registry,
+            required_reader_ids=CONNECTIVITY_REGISTRY_READER_IDS,
+            row_reader_ids=CONNECTIVITY_REGISTRY_ROW_READER_IDS,
+            repo_root=repo_root,
+        )
+        if verify_readers
+        else ()
     )
     return _connectivity_registry_summary_dict(
         summarize_connectivity_registry(

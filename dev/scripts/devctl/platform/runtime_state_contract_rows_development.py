@@ -17,6 +17,7 @@ from .runtime_state_contract_rows_development_roles import (
 )
 from .runtime_state_contract_rows_ground_truth import GROUND_TRUTH_STATE_CONTRACTS
 from .runtime_state_contract_rows_plan_intake import PLAN_INTAKE_STATE_CONTRACTS
+from .runtime_state_contract_rows_plan_keystones import PLAN_KEYSTONE_STATE_CONTRACTS
 
 DEVELOPMENT_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     ContractSpec(
@@ -381,6 +382,7 @@ DEVELOPMENT_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     *GROUND_TRUTH_STATE_CONTRACTS,
     *BASELINE_INVENTORY_STATE_CONTRACTS,
     *PLAN_INTAKE_STATE_CONTRACTS,
+    *PLAN_KEYSTONE_STATE_CONTRACTS,
 )
 
 __all__ = ["DEVELOPMENT_STATE_CONTRACTS"]

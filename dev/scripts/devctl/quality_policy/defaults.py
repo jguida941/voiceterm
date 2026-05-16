@@ -87,6 +87,16 @@ DEFAULT_AI_GUARD_SPECS = (
         supports_commit_range=False,
     ),
     QualityStepSpec(
+        "contract-registry-composite-key-uniqueness-guard",
+        "contract_registry_composite_key_uniqueness",
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
+        "non-trivial-output-proof-guard",
+        "non_trivial_output_proof",
+        supports_commit_range=False,
+    ),
+    QualityStepSpec(
         "ground-truth-probe-gate",
         "ground_truth_probe_gate",
         languages=("python",),

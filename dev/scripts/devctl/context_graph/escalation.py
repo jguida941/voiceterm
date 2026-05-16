@@ -53,6 +53,8 @@ class ContextEscalationOptions:
     max_terms: int = 4
     max_refs: int = 6
     max_chars: int = 1600
+    allow_full_scan: bool = True
+    max_cached_bytes: int = 0
 
 
 def append_context_packet_markdown(
@@ -242,11 +244,13 @@ def build_context_escalation_packet(
 
     if graph is None:
         # Try cached snapshot first to avoid full AST scan (~191K LOC)
-        cached = _try_cached_graph()
+        cached = _try_cached_graph(max_cached_bytes=resolved_options.max_cached_bytes)
         if cached is not None:
             nodes, edges = cached
-        else:
+        elif resolved_options.allow_full_scan:
             nodes, edges = build_context_graph()
+        else:
+            return None
     else:
         nodes, edges = graph
 
@@ -345,11 +349,16 @@ def _resolve_options(
             max_terms=int(options.get("max_terms", 4)),
             max_refs=int(options.get("max_refs", 6)),
             max_chars=int(options.get("max_chars", 1200)),
+            allow_full_scan=bool(options.get("allow_full_scan", True)),
+            max_cached_bytes=max(0, int(options.get("max_cached_bytes") or 0)),
         )
     return ContextEscalationOptions()
 
 
-def _try_cached_graph() -> tuple[list[GraphNode], list[GraphEdge]] | None:
+def _try_cached_graph(
+    *,
+    max_cached_bytes: int = 0,
+) -> tuple[list[GraphNode], list[GraphEdge]] | None:
     """Load the latest cached graph snapshot to avoid full AST rebuild.
 
     Returns None (forcing a fresh build) when the newest snapshot was
@@ -380,6 +389,8 @@ def _try_cached_graph() -> tuple[list[GraphNode], list[GraphEdge]] | None:
             key=lambda p: p.stem.split("_", 1)[-1] if "_" in p.stem else p.stem
         )
         latest_path = snapshot_files[-1]
+        if max_cached_bytes > 0 and latest_path.stat().st_size > max_cached_bytes:
+            return None
         head_sha = resolve_head_sha(repo_root)
         if not snapshot_cache_is_fresh(latest_path, head_sha):
             return None

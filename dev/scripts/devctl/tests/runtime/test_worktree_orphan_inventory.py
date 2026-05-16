@@ -115,6 +115,31 @@ def test_inventory_detects_multi_section_stash_orphan(
     assert "untracked.txt" in stash.metadata["file_paths"]
 
 
+def test_startup_context_inventory_omits_expensive_stash_file_details(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path / "codex-voice")
+    _write(repo / "tracked.txt", "tracked base\n")
+    _git(repo, "add", "tracked.txt")
+    _git(repo, "commit", "-m", "track file")
+    _write(repo / "tracked.txt", "tracked change\n")
+    _write(repo / "untracked.txt", "untracked change\n")
+    _git(repo, "stash", "push", "--include-untracked", "-m", "startup fixture")
+
+    report = build_orphan_inventory_report(
+        repo_root=repo,
+        review_state={},
+        scan_scope="startup_context",
+        generated_at_utc="2026-04-22T18:33:30Z",
+    )
+
+    stash = _source_by_kind(report, "stash_orphan")
+    assert stash is not None
+    assert stash.metadata["stash_sections"] == []
+    assert stash.metadata["file_paths"] == []
+    assert "stash file-path detail omitted" in "; ".join(report.warnings)
+
+
 def test_orphan_inventory_report_schema_and_round_trip(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path / "codex-voice")
     report = build_orphan_inventory_report(

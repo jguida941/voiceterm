@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 from dataclasses import dataclass
-from typing import Literal, assert_never
+from typing import Literal
 
 from dev.scripts.devctl.commands.vcs.governed_executor_push_result import (
     pipeline_push_result_case,
@@ -38,6 +38,7 @@ from dev.scripts.devctl.runtime.task_complete_result import (
     task_complete_result,
     task_complete_result_reason,
 )
+from dev.scripts.devctl.runtime.typing_compat import assert_never
 
 LifecycleState = Literal["requested", "active", "expired"]
 

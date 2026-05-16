@@ -9,8 +9,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Optional
+
+UTC = timezone.utc
 
 from .collaboration_wake_contract import LoopAutonomyState
 from .governed_exception_base import json_ready_dict

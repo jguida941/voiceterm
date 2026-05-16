@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import asdict, dataclass, replace
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import ClassVar
+
+UTC = timezone.utc
 
 from .feature_proof_receipt import FeatureProofReceipt
 from .master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL, PlanRow

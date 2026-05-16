@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
+
+UTC = timezone.utc
 
 from dev.scripts.devctl.runtime.agent_supervise_driver import (
     AgentSuperviseInput,

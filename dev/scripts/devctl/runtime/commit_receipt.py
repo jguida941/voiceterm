@@ -5,13 +5,16 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
+
+UTC = timezone.utc
 
 from .feature_proof_receipt import (
     FEATURE_PROOF_RECEIPT_ARTIFACT_ROOT,
     FeatureProofReceipt,
     feature_proof_receipt_artifact_relpath,
+    require_non_circular_resolved_output_refs,
     write_feature_proof_receipt_artifact,
 )
 from .governance_proposed_contracts import FeatureLifecycleProof, LifecycleReceipt
@@ -267,6 +270,7 @@ def build_feature_proof_receipt(
     *,
     lifecycle_proof: FeatureLifecycleProof | None = None,
     evidence_artifacts: Iterable[str] = (),
+    repo_root: Path | None = None,
 ) -> FeatureProofReceipt:
     """Build the operator-facing proof receipt for a shipped commit."""
     validation = pipeline.validation_receipt
@@ -319,7 +323,7 @@ def build_feature_proof_receipt(
         or _validation_receipt_ref(as_receipt_id(commit_receipt.validation_receipt_id))
         or commit_receipt.receipt_id
     )
-    return FeatureProofReceipt(
+    receipt = FeatureProofReceipt(
         feature_id=(
             commit_receipt.plan_row_id
             or commit_receipt.pipeline_id
@@ -343,6 +347,9 @@ def build_feature_proof_receipt(
         proven_at_utc=commit_receipt.recorded_at_utc,
         evidence_artifacts=artifacts,
     )
+    if repo_root is not None:
+        require_non_circular_resolved_output_refs(receipt, repo_root=repo_root)
+    return receipt
 
 
 def _plan_row_id(pipeline: RemoteCommitPipelineContract) -> str:

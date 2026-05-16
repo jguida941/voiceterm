@@ -14,6 +14,7 @@ from dev.scripts.devctl.runtime.startup_context import build_startup_context
 from dev.scripts.devctl.runtime.worktree_orphan_contracts import (
     OrphanSnapshot,
     build_orphan_inventory_report,
+    build_orphan_snapshot_projection,
     compute_orphan_snapshot,
     orphan_snapshot_from_mapping,
 )
@@ -90,6 +91,38 @@ def test_orphan_snapshot_round_trips_projection_fields(tmp_path: Path) -> None:
     assert restored == snapshot
     assert restored is not None
     assert restored.freshness_requirement == "fresh_scan_required"
+
+
+def test_orphan_snapshot_projection_avoids_full_review_state_deep_copy(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path / "codex-voice")
+
+    class ReviewStateLike:
+        coordination = {
+            "actors": [
+                {
+                    "actor_id": "AGENT-2",
+                    "presence": "planned",
+                    "worktree": "../codex-voice-agent-2",
+                    "branch": "feature/agent-2",
+                }
+            ]
+        }
+
+        def to_dict(self) -> dict[str, object]:
+            raise AssertionError("startup orphan snapshot must not deep-copy ReviewState")
+
+    snapshot = build_orphan_snapshot_projection(
+        repo_root=repo,
+        review_state=ReviewStateLike(),
+        scan_scope="startup_context",
+    )
+
+    assert any(
+        source.source_kind == "planned_delegated_worker_worktree"
+        for source in snapshot.sources
+    )
 
 
 def test_startup_context_emits_orphan_snapshot_field() -> None:

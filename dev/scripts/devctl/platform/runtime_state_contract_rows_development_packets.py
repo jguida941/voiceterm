@@ -2,9 +2,59 @@
 
 from __future__ import annotations
 
+from ..runtime.packet_kind_ttl import (
+    DecisionTtlEvidence,
+    FindingTtlEvidence,
+    PacketKindTtl,
+    PacketKindTtlEvidence,
+    QuestionTtlEvidence,
+    TaskProducedTtlEvidence,
+)
 from .contracts import ContractField, ContractSpec
 
+PACKET_KIND_TTL_EVIDENCE_TYPES = (
+    PacketKindTtl,
+    TaskProducedTtlEvidence,
+    QuestionTtlEvidence,
+    DecisionTtlEvidence,
+    FindingTtlEvidence,
+)
+
+
+def _packet_kind_ttl_contract(
+    runtime_type: type[PacketKindTtl],
+) -> ContractSpec:
+    sample = runtime_type()
+    return ContractSpec(
+        contract_id=sample.contract_id,
+        owner_layer="governance_runtime",
+        purpose=(
+            "Per-kind review-channel packet TTL evidence used to prevent "
+            "unresolved packets from silently aging out without disposition."
+        ),
+        required_fields=(
+            ContractField("packet_kind", "str", "Review-channel packet kind."),
+            ContractField("packet_id", "str", "Latest unresolved packet id."),
+            ContractField("observed_at_utc", "str", "Packet timestamp used for TTL."),
+            ContractField("expires_at_utc", "str", "Computed expiry timestamp."),
+            ContractField("ttl_seconds", "int", "Configured TTL window in seconds."),
+            ContractField("status", "str", "missing, alive, expired, or unsupported_kind."),
+            ContractField("expired", "bool", "Whether the packet has exceeded TTL."),
+            ContractField("resolved", "bool", "Whether the packet is terminal."),
+            ContractField("summary", "str", "Human-readable TTL disposition summary."),
+        ),
+        runtime_model=f"{runtime_type.__module__}:{runtime_type.__qualname__}",
+        startup_surface_tokens=("packet_kind", "packet_id", "expires_at_utc"),
+    )
+
+
+PACKET_KIND_TTL_CONTRACTS = tuple(
+    _packet_kind_ttl_contract(runtime_type)
+    for runtime_type in PACKET_KIND_TTL_EVIDENCE_TYPES
+)
+
 DEVELOPMENT_PACKET_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
+    *PACKET_KIND_TTL_CONTRACTS,
     ContractSpec(
         contract_id="PacketBacklogPressure",
         owner_layer="governance_runtime",
@@ -112,4 +162,8 @@ DEVELOPMENT_PACKET_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     ),
 )
 
-__all__ = ["DEVELOPMENT_PACKET_STATE_CONTRACTS"]
+__all__ = [
+    "DEVELOPMENT_PACKET_STATE_CONTRACTS",
+    "PACKET_KIND_TTL_CONTRACTS",
+    "PACKET_KIND_TTL_EVIDENCE_TYPES",
+]

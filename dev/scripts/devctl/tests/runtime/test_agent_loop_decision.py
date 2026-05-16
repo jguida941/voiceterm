@@ -274,6 +274,134 @@ def test_loop_blocks_mutation_until_peer_packet_body_is_opened() -> None:
     assert decision.proof_state == "missing"
 
 
+def test_digest_sidecar_toggle_blocks_blind_continuation_after_packet_open() -> None:
+    packet = _packet(
+        packet_id="rev_pkt_digest",
+        from_agent="claude",
+        to_agent="codex",
+        kind="action_request",
+        body="Operator-proxy digest is required before more implementation.",
+        latest_event_id="rev_evt_101",
+        target_role="implementer",
+        target_session_id="codex-main",
+    )
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "codex",
+            "body_observed_role": "implementer",
+            "body_observed_session_id": "codex-main",
+            "body_digest": packet_body_digest(packet),
+        }
+    ]
+    review_state = _state(packet)
+    review_state["peer_awareness_policy"] = {
+        "digest_sidecar_enabled": True,
+        "work_class": "long_running_subprocess",
+        "peer_provider": "claude",
+        "digest_sidecar_provider": "claude",
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {"next_command": "python3 dev/scripts/devctl.py push --execute"}},
+        actor_id="codex",
+        actor_role="implementer",
+        session_id="codex-main",
+    )
+
+    assert decision.required_action == "launch_peer_digest_sidecar"
+    assert decision.reason_code == "peer_digest_sidecar_required"
+    assert decision.safe_to_continue is False
+    assert decision.may_mutate is False
+    assert decision.active_packet_id == "rev_pkt_digest"
+    assert "agent-mind --agent claude" in decision.next_command
+    assert "--since-cursor" in decision.next_command
+    assert decision.proof_state == "missing"
+    assert "packet_attention_evidence" in decision.satisfied_proofs
+    assert "peer_digest_sidecar_observation" in decision.missing_proofs
+
+
+def test_digest_sidecar_toggle_off_keeps_existing_packet_execution_path() -> None:
+    packet = _packet(
+        packet_id="rev_pkt_digest",
+        from_agent="claude",
+        to_agent="codex",
+        kind="action_request",
+        body="Opened packet can become the active work when digest is off.",
+        latest_event_id="rev_evt_101",
+        target_role="implementer",
+        target_session_id="codex-main",
+    )
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "codex",
+            "body_observed_role": "implementer",
+            "body_observed_session_id": "codex-main",
+            "body_digest": packet_body_digest(packet),
+        }
+    ]
+
+    decision = build_agent_loop_decision(
+        review_state=_state(packet),
+        dashboard={"now": {}},
+        actor_id="codex",
+        actor_role="implementer",
+        session_id="codex-main",
+    )
+
+    assert decision.required_action == "execute_active_packet"
+    assert decision.active_packet_id == "rev_pkt_digest"
+    assert decision.safe_to_continue is True
+
+
+def test_digest_sidecar_toggle_continues_after_current_digest_observation() -> None:
+    packet = _packet(
+        packet_id="rev_pkt_digest",
+        from_agent="claude",
+        to_agent="codex",
+        kind="action_request",
+        body="Opened packet can continue once the sidecar digest is current.",
+        latest_event_id="rev_evt_101",
+        target_role="implementer",
+        target_session_id="codex-main",
+    )
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "codex",
+            "body_observed_role": "implementer",
+            "body_observed_session_id": "codex-main",
+            "body_digest": packet_body_digest(packet),
+        }
+    ]
+    review_state = _state(packet)
+    review_state["peer_awareness_policy"] = {
+        "digest_sidecar_enabled": True,
+        "work_class": "long_running_subprocess",
+        "peer_provider": "claude",
+        "digest_sidecar_provider": "claude",
+    }
+    review_state["agent_minds"] = {
+        "codex": {
+            "peer_awareness": {
+                "due": False,
+                "last_peer_poll_at_utc": "2026-05-16T06:45:00Z",
+            }
+        }
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="codex",
+        actor_role="implementer",
+        session_id="codex-main",
+    )
+
+    assert decision.required_action == "execute_active_packet"
+    assert decision.active_packet_id == "rev_pkt_digest"
+    assert decision.safe_to_continue is True
+
+
 def test_same_provider_reviewer_session_does_not_inherit_implementer_grants() -> None:
     review_state = _state(
         _packet(

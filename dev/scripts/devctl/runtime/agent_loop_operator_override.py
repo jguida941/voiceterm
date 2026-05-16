@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc
 
 from .development_core_workstreams import BUILDER_WORKSTREAM
 from .lifetime_bypass_mode import (

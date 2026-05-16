@@ -1,8 +1,10 @@
 import json
 import subprocess
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
+
+UTC = timezone.utc
 
 from dev.scripts.checks.packet_pkt_bind_completeness import (
     evaluate_packet_pkt_bind_completeness,

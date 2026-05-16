@@ -148,6 +148,85 @@ COMMIT_RECEIPT_CONTRACTS: tuple[ContractSpec, ...] = (
         startup_surface_tokens=("feature_id", "commit_sha", "real_life_test_status"),
     ),
     ContractSpec(
+        contract_id="NonTrivialOutputProof",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Substantive proof verdict for one FeatureProofReceipt, requiring "
+            "resolved evidence refs, real pytest-node test evidence, and "
+            "non-circular proof artifacts."
+        ),
+        required_fields=(
+            ContractField("ref_resolves", "bool", "Whether evidence refs resolve on disk."),
+            ContractField("has_real_tests", "bool", "Whether tests_run contains pytest node ids."),
+            ContractField("not_circular", "bool", "Whether evidence avoids circular FPR refs."),
+            ContractField("failure_reasons", "tuple[str, ...]", "Bounded failed proof axes."),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.feature_proof_output_proof:"
+            "NonTrivialOutputProof"
+        ),
+        startup_surface_tokens=("ref_resolves", "has_real_tests", "not_circular"),
+    ),
+    ContractSpec(
+        contract_id="NonTrivialOutputProofRemediationFinding",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Remediation ledger row for legacy FeatureProofReceipt artifacts "
+            "that fail NonTrivialOutputProof validation."
+        ),
+        required_fields=(
+            ContractField("finding_id", "str", "Stable remediation finding id."),
+            ContractField(
+                "feature_proof_receipt_path",
+                "str",
+                "FeatureProofReceipt artifact that failed validation.",
+            ),
+            ContractField("commit_sha", "str", "Commit SHA carried by the FPR."),
+            ContractField("feature_id", "str", "Feature or plan row carried by the FPR."),
+            ContractField("failure_reasons", "tuple[str, ...]", "Failed proof axes."),
+            ContractField("evidence_refs", "tuple[str, ...]", "Refs evaluated by the proof."),
+            ContractField("emitted_at_utc", "str", "UTC timestamp for the ledger row."),
+            ContractField("remediation_status", "str", "Current remediation state."),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.feature_proof_output_proof:"
+            "NonTrivialOutputProofRemediationFinding"
+        ),
+        startup_surface_tokens=("finding_id", "feature_id", "remediation_status"),
+    ),
+    ContractSpec(
+        contract_id="NonTrivialOutputProofRemediationFindingLedger",
+        owner_layer="governance_runtime",
+        purpose=(
+            "JSONL state artifact contract for the NonTrivialOutputProof "
+            "remediation finding ledger."
+        ),
+        required_fields=(
+            ContractField("ledger_path", "str", "Repo-relative JSONL ledger path."),
+            ContractField("finding_contract_id", "str", "Line contract stored in the ledger."),
+            ContractField("storage_format", "str", "Durable state storage format."),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.feature_proof_output_proof:"
+            "NonTrivialOutputProofRemediationFindingLedger"
+        ),
+        startup_surface_tokens=("ledger_path", "finding_contract_id", "storage_format"),
+    ),
+    ContractSpec(
+        contract_id="TypingCompatUtility",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Compatibility contract for runtime typing helpers used by "
+            "typestate exhaustiveness checks across supported Python versions."
+        ),
+        required_fields=(
+            ContractField("exported_symbols", "tuple[str, ...]", "Typing helpers exported."),
+            ContractField("compatibility_target", "str", "Stdlib typing API mirrored."),
+        ),
+        runtime_model="dev.scripts.devctl.runtime.typing_compat:TypingCompatUtility",
+        startup_surface_tokens=("exported_symbols", "compatibility_target"),
+    ),
+    ContractSpec(
         contract_id="PlanRowClosureReceipt",
         owner_layer="governance_runtime",
         purpose=(

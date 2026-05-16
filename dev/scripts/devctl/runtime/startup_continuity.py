@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -29,6 +30,30 @@ DEFAULT_ATTENTION_ITEM_LIMIT = 3
 PACKET_CONTINUITY_CONSUMER_CONTRACTS = (
     PacketContinuityIndex,
     PacketContinuityRow,
+)
+_PACKET_ROW_FIELDS = (
+    "packet_id",
+    "kind",
+    "from_agent",
+    "to_agent",
+    "summary",
+    "body",
+    "status",
+    "requested_action",
+    "policy_hint",
+    "plan_id",
+    "target_kind",
+    "target_ref",
+    "intake_ref",
+    "anchor_refs",
+    "latest_event_id",
+    "posted_at",
+    "acked_at_utc",
+    "lifecycle_current_state",
+    "disposition",
+    "packet_creation_binding",
+    "packet_durable_ingestion_receipt",
+    "durable_binding",
 )
 
 
@@ -200,25 +225,27 @@ def _packets_from_review_state(
 def _review_state_payload(review_state: "ReviewState | None") -> dict[str, object]:
     if review_state is None:
         return {}
+    if isinstance(review_state, Mapping):
+        return dict(review_state)
+    packets = getattr(review_state, "packets", None)
+    if packets is not None:
+        return {"packets": [_packet_row(packet) for packet in packets]}
     to_dict = getattr(review_state, "to_dict", None)
     if callable(to_dict):
         payload = to_dict()
         if isinstance(payload, dict):
             return payload
-    if isinstance(review_state, dict):
-        return dict(review_state)
-    packets = getattr(review_state, "packets", ()) or ()
-    rows: list[dict[str, object]] = []
-    for packet in packets:
-        if isinstance(packet, dict):
-            rows.append(dict(packet))
-            continue
-        packet_to_dict = getattr(packet, "to_dict", None)
-        if callable(packet_to_dict):
-            payload = packet_to_dict()
-            if isinstance(payload, dict):
-                rows.append(payload)
-    return {"packets": rows}
+    return {"packets": ()}
+
+
+def _packet_row(packet: object) -> dict[str, object]:
+    if isinstance(packet, Mapping):
+        return dict(packet)
+    return {
+        field_name: getattr(packet, field_name)
+        for field_name in _PACKET_ROW_FIELDS
+        if hasattr(packet, field_name)
+    }
 
 
 def _typed_plan_store_path(repo_root: Path) -> Path | None:

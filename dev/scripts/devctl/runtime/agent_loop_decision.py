@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import assert_never
 
 from .agent_loop_decision_models import AgentLoopDecision
 from .agent_loop_decision_support import (
@@ -37,6 +36,7 @@ from .agent_loop_decision_sources import (
     role_is_observer,
     session_identity_required,
 )
+from .agent_loop_peer_digest_sidecar import peer_digest_sidecar_decision
 from .session_termination_policy import (
     session_termination_policy_from_review_state,
     task_complete_decision,
@@ -50,6 +50,7 @@ from .task_complete_result import (
     TaskCompleteTerminated,
     task_complete_result,
 )
+from .typing_compat import assert_never
 
 
 def _identity_gate_decision(ctx: AgentLoopContext) -> AgentLoopDecision | None:
@@ -189,6 +190,9 @@ def build_agent_loop_decision(
     gate_decision = _packet_or_blocker_decision(ctx, packets)
     if gate_decision is not None:
         return gate_decision
+    digest_decision = peer_digest_sidecar_decision(ctx, packets)
+    if digest_decision is not None:
+        return digest_decision
 
     if outcome_kind == "completed_handoff":
         return _completed_handoff_decision(

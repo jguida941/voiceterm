@@ -37,6 +37,7 @@ def build_orphan_snapshot_projection(
     *,
     repo_root: Path = REPO_ROOT,
     review_state: Mapping[str, object] | SupportsToDict | None = None,
+    scan_scope: str = "bounded_local",
     scan_trigger: str = "startup_context",
     freshness_requirement: str = "fresh_scan_required",
 ) -> OrphanSnapshot:
@@ -44,6 +45,7 @@ def build_orphan_snapshot_projection(
     inventory = build_orphan_inventory_report(
         repo_root=repo_root,
         review_state=_review_state_mapping(review_state),
+        scan_scope=scan_scope,
     )
     return compute_orphan_snapshot(
         inventory,
@@ -124,9 +126,17 @@ def _review_state_mapping(
         return None
     if isinstance(review_state, Mapping):
         return review_state
-    if isinstance(review_state, SupportsToDict):
-        return review_state.to_dict()
-    return None
+    payload: dict[str, object] = {}
+    for field_name in (
+        "coordination",
+        "collaboration",
+        "delegated_work",
+        "coordination_state",
+    ):
+        value = getattr(review_state, field_name, None)
+        if value:
+            payload[field_name] = value
+    return payload or None
 
 
 def _enriched_source(

@@ -9,10 +9,13 @@ content disposition.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from ..time_utils import parse_utc_timestamp
-from .collaboration_packet_kinds import COLLABORATION_LIFECYCLE_PACKET_KINDS
+from .collaboration_packet_kinds import (
+    COLLABORATION_LIFECYCLE_PACKET_KINDS,
+    TASK_PRODUCED_PACKET_KIND,
+)
 
 TRANSPORT_EXPIRY_EXPLICIT_METADATA_KEY = "transport_expiry_explicit"
 DEFAULT_TRANSPORT_EXPIRING_PACKET_KINDS = frozenset(
@@ -29,7 +32,13 @@ OPTIONAL_TRANSPORT_EXPIRING_PACKET_KINDS = frozenset(
     }
 )
 ALWAYS_TRANSPORT_EXPIRING_PACKET_KINDS = DEFAULT_TRANSPORT_EXPIRING_PACKET_KINDS
-CONDITIONAL_TRANSPORT_EXPIRING_PACKET_KINDS = frozenset({"decision"})
+CONDITIONAL_TRANSPORT_EXPIRING_PACKET_KINDS = frozenset()
+PACKET_KIND_TTL_SECONDS = {
+    TASK_PRODUCED_PACKET_KIND: 30 * 24 * 60 * 60,
+    "decision": 14 * 24 * 60 * 60,
+    "question": 7 * 24 * 60 * 60,
+    "finding": 7 * 24 * 60 * 60,
+}
 DURABLE_INTENT_PACKET_KINDS = frozenset(
     {
         "finding",
@@ -53,6 +62,8 @@ NON_TRANSPORT_EXPIRING_PACKET_KINDS = frozenset(
 def packet_uses_transport_expiry(packet: Mapping[str, object]) -> bool:
     """Return True when a packet's ``expires_at_utc`` is runtime authority."""
     kind = _text(_packet_value(packet, "kind"))
+    if kind in PACKET_KIND_TTL_SECONDS:
+        return True
     if packet_kind_uses_default_transport_expiry(kind):
         return True
     if packet_kind_allows_optional_transport_expiry(kind):
@@ -105,7 +116,29 @@ def packet_transport_expires_at(packet: Mapping[str, object]) -> datetime | None
     """Return the runtime transport expiry timestamp for one packet, if any."""
     if not packet_uses_transport_expiry(packet):
         return None
-    return parse_utc_timestamp(_packet_value(packet, "expires_at_utc"))
+    explicit = parse_utc_timestamp(_packet_value(packet, "expires_at_utc"))
+    if explicit is not None:
+        return explicit
+    ttl_seconds = packet_kind_default_ttl_seconds(_packet_value(packet, "kind"))
+    if ttl_seconds <= 0:
+        return None
+    observed_at = parse_utc_timestamp(_packet_observed_at(packet))
+    if observed_at is None:
+        return None
+    return observed_at + timedelta(seconds=ttl_seconds)
+
+
+def packet_kind_default_ttl_seconds(kind: object) -> int:
+    """Return the default TTL seconds for packet kinds with reducer TTLs."""
+    return PACKET_KIND_TTL_SECONDS.get(_text(kind), 0)
+
+
+def packet_kind_default_ttl_minutes(kind: object) -> int:
+    """Return the default TTL minutes for newly posted packet events."""
+    ttl_seconds = packet_kind_default_ttl_seconds(kind)
+    if ttl_seconds <= 0:
+        return 0
+    return ttl_seconds // 60
 
 
 def packet_transport_expired(
@@ -139,6 +172,10 @@ def _packet_value(packet: Mapping[str, object], field_name: str) -> object:
     return packet.get(field_name)
 
 
+def _packet_observed_at(packet: Mapping[str, object]) -> object:
+    return packet.get("posted_at") or packet.get("timestamp_utc")
+
+
 def _text(value: object) -> str:
     return str(value or "").strip()
 
@@ -150,9 +187,12 @@ __all__ = [
     "DURABLE_INTENT_PACKET_KINDS",
     "NON_TRANSPORT_EXPIRING_PACKET_KINDS",
     "OPTIONAL_TRANSPORT_EXPIRING_PACKET_KINDS",
+    "PACKET_KIND_TTL_SECONDS",
     "TRANSPORT_EXPIRY_EXPLICIT_METADATA_KEY",
     "packet_carries_durable_intent",
     "packet_has_explicit_transport_expiry",
+    "packet_kind_default_ttl_minutes",
+    "packet_kind_default_ttl_seconds",
     "packet_kind_allows_optional_transport_expiry",
     "packet_kind_uses_default_transport_expiry",
     "packet_transport_expired",

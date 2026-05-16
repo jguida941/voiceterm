@@ -17,7 +17,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from enum import StrEnum
 from typing import Any
 
 from .project_governance_contract import (
@@ -27,6 +26,7 @@ from .project_governance_contract import (
     delivery_mode_requires_push,
     normalize_delivery_mode,
 )
+from .enum_compat import StrEnum
 from .value_coercion import coerce_bool, coerce_int, coerce_mapping, coerce_string
 
 

@@ -34,8 +34,10 @@ from dev.scripts.devctl.runtime.commit_receipt import (
     write_feature_proof_receipt_artifact,
 )
 from dev.scripts.devctl.runtime.feature_proof_receipt import (
+    FEATURE_PROOF_RECEIPT_ARTIFACT_ROOT,
     FeatureProofReceipt,
     feature_proof_receipt_from_mapping,
+    validate_non_trivial_output_proof,
 )
 from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
     CommitIntentState,
@@ -177,6 +179,150 @@ def test_feature_proof_receipt_requires_not_tested_rationale() -> None:
         )
 
 
+def test_non_trivial_output_proof_validates_resolved_pytest_evidence(
+    tmp_path: Path,
+) -> None:
+    evidence = tmp_path / "proof-output.txt"
+    evidence.write_text("expected output\n", encoding="utf-8")
+    receipt = FeatureProofReceipt(
+        feature_id="MP-TEST",
+        commit_sha="abc123",
+        implementer_actor="codex",
+        review_fleet_roles_ran=("DogfoodTest",),
+        review_fleet_actor="claude",
+        tests_run=("dev/scripts/devctl/tests/test_sample.py::test_real",),
+        tests_passed_count=1,
+        tests_failed_count=0,
+        connectivity_guards_ran=("check_non_trivial_output_proof",),
+        connectivity_guards_passed=True,
+        dogfood_invocation_evidence_ref="proof-output.txt",
+        real_life_test_status="proven_passed",
+        not_tested_rationale=None,
+        bypass_audit_trail_refs=(),
+        proven_at_utc="2026-05-16T04:00:00Z",
+        evidence_artifacts=("proof-output.txt",),
+    )
+
+    proof = validate_non_trivial_output_proof(receipt, repo_root=tmp_path)
+
+    assert proof.ok is True
+    assert proof.failure_reasons == ()
+
+
+def test_non_trivial_output_proof_flags_circular_shell_only_evidence(
+    tmp_path: Path,
+) -> None:
+    receipt = FeatureProofReceipt(
+        feature_id="MP-TEST",
+        commit_sha="abc123",
+        implementer_actor="codex",
+        review_fleet_roles_ran=("DogfoodTest",),
+        review_fleet_actor="claude",
+        tests_run=("python3 dev/scripts/checks/check_feature_has_proof_receipt.py",),
+        tests_passed_count=1,
+        tests_failed_count=0,
+        connectivity_guards_ran=("check_non_trivial_output_proof",),
+        connectivity_guards_passed=True,
+        dogfood_invocation_evidence_ref=FEATURE_PROOF_RECEIPT_ARTIFACT_ROOT,
+        real_life_test_status="proven_passed",
+        not_tested_rationale=None,
+        bypass_audit_trail_refs=(),
+        proven_at_utc="2026-05-16T04:00:00Z",
+        evidence_artifacts=(FEATURE_PROOF_RECEIPT_ARTIFACT_ROOT,),
+    )
+
+    proof = validate_non_trivial_output_proof(receipt, repo_root=tmp_path)
+
+    assert proof.ok is False
+    assert "no_real_tests" in proof.failure_reasons
+    assert any(reason.startswith("circular_ref:") for reason in proof.failure_reasons)
+
+
+def test_non_trivial_output_proof_resolves_pytest_node_ref(
+    tmp_path: Path,
+) -> None:
+    test_path = tmp_path / "dev/scripts/devctl/tests/test_sample.py"
+    test_path.parent.mkdir(parents=True)
+    test_path.write_text("def test_real():\n    assert True\n", encoding="utf-8")
+    receipt = FeatureProofReceipt(
+        feature_id="MP-TEST",
+        commit_sha="abc123",
+        implementer_actor="codex",
+        review_fleet_roles_ran=("DogfoodTest",),
+        review_fleet_actor="claude",
+        tests_run=("dev/scripts/devctl/tests/test_sample.py::test_real",),
+        tests_passed_count=1,
+        tests_failed_count=0,
+        connectivity_guards_ran=("check_non_trivial_output_proof",),
+        connectivity_guards_passed=True,
+        dogfood_invocation_evidence_ref=(
+            "dev/scripts/devctl/tests/test_sample.py::test_real"
+        ),
+        real_life_test_status="proven_passed",
+        not_tested_rationale=None,
+        bypass_audit_trail_refs=(),
+        proven_at_utc="2026-05-16T04:00:00Z",
+        evidence_artifacts=("dev/scripts/devctl/tests/test_sample.py",),
+    )
+
+    proof = validate_non_trivial_output_proof(receipt, repo_root=tmp_path)
+
+    assert proof.ref_resolves is True
+    assert proof.ok is True
+
+
+def test_non_trivial_output_proof_allows_distinct_fpr_artifact_ref(
+    tmp_path: Path,
+) -> None:
+    other_ref = (
+        tmp_path
+        / FEATURE_PROOF_RECEIPT_ARTIFACT_ROOT
+        / "other-commit.json"
+    )
+    other_ref.parent.mkdir(parents=True)
+    other_ref.write_text("{}\n", encoding="utf-8")
+    receipt = FeatureProofReceipt(
+        feature_id="MP-TEST",
+        commit_sha="abc123",
+        implementer_actor="codex",
+        review_fleet_roles_ran=("DogfoodTest",),
+        review_fleet_actor="claude",
+        tests_run=("dev/scripts/devctl/tests/test_sample.py::test_real",),
+        tests_passed_count=1,
+        tests_failed_count=0,
+        connectivity_guards_ran=("check_non_trivial_output_proof",),
+        connectivity_guards_passed=True,
+        dogfood_invocation_evidence_ref=(
+            f"{FEATURE_PROOF_RECEIPT_ARTIFACT_ROOT}/other-commit.json"
+        ),
+        real_life_test_status="proven_passed",
+        not_tested_rationale=None,
+        bypass_audit_trail_refs=(),
+        proven_at_utc="2026-05-16T04:00:00Z",
+        evidence_artifacts=(
+            f"{FEATURE_PROOF_RECEIPT_ARTIFACT_ROOT}/other-commit.json",
+        ),
+    )
+
+    proof = validate_non_trivial_output_proof(receipt, repo_root=tmp_path)
+
+    assert proof.not_circular is True
+    assert proof.ok is True
+
+
+def test_build_feature_proof_receipt_rejects_unresolved_new_refs(tmp_path: Path) -> None:
+    pipeline = _pipeline()
+    receipt = build_commit_receipt(pipeline, recorded_at_utc="2026-05-11T23:05:00Z")
+
+    with pytest.raises(ValueError, match="non_trivial_output_proof_ref_failure"):
+        build_feature_proof_receipt(
+            pipeline,
+            receipt,
+            evidence_artifacts=("missing-proof-output.txt",),
+            repo_root=tmp_path,
+        )
+
+
 def test_commit_receipt_rejects_commit_after_failed_validation() -> None:
     pipeline = _pipeline()
     assert pipeline.validation_receipt is not None
@@ -196,6 +342,11 @@ def test_commit_receipt_rejects_commit_after_failed_validation() -> None:
 def test_governed_commit_success_emits_commit_receipt_artifact(tmp_path: Path) -> None:
     persisted: list[RemoteCommitPipelineContract] = []
     completed = _pipeline()
+    pipeline_artifact = (
+        tmp_path / "dev/reports/review_channel/projections/latest/commit_pipeline.json"
+    )
+    pipeline_artifact.parent.mkdir(parents=True)
+    pipeline_artifact.write_text("{}", encoding="utf-8")
     context = CommitPipelineContext(
         repo_root=tmp_path,
         review_channel_path=None,

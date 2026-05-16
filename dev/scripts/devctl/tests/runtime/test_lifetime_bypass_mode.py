@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+
+UTC = timezone.utc
 
 from dev.scripts.devctl.runtime.governed_exception_validation import (
     validate_governed_exception_lifecycle,

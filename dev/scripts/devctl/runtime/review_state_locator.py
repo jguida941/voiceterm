@@ -208,6 +208,7 @@ def load_current_review_state(
     governance: "ProjectGovernance | None" = None,
     review_status_dir: Path | None = None,
     prefer_cached_projection: bool = True,
+    allow_live_refresh: bool = True,
 ) -> "ReviewState | None":
     """Load the freshest typed review-state projection for live consumers."""
     payload = load_current_review_state_payload(
@@ -215,6 +216,7 @@ def load_current_review_state(
         governance=governance,
         review_status_dir=review_status_dir,
         prefer_cached_projection=prefer_cached_projection,
+        allow_live_refresh=allow_live_refresh,
     )
     if payload is None:
         return None

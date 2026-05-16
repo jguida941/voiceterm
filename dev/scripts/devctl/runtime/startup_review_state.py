@@ -26,5 +26,6 @@ def load_startup_review_state(
         repo_root,
         governance=governance,
         review_status_dir=review_status_dir,
-        prefer_cached_projection=False,
+        prefer_cached_projection=True,
+        allow_live_refresh=False,
     )

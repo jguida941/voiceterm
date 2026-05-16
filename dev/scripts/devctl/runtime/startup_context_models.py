@@ -32,6 +32,7 @@ from .startup_context_collaboration_output import (
     startup_packet_intent_anchor_dict,
 )
 from .startup_context_compaction import (
+    compact_bypass_lifecycles,
     compact_connectivity_registry,
     compact_packet_carry_forward_debt,
     compact_packet_continuity_index,
@@ -198,9 +199,9 @@ class StartupContext:
         )
         d["continuity_attention"] = dict(self.continuity_attention)
         if self.bypass_lifecycles:
-            d["bypass_lifecycles"] = [
-                lifecycle.to_dict() for lifecycle in self.bypass_lifecycles
-            ]
+            d["bypass_lifecycles"] = compact_bypass_lifecycles(
+                self.bypass_lifecycles
+            )
         d["key_surfaces"] = list(self.key_surfaces)
         d["snapshot_id"] = self.snapshot_id
         d["zref"] = self.zref
@@ -226,6 +227,7 @@ class StartupContext:
         if self.reviewer_runtime is not None:
             reviewer_runtime = asdict(self.reviewer_runtime)
             reviewer_runtime.pop("session_posture", None)
+            reviewer_runtime.pop("remote_control_attachment", None)
             d["reviewer_runtime"] = reviewer_runtime
         if self.session_posture is not None:
             d["session_posture"] = self.session_posture.to_dict()

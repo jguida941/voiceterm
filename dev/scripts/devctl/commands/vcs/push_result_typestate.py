@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, assert_never
+from typing import Literal
 
 from ...runtime import ActionResult
 from ...runtime.action_contracts import (
@@ -11,6 +11,7 @@ from ...runtime.action_contracts import (
     ACTION_RESULT_SCHEMA_VERSION,
     ActionOutcome,
 )
+from ...runtime.typing_compat import assert_never
 
 
 @dataclass(frozen=True, slots=True)

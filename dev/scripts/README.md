@@ -3305,6 +3305,28 @@ Receipt-state evidence note:
   decorator unless a typed plan explicitly migrates the existing receipt
   lifecycle.
 
+Feature-proof output truth note:
+- `dev/scripts/devctl/runtime/feature_proof_receipt.py` owns
+  `NonTrivialOutputProof` and the remediation finding payload for legacy FPRs.
+  New FPR construction that has repo-root context must reject unresolved or
+  circular evidence refs before the receipt is accepted.
+- `dev/scripts/checks/check_non_trivial_output_proof.py` is the fail-closed
+  guard over existing `proven_passed` FPR artifacts. It checks ref resolution,
+  pytest-node evidence (`::` in `tests_run`), and circular FPR self-reference,
+  then writes `dev/state/non_trivial_output_proof_remediation_findings.jsonl`
+  when asked to backfill remediation findings.
+
+Packet TTL and registry identity note:
+- `dev/scripts/devctl/runtime/packet_transport_expiry.py` owns per-kind packet
+  TTLs: `task_produced` is 30 days, `decision` is 14 days, and `question` plus
+  `finding` are 7 days. `packet_kind_ttl.py` mirrors peer-heartbeat evidence
+  for alive/expired/missing packet-kind status.
+- `dev/scripts/checks/check_contract_registry_composite_key_uniqueness.py`
+  guards `(contract_id, schema_version)` uniqueness in
+  `dev/state/contract_registry.jsonl`. Same-owner artifact/runtime duplicates
+  are deduped by `platform/contract_registry.py`; divergent owner forks remain
+  explicit policy TODOs until operator direction chooses the canonical owner.
+
 Remote Evidence Queue note:
 - `dev/scripts/devctl/remote_evidence_queue/` owns the first async-proof
   reconciliation substrate: `RemoteValidationReceipt` plus

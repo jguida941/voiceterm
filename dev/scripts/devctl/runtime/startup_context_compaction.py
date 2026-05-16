@@ -15,6 +15,11 @@ class ReviewerGateLike(Protocol):
     operator_interaction_mode: str
 
 
+def compact_bypass_lifecycles(lifecycles: tuple[object, ...]) -> list[dict[str, object]]:
+    """Project active bypass authority without embedding the full lifecycle graph."""
+    return [_compact_bypass_lifecycle(lifecycle) for lifecycle in lifecycles]
+
+
 def startup_runtime_truth_dict(
     runtime_truth: RuntimeTruthSnapshot,
 ) -> dict[str, object]:
@@ -94,6 +99,58 @@ def compact_packet_carry_forward_debt(
     return bounded
 
 
+def _compact_bypass_lifecycle(lifecycle: object) -> dict[str, object]:
+    request = getattr(lifecycle, "request", None)
+    evaluation = getattr(lifecycle, "evaluation", None)
+    receipt = getattr(lifecycle, "receipt", None)
+    expiry = getattr(lifecycle, "expiry", None)
+    payload: dict[str, object] = {
+        "contract_id": _text(getattr(lifecycle, "contract_id", "BypassLifecycle")),
+        "schema_version": getattr(lifecycle, "schema_version", 1),
+        "lifecycle_id": _text(getattr(lifecycle, "lifecycle_id", "")),
+        "state": _text(getattr(lifecycle, "state", "")),
+    }
+    if request is not None:
+        _put(payload, "scope", getattr(request, "scope", ""))
+        _put(payload, "actor", getattr(request, "actor", ""))
+        _put(payload, "target_role", getattr(request, "target_role", ""))
+        _put(payload, "target_session_id", getattr(request, "target_session_id", ""))
+        _put(payload, "target_surface", getattr(request, "target_surface", ""))
+    if evaluation is not None:
+        _put(payload, "approved_scope", getattr(evaluation, "approved_scope", ""))
+    if receipt is not None:
+        _put(payload, "receipt_id", getattr(receipt, "receipt_id", ""))
+        _put(payload, "granted_at_utc", getattr(receipt, "granted_at_utc", ""))
+        _put(payload, "expires_at_utc", getattr(receipt, "expires_at_utc", ""))
+        _put(payload, "revoked_at_utc", getattr(receipt, "revoked_at_utc", ""))
+    if expiry is not None:
+        _put(payload, "expiry_id", getattr(expiry, "expiry_id", ""))
+        _put(payload, "expired_at_utc", getattr(expiry, "expired_at_utc", ""))
+        _put(payload, "expiry_source", getattr(expiry, "source", ""))
+    return payload
+
+
+def _put(payload: dict[str, object], key: str, value: object) -> None:
+    text = _text(value)
+    if text:
+        payload[key] = text
+
+
+def _bounded_strings(values: object, *, limit: int = 3) -> list[str]:
+    items = [_text(item) for item in (values or ()) if _text(item)]
+    bounded = items[:limit]
+    if len(items) > limit:
+        bounded.append(f"...{len(items) - limit} more")
+    return bounded
+
+
+def _text(value: object) -> str:
+    enum_value = getattr(value, "value", None)
+    if enum_value is not None:
+        return str(enum_value)
+    return str(value or "")
+
+
 _RUNTIME_TRUTH_FIELDS = (
     "contract_id",
     "generated_at_utc",
@@ -113,6 +170,7 @@ _RUNTIME_TRUTH_FIELDS = (
 
 
 __all__ = [
+    "compact_bypass_lifecycles",
     "compact_connectivity_registry",
     "compact_packet_carry_forward_debt",
     "compact_packet_continuity_index",

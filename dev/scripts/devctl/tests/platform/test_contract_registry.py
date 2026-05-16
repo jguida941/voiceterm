@@ -15,7 +15,13 @@ def test_build_contract_registry_rows_covers_blueprint_contracts_and_artifacts()
 
     rows = build_contract_registry_rows(blueprint)
 
-    assert len(rows) == len(blueprint.shared_contracts) + len(blueprint.artifact_schemas)
+    assert len(rows) <= len(blueprint.shared_contracts) + len(blueprint.artifact_schemas)
+    assert len(
+        {
+            (row.registered_contract_id, row.registered_schema_version, row.python_owner_path)
+            for row in rows
+        }
+    ) == len(rows)
     assert any(
         row.entry_kind == "shared_contract"
         and row.registered_contract_id == "PlatformContractRegistryRow"

@@ -10,11 +10,6 @@ from pathlib import Path
 from ..runtime.review_state_collaboration_models import (
     granted_capabilities_from_row as _granted_capabilities,
 )
-from ..runtime.packet_transport_expiry import (
-    TRANSPORT_EXPIRY_EXPLICIT_METADATA_KEY,
-    packet_kind_allows_optional_transport_expiry,
-    packet_uses_transport_expiry,
-)
 from ..runtime.review_state_locator import load_current_review_state_payload
 from .event_models import ReviewChannelEventBundle
 from .event_reducer import (
@@ -29,7 +24,6 @@ from .event_reducer import (
 )
 from .context_refs import normalize_context_pack_refs
 from .event_store import (
-    DEFAULT_PACKET_TTL_MINUTES,
     DEFAULT_REVIEW_ARTIFACT_ROOT_REL,
     DEFAULT_REVIEW_CHANNEL_PLAN_ID,
     DEFAULT_REVIEW_CHANNEL_SESSION_ID,
@@ -40,7 +34,6 @@ from .event_store import (
     append_event,
     artifact_paths_to_dict,
     event_state_exists,
-    future_utc_timestamp,
     load_events,
     next_event_id,
     resolve_artifact_paths,
@@ -65,6 +58,7 @@ from .packet_agents import (
     packet_agent_ids_from_session_output,
 )
 from .post_packet_runtime import finalize_post_packet
+from .post_expiry import apply_post_transport_expiry
 
 
 def post_packet(
@@ -175,11 +169,7 @@ def post_packet(
         "expires_at_utc": "",
         "metadata": metadata,
     }
-    expiry_minutes = _post_transport_expiry_minutes(request=request, event=event)
-    if expiry_minutes is not None:
-        event["expires_at_utc"] = future_utc_timestamp(minutes=expiry_minutes)
-        if packet_kind_allows_optional_transport_expiry(event.get("kind")):
-            metadata[TRANSPORT_EXPIRY_EXPLICIT_METADATA_KEY] = True
+    apply_post_transport_expiry(request=request, event=event, metadata=metadata)
 
     # Persist event and refresh reduced state
     written_event = append_event(
@@ -199,20 +189,6 @@ def post_packet(
         artifact_paths=artifact_paths,
     )
     return bundle, written_event
-
-
-def _post_transport_expiry_minutes(
-    *,
-    request: PacketPostRequest,
-    event: Mapping[str, object],
-) -> int | None:
-    """Return the TTL minutes to stamp on a newly posted packet, if any."""
-    requested = _positive_int(request.expires_in_minutes)
-    if packet_kind_allows_optional_transport_expiry(event.get("kind")):
-        return requested
-    if packet_uses_transport_expiry(event):
-        return requested or DEFAULT_PACKET_TTL_MINUTES
-    return None
 
 
 def transition_packet(
@@ -477,14 +453,6 @@ def _mapping_rows(value: object) -> tuple[Mapping[str, object], ...]:
 
 def _is_live(row: Mapping[str, object]) -> bool:
     return bool(row.get("live")) or _text(row.get("status")).lower() == "live"
-
-
-def _positive_int(value: object) -> int | None:
-    try:
-        number = int(value)
-    except (TypeError, ValueError):
-        return None
-    return number if number > 0 else None
 
 
 def _text(value: object) -> str:

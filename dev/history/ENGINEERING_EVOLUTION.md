@@ -16168,3 +16168,32 @@ Evidence:
 - `dev/scripts/devctl/platform/runtime_identity_contract_rows_commit.py`
 - `dev/scripts/devctl/tests/commands/test_raw_git.py`
 - `dev/test_data/schema_fixtures/PlanRowClosureReceipt/1`
+
+### 2026-05-16 - Output truth and packet TTL keystone guards
+
+The governance quality sweep adds three structural guardrails. First,
+`NonTrivialOutputProof` validates every proven `FeatureProofReceipt` across
+artifact resolution, real pytest-node evidence, and circular-reference checks;
+the guard writes remediation findings for existing legacy receipts instead of
+silently rewriting history. New commit receipt construction now rejects
+unresolved or circular output refs when repo-root proof is available.
+
+Second, packet transport expiry now has per-kind TTLs for the packet kinds that
+were accumulating without closure: `task_produced` uses 30 days, `decision`
+uses 14 days, and `question`/`finding` use 7 days. The resolver in
+`packet_kind_ttl.py` mirrors the peer-heartbeat pattern so packet pressure can
+differentiate alive, expired, missing, and unsupported packet kinds.
+
+Third, the contract registry now dedupes same-owner artifact/runtime
+re-emissions and checks composite `(contract_id, schema_version)` collisions.
+Known divergent owner forks for `RustAuditReport` and `SecurityReport` remain
+policy-decision TODOs until the operator chooses canonical owner paths.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/feature_proof_receipt.py`
+- `dev/scripts/checks/check_non_trivial_output_proof.py`
+- `dev/scripts/devctl/runtime/packet_transport_expiry.py`
+- `dev/scripts/devctl/runtime/packet_kind_ttl.py`
+- `dev/scripts/checks/check_contract_registry_composite_key_uniqueness.py`
+- `dev/state/non_trivial_output_proof_remediation_findings.jsonl`

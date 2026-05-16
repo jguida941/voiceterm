@@ -28,9 +28,17 @@ from dev.scripts.devctl.runtime.raw_git_bypass_receipts import (
 )
 
 
+def _real_test_ref(repo_root: Path, test_name: str = "test_raw_git_real_proof") -> str:
+    path = repo_root / "dev/scripts/devctl/tests/commands/test_raw_git.py"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"def {test_name}():\n    assert True\n", encoding="utf-8")
+    return f"{path.relative_to(repo_root)}::{test_name}"
+
+
 def test_raw_git_commit_wrapper_emits_receipt(tmp_path: Path) -> None:
     calls: list[tuple[str, ...]] = []
     state = {"committed": False}
+    real_test_ref = _real_test_ref(tmp_path, "test_raw_git_commit_wrapper_emits_receipt")
 
     def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
         calls.append(args)
@@ -53,12 +61,12 @@ def test_raw_git_commit_wrapper_emits_receipt(tmp_path: Path) -> None:
         bypass_lifecycle_id="",
         operator_quote_evidence_ref=["packet:rev_pkt_4022"],
         feature_id="MP-NEW-P207-FEATURE-PROOF-RECEIPT-EMISSION-S2",
-        test_command=["python3 dev/scripts/devctl.py test-python --suite devctl --path dev/scripts/devctl/tests/commands/test_raw_git.py"],
+        test_command=[real_test_ref],
         tests_passed_count=1,
         tests_failed_count=0,
         connectivity_guard=["check_feature_has_proof_receipt"],
         connectivity_guards_passed="true",
-        dogfood_evidence_ref="test:raw-git-wrapper",
+        dogfood_evidence_ref=real_test_ref,
         review_fleet_role=["FeatureLifecycleProof"],
         review_fleet_actor="claude",
         real_life_test_status="proven_passed",
@@ -97,10 +105,55 @@ def test_raw_git_commit_wrapper_emits_receipt(tmp_path: Path) -> None:
     assert f"raw_git_bypass_receipt:{receipts[0].receipt_id}" in proof.bypass_audit_trail_refs
 
 
+def test_raw_git_commit_wrapper_validates_lifecycle_before_git(
+    tmp_path: Path,
+) -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
+        calls.append(args)
+        return GitCommandResult(0, "", "")
+
+    args = Namespace(
+        raw_git_action="commit",
+        git_args=["-m", "slice"],
+        actor="codex",
+        authority="bypass_lifecycle_receipt",
+        bypass_lifecycle_id="gel:bypass:fabricated",
+        operator_quote_evidence_ref=["packet:rev_pkt_4022"],
+        feature_id="MP-NEW-P207-FEATURE-PROOF-RECEIPT-EMISSION-S2",
+        test_command=[],
+        tests_passed_count=0,
+        tests_failed_count=0,
+        connectivity_guard=[],
+        connectivity_guards_passed="true",
+        dogfood_evidence_ref="",
+        review_fleet_role=[],
+        review_fleet_actor="claude",
+        real_life_test_status="not_tested_with_rationale",
+        not_tested_rationale="preflight failure",
+        evidence_artifact=[],
+        store_path="dev/state/raw_git_bypass_receipts.jsonl",
+        bypass_lifecycle_store_path="dev/state/bypass_lifecycles.jsonl",
+        governed_exception_store_path="dev/state/governed_exception_lifecycles.jsonl",
+    )
+
+    report, rc = run_raw_git_action(args, repo_root=tmp_path, git_runner=fake_git)
+
+    assert rc == 1
+    assert report["ok"] is False
+    assert report["reason"] == "bypass_authority_invalid"
+    assert calls == []
+
+
 def test_raw_git_commit_wrapper_records_raw_commit_when_hook_advances_head(
     tmp_path: Path,
 ) -> None:
     state = {"committed": False}
+    real_test_ref = _real_test_ref(
+        tmp_path,
+        "test_raw_git_commit_wrapper_records_raw_commit_when_hook_advances_head",
+    )
 
     def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
         if args == ("rev-parse", "HEAD"):
@@ -124,12 +177,12 @@ def test_raw_git_commit_wrapper_records_raw_commit_when_hook_advances_head(
         bypass_lifecycle_id="",
         operator_quote_evidence_ref=["packet:rev_pkt_4026"],
         feature_id="",
-        test_command=[],
-        tests_passed_count=None,
+        test_command=[real_test_ref],
+        tests_passed_count=1,
         tests_failed_count=None,
-        connectivity_guard=[],
+        connectivity_guard=["check_non_trivial_output_proof"],
         connectivity_guards_passed="true",
-        dogfood_evidence_ref="",
+        dogfood_evidence_ref=real_test_ref,
         review_fleet_role=[],
         review_fleet_actor="raw-git-wrapper",
         real_life_test_status="",
@@ -178,6 +231,10 @@ def test_raw_git_commit_wrapper_transitions_plan_rows_to_applied(
         ),
     )
     state = {"committed": False}
+    real_test_ref = _real_test_ref(
+        tmp_path,
+        "test_raw_git_commit_wrapper_transitions_plan_rows_to_applied",
+    )
 
     def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
         if args == ("rev-parse", "HEAD"):
@@ -211,12 +268,12 @@ def test_raw_git_commit_wrapper_transitions_plan_rows_to_applied(
         bypass_lifecycle_id="",
         operator_quote_evidence_ref=["packet:rev_pkt_4147"],
         feature_id="",
-        test_command=["python3 dev/scripts/devctl.py test-python"],
+        test_command=[real_test_ref],
         tests_passed_count=1,
         tests_failed_count=0,
         connectivity_guard=["check_feature_has_proof_receipt"],
         connectivity_guards_passed="true",
-        dogfood_evidence_ref="test:raw-git-plan-row-reducer",
+        dogfood_evidence_ref=real_test_ref,
         review_fleet_role=["FeatureLifecycleProof"],
         review_fleet_actor="claude",
         real_life_test_status="proven_passed",
@@ -304,11 +361,67 @@ def test_commit_to_plan_row_reducer_skips_noop_receipt_for_applied_row(
     assert row.work_evidence_ids == ("feature_proof_receipt:first.json",)
 
 
+def test_raw_git_commit_wrapper_fails_closed_on_trivial_feature_proof(
+    tmp_path: Path,
+) -> None:
+    state = {"committed": False}
+
+    def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
+        if args == ("rev-parse", "HEAD"):
+            return GitCommandResult(0, "abc123\n" if state["committed"] else "base\n", "")
+        if args == ("rev-parse", "--verify", "@{u}"):
+            return GitCommandResult(1, "", "no upstream")
+        if args == ("commit", "--no-verify", "-m", "slice"):
+            state["committed"] = True
+            return GitCommandResult(0, "committed\n", "")
+        if args == ("rev-list", "--reverse", "base..abc123"):
+            return GitCommandResult(0, "abc123\n", "")
+        if args == ("diff-tree", "--no-commit-id", "--name-only", "-r", "abc123"):
+            return GitCommandResult(0, "dev/scripts/devctl.py\n", "")
+        return GitCommandResult(1, "", "not found")
+
+    args = Namespace(
+        raw_git_action="commit",
+        git_args=["--no-verify", "-m", "slice"],
+        actor="codex",
+        authority="operator_witnessed",
+        bypass_lifecycle_id="",
+        operator_quote_evidence_ref=["packet:rev_pkt_4022"],
+        feature_id="MP-NEW-P207-S4",
+        test_command=["python3 dev/scripts/devctl.py test-python"],
+        tests_passed_count=1,
+        tests_failed_count=0,
+        connectivity_guard=["check_feature_has_proof_receipt"],
+        connectivity_guards_passed="true",
+        dogfood_evidence_ref="test:raw-git-wrapper",
+        review_fleet_role=["FeatureLifecycleProof"],
+        review_fleet_actor="claude",
+        real_life_test_status="proven_passed",
+        not_tested_rationale="",
+        evidence_artifact=["dev/state/raw_git_bypass_receipts.jsonl"],
+        store_path="dev/state/raw_git_bypass_receipts.jsonl",
+        bypass_lifecycle_store_path="dev/state/bypass_lifecycles.jsonl",
+        governed_exception_store_path="dev/state/governed_exception_lifecycles.jsonl",
+    )
+
+    report, rc = run_raw_git_action(args, repo_root=tmp_path, git_runner=fake_git)
+
+    assert rc == 1
+    assert report["ok"] is False
+    assert "non_trivial_output_proof_ref_failure" in str(report["error"])
+    assert "no_real_tests" in str(report["error"])
+    assert not (tmp_path / feature_proof_receipt_artifact_relpath("abc123")).exists()
+
+
 def test_raw_git_commit_wrapper_fails_closed_when_feature_proof_write_fails(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
     state = {"committed": False}
+    real_test_ref = _real_test_ref(
+        tmp_path,
+        "test_raw_git_commit_wrapper_fails_closed_when_feature_proof_write_fails",
+    )
 
     def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
         if args == ("rev-parse", "HEAD"):
@@ -339,12 +452,12 @@ def test_raw_git_commit_wrapper_fails_closed_when_feature_proof_write_fails(
         bypass_lifecycle_id="",
         operator_quote_evidence_ref=["packet:rev_pkt_4022"],
         feature_id="MP-NEW-P207-S4",
-        test_command=["python3 dev/scripts/devctl.py test-python"],
+        test_command=[real_test_ref],
         tests_passed_count=1,
         tests_failed_count=0,
         connectivity_guard=["check_feature_has_proof_receipt"],
         connectivity_guards_passed="true",
-        dogfood_evidence_ref="test:raw-git-wrapper",
+        dogfood_evidence_ref=real_test_ref,
         review_fleet_role=["FeatureLifecycleProof"],
         review_fleet_actor="claude",
         real_life_test_status="proven_passed",
@@ -371,6 +484,7 @@ def test_raw_git_commit_wrapper_fails_closed_when_feature_proof_write_fails(
 
 def test_raw_git_push_wrapper_records_push_range(tmp_path: Path) -> None:
     state = {"pushed": False}
+    real_test_ref = _real_test_ref(tmp_path, "test_raw_git_push_wrapper_records_push_range")
 
     def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
         if args == ("rev-parse", "HEAD"):
@@ -394,12 +508,12 @@ def test_raw_git_push_wrapper_records_push_range(tmp_path: Path) -> None:
         bypass_lifecycle_id="",
         operator_quote_evidence_ref=["packet:rev_pkt_4021", "packet:rev_pkt_4022"],
         feature_id="MP-NEW-P207-FEATURE-PROOF-RECEIPT-EMISSION-S2",
-        test_command=[],
-        tests_passed_count=None,
+        test_command=[real_test_ref],
+        tests_passed_count=1,
         tests_failed_count=None,
-        connectivity_guard=[],
+        connectivity_guard=["check_non_trivial_output_proof"],
         connectivity_guards_passed="true",
-        dogfood_evidence_ref="",
+        dogfood_evidence_ref=real_test_ref,
         review_fleet_role=[],
         review_fleet_actor="raw-git-wrapper",
         real_life_test_status="",

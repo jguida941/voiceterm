@@ -21,7 +21,10 @@ from .agent_loop_decision_builder import (
 )
 from .agent_loop_decision_models import AgentLoopDecision
 from .session_termination_policy import TaskCompleteDecision
-from .value_coercion import coerce_bool, coerce_int, coerce_text as _text
+from .value_coercion import (
+    coerce_bool,
+    coerce_text as _text,
+)
 from .agent_loop_decision_sources import (
     AgentLoopContext,
     PacketState,

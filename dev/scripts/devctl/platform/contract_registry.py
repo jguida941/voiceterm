@@ -56,7 +56,40 @@ def build_contract_registry_rows(
                 parity_command=DEFAULT_CONTRACT_REGISTRY_PARITY_COMMAND,
             )
         )
-    return tuple(sorted(rows, key=lambda row: row.key()))
+    return _dedupe_same_owner_rows(tuple(sorted(rows, key=lambda row: row.key())))
+
+
+def _dedupe_same_owner_rows(
+    rows: tuple[ContractRegistryRow, ...],
+) -> tuple[ContractRegistryRow, ...]:
+    """Collapse duplicate registrations when they point at one owner path.
+
+    Runtime contracts can also be artifact schemas. When both rows use the same
+    contract id, schema version, and owner path, the registry keeps the artifact
+    row as the canonical external artifact surface and lets the blueprint retain
+    the runtime dataclass contract for closure checks.
+    """
+    buckets: dict[tuple[str, int], list[ContractRegistryRow]] = {}
+    for row in rows:
+        buckets.setdefault(
+            (row.registered_contract_id, row.registered_schema_version),
+            [],
+        ).append(row)
+
+    deduped: list[ContractRegistryRow] = []
+    for grouped in buckets.values():
+        owner_keys = {
+            (row.python_owner_path, row.rust_owner_path)
+            for row in grouped
+        }
+        if len(grouped) > 1 and len(owner_keys) == 1:
+            artifact_rows = [
+                row for row in grouped if row.entry_kind == "artifact_schema"
+            ]
+            deduped.append(artifact_rows[0] if artifact_rows else grouped[0])
+            continue
+        deduped.extend(grouped)
+    return tuple(sorted(deduped, key=lambda row: row.key()))
 
 
 def read_contract_registry_rows(path: Path) -> tuple[ContractRegistryRow, ...]:

@@ -257,6 +257,16 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Peer provider expected for cross-mind polling.",
             ),
             ContractField(
+                "digest_sidecar_enabled",
+                "bool",
+                "Whether peer polling should be delegated to a digest sidecar.",
+            ),
+            ContractField(
+                "digest_sidecar_provider",
+                "str",
+                "Provider whose state the digest sidecar should read.",
+            ),
+            ContractField(
                 "cadence_seconds",
                 "int",
                 "Maximum age of peer-poll evidence before a boundary is due.",
@@ -283,16 +293,16 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         owner_layer="governance_runtime",
         purpose=(
             "Typed agent-message boundary decision that either opens an "
-            "unobserved packet body, polls peer state, or allows current work "
-            "to continue."
+            "unobserved packet body, launches a digest sidecar, polls peer "
+            "state, or allows current work to continue."
         ),
         required_fields=(
             ContractField(
                 "action",
                 "str",
                 (
-                    "Boundary action: open_packet_body, poll_peer_state, "
-                    "or continue_current_work."
+                    "Boundary action: open_packet_body, launch_digest_sidecar, "
+                    "poll_peer_state, or continue_current_work."
                 ),
             ),
             ContractField("reason", "str", "Machine-readable reason for the decision."),
@@ -310,9 +320,19 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Whether packet body observation takes priority.",
             ),
             ContractField(
+                "sidecar_required",
+                "bool",
+                "Whether the decision requires a digest sidecar before continuing.",
+            ),
+            ContractField(
                 "blocking_packet_id",
                 "str",
                 "Packet id that must be opened before continuing.",
+            ),
+            ContractField(
+                "sidecar_provider",
+                "str",
+                "Provider whose state the sidecar should digest.",
             ),
             ContractField(
                 "next_commands",

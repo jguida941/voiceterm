@@ -69,6 +69,7 @@ def startup_quality_blocker_inputs(
     orphan_snapshot = deps.build_orphan_snapshot_projection(
         repo_root=repo_root,
         review_state=review_state,
+        scan_scope="startup_context",
         scan_trigger="startup_context",
     )
     quality_signals = deps.compact_startup_quality_signals(

@@ -122,7 +122,12 @@ class InventoryCollector:
         self.rows.extend(rows)
 
     def add_stashes(self) -> None:
-        sources, warnings = scan_stashes(self.context.root)
+        startup_scan = self.context.scan_scope == "startup_context"
+        sources, warnings = scan_stashes(
+            self.context.root,
+            include_file_paths=not startup_scan,
+            max_stashes=8 if startup_scan else 0,
+        )
 
         self.add_sources(sources)
         self.warnings.extend(warnings)
