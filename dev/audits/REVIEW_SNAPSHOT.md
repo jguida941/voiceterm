@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `08895a8aa7c9` — Document role review completion guard
-- Tree hash: `35b5a9ed5e94`
-- Generation stamp: `snap-ca2ee02c71c7`
-- Generated at (UTC): 2026-05-16T21:34:57Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `be28caed31a8` — Refresh external review snapshot for 08895a8a
+- Tree hash: `37f26bdd40ab`
+- Generation stamp: `snap-a622f400c416`
+- Generated at (UTC): 2026-05-16T21:49:27Z
+- Push decision: `await_checkpoint` — staged_index_present
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 75 files, +6054/-1560
+- Delta since last snapshot: 24 commits, 75 files, +6066/-1569
 - Governance findings: 44 open / 0 fixed / 44 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,23 +28,23 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `08895a8aa7c9d11bf486f4ce562df5b724627c30`
+- HEAD SHA: `be28caed31a81544c98c85124ed0a9b4d38fba8a`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-05-16T17:34:31-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
+- action: `await_checkpoint`
+- reason: staged_index_present
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 1
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- next_step_command: `n/a`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 27 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 28 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -60,16 +60,16 @@ production client (VoiceTerm...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `08895a8aa7c9`
+Range: last 24 commits ending at `be28caed31a8`
 
-- commits: 25
+- commits: 24
 - files changed: 75
-- insertions: +6054
-- deletions: -1560
+- insertions: +6066
+- deletions: -1569
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 2 file(s)
 
@@ -77,31 +77,30 @@ Range: last 25 commits ending at `08895a8aa7c9`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `08895a8a` | Document role review completion guard | 3 | +84/-89 | tooling |  |
-| 2 | `f0577b3b` | Refresh policy-owned generated surfaces for 996c3335 | 1 | +1/-1 | docs |  |
-| 3 | `996c3335` | Refresh external review snapshot for c433c686 | 2 | +55/-61 | docs |  |
-| 4 | `c433c686` | MP-378 require resolvable pytest proof nodes | 5 | +247/-51 | tooling |  |
-| 5 | `b632df44` | Refresh external review snapshot for ad84e97b | 2 | +64/-70 | docs |  |
-| 6 | `ad84e97b` | MP-378 record pytest nodes in feature proof receipts | 4 | +196/-49 | tooling |  |
-| 7 | `00ab91b8` | Refresh external review snapshot for 494e0914 | 2 | +65/-73 | docs |  |
-| 8 | `494e0914` | MP-378 require role review timeout governance chain | 3 | +141/-53 | tooling |  |
-| 9 | `b707ad20` | Refresh external review snapshot for aa840939 | 2 | +58/-62 | docs |  |
-| 10 | `aa840939` | MP-378 add governed transition typechecker proof | 8 | +1149/-68 | tooling |  |
-| 11 | `ab38e2a8` | Refresh external review snapshot for b38d2bd7 | 2 | +59/-64 | docs |  |
-| 12 | `b38d2bd7` | MP-378 add bypass expire error code proof | 7 | +61/-52 | tooling |  |
-| 13 | `9283311c` | Refresh external review snapshot for 54bb3a07 | 2 | +66/-75 | docs |  |
-| 14 | `54bb3a07` | MP-378 repair packet debt and bypass expiry proof | 19 | +800/-143 | tooling |  |
-| 15 | `12328ec3` | Refresh external review snapshot for e9de52ef | 2 | +67/-73 | docs |  |
-| 16 | `e9de52ef` | MP-NEW-P209 add bypass expire CLI | 7 | +384/-68 | tooling |  |
-| 17 | `4ca0ae78` | MP-NEW-P208 enforce terminal role-review proof | 32 | +1077/-118 | tooling |  |
-| 18 | `3e795e8e` | Refresh external review snapshot for eb937a97 | 2 | +52/-55 | docs |  |
-| 19 | `eb937a97` | MP377-P0-T22AN-AB: record closure receipts for cf51bd8a | 2 | +4/-2 | tooling |  |
-| 20 | `ba0512b6` | Refresh external review snapshot for cf51bd8a | 2 | +45/-49 | docs |  |
-| 21 | `cf51bd8a` | MP377-P0-T22AN-AB: close role-review fixtures and TTL drift | 15 | +405/-20 | tooling |  |
-| 22 | `a2746730` | Refresh external review snapshot for 55c53a5b | 2 | +67/-66 | docs |  |
-| 23 | `55c53a5b` | Add role-review lifecycle and pytest policy proof | 16 | +861/-151 | tooling |  |
-| 24 | `cdb1b09d` | Refresh external review snapshot for 82d5e789 | 2 | +44/-46 | docs |  |
-| 25 | `82d5e789` | MP-NEW-P230-OUTPUT-TRUTH-SPINE-S1: record closure receipts | 2 | +2/-1 | tooling |  |
+| 1 | `be28caed` | Refresh external review snapshot for 08895a8a | 2 | +58/-56 | docs |  |
+| 2 | `08895a8a` | Document role review completion guard | 3 | +84/-89 | tooling |  |
+| 3 | `f0577b3b` | Refresh policy-owned generated surfaces for 996c3335 | 1 | +1/-1 | docs |  |
+| 4 | `996c3335` | Refresh external review snapshot for c433c686 | 2 | +55/-61 | docs |  |
+| 5 | `c433c686` | MP-378 require resolvable pytest proof nodes | 5 | +247/-51 | tooling |  |
+| 6 | `b632df44` | Refresh external review snapshot for ad84e97b | 2 | +64/-70 | docs |  |
+| 7 | `ad84e97b` | MP-378 record pytest nodes in feature proof receipts | 4 | +196/-49 | tooling |  |
+| 8 | `00ab91b8` | Refresh external review snapshot for 494e0914 | 2 | +65/-73 | docs |  |
+| 9 | `494e0914` | MP-378 require role review timeout governance chain | 3 | +141/-53 | tooling |  |
+| 10 | `b707ad20` | Refresh external review snapshot for aa840939 | 2 | +58/-62 | docs |  |
+| 11 | `aa840939` | MP-378 add governed transition typechecker proof | 8 | +1149/-68 | tooling |  |
+| 12 | `ab38e2a8` | Refresh external review snapshot for b38d2bd7 | 2 | +59/-64 | docs |  |
+| 13 | `b38d2bd7` | MP-378 add bypass expire error code proof | 7 | +61/-52 | tooling |  |
+| 14 | `9283311c` | Refresh external review snapshot for 54bb3a07 | 2 | +66/-75 | docs |  |
+| 15 | `54bb3a07` | MP-378 repair packet debt and bypass expiry proof | 19 | +800/-143 | tooling |  |
+| 16 | `12328ec3` | Refresh external review snapshot for e9de52ef | 2 | +67/-73 | docs |  |
+| 17 | `e9de52ef` | MP-NEW-P209 add bypass expire CLI | 7 | +384/-68 | tooling |  |
+| 18 | `4ca0ae78` | MP-NEW-P208 enforce terminal role-review proof | 32 | +1077/-118 | tooling |  |
+| 19 | `3e795e8e` | Refresh external review snapshot for eb937a97 | 2 | +52/-55 | docs |  |
+| 20 | `eb937a97` | MP377-P0-T22AN-AB: record closure receipts for cf51bd8a | 2 | +4/-2 | tooling |  |
+| 21 | `ba0512b6` | Refresh external review snapshot for cf51bd8a | 2 | +45/-49 | docs |  |
+| 22 | `cf51bd8a` | MP377-P0-T22AN-AB: close role-review fixtures and TTL drift | 15 | +405/-20 | tooling |  |
+| 23 | `a2746730` | Refresh external review snapshot for 55c53a5b | 2 | +67/-66 | docs |  |
+| 24 | `55c53a5b` | Add role-review lifecycle and pytest policy proof | 16 | +861/-151 | tooling |  |
 
 ### Files
 
@@ -109,9 +108,9 @@ Range: last 25 commits ending at `08895a8aa7c9`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +1/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +3/-0 |
-| `bridge.md` | docs | +70/-70 |
+| `bridge.md` | docs | +73/-73 |
 | `dev/active/MASTER_PLAN.md` | tooling | +10/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1168/-1217 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1179/-1224 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +22/-21 |
 | `dev/scripts/README.md` | tooling | +1/-0 |
 | `dev/scripts/checks/check_role_review_completed.py` | tooling | +12/-0 |
@@ -214,6 +213,7 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`be28caed`** — Refresh external review snapshot for 08895a8a
 - **`08895a8a`** — Document role review completion guard
 - **`f0577b3b`** — Refresh policy-owned generated surfaces for 996c3335
 - **`996c3335`** — Refresh external review snapshot for c433c686
@@ -237,9 +237,6 @@ Recent findings:
 - **`cf51bd8a`** — MP377-P0-T22AN-AB: close role-review fixtures and TTL drift
 - **`a2746730`** — Refresh external review snapshot for 55c53a5b
 - **`55c53a5b`** — Add role-review lifecycle and pytest policy proof
-- **`cdb1b09d`** — Refresh external review snapshot for 82d5e789
-- **`82d5e789`** — MP-NEW-P230-OUTPUT-TRUTH-SPINE-S1: record closure receipts
-  - Refs: a3303fd531efc130ce357703968e2b0e46993a7c rev_pkt_4157 rev_pkt_4171
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -258,10 +255,10 @@ Recent findings:
 - open governance findings: 44
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: dirty_after_local_checkpoint
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Relaunch the reviewer loop immediately.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/pipeline/command.py`): dogfood.command.pipeline: Auto-ingested devctl finalization failure rc=1.
@@ -283,4 +280,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-ca2ee02c71c7` binds this file to HEAD `08895a8aa7c9`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-a622f400c416` binds this file to HEAD `be28caed31a8`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
