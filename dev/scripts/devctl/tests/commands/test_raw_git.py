@@ -10,11 +10,13 @@ from dev.scripts.devctl.runtime.governed_exception_store import (
     load_governed_exception_lifecycles,
 )
 from dev.scripts.devctl.runtime.feature_proof_receipt import (
+    FeatureProofReceipt,
     feature_proof_receipt_artifact_relpath,
     feature_proof_receipt_from_mapping,
 )
 from dev.scripts.devctl.runtime.commit_to_plan_row_reducer import (
     DEFAULT_PLAN_ROW_CLOSURE_RECEIPT_STORE_REL,
+    reduce_feature_proof_to_plan_rows,
 )
 from dev.scripts.devctl.runtime.master_plan_contract import PlanRow
 from dev.scripts.devctl.runtime.master_plan_store import (
@@ -244,6 +246,62 @@ def test_raw_git_commit_wrapper_transitions_plan_rows_to_applied(
     receipt_lines = receipt_store.read_text(encoding="utf-8").splitlines()
     assert len(receipt_lines) == 2
     assert all("transitioned_to_applied" in line for line in receipt_lines)
+
+
+def test_commit_to_plan_row_reducer_skips_noop_receipt_for_applied_row(
+    tmp_path: Path,
+) -> None:
+    row_id = "MP-NEW-P229-COMMIT-TO-PLAN-ROW-REDUCER-S1"
+    plan_index_path = tmp_path / "dev/state/plan_index.jsonl"
+    write_plan_rows_jsonl(
+        plan_index_path,
+        (
+            PlanRow(
+                row_id=row_id,
+                title="Already closed row",
+                status="applied",
+                sdlc_stage="impl",
+                commit_anchor_ref="commit:first",
+                applied_at_utc="2026-05-16T00:31:01Z",
+                anchor_refs=("commit:first",),
+                work_evidence_ids=("feature_proof_receipt:first.json",),
+            ),
+        ),
+    )
+    feature_proof = FeatureProofReceipt(
+        feature_id=row_id,
+        commit_sha="second",
+        implementer_actor="codex",
+        review_fleet_roles_ran=("FeatureLifecycleProof",),
+        review_fleet_actor="claude",
+        tests_run=("pytest",),
+        tests_passed_count=1,
+        tests_failed_count=0,
+        connectivity_guards_ran=("check_feature_has_proof_receipt",),
+        connectivity_guards_passed=True,
+        dogfood_invocation_evidence_ref="test:already-applied-row",
+        real_life_test_status="proven_passed",
+        not_tested_rationale=None,
+        bypass_audit_trail_refs=("raw_git_bypass_receipt:receipt",),
+        proven_at_utc="2026-05-16T00:32:01Z",
+        evidence_artifacts=("dev/state/plan_index.jsonl",),
+    )
+
+    results = reduce_feature_proof_to_plan_rows(
+        repo_root=tmp_path,
+        feature_proof=feature_proof,
+        feature_ids=(row_id,),
+        feature_proof_receipt_path="dev/reports/feature_proof_receipts/second.json",
+    )
+
+    assert len(results) == 1
+    assert results[0].outcome == "already_applied"
+    assert results[0].changed is False
+    assert not (tmp_path / DEFAULT_PLAN_ROW_CLOSURE_RECEIPT_STORE_REL).exists()
+    row = read_plan_rows_jsonl(plan_index_path)[0]
+    assert row.commit_anchor_ref == "commit:first"
+    assert row.anchor_refs == ("commit:first",)
+    assert row.work_evidence_ids == ("feature_proof_receipt:first.json",)
 
 
 def test_raw_git_commit_wrapper_fails_closed_when_feature_proof_write_fails(

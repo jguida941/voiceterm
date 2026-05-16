@@ -138,6 +138,18 @@ def reduce_feature_proof_to_plan_rows(
         if changed:
             upsert_plan_row_jsonl(plan_index_path, updated)
             by_id[row_id] = updated
+        if not changed and outcome == "already_applied":
+            results.append(
+                CommitToPlanRowReductionResult(
+                    ok=True,
+                    plan_row_id=row_id,
+                    commit_sha=commit_sha,
+                    outcome=outcome,
+                    plan_index_path=_display_path(plan_index_path, repo_root),
+                    receipt_path=_display_path(receipt_store_path, repo_root),
+                )
+            )
+            continue
         receipt = _closure_receipt(
             row_id=row_id,
             commit_sha=commit_sha,
@@ -208,6 +220,8 @@ def _row_with_commit_closure(
             "transitioned_to_applied",
         )
     if row.status in APPLIED_PLAN_ROW_STATUSES:
+        if row.commit_anchor_ref and row.applied_at_utc:
+            return row, "already_applied"
         updated = _with_commit_metadata(
             row,
             commit_sha=commit_sha,
