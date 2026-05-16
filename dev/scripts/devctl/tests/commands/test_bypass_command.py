@@ -229,6 +229,7 @@ def test_bypass_expire_persists_expired_lifecycle(
     assert payload["state"] == "bypass_expired"
     assert payload["source"] == "time_bound"
     assert payload["dry_run"] is False
+    assert payload["error_code"] == ""
     assert payload["inputs_scanned"]
     assert "active_lifecycle_resolved:true" in payload["assertions_evaluated"]
     assert "store_rewrite_completed" in payload["assertions_evaluated"]
@@ -298,6 +299,7 @@ def test_bypass_expire_dry_run_does_not_mutate_store(
     payload = json.loads(capsys.readouterr().out)
     assert payload["ok"] is True
     assert payload["dry_run"] is True
+    assert payload["error_code"] == ""
     assert payload["state"] == "bypass_expired"
     assert payload["write_result"]["dry_run"] is True
     assert payload["write_result"]["would_replace"] is True
@@ -404,6 +406,7 @@ def test_bypass_expire_missing_lifecycle_reports_proof_fields(
     assert payload["ok"] is False
     assert payload["dry_run"] is True
     assert payload["error"] == "active_bypass_lifecycle_not_found"
+    assert payload["error_code"] == "active_bypass_lifecycle_not_found"
     assert "active_lifecycle_resolved:false" in payload["assertions_evaluated"]
     assert "receipt_id:bypass:missing" in payload["inputs_scanned"]
     assert "bypass_receipt:bypass:missing" in payload["proof_evidence_refs"]

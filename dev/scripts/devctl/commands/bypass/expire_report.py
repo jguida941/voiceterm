@@ -26,6 +26,7 @@ class BypassExpireReport:
     assertions_evaluated: tuple[str, ...] = ()
     proof_evidence_refs: tuple[str, ...] = ()
     write_result: Mapping[str, object] | None = None
+    error_code: str = ""
     error: str = ""
 
     def to_dict(self) -> dict[str, object]:

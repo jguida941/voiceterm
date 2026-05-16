@@ -121,6 +121,7 @@ def expire_action(args: Any) -> tuple[dict[str, object], int]:
         return (
             BypassExpireReport(
                 error="active_bypass_lifecycle_not_found",
+                error_code="active_bypass_lifecycle_not_found",
                 dry_run=dry_run,
                 lifecycle_id=lifecycle_id,
                 receipt_id=receipt_id,
