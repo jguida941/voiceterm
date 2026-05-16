@@ -17,6 +17,7 @@ from .feature_proof_receipt import (
     require_non_circular_resolved_output_refs,
     write_feature_proof_receipt_artifact,
 )
+from .feature_proof_test_refs import pytest_node_refs_for_paths
 from .governance_proposed_contracts import FeatureLifecycleProof, LifecycleReceipt
 from .remote_commit_pipeline_models import RemoteCommitPipelineContract
 from .receipt_state_gate import require_receipt_state
@@ -314,12 +315,19 @@ def build_feature_proof_receipt(
     validation_bundle_id = (
         coerce_string(validation.bundle_id) if validation is not None else ""
     )
+    plan = pipeline.intent.validation_plan
+    selected_paths = plan.selected_paths if plan is not None else ()
+    pytest_node_refs = pytest_node_refs_for_paths(
+        selected_paths,
+        repo_root=repo_root,
+    )
     guard_ref = _guard_action_ref(pipeline.guard_action_id)
     tests_run = _unique_refs(
         (
             _ref("validation_plan", validation_plan_id),
             _ref("validation_bundle", validation_bundle_id),
             guard_ref,
+            *pytest_node_refs,
         )
     )
     connectivity_guards = _unique_refs(

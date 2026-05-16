@@ -163,6 +163,62 @@ def test_feature_proof_receipt_covers_operator_proof_chain(tmp_path: Path) -> No
     assert parsed.real_life_test_status == "proven_passed"
 
 
+def test_feature_proof_receipt_includes_selected_pytest_node_ids(
+    tmp_path: Path,
+) -> None:
+    test_relpath = "dev/scripts/devctl/tests/runtime/test_selected.py"
+    test_path = tmp_path / test_relpath
+    test_path.parent.mkdir(parents=True)
+    test_path.write_text(
+        "\n".join(
+            (
+                "def test_selected_path_is_recorded():",
+                "    assert True",
+                "",
+                "class TestSelectedClass:",
+                "    def test_method_is_recorded(self):",
+                "        assert True",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    _write_json(tmp_path / "dev/reports/commit_receipts/abc123.json")
+    _write_json(tmp_path / "dev/reports/feature_lifecycle_proofs/abc123.json")
+    pipeline = replace(
+        _pipeline(),
+        intent=CommitIntentState(
+            validation_plan=ValidationPlan(
+                plan_id="MP377-COMMIT-RECEIPT-EVIDENCE-CHAIN-S1",
+                bundle_id="runtime",
+                staged_tree_hash="tree-1",
+                selected_paths=(test_relpath,),
+            )
+        ),
+    )
+    receipt = build_commit_receipt(pipeline, recorded_at_utc="2026-05-11T23:05:00Z")
+    lifecycle_proof = build_feature_lifecycle_proof(pipeline, receipt)
+
+    feature_proof = build_feature_proof_receipt(
+        pipeline,
+        receipt,
+        lifecycle_proof=lifecycle_proof,
+        evidence_artifacts=(
+            "dev/reports/commit_receipts/abc123.json",
+            "dev/reports/feature_lifecycle_proofs/abc123.json",
+        ),
+        repo_root=tmp_path,
+    )
+
+    assert f"{test_relpath}::test_selected_path_is_recorded" in feature_proof.tests_run
+    assert (
+        f"{test_relpath}::TestSelectedClass::test_method_is_recorded"
+        in feature_proof.tests_run
+    )
+    proof = validate_non_trivial_output_proof(feature_proof, repo_root=tmp_path)
+    assert proof.has_real_tests is True
+
+
 def test_commit_receipt_consumes_role_review_lifecycle_evidence() -> None:
     lifecycle = _role_review_lifecycle()
     pipeline = replace(_pipeline(), role_review_lifecycles=(lifecycle,))
@@ -612,6 +668,11 @@ def _pipeline() -> RemoteCommitPipelineContract:
         ),
         generation_id="gen-1",
     )
+
+
+def _write_json(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{}\n", encoding="utf-8")
 
 
 def _role_review_lifecycle() -> RoleReviewAssignmentLifecycle:
