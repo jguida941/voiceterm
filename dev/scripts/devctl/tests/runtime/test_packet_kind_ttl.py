@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+from dev.scripts.devctl.runtime.collaboration_packet_kinds import TASK_PRODUCED_PACKET_KIND
 from dev.scripts.devctl.runtime.packet_kind_ttl import (
     DECISION_TTL_EVIDENCE_CONTRACT_ID,
     FINDING_TTL_EVIDENCE_CONTRACT_ID,
+    DecisionTtlEvidence,
+    FindingTtlEvidence,
     QUESTION_TTL_EVIDENCE_CONTRACT_ID,
     TASK_PRODUCED_TTL_EVIDENCE_CONTRACT_ID,
+    QuestionTtlEvidence,
+    TaskProducedTtlEvidence,
     resolve_decision_ttl,
     resolve_finding_ttl,
     resolve_question_ttl,
     resolve_task_produced_ttl,
 )
+from dev.scripts.devctl.runtime.packet_transport_expiry import PACKET_KIND_TTL_SECONDS
 
 
 def test_task_produced_ttl_evidence_expires_after_thirty_days() -> None:
@@ -29,7 +35,7 @@ def test_task_produced_ttl_evidence_expires_after_thirty_days() -> None:
     assert evidence.contract_id == TASK_PRODUCED_TTL_EVIDENCE_CONTRACT_ID
     assert evidence.status == "expired"
     assert evidence.expired is True
-    assert evidence.ttl_seconds == 30 * 24 * 60 * 60
+    assert evidence.ttl_seconds == PACKET_KIND_TTL_SECONDS[TASK_PRODUCED_PACKET_KIND]
     assert evidence.expires_at_utc == "2026-05-31T00:00:00Z"
 
 
@@ -50,7 +56,7 @@ def test_question_ttl_evidence_uses_seven_day_window() -> None:
     assert evidence.contract_id == QUESTION_TTL_EVIDENCE_CONTRACT_ID
     assert evidence.status == "alive"
     assert evidence.expired is False
-    assert evidence.ttl_seconds == 7 * 24 * 60 * 60
+    assert evidence.ttl_seconds == PACKET_KIND_TTL_SECONDS["question"]
 
 
 def test_decision_ttl_evidence_ignores_resolved_packet() -> None:
@@ -79,7 +85,7 @@ def test_decision_ttl_evidence_ignores_resolved_packet() -> None:
     assert evidence.contract_id == DECISION_TTL_EVIDENCE_CONTRACT_ID
     assert evidence.packet_id == "rev_pkt_decision_new"
     assert evidence.status == "alive"
-    assert evidence.ttl_seconds == 14 * 24 * 60 * 60
+    assert evidence.ttl_seconds == PACKET_KIND_TTL_SECONDS["decision"]
 
 
 def test_finding_ttl_evidence_reports_missing_when_no_unresolved_packet() -> None:
@@ -91,7 +97,17 @@ def test_finding_ttl_evidence_reports_missing_when_no_unresolved_packet() -> Non
     assert evidence.contract_id == FINDING_TTL_EVIDENCE_CONTRACT_ID
     assert evidence.status == "missing"
     assert evidence.packet_id == ""
-    assert evidence.ttl_seconds == 7 * 24 * 60 * 60
+    assert evidence.ttl_seconds == PACKET_KIND_TTL_SECONDS["finding"]
+
+
+def test_specialized_ttl_evidence_defaults_consume_transport_policy() -> None:
+    assert (
+        TaskProducedTtlEvidence().ttl_seconds
+        == PACKET_KIND_TTL_SECONDS[TASK_PRODUCED_PACKET_KIND]
+    )
+    assert QuestionTtlEvidence().ttl_seconds == PACKET_KIND_TTL_SECONDS["question"]
+    assert DecisionTtlEvidence().ttl_seconds == PACKET_KIND_TTL_SECONDS["decision"]
+    assert FindingTtlEvidence().ttl_seconds == PACKET_KIND_TTL_SECONDS["finding"]
 
 
 def _packet(

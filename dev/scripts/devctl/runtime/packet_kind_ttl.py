@@ -29,10 +29,6 @@ TASK_PRODUCED_TTL_EVIDENCE_CONTRACT_ID = "TaskProducedTtlEvidence"
 QUESTION_TTL_EVIDENCE_CONTRACT_ID = "QuestionTtlEvidence"
 DECISION_TTL_EVIDENCE_CONTRACT_ID = "DecisionTtlEvidence"
 FINDING_TTL_EVIDENCE_CONTRACT_ID = "FindingTtlEvidence"
-TASK_PRODUCED_TTL_SECONDS = PACKET_KIND_TTL_SECONDS[TASK_PRODUCED_PACKET_KIND]
-QUESTION_TTL_SECONDS = PACKET_KIND_TTL_SECONDS["question"]
-DECISION_TTL_SECONDS = PACKET_KIND_TTL_SECONDS["decision"]
-FINDING_TTL_SECONDS = PACKET_KIND_TTL_SECONDS["finding"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,35 +51,37 @@ class PacketKindTtl:
 
 @dataclass(frozen=True, slots=True)
 class PacketKindTtlEvidence(PacketKindTtl):
-    pass
+    def __post_init__(self) -> None:
+        if self.ttl_seconds <= 0 and self.packet_kind:
+            object.__setattr__(
+                self,
+                "ttl_seconds",
+                packet_kind_default_ttl_seconds(self.packet_kind),
+            )
 
 
 @dataclass(frozen=True, slots=True)
 class TaskProducedTtlEvidence(PacketKindTtlEvidence):
     contract_id: str = TASK_PRODUCED_TTL_EVIDENCE_CONTRACT_ID
     packet_kind: str = TASK_PRODUCED_PACKET_KIND
-    ttl_seconds: int = TASK_PRODUCED_TTL_SECONDS
 
 
 @dataclass(frozen=True, slots=True)
 class QuestionTtlEvidence(PacketKindTtlEvidence):
     contract_id: str = QUESTION_TTL_EVIDENCE_CONTRACT_ID
     packet_kind: str = "question"
-    ttl_seconds: int = QUESTION_TTL_SECONDS
 
 
 @dataclass(frozen=True, slots=True)
 class DecisionTtlEvidence(PacketKindTtlEvidence):
     contract_id: str = DECISION_TTL_EVIDENCE_CONTRACT_ID
     packet_kind: str = "decision"
-    ttl_seconds: int = DECISION_TTL_SECONDS
 
 
 @dataclass(frozen=True, slots=True)
 class FindingTtlEvidence(PacketKindTtlEvidence):
     contract_id: str = FINDING_TTL_EVIDENCE_CONTRACT_ID
     packet_kind: str = "finding"
-    ttl_seconds: int = FINDING_TTL_SECONDS
 
 
 PacketKindTtlEvidenceType: TypeAlias = type[PacketKindTtlEvidence]
