@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `bfd73b2ff94f` — Refresh external review snapshot for 6f057634
-- Tree hash: `43f1708d9e4a`
-- Generation stamp: `snap-574ba3ccf05e`
-- Generated at (UTC): 2026-05-16T22:01:31Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `d7591b71a9b2` — Bind task-started packets to plan rows
+- Tree hash: `39a0609b5c22`
+- Generation stamp: `snap-568ce95b7397`
+- Generated at (UTC): 2026-05-16T22:06:01Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 69 files, +5251/-1467
+- Delta since last snapshot: 24 commits, 62 files, +4901/-1496
 - Governance findings: 44 open / 0 fixed / 44 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,23 +28,23 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `bfd73b2ff94f65e44a819b98f1b44a3f308e6f71`
+- HEAD SHA: `d7591b71a9b234e32024141cd83688b8102ead79`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-16T17:53:30-04:00
+- HEAD timestamp (UTC): 2026-05-16T18:05:34-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_present
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 3
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 30 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 31 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -60,47 +60,47 @@ production client (VoiceTerm...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `bfd73b2ff94f`
+Range: last 24 commits ending at `d7591b71a9b2`
 
 - commits: 24
-- files changed: 69
-- insertions: +5251
-- deletions: -1467
-- bundle classes touched: docs, tooling
+- files changed: 62
+- insertions: +4901
+- deletions: -1496
+- bundle classes touched: tooling, docs
 - authority surfaces touched: 2 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `bfd73b2f` | Refresh external review snapshot for 6f057634 | 2 | +63/-63 | docs |  |
-| 2 | `6f057634` | Record ground-truth receipt for governance push | 2 | +50/-52 | tooling |  |
-| 3 | `be28caed` | Refresh external review snapshot for 08895a8a | 2 | +58/-56 | docs |  |
-| 4 | `08895a8a` | Document role review completion guard | 3 | +84/-89 | tooling |  |
-| 5 | `f0577b3b` | Refresh policy-owned generated surfaces for 996c3335 | 1 | +1/-1 | docs |  |
-| 6 | `996c3335` | Refresh external review snapshot for c433c686 | 2 | +55/-61 | docs |  |
-| 7 | `c433c686` | MP-378 require resolvable pytest proof nodes | 5 | +247/-51 | tooling |  |
-| 8 | `b632df44` | Refresh external review snapshot for ad84e97b | 2 | +64/-70 | docs |  |
-| 9 | `ad84e97b` | MP-378 record pytest nodes in feature proof receipts | 4 | +196/-49 | tooling |  |
-| 10 | `00ab91b8` | Refresh external review snapshot for 494e0914 | 2 | +65/-73 | docs |  |
-| 11 | `494e0914` | MP-378 require role review timeout governance chain | 3 | +141/-53 | tooling |  |
-| 12 | `b707ad20` | Refresh external review snapshot for aa840939 | 2 | +58/-62 | docs |  |
-| 13 | `aa840939` | MP-378 add governed transition typechecker proof | 8 | +1149/-68 | tooling |  |
-| 14 | `ab38e2a8` | Refresh external review snapshot for b38d2bd7 | 2 | +59/-64 | docs |  |
-| 15 | `b38d2bd7` | MP-378 add bypass expire error code proof | 7 | +61/-52 | tooling |  |
-| 16 | `9283311c` | Refresh external review snapshot for 54bb3a07 | 2 | +66/-75 | docs |  |
-| 17 | `54bb3a07` | MP-378 repair packet debt and bypass expiry proof | 19 | +800/-143 | tooling |  |
-| 18 | `12328ec3` | Refresh external review snapshot for e9de52ef | 2 | +67/-73 | docs |  |
-| 19 | `e9de52ef` | MP-NEW-P209 add bypass expire CLI | 7 | +384/-68 | tooling |  |
-| 20 | `4ca0ae78` | MP-NEW-P208 enforce terminal role-review proof | 32 | +1077/-118 | tooling |  |
-| 21 | `3e795e8e` | Refresh external review snapshot for eb937a97 | 2 | +52/-55 | docs |  |
-| 22 | `eb937a97` | MP377-P0-T22AN-AB: record closure receipts for cf51bd8a | 2 | +4/-2 | tooling |  |
-| 23 | `ba0512b6` | Refresh external review snapshot for cf51bd8a | 2 | +45/-49 | docs |  |
-| 24 | `cf51bd8a` | MP377-P0-T22AN-AB: close role-review fixtures and TTL drift | 15 | +405/-20 | tooling |  |
+| 1 | `d7591b71` | Bind task-started packets to plan rows | 4 | +55/-49 | tooling |  |
+| 2 | `bfd73b2f` | Refresh external review snapshot for 6f057634 | 2 | +63/-63 | docs |  |
+| 3 | `6f057634` | Record ground-truth receipt for governance push | 2 | +50/-52 | tooling |  |
+| 4 | `be28caed` | Refresh external review snapshot for 08895a8a | 2 | +58/-56 | docs |  |
+| 5 | `08895a8a` | Document role review completion guard | 3 | +84/-89 | tooling |  |
+| 6 | `f0577b3b` | Refresh policy-owned generated surfaces for 996c3335 | 1 | +1/-1 | docs |  |
+| 7 | `996c3335` | Refresh external review snapshot for c433c686 | 2 | +55/-61 | docs |  |
+| 8 | `c433c686` | MP-378 require resolvable pytest proof nodes | 5 | +247/-51 | tooling |  |
+| 9 | `b632df44` | Refresh external review snapshot for ad84e97b | 2 | +64/-70 | docs |  |
+| 10 | `ad84e97b` | MP-378 record pytest nodes in feature proof receipts | 4 | +196/-49 | tooling |  |
+| 11 | `00ab91b8` | Refresh external review snapshot for 494e0914 | 2 | +65/-73 | docs |  |
+| 12 | `494e0914` | MP-378 require role review timeout governance chain | 3 | +141/-53 | tooling |  |
+| 13 | `b707ad20` | Refresh external review snapshot for aa840939 | 2 | +58/-62 | docs |  |
+| 14 | `aa840939` | MP-378 add governed transition typechecker proof | 8 | +1149/-68 | tooling |  |
+| 15 | `ab38e2a8` | Refresh external review snapshot for b38d2bd7 | 2 | +59/-64 | docs |  |
+| 16 | `b38d2bd7` | MP-378 add bypass expire error code proof | 7 | +61/-52 | tooling |  |
+| 17 | `9283311c` | Refresh external review snapshot for 54bb3a07 | 2 | +66/-75 | docs |  |
+| 18 | `54bb3a07` | MP-378 repair packet debt and bypass expiry proof | 19 | +800/-143 | tooling |  |
+| 19 | `12328ec3` | Refresh external review snapshot for e9de52ef | 2 | +67/-73 | docs |  |
+| 20 | `e9de52ef` | MP-NEW-P209 add bypass expire CLI | 7 | +384/-68 | tooling |  |
+| 21 | `4ca0ae78` | MP-NEW-P208 enforce terminal role-review proof | 32 | +1077/-118 | tooling |  |
+| 22 | `3e795e8e` | Refresh external review snapshot for eb937a97 | 2 | +52/-55 | docs |  |
+| 23 | `eb937a97` | MP377-P0-T22AN-AB: record closure receipts for cf51bd8a | 2 | +4/-2 | tooling |  |
+| 24 | `ba0512b6` | Refresh external review snapshot for cf51bd8a | 2 | +45/-49 | docs |  |
 
 ### Files
 
@@ -108,9 +108,9 @@ Range: last 24 commits ending at `bfd73b2ff94f`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +1/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +3/-0 |
-| `bridge.md` | docs | +67/-67 |
-| `dev/active/MASTER_PLAN.md` | tooling | +9/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1171/-1215 |
+| `bridge.md` | docs | +60/-60 |
+| `dev/active/MASTER_PLAN.md` | tooling | +8/-0 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1220/-1264 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +22/-21 |
 | `dev/scripts/README.md` | tooling | +1/-0 |
 | `dev/scripts/checks/check_role_review_completed.py` | tooling | +12/-0 |
@@ -142,11 +142,11 @@ Range: last 24 commits ending at `bfd73b2ff94f`
 | `dev/scripts/devctl/runtime/governed_transition_typechecker.py` | tooling | +341/-0 |
 | `dev/scripts/devctl/runtime/governed_transition_typechecker_helpers.py` | tooling | +128/-0 |
 | `dev/scripts/devctl/runtime/governed_transition_typechecker_models.py` | tooling | +106/-0 |
-| `dev/scripts/devctl/runtime/packet_kind_ttl.py` | tooling | +24/-13 |
+| `dev/scripts/devctl/runtime/packet_kind_ttl.py` | tooling | +17/-4 |
 | `dev/scripts/devctl/runtime/ref_collections.py` | tooling | +22/-0 |
 | `dev/scripts/devctl/runtime/remote_commit_pipeline_models.py` | tooling | +9/-8 |
 | `dev/scripts/devctl/runtime/remote_commit_pipeline_parsers.py` | tooling | +30/-0 |
-| _29 more files trimmed_ | | |
+| _22 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -213,6 +213,7 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`d7591b71`** — Bind task-started packets to plan rows
 - **`bfd73b2f`** — Refresh external review snapshot for 6f057634
 - **`6f057634`** — Record ground-truth receipt for governance push
 - **`be28caed`** — Refresh external review snapshot for 08895a8a
@@ -236,7 +237,6 @@ Recent findings:
 - **`3e795e8e`** — Refresh external review snapshot for eb937a97
 - **`eb937a97`** — MP377-P0-T22AN-AB: record closure receipts for cf51bd8a
 - **`ba0512b6`** — Refresh external review snapshot for cf51bd8a
-- **`cf51bd8a`** — MP377-P0-T22AN-AB: close role-review fixtures and TTL drift
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -255,10 +255,10 @@ Recent findings:
 - open governance findings: 44
 
 ### Startup advisories
-- checkpoint_before_continue: dirty_after_local_checkpoint
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Relaunch the reviewer loop immediately.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/pipeline/command.py`): dogfood.command.pipeline: Auto-ingested devctl finalization failure rc=1.
@@ -280,4 +280,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-574ba3ccf05e` binds this file to HEAD `bfd73b2ff94f`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-568ce95b7397` binds this file to HEAD `d7591b71a9b2`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
