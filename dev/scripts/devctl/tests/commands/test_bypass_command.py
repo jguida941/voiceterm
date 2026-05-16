@@ -61,6 +61,7 @@ def test_bypass_parser_accepts_expire_source_and_receipt() -> None:
             "time_bound",
             "--reason",
             "receipt expired",
+            "--dry-run",
             "--format",
             "json",
         ]
@@ -71,6 +72,7 @@ def test_bypass_parser_accepts_expire_source_and_receipt() -> None:
     assert args.receipt_id == "bypass:test-grant"
     assert args.source == "time_bound"
     assert args.reason == "receipt expired"
+    assert args.dry_run is True
 
 
 def test_bypass_grant_persists_active_lifecycle(
@@ -226,12 +228,185 @@ def test_bypass_expire_persists_expired_lifecycle(
     assert payload["receipt_id"] == "bypass:expire-grant"
     assert payload["state"] == "bypass_expired"
     assert payload["source"] == "time_bound"
+    assert payload["dry_run"] is False
+    assert payload["inputs_scanned"]
+    assert "active_lifecycle_resolved:true" in payload["assertions_evaluated"]
+    assert "store_rewrite_completed" in payload["assertions_evaluated"]
+    assert "bypass_receipt:bypass:expire-grant" in payload["proof_evidence_refs"]
+    assert "stop_anchor:rev_pkt_test" in payload["proof_evidence_refs"]
     lifecycles = load_bypass_lifecycles(store)
     assert len(lifecycles) == 1
     lifecycle = lifecycles[0]
     assert lifecycle.state.value == "bypass_expired"
     assert lifecycle.expiry is not None
     assert lifecycle.expiry.evidence_refs == ("stop_anchor:rev_pkt_test",)
+
+
+def test_bypass_expire_dry_run_does_not_mutate_store(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    parser = argparse.ArgumentParser()
+    sub = parser.add_subparsers(dest="command", required=True)
+    bypass.add_parser(sub)
+    store = tmp_path / "bypass_lifecycles.jsonl"
+    grant_args = parser.parse_args(
+        [
+            "bypass",
+            "grant",
+            "--scope",
+            "edit-only",
+            "--reason",
+            "operator approved dry-run repair",
+            "--request-id",
+            "dry-run-grant",
+            "--store-path",
+            str(store),
+            "--classifier-settings-path",
+            str(tmp_path / "settings.local.json"),
+            "--format",
+            "json",
+        ]
+    )
+    assert bypass.run(grant_args) == 0
+    before = store.read_text(encoding="utf-8")
+    capsys.readouterr()
+
+    expire_args = parser.parse_args(
+        [
+            "bypass",
+            "expire",
+            "--receipt-id",
+            "bypass:dry-run-grant",
+            "--source",
+            "time_bound",
+            "--reason",
+            "receipt expired under dry-run",
+            "--store-path",
+            str(store),
+            "--evidence-ref",
+            "test:dry-run",
+            "--dry-run",
+            "--format",
+            "json",
+        ]
+    )
+
+    rc = bypass.run(expire_args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["dry_run"] is True
+    assert payload["state"] == "bypass_expired"
+    assert payload["write_result"]["dry_run"] is True
+    assert payload["write_result"]["would_replace"] is True
+    assert "store_rewrite_skipped_dry_run" in payload["assertions_evaluated"]
+    assert "test:dry-run" in payload["proof_evidence_refs"]
+    assert store.read_text(encoding="utf-8") == before
+    lifecycle = load_bypass_lifecycles(store)[0]
+    assert lifecycle.state.value == "bypass_active"
+    assert lifecycle.expiry is None
+
+
+def test_bypass_expire_can_close_overdue_active_lifecycle(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    parser = argparse.ArgumentParser()
+    sub = parser.add_subparsers(dest="command", required=True)
+    bypass.add_parser(sub)
+    store = tmp_path / "bypass_lifecycles.jsonl"
+    grant_args = parser.parse_args(
+        [
+            "bypass",
+            "grant",
+            "--scope",
+            "edit-only",
+            "--reason",
+            "operator approved overdue repair",
+            "--request-id",
+            "overdue-grant",
+            "--store-path",
+            str(store),
+            "--classifier-settings-path",
+            str(tmp_path / "settings.local.json"),
+            "--format",
+            "json",
+        ]
+    )
+    assert bypass.run(grant_args) == 0
+    capsys.readouterr()
+    row = json.loads(store.read_text(encoding="utf-8").splitlines()[0])
+    row["receipt"]["expires_at_utc"] = "2000-01-01T00:00:00Z"
+    store.write_text(json.dumps(row, sort_keys=True) + "\n", encoding="utf-8")
+
+    expire_args = parser.parse_args(
+        [
+            "bypass",
+            "expire",
+            "--receipt-id",
+            "bypass:overdue-grant",
+            "--source",
+            "time_bound",
+            "--reason",
+            "overdue receipt expired",
+            "--store-path",
+            str(store),
+            "--format",
+            "json",
+        ]
+    )
+
+    rc = bypass.run(expire_args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["state"] == "bypass_expired"
+    assert "active_lifecycle_resolved:true" in payload["assertions_evaluated"]
+    lifecycle = load_bypass_lifecycles(store)[0]
+    assert lifecycle.state.value == "bypass_expired"
+    assert lifecycle.expiry is not None
+    assert lifecycle.expiry.source.value == "time_bound"
+
+
+def test_bypass_expire_missing_lifecycle_reports_proof_fields(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    parser = argparse.ArgumentParser()
+    sub = parser.add_subparsers(dest="command", required=True)
+    bypass.add_parser(sub)
+    store = tmp_path / "bypass_lifecycles.jsonl"
+    args = parser.parse_args(
+        [
+            "bypass",
+            "expire",
+            "--receipt-id",
+            "bypass:missing",
+            "--source",
+            "time_bound",
+            "--reason",
+            "receipt expired",
+            "--store-path",
+            str(store),
+            "--dry-run",
+            "--format",
+            "json",
+        ]
+    )
+
+    rc = bypass.run(args)
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["dry_run"] is True
+    assert payload["error"] == "active_bypass_lifecycle_not_found"
+    assert "active_lifecycle_resolved:false" in payload["assertions_evaluated"]
+    assert "receipt_id:bypass:missing" in payload["inputs_scanned"]
+    assert "bypass_receipt:bypass:missing" in payload["proof_evidence_refs"]
 
 
 def test_bypass_attest_projects_existing_active_lifecycle(

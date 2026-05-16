@@ -267,6 +267,19 @@ def test_bypass_lifecycle_expiry_records_stop_anchor_event() -> None:
     assert expired.expiry.source is BypassExpirySource.STOP_ANCHOR
     assert expired.expiry.evidence_refs == ("packet:rev_pkt_3846",)
     assert expired.receipt == lifecycle.receipt
+    assert expired.governed_exception is not None
+    assert expired.governed_exception.status == "closed"
+    assert expired.governed_exception.resolution is not None
+    assert expired.governed_exception.closure_proof is not None
+    assert (
+        expired.governed_exception.resolution.validation_receipt_id
+        == expired.expiry.expiry_id
+    )
+    assert (
+        expired.governed_exception.closure_proof.validation_receipt_id
+        == expired.expiry.expiry_id
+    )
+    assert validate_governed_exception_lifecycle(expired.governed_exception) == ()
 
 
 def test_bypass_lifecycle_revoke_updates_registered_receipt() -> None:
@@ -287,6 +300,12 @@ def test_bypass_lifecycle_revoke_updates_registered_receipt() -> None:
     assert revoked.receipt is not None
     assert revoked.receipt.state is BypassLifecycleState.REVOKED
     assert revoked.receipt.revoked_at_utc == "2026-05-12T16:20:00Z"
+    assert revoked.governed_exception is not None
+    assert revoked.governed_exception.status == "closed"
+    assert revoked.governed_exception.resolution is not None
+    assert revoked.governed_exception.resolution.root_cause_class == (
+        "bypass_lifecycle_operator_revoke"
+    )
     assert not is_bypass_active(
         revoked.receipt.receipt_id, BypassAuthorityScope.EDIT_ONLY
     )

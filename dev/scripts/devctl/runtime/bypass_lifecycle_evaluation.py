@@ -25,6 +25,11 @@ from .bypass_lifecycle_models import (
     BypassReceipt,
     BypassRequest,
 )
+from .bypass_lifecycle_closure import (
+    BypassExceptionClosureInput,
+    closed_governed_exception_for_bypass_expiry,
+)
+from .bypass_lifecycle_receipts import revoked_bypass_receipt
 from .bypass_lifecycle_registry import DEFAULT_BYPASS_REGISTRY
 from .correlation_spine import correlation_context_for_ref
 from .governed_exception_receipts import ExceptionReceipt
@@ -104,6 +109,7 @@ def grant_lifetime_bypass(receipt: BypassReceipt) -> "GovernedExceptionRecord":
     )
     worktree_refs = (f"requested_authority_scope:{receipt.requested_authority_scope}",)
     exception_receipt_id = f"exception:{receipt.receipt_id}"
+
     exception_context = correlation_context_for_ref(
         "exception_receipt",
         exception_receipt_id,
@@ -112,6 +118,7 @@ def grant_lifetime_bypass(receipt: BypassReceipt) -> "GovernedExceptionRecord":
         run_kind="validation_plan",
         run_ref_value="MP377-LIFETIME-BYPASS-MODE-S1",
     )
+
     exception = ExceptionReceipt(
         receipt_id=exception_receipt_id,
         action_kind=_ACTION_KIND_BY_SCOPE[receipt.requested_authority_scope],
@@ -132,6 +139,7 @@ def grant_lifetime_bypass(receipt: BypassReceipt) -> "GovernedExceptionRecord":
         causation_id=exception_context.causation_id,
         run_id=exception_context.run_id,
     )
+
     lifecycle = GovernedExceptionLifecycle(
         lifecycle_id=f"gel:bypass:{receipt.receipt_id}",
         status="operator_approved",
@@ -145,6 +153,7 @@ def grant_lifetime_bypass(receipt: BypassReceipt) -> "GovernedExceptionRecord":
         created_at_utc=receipt.granted_at_utc,
         updated_at_utc=receipt.granted_at_utc,
     )
+
     DEFAULT_BYPASS_REGISTRY.register_receipt(receipt)
     return lifecycle
 
@@ -177,6 +186,7 @@ def evaluate_bypass_request(
     """Evaluate a typed bypass request and issue a governed receipt when approved."""
     authority_evidence_refs = _authority_evidence_refs(request=request, evidence=evidence)
     denial_reason = _bypass_request_denial_reason(request=request, evidence=evidence)
+
     if denial_reason:
         evaluation = BypassEvaluation(
             evaluation_id=f"bypass-eval:{request.request_id}",
@@ -205,7 +215,9 @@ def evaluate_bypass_request(
         granted_by_operator_actor_id=request.actor,
         expires_at_utc=evidence.expires_at_utc,
     )
+
     governed_exception = grant_lifetime_bypass(receipt)
+
     evaluation = BypassEvaluation(
         evaluation_id=f"bypass-eval:{request.request_id}",
         request_id=request.request_id,
@@ -223,6 +235,7 @@ def evaluate_bypass_request(
             *evidence.policy_evidence_refs,
         ),
     )
+
     lifecycle = BypassLifecycle(
         lifecycle_id=governed_exception.lifecycle_id,
         state=BypassLifecycleState.ACTIVE,
@@ -236,6 +249,7 @@ def evaluate_bypass_request(
             governed_exception.lifecycle_id,
         ),
     )
+
     DEFAULT_BYPASS_REGISTRY.register_lifecycle(lifecycle)
     return lifecycle
 
@@ -268,6 +282,7 @@ def expire_bypass_lifecycle(
 ) -> BypassLifecycle:
     """Return a lifecycle with a typed expiry/revoke event attached."""
     receipt_id = lifecycle.receipt.receipt_id if lifecycle.receipt else ""
+
     expiry = BypassExpiry(
         expiry_id=f"bypass-expiry:{receipt_id or lifecycle.lifecycle_id}",
         receipt_id=receipt_id,
@@ -276,55 +291,45 @@ def expire_bypass_lifecycle(
         reason=reason,
         evidence_refs=evidence_refs,
     )
+
     state = (
         BypassLifecycleState.REVOKED
         if source is BypassExpirySource.OPERATOR_REVOKE
         else BypassLifecycleState.EXPIRED
     )
-    receipt = _revoked_receipt(
+
+    receipt = revoked_bypass_receipt(
         lifecycle.receipt,
         expired_at_utc=expired_at_utc,
         reason=reason,
         source=source,
     )
+
+    governed_exception = closed_governed_exception_for_bypass_expiry(
+        lifecycle.governed_exception,
+        BypassExceptionClosureInput(
+            expiry=expiry,
+            state=state,
+            expired_at_utc=expired_at_utc,
+            reason=reason,
+            source=source,
+            evidence_refs=evidence_refs,
+        ),
+    )
+
     updated = BypassLifecycle(
         lifecycle_id=lifecycle.lifecycle_id,
         state=state,
         request=lifecycle.request,
         evaluation=lifecycle.evaluation,
         receipt=receipt,
-        governed_exception=lifecycle.governed_exception,
+        governed_exception=governed_exception,
         expiry=expiry,
         activation_evidence_refs=lifecycle.activation_evidence_refs,
     )
+
     DEFAULT_BYPASS_REGISTRY.register_lifecycle(updated)
     return updated
-
-
-def _revoked_receipt(
-    receipt: BypassReceipt | None,
-    *,
-    expired_at_utc: str,
-    reason: str,
-    source: BypassExpirySource,
-) -> BypassReceipt | None:
-    if receipt is None or source is not BypassExpirySource.OPERATOR_REVOKE:
-        return receipt
-    revoked = BypassReceipt(
-        receipt_id=receipt.receipt_id,
-        reason=receipt.reason,
-        operator_signature=receipt.operator_signature,
-        ai_approval_evidence=receipt.ai_approval_evidence,
-        requested_authority_scope=receipt.requested_authority_scope,
-        granted_at_utc=receipt.granted_at_utc,
-        granted_by_operator_actor_id=receipt.granted_by_operator_actor_id,
-        state=BypassLifecycleState.REVOKED,
-        expires_at_utc=receipt.expires_at_utc,
-        revoked_at_utc=expired_at_utc,
-        revoked_reason=reason,
-    )
-    DEFAULT_BYPASS_REGISTRY.register_receipt(revoked)
-    return revoked
 
 
 def _authority_evidence_refs(

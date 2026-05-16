@@ -131,6 +131,50 @@ def test_packet_debt_remediation_reports_total_debt_beyond_limit(
     assert payload["omitted_debt_count"] == 1
 
 
+def test_packet_debt_remediation_prioritizes_newest_debt_with_limit(
+    tmp_path: Path,
+) -> None:
+    _master_plan(tmp_path)
+    old_packet = {
+        "packet_id": "rev_pkt_9",
+        "kind": "finding",
+        "status": "acked",
+        "lifecycle_current_state": "acknowledged",
+        "from_agent": "claude",
+        "to_agent": "codex",
+        "summary": "Older durable issue",
+        "body": "Architecture finding needs durable plan state.",
+        "plan_id": "MP-377",
+        "anchor_refs": ["MP377-P0-T22AN-F"],
+        "acted_on_events": [],
+    }
+    new_packet = {
+        **old_packet,
+        "packet_id": "rev_pkt_10",
+        "summary": "Newer durable issue",
+    }
+    review_state_path = tmp_path / "dev/reports/review_channel/projections/latest/review_state.json"
+    review_state_path.parent.mkdir(parents=True, exist_ok=True)
+    review_state_path.write_text(
+        json.dumps({"packets": [old_packet, new_packet]}),
+        encoding="utf-8",
+    )
+
+    report = packet_debt_remediation_report(
+        PacketDebtRemediationInputs(
+            repo_root=tmp_path,
+            artifact_paths=resolve_artifact_paths(repo_root=tmp_path),
+            review_state_path=review_state_path,
+            plan_store_path=tmp_path / "dev/state/plan_index.jsonl",
+            limit=1,
+        )
+    )
+
+    payload = report.to_dict()
+    assert payload["debt_count"] == 1
+    assert payload["rows"][0]["packet_id"] == "rev_pkt_10"
+
+
 def test_packet_debt_remediation_groups_decided_packet_debt(
     tmp_path: Path,
 ) -> None:

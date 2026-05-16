@@ -86,12 +86,24 @@ class FindingTtlEvidence(PacketKindTtlEvidence):
 
 PacketKindTtlEvidenceType: TypeAlias = type[PacketKindTtlEvidence]
 
-_EVIDENCE_TYPES: dict[str, PacketKindTtlEvidenceType] = {
-    TASK_PRODUCED_PACKET_KIND: TaskProducedTtlEvidence,
-    "question": QuestionTtlEvidence,
-    "decision": DecisionTtlEvidence,
-    "finding": FindingTtlEvidence,
+_SPECIALIZED_EVIDENCE_TYPES: dict[str, PacketKindTtlEvidenceType] = {
+    evidence_type().packet_kind: evidence_type
+    for evidence_type in (
+        TaskProducedTtlEvidence,
+        QuestionTtlEvidence,
+        DecisionTtlEvidence,
+        FindingTtlEvidence,
+    )
 }
+_EVIDENCE_TYPES: dict[str, PacketKindTtlEvidenceType] = {
+    kind: _SPECIALIZED_EVIDENCE_TYPES.get(kind, PacketKindTtlEvidence)
+    for kind in PACKET_KIND_TTL_SECONDS
+}
+
+
+def configured_packet_kind_ttl_evidence_types() -> dict[str, PacketKindTtlEvidenceType]:
+    """Return configured TTL evidence resolvers keyed by transport TTL policy."""
+    return dict(_EVIDENCE_TYPES)
 
 
 def resolve_packet_kind_ttl(
@@ -181,6 +193,7 @@ __all__ = [
     "PacketKindTtlEvidence",
     "QuestionTtlEvidence",
     "TaskProducedTtlEvidence",
+    "configured_packet_kind_ttl_evidence_types",
     "resolve_decision_ttl",
     "resolve_finding_ttl",
     "resolve_packet_kind_ttl",

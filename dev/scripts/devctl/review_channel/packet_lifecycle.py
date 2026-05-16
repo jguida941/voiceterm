@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 
-from ..runtime.packet_transport_expiry import packet_uses_transport_expiry
 from .packet_lifecycle_action_request import derive_action_request_lifecycle_fields
 from .packet_lifecycle_binding import (
     has_creation_binding,
@@ -164,6 +163,7 @@ def _ack_events(
 ) -> list[dict[str, object]]:
     actor = _actor(event) or _text(packet.get("to_agent"))
     at_utc = _event_time(event)
+
     rows = [
         _drop_empty_fields(
             asdict(
@@ -177,6 +177,7 @@ def _ack_events(
             )
         )
     ]
+
     if _text(packet.get("kind")) == "action_request":
         rows.append(
             _drop_empty_fields(
@@ -193,6 +194,7 @@ def _ack_events(
                 )
             )
         )
+
     return rows
 
 
@@ -202,6 +204,7 @@ def _action_event(
 ) -> dict[str, object]:
     action = _ACTION_BY_EVENT_TYPE[_text(event.get("event_type"))]
     reason = _action_reason(action, event=event)
+
     guard_error_detail = (
         guard_error_detail_from_event(
             event,
@@ -212,6 +215,7 @@ def _action_event(
         if action in {"failed", "apply_pending_after_execution"}
         else None
     )
+
     return _drop_empty_fields(
         asdict(
             PacketLifecycleEvent(
@@ -232,7 +236,7 @@ def _action_event(
 def _clock_expired_action(packet: Mapping[str, object]) -> dict[str, object]:
     classification = (
         "expired_after_durable_binding"
-        if has_creation_binding(packet) and not packet_uses_transport_expiry(packet)
+        if has_creation_binding(packet)
         else "clock_expired_without_disposition"
     )
     return _drop_empty_fields(
@@ -254,6 +258,9 @@ def _guard_failed_action(
     *,
     guard_error_detail: Mapping[str, object],
 ) -> dict[str, object]:
+    packet_id = _text(packet.get("packet_id"))
+    reason = _text(guard_error_detail.get("reason")) or "guard_failure_evidence_present"
+
     return _drop_empty_fields(
         asdict(
             PacketLifecycleEvent(
@@ -262,11 +269,8 @@ def _guard_failed_action(
                 by_agent="system",
                 action="failed",
                 event_kind="failed",
-                target_anchor=f"packet:{_text(packet.get('packet_id'))}",
-                reason=(
-                    _text(guard_error_detail.get("reason"))
-                    or "guard_failure_evidence_present"
-                ),
+                target_anchor=f"packet:{packet_id}",
+                reason=reason,
                 guard_error_detail=dict(guard_error_detail),
             )
         )
@@ -317,25 +321,31 @@ def _action_request_recovery_disposition(
     packet: Mapping[str, object],
 ) -> dict[str, object]:
     if _text(packet.get("apply_pending_after_execution_at_utc")):
+        reason = (
+            _text(packet.get("apply_pending_after_execution_reason"))
+            or "Commit execution completed but packet apply remains pending."
+        )
+
         return action_request_recovery_disposition_from_packet(
             packet,
             status="apply_pending_after_execution",
-            reason=(
-                _text(packet.get("apply_pending_after_execution_reason"))
-                or "Commit execution completed but packet apply remains pending."
-            ),
+            reason=reason,
             next_slice_target="fresh_action_request_or_explicit_recovery",
         )
+
     if _text(packet.get("execution_failed_at_utc")):
+        reason = (
+            _text(packet.get("execution_failed_reason"))
+            or "Action-request execution failed before resolution."
+        )
+
         return action_request_recovery_disposition_from_packet(
             packet,
             status="failed",
-            reason=(
-                _text(packet.get("execution_failed_reason"))
-                or "Action-request execution failed before resolution."
-            ),
+            reason=reason,
             next_slice_target="fresh_action_request",
         )
+
     return {}
 
 

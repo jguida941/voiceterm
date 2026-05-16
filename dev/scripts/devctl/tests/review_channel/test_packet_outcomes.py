@@ -237,3 +237,25 @@ def test_attach_packet_outcomes_projects_durable_binding_disposition() -> None:
         enriched[0]["disposition"]["archive_classification"]
         == "expired_after_durable_binding"
     )
+
+
+def test_attach_packet_outcomes_projects_transport_ttl_durable_binding_disposition() -> None:
+    packet = _bound_expired_packet("rev_pkt_100")
+    packet["kind"] = "finding"
+    ledger = build_packet_outcome_ledger(
+        packets=[packet],
+        events=[],
+        generated_at_utc="2026-04-25T02:00:00Z",
+        source="test",
+    )
+
+    enriched = attach_packet_outcomes([packet], ledger)
+
+    assert (
+        enriched[0]["acted_on_events"][0]["target_anchor"]
+        == "archive_classification:expired_after_durable_binding"
+    )
+    assert (
+        enriched[0]["disposition"]["resolution_anchor"]
+        == "archive_classification:expired_after_durable_binding"
+    )

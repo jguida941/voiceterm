@@ -23,6 +23,7 @@ from ..runtime.packet_carry_forward import (
 from ..time_utils import utc_timestamp
 from .event_store import ReviewChannelArtifactPaths, append_event, load_events
 from .packet_creation_binding_plan import bind_packet_to_plan_row
+from .packet_debt_ordering import newest_debts_first
 from .packet_debt_remediation_contracts import (
     PACKET_DURABLE_INGESTION_EVENT_TYPES,
     PacketDebtRemediationReport,
@@ -76,15 +77,20 @@ def packet_debt_remediation_report(
 ) -> PacketDebtRemediationReport:
     """Return and optionally apply deterministic packet-debt remediation."""
     packets = _review_state_packets(inputs.review_state_path)
+
     durable_packet_ids = _durable_packet_ids(
         plan_store_path=inputs.plan_store_path,
         finding_log_path=inputs.finding_log_path,
     )
+
     debts = packet_carry_forward_debts(
         packets,
         durable_packet_ids=durable_packet_ids,
     )
+
     packet_by_id = {_text(packet.get("packet_id")): packet for packet in packets}
+    ordered_debts = newest_debts_first(debts)
+
     rows = [
         _remediation_row(
             repo_root=inputs.repo_root,
@@ -93,7 +99,7 @@ def packet_debt_remediation_report(
             debt=debt,
             write=inputs.write,
         )
-        for debt in debts[: max(0, inputs.limit)]
+        for debt in ordered_debts[: max(0, inputs.limit)]
     ]
     triage = packet_batch_triage(
         debts=debts,
@@ -102,6 +108,7 @@ def packet_debt_remediation_report(
         action_for_packet=_recommended_action,
         cluster_id_for=_cluster_id,
     )
+
     return PacketDebtRemediationReport(
         generated_at_utc=utc_timestamp(),
         source_review_state_path=_repo_relative(
@@ -127,17 +134,20 @@ def _remediation_row(
     target_ref = _target_ref(packet)
     action = _recommended_action(packet)
     receipt = None
+
     if write and action == "ingest_plan_row":
         binding = bind_packet_to_plan_row(
             repo_root=repo_root,
             artifact_paths=artifact_paths,
             packet_event=packet,
         )
+
         receipt = receipt_from_binding(
             binding=binding,
             target_kind="plan_row",
             target_ref=target_ref,
         )
+
         receipt = _append_durable_ingestion_event(
             artifact_paths=artifact_paths,
             packet=packet,
@@ -165,17 +175,20 @@ def _append_durable_ingestion_event(
     receipt,
 ) -> object:
     status = _text(getattr(receipt, "status", ""))
+
     event_type = (
         "packet_durable_ingestion_recorded"
         if status in {"inserted", "updated", "already_present"}
         else "packet_durable_ingestion_failed"
     )
+
     event = durable_ingestion_event(
         packet=dict(packet),
         receipt=receipt,
         event_type=event_type,
         timestamp_utc=utc_timestamp(),
     )
+
     event["derived_state_invalidation"] = derived_state_invalidation_payload(
         DerivedStateInvalidationInput(
             source=PACKET_DURABLE_INGESTION_INVALIDATION_SOURCE,
@@ -193,11 +206,13 @@ def _append_durable_ingestion_event(
             target_ref=_text(getattr(receipt, "target_ref", "")),
         )
     )
+
     written = append_event(
         Path(artifact_paths.event_log_path),
         event,
         existing_events=load_events(Path(artifact_paths.event_log_path)),
     )
+
     return replace(
         receipt,
         event_id=_text(written.get("event_id")),

@@ -10,6 +10,7 @@ from dev.scripts.devctl.runtime.packet_kind_ttl import (
     TASK_PRODUCED_TTL_EVIDENCE_CONTRACT_ID,
     QuestionTtlEvidence,
     TaskProducedTtlEvidence,
+    configured_packet_kind_ttl_evidence_types,
     resolve_decision_ttl,
     resolve_finding_ttl,
     resolve_question_ttl,
@@ -108,6 +109,16 @@ def test_specialized_ttl_evidence_defaults_consume_transport_policy() -> None:
     assert QuestionTtlEvidence().ttl_seconds == PACKET_KIND_TTL_SECONDS["question"]
     assert DecisionTtlEvidence().ttl_seconds == PACKET_KIND_TTL_SECONDS["decision"]
     assert FindingTtlEvidence().ttl_seconds == PACKET_KIND_TTL_SECONDS["finding"]
+
+
+def test_ttl_evidence_type_routing_consumes_transport_policy_keys() -> None:
+    evidence_types = configured_packet_kind_ttl_evidence_types()
+
+    assert set(evidence_types) == set(PACKET_KIND_TTL_SECONDS)
+    assert evidence_types[TASK_PRODUCED_PACKET_KIND] is TaskProducedTtlEvidence
+    assert evidence_types["question"] is QuestionTtlEvidence
+    assert evidence_types["decision"] is DecisionTtlEvidence
+    assert evidence_types["finding"] is FindingTtlEvidence
 
 
 def _packet(

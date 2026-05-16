@@ -11,8 +11,6 @@ from .packet_lifecycle_binding import has_creation_binding
 
 
 def has_expired_durable_binding(packet: Mapping[str, object]) -> bool:
-    if packet_uses_transport_expiry(packet):
-        return False
     return has_creation_binding(packet) and _expires_at_or_before_now(packet)
 
 
