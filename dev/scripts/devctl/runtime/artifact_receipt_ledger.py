@@ -31,9 +31,10 @@ composes_with:
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -235,6 +236,85 @@ def append_artifact_receipt_record(
     )
 
 
+def _parse_recorded_at(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    text = value.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _row_to_record(row: Mapping[str, Any]) -> ArtifactReceiptRecord | None:
+    try:
+        summary_keys = tuple(str(k) for k in row.get("summary_keys") or ())
+        return ArtifactReceiptRecord(
+            receipt_id=_coerce_str(row.get("receipt_id")),
+            command=_coerce_str(row.get("command")),
+            ok=bool(row.get("ok")),
+            delivery=_coerce_str(row.get("delivery")),
+            artifact_format=_coerce_str(row.get("artifact_format")),
+            artifact_path=_coerce_str(row.get("artifact_path")),
+            size_bytes=_coerce_int(row.get("size_bytes")),
+            estimated_tokens=_coerce_int(row.get("estimated_tokens")),
+            artifact_sha256=_coerce_str(row.get("artifact_sha256")),
+            summary_keys=summary_keys,
+            slice_id=_coerce_str(row.get("slice_id")),
+            actor=_coerce_str(row.get("actor")),
+            recorded_at_utc=_coerce_str(row.get("recorded_at_utc")),
+            schema_version=_coerce_int(row.get("schema_version")) or SCHEMA_VERSION,
+            contract_id=_coerce_str(row.get("contract_id")) or CONTRACT_ID,
+        )
+    except (TypeError, ValueError):
+        return None
+
+
+def iter_artifact_receipts(
+    repo_root: Path,
+    *,
+    since_seconds: int | None = 86400,
+    store_rel: Path = DEFAULT_ARTIFACT_RECEIPT_STORE_REL,
+    now_utc: Callable[[], datetime] | None = None,
+) -> tuple[ArtifactReceiptRecord, ...]:
+    """Yield typed receipt rows from the ledger filtered by recency.
+
+    When ``since_seconds`` is ``None`` all rows are returned. Otherwise rows
+    are filtered to those recorded within the trailing window (and rows whose
+    ``recorded_at_utc`` cannot be parsed are skipped, never silently kept).
+    """
+    store_path = repo_root / store_rel
+    if not store_path.exists():
+        return ()
+    cutoff: datetime | None = None
+    if since_seconds is not None:
+        anchor = now_utc() if now_utc is not None else datetime.now(timezone.utc)
+        cutoff = anchor - timedelta(seconds=int(since_seconds))
+    records: list[ArtifactReceiptRecord] = []
+    for line in store_path.read_text(encoding="utf-8").splitlines():
+        text = line.strip()
+        if not text:
+            continue
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, Mapping):
+            continue
+        record = _row_to_record(payload)
+        if record is None:
+            continue
+        if cutoff is not None:
+            parsed = _parse_recorded_at(record.recorded_at_utc)
+            if parsed is None or parsed < cutoff:
+                continue
+        records.append(record)
+    return tuple(records)
+
+
 __all__ = [
     "ALLOWED_DELIVERIES",
     "ArtifactReceiptRecord",
@@ -244,5 +324,6 @@ __all__ = [
     "STORE_ID",
     "append_artifact_receipt_record",
     "build_artifact_receipt_record",
+    "iter_artifact_receipts",
     "record_artifact_receipt",
 ]

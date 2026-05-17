@@ -2,6 +2,28 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterable
+
+from ...runtime.artifact_receipt_ledger import (
+    ArtifactReceiptRecord,
+    iter_artifact_receipts,
+)
+
+ARTIFACT_PROOF_MISSING_BLOCKER: str = "missing_artifact_proof"
+ARTIFACT_PROOF_STALE_BLOCKER: str = "stale_artifact_proof"
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactProofBlocker:
+    """Typed slice-level artifact-proof blocker derived from the ledger."""
+
+    slice_id: str
+    blocker: str
+    detail: str
+
+
 _TOPOLOGY_TERMS = (
     "active_dual_agent",
     "single_agent",
@@ -157,4 +179,66 @@ def _append_if(
         categories.append(category)
 
 
-__all__ = ["blocker_categories", "category_row_ids"]
+def artifact_proof_blockers(
+    repo_root: Path,
+    *,
+    slice_ids: Iterable[str],
+    since_seconds: int = 86400,
+) -> tuple[ArtifactProofBlocker, ...]:
+    """Return typed artifact-proof blockers per slice id from the ledger.
+
+    Each slice in ``slice_ids`` is surfaced as either:
+    - ``missing_artifact_proof`` when the ledger has zero receipts for that
+      slice in the trailing ``since_seconds`` window, or
+    - ``stale_artifact_proof`` when the most recent receipt has ``ok=False``.
+
+    Slices whose latest receipt is ``ok=True`` produce no blocker entry.
+    """
+    requested = tuple(s for s in slice_ids if s)
+    if not requested:
+        return ()
+    receipts = iter_artifact_receipts(repo_root, since_seconds=since_seconds)
+    latest_by_slice: dict[str, ArtifactReceiptRecord] = {}
+    for record in receipts:
+        if not record.slice_id:
+            continue
+        previous = latest_by_slice.get(record.slice_id)
+        if previous is None or record.recorded_at_utc > previous.recorded_at_utc:
+            latest_by_slice[record.slice_id] = record
+    blockers: list[ArtifactProofBlocker] = []
+    for slice_id in requested:
+        latest = latest_by_slice.get(slice_id)
+        if latest is None:
+            blockers.append(
+                ArtifactProofBlocker(
+                    slice_id=slice_id,
+                    blocker=ARTIFACT_PROOF_MISSING_BLOCKER,
+                    detail=(
+                        f"no ArtifactReceiptRecord rows for slice {slice_id} "
+                        f"within trailing {since_seconds}s window"
+                    ),
+                )
+            )
+            continue
+        if not latest.ok:
+            blockers.append(
+                ArtifactProofBlocker(
+                    slice_id=slice_id,
+                    blocker=ARTIFACT_PROOF_STALE_BLOCKER,
+                    detail=(
+                        f"latest ArtifactReceiptRecord {latest.receipt_id} for "
+                        f"slice {slice_id} reports ok=False"
+                    ),
+                )
+            )
+    return tuple(blockers)
+
+
+__all__ = [
+    "ARTIFACT_PROOF_MISSING_BLOCKER",
+    "ARTIFACT_PROOF_STALE_BLOCKER",
+    "ArtifactProofBlocker",
+    "artifact_proof_blockers",
+    "blocker_categories",
+    "category_row_ids",
+]
