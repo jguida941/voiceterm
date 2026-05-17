@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `febe8986c6af` — Refresh external review snapshot for 8bda213b
-- Tree hash: `c1270ac84527`
-- Generation stamp: `snap-951db70abb66`
-- Generated at (UTC): 2026-05-17T00:26:15Z
-- Push decision: `await_checkpoint` — staged_index_budget_exceeded
-- Reviewer mode: `single_agent` (interaction: `remote_control`)
+- HEAD: `24b2bc02844f` — Fix governance checkpoint gates
+- Tree hash: `3bb8336f16c3`
+- Generation stamp: `snap-0931ca3cbe99`
+- Generated at (UTC): 2026-05-17T05:04:33Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 54 files, +4016/-1496
+- Delta since last snapshot: 24 commits, 92 files, +7287/-1310
 - Governance findings: 44 open / 0 fixed / 44 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,29 +28,29 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `febe8986c6af4dc1f36bb644211e508d94ffa9be`
+- HEAD SHA: `24b2bc02844f2208d17f31e9a0291f098414aa18`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-16T19:26:25-04:00
+- HEAD timestamp (UTC): 2026-05-17T01:04:03-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_budget_exceeded
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 20
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
-- publication_backlog: urgent
-- publication_guidance: 37 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_backlog: queued
+- publication_guidance: 1 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
-- reviewer_mode: `single_agent`
+- reviewer_mode: `tools_only`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `remote_control`
+- interaction_mode: `local_terminal`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -60,93 +60,92 @@ production client (VoiceTerm...
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
-- checkpoint_required: **yes**
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `febe8986c6af`
+Range: last 24 commits ending at `24b2bc02844f`
 
 - commits: 24
-- files changed: 54
-- insertions: +4016
-- deletions: -1496
+- files changed: 92
+- insertions: +7287
+- deletions: -1310
 - bundle classes touched: docs, tooling
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `febe8986` | Refresh external review snapshot for 8bda213b | 2 | +59/-59 | docs |  |
-| 2 | `8bda213b` | Checkpoint R287 packet intake state | 4 | +74/-80 | tooling |  |
-| 3 | `91f2ed42` | Add governed transition schema fixtures | 16 | +402/-49 | tooling |  |
-| 4 | `477f01ae` | Refresh external review snapshot for 2a99a103 | 2 | +55/-55 | docs |  |
-| 5 | `2a99a103` | Repair packet plan continuity state | 6 | +97/-65 | tooling |  |
-| 6 | `685d0892` | Refresh external review snapshot for d7591b71 | 2 | +57/-57 | docs |  |
-| 7 | `d7591b71` | Bind task-started packets to plan rows | 4 | +55/-49 | tooling |  |
-| 8 | `bfd73b2f` | Refresh external review snapshot for 6f057634 | 2 | +63/-63 | docs |  |
-| 9 | `6f057634` | Record ground-truth receipt for governance push | 2 | +50/-52 | tooling |  |
-| 10 | `be28caed` | Refresh external review snapshot for 08895a8a | 2 | +58/-56 | docs |  |
-| 11 | `08895a8a` | Document role review completion guard | 3 | +84/-89 | tooling |  |
-| 12 | `f0577b3b` | Refresh policy-owned generated surfaces for 996c3335 | 1 | +1/-1 | docs |  |
-| 13 | `996c3335` | Refresh external review snapshot for c433c686 | 2 | +55/-61 | docs |  |
-| 14 | `c433c686` | MP-378 require resolvable pytest proof nodes | 5 | +247/-51 | tooling |  |
-| 15 | `b632df44` | Refresh external review snapshot for ad84e97b | 2 | +64/-70 | docs |  |
-| 16 | `ad84e97b` | MP-378 record pytest nodes in feature proof receipts | 4 | +196/-49 | tooling |  |
-| 17 | `00ab91b8` | Refresh external review snapshot for 494e0914 | 2 | +65/-73 | docs |  |
-| 18 | `494e0914` | MP-378 require role review timeout governance chain | 3 | +141/-53 | tooling |  |
-| 19 | `b707ad20` | Refresh external review snapshot for aa840939 | 2 | +58/-62 | docs |  |
-| 20 | `aa840939` | MP-378 add governed transition typechecker proof | 8 | +1149/-68 | tooling |  |
-| 21 | `ab38e2a8` | Refresh external review snapshot for b38d2bd7 | 2 | +59/-64 | docs |  |
-| 22 | `b38d2bd7` | MP-378 add bypass expire error code proof | 7 | +61/-52 | tooling |  |
-| 23 | `9283311c` | Refresh external review snapshot for 54bb3a07 | 2 | +66/-75 | docs |  |
-| 24 | `54bb3a07` | MP-378 repair packet debt and bypass expiry proof | 19 | +800/-143 | tooling |  |
+| 1 | `24b2bc02` | Fix governance checkpoint gates | 43 | +3146/-111 | tooling |  |
+| 2 | `bd28e78b` | Record raw git closure receipt warnings | 1 | +3/-0 | tooling |  |
+| 3 | `18fae0b6` | Refresh bridge projection | 1 | +4/-4 | docs |  |
+| 4 | `6f17c007` | Preserve raw git closure error codes | 12 | +488/-18 | tooling |  |
+| 5 | `b1410fcc` | Fix typed peer collaboration and raw git closure gates | 29 | +1765/-83 | tooling |  |
+| 6 | `febe8986` | Refresh external review snapshot for 8bda213b | 2 | +59/-59 | docs |  |
+| 7 | `8bda213b` | Checkpoint R287 packet intake state | 4 | +74/-80 | tooling |  |
+| 8 | `91f2ed42` | Add governed transition schema fixtures | 16 | +402/-49 | tooling |  |
+| 9 | `477f01ae` | Refresh external review snapshot for 2a99a103 | 2 | +55/-55 | docs |  |
+| 10 | `2a99a103` | Repair packet plan continuity state | 6 | +97/-65 | tooling |  |
+| 11 | `685d0892` | Refresh external review snapshot for d7591b71 | 2 | +57/-57 | docs |  |
+| 12 | `d7591b71` | Bind task-started packets to plan rows | 4 | +55/-49 | tooling |  |
+| 13 | `bfd73b2f` | Refresh external review snapshot for 6f057634 | 2 | +63/-63 | docs |  |
+| 14 | `6f057634` | Record ground-truth receipt for governance push | 2 | +50/-52 | tooling |  |
+| 15 | `be28caed` | Refresh external review snapshot for 08895a8a | 2 | +58/-56 | docs |  |
+| 16 | `08895a8a` | Document role review completion guard | 3 | +84/-89 | tooling |  |
+| 17 | `f0577b3b` | Refresh policy-owned generated surfaces for 996c3335 | 1 | +1/-1 | docs |  |
+| 18 | `996c3335` | Refresh external review snapshot for c433c686 | 2 | +55/-61 | docs |  |
+| 19 | `c433c686` | MP-378 require resolvable pytest proof nodes | 5 | +247/-51 | tooling |  |
+| 20 | `b632df44` | Refresh external review snapshot for ad84e97b | 2 | +64/-70 | docs |  |
+| 21 | `ad84e97b` | MP-378 record pytest nodes in feature proof receipts | 4 | +196/-49 | tooling |  |
+| 22 | `00ab91b8` | Refresh external review snapshot for 494e0914 | 2 | +65/-73 | docs |  |
+| 23 | `494e0914` | MP-378 require role review timeout governance chain | 3 | +141/-53 | tooling |  |
+| 24 | `b707ad20` | Refresh external review snapshot for aa840939 | 2 | +58/-62 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `bridge.md` | docs | +55/-55 |
-| `dev/active/MASTER_PLAN.md` | tooling | +4/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1274/-1311 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +22/-21 |
-| `dev/scripts/README.md` | tooling | +1/-0 |
-| `dev/scripts/devctl/commands/bypass/expire.py` | tooling | +92/-39 |
-| `dev/scripts/devctl/commands/bypass/expire_report.py` | tooling | +110/-0 |
-| `dev/scripts/devctl/platform/runtime_state_contract_rows_transitions.py` | tooling | +151/-0 |
-| `dev/scripts/devctl/review_channel/packet_debt_ordering.py` | tooling | +27/-0 |
-| `dev/scripts/devctl/review_channel/packet_debt_remediation.py` | tooling | +16/-1 |
-| `dev/scripts/devctl/review_channel/packet_lifecycle.py` | tooling | +25/-15 |
-| `dev/scripts/devctl/review_channel/packet_lifecycle_clock.py` | tooling | +0/-2 |
+| `bridge.md` | docs | +76/-76 |
+| `dev/active/MASTER_PLAN.md` | tooling | +33/-0 |
+| `dev/active/ai_governance_platform.md` | tooling | +36/-1 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1054/-1083 |
+| `dev/guides/DEVELOPMENT.md` | docs | +15/-1 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +28/-28 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +64/-0 |
+| `dev/scripts/README.md` | tooling | +15/-5 |
+| `dev/scripts/devctl/cli_parser/entrypoint.py` | tooling | +27/-1 |
+| `dev/scripts/devctl/cli_parser/exceptions.py` | tooling | +19/-4 |
+| `dev/scripts/devctl/commands/development/campaign.py` | tooling | +32/-2 |
+| `dev/scripts/devctl/commands/development/campaign_exception_proof.py` | tooling | +2/-1 |
+| `dev/scripts/devctl/commands/development/campaign_idris_gate.py` | tooling | +142/-0 |
+| `dev/scripts/devctl/commands/development/final_response_gate.py` | tooling | +209/-2 |
+| `dev/scripts/devctl/commands/development/packet_attention_lifecycle.py` | tooling | +11/-2 |
+| `dev/scripts/devctl/commands/governance/close_raw_git_exceptions.py` | tooling | +198/-9 |
+| `dev/scripts/devctl/commands/governance/exceptions.py` | tooling | +4/-1 |
+| `dev/scripts/devctl/commands/governance/exceptions_pending.py` | tooling | +2/-1 |
+| `dev/scripts/devctl/commands/governance/exceptions_report.py` | tooling | +35/-0 |
+| `dev/scripts/devctl/platform/runtime_identity_contract_rows.py` | tooling | +34/-2 |
+| `dev/scripts/devctl/platform/runtime_identity_contract_rows_commit.py` | tooling | +5/-0 |
+| `dev/scripts/devctl/platform/runtime_state_contract_rows_review.py` | tooling | +2/-0 |
+| `dev/scripts/devctl/platform/schema_migration_spine.py` | tooling | +19/-0 |
+| `dev/scripts/devctl/review_channel/active_packet_authority.py` | tooling | +2/-5 |
+| `dev/scripts/devctl/review_channel/agent_packet_attention_scope.py` | tooling | +3/-9 |
+| `dev/scripts/devctl/review_channel/agent_sync_packet_classification.py` | tooling | +12/-14 |
+| `dev/scripts/devctl/review_channel/agent_work_board_packets.py` | tooling | +2/-9 |
+| `dev/scripts/devctl/review_channel/collaboration_session.py` | tooling | +26/-2 |
+| `dev/scripts/devctl/review_channel/packet_loop_attention.py` | tooling | +23/-1 |
 | `dev/scripts/devctl/review_channel/packet_plan_integration.py` | tooling | +2/-3 |
-| `dev/scripts/devctl/runtime/bypass_lifecycle_closure.py` | tooling | +105/-0 |
-| `dev/scripts/devctl/runtime/bypass_lifecycle_evaluation.py` | tooling | +33/-28 |
-| `dev/scripts/devctl/runtime/bypass_lifecycle_receipts.py` | tooling | +42/-0 |
+| `dev/scripts/devctl/review_channel/packet_terminal_lifecycle_states.py` | tooling | +74/-0 |
+| `dev/scripts/devctl/runtime/agent_loop_peer_digest_sidecar.py` | tooling | +32/-10 |
+| `dev/scripts/devctl/runtime/artifact_receipt_ledger.py` | tooling | +248/-0 |
+| `dev/scripts/devctl/runtime/bypass_receipt_active_lookup_gate.py` | tooling | +116/-0 |
 | `dev/scripts/devctl/runtime/commit_receipt.py` | tooling | +8/-0 |
+| `dev/scripts/devctl/runtime/commit_to_plan_row_reducer.py` | tooling | +57/-1 |
+| `dev/scripts/devctl/runtime/commit_to_plan_row_role_review_gate.py` | tooling | +159/-0 |
+| `dev/scripts/devctl/runtime/development_packet_pressure.py` | tooling | +52/-2 |
+| `dev/scripts/devctl/runtime/evidence_archive_ref_guard.py` | tooling | +125/-0 |
 | `dev/scripts/devctl/runtime/feature_proof_output_proof.py` | tooling | +12/-1 |
-| `dev/scripts/devctl/runtime/feature_proof_test_refs.py` | tooling | +153/-1 |
-| `dev/scripts/devctl/runtime/governed_transition_typechecker.py` | tooling | +341/-0 |
-| `dev/scripts/devctl/runtime/governed_transition_typechecker_helpers.py` | tooling | +128/-0 |
-| `dev/scripts/devctl/runtime/governed_transition_typechecker_models.py` | tooling | +106/-0 |
-| `dev/scripts/devctl/runtime/packet_kind_ttl.py` | tooling | +17/-4 |
-| `dev/scripts/devctl/runtime/role_review_lifecycle.py` | tooling | +30/-0 |
-| `dev/scripts/devctl/tests/checks/test_check_non_trivial_output_proof.py` | tooling | +27/-0 |
-| `dev/scripts/devctl/tests/commands/test_bypass_command.py` | tooling | +178/-0 |
-| `dev/scripts/devctl/tests/review_channel/test_packet_debt_remediation.py` | tooling | +44/-0 |
-| `dev/scripts/devctl/tests/review_channel/test_packet_lifecycle.py` | tooling | +11/-0 |
-| `dev/scripts/devctl/tests/review_channel/test_packet_outcomes.py` | tooling | +22/-0 |
-| `dev/scripts/devctl/tests/runtime/test_commit_receipt.py` | tooling | +141/-0 |
-| `dev/scripts/devctl/tests/runtime/test_governed_transition_typechecker.py` | tooling | +347/-0 |
-| `dev/scripts/devctl/tests/runtime/test_lifetime_bypass_mode.py` | tooling | +19/-0 |
-| `dev/scripts/devctl/tests/runtime/test_packet_kind_ttl.py` | tooling | +11/-0 |
-| `dev/scripts/devctl/tests/runtime/test_role_review_lifecycle.py` | tooling | +60/-4 |
-| `dev/state/contract_registry.jsonl` | tooling | +5/-0 |
-| `dev/state/ground_truth_probe_receipts.jsonl` | tooling | +1/-0 |
-| `dev/state/plan_index.jsonl` | tooling | +19/-11 |
-| `dev/state/plan_ingestion_receipts.jsonl` | tooling | +13/-0 |
-| `dev/state/plan_source_snapshots.jsonl` | tooling | +13/-0 |
-| `dev/test_data/schema_fixtures/GovernedTransitionCheck/1/invalid/missing-required-field.json` | tooling | +25/-0 |
-| _14 more files trimmed_ | | |
+| _52 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -195,7 +194,9 @@ Recent findings:
 
 ### Targeted hints
 
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/governed_transition_typechecker_models.py`) — Commit aa840939 changed dev/scripts/devctl/runtime/governed_transition_typechecker_models.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/runtime_identity_contract_rows.py`) — Commit 24b2bc02 changed dev/scripts/devctl/platform/runtime_identity_contract_rows.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/reviewer_mode_authority_contract.py`) — Commit 24b2bc02 changed dev/scripts/devctl/runtime/reviewer_mode_authority_contract.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/runtime/test_reviewer_mode_authority_contract.py`) — Commit 24b2bc02 changed dev/scripts/devctl/tests/runtime/test_reviewer_mode_authority_contract.py
 
 ### Suggested verification commands
 
@@ -208,6 +209,14 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`24b2bc02`** — Fix governance checkpoint gates
+- **`bd28e78b`** — Record raw git closure receipt warnings
+  - Seal PlanRowClosureReceipt rows emitted by the raw-git wrapper for the R297 checkpoint and projection refresh. The rows preserve plan_row_missing warnings for the ad-hoc feature ids used by the bypass receipts.
+- **`18fae0b6`** — Refresh bridge projection
+  - Projection-only bridge refresh after the raw-git checkpoint and push. Evidence path: bridge.md.
+- **`6f17c007`** — Preserve raw git closure error codes
+  - R297 raw-git exception closure now propagates governed transition error codes through the close-raw-git CLI JSON path. Evidence: rev_pkt_4265; focused CLI suite 11 passed; runtime lifecycle suite 8 passed; docs-check strict-tooling passed; instruction surface sync passed.
+- **`b1410fcc`** — Fix typed peer collaboration and raw git closure gates
 - **`febe8986`** — Refresh external review snapshot for 8bda213b
 - **`8bda213b`** — Checkpoint R287 packet intake state
 - **`91f2ed42`** — Add governed transition schema fixtures
@@ -227,11 +236,6 @@ Recent findings:
 - **`00ab91b8`** — Refresh external review snapshot for 494e0914
 - **`494e0914` | MPs: MP-378** — MP-378 require role review timeout governance chain
 - **`b707ad20`** — Refresh external review snapshot for aa840939
-- **`aa840939` | MPs: MP-378** — MP-378 add governed transition typechecker proof
-- **`ab38e2a8`** — Refresh external review snapshot for b38d2bd7
-- **`b38d2bd7` | MPs: MP-378** — MP-378 add bypass expire error code proof
-- **`9283311c`** — Refresh external review snapshot for 54bb3a07
-- **`54bb3a07` | MPs: MP-378** — MP-378 repair packet debt and bypass expiry proof
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -250,11 +254,10 @@ Recent findings:
 - open governance findings: 44
 
 ### Startup advisories
-- checkpoint_before_continue: staged_index_budget_exceeded
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Keep editing the current slice.
-- Move straight to the governed push path.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/pipeline/command.py`): dogfood.command.pipeline: Auto-ingested devctl finalization failure rc=1.
@@ -276,4 +279,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-951db70abb66` binds this file to HEAD `febe8986c6af`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-0931ca3cbe99` binds this file to HEAD `24b2bc02844f`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
