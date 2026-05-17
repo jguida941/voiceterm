@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import shlex
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -97,6 +97,45 @@ def _packet_pressure(
         hard_attention_budget=15,
         near_ttl_minutes=10,
     )
+
+
+def _write_active_bypass_lifecycle(repo_root: Path) -> None:
+    store = repo_root / "dev" / "state" / "bypass_lifecycles.jsonl"
+    store.parent.mkdir(parents=True, exist_ok=True)
+    future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    row = {
+        "lifecycle_id": "bypass_lc_001",
+        "state": "bypass_active",
+        "request": {
+            "request_id": "req_001",
+            "scope": "edit_only",
+            "reason": "operator authorized edit-only repair",
+            "actor": "operator",
+            "requested_at_utc": "2026-05-17T00:00:00+00:00",
+            "state": "bypass_active",
+        },
+        "evaluation": {
+            "evaluation_id": "eval_001",
+            "request_id": "req_001",
+            "decision": "approved",
+            "evaluated_at_utc": "2026-05-17T00:00:01+00:00",
+            "evaluator_actor_id": "operator",
+            "reason": "approved",
+            "approved_scope": "edit_only",
+        },
+        "receipt": {
+            "receipt_id": "rcpt_001",
+            "reason": "operator approval",
+            "operator_signature": "sig",
+            "ai_approval_evidence": "evidence",
+            "requested_authority_scope": "edit_only",
+            "granted_at_utc": "2026-05-17T00:00:02+00:00",
+            "granted_by_operator_actor_id": "operator",
+            "state": "bypass_active",
+            "expires_at_utc": future,
+        },
+    }
+    store.write_text(json.dumps(row) + "\n", encoding="utf-8")
 
 
 def test_develop_command_is_registered_read_only() -> None:
@@ -2234,7 +2273,10 @@ def test_final_response_gate_surfaces_plan_override_for_waiting_loop() -> None:
     assert result.gate_failure.bypass_invocation == result.next_required_command
 
 
-def test_final_response_gate_does_not_repeat_active_edit_only_override() -> None:
+def test_final_response_gate_does_not_repeat_active_edit_only_override(
+    tmp_path: Path,
+) -> None:
+    _write_active_bypass_lifecycle(tmp_path)
     continuation = DevelopmentContinuationRequiredSignal(
         continuation_required=False,
         final_response_allowed=True,
@@ -2272,6 +2314,7 @@ def test_final_response_gate_does_not_repeat_active_edit_only_override() -> None
         continuation,
         orchestration=orchestration,
         next_slice_id="MP377-P0-CHECKPOINT-AUTOMATION-S1",
+        repo_root=tmp_path,
     )
 
     assert result.allow_final_response is False
@@ -5174,7 +5217,7 @@ def test_packet_attention_keeps_unacked_older_finding_live_when_newer_is_acked()
                 "kind": "finding",
                 "status": "pending",
                 "posted_at": "2000-01-01T00:00:00Z",
-                "expires_at_utc": "2000-01-01T00:30:00Z",
+                "expires_at_utc": "2999-01-01T00:30:00Z",
             },
             {
                 "packet_id": "rev_pkt_new",

@@ -2,19 +2,13 @@
 
 from __future__ import annotations
 
-from .agent_sync_models import (
-    ACTIVE_LIFECYCLE_STATES,
-    TERMINAL_NON_SUCCESS_STATES,
-    TERMINAL_SUCCESS_STATES,
-)
+from .agent_sync_models import ACTIVE_LIFECYCLE_STATES
 from .agent_packet_ranking import max_packet_event_rank
 from .event_models import event_id_rank as _event_id_rank
 from .packet_contract import packet_route_matches_scope
+from .packet_terminal_lifecycle_states import TERMINAL_LIFECYCLE_STATES
 from .pending_packets import live_pending_packets
 
-_TERMINAL_LIFECYCLE_STATES: frozenset[str] = (
-    TERMINAL_NON_SUCCESS_STATES | TERMINAL_SUCCESS_STATES
-)
 _STALE_ACTIVE_PACKET_RANK_GAP = 1000
 _ATTENTION_LIFECYCLE_PRIORITY: dict[str, int] = {
     "delivery_pending": 4,
@@ -98,7 +92,7 @@ def _classify_inbound_packets(
             continue
         packet_id = str(row.get("packet_id") or "")
         lifecycle = str(row.get("lifecycle_current_state") or "")
-        if not packet_id or lifecycle in _TERMINAL_LIFECYCLE_STATES:
+        if not packet_id or lifecycle in TERMINAL_LIFECYCLE_STATES:
             continue
         status = str(row.get("status") or "").strip()
         kind = str(row.get("kind") or "")
@@ -106,9 +100,13 @@ def _classify_inbound_packets(
             pending.append(packet_id)
             if kind != "action_request":
                 continue
-        elif status == "pending" or (
-            status == "" and lifecycle in ("", "pending", "delivery_pending")
-        ):
+        elif status == "pending":
+            continue
+        elif status == "" and lifecycle in ("", "pending", "delivery_pending"):
+            pending.append(packet_id)
+            if kind != "action_request":
+                continue
+        elif status:
             continue
         if not packet_route_matches_scope(row):
             continue
@@ -131,7 +129,7 @@ def _derive_awaiting(
             continue
         if str(row.get("kind") or "") != "action_request":
             continue
-        if str(row.get("lifecycle_current_state") or "") in _TERMINAL_LIFECYCLE_STATES:
+        if str(row.get("lifecycle_current_state") or "") in TERMINAL_LIFECYCLE_STATES:
             continue
         if str(row.get("status") or "").strip() not in ("", "pending"):
             continue
@@ -155,7 +153,7 @@ def _is_live_action_request_for_agent(
     if not str(row.get("packet_id") or ""):
         return False
     lifecycle = str(row.get("lifecycle_current_state") or "")
-    return lifecycle not in _TERMINAL_LIFECYCLE_STATES
+    return lifecycle not in TERMINAL_LIFECYCLE_STATES
 
 
 def _is_stale_rank(head_rank: int, row_rank: int) -> bool:

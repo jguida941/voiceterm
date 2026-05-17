@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from .final_response_gate_agent_loop import (
@@ -17,6 +19,18 @@ from .final_response_gate_agent_loop import (
     prioritized_agent_loop_decisions,
 )
 from .orchestration_models import DevelopmentContinuationRequiredSignal
+from ...runtime.bypass_lifecycle_models import BypassAuthorityScope
+from ...runtime.bypass_receipt_active_lookup_gate import (
+    BypassReceiptActiveLookupCheck,
+    BypassReceiptActiveLookupFailureCode,
+    require_active_bypass_receipt_for_override,
+)
+from ...runtime.ground_truth_probe_gate import (
+    DEFAULT_MAX_RECEIPT_AGE_SECONDS,
+    GroundTruthProbeReceiptCheck,
+    GroundTruthProbeReceiptFailureCode,
+    require_recent_ground_truth_receipt,
+)
 from ...runtime.typed_gate_failure import TypedGateFailure
 
 FINAL_RESPONSE_GATE_CONTRACT_ID = "FinalResponseGateResult"
@@ -67,6 +81,10 @@ def enforce_final_response_gate(
     packet_attention: Any | None = None,
     orchestration: Any | None = None,
     next_slice_id: str = "",
+    repo_root: Path | None = None,
+    ground_truth_expected_trigger_paths: Iterable[str] = (),
+    ground_truth_max_age_seconds: int = DEFAULT_MAX_RECEIPT_AGE_SECONDS,
+    now_utc: datetime | None = None,
 ) -> FinalResponseGateResult:
     """Return the typed gate result for final-response emission."""
     live_block = _live_final_response_block(
@@ -74,6 +92,10 @@ def enforce_final_response_gate(
         packet_attention=packet_attention,
         orchestration=orchestration,
         next_slice_id=next_slice_id,
+        repo_root=repo_root,
+        ground_truth_expected_trigger_paths=ground_truth_expected_trigger_paths,
+        ground_truth_max_age_seconds=ground_truth_max_age_seconds,
+        now_utc=now_utc,
     )
     if live_block is not None:
         return live_block
@@ -105,6 +127,10 @@ def _live_final_response_block(
     packet_attention: Any | None,
     orchestration: Any | None,
     next_slice_id: str = "",
+    repo_root: Path | None = None,
+    ground_truth_expected_trigger_paths: Iterable[str] = (),
+    ground_truth_max_age_seconds: int = DEFAULT_MAX_RECEIPT_AGE_SECONDS,
+    now_utc: datetime | None = None,
 ) -> FinalResponseGateResult | None:
     packet_block = _packet_attention_final_response_block(
         continuation,
@@ -112,11 +138,107 @@ def _live_final_response_block(
     )
     if packet_block is not None:
         return packet_block
-    return _agent_loop_final_response_block(
+    agent_block = _agent_loop_final_response_block(
         continuation,
         orchestration=orchestration,
         next_slice_id=next_slice_id,
+        repo_root=repo_root,
+        now_utc=now_utc,
     )
+    if agent_block is not None:
+        return agent_block
+    return _ground_truth_receipt_final_response_block(
+        continuation,
+        repo_root=repo_root,
+        next_slice_id=next_slice_id,
+        expected_trigger_paths=ground_truth_expected_trigger_paths,
+        max_age_seconds=ground_truth_max_age_seconds,
+        now_utc=now_utc,
+    )
+
+
+def _ground_truth_receipt_final_response_block(
+    continuation: DevelopmentContinuationRequiredSignal,
+    *,
+    repo_root: Path | None,
+    next_slice_id: str = "",
+    expected_trigger_paths: Iterable[str] = (),
+    max_age_seconds: int = DEFAULT_MAX_RECEIPT_AGE_SECONDS,
+    now_utc: datetime | None = None,
+) -> FinalResponseGateResult | None:
+    if repo_root is None:
+        return None
+    check = require_recent_ground_truth_receipt(
+        repo_root=repo_root,
+        slice_id=next_slice_id,
+        now_utc=now_utc,
+        max_age_seconds=max_age_seconds,
+        expected_trigger_paths=tuple(expected_trigger_paths),
+    )
+    if check.ok:
+        return None
+    failure_code = str(check.failure_code)
+    reason = f"ground_truth_probe_receipt:{failure_code}"
+    next_required_command = fallback_next_required_command(
+        "python3 dev/scripts/devctl.py ground-truth-probe --record --format md"
+    )
+    gate_failure = TypedGateFailure(
+        gate_id="ground_truth_probe_receipt.recent",
+        violation_reason=reason,
+        bypass_invocation=(
+            "python3 dev/scripts/devctl.py bypass --action request "
+            "--scope edit-only --reason ground_truth_probe_receipt_unavailable"
+        ),
+        bypass_receipt_kind="BypassReceipt",
+        contract_definition_path=(
+            "dev/scripts/devctl/runtime/ground_truth_probe_gate.py"
+        ),
+        exception_lifecycle_class="GovernedExceptionLifecycle",
+    )
+    return FinalResponseGateResult(
+        allow_final_response=False,
+        action="run_next_command",
+        reason=reason,
+        next_required_command=next_required_command,
+        required_packet_kind=continuation.required_packet_kind,
+        required_packet_command=continuation.required_packet_command,
+        blocking_packet_id="",
+        source="ground_truth_probe_receipt",
+        continuation_state="must_continue",
+        user_action=(
+            "Record a recent GroundTruthProbeRunReceipt before final response."
+        ),
+        continuation_goal=next_slice_id or continuation.continuation_goal,
+        why_not_done=_ground_truth_why_not_done(check),
+        stop_policy=continuation.stop_policy,
+        gate_failure=gate_failure,
+    )
+
+
+def _ground_truth_why_not_done(check: GroundTruthProbeReceiptCheck) -> str:
+    code = check.failure_code
+    if code == GroundTruthProbeReceiptFailureCode.GROUND_TRUTH_PROBE_RECEIPT_MISSING:
+        return (
+            "No GroundTruthProbeRunReceipt exists yet; record one before "
+            "emitting a final response."
+        )
+    if code == GroundTruthProbeReceiptFailureCode.GROUND_TRUTH_PROBE_RECEIPT_STALE:
+        return (
+            "The latest GroundTruthProbeRunReceipt is stale "
+            f"(age_seconds={check.age_seconds}); record a fresh one."
+        )
+    if code == GroundTruthProbeReceiptFailureCode.GROUND_TRUTH_PROBE_VERDICT_UNSATISFIED:
+        verdict = check.receipt.verdict if check.receipt is not None else "missing"
+        return (
+            "The latest GroundTruthProbeRunReceipt verdict is "
+            f"'{verdict}'; resolve the unsatisfied probes."
+        )
+    if code == GroundTruthProbeReceiptFailureCode.GROUND_TRUTH_PROBE_TRIGGER_MISMATCH:
+        return (
+            "The latest GroundTruthProbeRunReceipt trigger digest does not "
+            "match the expected design surface; rerun the probe."
+        )
+    return "Ground-truth probe receipt is not satisfied."
 
 
 def _packet_attention_final_response_block(
@@ -172,6 +294,8 @@ def _agent_loop_final_response_block(
     *,
     orchestration: Any | None,
     next_slice_id: str = "",
+    repo_root: Path | None = None,
+    now_utc: datetime | None = None,
 ) -> FinalResponseGateResult | None:
     if orchestration is None:
         return None
@@ -187,6 +311,19 @@ def _agent_loop_final_response_block(
         ):
             continue
         active_edit_override = is_active_edit_only_override(agent_decision)
+        if active_edit_override:
+            receipt_check = require_active_bypass_receipt_for_override(
+                repo_root=repo_root,
+                required_scope=BypassAuthorityScope.EDIT_ONLY,
+                target_role=_text(_field(agent_decision, "target_role")),
+                now_utc=now_utc,
+            )
+            if not receipt_check.ok:
+                return _bypass_receipt_missing_final_response_block(
+                    continuation,
+                    check=receipt_check,
+                    next_slice_id=next_slice_id,
+                )
         action = (
             "continue_to_goal"
             if active_edit_override
@@ -248,6 +385,76 @@ def _agent_loop_final_response_block(
             ),
         )
     return None
+
+
+def _bypass_receipt_missing_final_response_block(
+    continuation: DevelopmentContinuationRequiredSignal,
+    *,
+    check: BypassReceiptActiveLookupCheck,
+    next_slice_id: str = "",
+) -> FinalResponseGateResult:
+    """Refuse final response when override prose lacks an active BypassReceipt.
+
+    Slice 5 of R313 A7 (T3): downgrades ``allow_final_response`` to False with
+    a typed ``BYPASS_RECEIPT_NOT_PRESENT`` failure code so loose-flag override
+    cannot escape the gate without typed authority.
+    """
+
+    failure_code = str(check.failure_code)
+    reason = f"bypass_receipt_active_lookup:{failure_code}"
+    next_required_command = fallback_next_required_command(
+        "python3 dev/scripts/devctl.py bypass --action request "
+        "--scope edit-only --reason operator_override_requires_active_receipt"
+    )
+    gate_failure = TypedGateFailure(
+        gate_id="bypass_receipt_active_lookup.required",
+        violation_reason=reason,
+        bypass_invocation=next_required_command,
+        bypass_receipt_kind="BypassReceipt",
+        contract_definition_path=(
+            "dev/scripts/devctl/runtime/bypass_receipt_active_lookup_gate.py"
+        ),
+        exception_lifecycle_class="BypassLifecycle",
+    )
+    return FinalResponseGateResult(
+        allow_final_response=False,
+        action="run_next_command",
+        reason=reason,
+        next_required_command=next_required_command,
+        required_packet_kind=continuation.required_packet_kind,
+        required_packet_command=continuation.required_packet_command,
+        blocking_packet_id="",
+        source="bypass_receipt_active_lookup",
+        continuation_state="must_continue",
+        user_action=(
+            "Request an active BypassReceipt before honoring an edit-only "
+            "operator override."
+        ),
+        continuation_goal=next_slice_id or continuation.continuation_goal,
+        why_not_done=_bypass_receipt_why_not_done(check),
+        stop_policy=continuation.stop_policy,
+        gate_failure=gate_failure,
+    )
+
+
+def _bypass_receipt_why_not_done(check: BypassReceiptActiveLookupCheck) -> str:
+    code = check.failure_code
+    if code == BypassReceiptActiveLookupFailureCode.BYPASS_RECEIPT_NOT_PRESENT:
+        return (
+            "Override prose claims edit-only authority but no active BypassReceipt "
+            "was found in the lifecycle store; request one before final response."
+        )
+    if code == BypassReceiptActiveLookupFailureCode.BYPASS_RECEIPT_EXPIRED:
+        return (
+            "The most recent BypassReceipt for the override scope is expired; "
+            "request a fresh receipt."
+        )
+    if code == BypassReceiptActiveLookupFailureCode.BYPASS_RECEIPT_SCOPE_INSUFFICIENT:
+        return (
+            "The active BypassReceipt does not grant edit-only authority for "
+            "this override claim."
+        )
+    return "BypassReceipt active-lookup check failed."
 
 
 def _gate_failure_for_agent_loop(

@@ -111,6 +111,7 @@ from ..config import (
     DEFAULT_MEM_ITERATIONS,
     DEFAULT_MUTANTS_TIMEOUT,
     DEFAULT_MUTATION_THRESHOLD,
+    REPO_ROOT,
 )
 from ..context_graph.command import run as context_graph_run
 from ..context_graph.graph_walk_command import run as graph_walk_run
@@ -147,6 +148,11 @@ from ..publication_sync.parser import add_publication_sync_parser
 from ..reports_cleanup_parser import add_reports_cleanup_parser
 from ..review_channel.parser import add_review_channel_parser
 from ..rollout_tail_parser import add_rollout_tail_parser
+from ..runtime.artifact_receipt_ledger import (
+    ArtifactReceiptRecord,
+    append_artifact_receipt_record,
+    build_artifact_receipt_record,
+)
 from ..runtime.machine_output import clear_machine_output_metrics, consume_machine_output_metrics
 from ..runtime.platform_finding_ingest import maybe_auto_ingest_devctl_result
 from ..runtime.startup_gate import enforce_startup_gate
@@ -470,14 +476,34 @@ def main() -> int:
                 os.environ[ARTIFACT_WRITES_ENV] = previous_artifact_write_env
         duration_seconds = time.monotonic() - started
         if not is_read_only:
+            machine_output_metrics = consume_machine_output_metrics()
             emit_devctl_audit_event(
                 command=args.command,
                 args=args,
                 returncode=return_code,
                 duration_seconds=duration_seconds,
                 argv=sys.argv[1:],
-                machine_output=consume_machine_output_metrics(),
+                machine_output=machine_output_metrics,
             )
+            if machine_output_metrics is not None:
+                try:
+                    artifact_receipt_record: ArtifactReceiptRecord = (
+                        build_artifact_receipt_record(
+                            machine_output_metrics,
+                            command=args.command,
+                            argv=sys.argv[1:],
+                            ok=(return_code == 0),
+                            summary=None,
+                        )
+                    )
+                    append_artifact_receipt_record(
+                        artifact_receipt_record,
+                        repo_root=REPO_ROOT,
+                    )
+                except (OSError, ValueError, TypeError):
+                    # Fire-and-forget: artifact receipt ledger never blocks the
+                    # CLI exit. The audit event still captured the metrics.
+                    pass
             maybe_auto_ingest_devctl_result(
                 command=args.command,
                 returncode=return_code,

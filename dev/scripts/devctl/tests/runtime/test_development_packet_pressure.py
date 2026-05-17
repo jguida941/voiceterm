@@ -250,6 +250,34 @@ def test_existing_anchor_owner_removes_packet_from_next_pressure() -> None:
     assert decision["decision"] == "continue_current_work"
 
 
+def test_durable_owned_findings_do_not_trip_attention_budget() -> None:
+    packets = [
+        _packet(f"rev_pkt_{index}", kind="finding")
+        for index in range(20)
+    ]
+    row = PlanRow(
+        row_id="MP377-P0-T22AN-X",
+        title="Packet-aware develop closure",
+        status="in_progress",
+        sdlc_stage="impl",
+        sourced_from_packets=tuple(
+            f"rev_pkt_{index}" for index in range(20)
+        ),
+    )
+
+    pressure, classifications, decision, packet_ingest_decisions = packet_pressure_report(
+        {"packets": packets},
+        rows=(row,),
+        actor="codex",
+    )
+
+    assert pressure["live_total"] == 0
+    assert pressure["pressure_state"] == "below_budget"
+    assert pressure["durable_owner_gap_total"] == 0
+    assert all(item["durable_owner"] == row.row_id for item in classifications)
+    assert decision["decision"] == "continue_current_work"
+
+
 def test_expired_archived_packet_with_plan_owner_is_provenance_not_pressure() -> None:
     packet = _packet(
         "rev_pkt_3111",

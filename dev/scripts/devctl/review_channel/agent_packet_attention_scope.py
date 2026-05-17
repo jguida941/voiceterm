@@ -7,17 +7,11 @@ from collections.abc import Mapping
 from ..runtime.review_packet_inbox_actionable import attention_urgency
 from ..runtime.session_termination_policy import SESSION_TERMINATION_PACKET_KINDS
 from ..runtime.value_coercion import coerce_text as _text
-from .agent_sync_models import (
-    ACTIVE_LIFECYCLE_STATES,
-    TERMINAL_NON_SUCCESS_STATES,
-    TERMINAL_SUCCESS_STATES,
-)
+from .agent_sync_models import ACTIVE_LIFECYCLE_STATES
 from .packet_contract import packet_route_matches_scope
 from .packet_loop_attention import packet_requires_runtime_attention
+from .packet_terminal_lifecycle_states import TERMINAL_LIFECYCLE_STATES
 
-_TERMINAL_LIFECYCLE_STATES = (
-    TERMINAL_NON_SUCCESS_STATES | TERMINAL_SUCCESS_STATES
-)
 _PENDING_LIFECYCLES = frozenset(
     {
         "",
@@ -122,7 +116,7 @@ def pending_packet_visible_to_route(
     if _text(packet.get("kind")) in SESSION_TERMINATION_PACKET_KINDS:
         return False
     lifecycle = _text(packet.get("lifecycle_current_state"))
-    if lifecycle in _TERMINAL_LIFECYCLE_STATES:
+    if lifecycle in TERMINAL_LIFECYCLE_STATES:
         return False
     if observer_legacy_action_request(packet, role=role):
         return False

@@ -25,6 +25,7 @@ from .campaign_exception_proof import (
     publication_proof_summary,
     push_proof_projection,
 )
+from .campaign_idris_gate import campaign_typechecker_verdict
 
 CAMPAIGN_CONTRACT_ID = "RemoteControlCollaborationCampaign"
 CAMPAIGN_SCHEMA_VERSION = 1
@@ -91,6 +92,7 @@ def campaign_report(
     open_exception_debt = bool(
         exception_projection.pending_count or exception_projection.error_count
     )
+    typechecker_verdict = campaign_typechecker_verdict(exception_store_path)
     mode_drift = _mode_drift(
         remote_active=remote_active,
         topology=topology,
@@ -98,10 +100,15 @@ def campaign_report(
         interaction_mode=interaction_mode,
     )
     fail_closed = bool(
-        pending_packet_id or remote_stale or mode_drift or open_exception_debt
+        pending_packet_id
+        or remote_stale
+        or mode_drift
+        or open_exception_debt
+        or not typechecker_verdict.allows_mutation
     )
     mutation_allowed = (
         not fail_closed
+        and typechecker_verdict.allows_mutation
         and any(
             role.actor_id == "codex" and role.role == "implementer" and role.may_mutate
             for role in roles
@@ -156,10 +163,11 @@ def campaign_report(
         latest_push_report_published_remote=push_projection.published_remote,
         latest_push_report_post_push_green=push_projection.post_push_green,
         latest_push_report_matches_current_head=push_projection.matches_current_head,
-        publication_proof_summary=publication_proof_summary(
+        publication_proof_summary=_compose_publication_proof_summary(
             posture=posture,
             push_projection=push_projection,
             exception_projection=exception_projection,
+            typechecker_verdict=typechecker_verdict,
         ),
         pending_packet_id=pending_packet_id,
         pending_packet_required_command=pending_packet_command,
@@ -280,6 +288,28 @@ def _summary(status: str) -> str:
     if status == "ready_for_codex_build":
         return "Codex may build under typed gates; Claude remains the review/dashboard lane."
     return "Campaign is read-only until typed authority grants the next lane."
+
+
+def _compose_publication_proof_summary(
+    *,
+    posture: str,
+    push_projection,
+    exception_projection,
+    typechecker_verdict,
+) -> str:
+    """Append the typechecker verdict to the publication-proof summary line.
+
+    The base summary stays compatible with prior projections; the typechecker
+    surface makes Idris-style closure-proof failures visible without changing
+    the published shape of ``publication_proof_summary`` in
+    ``campaign_exception_proof``.
+    """
+    base = publication_proof_summary(
+        posture=posture,
+        push_projection=push_projection,
+        exception_projection=exception_projection,
+    )
+    return f"{base}; {typechecker_verdict.summary}"
 
 
 def _pending_packet_id(

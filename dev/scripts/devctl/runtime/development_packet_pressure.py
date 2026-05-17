@@ -31,7 +31,12 @@ from .packet_carry_forward import (
     durable_packet_ids_from_plan_rows,
     packet_carry_forward_debts,
 )
-from .packet_transport_expiry import packet_uses_transport_expiry
+from .packet_transport_expiry import (
+    packet_has_explicit_transport_expiry,
+    packet_kind_allows_optional_transport_expiry,
+    packet_kind_uses_default_transport_expiry,
+    packet_uses_transport_expiry,
+)
 from .review_packet_inbox_liveness import (
     is_expired_unresolved,
     is_live_pending,
@@ -77,8 +82,18 @@ def packet_pressure_report(
         )
         for packet in selected
     ]
+    live_pressure_packets = [
+        packet
+        for packet in live_packets
+        if _live_packet_requires_pressure(
+            packet,
+            classifications_by_packet_id=_classifications_by_packet_id(
+                classifications
+            ),
+        )
+    ]
     pressure = _pressure(
-        live_packets=live_packets,
+        live_packets=live_pressure_packets,
         selected_classifications=classifications,
         expired_packets=expired_packets,
         debt_ids=debt_ids,
@@ -160,6 +175,41 @@ def _is_actionable_pressure_item(item: PacketIntentClassification) -> bool:
     if item.durable_owner or item.terminal_receipt:
         return False
     return item.classification not in {"communication-only", "lifecycle-only"}
+
+
+def _classifications_by_packet_id(
+    classifications: list[PacketIntentClassification],
+) -> dict[str, PacketIntentClassification]:
+    return {
+        item.packet_id: item
+        for item in classifications
+        if item.packet_id
+    }
+
+
+def _live_packet_requires_pressure(
+    packet: Mapping[str, object],
+    *,
+    classifications_by_packet_id: Mapping[str, PacketIntentClassification],
+) -> bool:
+    packet_id = _text(packet.get("packet_id"))
+    item = classifications_by_packet_id.get(packet_id)
+    if item is None:
+        return True
+    if item.terminal_receipt:
+        return False
+    if item.durable_owner and not _packet_requires_runtime_lifecycle(packet):
+        return False
+    return True
+
+
+def _packet_requires_runtime_lifecycle(packet: Mapping[str, object]) -> bool:
+    kind = _text(packet.get("kind"))
+    if packet_kind_uses_default_transport_expiry(kind):
+        return True
+    if packet_kind_allows_optional_transport_expiry(kind):
+        return packet_has_explicit_transport_expiry(packet)
+    return False
 
 
 def _pressure_state(

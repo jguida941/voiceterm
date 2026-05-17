@@ -2,18 +2,11 @@
 
 from __future__ import annotations
 
-from .agent_sync_models import (
-    TERMINAL_NON_SUCCESS_STATES,
-    TERMINAL_SUCCESS_STATES,
-)
 from .agent_packet_ranking import max_packet_event_rank
 from .event_models import event_id_rank as _event_id_rank
 from .packet_contract import packet_route_matches_scope
+from .packet_terminal_lifecycle_states import TERMINAL_LIFECYCLE_STATES
 
-
-_TERMINAL_LIFECYCLE_STATES: frozenset[str] = (
-    TERMINAL_NON_SUCCESS_STATES | TERMINAL_SUCCESS_STATES
-)
 _STALE_LIFECYCLE_RANK_GAP = 1000
 _ACTIVE_LIFECYCLE_PRIORITY: dict[str, int] = {
     "delivery_pending": 4,
@@ -81,7 +74,7 @@ def _select_current_active_packet_id(
             continue
         packet_id = str(row.get("packet_id") or "").strip()
         lifecycle = str(row.get("lifecycle_current_state") or "")
-        if not packet_id or lifecycle in _TERMINAL_LIFECYCLE_STATES:
+        if not packet_id or lifecycle in TERMINAL_LIFECYCLE_STATES:
             continue
         priority = _ACTIVE_LIFECYCLE_PRIORITY.get(lifecycle, 0)
         if priority == 0:

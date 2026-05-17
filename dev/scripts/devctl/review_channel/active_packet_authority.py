@@ -38,11 +38,8 @@ from .packet_contract import (
     normalize_packet_route_role,
     packet_route_matches_scope,
 )
+from .packet_terminal_lifecycle_states import TERMINAL_LIFECYCLE_STATES
 
-
-_TERMINAL_LIFECYCLE_STATES = frozenset(
-    {"applied", "dismissed", "failed", "archived", "expired"}
-)
 _STALE_LIFECYCLE_RANK_GAP = 1000
 
 # Per Codex rev_pkt_2396: delivery_pending must outrank in_progress so a
@@ -195,7 +192,7 @@ def _from_agent_sync(
         if not packet_id:
             continue
         lifecycle = str(row.get("lifecycle_current_state") or "")
-        if lifecycle in _TERMINAL_LIFECYCLE_STATES:
+        if lifecycle in TERMINAL_LIFECYCLE_STATES:
             continue
         priority = _ACTIVE_LIFECYCLE_PRIORITY.get(lifecycle, 0)
         if priority == 0:

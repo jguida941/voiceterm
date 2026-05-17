@@ -11,6 +11,10 @@ from ..runtime.review_state_models import (
     CollaborationSessionState,
     ReviewCurrentSessionState,
 )
+from ..runtime.reviewer_mode_authority_contract import (
+    ReviewerModeAuthorityState,
+    resolve_reviewer_mode_authority,
+)
 from . import collaboration_session_local_reviewer as _local_reviewer
 from .collaboration_session_actor_authority import (
     ActorAuthorityBuildInputs,
@@ -76,9 +80,29 @@ def build_collaboration_session(
         observed_at_utc=timestamp,
     )
     reviewer_mode = _text(bridge_liveness.get("reviewer_mode")) or "tools_only"
-    effective_mode = (
-        _text(bridge_liveness.get("effective_reviewer_mode")) or reviewer_mode
+    # Resolve effective_mode through typed authority contract instead of
+    # silently overwriting reviewer_mode with bridge_liveness.effective_reviewer_mode.
+    # The contract pins effective_mode to declared_mode unless the transition
+    # carries typed evidence refs (handshake/launch/bypass receipts).
+    _reviewer_mode_evidence_refs = tuple(
+        ref
+        for ref in (
+            _text(bridge_liveness.get("reviewer_mode_authority_ref")),
+            _text(bridge_liveness.get("reviewer_mode_transition_ref")),
+            _text(bridge_liveness.get("handshake_ref")),
+            _text(bridge_liveness.get("launch_authority_ref")),
+        )
+        if ref
     )
+    _reviewer_mode_authority: ReviewerModeAuthorityState = (
+        resolve_reviewer_mode_authority(
+            reviewer_mode,
+            _text(bridge_liveness.get("effective_reviewer_mode")) or reviewer_mode,
+            evidence_refs=_reviewer_mode_evidence_refs,
+            observed_at_utc=timestamp,
+        )
+    )
+    effective_mode = _reviewer_mode_authority.effective_mode.value
     participants = _build_participants(
         session_records,
         remote_attachments=remote_attachments,

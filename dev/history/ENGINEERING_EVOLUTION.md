@@ -16239,3 +16239,25 @@ Evidence:
 - `dev/scripts/devctl/runtime/raw_git_bypass_receipts.py`
 - `dev/scripts/devctl/tests/commands/test_governance_exceptions_close_raw_git.py`
 - `dev/scripts/devctl/tests/runtime/test_raw_git_bypass_lifecycle_closure.py`
+
+### 2026-05-17 - Packet pressure separates durable ownership from runtime lifecycle
+
+R309 refined the R301/R303 two-cursor packet model inside `/develop next`.
+Packets that already have durable non-command ownership, such as findings bound
+into plan rows, now leave live packet-pressure accounting and become provenance
+for the owner row. Runtime command packets still stay live until their lifecycle
+is explicitly resolved: `action_request`, `approval_request`, and
+`commit_approval` continue to require ack/apply/dismiss/expire handling, as do
+explicit-expiry anchors.
+
+The controller proof changed from hard-budget fail-closed on already-owned
+packet rows to below-budget pressure with `live_total=0`, while the focused
+development controller suite and packet-pressure suite cover the durable-owned
+finding and command-lane split.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/packet_attention_lifecycle.py`
+- `dev/scripts/devctl/runtime/development_packet_pressure.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `dev/scripts/devctl/tests/runtime/test_development_packet_pressure.py`

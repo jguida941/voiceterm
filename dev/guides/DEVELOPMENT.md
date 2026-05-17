@@ -2363,6 +2363,10 @@ python3 dev/scripts/devctl.py develop launch --dry-run --max-cycles 1 --format m
 # only non-blocking when packet attention is empty and a typed
 # PacketBacklogPressure report proves all watched pressure counts are zero.
 # Missing packet-pressure evidence fails closed to the watcher report command.
+# Durable-owned non-command packets, such as findings already bound into plan
+# rows, are provenance rather than live runtime pressure. Command-lane packets
+# (`action_request`, `approval_request`, `commit_approval`) and explicit-expiry
+# anchors still require lifecycle disposition before they exit runtime pressure.
 # `/develop audit-packets` must not self-loop on the packet-attention audit
 # command. After it classifies packet pressure, the continuation command,
 # top-level next_step_command, and first Next Commands row come from

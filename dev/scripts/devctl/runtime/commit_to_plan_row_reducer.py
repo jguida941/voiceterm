@@ -10,11 +10,16 @@ from typing import ClassVar
 
 UTC = timezone.utc
 
+from .commit_to_plan_row_role_review_gate import (
+    RoleReviewReceiptRequired,
+    require_terminal_role_review_for_plan_row,
+)
 from .feature_proof_receipt import FeatureProofReceipt
 from .master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL, PlanRow
 from .master_plan_store import read_plan_rows_jsonl, upsert_plan_row_jsonl
 from .ref_collections import unique_refs as _unique_refs
 from .relaunch_loop_store import append_jsonl
+from .role_review_lifecycle import RoleReviewAssignmentLifecycle
 from .value_coercion import coerce_string
 
 PLAN_ROW_CLOSURE_RECEIPT_CONTRACT_ID = "PlanRowClosureReceipt"
@@ -45,11 +50,13 @@ class PlanRowClosureReceipt:
     applied_at_utc: str
     plan_index_path: str
     reducer: str = "commit_to_plan_row_reducer"
+    composes_with: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
         payload["contract_id"] = self.contract_id
         payload["schema_version"] = self.schema_version
+        payload["composes_with"] = list(self.composes_with)
         return payload
 
 
@@ -78,8 +85,19 @@ def reduce_feature_proof_to_plan_rows(
     feature_proof_receipt_path: str,
     plan_index_relpath: str = DEFAULT_MASTER_PLAN_STORE_REL,
     receipt_store_relpath: str = DEFAULT_PLAN_ROW_CLOSURE_RECEIPT_STORE_REL,
+    role_review_lifecycles: (
+        tuple[RoleReviewAssignmentLifecycle, ...] | None
+    ) = None,
+    enforce_role_review_gate: bool = False,
 ) -> tuple[CommitToPlanRowReductionResult, ...]:
-    """Apply one FeatureProofReceipt to every matching plan row id."""
+    """Apply one FeatureProofReceipt to every matching plan row id.
+
+    When `enforce_role_review_gate=True`, each plan row transitioning to an
+    applied/closed state must be covered by a terminal RoleReviewReceipt drawn
+    from `role_review_lifecycles`. Rows lacking that proof are recorded with a
+    `role_review_receipt_required` outcome and their plan rows are NOT mutated
+    (the R297-#175 FOURTH LEG closure-proof composition rule).
+    """
 
     commit_sha = coerce_string(feature_proof.commit_sha)
     row_ids = _unique_refs((*feature_ids, feature_proof.feature_id))
@@ -131,6 +149,39 @@ def reduce_feature_proof_to_plan_rows(
             )
             continue
 
+        role_review_refs: tuple[str, ...] = ()
+        if enforce_role_review_gate and existing.status in TRANSITIONABLE_PLAN_ROW_STATUSES:
+            try:
+                role_review_refs = require_terminal_role_review_for_plan_row(
+                    row_id,
+                    role_review_lifecycles=role_review_lifecycles or (),
+                )
+            except RoleReviewReceiptRequired as exc:
+                receipt = _closure_receipt(
+                    row_id=row_id,
+                    commit_sha=commit_sha,
+                    feature_proof_receipt_path=feature_proof_receipt_path,
+                    previous_status=existing.status,
+                    next_status=existing.status,
+                    outcome="role_review_receipt_required",
+                    applied_at_utc=applied_at_utc,
+                    plan_index_path=_display_path(plan_index_path, repo_root),
+                    composes_with=(),
+                )
+                append_plan_row_closure_receipt(receipt_store_path, receipt)
+                results.append(
+                    CommitToPlanRowReductionResult(
+                        ok=False,
+                        plan_row_id=row_id,
+                        commit_sha=commit_sha,
+                        outcome=receipt.outcome,
+                        plan_index_path=_display_path(plan_index_path, repo_root),
+                        receipt_path=_display_path(receipt_store_path, repo_root),
+                        warning=exc.reason,
+                    )
+                )
+                continue
+
         updated, outcome = _row_with_commit_closure(
             existing,
             commit_sha=commit_sha,
@@ -162,6 +213,7 @@ def reduce_feature_proof_to_plan_rows(
             outcome=outcome,
             applied_at_utc=updated.applied_at_utc or applied_at_utc,
             plan_index_path=_display_path(plan_index_path, repo_root),
+            composes_with=role_review_refs,
         )
         append_plan_row_closure_receipt(receipt_store_path, receipt)
         results.append(
@@ -270,6 +322,7 @@ def _closure_receipt(
     outcome: str,
     applied_at_utc: str,
     plan_index_path: str,
+    composes_with: tuple[str, ...] = (),
 ) -> PlanRowClosureReceipt:
     commit_anchor_ref = f"commit:{commit_sha}" if commit_sha else ""
     digest = hashlib.sha256(
@@ -296,6 +349,7 @@ def _closure_receipt(
         commit_anchor_ref=commit_anchor_ref,
         applied_at_utc=applied_at_utc,
         plan_index_path=plan_index_path,
+        composes_with=tuple(composes_with),
     )
 
 
@@ -318,7 +372,9 @@ __all__ = [
     "TRANSITIONABLE_PLAN_ROW_STATUSES",
     "CommitToPlanRowReductionResult",
     "PlanRowClosureReceipt",
+    "RoleReviewReceiptRequired",
     "append_plan_row_closure_receipt",
     "reduce_feature_proof_to_plan_rows",
+    "require_terminal_role_review_for_plan_row",
     "transition_plan_row_to_applied",
 ]

@@ -464,6 +464,7 @@ def test_agent_sync_inventory_uses_canonical_live_pending_predicate() -> None:
                 "status": "pending",
                 "lifecycle_current_state": "pending",
                 "expires_at_utc": "2000-01-01T00:00:00Z",
+                "metadata": {"transport_expiry_explicit": True},
             },
             {
                 "packet_id": "rev_pkt_live_notice",

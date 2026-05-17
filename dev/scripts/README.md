@@ -1477,6 +1477,11 @@ python3 dev/scripts/devctl.py relaunch-loop --action dispatch-once --dry-run --f
 # alone. Missing PacketBacklogPressure evidence fails closed to the watcher
 # report command; a stopped watcher closes only when pressure evidence exists
 # and all watched packet-pressure counts are zero.
+# Durable-owned findings and other non-command durable packets are no longer
+# counted as live runtime pressure after typed plan ownership exists. Runtime
+# command packets (`action_request`, `approval_request`, `commit_approval`) and
+# explicit-expiry anchors still require ack/apply/dismiss/expire lifecycle
+# handling before the controller treats them as resolved.
 # `/develop next` selection is authority-first: active unbypassed startup,
 # lifecycle, or checkpoint blockers map to typed owner rows before runnable
 # plan rows. Packet ids are transport/provenance only after disposition; an

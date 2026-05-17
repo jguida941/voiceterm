@@ -293,6 +293,11 @@ COMMIT_RECEIPT_CONTRACTS: tuple[ContractSpec, ...] = (
             ),
             ContractField("plan_index_path", "str", "Plan index authority path."),
             ContractField("reducer", "str", "Reducer id that emitted this receipt."),
+            ContractField(
+                "composes_with",
+                "tuple[str, ...]",
+                "Typed role-review/lifecycle proof refs composed into closure.",
+            ),
         ),
         runtime_model=(
             "dev.scripts.devctl.runtime.commit_to_plan_row_reducer:"

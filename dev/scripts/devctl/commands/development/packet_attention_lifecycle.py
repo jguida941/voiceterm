@@ -7,7 +7,11 @@ from collections.abc import Mapping, Sequence
 from ...runtime.development_packet_failure_owner import (
     CLOCK_EXPIRED_WITHOUT_DISPOSITION,
 )
-from ...runtime.packet_transport_expiry import packet_uses_transport_expiry
+from ...runtime.packet_transport_expiry import (
+    packet_has_explicit_transport_expiry,
+    packet_kind_allows_optional_transport_expiry,
+    packet_kind_uses_default_transport_expiry,
+)
 from .packet_attention_types import PacketExitContext
 
 
@@ -48,7 +52,12 @@ def expired_packet_exits_next_pool(
 
 
 def packet_requires_runtime_lifecycle(packet: Mapping[str, object]) -> bool:
-    return packet_uses_transport_expiry(packet)
+    kind = str(packet.get("kind") or "").strip()
+    if packet_kind_uses_default_transport_expiry(kind):
+        return True
+    if packet_kind_allows_optional_transport_expiry(kind):
+        return packet_has_explicit_transport_expiry(packet)
+    return False
 
 
 def packet_by_id(

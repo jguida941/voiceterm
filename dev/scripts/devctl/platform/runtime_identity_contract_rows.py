@@ -6,6 +6,7 @@ from ..runtime.agent_loop_bilateral_protocol import (
     AgentLoopBilateralProtocol,
     BilateralProtocolPropertyResult,
 )
+from ..runtime.evidence_archive_ref_guard import EvidenceArchiveRefResolution
 from .contracts import ContractField, ContractSpec
 from .runtime_identity_contract_rows_commit import COMMIT_RECEIPT_CONTRACTS
 
@@ -15,8 +16,6 @@ _AGENT_LOOP_BILATERAL_PROTOCOL_RUNTIME_MODEL = (
 _BILATERAL_PROPERTY_RESULTS_TYPE = (
     f"tuple[{BilateralProtocolPropertyResult.__name__}, ...]"
 )
-
-
 RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
     ContractSpec(
         contract_id="RepoPack",
@@ -192,6 +191,39 @@ RUNTIME_IDENTITY_CONTRACTS: tuple[ContractSpec, ...] = (
         ),
         runtime_model="dev.scripts.devctl.runtime.evidence_archive:EvidenceArchiveReceipt",
         startup_surface_tokens=("receipt_id", "manifest_id", "source_deleted"),
+    ),
+    ContractSpec(
+        contract_id=EvidenceArchiveRefResolution.__name__,
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed resolution result proving a consumer evidence_archive_ref "
+            "points at a concrete EvidenceArchiveReceipt."
+        ),
+        required_fields=(
+            ContractField("ok", "bool", "Whether the evidence archive ref resolved."),
+            ContractField("ref", "str", "Evidence archive ref that was checked."),
+            ContractField(
+                "resolved_archive_id",
+                "str",
+                "EvidenceArchiveReceipt id resolved from the ref.",
+            ),
+            ContractField("found", "bool", "Whether a matching receipt was found."),
+            ContractField(
+                "expected_path",
+                "str",
+                "Expected archive receipt ledger path used for diagnostics.",
+            ),
+            ContractField(
+                "diagnostic",
+                "str",
+                "Machine-readable explanation when resolution fails.",
+            ),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.evidence_archive_ref_guard:"
+            "EvidenceArchiveRefResolution"
+        ),
+        startup_surface_tokens=("ok", "ref", "resolved_archive_id"),
     ),
     ContractSpec(
         contract_id="SessionActivityEntry",
