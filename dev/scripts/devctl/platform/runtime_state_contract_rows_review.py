@@ -13,6 +13,7 @@ from .runtime_state_contract_rows_session_continuation import (
 )
 
 if TYPE_CHECKING:
+    from ..runtime.peer_collaboration_edge import PeerCollaborationEdge
     from ..runtime.peer_awareness_policy import (
         PeerAwarenessDecision,
         PeerAwarenessPolicy,
@@ -31,6 +32,7 @@ if TYPE_CHECKING:
     )
 
     _RUNTIME_MODEL_REFS: tuple[
+        type[PeerCollaborationEdge],
         type[PeerAwarenessPolicy],
         type[PeerAwarenessDecision],
         type[SessionTerminationPolicy],

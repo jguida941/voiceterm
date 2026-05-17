@@ -23,6 +23,11 @@ from dev.scripts.devctl.runtime.agent_loop_operator_override import (
     apply_operator_override_actions,
     operator_override_from_bypass_lifecycle,
 )
+from dev.scripts.devctl.runtime.peer_collaboration_edge import (
+    DevelopRole,
+    PeerRelation,
+    resolve_peer_collaboration_edge,
+)
 from dev.scripts.devctl.runtime.lifetime_bypass_mode import (
     BypassAuthorityScope,
     BypassEvaluationInput,
@@ -94,6 +99,61 @@ def _state(*packets: dict[str, object]) -> dict[str, object]:
                 "snapshot_id": "agent-runtime-clock:rev_evt_100",
             }
         },
+    }
+
+
+def _authority(
+    *,
+    actor_id: str,
+    role: str,
+    session_id: str,
+    capabilities: tuple[str, ...],
+    target_ref: str = "MP-377",
+) -> dict[str, object]:
+    return {
+        "actor_id": actor_id,
+        "provider": actor_id,
+        "role": role,
+        "live": True,
+        "status": "live",
+        "source": "test",
+        "source_contract": "CollaborationSession",
+        "session_id": session_id,
+        "grants": [
+            {
+                "capability": capability,
+                "granted": True,
+                "source": "test",
+                "target_kind": "plan",
+                "target_ref": target_ref,
+            }
+            for capability in capabilities
+        ],
+    }
+
+
+def _collaboration_authority() -> dict[str, object]:
+    return {
+        "contract_id": "CollaborationSession",
+        "schema_version": 1,
+        "current_slice": "MP-377",
+        "mutation_owner": "claude",
+        "verification_owner": "codex",
+        "watcher_owner": "claude",
+        "actor_authorities": [
+            _authority(
+                actor_id="claude",
+                role="implementer",
+                session_id="claude-impl",
+                capabilities=("repo.stage", "repo.commit"),
+            ),
+            _authority(
+                actor_id="codex",
+                role="reviewer",
+                session_id="codex-review",
+                capabilities=("review.checkpoint", "review.finding"),
+            ),
+        ],
     }
 
 
@@ -319,6 +379,188 @@ def test_digest_sidecar_toggle_blocks_blind_continuation_after_packet_open() -> 
     assert decision.proof_state == "missing"
     assert "packet_attention_evidence" in decision.satisfied_proofs
     assert "peer_digest_sidecar_observation" in decision.missing_proofs
+
+
+def test_digest_sidecar_derives_peer_from_typed_owner_lanes() -> None:
+    packet = _packet(
+        packet_id="rev_pkt_digest",
+        from_agent="claude",
+        to_agent="codex",
+        kind="action_request",
+        body="Opened packet still requires peer digest before continuation.",
+        latest_event_id="rev_evt_101",
+        target_role="reviewer",
+        target_session_id="codex-review",
+    )
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "codex",
+            "body_observed_role": "reviewer",
+            "body_observed_session_id": "codex-review",
+            "body_digest": packet_body_digest(packet),
+        }
+    ]
+    review_state = _state(packet)
+    review_state["peer_awareness_policy"] = {
+        "digest_sidecar_enabled": True,
+        "work_class": "long_running_subprocess",
+    }
+    review_state["collaboration"] = _collaboration_authority()
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="codex",
+        actor_role="reviewer",
+        session_id="codex-review",
+    )
+
+    assert decision.required_action == "launch_peer_digest_sidecar"
+    assert "agent-mind --agent claude" in decision.next_command
+
+
+def test_digest_sidecar_derives_peer_bidirectionally_from_typed_owner_lanes() -> None:
+    packet = _packet(
+        packet_id="rev_pkt_digest",
+        from_agent="codex",
+        to_agent="claude",
+        kind="action_request",
+        body="Opened packet still requires peer digest before continuation.",
+        latest_event_id="rev_evt_101",
+        target_role="implementer",
+        target_session_id="claude-impl",
+    )
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "claude",
+            "body_observed_role": "implementer",
+            "body_observed_session_id": "claude-impl",
+            "body_digest": packet_body_digest(packet),
+        }
+    ]
+    review_state = _state(packet)
+    review_state["peer_awareness_policy"] = {
+        "digest_sidecar_enabled": True,
+        "work_class": "long_running_subprocess",
+    }
+    review_state["collaboration"] = _collaboration_authority()
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="claude",
+        actor_role="implementer",
+        session_id="claude-impl",
+    )
+
+    assert decision.required_action == "launch_peer_digest_sidecar"
+    assert "agent-mind --agent codex" in decision.next_command
+
+
+def test_digest_sidecar_does_not_invent_codex_claude_peer_without_typed_topology() -> None:
+    packet = _packet(
+        packet_id="rev_pkt_digest",
+        from_agent="claude",
+        to_agent="codex",
+        kind="action_request",
+        body="Opened packet can continue when no typed peer topology exists.",
+        latest_event_id="rev_evt_101",
+        target_role="reviewer",
+        target_session_id="codex-review",
+    )
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "codex",
+            "body_observed_role": "reviewer",
+            "body_observed_session_id": "codex-review",
+            "body_digest": packet_body_digest(packet),
+        }
+    ]
+    review_state = _state(packet)
+    review_state["peer_awareness_policy"] = {
+        "digest_sidecar_enabled": True,
+        "work_class": "long_running_subprocess",
+    }
+
+    decision = build_agent_loop_decision(
+        review_state=review_state,
+        dashboard={"now": {}},
+        actor_id="codex",
+        actor_role="reviewer",
+        session_id="codex-review",
+    )
+
+    assert decision.required_action == "execute_active_packet"
+    assert "agent-mind --agent claude" not in decision.next_command
+
+
+def test_peer_collaboration_edge_carries_typed_authority_evidence() -> None:
+    edge = resolve_peer_collaboration_edge(
+        actor="codex",
+        actor_role="reviewer",
+        session_id="codex-review",
+        sources=(("review_state.collaboration", _collaboration_authority()),),
+    )
+
+    assert edge is not None
+    assert edge.actor.actor_id == "codex"
+    assert edge.peer.actor_id == "claude"
+    assert edge.actor_role == DevelopRole.REVIEWER
+    assert edge.peer_role == DevelopRole.IMPLEMENTER
+    assert edge.relation == PeerRelation.REVIEWS
+    assert edge.scope_ref == "current_slice:MP-377"
+    assert "current_slice:MP-377" in edge.evidence_refs
+    assert "CollaborationSession:actor_authorities" in edge.evidence_refs
+
+
+def test_peer_collaboration_edge_requires_shared_scope_evidence() -> None:
+    collaboration = _collaboration_authority()
+    collaboration.pop("current_slice")
+    collaboration["actor_authorities"] = [
+        _authority(
+            actor_id="claude",
+            role="implementer",
+            session_id="claude-impl",
+            capabilities=("repo.stage", "repo.commit"),
+            target_ref="MP-400",
+        ),
+        _authority(
+            actor_id="codex",
+            role="reviewer",
+            session_id="codex-review",
+            capabilities=("review.checkpoint", "review.finding"),
+            target_ref="MP-377",
+        ),
+    ]
+
+    edge = resolve_peer_collaboration_edge(
+        actor="codex",
+        actor_role="reviewer",
+        session_id="codex-review",
+        sources=(("review_state.collaboration", collaboration),),
+    )
+
+    assert edge is None
+
+
+def test_peer_collaboration_edge_does_not_resolve_from_owner_strings_only() -> None:
+    edge = resolve_peer_collaboration_edge(
+        actor="codex",
+        actor_role="reviewer",
+        session_id="codex-review",
+        sources=(
+            (
+                "review_state.collaboration",
+                {
+                    "mutation_owner": "claude",
+                    "verification_owner": "codex",
+                    "watcher_owner": "claude",
+                },
+            ),
+        ),
+    )
+
+    assert edge is None
 
 
 def test_digest_sidecar_toggle_off_keeps_existing_packet_execution_path() -> None:

@@ -16197,3 +16197,23 @@ Evidence:
 - `dev/scripts/devctl/runtime/packet_kind_ttl.py`
 - `dev/scripts/checks/check_contract_registry_composite_key_uniqueness.py`
 - `dev/state/non_trivial_output_proof_remediation_findings.jsonl`
+
+### 2026-05-16 - Raw-git governed exceptions get commit-anchor closure
+
+R287 closed the write-once raw-git governed-exception debt loop. The
+`exceptions close-raw-git` action reads `RawGitBypassReceipt` rows, builds a
+`CommitAnchorClosureProof` through the governed transition typechecker, and
+rewrites open raw-git `GovernedExceptionLifecycle` rows to
+`closed_via_commit_anchor` with `ResolutionReceipt` and `ClosureProof`
+evidence. The live backfill closed all 55 operator-approved rows with zero
+skips, so shared exception readers and the development campaign reducer now
+derive pending count from the same terminal-status helper.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/raw_git_bypass_lifecycle_closure.py`
+- `dev/scripts/devctl/commands/governance/close_raw_git_exceptions.py`
+- `dev/scripts/devctl/commands/development/campaign_exception_proof.py`
+- `dev/scripts/devctl/tests/runtime/test_raw_git_bypass_lifecycle_closure.py`
+- `dev/scripts/devctl/tests/commands/test_governance_exceptions_close_raw_git.py`
+- `dev/scripts/checks/check_schema_migration_spine.py`

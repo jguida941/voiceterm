@@ -349,7 +349,7 @@ def test_observed_actionable_packet_stays_runtime_attention() -> None:
     assert attention.wake_required is True
 
 
-def test_durably_ingested_finding_does_not_remain_runtime_attention() -> None:
+def test_durably_ingested_finding_with_route_observation_does_not_remain_runtime_attention() -> None:
     packet = {
         "packet_id": "rev_pkt_finding",
         "from_agent": "codex",
@@ -369,6 +369,15 @@ def test_durably_ingested_finding_does_not_remain_runtime_attention() -> None:
             "status": "inserted",
         },
     }
+    digest = packet_body_digest(packet)
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "claude",
+            "body_observed_role": "implementer",
+            "body_observed_session_id": "s1",
+            "body_digest": digest,
+        }
+    ]
 
     attention = packet_attention_for_agent(
         {"packets": [packet]},
@@ -381,6 +390,50 @@ def test_durably_ingested_finding_does_not_remain_runtime_attention() -> None:
     assert attention.body_open_required is False
     assert attention.latest_attention_packet_id == ""
     assert attention.wake_required is False
+
+
+def test_durably_ingested_finding_stays_visible_until_route_observed() -> None:
+    packet = {
+        "packet_id": "rev_pkt_finding",
+        "from_agent": "claude",
+        "to_agent": "codex",
+        "kind": "finding",
+        "requested_action": "review_only",
+        "policy_hint": "review_only",
+        "attention_urgency": "blocking",
+        "body": "Finding has already been folded into durable plan state.",
+        "status": "pending",
+        "lifecycle_current_state": "pending",
+        "latest_event_id": "rev_evt_54",
+        "target_role": "reviewer",
+        "target_session_id": "s1",
+        "durable_binding": {
+            "binding_target_kind": "plan_row",
+            "status": "inserted",
+        },
+    }
+    digest = packet_body_digest(packet)
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "codex",
+            "body_observed_role": "",
+            "body_observed_session_id": "",
+            "body_digest": digest,
+        }
+    ]
+
+    attention = packet_attention_for_agent(
+        {"packets": [packet]},
+        actor="codex",
+        role="reviewer",
+        session="s1",
+    )
+
+    assert attention.pending_packet_count == 1
+    assert attention.body_open_required is True
+    assert attention.body_open_packet_id == "rev_pkt_finding"
+    assert "--target-role reviewer" in attention.body_open_command
+    assert "--target-session-id s1" in attention.body_open_command
 
 
 def test_urgent_attention_preempts_newer_active_packet() -> None:

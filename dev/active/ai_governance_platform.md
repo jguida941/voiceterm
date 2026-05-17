@@ -14966,6 +14966,30 @@ platform contract closure, governance closure, registry path integrity, schema
 fixture handshake, and the system-map registry coverage guard before a
 publication attempt.
 
+## 2026-05-16 - Governed exception closure backfill
+
+R287 adds the raw-git governed-exception closure reducer. The reducer composes
+`RawGitBypassReceipt` evidence with the existing governed transition
+typechecker and writes terminal `closed_via_commit_anchor` lifecycle rows with
+`ResolutionReceipt` and `ClosureProof` payloads. The command surface is:
+
+```bash
+python3 dev/scripts/devctl.py exceptions close-raw-git --backfill --format json
+```
+
+The live backfill closed 55/55 raw-git governed exceptions with zero skips and
+`exceptions pending` now reports zero. Development campaign exception posture
+uses the same `pending_lifecycle_status()` helper so terminal lifecycle states
+cannot diverge across projections.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/raw_git_bypass_lifecycle_closure.py`
+- `dev/scripts/devctl/commands/governance/close_raw_git_exceptions.py`
+- `dev/scripts/devctl/commands/development/campaign_exception_proof.py`
+- `dev/scripts/devctl/tests/runtime/test_raw_git_bypass_lifecycle_closure.py`
+- `dev/scripts/devctl/tests/commands/test_governance_exceptions_close_raw_git.py`
+
 ## 2026-05-14 - Repo-portability guard for shared substrates
 
 Guard P16 adds a typed `RepoPortabilityCheck` contract and the

@@ -282,6 +282,13 @@ Use docs like this:
   `status=applied` with `commit_anchor_ref`, `applied_at_utc`, and
   `PlanRowClosureReceipt` evidence, and refuses to emit receipts for help,
   dry-run, or unchanged-HEAD no-ops.
+- Historical raw-git governed-exception rows close through
+  `python3 dev/scripts/devctl.py exceptions close-raw-git --backfill`, which
+  validates each `operator_approved` raw-git lifecycle with the governed
+  transition typechecker before writing `closed_via_commit_anchor`,
+  `ResolutionReceipt`, and `ClosureProof` evidence. `exceptions pending` and
+  `develop campaign` both use the shared terminal-status helper, so pending
+  exception counts must not be recomputed with local string sets.
 - MP slice commit messages must also resolve to durable typed plan authority.
   `check_commit_message_row_id_resolves.py` reads the post-mandate guard
   window from repo policy, then checks commit row ids against

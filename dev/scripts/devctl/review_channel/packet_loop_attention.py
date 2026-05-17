@@ -77,9 +77,31 @@ def packet_body_attention_required(
         return False
     if packet_body_observed_by(packet, actor=actor_id, role=role, session=session):
         return False
-    if packet_durable_ingestion_succeeded(packet):
+    if packet_durable_ingestion_succeeded(
+        packet
+    ) and not _route_scoped_peer_review_observation_required(
+        packet,
+        role=role,
+        session=session,
+    ):
         return False
     return True
+
+
+def _route_scoped_peer_review_observation_required(
+    packet: Mapping[str, object],
+    *,
+    role: str,
+    session: str,
+) -> bool:
+    if not (coerce_text(role) or coerce_text(session)):
+        return False
+    kind = coerce_text(packet.get("kind"))
+    requested_action = coerce_text(packet.get("requested_action"))
+    policy_hint = coerce_text(packet.get("policy_hint"))
+    return kind in {"finding", "decision", "task_progress", "task_produced"} or (
+        requested_action == "review_only" and policy_hint == "review_only"
+    )
 
 
 def packet_requires_runtime_attention(

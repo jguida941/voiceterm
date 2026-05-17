@@ -31,6 +31,14 @@ def render_markdown(report: Mapping[str, object]) -> str:
     if action == "pending":
         lines.append(f"- pending_count: `{report.get('pending_count', 0)}`")
         _append_pending_rows(lines, report.get("lifecycles"))
+    elif action == "close-raw-git":
+        lines.append(f"- dry_run: `{str(report.get('dry_run', False)).lower()}`")
+        lines.append(f"- open_raw_before_count: `{report.get('open_raw_before_count', 0)}`")
+        lines.append(f"- closed_count: `{report.get('closed_count', 0)}`")
+        lines.append(f"- skipped_count: `{report.get('skipped_count', 0)}`")
+        lines.append(f"- pending_after_count: `{report.get('pending_after_count', 0)}`")
+        _append_closed_rows(lines, report.get("closed_lifecycles"))
+        _append_skipped_rows(lines, report.get("skipped_lifecycles"))
     else:
         lines.append(f"- validated_count: `{report.get('validated_count', 0)}`")
     errors = report.get("errors")
@@ -49,6 +57,33 @@ def _append_pending_rows(lines: list[str], lifecycles: object) -> None:
             lines.append(
                 f"- `{row.get('lifecycle_id', '')}` "
                 f"status=`{row.get('status', '')}`"
+            )
+
+
+def _append_closed_rows(lines: list[str], lifecycles: object) -> None:
+    if not isinstance(lifecycles, list) or not lifecycles:
+        return
+    lines.extend(["", "## Closed"])
+    for row in lifecycles[:20]:
+        if isinstance(row, Mapping):
+            lines.append(
+                f"- `{row.get('lifecycle_id', '')}` "
+                f"status=`{row.get('status', '')}` "
+                f"commit=`{row.get('fixed_by_commit', '')}`"
+            )
+    if len(lifecycles) > 20:
+        lines.append(f"- ... {len(lifecycles) - 20} more")
+
+
+def _append_skipped_rows(lines: list[str], lifecycles: object) -> None:
+    if not isinstance(lifecycles, list) or not lifecycles:
+        return
+    lines.extend(["", "## Skipped"])
+    for row in lifecycles:
+        if isinstance(row, Mapping):
+            lines.append(
+                f"- `{row.get('lifecycle_id', '')}` "
+                f"reason=`{row.get('reason', '')}`"
             )
 
 

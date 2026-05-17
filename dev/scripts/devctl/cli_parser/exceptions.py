@@ -1,4 +1,4 @@
-"""Parser wiring for governed exception read-only reports."""
+"""Parser wiring for governed exception lifecycle reports."""
 
 from __future__ import annotations
 
@@ -11,12 +11,12 @@ def add_exceptions_parser(sub: argparse._SubParsersAction) -> None:
     """Register the ``exceptions`` subcommand."""
     cmd = sub.add_parser(
         "exceptions",
-        help="Governed exception lifecycle reports and validation",
+        help="Governed exception lifecycle reports, validation, and closure",
     )
     cmd.add_argument(
         "action",
-        choices=("pending", "validate"),
-        help="Read-only action to run.",
+        choices=("pending", "validate", "close-raw-git"),
+        help="Governed exception action to run.",
     )
     cmd.add_argument(
         "path",
@@ -30,9 +30,24 @@ def add_exceptions_parser(sub: argparse._SubParsersAction) -> None:
         help="Override governed exception lifecycle JSONL store path.",
     )
     cmd.add_argument(
+        "--receipt-store-path",
+        default="",
+        help="RawGitBypassReceipt JSONL store path for `exceptions close-raw-git`.",
+    )
+    cmd.add_argument(
         "--current-head",
         default="",
         help="Optional HEAD used to detect stale receipt validation fixtures.",
+    )
+    cmd.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview writable actions without rewriting governed state.",
+    )
+    cmd.add_argument(
+        "--backfill",
+        action="store_true",
+        help="Mark `exceptions close-raw-git` as an intentional historical backfill.",
     )
     add_standard_output_arguments(
         cmd,

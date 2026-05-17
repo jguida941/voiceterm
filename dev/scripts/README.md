@@ -458,10 +458,11 @@ Portability note:
   bypass path. `python3 dev/scripts/devctl.py exceptions pending --format json`
   reads the optional `dev/state/governed_exception_lifecycles.jsonl` authority
   store without creating it, and `exceptions validate <path>` validates
-  JSON/JSONL `ExceptionReceipt` or `GovernedExceptionLifecycle` fixtures.
-  Slice 1 exposes no request, repair, proof, close, manual-import, or execution
-  command. Later request intake remains a separate linked plan slice; this
-  Slice 1 surface only reads/validates typed state. The contracts live in
+  JSON/JSONL `ExceptionReceipt` or `GovernedExceptionLifecycle` fixtures. For
+  historical raw-git debt, `exceptions close-raw-git --backfill` composes
+  `RawGitBypassReceipt` evidence with the governed transition typechecker and
+  rewrites matching rows to `closed_via_commit_anchor` with resolution and
+  closure proof evidence. The contracts live in
   `dev/scripts/devctl/runtime/governed_exception_contracts.py` and register
   through `platform-contracts`, SYSTEM_MAP connectivity, and context-graph
   typed-contract discovery.

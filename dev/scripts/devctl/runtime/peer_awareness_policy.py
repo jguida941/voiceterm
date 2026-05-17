@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass
 
 from .peer_awareness_clock import long_running_cadence, peer_poll_due
 from .peer_awareness_packets import blocking_body_packet
+from .peer_collaboration_edge import PeerCollaborationEdge
 from .session_route_scope import normalize_route_role
 from .session_termination_body import (
     packet_body_show_command,
@@ -219,16 +220,30 @@ def agent_message_boundary_decision(
     )
 
 
-def peer_poll_commands(*, actor: str, peer_provider: str) -> tuple[str, str]:
-    """Return the two explicit poll commands required by PeerAwarenessPolicy."""
-    target_actor = _text(actor) or "codex"
-    peer = _text(peer_provider) or "claude"
-    return (
-        "python3 dev/scripts/devctl.py review-channel --action inbox "
-        f"--target {target_actor} --actor {target_actor} --status pending "
-        "--terminal none --format md",
-        "python3 dev/scripts/devctl.py agent-mind "
-        f"--agent {peer} --since-cursor --project --format md --limit 20",
+def peer_poll_commands(*, actor: str, peer_provider: str) -> tuple[str, ...]:
+    """Return explicit poll commands without inventing provider identities."""
+    target_actor = _text(actor)
+    peer = _text(peer_provider)
+    commands: list[str] = []
+    if target_actor:
+        commands.append(
+            "python3 dev/scripts/devctl.py review-channel --action inbox "
+            f"--target {target_actor} --actor {target_actor} --status pending "
+            "--terminal none --format md"
+        )
+    if peer:
+        commands.append(
+            "python3 dev/scripts/devctl.py agent-mind "
+            f"--agent {peer} --since-cursor --project --format md --limit 20"
+        )
+    return tuple(commands)
+
+
+def peer_poll_commands_for_edge(edge: PeerCollaborationEdge) -> tuple[str, ...]:
+    """Project poll commands from a typed collaboration edge."""
+    return peer_poll_commands(
+        actor=edge.actor.actor_id,
+        peer_provider=edge.peer.peer_command_id,
     )
 
 
@@ -252,4 +267,5 @@ __all__ = [
     "agent_message_boundary_decision",
     "default_peer_awareness_policy",
     "peer_poll_commands",
+    "peer_poll_commands_for_edge",
 ]

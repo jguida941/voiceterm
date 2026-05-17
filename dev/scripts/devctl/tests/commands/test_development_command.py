@@ -869,6 +869,37 @@ def test_develop_campaign_fails_closed_on_open_governed_exception(
     assert report.bypass_publication_transport_retired is False
 
 
+def test_develop_campaign_treats_commit_anchor_closure_as_terminal(
+    tmp_path: Path,
+) -> None:
+    store_path = tmp_path / "governed_exception_lifecycles.jsonl"
+    store_path.write_text(
+        json.dumps(
+            {
+                "lifecycle_id": "gel:raw-git:test",
+                "status": "closed_via_commit_anchor",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    report = campaign_report(
+        {
+            "reviewer_runtime": {"session_posture": {"interaction_mode": "remote_control"}},
+            "coordination_state": {
+                "coordination_topology": "multi_agent_active",
+                "legacy_reviewer_mode": "active_dual_agent",
+            },
+        },
+        packet_attention=DevelopmentPacketAttention(),
+        exception_store_path=store_path,
+    )
+
+    assert report.governed_exception_status == "clear"
+    assert report.governed_exception_pending_count == 0
+
+
 def test_develop_design_preflight_records_ground_truth_receipt(
     monkeypatch,
     tmp_path,

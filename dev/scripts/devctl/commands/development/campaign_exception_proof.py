@@ -11,6 +11,7 @@ from ...runtime.governed_exception_store import (
     DEFAULT_GOVERNED_EXCEPTION_LIFECYCLE_STORE_REL,
     load_governed_exception_lifecycles_with_errors,
 )
+from ...runtime.governed_exception_validation import pending_lifecycle_status
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,7 +44,7 @@ def governed_exception_projection(
     pending_count = sum(
         1
         for lifecycle in result.lifecycles
-        if str(lifecycle.status or "").strip() not in {"closed", "resolved"}
+        if pending_lifecycle_status(lifecycle.status)
     )
     if result.errors:
         status = "store_error"

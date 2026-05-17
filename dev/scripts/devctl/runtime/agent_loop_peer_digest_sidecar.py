@@ -7,6 +7,10 @@ from collections.abc import Mapping
 from .agent_loop_decision_builder import decision
 from .agent_loop_decision_models import AgentLoopDecision
 from .agent_loop_decision_sources import AgentLoopContext, PacketState
+from .peer_collaboration_edge import (
+    PeerCollaborationEdge,
+    resolve_peer_collaboration_edge,
+)
 from .peer_awareness_policy import (
     PeerAwarenessPolicy,
     agent_message_boundary_decision,
@@ -82,9 +86,10 @@ def _peer_digest_policy(ctx: AgentLoopContext) -> PeerAwarenessPolicy | None:
     payload = _configured_peer_awareness_policy(ctx)
     if not _digest_sidecar_enabled(payload):
         return None
-    peer_provider = _text(payload.get("peer_provider")) or _default_peer_provider(
-        ctx.actor
-    )
+    edge = _typed_peer_edge(ctx)
+    peer_provider = _text(payload.get("peer_provider")) or _peer_provider_from_edge(edge)
+    if not peer_provider:
+        return None
     return default_peer_awareness_policy(
         role=_text(payload.get("role")) or ctx.role,
         work_class=_text(payload.get("work_class")) or "long_running_subprocess",
@@ -161,13 +166,30 @@ def _packet_rows(review_state: Mapping[str, object]) -> tuple[Mapping[str, objec
     return tuple(row for row in rows if isinstance(row, Mapping))
 
 
-def _default_peer_provider(actor: str) -> str:
-    normalized = _text(actor).lower()
-    if normalized == "codex":
-        return "claude"
-    if normalized == "claude":
-        return "codex"
-    return "codex"
+def _typed_peer_edge(ctx: AgentLoopContext) -> PeerCollaborationEdge | None:
+    return resolve_peer_collaboration_edge(
+        actor=ctx.actor,
+        actor_role=ctx.role,
+        session_id=ctx.session,
+        sources=_collaboration_sources(ctx),
+    )
+
+
+def _peer_provider_from_edge(edge: PeerCollaborationEdge | None) -> str:
+    if edge is None:
+        return ""
+    return edge.peer.peer_command_id
+
+
+def _collaboration_sources(
+    ctx: AgentLoopContext,
+) -> tuple[tuple[str, Mapping[str, object]], ...]:
+    candidates = (
+        ("review_state.collaboration", _mapping(ctx.review_state.get("collaboration"))),
+        ("dashboard.collaboration", _mapping(ctx.dashboard.get("collaboration"))),
+        ("authority_snapshot", _mapping(ctx.authority)),
+    )
+    return tuple((label, source) for label, source in candidates if source)
 
 
 def _digest_sidecar_command(commands: tuple[str, ...]) -> str:

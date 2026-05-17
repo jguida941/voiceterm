@@ -59,7 +59,9 @@ OPEN_LIFECYCLE_STATUSES = frozenset(
     }
 )
 
-CLOSED_LIFECYCLE_STATUSES = frozenset({"closed", "resolved"})
+CLOSED_LIFECYCLE_STATUSES = frozenset(
+    {"closed", "closed_via_commit_anchor", "closed_via_bypass_expiry", "resolved"}
+)
 
 
 def validate_exception_receipt(

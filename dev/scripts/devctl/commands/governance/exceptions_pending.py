@@ -6,6 +6,7 @@ from typing import Any
 
 from ...common import resolve_repo_path
 from ...runtime.governed_exception_lifecycle import GovernedExceptionLifecycle
+from ...runtime.governed_exception_validation import pending_lifecycle_status
 from ...runtime.governed_exception_store import (
     DEFAULT_GOVERNED_EXCEPTION_LIFECYCLE_STORE_REL,
     GovernedExceptionStoreLoadResult,
@@ -36,7 +37,7 @@ def _pending_rows(
     return [
         row
         for row in result.lifecycles
-        if row.status.strip() not in {"closed", "resolved"}
+        if pending_lifecycle_status(row.status)
     ]
 
 

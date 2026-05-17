@@ -12,6 +12,14 @@ from dev.scripts.devctl.runtime.peer_awareness_policy import (
     SUBPROCESS_HEARTBEAT_BOUNDARY,
     agent_message_boundary_decision,
     default_peer_awareness_policy,
+    peer_poll_commands,
+    peer_poll_commands_for_edge,
+)
+from dev.scripts.devctl.runtime.peer_collaboration_edge import (
+    ActorRef,
+    DevelopRole,
+    PeerCollaborationEdge,
+    PeerRelation,
 )
 
 
@@ -102,6 +110,37 @@ def test_agent_message_boundary_polls_peer_after_body_observed() -> None:
     assert decision.poll_due is True
     assert any("review-channel --action inbox" in command for command in decision.next_commands)
     assert any("agent-mind --agent claude" in command for command in decision.next_commands)
+
+
+def test_peer_poll_commands_do_not_default_to_provider_names() -> None:
+    commands = peer_poll_commands(actor="codex", peer_provider="")
+
+    assert commands == (
+        "python3 dev/scripts/devctl.py review-channel --action inbox "
+        "--target codex --actor codex --status pending --terminal none --format md",
+    )
+
+
+def test_peer_poll_commands_project_from_typed_edge() -> None:
+    edge = PeerCollaborationEdge(
+        actor=ActorRef(actor_id="codex", provider="codex"),
+        peer=ActorRef(actor_id="claude", provider="claude"),
+        actor_role=DevelopRole.REVIEWER,
+        peer_role=DevelopRole.IMPLEMENTER,
+        relation=PeerRelation.REVIEWS,
+        scope_ref="current_slice:MP-377",
+        source_ref="review_state.collaboration",
+        evidence_refs=("CollaborationSession:actor_authorities",),
+    )
+
+    commands = peer_poll_commands_for_edge(edge)
+
+    assert commands == (
+        "python3 dev/scripts/devctl.py review-channel --action inbox "
+        "--target codex --actor codex --status pending --terminal none --format md",
+        "python3 dev/scripts/devctl.py agent-mind "
+        "--agent claude --since-cursor --project --format md --limit 20",
+    )
 
 
 def test_agent_message_boundary_launches_digest_sidecar_when_toggle_enabled() -> None:

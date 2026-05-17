@@ -102,6 +102,7 @@ def durable_schema_policies() -> tuple[DurableSchemaPolicy, ...]:
             store_authority_status="registered_advisory",
             owning_row="MP377-SCHEMA-MIGRATION-SPINE-S1",
         ),
+        contract_registry_composite_key_policy(),
         DurableSchemaPolicy(
             contract_id="RemoteControlCollaborationCampaign",
             store_path="dev/state/governed_exception_lifecycles.jsonl",
@@ -201,6 +202,24 @@ def durable_schema_policies() -> tuple[DurableSchemaPolicy, ...]:
             store_authority_status="planned",
             owning_row="MP377-PUSH-PATH-RECONCILE-S1",
         ),
+    )
+
+
+def contract_registry_composite_key_policy() -> DurableSchemaPolicy:
+    """Return migration policy for registry composite-key guard output."""
+    return DurableSchemaPolicy(
+        contract_id="ContractRegistryCompositeKeyUniqueness",
+        store_path="dev/state/contract_registry.jsonl",
+        store_authority=(
+            "dev.scripts.devctl.platform.contract_registry:"
+            "write_contract_registry_rows"
+        ),
+        schema_version_field="schema_version",
+        compatibility_window="Guard report fields remain additive while registry duplicate policy TODOs are retired through explicit operator decisions.",
+        migration_path="Add registry fields through ContractRegistryRow, write through the shared registry writer, refresh fixtures, and keep guard parsing backward-compatible.",
+        rollback_path="Keep prior registry rows readable and classify new duplicate metadata as advisory until consumers are restored.",
+        store_authority_status="registered_advisory",
+        owning_row="MP-NEW-P230-OUTPUT-TRUTH-SPINE-S1",
     )
 
 

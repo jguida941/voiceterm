@@ -1,4 +1,4 @@
-"""Read-only governed exception lifecycle command."""
+"""Governed exception lifecycle command."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from ...common import emit_output, write_output
+from .close_raw_git_exceptions import close_raw_git_action
 from .exceptions_pending import pending_action
 from .exceptions_report import render_markdown
 from .exceptions_validate import validate_action
@@ -31,6 +32,8 @@ def _run_action(args: Any) -> tuple[dict[str, object], int]:
     action = str(getattr(args, "action", "") or "").strip()
     if action == "validate":
         return validate_action(args)
+    if action == "close-raw-git":
+        return close_raw_git_action(args)
     return pending_action(args)
 
 
