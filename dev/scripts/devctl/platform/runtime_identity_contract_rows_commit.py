@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+from ..runtime.git_operation_receipts import BranchOperationReceipt, TagReceipt
 from .contracts import ContractField, ContractSpec
 from .runtime_identity_contract_rows_role_review import ROLE_REVIEW_CONTRACTS
 
+_BRANCH_OPERATION_RECEIPT_RUNTIME_MODEL = (
+    f"{BranchOperationReceipt.__module__}:{BranchOperationReceipt.__name__}"
+)
+_TAG_RECEIPT_RUNTIME_MODEL = f"{TagReceipt.__module__}:{TagReceipt.__name__}"
 
 COMMIT_RECEIPT_CONTRACTS: tuple[ContractSpec, ...] = (
     *ROLE_REVIEW_CONTRACTS,
@@ -82,6 +87,51 @@ COMMIT_RECEIPT_CONTRACTS: tuple[ContractSpec, ...] = (
         ),
         runtime_model="dev.scripts.devctl.runtime.commit_receipt:CommitReceipt",
         startup_surface_tokens=("receipt_id", "commit_sha", "reviewer_ack_packet_id"),
+    ),
+    ContractSpec(
+        contract_id="BranchOperationReceipt",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed evidence for one git branch mutation, binding the branch name, "
+            "operation, before/after refs, actor, and proof refs so branch state "
+            "changes do not bypass governance receipts."
+        ),
+        required_fields=(
+            ContractField("receipt_id", "str", "Stable receipt id for the branch operation."),
+            ContractField("branch_name", "str", "Branch ref name being mutated."),
+            ContractField("operation", "str", "Branch operation such as create, update, delete, or checkout."),
+            ContractField("new_ref", "str", "Resulting branch ref or empty ref after deletion."),
+            ContractField("previous_ref", "str", "Prior branch ref when known."),
+            ContractField("remote_name", "str", "Remote namespace when the branch operation is remote-bound."),
+            ContractField("executed_by_actor", "str", "Actor/tool that performed the branch operation."),
+            ContractField("executed_at_utc", "str", "UTC timestamp for the operation."),
+            ContractField("evidence_refs", "tuple[str, ...]", "Refs proving command output or authority."),
+            ContractField("status", "str", "Recorded status for the branch operation receipt."),
+        ),
+        runtime_model=_BRANCH_OPERATION_RECEIPT_RUNTIME_MODEL,
+        startup_surface_tokens=("branch_name", "operation", "new_ref"),
+    ),
+    ContractSpec(
+        contract_id="TagReceipt",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed evidence for one git tag mutation, binding tag name, operation, "
+            "target SHA, prior target when known, actor, and proof refs so release "
+            "tag state is inspectable by governance."
+        ),
+        required_fields=(
+            ContractField("receipt_id", "str", "Stable receipt id for the tag operation."),
+            ContractField("tag_name", "str", "Git tag name being created, moved, or deleted."),
+            ContractField("operation", "str", "Tag operation such as create, update, or delete."),
+            ContractField("target_sha", "str", "Tag target SHA after the operation."),
+            ContractField("previous_target_sha", "str", "Prior tag target when known."),
+            ContractField("tagger_actor", "str", "Actor/tool that performed the tag operation."),
+            ContractField("executed_at_utc", "str", "UTC timestamp for the operation."),
+            ContractField("evidence_refs", "tuple[str, ...]", "Refs proving command output or authority."),
+            ContractField("status", "str", "Recorded status for the tag receipt."),
+        ),
+        runtime_model=_TAG_RECEIPT_RUNTIME_MODEL,
+        startup_surface_tokens=("tag_name", "operation", "target_sha"),
     ),
     ContractSpec(
         contract_id="FeatureProofReceipt",

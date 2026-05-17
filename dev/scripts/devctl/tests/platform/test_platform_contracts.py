@@ -65,6 +65,8 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "AgentLoopBilateralProtocol" in contract_ids
     assert "PreDecisionComposabilityWindow" in contract_ids
     assert "CommitReceipt" in contract_ids
+    assert "BranchOperationReceipt" in contract_ids
+    assert "TagReceipt" in contract_ids
     assert "FeatureProofReceipt" in contract_ids
     assert "RoleReviewReceipt" in contract_ids
     assert "RoleReviewTimeout" in contract_ids
@@ -162,6 +164,14 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "post_state" in contract_map["CommitReceipt"]
     assert "evidence_refs" in contract_map["CommitReceipt"]
     assert "role_review_receipt_refs" in contract_map["CommitReceipt"]
+    assert "branch_name" in contract_map["BranchOperationReceipt"]
+    assert "previous_ref" in contract_map["BranchOperationReceipt"]
+    assert "new_ref" in contract_map["BranchOperationReceipt"]
+    assert "executed_by_actor" in contract_map["BranchOperationReceipt"]
+    assert "tag_name" in contract_map["TagReceipt"]
+    assert "target_sha" in contract_map["TagReceipt"]
+    assert "previous_target_sha" in contract_map["TagReceipt"]
+    assert "tagger_actor" in contract_map["TagReceipt"]
     assert "review_fleet_roles_ran" in contract_map["FeatureProofReceipt"]
     assert "connectivity_guards_ran" in contract_map["FeatureProofReceipt"]
     assert "dogfood_invocation_evidence_ref" in contract_map["FeatureProofReceipt"]
