@@ -16217,3 +16217,25 @@ Evidence:
 - `dev/scripts/devctl/tests/runtime/test_raw_git_bypass_lifecycle_closure.py`
 - `dev/scripts/devctl/tests/commands/test_governance_exceptions_close_raw_git.py`
 - `dev/scripts/checks/check_schema_migration_spine.py`
+
+### 2026-05-17 - Raw-git exception closure keeps typed error codes
+
+R297 closed the CLI side of the governed transition proof chain. The raw-git
+exception closer no longer collapses transition failures into string-only
+markers; `exceptions close-raw-git --format json` now returns structured error
+payloads that preserve `GovernedTransitionErrorCode.code` plus the failing
+lifecycle and receipt ids. Invalid closure inputs such as missing commit
+anchors stay non-destructive: the command skips the row, reports the invalid
+input reason, and leaves the lifecycle store unchanged.
+
+The regression suite now covers both layers: runtime transition tests assert
+the closure typechecker emits the expected enum codes, while CLI tests
+monkeypatch each governed failure and assert the JSON command payload preserves
+the same code values for the seven R297 operator-relevant negative paths.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/governance/close_raw_git_exceptions.py`
+- `dev/scripts/devctl/runtime/raw_git_bypass_receipts.py`
+- `dev/scripts/devctl/tests/commands/test_governance_exceptions_close_raw_git.py`
+- `dev/scripts/devctl/tests/runtime/test_raw_git_bypass_lifecycle_closure.py`

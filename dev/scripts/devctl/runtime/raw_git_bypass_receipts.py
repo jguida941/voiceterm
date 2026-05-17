@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
-from enum import StrEnum
 from pathlib import Path
 from typing import Any, cast
 
@@ -18,6 +17,7 @@ from .governed_exception_lifecycle import GovernedExceptionLifecycle
 from .governed_exception_base import json_ready_dict
 from .governed_exception_receipts import ExceptionReceipt
 from .governed_exception_store import DEFAULT_GOVERNED_EXCEPTION_LIFECYCLE_STORE_REL
+from .enum_compat import StrEnum
 from .state_store_authority import (
     StateStoreWriteResult,
     append_json_mapping,

@@ -288,7 +288,10 @@ Use docs like this:
   transition typechecker before writing `closed_via_commit_anchor`,
   `ResolutionReceipt`, and `ClosureProof` evidence. `exceptions pending` and
   `develop campaign` both use the shared terminal-status helper, so pending
-  exception counts must not be recomputed with local string sets.
+  exception counts must not be recomputed with local string sets. The command's
+  JSON negative path must preserve `GovernedTransitionErrorCode.code` values
+  with lifecycle and receipt ids; invalid closure inputs such as missing commit
+  anchors skip without rewriting lifecycle state.
 - MP slice commit messages must also resolve to durable typed plan authority.
   `check_commit_message_row_id_resolves.py` reads the post-mandate guard
   window from repo policy, then checks commit row ids against

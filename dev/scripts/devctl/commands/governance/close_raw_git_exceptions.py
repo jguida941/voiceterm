@@ -68,7 +68,7 @@ def close_raw_git_action(args: Any) -> tuple[dict[str, object], int]:
     replacement_rows: list[GovernedExceptionLifecycle] = []
     closed_rows: list[dict[str, object]] = []
     skipped_rows: list[dict[str, object]] = []
-    transition_errors: list[str] = []
+    transition_errors: list[dict[str, object]] = []
     open_raw_before = 0
 
     for lifecycle in result.lifecycles:
@@ -88,16 +88,31 @@ def close_raw_git_action(args: Any) -> tuple[dict[str, object], int]:
                 }
             )
             continue
-        closed, check = close_raw_git_bypass_lifecycle(
-            lifecycle,
-            receipt=receipt,
-            closed_at_utc=closed_at_utc,
-            normal_command=_NORMAL_COMMAND,
-        )
+        try:
+            closed, check = close_raw_git_bypass_lifecycle(
+                lifecycle,
+                receipt=receipt,
+                closed_at_utc=closed_at_utc,
+                normal_command=_NORMAL_COMMAND,
+            )
+        except ValueError as exc:
+            replacement_rows.append(lifecycle)
+            skipped_rows.append(
+                {
+                    "lifecycle_id": lifecycle.lifecycle_id,
+                    "receipt_id": receipt_id,
+                    "reason": f"transition_input_invalid:{exc}",
+                }
+            )
+            continue
         if not check.ok:
             replacement_rows.append(lifecycle)
-            errors = [error.to_dict() for error in check.errors]
-            transition_errors.append(f"{lifecycle.lifecycle_id}:transition_failed")
+            errors = _transition_error_payloads(
+                lifecycle=lifecycle,
+                receipt_id=receipt_id,
+                errors=[error.to_dict() for error in check.errors],
+            )
+            transition_errors.extend(errors)
             skipped_rows.append(
                 {
                     "lifecycle_id": lifecycle.lifecycle_id,
@@ -153,6 +168,22 @@ def _receipt_index(
     except (OSError, ValueError) as exc:
         return {}, [f"raw_git_receipt_store_load_failed:{exc}"]
     return {receipt.receipt_id: receipt for receipt in receipts}, []
+
+
+def _transition_error_payloads(
+    *,
+    lifecycle: GovernedExceptionLifecycle,
+    receipt_id: str,
+    errors: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    return [
+        {
+            **error,
+            "lifecycle_id": lifecycle.lifecycle_id,
+            "receipt_id": receipt_id,
+        }
+        for error in errors
+    ]
 
 
 __all__ = ["close_raw_git_action"]

@@ -462,7 +462,10 @@ Portability note:
   historical raw-git debt, `exceptions close-raw-git --backfill` composes
   `RawGitBypassReceipt` evidence with the governed transition typechecker and
   rewrites matching rows to `closed_via_commit_anchor` with resolution and
-  closure proof evidence. The contracts live in
+  closure proof evidence. CLI failures must preserve the typechecker's
+  structured `GovernedTransitionErrorCode.code` values in JSON output and
+  include the failing lifecycle and receipt ids; invalid inputs skip without
+  rewriting the lifecycle store. The contracts live in
   `dev/scripts/devctl/runtime/governed_exception_contracts.py` and register
   through `platform-contracts`, SYSTEM_MAP connectivity, and context-graph
   typed-contract discovery.

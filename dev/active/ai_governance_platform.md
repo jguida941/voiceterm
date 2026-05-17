@@ -14982,6 +14982,17 @@ The live backfill closed 55/55 raw-git governed exceptions with zero skips and
 uses the same `pending_lifecycle_status()` helper so terminal lifecycle states
 cannot diverge across projections.
 
+R297 follow-up hardens the command's negative path. `exceptions close-raw-git`
+now preserves governed transition typechecker `code` values in its JSON error
+payloads and annotates them with the lifecycle and receipt ids that failed.
+Invalid closure inputs such as a missing commit anchor are reported as skipped
+rows without rewriting the lifecycle store. The CLI tests lock the seven
+operator-relevant negative codes (`stale_commit_anchor`,
+`missing_closure_proof`, `mismatched_lifecycle_id`, `illegal_transition`,
+`unknown_old_status`, `already_closed_non_idempotent`, and
+`bypass_not_expired`) so reviewer/Claude synthesis can cite enum evidence
+instead of grep-count or prose claims.
+
 Evidence:
 
 - `dev/scripts/devctl/runtime/raw_git_bypass_lifecycle_closure.py`
