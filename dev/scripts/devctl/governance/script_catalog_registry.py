@@ -60,6 +60,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("plan_gold_claims_resolve", "check_plan_gold_claims_resolve.py"),
     ("plan_metric_freshness", "check_plan_metric_freshness.py"),
     ("plan_row_contract_refs_resolve", "check_plan_row_contract_refs_resolve.py"),
+    ("publication_scope_integrity", "check_publication_scope_integrity.py"),
     (
         "task_started_adr_precedent_linking",
         "check_task_started_adr_precedent_linking.py",
