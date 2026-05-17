@@ -73,7 +73,7 @@ on:
       fix_command:
         description: Auto-fix command (must commit/push a new SHA)
         required: false
-        default: "python3 dev/scripts/ralph_ai_fix.py"
+        default: "python3 dev/scripts/coderabbit/ralph_ai_fix.py"
         type: string
 
 jobs:
@@ -139,7 +139,7 @@ jobs:
           LOOP_FIX_COMMAND: ${{ vars.RALPH_LOOP_FIX_COMMAND }}
         run: |
           set -euo pipefail
-          python3 dev/scripts/autonomy_workflow_bridge.py resolve-ralph-config \
+          python3 dev/scripts/workflow_bridge/autonomy.py resolve-ralph-config \
             --event-name "${EVENT_NAME}" \
             --github-output "${GITHUB_OUTPUT}"
 

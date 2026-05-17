@@ -1,8 +1,6 @@
 use super::*;
 use crate::status_line::layout::breakpoints;
-
-#[path = "../test_helpers.rs"]
-mod test_helpers;
+use crate::status_line::test_helpers;
 
 fn count_substring(haystack: &str, needle: &str) -> usize {
     haystack.match_indices(needle).count()

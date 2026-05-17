@@ -1,23 +1,13 @@
-"""devctl release-notes command wrapper."""
+"""Backward-compat shim -- use `devctl.commands.release.notes` instead."""
+# shim-owner: tooling/devctl
+# shim-reason: preserve the stable release notes helper path during package split
+# shim-expiry: 2026-09-30
+# shim-target: dev/scripts/devctl/commands/release/notes.py
 
-from ..common import run_cmd
-from ..config import REPO_ROOT
+from __future__ import annotations
 
+import sys
 
-def run(args) -> int:
-    """Run generate-release-notes.sh for a target version."""
-    cmd = ["./dev/scripts/generate-release-notes.sh", args.version]
-    if args.output:
-        cmd.extend(["--output", args.output])
-    if args.end_ref:
-        cmd.extend(["--end-ref", args.end_ref])
-    if args.previous_tag:
-        cmd.extend(["--previous-tag", args.previous_tag])
+from .release import notes as _impl
 
-    result = run_cmd(
-        "release-notes",
-        cmd,
-        cwd=REPO_ROOT,
-        dry_run=args.dry_run,
-    )
-    return result["returncode"]
+sys.modules[__name__] = _impl

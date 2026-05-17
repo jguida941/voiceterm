@@ -4,6 +4,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import status
 
 
@@ -16,6 +17,8 @@ def make_args(**overrides) -> SimpleNamespace:
         dev_logs=False,
         dev_root=None,
         dev_sessions_limit=5,
+        probe_report=False,
+        quality_policy=None,
         no_parallel=False,
         format="md",
         output=None,
@@ -119,6 +122,57 @@ class StatusCommandTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.commands.status.write_output")
     @patch("dev.scripts.devctl.commands.status.build_project_report")
+    def test_markdown_includes_probe_report_summary(
+        self,
+        mock_build_report,
+        mock_write_output,
+    ) -> None:
+        mock_build_report.return_value = {
+            "git": {"branch": "develop", "changes": []},
+            "mutants": {"results": {}},
+            "probe_report": {
+                "ok": True,
+                "mode": "working-tree",
+                "summary": {
+                    "probe_count": 3,
+                    "files_scanned": 12,
+                    "files_with_hints": 2,
+                    "risk_hints": 4,
+                    "priority_hotspots": [
+                        {
+                            "file": "rust/src/bin/voiceterm/main.rs",
+                            "priority_score": 144,
+                        }
+                    ],
+                    "topology": {
+                        "edge_count": 22,
+                        "changed_hint_files": 1,
+                    },
+                    "top_files": [
+                        {
+                            "file": "rust/src/bin/voiceterm/main.rs",
+                            "hint_count": 2,
+                        }
+                    ],
+                },
+                "warnings": [],
+                "errors": [],
+            },
+        }
+        args = make_args(probe_report=True)
+
+        code = status.run(args)
+
+        self.assertEqual(code, 0)
+        output = mock_write_output.call_args.args[0]
+        self.assertIn("## Review Probes", output)
+        self.assertIn("- probes_run: 3", output)
+        self.assertIn("main.rs=2", output)
+        self.assertIn("priority_hotspots: rust/src/bin/voiceterm/main.rs=144", output)
+        self.assertIn("- topology_edges: 22", output)
+
+    @patch("dev.scripts.devctl.commands.status.write_output")
+    @patch("dev.scripts.devctl.commands.status.build_project_report")
     def test_markdown_reports_mutation_unavailable_as_note(
         self,
         mock_build_report,
@@ -143,9 +197,7 @@ class StatusCommandTests(unittest.TestCase):
         self.assertEqual(code, 0)
         output = mock_write_output.call_args.args[0]
         self.assertIn("- Mutation score: unknown", output)
-        self.assertIn(
-            "- Mutation score note: No results found under rust/mutants.out", output
-        )
+        self.assertIn("- Mutation score note: No results found under rust/mutants.out", output)
 
     @patch("dev.scripts.devctl.commands.status.write_output")
     @patch("dev.scripts.devctl.commands.status.build_project_report")
@@ -184,6 +236,33 @@ class StatusCommandTests(unittest.TestCase):
 
         call_kwargs = mock_build_report.call_args.kwargs
         self.assertFalse(call_kwargs["parallel"])
+
+    def test_cli_accepts_probe_report_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["status", "--probe-report"])
+        self.assertTrue(args.probe_report)
+
+    def test_cli_accepts_quality_policy_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["status", "--quality-policy", "/tmp/policy.json"])
+        self.assertEqual(args.quality_policy, "/tmp/policy.json")
+
+    @patch("dev.scripts.devctl.commands.status.write_output")
+    @patch("dev.scripts.devctl.commands.status.build_project_report")
+    def test_quality_policy_flag_is_forwarded(
+        self,
+        mock_build_report,
+        _mock_write_output,
+    ) -> None:
+        mock_build_report.return_value = {
+            "git": {"branch": "develop", "changes": []},
+            "mutants": {"results": {}},
+        }
+
+        status.run(make_args(probe_report=True, quality_policy="/tmp/policy.json"))
+
+        call_kwargs = mock_build_report.call_args.kwargs
+        self.assertEqual(call_kwargs["probe_policy_path"], "/tmp/policy.json")
 
 
 if __name__ == "__main__":

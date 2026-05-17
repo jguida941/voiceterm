@@ -1,0 +1,1154 @@
+"""Focused tests for collaboration-session topology and ownership state."""
+
+from __future__ import annotations
+
+import json
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+from types import SimpleNamespace
+
+from dev.scripts.devctl.review_channel import collaboration_session as collaboration_mod
+from dev.scripts.devctl.review_channel import (
+    collaboration_session_coordination as coordination_mod,
+)
+from dev.scripts.devctl.review_channel import (
+    collaboration_session_roster_lookup as roster_lookup_mod,
+)
+from dev.scripts.devctl.review_channel.session_probe import ConductorSessionRecord
+from dev.scripts.devctl.runtime.review_state_models import ReviewCurrentSessionState
+from dev.scripts.devctl.runtime.reviewer_runtime_models import (
+    RemoteControlAttachmentState,
+)
+
+
+def _session_record(
+    provider: str,
+    role: str,
+    *,
+    live: bool = True,
+    requested_worker_budget: int | None = None,
+    planned_lanes: tuple[dict[str, str], ...] = (),
+    workspace_root: str = "",
+    current_branch: str = "",
+) -> ConductorSessionRecord:
+    return ConductorSessionRecord(
+        provider=provider,
+        role=role,
+        provider_name=provider.title(),
+        session_name=f"{provider}-conductor",
+        capture_mode="visible",
+        prepared_at="2026-04-08T00:00:00Z",
+        repo_root="",
+        script_path="",
+        log_path="",
+        launch_command="",
+        supervision_mode="",
+        approval_mode="balanced",
+        planned_lane_count=len(planned_lanes),
+        requested_worker_budget=requested_worker_budget,
+        terminal_window_id=None,
+        session_pid=None,
+        planned_lanes=planned_lanes,
+        metadata_path="",
+        live=live,
+        age_seconds=5,
+        workspace_root=workspace_root,
+        current_branch=current_branch,
+    )
+
+
+def _current_session(
+    *, instruction: str, last_reviewed_scope: str
+) -> ReviewCurrentSessionState:
+    return ReviewCurrentSessionState(
+        current_instruction=instruction,
+        current_instruction_revision="rev-123",
+        implementer_status="- coding",
+        implementer_ack="- acknowledged; instruction-rev: `rev-123`",
+        implementer_ack_revision="rev-123",
+        implementer_ack_state="current",
+        open_findings="",
+        last_reviewed_scope=last_reviewed_scope,
+    )
+
+
+def test_build_collaboration_session_marks_concurrent_writer_conflict(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (
+        _session_record(
+            "codex",
+            "reviewer",
+            requested_worker_budget=1,
+            planned_lanes=(
+                {
+                    "agent_id": "AGENT-1",
+                    "provider": "claude",
+                    "lane": "AGENT-1",
+                    "role": "implementer",
+                },
+            ),
+        ),
+        _session_record("claude", "implementer"),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/review_channel/session_state_hints.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-08T00:00:00Z",
+        plan_id="MP-377",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
+        },
+        current_session=_current_session(
+            instruction="Tighten `dev/scripts/devctl/runtime/startup_context.py`.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/startup_context.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    assert session.topology_mode == "multi_agent_orchestrated"
+    assert session.work_ownership_mode == "concurrent_writer_conflict"
+    assert session.ownership.status == "concurrent_writer_activity"
+    assert session.ownership.outside_scope_dirty_paths == (
+        "dev/scripts/devctl/review_channel/session_state_hints.py",
+    )
+    assert session.ownership.live_agents == ("codex", "claude")
+
+
+def test_build_collaboration_session_projects_unresolved_dead_session_outcome(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (_session_record("codex", "reviewer", live=False),)
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only, **_kwargs: (),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "_load_session_outcomes",
+        lambda *, repo_root: (),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-08T00:00:00Z",
+        plan_id="MP-377",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
+        },
+        current_session=_current_session(
+            instruction="Review the current slice.",
+            last_reviewed_scope="dev/scripts/devctl/review_channel/session_probe.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    assert len(session.session_outcomes) == 1
+    outcome = session.session_outcomes[0]
+    assert outcome.outcome == "unresolved"
+    assert "unresolved_session_outcome" in outcome.reason
+    assert outcome.provider == "codex"
+
+
+def test_build_collaboration_session_keeps_planned_lanes_out_of_runtime_topology(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (
+        _session_record(
+            "codex",
+            "reviewer",
+            planned_lanes=(
+                {
+                    "agent_id": "AGENT-1",
+                    "provider": "claude",
+                    "lane": "planned worker lane",
+                    "role": "implementer",
+                },
+            ),
+        ),
+        _session_record("claude", "implementer"),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: (),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-22T14:00:00Z",
+        plan_id="MP-377",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
+        },
+        current_session=_current_session(
+            instruction="Prepare a planned lane without requesting fanout.",
+            last_reviewed_scope="dev/scripts/devctl/review_channel/launch.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    assert session.topology_mode == "dual_agent"
+    assert len(session.delegated_work) == 1
+    assert session.delegated_work[0].live is False
+    delegated_gate = next(
+        row for row in session.ready_gates if row.gate_id == "delegated_work"
+    )
+    assert delegated_gate.status == "not_requested"
+
+
+def test_build_collaboration_session_marks_dual_agent_exclusive_slice(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (
+        _session_record("codex", "reviewer"),
+        _session_record("claude", "implementer"),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/runtime/startup_context.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-08T00:00:00Z",
+        plan_id="MP-377",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
+        },
+        current_session=_current_session(
+            instruction="Tighten `dev/scripts/devctl/runtime/startup_context.py`.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/startup_context.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    assert session.topology_mode == "dual_agent"
+    assert session.work_ownership_mode == "exclusive_slice"
+    assert session.ownership.status == "in_scope_dirty_paths"
+    assert session.ownership.in_scope_dirty_paths == (
+        "dev/scripts/devctl/runtime/startup_context.py",
+    )
+    assert session.mutation_owner == "claude"
+    assert session.verification_owner == "codex"
+    assert session.verification_status == "live"
+    assert session.watcher_owner == "claude"
+    assert session.watcher_status == "live"
+    claude_authority = next(
+        row for row in session.actor_authorities if row.actor_id == "claude"
+    )
+    assert claude_authority.live is True
+    assert any(
+        grant.capability == "repo.commit" and grant.granted
+        for grant in claude_authority.grants
+    )
+
+
+def test_build_collaboration_session_promotes_active_remote_control_attachment(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    # Per rev_pkt_2986 finding #4 + rev_pkt_2996 finding #1: an attachment
+    # with status="attached" but heartbeat older than the TTL is correctly
+    # classified as expired/stale by ``remote_attachment_active``. The
+    # fixture must therefore carry a live ``last_seen_utc`` to represent
+    # a genuinely active remote-control session.
+    from datetime import datetime, timezone
+
+    live_now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    session_records = (
+        _session_record("codex", "reviewer", live=False),
+        _session_record("claude", "implementer", live=False),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only=False, **_kwargs: (
+            RemoteControlAttachmentState(
+                provider="claude",
+                role="implementer",
+                attachment_id="remote-attach-1",
+                session_name="claude-remote-control",
+                remote_session_id="session_abc123",
+                session_url="https://claude.ai/code/session_abc123",
+                status="attached",
+                attached_at_utc=live_now_utc,
+                last_seen_utc=live_now_utc,
+                metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/runtime/startup_context.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-11T00:00:00Z",
+        plan_id="MP-380",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
+        },
+        current_session=_current_session(
+            instruction="Tighten `dev/scripts/devctl/runtime/startup_context.py`.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/startup_context.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    claude_rows = [row for row in session.participants if row.provider == "claude"]
+    assert len(claude_rows) == 1
+    assert claude_rows[0].live is True
+    assert claude_rows[0].capture_mode == "remote-control"
+    assert claude_rows[0].session_name == "claude-remote-control"
+    coding_assignment = next(
+        row for row in session.role_assignments if row.role_id == "coding_agent"
+    )
+    assert coding_assignment.live is True
+    assert coding_assignment.source == "remote_control_attachment"
+    assert session.restart.status == "live"
+    assert session.restart.source == "remote_control_attachment"
+
+
+def test_build_collaboration_session_refreshes_remote_control_from_claude_session_state(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from dev.scripts.devctl.commands.remote_control import _session_state_proof
+    from dev.scripts.devctl.review_channel.remote_control_attachment_artifact import (
+        persist_remote_control_attachment,
+    )
+
+    session_records = (
+        _session_record("codex", "reviewer", live=False),
+        _session_record("claude", "implementer", live=False, workspace_root="../codex-voice-wt-a9"),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    session_state_root = tmp_path / "claude-sessions"
+    session_state_root.mkdir()
+    (session_state_root / "33330.json").write_text(
+        json.dumps(
+            {
+                "pid": 33330,
+                "sessionId": "claude-session-0001",
+                "cwd": str(tmp_path),
+                "status": "idle",
+                "updatedAt": datetime.now(timezone.utc).isoformat(),
+                "bridgeSessionId": "session_state",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        _session_state_proof,
+        "CLAUDE_SESSION_STATE_ROOT",
+        session_state_root,
+    )
+    monkeypatch.setattr(_session_state_proof, "_pid_alive", lambda _pid: True)
+    persist_remote_control_attachment(
+        RemoteControlAttachmentState(
+            provider="claude",
+            role="operator",
+            attachment_id="remote-attach-stale",
+            session_name="VoiceTerm Remote Control",
+            remote_session_id="session_old",
+            session_url="https://claude.ai/code/session_old",
+            status="attached",
+            attached_at_utc="2026-04-11T00:00:00Z",
+            last_seen_utc="2026-04-11T00:00:00Z",
+            source_hook_session_id="claude-session-0001",
+            source_proof_channel="claude_session_state",
+            physical_remote_control_confirmed=True,
+            physical_confirmation_method="claude_session_state_bridge",
+        ),
+        output_root=tmp_path,
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/runtime/startup_context.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-11T00:00:00Z",
+        plan_id="MP-380",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "codex_poll_state": "fresh",
+        },
+        current_session=_current_session(
+            instruction="Tighten `dev/scripts/devctl/runtime/startup_context.py`.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/startup_context.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    claude_participant = next(row for row in session.participants if row.provider == "claude")
+    assert claude_participant.live is True
+    assert claude_participant.capture_mode == "remote-control"
+    assert claude_participant.launch_command == "https://claude.ai/code/session_state"
+    assert session.mutation_owner == "claude"
+    assert session.verification_owner == "codex"
+    claude_authority = next(
+        row for row in session.actor_authorities if row.actor_id == "claude"
+    )
+    assert any(
+        grant.capability == "repo.commit" and grant.granted
+        for grant in claude_authority.grants
+    )
+
+
+def test_build_collaboration_session_routes_single_agent_remote_dashboard_mutation_to_operator(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (
+        _session_record("codex", "reviewer", live=False),
+        _session_record("claude", "implementer", live=False),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    # Per rev_pkt_2986 finding #4 + rev_pkt_2996 finding #1: live
+    # heartbeat timestamps are required for the attachment to read as
+    # genuinely active under TTL semantics.
+    from datetime import datetime, timezone
+
+    live_now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only=False, **_kwargs: (
+            RemoteControlAttachmentState(
+                provider="claude",
+                role="operator",
+                attachment_id="remote-attach-1",
+                session_name="claude-dashboard",
+                remote_session_id="session_dash",
+                session_url="https://claude.ai/code/session_dash",
+                status="attached",
+                attached_at_utc=live_now_utc,
+                last_seen_utc=live_now_utc,
+                metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/runtime/startup_context.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-11T00:00:00Z",
+        plan_id="MP-380",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "codex_poll_state": "fresh",
+        },
+        current_session=_current_session(
+            instruction="Tighten `dev/scripts/devctl/runtime/startup_context.py`.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/startup_context.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    review_assignment = next(
+        row for row in session.role_assignments if row.role_id == "review_agent"
+    )
+    coding_assignment = next(
+        row for row in session.role_assignments if row.role_id == "coding_agent"
+    )
+    operator_assignment = next(
+        row for row in session.role_assignments if row.role_id == "operator_agent"
+    )
+
+    assert review_assignment.provider == "codex"
+    assert review_assignment.live is True
+    assert review_assignment.source == "reviewer_turn"
+    assert coding_assignment.provider == "codex"
+    assert coding_assignment.live is True
+    assert coding_assignment.source == "reviewer_turn"
+    assert operator_assignment.provider == "claude"
+    assert operator_assignment.live is True
+    assert operator_assignment.source == "remote_control_attachment"
+    assert session.mutation_owner == "claude"
+    assert session.verification_owner == "codex"
+    assert session.verification_status == "live"
+    assert session.watcher_owner == "claude"
+    assert session.watcher_status == "live"
+    claude_authority = next(
+        row for row in session.actor_authorities if row.actor_id == "claude"
+    )
+    assert any(
+        grant.capability == "repo.commit" and grant.granted
+        for grant in claude_authority.grants
+    )
+
+
+def test_build_collaboration_session_carries_lane_identity_from_session_metadata(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (
+        _session_record(
+            "codex",
+            "reviewer",
+            planned_lanes=(
+                {
+                    "agent_id": "AGENT-1",
+                    "provider": "codex",
+                    "lane": "Codex review lane",
+                    "mp_scope": "MP-377",
+                    "worktree": "../wt-review",
+                    "branch": "feature/review",
+                },
+            ),
+            workspace_root=str((tmp_path / "../wt-review").resolve()),
+        ),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: (),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-11T00:00:00Z",
+        plan_id="MP-377",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+        },
+        current_session=_current_session(
+            instruction="Drive lane identity through typed coordination.",
+            last_reviewed_scope="dev/scripts/devctl/review_channel/launch.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    participant = next(row for row in session.participants if row.provider == "codex")
+    assert participant.lane == "Codex review lane"
+    assert participant.mp_scope == "MP-377"
+    assert participant.worktree == "../wt-review"
+    assert participant.branch == "feature/review"
+    assert participant.workspace_root == str((tmp_path / "../wt-review").resolve())
+
+
+def test_build_collaboration_session_falls_back_to_session_workspace_identity(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    workspace_root = str((tmp_path / "../live-session").resolve())
+    session_records = (
+        _session_record(
+            "claude",
+            "implementer",
+            workspace_root=workspace_root,
+            current_branch="feature/live-session",
+        ),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: (),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-05-04T00:00:00Z",
+        plan_id="MP-377",
+        session_id="session-1",
+        bridge_liveness={"reviewer_mode": "tools_only"},
+        current_session=_current_session(
+            instruction="Keep session identity visible.",
+            last_reviewed_scope="dev/scripts/devctl/review_channel/session_probe.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    participant = next(row for row in session.participants if row.provider == "claude")
+    assert participant.worktree == workspace_root
+    assert participant.branch == "feature/live-session"
+    assert participant.workspace_root == workspace_root
+
+
+def test_build_collaboration_session_promotes_fresh_local_single_agent_reviewer(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    # Per rev_pkt_3000 + rev_pkt_3003 #1: ``unknown`` no longer counts
+    # active and ``remote_attachment_active`` is TTL-aware. The fixture
+    # must carry a live ``last_seen_utc`` so the attachment is genuinely
+    # active.
+    from datetime import datetime, timezone
+
+    live_now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    session_records = (
+        _session_record("codex", "reviewer", live=False),
+        _session_record("claude", "implementer", live=False),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only=False, **_kwargs: (
+            RemoteControlAttachmentState(
+                provider="claude",
+                role="implementer",
+                attachment_id="remote-attach-1",
+                session_name="claude-remote-control",
+                remote_session_id="session_abc123",
+                session_url="https://claude.ai/code/session_abc123",
+                status="attached",
+                attached_at_utc=live_now_utc,
+                last_seen_utc=live_now_utc,
+                metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/runtime/startup_context.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-11T00:00:00Z",
+        plan_id="MP-380",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "codex_poll_state": "fresh",
+            "last_codex_poll_utc": "2026-04-11T00:00:01Z",
+        },
+        current_session=_current_session(
+            instruction="Tighten `dev/scripts/devctl/runtime/startup_context.py`.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/startup_context.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    live_providers = {row.provider for row in session.participants if row.live}
+    assert live_providers == {"claude", "codex"}
+    review_assignment = next(
+        row for row in session.role_assignments if row.role_id == "review_agent"
+    )
+    assert review_assignment.live is True
+    assert review_assignment.source == "reviewer_turn"
+
+
+def test_build_collaboration_session_promotes_recent_local_reviewer_packet_activity(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    # Per rev_pkt_3000 + rev_pkt_3003 #1: TTL-aware active check needs
+    # live ``last_seen_utc`` for the attachment to register as active.
+    # The collaboration_mod._utcnow monkeypatch only affects the module's
+    # own freshness arithmetic; the runtime ``remote_attachment_active``
+    # helper uses wall-clock now, so the fixture must carry real-current
+    # timestamps independent of the test's logical "now".
+    from datetime import datetime as _dt, timezone as _tz
+
+    live_now_utc = _dt.now(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    session_records = (
+        _session_record("codex", "reviewer", live=False),
+        _session_record("claude", "implementer", live=False),
+    )
+    projections_root = tmp_path / "projections" / "latest"
+    projections_root.mkdir(parents=True)
+    events_dir = tmp_path / "events"
+    events_dir.mkdir()
+    (events_dir / "trace.ndjson").write_text(
+        json.dumps(
+            {
+                "event_type": "packet_acked",
+                "timestamp_utc": "2026-04-11T21:17:45Z",
+                "metadata": {"actor": "codex"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only=False, **_kwargs: (
+            RemoteControlAttachmentState(
+                provider="claude",
+                role="implementer",
+                attachment_id="remote-attach-1",
+                session_name="claude-remote-control",
+                remote_session_id="session_abc123",
+                session_url="https://claude.ai/code/session_abc123",
+                status="attached",
+                attached_at_utc=live_now_utc,
+                last_seen_utc=live_now_utc,
+                metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "_utcnow",
+        lambda: datetime(2026, 4, 11, 21, 24, 30, tzinfo=timezone.utc),
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/runtime/startup_context.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-11T21:24:30Z",
+        plan_id="MP-380",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "reviewer_freshness": "overdue",
+            "codex_poll_state": "stale",
+        },
+        current_session=_current_session(
+            instruction="Tighten `dev/scripts/devctl/runtime/startup_context.py`.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/startup_context.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=projections_root,
+    )
+
+    live_providers = {row.provider for row in session.participants if row.live}
+    assert live_providers == {"claude", "codex"}
+    review_assignment = next(
+        row for row in session.role_assignments if row.role_id == "review_agent"
+    )
+    assert review_assignment.live is True
+    assert review_assignment.source == "reviewer_turn"
+
+
+def test_build_collaboration_session_promotes_recent_local_reviewer_rollout_activity(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    # Per rev_pkt_3000 + rev_pkt_3003 #1: TTL-aware active check needs
+    # live ``last_seen_utc`` for the attachment. The ``_utcnow``
+    # monkeypatch only affects collaboration_mod's freshness math; the
+    # runtime active helper uses wall-clock now, so the fixture must
+    # carry real-current timestamps.
+    from datetime import datetime as _dt, timezone as _tz
+
+    live_now_utc = _dt.now(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    session_records = (
+        _session_record("codex", "reviewer", live=False),
+        _session_record("claude", "implementer", live=False),
+    )
+    projections_root = tmp_path / "projections" / "latest"
+    projections_root.mkdir(parents=True)
+    rollout_path = (
+        tmp_path
+        / "sessions"
+        / "2026"
+        / "04"
+        / "11"
+        / "rollout-2026-04-11T21-22-00-codex-live.jsonl"
+    )
+    rollout_path.parent.mkdir(parents=True, exist_ok=True)
+    rollout_path.write_text("{}\n", encoding="utf-8")
+    rollout_mtime = datetime(2026, 4, 11, 21, 22, 0, tzinfo=timezone.utc).timestamp()
+    os.utime(rollout_path, (rollout_mtime, rollout_mtime))
+    monkeypatch.setattr(
+        collaboration_mod,
+        "discover_latest_session",
+        lambda provider: rollout_path if provider == "codex" else None,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only=False, **_kwargs: (
+            RemoteControlAttachmentState(
+                provider="claude",
+                role="implementer",
+                attachment_id="remote-attach-1",
+                session_name="claude-remote-control",
+                remote_session_id="session_abc123",
+                session_url="https://claude.ai/code/session_abc123",
+                status="attached",
+                attached_at_utc=live_now_utc,
+                last_seen_utc=live_now_utc,
+                metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "_utcnow",
+        lambda: datetime(2026, 4, 11, 21, 24, 30, tzinfo=timezone.utc),
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/runtime/startup_context.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-11T21:24:30Z",
+        plan_id="MP-380",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "reviewer_freshness": "overdue",
+            "codex_poll_state": "stale",
+        },
+        current_session=_current_session(
+            instruction="Tighten `dev/scripts/devctl/runtime/startup_context.py`.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/startup_context.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=projections_root,
+    )
+
+    live_providers = {row.provider for row in session.participants if row.live}
+    assert live_providers == {"claude", "codex"}
+    review_assignment = next(
+        row for row in session.role_assignments if row.role_id == "review_agent"
+    )
+    assert review_assignment.live is True
+    assert review_assignment.source == "reviewer_turn"
+
+
+def test_build_collaboration_session_promotes_recent_packet_active_implementer(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (
+        _session_record("codex", "reviewer", live=True),
+        _session_record("claude", "implementer", live=False),
+    )
+    projections_root = tmp_path / "projections" / "latest"
+    projections_root.mkdir(parents=True)
+    events_dir = tmp_path / "events"
+    events_dir.mkdir()
+    (events_dir / "trace.ndjson").write_text(
+        json.dumps(
+            {
+                "event_type": "packet_posted",
+                "timestamp_utc": "2026-04-15T19:35:58Z",
+                "from_agent": "claude",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only=False, **_kwargs: (),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "_utcnow",
+        lambda: datetime(2026, 4, 15, 19, 36, 10, tzinfo=timezone.utc),
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/runtime/startup_context.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-15T19:36:10Z",
+        plan_id="MP-377",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
+        },
+        current_session=_current_session(
+            instruction="Tighten `dev/scripts/devctl/runtime/control_topology.py`.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/control_topology.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=projections_root,
+    )
+
+    live_providers = {row.provider for row in session.participants if row.live}
+    assert live_providers == {"claude", "codex"}
+    coding_assignment = next(
+        row for row in session.role_assignments if row.role_id == "coding_agent"
+    )
+    assert coding_assignment.live is True
+    assert coding_assignment.source == "packet_activity"
+
+
+def test_build_collaboration_session_single_agent_ignores_stale_implementer_packet_activity(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (
+        _session_record("codex", "reviewer", live=False),
+        _session_record("claude", "implementer", live=False),
+    )
+    projections_root = tmp_path / "projections" / "latest"
+    projections_root.mkdir(parents=True)
+    events_dir = tmp_path / "events"
+    events_dir.mkdir()
+    (events_dir / "trace.ndjson").write_text(
+        json.dumps(
+            {
+                "event_type": "packet_posted",
+                "timestamp_utc": "2026-04-22T14:40:00Z",
+                "from_agent": "claude",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only=False, **_kwargs: (),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "_utcnow",
+        lambda: datetime(2026, 4, 22, 14, 41, 0, tzinfo=timezone.utc),
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: (),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-22T14:41:00Z",
+        plan_id="MP-377",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "codex_poll_state": "fresh",
+            "last_codex_poll_utc": "2026-04-22T14:40:59Z",
+        },
+        current_session=_current_session(
+            instruction="Keep Codex as the single local implementer.",
+            last_reviewed_scope="dev/scripts/devctl/review_channel/launch.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=projections_root,
+    )
+
+    coding_assignment = next(
+        row for row in session.role_assignments if row.role_id == "coding_agent"
+    )
+    claude_participant = next(
+        row for row in session.participants if row.provider == "claude"
+    )
+
+    assert coding_assignment.provider == "codex"
+    assert coding_assignment.live is True
+    assert coding_assignment.source == "reviewer_turn"
+    assert claude_participant.live is False
+    assert session.mutation_owner == "codex"
+    assert session.topology_mode == "single_agent"
+
+
+def test_build_collaboration_session_demotes_stale_implementer_assignment_when_attachment_is_operator(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    # Per rev_pkt_3000 + rev_pkt_3003 #1: TTL-aware active check needs
+    # live ``last_seen_utc``.
+    from datetime import datetime as _dt, timezone as _tz
+
+    live_now_utc = _dt.now(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    session_records = (
+        _session_record("codex", "reviewer"),
+        _session_record("claude", "implementer"),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only=False, **_kwargs: (
+            RemoteControlAttachmentState(
+                provider="claude",
+                role="operator",
+                attachment_id="remote-attach-1",
+                session_name="claude-remote-control",
+                remote_session_id="session_dash",
+                session_url="https://claude.ai/code/session_dash",
+                status="attached",
+                attached_at_utc=live_now_utc,
+                last_seen_utc=live_now_utc,
+                metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/runtime/control_topology.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-18T00:00:00Z",
+        plan_id="MP-377",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
+            "codex_conductor_active": True,
+            "claude_conductor_active": True,
+        },
+        current_session=_current_session(
+            instruction="Keep the typed control topology honest.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/control_topology.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    claude_participant = next(
+        row for row in session.participants if row.provider == "claude"
+    )
+    coding_assignment = next(
+        row for row in session.role_assignments if row.role_id == "coding_agent"
+    )
+    runtime_gate = next(
+        row for row in session.ready_gates if row.gate_id == "runtime_truth"
+    )
+
+    assert claude_participant.role == "operator"
+    assert coding_assignment.provider == "claude"
+    assert coding_assignment.live is False
+    assert coding_assignment.status == "configured"
+    assert coding_assignment.source == "remote_control_attachment"
+    assert runtime_gate.status == "blocked"
+    assert (
+        runtime_gate.summary
+        == "Compatibility active reviewer mode still requires live reviewer and implementer conductor sessions."
+    )
+
+
+def test_role_assignment_fails_closed_for_unknown_role_id() -> None:
+    assignment = roster_lookup_mod.role_assignment(
+        "observer_agent",
+        "claude",
+        "Claude",
+        (_session_record("claude", "implementer"),),
+    )
+
+    assert assignment.provider == "claude"
+    assert assignment.live is False
+    assert assignment.status == "configured"
+    assert assignment.source == "session_metadata"

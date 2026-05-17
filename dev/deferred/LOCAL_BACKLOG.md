@@ -4,6 +4,11 @@ This backlog is intentionally local-only, reference-only, and is not user-facing
 Local backlog items use `LB-*` IDs so they never collide with canonical `MP-*`
 tracking in `dev/active/MASTER_PLAN.md`.
 
+Shared repo-visible backlog note:
+- Canonical shared backlog lives at [`../../backlog.md`](../../backlog.md).
+- Keep this file for local/private scratch or deferred notes that should not
+  become shared AI/runtime intake yet.
+
 Execution authority note:
 - Items in this file are not active execution state.
 - To execute an item, promote it into `dev/active/MASTER_PLAN.md` as `MP-*`

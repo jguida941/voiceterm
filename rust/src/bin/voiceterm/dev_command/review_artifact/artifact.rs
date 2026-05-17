@@ -2,18 +2,16 @@ use std::path::{Path, PathBuf};
 
 use super::format::truncate_hash;
 
-const EVENT_REVIEW_ARTIFACT_CANDIDATES: [&str; 4] = [
+const EVENT_REVIEW_ARTIFACT_CANDIDATES: [&str; 2] = [
     "dev/reports/review_channel/projections/latest/full.json",
     "dev/reports/review_channel/state/latest.json",
-    "dev/reports/review_channel/latest/full.json",
-    "dev/reports/review_channel/latest/review_state.json",
 ];
 const EVENT_REVIEW_SENTINELS: [&str; 2] = [
     "dev/reports/review_channel/events/trace.ndjson",
     "dev/reports/review_channel/state/latest.json",
 ];
 
-/// Key sections extracted from code_audit.md for read-only display.
+/// Key sections extracted from bridge.md for read-only display.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct ReviewContextPackRef {
     pub(crate) pack_kind: String,
@@ -35,7 +33,7 @@ impl ReviewContextPackRef {
     }
 }
 
-/// Key sections extracted from code_audit.md for read-only display.
+/// Key sections extracted from bridge.md for read-only display.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ReviewArtifact {
     pub(crate) verdict: String,
@@ -71,7 +69,7 @@ impl ReviewArtifact {
     }
 }
 
-/// Parse code_audit.md content into structured sections.
+/// Parse bridge.md content into structured sections.
 pub(crate) fn parse_review_artifact(content: &str) -> ReviewArtifact {
     let mut artifact = ReviewArtifact::default();
     let mut current_section: Option<&str> = None;
@@ -100,7 +98,7 @@ pub(crate) fn parse_review_artifact(content: &str) -> ReviewArtifact {
     artifact
 }
 
-/// Locate code_audit.md by walking up from the given start directory,
+/// Locate bridge.md by walking up from the given start directory,
 /// then the session launch directory, then falling back to the process CWD
 /// and compile-time repo root.
 /// When `session_dir` is provided (the live PTY shell CWD), it is tried
@@ -152,7 +150,7 @@ fn find_event_review_artifact(start: &Path) -> Option<PathBuf> {
 }
 
 fn find_bridge_artifact(start: &Path) -> Option<PathBuf> {
-    walk_ancestors_for_file(start, "code_audit.md")
+    walk_ancestors_for_file(start, "bridge.md")
 }
 
 fn extract_header_metadata(artifact: &mut ReviewArtifact, line: &str) {
@@ -177,10 +175,12 @@ fn assign_section(artifact: &mut ReviewArtifact, section_name: &str, content: St
         "Poll Status" => artifact.poll_status = content,
         "Current Verdict" => artifact.verdict = content,
         "Open Findings" => artifact.findings = content,
-        "Current Instruction For Claude" => artifact.instruction = content,
-        "Claude Ack" => artifact.claude_ack = content,
-        "Claude Status" => artifact.claude_status = content,
-        "Claude Questions" => artifact.claude_questions = content,
+        "Current Instruction For Implementer" | "Current Instruction For Claude" => {
+            artifact.instruction = content
+        }
+        "Implementer Ack" | "Claude Ack" => artifact.claude_ack = content,
+        "Implementer Status" | "Claude Status" => artifact.claude_status = content,
+        "Implementer Questions" | "Claude Questions" => artifact.claude_questions = content,
         "Last Reviewed Scope" => artifact.last_reviewed_scope = content,
         _ => {}
     }

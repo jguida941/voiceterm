@@ -153,6 +153,37 @@ class SecurityCommandTests(unittest.TestCase):
         self.assertIn("unsound", cmd)
         self.assertEqual(policy_call.args[0], "rustsec-policy")
         self.assertTrue(write_output_mock.called)
+        report = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(report["contract_id"], "SecurityReport")
+        self.assertEqual(report["schema_version"], 1)
+        self.assertEqual(report["command"], "security")
+        self.assertEqual(report["scanner_tier"], "rustsec")
+
+    @patch("dev.scripts.devctl.commands.security.write_output")
+    @patch("dev.scripts.devctl.commands.security.run_cmd")
+    @patch("dev.scripts.devctl.commands.security.run_rustsec_audit_step")
+    def test_markdown_output_preserves_security_report_contract_header(
+        self,
+        audit_mock,
+        run_cmd_mock,
+        write_output_mock,
+    ) -> None:
+        audit_mock.return_value = (rustsec_ok_step(), [])
+        run_cmd_mock.return_value = {
+            "name": "rustsec-policy",
+            "cmd": [],
+            "cwd": ".",
+            "returncode": 0,
+            "duration_s": 0.01,
+            "skipped": False,
+        }
+
+        rc = security.run(make_args(format="md"))
+        self.assertEqual(rc, 0)
+        markdown = write_output_mock.call_args.args[0]
+        self.assertIn("contract_id: SecurityReport", markdown)
+        self.assertIn("schema_version: 1", markdown)
+        self.assertIn("command: security", markdown)
 
     @patch("dev.scripts.devctl.commands.security_steps.shutil.which", return_value=None)
     @patch("dev.scripts.devctl.commands.security.write_output")

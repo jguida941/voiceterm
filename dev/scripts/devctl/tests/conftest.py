@@ -19,9 +19,13 @@ def load_repo_module(
     """Load a repository script/module from a repo-relative path."""
     module_path = REPO_ROOT / relative_path
     if add_module_dir_to_syspath:
-        module_dir = str(module_path.parent)
-        if module_dir not in sys.path:
-            sys.path.insert(0, module_dir)
+        candidate_dirs = [module_path.parent]
+        if "dev/scripts/checks/" in relative_path and module_path.parent.name != "checks":
+            candidate_dirs.append(module_path.parents[1])
+        for candidate_dir in candidate_dirs:
+            candidate_dir_str = str(candidate_dir)
+            if candidate_dir_str not in sys.path:
+                sys.path.insert(0, candidate_dir_str)
     spec = importlib.util.spec_from_file_location(name, module_path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Unable to load module at {module_path}")
@@ -50,3 +54,12 @@ def init_temp_repo_root(testcase: Any, *relative_dirs: str) -> Path:
     for relative_dir in relative_dirs:
         (root / relative_dir).mkdir(parents=True, exist_ok=True)
     return root
+
+
+def init_python_guard_repo_root(testcase: Any) -> Path:
+    """Create the common temp repo roots used by Python guard tests."""
+    return init_temp_repo_root(
+        testcase,
+        "dev/scripts",
+        "app/operator_console",
+    )

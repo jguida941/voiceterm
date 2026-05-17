@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "portable-governance/portable_governance_eval_record.schema.json",
+  "title": "Portable Governance Evaluation Record",
+  "description": "Cross-repo benchmark record for before/after governance experiments.",
+  "type": "object",
+  "required": [
+    "repo",
+    "run",
+    "correctness_gate",
+    "objective_metrics",
+    "review_scores"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "repo": {
+      "type": "object",
+      "required": ["name", "source_url"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "source_url": { "type": "string", "minLength": 1 },
+        "policy_path": { "type": "string" }
+      }
+    },
+    "run": {
+      "type": "object",
+      "required": ["run_id", "timestamp_utc", "baseline_ref", "candidate_ref"],
+      "additionalProperties": false,
+      "properties": {
+        "run_id": { "type": "string", "minLength": 1 },
+        "timestamp_utc": { "type": "string", "minLength": 1 },
+        "baseline_ref": { "type": "string", "minLength": 1 },
+        "candidate_ref": { "type": "string", "minLength": 1 },
+        "ai_tool_name": { "type": "string" }
+      }
+    },
+    "correctness_gate": {
+      "type": "object",
+      "required": ["passed"],
+      "additionalProperties": false,
+      "properties": {
+        "passed": { "type": "boolean" },
+        "build_passed": { "type": "boolean" },
+        "tests_passed": { "type": "boolean" },
+        "lint_passed": { "type": "boolean" },
+        "typecheck_passed": { "type": "boolean" },
+        "critical_warnings_introduced": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "objective_metrics": {
+      "type": "object",
+      "required": ["before", "after"],
+      "additionalProperties": false,
+      "properties": {
+        "before": { "$ref": "#/$defs/metric_bundle" },
+        "after": { "$ref": "#/$defs/metric_bundle" }
+      }
+    },
+    "review_scores": {
+      "type": "object",
+      "required": ["ai_pairwise"],
+      "additionalProperties": false,
+      "properties": {
+        "ai_pairwise": { "$ref": "#/$defs/judge_bundle" },
+        "human_pairwise": { "$ref": "#/$defs/judge_bundle" }
+      }
+    },
+    "score": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reliability_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "maintainability_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "reviewability_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "churn_penalty": { "type": "number", "minimum": 0, "maximum": 1 },
+        "final_score": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "metric_bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "function_length_p95": { "type": "number", "minimum": 0 },
+        "nesting_depth_p95": { "type": "number", "minimum": 0 },
+        "duplication_rate": { "type": "number", "minimum": 0 },
+        "broad_except_rate": { "type": "number", "minimum": 0 },
+        "single_use_helper_rate": { "type": "number", "minimum": 0 },
+        "warning_count": { "type": "integer", "minimum": 0 },
+        "files_touched": { "type": "integer", "minimum": 0 },
+        "diff_churn": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "judge_bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preferred_version": {
+          "type": "string",
+          "enum": ["baseline", "candidate", "tie", "inconclusive"]
+        },
+        "readability_winner": {
+          "type": "string",
+          "enum": ["baseline", "candidate", "tie", "inconclusive"]
+        },
+        "maintainability_winner": {
+          "type": "string",
+          "enum": ["baseline", "candidate", "tie", "inconclusive"]
+        },
+        "safety_winner": {
+          "type": "string",
+          "enum": ["baseline", "candidate", "tie", "inconclusive"]
+        },
+        "unnecessary_abstraction_winner": {
+          "type": "string",
+          "enum": ["baseline", "candidate", "tie", "inconclusive"]
+        },
+        "review_speed_winner": {
+          "type": "string",
+          "enum": ["baseline", "candidate", "tie", "inconclusive"]
+        },
+        "justification": { "type": "string" }
+      }
+    }
+  }
+}

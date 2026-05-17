@@ -1,0 +1,30 @@
+{
+  "contract_id": "RepoPortabilityCheck",
+  "entry_kind": "shared_contract",
+  "expected_result": "accept",
+  "fixture_role": "valid",
+  "ownership_mode": "python_only",
+  "parity_command": "python3 dev/scripts/checks/check_platform_contract_closure.py --format json",
+  "payload": {
+    "check_id": "check_substrate_is_repo_portable",
+    "contract_id": "RepoPortabilityCheck",
+    "hardcoded_categories": [
+      "packet_id_literal"
+    ],
+    "hardcoded_literal_count": 1,
+    "proposed_lifts": [
+      "Move literal to repo-pack policy."
+    ],
+    "repo_pack_policy_keys_needed": [
+      "repo_governance.guard_mandates.<check>.mandate_packet_id"
+    ],
+    "schema_version": 1,
+    "target_substrate_path": "dev/scripts/checks/example_guard.py"
+  },
+  "python_owner_path": "dev/scripts/devctl/runtime/repo_portability.py",
+  "registry_path": "dev/state/contract_registry.jsonl",
+  "rust_owner_path": "",
+  "schema_fixture_contract_id": "PlatformSchemaFixture",
+  "schema_fixture_version": 1,
+  "schema_version": 1
+}

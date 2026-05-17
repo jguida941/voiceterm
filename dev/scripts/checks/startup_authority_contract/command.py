@@ -1,0 +1,374 @@
+#!/usr/bin/env python3
+"""Validate startup-authority invariants from the live ProjectGovernance payload.
+
+Ensures that the repo-configured bootstrap authority files exist, required
+path roots resolve, and repo identity / plan registry fields are populated.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+from .runtime_checks import (
+    classify_checkpoint_budget_shape,
+    collect_checkpoint_budget_errors,
+    collect_concurrent_writer_errors,
+    collect_import_index_atomicity_finding_records,
+    collect_post_checkpoint_dirty_worktree_errors,
+    collect_push_decision_contract_errors,
+    collect_reviewer_loop_block_errors,
+)
+
+try:
+    from check_bootstrap import REPO_ROOT, import_repo_module
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT, import_repo_module
+
+_validation_scope_mod = import_repo_module(
+    "dev.scripts.devctl.runtime.validation_scope",
+    repo_root=REPO_ROOT,
+)
+add_validation_scope_argument = _validation_scope_mod.add_validation_scope_argument
+apply_validation_scope_to_report = _validation_scope_mod.apply_validation_scope_to_report
+validation_scope_from_args = _validation_scope_mod.validation_scope_from_args
+
+_COMMAND = "check_startup_authority_contract"
+
+def _load_governance(root: Path, *, governance=None):
+    if governance is not None:
+        return governance
+    draft_mod = import_repo_module(
+        "dev.scripts.devctl.governance.draft",
+        repo_root=root,
+    )
+    return draft_mod.scan_repo_governance(root)
+
+
+def _base_authority_checks(root: Path, gov) -> tuple[list[str], int, int]:
+    errors: list[str] = []
+    checks_run = 0
+    checks_passed = 0
+
+    startup_authority = gov.docs_authority
+    plan_registry = gov.plan_registry.registry_path
+    plan_tracker = gov.plan_registry.tracker_path
+
+    # --- 1. Startup authority file exists ---
+    checks_run += 1
+    if startup_authority and (root / startup_authority).is_file():
+        checks_passed += 1
+    else:
+        errors.append(
+            "Missing startup authority file: "
+            f"{startup_authority or '(unconfigured)'}"
+        )
+
+    # --- 2. Active-plan registry file exists ---
+    checks_run += 1
+    if plan_registry and (root / plan_registry).is_file():
+        checks_passed += 1
+    else:
+        errors.append(
+            "Missing active-plan registry: "
+            f"{plan_registry or '(unconfigured)'}"
+        )
+
+    # --- 3. Plan tracker file exists ---
+    checks_run += 1
+    if plan_tracker and (root / plan_tracker).is_file():
+        checks_passed += 1
+    else:
+        errors.append(
+            f"Missing plan tracker: {plan_tracker or '(unconfigured)'}"
+        )
+
+    # --- 4. Path roots: active_docs and scripts must resolve to directories ---
+    checks_run += 1
+    if gov.path_roots.active_docs and (root / gov.path_roots.active_docs).is_dir():
+        checks_passed += 1
+    else:
+        errors.append(
+            "path_roots.active_docs is missing or not a directory "
+            f"({gov.path_roots.active_docs or '(unconfigured)'})"
+        )
+
+    checks_run += 1
+    if gov.path_roots.scripts and (root / gov.path_roots.scripts).is_dir():
+        checks_passed += 1
+    else:
+        errors.append(
+            "path_roots.scripts is missing or not a directory "
+            f"({gov.path_roots.scripts or '(unconfigured)'})"
+        )
+
+    # --- 5. repo_identity.repo_name is non-empty ---
+    checks_run += 1
+    if gov.repo_identity.repo_name:
+        checks_passed += 1
+    else:
+        errors.append("repo_identity.repo_name is empty")
+
+    # --- 6. plan_registry.registry_path is configured ---
+    checks_run += 1
+    if gov.plan_registry.registry_path:
+        checks_passed += 1
+    else:
+        errors.append("plan_registry.registry_path is empty (INDEX.md not found)")
+
+    # --- 7. plan_registry.tracker_path is configured ---
+    checks_run += 1
+    if gov.plan_registry.tracker_path:
+        checks_passed += 1
+    else:
+        errors.append("plan_registry.tracker_path is empty (MASTER_PLAN.md not found)")
+
+    return errors, checks_run, checks_passed
+
+
+def _runtime_authority_checks(
+    root: Path,
+    gov,
+    *,
+    intent: str,
+    reviewer_gate=None,
+) -> tuple[list[str], list[str], int, int, bool, bool, list[str], list[dict], dict]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    checks_run = 0
+    checks_passed = 0
+
+    checks_run += 1
+    checkpoint_budget_shape = classify_checkpoint_budget_shape(gov, repo_root=root)
+    checkpoint_errors = collect_checkpoint_budget_errors(
+        gov,
+        shape=checkpoint_budget_shape,
+    )
+    if checkpoint_errors:
+        errors.extend(checkpoint_errors)
+    else:
+        checks_passed += 1
+
+    checks_run += 1
+    post_checkpoint_dirty_errors = collect_post_checkpoint_dirty_worktree_errors(
+        gov, repo_root=root
+    )
+    if post_checkpoint_dirty_errors:
+        errors.extend(post_checkpoint_dirty_errors)
+    else:
+        checks_passed += 1
+
+    checks_run += 1
+    concurrent_writer_errors = collect_concurrent_writer_errors(root, gov)
+    if concurrent_writer_errors:
+        errors.extend(concurrent_writer_errors)
+    else:
+        checks_passed += 1
+
+    checks_run += 1
+    strict_reviewer_loop_errors = collect_reviewer_loop_block_errors(
+        root,
+        gov,
+        reviewer_gate=reviewer_gate,
+    )
+    reviewer_loop_errors = collect_reviewer_loop_block_errors(
+        root,
+        gov,
+        intent=intent,
+        reviewer_gate=reviewer_gate,
+    )
+    if reviewer_loop_errors:
+        errors.extend(reviewer_loop_errors)
+    else:
+        checks_passed += 1
+
+    checks_run += 1
+    import_atomicity_records, import_atomicity_warnings = (
+        collect_import_index_atomicity_finding_records(root)
+    )
+    import_atomicity_errors = [
+        record.to_message() for record in import_atomicity_records
+    ]
+    warnings.extend(import_atomicity_warnings)
+    if import_atomicity_errors:
+        errors.extend(import_atomicity_errors)
+    else:
+        checks_passed += 1
+
+    checks_run += 1
+    push_contract_errors = collect_push_decision_contract_errors(root, gov)
+    if push_contract_errors:
+        errors.extend(push_contract_errors)
+    else:
+        checks_passed += 1
+
+    return (
+        errors,
+        warnings,
+        checks_run,
+        checks_passed,
+        bool(strict_reviewer_loop_errors),
+        intent == "reviewer_bootstrap"
+        and bool(strict_reviewer_loop_errors)
+        and not reviewer_loop_errors,
+        list(import_atomicity_errors),
+        [record.to_dict() for record in import_atomicity_records],
+        checkpoint_budget_shape.to_dict(),
+    )
+
+
+# Canonical startup authority files (relative to repo root).
+def _build_report(
+    repo_root: Path | None = None,
+    *,
+    intent: str = "implementation_strict",
+    governance=None,
+    reviewer_gate=None,
+) -> dict:
+    root = repo_root or REPO_ROOT
+    gov = _load_governance(root, governance=governance)
+    errors, checks_run, checks_passed = _base_authority_checks(root, gov)
+    (
+        runtime_errors,
+        warnings,
+        runtime_checks_run,
+        runtime_checks_passed,
+        reviewer_loop_blocked,
+        reviewer_loop_bootstrap_allowed,
+        import_index_atomicity_findings,
+        import_index_atomicity_finding_records,
+        checkpoint_budget_shape,
+    ) = _runtime_authority_checks(
+        root,
+        gov,
+        intent=intent,
+        reviewer_gate=reviewer_gate,
+    )
+    errors.extend(runtime_errors)
+    checks_run += runtime_checks_run
+    checks_passed += runtime_checks_passed
+
+    ok = len(errors) == 0
+    return {
+        "command": _COMMAND,
+        "ok": ok,
+        "errors": errors,
+        "warnings": warnings,
+        "startup_intent": intent,
+        "checks_run": checks_run,
+        "checks_passed": checks_passed,
+        "repo_name": gov.repo_identity.repo_name,
+        "startup_order": list(gov.startup_order),
+        "checkpoint_required": gov.push_enforcement.checkpoint_required,
+        "safe_to_continue_editing": gov.push_enforcement.safe_to_continue_editing,
+        "checkpoint_reason": gov.push_enforcement.checkpoint_reason,
+        "checkpoint_budget_shape": checkpoint_budget_shape,
+        "staged_path_count": int(
+            getattr(gov.push_enforcement, "staged_path_count", 0) or 0
+        ),
+        "unstaged_path_count": int(
+            getattr(gov.push_enforcement, "unstaged_path_count", 0) or 0
+        ),
+        "reviewer_loop_blocked": reviewer_loop_blocked,
+        "reviewer_loop_bootstrap_allowed": reviewer_loop_bootstrap_allowed,
+        "import_index_atomicity_violations": len(import_index_atomicity_findings),
+        "import_index_atomicity_findings": list(import_index_atomicity_findings),
+        "import_index_atomicity_finding_records": list(
+            import_index_atomicity_finding_records
+        ),
+    }
+
+
+def _render_md(report: dict) -> str:
+    lines = [f"# {_COMMAND}", ""]
+    lines.append(f"- ok: {report['ok']}")
+    lines.append(f"- checks: {report['checks_passed']}/{report['checks_run']}")
+    lines.append(f"- repo_name: {report['repo_name']}")
+    lines.append(f"- startup_intent: {report['startup_intent']}")
+    lines.append(f"- startup_order: {', '.join(report['startup_order']) or '(none)'}")
+    lines.append(f"- checkpoint_required: {report['checkpoint_required']}")
+    lines.append(
+        f"- safe_to_continue_editing: {report['safe_to_continue_editing']}"
+    )
+    lines.append(f"- checkpoint_reason: {report['checkpoint_reason']}")
+    shape = report.get("checkpoint_budget_shape") or {}
+    if isinstance(shape, dict):
+        lines.append(
+            "- checkpoint_budget_shape: "
+            f"{shape.get('state', 'unknown')} "
+            f"next={shape.get('next_required_action', 'none')} "
+            f"blocked={shape.get('bootstrap_blocked', False)}"
+        )
+        if shape.get("pipeline_id"):
+            lines.append(
+                "- checkpoint_budget_pipeline: "
+                f"{shape.get('pipeline_id')} state={shape.get('pipeline_state', '')} "
+                f"tree_match={shape.get('tree_hash_match', False)}"
+            )
+    lines.append(f"- staged_path_count: {report['staged_path_count']}")
+    lines.append(f"- unstaged_path_count: {report['unstaged_path_count']}")
+    lines.append(
+        "- reviewer_loop_bootstrap_allowed: "
+        f"{report['reviewer_loop_bootstrap_allowed']}"
+    )
+    lines.append(
+        "- import_index_atomicity_violations: "
+        f"{report['import_index_atomicity_violations']}"
+    )
+    if report["import_index_atomicity_findings"]:
+        lines.append(
+            "- import_index_atomicity_first_violation: "
+            f"{report['import_index_atomicity_findings'][0]}"
+        )
+    if report["import_index_atomicity_finding_records"]:
+        first_record = report["import_index_atomicity_finding_records"][0]
+        lines.append(
+            "- import_index_atomicity_first_record: "
+            f"{first_record.get('importer_path', 'unknown')} "
+            f"missing_from={first_record.get('missing_from', 'unknown')}"
+        )
+    lines.append(f"- reviewer_loop_blocked: {report['reviewer_loop_blocked']}")
+    if report["errors"]:
+        lines.append("")
+        lines.append("## Errors")
+        for err in report["errors"]:
+            lines.append(f"- {err}")
+    if report["warnings"]:
+        lines.append("")
+        lines.append("## Warnings")
+        for warn in report["warnings"]:
+            lines.append(f"- {warn}")
+    return "\n".join(lines)
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--format", choices=("md", "json"), default="md")
+    add_validation_scope_argument(parser)
+    return parser
+
+
+def main() -> int:
+    args = _build_parser().parse_args()
+    report = _build_report()
+    report = apply_validation_scope_to_report(
+        report,
+        validation_scope_from_args(args),
+        reason=(
+            "startup authority includes live worktree/session authority checks; "
+            "governed publication validation records them as advisory evidence."
+        ),
+    )
+
+    if args.format == "json":
+        print(json.dumps(report, indent=2))
+    else:
+        print(_render_md(report))
+
+    return 0 if report["ok"] else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

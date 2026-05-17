@@ -1,20 +1,7 @@
-"""Unit tests for check-router path classification helpers."""
+"""Backward-compat shim -- use tests.commands.check.test_check_router_support instead."""
+# shim-owner: tooling/devctl
+# shim-reason: preserve the stable check-router-support test path during the test-package split
+# shim-expiry: 2026-09-30
+# shim-target: dev/scripts/devctl/tests/commands/check/test_check_router_support.py
 
-from __future__ import annotations
-
-from unittest import TestCase
-
-from dev.scripts.devctl.commands.check_router_support import classify_lane
-
-
-class CheckRouterSupportTests(TestCase):
-    def test_active_docs_route_to_tooling_lane(self) -> None:
-        report = classify_lane(["dev/active/operator_console.md"])
-
-        self.assertEqual(report["lane"], "tooling")
-        self.assertEqual(
-            report["categories"]["tooling_paths"],
-            ["dev/active/operator_console.md"],
-        )
-        self.assertEqual(report["categories"]["docs_paths"], [])
-
+from dev.scripts.devctl.tests.commands.check.test_check_router_support import *

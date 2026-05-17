@@ -1,0 +1,56 @@
+"""Public probe-topology compatibility surface."""
+
+from .builder import build_probe_topology_artifact, build_review_packet
+from .render import (
+    render_hotspot_dot,
+    render_hotspot_mermaid,
+    render_review_packet_markdown,
+)
+from .scan import (
+    build_python_module_index,
+    build_rust_suffix_index,
+    candidate_python_modules,
+    codeowners_match,
+    collect_changed_paths,
+    collect_python_edges,
+    collect_rust_edges,
+    iter_source_files,
+    normalize_rust_use_prefix,
+    owners_for_path,
+    parse_codeowners_rules,
+    python_module_name,
+    repo_relative,
+    repo_root,
+    resolve_python_target,
+    resolve_relative_python_module,
+    resolve_rust_mod_target,
+    resolve_rust_target,
+    rust_tokens_for_path,
+)
+
+__all__ = [
+    "build_probe_topology_artifact",
+    "build_python_module_index",
+    "build_review_packet",
+    "build_rust_suffix_index",
+    "candidate_python_modules",
+    "codeowners_match",
+    "collect_changed_paths",
+    "collect_python_edges",
+    "collect_rust_edges",
+    "iter_source_files",
+    "normalize_rust_use_prefix",
+    "owners_for_path",
+    "parse_codeowners_rules",
+    "python_module_name",
+    "render_hotspot_dot",
+    "render_hotspot_mermaid",
+    "render_review_packet_markdown",
+    "repo_relative",
+    "repo_root",
+    "resolve_python_target",
+    "resolve_relative_python_module",
+    "resolve_rust_mod_target",
+    "resolve_rust_target",
+    "rust_tokens_for_path",
+]

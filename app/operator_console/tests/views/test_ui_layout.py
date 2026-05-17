@@ -590,6 +590,7 @@ class LaneStructureTests(unittest.TestCase):
         from app.operator_console.workflows import build_launch_command
 
         window = _make_window()
+        window._apply_workflow_preset("continuous_swarm", announce=False)
         with patch.object(window, "_start_command", return_value=True) as mock_start:
             window.start_swarm()
 
@@ -598,8 +599,16 @@ class LaneStructureTests(unittest.TestCase):
                 live=False,
                 output_format="json",
                 refresh_bridge_heartbeat_if_stale=True,
+                scope="dev/active/continuous_swarm.md",
+                promotion_plan="dev/active/continuous_swarm.md",
             ),
-            context={"flow": "start_swarm", "step": "preflight"},
+            context={
+                "flow": "start_swarm",
+                "step": "preflight",
+                "preset_id": "continuous_swarm",
+                "plan_doc": "dev/active/continuous_swarm.md",
+                "mp_scope": "MP-358",
+            },
             busy_label="Swarm...",
             busy_buttons=window._review_action_buttons(),
         )
@@ -612,6 +621,7 @@ class LaneStructureTests(unittest.TestCase):
         from app.operator_console.workflows import build_launch_command
 
         window = _make_window()
+        window._apply_workflow_preset("continuous_swarm", announce=False)
         with patch.object(window, "_start_command", return_value=True) as mock_start:
             window.launch_dry_run()
 
@@ -620,8 +630,17 @@ class LaneStructureTests(unittest.TestCase):
                 live=False,
                 output_format="json",
                 refresh_bridge_heartbeat_if_stale=True,
+                scope="dev/active/continuous_swarm.md",
+                promotion_plan="dev/active/continuous_swarm.md",
             ),
-            context={"flow": "review_channel", "action": "launch", "live": False},
+            context={
+                "flow": "review_channel",
+                "action": "launch",
+                "live": False,
+                "preset_id": "continuous_swarm",
+                "plan_doc": "dev/active/continuous_swarm.md",
+                "mp_scope": "MP-358",
+            },
             busy_label="Dry Run...",
             busy_buttons=window._dry_run_action_buttons(),
         )
@@ -631,6 +650,7 @@ class LaneStructureTests(unittest.TestCase):
 
         window = _make_window()
         window._live_terminal_supported = True
+        window._apply_workflow_preset("continuous_swarm", announce=False)
         with patch.object(window, "_start_command", return_value=True) as mock_start:
             window.launch_live()
 
@@ -639,8 +659,17 @@ class LaneStructureTests(unittest.TestCase):
                 live=True,
                 output_format="json",
                 refresh_bridge_heartbeat_if_stale=True,
+                scope="dev/active/continuous_swarm.md",
+                promotion_plan="dev/active/continuous_swarm.md",
             ),
-            context={"flow": "review_channel", "action": "launch", "live": True},
+            context={
+                "flow": "review_channel",
+                "action": "launch",
+                "live": True,
+                "preset_id": "continuous_swarm",
+                "plan_doc": "dev/active/continuous_swarm.md",
+                "mp_scope": "MP-358",
+            },
             busy_label="Launch...",
             busy_buttons=(window.launch_live_button,),
         )
@@ -704,7 +733,7 @@ class LaneStructureTests(unittest.TestCase):
             policy_hint="operator_approval_required",
             requested_action="git_push",
             status="pending",
-            evidence_refs=("code_audit.md#L1",),
+            evidence_refs=("bridge.md#L1",),
         )
 
         with patch.object(window, "_start_command", return_value=True) as mock_start:
@@ -782,6 +811,7 @@ class LaneStructureTests(unittest.TestCase):
         from app.operator_console.workflows import build_launch_command
 
         window = _make_window()
+        window._apply_workflow_preset("continuous_swarm", announce=False)
         report = json.dumps(
             {
                 "ok": True,
@@ -805,8 +835,16 @@ class LaneStructureTests(unittest.TestCase):
                 live=True,
                 output_format="json",
                 refresh_bridge_heartbeat_if_stale=True,
+                scope="dev/active/continuous_swarm.md",
+                promotion_plan="dev/active/continuous_swarm.md",
             ),
-            context={"flow": "start_swarm", "step": "live"},
+            context={
+                "flow": "start_swarm",
+                "step": "live",
+                "preset_id": "continuous_swarm",
+                "plan_doc": "dev/active/continuous_swarm.md",
+                "mp_scope": "MP-358",
+            },
             busy_label="Swarm...",
             busy_buttons=window._review_action_buttons(),
         )
@@ -942,6 +980,7 @@ class LaneStructureTests(unittest.TestCase):
 
     def test_start_swarm_preflight_failure_blocks_live_command(self) -> None:
         window = _make_window()
+        window._apply_workflow_preset("continuous_swarm", announce=False)
         report = json.dumps(
             {
                 "ok": True,
@@ -974,6 +1013,7 @@ class LaneStructureTests(unittest.TestCase):
 
     def test_start_swarm_live_success_updates_visible_status(self) -> None:
         window = _make_window()
+        window._apply_workflow_preset("continuous_swarm", announce=False)
         report = json.dumps(
             {
                 "ok": True,

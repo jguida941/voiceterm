@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 from ..common import display_path, read_json_object, resolve_repo_path
@@ -13,7 +14,9 @@ VALID_CONTEXT_PACK_ADAPTER_PROFILES = {"canonical", "codex", "claude", "gemini"}
 
 def normalize_context_pack_refs(context_pack_refs: object) -> list[dict[str, str]]:
     """Return a compact list of valid context-pack attachment objects."""
-    if not isinstance(context_pack_refs, list):
+    if not isinstance(context_pack_refs, Sequence) or isinstance(
+        context_pack_refs, (str, bytes)
+    ):
         return []
     rows: list[dict[str, str]] = []
     for row in context_pack_refs:
@@ -80,7 +83,7 @@ def _resolve_one_context_pack_ref(
     if not separator or not pack_ref_raw.strip():
         raise ValueError(
             "--context-pack-ref must use kind:path form, for example "
-            "task_pack:.voiceterm/memory/exports/task_pack.json"
+            "task_pack:<local-state-dir>/exports/task_pack.json"
         )
     pack_kind = CONTEXT_PACK_KIND_ALIASES.get(
         pack_kind_raw.strip(),

@@ -2,6 +2,12 @@
 
 Platform-specific application launchers for VoiceTerm.
 
+Start here based on what you want:
+
+- macOS launcher: use `macos/VoiceTerm.app`
+- Desktop operator workflow: read [operator_console/README.md](operator_console/README.md)
+- iPhone/iPad companion: read [ios/README.md](ios/README.md)
+
 ## macOS
 
 `macos/VoiceTerm.app` - Double-click app that opens a folder picker and launches VoiceTerm in Terminal.
@@ -39,12 +45,15 @@ Operator control surfaces stay Rust-first in this repo:
 `operator_console/` - optional PyQt6 VoiceTerm Operator Console for the
 current review-channel workflow.
 
+Use this when you want a desktop control/read surface for the repo workflow.
+Do not start here if you only want the normal VoiceTerm overlay.
+
 Current prototype scope:
 
-- bridge-derived Codex, Claude, and Operator status panes (parsed from `code_audit.md`)
+- bridge-derived Codex, Claude, and Operator status panes (parsed from `bridge.md`)
 - `review-channel` launch and rollover buttons (launcher wrapper, not live terminal)
 - repo-visible operator approve/deny artifacts
-- raw `code_audit.md` view, launcher output, and diagnostics pane
+- raw `bridge.md` view, launcher output, and diagnostics pane
 - optional persisted dev logs under `dev/reports/review_channel/operator_console/`
 - dark operator-console theme for bridge/launcher monitoring sessions
 
@@ -58,7 +67,7 @@ The script launches `app/operator_console/run.py` and installs `PyQt6` for the
 current Python interpreter when it is missing.
 
 All status indicators derive from periodic parsing of the markdown bridge
-(`code_audit.md`). Optional `review_state.json` adds structured approval
+(`bridge.md`). Optional `review_state.json` adds structured approval
 packets only — it does not upgrade the console to live terminal telemetry.
 When structured review state is absent, the status bar shows
 `markdown bridge only; live terminal telemetry unavailable`. The console does
@@ -70,6 +79,9 @@ not replace the Rust overlay or embed a full terminal emulator.
 
 `ios/VoiceTermMobile/` - the shared Swift package used by that app for bundle
 decoding and dashboard UI.
+
+Use this when you want a mobile read/control surface backed by repo-emitted
+mobile bundles.
 
 Current scope:
 

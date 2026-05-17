@@ -8,11 +8,12 @@ by shared ``to_agent + summary`` key.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..state.core.models import utc_timestamp
+from dev.scripts.devctl.runtime import ReviewPacketState
+
+from ..state.review.review_state import load_review_packets
 
 
 @dataclass(frozen=True)
@@ -56,20 +57,28 @@ def _column_for_status(status: str) -> str:
     return _STATUS_TO_COLUMN.get(status.lower(), "pending")
 
 
-def _ticket_from_packet(packet: dict) -> TaskTicket | None:
+def _packet_field(packet: dict[str, object] | ReviewPacketState, field_name: str) -> str:
+    if isinstance(packet, ReviewPacketState):
+        return str(getattr(packet, field_name, ""))
+    return str(packet.get(field_name, ""))
+
+
+def _ticket_from_packet(
+    packet: dict[str, object] | ReviewPacketState,
+) -> TaskTicket | None:
     """Convert one event-store packet dict into a TaskTicket."""
-    packet_id = packet.get("packet_id", "")
+    packet_id = _packet_field(packet, "packet_id")
     if not packet_id:
         return None
-    raw_status = packet.get("status", "posted")
+    raw_status = _packet_field(packet, "status") or "posted"
     return TaskTicket(
         ticket_id=packet_id,
-        summary=packet.get("summary", ""),
-        assigned_agent=packet.get("to_agent", ""),
+        summary=_packet_field(packet, "summary"),
+        assigned_agent=_packet_field(packet, "to_agent"),
         status=_column_for_status(raw_status),
-        kind=packet.get("kind", ""),
-        last_updated=packet.get("posted_at", ""),
-        from_agent=packet.get("from_agent", "operator"),
+        kind=_packet_field(packet, "kind"),
+        last_updated=_packet_field(packet, "posted_at"),
+        from_agent=_packet_field(packet, "from_agent") or "operator",
     )
 
 
@@ -83,14 +92,13 @@ def build_task_board_snapshot(
     Each packet becomes a ticket. Tickets are bucketed into columns
     based on their current status.
     """
-    packets: list[dict] = []
+    packets: list[dict[str, object] | ReviewPacketState] = []
     if history_packets is not None:
         packets = history_packets
     elif review_state_path is not None and review_state_path.is_file():
         try:
-            data = json.loads(review_state_path.read_text(encoding="utf-8"))
-            packets = data.get("packets", [])
-        except (json.JSONDecodeError, OSError):
+            packets = list(load_review_packets(review_state_path))
+        except (OSError, ValueError):
             packets = []
 
     buckets: dict[str, list[TaskTicket]] = {

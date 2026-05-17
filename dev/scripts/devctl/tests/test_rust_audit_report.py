@@ -84,6 +84,9 @@ class RustAuditReportTests(unittest.TestCase):
         ):
             report = rust_audit_report.collect_rust_audit_report(mode="absolute")
 
+        self.assertEqual(report["contract_id"], "RustAuditReport")
+        self.assertEqual(report["schema_version"], 1)
+        self.assertEqual(report["command"], "rust-audit")
         self.assertTrue(report["collection_ok"])
         self.assertEqual(report["summary"]["total_violation_files"], 2)
         self.assertEqual(report["summary"]["total_active_findings"], 8)
@@ -136,6 +139,9 @@ class RustAuditReportTests(unittest.TestCase):
             }
         )
         markdown = "\n".join(lines)
+        self.assertIn("contract_id: RustAuditReport", markdown)
+        self.assertIn("schema_version: 1", markdown)
+        self.assertIn("Collection clean: None", markdown)
         self.assertIn("Why These Findings Matter", markdown)
         self.assertIn("Ignoring send results can silently lose signals.", markdown)
         self.assertIn("Handle `send` failure explicitly.", markdown)

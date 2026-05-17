@@ -3,6 +3,11 @@
 Optional desktop Operator Console for the current Codex/Claude review-channel
 flow.
 
+Use this page in one of two ways:
+
+- If you want to run the app, start at [Fast Start](#fast-start).
+- If you want to extend the app, start at [Read This First](#read-this-first).
+
 ## Read This First
 
 Use these docs in this order when you are extending the app:
@@ -28,6 +33,14 @@ If you only need one sentence: open the app, inspect the current repo/review
 state, run `Dry Run` first, then use `Start Swarm` or `Launch Live` only after
 the preflight is green.
 
+## Quick Links
+
+- Launch and first-run steps: [Fast Start](#fast-start)
+- What the app is allowed to do: [What It Is](#what-it-is)
+- Current supported feature set: [Current Scope](#current-scope)
+- Developer/package layout: [Folder Map](#folder-map)
+- Detailed plan and scope authority: [`dev/active/operator_console.md`](../../dev/active/operator_console.md)
+
 ## What It Is
 
 This app is intentionally a thin wrapper:
@@ -36,6 +49,9 @@ This app is intentionally a thin wrapper:
 - `devctl review-channel` still owns launch/rollover commands.
 - The desktop app reads repo-visible state and writes repo-visible operator
   decision artifacts.
+- Typed `review_state` / `control_state` style artifacts are the intended
+  primary contract. The markdown bridge and compatibility payload rebuilds are
+  transitional fallback/debug inputs, not long-term backend authority.
 - The desktop app now prefers the merged mobile relay read path when it can:
   it first reads the emitted `dev/reports/mobile/latest/full.json` projection
   bundle from `devctl mobile-status`, then falls back to rebuilding the merged
@@ -122,7 +138,7 @@ Phase-1 behavior:
 - `Mobile Relay` summaries on Home and Analytics that prefer the emitted
   `devctl mobile-status` bundle, with honest fallback to rebuilt merged
   control + review state and then raw controller `phone-status`
-- side-by-side bridge-derived Codex, Claude, and Operator panes (parsed from `code_audit.md`)
+- side-by-side bridge-derived Codex, Claude, and Operator panes (parsed from `bridge.md`)
 - explicit `Codex Session` and `Claude Session` monitor panes backed by the
   review-channel full projection's agent registry plus current bridge state,
   so the app shows what each side is working on even before live PTY traces
@@ -145,7 +161,7 @@ Phase-1 behavior:
   `status --ci`, `triage --ci`, and `process-audit --strict`
 - staged Codex/Claude summary drafts derived from the selected report, with
   explicit provenance text copied from the current snapshot
-- raw `code_audit.md` view
+- raw `bridge.md` view
 - `Launch Dry-Run`, `Launch Live`, and `Rollover` buttons, with live controls
   explicitly gated to the macOS Terminal.app path
 - selectable desktop themes matching the overlay ids
@@ -273,10 +289,10 @@ blocks early on broken plan/sync state instead of pretending the loop started.
    python3 dev/scripts/devctl.py review-channel --action launch --format md --refresh-bridge-heartbeat-if-stale
    ```
 
-5. Watch the Operator Console plus `code_audit.md`. A healthy run should show:
-   - bridge-derived Codex and Claude panes refreshing from parsed `code_audit.md` sections
+5. Watch the Operator Console plus `bridge.md`. A healthy run should show:
+   - bridge-derived Codex and Claude panes refreshing from parsed `bridge.md` sections
    - diagnostics entries for launcher activity and bridge refreshes
-   - `code_audit.md` heartbeat fields changing instead of staying static
+   - `bridge.md` heartbeat fields changing instead of staying static
    - `markdown bridge only; live terminal telemetry unavailable` when `review_state.json` is absent
 
 ## Analytics Mode
@@ -286,7 +302,7 @@ a live CI/deploy control tower. It shows bridge-derived warnings, approvals,
 lane health, and worktree identity, and it marks unwired CI/test telemetry as
 `n/a` instead of implying those feeds are already live.
 
-6. When you want to test the handoff path, trigger a controlled rollover:
+1. When you want to test the handoff path, trigger a controlled rollover:
 
    ```bash
    python3 dev/scripts/devctl.py review-channel --action rollover --rollover-threshold-pct 50 --await-ack-seconds 180 --format md
@@ -332,7 +348,7 @@ window, but it stays memory-only for that run.
       +---------------------+---------------------+------------------+
       |                                           |                  |
       v                                           v                  v
- code_audit.md / review_state.json   devctl review-channel launch   dev-log artifacts
+ bridge.md / review_state.json   devctl review-channel launch   dev-log artifacts
       |                                           |                  |
       +---------------------+---------------------+------------------+
                             |

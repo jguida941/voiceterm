@@ -32,6 +32,13 @@ impl SessionRegistry {
         self.sessions.get(session_id)
     }
 
+    /// Remove sessions whose PTY child has already exited.
+    pub fn prune_dead(&mut self) -> usize {
+        let before = self.sessions.len();
+        self.sessions.retain(|_, handle| handle.is_alive());
+        before.saturating_sub(self.sessions.len())
+    }
+
     /// Build a snapshot list of all active agents.
     pub fn list(&self) -> Vec<AgentInfo> {
         self.sessions

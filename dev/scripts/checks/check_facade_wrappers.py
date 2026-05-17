@@ -16,41 +16,37 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
         is_under_target_roots,
+        resolve_quality_scope_roots,
         utc_timestamp,
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
         is_under_target_roots,
+        resolve_quality_scope_roots,
         utc_timestamp,
     )
 
-list_changed_paths_with_base_map = import_attr(
-    "git_change_paths", "list_changed_paths_with_base_map"
-)
+list_changed_paths_with_base_map = import_attr("git_change_paths", "list_changed_paths_with_base_map")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
-TARGET_ROOTS = (
-    Path("dev/scripts"),
-    Path("app/operator_console"),
-)
+TARGET_ROOTS = (*resolve_quality_scope_roots("python_guard", repo_root=REPO_ROOT),)
 
 # A file is facade-heavy when it has this many pure-delegation wrappers
 FACADE_THRESHOLD = 3
 
-
 def _is_test_path(path: Path) -> bool:
     return "tests" in path.parts or path.name.startswith("test_")
-
 
 def _is_pure_delegation(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     """Return True when a function body is a single return-of-call statement.
@@ -58,19 +54,13 @@ def _is_pure_delegation(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     Ignores a leading docstring (Expr wrapping a Constant) so that
     ``def f(): "doc"; return g()`` still counts as delegation.
     """
-    stmts = [
-        s for s in node.body
-        if not (isinstance(s, ast.Expr) and isinstance(s.value, ast.Constant))
-    ]
+    stmts = [s for s in node.body if not (isinstance(s, ast.Expr) and isinstance(s.value, ast.Constant))]
     if len(stmts) != 1:
         return False
     stmt = stmts[0]
     if isinstance(stmt, ast.Return) and isinstance(stmt.value, ast.Call):
         return True
-    if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
-        return True
-    return False
-
+    return bool(isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call))
 
 def _count_facade_wrappers(text: str | None) -> int:
     if text is None:
@@ -81,15 +71,12 @@ def _count_facade_wrappers(text: str | None) -> int:
         return 0
     wrappers = 0
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            if _is_pure_delegation(node):
-                wrappers += 1
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and _is_pure_delegation(node):
+            wrappers += 1
     return wrappers
-
 
 def _is_facade_heavy(text: str | None) -> bool:
     return _count_facade_wrappers(text) > FACADE_THRESHOLD
-
 
 def _count_metrics(text: str | None) -> dict[str, int]:
     return {
@@ -97,14 +84,11 @@ def _count_metrics(text: str | None) -> dict[str, int]:
         "facade_wrappers": _count_facade_wrappers(text),
     }
 
-
 def _growth(base: dict[str, int], current: dict[str, int]) -> dict[str, int]:
     return {key: current[key] - base[key] for key in base}
 
-
 def _has_positive_growth(growth: dict[str, int]) -> bool:
     return growth.get("facade_heavy_modules", 0) > 0
-
 
 def _render_md(report: dict) -> str:
     lines = ["# check_facade_wrappers", ""]
@@ -143,10 +127,8 @@ def _render_md(report: dict) -> str:
             )
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     return build_since_ref_format_parser(__doc__ or "")
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -161,9 +143,7 @@ def main() -> int:
             args.head_ref,
         )
     except RuntimeError as exc:
-        return emit_runtime_error(
-            "check_facade_wrappers", args.format, str(exc)
-        )
+        return emit_runtime_error("check_facade_wrappers", args.format, str(exc))
 
     mode = "commit-range" if args.since_ref else "working-tree"
     files_considered = 0
@@ -179,9 +159,7 @@ def main() -> int:
         if path.suffix != ".py":
             files_skipped_non_python += 1
             continue
-        if not is_under_target_roots(
-            path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS
-        ):
+        if not is_under_target_roots(path, repo_root=REPO_ROOT, target_roots=TARGET_ROOTS):
             files_skipped_non_python += 1
             continue
         if _is_test_path(path):
@@ -206,12 +184,14 @@ def main() -> int:
         totals["facade_wrappers_growth"] += growth["facade_wrappers"]
 
         if _has_positive_growth(growth):
-            violations.append({
-                "path": path.as_posix(),
-                "base": base,
-                "current": current,
-                "growth": growth,
-            })
+            violations.append(
+                {
+                    "path": path.as_posix(),
+                    "base": base,
+                    "current": current,
+                    "growth": growth,
+                }
+            )
 
     report = {
         "command": "check_facade_wrappers",
@@ -234,7 +214,6 @@ def main() -> int:
         print(_render_md(report))
 
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

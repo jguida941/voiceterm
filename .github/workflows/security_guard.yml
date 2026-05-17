@@ -28,10 +28,10 @@ on:
       - "dev/scripts/devctl/commands/check_profile.py"
       - "dev/scripts/devctl/commands/security.py"
       - "dev/scripts/devctl/script_catalog.py"
-      - "dev/scripts/devctl/security_codeql.py"
-      - "dev/scripts/devctl/security_parser.py"
-      - "dev/scripts/devctl/security_python_scope.py"
-      - "dev/scripts/devctl/security_tiers.py"
+      - "dev/scripts/devctl/security/codeql.py"
+      - "dev/scripts/devctl/security/parser.py"
+      - "dev/scripts/devctl/security/python_scope.py"
+      - "dev/scripts/devctl/security/tiers.py"
       - "dev/scripts/devctl/tests/test_check.py"
       - "dev/scripts/devctl/tests/test_security.py"
       - "dev/scripts/devctl/tests/test_security_python_scope.py"
@@ -49,10 +49,10 @@ on:
       - "dev/scripts/devctl/commands/check_profile.py"
       - "dev/scripts/devctl/commands/security.py"
       - "dev/scripts/devctl/script_catalog.py"
-      - "dev/scripts/devctl/security_codeql.py"
-      - "dev/scripts/devctl/security_parser.py"
-      - "dev/scripts/devctl/security_python_scope.py"
-      - "dev/scripts/devctl/security_tiers.py"
+      - "dev/scripts/devctl/security/codeql.py"
+      - "dev/scripts/devctl/security/parser.py"
+      - "dev/scripts/devctl/security/python_scope.py"
+      - "dev/scripts/devctl/security/tiers.py"
       - "dev/scripts/devctl/tests/test_check.py"
       - "dev/scripts/devctl/tests/test_security.py"
       - "dev/scripts/devctl/tests/test_security_python_scope.py"
@@ -112,7 +112,7 @@ jobs:
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          python3 dev/scripts/workflow_shell_bridge.py resolve-range \
+          python3 dev/scripts/workflow_bridge/shell.py resolve-range \
             --event-name "${EVENT_NAME}" \
             --push-before "${PUSH_BEFORE}" \
             --push-head "${PUSH_HEAD}" \
@@ -143,7 +143,7 @@ jobs:
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          python3 dev/scripts/workflow_shell_bridge.py resolve-security-scope \
+          python3 dev/scripts/workflow_bridge/shell.py resolve-security-scope \
             --event-name "${EVENT_NAME}" \
             --push-before "${PUSH_BEFORE}" \
             --push-head "${PUSH_HEAD}" \

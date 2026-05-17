@@ -13,6 +13,7 @@ use crate::config::OverlayConfig;
 use crate::dev_command::{DevCommandBroker, DevPanelState};
 use crate::input::InputEvent;
 use crate::memory::MemoryIngestor;
+use crate::memory_browser::MemoryBrowserState;
 use crate::overlays::OverlayMode;
 use crate::prompt::{PromptOcclusionDetector, PromptTracker};
 use crate::session_memory::SessionMemoryLogger;
@@ -116,6 +117,7 @@ pub(crate) struct EventLoopState {
     pub(crate) last_toast_status: Option<String>,
     pub(crate) toast_center: ToastCenter,
     pub(crate) memory_ingestor: Option<MemoryIngestor>,
+    pub(crate) memory_browser_state: MemoryBrowserState,
     pub(crate) theme_file_watcher: Option<ThemeFileWatcher>,
 }
 

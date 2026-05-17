@@ -79,7 +79,10 @@ impl SessionMemoryBridge {
     }
 
     /// The session ID this bridge is capturing for.
-    #[allow(dead_code, reason = "API surface for upcoming per-session memory queries")]
+    #[allow(
+        dead_code,
+        reason = "API surface for upcoming per-session memory queries"
+    )]
     pub fn session_id(&self) -> &str {
         &self.session_id
     }

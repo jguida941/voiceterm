@@ -1,0 +1,43 @@
+{
+  "include": [
+    "dev/scripts/checks/governed_transitions/command.py",
+    "dev/scripts/checks/governed_transitions/graph.py",
+    "dev/scripts/checks/governed_transitions/graph_build.py",
+    "dev/scripts/checks/governed_transitions/ids.py",
+    "dev/scripts/checks/governed_transitions/models.py",
+    "dev/scripts/checks/governed_transitions/render.py",
+    "dev/scripts/checks/governed_transitions/shape.py",
+    "dev/scripts/checks/governed_transitions/walks.py",
+    "dev/scripts/devctl/context_graph/models.py",
+    "dev/scripts/devctl/commands/vcs/governed_executor_validation.py",
+    "dev/scripts/devctl/commands/vcs/governed_executor_push_result.py",
+    "dev/scripts/devctl/commands/vcs/push_result_typestate.py",
+    "dev/scripts/devctl/platform/runtime_identity_contract_rows_commit.py",
+    "dev/scripts/devctl/runtime/bypass_activation_result.py",
+    "dev/scripts/devctl/runtime/bypass_lifecycle_evaluation.py",
+    "dev/scripts/devctl/runtime/commit_receipt.py",
+    "dev/scripts/devctl/runtime/governed_transitions.py",
+    "dev/scripts/devctl/runtime/receipt_state_gate.py",
+    "dev/scripts/devctl/runtime/task_complete_result.py",
+    "dev/scripts/devctl/runtime/typed_ids.py",
+    "dev/scripts/devctl/runtime/validation_contracts.py",
+    "dev/scripts/devctl/tests/checks/governed_transitions/test_check_governed_transitions.py",
+    "dev/scripts/devctl/tests/runtime/test_commit_receipt.py",
+    "dev/scripts/devctl/tests/runtime/test_correlation_spine_coverage.py",
+    "dev/scripts/devctl/tests/runtime/test_receipt_state_gate.py",
+    "dev/scripts/devctl/tests/runtime/test_typed_ids.py",
+    "dev/scripts/devctl/tests/runtime/test_typestate_exhaustiveness.py"
+  ],
+  "exclude": [
+    ".venv",
+    "rust/target",
+    ".claude",
+    "dev/reports",
+    ".git"
+  ],
+  "typeCheckingMode": "strict",
+  "reportMatchNotExhaustive": "error",
+  "reportUnnecessaryComparison": "error",
+  "pythonVersion": "3.11",
+  "pythonPlatform": "Darwin"
+}

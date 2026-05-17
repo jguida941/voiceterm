@@ -7,6 +7,7 @@ stable issue objects (`category`, `severity`, `owner`, `summary`).
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -37,6 +38,7 @@ SEVERITY_MAP = {
     "p2": "medium",
     "warning": "medium",
     "warn": "medium",
+    "loadbearing": "high",
     "low": "low",
     "minor": "low",
     "sev3": "low",
@@ -45,6 +47,7 @@ SEVERITY_MAP = {
     "informational": "info",
     "p4": "info",
 }
+SEVERITY_ORDER = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0}
 
 CATEGORY_MAP = {
     "ci": "ci",
@@ -71,10 +74,23 @@ def _clean_key(value: Any) -> str:
 
 
 def normalize_severity(value: Any) -> str:
-    key = _clean_key(value)
-    if not key:
+    raw = str(value or "").strip()
+    if not raw:
         return "medium"
-    return SEVERITY_MAP.get(key, "medium")
+    key = _clean_key(value)
+    if key in SEVERITY_MAP:
+        return SEVERITY_MAP[key]
+    best = ""
+    best_rank = -1
+    for token in re.findall(r"[A-Za-z0-9_-]+", raw.lower()):
+        severity = SEVERITY_MAP.get(_clean_key(token))
+        if not severity:
+            continue
+        rank = SEVERITY_ORDER.get(severity, -1)
+        if rank > best_rank:
+            best = severity
+            best_rank = rank
+    return best or "medium"
 
 
 def normalize_category(value: Any) -> str:

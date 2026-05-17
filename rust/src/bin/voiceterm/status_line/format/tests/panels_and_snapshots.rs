@@ -1,7 +1,5 @@
 use super::*;
-
-#[path = "../../test_helpers.rs"]
-mod test_helpers;
+use crate::status_line::test_helpers;
 
 #[test]
 fn active_state_fallback_message_matches_recording_state() {

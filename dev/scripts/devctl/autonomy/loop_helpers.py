@@ -298,6 +298,7 @@ def build_checkpoint_packet(
             for row in (loop_packet_report.get("next_actions") or [])
             if str(row).strip()
         ],
+        "context_packet": loop_packet_report.get("context_packet"),
         "evidence_refs": packet_source_refs,
         "idempotency_key": idempotency_key,
         "nonce": nonce,

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .runtime.lifetime_bypass_mode import BypassLifecycle
 
 APPROVAL_MODE_CHOICES = ("strict", "balanced", "trusted")
 DEFAULT_APPROVAL_MODE = "balanced"
@@ -26,6 +29,10 @@ AUTO_ALLOWED = [
 ]
 
 
+class BypassLifecycleRequired(ValueError):
+    """Raised when no-prompt provider mode lacks typed bypass authority."""
+
+
 def normalize_approval_mode(
     approval_mode: str | None = None,
     *,
@@ -41,28 +48,103 @@ def normalize_approval_mode(
     return normalized
 
 
+def auto_elevated_approval_mode(
+    *,
+    explicit_mode: str | None,
+    interaction_mode: str,
+) -> str | None:
+    """Return the approval-mode after typed-state-driven auto-elevation.
+
+    When `explicit_mode` is None and the typed launcher state indicates a
+    headless `interaction_mode == "remote_control"` (which cannot render
+    local sandbox-escalation prompts), upgrade to `trusted` so the codex
+    binary does not silently deadlock on permission requests. All other
+    cases fall through to the explicit mode (or None for downstream
+    callers to normalize via DEFAULT_APPROVAL_MODE).
+
+    Empirical motivation: `rev_pkt_1510` + `rev_pkt_1512` reproduced the
+    deadlock under `--approval-mode balanced --terminal none`; switching
+    to `--approval-mode trusted` cleared it. Codex `rev_pkt_1521` flagged
+    that this elevation must fire under the real argparse parser (default
+    `None`, not `balanced`), and `rev_pkt_1522` flagged that the recover
+    path also needs the elevation, so the helper is shared across all
+    launcher entry points.
+    """
+    if explicit_mode is not None:
+        return explicit_mode
+    if interaction_mode == "remote_control":
+        return "trusted"
+    return None
+
+
 def provider_args_for_approval_mode(
     *,
     provider: str,
     repo_root: Path,
     approval_mode: str,
+    bypass_lifecycle: "BypassLifecycle | None" = None,
 ) -> list[str]:
     """Return provider CLI args for the requested approval mode."""
     if provider == "codex":
         if approval_mode == "trusted":
+            _require_active_bypass_lifecycle(bypass_lifecycle)
             return [
                 "-C",
                 str(repo_root),
                 "--dangerously-bypass-approvals-and-sandbox",
             ]
-        return ["-C", str(repo_root), "--full-auto"]
+        approval_policy = "untrusted" if approval_mode == "strict" else "on-request"
+        return [
+            "-C",
+            str(repo_root),
+            "--ask-for-approval",
+            approval_policy,
+            "--sandbox",
+            "workspace-write",
+        ]
     if provider == "claude":
         if approval_mode == "trusted":
+            _require_active_bypass_lifecycle(bypass_lifecycle)
             return ["--dangerously-skip-permissions"]
-        return ["--permission-mode", "auto"]
+        # Claude's `auto` mode is subscription-gated. Review-channel launches
+        # must stay portable across operator plans, so non-trusted sessions use
+        # the provider-default permission posture instead of failing during
+        # terminal bootstrap on plans without auto mode.
+        return ["--permission-mode", "default"]
     if provider == "cursor":
         return ["--composer", str(repo_root)]
     raise ValueError(f"Unsupported provider: {provider}")
+
+
+def _require_active_bypass_lifecycle(
+    bypass_lifecycle: "BypassLifecycle | None",
+) -> None:
+    from .runtime.lifetime_bypass_mode import (
+        BypassAuthorityScope,
+        BypassLifecycleState,
+        bypass_receipt_active,
+        bypass_receipt_grants_scope,
+    )
+    from .runtime.receipt_state_gate import require_receipt_state
+
+    def grants_edit_scope(lifecycle: "BypassLifecycle") -> bool:
+        if lifecycle.receipt is None:
+            return False
+        return bypass_receipt_active(lifecycle.receipt) and bypass_receipt_grants_scope(
+            lifecycle.receipt,
+            BypassAuthorityScope.EDIT_ONLY,
+        )
+
+    require_receipt_state(
+        bypass_lifecycle,
+        state_getter=lambda lifecycle: lifecycle.state,
+        required_state=BypassLifecycleState.ACTIVE,
+        is_usable=grants_edit_scope,
+        error_factory=lambda: BypassLifecycleRequired(
+            "trusted approval mode requires an active BypassLifecycle receipt "
+            "with edit_only authority"
+        ),
+    )
 
 
 def build_approval_policy_payload(approval_mode: str) -> dict[str, Any]:

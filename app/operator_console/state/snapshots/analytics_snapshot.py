@@ -7,18 +7,12 @@ from pathlib import Path
 from threading import Lock
 import time
 
-try:
-    from dev.scripts.devctl.collect import (
-        collect_ci_runs,
-        collect_git_status,
-        collect_mutation_summary,
-    )
-    from dev.scripts.devctl.config import REPO_ROOT as DEVCTL_REPO_ROOT
-except ImportError:  # pragma: no cover - repo import path should exist in-app
-    collect_ci_runs = None
-    collect_git_status = None
-    collect_mutation_summary = None
-    DEVCTL_REPO_ROOT = None
+from dev.scripts.devctl.repo_packs import (
+    collect_devctl_ci_runs,
+    collect_devctl_git_status,
+    collect_devctl_mutation_summary,
+    voiceterm_repo_root,
+)
 
 _CACHE_TTL_SECONDS = 90.0
 _CACHE_LOCK = Lock()
@@ -55,9 +49,10 @@ def collect_repo_analytics(repo_root: Path) -> RepoAnalyticsSnapshot:
     """Return cached repo analytics for the current repository."""
     if not repo_root.exists():
         return _unavailable_snapshot("repo root is unavailable")
-    if DEVCTL_REPO_ROOT is None:
+    devctl_root = voiceterm_repo_root()
+    if devctl_root is None:
         return _unavailable_snapshot("repo analytics helpers are unavailable")
-    if repo_root.resolve() != Path(DEVCTL_REPO_ROOT).resolve():
+    if repo_root.resolve() != devctl_root.resolve():
         return _unavailable_snapshot(
             "repo analytics are only wired for the current codex-voice repo root"
         )
@@ -76,10 +71,10 @@ def collect_repo_analytics(repo_root: Path) -> RepoAnalyticsSnapshot:
 
 
 def _collect_uncached() -> RepoAnalyticsSnapshot:
-    if collect_git_status is None or collect_mutation_summary is None:
+    git_info = collect_devctl_git_status()
+    if not git_info:
         return _unavailable_snapshot("repo analytics helpers are unavailable")
 
-    git_info = collect_git_status()
     changes = git_info.get("changes", []) if isinstance(git_info, dict) else []
     if not isinstance(changes, list):
         changes = []
@@ -102,7 +97,7 @@ def _collect_uncached() -> RepoAnalyticsSnapshot:
         if path and path not in top_paths and len(top_paths) < 6:
             top_paths.append(path)
 
-    mutation_info = collect_mutation_summary()
+    mutation_info = collect_devctl_mutation_summary()
     mutation_results = (
         mutation_info.get("results", {}) if isinstance(mutation_info, dict) else {}
     )
@@ -118,8 +113,8 @@ def _collect_uncached() -> RepoAnalyticsSnapshot:
     ci_failed_runs = 0
     ci_pending_runs = 0
     ci_note = None
-    if collect_ci_runs is not None:
-        ci_info = collect_ci_runs(limit=5)
+    ci_info = collect_devctl_ci_runs(limit=5)
+    if ci_info:
         runs = ci_info.get("runs", []) if isinstance(ci_info, dict) else []
         if isinstance(runs, list):
             ci_runs_total = len(runs)

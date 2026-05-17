@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from ..config import REPO_ROOT
 from ..loops.comment import coerce_pr_number, upsert_comment
@@ -43,27 +43,24 @@ def mode_fix_command(mode: str, fix_command: str | None) -> str | None:
 
 
 def default_mp_proposal_path() -> str:
-    return str(
-        Path(tempfile.gettempdir()) / "devctl-triage-loop-master-plan-proposal.md"
-    )
+    return str(Path(tempfile.gettempdir()) / "devctl-triage-loop-master-plan-proposal.md")
 
 
 def is_non_blocking_local_connectivity_error(message: str) -> bool:
-    return (
-        bool(message)
-        and _looks_like_connectivity_error(message)
-        and not _is_ci_environment()
-    )
+    return bool(message) and _looks_like_connectivity_error(message) and not _is_ci_environment()
 
 
-def preflight_github_connectivity(run_capture_fn) -> str | None:
-    rc, stdout, stderr = run_capture_fn(
-        ["gh", "api", "rate_limit", "--jq", ".resources.core.remaining"]
-    )
+def preflight_github_connectivity(
+    run_capture_fn,
+    *,
+    is_ci_environment_fn=_is_ci_environment,
+    looks_like_connectivity_error_fn=_looks_like_connectivity_error,
+) -> str | None:
+    rc, stdout, stderr = run_capture_fn(["gh", "api", "rate_limit", "--jq", ".resources.core.remaining"])
     if rc == 0:
         return None
     message = (stderr or stdout or "gh api rate_limit failed").strip()
-    if is_non_blocking_local_connectivity_error(message):
+    if message and looks_like_connectivity_error_fn(message) and not is_ci_environment_fn():
         return message
     return None
 
@@ -90,11 +87,7 @@ def non_blocking_connectivity_report(
         "fix_command_configured": bool(effective_fix_command),
         "fix_block_reason": fix_block_reason,
         "escalation_needed": False,
-        "source_run_id": (
-            args.source_run_id
-            if args.source_run_id and args.source_run_id > 0
-            else None
-        ),
+        "source_run_id": (args.source_run_id if args.source_run_id and args.source_run_id > 0 else None),
         "source_run_sha": normalize_sha_fn(args.source_run_sha) or None,
         "source_event": args.source_event,
         "source_correlation": "branch_latest_fallback",
@@ -109,7 +102,7 @@ def build_dry_run_report(
     effective_fix_command: str | None,
     fix_block_reason: str | None,
     normalize_sha_fn,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     return {
         "ok": True,
         "repo": repo,
@@ -123,11 +116,7 @@ def build_dry_run_report(
         "fix_command_configured": bool(effective_fix_command),
         "fix_block_reason": fix_block_reason,
         "escalation_needed": False,
-        "source_run_id": (
-            args.source_run_id
-            if args.source_run_id and args.source_run_id > 0
-            else None
-        ),
+        "source_run_id": (args.source_run_id if args.source_run_id and args.source_run_id > 0 else None),
         "source_run_sha": normalize_sha_fn(args.source_run_sha) or None,
         "source_event": args.source_event,
         "source_correlation": "dry-run",
@@ -144,7 +133,7 @@ def first_attempt(report: dict) -> dict[str, Any]:
     return first
 
 
-def resolve_source_ids(report: dict, normalize_sha_fn) -> Tuple[int | None, str | None]:
+def resolve_source_ids(report: dict, normalize_sha_fn) -> tuple[int | None, str | None]:
     source_run_id = report.get("source_run_id")
     if not isinstance(source_run_id, int) or source_run_id <= 0:
         source_run_id = None

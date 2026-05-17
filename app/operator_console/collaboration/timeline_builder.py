@@ -6,10 +6,12 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from dev.scripts.devctl.repo_packs import VOICETERM_PATH_CONFIG
+
 from ..state.core.models import AgentLaneData, OperatorConsoleSnapshot
 from ..state.core.value_coercion import safe_text
 
-_ROLLOVER_ROOT_REL = Path("dev/reports/review_channel/rollovers")
+_ROLLOVER_ROOT_REL = Path(VOICETERM_PATH_CONFIG.rollover_root_rel)
 _MAX_ROLLOVER_EVENTS = 3
 _EVENT_DETAIL_LIMIT = 3
 
@@ -121,7 +123,7 @@ def _append_bridge_marker_events(
                 status_level="active",
                 title="Reviewer heartbeat observed",
                 detail=f"Last Codex poll: {last_codex_poll}",
-                source="code_audit metadata",
+                source="bridge metadata",
             )
         )
     if last_worktree_hash:
@@ -131,7 +133,7 @@ def _append_bridge_marker_events(
                 status_level="idle",
                 title="Reviewed worktree anchor",
                 detail=f"Last non-audit worktree hash: {last_worktree_hash}",
-                source="code_audit metadata",
+                source="bridge metadata",
             )
         )
 

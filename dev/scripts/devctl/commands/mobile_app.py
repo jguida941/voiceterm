@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 from ..common import emit_output, pipe_output, run_cmd, write_output
-from ..mobile_app_support import (
+from ..mobile.app_support import (
     DEVICE_DERIVED_DATA_PATH,
     IOS_APP_BUNDLE_ID,
     IOS_PROJECT,

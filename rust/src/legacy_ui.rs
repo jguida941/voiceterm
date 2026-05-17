@@ -391,9 +391,9 @@ mod tests {
             .collect::<String>();
         let cursor = terminal
             .backend_mut()
-            .get_cursor()
+            .get_cursor_position()
             .expect("cursor position");
-        (symbols, cursor)
+        (symbols, cursor.into())
     }
 
     #[test]

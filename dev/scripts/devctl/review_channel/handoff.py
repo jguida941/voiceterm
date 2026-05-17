@@ -9,83 +9,63 @@ Governing docs for this slice:
 - `dev/active/MASTER_PLAN.md`
 - `dev/active/review_channel.md`
 - `dev/active/continuous_swarm.md`
-- `code_audit.md`
+- `bridge.md`
 """
 
 from __future__ import annotations
 
 import json
-import re
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from hashlib import sha256
 from pathlib import Path
 
 from ..common import display_path
 from ..markdown_sections import parse_markdown_sections as extract_bridge_sections
+from ..runtime.role_profile import role_for_provider
 from ..time_utils import utc_timestamp
-MARKDOWN_ITEM_RE = re.compile(r"^(?:[-*+]\s+|\d+\.\s+)(?P<value>.+)$")
-BRIDGE_METADATA_PATTERNS = {
-    "last_codex_poll_utc": re.compile(r"^- Last Codex poll:\s*`(?P<value>.+?)`\s*$"),
-    "last_codex_poll_local": re.compile(
-        r"^- Last Codex poll \(Local America/New_York\):\s*`(?P<value>.+?)`\s*$"
-    ),
-    "last_non_audit_worktree_hash": re.compile(
-        r"^- Last non-audit worktree hash:\s*`(?P<value>.+?)`\s*$"
-    ),
-}
-TRACKED_BRIDGE_SECTIONS = (
-    "Poll Status",
-    "Current Verdict",
-    "Open Findings",
-    "Current Instruction For Claude",
-    "Claude Status",
-    "Claude Questions",
-    "Claude Ack",
-    "Last Reviewed Scope",
+from .ack_contract import extract_implementer_ack_revision
+from .bridge_heading_aliases import bridge_section_text
+from .handoff_constants import (
+    BRIDGE_LIVENESS_KEYS,
+    BRIDGE_METADATA_PATTERNS,
+    DEFAULT_CODEX_POLL_DUE_AFTER_SECONDS,
+    DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS,
+    GENERIC_NEXT_ACTION_MARKERS,
+    IDLE_FINDING_MARKERS,
+    IDLE_NEXT_ACTION_MARKERS,
+    MARKDOWN_ITEM_RE,
+    PLACEHOLDER_STATUS_MARKERS,
+    RESOLVED_VERDICT_MARKERS,
+    ROLLOVER_ACK_PREFIX,
+    ROLLOVER_ACK_SECTION,
+    TRACKED_BRIDGE_SECTIONS,
+    _RESOLVED_ECHO_RE,
+    _is_substantive_text,
 )
-ROLLOVER_ACK_PREFIX = {
-    "codex": "Codex rollover ack:",
-    "claude": "Claude rollover ack:",
-}
-ROLLOVER_ACK_SECTION = {
-    "codex": "Poll Status",
-    "claude": "Claude Ack",
-}
-BRIDGE_LIVENESS_KEYS = (
-    "overall_state",
-    "codex_poll_state",
-    "last_codex_poll_utc",
-    "last_codex_poll_age_seconds",
-    "last_reviewed_scope_present",
-    "next_action_present",
-    "open_findings_present",
-    "claude_status_present",
-    "claude_ack_present",
+from .bridge_heading_aliases import bridge_section_text, normalize_bridge_sections
+
+# validate_launch_bridge_state and validate_live_bridge_contract moved to
+# bridge_validation.py. Import from there directly.
+from .handoff_markdown import (
+    _derive_current_atomic_step,
+    _extract_markdown_items,
+    _first_markdown_item,
+    _group_owned_lanes,
+    _normalize_inline_markdown,
 )
-DEFAULT_CODEX_POLL_DUE_AFTER_SECONDS = 180
-DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS = 300
-IDLE_NEXT_ACTION_MARKERS = (
-    "all green so far",
-    "no next action",
-    "n/a",
-    "none recorded",
-    "idle",
-    "placeholder",
-)
-IDLE_FINDING_MARKERS = (
-    "(none)",
-    "none",
-    "no blockers",
-    "all clear",
-    "all green",
-    "resolved",
-)
-RESOLVED_VERDICT_MARKERS = (
-    "accepted",
-    "all green",
-    "clean",
-    "resolved",
+from .handoff_render import render_handoff_markdown
+from .handoff_time import _codex_poll_advanced, _parse_utc_z, _timestamp_age_seconds
+from .peer_liveness import (
+    CodexPollState,
+    IMPLEMENTER_STALL_MARKERS,
+    OverallLivenessState,
+    ReviewerMode,
+    classify_reviewer_freshness,
+    resolve_reported_reviewer_mode,
+    reviewer_mode_is_active,
 )
 
 
@@ -102,6 +82,7 @@ class BridgeLiveness:
     """Reduced liveness signals derived from the transitional markdown bridge."""
 
     overall_state: str
+    reviewer_mode: str
     codex_poll_state: str
     last_codex_poll_utc: str | None
     last_codex_poll_age_seconds: int | None
@@ -110,11 +91,29 @@ class BridgeLiveness:
     open_findings_present: bool
     claude_status_present: bool
     claude_ack_present: bool
+    claude_ack_current: bool
+    current_instruction_revision: str = ""
+    claude_ack_revision: str = ""
+    reviewed_hash_current: bool | None = None
+    implementer_completion_stall: bool = False
+    reviewer_freshness: str = ""
+    poll_status_action: str = ""
+    poll_status_reason: str = ""
+    poll_status_automation_only: bool = False
+    last_checkpoint_action: str = ""
+    declared_reviewer_mode: str = ""
+    effective_reviewer_mode: str = ""
 
 
 @dataclass(frozen=True)
 class HandoffBundle:
-    """Repo-visible rollover handoff artifact locations."""
+    """Repo-visible rollover handoff artifact locations.
+
+    ``rollover_provider`` tracks the provider being rolled over so
+    same-provider handoff (Claude -> Claude, Codex -> Codex) stays
+    distinguishable from cross-provider replacement in launch records
+    and operator-facing surfaces.
+    """
 
     bundle_dir: str
     markdown_path: str
@@ -123,10 +122,10 @@ class HandoffBundle:
     rollover_id: str
     trigger: str
     threshold_pct: int
-
+    rollover_provider: str = ""
 
 def extract_bridge_snapshot(bridge_text: str) -> BridgeSnapshot:
-    """Parse tracked metadata and live sections from `code_audit.md`."""
+    """Parse tracked metadata and live sections from `bridge.md`."""
     metadata: dict[str, str] = {}
     for raw_line in bridge_text.splitlines():
         stripped = raw_line.strip()
@@ -135,7 +134,7 @@ def extract_bridge_snapshot(bridge_text: str) -> BridgeSnapshot:
             if match is not None:
                 metadata[key] = match.group("value").strip()
 
-    sections = extract_bridge_sections(bridge_text)
+    sections = normalize_bridge_sections(extract_bridge_sections(bridge_text))
 
     tracked_sections = {
         name: sections[name]
@@ -151,43 +150,122 @@ def summarize_bridge_liveness(
     now_utc: datetime | None = None,
     codex_poll_due_after_seconds: int = DEFAULT_CODEX_POLL_DUE_AFTER_SECONDS,
     codex_poll_stale_after_seconds: int = DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS,
+    current_worktree_hash: str | None = None,
 ) -> BridgeLiveness:
     """Reduce current bridge state into a small machine-readable liveness summary."""
-    current_instruction = snapshot.sections.get("Current Instruction For Claude", "").strip()
-    open_findings = snapshot.sections.get("Open Findings", "").strip()
-    last_reviewed_scope = snapshot.sections.get("Last Reviewed Scope", "").strip()
-    claude_status = snapshot.sections.get("Claude Status", "").strip()
-    claude_ack = snapshot.sections.get("Claude Ack", "").strip()
+    current_instruction = bridge_section_text(
+        snapshot.sections,
+        "Current Instruction For Implementer",
+    ).strip()
+    open_findings = bridge_section_text(snapshot.sections, "Open Findings").strip()
+    last_reviewed_scope = bridge_section_text(
+        snapshot.sections,
+        "Last Reviewed Scope",
+    ).strip()
+    poll_status = bridge_section_text(snapshot.sections, "Poll Status").strip()
+    claude_status = bridge_section_text(snapshot.sections, "Implementer Status").strip()
+    claude_ack = bridge_section_text(snapshot.sections, "Implementer Ack").strip()
+    from .bridge_validation import (
+        extract_poll_status_write_context,
+        poll_status_is_automation_only_refresh,
+    )
+
+    poll_status_action, poll_status_reason = extract_poll_status_write_context(
+        poll_status
+    )
+    poll_status_automation_only = poll_status_is_automation_only_refresh(poll_status)
+    displayed_reviewer_mode = resolve_reported_reviewer_mode(
+        {"reviewer_mode": snapshot.metadata.get("reviewer_mode")}
+    )
+    raw_declared_reviewer_mode = str(
+        snapshot.metadata.get("declared_reviewer_mode") or ""
+    ).strip()
+    raw_effective_reviewer_mode = str(
+        snapshot.metadata.get("effective_reviewer_mode") or ""
+    ).strip()
+    declared_reviewer_mode = (
+        resolve_reported_reviewer_mode(
+            {"reviewer_mode": raw_declared_reviewer_mode}
+        )
+        if raw_declared_reviewer_mode
+        else displayed_reviewer_mode
+    )
+    effective_reviewer_mode = (
+        resolve_reported_reviewer_mode(
+            {"reviewer_mode": raw_effective_reviewer_mode}
+        )
+        if raw_effective_reviewer_mode
+        else displayed_reviewer_mode
+        if raw_declared_reviewer_mode
+        else ""
+    )
+    reviewer_mode = ReviewerMode(declared_reviewer_mode)
     last_codex_poll_utc = snapshot.metadata.get("last_codex_poll_utc")
     last_codex_poll_age_seconds = _timestamp_age_seconds(
         last_codex_poll_utc,
         now_utc=now_utc,
     )
     if last_codex_poll_age_seconds is None:
-        codex_poll_state = "missing"
+        codex_poll_state = CodexPollState.MISSING
     elif last_codex_poll_age_seconds > codex_poll_stale_after_seconds:
-        codex_poll_state = "stale"
+        codex_poll_state = CodexPollState.STALE
     elif last_codex_poll_age_seconds > codex_poll_due_after_seconds:
-        codex_poll_state = "poll_due"
+        codex_poll_state = CodexPollState.POLL_DUE
     else:
-        codex_poll_state = "fresh"
+        codex_poll_state = CodexPollState.FRESH
 
-    next_action_present = bool(current_instruction)
+    lowered_instruction = current_instruction.lower()
+    next_action_present = bool(current_instruction) and not any(
+        marker in lowered_instruction
+        for marker in (*IDLE_NEXT_ACTION_MARKERS, *GENERIC_NEXT_ACTION_MARKERS)
+    )
     last_reviewed_scope_present = bool(last_reviewed_scope)
-    claude_status_present = bool(claude_status)
-    claude_ack_present = bool(claude_ack)
+    claude_status_present = _is_substantive_text(claude_status)
+    claude_ack_present = _is_substantive_text(claude_ack)
+    current_instruction_revision = (
+        snapshot.metadata.get("current_instruction_revision") or ""
+    ).strip()
+    if not current_instruction_revision and current_instruction:
+        current_instruction_revision = _instruction_revision(current_instruction)
+    claude_ack_revision = _extract_claude_ack_revision(claude_ack)
+    claude_ack_current = (
+        claude_ack_present
+        and (
+            not current_instruction_revision
+            or claude_ack_revision == current_instruction_revision
+        )
+    )
 
-    if codex_poll_state in {"missing", "stale"}:
-        overall_state = "stale"
+    if not reviewer_mode_is_active(reviewer_mode):
+        overall_state = OverallLivenessState.INACTIVE
+    elif codex_poll_state in {CodexPollState.MISSING, CodexPollState.STALE}:
+        overall_state = OverallLivenessState.STALE
     elif not last_reviewed_scope_present or not next_action_present:
-        overall_state = "waiting_on_peer"
-    elif next_action_present and (not claude_status_present or not claude_ack_present):
-        overall_state = "waiting_on_peer"
+        overall_state = OverallLivenessState.WAITING_ON_PEER
+    elif next_action_present and (not claude_status_present or not claude_ack_current):
+        overall_state = OverallLivenessState.WAITING_ON_PEER
     else:
-        overall_state = "fresh"
+        overall_state = OverallLivenessState.FRESH
+
+    reviewed_hash_current: bool | None = None
+    if current_worktree_hash is not None:
+        stored_hash = snapshot.metadata.get("last_non_audit_worktree_hash")
+        reviewed_hash_current = (
+            stored_hash is not None and stored_hash == current_worktree_hash
+        )
+
+    # Detect implementer completion-stall from bridge status/ack text
+    combined_implementer = f"{claude_status}\n{claude_ack}".lower()
+    implementer_stalled = (
+        next_action_present
+        and any(marker in combined_implementer for marker in IMPLEMENTER_STALL_MARKERS)
+    )
+
+    freshness = classify_reviewer_freshness(last_codex_poll_age_seconds)
 
     return BridgeLiveness(
         overall_state=overall_state,
+        reviewer_mode=reviewer_mode,
         codex_poll_state=codex_poll_state,
         last_codex_poll_utc=last_codex_poll_utc,
         last_codex_poll_age_seconds=last_codex_poll_age_seconds,
@@ -196,7 +274,40 @@ def summarize_bridge_liveness(
         open_findings_present=bool(open_findings),
         claude_status_present=claude_status_present,
         claude_ack_present=claude_ack_present,
+        claude_ack_current=claude_ack_current,
+        current_instruction_revision=current_instruction_revision,
+        claude_ack_revision=claude_ack_revision,
+        reviewed_hash_current=reviewed_hash_current,
+        implementer_completion_stall=implementer_stalled,
+        reviewer_freshness=freshness,
+        poll_status_action=poll_status_action,
+        poll_status_reason=poll_status_reason,
+        poll_status_automation_only=poll_status_automation_only,
+        last_checkpoint_action=(
+            snapshot.metadata.get("last_checkpoint_action") or ""
+        ),
+        declared_reviewer_mode=declared_reviewer_mode,
+        effective_reviewer_mode=effective_reviewer_mode,
     )
+
+
+def _instruction_revision(text: str) -> str:
+    normalized = text.strip()
+    if not normalized:
+        return ""
+    return sha256(normalized.encode("utf-8")).hexdigest()[:12]
+
+
+def _extract_claude_ack_revision(text: str) -> str:
+    """Extract the latest implementer ACK revision from the implementer ACK section.
+
+    Contract: the FIRST recognized instruction-revision reference is the
+    current/latest ACK.
+    The implementer should rewrite the current ACK at the top of the section
+    and keep stale historical revision references out of the live bridge so the
+    first recognized match stays equal to the true current revision.
+    """
+    return extract_implementer_ack_revision(text or "")
 
 
 def bridge_liveness_to_dict(liveness: BridgeLiveness) -> dict[str, object]:
@@ -213,6 +324,8 @@ def write_handoff_bundle(
     trigger: str,
     threshold_pct: int,
     lane_assignments: list[dict[str, str]] | None = None,
+    current_worktree_hash: str | None = None,
+    rollover_provider: str = "",
 ) -> HandoffBundle:
     """Write markdown + JSON handoff artifacts and return their locations."""
     generated_at = utc_timestamp()
@@ -235,13 +348,25 @@ def write_handoff_bundle(
         "review_channel_path": display_path(review_channel_path, repo_root=repo_root),
         "metadata": snapshot.metadata,
         "sections": snapshot.sections,
-        "liveness": bridge_liveness_to_dict(summarize_bridge_liveness(snapshot)),
+        "liveness": bridge_liveness_to_dict(
+            summarize_bridge_liveness(
+                snapshot, current_worktree_hash=current_worktree_hash
+            )
+        ),
         "resume_state": resume_state,
     }
+    if rollover_provider:
+        payload["rollover_provider"] = rollover_provider
 
     markdown_path = bundle_dir / "handoff.md"
     json_path = bundle_dir / "handoff.json"
-    markdown_path.write_text(_render_handoff_markdown(payload), encoding="utf-8")
+    markdown_path.write_text(
+        render_handoff_markdown(
+            payload,
+            expected_rollover_ack_line=expected_rollover_ack_line,
+        ),
+        encoding="utf-8",
+    )
     json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     return HandoffBundle(
@@ -252,6 +377,7 @@ def write_handoff_bundle(
         rollover_id=rollover_id,
         trigger=trigger,
         threshold_pct=threshold_pct,
+        rollover_provider=rollover_provider,
     )
 
 
@@ -274,7 +400,7 @@ def build_handoff_resume_state(
             snapshot.sections.get("Open Findings", "")
         ),
         "next_action": _first_markdown_item(
-            snapshot.sections.get("Current Instruction For Claude", "")
+            snapshot.sections.get("Current Instruction For Implementer", "")
         ),
         "reviewed_worktree_hash": snapshot.metadata.get("last_non_audit_worktree_hash"),
         "owned_lanes": _group_owned_lanes(lane_assignments or []),
@@ -287,8 +413,9 @@ def build_handoff_resume_state(
                 ),
                 "required_section": expected_rollover_ack_section(provider=provider),
                 "observed": False,
+                "role": str(role_for_provider(provider)),
             }
-            for provider in ("codex", "claude")
+            for provider in ROLLOVER_ACK_PREFIX
         },
     }
 
@@ -329,175 +456,92 @@ def wait_for_rollover_ack(
         time.sleep(max(poll_interval_seconds, 0.1))
 
 
-def validate_live_bridge_contract(snapshot: BridgeSnapshot) -> list[str]:
-    """Return contract errors for the minimum live bridge state."""
-    errors: list[str] = []
-    last_reviewed_scope = snapshot.sections.get("Last Reviewed Scope", "").strip()
-    if not last_reviewed_scope:
-        errors.append(
-            "Missing live `Last Reviewed Scope`; bridge-active coordination must "
-            "keep the reviewed path set current."
-        )
-
-    current_instruction = snapshot.sections.get("Current Instruction For Claude", "").strip()
-    if not current_instruction:
-        errors.append(
-            "Missing live next action in `Current Instruction For Claude`; the "
-            "bridge must always expose the current coding queue."
-        )
-    elif any(marker in current_instruction.lower() for marker in IDLE_NEXT_ACTION_MARKERS):
-        errors.append(
-            "`Current Instruction For Claude` must point at the live next task, "
-            "not an idle placeholder."
-        )
-
-    current_verdict = snapshot.sections.get("Current Verdict", "").strip().lower()
-    open_findings = snapshot.sections.get("Open Findings", "").strip().lower()
-    if (
-        current_verdict
-        and any(marker in current_verdict for marker in RESOLVED_VERDICT_MARKERS)
-        and (
-            not open_findings
-            or any(marker in open_findings for marker in IDLE_FINDING_MARKERS)
-        )
-        and any(marker in current_instruction.lower() for marker in RESOLVED_VERDICT_MARKERS)
-    ):
-        errors.append(
-            "Resolved bridge verdicts must promote the next scoped task in "
-            "`Current Instruction For Claude` instead of echoing a completed state."
-        )
-
-    return errors
-
-
-def validate_launch_bridge_state(
-    snapshot: BridgeSnapshot,
+def wait_for_codex_poll_refresh(
     *,
-    liveness: BridgeLiveness | None = None,
-) -> list[str]:
-    """Return launch-blocking bridge errors for fresh-conductor bootstrap."""
-    errors = validate_live_bridge_contract(snapshot)
-    effective_liveness = liveness or summarize_bridge_liveness(snapshot)
-    if effective_liveness.codex_poll_state == "missing":
-        errors.append(
-            "Missing `Last Codex poll`; fresh launch requires a live reviewer poll "
-            "timestamp in the bridge header."
+    bridge_path: Path,
+    previous_poll_utc: str | None,
+    previous_poll_status: str | None,
+    timeout_seconds: int,
+    poll_interval_seconds: float = 0.5,
+    observe_launch_state_fn: Callable[[], dict[str, object]] | None = None,
+) -> dict[str, object]:
+    """Wait for a fresh Codex reviewer heartbeat after live launch."""
+    from .bridge_validation import poll_status_is_automation_only_refresh
+
+    deadline = time.monotonic() + max(timeout_seconds, 0)
+    previous_poll_status_text = _normalize_inline_markdown(previous_poll_status or "")
+    while True:
+        snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
+        liveness = summarize_bridge_liveness(snapshot)
+        current_poll_utc = snapshot.metadata.get("last_codex_poll_utc")
+        current_poll_status = snapshot.sections.get("Poll Status", "")
+        current_poll_status_text = _normalize_inline_markdown(current_poll_status)
+        poll_advanced = _codex_poll_advanced(
+            previous_poll_utc=previous_poll_utc,
+            current_poll_utc=current_poll_utc,
         )
-    elif effective_liveness.codex_poll_state == "stale":
-        errors.append(
-            "`Last Codex poll` is stale; fresh launch requires bridge activity "
-            "within the five-minute heartbeat contract."
+        poll_status_changed = current_poll_status_text != previous_poll_status_text
+        poll_status_automation_only = poll_status_is_automation_only_refresh(
+            current_poll_status
         )
-    if not effective_liveness.claude_status_present:
-        errors.append(
-            "Missing live `Claude Status`; fresh launch requires the implementer "
-            "status section before bootstrap."
+        launch_state = (
+            dict(observe_launch_state_fn())
+            if observe_launch_state_fn is not None
+            else {}
         )
-    if not effective_liveness.claude_ack_present:
-        errors.append(
-            "Missing live `Claude Ack`; fresh launch requires a current Claude "
-            "ACK before bootstrap."
+        typed_live_ready = (
+            str(launch_state.get("launch_truth") or "").strip() == "live"
+            and bool(launch_state.get("codex_conductor_active"))
+            and bool(launch_state.get("claude_conductor_active"))
         )
-    return errors
-
-
-def _render_handoff_markdown(payload: dict[str, object]) -> str:
-    lines = ["# Review Channel Handoff", ""]
-    lines.append(f"- generated_at: {payload['generated_at']}")
-    lines.append(f"- rollover_id: {payload['rollover_id']}")
-    lines.append(f"- trigger: {payload['trigger']}")
-    lines.append(f"- threshold_pct: {payload['threshold_pct']}")
-    lines.append(f"- bridge_path: {payload['bridge_path']}")
-    lines.append(f"- review_channel_path: {payload['review_channel_path']}")
-    lines.append(
-        "- required_codex_ack: "
-        f"{expected_rollover_ack_line(provider='codex', rollover_id=str(payload['rollover_id']))}"
-    )
-    lines.append(
-        "- required_claude_ack: "
-        f"{expected_rollover_ack_line(provider='claude', rollover_id=str(payload['rollover_id']))}"
-    )
-
-    metadata = payload.get("metadata")
-    if isinstance(metadata, dict) and metadata:
-        lines.append("")
-        lines.append("## Metadata")
-        for key, value in metadata.items():
-            lines.append(f"- {key}: {value}")
-
-    liveness = payload.get("liveness")
-    if isinstance(liveness, dict) and liveness:
-        lines.append("")
-        lines.append("## Liveness")
-        for key in BRIDGE_LIVENESS_KEYS:
-            lines.append(f"- {key}: {liveness.get(key)}")
-
-    resume_state = payload.get("resume_state")
-    if isinstance(resume_state, dict) and resume_state:
-        lines.append("")
-        lines.append("## Resume State")
-        lines.append(f"- next_action: {resume_state.get('next_action') or 'n/a'}")
-        lines.append(
-            "- reviewed_worktree_hash: "
-            f"{resume_state.get('reviewed_worktree_hash') or 'n/a'}"
+        current_poll_ready = liveness.codex_poll_state not in {
+            CodexPollState.MISSING,
+            CodexPollState.STALE,
+        }
+        # Fail-closed with two satisfaction paths:
+        #
+        # 1. Primary: reviewer-owned `Poll Status` prose changed and
+        #    is not an automation-only heartbeat refresh.
+        # 2. Launch-confirmed: the `Last Codex poll` timestamp advanced
+        #    past the pre-launch baseline AND typed session probes
+        #    confirm both conductors are live.  Since the baseline is
+        #    captured before Terminal.app opens, any timestamp advance
+        #    must come from the new session.
+        #
+        # Neither path accepts BOTH unchanged timestamp AND unchanged
+        # status text — the F1 authority-bypass scenario stays blocked.
+        status_observed = poll_status_changed and not poll_status_automation_only
+        launch_confirmed = (
+            poll_advanced
+            and typed_live_ready
+            and not poll_status_automation_only
         )
-        lines.append(
-            "- current_atomic_step: "
-            f"{resume_state.get('current_atomic_step') or 'n/a'}"
-        )
+        observed = status_observed or launch_confirmed
+        if observed or time.monotonic() >= deadline:
+            return {
+                "observed": observed,
+                "last_codex_poll_utc": current_poll_utc,
+                "codex_poll_state": liveness.codex_poll_state,
+                "poll_advanced": poll_advanced,
+                "poll_status": current_poll_status_text,
+                "poll_status_changed": poll_status_changed,
+                "poll_status_action": liveness.poll_status_action,
+                "poll_status_reason": liveness.poll_status_reason,
+                "poll_status_automation_only": liveness.poll_status_automation_only,
+                "launch_truth": str(launch_state.get("launch_truth") or ""),
+                "codex_conductor_active": bool(
+                    launch_state.get("codex_conductor_active")
+                ),
+                "claude_conductor_active": bool(
+                    launch_state.get("claude_conductor_active")
+                ),
+            }
+        time.sleep(max(poll_interval_seconds, 0.1))
 
-        current_blockers = resume_state.get("current_blockers")
-        if isinstance(current_blockers, list):
-            lines.append("")
-            lines.append("### Current Blockers")
-            if current_blockers:
-                for blocker in current_blockers:
-                    lines.append(f"- {blocker}")
-            else:
-                lines.append("- (none)")
 
-        owned_lanes = resume_state.get("owned_lanes")
-        if isinstance(owned_lanes, dict):
-            lines.append("")
-            lines.append("### Owned Lanes")
-            for provider in ("codex", "claude"):
-                provider_lanes = owned_lanes.get(provider, [])
-                lines.append(f"- {provider}:")
-                if isinstance(provider_lanes, list) and provider_lanes:
-                    for lane in provider_lanes:
-                        if not isinstance(lane, dict):
-                            continue
-                        lines.append(
-                            "  - "
-                            f"{lane.get('agent_id')} | {lane.get('lane')} | "
-                            f"{lane.get('worktree')} | {lane.get('branch')} | "
-                            f"{lane.get('mp_scope')}"
-                        )
-                else:
-                    lines.append("  - (none)")
 
-        launch_ack_state = resume_state.get("launch_ack_state")
-        if isinstance(launch_ack_state, dict):
-            lines.append("")
-            lines.append("### Launch ACK State")
-            for provider in ("codex", "claude"):
-                ack_state = launch_ack_state.get(provider, {})
-                if not isinstance(ack_state, dict):
-                    continue
-                status = "observed" if ack_state.get("observed") else "pending"
-                lines.append(
-                    f"- {provider}: {status} | {ack_state.get('required_section')} | "
-                    f"{ack_state.get('required_line')}"
-                )
-
-    sections = payload.get("sections")
-    if isinstance(sections, dict) and sections:
-        for name, value in sections.items():
-            lines.append("")
-            lines.append(f"## {name}")
-            lines.append(str(value).strip() or "(empty)")
-
-    return "\n".join(lines)
+# Cluster 2 (bridge validation) extracted to bridge_validation.py;
+# validate_live_bridge_contract and validate_launch_bridge_state imported above.
 
 
 def _safe_timestamp(timestamp: str) -> str:
@@ -524,95 +568,15 @@ def observe_rollover_ack_state(
             )
         )
         in _extract_markdown_items(
-            sections.get(expected_rollover_ack_section(provider=provider), "")
+            bridge_section_text(
+                sections,
+                expected_rollover_ack_section(provider=provider),
+            )
         )
-        for provider in ("codex", "claude")
+        for provider in ROLLOVER_ACK_PREFIX
     }
 
 
-def _group_owned_lanes(
-    lane_assignments: list[dict[str, str]],
-) -> dict[str, list[dict[str, str]]]:
-    grouped: dict[str, list[dict[str, str]]] = {"codex": [], "claude": []}
-    for lane in lane_assignments:
-        provider = lane.get("provider", "").strip().lower()
-        if provider not in grouped:
-            continue
-        grouped[provider].append(
-            {
-                "agent_id": _normalize_inline_markdown(lane.get("agent_id", "").strip()),
-                "lane": _normalize_inline_markdown(lane.get("lane", "").strip()),
-                "worktree": _normalize_inline_markdown(lane.get("worktree", "").strip()),
-                "branch": _normalize_inline_markdown(lane.get("branch", "").strip()),
-                "mp_scope": _normalize_inline_markdown(lane.get("mp_scope", "").strip()),
-            }
-        )
-    return grouped
 
-
-def _derive_current_atomic_step(snapshot: BridgeSnapshot) -> str | None:
-    return (
-        _first_markdown_item(snapshot.sections.get("Claude Status", ""))
-        or _first_markdown_item(snapshot.sections.get("Current Instruction For Claude", ""))
-        or _first_markdown_item(snapshot.sections.get("Last Reviewed Scope", ""))
-    )
-
-
-def _first_markdown_item(raw_text: str) -> str | None:
-    items = _extract_markdown_items(raw_text)
-    return items[0] if items else None
-
-
-def _extract_markdown_items(raw_text: str) -> list[str]:
-    items: list[str] = []
-    for raw_line in raw_text.splitlines():
-        stripped = raw_line.strip()
-        if not stripped:
-            continue
-        match = MARKDOWN_ITEM_RE.match(stripped)
-        items.append(
-            _normalize_inline_markdown(
-                (match.group("value") if match is not None else stripped).strip()
-            )
-        )
-    return items
-
-
-def _normalize_inline_markdown(value: str) -> str:
-    normalized = value.strip()
-    wrappers = ("**", "__", "`")
-    changed = True
-    while normalized and changed:
-        changed = False
-        for wrapper in wrappers:
-            if normalized.startswith(wrapper) and normalized.endswith(wrapper):
-                normalized = normalized[len(wrapper) : -len(wrapper)].strip()
-                changed = True
-                break
-    return normalized
-
-
-def _timestamp_age_seconds(
-    raw_value: str | None,
-    *,
-    now_utc: datetime | None,
-) -> int | None:
-    parsed = _parse_utc_z(raw_value)
-    if parsed is None:
-        return None
-    current = now_utc or datetime.now(timezone.utc)
-    age_seconds = int((current - parsed).total_seconds())
-    return max(age_seconds, 0)
-
-
-def _parse_utc_z(raw_value: str | None) -> datetime | None:
-    if not raw_value:
-        return None
-    normalized = raw_value.strip().replace("Z", "+00:00")
-    try:
-        parsed = datetime.fromisoformat(normalized)
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+# Cluster 1 (timestamp), Cluster 3 (markdown/lane) extracted to handoff_time.py
+# and handoff_markdown.py; imported above for backward compatibility.

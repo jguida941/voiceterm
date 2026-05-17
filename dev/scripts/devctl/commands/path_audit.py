@@ -56,10 +56,17 @@ def _render_md(report: dict) -> str:
 def run(args) -> int:
     """Scan for legacy script-path references and fail when any are found."""
     scan = scan_path_audit_references()
+    ok = bool(scan.get("ok"))
+    errors = _command_errors(scan)
     report = {
         "command": "path-audit",
         "timestamp": utc_timestamp(),
         **scan,
+        "ok": ok,
+        "exit_ok": ok,
+        "exit_code": 0 if ok else 1,
+        "status": "ok" if ok else "blocked",
+        "errors": errors,
     }
 
     if args.format == "json":
@@ -78,3 +85,15 @@ def run(args) -> int:
     if pipe_rc != 0:
         return pipe_rc
     return 0 if report["ok"] else 1
+
+
+def _command_errors(scan: dict) -> list[str]:
+    """Return command-level errors without dropping detailed violation rows."""
+    errors: list[str] = []
+    error = str(scan.get("error") or "").strip()
+    if error:
+        errors.append(error)
+    violation_count = len(scan.get("violations") or [])
+    if violation_count:
+        errors.append(f"path_audit_violations={violation_count}")
+    return errors

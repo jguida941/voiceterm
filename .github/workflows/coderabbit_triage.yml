@@ -83,7 +83,7 @@ jobs:
           REPO_INPUT: ${{ inputs.repository }}
         run: |
           set -euo pipefail
-          python3 dev/scripts/coderabbit_triage_bridge.py collect
+          python3 dev/scripts/coderabbit/bridge.py collect
 
       - name: Build unified triage bundle
         env:
@@ -120,7 +120,7 @@ jobs:
       - name: Enforce CodeRabbit medium/high gate
         run: |
           set -euo pipefail
-          python3 dev/scripts/coderabbit_triage_bridge.py enforce
+          python3 dev/scripts/coderabbit/bridge.py enforce
 
       - name: Publish triage preview to job summary
         if: always()
@@ -131,7 +131,7 @@ jobs:
           echo "- actor: \`${GITHUB_ACTOR}\`" >> "${GITHUB_STEP_SUMMARY}"
           echo "- event: \`${GITHUB_EVENT_NAME}\`" >> "${GITHUB_STEP_SUMMARY}"
           if [[ -f ".cihub/coderabbit/backlog-medium.json" ]]; then
-            COUNT="$(python3 dev/scripts/coderabbit_triage_bridge.py count)"
+            COUNT="$(python3 dev/scripts/coderabbit/bridge.py count)"
             echo "- backlog medium+ items: \`${COUNT}\`" >> "${GITHUB_STEP_SUMMARY}"
           fi
           echo "" >> "${GITHUB_STEP_SUMMARY}"

@@ -1,0 +1,20 @@
+name: governance-tooling-stub
+
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Governance checks
+        run: |
+          python3 dev/scripts/devctl.py check --profile ci
+          python3 dev/scripts/devctl.py docs-check --strict-tooling

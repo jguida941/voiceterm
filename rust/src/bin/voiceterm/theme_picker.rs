@@ -227,12 +227,27 @@ mod tests {
 
     #[test]
     fn theme_picker_has_borders() {
+        let _env_guard = env_lock();
+        let _override_guard = install_runtime_overrides(RuntimeStylePackOverrides::default());
+        let prev_style_pack = std::env::var("VOICETERM_STYLE_PACK_JSON").ok();
+        let prev_opt_in = std::env::var("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV").ok();
+        std::env::remove_var("VOICETERM_STYLE_PACK_JSON");
+        std::env::remove_var("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV");
+
         let output = format_theme_picker(Theme::Coral, 0, 60, None);
-        // Uses theme-specific borders
-        let colors = Theme::Coral.colors();
-        assert!(output.contains(colors.borders.top_left));
-        assert!(output.contains(colors.borders.bottom_left));
-        assert!(output.contains(colors.borders.vertical));
+        let borders = crate::theme::resolved_overlay_border_set(Theme::Coral);
+        assert!(output.contains(borders.top_left));
+        assert!(output.contains(borders.bottom_left));
+        assert!(output.contains(borders.vertical));
+
+        match prev_style_pack {
+            Some(value) => std::env::set_var("VOICETERM_STYLE_PACK_JSON", value),
+            None => std::env::remove_var("VOICETERM_STYLE_PACK_JSON"),
+        }
+        match prev_opt_in {
+            Some(value) => std::env::set_var("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV", value),
+            None => std::env::remove_var("VOICETERM_TEST_ENABLE_STYLE_PACK_ENV"),
+        }
     }
 
     #[test]

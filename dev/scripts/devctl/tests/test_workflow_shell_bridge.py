@@ -27,7 +27,7 @@ class WorkflowShellBridgeTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.script = load_module(
             "workflow_shell_bridge",
-            "dev/scripts/workflow_shell_bridge.py",
+            "dev/scripts/workflow_bridge/shell.py",
         )
 
     def test_evaluate_user_docs_gate_runs_when_threshold_met(self) -> None:

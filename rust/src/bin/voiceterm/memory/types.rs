@@ -722,8 +722,7 @@ mod tests {
         assert_eq!(boot, "\"boot\"");
         let task = serde_json::to_string(&ContextPackType::Task).expect("serialize");
         assert_eq!(task, "\"task\"");
-        let survival =
-            serde_json::to_string(&ContextPackType::SurvivalIndex).expect("serialize");
+        let survival = serde_json::to_string(&ContextPackType::SurvivalIndex).expect("serialize");
         assert_eq!(survival, "\"survival_index\"");
         let hybrid = serde_json::to_string(&ContextPackType::Hybrid).expect("serialize");
         assert_eq!(hybrid, "\"hybrid\"");

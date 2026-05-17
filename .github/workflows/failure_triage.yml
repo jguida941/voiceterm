@@ -89,7 +89,7 @@ jobs:
           RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt || 1 }}
         run: |
           set -euo pipefail
-          python3 dev/scripts/workflow_shell_bridge.py prepare-failure-artifact-dir \
+          python3 dev/scripts/workflow_bridge/shell.py prepare-failure-artifact-dir \
             --workflow-name "${WORKFLOW_NAME}" \
             --run-id "${RUN_ID}" \
             --run-attempt "${RUN_ATTEMPT}" \
@@ -142,7 +142,7 @@ jobs:
           ARTIFACT_DIR: ${{ steps.prep.outputs.artifact_dir }}
         run: |
           set -euo pipefail
-          python3 dev/scripts/workflow_shell_bridge.py find-first-file \
+          python3 dev/scripts/workflow_bridge/shell.py find-first-file \
             --search-root "${ARTIFACT_DIR}/source-artifacts" \
             --pattern 'backlog-medium.json' \
             --allow-missing \

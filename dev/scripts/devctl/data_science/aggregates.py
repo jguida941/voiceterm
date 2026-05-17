@@ -3,9 +3,23 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from typing import Any
+from typing import Any, TypedDict
 
 from ..numeric import to_float, to_int
+
+
+class EventMetrics(TypedDict):
+    """Typed aggregate event metrics from devctl audit rows."""
+
+    total_events: int
+    success_rate_pct: float
+    avg_duration_seconds: float
+    p50_duration_seconds: float
+    p95_duration_seconds: float
+    total_machine_output_bytes: int
+    total_estimated_machine_tokens: int
+    commands: list[dict[str, Any]]
+    execution_sources: list[dict[str, Any]]
 
 
 def _quantile(values: list[float], q: float) -> float:
@@ -22,35 +36,48 @@ def _quantile(values: list[float], q: float) -> float:
     return ordered[lower] * (1.0 - frac) + ordered[upper] * frac
 
 
-def build_event_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
+def build_event_metrics(rows: list[dict[str, Any]]) -> EventMetrics:
     total = len(rows)
     if total == 0:
-        return {
-            "total_events": 0,
-            "success_rate_pct": 0.0,
-            "avg_duration_seconds": 0.0,
-            "p50_duration_seconds": 0.0,
-            "p95_duration_seconds": 0.0,
-            "commands": [],
-            "execution_sources": [],
-        }
+        return EventMetrics(
+            total_events=0,
+            success_rate_pct=0.0,
+            avg_duration_seconds=0.0,
+            p50_duration_seconds=0.0,
+            p95_duration_seconds=0.0,
+            total_machine_output_bytes=0,
+            total_estimated_machine_tokens=0,
+            commands=[],
+            execution_sources=[],
+        )
 
     success = 0
     durations: list[float] = []
     command_counts: Counter[str] = Counter()
     command_success: Counter[str] = Counter()
     command_duration_sum: defaultdict[str, float] = defaultdict(float)
+    command_machine_bytes: defaultdict[str, int] = defaultdict(int)
+    command_machine_tokens: defaultdict[str, int] = defaultdict(int)
     source_counts: Counter[str] = Counter()
+    total_machine_bytes = 0
+    total_machine_tokens = 0
 
     for row in rows:
         command = str(row.get("command") or "unknown")
         source = str(row.get("execution_source") or "unknown")
         ok = bool(row.get("success"))
         duration = to_float(row.get("duration_seconds"), default=0.0)
+        machine_output = row.get("machine_output") if isinstance(row.get("machine_output"), dict) else {}
+        machine_bytes = to_int(machine_output.get("size_bytes"), default=0)
+        machine_tokens = to_int(machine_output.get("estimated_tokens"), default=0)
 
         command_counts[command] += 1
         source_counts[source] += 1
         command_duration_sum[command] += duration
+        command_machine_bytes[command] += machine_bytes
+        command_machine_tokens[command] += machine_tokens
+        total_machine_bytes += machine_bytes
+        total_machine_tokens += machine_tokens
         durations.append(duration)
         if ok:
             success += 1
@@ -65,6 +92,8 @@ def build_event_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 "count": count,
                 "success_rate_pct": round((ok_count / count) * 100.0, 2),
                 "avg_duration_seconds": round(command_duration_sum[command] / count, 3),
+                "avg_machine_output_bytes": round(command_machine_bytes[command] / count, 2),
+                "avg_estimated_machine_tokens": round(command_machine_tokens[command] / count, 2),
             }
         )
 
@@ -73,15 +102,17 @@ def build_event_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         for key, value in source_counts.most_common()
     ]
 
-    return {
-        "total_events": total,
-        "success_rate_pct": round((success / total) * 100.0, 2),
-        "avg_duration_seconds": round(sum(durations) / total, 3),
-        "p50_duration_seconds": round(_quantile(durations, 0.50), 3),
-        "p95_duration_seconds": round(_quantile(durations, 0.95), 3),
-        "commands": command_rows,
-        "execution_sources": source_rows,
-    }
+    return EventMetrics(
+        total_events=total,
+        success_rate_pct=round((success / total) * 100.0, 2),
+        avg_duration_seconds=round(sum(durations) / total, 3),
+        p50_duration_seconds=round(_quantile(durations, 0.50), 3),
+        p95_duration_seconds=round(_quantile(durations, 0.95), 3),
+        total_machine_output_bytes=total_machine_bytes,
+        total_estimated_machine_tokens=total_machine_tokens,
+        commands=command_rows,
+        execution_sources=source_rows,
+    )
 
 
 def _normalize_score(value: float, min_value: float, max_value: float) -> float:

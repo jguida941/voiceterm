@@ -8,9 +8,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
 
+from dev.scripts.devctl.repo_packs import VOICETERM_PATH_CONFIG
+
 from ..core.value_coercion import safe_int, safe_text
 
-DEFAULT_RALPH_REPORT_REL = "dev/reports/ralph/latest/ralph-report.json"
+# Backward-compat alias — canonical value lives in VOICETERM_PATH_CONFIG.
+DEFAULT_RALPH_REPORT_REL = VOICETERM_PATH_CONFIG.ralph_report_rel
 _CACHE_LOCK = Lock()
 _CACHE: dict[str, tuple[int | None, "RalphGuardrailSnapshot"]] = {}
 

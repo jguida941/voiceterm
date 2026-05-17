@@ -23,9 +23,9 @@ use detector::{resolve_wake_vad_threshold_db, AudioWakeDetector, WakeListenOutco
 
 // Re-export matcher and detector items used by tests (via `use super::*`).
 #[cfg(test)]
-pub(self) use detector::sensitivity_to_wake_vad_threshold_db;
+use detector::sensitivity_to_wake_vad_threshold_db;
 #[cfg(test)]
-pub(self) use matcher::{
+use matcher::{
     canonicalize_hotword_tokens, contains_hotword_phrase, detect_wake_event,
     normalize_for_hotword_match, transcript_matches_hotword,
 };

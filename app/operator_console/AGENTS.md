@@ -92,7 +92,7 @@ helper, or test target, it should go into a subpackage instead of the root.
 For Operator Console changes, prefer these local checks while iterating:
 
 ```bash
-python3 -m pytest app/operator_console/tests/ -q --tb=short
+python3 dev/scripts/devctl.py test-python --suite operator-console
 python3 dev/scripts/checks/check_code_shape.py --format md
 python3 dev/scripts/checks/check_active_plan_sync.py
 ```

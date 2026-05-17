@@ -68,6 +68,16 @@ def _build_finding_entry(
         "category": str(finding.get("category", "")),
         "status": status,
         "fix_skill_used": fix_skill_used,
+        "probe_guidance_attached": bool(
+            (fix_result or {}).get("probe_guidance_attached", False)
+        ),
+        "guidance_disposition": str(
+            (fix_result or {}).get("guidance_disposition", "not_applicable")
+        ),
+        "guidance_waiver_reason": str(
+            (fix_result or {}).get("guidance_waiver_reason", "")
+        ),
+        "fix_accepted": bool((fix_result or {}).get("fix_accepted", False)),
         "agents_md_section": str(standard.get("agents_md_section", "")),
         "doc_links": standard.get("doc_links", []),
         "standard_description": str(standard.get("description", "")),
@@ -90,6 +100,11 @@ def _compute_aggregates(
             "false_positive_rate_pct": 0.0,
             "by_architecture": {},
             "by_severity": {},
+            "guidance_attached": 0,
+            "guidance_used": 0,
+            "guidance_waived": 0,
+            "guidance_unreported": 0,
+            "guidance_fix_accepted": 0,
         }
     fixed = sum(1 for e in entries if e["status"] == "fixed")
     false_pos = sum(1 for e in entries if e["status"] == "false-positive")
@@ -114,6 +129,17 @@ def _compute_aggregates(
         "false_positive_rate_pct": round((false_pos / total) * 100, 1) if total else 0.0,
         "by_architecture": by_arch,
         "by_severity": by_severity,
+        "guidance_attached": sum(1 for e in entries if e["probe_guidance_attached"]),
+        "guidance_used": sum(1 for e in entries if e["guidance_disposition"] == "used"),
+        "guidance_waived": sum(1 for e in entries if e["guidance_disposition"] == "waived"),
+        "guidance_unreported": sum(
+            1 for e in entries if e["guidance_disposition"] == "unreported"
+        ),
+        "guidance_fix_accepted": sum(
+            1
+            for e in entries
+            if e["probe_guidance_attached"] and e["fix_accepted"]
+        ),
     }
 
 
@@ -217,6 +243,11 @@ def render_report_markdown(report: dict) -> str:
         f"- pending: {agg.get('pending', 0)}",
         f"- fix rate: {agg.get('fix_rate_pct', 0.0)}%",
         f"- false positive rate: {agg.get('false_positive_rate_pct', 0.0)}%",
+        f"- guidance attached: {agg.get('guidance_attached', 0)}",
+        f"- guidance used: {agg.get('guidance_used', 0)}",
+        f"- guidance waived: {agg.get('guidance_waived', 0)}",
+        f"- guidance unreported: {agg.get('guidance_unreported', 0)}",
+        f"- guidance fix accepted: {agg.get('guidance_fix_accepted', 0)}",
         "",
     ]
 

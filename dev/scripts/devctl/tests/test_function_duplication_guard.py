@@ -10,11 +10,14 @@ from pathlib import Path
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-from conftest import load_repo_module
+try:
+    from conftest import load_repo_module
+except ModuleNotFoundError:
+    from dev.scripts.devctl.tests.conftest import load_repo_module
 
 SCRIPT = load_repo_module(
     "check_function_duplication_script",
-    "dev/scripts/checks/check_function_duplication.py",
+    "dev/scripts/checks/code_shape/check_function_duplication.py",
 )
 
 

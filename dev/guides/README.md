@@ -5,6 +5,7 @@ This directory contains the canonical maintainer workflow/design guides.
 ## Canonical Guides
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md)
+- [`AI_GOVERNANCE_PLATFORM.md`](AI_GOVERNANCE_PLATFORM.md)
 - [`DEVELOPMENT.md`](DEVELOPMENT.md)
 - [`DEVCTL_AUTOGUIDE.md`](DEVCTL_AUTOGUIDE.md)
 - [`MCP_DEVCTL_ALIGNMENT.md`](MCP_DEVCTL_ALIGNMENT.md)

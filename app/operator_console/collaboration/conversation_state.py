@@ -8,11 +8,13 @@ is a ``devctl review-channel`` packet with full guard backing.
 
 from __future__ import annotations
 
-import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
+from dev.scripts.devctl.runtime import ReviewPacketState
+
 from ..state.core.models import utc_timestamp
+from ..state.review.review_state import load_review_packets
 
 
 @dataclass(frozen=True)
@@ -65,21 +67,29 @@ def _body_preview(body: str, *, limit: int = 200) -> str:
     return normalized[: limit - 1].rstrip() + "\u2026"
 
 
-def _parse_packet_to_message(packet: dict) -> ConversationMessage | None:
+def _packet_field(packet: dict[str, object] | ReviewPacketState, field_name: str) -> str:
+    if isinstance(packet, ReviewPacketState):
+        return str(getattr(packet, field_name, ""))
+    return str(packet.get(field_name, ""))
+
+
+def _parse_packet_to_message(
+    packet: dict[str, object] | ReviewPacketState,
+) -> ConversationMessage | None:
     """Convert one event-store packet dict into a ConversationMessage."""
-    packet_id = packet.get("packet_id", "")
+    packet_id = _packet_field(packet, "packet_id")
     if not packet_id:
         return None
     return ConversationMessage(
         packet_id=packet_id,
-        from_agent=packet.get("from_agent", "system"),
-        to_agent=packet.get("to_agent", "operator"),
-        kind=packet.get("kind", "system_notice"),
-        summary=packet.get("summary", ""),
-        body_preview=_body_preview(packet.get("body", "")),
-        timestamp=packet.get("posted_at", ""),
-        status=packet.get("status", "posted"),
-        policy_hint=packet.get("policy_hint", ""),
+        from_agent=_packet_field(packet, "from_agent") or "system",
+        to_agent=_packet_field(packet, "to_agent") or "operator",
+        kind=_packet_field(packet, "kind") or "system_notice",
+        summary=_packet_field(packet, "summary"),
+        body_preview=_body_preview(_packet_field(packet, "body")),
+        timestamp=_packet_field(packet, "posted_at"),
+        status=_packet_field(packet, "status") or "posted",
+        policy_hint=_packet_field(packet, "policy_hint"),
     )
 
 
@@ -93,14 +103,13 @@ def build_conversation_snapshot(
     Accepts either a path to ``review_state.json`` or pre-loaded packets
     (for testing). Returns an empty snapshot when no data is available.
     """
-    packets: list[dict] = []
+    packets: list[dict[str, object] | ReviewPacketState] = []
     if history_packets is not None:
         packets = history_packets
     elif review_state_path is not None and review_state_path.is_file():
         try:
-            data = json.loads(review_state_path.read_text(encoding="utf-8"))
-            packets = data.get("packets", [])
-        except (json.JSONDecodeError, OSError):
+            packets = list(load_review_packets(review_state_path))
+        except (OSError, ValueError):
             packets = []
 
     messages: list[ConversationMessage] = []

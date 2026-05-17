@@ -2,9 +2,9 @@
 
 <!-- markdownlint-disable MD024 -->
 
-**Status:** Draft v4 (historical design and process record)  
-**Audience:** users and developers  
-**Last Updated:** 2026-03-09
+**Status:** Draft v4 (historical design and process record)
+**Audience:** users and developers
+**Last Updated:** 2026-05-15
 
 ## At a Glance
 
@@ -37,6 +37,6899 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-05-15 - Agent-loop edit-only plan override exits wait loop
+
+The MP377 checkpoint automation slice exposed a reducer mismatch: an active
+edit-only operator override for a typed plan target could still return
+`wait_for_scoped_packet` when no scoped packet was claimable, making the
+operational `next_command` a self-recursive `agent-loop` invocation.
+
+Change: plan-targeted edit-only override now resolves to
+`continue_scoped_implementation_edit`. The decision stays in
+`operator_override_edit`, grants only `implementation.edit`, leaves staging,
+commit, and push blocked, and returns an empty executable `next_command`.
+The same tooling-bundle pass added a planned `DurableSchemaPolicy` row for
+`TaskStartedAdrPrecedentLinkingGuard`, binding that report-only guard's
+review-channel event-log dependency to explicit migration and rollback policy.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/agent_loop_decision.py`
+- `dev/scripts/devctl/runtime/agent_loop_decision_support.py`
+- `dev/scripts/devctl/runtime/agent_loop_decision_builder.py`
+- `dev/scripts/devctl/runtime/agent_loop_policy.py`
+- `dev/scripts/devctl/platform/schema_migration_spine.py`
+- `dev/scripts/devctl/tests/runtime/test_agent_loop_decision.py`
+
+### 2026-05-15 - Feature proof receipts become commit evidence
+
+The R148 operator mandate exposed a process gap: feature commits could carry
+validation and lifecycle receipts while still lacking a single operator-facing
+artifact that says who reviewed, what ran, how connectivity was proven, and
+whether the feature was dogfooded in the live system.
+
+Change: `FeatureProofReceipt` is now a registered runtime contract and artifact
+schema. Governed commit success emits
+`dev/reports/feature_proof_receipts/<sha>.json` beside `CommitReceipt` and
+`FeatureLifecycleProof`, and raw-git operator-bypass commits must produce the
+same proof shape manually before work is described as shipped.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/feature_proof_receipt.py`
+- `dev/scripts/devctl/runtime/commit_receipt.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py`
+- `dev/scripts/devctl/tests/runtime/test_commit_receipt.py`
+
+### 2026-05-15 - Bridge separation guard expands beyond runtime
+
+The P188 bridge-retirement work needed the report-only projection-authority
+guard to expose bridge-reader debt outside `dev/scripts/devctl/runtime/`.
+Before strict enforcement, the guard now scans runtime, review-channel, and
+command surfaces and records the current bridge-reader baseline.
+
+Evidence:
+
+- `dev/scripts/checks/runtime_bridge_projection_separation/command.py`
+- `dev/scripts/devctl/tests/checks/test_check_runtime_bridge_projection_separation.py`
+
+### 2026-05-15 - Boot-card sync guard hardens instruction content
+
+The P202 instruction-surface work moved role clarity, target-kind packet
+guidance, and shell-escape friction out of operator memory and into the
+generated boot-card contract. `InstructionBootCard` now renders those cues, and
+`check_instruction_surface_sync.py` fails if they disappear from the generated
+surface.
+
+Evidence:
+
+- `dev/scripts/devctl/governance/instruction_boot_card.py`
+- `dev/scripts/devctl/governance/surface_instruction_runtime.py`
+- `dev/scripts/devctl/tests/governance/test_render_surfaces.py`
+- `AGENTS.md`
+
+### 2026-05-15 - Bridge ACK projection stops outranking typed ACK state
+
+The R126 review-channel audit found a projection-authority drift: `bridge.md`
+could display an acknowledged implementer revision while typed
+`current_session.implementer_ack_state` remained empty. Fresh sessions reading
+the compatibility bridge could therefore treat bridge prose as proof that the
+typed ACK never recorded.
+
+Change: bridge-backed current-session resolution now strips bridge-only ACK
+claims unless typed `current_session` / `latest_implementer_ack` state backs the
+same instruction revision. Typed ACK payloads still project as current; raw
+bridge prose alone cannot advance ACK freshness.
+
+Follow-up: `review-channel --action check-ack-freshness --format json` now
+emits `ImplementerAckFreshnessProjection` from typed ACK events/current-session
+state and compares it with the compatibility bridge projection. The on-demand
+P152 mode fails closed on bridge-only or stale visible ACK claims.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/current_session_projection.py`
+- `dev/scripts/devctl/review_channel/current_session_event_state.py`
+- `dev/scripts/devctl/review_channel/current_session_authority.py`
+- `dev/scripts/devctl/review_channel/ack_freshness_authority.py`
+- `dev/scripts/devctl/commands/review_channel/event_ack_freshness_action.py`
+- `dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`
+
+### 2026-05-15 - Governed push preflight enforces canonical governance docs
+
+The governed push dogfood run reached the release bundle but stopped before
+publication. `devctl push --execute` created the managed generated-surface
+receipt `b34748b32e5ee7c98eac34c38aa37a1659fc9d7f`, then blocked because
+`docs-check --strict-tooling` saw governance substrate, guard, workflow, and
+publication-policy changes without the canonical AI-governance plan update.
+
+Change: the active product plan, engineering evolution log, development guide,
+and scripts reference now document the same docs-governance contract. Tooling
+or publication-control-plane changes must update
+`dev/active/ai_governance_platform.md` when the repo policy rule
+`ai_governance_platform_plan` fires, and must keep maintainer docs plus this
+evolution log current before rerunning `devctl push --execute`.
+
+Evidence:
+
+- `dev/reports/push/latest_push_report.json`
+- `dev/reports/push/latest_check_router_preflight.json`
+- `rev_pkt_4084`
+- `dev/active/ai_governance_platform.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+
+### 2026-05-14 - R98 packet findings become MP-381 rows and proposal contracts
+
+The R98 reviewer-loop handoff exposed nine live review packets
+(`rev_pkt_4030` through `rev_pkt_4038`) that were still PKT-BIND-only intake.
+The closure published the pending 80-commit wall first, read the packet bodies
+from the review-channel trace, composed the available agent-mind projections,
+and retained the source in `dev/audits/r98_packet_4030_4038_plan_capture.md`.
+
+Change: `devctl develop ingest-plan` inserted `MP-NEW-001` through
+`MP-NEW-028` under `plan:MP-381-COMPREHENSIVE-GOVERNANCE-UNIFICATION`, and the
+platform contract registry now includes proposal-stage contracts for
+FeatureLifecycleProof, toggle receipts, role capabilities, packet urgency and
+ADR links, assistant-guide mode, skill compatibility, and the mandatory
+ingest-before-implement invariant. `SYSTEM_MAP.md` was regenerated so the new
+registry rows remain visible in the managed connectivity block.
+
+Evidence:
+
+- `dev/audits/r98_packet_4030_4038_plan_capture.md`
+- `dev/scripts/devctl/runtime/governance_proposed_contracts.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_governance_proposed.py`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/state/contract_registry.jsonl`
+- `dev/guides/SYSTEM_MAP.md`
+
+### 2026-05-14 - Checkpoint repair authority becomes a first-class pipeline field
+
+Fact: `CheckpointRepairAuthority` already existed as the typed proof that a
+failed checkpoint guard was repaired by fresh validation evidence, but the live
+pipeline persisted that proof through `push_failure_transition`. That made a
+checkpoint repair promotion look like ordinary push-failure classification.
+
+The closure keeps compatibility but separates the contracts. `RemoteCommitPipelineContract`
+now has a `checkpoint_repair_authority` field, governed guard repair promotion
+writes that field, and startup/agent-loop readers prefer it before falling back
+to legacy artifacts. Platform contract closure covers the new field.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/remote_commit_pipeline_models.py`
+- `dev/scripts/devctl/runtime/checkpoint_repair_authority.py`
+- `dev/scripts/devctl/runtime/agent_loop_checkpoint_repair.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor.py`
+- `dev/scripts/devctl/tests/runtime/test_checkpoint_repair_authority.py`
+- `dev/scripts/devctl/tests/runtime/test_agent_loop_decision.py`
+
+### 2026-05-14 - Repo-portability guard lifts VoiceTerm literals into policy
+
+The portable governance substrate now has a registered `RepoPortabilityCheck`
+contract and `check_substrate_is_repo_portable.py` guard. The guard scans
+repo-policy configured substrate paths for hardcoded packet ids, plan ids,
+session timestamps, local paths, product names, and operator identities.
+
+The first migration moved the P1 plan-index continuity mandate and P2 packet
+binding mandate out of Python constants and into `dev/config/devctl_repo_policy.json`.
+Tooling and release workflows now run the portability guard next to the
+continuity guards, and `RepoPortabilityCheck` is registered in the platform
+contract registry and SYSTEM_MAP.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/repo_portability.py`
+- `dev/scripts/checks/check_substrate_is_repo_portable.py`
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/checks/check_plan_index_commit_continuity.py`
+- `dev/scripts/checks/packet_pkt_bind_completeness/core.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_review_core.py`
+
+### 2026-05-14 - Automation opportunity packets stay advisory and evidence-bound
+
+Review-channel now has a dedicated `automation_opportunity` packet kind for
+automation candidates discovered from plan sections, packet bodies, and guard
+evidence. The kind composes with existing packet transport: posts require typed
+evidence refs, may carry plan target/anchor/intake metadata, and remain carrier
+packets rather than plan proposals.
+
+The validator rejects mutation and runtime guard fields on this kind, so an
+accepted opportunity still has to become executable through the existing
+plan-ingestion path. That keeps automation discovery visible without creating a
+parallel planning or authority surface.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/packet_contract.py`
+- `dev/scripts/devctl/review_channel/packet_target_validation.py`
+- `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_post_action.py`
+
+### 2026-05-14 - Packet starts must bind into typed plan state
+
+MP-378 Guard P2 added `check_packet_pkt_bind_completeness.py` so Codex
+`task_started` packets cannot remain as attention-only transport. The guard
+reads review-channel packet events and `plan_index.jsonl`, enforces
+post-`rev_pkt_4017` packets after the grace window or paired `task_produced`
+deadline, and reports older packet-start misses as legacy debt.
+
+The guard is in the shared tooling/release governance bundle and both workflow
+lanes, making packet-binding continuity a CI property rather than a reviewer
+memory habit.
+
+Evidence:
+
+- `dev/scripts/checks/check_packet_pkt_bind_completeness.py`
+- `dev/scripts/devctl/tests/checks/test_check_packet_pkt_bind_completeness.py`
+- `.github/workflows/tooling_control_plane.yml`
+- `.github/workflows/release_preflight.yml`
+
+### 2026-05-14 - Session status projection answers completion versus death
+
+MP-378 added `SessionStatusProjection` as the single typed read model for
+whether an agent session task-completed or died mid-task. The projection
+derives from existing `SessionLivenessSignal`, `AgentSessionOutcome`,
+`AgentMindSlice`, collaboration participant, HEAD, and worktree evidence, so it
+does not create a parallel lifecycle ledger or process authority path.
+
+Change: bridge-backed and event-backed status producers attach the projection
+to `ReviewState`, and the parser/projection bundle round-trip it as typed
+addenda. The classifier ignores stale agent-mind task-complete evidence when
+the session id no longer matches current session evidence.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/session_status_projection.py`
+- `dev/scripts/devctl/review_channel/status_projection.py`
+- `dev/scripts/devctl/review_channel/event_projection_assembly.py`
+- `dev/scripts/devctl/tests/runtime/test_session_status_projection.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_projection_push.py`
+
+### 2026-05-14 - Classifier safety attestation bridges bypass receipts to Claude settings
+
+MP-378 added `ClassifierSafetyAttestation` as a projection from active
+`BypassLifecycle` receipts into `.claude/settings.local.json` permission rules.
+`devctl bypass grant` writes the projection when issuing a receipt, and
+`devctl bypass attest --receipt-id <id>` refreshes the classifier-readable
+settings entry for an existing active receipt.
+
+The source of authority remains `BypassRequest -> BypassEvaluation ->
+BypassReceipt -> BypassLifecycle`; Claude settings are only a local projection
+for the provider classifier. S3 keeps `.claude/settings.local.json`
+operator-local and gitignored, and emits
+`classifier_dominated_by_bash_wildcard` when an existing `Bash(*)` rule makes
+the narrower receipt-scoped rules advisory until later hardening removes that
+wildcard.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/classifier_safety_attestation.py`
+- `dev/scripts/devctl/commands/bypass/command.py`
+- `dev/scripts/devctl/tests/commands/test_bypass_command.py`
+- `dev/scripts/devctl/tests/runtime/test_classifier_safety_attestation.py`
+
+### 2026-05-14 - Bilateral agent-loop policy becomes a typed contract
+
+MP-377 added `AgentLoopBilateralProtocol` as the seven-property policy verdict
+for Codex/Claude handoffs. It keeps chat and projections out of authority,
+requires typed action, handoff, resumption, command-evidence, and receipt refs,
+and records provider-neutral lane evidence before later session automation can
+depend on the protocol.
+
+Change: the runtime contract, platform-contract registry row, and focused
+tests now cover the policy foundation while eventbus/process-wakeup behavior
+stays in later MP-377 rows.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/agent_loop_bilateral_protocol.py`
+- `dev/scripts/devctl/tests/runtime/test_agent_loop_bilateral_protocol.py`
+- `dev/scripts/devctl/platform/runtime_identity_contract_rows.py`
+
+### 2026-05-14 - Agent supervise crosses from report to authorized subprocess action
+
+MP-377 extended `agent-supervise` from a report-only outer-loop reducer into an
+explicit typed execution bridge. The default command still reports liveness and
+spawn authority only; `--execute` now runs the existing headless review-channel
+launch command through `subprocess.Popen` after `SpawnDeadAgentAction` proves
+the live continuation anchor, active bypass receipt, and loop-autonomy gates.
+
+Change: `AgentSuperviseLaunchResult` records subprocess command, PID, status,
+and error proof, and command/runtime tests cover both authorized launch and
+denied execution paths without creating another watchdog or parallel launcher.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/agent_supervise_driver.py`
+- `dev/scripts/devctl/commands/runtime/agent_supervise.py`
+- `dev/scripts/devctl/tests/runtime/test_agent_supervise_driver.py`
+
+### 2026-05-14 - Fixture adopters prove the portable gate and expose one probe wrapper bug
+
+MP-377 adopter-gate work reran the portable bootstrap/probe path against two
+fresh non-VoiceTerm fixture repos: a greenfield Python repo and an existing-plan
+Python repo. Both fixtures bootstrapped through starter repo-pack policy and
+completed `probe-report --repo-path ... --adoption-scan` with target-local
+artifacts after one source-repo probe wrapper crash was fixed.
+
+Change: `probe_event_field_naming_consistency` now returns through the shared
+`emit_probe_report(..., output_format=...)` API on both empty-log and populated
+log paths. The active portability plan records the fixture evidence and keeps
+the remaining starter-fixture `check --profile ci/quick` failures classified as
+MP-377 Step-0/full-stack authority blockers rather than adopter code findings.
+
+Evidence:
+
+- `dev/scripts/checks/review_probes/probe_event_field_naming_consistency.py`
+- `dev/active/portable_code_governance.md`
+- `dev/state/plan_index.jsonl`
+
+### 2026-05-13 - Remote-control dogfood hardens push and review-channel ergonomics
+
+Live MP-377 remote-control dogfood exposed four small friction points that
+were making the typed loop slower and harder to read: repeated check-router
+policy loads, governed-push preflight not forwarding worker parallelism,
+`review-channel post` lacking the operator-used `--packet-kind` alias, and
+markdown errors landing too far down typed reports.
+
+Change: check-router config resolution is cached, push policy carries
+`parallel_workers` into routed preflight, `review-channel post --packet-kind`
+aliases `--kind`, and event-backed markdown reports emit top-level error lines
+before detailed sections. The same push retry exposed a docs-governance loop:
+strict tooling docs treated generated `AGENTS.md` as a hand-edit-required
+maintainer doc. `docs-check` now consumes `tooling_required_doc_aliases`, and
+VoiceTerm maps `AGENTS.md` to `dev/active/MASTER_PLAN.md` so generated boot
+cards remain projection-only while durable owner docs still move with tooling
+changes.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/check/router_resolve.py`
+- `dev/scripts/devctl/governance/push_policy.py`
+- `dev/scripts/devctl/governance/push_policy_parse.py`
+- `dev/scripts/devctl/governance/push_routing.py`
+- `dev/scripts/devctl/review_channel/parser_argument_groups.py`
+- `dev/scripts/devctl/commands/review_channel/bridge_render.py`
+- `dev/scripts/devctl/review_channel/event_render.py`
+- `dev/scripts/devctl/commands/docs/check_runtime.py`
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/devctl/tests/commands/docs/test_check.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
+
+### 2026-05-13 - Lifecycle transitions gain typed metadata without a parallel receipt system
+
+P102 typestate planning called for the smallest reusable foundation before any
+generic receipt-state universe. The accepted direction was to evolve the
+existing `BypassLifecycle` and context-graph surfaces first, then add richer
+attestation checks later.
+
+Change: added `TransitionContract` and `GovernedTransitionModule`, plus a
+side-effect-only `@governed_transition` decorator that records requirements,
+produced states, emitted evidence, and graph-path hints without wrapping the
+reducer. The first registrations annotate the existing BypassLifecycle
+reducers. The repo-owned `dev/state/transition_modules.jsonl` manifest imports
+transition modules deterministically, and the platform registry/schema fixture
+closure now covers the new transition contracts plus previously missing
+registry fixture roots.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/governed_transitions.py`
+- `dev/scripts/devctl/runtime/bypass_lifecycle_evaluation.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_transitions.py`
+- `dev/state/transition_modules.jsonl`
+- `dev/state/contract_registry.jsonl`
+- `dev/scripts/devctl/tests/runtime/test_governed_transitions.py`
+- `dev/test_data/schema_fixtures/TransitionContract/1`
+- `dev/test_data/schema_fixtures/GovernedTransitionModule/1`
+
+### 2026-05-12 - Trusted launch bypass is bound to a typed lifecycle
+
+Review-channel dogfood found that remote-control launch recovery still had a
+raw trusted-mode hole: the system could emit provider dangerous/no-prompt flags
+without proving a current typed bypass lifecycle. That made blanket operator
+authorization look like another parallel surface instead of an auditable
+exception path.
+
+Change: bypass launch authority is now modeled as
+`BypassRequest -> BypassEvaluation -> BypassReceipt -> BypassExpiry` inside
+`BypassLifecycle`. Approved lifecycles compose with
+`GovernedExceptionLifecycle`, project into `AgentLoopOperatorOverride`, can be
+loaded from the durable lifecycle JSONL store, and surface through startup
+context. Review-channel launch/recover/follow paths accept
+`--bypass-receipt-id`; trusted Codex/Claude provider arguments require an
+active edit-only lifecycle receipt before emitting dangerous/no-prompt flags.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/lifetime_bypass_mode.py`
+- `dev/scripts/devctl/runtime/agent_loop_operator_override.py`
+- `dev/scripts/devctl/approval_mode.py`
+- `dev/scripts/devctl/review_channel/launch.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/tests/runtime/test_lifetime_bypass_mode.py`
+- `dev/scripts/devctl/tests/review_channel/test_launch_script.py`
+
+### 2026-05-12 - Final gate stops treating prose peer repair as a continuation command
+
+Live MP-377 dogfood reproduced the operator symptom after the earlier
+continuation-anchor repairs: the final-response gate correctly denied a final
+response, but selected a peer startup-repair row whose `next_command` was
+human prose (`stage missing imported file(s), then rerun ...`). That was not an
+executable typed next command, so Codex could still appear to stop at the
+continuation point even while a scoped edit-only operator override was
+available.
+
+Change: final-gate priority now treats non-executable startup repair text like
+a status probe. Real executable mutation-owner repair commands still win, but
+prose repair instructions no longer outrank the local Codex row that can
+synthesize the scoped
+`/develop next --operator-override --override-scope edit-only` remediation.
+Following that command lands Codex in `operator_override_edit`: implementation
+edits are allowed, while staging, commit, push, runtime recovery, and runtime
+termination stay blocked.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/final_response_gate.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `/tmp/mp377_gate_after_full_development_suite.json`
+- `/tmp/mp377_develop_next_after_full_development_suite_override.json`
+
+### 2026-05-11 - Continuation anchors become no-expiry goal authority
+
+Live MP-377 dogfood exposed a second half of the TASK_COMPLETE continuation
+gap: `TaskCompleteDecision` could reject termination for an active
+`continuation_anchor`, but the review-channel post path still stamped the
+generic 30-minute transport TTL onto the anchor. The reducer then treated the
+operator's "no expiration" goal packet as a clock-expired archive row, leaving
+Codex with no live goal authority to consult.
+
+Change: `continuation_anchor` and `stop_anchor` packets now opt into transport
+expiry only when packet metadata records an explicit expiry request from
+`--expires-in-minutes`. Existing legacy anchors with an old auto-stamped
+`expires_at_utc` but no explicit metadata are treated as non-expiring goal
+authority. Reduced packet rows now preserve post metadata so liveness,
+lifecycle, expiry materialization, and session termination all share the same
+transport-expiry predicate.
+
+Change: generated boot cards now require
+`develop next --actor <actor> --enforce-final-response-gate --format json`
+before final response or TASK_COMPLETE prose. If the gate says final response is
+not allowed, or reports `continuation_state=must_continue`, the agent must run
+the typed next command and keep working. This is the repo-native `/goal`
+behavior: no parallel supervisor is needed.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/packet_transport_expiry.py`
+- `dev/scripts/devctl/review_channel/events.py`
+- `dev/scripts/devctl/runtime/session_termination_policy.py`
+- `dev/scripts/devctl/governance/instruction_boot_card.py`
+- `AGENTS.md`
+- `CLAUDE.md`
+- `dev/scripts/devctl/tests/review_channel/test_packet_transport_expiry.py`
+- `dev/scripts/devctl/tests/runtime/test_session_termination_policy.py`
+
+### 2026-05-08 - TASK_COMPLETE continuation anchors become typed contracts
+
+Change: Codex session completion no longer depends on packet body prose such as
+"leave pending" to keep a conductor alive after `TASK_COMPLETE`.
+`SessionTerminationPolicy` names the allowed termination mode, session actor,
+optional anchor packet, and expiry; `TaskCompleteDecision` records whether the
+completed handoff should end the session or continue through the canonical
+`develop next --actor <actor>` command.
+
+Decision: `continuation_anchor` and `stop_anchor` packets are valid packet
+records but not actionable inbox work. The agent loop may continue after a
+completed handoff only when the typed policy is active, the continuation anchor
+is still pending for the same actor, normalized role, and target session, and no
+stop anchor is active. Shared packet-attention checks also ignore session
+termination packets so runtime sync guards do not demand ordinary inbox wake
+state for keep-awake anchors.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/session_termination_policy.py`
+- `dev/scripts/devctl/runtime/agent_loop_decision.py`
+- `dev/scripts/devctl/review_channel/packet_loop_attention.py`
+- `dev/scripts/devctl/review_channel/packet_contract.py`
+- `dev/scripts/devctl/tests/runtime/test_session_termination_policy.py`
+- `dev/scripts/devctl/tests/runtime/test_agent_loop_decision.py`
+- `dev/scripts/devctl/tests/checks/test_check_multi_agent_sync_runtime_truth.py`
+
+### 2026-05-08 - Fresh sessions route through typed orientation first
+
+Change: promoted `devctl session` from an available helper to the generated
+boot-card first step. The command emits a `SessionOrientationPacket` by running
+startup-context, session-resume, review-channel status, and context-graph
+bootstrap in order before an agent answers "where are we" or selects next work.
+
+Decision: the session final reducer now treats the preferred live
+`AuthoritySnapshot` as the publication boundary. A startup `run_devctl_push`
+hint is surfaced only when that authority explicitly allows continuation and
+does not block `vcs.push`; blocked review/status authority remains the next
+command so fresh sessions do not publish through stale startup state.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/governance/session_orientation_summary.py`
+- `dev/scripts/devctl/governance/instruction_boot_card.py`
+- `AGENTS.md`
+- `dev/scripts/devctl/tests/governance/test_session_orientation.py`
+- `dev/scripts/devctl/tests/governance/test_render_surfaces.py`
+
+### 2026-05-08 - Push preflight pytest routing shards large devctl tests
+
+Dogfood push preflight exposed a bad validation shape: `test_push.py` was a
+unit-test file, but check-router treated it as one serial 600s pytest target.
+The tests passed their assertions and still timed out at the session ceiling,
+which made a larger budget look like the path of least resistance.
+
+Change: push-flow unit tests now mock live repo-scale projection scans unless
+the test is explicitly covering that projection behavior. Check-router routes
+`test_push.py` as class-level pytest node-id shards through `devctl
+test-python --parallel-workers 4`, and the typed target floor dropped from
+600s to 240s after measured proof: 80.48s serial and 48.31s sharded.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/check/router_python_tests.py`
+- `dev/scripts/devctl/runtime/python_test_contract.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/scripts/devctl/tests/commands/check/test_check_router.py`
+- `dev/scripts/devctl/tests/commands/test_python_tests.py`
+
+### 2026-05-06 - Universal governance lifecycle is typed into existing rows
+
+Change: ingested Claude/operator `rev_pkt_3114` as a narrowed plan correction
+instead of adding a parallel plan row. `MP377-GUARDIR-V21-A5` remains the
+packet/action-request lifecycle checkpoint and commit-seam proof, while existing
+queued rows now carry the generalized `GovernanceLifecycle` expansion for
+read-only graph materialization, graph-walk lineage, live role-lane dogfood,
+guard cadence, and lifecycle-linked deferral receipts.
+
+Decision: `GovernedExceptionLifecycle` stays the first exception specialization
+under the broader future lifecycle envelope. Lifecycle-relevant typed actions
+must eventually write a lifecycle event or an explicit out-of-scope/noop reason;
+generated markdown and dashboard/bridge projections remain non-authoritative.
+
+Evidence:
+
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/state/plan_source_snapshots.jsonl`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+
+### 2026-05-06 - Packet-expiry sweep is folded into lifecycle rows
+
+Change: applied Claude/operator `rev_pkt_3119` as typed plan amendments after
+verifying the audit class from the review-channel event log. The unresolved
+substantial-packet backlog is now tracked as lifecycle architecture debt, not as
+a new standalone plan lane.
+
+Decision: the go-forward classifier belongs in `MP377-P0-EXC-S1`; the
+retroactive historical sweep and `RetroactiveSweepReceipt` belong in
+`MP377-P0-EXC-S1B`; graph-walk lineage, role-lane dogfood, cadence, and
+deferral receipts stay in their existing MP-377 rows. Historical packet content
+must be explicitly classified, superseded, escalated, or blocked with evidence.
+
+Evidence:
+
+- `rev_pkt_3119`
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/state/plan_source_snapshots.jsonl`
+
+### 2026-05-06 - /develop campaign makes remote-control pair state typed
+
+Change: added the read-only `devctl develop campaign` surface and the
+`RemoteControlCollaborationCampaign` platform contract. The report projects the
+Codex/Claude remote-control campaign from existing typed state: role lanes,
+remote-control attachment proof, packet blockers, mode drift, and
+mutation/publication gates. It fails closed when packet debt, stale
+remote-control proof, or interaction-mode drift prevents safe mutation, and it
+does not wake agents or execute bypass publication.
+
+Follow-up: extended the same read model so the campaign lane also folds in
+governed-exception lifecycle debt, bypass-retirement proof from
+`devctl push --execute`, and Pass-C role-matrix tracking. Raw bypass transport
+is reported as retired only when the selected governed push report is
+post-push-green for the current HEAD and no governed exception lifecycle is
+open.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/campaign.py`
+- `dev/scripts/devctl/commands/development/models.py`
+- `dev/scripts/devctl/commands/development/report.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_development.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `dev/state/plan_index.jsonl`
+
+### 2026-05-06 - Archived packet history no longer blocks live work
+
+Change: tightened review-channel packet liveness so archived/applied/dismissed
+packet rows stay as audit and carry-forward evidence without re-entering
+`/develop`, startup, or current-session attention as live blockers. The
+current-session projection now suppresses older reviewer checkpoint text when a
+newer terminal instruction/action-request packet exists, preventing stale
+bridge prose from overriding typed packet truth during remote-control dogfood.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/review_packet_inbox_liveness.py`
+- `dev/scripts/devctl/runtime/review_packet_inbox_rows.py`
+- `dev/scripts/devctl/review_channel/current_session_attention.py`
+- `dev/scripts/devctl/review_channel/current_session_projection.py`
+- `dev/scripts/devctl/review_channel/status_snapshot_authority.py`
+- `dev/scripts/devctl/tests/runtime/test_development_packet_pressure.py`
+- `dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`
+
+### 2026-05-06 - Remote-control packet truth is scoped by role and session
+
+Change: fixed the remote-control dogfood deadlock where dashboard-targeted
+instruction packets could be selected by the typed queue but erased or flagged
+as drift by current-session and multi-agent consistency readers. The readers
+now preserve dashboard instruction packets across packet-truth clear paths,
+compare canonical markdown bullets by instruction content, and scope
+AgentLoopDecision packet parity by actor, role, and session before reporting a
+conflict. Runtime truth also uses the shared remote-control attachment TTL
+predicate instead of a local status-only check.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/current_session_queue.py`
+- `dev/scripts/devctl/review_channel/current_session_projection.py`
+- `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_instruction.py`
+- `dev/scripts/checks/review_surface_consistency/parity.py`
+- `dev/scripts/devctl/runtime/runtime_truth_snapshot.py`
+
+### 2026-05-06 - Governed push report path names the artifact explicitly
+
+Change: renamed the repo-pack canonical latest push report from the generic
+`dev/reports/push/latest.json` to
+`dev/reports/push/latest_push_report.json`. The old path remains a legacy read
+fallback only; new governed push runs write the explicit filename and report it
+as `artifacts.push_report_json`.
+
+The same slice corrected already-published no-op reporting:
+`branch_already_pushed` now carries `published_remote` stage truth and a
+`remote_already_published_post_push_pending` diagnostic without pretending
+post-push validation is green.
+
+Evidence:
+
+- `dev/scripts/devctl/repo_packs/voiceterm.py`
+- `dev/scripts/devctl/commands/vcs/push_artifact.py`
+- `dev/scripts/devctl/commands/vcs/push_flow.py`
+- `dev/scripts/devctl/commands/vcs/push_diagnostics.py`
+- `dev/scripts/devctl/tests/vcs/test_push_artifact.py`
+- `dev/scripts/devctl/tests/vcs/test_push_report.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
+### 2026-05-06 - /develop audit-packets advances to the selected packet action
+
+Change: tightened the typed `/develop` continuation loop so an
+`audit-packets` run no longer reports itself as the next required command after
+packet pressure has already been classified. When
+`PacketAttentionIngestionDecision.next_command` names a bounded packet action,
+that command becomes the continuation command, top-level `next_step_command`,
+and first `next_commands` row.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/continuation.py`
+- `dev/scripts/devctl/commands/development/continuation_commands.py`
+- `dev/scripts/devctl/commands/development/report.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+
+### 2026-05-06 - Focused devctl pytest uses split bounded sessions
+
+Change: raised the path-aware focused devctl test add-on from a generic 300s
+command timeout floor to 420s, split selected targets into serial
+single-target sessions, and added measured per-target overrides for known-heavy
+files. Governed push preflight first measured
+`dev/scripts/devctl/tests/commands/test_development_command.py` passing 20
+tests in 314s, then failing only because the adapter's own session timeout
+fired at 300s. The next dogfood runs proved the route-level 420s budget was
+not reaching the test runner, that two concurrent devctl shards could starve
+the heavy development-command test until it timed out at 360s after 28 passing
+tests, that combining the router and development-command files in one
+sequential pytest session still timed out at 420s after 45 passing tests, and
+that `test_development_command.py` passes as a single target in 435.45s under a
+600s typed session. The router now emits one serial focused devctl
+`test-python` command per selected target, so each heavy file gets its own
+bounded typed proof window.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/check/router_python_tests.py`
+- `dev/scripts/devctl/tests/commands/check/test_check_router.py`
+
+### 2026-05-06 - Boot cards carry the memory-not-authority rule
+
+Change: made the generated `InstructionBootCard` carry the canonical
+"memory is short-term continuity" rule, keeping the rule in repo-owned generated
+surface authority instead of operator notes. The same push-preflight cleanup
+documented the legacy push-report fallback's broad exception so the fallback is
+guard-approved instead of silently suppressing config errors.
+
+Evidence:
+
+- `AGENTS.md`
+- `dev/scripts/devctl/governance/instruction_boot_card.py`
+- `dev/scripts/devctl/runtime/control_plane_sources.py`
+- `dev/scripts/checks/check_memory_not_authority.py`
+- `dev/scripts/checks/check_python_broad_except.py`
+
+### 2026-05-06 - Agent bootstrap surfaces are generated boot cards
+
+Change: replaced hand-maintained AGENTS authority prose with a generated
+`InstructionBootCard` projection. `AGENTS.md` is now the short tracked boot
+card, `CLAUDE.md` is an ignored local-only generated peer card, and `CODEX.md`
+is not a repo surface. The cards route agents through typed startup authority,
+session resume, review-channel status, context graph bootstrap, `/develop`,
+system-map/picture reducers, platform contracts, render-surfaces, and
+docs-check instead of carrying durable policy authority themselves.
+
+The render-surface policy now carries source-path, projection-only,
+required/forbidden text, and size-budget metadata for instruction boot cards.
+Legacy AGENTS guards were retargeted to validate projection correctness and
+forbidden authority claims rather than treating AGENTS as the canonical command
+bundle or SDLC source.
+
+Evidence:
+
+- `dev/scripts/devctl/governance/instruction_boot_card.py`
+- `dev/scripts/devctl/governance/surface_runtime.py`
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/checks/check_agents_contract.py`
+- `dev/scripts/checks/check_agents_bundle_render.py`
+- `AGENTS.md`
+
+### 2026-05-06 - Boot-card dogfood stays provider-neutral and fail-closed
+
+Change: refined the MP-377 dogfood plan so Codex and Claude are example agent
+runtimes, not authority categories. The new typed row
+`MP377-P0-ROLE-MATRIX-DOGFOOD-S1` owns future role-matrix proof across
+registered agent identity, role lane, `AuthoritySnapshot`, `SessionPosture`,
+capability state, typed packets/plan rows, `TypedAction`, and
+`ActionResult`/`RunRecord`/`ValidationReceipt`.
+
+Live boot-card dogfood found a fail-closed authority result rather than a green
+multi-agent automation proof: startup/context reducers remained available, but
+`session-resume`, `review-channel status`, and `/develop next` reported
+coordination resync, packet debt, and code-shape blockers. The correct slice
+claim is therefore narrower: the boot-card route is typed and fail-closed; it
+detects coordination blockers and preserves read-only recovery navigation.
+
+Evidence:
+
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `rev_pkt_3081`
+
+### 2026-05-06 - Role-matrix dogfood disposition is packet-bound
+
+Change: recorded the operator-confirmed role-matrix rule through typed
+review-channel packets instead of chat prose. Codex uses tracked `AGENTS.md`;
+Claude uses ignored local `CLAUDE.md`; both are projection-only over typed
+startup authority; `CODEX.md` must not be generated or consumed as a repo
+surface.
+
+The follow-up dogfood evidence stays fail-closed. `rev_pkt_3085` carries the
+coordination instruction, `rev_pkt_3086` records Claude Pass-B evidence for the
+implementer lane, and `rev_pkt_3087` records Codex's bounded disposition for
+`rev_pkt_3084`: accept the boot-card correction and positive fail-closed
+evidence, then split the broader architectural observations into separate
+future work instead of expanding the active slice.
+
+Evidence:
+
+- `rev_pkt_3085`
+- `rev_pkt_3086`
+- `rev_pkt_3087`
+- `PKT-BIND-REV-PKT-3086`
+- `PKT-BIND-REV-PKT-3087`
+
+### 2026-05-11 - Pre-commit hook stopped writing review projections
+
+Change: the managed pre-commit hook is now a read-only `commit_permission`
+gate. It no longer runs `review-channel --action status`,
+`review-snapshot --write`, or `git add` while git is preparing the commit
+index. The post-commit hook remains the owner of the bounded
+`review-snapshot --write --receipt-commit` receipt path, after HEAD and the
+commit tree are stable.
+
+This closes the hook deadlock shape where `git commit` could enter
+pre-commit, the hook could try to refresh review projections, and that
+projection writer could inspect or mutate git state while the commit was still
+assembling the index/tree. Freshness remains enforced by typed guards and the
+post-commit receipt chain instead of a mutating pre-commit writer.
+
+Evidence:
+
+- `dev/config/git_hooks/pre-commit-review-snapshot.sh`
+- `dev/scripts/devctl/tests/commands/governance/test_install_git_hooks.py`
+- `dev/scripts/README.md`
+
+### 2026-05-06 - ReviewSnapshot hook refreshes are time-bounded
+
+Change: added managed timeouts around the pre-commit
+`review-snapshot --write` refresh and post-commit
+`review-snapshot --write --receipt-commit` refresh. The hooks still fail open
+with a warning, but `DEVCTL_REVIEW_SNAPSHOT_TIMEOUT_SECONDS` now bounds both
+snapshot writers by default so a slow or stuck refresh does not leave an
+otherwise-allowed commit looking unfinished.
+
+This keeps the automation path simple: hooks can fire the snapshot/receipt refresh
+without operator babysitting, while the deterministic freshness guards remain
+the authority that accepts or rejects the eventual receipt chain.
+
+Evidence:
+
+- `dev/config/git_hooks/post-commit-review-snapshot.sh`
+- `dev/scripts/devctl/tests/commands/governance/test_install_git_hooks.py`
+
+### 2026-05-06 - Governed exception semantic links stay typed and projection-safe
+
+Fact: the governed-exception receipt lineage and the user's ZGraph framing fit
+the repo's existing context-graph substrate. `GraphEdge` already has the same
+source/target/operation shape as the proposed Z-relation, and
+`ContextGraphSnapshot` is already the generated graph read model over typed
+truth. A parallel ZGraph authority store would have split readers, snapshot
+diffing, and graph-walk traversal away from the platform registry.
+
+Change: added typed `ContractSpec.cross_links` metadata plus connectivity
+registry/context-graph projection of that metadata. Governed-exception
+contracts now declare the safe field-level semantic links needed for later
+lineage traversal, such as `ExceptionReceipt.finding_id -> FindingBacklog`.
+Comments, docstrings, `typing.Annotated`, generated graph output, bridge text,
+dashboard rows, and markdown remain documentation/projections only.
+
+Follow-up typed rows `MP377-P0-EXC-S1B` and `MP377-P0-EXC-S1C` preserve the
+later work: materialize lifecycle/receipt rows as context-graph nodes/edges,
+then add focused graph-walk exception lineage traversal. Z-ref compression,
+inferred-property engines, contradiction gates, and mutation/fanout policy
+remain later proof/evaluation slices.
+
+Evidence:
+
+- `dev/scripts/devctl/platform/contracts.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_governed_exception_core.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_governed_exception_descriptors.py`
+- `dev/scripts/devctl/platform/connectivity_registry.py`
+- `dev/scripts/devctl/context_graph/connectivity_registry_nodes.py`
+- `dev/scripts/devctl/tests/platform/test_platform_contracts.py`
+- `dev/scripts/devctl/tests/platform/test_system_map.py`
+- `dev/scripts/devctl/tests/context_graph/test_context_graph.py`
+
+### 2026-05-06 - Governed exception Slice 1 stays read-only
+
+Change: kept the governed-exception Slice 1 command surface read-only while
+adding typed receipt/lifecycle contracts, validation, registry visibility, and
+full-source plan retention. Request intake remains a separate later slice.
+Slice 1 does not run repair/proof/close, does not import manual bypass
+evidence, does not write generated markdown or bridge/dashboard/slash surfaces,
+and does not bless raw `git push --no-verify`.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/governance/exceptions.py`
+- `dev/scripts/devctl/cli_parser/exceptions.py`
+- `dev/scripts/devctl/tests/runtime/test_governed_exception_contracts.py`
+- `dev/scripts/devctl/tests/commands/test_exceptions_command.py`
+
+### 2026-05-05 - Governed exception receipts became typed registered contracts
+
+Fact: the governed-bypass idea needed to become repair/proof lifecycle state
+before any execution path could be safe. A raw bypass command or generated
+markdown plan would have violated the platform authority boundary by making a
+projection or ad hoc shell action into governance truth.
+
+Change: added Slice 1 governed-exception runtime contracts and validation:
+`GovernedExceptionLifecycle`, `ExceptionReceipt`, `ResolutionReceipt`,
+`ExceptionPolicy`, `ExceptionClass`, `ExceptionLifecycleStatus`,
+`ClosureProof`, `AutoRepairReceipt`, and `ManualBypassImportReceipt`. The
+read-only `devctl exceptions pending|validate` surface reads/validates typed
+JSON/JSONL state only and does not execute, request, repair, prove, close, or
+write exception rows. The contracts register through `platform-contracts`,
+ConnectivityRegistrySnapshot/SYSTEM_MAP, and context-graph typed-contract
+discovery so future slices can route finding/remediation/proof work without
+creating a parallel lifecycle system.
+
+Plan ingestion also gained `PlanSourceSnapshot` full-plan retention proof. For
+`MP377-P0-EXC-S1`, source retention now records completeness status and required
+anchor counts, and validation rejects short-summary snapshots so expiring
+review-channel packets cannot become the only durable source for the slice.
+The current-source validator is bound to the latest accepted
+`PlanIntentIngestionReceipt` for the row, preventing an older complete snapshot
+from masking a newer incomplete source snapshot.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/governed_exception_contracts.py`
+- `dev/scripts/devctl/runtime/governed_exception_store.py`
+- `dev/scripts/devctl/runtime/plan_source_retention.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_governed_exceptions.py`
+- `dev/scripts/devctl/commands/governance/exceptions.py`
+- `dev/scripts/devctl/tests/runtime/test_governed_exception_contracts.py`
+- `dev/scripts/devctl/tests/runtime/test_plan_source_retention.py`
+- `dev/scripts/devctl/tests/commands/test_exceptions_command.py`
+
+### 2026-05-06 - Guard cadence and physical dogfood become typed plan work
+
+Fact: green unit tests and guards are necessary, but they do not prove that a
+major governance feature works through the live control plane. The current
+governed-exception and role/session packet-routing work needs real `devctl`
+surface smoke plus Codex+Claude role-swap dogfood before end-to-end acceptance.
+
+Change: ingested `MP377-P0-GUARD-CADENCE-S1` as the future owner for
+graph-scoped validation scheduling and physical dogfood cadence. It keeps
+safety/proof/authority checks immediate and non-deferrable, batches only
+cleanup-grade checks through future typed receipts, and requires the dogfood
+experiment to compare always-run versus staged cadence using elapsed time,
+failures caught, refactor churn, false positives, late failures, out-of-scope
+file churn, and final quality. `MP377-P0-GUARD-DEFERRAL-S1` remains the child
+slice for deferrable quality-debt receipts.
+
+Correction: the same session exposed a Codex process failure. Operator
+architecture feedback about the guard-deferral closure rule was initially
+treated as broad cadence-plan prose instead of being immediately forced into
+scoped typed plan authority. The correction is now tracked as
+`MP377-P0-OPERATOR-CORRECTION-INTAKE-S1`: operator governance corrections must
+be classified and ingested as typed PlanRows/refinements/terminal receipts
+before markdown summaries or generated docs can claim to preserve them.
+
+Evidence:
+
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/state/plan_source_snapshots.jsonl`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-05-05 - Architecture design now starts with ground-truth preflight
+
+Fact: the remote-control dogfood failure showed a structural AI-agent failure
+mode. The typed system designed hook/transcript proof channels around
+`bridge_status` before asking where Claude Code itself stored the status-bar
+truth. The upstream state was already present in
+`~/.claude/sessions/<pid>.json` as `bridgeSessionId`.
+
+Change: added `RuntimeTruthSnapshot` as a reducer over current review/runtime
+evidence and added `devctl develop design-preflight` as the connected
+architecture pipeline. The preflight probes agent-mind, provider-owned session
+state, contract connectivity, command registries, startup quality signals, and
+existing contracts, then records `GroundTruthProbeRunReceipt`. The new
+`check_ground_truth_probe_gate.py` guard blocks runtime/proof/architecture
+trigger paths when that receipt is missing, stale, or did not observe the
+required probe set. This keeps new proof-channel design aligned with the repo's
+compiler thesis: upstream facts and typed reductions first, new contracts only
+when existing surfaces cannot carry the state.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/runtime_truth_snapshot.py`
+- `dev/scripts/devctl/runtime/ground_truth_probe_receipt.py`
+- `dev/scripts/devctl/commands/development/design_preflight.py`
+- `dev/scripts/checks/check_ground_truth_probe_gate.py`
+- `dev/scripts/checks/ground_truth_probe_gate/command.py`
+- `dev/scripts/devctl/tests/runtime/test_runtime_truth_snapshot.py`
+- `dev/scripts/devctl/tests/checks/test_check_ground_truth_probe_gate.py`
+
+### 2026-05-05 - Development can defer publication without bypassing mutation gates
+
+Fact: dogfood showed another loop failure mode: once a slice is checkpointed
+and ready for publication, a long governed push/preflight can strand the next
+implementation slice even though typed push state still says the worktree is
+safe to continue editing.
+
+Change: added `startup-context --defer-publication` plus the
+`DEVCTL_DEFER_PUBLICATION=1` env hook. The action router now records
+`publication_deferred_active`, `publication_deferred_reason`,
+`deferred_publication_command`, and `deferred_publication_actions` when the
+operator explicitly defers publication or a dirty-checkpoint gate for continued
+development. The mode only re-allows `implementation.edit` for an implementer
+lane with active implementation permission and a deferable dirty
+checkpoint/publication reason. It keeps `vcs.stage`, `vcs.commit`, and
+`vcs.push` blocked, so the deferred checkpoint/publication/preflight remains
+typed debt instead of becoming a raw guard skip.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/action_routing.py`
+- `dev/scripts/devctl/runtime/action_routing_publication_defer.py`
+- `dev/scripts/devctl/commands/governance/startup_context.py`
+- `dev/scripts/devctl/commands/governance/startup_context_defer.py`
+- `dev/scripts/devctl/tests/runtime/test_action_routing.py`
+
+### 2026-05-05 - Claude built-in remote-control now mirrors through an async hook
+
+Fact: project slash adapters cannot invoke Claude's built-in `/remote-control`
+command, and the earlier physical-confirmation flag could be self-attested by
+direct CLI callers. Claude's hook docs also make `UserPromptSubmit` fire before
+prompt processing and give it no matcher support, so a synchronous hook would
+race or block the built-in slash.
+
+Change: added a project `.claude/settings.json` async `UserPromptExpansion`
+hook for built-in `/remote-control` / `/rc` plus a broad `UserPromptSubmit`
+fallback that fast-exits on unrelated prompts. The backend prefers Claude's
+live `~/.claude/sessions/<pid>.json` `bridgeSessionId` state for the matching
+`sessionId`/repo cwd, then falls back to a same-session built-in
+`/remote-control is active` transcript bridge-status row with a
+`claude.ai/code/session_...` URL. It records hook/session/transcript/dedupe
+evidence on `RemoteControlAttachmentState` and
+`RemoteControlInvocationReceipt`, and treats
+`physical_confirmation_method=claude_session_state_bridge` or
+`claude_hook_transcript` as high-confidence physical proof. Direct CLI
+`--physical-remote-control-confirmed` downgrades to
+`operator_assertion`; origin proof (`proven_source_kind`) alone does not prove
+activation. The same settings surface installs a `SessionEnd` detach hook, and
+detach/evidence-missing lifecycle writes now clear stale physical confirmation
+state. Physical dogfood then proved Claude can emit the authoritative
+`bridge_status` URL without a preceding `local_command` row, so transcript
+proof now accepts that first-party bridge-status row as sufficient same-session
+physical activation proof. The same dogfood then proved `bridge_status` is an
+edge event while `bridgeSessionId` is the live on/off signal: non-null
+`session_*` means active, null means off. `remote-control status` now
+reconciles from that session-state proof so typed status follows Claude's UI
+without waiting for another slash activation. The project `/remote-control`
+and `/bridge-loop` aliases are
+retired so Claude's provider-owned commands win dispatch; only
+`/project:typed-remote-control` remains as a manual typed-state recovery path.
+
+Follow-up: the same dogfood session exposed that reviewer/architect packets
+can pile up while an implementer keeps editing. `rev_pkt_3042` plus Claude's
+`rev_pkt_3043` / `rev_pkt_3044` design packets now anchor
+`MP377-P0-T22AN-AM/AN`: add typed packet urgency, relevance,
+per-actor attention windows, in-flight attention signals, blocker-only
+mutation interruption, and architecture/blocker target fields. Relevant
+review feedback should become ambient working context; only true blockers
+force `consume_packet` before mutation.
+
+Evidence:
+
+- `.claude/settings.json`
+- `dev/scripts/devctl/commands/remote_control/_hook.py`
+- `dev/scripts/devctl/commands/remote_control/_source_proof.py`
+- `dev/scripts/devctl/commands/remote_control/_transcript_proof.py`
+- `dev/scripts/devctl/tests/commands/test_remote_control_command.py`
+- `dev/scripts/devctl/tests/commands/test_remote_control_source_proof.py`
+
+### 2026-05-04 - Remote-control lifecycle now owns typed attach state
+
+Fact: the phone/dashboard remote-control path had two authority leaks. The
+legacy bridge-loop wrapper carried lifecycle behavior and a policy-heavy Claude
+slash file, while stale `remote_control` signals could keep local sessions in
+remote mode after the typed attachment stopped being live.
+
+Change: added `devctl remote-control` with `start`, `enter`, `heartbeat`,
+`exit`, `status`, `doctor`, and `dry-run`. The command writes the existing
+provider-scoped `RemoteControlAttachmentState` artifact, now extended with
+launcher source, host pid/session label, heartbeat TTL, previous operator
+mode, and entrypoint. Slash surfaces are generated thin adapters over the same
+backend, and `remote-bridge-loop.sh` is compatibility wrapper glue only.
+Mode derivation now requires an active non-expired attachment before promoting
+`operator_interaction_mode=remote_control`.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/remote_control/command.py`
+- `dev/scripts/devctl/runtime/remote_control_attachment_status.py`
+- `dev/scripts/devctl/runtime/remote_control_slash_adapters.py`
+- `.claude/commands/typed-remote-control.md`
+- `.claude/settings.json`
+- `dev/scripts/devctl/tests/commands/test_remote_control_command.py`
+
+### 2026-05-04 - `/develop` continuation now gates stopped watchers on typed packet pressure
+
+Fact: live Codex/Claude `/develop` dogfooding found a false blocker in the
+continuation controller. A stopped watcher was always treated as continuation
+debt in one path, then a follow-up review found the opposite unsafe edge:
+`watcher_report_needed(..., packet_pressure=None)` treated missing pressure
+evidence as clear. That let absent evidence look like zero packet pressure.
+
+Change: continuation now threads `PacketBacklogPressure` through the next
+command and reason selectors. A stopped watcher blocks when packet attention is
+live, packet ids remain pending/actionable, expired unresolved packets exist,
+any pressure count is non-zero, or pressure evidence is missing. It only
+closes when typed pressure evidence is present and clear. Idle
+`observe_typed_runtime` rows with no packets and no real blocker now classify
+as current, so `/develop next` can distinguish quiet observer waits from real
+watcher debt.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/continuation.py`
+- `dev/scripts/devctl/commands/development/continuation_commands.py`
+- `dev/scripts/devctl/commands/development/orchestration_agent_loop_state.py`
+- `dev/scripts/devctl/commands/development/report.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+
+### 2026-05-04 - Relaunch-loop contracts now dogfood slice closure into queued dispatch
+
+Fact: the Codex/Claude loop could still stop between slices even though packet
+delivery correctly records attention only. Claude can schedule in-session wake
+ticks, but Codex has no self-scheduler once the CLI exits. The missing piece
+was a scheduler-owned typed handoff between slice closure and provider launch.
+
+Change: added the first bounded relaunch-loop slice. `SliceClosureEvent`
+captures a closed slice and next owner, `AgentRelaunchTrigger` queues the
+scheduler-owned relaunch request, `RelaunchQuotaExceeded` fails closed on
+runaway loops, and `devctl relaunch-loop` can emit a closure, convert it into
+an idempotent queue row, and dry-run dispatch. The dispatcher preview does not
+spawn providers yet; that remains blocked until typed provider/conductor
+registry authority lands.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/relaunch_loop_models.py`
+- `dev/scripts/devctl/runtime/relaunch_loop_builder.py`
+- `dev/scripts/devctl/runtime/relaunch_loop_store.py`
+- `dev/scripts/devctl/commands/governance/relaunch_loop.py`
+- `dev/scripts/devctl/cli_parser/relaunch_loop.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_relaunch_loop.py`
+- `dev/scripts/devctl/tests/runtime/test_relaunch_loop.py`
+- `dev/scripts/devctl/tests/commands/test_relaunch_loop_command.py`
+
+### 2026-05-04 - Packet delivery records attention, not conductor wake
+
+Fact: live dogfooding showed the packet-delivery path was still carrying
+process semantics. Even after earlier exact-session fixes, packet post/follow
+helpers and their docs/tests still treated "packet arrived" as a possible
+conductor launch, replacement, or cleanup trigger. That contradicted the
+typed-state architecture: packets are communication, plan-intake, and attention
+input; session starts belong to scheduler/runtime controllers at task
+boundaries.
+
+Change: event-backed packet post, reviewer follow attention, and provider
+packet dispatch now return a no-launch attention receipt
+(`attempted=false`, `woke=false`, `wake_method=none`,
+`attention_recorded=true`). The focused tests assert that launcher, cleanup,
+headless delegate, and relaunch dependencies are not called from packet
+delivery. Markdown renders no-launch delivery as "Packet Attention", and
+runtime presence no longer promotes fresh packet activity into detached Claude
+liveness when the typed reviewer mode is inactive/single-agent. The durable
+plan now carries `MP377-P0-T22AN-AF` for the packet-attention/no-conductor
+boundary and `MP377-P0-T22AN-AG` for the `rev_pkt_2936` cold-bootstrap
+enforcement follow-up.
+
+Follow-up: Claude dogfood packet `rev_pkt_2940` proved the live no-launch
+contract for both Claude- and Codex-targeted packets, then exposed two
+reporting gaps. Post-action JSON now emits `packet_attention` as the primary
+receipt and keeps `reviewer_wake` only as a compatibility alias; communication
+only `system_notice` creation-binding receipts with plan anchors now say the
+plan context is advisory instead of claiming no context existed. `/develop`
+also renders peer `attention_hint` / packet `attention_reason` language and
+appends concrete inbox/agent-mind poll commands to `next_commands`, so agents
+can keep cross-session awareness fresh without adding packet wakeups.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel/event_post_wake.py`
+- `dev/scripts/devctl/commands/review_channel/event_handler.py`
+- `dev/scripts/devctl/review_channel/packet_creation_binding.py`
+- `dev/scripts/devctl/commands/development/report.py`
+- `dev/scripts/devctl/review_channel/follow_controller.py`
+- `dev/scripts/devctl/review_channel/agent_wake_dispatch.py`
+- `dev/scripts/devctl/review_channel/status_projection_runtime_presence.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_post_wake.py`
+- `dev/scripts/devctl/tests/review_channel/test_follow_controller_reviewer_wake.py`
+
+### 2026-05-03 - Priority action requests now stay current-session authority
+
+Fact: The final T22AN-L/Finding Y stage-commit handoff packet selected a
+queue-priority `action_request`, but event-backed `current_session` projection
+still preferred the stale reviewer checkpoint and then let implementer packet
+attention clear the instruction. This made `check_review_surface_consistency.py`
+report a mismatch between the queue's derived next instruction and
+`current_session.current_instruction`.
+
+Change: current-session derivation now treats queue-selected priority
+`action_request` packets as live runtime authority ahead of reviewer checkpoint
+fallbacks, even when the target packet is for the implementer and the active
+single-agent coding provider is Codex. The event projection and packet-truth
+normalizer share that predicate so packet-attention clear paths cannot erase a
+valid `stage_commit_pipeline` action request while preserving the existing clear
+behavior for non-packet instructions.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/current_session_support.py`
+- `dev/scripts/devctl/review_channel/current_session_queue.py`
+- `dev/scripts/devctl/review_channel/current_session_attention.py`
+- `dev/scripts/devctl/review_channel/current_session_projection.py`
+- `dev/scripts/devctl/review_channel/current_session_packet_normalize.py`
+- `dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`
+
+### 2026-05-03 - Python tests now run through bounded repo policy
+
+Fact: A pytest-runaway dogfood failure showed that broad raw pytest commands
+could still be selected by static bundles or copied into agent workflows,
+burning local sessions without a repo-owned timeout/target contract.
+
+Change: `devctl test-python` is now the repo-owned pytest adapter for named
+Python suites and explicit path targets. Root pytest discovery is scoped and
+fail-fast with session/per-test timeout rails, `check_pytest_runtime_policy.py`
+blocks raw pytest commands from canonical bundles plus missing pytest policy,
+and `check-router` adds Python tests as path-aware add-ons. Devctl-only
+tooling changes get focused devctl tests, while Operator Console tests only
+route for touched Python files under `app/operator_console`. The `AGENTS.md`
+command inventory now names `test-python`, and `check_agents_contract.py`
+keeps that inventory aligned with live `devctl` command authority.
+
+Evidence:
+
+- `conftest.py`
+- `pytest.ini`
+- `dev/scripts/devctl/commands/python_tests.py`
+- `dev/scripts/devctl/runtime/python_test_contract.py`
+- `dev/scripts/checks/check_pytest_runtime_policy.py`
+- `dev/scripts/devctl/commands/check/router_support.py`
+- `dev/scripts/devctl/tests/commands/test_python_tests.py`
+- `dev/scripts/devctl/tests/checks/test_check_pytest_runtime_policy.py`
+- `dev/scripts/devctl/tests/commands/check/test_check_router.py`
+- `.github/workflows/tooling_control_plane.yml`
+
+### 2026-05-03 - Governed push now detects trimmed managed-projection dirt before green reports
+
+Fact: Live post-push dogfooding caught a false green: `devctl push` published
+and reported `post_push_green`, but the final startup/bootstrap checks still
+found `dev/audits/REVIEW_SNAPSHOT.md` dirty. The root cause was the shared git
+capture helper trimming the leading space from `git status --porcelain`, so an
+unstaged managed row could arrive as `M dev/audits/REVIEW_SNAPSHOT.md` and the
+managed-projection receipt parser skipped it.
+
+Change: governed push now parses both normal and leading-space-trimmed
+porcelain rows before classifying managed projection dirt. The receipt helper
+was split into focused status, staging, and path modules so the parser fix
+does not keep expanding the receipt orchestrator. A regression test proves the
+trimmed ReviewSnapshot row is staged and committed as a managed receipt rather
+than allowing a green report over dirty tracked state.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/vcs/push_projection_status.py`
+- `dev/scripts/devctl/commands/vcs/push_projection_staging.py`
+- `dev/scripts/devctl/commands/vcs/push_projection_paths.py`
+- `dev/scripts/devctl/commands/vcs/push_projection_receipt.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
+### 2026-05-03 - Packet-aware `/develop` now records wake and role-adapter gaps
+
+Fact: T22AN-X dogfooding showed that productive work could still bypass typed
+session-start authority when a fresh agent trusted chat handoff prose before
+running the bootstrap trio, and that provider slash flows could scatter if
+Claude and Codex did not share one role-to-mode source for `/develop`.
+
+Change: Claude correction packets `rev_pkt_2835` and `rev_pkt_2836` now have
+durable `PlanIntentIngestionReceipt` rows. The MP-377 owner doc records
+typed-blocker wake evidence, bidirectional wake/subscriber closure, and a
+session-start bootstrap guard as T22AN-X acceptance scope.
+`development_role_adapters.py` now owns the shared Codex/Claude role matrix,
+`render-surfaces` projects that matrix into
+`dev/templates/slash/develop/roles.md`, and provider command files stay
+adapter-only entrypoints over `devctl develop --role-preset ...`. The scoped
+router dry-run also exposed a false-positive long-test trigger: devctl argparse
+files matched the broad `/parser` risk token, so the parser/ANSI add-on was
+narrowed to `rust/src/parser` while preserving the Rust parser/PTY coverage.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/development_role_adapters.py`
+- `dev/templates/slash/develop/roles.md`
+- `dev/scripts/devctl/commands/check/router_constants.py`
+- `dev/scripts/devctl/runtime/review_snapshot_hints.py`
+- `dev/active/ai_governance_platform.md`
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+
+### 2026-05-02 - Agent-authored plans now have a typed ingestion receipt path
+
+Fact: The MP-377 Typed AgentAttentionLoop plan exposed one more authority gap:
+agent-authored plans could still live only in chat, packet text, or temp files
+until a later manual edit copied them into the typed master-plan store. That
+left plan intent vulnerable to packet TTL, context compaction, or duplicate
+drafts.
+
+Change: `devctl develop ingest-plan` now accepts a plan packet, file, or body,
+upserts typed `PlanRow` records through the repo-pack master-plan store, and
+appends `PlanIntentIngestionReceipt` rows for accepted, duplicate, rejected, or
+obsolete outcomes. The P0.0 row `MP377-P0-T22AN-W` was dogfooded through that
+path from the current chat plan, while the MP-377 owner doc records the durable
+scope and acceptance criteria.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/plan_intake.py`
+- `dev/scripts/devctl/runtime/plan_intent_ingestion.py`
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+
+### 2026-05-15 - Packet plan intake decomposes MP-NEW closure rows
+
+The R155 fleet synthesis showed a recurring meta-capture gap: packet bodies
+were ingested as `PKT-BIND-REV-PKT-*` rows even when they already named
+concrete `MP-NEW-*` closure rows. That kept actionable work hidden inside
+packet prose and let closure-rate regress while receipts claimed successful
+ingestion.
+
+Change: `develop ingest-plan --packet-id ...` now scans packet text for
+concrete `MP-NEW-*` row ids and bounded ranges like `MP-NEW-P204-S1..S4`
+before using the PKT-BIND fallback. Rows-to-ingest amendments can now update
+titles on existing rows while explicit `--plan-row-id` evidence merges still
+preserve owner titles unless the caller supplies `--title`.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/plan_intake_decomposition.py`
+- `dev/scripts/devctl/commands/development/plan_intake.py`
+- `dev/scripts/devctl/commands/development/plan_intake_rows.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `dev/state/plan_index.jsonl`
+
+### 2026-05-02 - Governed commit failures now consume the failure packet router
+
+Fact: Plan r3 dogfooding showed that the `ActionResult.auto_executable` and
+`remediation` fields were still mostly write-only in the governed commit
+failure path. Commit failures could name a next command, but `_commit_failure_result`
+returned that evidence as warnings/guidance rather than feeding the existing
+review-channel packet transport.
+
+Change: `_commit_failure_result` now builds the failed `ActionResult` and
+hands it to the VCS failure-router adapter, which delegates to
+`failure_packet_router` and records packet/event warnings when an eligible
+allowlisted remediation writes event-backed `action_request` and
+safe-auto-apply transition events. Routing errors are reported as warnings so
+the original commit failure remains fail-closed.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_failure_router.py`
+- `dev/scripts/devctl/review_channel/failure_packet_router.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+- `dev/scripts/devctl/tests/review_channel/test_failure_packet_router.py`
+
+### 2026-05-02 - Launcher bypass receipts and failure routing become typed audit evidence
+
+Fact: Codex/Claude MP-377 dogfooding found three control-plane gaps in the
+same launch/review handoff lane. Development-mode launcher bypasses could
+return a typed `LauncherDisciplineBypass` receipt without any durable event
+store row, safe auto-apply failure envelopes needed a bounded route back into
+packet transport, and explicit `single_agent` collaboration posture fell
+through to `unknown`. The `/develop` status renderer also reused stale packet
+attention prose when all packet-attention fields were empty.
+
+Change: launch, bridge-handler, and recover callers now persist
+`launcher_discipline_bypassed` events idempotently whenever typed launcher
+discipline returns a bypass receipt. `failure_packet_router` routes failed
+safe-auto-apply action results only through the existing
+`SAFE_AUTO_APPLY_ACTION_REQUESTS` table and safe-auto-apply append helper.
+`collaboration_topology_mode` now preserves an explicit `single_agent`
+reviewer mode while still returning `unknown` for missing topology evidence.
+Empty `/develop` packet-attention state now reports that there is no pending
+attention and ordinary slice/dispatch work can proceed.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel/launcher_discipline_receipts.py`
+- `dev/scripts/devctl/review_channel/failure_packet_router.py`
+- `dev/scripts/devctl/review_channel/collaboration_session_coordination.py`
+- `dev/scripts/devctl/commands/development/packet_attention.py`
+- `dev/scripts/devctl/tests/review_channel/test_launcher_discipline_bypass_receipt.py`
+- `dev/scripts/devctl/tests/review_channel/test_failure_packet_router.py`
+- `dev/scripts/devctl/tests/review_channel/test_collaboration_session.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+
+Boundary: this does not ship the future operator-facing `--bypass-reason` CLI
+or auto-finding creation for bypass events. Those remain the separate Slice
+0.7/0.8 work items; this closure only makes the already-returned typed receipt
+durable and keeps the failure-packet route bounded by typed allowlist policy.
+
+### 2026-05-02 - `/develop` wake pressure now includes passive packet delivery
+
+Fact: Codex/Claude `/develop` dogfooding exposed a bad split between typed
+queue truth and wake truth. A provider-to-provider `system_notice` could sit in
+the pending queue and count in runtime sync state, while `/develop`
+`packet_attention` stayed clear and the event-post wake path skipped it as
+non-actionable. That let a stopped agent have pending typed communication
+without a wake edge.
+
+Change: `/develop` now treats any live pending packet to a conductor-backed
+actor as delivery attention pressure, exposing `latest_attention_packet_id` and
+`pending_delivery_packet_ids` while keeping `pending_actionable_packet_ids`
+reserved for instruction/action-request style work. Auto actor resolution also
+uses single live pending packet delivery before falling back to caller
+environment. This 2026-05-02 slice used wake wording that the 2026-05-04
+packet-attention/no-conductor closure supersedes: event-backed packet post now
+records typed attention only and still refuses synthetic `operator`/`system`
+targets.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/packet_attention.py`
+- `dev/scripts/devctl/commands/development/actor_resolution.py`
+- `dev/scripts/devctl/commands/review_channel/event_post_wake.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_post_wake.py`
+
+Boundary: this proved typed delivery attention and Claude-side packet handling,
+not same visible terminal resume. The `rev_pkt_2760` dogfood produced Claude
+follow-up `rev_pkt_2761`, while the operator-visible terminal could still look
+parked. The 2026-05-04 no-conductor closure tightened the boundary further:
+packet delivery may not launch a headless/new session at all.
+
+Follow-up: Claude finding `rev_pkt_2762` pinned the relaunch root cause in
+`follow_controller.py` / `reviewer_follow_guard.py`. Wake receipts now carry a
+`wake_method`, and packets that explicitly target a non-Codex
+`target_session_id` fail closed as `target_session_unreachable_without_registry`
+instead of launching a different session and calling that a wake. Full
+`ProviderConductorRegistry` / IPC support remains future work; the current
+receipt intentionally avoids claiming `spawned_pid` / `delivered_to_pid`
+evidence until a real registry or launcher PID capture path exists.
+
+Remote-control closure at the time: safe read-only dashboard packets could
+delegate work without claiming visible wake. The later T22AN-AF correction
+supersedes that model for packet delivery: headless or visible launches require
+separate scheduler/runtime authority, and packet post itself records typed
+attention only. Historical `packet_wake_attempted` / `reviewer_wake` rows
+remain audit evidence; they are not current authority to spawn conductors.
+
+### 2026-05-01 - Typed `/develop` becomes a real read-only MP-377 controller surface
+
+Fact: the live Codex/Claude beta pass found that the Plan 4.1 `/develop`
+design had typed topology contracts but no `devctl develop` CLI entrypoint, so
+agents could not actually invoke the controller surface they were testing.
+
+Change: `devctl develop` is now registered as a read-only command with
+`status`, `next`, `pause`, `resume`, `audit-guards`, and report-only
+`launch --dry-run --max-cycles 1` actions. The command emits a
+`DevelopmentLoopReport` over the existing MP-377 authority surfaces instead of
+creating a new plan, packet, role, finding, or guard source of truth. The
+default topology also carries a typed `DevelopmentScalingContract`: pressure
+from packet backlog, communication lag, planning slices, findings,
+guard-smartness debt, discovery gaps, orphan inventory, and worker topology
+selects named read-only fanout modes while live-tree mutation remains gated by
+exact session-bound leases and actor capabilities.
+
+The Claude slash command is intentionally thin; it translates `/develop`
+arguments to `python3 dev/scripts/devctl.py develop ...` and leaves policy in
+typed Python contracts plus MP-377 plan rows. This keeps packets as
+communication/provenance while durable intent lands in the master plan,
+finding, guard, graph, and pattern ledgers before packet TTL can erase it.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/development_team.py`
+- `dev/scripts/devctl/commands/development/command.py`
+- `dev/scripts/devctl/commands/development/models.py`
+- `dev/scripts/devctl/cli_parser/entrypoint.py`
+- `dev/scripts/devctl/cli.py`
+- `dev/scripts/devctl/commands/listing.py`
+- `.claude/commands/develop.md`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `dev/scripts/devctl/tests/runtime/test_development_team.py`
+- `dev/scripts/devctl/tests/platform/test_platform_contracts.py`
+
+### 2026-05-01 - Packet creation now binds durable packet intent before TTL
+
+Fact: Claude dashboard packet `rev_pkt_2708` proved the old review-packet
+flow only wrote plan rows after manual `apply` and only for
+`target_kind=plan`. Plan-scoped findings could sit in the queue until TTL,
+then become carry-forward debt even though they contained durable architecture
+or guard work.
+
+Change: `post_packet` finalization now runs `PacketCreationBinding` for
+plan-scoped durable packet kinds. The binding upserts a `PlanRow`, appends a
+typed review-channel binding event, projects the binding onto reduced packet
+rows, and keeps later TTL expiry from becoming carry-forward debt when durable
+ownership already exists. System notices remain communication-only. Live
+Claude follow-up `rev_pkt_2710` auto-created `PKT-BIND-REV-PKT-2710`, and
+the earlier `rev_pkt_2708` was backfilled through the same helper as
+`PKT-BIND-REV-PKT-2708`.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/packet_creation_binding.py`
+- `dev/scripts/devctl/review_channel/post_packet_runtime.py`
+- `dev/scripts/devctl/review_channel/event_packet_rows.py`
+- `dev/scripts/devctl/review_channel/event_reducer.py`
+- `dev/scripts/devctl/review_channel/packet_lifecycle.py`
+- `dev/scripts/devctl/runtime/packet_carry_forward.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_creation_binding.py`
+
+### 2026-05-01 - Mutation outcome shim no longer breaks triage reports
+
+Fact: Claude dashboard packet `rev_pkt_2710` proved that
+`devctl triage --probe-report` failed through
+`dev/scripts/checks/mutation_outcome_parse.py` because the public shim used a
+top-level `mutation_ralph_loop` import while callers loaded it as
+`dev.scripts.checks.mutation_outcome_parse`.
+
+Change: the shim now uses the package-relative implementation import with the
+legacy top-level path as a direct-script fallback. Package import, direct
+script execution, the mutation-results CLI path, and the mutation loop tests
+all pass, so triage reports return a mutation-outcome availability note instead
+of a `ModuleNotFoundError`.
+
+Evidence:
+
+- `dev/scripts/checks/mutation_outcome_parse.py`
+- `dev/guides/SYSTEM_MAP.md`
+- `dev/scripts/devctl/tests/test_mutation_ralph_loop_core.py`
+
+### 2026-05-01 - Plan 4.1 tandem dogfood hardening becomes typed work
+
+Fact: the live Codex/Claude Plan 4.1 run exposed a broader class of
+flow-level failures than the existing shape-oriented guard set could catch.
+Recent packets showed plan anchors missing from normal findings, operator
+scope vocabulary such as `MP-377` and `rev_pkt_2611` rejected or stored
+inconsistently, duplicate review-channel `event_id` rows, stale dashboard
+active-packet projection, and Claude status/ACK bridge edits being overwritten
+because they lacked a typed writer.
+
+Change: `MP377-P0-T22AN-*` now tracks the tandem dogfood/self-hardening lane
+as explicit owner-plan work. Packet anchor inputs accept operator shorthand and
+store canonical refs such as `section:MP-377`, `checklist:MP377-P0-T08`, and
+`packet:rev_pkt_2611`; normal non-runtime carrier packets can retain plan
+context without becoming plan authority. The review-probe catalog now includes
+`probe_event_id_uniqueness`, an advisory event-log integrity probe that flags
+duplicate review-channel event ids before reducer/session projections can
+silently collapse lifecycle evidence. `agent-mind` provider ids are now
+syntax-validated instead of limited to Codex/Claude at argparse time, letting
+`cursor`, `operator`, `system`, and future provider ids reach runtime session
+discovery and fail with typed availability evidence rather than a parser
+whitelist. Non-runtime `action_request` posts now also require an explicit
+route discriminator (`target_role` or `target_session_id`); plan-context
+auto-enrichment no longer lets an unscoped action request become the active
+instruction lane. The review-probe catalog also includes
+`probe_command_result_contract`, which runs a bounded read-only command sample
+and flags commands whose JSON output does not expose the common
+`command`/`ok`/`exit_ok`/`exit_code`/`status`/`errors` envelope that tandem
+agents need for command-independent parsing. Provider-list parity now has a
+registered guard and shared provider registry, inter-agent packet lag has a
+probe-report-visible probe, and `AgentLoopDecision` pivots to read-only peer
+packet triage before startup blockers without granting mutation authority.
+Bare `agent-mind --since-cursor` now resumes from the persisted
+`agent_minds/<provider>_latest.json` cursor when available, closing the
+documented dogfood polling mismatch that could make agents miss peer findings.
+
+Evidence:
+- `dev/active/ai_governance_platform.md`
+- `dev/scripts/devctl/review_channel/packet_contract.py`
+- `dev/scripts/devctl/review_channel/packet_target_validation.py`
+- `dev/scripts/checks/probe_event_id_uniqueness.py`
+- `dev/scripts/checks/review_probes/probe_event_id_uniqueness.py`
+- `dev/scripts/checks/probe_command_result_contract.py`
+- `dev/scripts/checks/review_probes/probe_command_result_contract.py`
+- `dev/scripts/checks/check_provider_list_parity_graph.py`
+- `dev/scripts/checks/probe_inter_agent_communication_lag.py`
+- `dev/scripts/devctl/runtime/agent_loop_decision.py`
+- `dev/scripts/devctl/commands/agent_mind/command.py`
+- `dev/scripts/devctl/cli_parser/agent_mind.py`
+- `dev/scripts/devctl/tests/checks/test_probe_event_id_uniqueness.py`
+- `dev/scripts/devctl/tests/commands/test_agent_mind_command.py`
+- `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
+
+### 2026-04-29 - Action-request checkpoint authority now derives missing evidence from typed state
+
+Fact: the `rev_pkt_2223` checkpoint retry exposed an automation gap in the
+remote-control handoff path. The packet carried a valid
+`stage_commit_pipeline` target and full guard-bundle evidence, and Claude had
+acked it, but the governed commit grant still failed closed because caller
+identity, lane, capability, and pipeline/snapshot fields had to be repeated on
+the command line or packet row even though typed runtime state already carried
+the evidence.
+
+Change: executable action-request posts now attach
+`ActionRequestRuntimeAuthorityEvidence` from typed `ReviewState`
+collaboration authority, falling back to the configured raw state path before
+the projection refresh catches up. Governed commit action-request authority now
+derives the missing caller agent from the packet target only when live actor
+authority grants the action, derives caller role from `SessionPosture`, accepts
+`operator_approval_required` only with an ack plus `approval.commit`, and fills
+live pipeline generation / staged snapshot hash from a non-stale
+`RemoteCommitPipelineContract`. Stale pipeline contracts are ignored for fresh
+pre-pipeline handoffs, and prose body text still grants no mutation authority.
+
+Evidence:
+- `dev/scripts/devctl/review_channel/events.py`
+- `dev/scripts/devctl/commands/vcs/commit_action_request_authority.py`
+- `dev/scripts/devctl/commands/vcs/commit_action_request_evidence.py`
+- `dev/scripts/devctl/tests/vcs/test_commit_gate.py`
+- `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
+
+### 2026-04-29 - Dashboard and control-plane liveness now share the typed read model
+
+Fact: the dashboard/control-plane read side still had a parity hazard after
+the `SessionPosture` rescue slice. Dashboard could call the shared read-model
+builder with a locally constructed options object while nearby callers used
+direct typed inputs, and daemon rows could drop live conductor state when the
+typed bridge had fresh poll-backed liveness but no PID.
+
+Change: `build_control_plane_read_model` now accepts governance, review-state,
+status-directory, and caller-role inputs through `ControlPlaneReadModelOptions`,
+and dashboard uses that shared API. Daemon resolution may promote typed bridge
+`codex_conductor_active` /
+`claude_conductor_active` only when reviewer mode and fresh poll evidence
+bound the claim. Dashboard rendering also treats managed projection drift from
+the control-plane model defensively so missing fields cannot create a second
+dirty-worktree interpretation.
+
+Evidence:
+- `dev/scripts/devctl/runtime/control_plane_read_model.py`
+- `dev/scripts/devctl/runtime/control_plane_daemons.py`
+- `dev/scripts/devctl/commands/dashboard.py`
+- `dev/scripts/devctl/tests/runtime/test_session_posture.py`
+- `dev/scripts/devctl/tests/runtime/test_session_liveness_signal.py`
+- `dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`
+- `dev/scripts/devctl/tests/commands/reporting/test_dashboard.py`
+
+### 2026-04-29 - Review packets gained lifecycle and disposition state
+
+Fact: live Plan 4.1 dogfood still had a packet-loss shaped failure mode:
+expired pending packets could fall out of the actionable inbox without a
+per-packet audit trail proving whether an actor acknowledged, acted on,
+integrated, queued, or archived the work. `PacketOutcomeLedger` was useful as a
+bounded history report, but it still left clock-expired rows looking like lost
+intent.
+
+Change: the event reducer now enriches every packet row with
+`PacketLifecycleHistory` and `PacketDisposition`. ACK transitions append
+`acknowledged_events`; apply, dismiss, and expire transitions append
+`acted_on_events`; each row exposes `lifecycle_current_state` plus
+`resolution_anchor`. TTL-elapsed pending packets are archived with
+`archive_classification:clock_expired_without_disposition` instead of becoming
+silent lost-work candidates. Plan-targeted `apply` transitions append an
+idempotent `PacketPlanIntegration` row to `dev/active/MASTER_PLAN.md`, and the
+`rev_pkt_2145` deferred queue is routed into concrete `MP377-P0` / `MP394-A`
+plan rows or archived when prior code already resolved it.
+
+Evidence:
+- `dev/scripts/devctl/review_channel/packet_lifecycle.py`
+- `dev/scripts/devctl/review_channel/packet_plan_integration.py`
+- `dev/scripts/devctl/review_channel/event_packet_rows.py`
+- `dev/scripts/devctl/review_channel/packet_outcomes.py`
+- `dev/scripts/devctl/runtime/review_state_packet_models.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_lifecycle.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_outcomes.py`
+
+### 2026-04-28 - Plan 4.1 dogfood cleanup collapses review surfaces onto typed authority
+
+Fact: live Codex/Claude dogfood found several small but compounding surface
+lies: bridge/status reviewer mode could disagree, packet counters counted
+different queues, Action Requests risked reading receipt-like rows, context
+graph bootstrap said "0 visible edge(s)" while suppressing edges, dry-run
+tandem validation printed command noise before its report, `triage` could trip
+over a package-relative mutation shim, and `check --profile quick` mixed
+process cleanup into the default code-shape signal.
+
+Change: the reviewed surfaces now prefer typed authority and keep compatibility
+state explicit. Bridge metadata renders effective reviewer mode while preserving
+the declared mode as a separate row, packet inbox counts only live pending
+work, Action Requests project only pending `kind="action_request"` packets,
+packet posts receive stable semantic idempotency keys, and packet-kind
+validation uses a single schema table. Context-graph bootstrap names that edge
+details are suppressed, tandem dry-run output starts at the markdown report,
+the mutation outcome shim works in package and direct-script modes, and the
+process-sweep cleanup around `check` is opt-in with
+`--with-process-sweep-cleanup`.
+
+Change: `CollaborationSession.session_outcomes` now also projects
+`AgentSessionOutcome(outcome=unresolved)` rows for dead sessions that never
+emitted a terminal outcome. This does not replace the completed-handoff proof;
+it makes the failure path typed so Codex-style apply/guard exits cannot
+disappear as prose-only session endings.
+
+Evidence:
+- `dev/scripts/devctl/review_channel/bridge_projection_metadata.py`
+- `dev/scripts/devctl/review_channel/bridge_projection_state.py`
+- `dev/scripts/devctl/runtime/review_packet_inbox.py`
+- `dev/scripts/devctl/review_channel/action_request.py`
+- `dev/scripts/devctl/review_channel/event_store.py`
+- `dev/scripts/devctl/review_channel/packet_post_idempotency.py`
+- `dev/scripts/devctl/review_channel/packet_contract.py`
+- `dev/scripts/devctl/context_graph/query.py`
+- `dev/scripts/devctl/commands/governance/simple_lanes.py`
+- `dev/scripts/checks/mutation_outcome_parse.py`
+- `dev/scripts/devctl/commands/check/__init__.py`
+- `dev/scripts/devctl/runtime/agent_session_outcome.py`
+- `dev/scripts/devctl/review_channel/collaboration_session.py`
+
+### 2026-04-28 - Governed commit now accepts explicit path-scoped staging
+
+Fact: the governed commit lane already had a typed `vcs.stage` action capable of
+selected-path staging, ReviewSnapshot refresh, and dirty-outside-scope
+enforcement. The user-facing `devctl commit` command could not pass paths into
+that action, so a remote-control lane with real unstaged work could only follow
+guidance that said "stage the intended paths first" by running raw `git add`.
+
+Change: `devctl commit --paths <path>...` now feeds selected repo-relative paths
+into the existing typed stage action before guard, approval, and commit
+execution. `--approve-pending` remains a pure resume path and rejects new path
+selection, while the selected-path staging path still refreshes the managed
+ReviewSnapshot artifact and blocks when other non-artifact dirty paths remain
+outside the selected scope.
+
+### 2026-04-28 - Governed push execution-truth now distinguishes in-flight publication from terminal post-push evidence
+
+Fact: `devctl push --execute` writes a managed latest-push snapshot immediately
+after the remote ref advances and before the configured post-push bundle runs.
+That in-flight snapshot truthfully proves remote publication, but it cannot yet
+carry `post_push_steps`. The execution-truth meta-guard treated that pending
+snapshot as a terminal report, appended a false `SilentPushFailure`, and the
+final `post_push_green` report inherited the stale error even after all
+post-push commands passed.
+
+Change: the `SilentPushFailure` guard is now stage-aware. Publication claims
+still require fetch/preflight/push subprocess evidence plus remote-ref equality
+with current `HEAD`, while terminal post-push states (`post_push_green`,
+`post_push_bundle_failed`, `post_push_skipped_by_policy`) additionally require
+`post_push_steps`. The push report also mirrors `published_remote` and
+`post_push_green` from `push_stages` onto root fields so direct typed consumers
+do not need a second schema path to read publication truth.
+
+### 2026-04-28 - Governed push identity checks now consume managed receipt-chain authority
+
+Fact: push preflight can legitimately move `HEAD` by committing policy-owned
+generated surfaces, `bridge.md`, and ReviewSnapshot receipt artifacts before
+publication. `publication_authorization_decision` already accepted that
+contiguous managed receipt chain as authorization-current, but the later push
+identity finding check compared the original authorized content commit directly
+to live `HEAD` and raised `ApprovedTargetIdentityViolation`.
+
+Change: `PublicationAuthorizationDecision` now exposes whether authorization is
+current through a managed receipt chain, and the duplicate approved-target
+identity finding consumes that typed proof. Stale, fixture, unmanaged, or
+wrong-worktree authorizations still fail closed; only a chain already accepted
+by the publication authorization gate bypasses the raw `authorized_head == HEAD`
+comparison.
+
+Evidence:
+- `dev/scripts/devctl/runtime/push_authorization.py`
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/commands/vcs/push_findings_identity_validation.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
+### 2026-04-28 - Codex task_complete now has typed handoff backup and liveness uses SessionLivenessSignal
+
+Fact: multiple Codex slices ended with TASK_COMPLETE prose but no typed
+`stage_commit_pipeline` packet, which left the review-channel dashboard and
+commit pipeline guessing from prose. The liveness path had the same shape:
+some consumers read typed session rows, while others still treated bridge
+conductor booleans as direct authority.
+
+Change: Codex launcher scripts now run a session-end task-complete handoff
+guard. If the latest Codex rollout emitted `task_complete` and no matching
+`stage_commit_pipeline` action_request exists for the current
+`devctl_commit:<head>`, the guard posts the typed packet to Claude with full
+guard-bundle evidence before the supervised relaunch loop continues. The live
+agent instruction surface also says a slice is not complete until that typed
+handoff packet is in the target inbox.
+
+Change: `SessionLivenessSignal` now owns the portable provider liveness family
+in `devctl.runtime`: `alive`, `degraded`, `detached_runtime_only`, and `dead`.
+Review-channel status emits `session_liveness_signals` and keeps
+`participant_liveness` as a compatibility projection. Dashboard/mobile receive
+the same rows through `DashboardSnapshot.session_liveness`, startup runtime
+counts prefer the typed signal, and the control-plane read model no longer
+treats direct bridge conductor booleans as sufficient liveness proof.
+
+Evidence:
+- `dev/scripts/devctl/review_channel/task_complete_handoff_guard.py`
+- `dev/scripts/devctl/review_channel/launch_script.py`
+- `dev/scripts/devctl/review_channel/prompt_contract.py`
+- `dev/scripts/devctl/runtime/session_liveness_signal.py`
+- `dev/scripts/devctl/runtime/control_plane_daemons.py`
+- `dev/scripts/devctl/runtime/control_topology_bridge_counts.py`
+- `dev/scripts/devctl/runtime/dashboard_snapshot_authority.py`
+
+### 2026-04-28 - Completed-handoff publication authority now reaches hook-time generated receipts
+
+Fact: push v6 proved the completed-handoff waiver was present in the push
+recovery caller, but the target matcher still stopped short of the actual
+handoff packet. A publication-only generated-surface recovery commit sat above a
+managed receipt chain, so the shared target list appended only that commit's
+immediate parent and missed the older `devctl_commit:<head>` handoff parent.
+Push v5 also showed the same authority predicate was absent from hook-time
+generated-surface receipt commits, where the raw pre-commit hook saw
+`implementation_permission_blocked` and `review_authority_stale` and failed
+before the repo-owned receipt could be recorded.
+
+Change: `completed_handoff_authority` now extends the shared handoff target list
+through a managed receipt chain behind the commit-pipeline content parent, then
+adds the source handoff parent. The raw-git pre-commit gate consumes that same
+authority only for repo-owned generated-surface receipt intent marked by
+`DEVCTL_MANAGED_PROJECTION_RECEIPT_COMMIT=1`, and only when the staged paths are
+all managed projection artifacts. Source commits, missing/stale handoff
+evidence, and wrong-provider outcomes still fail closed through the existing
+commit-permission blockers.
+
+Evidence:
+- `dev/scripts/devctl/runtime/completed_handoff_authority.py`
+- `dev/scripts/devctl/runtime/commit_permission_hook.py`
+- `dev/scripts/devctl/commands/vcs/push_preflight_commit.py`
+- `dev/scripts/devctl/runtime/review_snapshot_refresh.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/scripts/devctl/tests/vcs/test_commit_gate.py`
+
+### 2026-04-28 - Governed push now treats completed handoff as typed session outcome
+
+Fact: the Plan 4.1 publication path still collapsed two different states into
+one blocker. After Codex posted a guarded `stage_commit_pipeline` handoff and
+exited cleanly, startup-context observed no live agent and reported
+`repair_reviewer_loop`, which made governed push spend its bounded recovery
+budget relaunching a loop that had already handed off.
+
+Change: `stage_commit_pipeline` packets with full guard-bundle evidence now
+emit an event-backed `AgentSessionOutcome(outcome=completed_handoff)` receipt.
+`CollaborationSession.session_outcomes` projects that receipt, and governed
+push may waive `pre_validation_recovery_loop_repair` only when the latest
+completed-handoff receipt matches the current prepared-session token, or the
+metadata-free target-binding fallback described below applies, and the startup
+blocker is `runtime_missing` / `no_live_agents`. Stale receipts or different
+startup blockers still run the existing recovery loop. The recovery
+loop budget is now 180 seconds so a real `review-channel ensure --follow`
+repair has time to complete and re-check startup-context instead of expiring
+mid-repair. Tandem consistency also treats a fresh reviewer-owned bridge
+`- pending` reset as visible implementer state when event-backed projection
+rows lag behind the repo-owned bridge projection, so a stale typed
+`missing` / `waiting_for_ack` row cannot override an explicit live reset.
+
+Follow-up: codex-exec API handoffs do not always write provider conductor
+metadata. Governed push now keeps the prepared-session-token path first, but
+when no provider-matching conductor metadata exists it may use the same
+completed-handoff receipt only if the packet target is bound to the current
+`devctl_commit:<head>` or the managed-receipt source commit chain. Outcomes
+that carried prepared-session metadata, wrong target refs, wrong revisions, or
+unrelated startup blockers still fail closed into the bounded recovery loop.
+The source-chain matcher walks the shared managed-receipt ancestry rather than
+collapsing the chain to one terminal parent, and it includes the content
+commit's handoff parent when the current commit-pipeline receipt resolves to
+that same content commit. This covers stacked projection receipts created by
+push preflight without accepting arbitrary older history.
+
+Evidence:
+- `dev/scripts/devctl/runtime/agent_session_outcome.py`
+- `dev/scripts/devctl/review_channel/agent_session_outcome_events.py`
+- `dev/scripts/devctl/review_channel/events.py`
+- `dev/scripts/devctl/review_channel/collaboration_session.py`
+- `dev/scripts/devctl/commands/vcs/push_recovery_loop_repair.py`
+- `dev/scripts/devctl/commands/vcs/push_recovery_loop_handoff.py`
+- `dev/scripts/devctl/commands/vcs/push_recovery_loop_result.py`
+- `dev/scripts/devctl/commands/vcs/push_recovery_loop_state.py`
+- `dev/scripts/devctl/commands/vcs/push_recovery_loop_types.py`
+- `dev/scripts/checks/tandem_consistency/implementer_checks.py`
+- `dev/scripts/checks/tandem_consistency/system_checks.py`
+- `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
+### 2026-04-27 - Governed commit now self-resolves host cleanup age-out and transient index locks
+
+Fact: the live `rev_pkt_2053` publication attempt exposed two places where the
+commit pipeline still behaved like a manual checklist. A quick guard run could
+fail only because `host-process-cleanup-post` saw recently detached repo
+processes that were already aging out, and ReviewSnapshot staging could lose a
+race with another transient `.git/index.lock` writer.
+
+Change: commit guard replay now recognizes the existing host-cleanup age-out
+warning, runs one bounded `process-watch --cleanup --strict --stop-on-clean`
+retry, then replays the same quick guard bundle once. Shared `run_git_capture`
+also retries transient `index.lock` "File exists" / "Another git process"
+failures for index-writing git commands while preserving the existing
+`Operation not permitted` sandbox handoff path. `ActionResult` now carries
+structured `errors`, `reason_chain`, `remediation`, and `auto_executable`
+fields, and governed stage/commit reports project those fields so AI and
+dashboard readers can see why a blocker happened and whether the remediation
+was already automation-safe.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/commit_guard_bundle.py`
+- `dev/scripts/devctl/runtime/vcs.py`
+- `dev/scripts/devctl/runtime/action_contracts.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_phases.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py`
+- `dev/scripts/devctl/tests/vcs/test_commit_guard_bundle.py`
+- `dev/scripts/devctl/tests/runtime/test_vcs.py`
+- `dev/scripts/devctl/tests/runtime/test_action_contracts.py`
+
+### 2026-04-27 - Governed push now refreshes stale reviewer heartbeat before preflight
+
+Fact: the Plan 4.1 remote-control publication lane still had a
+compatibility-only manual step after the typed `next=` recovery loop landed.
+`check_review_channel_bridge.py` could block `devctl push --execute` because
+`Last Codex poll` was older than the five-minute active dual-agent freshness
+threshold, even though the repair was a bounded repo-owned reviewer heartbeat
+action.
+
+Change: governed push pre-validation now reads the existing bridge liveness
+projection before ReviewSnapshot refresh. When `reviewer_mode=active_dual_agent`
+and `last_codex_poll_age_seconds` exceeds the shared stale-poll threshold, it
+runs one headless `review-channel --action reviewer-heartbeat --reason
+auto-refresh-during-publication`, records the result under the managed
+projection sync payload, and continues through the existing ReviewSnapshot,
+receipt, startup/context-graph, recovery-loop, and router cascade. Inactive
+reviewer modes and fresh heartbeats stay no-op, so the slice extends the
+existing publication path instead of adding a parallel recovery system.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/push_projection_runtime_refresh.py`
+- `dev/scripts/devctl/commands/vcs/push_preflight_projection.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
+### 2026-04-27 - Governed push now auto-runs bounded startup next recovery
+
+Fact: the live `rev_pkt_2019` push attempt proved an automation gap in the
+publication path. `devctl push` already committed managed bridge,
+ReviewSnapshot, and generated-surface receipts automatically, but when the
+post-receipt startup-context refresh returned a typed `next=` recovery
+cascade, the command failed and left AI/operators to run mechanical
+review-channel repair steps by hand.
+
+Change: managed projection refresh now marks recoverable startup-context
+failures instead of treating every parseable non-zero startup receipt as a
+terminal push failure. `devctl push` then runs
+`pre_validation_recovery_loop_repair` before validation. That phase emits a
+`TypedAction(action_id="vcs.recovery_loop_repair")`, executes only
+allowlisted headless review-channel `status` / `doctor` / `ensure` /
+`launch` / `recover` commands derived from startup-context `next=`, stops
+after five steps or 180 seconds, and fails closed when the cascade reaches
+operator-scope work such as commit/checkpoint commands.
+
+The same closeout narrows reviewer-mode proof-tick authority: bridge-compat,
+coordination, and registry surfaces are now treated as projections for
+`reviewer_mode` and defer to
+`startup_context.reviewer_gate.reviewer_mode`.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/push_recovery_loop_repair.py`
+- `dev/scripts/devctl/commands/vcs/push_projection_runtime_refresh.py`
+- `dev/scripts/devctl/commands/vcs/push_preflight_projection.py`
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/checks/review_surface_consistency/proof_tick.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/scripts/devctl/tests/checks/test_check_review_surface_consistency.py`
+
+### 2026-04-27 - Governed push reports now require live branch and remote proof
+
+Fact: the `rev_pkt_2027` / `rev_pkt_2029` regression exposed a Class-A trust
+break in the governed push path. The report could claim
+`status=published_remote` with a fixture branch and stale approved target
+identity even though the live remote ref had not advanced.
+
+Change: `devctl push` now builds the `vcs.push` `TypedAction` from live git and
+publication authorization, not from config or caller templates. Branch identity
+is forced from `git rev-parse --abbrev-ref HEAD`; configured-branch drift emits
+`BranchIdentityViolation` and fails before push execution. Approved target
+identity is taken from live authorization bound to current worktree and HEAD,
+with stale proof refused. After `git push`, the command verifies the remote ref
+equals current `HEAD`, and the report builder downgrades any execute=true
+publication claim missing fetch, preflight, push, post-push, or remote-ref
+evidence to `SilentPushFailure`.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/commands/vcs/push_findings.py`
+- `dev/scripts/devctl/commands/vcs/push_flow.py`
+- `dev/scripts/devctl/commands/vcs/push_snapshot.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_actions.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_push_result.py`
+- `dev/scripts/devctl/tests/vcs/test_push_report_does_not_lie_about_remote_state.py`
+- `dev/scripts/devctl/tests/vcs/test_typed_action_branch_matches_current_branch.py`
+- `dev/scripts/devctl/tests/vcs/test_approved_target_identity_is_live_derived.py`
+- `dev/scripts/devctl/tests/vcs/test_subprocess_steps_populated_when_execute_true.py`
+
+### 2026-04-27 - Proof-tick authority now uses field-owned expected sources
+
+Fact: the live `rev_pkt_2000` push blocker exposed a hidden authority bug in
+`check_review_surface_consistency.py`. The proof-tick comparator normalized
+fields across coordination, authority, startup, review-state, bridge, and
+commit surfaces, but then chose `expected` from whichever surface appeared
+first with a value. That made insertion order, not typed authority, decide
+whether `reviewer_mode` was treated as `tools_only` or `active_dual_agent`.
+
+Change: proof-tick parity now chooses expected values from explicit field
+authority priority and reports the expected source in mismatch details.
+`operator_interaction_mode` is now part of the proof tick as its own
+operator-channel axis, separate from reviewer-loop posture. The
+reference-only `dev/active/agent_substrate_architecture_review.md` captures
+the larger Plan 4.1 architecture decision: keep `StartupContext` /
+`AuthoritySnapshot` as the turn-sized authority surface, leave compatibility
+projections non-authoritative, and defer dynamic any-agent-any-role reassignment
+to Slice E on the existing collaboration/capability contracts.
+
+Evidence:
+- `dev/scripts/checks/review_surface_consistency/proof_tick.py`
+- `dev/scripts/devctl/tests/checks/test_check_review_surface_consistency.py`
+- `dev/active/agent_substrate_architecture_review.md`
+- `dev/audits/AUTOMATION_DEBT_REGISTER.md` ADR-020
+
+### 2026-04-27 - Push pipeline proof identity and enum connectivity now share the projection spine
+
+Fact: the follow-up `rev_pkt_2006` investigation found the immediate zref
+blocker in `sync_commit_pipeline_with_push_report`: the push report updated
+pipeline state but preserved a stale `snapshot_id` / `zref` while startup and
+review-state refreshes had moved to a newer proof tick. The same audit also
+confirmed that C-class connectivity guards covered dataclass fields but missed
+enum-value consumers such as operator modes and packet actions.
+
+Change: push pipeline sync now recomputes `commit_pipeline` proof identity
+from the current review-state runtime and push-decision payload before
+persisting both event-backed and legacy artifacts. `OperatorInteractionMode`
+has a central `OperatorModePolicy` matrix consumed by launch terminal
+discipline and commit approval authority, while
+`check_typed_enum_connectivity.py` enters the shared governance bundle in
+warning-only mode. Proof-tick parity now also has explicit authority priority
+for `implementation_permission` and `next_command`.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/push_pipeline_state_sync.py`
+- `dev/scripts/devctl/runtime/operator_context.py`
+- `dev/scripts/devctl/commands/review_channel/launcher_discipline.py`
+- `dev/scripts/checks/check_typed_enum_connectivity.py`
+- `dev/audits/AUTOMATION_DEBT_REGISTER.md` ADR-021
+
+### 2026-04-27 - Startup push-state now shares governed receipt projection classification
+
+Fact: the `rev_pkt_2008` publication attempt landed locally but push preflight
+failed in `startup-authority-contract-guard` with
+`ahead_of_upstream_commits=10` and `dirty_path_count=1`. There was no hidden
+threshold at 10; the guard failed because startup push-state treated the live
+`dev/audits/REVIEW_SNAPSHOT.md` refresh as authored dirty work, while governed
+push already classified the same file as a managed projection receipt.
+
+Change: startup push-state now excludes the same managed receipt artifact set
+used by governed push (`bridge.md` plus the configured ReviewSnapshot path)
+when computing source dirty counts. `PushEnforcement` also carries
+source-vs-managed-receipt ahead counts so a long local receipt chain remains
+visible as publication backlog without being confused with uncommitted source
+edits. The startup guard still fails closed for real source dirt after a local
+checkpoint.
+
+Evidence:
+- `dev/scripts/devctl/governance/push_state.py`
+- `dev/scripts/devctl/governance/push_state_receipts.py`
+- `dev/scripts/devctl/governance/push_state_models.py`
+- `dev/scripts/devctl/runtime/project_governance_push.py`
+- `dev/scripts/devctl/runtime/project_governance_push_ahead.py`
+- `dev/scripts/devctl/runtime/review_snapshot_refresh.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/audits/AUTOMATION_DEBT_REGISTER.md` ADR-022
+
+### 2026-04-27 - Governed push receipts policy-owned generated surfaces before docs gates
+
+Fact: after bridge and ReviewSnapshot receipt automation landed, the push
+pipeline still had a neighboring manual gap. Adding a new `devctl` command
+module changed the generated `SYSTEM_MAP.md` file-count and command-count
+block, so `check_instruction_surface_sync` blocked publication even though the
+drift was policy-owned output from `render-surfaces`.
+
+Change: governed push now runs `render-surfaces --write` before routed
+preflight and commits tracked, non-local repo-pack output drift as a managed
+generated-surface receipt. Receipt-chain readers accept that subject and the
+tracked render targets alongside bridge/ReviewSnapshot artifacts, while the
+selected receipt commit uses an explicit pathspec so staged-only next-commit
+intent remains outside machine receipts. If the generated-surface receipt moves
+`HEAD`, push refreshes the runtime projections again before docs/preflight or
+publication authorization consume the state.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/push_preflight_projection.py`
+- `dev/scripts/devctl/commands/vcs/push_render_surface_sync.py`
+- `dev/scripts/devctl/commands/vcs/push_projection_runtime_refresh.py`
+- `dev/scripts/devctl/commands/vcs/push_preflight_commit.py`
+- `dev/scripts/devctl/commands/vcs/push_projection_receipt.py`
+- `dev/scripts/devctl/runtime/review_snapshot_refresh.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/scripts/devctl/tests/runtime/test_push_authorization.py`
+
+### 2026-04-27 - Startup refresh treats typed advisory output as success
+
+Fact: rev_pkt_1968 made governed commit preflight refresh the startup receipt
+before failing on stale packet attention, but the refresh classifier still
+treated every non-zero `startup-context` exit as an execution failure. In the
+live remote-control closeout, `startup-context --format summary` correctly
+returned exit 1 with `action=checkpoint_before_continue` and
+`reason=staged_index_budget_exceeded` for a 28-file checkpoint, but commit
+preflight blocked with `startup_context_refresh_failed`.
+
+Change: the governed commit refresh helper now distinguishes a valid
+startup-context advisory payload from a real command failure. Exit 1 with a
+parseable startup-context advisory such as `checkpoint_before_continue` or
+`resume_implementer_work` counts as a successful refresh and leaves the
+advisory as the current attention state; missing or unparseable output still
+fails closed as `startup_context_refresh_failed`.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_runtime.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+
+### 2026-04-27 - Push failure state now frees safely landed local commits
+
+Fact: a governed commit can land locally and then fail during publication for a
+reason that does not invalidate the committed work. In the live remote-control
+loop, rev_pkt_1968 landed at `64ac3101`, but the push failed on managed
+projection validation fallout and left `pipeline-263bc415bd87` stuck in
+`push_blocked`. The next governed commit was then blocked on
+`active_pipeline_requires_publish_or_recovery`, forcing the old manual
+`mark-delivered-local` path even though the local commit was already durable.
+
+Change: the remote commit pipeline now records `push_pipeline_phases` and a
+typed `push_failure_transition`. Non-destructive push failures such as
+validation/downstream gate failures or already-published/concurrent receipt
+evidence auto-transition a landed commit to
+`delivered_locally_pending_publish`, preserving publication as pending without
+blocking the next governed commit. Destructive remote rejection/conflict
+evidence stays `push_blocked` for explicit operator reconciliation, and
+`mark-delivered-local` remains the manual override path. Commit preflight also
+applies the same transition to legacy stuck artifacts when their persisted push
+result proves the local commit is landed.
+
+Evidence:
+- `dev/scripts/devctl/runtime/remote_commit_pipeline_state.py`
+- `dev/scripts/devctl/runtime/remote_commit_pipeline_models.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_push_result.py`
+- `dev/scripts/devctl/commands/vcs/push_pipeline_state_sync.py`
+- `dev/scripts/devctl/commands/vcs/commit_pipeline_blocking.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/scripts/devctl/tests/commands/test_pipeline_command.py`
+- `dev/scripts/devctl/tests/vcs/test_commit_gate.py`
+
+### 2026-04-26 - Remote-control recover no longer opens invisible local Claude prompts
+
+Fact: live Plan 4.1 dogfood exposed a bad remote-control recovery route.
+`review-channel status` recommended
+`recover --recover-provider claude --terminal terminal-app` while the active
+operator mode was remote-control, so the recovery path opened a local macOS
+Terminal.app Claude prompt that the attached remote Claude/operator lane could
+not see.
+
+Change: bridge-backed status authority now prefers typed remote-control
+liveness over local governance defaults when building recovery assessment
+commands. Launcher discipline also refuses visible Terminal.app launch/recover
+requests when `interaction_mode=remote_control`, before any provider prompt can
+open. Remote-control recovery must stay headless or travel through typed packet
+/ attachment lanes.
+
+Evidence:
+- `dev/scripts/devctl/review_channel/status_snapshot_authority.py`
+- `dev/scripts/devctl/commands/review_channel/launcher_discipline.py`
+- `dev/scripts/devctl/tests/review_channel/test_status_snapshot_authority.py`
+- `dev/scripts/devctl/tests/review_channel/test_launch_script.py`
+
+### 2026-04-26 - Governed commit refreshes startup attention before stale gates
+
+Fact: typed dogfood findings must travel as review-channel packets, but posting
+a finding between `startup-context` refresh and `devctl commit` changed the
+packet attention revision and made the commit pipeline fail closed on
+`attention_revision_stale`. The failure was correct for stale startup evidence,
+but it created a circular dependency: the durable typed finding path invalidated
+the publication path needed to fix or record the finding.
+
+Change: governed VCS preflight now reuses the existing
+`startup-context --format summary` receipt writer when the stale-attention gate
+would otherwise block. Stage preflight refreshes the startup receipt, reloads
+it, and only blocks if the receipt still does not match live packet attention.
+Commit preflight does the same before emitting `attention_revision_stale`, while
+the approval-time attention lease still protects already-approved commit
+windows from self-invalidating typed writes.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_runtime.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_stage_attention.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+
+### 2026-04-26 - Governed push accepts managed receipt chains before publication
+
+Fact: Plan 4.1 Slice 0 dogfood exposed a governed-push self-invalidation loop.
+`devctl push` could refresh managed bridge/ReviewSnapshot projections, commit a
+receipt, move `HEAD` past the approved `PushAuthorizationRecord`, and then fail
+its own publication gate or later review-surface consistency checks.
+
+Change: push authorization, pipeline status, and push-state readers now treat a
+contiguous chain of managed projection receipt commits as managed movement when
+one ancestor matches the approved authorization anchor. The guarded push flow
+also refreshes event-backed review-channel projection bundles after receipt
+commits before preflight or publication authorization consumes proof-tick and
+snapshot state. The follow-up `rev_pkt_1955` closure extends the same receipt
+chain contract to `check_review_snapshot_freshness`: the guard accepts a
+snapshot bound to any ancestor in the contiguous managed receipt chain, and
+`devctl push` runs `review-snapshot --write --receipt-commit` inside the
+managed preflight/autocommit batch whenever that batch moves `HEAD`.
+
+Evidence:
+- `dev/scripts/devctl/runtime/review_snapshot_refresh.py`
+- `dev/scripts/devctl/runtime/push_authorization.py`
+- `dev/scripts/devctl/commands/pipeline/head_movement.py`
+- `dev/scripts/devctl/commands/vcs/push_preflight_projection.py`
+- `dev/scripts/checks/review_snapshot_freshness/command.py`
+- `dev/scripts/devctl/tests/checks/test_check_review_snapshot_freshness.py`
+- `dev/scripts/devctl/tests/runtime/test_push_authorization.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
+### 2026-04-27 - PlatformFindingIngest auto-recording becomes default report-only
+
+Fact: Plan 4.1 Slice A needed dogfood failures to enter the existing finding
+spine without depending on manual `dogfood --record --record-governance`
+replay or waking Codex mid-slice for non-critical findings.
+
+Change: failed non-read-only devctl commands now run the
+`PlatformFindingIngest` finalization hook by default after audit emission. The
+hook stays fail-open/report-only, appends the `DogfoodRun` row, records the
+stable `signal_type=dogfood` governance-review/FindingBacklog row, refreshes
+both summaries, and keeps the original command return code unchanged if ingest
+fails. Read-only, recursive dogfood/governance, and artifact-only commands
+remain excluded; `DEVCTL_PLATFORM_FINDING_INGEST_AUTO_RECORD=0` is the
+compatibility opt-out and `DEVCTL_PLATFORM_FINDING_INGEST_DISABLE=1` remains
+the kill switch. The same closeout registers `FindingReview`,
+`FindingBacklog`, and `PlatformFindingIngest` in the platform contract
+blueprint; ADR-019 records that stranded-consumer enforcement remains Slice C
+debt until the baseline can be retired.
+
+Evidence:
+- `dev/scripts/devctl/platform/runtime_state_contract_rows.py`
+- `dev/scripts/devctl/runtime/platform_finding_ingest.py`
+- `dev/scripts/devctl/runtime/dogfood_render.py`
+- `dev/scripts/devctl/tests/runtime/test_platform_finding_ingest.py`
+
+### 2026-04-26 - Plan 4.1 starts with report diagnostics and finding ingest
+
+Fact: the connected AI platform campaign needed runtime surfaces to agree
+before wider schema/spine work. The immediate gap was narrower than another
+architecture pass: commit/push reports could blur git commit failure,
+landed-commit receipt/projection state, review-gated publication, and
+post-push progress, while dogfood failures still depended on manual
+governance-review closeout.
+
+Change: governed commit visibility now emits explicit `git_commit_state`,
+`post_commit_state`, `publication_state`, and `receipt_projection_state`.
+Governed push reports add `push_diagnostic` with validation, publication,
+git-push, post-push, and summary fields. `PlatformFindingIngest` is the shared
+dogfood -> governance-review -> `FindingBacklog` seam; `dogfood
+--record-governance` uses it, and an opt-in fail-open dispatcher finalization
+hook can record failed non-read-only devctl commands after audit emission.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/commit_visibility.py`
+- `dev/scripts/devctl/commands/vcs/push_report.py`
+- `dev/scripts/devctl/runtime/platform_finding_ingest.py`
+- `dev/scripts/devctl/cli_parser/entrypoint.py`
+- `dev/scripts/devctl/tests/vcs/test_commit_visibility.py`
+- `dev/scripts/devctl/tests/vcs/test_push_report.py`
+- `dev/scripts/devctl/tests/runtime/test_platform_finding_ingest.py`
+
+### 2026-04-25 - Review-channel history gained a typed packet outcome ledger
+
+Fact: live dogfood showed expired-pending review packets accumulating even
+when Codex had addressed the substance in code or follow-up packets. The queue
+already hid expired pending rows from actionable inbox counts, but history had
+no typed terminal outcome that could distinguish delivered, superseded,
+withdrawn, unrecoverable, or unclassified expired work.
+
+Change: `review-channel --action history --include-outcomes` now attaches a
+bounded read-side `PacketOutcomeLedger` for the history rows being shown. The
+ledger classifies expired-pending packets into
+`delivered_via_commit`, `superseded_by`, `promoted_to_finding`,
+`withdrawn_by_reviewer`, or `expired_unrecoverable` from later typed
+review-channel event evidence, then renders the outcome in markdown packet
+history without mutating packet transport state. A later 2026-04-29 lifecycle
+slice replaced the unresolved `lost` fallback with archived disposition rows.
+This is the S2 first slice: the full stale-packet migration and blocking
+closure guard over all expired packets remain tracked under `rev_pkt_1822`.
+
+Evidence:
+- `dev/scripts/devctl/review_channel/packet_outcomes.py`
+- `dev/scripts/devctl/commands/review_channel/event_handler.py`
+- `dev/scripts/devctl/review_channel/event_render.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_outcomes.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_queue_cleanup.py`
+
+### 2026-04-25 - SYSTEM_MAP freshness gate closes bootstrap/push staleness
+
+Fact: every commit made the generated system-picture startup and graph
+sections stale, while `context-graph --mode bootstrap` was documented as an
+auto-save path but the read-only dispatcher suppressed that snapshot. Governed
+push could then reach preflight with a stale ReviewSnapshot and stale
+SYSTEM_MAP navigation evidence.
+
+Change: normal `context-graph --mode bootstrap` dispatch no longer auto-sets
+`DEVCTL_NO_ARTIFACT_WRITES`, while explicit external suppression still works
+for read-only mounts. `BootstrapContext` now carries the same
+`key_surfaces` registry projection as startup-context. The new
+`check_system_picture_freshness.py` guard fails stale `SystemPicture` sections
+and requires the startup and graph sections to be current, and the guarded push
+flow refreshes ReviewSnapshot plus managed projection receipts before routed
+preflight validates the branch.
+
+Evidence:
+- `dev/scripts/devctl/cli_parser/entrypoint.py`
+- `dev/scripts/devctl/runtime/key_surfaces.py`
+- `dev/scripts/devctl/context_graph/query.py`
+- `dev/scripts/checks/check_system_picture_freshness.py`
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/tests/checks/test_check_system_picture_freshness.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
+### 2026-04-25 - SYSTEM_MAP connectivity registry became shared runtime authority
+
+Fact: the generated SYSTEM_MAP block had a typed
+`ConnectivityRegistrySnapshot`, but graph/startup/session/render consumers
+could still drift into separate A->B->C maps. Live dogfood surfaced that as
+hundreds of registry fields with no reader evidence and a mismatch between
+startup/session key surfaces and context-graph discoverability.
+
+Change: `ConnectivityRegistrySnapshot` now declares the required graph,
+startup-context, session-resume, render-surfaces, SYSTEM_MAP, and renderer
+consumers for each source field. `context-graph` consumes that registry to
+annotate contract/field nodes and emit reader edges, startup-context and
+session-resume carry a bounded `connectivity_registry` summary, and
+render-surfaces reports the same summary while validating or writing the
+SYSTEM_MAP managed block. `check_platform_contract_closure.py` now fails when
+required registry consumers or field readers disappear, so future SYSTEM_MAP
+work must extend the shared registry instead of creating parallel maps.
+
+Evidence:
+- `dev/scripts/devctl/platform/connectivity_registry.py`
+- `dev/scripts/devctl/context_graph/contract_nodes.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/commands/governance/session_resume_packet.py`
+- `dev/scripts/devctl/governance/surfaces.py`
+- `dev/scripts/checks/platform_contract_closure/support.py`
+- `dev/scripts/devctl/tests/context_graph/test_context_graph.py`
+- `dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py`
+
+### 2026-04-25 - Connectivity reader closure now flags missing wiring instead of deleting declarations
+
+Fact: the first AST reader-verification pass could make the registry look
+green by dropping declared reader surfaces that lacked import or projection
+evidence. That hid aspirational SYSTEM_MAP connectivity instead of driving the
+missing wiring work.
+
+Change: `check_platform_contract_closure.py` now emits typed
+`MissingConnectionFinding` rows for declared readers without AST-visible
+evidence. Findings default to `aspirational_gap`, can only be suppressed by a
+committed registry-reader override classified as `mistakenly_declared` or
+`deferred_consumer` with justification, and surface
+`aspirational_gap_count` as the master KPI. `startup_context` and
+`session_resume` were restored as per-contract row readers and now project
+`connected_contract_ids` from `ConnectivityRegistrySnapshot`, so the full
+reader declaration set remains visible while the current KPI is
+`aspirational_gap_count=0`.
+
+Evidence:
+- `dev/scripts/devctl/platform/connectivity_reader_verification.py`
+- `dev/scripts/devctl/platform/connectivity_registry.py`
+- `dev/scripts/devctl/platform/connectivity_registry_models.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/commands/governance/session_resume_support.py`
+- `dev/scripts/checks/platform_contract_closure/connectivity_registry_closure.py`
+- `dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py`
+
+### 2026-04-24 - ActorAuthority grants make mutation authority identity-bound
+
+Fact: the review-channel runtime already carried `mutation_owner`, but commit
+handoff code still had paths that reasoned from reviewer mode or stale
+capability projections. That kept the system vulnerable to the same class of
+mode-flip drift: a role label could move while writable authority looked valid
+for the wrong actor.
+
+Change: `CollaborationSession` now emits additive `ActorAuthorityState` rows
+with explicit `CapabilityGrantState` grants such as `repo.commit`,
+`repo.stage`, `repo.stage_handoff`, `review.checkpoint`, `runtime.observe`,
+and `approval.commit`. `AuthoritySnapshot` and session-resume preserve those
+rows, and governed commit target selection first uses the live mutation
+owner's `repo.commit` grant before falling back to legacy artifacts. Approval
+remains a separate capability, so `approval.commit` does not imply repo
+mutation. Startup-context also keeps orphan-work evidence as a bounded summary
+so typed evidence does not break the slim bootstrap budget.
+
+Evidence:
+- `dev/scripts/devctl/runtime/review_state_collaboration_models.py`
+- `dev/scripts/devctl/review_channel/collaboration_session_lane_owners.py`
+- `dev/scripts/devctl/runtime/authority_snapshot_core.py`
+- `dev/scripts/devctl/commands/governance/session_resume_support.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_targets.py`
+- `dev/scripts/devctl/runtime/startup_context_projections.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+- `dev/scripts/devctl/tests/governance/test_session_resume.py`
+
+### 2026-04-24 - Remote-control status refresh now reasserts Codex liveness from typed authority
+
+Fact: live dogfooding with Claude remote-control exposed a split-brain that was
+narrower than packet delivery. Claude could post typed evidence and Codex could
+ack it, but normal Codex activity in this chat did not automatically refresh
+the reviewer heartbeat/mode. When `bridge.md` had drifted back to
+`tools_only`, `review-channel status --refresh-bridge-heartbeat-if-stale`
+looked only at raw bridge launch validation, saw inactive mode, and refused to
+refresh the stale Codex heartbeat. Claude then saw a stale/non-live Codex even
+while Codex was actively working.
+
+Change: the explicit status refresh path now reads typed remote-control
+continuity before deciding whether a stale `tools_only` bridge may refresh. If
+an active `remote_control_attachment` is present and the Codex poll is stale or
+missing, status may refresh the reviewer heartbeat, mark the fresh heartbeat as
+typed reviewer activity for this remote-control continuity case, and reproject
+`bridge.md` from typed state so the compatibility bridge returns to
+`active_dual_agent`. Launch/rollover still use the stricter fail-closed
+contract and do not get this broad bypass. Status continues to expose
+remaining red health through `attention`, `errors`, and final
+`bridge_liveness` without redefining the command-level `ok` contract.
+
+Evidence:
+- `dev/scripts/devctl/commands/review_channel/bridge_support.py`
+- `dev/scripts/devctl/review_channel/status_projection_runtime_presence.py`
+- `dev/scripts/devctl/commands/review_channel/status.py`
+- `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
+- `dev/scripts/devctl/tests/review_channel/test_bridge_projection_mode_defaults.py`
+- `dev/scripts/devctl/tests/review_channel/test_bridge_render.py`
+
+### 2026-04-23 - Governed push now receipts managed bridge projection drift before publication
+
+Fact: the first ADR-008 slice made `bridge.md` drift visible as managed
+projection state, but a green push could still end with raw `git status`
+showing the tracked compatibility projection dirty. That left the operator to
+decide whether the dirt was safe generated state or source work.
+
+Change: `devctl push` now closes that loop during preflight. After it refreshes
+typed review status and reprojects `bridge.md`, it checks the dirty path set;
+when every remaining path is a governed receipt artifact or configured
+compatibility projection, it stages those paths and creates the normal
+`Refresh external review snapshot for <content-head>` receipt commit before
+publication authorization. Push reporting refreshes the active HEAD after that
+receipt, publication authorization accepts bridge-only receipt commits through
+their parent content commit, and pipeline-state sync treats the receipt HEAD as
+the current pushed state while preserving the content commit as the approved
+target.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/push_projection_receipt.py`
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/commands/vcs/push_pipeline_state_sync.py`
+- `dev/scripts/devctl/runtime/review_snapshot_refresh.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/scripts/devctl/tests/runtime/test_push_authorization.py`
+
+### 2026-04-23 - Action-request delivery receipts now require actor-matched reads
+
+Fact: remote-control dogfooding found that a Codex-side observer command such
+as `review-channel --action watch --target claude` could stamp a Claude
+`action_request` as delivered. That made dashboard state claim Claude had seen
+a push request even when Codex only inspected the Claude lane.
+
+Change: event-backed `inbox|watch` delivery stamping now requires `--actor` to
+match the target agent before it writes `delivery_observed_at_utc` /
+`delivery_observed_by`. Observer/dashboard reads remain read-only unless they
+are explicitly running as the live lane actor, while `ack|apply` still stamps
+execution start through the existing packet transition path.
+
+Evidence:
+- `dev/scripts/devctl/commands/review_channel/event_watch_support.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_watch_support.py`
+- `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
+
+### 2026-04-23 - Review-surface proof ticks separate control topology from coordination topology
+
+Fact: the remote-control push preflight exposed a hard-blocking false
+divergence. `check_review_surface_consistency` compared the live
+`observed_control_topology=single_agent` against
+`coordination.observed_topology=dual_agent` and failed, even though those
+fields answer different questions: current control posture vs planned/live
+coordination topology.
+
+Change: proof-tick parity now only treats explicit
+`observed_control_topology` fields as the control-topology contract. The
+coordination snapshot can still report dual-agent planning/topology evidence
+without forcing startup, authority snapshot, and persisted review-state
+control posture to lie about the active remote-control lane.
+
+Evidence:
+- `dev/scripts/checks/review_surface_consistency/proof_tick.py`
+- `dev/scripts/devctl/tests/checks/test_check_review_surface_consistency.py`
+
+### 2026-04-23 - Session-resume follows ControlPlaneReadModel options API
+
+Fact: Claude dogfooding caught a canonical bootstrap crash:
+`session-resume --role reviewer` and `--role implementer` passed legacy
+`governance=` / `review_state=` keyword arguments directly to
+`build_control_plane_read_model`, whose API now takes those inputs through
+`ControlPlaneReadModelOptions`.
+
+Change: session-resume now builds the shared control-plane read model with
+`ControlPlaneReadModelOptions(governance=..., review_state=...)`, preserving
+the caller-threaded governance and frozen review-state contract without
+crashing fresh reviewer/implementer sessions.
+
+Evidence:
+- `dev/scripts/devctl/commands/governance/session_resume_source_helpers.py`
+- `dev/scripts/devctl/tests/governance/test_session_resume.py`
+
+### 2026-04-23 - Pipeline status now distinguishes managed receipt HEAD movement
+
+Fact: ADR-008 dogfooding exposed a second operator-confusing split after the
+push receipt landed. The completed pipeline was healthy and recommended no
+action, but `pipeline --action status` still reported `head_has_moved=True`
+because current HEAD was the managed projection receipt commit above the
+authorized pipeline commit.
+
+Change: pipeline status now reduces HEAD movement through the same governed
+receipt shape used by push authorization. When current HEAD is a receipt commit
+touching only governed review artifacts and its parent is the pipeline
+`commit_sha` / `authorized_head_sha`, status and auto-recover project
+`head_movement_classification=managed_receipt`,
+`managed_receipt_parent_sha=<pipeline-commit>`, and
+`head_has_moved=False`. The recover and refresh-authorization actions reuse
+that reducer so manual recovery paths do not rebind or refuse against a
+generated receipt as if it were source drift.
+
+Evidence:
+- `dev/scripts/devctl/commands/pipeline/head_movement.py`
+- `dev/scripts/devctl/commands/pipeline/status_action.py`
+- `dev/scripts/devctl/commands/pipeline/auto_recover_action.py`
+- `dev/scripts/devctl/runtime/pipeline_auto_recovery_contracts.py`
+- `dev/scripts/devctl/tests/commands/test_pipeline_command.py`
+- `dev/scripts/devctl/tests/runtime/test_pipeline_auto_recovery_contracts.py`
+
+### 2026-04-23 - Managed bridge projection drift is now typed separately from source dirt
+
+Fact: ADR-008 dogfooding showed a confusing but intended split: raw
+`git status` could show `bridge.md` dirty after review-state synchronization,
+while `startup-context` reported `clean_worktree` because `bridge.md` is a
+generated compatibility projection excluded from source-work checkpoint
+budgets.
+
+Change: the push/checkpoint state now carries that excluded generated dirt as
+typed evidence instead of hiding it. `PushEnforcement` emits
+`managed_projection_drift`, `managed_projection_dirty_paths`, and excluded-path
+counts from the same repo-governance checkpoint policy that declares
+compatibility projections. Startup-context, context-graph,
+dashboard/control-plane, and push-decision surfaces render the managed
+projection drift separately from authored source dirt, with
+`managed_projection_drift_only` used when no source work or remote publication
+remains.
+
+Evidence:
+- `dev/scripts/devctl/governance/push_state.py`
+- `dev/scripts/devctl/governance/push_state_git.py`
+- `dev/scripts/devctl/runtime/project_governance_push.py`
+- `dev/scripts/devctl/runtime/startup_advisory_push_support.py`
+- `dev/scripts/devctl/runtime/startup_push_decision.py`
+- `dev/scripts/devctl/commands/governance/startup_context_summary.py`
+- `dev/scripts/devctl/context_graph/render.py`
+- `dev/scripts/devctl/commands/dashboard.py`
+
+### 2026-04-23 - Read-only advisory roles no longer receive mutating next commands
+
+Fact: ADR-005 showed that fixing `session-resume --role observer` alone was
+not enough; sibling startup, dashboard, authority, and control-plane surfaces
+could still render implementer-lane commit/push/pipeline commands to
+observer/dashboard callers.
+
+Change: a shared
+`dev/scripts/devctl/runtime/advisory_next_action_role_filter.py` helper now
+projects mutating advisory next commands to the read-only review-channel
+status command for dashboard/observer roles. Startup action routing,
+`AuthoritySnapshot`, `ControlPlaneReadModel`, `session-resume`, and
+`dashboard --role dashboard|observer` all consume the helper.
+
+Evidence:
+- `dev/scripts/devctl/runtime/advisory_next_action_role_filter.py`
+- `dev/scripts/devctl/runtime/action_routing.py`
+- `dev/scripts/devctl/runtime/authority_snapshot_build.py`
+- `dev/scripts/devctl/runtime/control_plane_read_model.py`
+- `dev/scripts/devctl/commands/governance/session_resume_role_projection.py`
+- `dev/scripts/devctl/commands/dashboard.py`
+- `dev/scripts/devctl/tests/runtime/test_action_routing.py`
+- `dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`
+- `dev/scripts/devctl/tests/governance/test_session_resume.py`
+- `dev/scripts/devctl/tests/commands/reporting/test_dashboard.py`
+
+### 2026-04-22 - Phase 0 proof-tick parity now spans nine runtime surfaces
+
+Fact: after `AuthoritySnapshot` and `CoordinationSnapshot` started carrying
+producer provenance, the remaining read-side surfaces could still diverge for
+the same proof tick. `ControlPlaneReadModel` and `SessionCachePacket` exposed
+the right runtime fields but did not carry the producer-owned source tuple as
+typed provenance, and the review-surface consistency guard still checked
+snapshot/generation drift without freezing the wider runtime-truth fields
+across all surfaces.
+
+Change: `ControlPlaneReadModel` and `SessionCachePacket` now carry a nested
+`SurfaceProvenance` value and serialize the same seven provenance fields as
+the review-state producer. Review-channel compact/full/actions projections
+copy the same tuple through shared helpers. The consistency guard now records
+and compares the frozen proof tick across coordination snapshot, authority
+snapshot, control-plane read model, startup-context, session-resume,
+review-channel status, persisted review-state, registry agents, and
+bridge-compat output. For exposed fields, reviewer mode, effective reviewer
+mode, observed topology, instruction revision, ownership, implementation
+permission, next command, snapshot/generation identity, HEAD/worktree
+identity, and `zref` must agree.
+
+Evidence:
+- `dev/scripts/checks/review_surface_consistency/proof_tick.py`
+- `dev/scripts/checks/review_surface_consistency/command.py`
+- `dev/scripts/devctl/runtime/control_plane_read_model.py`
+- `dev/scripts/devctl/commands/governance/session_resume_packet.py`
+- `dev/scripts/devctl/review_channel/projection_bundle.py`
+- `dev/scripts/devctl/review_channel/projection_bundle_payloads.py`
+- `dev/scripts/devctl/tests/checks/test_check_review_surface_consistency.py`
+- `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
+
+### 2026-04-22 - Governed commit now blocks snapshot-only staging when real work is dirty
+
+Fact: live worktree-orphan dogfood reproduced a narrower staged-intent gap in
+the same governed commit lane. A `devctl commit` retry refreshed and staged
+`dev/audits/REVIEW_SNAPSHOT.md`, then recorded a commit whose message matched
+the intended slice while the actual code/docs stayed dirty outside the index.
+The existing preservation guard only detected user-staged paths that vanished;
+it did not detect the equally dangerous case where no user paths were staged
+and the managed refresh became the whole approved tree.
+
+The fix is fail-closed automation. Governed staging now classifies the staged
+set against the ReviewSnapshot receipt allowlist and returns
+`staged_scope_missing_dirty_work` whenever only receipt artifacts are staged
+while non-artifact dirty paths remain. The operator guidance points to the two
+valid paths: stage the intended files first, or use
+`review-snapshot --write --receipt-commit` for an explicit snapshot-only
+receipt. Regression coverage proves a dirty tracked file plus a staged
+ReviewSnapshot artifact cannot mint a pipeline.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/governed_executor_phases.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_stage_snapshot.py`
+- `dev/scripts/devctl/tests/vcs/test_commit_gate.py`
+
+### 2026-04-17 - Event-backed current-session only clears on explicit packet truth, and missing implementation permission now blocks mutation
+
+### 2026-04-21 - Review-channel mode drift and checkpoint reprojection are bounded by explicit bridge authority
+
+Fact: `rev_pkt_1557` exposed a reviewer-mode drift loop in the transitional
+review-channel path. `reviewer-heartbeat --reviewer-mode single_agent` wrote
+the explicit bridge mode, but event-backed bridge liveness could derive
+`reviewer_mode` from daemon lifecycle rows, including stopped or observer
+follow-loop rows. In the related `rev_pkt_1556` path, status drift repair
+could also render `bridge.md` from a stale typed `current_session` after a
+fresh reviewer checkpoint had just written newer reviewer-owned sections.
+
+Change: event-backed bridge liveness now prefers explicit bridge reviewer
+metadata before daemon observer rows and only falls back to running daemon
+mode when no bridge mode exists. Current-session drift detection now treats a
+fresh, meaningful bridge checkpoint as the authority that updates typed
+current-session state, rather than as permission to reverse-sync stale typed
+state back onto `bridge.md`. Regression coverage protects both the mode
+projection and the fresh-checkpoint bridge-sync boundary.
+
+Evidence:
+- `dev/scripts/devctl/review_channel/event_projection_bridge.py`
+- `dev/scripts/devctl/review_channel/current_session_support.py`
+- `dev/scripts/devctl/commands/review_channel/status.py`
+- `dev/scripts/devctl/commands/review_channel/status_bridge_sync.py`
+- `dev/scripts/devctl/review_channel/status_snapshot_authority.py`
+- `dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`
+- `dev/scripts/devctl/tests/review_channel/test_bridge_render.py`
+
+### 2026-04-21 - Authority and coordination snapshots carry producer provenance
+
+Fact: the Phase 0.a Runtime Truth First slice left `AuthoritySnapshot` and
+`CoordinationSnapshot` as nested proof surfaces without their own producer
+provenance. Downstream parity checks could see the surrounding
+`review_state` provenance, but the reduced authority and coordination
+contracts themselves still lacked the shared `snapshot_id` / `zref` /
+`source_identity` tuple needed to prove that startup, session-resume, status,
+and dashboard views were reading the same producer tick.
+
+Change: both snapshot contracts now carry the seven-field provenance tuple
+(`snapshot_id`, `zref`, `source_identity`, `source_contract`,
+`source_command`, `observed_fields`, and `inferred_fields`) and serialize it
+through the shared `attach_surface_provenance()` helper. The authority builder
+copies provenance from its source payload, while the coordination reducer
+copies provenance from the typed review-state producer before projecting the
+nested snapshot. Regression tests now cover producer wiring and round-trip
+deserialization for both contracts.
+
+Evidence:
+- `dev/scripts/devctl/runtime/authority_snapshot_core.py`
+- `dev/scripts/devctl/runtime/authority_snapshot_build.py`
+- `dev/scripts/devctl/runtime/surface_provenance.py`
+- `dev/scripts/devctl/platform/coordination_snapshot.py`
+- `dev/scripts/devctl/platform/coordination_snapshot_models.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+- `dev/scripts/devctl/tests/platform/test_coordination_snapshot.py`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/scripts/README.md`
+
+### 2026-04-21 - Event-backed review-state stays authoritative before bridge drift repair
+
+Fact: `rev_pkt_1503` exposed that
+`load_current_review_state_payload()` still checked cached bridge contract
+drift before honoring the governed event-backed
+`projections/latest/review_state.json` path. That meant an event-backed caller
+could be silently downgraded into a bridge-backed refresh whenever the
+compatibility bridge shape drifted, even though the event-backed reducer had
+already emitted the canonical typed authority.
+
+Change: the shared loader now branches event-backed projection paths before
+bridge-contract-drift repair. Event-backed live-refresh callers still refresh
+through `refresh_event_backed_review_state_payload()` when they explicitly ask
+for a live read, while bridge-backed cached projections continue to use the
+drift repair path. Regression coverage now proves bridge-backed drift still
+refreshes and event-backed drift does not call the bridge refresh.
+
+Evidence:
+- `dev/scripts/devctl/runtime/review_state_locator.py`
+- `dev/scripts/devctl/tests/runtime/test_review_state_locator.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+
+### 2026-04-21 - Stall diagnostics clear replaced sessions before stale escalation deadlocks
+
+Fact: `rev_pkt_1529` exposed one remaining order-of-checks bug in the typed
+conductor stall diagnostic. The previous follow-up correctly made
+`escalation_deadlock` fire when a long-lived conductor completed earlier work
+and later wedged on a headless sandbox-escalation prompt, but that branch ran
+before the explicit replacement-session check. A conductor that was wedged,
+then relaunched with caller-supplied `replacement_session_ids`, could still
+surface as deadlocked forever even though the expected replacement rollout
+existed.
+
+Change: `diagnose_conductor_stall()` now evaluates explicit replacement
+evidence before stale escalation-deadlock classification for sessions with a
+task-complete marker. The focused regression writes an old rollout with both
+task-complete and escalation events plus a caller-named replacement rollout,
+then proves the diagnosis returns `new_session_spawned` instead of
+`escalation_deadlock`.
+
+Evidence:
+- `dev/scripts/devctl/review_channel/stall_diagnostics.py`
+- `dev/scripts/devctl/tests/review_channel/test_stall_diagnostics.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-04-21 - Branch-already-pushed reruns stop reconstructing blocked pipelines
+
+Fact: the 2026-04-20 governed-push heal made a stale blocked commit pipeline
+look complete when a later no-op rerun returned `branch_already_pushed` with
+`published_remote=true`. That hid the actual state boundary: remote publication
+can be current while post-push validation is still unresolved, and the commit
+pipeline should not be rewritten into `push_completed` unless both remote
+publication and post-push green evidence exist.
+
+Change: `pipeline_push_result()` now leaves `branch_already_pushed` no-op
+receipts as partial-progress push-blocked results unless the push report also
+proves `post_push_green=true`. Reviewer runtime publication no longer
+reconstructs publication from partial pipeline push results; it treats the
+commit pipeline as published only when the pipeline state is `push_completed`
+and recovers already-published truth from the latest persisted push artifact
+when that artifact matches the current branch and HEAD.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/governed_executor_push_result.py`
+- `dev/scripts/devctl/review_channel/reviewer_runtime_publication.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_doctor.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-04-20 - Governed push reruns briefly healed already-published pipelines back to `push_completed`
+
+Superseded by the 2026-04-21 follow-up above.
+
+Fact: the first fix for the no-op governed-push regression only added a
+monotonic guard at pipeline persistence time. That prevented an already-green
+`push_completed` pipeline from regressing on a rerun, but it still left one
+real failure mode open: if an older run had already been persisted as
+`push_blocked`, a later `branch_already_pushed` rerun would keep reporting the
+branch as remotely published while the pipeline artifact stayed blocked.
+
+Change: at that point, the push-result projector treated
+`reason=branch_already_pushed` plus `published_remote=true` as terminal push
+completion. The same rerun projected `next_state=push_completed`, cleared the
+blocked publication interpretation, and emitted a passing `push_result` instead of
+partial-progress failure semantics. Regression proof now covers both the direct
+projection path and the pipeline sync heal path for an already-regressed
+`push_blocked` artifact.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/governed_executor_push_result.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
+### 2026-04-19 - Event-backed packet post now wakes the waiting reviewer instead of waiting for follow cadence
+
+Fact: the next live Codex+Claude remote-control pass exposed a narrower defect
+than "the heartbeat is stale." Event-backed packet posting already updated the
+typed queue immediately, but the actual reviewer wake lived only inside the
+detached ensure-follow loop. When Codex was sitting in a waiting reviewer
+state, a fresh Claude packet could land in the inbox and still do nothing
+until a later publisher tick or a manual operator poke woke the loop.
+
+This mattered because packet visibility and packet wake are different contracts.
+A dual-agent loop that only notices new work on cadence is still operator-led,
+even if the typed queue is correct. That is exactly the failure mode the
+remote-control dogfood surfaced: the queue changed, but the mutation/review
+lane did not react until a human forced it.
+
+The closure stayed bounded and reused the existing wake authority instead of
+inventing a second wake system. Event-backed `review-channel --action post`
+now refreshes typed status immediately after the packet write, derives the
+same operator interaction mode the rest of the runtime uses, and calls the
+existing reviewer wake primitive when the new packet targets Codex and the
+typed reviewer state says the lane is waiting. The follow loop still owns its
+cadence-based wake behavior, but packet arrival no longer has to wait for that
+cadence to restore the reviewer turn. Focused proof is green on the new
+post-path wake regression plus the existing reviewer-wake and watch support
+regressions.
+
+Evidence: `dev/scripts/devctl/commands/review_channel/event_handler.py`,
+`dev/scripts/devctl/commands/review_channel/event_post_wake.py`,
+`dev/scripts/devctl/review_channel/follow_controller.py`,
+`dev/scripts/devctl/tests/review_channel/test_event_post_wake.py`,
+`dev/scripts/devctl/tests/review_channel/test_follow_controller_reviewer_wake.py`,
+and `dev/scripts/devctl/tests/review_channel/test_event_watch_support.py`.
+
+### 2026-04-18 - Collaboration roles now derive from typed ownership while dogfood stays a development ledger
+
+Fact: the next MP-377 collaboration pass exposed a smaller but more important
+coupling bug than "Claude should dogfood more." The repo already had
+`devctl dogfood --record --dev-mode`, but the live collaboration contract was
+still easy to read as if dogfood were the thing that decided who coded and who
+verified. That would have baked a self-hosting development workflow into the
+universal runtime path even though end-user repos may want typed collaboration
+without any dogfood campaign at all.
+
+This mattered because runtime state and development evidence answer different
+questions. Typed runtime should decide mutation ownership, verification
+ownership, and watcher/dashboard ownership right now. Dogfood should record
+whether a development session exercised that path and captured evidence. If
+those concerns collapse into one mode flag, the runtime becomes
+development-shaped instead of repo-pack-shaped.
+
+The closure stayed bounded and typed. `CollaborationSession` now carries
+explicit `mutation_owner`, `verification_owner`, `verification_status`,
+`watcher_owner`, and `watcher_status`, and `AuthoritySnapshot` mirrors those
+fields for startup/status/session-resume consumers. The collaboration-session
+builder derives them from the existing typed roster plus remote-control
+attachments, and the review-state parser only falls back to collaboration or
+bridge instruction truth when `current_session` is absent. The same slice kept
+`devctl dogfood` explicitly documented as development-only evidence instead of
+promoting it into a universal runtime mode.
+
+Evidence: `dev/scripts/devctl/review_channel/collaboration_session.py`,
+`dev/scripts/devctl/review_channel/collaboration_session_lane_owners.py`,
+`dev/scripts/devctl/runtime/review_state_collaboration_models.py`,
+`dev/scripts/devctl/runtime/review_state_collaboration_parse.py`,
+`dev/scripts/devctl/runtime/review_state_collaboration_legacy.py`,
+`dev/scripts/devctl/runtime/review_state_parser.py`,
+`dev/scripts/devctl/runtime/review_state_parser_rows.py`,
+`dev/scripts/devctl/runtime/authority_snapshot_core.py`,
+`dev/scripts/devctl/runtime/authority_snapshot_build.py`,
+`dev/scripts/devctl/runtime/authority_snapshot_parse_support.py`,
+`dev/scripts/devctl/tests/review_channel/test_collaboration_session.py`,
+`dev/scripts/devctl/tests/runtime/test_review_state.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+and `dev/active/ai_governance_platform.md`.
+
+### 2026-04-18 - Remote-control operator delegation now auto-satisfies governed commit approval when typed runtime proves the operator role
+
+Fact: the next live `/remote-control` dogfood pass exposed a narrower gap
+than either of the repo's earlier extremes. The branch had already moved away
+from blanket promptless `remote_control` approval, and
+`devctl commit --approve-pending` now existed as the explicit resume path, but
+the governed commit lane was still using the raw `interaction_mode` string as
+its entire approval decision. That meant the live pipeline still stopped at
+`operator_approval_pending` and minted `rev_pkt_1122` even when typed runtime
+state already proved an active `remote_control_attachment` for Claude with
+`role=operator`, plus the collaboration roster projected the same Claude lane
+as `operator_agent`.
+
+This mattered because the approval boundary is supposed to be role-first and
+typed. A bare `remote_control` string is not enough to self-approve, but an
+active operator-role attachment is also not "just another prompt": it is the
+repo's own typed proof that the remote-control lane already delegated operator
+authority to a live session. Requiring a second manual approval packet in that
+state turns governed mutation into paperwork instead of enforcing a stronger
+boundary.
+
+The closure stayed bounded. `commit_preflight_support.py` now exposes a small
+`CommitApprovalAuthority` decision built from `interaction_mode` plus optional
+`remote_control_attachment` evidence. Local-terminal and single-agent still
+self-approve, plain `remote_control` still fails closed, and `remote_control`
+only auto-satisfies approval when runtime proves an active operator-role
+delegate for the current lane. The governed commit path then reuses the
+existing typed operator packet flow instead of inventing a new packet-recipient
+permission model or bypass flag, while `devctl commit --approve-pending`
+remains the explicit resume path for remote-control sessions that do not carry
+that typed delegation. Focused proof is green on six commit-gate regressions:
+delegate-backed auto-approval, no-delegate fail-closed behavior, explicit
+resume, explicit approval sync, pending-phase reporting, and interaction-mode
+resolution.
+
+Evidence: `dev/scripts/devctl/commands/vcs/commit.py`,
+`dev/scripts/devctl/commands/vcs/commit_preflight.py`,
+`dev/scripts/devctl/commands/vcs/commit_preflight_support.py`,
+`dev/scripts/devctl/commands/vcs/commit_preflight_validators.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_packets.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_gate.py`,
+`dev/scripts/README.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/remote_control_runtime.md`,
+and `AGENTS.md`.
+
+### 2026-04-18 - Governed commit/push now preserve staged intent and separate receipt reporting from content commits
+
+Fact: the next live push attempts exposed two architectural defects in the
+same governed publication lane. First, `devctl push` and its preflight
+auto-commit repair path still treated every dirty-tree row as push-blocking,
+so a user who had already started staging the next slice could deadlock the
+already-approved push path into a commit/push/dirty-tree loop. Second, the
+governed commit lane still left one high-risk blind spot around the managed
+ReviewSnapshot refresh: if that refresh ever dropped previously staged user
+paths, the stage phase would continue silently, and the final report could
+still make the trailing receipt commit look like the substantive code commit.
+
+This mattered because both defects block normal multi-file work. A governed
+push that treats staged-only intent as dirt turns the repo-owned publication
+path into a loop generator, and a governed commit lane that cannot prove it
+preserved the staged set is not safe to trust during checkpointed or
+multi-file work. The reporting ambiguity made the second problem worse by
+pointing operators at the receipt SHA instead of the parent code commit that
+actually carried the user's staged content.
+
+The closure stayed typed and low-risk. `collect_git_status()` now emits
+working-tree-aware porcelain fields (`raw_status`, `index_status`,
+`worktree_status`) so the new `push_worktree_changes.py` helper can treat
+unstaged/untracked dirt as push-blocking while allowing staged-only next-commit
+intent to coexist with the approved push path. `push.py` and
+`push_preflight_commit.py` now both reuse that helper, so preflight-generated
+auto-commit logic and the final push cleanliness gate agree on the same
+contract. On the commit side, governed staging now routes ReviewSnapshot
+refresh bookkeeping through a dedicated helper module, fails closed with
+`staged_index_preservation_failed` if the managed refresh drops previously
+staged non-artifact paths, and keeps the main stage phase small enough for the
+repo's code-shape guards. `devctl commit` also now reports the approved
+content SHA separately from a trailing `receipt_commit_sha` when HEAD is a
+ReviewSnapshot receipt commit, so operators can see the real substantive
+commit without reparsing git history by hand.
+
+Focused proof is green on the new staged-only push regressions, the staged
+index preservation failure regression, the commit report SHA regressions, and
+the docs-check payload update for richer git-status rows.
+
+Evidence: `dev/scripts/devctl/collect.py`,
+`dev/scripts/devctl/commands/vcs/commit.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_phases.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_stage_attention.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_stage_snapshot.py`,
+`dev/scripts/devctl/commands/vcs/push.py`,
+`dev/scripts/devctl/commands/vcs/push_preflight_commit.py`,
+`dev/scripts/devctl/commands/vcs/push_worktree_changes.py`,
+`dev/scripts/devctl/tests/commands/docs/test_check.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_gate.py`,
+`dev/scripts/devctl/tests/vcs/test_governed_executor.py`,
+`dev/scripts/devctl/tests/vcs/test_push.py`,
+`dev/scripts/README.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+and `AGENTS.md`.
+
+Fact: the next review-channel/current-session dogfood pass exposed a narrower
+authority bug than "packet clearing is wrong." The reducer had already been
+tightened to ignore missing packet surfaces in some paths, but the remaining
+event-backed projection still treated a blank queue like an explicit clear
+whenever packet authority was absent or only implied by stale fixtures. That
+erased prior typed instructions, made a canonical markdown-revision test fail
+for the wrong reason, and left `ImplementationAdmissibility` with one
+fail-open gap: missing/empty `implementation_permission` still did not block
+mutation. The same slice also closed the reviewer-follow relaunch mismatch by
+making `relaunch_review_loop` explicitly auto-fixable only through the typed
+recovery decision.
+
+This mattered because the current-session/runtime lane is one of the last
+portable authority seams that cannot depend on chat memory or compatibility
+bridge lore. If blank queue state clears instructions without explicit packet
+truth, or if missing implementation permission still counts as writable, the
+repo can silently drift from fail-closed typed authority back toward hidden
+defaults.
+
+The closure stayed bounded. Event-backed `current_session` now preserves the
+prior typed instruction when queue text is blank and no explicit `packets` /
+`packet_inbox` authority is present, and queue
+`derived_next_instruction_source.to_agent` must be blank or `claude` before
+the text projects into Claude's live instruction lane. Bridge-backed
+authority now refuses to outrank persisted typed state when the live bridge
+contributes no authority signal. `derive_implementation_admissibility()` now
+returns `blocked` with `implementation_permission_missing` for missing or
+empty permission, and reviewer-follow relaunch keeps its fail-closed posture
+by allowing auto-relaunch only when the typed recovery decision marks
+`relaunch_review_loop` auto-fixable. The same slice also refreshed the
+maintainer/self-hosting docs and documented the repo-local `reviewer_loop.sh`
+wrapper in `dev/scripts/README.md` so `docs-check --strict-tooling` and
+`hygiene` can keep this contract repo-visible.
+
+Evidence: `dev/scripts/devctl/review_channel/current_session_attention.py`,
+`dev/scripts/devctl/review_channel/current_session_authority.py`,
+`dev/scripts/devctl/review_channel/current_session_projection.py`,
+`dev/scripts/devctl/review_channel/current_session_support.py`,
+`dev/scripts/devctl/review_channel/recovery_decision.py`,
+`dev/scripts/devctl/review_channel/status_snapshot_authority.py`,
+`dev/scripts/devctl/runtime/implementation_admissibility.py`,
+`dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`,
+`dev/scripts/devctl/tests/review_channel/test_reviewer_follow_restore_policy.py`,
+`dev/scripts/devctl/tests/runtime/test_implementation_admissibility.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
+### 2026-04-17 - Detached dual-agent over-budget state now cuts a checkpoint instead of asking for relaunch
+
+Fact: once the current-session authority repair landed, one narrower deadlock
+remained in the live repo proof. Detached `active_dual_agent` runtime truth
+still outranked stronger checkpoint authority, so the same review-current,
+over-budget state could tell operators to relaunch the review loop even while
+startup authority already said the next permitted action was a governed
+checkpoint. That also made the reduced authority surfaces too blunt: the
+status/startup contract blocked implementation correctly, but it did not make
+the checkpoint-safe `vcs.stage` / `vcs.commit` path explicit.
+
+This mattered because the platform claim is not just "fail closed." The
+contract also has to tell the truth about what kind of recovery is allowed.
+In a detached loop where `reviewed_hash_current=true`, `review_needed=false`,
+and the worktree is simply over budget, relaunch is the wrong next step. The
+right next step is to cut the bounded checkpoint, refresh the receipt, and
+only then decide whether launch/ensure automation should resume.
+
+The closure stayed bounded. The shared attention reducer now lets checkpoint
+authority preempt detached-runtime recovery when typed push enforcement says
+the tree is over budget and reviewer proof is already current. The shared
+action-routing path now falls back to top-level status payloads for
+`implementation_permission`, `reviewer_gate`, and push-enforcement truth,
+keeps `implementation.edit` blocked, but allows `vcs.stage` / `vcs.commit`
+for the governed checkpoint exception. The same slice dedupes startup blocker
+summaries and makes `cut_checkpoint` prefer the typed governed
+`devctl commit -m "<descriptive message>"` next command across
+`review-channel --action status`, `startup-context`, and the reduced
+`authority_snapshot`.
+
+Evidence: `dev/scripts/devctl/review_channel/attention_classify.py`,
+`dev/scripts/devctl/runtime/action_routing.py`,
+`dev/scripts/devctl/runtime/authority_snapshot_build.py`,
+`dev/scripts/devctl/runtime/authority_snapshot_core.py`,
+`dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py`,
+`dev/scripts/devctl/tests/review_channel/test_recovery_assessment.py`,
+`dev/scripts/devctl/tests/runtime/test_action_routing.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`,
+`python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`,
+and `python3 dev/scripts/devctl.py startup-context --format summary`.
+
+### 2026-04-17 - Remote-control checkpoints can now resume through one operator command instead of hand-built approval packets
+
+Fact: the next dogfood pass after the checkpoint-first routing fix exposed a
+different gap in the same governed remote-control lane. `devctl commit`
+correctly failed closed at `operator_approval_pending`, but the only way to
+resume the pipeline was to manually reconstruct a typed `commit_approval`
+decision packet from `commit_pipeline.json`, post it through
+`review-channel --action post`, apply it, and then rerun `devctl commit`.
+That was architecturally correct but operationally wrong: the system already
+had the pipeline id, generation id, staged snapshot hash, and guard summary,
+yet the repo still made operators rebuild them by hand.
+
+This mattered because the remote-control contract is supposed to be
+self-hosting. A governed commit should require explicit operator intent, but
+explicit intent is not the same thing as forcing humans or AI copilots to
+copy packet fields out of JSON receipts. If the repo cannot offer one
+operator-owned resume surface, the approval boundary stays technically safe
+while still encouraging ad hoc recovery steps.
+
+The closure stayed bounded. `devctl commit` now accepts
+`--approve-pending` as the explicit operator-owned resume path for governed
+remote-control checkpoints. The flag reuses the current guarded pipeline,
+posts/applies the matching typed `commit_approval` decision, and continues
+the same `vcs.commit` instead of requiring manual `review-channel post|apply`
+field assembly. The same slice also narrowed packet reads on the commit
+path: approval helper and commit-phase packet loaders now reduce raw event
+packets directly instead of rebuilding the full enriched event bundle just to
+match approval packets. That cut the focused approval-resume regression from
+roughly 169 seconds to roughly 109 seconds, while leaving a separate
+first-stage remote-control preflight/context-graph latency as the next
+follow-up optimization.
+
+Evidence: `dev/scripts/devctl/commands/vcs/parser.py`,
+`dev/scripts/devctl/commands/vcs/commit.py`,
+`dev/scripts/devctl/commands/vcs/commit_preflight.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_sync.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_gate.py`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+and `dev/active/ai_governance_platform.md`.
+
+### 2026-04-17 - Operator inbox now rides the typed packet lane as a read-only alias
+
+Fact: the next `rev_pkt_0915` dogfood discussion narrowed the "operator as a
+first-class packet participant" gap again. The repo did not actually need a
+new transport or fresh packet enums to start closing that loop: `operator`
+was already in the packet roster, `approval_request` already existed in the
+contract, and `review-channel --action inbox --target operator` could already
+read the queue. The missing seam was an explicit operator-facing read surface
+that stayed packet-native without mutating live delivery receipts.
+
+This mattered because operator, dashboard, and phone surfaces are supposed to
+consume the same typed packet spine the agent lanes use. If the only operator
+read path is a generic inbox call that also stamps
+`delivery_observed_at_utc` / `delivery_observed_by`, the act of inspecting
+the queue can accidentally masquerade as lane-level delivery proof. That is
+exactly the kind of cross-surface authority confusion the platform is trying
+to eliminate.
+
+The closure stayed bounded. `review-channel --action operator-inbox` now acts
+as a read-only alias over the existing event-backed packet queue: it fixes
+`target=operator`, defaults to `status=pending`, and intentionally refuses to
+mark live `action_request` packets observed. The same slice extracted the
+event-handler post/transition/inbox-like helpers into a companion module so
+`check_code_shape.py` stays green while the operator-facing read surface lands.
+
+Evidence: `dev/scripts/devctl/commands/review_channel/event_handler.py`,
+`dev/scripts/devctl/commands/review_channel/event_action_support.py`,
+`dev/scripts/devctl/commands/review_channel/event_watch_support.py`,
+`dev/scripts/devctl/commands/review_channel_command/constants.py`,
+`dev/scripts/devctl/review_channel/parser.py`,
+`dev/scripts/devctl/tests/review_channel/test_operator_inbox.py`,
+`dev/scripts/README.md`,
+`dev/active/review_channel.md`,
+`dev/active/MASTER_PLAN.md`,
+and `dev/active/ai_governance_platform.md`.
+
+### 2026-04-17 - Active commit/push pipeline blocks now self-heal same-HEAD authorization and project exact next commands
+
+Fact: the next remote-control dogfood pass found the remaining
+operator-facing gap after `--approve-pending` landed. The repo already had
+typed pipeline truth for the live blocked publish path:
+`pipeline --action status` could show `state=push_blocked`,
+`authorization_expired=true`, `authorized_head_sha == current_head_sha`, and
+`next_command=python3 dev/scripts/devctl.py push --execute`. But the commit
+lane still blocked on locally regenerated prose, so agents had to infer when
+to refresh authorization, when to reuse the current pipeline, and when a
+blocked commit was really a publish-follow-up instead of a fresh staging
+problem.
+
+This mattered because the platform contract is supposed to be compiler-like.
+Once the typed reducer has already chosen the next command, downstream
+surfaces should not invent a second explanation layer and hope humans or AI
+reconstruct the same answer. The same defect showed up on the commit side:
+explicit-approval blocking reports still emitted free-form text for "no
+pipeline", "stale pipeline", and "approval missing" instead of projecting the
+exact command the operator should run next.
+
+The closure stayed bounded. `commit_pipeline_blocking.py` now consumes the
+typed pipeline status view directly, auto-refreshes same-HEAD expired
+authorization before it emits the block report, and drops the fallback prose
+branch in favor of the typed `next_command`. `commit_preflight.py` now
+projects exact next commands for `no_pending_pipeline_to_approve`, stale
+pipeline, and operator-approval-missing states, while reusing the active
+pipeline block report for `push_blocked` / `commit_recorded` reuse paths.
+`commit.py` also projects `CommitPermissionDecision` `next_command`,
+`recovery_action`, and `escalation_action` at top level so agents do not have
+to unpack nested JSON or guess from generic guidance, and the unsupported
+passthrough help text now names `--amend` to stay aligned with the actual
+accepted flags. The same slice also updated the stale startup-context
+checkpoint test to match the current checkpoint-first contract: over-budget
+or resync-required sessions may still allow `vcs.stage` / `vcs.commit` while
+blocking `implementation.edit`.
+
+Evidence: `dev/scripts/devctl/commands/vcs/commit.py`,
+`dev/scripts/devctl/commands/vcs/commit_pipeline_blocking.py`,
+`dev/scripts/devctl/commands/vcs/commit_preflight.py`,
+`dev/scripts/devctl/commands/vcs/commit_preflight_support.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_gate.py`,
+`dev/scripts/devctl/tests/vcs/test_push.py`,
+`dev/scripts/devctl/tests/commands/test_pipeline_command.py`,
+`dev/scripts/README.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+and `AGENTS.md`.
+
+### 2026-04-17 - Review-channel status now separates raw latest push truth from selected current-target push truth
+
+Fact: the next remote-control dogfood pass found that `review-channel status`
+still had two distinct push-state seams after the `next_command` work landed.
+First, `detect_push_enforcement_state()` overloaded
+`latest_push_report_*` to mean both "the raw `dev/reports/push/latest.json`
+artifact" and "the current-target report selected for safe startup/push
+decisions", so a mismatched latest artifact could silently collapse back to
+an older receipt while still presenting itself as "latest". Second, the
+bridge-backed `_compat` writer in
+`review_channel/status_projection_compat.py` computed fresh
+`bridge_liveness["push_enforcement"]` truth but never copied it into the
+compat projection, so some `review_state.json` consumers stayed stale even
+after the reducer updated.
+
+The closure made the contracts explicit instead of asking agents to infer
+them. Governed push-state now carries raw-latest fields
+(`latest_push_report_*`) and separately selected current-target fields
+(`selected_push_report_*` plus `selected_push_report_source`). Startup
+recovery/push decision logic consumes the selected fields, while the
+bridge-backed status compat payload now includes `push_enforcement`
+directly. Cache freshness paths for review projections also include the
+managed latest push artifact, so read-only/mobile surfaces invalidate when
+`dev/reports/push/latest.json` advances. Legacy direct constructions and old
+payloads still fall back cleanly to the historical `latest_*` semantics for
+decision hints.
+
+Evidence: `dev/scripts/devctl/governance/push_state.py`,
+`dev/scripts/devctl/governance/push_state_selection.py`,
+`dev/scripts/devctl/runtime/project_governance_push.py`,
+`dev/scripts/devctl/runtime/startup_push_recovery.py`,
+`dev/scripts/devctl/runtime/startup_push_decision.py`,
+`dev/scripts/devctl/repo_packs/review_cache.py`,
+`dev/scripts/devctl/repo_packs/review_helpers.py`,
+`dev/scripts/devctl/runtime/review_state_refresh_support.py`,
+`dev/scripts/devctl/review_channel/status_projection_compat.py`,
+`dev/scripts/devctl/tests/vcs/test_push.py`,
+`dev/scripts/devctl/tests/repo_packs/test_repo_packs.py`,
+`dev/scripts/devctl/tests/review_channel/test_status_projection_compat.py`,
+and `dev/scripts/devctl/tests/runtime/test_startup_context.py`.
+
+### 2026-04-17 - Direct pipeline recovery now refreshes review projections before the next checkpoint read
+
+Fact: the next governed checkpoint retry exposed one more stale-state loop in
+the remote-control dogfood path. `pipeline --action abandon` could truthfully
+return `ok=true` and `new_state=abandoned`, but the very next
+bridge-backed `review-channel status` or `devctl commit` read could still
+reload an older `latest/commit_pipeline.json` payload and mirror `push_blocked`
+back into the canonical `projections/latest/commit_pipeline.json` artifact.
+That made the system look like it needed more operator babysitting when the
+real problem was a write-through gap between direct pipeline recovery actions
+and the shared review-channel projection cache.
+
+This mattered because the current product goal is not "eventual consistency if
+an agent keeps re-reading until the right file wins." The canonical reducer had
+already chosen the new pipeline state; the repo-owned recovery command that
+wrote that state needed to refresh the same projection surfaces the rest of the
+system trusts next. Otherwise the checkpoint lane still behaves like an
+operator has to understand the hidden artifact topology well enough to know why
+`abandoned` just turned back into `push_blocked`.
+
+The closure stayed bounded. The shared pipeline support path now refreshes the
+review-channel projections immediately after direct
+`pipeline --action abandon`, `recover`, or `refresh-authorization` writes,
+using the same repo-owned projection refresh machinery the governed executor
+path already trusted. The same checkpoint-repair slice also typed the expanded
+pending-reviewer commit-gate helper against `ReviewState`, which cleared the
+repo-wide `check_python_typed_seams.py` failure that surfaced on the first
+fresh commit retry after the projection refresh landed. The result is smaller
+than the upcoming packet-lifecycle redesign, but operationally important: a
+live checkpoint retry now advances from the current pipeline truth instead of
+falling back into a stale mirror loop before the next governed read.
+
+Evidence: `dev/scripts/devctl/commands/pipeline/support.py`,
+`dev/scripts/devctl/commands/pipeline/abandon_action.py`,
+`dev/scripts/devctl/commands/pipeline/recover_action.py`,
+`dev/scripts/devctl/commands/pipeline/refresh_authorization_action.py`,
+`dev/scripts/devctl/runtime/commit_packet_gate.py`,
+`dev/scripts/devctl/tests/commands/test_pipeline_command.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_pending_reviewer_gate.py`,
+
+### 2026-04-17 - Commit-recorded pipeline status now distinguishes continue-push from recovery
+
+Fact: the next dogfood retry exposed a second, narrower defect after the
+projection-refresh closure. Same-head `commit_recorded` pipeline state could
+still project contradictory recovery truth: `recommended_next_action` said
+`abandon` or `refresh-authorization`, while `next_command` silently preferred
+`python3 dev/scripts/devctl.py push --execute`. That made the pipeline surface
+look like it needed manual interpretation exactly when the product goal is to
+let typed status tell the agent whether it should continue publication or take
+recovery action.
+
+The fix was small but load-bearing. Pipeline status now treats same-head
+`commit_recorded` as a continue-publication state with
+`recommended_next_action=none` and
+`next_command=python3 dev/scripts/devctl.py push --execute`. When the same
+state is expired, the status surface now projects the explicit
+`refresh-authorization` command instead of silently preferring push. The
+governed commit block path still overrides superseded post-checkpoint-dirty
+`commit_recorded` pipelines to `abandon`, so the recovery semantics only
+surface when the current worktree actually needs them.
+
+Evidence: `dev/scripts/devctl/commands/pipeline/support.py`,
+`dev/scripts/devctl/tests/commands/test_pipeline_command.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_gate.py`, and
+`dev/scripts/README.md`.
+`dev/active/MASTER_PLAN.md`,
+and `dev/active/ai_governance_platform.md`.
+
+### 2026-04-17 - Prepared launch authority now derives remote-control continuity from typed state
+
+The post-commit reviewer-loop persistence slice exposed one remaining split in
+prepared conductor authority: `launch_authority.assess_prepared_launch_authority()`
+only downgraded commit-driven `HEAD` drift to `refresh_recommended` when
+`DEVCTL_OPERATOR_INTERACTION_MODE=remote_control` was present in the process
+environment. Startup/status/runtime readers that did not inherit that env var
+could classify the same post-launch session as fully `stale`, so receipt
+commits kept flipping the same remote-control reviewer loop between
+"continue" and "relaunch required" depending on which surface read it. The
+bounded fix now resolves remote-control continuity from the canonical typed
+inputs first: repo governance plus the current `review_state.json` payload via
+`derive_operator_interaction_mode()`, with the env override kept only as a
+legacy fast path. Existing stale-authority session-probe behavior stays
+fail-closed for non-remote launches, while remote-control receipt commits now
+stay aligned with the rest of the control plane.
+
+Evidence: `dev/scripts/devctl/review_channel/launch_authority.py`,
+`dev/scripts/devctl/tests/review_channel/test_launch_authority.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`.
+
+### 2026-04-17 - Host cleanup now protects registry-backed running conductors even when prepared authority drifted stale
+
+Fact: the next live governed-checkpoint retry was no longer blocked by
+pipeline/status drift; it was blocked by `host-process-cleanup-post`. The real
+host process tree showed a detached Codex conductor wrapper still running under
+the typed session registry, but `_protected_registered_conductor_pids()` only
+trusted `session.live`. Because `session.live` also encodes prepared-head
+freshness, the same running conductor flipped into `recent_detached` failure
+state as soon as prepared authority drifted, even though cleanup still could
+not safely reap it.
+
+This matters because the product goal is not "kill more processes." The host
+cleanup lane must distinguish runtime liveness from broader governance
+freshness, otherwise a healthy review loop can block `process-cleanup --verify`
+and every governed checkpoint that depends on it.
+
+The bounded fix keeps the protection scope typed and narrow: registered
+conductor `session_pid` values stay protected when the script probe still says
+`running`, even if `session.live` is false because prepared authority has gone
+stale. Unregistered or pid-less detached wrappers still fail closed. Focused
+proof is green on the protected-PID process-sweep tests, targeted strict
+process-audit regressions, and live
+`python3 dev/scripts/devctl.py process-cleanup --verify --format json`, which
+now returns `ok: true` on the previously blocked detached-conductor tree.
+
+Evidence: `dev/scripts/devctl/commands/check/process_sweep.py`,
+`dev/scripts/devctl/tests/process_sweep/test_process_sweep.py`,
+`dev/scripts/devctl/tests/commands/process/test_process_audit.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+and `dev/scripts/README.md`.
+
+### 2026-04-15 - Governed commit fallback now trusts effective reviewer mode, and status `sessions=[]` is action-scoped
+
+Fact: the next dogfood pass after the launch-authority/runtime-parity repair
+found one more place where declared topology could outrank typed authority.
+`resolve_commit_execution_target()` still preferred
+`collaboration.reviewer_mode` before `bridge.effective_reviewer_mode` when it
+had to synthesize conductor capabilities without a fully populated capability
+object. In a local `single_agent` takeover, that meant a stale declared
+`active_dual_agent` collaboration record could incorrectly make the implementer
+lane look writable again. The same probe also clarified a status-surface point:
+top-level `review-channel status` `sessions=[]` on non-launch actions is the
+expected action-scoped report shape, not proof that live conductor metadata is
+missing.
+
+This matters because governed checkpoint/commit execution is one of the last
+places where typed authority has to remain stronger than compatibility
+provenance. If declared collaboration topology can still re-grant the
+implementer lane after takeover, then the remote commit pipeline is not really
+fail-closed: a local reviewer checkpoint can still route back to the wrong
+actor even though the typed bridge/runtime state already demoted the lane.
+
+The closure was intentionally small. `resolve_commit_execution_target()` now
+prefers `bridge.effective_reviewer_mode` before collaboration/declared mode
+when it synthesizes writable lane capabilities, and a focused regression test
+proves that a stale declared `active_dual_agent` record no longer steals
+single-agent checkpoint authority from Codex. The matching maintainer docs
+(`AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`) were updated in the same slice so
+`docs-check --strict-tooling` treats the precedence as a repo-owned runtime
+contract instead of a hidden local fix.
+
+Evidence: `dev/scripts/devctl/commands/vcs/governed_executor_commit_runtime.py`,
+`dev/scripts/devctl/tests/vcs/test_governed_executor.py`,
+`python3 dev/scripts/checks/check_code_shape.py`,
+`python3 dev/scripts/checks/check_review_surface_consistency.py`,
+`python3 dev/scripts/checks/check_active_plan_sync.py`,
+`python3 dev/scripts/checks/check_multi_agent_sync.py`, and
+`python3 dev/scripts/checks/check_review_channel_bridge.py`.
+
+### 2026-04-15 - Governed markdown startup now persists `PlanRegistry` and `PlanTargetRef` authority
+
+Fact: `ProjectGovernance` already carried typed governed-markdown metadata, but
+the active startup/planning path still rebuilt that data by reparsing mutable
+plan markdown every time `scan_governed_markdown_contracts()` ran, and
+`build_target_ref()` still reopened plan files just to recover the same target
+hash. That left `MP377-P1-T04` open: startup and planning had typed contracts,
+but not a repo-owned persisted authority artifact for the plan layer itself.
+
+This matters because `MP377-P1-T05` through `MP377-P1-T08` all assume the plan
+authority chain has already stopped treating mutable markdown as the live
+runtime source for every read. Without a persisted `PlanRegistry` /
+`PlanTargetRef` bundle, every fresh startup or planning pass can diverge on
+file-read timing and the system keeps paying the full markdown reparse cost
+even when the plan set has not changed.
+
+The closure now persists governed markdown authority to
+`dev/reports/governance/plan_registry.json`. The governed markdown scan writes
+`PlanRegistry`, `DocPolicy`, `DocRegistry`, source-file freshness records, and
+per-plan `PlanTargetRef` metadata into that repo-owned artifact, reuses it
+while the governed doc set and per-file stats are unchanged, and falls back to
+a fresh markdown scan only when the artifact is missing or stale.
+`build_target_ref()` now consumes the persisted target metadata before
+rehashing plan markdown, so startup/work-intake and planning IR both reuse the
+same target authority when the plan files are unchanged.
+
+Evidence: `dev/scripts/devctl/governance/draft_governed_docs.py`,
+`dev/scripts/devctl/governance/draft_governed_docs_artifact.py`,
+`dev/scripts/devctl/runtime/work_intake_selection.py`,
+`dev/scripts/devctl/tests/governance/test_governance_draft.py`,
+`dev/scripts/devctl/tests/runtime/test_work_intake.py`,
+`dev/scripts/devctl/tests/platform/test_planning_ir.py`, and
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`.
+
+### 2026-04-15 - Plan authority readers now prefer typed `PlanRegistry` projection over raw `INDEX.md`
+
+Fact: persisting `dev/reports/governance/plan_registry.json` closed the startup
+artifact gap, but several downstream authority readers still treated raw
+`INDEX.md` rows as the live registry. Context-graph plan nodes, tracker-plan
+resolution, scoped promotion, and `ReviewSnapshot` plan indexing were each
+reparsing markdown even though the same information already existed in the
+typed `ProjectGovernance.plan_registry` artifact.
+
+This mattered because `MP377-P1-T05` is not just about startup speed. The plan
+layer cannot become a bounded projection while authority consumers keep
+secretly re-deriving MP/path/router state from markdown tables. That leaves
+runtime surfaces vulnerable to stale or inconsistent raw-doc reads and keeps
+the typed registry from being the real control surface.
+
+The fix introduces one shared projection seam:
+`dev/scripts/devctl/runtime/plan_registry_projection.py`. Context-graph plan
+node collection, reviewer tracker-plan resolution, scoped promotion MP lookup,
+and `ReviewSnapshot` plan indexing now prefer the persisted
+`ProjectGovernance.plan_registry` projection and only fall back to raw
+`INDEX.md` parsing when typed governance is unavailable. This lands the first
+artifact-first `MP377-P1-T05` authority-reader pass without pretending the
+remaining docs-governance/reporting markdown scans are finished.
+
+Evidence: `dev/scripts/devctl/runtime/plan_registry_projection.py`,
+`dev/scripts/devctl/context_graph/catalog_nodes.py`,
+`dev/scripts/devctl/review_channel/plan_resolution.py`,
+`dev/scripts/devctl/review_channel/promotion.py`,
+`dev/scripts/devctl/runtime/review_snapshot_why.py`,
+`dev/scripts/devctl/tests/context_graph/test_catalog_nodes.py`,
+`dev/scripts/devctl/tests/review_channel/test_plan_resolution.py`,
+`dev/scripts/devctl/tests/review_channel/test_promotion_scope.py`,
+`dev/scripts/devctl/tests/runtime/test_review_snapshot_why.py`,
+`dev/scripts/devctl/tests/context_graph/test_context_graph.py`, and
+`dev/scripts/devctl/tests/runtime/test_review_snapshot.py`.
+
+### 2026-04-15 - Docs-governance routing now prefers typed maintainer-doc paths before policy-context fallbacks
+
+Fact: the first `MP377-P1-T05` reader pass moved plan-node, promotion, and
+review-snapshot consumers onto the persisted `PlanRegistry`, but
+docs-governance still had one smaller read-side gap. The shared
+`governed_doc_routing.py` helper already trusted typed tracker/index roots, yet
+it still sourced the maintainer-doc aliases used by docs-check defaults from
+surface-generation context first. That left `process_doc`,
+`development_doc`, `architecture_doc`, and `scripts_readme_doc` one step away
+from the typed `ProjectGovernance` doc registry/path-root authority the rest of
+the same lane was trying to make canonical.
+
+This matters because the platform boundary is not just about plan routing. If
+docs-check and check-router can still rebuild their maintainer-doc defaults
+from policy-context strings before consulting the typed runtime view, another
+repo can regress back toward hidden VoiceTerm-shaped defaults even while the
+governance scan already knows the real docs authority, guide root, scripts
+root, and tracker/index paths.
+
+The closure is intentionally bounded. `governed_doc_routing.py` now prefers
+typed `ProjectGovernance` doc paths (`docs_authority`, guide roots, scripts
+README, tracker/index roots) whenever those docs are present in the runtime
+registry, and only falls back to surface-generation context when typed
+governance cannot identify them. Focused regressions prove both ends of the
+contract: the routing helper itself prefers typed doc paths over stale policy
+context, and the docs-check policy defaults follow the resolved routing object
+instead of silently reviving baked-in maintainer-doc assumptions. Clean-tree
+`devctl check --profile ci` is also green on the checkpoint that carries the
+change.
+
+Evidence: `dev/scripts/devctl/governance/governed_doc_routing.py`,
+`dev/scripts/devctl/tests/governance/test_governed_doc_routing.py`,
+`dev/scripts/devctl/tests/test_docs_check_constants.py`,
+`dev/scripts/devctl/tests/governance/test_governance_draft.py`, and
+`python3 dev/scripts/devctl.py check --profile ci`.
+
+### 2026-04-15 - Scoped plan readers now use typed companion-doc fallback, and packet inbox merge stops reviving evicted expired findings
+
+Fact: the next `MP377-P1-T05` dogfood pass surfaced a real boundary, but not
+the one the first probe claimed. `INDEX.md` currently carries 29 active rows,
+yet only 4 of them are execution-authority plan docs. The remaining 25 are
+reference/companion docs. That meant widening `PlanRegistry` to "everything in
+INDEX" would have broken the execution-authority boundary, but some scope
+readers still needed a typed way to reach companion docs without reparsing raw
+markdown tables. The same live queue pass also showed a different packet bug:
+persisted packet-inbox state could keep `latest_finding_packet_id` and
+`expired_unresolved_packet_ids` alive even after the event-backed reducer had
+already dropped those packet ids, which let `open_findings` and reviewer
+attention revive expired backlog from merge residue alone.
+
+This mattered because both bugs undermine the same platform promise: markdown
+and packet history can stay as compatibility evidence, but they should not
+quietly become the only source of truth once typed governance/runtime state is
+already available. If scope resolution still has to fall back to raw
+`INDEX.md` for companion docs, or if expired packet ids can survive purely in a
+persisted merge surface, the platform keeps reintroducing hidden mutable state
+through compatibility paths.
+
+The closure kept the authority boundary intact. `plan_registry_projection.py`
+now resolves scoped docs in two typed steps: execution-authority plan entries
+first, then typed `doc_registry` companion docs, and only then raw `INDEX.md`
+compatibility fallback when typed governance is unavailable or incomplete.
+`review_channel/plan_resolution.py` and `review_channel/promotion.py` now use
+that typed resolver. Separately, `review_packet_inbox_merge.py` now drops
+persisted latest-finding and expired-unresolved ids that are no longer present
+in the live reducer, while `review_packet_inbox.py` routes live packet-id
+collection through its own small helper seam so the merge module stays within
+shape policy. Focused proof is green, and the remaining red in
+`check --profile ci` is governance debt already visible on the branch
+(`package-layout` baseline debt and startup-authority dirty-budget), not a
+regression in the new logic.
+
+Evidence: `dev/scripts/devctl/runtime/plan_registry_projection.py`,
+`dev/scripts/devctl/review_channel/plan_resolution.py`,
+`dev/scripts/devctl/review_channel/promotion.py`,
+`dev/scripts/devctl/runtime/review_packet_inbox.py`,
+`dev/scripts/devctl/runtime/review_packet_inbox_merge.py`,
+`dev/scripts/devctl/runtime/review_packet_inbox_rows.py`,
+`dev/scripts/devctl/tests/review_channel/test_plan_resolution.py`,
+`dev/scripts/devctl/tests/review_channel/test_promotion_scope.py`,
+`dev/scripts/devctl/tests/runtime/test_review_packet_inbox.py`,
+`dev/scripts/devctl/tests/runtime/test_work_intake.py`,
+`python3 dev/scripts/devctl.py docs-check --strict-tooling`,
+`python3 dev/scripts/checks/check_code_shape.py`,
+`python3 dev/scripts/checks/check_review_surface_consistency.py`,
+`python3 dev/scripts/checks/check_active_plan_sync.py`,
+`python3 dev/scripts/checks/check_multi_agent_sync.py`, and
+`python3 dev/scripts/checks/check_review_channel_bridge.py`.
+
+### 2026-04-15 - Bridge-backed status and event-backed startup/dashboard now share one attention-priority reducer
+
+Fact: after the authority-snapshot and packet-inbox repairs landed, the repo
+still had one live cross-surface contradiction left. Bridge-backed
+`review-channel --action status` attached conductor session state before it
+classified attention, but the event-backed producer used by
+`startup-context`, `session-resume`, and `dashboard` classified attention from
+an earlier bridge-liveness snapshot. On the same dirty tree that meant status
+said `review_loop_relaunch_required` while dashboard/startup still said
+`checkpoint_required`, even though they were all reading the same repo-owned
+runtime.
+
+This matters because the platform claim is not "multiple surfaces eventually
+agree if you know which one to trust." The claim is that bridge-backed and
+event-backed readers are compatibility projections over one typed producer
+tick. If one path computes `launch_truth` before it knows which conductors are
+actually live, AI turns and operator surfaces get different recovery advice
+from the same state and the repo slides back toward chat-local arbitration.
+
+The closure was a producer fix, not a renderer band-aid. Event-backed review
+state enrichment now calls the same
+`status_projection_helpers.attach_conductor_session_state()` helper that
+bridge-backed status already used, and it does so before
+`build_recovery_assessment()` runs. That means `launch_truth`,
+`effective_reviewer_mode`, `attention.status`, and the downstream
+`AuthoritySnapshot` all read the same conductor-attached runtime. Focused
+proof is green on the event-projection and current-session regressions, and
+live proof is green on `review-channel --action status`,
+`startup-context --format json`, and `dashboard --format json`, which now all
+emit `review_loop_relaunch_required` on the live repo state while still
+keeping checkpoint guidance in `advisory_action` / `push_decision`.
+
+The same slice also refreshed the maintainer authority docs
+(`AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`) so `docs-check --strict-tooling` treats this as
+load-bearing runtime convergence rather than an undocumented local tweak.
+
+Evidence: `dev/scripts/devctl/review_channel/event_projection.py`,
+`dev/scripts/devctl/review_channel/event_projection_assembly.py`,
+`dev/scripts/devctl/review_channel/status_projection_helpers.py`,
+`dev/scripts/devctl/tests/review_channel/test_event_projection_push.py`,
+`dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`,
+`python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale`,
+`python3 dev/scripts/devctl.py startup-context --format json`, and
+`python3 dev/scripts/devctl.py dashboard --format json`.
+
+### 2026-04-15 - Visible launch batches now freeze one shared token, and remote-control bootstrap stays on the typed packet lane
+
+Fact: the next dogfood pass surfaced two smaller but related control-plane
+gaps after the blank-revision stale-authority fix landed. Fresh visible
+`review-channel --action launch --terminal terminal-app` no longer died on the
+old stale bridge revision, but Codex and Claude were still being prepared with
+different `prepared_session_token` values inside the same launch batch when
+`review_state.bridge.last_codex_poll_utc` advanced between sibling session
+builds. In parallel, the active Claude remote-control session was still
+bootstrapping through the weaker `session-resume --format bootstrap` path, so
+it could ask the operator whether to continue a permitted probe instead of
+consuming the already-named typed inbox command.
+
+This matters because both failures break the same product promise from
+different sides. Launch authority is supposed to be one deterministic batch
+receipt for the conductor pair, not two race-sensitive hashes that can stale
+one sibling before it starts. And remote-control/bootstrap surfaces are
+supposed to keep Claude on the typed packet lane, not let the active session
+fall back to chat-local arbitration when `Pending Inbox` already carries the
+next non-destructive action.
+
+The closure was two bounded fixes. `build_launch_sessions()` now freezes one
+shared prepared launch authority per launch batch and reuses its
+`prepared_instruction_revision` plus `prepared_session_token` for both
+conductors while still resolving `prepared_head_sha` per workspace. The
+implementer `session-resume` bootstrap surface now also states the same
+inbox-first rule the richer conductor prompt already carried: if `Pending
+Inbox` / typed packet state names a Claude-targeted packet or required inbox
+command, run `review-channel --action inbox --target claude --status pending
+--format md` immediately; current live-lane receipt stamping also passes
+`--actor claude`. Do not ask the operator whether to continue a permitted probe
+or pull a pending packet.
+
+Focused proof is green on the launch topology/script regressions, the
+review-channel prompt regression, the new session-resume bootstrap regression,
+and `check_code_shape.py`, `check_active_plan_sync.py`, and
+`check_multi_agent_sync.py`. Event-backed packet evidence also showed the
+observability miss was not packet loss: Claude's `rev_pkt_0611` remained
+pending in the inbox the whole time, while the newer in-session "should I
+continue?" pause never entered the typed packet lane at all.
+
+### 2026-04-15 - Event-backed review-state now rebuilds compat bridge projection for snapshot parity
+
+Fact: governed push still had one last cross-surface leak after the bridge poll
+metadata repair. Bridge-backed `latest/review_state.json` already carried the
+typed `_compat.bridge_projection` payload, but the sibling event-backed
+`projections/latest/review_state.json` could still leave
+`_compat.bridge_projection=null` when it inherited an older persisted compat
+mapping. That made `check_review_surface_consistency.py` fail on
+`review_state_bridge_projection: missing` even though the live bridge-backed
+surface was already correct.
+
+This matters because the platform claim is not just "one path can recover the
+bridge payload eventually." The event-backed `review_state.json` bundle is the
+canonical typed read model for startup, push preflight, and later consumers.
+If that bundle can omit the compat bridge projection while the bridge-backed
+path has it, snapshot-id parity becomes dependent on whichever command happened
+to run first, which is exactly the kind of hidden ordering dependency the
+typed-surface contract is supposed to remove.
+
+The closure again lived in the producer. Event-backed enrichment now rebuilds
+`_compat.bridge_projection` through `build_bridge_projection_state()` whenever
+the persisted compat payload is missing, using the same bridge text, typed
+bridge liveness, current-session payload, reviewer-runtime payload, and packet
+list already in the reducer tick. Focused proof is green on
+`test_event_projection_push.py`, `check_code_shape.py` is green, and the live
+parity guard is green after one bridge-backed status refresh, one event-backed
+inbox refresh, and one startup refresh: `check_review_surface_consistency.py`
+now reports one shared snapshot family for `review_state`,
+`review_state_bridge_projection`, `compact`, `startup_context`, and
+`turn_authority`.
+
+Evidence: `dev/scripts/devctl/review_channel/event_projection_support.py`,
+`dev/scripts/devctl/review_channel/event_projection_assembly.py`,
+`dev/scripts/devctl/tests/review_channel/test_event_projection_push.py`,
+`python3 dev/scripts/checks/check_code_shape.py`, and
+`python3 dev/scripts/checks/check_review_surface_consistency.py`.
+
+### 2026-04-15 - Governed commit approval windows and ReviewSnapshot receipt commits now stay bound to the parent code state
+
+Fact: the governed publication path still had two live self-inflicted drifts.
+First, `devctl commit` in `remote_control` mode could post a new
+`commit_approval` request and then continue into `vcs.commit` in the same run,
+which meant the packet it had just posted could change typed attention and
+trip that same invocation on `attention_revision_stale`. Second, the
+post-commit `review-snapshot --write --receipt-commit` path had already grown
+into an atomic two-file receipt (`dev/audits/REVIEW_SNAPSHOT.md` plus
+`bridge.md`), but the freshness guard and push-authorization reader still
+treated "receipt commit" as "exactly one changed file." The result was a push
+preflight loop where the receipt writer advanced `HEAD`, then the next push
+insisted the new receipt was stale immediately.
+
+This matters because governed publication is supposed to replace chat-local
+timing games with repo-owned boundaries. If posting an approval request can
+self-invalidate the same commit invocation, or if the repo's own receipt hook
+creates a `HEAD` shape that its freshness guard refuses to recognize, the
+platform is still forcing operators back into manual retries instead of one
+typed control path.
+
+The closure made both boundaries explicit. `devctl commit` now splits approval
+resolution through a preflight seam and returns `operator_approval_pending`
+before the commit phase whenever a typed approval request is still
+outstanding; the run must be restarted from fresh startup/review authority
+after the decision is applied. The new shared
+`runtime/review_snapshot_refresh.py` helper defines the governed receipt shape
+once: a ReviewSnapshot receipt may update `dev/audits/REVIEW_SNAPSHOT.md`
+alone or atomically with the repo-pack `bridge.md` projection, and both
+`check_review_snapshot_freshness.py` and `runtime/push_authorization.py` now
+bind that receipt back to its parent code commit for freshness and publication
+authority. Focused proof is green on the new freshness/auth regressions plus
+the existing atomic receipt-pipeline tests, and live proof is green on the
+governed commit lane: pipeline `pipeline-c773e2555beb` first stopped at
+`operator_approval_pending`, the applied operator decision resumed the commit
+cleanly, and the next push-preflight repair no longer depends on inventing a
+second approval just because the receipt advanced `HEAD`.
+
+Evidence: `dev/scripts/devctl/commands/vcs/commit.py`,
+`dev/scripts/devctl/commands/vcs/commit_preflight.py`,
+`dev/scripts/devctl/runtime/review_snapshot_refresh.py`,
+`dev/scripts/checks/check_review_snapshot_freshness.py`,
+`dev/scripts/devctl/runtime/push_authorization.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_gate.py`,
+`dev/scripts/devctl/tests/checks/test_check_review_snapshot_freshness.py`,
+`dev/scripts/devctl/tests/runtime/test_push_authorization.py`,
+`dev/scripts/devctl/tests/runtime/test_review_snapshot.py`, and
+`python3 dev/scripts/devctl.py commit -m "Stabilize review-channel authority recovery" --role implementer --format json`.
+
+### 2026-04-15 - Bridge compatibility poll metadata now recovers from typed state and normalizes back to the guard format
+
+Fact: governed push still had one compatibility-only blocker left after commit
+`ae95f570`. The repo-owned bridge render path rebuilt `bridge.md` from typed
+state, but its metadata reducer only trusted the existing markdown snapshot
+for `Last Codex poll`. Once those fields were blank in the file, rerender kept
+preserving the blanks. Then when event-backed typed state did carry a poll
+timestamp, it arrived with fractional seconds (`2026-04-15T20:41:51.635818Z`)
+that the compatibility bridge guard intentionally rejected because the bridge
+contract requires whole-second UTC plus a matching local display line.
+
+This matters because `bridge.md` is explicitly not the primary authority, but
+governed push and bridge guardrails still use it as a compatibility receipt.
+If repo-owned render/status cannot recover a blank compatibility heartbeat
+from typed state, or if it rewrites typed ISO timestamps into a format the
+same guard later rejects, governed publication is still vulnerable to
+projection drift even when the underlying runtime state is healthy.
+
+The closure stayed in the compatibility reducer. The bridge projection
+metadata path now falls back to typed bridge state/liveness whenever snapshot
+poll metadata is blank, and it normalizes ISO timestamps back to the canonical
+whole-second `YYYY-MM-DDTHH:MM:SSZ` bridge format before local-time rendering.
+That means repo-owned `review-channel --action render-bridge` and status-driven
+bridge sync can repopulate `Last Codex poll` truth from typed runtime state
+instead of preserving a bad snapshot, while `check_review_channel_bridge.py`
+continues to enforce one stable compatibility format. Focused proof is green
+on `test_bridge_render.py`, and live proof is green on the current repo state:
+`bridge.md` now renders `Last Codex poll: 2026-04-15T20:42:53Z`,
+`Last Codex poll (Local America/New_York): 2026-04-15 16:42:53 EDT`, and the
+bridge guard passes again.
+
+Evidence: `dev/scripts/devctl/review_channel/bridge_projection_metadata.py`,
+`dev/scripts/devctl/tests/review_channel/test_bridge_render.py`,
+`python3 dev/scripts/devctl.py review-channel --action render-bridge --terminal none --format json --execution-mode markdown-bridge`,
+and `python3 dev/scripts/checks/check_review_channel_bridge.py`.
+
+### 2026-04-13 - Authority snapshot now gives startup, session-resume, and review status one shared recovery contract
+
+### 2026-04-14 - Remote-control reviewer wake and dashboard queue/liveness now follow the same typed action-request truth
+
+Fact: the remote-control review loop still had three small but real projection
+gaps. `ControlPlaneReadModel.pending_action_requests` counted every live
+pending packet even though the field name promised action requests only,
+dashboard terminal/markdown renderers could show a repo-owned conductor as
+`NO SESSION` whenever typed runtime state said `alive=true` but no PID was
+available, and the detached reviewer follow path could queue a bounded
+`restore_reviewer_turn` request without a matching repo-owned wake step when a
+waiting Codex reviewer session needed to resume.
+
+This matters because those are exactly the seams the phone/dashboard beta loop
+uses to decide whether a reviewer turn is still live and whether the next step
+is actionable. If packet counts overstate executable requests, or a live
+session renders as dead because the PID is missing, the system pushes operators
+back toward bridge prose and ad hoc restarts instead of one typed runtime
+story.
+
+The closure aligned all three surfaces on the same contract. Pending-action
+counts now include only live pending `kind="action_request"` packets, dashboard
+terminal/markdown renderers keep repo-owned conductor rows in `RUNNING` when
+typed session state says `alive=true` even if PID capture is unavailable, and
+`ensure --follow` can now surface the newest unseen action-request packet
+instead of leaving attention dependent on a separate watcher. The historical
+wake slice was split across the existing
+`follow_controller.py` orchestration seam and `reviewer_follow_guard.py`
+runtime/launch helper seam, but the 2026-05-04 T22AN-AF correction supersedes
+packet-triggered relaunch: packet delivery records attention only, and session
+starts require separate scheduler/runtime authority.
+
+Evidence: `dev/scripts/devctl/runtime/control_plane_resolve.py`,
+`dev/scripts/devctl/commands/dashboard_render/terminal.py`,
+`dev/scripts/devctl/commands/dashboard_render/markdown.py`,
+`dev/scripts/devctl/review_channel/follow_controller.py`,
+`dev/scripts/devctl/review_channel/reviewer_follow_guard.py`,
+`dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`,
+`dev/scripts/devctl/tests/commands/reporting/test_dashboard.py`,
+`dev/scripts/devctl/tests/review_channel/test_follow_controller.py`, and
+`dev/scripts/devctl/tests/review_channel/test_follow_controller_reviewer_wake.py`.
+
+Fact: the repo already had the right typed reducers, but the last-mile
+authority read was still fragmented. `startup-context`, `session-resume`, and
+`review-channel --action status|doctor` each exposed adjacent truths
+(`CoordinationSnapshot`, reviewer runtime/doctor state, current instruction
+revision, implementer ACK state, packet-target attention, next-command
+routing), but no single reducer collapsed them into one turn-sized answer.
+That meant a stale instruction/ACK handshake could show up as raw
+`current_instruction_revision`, `implementer_ack_state`, `reviewer_mode`, and
+doctor/status fields without one canonical machine judgment telling the next
+AI turn whether the loop was merely single-agent, broadly resync-required, or
+specifically degraded because the implementer ACK had not caught up with the
+live instruction revision.
+
+This matters because "typed state exists somewhere" is not the product claim.
+The product claim is that fresh bootstrap/status surfaces tell the next actor
+what is true and what to do next without bridge-prose inference. If startup,
+session-resume, and status each make the caller recompute coordination state
+from different raw fields, the repo is still asking AI to reconcile authority
+in chat memory instead of from one runtime contract.
+
+The closure landed a small shared reducer instead of another surface-local
+summary. `dev/scripts/devctl/runtime/authority_snapshot.py` now projects
+`AuthoritySnapshot` from coordination posture, reviewer runtime/doctor state,
+typed current-session ACK state, packet-inbox target, and the resolved next
+command/allowed-actions path. `StartupContext` and `SessionCachePacket`
+persist that reduced contract directly, and review-channel `status` / `doctor`
+now attach the same object so callers can read one typed
+`coordination_state`, `root_cause`, `required_action`, `next_command`, and
+`safe_to_continue` packet. The semantics are explicit too: when the loop is
+still `active_dual_agent`, the live instruction revision is current, and the
+implementer ACK is stale, the reduced contract reports
+`coordination_state=handshake_stale` before the generic blocked-state
+fallback. That turns reviewer-to-implementer handshake drift into a first-
+class recovery state instead of a pile of raw fields.
+
+Evidence: `dev/scripts/devctl/runtime/authority_snapshot.py`,
+`dev/scripts/devctl/runtime/startup_context.py`,
+`dev/scripts/devctl/commands/governance/startup_context.py`,
+`dev/scripts/devctl/commands/governance/session_resume_support.py`,
+`dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py`,
+`dev/scripts/devctl/commands/review_channel/status.py`,
+`dev/scripts/devctl/commands/review_channel/doctor_support.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/governance/test_session_resume.py`, and
+`dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_doctor.py`.
+
+### 2026-04-13 - Dogfood walkthrough parity now closes stale target selection and projection drift across startup, session-resume, bridge, dashboard, and context-graph
+
+Fact: the live dogfood walkthrough proved the typed findings spine existed but
+the consuming surfaces still disagreed on what work was active. Startup could
+emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target` stayed pinned
+to `dev/active/review_channel.md`, session-resume rebuilt that same stale
+target from a separate path, dashboard mixed fresh typed state with older
+review-state payloads, and context-graph/query surfaces did not yet expose the
+new plan/finding contract vocabulary or task-id aliases that the rest of the
+system was starting to rely on.
+
+This matters because the product claim is no longer "typed state exists
+somewhere in the repo." The claim is that startup, resume, dashboard, status,
+bridge, and discovery surfaces are all compatibility projections over the same
+runtime truth. If one surface still follows stale continuity while another
+follows live plan/finding pressure, the system forces operators back into chat
+lore and manual reconciliation exactly where the platform says it should be
+eliminating that drift.
+
+The closure made the parity rule explicit in code and maintainer docs.
+`WorkIntakePacket` / planning reducers now promote `active_target` from live
+plan routing plus finding pressure instead of stale continuity alone,
+`session-resume` reuses that same coordination path, startup now exposes a
+bounded `quality_signals.finding_backlog` summary beside `probe_report` and
+`governance_review`, `review-channel --action status` may refresh `bridge.md`
+from typed `_compat.bridge_projection` state even while pending reviewer
+packets still exist, and dashboard now prefers typed actionable packet counts
+plus the shared startup routing payload. The same slice also turned discovery
+into proof instead of best-effort search: context-graph now exposes
+`PlanPhase`, `PlanTask`, and `FindingBacklog` contract nodes plus plan-task
+aliases such as `MP377-P0-T01`, so new typed contracts are only considered
+landed when both the producer and a live consumer/query path agree on them.
+
+Evidence: `dev/scripts/devctl/runtime/work_intake.py`,
+`dev/scripts/devctl/runtime/work_intake_selection.py`,
+`dev/scripts/devctl/platform/coordination_snapshot.py`,
+`dev/scripts/devctl/runtime/startup_signals.py`,
+`dev/scripts/devctl/commands/dashboard.py`,
+`dev/scripts/devctl/commands/dashboard_builders.py`,
+`dev/scripts/devctl/commands/review_channel/status_bridge_sync.py`,
+`dev/scripts/devctl/context_graph/catalog_nodes.py`,
+`dev/scripts/devctl/context_graph/contract_scan.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_signals.py`,
+`dev/scripts/devctl/tests/commands/reporting/test_dashboard.py`,
+`dev/scripts/devctl/tests/review_channel/test_bridge_render.py`, and
+`dev/scripts/devctl/tests/context_graph/test_context_graph.py`.
+
+### 2026-04-13 - Bridge portability and governed preflights now treat bridge status/ack as role-owned compatibility state
+
+Fact: the bridge portability slice was still incomplete even after typed
+review-state aliases and the dogfood parity closure landed. The bridge guard
+and several preflight paths still acted like `Claude Status` / `Claude Ack`
+were architecture truth instead of compatibility headings, so a role-portable
+review loop could render correct typed `implementer_*` state while bridge
+validation or preflight staging still implicitly assumed one fixed
+Codex-reviewer / Claude-implementer pair.
+
+This matters because the platform claim is role-first, not provider-first. If
+bridge guards, recovery copy, or push/hook preflights still trust stale
+provider-coded bridge prose, the repo can have correct typed authority and
+still fail the last mile where operators actually push, preflight, or relaunch
+the loop.
+
+The closure kept the bridge write path compatible while moving the read-side
+contract toward role ownership. Bridge readers and the bridge guard now accept
+neutral implementer heading aliases alongside the legacy `Claude Status` /
+`Claude Questions` / `Claude Ack` headings, operator-facing prompt/error text
+now calls those sections compatibility aliases instead of provider truth, and
+the governed `push` plus managed pre-commit review-snapshot hook now refresh
+typed review-state/status truth before they reproject or stage the bridge
+compatibility surface.
+
+Evidence: `dev/scripts/devctl/review_channel/bridge_heading_aliases.py`,
+`dev/scripts/devctl/review_channel/handoff.py`,
+`dev/scripts/devctl/review_channel/bridge_sanitize.py`,
+`dev/scripts/checks/review_channel_bridge/report.py`,
+`dev/scripts/devctl/review_channel/bridge_projection.py`,
+`dev/scripts/devctl/commands/vcs/push.py`,
+`dev/config/git_hooks/pre-commit-review-snapshot.sh`,
+`dev/scripts/devctl/tests/checks/test_check_review_channel_bridge.py`,
+`dev/scripts/devctl/tests/review_channel/test_ack_contract.py`, and
+`dev/scripts/devctl/tests/vcs/test_push.py`.
+
+### 2026-04-13 - The canonical findings writer now backs governance-review and dogfood closeout
+
+Fact: the first dogfood command landed as a separate coverage ledger, but the
+write side of the findings spine was still split. `FindingBacklog` already
+powered startup/planning readers, while `governance-review --record` still
+appended rows through its own direct path and `devctl dogfood` still required
+manual follow-up to correlate a failed run with a stable governance finding.
+
+This matters because the platform claim is one findings spine, not "one reader
+and several unrelated writers." If dogfood failures and governance-review
+closeout do not share the same writer seam, startup/planning can read one
+canonical backlog while day-to-day development still depends on operator
+memory or ad hoc ledger stitching to keep those rows consistent.
+
+The closure made the write path match the reader path. `governance-review
+--record` now routes through `runtime.finding_backlog.record_finding_backlog_row`,
+`devctl dogfood --record` can auto-record linked `signal_type=dogfood`
+findings with stable ids plus refreshed review-summary artifacts when a run
+includes finding metadata, and the governance/dogfood ledger helpers now
+resolve against the runtime repo root so portable repo-pack runs do not
+silently write back into the packaged VoiceTerm checkout.
+
+Evidence: `dev/scripts/devctl/runtime/finding_backlog.py`,
+`dev/scripts/devctl/commands/governance/review.py`,
+`dev/scripts/devctl/governance_review_log.py`,
+`dev/scripts/devctl/runtime/dogfood_log.py`,
+`dev/scripts/devctl/commands/reporting/dogfood.py`,
+`dev/scripts/devctl/tests/governance/test_governance_review.py`, and
+`dev/scripts/devctl/tests/commands/reporting/test_dogfood.py`.
+
+### 2026-04-11 - Action-request receipts and queue priority now stay aligned across inbox, dashboard, and current-session truth
+
+### 2026-04-12 - Role-first portability and phone-operator worker-lane planning are now explicit owner-plan state
+
+Fact: the architecture docs already said reviewer, implementer, and operator
+are role-first contracts over one shared backend, but the active execution
+plans still mixed that with live-proof language that read as `Codex reviewer`
+/ `Claude coder`. The phone beta loop exposed the operational side of the same
+gap too: the repo needed an explicit control-lane plus worker-lane model so a
+phone-attached dashboard session does not have to share one mutating worktree
+with active coding.
+
+This matters because the system cannot credibly claim "any provider, any role"
+until the tracked execution state says exactly how the repo will prove it. If
+the owner docs still read like the provider assignment is architecture truth,
+runtime fixes drift back toward the old assumption and external proof stays
+underspecified.
+
+The closure promoted that work into the existing owner chain instead of
+starting a new plan. `MASTER_PLAN`, `continuous_swarm`, `remote_control_runtime`,
+and `ai_governance_platform` now all say the same thing: keep the phone-
+attached primary worktree as the control/dashboard lane, run mutating
+implementation in reusable worker worktrees, remove provider-coded role and
+liveness assumptions from the runtime, prove the first local beta matrix as
+`Codex reviewer + Codex worker implementer + Claude dashboard`, and only then
+widen to swapped-role and external-repo proofs.
+
+Evidence: `dev/active/MASTER_PLAN.md`, `dev/active/continuous_swarm.md`,
+`dev/active/remote_control_runtime.md`,
+`dev/active/ai_governance_platform.md`.
+
+Fact: the remote dashboard beta loop exposed two coupled packet-control gaps.
+The repo could prove that an `action_request` existed, but delivery/start state
+was still inferred from queue depth or prose, and queue selection could let a
+later finding or commentary packet hide the still-live action request. Even
+after receipt fields were added, queue metadata lagged one tick behind because
+receipt hydration happened after queue derivation.
+
+This matters because remote-control and dashboard observers need to answer two
+different questions from repo-owned typed state: "has the target lane actually
+seen this request yet?" and "is the live next step still the action request, or
+did a later commentary packet accidentally take over the queue?" If those
+answers drift, beta tests look flaky even when the packet lane itself is live.
+
+The closure keeps the event-backed queue receipt-aware and action-request-first.
+`review-channel` now records typed delivery/execution receipts on
+`action_request` packets, dashboard/status/phone surfaces expose those receipt
+fields directly, and queue derivation prefers live action requests over later
+commentary while preserving `selection_policy`, `control_state`,
+`wake_required`, and `delivery_required` in the typed source payload. Queue
+metadata is recomputed after receipt hydration too, so the same targeted inbox
+poll can move a packet from `delivery_pending` to `execution_pending` without a
+second refresh.
+
+Evidence: `dev/scripts/devctl/review_channel/event_projection.py`,
+`dev/scripts/devctl/review_channel/event_projection_queue.py`,
+`dev/scripts/devctl/review_channel/packet_control_loop.py`,
+`dev/scripts/devctl/tests/review_channel/test_plan_packets.py`,
+`dev/scripts/devctl/tests/commands/reporting/test_dashboard.py`,
+`dev/active/MASTER_PLAN.md`, `dev/active/remote_control_runtime.md`,
+`dev/scripts/README.md`.
+
+The same priority selector also drives `current_session.current_instruction`
+so read-only dashboard and status clients follow the action-request-first
+control path during remote beta polls instead of falling back to a later
+commentary packet while a live action request is still pending.
+
+Fact: the next beta gap was lane portability truth rather than packet control.
+The launcher parsed worker-worktree assignments but still prepared conductor
+sessions from the shared repo root, and even after the single-agent liveness
+fix landed, the attention classifier could still tell the phone operator that
+a healthy typed dashboard lane was `inactive`.
+
+This matters because the phone/dashboard model only becomes credible once the
+repo can prove two things simultaneously: the coding session is actually
+running inside its assigned worker worktree, and the read-only control lane is
+diagnosed by its real blocker instead of a stale dual-agent assumption.
+
+The closure made the worker-lane model load-bearing. Launch/session metadata
+now record one resolved workspace root per provider session, the generated
+conductor scripts start from that worker worktree, prompts and typed
+collaboration/coordination state carry the same lane/worktree identity into
+startup-context and dashboard surfaces, and `single_agent_active` no longer
+falls back to `inactive` in recovery diagnosis. In the live worker-lane proof,
+`review-channel status` still blocks because the tree is over checkpoint
+budget, but it now says `checkpoint_required` instead of falsely telling the
+operator to relaunch a live dashboard lane.
+
+Evidence: `dev/scripts/devctl/review_channel/launch_records.py`,
+`dev/scripts/devctl/review_channel/launch.py`,
+`dev/scripts/devctl/review_channel/launch_script.py`,
+`dev/scripts/devctl/review_channel/session_probe.py`,
+`dev/scripts/devctl/review_channel/collaboration_session_roster.py`,
+`dev/scripts/devctl/platform/coordination_snapshot_support.py`,
+`dev/scripts/devctl/review_channel/attention_classify.py`,
+`dev/scripts/devctl/tests/review_channel/test_launch_topology.py`,
+`dev/scripts/devctl/tests/review_channel/test_launch_script.py`,
+`dev/scripts/devctl/tests/review_channel/test_collaboration_session.py`,
+`dev/scripts/devctl/tests/review_channel/test_recovery_assessment.py`, and
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`.
+
+### 2026-04-12 - Review-state aliases are role-neutral and governed push approval is now bound to the worker worktree
+
+Fact: the role-first worker-lane proof still had two hidden provider/checkout
+assumptions after the launch/worktree slice landed. Typed read models still
+surfaced liveness and ACK truth through `last_codex_*`, `codex_poll_state`,
+and `claude_ack_*` names even when the runtime already knew the reviewer and
+implementer as roles, and the remote commit/push pipeline could still be read
+from a second checkout without any explicit worker-vs-control-lane binding in
+the persisted approval records.
+
+This matters because a portable role model is not credible if operator-facing
+status still encodes one provider as the canonical reviewer, and a worker-lane
+publication model is not safe if the primary dashboard/control worktree can
+silently reuse a push authorization minted for a different checkout.
+
+The closure keeps compatibility while moving authority. `review_state`,
+control-plane, dashboard/mobile, and review-channel status/doctor consumers now
+prefer provider-neutral aliases such as `reviewer_poll_state`,
+`last_reviewer_poll_*`, and `implementer_ack_current`, while the legacy
+`codex_*` / `claude_*` fields remain compatibility projection only for bridge
+parity and older consumers. The same pass also added `worktree_identity` to
+the staged pipeline contract, persisted push authorization, latest-push status,
+and push/startup recovery logic, so governed commit/push now fails closed when
+the current checkout does not match the worker lane that staged the approved
+publication.
+
+Evidence: `dev/scripts/devctl/runtime/review_state_models.py`,
+`dev/scripts/devctl/runtime/reviewer_runtime_models.py`,
+`dev/scripts/devctl/review_channel/status_projection_bridge_state.py`,
+`dev/scripts/devctl/review_channel/status_projection_helpers.py`,
+`dev/scripts/devctl/review_channel/collaboration_session.py`,
+`dev/scripts/devctl/mobile_status_projection.py`,
+`dev/scripts/devctl/mobile_status_views.py`,
+`dev/scripts/devctl/runtime/remote_commit_pipeline_models.py`,
+`dev/scripts/devctl/runtime/push_authorization.py`,
+`dev/scripts/devctl/governance/push_state.py`,
+`dev/scripts/devctl/commands/vcs/push.py`,
+`dev/scripts/devctl/tests/runtime/test_push_authorization.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/remote_control_runtime.md`.
+
+### 2026-04-12 - Governed checkpoint commits now survive blocked implementation authority, and event-backed review-state stays authoritative
+
+Fact: the remote-dashboard dogfood loop exposed a governed commit deadlock.
+Startup could say
+`advisory_action=checkpoint_allowed` and `push_decision=await_checkpoint`
+while `devctl commit` still hard-blocked on
+`implementation_permission=blocked` before the governed executor even tried to
+stage or commit.
+
+This matters because checkpoint authority is narrower than implementation
+authority. When startup is explicitly telling the operator to cut a bounded
+checkpoint, the governed `devctl commit` path should stay available even if
+new implementation is temporarily blocked. At the same time, raw `git commit`
+must remain blocked so the fix does not reopen the exact bypass the repo is
+trying to eliminate.
+
+The closure kept that boundary explicit. `CommitPermissionDecision` still
+blocks raw `git commit` when implementation authority is blocked, but the
+executor-facing variant now allows `devctl commit` to proceed when startup
+explicitly says `checkpoint_allowed` / `await_checkpoint` and the reviewer
+gate marks the lane checkpoint-permitted. The governed commit path also now
+marks its nested git invocation explicitly so the raw-git hook gate can keep
+blocking shell/editor commits while allowing the repo-owned executor path.
+
+The same pass tightened read-side authority for the dashboard/startup/session-
+resume lane too: when governance still points at the legacy
+`.../review_channel/latest` compatibility root, the resolver now prefers the
+sibling event-backed `projections/latest/review_state.json` bundle and keeps
+that path authoritative even for live-refresh callers. That prevents the
+dashboard/status/startup stack from silently downgrading back to stale bridge-
+era compatibility state after the event-backed projection already exists.
+
+Evidence: `dev/scripts/devctl/runtime/commit_permission.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_git.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_phases.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py`,
+`dev/scripts/devctl/runtime/review_state_locator.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_gate.py`,
+`dev/scripts/devctl/tests/vcs/test_governed_executor.py`,
+`dev/scripts/devctl/tests/runtime/test_review_state_locator.py`,
+`dev/scripts/devctl/tests/commands/reporting/test_dashboard.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/remote_commit_pipeline.md`,
+`dev/active/remote_control_runtime.md`.
+
+### 2026-04-11 - Single-agent remote-control attachment truth now stays aligned across status, doctor, and control-plane reads
+
+Fact: the same remote-dashboard beta loop found a second single-agent liveness
+gap after the local reviewer fallback landed. Codex could stay live when fresh
+packet or rollout evidence proved the sanctioned reviewer takeover, but Claude
+could still drop out of `bridge_liveness` / `ControlPlaneReadModel` once its
+last typed packet aged past the session-probe freshness window even though the
+typed `remote_control_attachment` still said the external session was attached.
+
+This matters because remote-control sessions answer a different question from
+reviewer packet freshness: "is the attached remote implementer still the live
+repo-owned authority for this single-agent lane?" If status, doctor, or the
+dashboard demote Claude just because packet recency is old, the operator sees
+false stale-state churn even while the attached phone session is still the
+current implementer.
+
+The closure makes the attachment authoritative on that path. Bridge-backed
+status now merges active typed `remote_control_attachment` providers into
+single-agent conductor truth, and the shared daemon/read-model reducer treats
+an attached remote-control provider as live implementer authority before it
+falls back to stale `*-conductor.json` metadata. That keeps `review-channel
+status`, doctor, and `ControlPlaneReadModel` aligned during remote-control
+sessions even when Claude has not posted a fresh typed packet recently.
+
+Evidence: `dev/scripts/devctl/review_channel/status_projection_helpers.py`,
+`dev/scripts/devctl/runtime/control_plane_daemons.py`,
+`dev/scripts/devctl/tests/review_channel/test_recovery_assessment.py`,
+`dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`,
+`dev/active/MASTER_PLAN.md`, `dev/active/ai_governance_platform.md`,
+`dev/scripts/README.md`.
+
+### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
+
+### 2026-04-11 - Local single-agent takeover now stays local in startup and coordination truth
+
+Fact: the sanctioned local reviewer-takeover surface already existed, but the
+repo still drifted back toward `remote_control` semantics in one important
+place. The current policy had been left on `remote_control`, and startup /
+coordination consumers still treated "no live pair" as blocked implementation
+authority even when the reviewer had deliberately downgraded into local
+`single_agent` mode and no typed remote-control attachment was active.
+
+This matters because those two signals mean different things. "There is no
+live dual-agent pair" should require relaunch only when the operator is trying
+to restore `active_dual_agent`; it must not tell a local Codex reviewer that
+the repo is still remote-controlled or that implementation is blocked when the
+sanctioned local-takeover path has already reclaimed authority.
+
+The closure makes that distinction explicit and shared. The repo policy now
+resolves back to `local_terminal`, startup control-topology promotion treats a
+sanctioned local `single_agent` takeover as active implementation authority,
+coordination/resync reducers ignore dual-agent-only blockers in that state,
+and maintainer docs now state clearly that a pair relaunch is for restoring
+live dual-agent review, not for making local implementation legal again.
+
+### 2026-04-11 - Startup mutability routing and bootstrap surfaces now share one portable-boundary contract
+
+Fact: the next live-run review pass exposed two coupled drift patterns. The
+runtime projected lane capability and mutation permission through overlapping
+fields, so `allowed_actions` could still advertise implementation work while
+checkpoint budget, resync, or blocked implementation authority had already
+made that work illegal. At the same time, generated bootstrap/setup wording
+still described the portable platform boundary too loosely, which let fresh
+sessions keep treating VoiceTerm defaults as if they were backend authority.
+
+This matters because a provider-agnostic role system only stays safe if the
+runtime emits one deterministic answer about whether mutation is currently
+admissible, and a portable platform only stays portable if the first-hop
+instruction surfaces say clearly that the current repo is a client/product
+integration, not the hidden default for arbitrary adopters.
+
+The closure is small and shared. `startup-context` now takes
+`implementation_permission` from observed control-topology truth instead of a
+second work-intake fallback, action routing keeps `allowed_actions` as the
+effective post-gate action set, exposes raw lane capability separately as
+`intrinsic_allowed_actions`, and publishes one
+`implementation_admissibility` summary (`allowed`,
+`checkpoint_required`, or `blocked`) that monitor/status consumers reuse too.
+The same slice also updated the generated instruction/setup templates and the
+bootstrap guide so they state explicitly that VoiceTerm is the first-party
+client/product integration over the portable governance platform while repo
+packs and typed runtime contracts remain backend authority for arbitrary
+repos. Maintainer docs were updated in the same pass so `docs-check
+--strict-tooling` keeps enforcing that closure.
+
+### 2026-04-11 - Governed push now writes phase-aware latest receipts instead of leaving startup to guess
+
+Fact: the governed push pipeline already had typed `push_pending` state in the
+remote commit pipeline, but the canonical `dev/reports/push/latest.json`
+artifact still stayed on the last completed morning report until the new push
+either reached `published_remote` or finished entirely. During a live
+`devctl push --execute`, startup and manual polling therefore had to infer
+whether the current push was actually running or whether the old artifact was
+simply stale.
+
+This matters because the latest-push artifact is the repo-owned cross-surface
+read model for startup, recovery, and lightweight operator polling. If that
+file lags behind the active push phases, the system invites duplicate push
+attempts and keeps forcing people back to ad hoc terminal polling even though
+the governed pipeline already knows better.
+
+The closure makes the artifact phase-aware. `devctl push --execute` now writes
+a `push_preflight_running` snapshot as soon as the governed push starts,
+advances the same artifact to `push_pending` once preflight and publication
+authorization are ready, and still writes the existing `published_remote`
+snapshot immediately after `git push` succeeds. Startup now prefers a
+current-head in-flight latest report over stale final receipts and treats
+that state as "wait for the running governed push" instead of telling the
+operator to launch another push from stale artifact state.
+
+### 2026-04-10 - Lane edit gates and destructive recovery now require typed startup authority
+
+Fact: the Q40/Q42 live-run findings showed two separate authority leaks. A
+dashboard/observer lane could still slide into implementation edits while
+another agent owned the active lane, and recovery code could escalate from
+incomplete runtime suspicion to relaunch or termination without a typed
+precondition.
+
+The closure splits those decisions. `startup-context` now emits
+`lane_edit_gate` so dashboard and observer callers are constrained to findings
+and action-request packets when another live implementer owns the lane. It also
+emits destructive recovery authority as `recovery_action`,
+`recovery_basis`, and `recovery_scope`; relaunch and termination stay
+observe-only unless the packet proves an allowed basis such as a dead process,
+stalled runtime, singleton violation, or operator approval. The older
+non-destructive routing hint remains available as `control_recovery_action` so
+refresh/report guidance cannot be mistaken for permission to kill or relaunch
+a process. The remote-control dashboard now has a narrow, plain-text terminal
+rendering path for phone-sized reads.
+
+### 2026-04-10 - Startup action routing and commit permission now make blocked implementation authority explicit
+
+Fact: the Q37-Q47 live audit showed the same control-plane failure repeating:
+agents reasoned from partial status, inferred the next step, and then revised
+after the typed state contradicted that inference. The highest-signal fix was
+not another prompt reminder; it was to make startup and commit boundaries emit
+deterministic legal actions and block illegal ones from repo-owned state.
+
+This matters because implementation evidence is not commit authority. Passing
+tests, a local review note, or a dirty/staged worktree can prove useful work
+exists, but they cannot overrule `implementation_permission=blocked` when the
+observed control topology says the implementation lane is not authorized.
+
+The closure is bounded. `startup-context` now projects typed action routing:
+`next_command`, `allowed_actions`, `blocked_actions`, `control_recovery_action`,
+`escalation_action`, and `agent_lane` permission state for dashboard,
+implementer, observer, and reviewer callers. `devctl commit` now evaluates a
+typed `CommitPermissionDecision` before staging or running guards; explicit
+`implementation_permission=blocked|suspended` blocks `vcs.stage`,
+`vcs.commit`, and raw `git commit` until the routed startup/review recovery
+path is followed. The remaining same-lane work is to widen the packet through
+dashboard/status/doctor, raw-git hooks, and pre-edit/pre-launch gates.
+
+### 2026-04-10 - Governed push stopped replaying terminal pipelines, and finding reviews now seed guard/probe promotion candidates
+
+Fact: the dogfooded governed-push lane exposed a stale authorization bug after
+a completed push pipeline. A terminal `push_completed` same-branch
+`RemoteCommitPipelineContract` could still be selected by `devctl push` when
+it carried any `commit_sha`, so new commits after publication reused the old
+pipeline executor path instead of falling back to current-branch publication
+checks. The same session also exposed the larger closed-loop learning gap:
+adjudicated findings with a guard/probe prevention surface were recorded in
+`governance-review`, but no deterministic queue existed for turning those
+decisions into reusable guard/probe follow-up work.
+
+This matters because `push_completed` is evidence that one publication already
+happened, not reusable permission for a later HEAD. It also matters because
+the governance platform should not depend on chat memory or audit prose to
+remember "this issue should become a guard." The durable transition is
+`FindingReview -> GuardPromotionCandidate`, with active plans owning broader
+guard validation/scaffolding later.
+
+The closure is intentionally small. `devctl push` now re-enters
+`GovernedVcsExecutor` only for same-branch pipelines in the pushable states
+`commit_recorded`, `push_pending`, or `push_blocked` that also carry a
+`commit_sha`; terminal pipelines now stay terminal evidence. Separately,
+`governance-review --record` appends a repo-pack-resolved
+`GuardPromotionCandidate` JSONL row whenever the prevention surface is
+`guard` or `probe`, and the governance-review JSON summary includes the
+candidate id/path for that recorded row. The active owner placement is split deliberately:
+`remote_commit_pipeline.md` owns stale terminal-pipeline behavior,
+`ai_governance_platform.md` owns the finding-review-to-promotion contract, and
+`portable_code_governance.md` owns the repo-pack path portability seam.
+
+### 2026-04-09 - Headless recover became a real relaunch path, and session-resume stopped reusing stale review-state text
+
+Fact: the narrow repo-owned `review-channel --action recover` path had one
+real remote-control gap left. In governed `--terminal none` mode it prepared
+fresh Claude implementer scripts and metadata, but `_maybe_launch_recover_
+sessions()` only launched for `terminal-app`, so the command could report a
+clean recover attempt while never actually starting the detached implementer.
+At the same time, `session-resume` still trusted stale loaded
+`review_state.current_session` text even when the caller had already supplied
+a fresher typed `ReviewState`, which let bootstrap/recover reuse old
+instruction prose after the authoritative typed state had moved on.
+
+This matters because phone-steered remote control only works if headless
+recover is a real launch path rather than a script generator, and if
+bootstrap/session-resume honor the same frozen typed review-state snapshot
+that status/startup already resolved. Otherwise the operator sees exactly the
+failure pattern from the field report: daemons and metadata look alive, but
+the implementer never comes back or wakes on stale instruction text.
+
+The closure is bounded. Headless recover now resolves the governed
+interaction mode, enforces the same headless-launch discipline as other
+review-channel starts, routes `--terminal none` through the detached
+proof-of-life launcher, preserves launch warnings in the recover report, and
+waits for the current implementer ACK before claiming success. On the read
+side, `_load_governed_sources()` now explicitly overwrites the loaded
+`review_state` payload with the caller-threaded typed `ReviewState`, so
+`session-resume` no longer lets stale compact/current-session payloads beat
+the frozen typed snapshot supplied by startup/reviewer tooling.
+
+### 2026-04-10 - Local reviewer takeover now retires stale dual-agent daemons
+
+Fact: the review-channel control plane still had one mode-authority split
+after the headless recover fix landed. A local
+`reviewer-heartbeat --reviewer-mode single_agent` takeover rewrote the bridge
+correctly, but the detached ensure/publisher and reviewer-supervisor daemons
+could keep heartbeating their older `active_dual_agent` lifecycle state and
+drag status/startup back into a relaunch deadlock a few seconds later.
+
+This matters because the sanctioned escape hatch from a dead dual-agent loop
+is supposed to be "Codex takes local single-agent authority and stabilizes the
+repo." If the background daemons can silently resurrect the stale loop mode,
+the operator sees exactly the wrong thing: `startup-context` flips green long
+enough to proceed, then `review-channel status` and the startup guard regress
+back to dual-agent relaunch requirements even though no live Claude
+implementer returned.
+
+The closure is small and repo-owned. The reviewer-state action now stops the
+detached publisher/reviewer-supervisor runtime when a reviewer deliberately
+downgrades into non-active mode, then rebuilds status from that retired
+lifecycle state. That keeps local `single_agent` takeover durable instead of
+letting stale daemon heartbeats silently restore `active_dual_agent`.
+
+### 2026-04-10 - Headless conductors now stay supervised in strict process audit
+
+Fact: live dogfooding of `review-channel --action launch --terminal none`
+proved the earlier Q41 process-sweep protection was incomplete. The kill path
+already protected registered conductor PIDs, but `process-cleanup --dry-run
+--verify` still failed immediately after launch because `process-audit` only
+classified `review_channel_conductor` rows as supervised when `ppid != 1`.
+Headless launch intentionally reparents the outer `script ... conductor.sh`
+wrappers to PID 1, so the strict verify path saw the live Codex/Claude
+conductor wrappers as `recent_detached` even though the typed session registry
+identified them as the active review-channel pair.
+
+This matters because Q41 is not only "do not kill the conductors." The full
+guard loop also has to keep cleanup verification green while those registered
+conductors are alive, otherwise governed commit/push remains blocked by the
+same process-hygiene system that is supposed to protect the loop.
+
+The closure reuses the existing registered-conductor protected PID set inside
+`process-audit`: registered headless conductor wrappers and descendants are
+now counted as `active_supervised_conductors` even when their parent is PID 1,
+while unregistered detached conductor-looking helpers still fail strict audit.
+Live proof after the patch: `process-cleanup --dry-run --verify --format md`
+returned `ok: True`, and strict `process-audit` reported six supervised
+conductors with zero `recent_detached` rows.
+
+### 2026-04-10 - Pipeline refresh and agent-mind cursor polling now fail closed on stale authority
+
+Fact: the follow-up reviewer slice found two authority gaps after the earlier
+remote-control fixes. `devctl pipeline --action refresh-authorization` could
+refresh an expired authorization even after HEAD moved away from the
+authorization's `authorized_head_sha`, making a stale approval look fresh.
+`devctl agent-mind --since-cursor` also parsed only the last 400 raw rollout
+lines before filtering by cursor, so one unseen decision followed by hundreds
+of token/noise events could disappear from the next cross-agent mind slice.
+
+This matters because both paths are supposed to preserve typed authority, not
+paper over it. Refreshing is only safe when it extends the approval window for
+the same commit; once HEAD moves, the operator must go through `recover`.
+Cursor polling is the read-side equivalent: a busy session should not lose a
+decision just because low-signal rollout noise exceeded a local tail window.
+
+The closure is narrow. The refresh action now resolves current HEAD before
+mutation, refuses unavailable HEAD, refuses stale `authorized_head_sha`, and
+returns `recommended_next_action=recover` for the stale-head case without
+writing a receipt. `agent-mind` now reads the full rollout file only when a
+cursor is supplied, preserving the existing bounded tail for cursorless
+snapshots while making cursor-based polling lossless across more than 400
+intervening noise lines. Focused regressions cover stale-head refresh refusal,
+HEAD-unavailable refusal, and decision survival behind the noisy cursor gap.
+
+### 2026-04-09 - Remote Claude wrapper now follows typed runtime and governed mutation
+
+Fact: the phone-steered Claude remote-control wrapper was still too prompt-
+local. It printed typed health but did not consume typed next-step /
+recovery truth, and the tracked remote prompt still taught raw `git commit`
+instead of the governed `devctl commit` path.
+
+This matters because external Claude remote-control is supposed to sit on top
+of the same repo-owned control plane as local Codex/Claude sessions. If the
+wrapper/prompt path invents its own relaunch logic or raw mutation flow, the
+remote session becomes a second authority surface instead of a thin adapter.
+
+The closure is bounded but real: `dev/scripts/remote-bridge-loop.sh` now
+surfaces top-level typed `recommended_command`, typed runtime
+`doctor.decision_command`, and managed git-hook health; it prefers an
+executable repo-owned `review-channel` recovery command when bootstrap is
+requested and only falls back to the full `launch` pair when no typed
+recovery command exists. The paired `dev/scripts/remote_bridge_prompt.md`
+bootstrap now starts from `session-resume --role implementer --format
+bootstrap`, treats non-command ids such as `resume_live_review_loop` as
+decision state rather than shell, and routes commit/push through governed
+`devctl commit` / `devctl push` instead of raw git. The same slice now closes
+the remote-control commit stall itself: a live
+`reviewer_runtime.remote_control_attachment` promotes fallback interaction
+mode to `remote_control`, and governed `devctl commit` treats that phone-
+steered mode as promptless typed approval instead of parking on
+`operator_approval_pending`.
+
+### 2026-04-09 - Remote-control commit now waits for typed approval; process_sweep and rollout-tail narrow their trust boundaries
+
+Fact: three follow-up findings from the Codex reviewer pass on the
+governance-quality-sweep branch landed as F1, F2, and F3. F1 caught
+`devctl commit` auto-approving in `remote_control` via
+`_should_auto_approve`, which treated the promptless phone-steered mode
+as sufficient signal on its own and collapsed the operator approval
+boundary — the exact gap the earlier remote-Claude-wrapper slice opened
+when it promoted remote_control to promptless typed approval without
+also requiring an applied typed approval packet. F2 caught
+`process_sweep._protected_registered_conductor_pids` returning an empty
+protected set whenever the typed session registry reported a live
+conductor without a resolved `session_pid` (script probe failed,
+metadata stale, or registry not yet populated after a recent spawn),
+leaving the live reviewer-supervised conductor open to reaping. F3
+caught the dead `rollout_tail/discovery._session_glob` helper that still
+documented a broad `"*.jsonl"` pattern for Claude, which a reader could
+mistake for the active discovery path even though `_iter_session_files`
+already carried the narrow `glob("*/*.jsonl")` + UUID-stem filter.
+
+This matters because all three findings collapse trust boundaries that
+the typed governance pipeline is supposed to hold. Auto-approving in
+`remote_control` lets a local terminal authoritatively speak for an
+absent operator. Reaping a live conductor because its pid could not be
+recovered regresses exactly the symptom the 696f4772 hygiene fix just
+corrected. Leaving broad-glob dead code next to the real narrow-glob
+helper invites future edits to "simplify" back toward the unsafe shape.
+
+The closure is scoped to six files. `commands/vcs/commit.py` drops
+`OperatorInteractionMode.REMOTE_CONTROL.value` from
+`_should_auto_approve` so only `local_terminal` and `single_agent` self-
+approve; `remote_control` now falls through to `_ensure_approval_request`
+and waits for a typed approval or action-request to be applied by the
+remote operator.
+`commands/check/process_sweep.py::_protected_registered_conductor_pids`
+adds a supervisor-backed fallback that reads
+`read_reviewer_supervisor_state(status_dir)` and, when the supervisor
+heartbeat is running, protects any row with `match_scope ==
+"review_channel_conductor"` even if `load_conductor_sessions` could not
+recover a pid. That mirrors `hygiene_support._audit_runtime_processes`
+so both guards agree on "what counts as a supervised conductor."
+`commands/rollout_tail/discovery.py` removes the dead `_session_glob`
+function so the narrow glob + UUID-stem filter in `_iter_session_files`
+is the only visible Claude discovery path. Tests cover each finding
+directly: F1 flipped
+`test_commit_remote_mode_auto_approves_and_records_commit` into
+`test_commit_remote_mode_waits_for_typed_approval` (asserts `rc=1`,
+`operator_approval_pending`, `approval_state=pending`); F2 added
+`test_protected_pids_fall_back_to_supervisor_when_session_pid_missing`
+via strict xfail first so the bug existence is a hard trace (xfail →
+unexpected-pass after fix → marker removed); F3 added
+`test_discover_excludes_memory_artifacts_even_when_uuid_named` plus
+`test_resolve_by_id_skips_memory_artifacts`, pinning down Codex's
+specific `memory/**` exclusion example. 76 focused tests pass across
+process-sweep (30), commit-gate (16), and rollout-tail (30).
+
+Follow-up committed on the same branch during the same loop: a parallel
+`code-reviewer` agent audited the F1/F2/F3 diff, caught a reverse-seek
+tail-reader off-by-one in `rollout_tail` (landed with the F3 fix in
+`971647ec`), and then added two extra process-sweep regression tests in
+`d35abef0` — `test_protected_pids_uses_registry_when_session_pid_is_live`
+and `test_protected_pids_empty_when_no_registry_and_dead_supervisor` —
+that prove the supervisor-backed fallback keeps the reap path safe when
+supervision is genuinely down. The parallel worker also flagged an open
+architectural concern for the next Codex review pass: both
+`hygiene_support._audit_runtime_processes` and
+`process_sweep._protected_registered_conductor_pids` now trust the
+reviewer_supervisor heartbeat for conductor protection, but neither
+guard enforces a freshness/TTL on that heartbeat, so a stale heartbeat
+with `running=True` after a crashed supervisor could let both guards
+over-protect a dead tree indefinitely. A matching freshness check
+should land in both call sites simultaneously to keep the trust models
+aligned.
+
+### 2026-04-09 - Governed push now reuses one typed diff base through post-push follow-up
+
+Fact: the governed push lane exposed a second publication-honesty gap after
+remote publication was already recorded. Preflight correctly resolved a
+branch-aware `since_ref`, but the post-push bundle still fell back to the
+static `origin/develop` template, so existing feature branches could reopen
+unrelated branch debt immediately after a successful publish.
+
+This matters because the portable governance system is supposed to teach one
+deterministic next step to humans, Codex, Claude, hooks, and launcher
+surfaces. If preflight, startup, and push receipts know one diff base but
+post-push follow-up silently recomputes another, the system looks green at
+publication time and red a moment later for the wrong reason.
+
+The closure is now structural: `devctl push` resolves one branch-aware
+preflight base and reuses it for diff-sensitive post-push commands, while
+owner docs now say hook/launcher surfaces must consume repo-owned next-step /
+diff-base truth rather than hardcoding `origin/develop`.
+
+Files changed:
+- `AGENTS.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/remote_commit_pipeline.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/history/ENGINEERING_EVOLUTION.md`
+- `dev/scripts/README.md`
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/commands/vcs/push_flow.py`
+- `dev/scripts/devctl/governance/push_policy.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
+### 2026-04-09 - Guard entrypoints now fail closed when catalog or README wiring is missing
+
+Fact: the governed push lane surfaced a self-hosting gap in the new
+graph-backed mutation-bypass guard. The public entrypoint shim
+`dev/scripts/checks/check_mutation_bypass_graph_closure.py` existed on disk,
+but it had not been registered in `dev/scripts/devctl/script_catalog.py` or
+documented in `dev/scripts/README.md`, so `devctl hygiene` correctly blocked
+publication.
+
+This matters because public check entrypoints are part of the maintainer
+control surface, not private helpers. If the repo lets a check land without
+catalog and README wiring, later AI/human sessions can miss the guard
+entirely even though CI/self-hosting expects it to exist. The owner docs now
+state the stricter invariant explicitly: add or shim a public `check_*.py`
+entrypoint only together with script-catalog registration and maintainer-doc
+inventory updates in the same change.
+
+Files changed:
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/scripts/README.md`
+- `dev/scripts/devctl/script_catalog.py`
+- `dev/scripts/devctl/tests/test_script_catalog.py`
+
+### 2026-04-09 - Shared guard registration now has to converge across policy, bundles, and workflows
+
+Fact: the next governed-push failure exposed a second self-hosting gap in the
+same graph-backed mutation-bypass guard. The public entrypoint existed and was
+already cataloged, but the resolved quality policy and bundle/workflow lanes
+did not all agree on it, so push preflight correctly failed on
+`check_guard_enforcement_inventory.py` / `check_bundle_workflow_parity.py`.
+
+This matters because the portable governance system is supposed to be
+deterministic for AI and humans alike. A guard that only exists in one of
+script catalog, quality policy, bundle authority, or CI workflows is not
+really part of the shared system; it is just latent drift waiting to block the
+next checkpoint or push.
+
+The closure is now explicit in code and docs: shared guards must register in
+typed quality policy, shared bundle authority, and owning workflows in the
+same change, and maintainer docs must call that out as a self-hosting rule.
+`mutation_bypass_graph_closure` is the first concrete proof of that stricter
+hook-driven contract.
+
+Files changed:
+- `.github/workflows/tooling_control_plane.yml`
+- `.github/workflows/release_preflight.yml`
+- `AGENTS.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/config/quality_presets/portable_python.json`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/scripts/devctl/bundles/registry.py`
+- `dev/scripts/devctl/quality_policy/defaults.py`
+- `dev/scripts/devctl/tests/governance/test_bundle_registry.py`
+- `dev/scripts/devctl/tests/quality_policy/test_quality_policy.py`
+
+### 2026-04-09 - Shared live review-state loads stopped defaulting to bridge refresh
+
+Fact: the next typed-authority convergence slice moved the shared live
+review-state loader off bridge refresh as its default freshness strategy.
+`load_current_review_state*` now prefers canonical event-backed review state
+first, then an already-written typed `review_state.json` projection, and only
+then falls back to bridge-backed status refresh.
+
+This matters because earlier read-side convergence still let live runtime
+consumers re-trigger compatibility projection work even when typed authority
+was already present on disk. The new order narrows the remaining producer
+cutover to the true authority seam: canonical path/identity freeze and the
+last bridge-freshness liveness dependencies, rather than more thin-client
+refresh loops.
+
+Files changed:
+- `dev/scripts/devctl/review_channel/review_state_authority.py`
+- `dev/scripts/devctl/review_channel/state.py`
+- `dev/scripts/devctl/runtime/review_state_locator.py`
+- `dev/scripts/devctl/runtime/control_plane_sources.py`
+- `dev/scripts/devctl/tests/runtime/test_review_state_locator.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+
+### 2026-04-09 - Visible review-channel launch now fails closed on transient temp clones
+
+Fact: local visible review-channel launch had one remaining non-repo-owned
+stall point. Even when startup/review-channel authority was correct, launching
+Codex or Claude from a fresh clone under `/tmp` or the system temp root could
+still block on provider directory-trust prompts before the conductor started.
+
+The fix keeps the existing local-vs-headless terminal policy, but adds one
+more repo-owned gate in front of the live launch path. Visible
+`review-channel --action launch|recover --terminal terminal-app` now refuses
+transient temp clones/worktrees that look like real repo checkouts, and it
+does so before starting any repo-owned runtime daemons or opening Terminal.app
+windows. The same slice also tightened the review-attention split for
+automation-only polls: that condition only escalates to
+`review_loop_relaunch_required` when Claude still advertises a current ACK in
+a resettable live session, while ordinary status surfaces keep the raw
+bridge-contract error honest.
+
+Files changed:
+- `dev/scripts/devctl/commands/review_channel/launcher_discipline.py`
+- `dev/scripts/devctl/commands/review_channel/bridge_launch_control.py`
+- `dev/scripts/devctl/commands/review_channel/bridge_handler.py`
+- `dev/scripts/devctl/commands/review_channel/_recover.py`
+- `dev/scripts/devctl/review_channel/attention_classify.py`
+- `dev/scripts/devctl/tests/review_channel/test_launcher_discipline.py`
+- `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/review_channel.md`
+
+### 2026-04-08 - Governed mutation, queue truth, and dashboard review-state reads were tightened to fail closed
+
+The next remote-control/platform hardening slice was not a new architecture
+layer. It was closure on the typed paths that already existed but still left
+practical escape hatches.
+
+On the write side, `devctl commit` no longer treats an unreadable control
+plane as locally auto-approvable: only resolved `local_terminal` and
+`single_agent` modes may self-apply the typed approval packet. The governed
+commit phase also refreshes any ReviewSnapshot projection before the final
+tree-hash check, so a changed staged tree now blocks with
+`staged_snapshot_changed` instead of silently reusing approval that targeted
+an older tree. On the push side, executor-routed `devctl push` now reuses the
+policy/default remote and current approved target for the active pipeline,
+returns output-pipe failures instead of reporting false success, and keeps
+publication authorization required when review is still declared/effective
+dual-agent even if the live runtime has degraded to `tools_only`.
+
+On the queue/read side, review-channel pending-packet cleanup now treats queue
+resolution as apply-bound. Only applied `commit_approval` decisions clear the
+live approval request queue; `acked` rows and unrelated packet history no
+longer collapse live queue truth. Dashboard now loads review-state through the
+shared fresh source path used by the control-plane read model instead of
+reading stale `state/latest.json` directly, so instruction/findings truth no
+longer drifts from startup/session-resume for the same tick.
+
+Evidence: `dev/scripts/devctl/commands/vcs/commit.py`,
+`dev/scripts/devctl/commands/vcs/push.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_phases.py`,
+`dev/scripts/devctl/runtime/push_authorization.py`,
+`dev/scripts/devctl/review_channel/pending_packets.py`,
+`dev/scripts/devctl/review_channel/event_render.py`,
+`dev/scripts/devctl/runtime/control_plane_resolve.py`,
+`dev/scripts/devctl/commands/dashboard.py`,
+`dev/scripts/devctl/tests/review_channel/test_pending_packet_guards.py`,
+`dev/scripts/devctl/tests/review_channel/test_packet_queue_cleanup.py`,
+`dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`,
+`dev/scripts/devctl/tests/runtime/test_push_authorization.py`,
+`dev/scripts/devctl/tests/test_dashboard.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_gate.py`,
+`dev/scripts/devctl/tests/vcs/test_push.py`.
+
+### 2026-04-08 - Startup-context coordination snapshot now routes through the shared governed loader
+
+The previous coordination slice landed `CoordinationSnapshot` on
+`ControlPlaneReadModel` and added `dev/scripts/devctl/runtime/coordination_loader.py`
+as the canonical resolution path. `session_resume_support` and
+`control_plane_read_model` adopted it, but `build_startup_context` still
+called `build_coordination_snapshot` directly against its own
+`SimpleNamespace(work_intake=work_intake)` wrapper. That left three
+proof surfaces — `startup-context --format json`,
+`session-resume --format json`, and `dashboard --format json` — running
+through two different reducers even with matching inputs, so they could
+silently disagree on `observed_topology`, `ownership_status`, and
+`resync_reasons`.
+
+`build_startup_context` now delegates its `CoordinationSnapshot` to
+`load_coordination_snapshot` with the same governance + review-state +
+reviewer-gate already derived higher in the function. The old direct
+`build_coordination_snapshot` call remains only as a bare-repo / legacy-
+fixture fallback when the loader returns `None`. After the wiring, all
+three proof surfaces observe the same bounded reducer output for one
+tick on any given tree. The parity is covered by a new structural mock
+test plus a live end-to-end test in
+`dev/scripts/devctl/tests/runtime/test_coordination_loader_wiring.py`.
+
+The same slice closed a separate fail-closed drift in
+`dev/scripts/devctl/governance/draft_policy_scan.py::_scan_bridge_config`.
+Before this fix, `scan_repo_governance(policy={}).bridge_config.operator_interaction_mode`
+returned `local_terminal` (the `BridgeConfig` dataclass default), while
+`bridge_config_from_mapping({}).operator_interaction_mode` returned
+`unresolved`. The scan path now reads `operator_interaction_mode` from
+`repo_governance.bridge_config` with the same
+`resolve_operator_interaction_mode` resolver the parse path uses, so
+both paths collapse to `unresolved` on empty policy and preserve
+explicit `remote_control` / `dual_agent` values alike.
+
+Evidence: `dev/scripts/devctl/runtime/startup_context.py`,
+`dev/scripts/devctl/governance/draft_policy_scan.py`,
+`dev/scripts/devctl/tests/runtime/test_coordination_loader_wiring.py`,
+`dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
+### 2026-04-08 - Step-0 startup summary and the shared read model now carry coordination truth
+
+The next coordination follow-up was not another reducer. The reducer already
+existed and multiple rich surfaces already rendered it. The miss was
+load-bearing: the shared `ControlPlaneReadModel` still had no coordination
+field, and the canonical Step-0 `startup-context --format summary` surface was
+still blind to the same topology/fanout/resync/current-slice answer that
+markdown/bootstrap surfaces already knew.
+
+That gap is now narrower. `ControlPlaneReadModel` carries
+`CoordinationSnapshot`, dashboard can consume that shared coordination packet
+instead of reaching around it first, and the Step-0 startup summary plus
+machine-summary payload now project coordination directly. Startup summary also
+elevates `coordination_resync_required` into the blocker set and points the
+next-command answer back at repo-owned review status instead of pretending the
+session is ready to widen.
+
+The same slice also corrected the platform catalog so
+`CoordinationSnapshot`'s contract row matches the reducer we are actually
+shipping, not a smaller imagined subset. Focused runtime tests plus
+`check_platform_contract_closure.py` now pass with the updated contract.
+
+Evidence: `dev/scripts/devctl/runtime/control_plane_read_model.py`,
+`dev/scripts/devctl/commands/governance/startup_context.py`,
+`dev/scripts/devctl/platform/surface_state_contract_rows.py`,
+`dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/platform/test_coordination_snapshot.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/active/remote_control_runtime.md`.
+
+### 2026-04-08 - Coordination reducers now collapse topology, fanout, and resync posture into typed state
+
+The next step after `PlanningIRSnapshot` was not another larger startup packet.
+The repo already had the raw facts: startup/work-intake ownership posture,
+review-state collaboration participants, delegated-worktree receipts, ready
+gates, and reviewer-runtime freshness. What it lacked was one bounded answer
+to the operator question "who else is here, is fanout safe, and do we need to
+resync?" without rebuilding that answer from several typed islands or bridge
+prose.
+
+That gap is now narrowed in the platform package. `CoordinationSnapshot`
+joins startup/work-intake posture, `ReviewState.collaboration`, delegated
+worker receipts, ready gates, and conflict summaries into one typed projection
+for declared-vs-observed topology, recommended topology, fanout posture,
+worktree strategy, and resync requirement. `system-picture` now consumes that
+projection directly, so the generated proof surface can show a real typed
+coordination answer instead of leaving multi-agent posture scattered across
+status JSON and runtime markdown.
+
+The same worktree also carries the adjacent richer contract
+`CoordinationTopologySnapshot`, which projects bounded participant rows,
+delegated worktree rows, ready gates, fanout safety, recommended topology,
+and explicit resync command. That contract is the intended shared topology
+surface for startup/status/dashboard/remote-control parity work, while the
+current `system-picture` slice proves the reducer on a live repo state first.
+Live proof is already useful: declared multi-agent topology can now be shown
+as observed single-agent runtime with planned scaffolding only, isolated
+worker worktrees, `fanout_safe=false`, and typed resync reasons.
+
+Evidence: `dev/scripts/devctl/platform/coordination_snapshot.py`,
+`dev/scripts/devctl/platform/coordination_snapshot_models.py`,
+`dev/scripts/devctl/platform/coordination_topology.py`,
+`dev/scripts/devctl/platform/system_picture.py`,
+`dev/scripts/devctl/platform/system_picture_sections_coordination.py`,
+`dev/scripts/devctl/tests/platform/test_coordination_snapshot.py`,
+`dev/scripts/devctl/tests/platform/test_coordination_topology.py`,
+`dev/scripts/devctl/tests/platform/test_system_picture.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`.
+
+### 2026-04-08 - PlanningIRSnapshot turns multi-agent scheduling into a typed reducer
+
+The next architecture step after startup coordination was not another wider
+startup packet and not more bridge prose. The repo already had the primitives:
+`PlanRegistry`, `PlanTargetRef`, bounded typed review/runtime state,
+context-graph `scoped_by` edges, and governance-review rows. What it lacked
+was one reducer that joins those surfaces into a scheduler-facing view of the
+next slice.
+
+That reducer now exists as `PlanningIRSnapshot` beside `SystemPicture` under
+`dev/scripts/devctl/platform/`. The new builder consumes the active plan
+registry/target, recent governance-review rows normalized into
+`FindingRecord`, context-graph ownership edges, and the live
+`WorkIntakeOwnershipState` / `WorkIntakeCoordinationState` projection. Its
+first outputs stay intentionally bounded: rank a few `next_best_slices`,
+surface `concurrent_writer_conflicts`, flag `unowned_hot_paths`, and call out
+`plan_finding_mismatches`. In other words, the system can now answer "who
+should write where next?" from typed state rather than from bridge markdown,
+manual repo crawling, or chat memory.
+
+This slice deliberately stops before projection work. Startup, dashboard, and
+bridge consumers are still follow-on wiring, because the point of the change
+was to make the reducer itself load-bearing first and only then reuse it
+across surfaces. Focused platform simulations now prove the three most useful
+behaviors: active-plan ranking, fail-closed single-writer posture under live
+coordination conflicts, and explicit reporting of unowned hot paths plus
+off-target findings.
+
+Evidence: `dev/scripts/devctl/platform/planning_ir.py`,
+`dev/scripts/devctl/platform/planning_ir_models.py`,
+`dev/scripts/devctl/tests/platform/test_planning_ir.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`.
+
+### 2026-04-08 - Startup authority now distinguishes concurrent writers from generic dirty budget
+
+The next startup/work-intake hardening pass closed an operator-visible blind
+spot in the typed governance loop. The repo already knew whether the worktree
+was dirty and whether the collaboration lane still had live peer activity, but
+fresh sessions still had to infer "someone else is editing" by noticing an
+unexpected dirty file and guessing from bridge prose. That was the wrong shape
+for a typed system: the startup receipt was collapsing concurrent ownership
+drift into the same generic dirty-budget language used for ordinary local WIP.
+
+The fix now lives in the startup/work-intake contract itself. Startup emits a
+bounded ownership classifier for dirty paths:
+`clear`, `in_scope_dirty_paths`, `scope_unknown_dirty_paths`,
+`outside_scope_dirty_paths`, or `concurrent_writer_activity`. The classifier
+derives scope claims from the typed current instruction and matching
+review-candidate scope paths, compares them to real git dirt, and carries the
+same result into `startup-context`, markdown rendering, and
+`check_startup_authority_contract.py`. That means typed peer activity plus
+outside-scope dirt now fail closed as `concurrent_writer_activity` instead of
+looking like a generic checkpoint-budget warning, while missing scope claims
+stay fail-soft as `scope_unknown_dirty_paths`.
+
+The follow-up made the same startup packet smarter about live multi-agent
+topology instead of leaving that reasoning spread across `reviewer_mode`,
+collaboration state, and worktree lore. `WorkIntakePacket` now also carries a
+bounded coordination reduction: collaboration topology, authority mode, work
+ownership mode, sync cadence, active participant exemplars, delegated-worker
+exemplars, and a typed duplicate-delegated-worktree conflict. That gives a
+fresh session one bounded answer to "who else is active and is this slice
+still exclusively owned?" before it starts editing.
+
+Evidence: `dev/scripts/devctl/runtime/scope_path_claims.py`,
+`dev/scripts/devctl/runtime/work_intake_ownership.py`,
+`dev/scripts/devctl/runtime/work_intake.py`,
+`dev/scripts/devctl/runtime/startup_advisory_decision.py`,
+`dev/scripts/checks/startup_authority_contract/runtime_checks.py`,
+`dev/scripts/devctl/tests/runtime/test_work_intake.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/ai_governance_platform.md`.
+
+### 2026-04-08 - Fresh review-channel launches no longer masquerade as manual-input stalls
+
+The next review-channel repair was smaller than another launch policy change,
+but it mattered because it was poisoning the typed recovery loop. A freshly
+launched Claude Terminal window still renders a prompt line while the
+conductor is starting, and the session-log hint parser was treating that UI
+prompt as proof of `waiting_for_user_input` immediately. In practice that made
+`status`, `doctor`, and recovery logic try to replace a brand-new conductor
+before it had a chance to publish its first current ACK, which looked like the
+system stacking duplicate Claude windows even though the actual launch had
+worked.
+
+The fix stays in the typed session-evidence layer instead of inventing a new
+bridge exception. Session-state hints now require a true idle prompt: if the
+log still shows active `esc to interrupt` progress, or the prompt-only tail is
+still inside the short warmup window after launch, the hint path emits nothing
+instead of `waiting_for_user_input`. Once the session really settles into an
+idle prompt, the same hint still appears and the existing recovery path
+remains valid. Focused regressions now prove the difference between a fresh
+prompt-only launch tail, an actively progressing launch tail, and an aged idle
+prompt.
+
+Evidence: `dev/scripts/devctl/review_channel/session_state_hints.py`,
+`dev/scripts/devctl/tests/review_channel/test_session_state_hints.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`.
+
+### 2026-04-08 - Detached review loops now relaunch instead of misrouting into implementer reset
+
+The live review-channel runtime exposed one more precedence bug after typed
+Claude ACK state landed. Once `Claude Status` / `Claude Ack` were current
+again, bridge-backed `status`, `doctor`, and `startup-context` could still
+misdiagnose a detached or automation-only dual-agent loop as
+`implementer_state_reset_required` because the reset classifier ran before the
+launch-truth relaunch path. That produced the wrong repo-owned next step:
+`reset-implementer-state` even when `launch_truth=detached_runtime_only`,
+`launch_truth=automation_only`,
+`effective_reviewer_mode=tools_only`, and the real problem was "the reviewer
+loop is gone, relaunch it."
+
+The fix stays inside the typed authority chain. Recovery classification now
+refuses the implementer-reset path when launch truth already says the pair is
+detached, automation-only, or hybrid, so the same typed state now resolves to
+`review_loop_relaunch_required` with the reviewer-owned
+`review-channel --action launch` recovery command. Focused regressions lock
+both layers: the attention classifier now reproduces the exact
+`current_ack + detached_runtime_only + waiting_for_user_input` shape and the
+automation-only poll shape, and
+startup-context confirms the typed reviewer gate keeps the relaunch reason
+instead of inventing a stale implementer reset.
+
+Evidence: `dev/scripts/devctl/review_channel/attention_classify.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`.
+
+### 2026-04-08 - Dashboard, current-session, and queue surfaces now share one runtime owner chain
+
+The next review-channel follow-up closed the operator-facing contradiction that
+still survived after typed `current_session` landed. Dashboard and
+control-plane reducers were still deciding conductor liveness from static
+`*-conductor.json.session_pid` metadata, event-backed `current_session` was
+dropping the typed implementer session hint/state fields, and bridge-backed
+queue projections could keep counting expired packets as pending forever even
+while inbox already treated them as stale. The result was one repo showing
+`active_dual_agent` plus dead conductors, "what is Claude doing?" blanks even
+when hints existed, and mismatched pending/stale totals across inbox, status,
+doctor, and dashboard.
+
+The closure keeps one bounded owner chain instead of inventing another bridge
+cache. Dashboard/control-plane now prefer the shared review-channel
+`session_probe` conductor view before falling back to static metadata;
+event-backed `current_session` preserves `implementer_session_state` and
+`implementer_session_hint`; and bridge-backed status/queue paths reuse the
+expiry-aware pending-packet owner and surface `stale_packet_count`. The same
+slice also tightened the local code shape around those reducers by splitting
+current-session authority, control-plane daemon loading, and control-plane
+artifact loading into focused modules while keeping the old import surfaces
+available for existing governance callers.
+
+Evidence: `dev/scripts/devctl/commands/dashboard.py`,
+`dev/scripts/devctl/commands/dashboard_render/attention.py`,
+`dev/scripts/devctl/commands/dashboard_typed_state.py`,
+`dev/scripts/devctl/review_channel/current_session_authority.py`,
+`dev/scripts/devctl/review_channel/current_session_projection.py`,
+`dev/scripts/devctl/review_channel/current_session_support.py`,
+`dev/scripts/devctl/review_channel/pending_packets.py`,
+`dev/scripts/devctl/review_channel/status_bundle.py`,
+`dev/scripts/devctl/review_channel/status_projection.py`,
+`dev/scripts/devctl/runtime/control_plane_daemons.py`,
+`dev/scripts/devctl/runtime/control_plane_resolve.py`,
+`dev/scripts/devctl/runtime/control_plane_sources.py`,
+`dev/scripts/devctl/tests/commands/reporting/test_dashboard_runtime_counts.py`,
+`dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`,
+`dev/scripts/devctl/tests/review_channel/test_pending_packet_guards.py`,
+`dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`,
+`dev/scripts/devctl/tests/runtime/test_control_plane_regressions.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/remote_control_runtime.md`.
+
+### 2026-04-08 - Review-channel now detects stale reviewer instruction revisions
+
+The live review-channel loop exposed a subtle bridge/runtime split: a reviewer
+could rewrite `Current Instruction For Claude` directly in `bridge.md`, forget
+to update `Current instruction revision`, and the typed stack would still treat
+Claude's ACK as current because it only compared revision strings. That left
+the markdown bridge, `status`/`bridge-poll`, and the launched Codex/Claude
+conductors with contradictory authority about whether a new slice was live.
+
+The repair stays inside the existing typed bridge-to-runtime reduction instead
+of inventing a second authority store. Bridge-backed `current_session` now
+compares the live instruction body against the prior typed snapshot; when the
+body changed under a reused revision, it re-derives the effective live
+revision from the current instruction text, downgrades Claude ACK freshness,
+and threads that corrected state through `review-channel --action status` and
+`bridge-poll`. The repo also records a reviewer-facing warning for that drift
+and lets reviewer write preconditions accept either the raw bridge revision or
+the effective typed revision during repair, so repo-owned checkpoint/promotion
+flows remain recoverable instead of deadlocking on the stale header.
+
+Evidence: `dev/scripts/devctl/review_channel/current_session_projection.py`,
+`dev/scripts/devctl/review_channel/state.py`,
+`dev/scripts/devctl/review_channel/status_projection.py`,
+`dev/scripts/devctl/review_channel/write_preconditions.py`,
+`dev/scripts/devctl/commands/review_channel/_bridge_poll.py`,
+`dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`,
+`dev/scripts/devctl/tests/review_channel/test_bridge_poll.py`,
+`dev/scripts/devctl/tests/review_channel/test_reviewer_checkpoint_inputs.py`,
+`dev/active/review_channel.md`,
+`dev/active/MASTER_PLAN.md`.
+
+### 2026-04-08 - Review status now prefers typed reviewer/runtime authority and ReviewSnapshot cites emitted evidence
+
+The next review-channel closure removed another bridge-as-input leak without
+pretending the bridge is gone. When persisted typed `review_state.json`
+already exists, bridge-backed status/compat projection now prefers typed
+`current_session` for live instruction / implementer ACK state and typed
+`reviewer_runtime.review_acceptance` for verdict/findings truth. Raw bridge
+verdict/findings prose still matters, but only as compatibility or drift
+evidence; it no longer silently retakes authority during status refresh.
+
+The same slice also made `dev/audits/REVIEW_SNAPSHOT.md` materially more
+useful as evidence. The typed snapshot now projects first-class probe run
+state (`state`, `mode`, warning/error counts, summary artifact refs) and
+current push receipt/authorization refs (`latest_push_report`, pipeline push
+report path, push-authorization identity), so external review consumers can
+see which emitted artifacts back the snapshot instead of inferring everything
+from suggested commands. One limitation remains explicit in owner docs:
+startup/checkpoint handling still reports concurrent out-of-band writers as a
+generic dirty-budget blocker rather than a distinct authority-drift class.
+
+Evidence: `dev/scripts/devctl/review_channel/current_session_projection.py`,
+`dev/scripts/devctl/review_channel/reviewer_runtime_contract.py`,
+`dev/scripts/devctl/review_channel/state.py`,
+`dev/scripts/devctl/review_channel/status_projection.py`,
+`dev/scripts/devctl/review_channel/status_projection_compat.py`,
+`dev/scripts/devctl/review_channel/bridge_projection_state.py`,
+`dev/scripts/devctl/runtime/review_snapshot.py`,
+`dev/scripts/devctl/runtime/review_snapshot_models.py`,
+`dev/scripts/devctl/runtime/review_snapshot_render.py`,
+`dev/scripts/devctl/runtime/review_snapshot_render_sections.py`,
+`dev/scripts/devctl/runtime/review_snapshot_sections.py`,
+`dev/scripts/devctl/runtime/review_snapshot_serialize.py`,
+`dev/scripts/devctl/tests/review_channel/test_ack_contract.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`,
+`dev/scripts/devctl/tests/runtime/test_review_snapshot.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`.
+
+### 2026-04-08 - Reviewer-owned bridge rewrites now fail closed on pending reviewer packets and operator surfaces show runtime counts
+
+The next follow-up closed the "later rewrite silently overwrites earlier
+finding" failure mode without pretending the bridge is the source of truth.
+Reviewer-owned `scope`, `promote`, `reviewer-checkpoint`, and
+`render-bridge` writes now consult the event-backed packet inbox first and
+refuse to rewrite reviewer-owned bridge sections while pending
+reviewer-targeted packets still exist. That keeps earlier Codex findings
+visible until the reviewer has actually reconciled the inbox instead of
+letting a later compatibility projection or scoped rewrite erase them.
+
+The same slice also made runtime presence explicit on operator-facing
+surfaces. The shared doctor/dashboard/bridge report stack now carries typed
+runtime counts for live conductors, delegated receipts, planned lanes, worker
+budget, and running daemons, and the terminal dashboard renders those counts
+directly. Phone and remote-control dashboards no longer have to infer "how
+many agents are really live?" from raw bridge prose or ad hoc process
+inspection.
+
+Evidence: `dev/scripts/devctl/review_channel/pending_packets.py`,
+`dev/scripts/devctl/review_channel/promotion.py`,
+`dev/scripts/devctl/review_channel/promotion_support.py`,
+`dev/scripts/devctl/review_channel/reviewer_state.py`,
+`dev/scripts/devctl/commands/review_channel/_render_bridge.py`,
+`dev/scripts/devctl/review_channel/runtime_counts.py`,
+`dev/scripts/devctl/review_channel/reviewer_runtime_doctor.py`,
+`dev/scripts/devctl/commands/dashboard_render/terminal.py`,
+`dev/scripts/devctl/tests/review_channel/test_pending_packet_guards.py`,
+`dev/scripts/devctl/tests/review_channel/test_bridge_render.py`,
+`dev/scripts/devctl/tests/review_channel/test_reviewer_checkpoint_inputs.py`,
+`dev/scripts/devctl/tests/commands/reporting/test_dashboard_runtime_counts.py`,
+`dev/active/MASTER_PLAN.md`.
+
+### 2026-04-08 - Checked-in push policy no longer leaves skip-preflight bypass open
+
+The paired follow-up for the recent push-override tranche is now closed in the
+checked-in repo policy itself. `dev/config/devctl_repo_policy.json` no longer
+keeps `repo_governance.push.bypass.allow_skip_preflight` enabled after the
+override push landed, and the repo now carries a regression in
+`dev/scripts/devctl/tests/vcs/test_push.py` that loads the real policy file
+and asserts both skip-bypass toggles stay disabled by default.
+
+That matters because the earlier override receipt was only an audit promise,
+not enforcement. Without a repo-owned regression proof, the branch could keep
+advertising a typed push-bypass escape hatch long after the one-off recovery
+window was supposed to close. Historical override receipts remain immutable
+evidence; the checked-in policy and CI-backed regression now carry the live
+default.
+
+Evidence: `dev/config/devctl_repo_policy.json`,
+`dev/scripts/devctl/tests/vcs/test_push.py`,
+`dev/active/platform_authority_loop.md`,
+`dev/active/MASTER_PLAN.md`.
+
+### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
+The ReviewSnapshot hardening audit is now plan intake, not a new execution
+authority. The active owner docs keep the same routing rule: path/default and
+artifact resolver work belongs to the platform authority loop, commit/push and
+override integrity belongs to the remote commit pipeline, and product-level
+contract/ecosystem surfaces belong to the main AI governance platform plan.
+The newest clarification is that hooks are only trigger/entry adapters. They
+may force raw git, session, or provider paths into typed `devctl` commands and
+record receipts, but they must not carry separate policy, path fallback,
+validation-tier, override, or review logic. The push side now understands the
+same receipt boundary: snapshot-only ReviewSnapshot HEAD commits can satisfy
+publication through their parent `PushAuthorizationRecord`, and stale detached
+pipeline records cannot block a clean `single_agent` governed push. Active
+dual-agent and current pipeline targets still require exact typed authorization.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/active/remote_commit_pipeline.md`,
+`dev/scripts/devctl/runtime/push_authorization.py`.
+
+### 2026-04-07 - Bridge action requests now require packet projection and runtime binding
+
+The Codex/Claude bridge exposed a split-brain failure across three authority
+planes: event-backed packets, the markdown bridge compatibility projection, and
+session-resume/bootstrap cache state. A reviewer could post a
+`kind="action_request"` packet and see it in the packet inbox, while
+`render-bridge` failed before projecting it into `## Action Requests`. Runtime
+commit/check/push-class requests could also be described as free-form prose,
+leaving the action unbound to the target HEAD, pipeline generation, staged
+snapshot, or guard result.
+
+The repair keeps the markdown bridge as projection-only compatibility text.
+`render-bridge` now reconstructs missing fixed sections from typed review
+state, overlays pending packet-backed action requests, and sanitizes the final
+bridge payload so oversized packet bodies do not break the fixed section
+contract. Executable `action_request` packets now fail closed unless they
+carry runtime target binding; `commit` and `push` additionally require
+remote-commit pipeline generation, staged snapshot hash, and guard summary
+before they can appear in the bridge execution queue.
+
+Evidence: `dev/scripts/devctl/review_channel/action_request.py`,
+`dev/scripts/devctl/review_channel/bridge_projection_state.py`,
+`dev/scripts/devctl/review_channel/packet_contract.py`,
+`dev/scripts/devctl/tests/review_channel/test_action_request.py`,
+`dev/scripts/devctl/tests/review_channel/test_bridge_render.py`,
+`dev/scripts/devctl/tests/review_channel/test_plan_packets.py`,
+`dev/active/remote_control_runtime.md`, `dev/scripts/README.md`.
+
+### 2026-04-07 - ReviewSnapshot freshness now supports a snapshot-only publication commit
+
+The external-review snapshot hook had a structural limit that looked like a
+bug in practice: a pre-commit refresh cannot know the commit SHA it is about
+to help create. If the snapshot file embeds the final SHA, changing the file
+changes the SHA again. The prior workaround was a manual post-commit refresh,
+but that made the worktree dirty and the freshness guard still treated a
+snapshot-only publication commit as stale.
+
+The guard now has an explicit state for that lifecycle. When the latest commit
+changes only `dev/audits/REVIEW_SNAPSHOT.md`, the generated snapshot is
+allowed to bind to the parent code commit. Any non-snapshot HEAD drift still
+fails closed. This gives outside reviewers and ChatGPT a publishable GitHub
+surface for planning: land code, regenerate the snapshot from that code state,
+commit the generated snapshot alone, and push through `devctl push --execute`.
+
+The follow-up automation makes that two-phase shape repo-owned instead of
+manual: `devctl review-snapshot --write --receipt-commit` refuses
+non-snapshot dirty state and creates the receipt commit with hook recursion
+disabled, and `devctl install-git-hooks` now installs the post-commit hook that
+invokes that path after ordinary raw `git commit` operations.
+
+Evidence: `dev/scripts/checks/check_review_snapshot_freshness.py`,
+`dev/scripts/devctl/runtime/review_snapshot_render.py`,
+`dev/scripts/devctl/tests/checks/test_check_review_snapshot_freshness.py`,
+`dev/active/remote_commit_pipeline.md`, `dev/audits/REVIEW_SNAPSHOT.md`.
+
+### 2026-04-07 - Validation routing is now phased before commit-gate and portability expansion
+
+The commit/push path exposed a process problem that was architectural, not a
+reason to weaken checks. The repo already knew how to route bundles and risk
+add-ons, but the governed mutation path still carried only a `guard_profile`
+string rather than a tree-bound proof contract. That made "fast vs full"
+validation too dependent on the actor remembering the rules.
+
+The active plans now put the dependency in the right order: missing quality
+evidence must become `unknown` / `stale`, then a `ValidationPlan` /
+`ValidationReceipt` binds selected bundle, add-ons, escalation reason, proof
+level, and checkpoint/push sufficiency to the current tree, and only then does
+the commit gate rely on that proof. The broader
+`DecisionPacket.validation_plan` work remains Phase 5b generalization; it is
+not a reason to leave the current VCS path on a loose guard-profile string.
+The multi-repo matrix stays a primary portability pressure test, but Step-0,
+repo-pack activation, governed push, or validation-plan failures found there
+route back into `MP-377` blockers before wider adopter waves or frontend
+expansion.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/active/portable_code_governance.md`,
+`dev/active/remote_commit_pipeline.md`.
+
+### 2026-04-05 - Reviewer/implementer bootstrap is now role-first instead of Codex/Claude-first
+
+The review-channel runtime had already grown typed reviewer/implementer role
+slots, but a lot of the launch/bootstrap/recover path still assumed fixed
+provider identity: Codex was implicitly the reviewer, Claude was implicitly
+the implementer, and narrow recover logic only knew how to replace Claude.
+That meant the architecture looked portable in late runtime state while the
+actual launcher still depended on vendor-shaped prompt lore.
+
+The current closure slice moves the contract back to the real abstraction.
+Planned lane parsing now carries an explicit tandem role, conductor launch
+specs/prompts consume that role directly, the canonical new-session bootstrap
+is `startup-context --role <role>` plus
+`session-resume --role <role> --format bootstrap`, and recover now accepts the
+current implementer provider while deriving the live reviewer requirement from
+typed role ownership instead of hardcoded Codex/Claude assumptions. The
+compatibility bridge headings (`Last Codex poll`, `Claude Status`, `Claude Ack`)
+still exist for now, but the repo-owned prompts/start rules now explain them as
+role-owned compatibility fields rather than provider-owned truth.
+
+Evidence: `dev/scripts/devctl/review_channel/core.py`,
+`dev/scripts/devctl/review_channel/launch_topology.py`,
+`dev/scripts/devctl/review_channel/prompt.py`,
+`dev/scripts/devctl/commands/review_channel/_recover.py`,
+`dev/active/remote_control_runtime.md`,
+`dev/scripts/README.md`.
+
+### 2026-04-05 - Dirty-tree review handoff now uses a typed review candidate instead of raw HEAD inference
+
+The review loop had become strong enough that implementer and reviewer could
+both behave correctly and still miss each other. Claude could finish a bounded
+slice in the worktree, run the right tests/guards, and update the bridge, but
+reviewer bootstrap still centered the target around
+`last_reviewed_sha..head_sha`. In a dirty-tree slice that meant Codex could
+review the committed range honestly and still miss the actual finished work.
+
+The new closure slice adds the missing handoff object directly into repo-owned
+state. `review-channel --action status` now emits a frozen
+`ReviewCandidateRecord` with candidate id, changed-path scope, worktree hash,
+check/test evidence, and validity/invalidation state. `session-resume` and
+reviewer prompt bootstrap prefer that candidate over raw commit-range review,
+status fails closed when implementer-complete bridge state has no valid
+candidate, and dirty-tree target drift invalidates the candidate until a new
+completion claim is emitted. This matters because the system now binds review
+to an explicit produced artifact instead of hoping HEAD shape and bridge prose
+still line up.
+
+Evidence: `dev/scripts/devctl/review_channel/review_candidate.py`,
+`dev/scripts/devctl/review_channel/status_projection.py`,
+`dev/scripts/devctl/commands/governance/session_resume_support.py`,
+`dev/scripts/devctl/commands/governance/session_resume_render.py`,
+`dev/scripts/devctl/review_channel/prompt_session_resume.py`,
+`dev/scripts/devctl/runtime/review_state_models.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_candidate.py`,
+`dev/scripts/devctl/tests/governance/test_session_resume.py`,
+`dev/active/remote_control_runtime.md`.
+
+### 2026-04-06 - Interrupted reviewer local takeover now has a sanctioned repair path, and the handoff seam stays split under shape limits
+
+The next failure was not a bad implementation slice; it was a self-hosting
+reviewer interruption. A live `active_dual_agent` Codex conductor bootstrapped,
+narrowed into the bounded post-push shape cleanup, and then the terminal
+conversation itself was interrupted. That left the runtime in a hybrid
+Claude-only shape with stale reviewer heartbeat and a half-finished local
+refactor in the worktree.
+
+The repair path is now explicit in maintainer docs and was exercised locally:
+stop detached review daemons through the repo-owned `review-channel --action
+stop --daemon-kind all` path, then record sanctioned local takeover with
+`review-channel --action reviewer-heartbeat --reviewer-mode single_agent`
+before continuing the slice. The interrupted refactor itself was worth
+keeping: `review_candidate.py`, `recovery_assessment.py`, and
+`review_state_models.py` are now back under the soft limit by delegating to
+`candidate_parse.py`, `candidate_paths.py`, `recovery_decision.py`,
+`recovery_evidence.py`, and `review_state_collaboration_models.py` rather than
+re-growing the orchestration files.
+
+Evidence: `AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/scripts/devctl/review_channel/review_candidate.py`,
+`dev/scripts/devctl/review_channel/candidate_parse.py`,
+`dev/scripts/devctl/review_channel/candidate_paths.py`,
+`dev/scripts/devctl/review_channel/recovery_assessment.py`,
+`dev/scripts/devctl/review_channel/recovery_decision.py`,
+`dev/scripts/devctl/review_channel/recovery_evidence.py`,
+`dev/scripts/devctl/runtime/review_state_models.py`,
+`dev/scripts/devctl/runtime/review_state_collaboration_models.py`.
+
+### 2026-04-06 - Field-route contract closure now proves executable consumption, not docstring coincidence
+
+The platform contract-closure guard proves that key surface-state fields
+(`ControlPlaneReadModel.push_eligible`, `top_blocker`, `AutoModeState.phase`,
+`SessionCachePacket.last_reviewed_sha`, and family members) actually reach
+their declared consumer surfaces. The proof helper `_source_contains_any` in
+`dev/scripts/checks/platform_contract_closure/field_routes_surface_state.py`
+was a raw Python `in` substring scan over the full file text: it counted
+any token appearance, including inside module, class, and function
+docstrings, and short-circuited on the first match in lexical order when
+scanning a package directory.
+
+Two silent failure modes followed. First, the recent flat-to-package
+refactor of `dashboard_render` put a new `__init__.py` docstring at the
+lexically-first slot inside the package, and its prose mentioned
+`top_blocker`; the field-route proof for
+`check_top_blocker_dashboard_route` then passed on that documentation
+coincidence even if `markdown.py` and `terminal.py` stopped reading the
+field entirely. Second, the substring operator conflated
+`push_eligible` with `push_eligible_now` — two structurally distinct
+receipt projections — so `check_push_eligible_dashboard_route` was
+silently coasting on a prefix overlap instead of checking either form
+explicitly.
+
+The contract helper now parses each candidate file with `ast.parse`,
+strips module/class/function docstrings in-place, and walks the remaining
+tree looking for exact identifier, attribute, dotted-chain, or
+string-literal references. Parse failures fail closed (no raw-text
+fallback), and `check_push_eligible_dashboard_route` now enumerates both
+`push_eligible` and `push_eligible_now` as accepted token forms so the
+matched surface is explicit instead of implicit. The dashboard route
+check stays green against the real `dashboard_render` package because
+its submodules use `snapshot.get("top_blocker", ...)`, which the AST walk
+matches as an executable string-literal key.
+
+Evidence: `dev/scripts/checks/platform_contract_closure/field_routes_surface_state.py`,
+`dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py`,
+`dev/scripts/devctl/tests/checks/platform_contract_closure/test_field_routes_ast_helper.py`.
+
+### 2026-04-06 - Shared ViolationRecord convergence begins with probe-report and recent-window governance-review adapters
+
+The typed `CheckResult` / `ViolationRecord` contract family in
+`dev/scripts/devctl/runtime/check_result_models.py` had already reached
+the check pipeline, the dashboard data builder, the push-report surface,
+and the platform contract-row registry, but other signal producers were
+still rendering through their own one-off paths. `devctl probe-report`
+returned findings through a probe-only markdown/terminal pipeline, and
+`devctl governance-review` emitted adjudicated finding rows through its
+own markdown renderer. That meant any surface that wanted probe or
+governance findings alongside check violations had to grow a
+domain-specific renderer instead of reusing the shared contract.
+
+The 2026-04-06 slice opens the convergence with two one-way,
+non-mutating adapters in `dev/scripts/devctl/runtime/`. The probe-report
+adapter `probe_report_violations.probe_report_to_violations(report)`
+reads enriched `risk_hints` from the aggregated probe-report payload and
+projects each hint into a `ViolationRecord` with a precise field map
+(`check_id -> step_name`/`source`, `ai_instruction` -> compact summary
+and full `fix`, `review_lens -> policy`, `line` coerced safely, etc.).
+The governance-review adapter
+`governance_review_violations.governance_review_recent_to_violations(report)`
+is deliberately scoped as a **recent-window** helper: it reads
+`report["recent_findings"]`, which `build_governance_review_report`
+slices to the last `recent_limit` rows (default 10). A regression test
+with more than ten rows locks that the adapter never re-trims inside
+itself and that the default verdict filter `("confirmed_issue",)` keeps
+resolved states (fixed / waived / deferred / false_positive / unknown)
+out of the projection. Both adapters share coercion and summary helpers
+from a new `runtime/violation_adapter_support.py` module so duplicated
+control flow never re-grows, and docstrings/comments in both helpers
+explicitly say what they are not (a live open-governance feed in the
+governance case, or a replacement for probe-report's own JSON/markdown
+artifacts in the probe case).
+
+Evidence: `dev/scripts/devctl/runtime/probe_report_violations.py`,
+`dev/scripts/devctl/runtime/governance_review_violations.py`,
+`dev/scripts/devctl/runtime/violation_adapter_support.py`,
+`dev/scripts/devctl/tests/runtime/test_probe_report_violations.py`,
+`dev/scripts/devctl/tests/runtime/test_governance_review_violations.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
+### 2026-04-09 - Path-audit now keeps a stable root seam while support logic moves under `path_audit_support`
+
+Fact: `docs-check --strict-tooling`, `path-audit`, and `path-rewrite` still
+need one stable public import/command seam at
+`dev/scripts/devctl/path_audit.py`, but continuing to grow that crowded root
+module started tripping the same package-layout guard the path-audit tooling is
+meant to protect. The fix keeps the public seam stable and auditable while
+moving the implementation under `dev/scripts/devctl/path_audit_support/`:
+`path_audit.py` is now a compatibility shim, `path_audit_support/core.py`
+holds the legacy-path scan/rewrite logic, and
+`path_audit_support/workspace.py` owns the workspace-contract scan. The stale
+path contract is unchanged for callers, while strict-tooling stays honest about
+the implementation split.
+
+Evidence: `dev/scripts/devctl/path_audit.py`,
+`dev/scripts/devctl/path_audit_support/core.py`,
+`dev/scripts/devctl/path_audit_support/workspace.py`,
+`dev/scripts/devctl/tests/test_path_audit.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`.
+
+### 2026-04-06 - Reviewer follow auto-promotion now fails closed on explicit state markers instead of prose substrings
+
+Review-channel promotion still had one hidden prose-authority seam. The
+follow loop and bridge promotion helpers were scanning whole reviewer
+sections for loose substrings like `accepted`, `resolved`, and `none`.
+That let a still-rejected slice look promotion-ready when the verdict
+contained a later explanatory `Accepted:` bullet, an open finding
+mentioned `--terminal none` or `unresolved`, or an active instruction
+carried generic words in later context. In practice, reviewer-follow
+could overwrite a fresh launch-authority instruction with the next MP-381
+plan item even though the live verdict still said `changes_requested`.
+
+The fix tightens promotion readiness to explicit primary state markers.
+`promotion.py` now parses normalized markdown items and only trusts the
+first verdict item, explicit idle finding markers, and the primary
+instruction item. `instruction_needs_plan_promotion()` uses the same
+primary-item rule, so later explanatory context can no longer masquerade
+as queue-advance authority. The bridge remains compatibility text, but
+the overwrite decision now behaves like a typed state machine instead of
+a substring grep.
+
+Evidence: `dev/scripts/devctl/review_channel/promotion.py`,
+`dev/scripts/devctl/review_channel/promotion_support.py`,
+`dev/scripts/devctl/tests/review_channel/test_promotion_guard.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`.
+
+### 2026-04-07 - Review-channel launch replay now fails closed on typed authority drift
+
+The live launcher still had a lowering gap after the pure terminal policy
+helper landed. The bridge handler built sessions from governed operator mode,
+but the final pre-spawn dispatcher read `bridge_liveness.interaction_mode`,
+which the real status payload does not expose. Generated conductor scripts
+also stayed replayable after HEAD or reviewer instruction state drifted, and
+headless supervision restarted every non-zero provider/preflight exit.
+
+The closure threads one resolved governance/startup interaction mode through
+session preparation and the dispatcher gate, removes the unowned
+`--allow-headless-override` CLI surface, and binds prepared scripts to HEAD,
+current instruction revision, and a typed turn/session token from
+`review_state.json`. Stale prepared authority exits before provider start with
+a non-restartable code so headless mode stops visibly instead of looping.
+
+Evidence: `dev/scripts/devctl/commands/review_channel/bridge_handler.py`,
+`dev/scripts/devctl/commands/review_channel/bridge_launch_control.py`,
+`dev/scripts/devctl/review_channel/launch_authority.py`,
+`dev/scripts/devctl/review_channel/launch_script.py`,
+`dev/scripts/devctl/tests/review_channel/test_launcher_discipline.py`,
+`dev/scripts/devctl/tests/review_channel/test_launch_script.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`.
+
+### 2026-04-07 - Control-plane parity guard now covers remote-control mode fields and fails closed on a broken next_action route
+
+The MP-381 Priority 3 control-plane parity guard landed as
+`field_routes_parity` but the first version still had two gaps. `PARITY_FIELDS`
+did not include `reviewer_mode` or `operator_interaction_mode`, so a single
+governance surface could drift to `single_agent` / `unresolved` while the rest
+stayed correct and the "all 5 surfaces agree" proof would still pass. The
+auto-mode extractor also fell back to `model.next_action` whenever
+`inputs.push_decision_action` was empty, masking exactly the broken-route
+regression class the guard exists to catch: a future change that drops
+`next_action` propagation inside `inputs_from_read_model` would have stayed
+green forever.
+
+The fix extends `PARITY_FIELDS` to cover both mode signals, removes the
+fallback so `_extract_from_auto_mode` reads `next_action` straight from
+`inputs.push_decision_action`, and adds a regression test that monkeypatches
+`inputs_from_read_model` to return `push_decision_action=""` and asserts the
+comparator surfaces a typed `next_action` divergence violation. Phone and
+mobile `_control_plane_section` helpers now project
+`operator_interaction_mode` alongside `reviewer_mode`, and the session-resume
+extractor threads `packet.operator_interaction_mode` from
+`SessionCachePacket`. SessionCachePacket has no direct `reviewer_mode` slot
+(only an internal `mode` derivation), so its parity output intentionally
+omits `reviewer_mode`; the comparator already skips absent fields.
+
+Evidence: `dev/scripts/checks/platform_contract_closure/field_routes_parity.py`,
+`dev/scripts/devctl/commands/phone_status.py`,
+`dev/scripts/devctl/commands/mobile_status.py`,
+`dev/scripts/devctl/tests/checks/platform_contract_closure/test_field_routes_parity.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/remote_control_runtime.md`.
+
+### 2026-04-07 - Reviewer-supervisor manual stop now stays stopped across auto-start paths
+
+The live push-prep incident exposed a narrower restart boundary than the
+provider-conductor fix. The active process was the repo-owned
+`reviewer-heartbeat --follow --auto-promote` supervisor, not a prepared
+Codex/Claude conductor script. `manual_stop` already meant no restart for the
+launchd publisher wrapper, but the repo-owned `ensure` and reviewer-heartbeat
+auto-start paths could still recreate the reviewer supervisor after a governed
+stop.
+
+The restart policy now treats `manual_stop` and `completed` reviewer-supervisor
+states as non-restartable for implicit auto-heal. Explicit launch/rollover or
+operator-directed follow commands remain the way to restore the loop. The
+launchd publisher wrapper also treats launch-authority exit `82` as a
+successful no-restart service exit so stale prepared authority does not become
+login-time churn.
+
+Evidence:
+`dev/scripts/devctl/commands/review_channel/_supervisor_restart_policy.py`,
+`dev/scripts/devctl/commands/review_channel/_publisher.py`,
+`dev/scripts/devctl/commands/review_channel/_ensure_supervisor.py`,
+`dev/config/launchd/review_channel_publisher_service.py`,
+`dev/scripts/devctl/tests/review_channel/test_stop.py`,
+`dev/scripts/devctl/tests/review_channel/test_launchd_service.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`.
+
+### 2026-04-05 - Review-channel terminal policy and headless visibility are now explicit typed runtime truth
+
+The review-channel launch surface still had one unsafe ambiguity: local
+recovery/relaunch guidance had already moved back toward visible
+`Terminal.app`, but terminal selection still lived in more than one helper,
+the CLI help text described `--terminal none` too softly, and a hidden
+conductor could still look like "just no window id" unless you manually
+interpreted session metadata. That left too much room for AI or operators to
+accidentally treat a real headless loop as harmless script emission.
+
+The runtime now states the policy and state directly. Review-channel
+launch/recovery/follow terminal selection routes through one helper: explicit
+`--terminal` wins, governed `remote_control` stays headless, already-headless
+parent sessions keep recovery headless, and otherwise local relaunch defaults
+to visible `Terminal.app`. The CLI help text now says that `--terminal none`
+is a real headless background conductor launch, and the typed
+`ReviewerRuntimeContract` now carries `conductor_visibility` while reviewer
+session ownership exposes `session_visibility`. That means status/doctor,
+automation, and future AI launchers can read one typed safety signal instead
+of inferring hidden runtime state from null window ids or stale detached
+heartbeats.
+
+Evidence: `dev/scripts/devctl/review_channel/terminal_mode.py`,
+`dev/scripts/devctl/review_channel/peer_recovery.py`,
+`dev/scripts/devctl/review_channel/reviewer_follow_recovery_support.py`,
+`dev/scripts/devctl/review_channel/parser.py`,
+`dev/scripts/devctl/platform/runtime_state_contract_rows.py`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
+### 2026-04-05 - Bootstrap surfaces now teach launch authority first, and publish override stays inside the governed plan
+
+The next operator review was less about new philosophy and more about first-hop
+operational truth. The repo already had the right compiler-style architecture,
+but fresh AI still had to infer too much about launch posture from scattered
+docs and stale session lore. The maintainer/bootstrap surfaces now make the
+launch packet explicit: read `startup-context.action`, `interaction_mode`,
+`reviewer_runtime.conductor_visibility`, and
+`reviewer_runtime.session_owner.session_visibility` before choosing visible
+`--terminal terminal-app` versus headless `--terminal none`. That keeps local
+terminal sessions visible by default unless headless was explicitly requested
+or the governed runtime is `remote_control`.
+
+The same review tightened the publish-exception story. The current system is
+already meaningfully governed because it tries the canonical `devctl push`
+path, surfaces typed blocks, and requires explicit human intervention before a
+manual push can happen. The remaining design gap is narrower: a human override
+should stay inside the same typed control plane instead of normalizing raw
+`git push` as the fallback. The remote-commit pipeline plan now tracks that as
+one generation-bound `override_push` extension over
+`RemoteCommitPipelineContract`, typed packets, and the canonical `vcs.push`
+executor.
+
+Evidence: `dev/config/templates/claude_instructions.template.md`,
+`CLAUDE.md`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/active/review_channel.md`,
+`dev/active/remote_commit_pipeline.md`,
+`dev/active/remote_control_runtime.md`.
+
+### 2026-04-05 - Remote-control closure now tracks reviewer bootstrap truth and structural commit gating
+
+The latest pushed-branch architecture review turned a loose set of runtime
+complaints into explicit owner-plan work. Before this update, the remote-
+control plan tracked typed operator mode, headless lifecycle, dashboard
+convergence, and discoverability, but it did not yet make slim reviewer
+bootstrap/session-resume truth a first-class owned slice, and the remote-
+commit plan still left raw `git commit` as a structurally ungated escape hatch.
+
+The governed execution state now records both gaps directly. The
+remote-control runtime lane extends to `MP-387` so `SessionCachePacket` /
+`session-resume` can become a typed first-hop reviewer bootstrap with
+`last_reviewed_sha`, `head_at_push_time`, and fail-closed operator-mode truth.
+The same lane now explicitly tracks contract-catalog coverage for
+`ControlPlaneReadModel`, `AutoModeState`, and `SessionCachePacket`, terminal-
+none proof-of-life launch validation, stale-review invalidation, and queue-
+metric split. In parallel, the remote-commit pipeline plan now records the
+structural fix for unguarded commits: one repo-owned commit gate plus typed
+guard-freshness projection into doctor/status/auto-mode. This matters because
+the repo's core promise is not "better reminders for agents"; it is enforced,
+typed execution truth that keeps Claude and Codex on the same architecture.
+
+Evidence: `dev/active/remote_control_runtime.md`,
+`dev/active/remote_commit_pipeline.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/INDEX.md`.
+
+### 2026-04-05 - Reviewer-follow stale-runtime recovery now obeys typed launch authority
+
+The live review loop had a narrow but important architecture leak: the
+repo already computed a typed stale-runtime recovery decision, but the
+reviewer-follow daemon still hardcoded peer-stale `rollover` for stale
+reviewer/runtime states. That meant the long-lived automation loop could
+invent a second recovery policy right next to `recovery_assessment` /
+`recovery_action_allowed`, which is exactly how detached-runtime problems keep
+turning into inconsistent agent behavior.
+
+The recovery seam is now fail-closed and typed. Reviewer-follow reads the
+allowed recovery command first, prefers repo-owned `launch` when the typed
+contract says `launch`, and only auto-executes that relaunch when the typed
+decision explicitly marks it auto-fixable. Approval-gated relaunch no longer degrades into an
+unreviewed `rollover`; it stays on the existing queued reviewer-turn packet
+path until the operator/runtime contract allows the launch. This keeps the
+automation loop aligned with the same deterministic control objects the rest
+of the platform is supposed to trust.
+
+Evidence: `dev/scripts/devctl/review_channel/reviewer_follow_recovery.py`,
+`dev/scripts/devctl/review_channel/reviewer_follow.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`,
+`dev/active/continuous_swarm.md`,
+`dev/active/MASTER_PLAN.md`.
+
+### 2026-04-05 - MP-377 now records the self-hardening boundary explicitly
+
+A focused architecture review of the active `MP-377` owner chain tightened an
+important boundary that had been implicit in code and chat but not preserved
+cleanly in plan authority. The repo already has the raw ingredients for a
+counterexample-driven governance loop: typed startup/work-intake packets,
+canonical findings, probe decision packets, adjudicated review ledgers,
+external-finding import, and quality-feedback snapshots. What it does not yet
+have is permission to let those surfaces redefine policy on their own.
+
+The owner plans now say the rule plainly: predeclared invariants may
+auto-enforce, but new invariants must earn promotion. That separates three
+lanes that were previously easy to blur together:
+
+1. deterministic repair over contract-backed, idempotent, reversible, narrow-
+   blast-radius fixes whose canonical result is already governed;
+2. governed decision work for ambiguous refactors, behavior changes, and other
+   intent-shaped changes that must emit packets/review instead of silent edits;
+3. governance evolution, where misses become typed candidate invariants with
+   replay/corpus evidence, FP/FN evaluation, approval, and only then guard or
+   probe promotion.
+
+This matters because the active authority-loop/runtime implementation is still
+partial. `TypedAction -> ActionResult -> RunRecord` is only live in bounded
+lanes, `PlanExpectationPacket` is still planned, and current
+`governance-quality-feedback` outputs recommendations rather than self-
+promoting new policy. Capturing that boundary in owner docs keeps the platform
+self-hardening instead of letting it drift into self-redefinition.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`.
+
+### 2026-04-05 - Developer-facing output is now treated as a truth stack
+
+The platform docs now state more explicitly that developer-visible output
+should not be treated as "model narration with some receipts nearby." The
+intended shape is one stack:
+
+1. command layer: the exact repo-owned command or action that ran;
+2. fact layer: the typed receipt / packet / projection fields that state what
+   the system observed, decided, or requires next;
+3. summary layer: the short human-readable explanation over those fields.
+
+This matters because the developer should be able to answer, from the visible
+surface itself, what exact command ran, which state claims are machine-owned,
+what next command is required, and what was inferred versus directly observed.
+The active `MP-377` authority-loop plan now records that as an explicit
+closure requirement instead of leaving it as chat-only architecture language.
+
+The same review kept the claim honest about current code. The repo already has
+typed startup/session state, but several surfaces still compute part of the
+meaning in presentation code (`startup_context_render.py`,
+`session_resume_render.py`) and some downstream helpers still parse
+compatibility markdown (`bridge.md`, `Open Findings`) as data. The tracked
+follow-up is therefore concrete rather than rhetorical: standardize one shared
+developer-view packet, retire markdown-as-data consumers where typed state
+already exists, and add parity/observed-vs-inferred guards across the visible
+startup/session/status/dashboard/mobile surfaces.
+
+Evidence: `dev/guides/AI_GOVERNANCE_PLATFORM.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/scripts/devctl/commands/governance/startup_context_render.py`,
+`dev/scripts/devctl/commands/governance/session_resume_render.py`,
+`dev/scripts/devctl/commands/dashboard_utils.py`.
+
+### 2026-04-05 - One backend truth is now tracked as a convergence rule, not just a target shape
+
+The active `MP-377` plans now also record the sharper migration warning from
+the same review: the codebase direction is correct, but the live repo still
+contains duplicate read-side shaping while the migration is in flight.
+
+The accepted closure rule is explicit:
+
+1. shared read models and reduced packet contracts absorb canonical truth;
+2. `ControlState`, legacy `controller_payload` / `review_payload`, and bridge
+   compatibility helpers remain fallback-only adapters;
+3. `session-resume` finishes moving local side extraction/reduction into the
+   shared backend;
+4. overlapping reducers are deleted once parity proves the direct shared-backend
+   path is stable.
+
+That keeps "one backend truth, many projections" grounded in executable
+closure work instead of letting compatibility layers fossilize into permanent
+second authorities.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/scripts/devctl/runtime/control_plane_read_model.py`,
+`dev/scripts/devctl/runtime/control_state.py`,
+`dev/scripts/devctl/commands/governance/session_resume_support.py`,
+`dev/guides/AI_GOVERNANCE_PLATFORM.md`.
+
+### 2026-04-05 - Portable governance paths now treat typed structure as the primary semantic carrier
+
+The active `MP-377` plans now state a narrower, portable version of the
+"write Python more like Rust" idea. The accepted rule is not a repo-wide style
+law for arbitrary adopter code. It is platform-owned governance doctrine:
+inside the governed control/runtime boundary, stable meaning should move into
+typed contracts and explicit transitions before it is left in projections or
+prose.
+
+The ordering is now explicit in plan authority:
+
+1. typed structure;
+2. validated transitions;
+3. derived projections;
+4. comments/docstrings as explanation only.
+
+That turns free strings, boolean bundles, fixed-shape `dict[str, Any]`, and
+comment-only policy on startup/review/push/governance paths into real
+authority debt instead of stylistic cleanup. Repo-pack/governance policy still
+decides where that boundary starts for any adopting repo, which keeps the rule
+portable rather than VoiceTerm-specific.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/guides/PYTHON_ARCHITECTURE.md`.
+
+### 2026-04-05 - Governed semantic docs are now tracked as checked projection, not prose authority
+
+The active `MP-377` plans now also capture the stronger governed-docstring
+idea in a repo-portable way. The accepted rule is narrow and architectural:
+symbol-level semantic docs can help AI navigation, ZGraph/context retrieval,
+bootstrap, and discovery only when they are structured, machine-validated
+projection over canonical typed contracts.
+
+The tracked closure work now calls for one typed
+`SemanticSymbolRecord` / `SemanticDocRecord` family on selected
+governance/runtime symbols, routed through existing owner surfaces instead of
+creating a second prose system:
+
+1. `ProjectGovernance` / `DocRegistry` / `doc-authority` for lifecycle and
+   visibility;
+2. `context-graph` / ZGraph-style retrieval for near-code semantic discovery;
+3. `SystemCatalog` / `discover` / bootstrap surfaces for capability and
+   consumer awareness;
+4. CI semantic-drift guards for stale signature hashes, undeclared states,
+   missing fields, bad consumer claims, or projection-only surfaces mislabeled
+   as canonical authority.
+
+That keeps semantic docs useful as a checked semantic index while preserving
+the core rule that typed contracts and explicit transitions remain the primary
+authority surface.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`.
+
+### 2026-04-05 - ZGraph semantics are now tracked as bounded routing, not runtime authority
+
+The active `MP-377` plans now record a sharper integration point for the
+user's deeper ZGraph/code-shape architecture. The accepted rule is:
+semantics are first-class for search-space control, but they still must not
+expand the runtime authority surface.
+
+For this repo, the staged order is now explicit:
+
+1. `session-resume` / typed startup continuity boot first;
+2. deterministic changed-path, lane, and policy narrowing bound the candidate
+   set second;
+3. `SystemCatalog` plus `AgentDispatchPacket` define the bounded routing seam;
+4. optional `ConceptIndex` / ZGraph-compatible ranking compresses and orders
+   that seam;
+5. guards, parity, and end-to-end proof still verify the result and force
+   deterministic fallback when semantic confidence is low or authority nodes
+   are missing.
+
+That keeps semantics important in the way the codebase actually needs them:
+not as prose help, and not as a second planner-truth hybrid, but as the
+planner/search reducer that helps agents and developers avoid broad repo
+wandering while the typed authority chain remains canonical.
+
+The same tracked follow-up now calls for:
+
+1. `SystemCatalog` to grow from flat inventory into the static graph root;
+2. `AgentDispatchPacket` to grow into the bounded frontier packet;
+3. semantic-routing eval modes (`deterministic`,
+   `deterministic_plus_semantic`, `semantic_audit`);
+4. measured promotion gates based on search cost, missed-authority nodes,
+   guard/test routing quality, and override rate.
+5. a coarse-to-fine graph hierarchy so lane/subsystem/contract/command/guard
+   nodes bound the first pass and file/symbol detail only appears inside the
+   selected frontier.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/scripts/devctl/governance/system_catalog_models.py`,
+`dev/scripts/devctl/context_graph/concepts.py`,
+`ZGRAPH_RESEARCH_EVIDENCE.md`.
+
+### 2026-04-04 - Bridge rendering portability via RepoPathConfig
+
+The markdown bridge compatibility projection no longer hardcodes
+VoiceTerm-specific values. Display timezone (`America/New_York`),
+worktree-hash exclusion prefix (`.voiceterm/memory/`), review-channel
+plan path (`dev/active/review_channel.md`), and bridge metadata regex
+patterns now derive from `RepoPathConfig` fields (`display_timezone`,
+`local_state_prefix_rel`, `review_channel_rel`). Another repo can
+override these via `set_active_path_config()` and the bridge surface
+renders correctly without inheriting VoiceTerm defaults.
+
+Evidence: `dev/scripts/devctl/review_channel/heartbeat.py`,
+`dev/scripts/devctl/review_channel/bridge_projection_state.py`,
+`dev/scripts/devctl/review_channel/bridge_projection.py`,
+`dev/scripts/devctl/review_channel/reviewer_state_support.py`,
+`dev/scripts/devctl/review_channel/handoff_constants.py`,
+`dev/scripts/devctl/repo_packs/voiceterm.py`,
+`dev/scripts/checks/review_channel_bridge/report.py`.
+
+### 2026-04-04 - Remote-control runtime closure now tracks discoverability as owned execution scope
+
+The follow-up architecture pass for the remote-control runtime plan found one
+remaining gap in plan authority: the audit/design notes for `SystemCatalog`,
+derived `AgentDispatchPacket`, and the thin `view` adapter were still only
+called out as review findings. That left the discoverability/system-map work
+as architecture intent without an active tracked slice, which is exactly the
+kind of "half-built system" drift the repo governance model is supposed to
+prevent.
+
+The plan now closes that gap explicitly. `dev/active/remote_control_runtime.md`,
+`dev/active/MASTER_PLAN.md`, and `dev/active/INDEX.md` all track the full
+remote-control closure path as `MP-380..MP-386`, with Slice F / `MP-386`
+reserved for generated discoverability/system-map surfaces. The contract is
+deliberately narrow: `SystemCatalog` must stay a static generated registry over
+existing authorities, `AgentDispatchPacket` must stay derived from the router
+and governance state, and `view` remains a frontend/presentation adapter
+instead of a second runtime authority.
+
+Evidence: `dev/active/remote_control_runtime.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/INDEX.md`,
+`dev/guides/AI_GOVERNANCE_PLATFORM.md`,
+`dev/active/ai_governance_platform.md`.
+
+### 2026-04-04 - MP-377 now tracks remote-control runtime closure as its own active plan
+
+The 2026-04-04 architecture review of the eight commits ahead of
+`origin/feature/governance-quality-sweep` found that the remaining
+phone/remote-control gaps cut across multiple already-landed surfaces: operator
+presence was not yet a typed runtime owner, bridge `Action Requests` created a
+second action transport beside review packets, headless recovery still leaked
+`terminal-app` assumptions, and `devctl dashboard` still depended on bridge
+regex plus `format_steps_text()` parsing for structured operator detail.
+
+That closure path now has one explicit active owner plan:
+`dev/active/remote_control_runtime.md`. It tracks `MP-380..MP-385` for typed
+operator mode, unified check/violation contracts, headless lifecycle closure,
+packet-backed action requests, dashboard typed-state convergence, and repo-owned
+auto-poll/update cadence. Discovery docs now point to that plan directly so the
+remote-control follow-up stays under the `MP-377` owner chain instead of
+becoming bridge-local reviewer lore.
+
+Evidence: `dev/active/remote_control_runtime.md`, `dev/active/INDEX.md`,
+`dev/active/MASTER_PLAN.md`, `AGENTS.md`, `dev/README.md`.
+
+### 2026-04-04 - ReviewState.attention projects from recovery_assessment
+
+`ReviewState.attention` is no longer an independently authored field. When
+typed `recovery_assessment` (a diagnosis + decision pair) is present,
+`review_state_parse_support.py` projects attention deterministically from
+the assessment: `status` from `diagnosis.status`, `owner` from
+`decision.execution_owner`, `summary` from `diagnosis.root_cause`,
+`recommended_action` from `decision.rationale`, `recommended_command` from
+`decision.command`. Reviewer runtime doctor snapshots
+(`reviewer_runtime_snapshot.py`) prefer the typed `ReviewState.attention`
+over the raw attention parameter, and `check_review_surface_consistency.py`
+enforces the projection contract: field drift between raw attention and the
+canonical projection is a CI-blocking parity error. This closes a class of
+silent state corruption where attention could disagree with the recovery
+assessment that produced it.
+
+Evidence: `dev/scripts/devctl/runtime/review_state_parse_support.py`,
+`dev/scripts/devctl/runtime/review_state_parser.py`,
+`dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py`,
+`dev/scripts/checks/review_surface_consistency/parity.py`,
+`dev/scripts/devctl/platform/runtime_state_contract_rows.py`.
+
+### 2026-04-04 - Read-only artifact suppression for startup-context and bootstrap context-graph
+
+`startup-context` and bootstrap `context-graph` are classified as read-only
+commands (`READ_ONLY_COMMANDS` in `cli.py`), but they still wrote side-effect
+artifacts (startup receipt, bootstrap snapshot) on every invocation. That
+meant read-only mounts, containers, MCP adapters, and pre-edit bootstrap
+polling could trigger filesystem writes in `dev/reports/` even when the caller
+only needed the typed packet output.
+
+The fix uses the existing `DEVCTL_NO_ARTIFACT_WRITES` environment variable
+(already set by the read-only command dispatcher in `cli.py`) to handle those
+writes safely. `startup-context` always attempts the receipt write because the
+launcher validates it to gate subsequent actions; on intentional read-only
+mounts (`DEVCTL_NO_ARTIFACT_WRITES=1`) the write degrades gracefully on
+`OSError`, while other write failures propagate normally. `context-graph
+--mode bootstrap` skips the automatic snapshot save when the flag is set.
+Explicit `--save-snapshot` still writes unconditionally so operators can force
+a baseline when they need one. Focused regression tests prove the lifecycle:
+env set/clear, receipt write-through, graceful degradation, snapshot skip, and
+explicit override.
+
+Evidence: `dev/scripts/devctl/cli.py`,
+`dev/scripts/devctl/commands/governance/startup_context.py`,
+`dev/scripts/devctl/context_graph/command.py`,
+`dev/scripts/devctl/tests/test_read_only_commands.py`.
+
+### 2026-04-04 - Reviewer bootstrap now distinguishes review-pending from real loop repair
+
+Fresh Codex conductor sessions still start with
+`startup-context --role reviewer --format summary`, but the earlier prompt and
+docs teaching flattened every non-zero reviewer receipt into "repair the
+loop". That was wrong for normal live-review states: a dirty review slice can
+produce `action=continue_editing` / `reason=review_pending`, and a clean-but-
+unaccepted slice can produce `action=await_review` /
+`reason=review_pending_before_push`, even while the reviewer loop itself is
+healthy.
+
+The fix teaches the same distinction across the generated Codex prompt,
+reviewer prompt guards, maintainer docs, and MP-355 plan state. Fresh
+reviewer sessions now continue from those review-pending receipts into
+`review-channel --action status` plus reviewer-owned heartbeat refresh, and
+reserve relaunch/repair for true `repair_reviewer_loop`, checkpoint/budget
+blockers, or typed stale/non-live reviewer runtime.
+
+Evidence: `dev/scripts/devctl/review_channel/prompt.py`,
+`dev/scripts/devctl/review_channel/prompt_guards.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/review_channel.md`.
+
+### 2026-04-04 - Lightweight launch-state probe in bridge launch control
+
+The `observe_launch_state()` helper in `bridge_launch_control.py` was forcing
+a full status refresh on every launch poll iteration. That path re-reads
+`review_state.json`, recomputes projections, and rebuilds the full
+`ReviewChannelStatusSnapshot` — expensive work when the launch-time waiting
+loop only needs three fields: `launch_truth`, `codex_conductor_active`, and
+`claude_conductor_active`.
+
+The optimization reads bridge metadata plus session/runtime state directly
+via the existing `extract_bridge_snapshot`, `summarize_bridge_liveness`,
+`active_conductor_providers`, `read_publisher_state`, and
+`read_reviewer_supervisor_state` helpers instead of the heavy status refresh
+path. The full refresh is kept as the `OSError` fallback. Existing
+review-channel launch/handoff regressions pass unchanged.
+
+Evidence: `dev/scripts/devctl/commands/review_channel/bridge_launch_control.py`.
+
+### 2026-04-04 - Review-channel doctor/status now preserves latest-push publish truth when post-push follow-up is still failing
+
+The governed push path had already learned the right publish-state split:
+`devctl push --execute` persisted `published_remote` separately from
+`post_push_green`, and startup recovery already treated that latest push
+artifact as canonical. The remaining blind spot was downstream projection.
+`review-channel --action status|doctor` could still describe the branch as a
+generic blocked/unavailable push when no live remote-commit pipeline existed,
+even though the managed latest-push artifact already proved the current HEAD
+was published and only the post-push follow-up was failing.
+
+That projection gap is closed now. The reviewer doctor surface keeps
+commit-pipeline truth when a live pipeline exists, treats partial-progress
+push results as remotely published, and otherwise falls back to the matching
+latest-push artifact for the current branch/head. The compact readiness view
+now carries `push_report_path`, `published_remote`, `post_push_green`, and
+the recorded follow-up failure reason so operators and agents stop manually
+reconstructing "already published, repair the follow-up" from mixed signals.
+The same slice also treats blank approved-target identities as valid matches
+for ordinary branch pushes, so persisted publish receipts remain usable even
+when no reviewer-bound target identity was attached to the push.
+
+### 2026-04-04 - `devctl dashboard` v1 landed as first-class governance command
+
+The operator caught Claude narrating process in chat instead of projecting
+state through a repo-owned surface. The fix was not a better prompt — it was
+`devctl dashboard` as a real command. v1 (commit `adb32af`) reads 6 existing
+JSON artifacts, builds a `DashboardSnapshot` with 7 sections (repo, review,
+workers, publication, quality, coordination, flow), and renders via terminal
+(ANSI colors), markdown, or JSON. Role-neutral naming (Reviewer/Implementer/
+Worker), effective truth first, raw evidence second. 7 tests, portable via
+repo-pack path resolution.
+
+v1 is deliberately thin — the v2 slice will add dense multi-column layout,
+worker tables, plan progress, publication pipeline with step timers, quality
+guard/probe counts, audit/proof chain, health/daemon status, compact ASCII
+flowcharts, and `--follow` polling. 8 research agents mapped all 16 data
+surfaces; the problem is bad projection, not missing data.
+
+Evidence: `dev/scripts/devctl/commands/dashboard.py`,
+`dev/scripts/devctl/commands/dashboard_render.py`,
+`dev/scripts/devctl/tests/test_dashboard.py`, `dev/scripts/devctl/cli.py`.
+
+### 2026-04-04 - Active plan state now treats post-push code-shape closure as the first blocker and fixes the sanctioned 0/3 worker launch shape
+
+The governed push lane had already learned to distinguish
+`published_remote=true` from `post_push_green=false`, but the next-execution
+story for fresh sessions still needed one explicit tracked answer after the
+branch push landed: do not treat this state as "push again later." The branch
+is already published; the next blocker is the failing post-push
+`check_code_shape --since-ref origin/develop` gate plus the remaining
+publication-truth parity work across startup, review projections, and the
+generated proof surfaces.
+
+That execution state is now explicit in the active plan chain. `MASTER_PLAN`,
+`platform_authority_loop.md`, `ai_governance_platform.md`, and
+`review_channel.md` now all say the same thing: the next bounded `MP-377`
+slice is current-target publish-truth closure plus shape cleanup or explicit
+debt capture, and the sanctioned multi-agent proof path for that slice uses
+the review-channel launcher with `--codex-workers 0 --claude-workers 3` so
+Codex stays conductor-owned while three Claude workers take disjoint coding
+scopes under the repo-owned bridge/runtime contract.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/review_channel.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`.
+
+### 2026-04-04 - `system-picture` now owns the generated proof surface
+
+The external-review/proof lane had already been promoted into the `MP-377`
+owner chain, but the tracked proof ledger could still drift into a
+hand-maintained memo if maintainers refreshed prose without using the same
+typed startup/review/evidence reducers the platform is supposed to prove.
+That proof surface is now a real repo-owned command. `devctl system-picture`
+builds a typed `SystemPicture` snapshot from startup, context-graph,
+review-runtime, governance-review, imported-findings, and telemetry artifacts;
+writes managed `summary.{json,md}` plus append-only snapshot history under
+`dev/reports/system_picture/`; and can rewrite
+`dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md` as a generated projection
+instead of a hand-kept memo. The same follow-up also made the maintainer docs
+explicit that platform/governance slices affecting external-review claims
+should refresh `system-picture` alongside `platform-contracts` and the closure
+guard.
+
+Evidence: `dev/scripts/devctl/platform/system_picture.py`,
+`dev/scripts/devctl/platform/system_picture_command.py`,
+`dev/scripts/devctl/platform/system_picture_render.py`,
+`dev/scripts/devctl/platform/system_picture_models.py`,
+`dev/scripts/devctl/tests/platform/test_system_picture.py`,
+`dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`.
+
+### 2026-04-03 - Codex-only local review now uses the repo-owned heartbeat/checkpoint path and the review-surface parity guard also checks persisted disk truth
+
+The review-channel slice needed one more explicit owner-chain note after the
+single-agent bridge repair work settled. `single_agent` is now the sanctioned
+Codex-only reviewer mode, so the repo-owned `reviewer-heartbeat` /
+`reviewer-checkpoint` path owns local review truth instead of a parallel
+bridge edit. Typed turn-authority reads also now fall back to
+`bridge.claude_ack_current` when `current_session` ACK state is unknown, so
+the ACK parser no longer has to guess from prose. The review-surface guard
+also grew a disk-parity proof: `check_review_surface_consistency.py` now
+compares the persisted `review_state` artifact with the computed turn-authority
+/ bridge-poll projection, closing the gap where the live status snapshot and
+the on-disk review state could drift apart.
+
+### 2026-03-28 - Event-backed review instructions now use the same flat context summary as bridge promotion
+
+### 2026-04-03 - Launch gate split: reviewer bootstrap now allowed across reviewer-owned state drift
+
+The governed launch path (review-channel --action launch|rollover) was blocked
+by the same startup receipt semantics as implementation slices. Any bridge
+commit during reviewer-state repair changed HEAD, staling the receipt and
+creating a bootstrap loop. The fix splits launcher authority from edit-slice
+authority: launch/rollover now tolerate plain HEAD drift only when the diff
+since the receipt stays outside guarded quality-scope roots, while
+implementation commands keep exact HEAD binding. `reviewer_overdue` now
+degrades to a launch warning so the sanctioned reviewer relaunch path can
+repair the loop without weakening other launch blockers.
+
+Updated:
+`dev/scripts/devctl/runtime/startup_gate.py`,
+`dev/scripts/devctl/review_channel/peer_recovery.py`.
+
+### 2026-04-03 - MP-377 now explicitly treats desktop, mobile, remote-loop, and external review as clients over one generated orientation reducer
+
+The repo already had the right architectural direction in scattered form:
+typed startup authority, typed review/runtime state, `mobile-status`, and the
+planned `system-picture` generated surface. What was still missing from the
+tracked owner chain was the explicit cross-client convergence rule. PyQt6
+desktop still had bridge-shaped lane readers, iPhone/mobile still consumed
+compatibility-shaped status payloads, and remote Claude-loop/external-review
+flows still lacked one bounded shared orientation packet.
+
+That gap is now recorded as a first-class `MP-377` slice instead of chat
+guidance. The active owner plans now fix the next rollout order to one shared
+generated `system-picture` / external-review reducer over typed startup,
+review, control, governance-review, external-findings, and quality-feedback
+state, with one managed repo-owned JSON/Markdown artifact plus one compact
+GitHub-visible markdown projection that share snapshot identity. Client
+migration is explicitly sequenced as PyQt6/operator console first,
+iPhone/mobile second, and Claude remote-loop plus external-review surfaces
+third, while all of those surfaces remain projections or launchers rather
+than new authority owners.
+
+Evidence:
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/ai_governance_platform.md`
+
+### 2026-04-03 - The same MP-377 reducer now explicitly carries identity/session-topology requirements, and the current missing link stays the persistent Codex reviewer path
+
+The first `system-picture` / external-review slice was correctly promoted into
+the `MP-377` owner chain, but one more review pass showed two details still
+needed explicit plan authority. First, the reducer cannot stop at generic
+startup/review/control summaries if it is supposed to become the shared
+cross-client warm-start layer. It now needs repo/worktree/service identity,
+`CollaborationSession`, session-capability / worker-fanout state,
+delegated-worker receipts/topology, and stale-write collision controls
+(`writer_lease`, owned scope, `expected_revision`, `state_hash`) so PyQt6,
+mobile, and remote/external-review clients do not re-derive lane ownership or
+authority locally.
+
+Second, the clean-tree `reviewer_overdue` state made the operational blocker
+more explicit. The repo already has publisher/reviewer-supervisor daemon truth,
+typed reviewer runtime, and launch/restart scaffolding, but those daemons are
+still not the missing semantic-review link. The tracked remaining gap is a
+repo-owned persistent Codex reviewer worker/service path that keeps re-review,
+checkpoint emission, and operator-visible updates moving between Claude passes.
+The 8+8 swarm remains real conductor-managed scaffolding, but not finished
+native worker topology.
+
+Evidence:
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/review_channel.md`
+- `dev/active/continuous_swarm.md`
+
+### 2026-04-03 - Remote commit pipeline startup, status, and doctor surfaces now carry one shared snapshot stamp
+
+The remote commit lane already had a typed pipeline owner, governed
+stage/commit/push actions, and packet-based approval. The remaining truth gap
+was surface convergence: startup, review status, compact doctor output, and
+the durable commit-pipeline artifact could still be refreshed independently
+without one shared version stamp, and bootstrap had no bounded way to tell an
+agent which shared runtime contracts actually owned its startup packet.
+
+That convergence gap is closed now. `StartupContext` derives a bounded
+`contract_ownership_map` from the shared `ContractSpec` registry, startup and
+review-channel projections stamp one shared `snapshot_id` across
+`review_state.json`, `compact.json`, compat doctor/bridge projections, and
+`commit_pipeline.json`, and two new guards keep the result honest:
+`check_review_surface_consistency.py` fails on snapshot/generation drift while
+`check_audit_status_sync.py` fails when `AUDIT_STATUS.md` still claims the
+completed Phase 3/4 work is open. The same slice adds focused proof tests for
+the clean path, rescue path, startup/doctor/bridge convergence, and
+remote-session approval packets staying generation-bound through commit. The
+same closure now reaches workflow enforcement too: `tooling_control_plane.yml`
+and `release_preflight.yml` both run those guards so bundle/workflow parity
+stays honest.
+
+### 2026-04-03 - Remote commit push recovery no longer trusts bridge prose or raw HEAD equality
+
+The remote commit pipeline already had typed packet approval and a governed
+executor boundary, but the last publish-authority edge was still split:
+implementation blocking could still be recomputed from bridge-liveness fields,
+bridge review acceptance still carried a prose-regex fallback, and startup
+push recovery still treated raw current-HEAD equality as the approval
+identity.
+
+That authority gap is closed now. `ReviewerRuntimeContract` owns
+`implementer_ack_current`, `implementation_blocked`, and
+`implementation_block_reason`, push/startup/status consumers read those typed
+fields directly, `bridge_review_accepted()` is typed-only, and remote push
+recovery now matches the reviewer-owned `approved_target_identity` tree
+receipt emitted from the approved staged snapshot rather than a bare HEAD
+comparison. The important architectural point is that bridge prose remains a
+compatibility projection and handoff surface, not a publish-authority
+fallback.
+
+### 2026-04-03 - Remote-control commit/push now has tracked design authority instead of ad hoc operator ritual
+
+The repo had already converged on typed reviewer lifecycle truth, governed push
+receipts, and phone-steered remote-control wrappers, but one operational gap
+was still undocumented in the owner docs: a remote Codex session could stage
+work yet still get stranded at `git commit` because the local CLI sandbox may
+require host keyboard authorization for index-lock mutation. The bad fallback
+was social, not technical: manual operator shell steps, prose approval, or
+wrapper-local habits.
+
+That authority gap is now closed at the design layer. The repo added
+`dev/active/remote_commit_pipeline.md` as the Phase-0 execution/design plan for
+one typed remote-session commit/push pipeline: one canonical owner, one staged
+state machine, one `stage -> guard -> approve -> commit -> push -> recover`
+action graph, typed operator approval packets, one governed executor boundary,
+doctor/dashboard projection fields, fail-closed rules, and a concrete migration
+path off the ad hoc flow. Discovery docs now route this work through that plan
+instead of the deleted `remote_orchestration.md` pointer or wrapper-only lore.
+
+Evidence:
+- `dev/active/remote_commit_pipeline.md`
+- `dev/active/INDEX.md`
+- `dev/active/MASTER_PLAN.md`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/README.md`
+
+### 2026-04-03 - The first remote commit-pipeline slice now exists as typed runtime truth instead of only a plan
+
+The repo did not need a second push-policy stack or another bridge-only
+workaround. It needed the first bounded runtime seam that makes the new
+pipeline visible to typed consumers before any commit/push executor is wired.
+
+That first seam is in place now. `CommitIntentState` and
+`RemoteCommitPipelineContract` exist as typed runtime/platform contracts,
+`review_state` and review-channel projections now carry a `commit_pipeline`
+block, `review-channel --action doctor` exposes the compact readiness surface,
+and the managed review-channel artifacts now include `commit_pipeline.json`.
+The implementation keeps `recover` as an action instead of a durable pipeline
+state, makes `approval_expires_at_utc` and `approved_target_identity` required
+contract fields, and leaves startup push truth on the existing
+`reviewer_runtime.publish_clear` / `push_decision.review_gate_allows_push`
+path instead of inventing a second evaluator.
+
+### 2026-04-03 - Remote commit approval now travels through the existing typed review-channel packet path
+
+The next gap was approval transport, not a missing review surface. Slice 1 had
+already exposed the remote commit pipeline as typed runtime truth, but the
+operator approval step was still only frozen in plan prose. Without a typed
+packet seam, the phone-side session would still be forced back toward bridge
+edits or ad hoc shell approval.
+
+That transport gap is closed now. `PacketPostRequest` accepts a dedicated
+`commit_approval` runtime packet kind, the packet carries typed
+`pipeline_generation`, `staged_snapshot_hash`, and
+`guard_results_summary` fields alongside the runtime target ref/revision, and
+the existing `review-channel --action post|ack|apply` lifecycle preserves that
+payload through the event log, reduced packet rows, `actions.json`, and typed
+`ReviewState` parsing. The architecture point is what did not change: remote
+approval still rides the existing review-channel packet system and the same
+`publish_clear` / `push_decision` truth instead of inventing a second
+readiness evaluator.
+
+### 2026-04-03 - Review-channel daemon liveness now routes through the publisher owner and the doctor surface projects the daemon state the phone lane needs
+
+The first daemon-liveness patch proved the launch path could start detached
+runtime, but it still attached that start-up to the terminal-launch helper and
+treated reviewer-supervisor start as a launch concern. That was the wrong
+owner boundary. The publisher is the persistent service, and remote-control
+clients need a single compact doctor payload that exposes daemon state without
+making a second status call.
+
+That boundary is corrected now. Live `review-channel --action launch|rollover`
+starts the repo-owned ensure-follow publisher from the actual bridge action
+router, then leaves reviewer-supervisor recovery to the publisher's normal
+cadence. The repo also now ships a checked-in launchd template/wrapper pair
+under `dev/config/launchd/` so login-time crash recovery can restart on
+`timed_out`, `inactivity_timeout`, and `output_error` while still honoring
+clean `manual_stop` exits. The compact doctor projection now carries
+publisher/supervisor running state plus last heartbeat and stop-reason fields,
+so phone/remote-control dashboards can read daemon truth from the same reduced
+readiness surface as commit-pipeline state.
+
+### 2026-04-03 - Live review-channel launch now starts the detached publisher/supervisor runtime instead of assuming a later manual ensure step
+
+The repo already had the right runtime pieces: the detached ensure-follow
+publisher, the reviewer-supervisor follow loop, the governed
+`review-channel --action launch|rollover` path, and the phone-steered wrapper
+that reuses that launch surface. The miss was at bootstrap time. Launch opened
+fresh Codex/Claude conductor terminals and waited for reviewer activity, but it
+did not actually start the detached publisher/supervisor runtime that keeps the
+loop alive and observable between human polls.
+
+That gap is closed now. Live Terminal-app `launch|rollover` starts the repo-
+owned ensure-follow publisher plus the reviewer-supervisor runtime as part of
+the launch path itself and fails closed if those daemons do not come up. The
+same fix stays inside the existing MP-355 contract: manual phone-driven remote
+control still goes through the sanctioned `review-channel --action launch`
+surface, but it no longer depends on a second manual `ensure --follow` step to
+make reviewer-runtime liveness real.
+
+### 2026-04-02 - Review-channel rollover now cleans up old Terminal.app sessions through the existing session metadata contract
+
+The repo already had Terminal-backed conductor launch, repo-visible session
+metadata, and the structured rollover/handoff path. The missed piece was the
+cleanup seam. Terminal.app windows were launched but never tracked, rollover
+rewrote the live session metadata before any old-window cleanup could happen,
+and ad hoc `osascript close window` calls were still prone to confirmation
+prompts when the foreground conductor process was alive.
+
+That gap is closed now. Live Terminal.app launch returns the created window id
+and stores it as `terminal_window_id` in the conductor session metadata/report
+payloads, `session_probe` snapshots the retiring session pid plus that window
+id before rollover rewrites the live files, and the rollover path now kills the
+old conductor first and only then closes the old Terminal window. The outcome
+stays inside the existing MP-355 runtime contract instead of adding a second
+terminal-lifecycle side channel.
+
+### 2026-04-02 - Reviewer lifecycle truth now has one typed owner instead of split bridge/status heuristics
+
+The repo already had typed review-state projections, status surfaces, and
+bridge-derived acceptance signals, but reviewer truth was still spread across
+bridge fields, doctor/status render helpers, and follow/recovery heuristics.
+That made `review_accepted` look typed while the deeper lifecycle still lived
+in projections.
+
+That split is closed now. `ReviewState` carries a dedicated
+`reviewer_runtime` contract that owns reviewer mode/effective mode, freshness,
+stale reason, last poll, rollover state, session owner, allowed recovery
+action, review acceptance, and publish-clear state. `bridge_review_accepted()`,
+doctor output, and startup/status projections now read from that contract
+instead of acting like parallel authority, and the current 14 implemented
+platform contract rows all declare `startup_surface_tokens` so bootstrap
+surfaces expose the same contract inventory the closure guard validates.
+
+### 2026-04-02 - Phone-steered Claude remote control now stays on top of the real review-channel authority instead of inventing a fake Codex self-heal
+
+The repo already had most of the right pieces for phone-driven local control:
+Claude remote control on the Mac, the markdown bridge for human-facing state,
+and repo-owned `review-channel` launch/recovery commands. The miss was in the
+glue. The first wrapper/prompt pass acted as if shared-state alone could
+respawn Codex, even though the real runtime still only supports full
+`launch`/`rollover` relaunch for a dead reviewer side and the narrow
+`recover --recover-provider claude` path for a stale implementer when Codex is
+already live.
+
+That wrapper is honest now. `dev/scripts/remote-bridge-loop.sh` syncs the
+project-local `/project:bridge-loop` slash command from the tracked prompt
+source, fails early on `claude auth status`, prints typed
+`review-channel --action status` health before opening the phone session, can
+optionally bootstrap the sanctioned Codex+Claude pair, and no longer leaks a
+stray `caffeinate` process on exit. The paired remote prompt now treats typed
+review-channel status as canonical for live health, relays what Codex last
+wrote in `bridge.md`, and only teaches sanctioned `launch`, `ensure`, and
+`recover --recover-provider claude` paths instead of a nonexistent Codex-only
+recover command.
+
+### 2026-04-02 - Reviewer follow no longer pretends detached automation is a live review loop
+
+The repo already had a reviewer supervisor, typed `review_needed` state, and
+stale-peer attention. The miss was narrower and nastier: the repo-owned follow
+daemons were only publishing reviewer heartbeat, not reviewer work. That let an
+automation-only `ensure --follow` / `reviewer-heartbeat --follow` path keep
+refreshing `Last Codex poll` even while `review_needed=true`,
+`reviewed_hash_current=false`, and the real reviewer loop had gone detached.
+
+That false-freshness gap is closed now. The follow paths suppress
+automation-only reviewer heartbeat writes when review is still pending, and the
+same state machine now queues a Claude-targeted restore-turn packet through the
+existing review-channel event path whenever pending review collides with
+detached/automation-only reviewer truth. The outcome is stricter and more
+honest: detached daemon freshness no longer masquerades as a real review pass,
+and the next remote-orchestration work can build on an explicit "restore the
+reviewer turn" signal instead of passive status churn.
+
+### 2026-04-02 - Reviewer-side stale-peer recovery now reuses the existing rollover contract
+
+The next gap was not a missing handoff system. The repo already had
+`HandoffBundle`, rollover ACK lines, launch records, and the repo-owned
+`review-channel --action rollover` path. The miss was that the detached
+reviewer follow loop still had no automatic way to use that contract when the
+reviewer side itself went stale or disappeared.
+
+That slice is closed now. `reviewer-heartbeat --follow` detects repeated
+unchanged stale reviewer/runtime states and auto-triggers the existing
+repo-owned rollover path instead of relying on manual phone-side Codex
+restarts. The important architectural detail is what did not change: the fix
+did not add a new remote-control control plane. It reuses the same handoff
+bundle, launch records, and visible rollover ACK contract that already owned
+planned round/context rotation.
+
+### 2026-04-02 - Dirty work after a local checkpoint now fails the normal CI quality lane, not just startup/push
+
+The repo already had the right startup truth for this class of mistake:
+`startup-context` and governed `push` could see "you have a local checkpoint
+and then dirtied the tree again." The miss was narrower and more important
+than that. VoiceTerm's repo preset had accidentally dropped
+`startup_authority_contract` from the resolved `check --profile ci` guard
+surface, so the normal quality bundle could still go green while the
+push/startup gate was red.
+
+That is closed now. The startup-authority contract itself fails when
+`ahead_of_upstream_commits > 0` and the worktree is dirty again, and the
+VoiceTerm quality preset explicitly re-enables both
+`startup_authority_contract` and the previously omitted
+`command_source_validation` guard. That turns the branch-local dirty-after-
+checkpoint state into a visible quality failure before push time and adds a
+repo-policy regression test so the preset cannot silently narrow again.
+
+### 2026-04-02 - Post-publication `devctl push` reruns now stop at divergence truth instead of fabricating docs-lane failures
+
+The next escaped defect was not in publication itself. The branch was already
+on remote, and `startup-context` correctly said `no_push_needed`. The problem
+was that a later `devctl push` rerun still marched into router preflight,
+`check-router` saw zero changed paths, defaulted to the docs lane, and the
+saved latest-push receipt looked blocked by unrelated docs requirements.
+
+The contract is tighter now. `devctl push` still fetches first, but once the
+tracked branch proves `ahead == 0` it stops before router preflight and emits
+the existing `branch_already_pushed` / `published_remote` receipt. That keeps
+the no-op push answer attached to push-state truth instead of teaching the
+router about a special post-publication exception.
+
+### 2026-04-02 - Corpus-first portability proof now keeps anchor and wave state in the owner docs, not in chat memory
+
+The proof-standard correction for portable governance was already right:
+two repos can expose real engine bugs, but they do not prove broad
+portability. The remaining process miss was restartability. A fresh session
+could know "run the corpus" without knowing which repos were the fixed
+anchors, which ones were in the current wave, or whether the last failures
+were engine bugs or honest adopter findings.
+
+That state is durable now. `dev/active/portable_code_governance.md` and the
+mirrored `dev/active/MASTER_PLAN.md` now record the fixed v1 Python anchor
+corpus, the bounded five-repo Wave 1 order, and the completed Wave 1 outcome.
+`zgraph-scientific-package`, `mkgui`, `requests`, `interactions.py`, and
+`pre-commit-hooks` all completed the governed
+`governance-bootstrap -> probe-report -> check` path without a new engine bug
+and are explicitly classified as adopter-finding runs, while `vector_space`,
+`yamllint`, and `MemLite` remain the seeded reserve set for the next clean
+checkpoint.
+
+### 2026-04-02 - `dev/scripts/checks` package extractions now have to prove the legacy root entrypoint, not just the moved package
+
+The next self-hosting cleanup pass exposed a subtle failure mode in the
+checks-root modularization work. The repo had moved several crowded-root
+helpers into documented packages and the targeted package/layout guards were
+green, but one legacy root entrypoint (`check_naming_consistency.py`) still
+failed in direct script mode because the package import fallback was too broad
+and the moved package no longer carried its local YAML/JSON loader seam.
+
+That changed the process rule, not just the files. Public
+`dev/scripts/checks/check_*.py` and `probe_*.py` root shims are now treated as
+part of the maintained contract surface, so package moves have to prove the
+legacy root entrypoint directly instead of assuming package imports or unit
+tests are enough. The repo also recorded that rule in maintainer docs and then
+proved it with a green full `python3 dev/scripts/devctl.py check --profile ci`
+run on the same dirty branch.
+
+### 2026-04-02 - Legacy check shims now have to prove repo-package fallback, not only direct script mode
+
+The same package-extraction closure turned up one more miss as soon as the full
+self-hosting bundle reran on the next dirty slice. A new shared helper move had
+added `code_shape/python_function_scan.py`, but the root compatibility seam was
+missing and several older root shims still only worked when
+`dev/scripts/checks` itself happened to be on `sys.path`. That meant direct
+script runs could stay green while packaged checks loaded through
+`check_bootstrap.import_attr()` still failed in repo-package mode.
+
+That seam is closed now. `python_function_scan.py` exists as an explicit root
+shim, and the affected `code_shape_*` / `rust_*` root shims now fall back to
+`dev.scripts.checks...` package imports when the top-level checks root is not
+available. The proof also changed: targeted regression coverage now exercises
+the legacy root import path and the packaged `check_structural_complexity`
+loading path so future package moves have to keep both modes working.
+
+### 2026-04-02 - Cross-repo proof now catches real engine portability bugs before they masquerade as adopter findings
+
+The next important miss only showed up once the governance stack was pointed at
+other repos instead of itself. A pilot `probe-report --repo-path` run against
+`adaptive-hashmap-studio` crashed inside the shared Python function scanner on
+perfectly valid headers such as `def main() -> None:  # pragma: no cover`, and
+the later `check --repo-path` proof showed a second portability leak:
+`check_code_shape` was still evaluating VoiceTerm-only `PATH_POLICY_OVERRIDES`
+for files like `app/operator_console/**` even when those files did not exist in
+the target repo, so external scans could report self-hosting override debt as
+if it were adopter debt.
+
+Both defects are closed now. `scan_python_functions()` uses token-aware Python
+header closure, handles indented method signatures correctly, and clamps
+end-of-file fallthrough instead of crashing; `check_code_shape` now scopes
+override-cap and stale-override self-hosting checks to files that actually
+exist under the active repo root. The real proof result matters more than the
+patches: cross-repo `probe-report --repo-path --adoption-scan` and
+`check --repo-path --adoption-scan` are now honest on both `ci-cd-hub` and
+`adaptive-hashmap-studio`, and the imported pilot ledger records `882`
+external findings across those two runs. The remaining truthful gap is Step 0:
+`startup-context` still has no `--repo-path` mode, so real adopter startup/push
+proof still requires the governance stack to exist in the target repo checkout.
+
+### 2026-04-02 - External-repo proof now uses a governed corpus standard instead of two-repo anecdotes
+
+The next process correction was about proof language, not another code patch.
+Two external Python repos were enough to expose real engine portability bugs
+and seed regression anchors, but they were not enough to justify a broad
+"works on any repo" claim.
+
+The owner-plan chain now makes that standard explicit. `MP-376` carries a
+governed external Python repo matrix plus one fixed adoption path
+(`governance-bootstrap`, `probe-report --repo-path --adoption-scan`, and
+`check --profile ci --repo-path --adoption-scan`), records every failure as
+either `engine_bug` or `adopter_finding`, and requires rerunning the newly
+failing repo plus all previously tested matrix repos after each engine fix.
+Raw external findings still flow through `governance-import-findings`, and
+adjudicated outcomes still flow through `governance-review --record`, but only
+after the engine run is honest on that repo.
+
+That matters because it keeps the portable claim tied to repeatable evidence
+instead of clean anecdotes. The same plan update also keeps the remaining
+startup/push gap explicit: Step 0 `startup-context` and governed push are still
+blocking architecture work until the target-local/exported authority path
+works without new core patches.
+
+### 2026-04-02 - Corpus-first portability proof is now the immediate execution order, not just a review recommendation
+
+The next correction was about execution order. It was not enough to say "keep
+testing more repos" and leave the rest in chat memory. The active plan chain
+now makes corpus-first proof the next concrete `MP-376` lane: checkpoint the
+current slice, seed a fixed Python anchor corpus, run waves of `3-5` repos,
+stop on the first new `engine_bug`, rerun all green anchors after each fix,
+and only keep widening when the rerun set stays clean.
+
+That also makes the stop condition explicit instead of fuzzy. If a corpus wave
+reduces to Step-0/startup authority or governed-push failures, the process is
+to stop adding repos and switch to the owner `MP-377` blocker. More samples do
+not close that architecture gap. This matters because it keeps the repo using
+external-repo pressure as a disciplined proof harness for the plan rather than
+letting the plan dissolve into unbounded reactive bug-chasing.
+
+### 2026-04-01 - External integration analysis now has to land as owner-plan deltas, not shadow roadmap prose
+
+The repo accepted a useful external architecture review in
+`dev/intrgrate_analysis.md`, but the important process correction was not the
+raw content. It was the absorption rule.
+
+This repo now treats that kind of analysis as candidate evidence only. If the
+ideas are valid, they must be rewritten into the canonical owner plans with
+real phase placement, contract ownership, and proof bars instead of being left
+behind as a second unofficial roadmap.
+
+The 2026-04-01 absorption pass tightened five concrete areas in plan authority:
+typed onboarding plus inference provenance/ratification, derived
+session-capability projection, explicit second-repo proof gates, portable
+surface-ownership routing, and review-channel provider/terminal-host adapter
+work under singular reviewer/writer mutation authority.
+
+That change matters because it keeps the architecture executable. The repo no
+longer has to link a scratch analysis doc to remember the real plan, and new
+evidence now has a clear rule: absorb, reject, or leave as reference, but do
+not let it linger as shadow execution state.
+
+### 2026-04-01 - `ReviewState` now carries a typed `CollaborationSession` instead of rebuilding live collaboration truth per surface
+
+The review-channel runtime had reached an awkward midpoint: `ReviewState` was
+typed, but bridge-backed status, event-backed reduction, and registry
+projection still rebuilt "live participants" from fixed provider assumptions.
+That made the lane table look too close to runtime truth and kept the first
+native session contract from actually existing in code.
+
+Closed the next bounded `MP-377` / `MP-355` architecture seam by adding a
+typed `CollaborationSession` block to `ReviewState`, sourcing live conductor
+participants from repo-owned session metadata, and keeping delegated AGENT-lane
+receipts explicitly separate from those live participants. `registry/agents.json`
+now projects from that typed collaboration contract instead of each emitter
+rebuilding provider state locally.
+
+This is still not the end-state worker runtime. Launch and packet routing still
+carry fixed provider ids and the blocking planned-topology/runtime-truth guard
+is still open, but the repo now has the first real runtime contract the plan
+was calling for instead of only bridge-era compatibility projections.
+
+### 2026-04-01 - Launch, packet validation, and multi-agent sync now consume typed runtime truth
+
+The first `CollaborationSession` slice exposed the next honest gap immediately:
+launch metadata, packet validation, and one of the coordination guards still
+carried bridge-era fixed provider assumptions even though runtime truth was now
+typed.
+
+Closed the next bounded follow-up by deriving conductor launch sessions from a
+typed provider/lane map, persisting conductor role metadata in session
+artifacts, validating event-backed packet actors/targets against typed
+collaboration/runtime state or repo-owned session metadata instead of parser
+hardcodes, and extending `check_multi_agent_sync.py` so it also fails closed
+when planned `AGENT-*` rows leak into live collaboration participants or the
+runtime registry without live delegated-worker receipts.
+
+This still is not native worker execution. The review backend can now describe
+runtime truth more honestly, but real delegated worker sessions and the last
+fixed-provider recovery knobs remain open follow-up work.
+
+### 2026-04-01 - Repo organization is now tracked as a package-role and package-cohesion problem, not just a file-budget problem
+
+The self-hosting package-layout work improved truthfulness, but the repo still
+had an obvious architecture gap: a green `check_package_layout` receipt could
+coexist with a visually noisy helper-drawer root because the current contract
+mostly reasons about crowding, namespace families, and compatibility-shim
+budgets. That is useful for freezing drift, but it is not the same thing as
+semantic organization.
+
+The owner plans now record the stronger requirement explicitly. The next
+portable organization tranche is a repo-pack-owned package-role contract
+(`public_entrypoint`, `compat_shim`, `implementation_package`,
+`support_module`, `generated_artifact`, `doc_authority`) plus a role-aware
+package-cohesion review surface that can flag mixed-role directories,
+suffix-heavy helper roots, and "green but still looks flat" cases. The
+platform lane also now owns projecting that structure truth into startup/work-
+intake so agents stop reading a budget-green layout receipt as proof that the
+repo is well organized.
+
+The first executable slice of that contract is now live too. The existing
+`check_package_layout.py` surface still owns blocking flat-root/crowding truth,
+but it now also emits advisory organization-role state for configured roots,
+classifying current files as compatibility shims, public entrypoints,
+support-module helpers, or uncategorized root implementation. The first live
+self-hosting rule targets `dev/scripts/devctl`, which means the repo can now
+say "this root is still a helper drawer" in machine-readable output instead of
+waiting for another crowding-budget breach to make the debt visible.
+
+Evidence: `dev/active/portable_code_governance.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/MASTER_PLAN.md`.
+
+The first bridge-hardening pass closed the direct `bridge.md` pollution path by
+flattening promotion/checkpoint instruction text and rejecting embedded
+markdown headings in reviewer-owned live sections. One sibling path remained:
+event-backed queue/current-session projections still built
+`derived_next_instruction` from raw `Context Recovery Packet` markdown, which
+meant `latest.md`-style outputs could still show nested `##` headings even
+when the live bridge stayed clean.
+
+Closed that gap by switching event-backed instruction-shaped fields to the same
+compact no-H2 context summary used by bridge-safe promotion text, while keeping
+the full structured packet only in source metadata for prompt/audit consumers
+that actually need the full packet body.
+
+### 2026-03-29 - `render-bridge` now rebuilds the compatibility bridge from typed state instead of reparsing markdown
+
+The earlier bridge-hardening slices still left one structural flaw in place:
+`review-channel --action render-bridge` sanitized and rewrote `bridge.md`, but
+it still treated the live markdown body as both source and output. That meant a
+polluted bridge could keep acting like its own repair input and repeated
+duplicate packet headings could survive until another writer path overwrote
+them.
+
+Closed the bounded purity slice by making bridge-backed status projection emit a
+typed `_compat.bridge_projection` payload inside `review_state.json` and making
+`render-bridge` consume only that typed payload when rebuilding `bridge.md`.
+The fixed bridge sections now also reject embedded markdown headings fail-
+closed during render, and focused rerender coverage proves duplicate
+`## Context Recovery Packet` headings do not reappear after repair.
+
+This is intentionally narrower than full bridge retirement. `bridge.md`
+remains a compatibility projection, and the broader typed writer/mutation
+cutover plus repo-pack/path portability work stays open under `MP-355` /
+`MP-377`.
+
+### 2026-03-29 - Persisted typed review-state now keeps reviewer hash truth
+
+The next follow-up exposed a smaller but important contract hole: the live
+`review-channel --action status` payload already knew whether Codex still owed
+review (`reviewer_worker.review_needed`, `reviewed_hash_current`), but the
+persisted `review_state.json` artifact dropped that truth and kept only the
+instruction/ACK-focused `current_session` block.
+
+Closed that gap by extending the canonical typed `ReviewState.bridge` payload
+with `reviewed_hash_current` and `review_needed`, while keeping
+`current_session` intentionally narrow to live instruction and implementer ACK
+state. Event-backed parity stays fail-closed by emitting `null` when those
+booleans are not yet knowable from structured events.
+
+### 2026-03-30 - Live review-channel proof closed the next conductor contract gaps
+
+The next repo-owned live proof did not expose a new architecture direction. It
+found four concrete contract mismatches in the current bridge-era launcher
+surface: generated Claude prompts still hardcoded stale `VoiceTerm MP-355
+markdown-bridge swarm` wording, reviewer-owned hold-steady / push-pending
+state was not treated as a valid Claude-side wait posture, reviewer heartbeat
+refresh could overwrite a real checkpoint `Poll Status` with automation-only
+text, and status/attention could recommend an implementer reset action that
+the CLI did not actually implement.
+
+Closed that bounded slice by making generated conductor prompts use generic
+review-channel wording, teaching Claude-side wait logic to honor reviewer-owned
+hold-steady / checkpoint / governed-push-pending state, preserving real
+reviewer checkpoint `Poll Status` through later heartbeat refreshes, and
+landing a repo-owned `review-channel --action reset-implementer-state` repair
+path that rewrites `Claude Status`, `Claude Questions`, and `Claude Ack` to
+canonical pending state before refreshing the typed projection.
+
+This still does not make the launcher ignore repo policy. Fresh `launch` /
+`rollover` work remains gated on a current `startup-context` receipt and a
+checkpoint-clean worktree, so a dirty slice still has to checkpoint before the
+next live relaunch can start.
+
+### 2026-03-31 - Review-channel docs now separate planned topology from live participant truth
+
+The review-channel docs and maintainer guidance needed one more policy-level
+clarification after the launcher/runtime cutover: the markdown lane table is
+planned topology only, the live participant registry must stay
+provider/session-backed typed state, requested worker fanout defaults to zero
+unless a launch explicitly asks for more, and `bridge.md` remains a
+compatibility projection until native `CollaborationSession` worker topology
+lands.
+
+Recorded that contract in the active plan, maintainer guide, AGENTS policy,
+and devctl docs reference so the bootstrap surfaces stop implying that the
+markdown lane table itself is the runtime registry.
+
+### 2026-03-30 - Reviewer checkpoints now fail closed on stale Claude-owned bridge state
+
+The next same-lane follow-up addressed a narrower but still important gap in
+the bridge-era stale-write story. Earlier hardening already required
+instruction-mutating reviewer writes to carry an expected instruction
+revision, but that still left one reviewer-side blind spot: a conductor could
+read bridge state, Claude could update its owned `Status`/`Questions`/`Ack`
+blocks, and the reviewer could still write a new checkpoint without proving it
+had seen the latest implementer state.
+
+Closed that gap by emitting a typed `implementer_state_hash` from
+bridge-backed `status` and `bridge-poll`, then requiring active-dual-agent
+`reviewer-checkpoint` writes to pass that hash alongside the expected
+instruction revision. Promotion/scope rewrites that reuse a previously
+validated bridge snapshot now thread the same hash too, so the compatibility
+bridge keeps one repo-owned compare-and-swap seam while markdown remains live.
+
+### 2026-03-30 - Startup authority and conductor capability now fail closed on review-channel orchestration drift
+
+The next self-hosting follow-up fixed a different review-channel regression:
+the system already knew reviewer vs implementer role truth, but prompt and
+bootstrap layers could still drift by re-stating that policy locally. That is
+how a reviewer session can end up optimizing for a local patch instead of the
+owner contract.
+
+Closed the gap by moving reviewer/implementer startup commands plus explicit
+reviewer takeover into a runtime-owned `ConductorCapabilityState`, then making
+review-channel prompt/bridge bootstrap surfaces render from that typed
+contract. Repo policy now also extends `platform_layer_boundaries` with a
+startup-authority/runtime rule that blocks those modules from importing
+`dev.scripts.devctl.review_channel` orchestration directly, so the next
+prompt-level shortcut fails in CI instead of quietly becoming a second source
+of truth.
+
+### 2026-03-30 - Startup repair now has one repo-owned bounded auto-triage path
+
+The next self-hosting follow-up closed the obvious operator-babysitting gap
+left after `startup-context` became a fail-closed Step 0 receipt. The system
+could already tell whether the repo was over checkpoint budget, whether the
+bridge runtime was repairable, and which repo-owned review-channel fix matched
+the current attention state, but operators still had to translate that typed
+state into the next command by hand.
+
+Closed that gap by adding `startup-context --repair`, a bounded repo-owned controller
+that reads typed `startup-context`, startup-authority, and bridge-backed
+review status. The deeper follow-up closed the owner seam too: startup repair
+now reads the same typed `ReviewState` contract that repo-owned
+`review-channel` status refresh already produces, calls the existing
+repo-owned repair actions directly instead of shelling out through CLI JSON,
+and applies one bounded safe repair (`ensure`, `render-bridge`,
+`reset-implementer-state`) per invocation before rereading typed state. The
+platform keeps one owner for bridge mutation while startup gets one canonical,
+conservative repair surface.
+
+### 2026-03-31 - Startup repair runtime adapter now carries governed rollover context
+
+The next self-hosting follow-up came from a real repo-owned repair run, not a
+new product-direction debate. `startup-context --repair` had already moved to
+typed startup/review authority and direct repo-owned review-channel actions,
+but the refactored bridge-backed status/ensure path now expected one more
+runtime path: the governed review-channel `rollover_dir`.
+
+The repair adapter was still forwarding only bridge/review/status roots, so a
+safe local `ensure_runtime` repair could crash on an assertion before it
+classified the real runtime state. Closed that gap by deriving the rollover
+sibling from the managed review root and forwarding it through the bounded
+repair adapter. Startup repair now reaches the actual manual-follow-up answer
+(`review_loop_relaunch_required`) instead of failing on missing path context
+when review-channel command packaging moves underneath it.
+
 ## Term Quick Reference
 
 - PTY: pseudo-terminal session used to keep CLI context alive.
@@ -45,6 +6938,2212 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - HUD: terminal overlay that shows voice state, controls, and metrics.
 
 ## Recent Evolution Updates
+
+### 2026-03-28 - Attention priority fix: reviewer follow-up outranks generic checkpoint
+
+Fact: when both `checkpoint_required` and `review_follow_up_required` were true
+simultaneously (stale reviewed hash + dirty worktree), the attention system
+collapsed to the generic checkpoint state and hid the more actionable
+reviewer-turn signal. Fixed by reordering the attention priority chain so
+`REVIEW_FOLLOW_UP_REQUIRED` and `REVIEWER_SUPERVISOR_REQUIRED` are evaluated
+before `CHECKPOINT_REQUIRED`. The same fix also makes `ensure` refresh stale
+heartbeats for inactive reviewer modes (single_agent, tools_only, paused).
+
+Evidence: `dev/scripts/devctl/review_channel/attention.py`,
+`dev/scripts/devctl/commands/review_channel/ensure.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`.
+
+### 2026-03-28 - Context-graph output honesty: suppress misleading Hot Index Summary on zero-match queries
+
+Fact: `context-graph --query '<term>' --format md` rendered the global Hot Index
+Summary (2400+ nodes, 40K+ edges) even when confidence was `no_match`, making
+empty results look like they matched something. The fix suppresses the summary
+when `confidence == "no_match"` and shows a clear "No matches found" message.
+
+Evidence: `dev/scripts/devctl/context_graph/render.py`.
+
+### 2026-03-28 - MP-377 code-shape modularization split 7 oversized self-hosting modules
+
+Fact: seven MP-377 self-hosting Python modules exceeded the 350-line code-shape
+soft limit, blocking `check_code_shape --since-ref origin/develop`. Each was
+split into a focused main module (public API, constants, dataclasses) plus a
+sibling helper module (coercion, rendering, or session-detection logic). All
+splits re-export public symbols from the original module path so existing
+callers require zero changes. The mixed-concerns detector passes because each
+helper module forms one connected call graph through shared utility functions.
+
+Evidence: `dev/scripts/devctl/review_channel/bridge_projection.py`,
+`dev/scripts/devctl/review_channel/bridge_sanitize.py`,
+`dev/scripts/devctl/commands/docs/policy_runtime.py`,
+`dev/scripts/devctl/commands/docs/policy_runtime_checks.py`,
+`dev/scripts/devctl/commands/governance/startup_context.py`,
+`dev/scripts/devctl/commands/governance/startup_context_render.py`,
+`dev/scripts/devctl/commands/check_router_constants.py`,
+`dev/scripts/devctl/commands/check_router_resolve.py`,
+`dev/scripts/devctl/commands/review_channel_bridge_render.py`,
+`dev/scripts/devctl/commands/review_channel_bridge_render_sections.py`,
+`dev/scripts/devctl/review_channel/core.py`,
+`dev/scripts/devctl/review_channel/session_probe.py`,
+`dev/scripts/devctl/governance/push_policy.py`,
+`dev/scripts/devctl/governance/push_policy_parse.py`.
+
+### 2026-03-28 - Release-maintenance escape closure became contract surfaces instead of a lucky green pass
+
+Fact: the next release-maintenance/import-shim follow-up closed the real miss
+class, not only the local failure instance. `check_bundle_registry_dry.py`
+now treats bundle composition as an explicit contract
+(`COMPOSITION_LAYER_NAMES`) instead of a loose "any private tuple[str]"
+heuristic, the widely shared command budget is no longer dead config, shim
+metadata that redirects authority (`# shim-target`) is validated against repo
+root plus file existence, the moved hygiene route is wired through the public
+`devctl` CLI surface instead of an incidental import path, and the owning test
+suite now includes entrypoint smoke/integration coverage for shipped script
+mode / public CLI paths rather than only direct module tests.
+
+This matters because the escape showed four deterministic prevention gaps at
+once: declared values could exist without actually governing behavior, comment
+metadata could affect analysis without authority validation, root entrypoints
+were tested more weakly than implementation modules, and closure could stop at
+"local patch went green" without requiring a class-level prevention artifact.
+The active `MP-377` plan chain now records the stronger recurrence-closing
+rule explicitly: fix the concrete instance, classify the defect class, choose
+the minimal deterministic prevention surface, add regression proof, and record
+the closure boundary in repo-visible plan state. The same review also leaves
+`commands.governance.hygiene` callable adapters plus `REPO_ROOT`
+synchronization marked as bounded compatibility debt rather than pretending the
+current wrapper shape is the long-term architecture.
+
+Evidence: `dev/scripts/checks/bundle_registry_dry/command.py`,
+`dev/scripts/devctl/tests/checks/test_check_bundle_registry_dry.py`,
+`dev/scripts/devctl/cli.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/guides/DEVCTL_ARCHITECTURE.md`.
+
+### 2026-03-27 - MP-377 startup bootstrap now defaults to a compact summary receipt
+
+Fact: the next startup-authority follow-up in `MP-377` was not a new policy
+layer, it was compression on the same authority path. `startup-context` now
+accepts `--format summary`, which emits a compact four-line Step 0 receipt
+(`action`, `reason`, `blockers`, `next`) for AI bootstrap while leaving the
+typed JSON payload and managed `StartupReceipt` unchanged under the repo-owned
+reports root. Generated bootstrap surfaces, the review-channel conductor
+prompt, and the bridge startup instructions now all point at that summary
+format, so Codex/Claude launches consume less prompt budget before the
+optional `context-graph --mode bootstrap` expansion.
+The same follow-up now states the chat boundary explicitly: agents should keep
+bootstrap chat output to blocker state plus next step by default and leave the
+full packet detail in repo-owned artifacts or terminal output unless asked.
+
+Local release-preflight follow-up on 2026-03-27 closed a separate
+governance mismatch. Feature-branch `devctl push` preflight was reusing the
+release bundle and forcing `docs-check --user-facing --strict` for workflow-
+only release-surface edits, which wrongly demanded all canonical product docs
+even when the branch only changed governance/tooling internals. The local and
+workflow-owned release bundle now uses `docs-check --user-facing
+--strict-release`: strict stays unconditional on the configured release
+branch, but feature branches only enable the all-user-doc requirement when a
+release-style user-doc signal exists (CLI schema drift or a broad user-doc
+edit set). That keeps true release validation strict while unblocking
+tooling-only release-lane preflight on short-lived branches.
+
+Second-pass release-maintenance follow-up on 2026-03-27 narrowed the next
+feature-branch mismatch in the same lane. The release bundle now uses
+`devctl hygiene --strict-release-warnings`, which keeps the configured
+release branch fully strict while auto-ignoring release-maintenance warning
+families such as stale mutation badges on other branches, and the external
+publication guard now offers `check_publication_sync.py --release-branch-aware`
+so stale publication drift remains visible everywhere but only hard-blocks
+when `HEAD` resolves to the configured release branch. Registry/parse errors
+still fail everywhere; only freshness debt becomes branch-aware.
+
+This matters because Step 0 had become architecturally correct but still
+expensive in live dual-agent loops. The repo keeps the same fail-closed
+startup authority and artifact truth, but the default human projection now
+fits the bounded-bootstrap design instead of re-spending markdown context on
+every launch.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/governance/startup_context.py`
+- `dev/scripts/devctl/governance/surface_context.py`
+- `dev/scripts/devctl/review_channel/prompt.py`
+- `dev/scripts/devctl/review_channel/bridge_projection.py`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/ai_governance_platform.md`
+
+### 2026-03-29 - Startup Step 0 now surfaces unpublished push backlog directly
+
+Fact: the authority-loop/runtime stack already knew whether the branch still
+had remote work to publish, but that signal was effectively buried in typed
+`push_enforcement` / `push_decision` payloads. Fresh sessions could see
+`action`, `reason`, and `next`, but not the unpublished stack depth that told
+them whether local commits were piling up waiting for a governed push.
+
+Change: `startup-context` summary and markdown output now surface
+`ahead_of_upstream_commits` plus explicit governed-push timing guidance when
+local commits are waiting on review/checkpoint clearance, and the underlying
+contract is now policy-backed instead of renderer-only: repo policy owns
+publication thresholds, `PushEnforcement` computes the typed publication
+backlog once, `PushDecisionState` projects that cadence truth, and
+`review-channel status` consumes the same projection in its JSON/markdown
+surfaces.
+
+Why: the system should tell operators and fresh AI sessions "there are local
+commits waiting; push after this gate clears" without manual `git` inspection
+or JSON spelunking. This is the first bounded closure on the active MP-377
+checklist item that called for startup/review status to surface unpublished
+stack depth directly.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/governance/startup_context.py`
+- `dev/scripts/devctl/commands/governance/startup_context_render.py`
+- `dev/scripts/devctl/governance/push_state.py`
+- `dev/scripts/devctl/runtime/startup_push_models.py`
+- `dev/scripts/devctl/runtime/startup_push_decision.py`
+- `dev/scripts/devctl/review_channel/status_bundle.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+- `dev/scripts/README.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-27 - Swarm planning now derives worker roles from typed plan authority instead of static lane lore
+
+Fact: the active `MP-377` owner chain now states the multi-agent execution
+model more concretely. `MASTER_PLAN`, `ai_governance_platform`,
+`platform_authority_loop`, `review_channel`, and `continuous_swarm` now all
+say the same thing: future Codex-review / Claude-code swarms should be
+compiled from `PlanTargetRef` -> `WorkIntakePacket` ->
+`PlanExpectationPacket`, not from a permanent 8+8 table or vague "read the
+repo and help" prompts. The architecture now names one conductor-issued
+worker contract (`DelegatedWorkPacket`), bounded per-lane scope
+(`role`, owned target/issue cluster, worktree/path ownership, allowed command
+family, required guards/validators, expected artifacts, return-to-conductor
+receipt), and keeps bridge/state writes conductor-owned. The same update also
+locks the next-ordering rule into plan state: foundation-first lanes
+(`validation_plan` execution, contract/workflow hardening, pattern
+aggregation, typed `current_session` closure) may use swarm fan-out now, but
+official cross-repo proof still remains the later Phase-7 adoption lane.
+
+This matters because the repo already had multi-agent capacity, but the docs
+were still letting that capacity read like authority. The plans now record the
+correct split: lane count is capacity only, plan-selected typed packets define
+scope, and the bridge is coordination over one authority chain rather than a
+second control plane.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/review_channel.md`
+- `dev/active/continuous_swarm.md`
+
+### 2026-03-27 - Self-hosting organization debt now ratchets crowded `devctl` roots instead of only reporting them
+
+Fact: the repo already had the right organization guard seam, but the
+VoiceTerm self-hosting policy was still too permissive in the exact places
+where clutter keeps accumulating. `check_package_layout.py` was honestly
+reporting crowded `dev/scripts/checks`, `dev/scripts/devctl`,
+`dev/scripts/devctl/commands`, `dev/scripts/devctl/tests`, and the crowded
+`devctl` command/review families, but repo policy left those roots on
+`freeze`, which only blocks new flat files. The policy now ratchets those
+known-crowded self-hosting areas to `strict`, so edits in the flat roots fail
+unless they move implementation into owned packages or stay as approved thin
+compatibility shims. The same guard surface now also emits canonical
+`compatibility_redirects` from valid `shim-target` metadata so follow-up AI
+sessions can see where a moved entrypoint now resolves without reverse-
+engineering the wrapper or a one-off git diff.
+
+This matters because it closes the “green but still messy” gap that makes the
+platform look unserious about its own architecture. The fix stayed in the
+existing `package_layout` engine and repo-policy contract instead of creating
+another organization checker, and it keeps graph/docs surfaces as projections
+over the same enforcement truth rather than turning them into the authority.
+
+Evidence:
+
+- `dev/config/quality_presets/voiceterm.json`
+- `dev/scripts/devctl/tests/quality_policy/test_quality_policy.py`
+- `dev/scripts/README.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+
+### 2026-03-27 - Typed decision seams and dual-agent truth now fail closer to the real authority source
+
+Fact: the first `MP-377` explainability refactor exposed a useful self-hosting
+gap, and the repair stayed in the same architecture lane instead of becoming a
+one-off style cleanup. Startup advisory and startup push decisions now consume
+the typed `PushEnforcement` contract directly rather than taking `object` and
+reading fixed fields through `getattr()`. The `probe_design_smells` detector
+also now catches the missed first-parameter and multiline-signature
+`parameter: object` cases, `check_python_typed_seams.py` now blocks the same
+`object`-plus-`getattr` seam on configured runtime paths with the shared
+scanner, and review-channel attention
+now surfaces `bridge_contract_error` before checkpoint advice when
+`active_dual_agent` metadata is still live but no repo-owned Codex or Claude
+conductor sessions exist.
+
+This matters because it closes the exact failure mode that makes AI coding feel
+like debt shuffling: a refactor could get locally cleaner while silently
+weakening typed authority, and bridge compatibility state could outrank the
+real runtime truth. The repo now records the intended correction in code and
+owner docs: typed runtime seams must stay typed, and invalid authority state
+must not be hidden behind a softer operational recommendation.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/startup_advisory_decision.py`
+- `dev/scripts/devctl/runtime/startup_push_decision.py`
+- `dev/scripts/checks/probe_design_smells.py`
+- `dev/scripts/checks/check_python_typed_seams.py`
+- `dev/scripts/checks/python_typed_seams/scanner.py`
+- `dev/scripts/devctl/review_channel/attention.py`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/review_probes.md`
+
+### 2026-03-27 - Maintainer docs now separate product-doc scope from portable validation-contract architecture
+
+Fact: the next `MP-377` follow-up tightened the maintainer docs around a
+repeating source of drift. The repo now states the boundary explicitly:
+VoiceTerm product docs stay user-facing, while shared governance/runtime/AI
+authority rules live in maintainer/self-hosting docs and the active `MP-377`
+owner chain. In the same slice, the docs now describe deterministic
+validation contracts as the portable trust layer: the core contract stays
+runner-agnostic, this repo may use pytest-first adapters where they fit,
+exact typed validator refs are the intended autonomy proof, and coverage or
+blast-radius signals remain advisory weighting rather than the gate.
+
+This matters because the docs-governance failures were repeatedly creating the
+wrong repair instinct: edit VoiceTerm user docs whenever platform/self-hosting
+architecture moved. The maintainer docs now record the proper split and the
+same validator-contract rule as the plans, so future AI/dev sessions have one
+clear owner chain instead of inferring architecture from product docs or
+generic "all tests passed" language.
+
+Evidence:
+
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/review_probes.md`
+
+### 2026-03-27 - Startup, probe, and context-graph surfaces started explaining themselves from typed evidence
+
+Fact: the first `MP-377` explainability slice landed on the typed surfaces the
+platform already had instead of waiting for a greenfield `DecisionTrace`
+module. Routed startup/task-router/workflow-profile receipts and startup push
+decisions now carry `rule_summary`, `match_evidence`, and rejected-rule
+traces; canonical probe packets now reuse the shipped
+`dev/scripts/checks/probe_report/practices.py` / `SIGNAL_TO_PRACTICE`
+teaching corpus plus plain-language metric explanations for `fan_in`,
+`fan_out`, `bridge_score`, and hotspot rank; and context-graph query/bootstrap
+renders now say why nodes matched or ranked instead of only listing files,
+temperatures, and counts.
+
+The same slice also added one durable platform-owned Python architecture guide
+at `dev/guides/PYTHON_ARCHITECTURE.md`. That guide makes the modeling rule
+explicit: default internal runtime/tooling code to stdlib typing plus
+`dataclass`, use `TypedDict` for fixed-key packets, keep plain `dict` for
+genuinely dynamic maps, use `Protocol` for behavioral seams, and keep
+Pydantic-style boundary models at untrusted or serialized edges rather than
+as the default internal object model.
+
+This matters because the platform was still making people choose between
+opaque machine packets and deferred future provenance work. The repo now has a
+bounded middle layer: operator-facing "why" views projected from typed
+evidence today, while the higher-fidelity `DecisionTrace` family remains
+explicitly queued for the later Phase-5b evidence lane.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/work_intake_models.py`
+- `dev/scripts/devctl/runtime/work_intake_routing.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/runtime/startup_push_decision.py`
+- `dev/scripts/devctl/probe_topology_builder.py`
+- `dev/scripts/devctl/probe_topology_packet.py`
+- `dev/scripts/devctl/context_graph/query.py`
+- `dev/scripts/devctl/context_graph/render.py`
+- `dev/guides/PYTHON_ARCHITECTURE.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+
+### 2026-03-27 - Self-hosting authority is now measured, and governed push is explicitly still incomplete
+
+Fact: the repo promoted a measured self-hosting baseline into the owner-plan
+chain instead of continuing with vague "too many docs" complaints. The
+portable-governance owner docs now all point at the same numbers:
+`doc-authority` reports `50` governed docs / `45,107` lines with `19` budget
+violations and `4` authority overlaps, while `check_package_layout` reports
+frozen crowding across the main Python control-plane roots. The same pass also
+made one push-contract truth explicit in owner state and the shared
+architecture ledger: governed push is still not fail-closed end-to-end because
+the canonical `devctl push` path exposes bypass flags and can publish before a
+broader post-push bundle finishes green.
+
+The same owner chain also absorbed a fresh external architecture review without
+creating a second constitution. The accepted translation is explicit now:
+machine truth remains `ProjectGovernance` plus generated machine governance
+material and typed registries/receipts, the reviewed `project.governance.md`
+contract remains the human mirror, generated/bootstrap/bridge surfaces stay
+projections, and the next closure adds clearer artifact-role/scope
+classification, startup warm-ref suppression, optional-capability proof, and
+config-driven registry closure rather than another umbrella roadmap.
+
+This matters because the platform does not need another universal-system
+roadmap; it already has one in `MASTER_PLAN -> ai_governance_platform ->
+platform_authority_loop -> portable_code_governance`. The real work is to
+compress markdown authority into executable `DocPolicy` / `DocRegistry`
+surfaces, separate development-self-hosting docs from portable adopter/runtime
+surfaces, and close the remaining governed-push integrity gap instead of
+pretending publish success equals full-policy success.
+
+Evidence:
+
+- `dev/audits/architecture_alignment.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/portable_code_governance.md`
+
+### 2026-03-27 - Governed push now reports publication truth in stages instead of one overloaded success state
+
+Fact: the repo closed the bounded governed-push contract gap that was still
+mixing "remote updated" with "post-push green." `repo_governance.push` now
+includes explicit bypass policy for `--skip-preflight` / `--skip-post-push`,
+the canonical `devctl push` report carries typed stage truth
+(`validation_ready`, `published_remote`, `post_push_green`), and the same
+policy/contract now flows through `sync` and governance-draft output instead
+of living only inside one command implementation.
+
+This matters because the live 2026-03-27 push proved a branch can publish
+before the broader post-push bundle finishes green. The repo now records that
+truth directly in the command contract rather than teaching one generic
+"push succeeded" state that hides the difference.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/commands/vcs/push_report.py`
+- `dev/scripts/devctl/governance/push_policy.py`
+- `dev/config/devctl_repo_policy.json`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/portable_code_governance.md`
+
+### 2026-03-27 - The owner chain now records one restartable separation tranche instead of scattered reminders
+
+Fact: the repo re-audited the VoiceTerm-versus-platform split and confirmed the
+architecture direction was already present in the active plans. The missing
+piece was not another roadmap; it was a compact restartable owner chain plus
+an explicit blocking tranche. `MASTER_PLAN` now points at one owner table,
+`ai_governance_platform` records the blocking separation tranche with exit
+criteria, `platform_authority_loop` turns docs-boundary plus publish-truth
+work into checklist scope, `portable_code_governance` records its proof-only
+ownership, and the shared architecture audit now starts with a routing table
+instead of acting like a parallel roadmap.
+
+This matters because interrupted sessions were still forcing people to recover
+priority from repeated prose spread across multiple active docs. The repo now
+states the pushback explicitly too: the fix is not "put everything in one
+directory." The fix is a layered split between governance core/runtime,
+adapters/frontends, repo packs, and VoiceTerm as a product integration.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/portable_code_governance.md`
+- `dev/audits/architecture_alignment.md`
+
+### 2026-03-26 - The repo stopped treating markdown cleanup as a delete-first exercise
+
+Fact: the repo's own documentation sprawl is now treated as an architecture and
+startup-authority problem, not as a cosmetic cleanup chore. The active
+authority chain already carries the universal markdown/governance plan under
+`MASTER_PLAN`, `ai_governance_platform`, `platform_authority_loop`, and
+`portable_code_governance`; the real gap is self-hosting clarity. The branch
+now records an absorption-first rule for reference-doc cleanup: current
+self-hosting pressure is 27 `dev/active/*.md` docs and 10 root-level markdown
+entrypoints, and no archive/demotion pass is valid until execution-relevant
+conclusions are mirrored into the canonical owner chain.
+
+This matters because a governance platform that cannot keep its own startup
+surface bounded is not proving portability yet. The fix is not "delete files
+until it looks cleaner." The fix is a governed doc-authority system with
+budgeted active/reference surfaces, explicit owner mapping, and portable
+custom-layout proof before archive decisions become irreversible.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/portable_code_governance.md`
+- `dev/audits/architecture_alignment.md`
+
+### 2026-03-26 - Portable startup authority stopped pretending VoiceTerm filenames were universal
+
+Fact: the broader portability audit clarified a deeper product-boundary gap.
+The repo can already honor alternate doc roots and plan filenames once
+governance is configured, but the current typed contract and several
+control-plane consumers still seed partial payloads back to `AGENTS.md`,
+`dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, `bridge.md`, and
+`dev/reports/*`. That is no longer treated as "good enough if adopters copy our
+layout." It is now explicit open architecture work under `MP-377`/`MP-376`.
+
+This matters because "portable after perfect setup" is not the same thing as a
+portable platform. A universal AI-governance product has to survive different
+authority filenames, report roots, and markdown layouts without silently
+falling back to VoiceTerm conventions.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/project_governance_contract.py`
+- `dev/scripts/devctl/runtime/project_governance_doc_parse.py`
+- `dev/scripts/devctl/runtime/project_governance_plan_parse.py`
+- `dev/scripts/devctl/runtime/project_governance_parse.py`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/audits/architecture_alignment.md`
+
+### 2026-03-26 - Review-channel relaunch now accepts canonical pending reset state and clears stale implementer questions
+
+Fact: the review-channel relaunch path no longer misclassifies the canonical
+reviewer-reset implementer placeholder (`Claude Status: - pending`,
+`Claude Ack: - pending`) as missing launch state, and the bridge guard now
+matches required marker text across wrapped whitespace instead of failing on
+line-wrap formatting alone. The same reviewer-owned instruction reset now
+clears stale `Claude Questions` alongside status/ack so old blockers do not
+survive into a new instruction revision.
+
+This matters because the relaunch contract had been internally inconsistent:
+reviewer checkpoint/promotion writes deliberately reset implementer sections to
+pending for a new instruction revision, but fresh launch validation still
+treated that canonical state as missing and blocked the pair from relaunching.
+At the same time, the guard could fail on a wrapped sentence even when the
+required rule was present, and old `Claude Questions` text could outlive the
+instruction that produced it. Closing all three seams makes the bridge-backed
+launcher more truthful and keeps compatibility-bridge state from teaching stale
+blockers back into the next session.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/bridge_validation.py`
+- `dev/scripts/checks/check_review_channel_bridge.py`
+- `dev/scripts/devctl/review_channel/instruction_reset.py`
+- `dev/scripts/devctl/tests/test_review_channel.py`
+- `dev/scripts/devctl/tests/test_check_review_channel_bridge.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-26 - Push readiness stopped pretending a clean tree was the same thing as an approved push
+
+Fact: the repo corrected a misleading contract in the governed startup/push
+path. Runtime state now distinguishes raw git cleanliness
+(`worktree_clean`) from reviewer-side push allowance
+(`review_gate_allows_push`), and `startup-context` can emit `await_review`
+when a slice is checkpointed locally but the reviewer gate is not current yet.
+The maintainer docs were corrected in the same pass so they stop teaching
+"commit and push" as one atomic step.
+
+This matters because the earlier `push_ready` name taught the wrong mental
+model back into the system: a clean worktree is only the local checkpoint
+state, not proof that the branch is ready for a governed remote push.
+Separating those ideas makes the repo-owned controller more truthful now and
+the follow-up closes the same lie for local scratch artifacts too: repo
+policy can now mark advisory context such as `convo.md` as non-blocking for
+the push controller instead of stranding reviewed commits behind an
+unrelated untracked note file.
+keeps the future `PushPreflightPacket` design aligned with the real push path
+instead of encoding another overloaded boolean.
+
+Evidence:
+
+- `dev/scripts/devctl/governance/push_state.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/platform_authority_loop.md`
+
+### 2026-03-26 - The portability audit became a shared ledger with explicit closure rules
+
+Fact: `dev/audits/architecture_alignment.md` is now treated as the shared
+Codex/Claude architecture audit ledger rather than an unstructured side note,
+and the repo records the rule that audit findings must be mapped back into
+`MASTER_PLAN` plus the owning scoped plan instead of becoming a second live
+execution authority. The same review loop now has an explicit closure bar:
+owner mapping or waiver for every HIGH/MEDIUM finding, proof links for fixed
+rows, subsystem coverage, and two consecutive bounded passes with no new
+HIGH/MEDIUM findings.
+
+This matters because the repo had started collecting valid portability and
+authority findings, but there was still ambiguity about where the audit lived,
+who owned implementation, and what "aligned enough" meant. Making the shared
+ledger and closure rules repo-visible keeps the Codex/Claude review cycle from
+drifting into chat-only coordination or a never-ending list of disconnected
+findings. The same pass also promoted the previously untracked Ralph
+architecture-validation portability gap into `MP-361` so hardcoded
+`ralph_ai_fix.py` validation commands now have a real owner plan.
+
+Evidence:
+
+- `dev/audits/architecture_alignment.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ralph_guardrail_control_plane.md`
+
+### 2026-03-26 - The architecture audit loop now states reviewer/controller ownership explicitly
+
+Fact: the shared architecture audit needed one more process correction after
+an interrupted session exposed that the live reviewer instruction and ledger
+had drifted into a bounded "closure pass" framing. The repo now records the
+operating mode explicitly: Claude is the primary broad whole-system finder,
+Codex is the reviewer/controller that verifies Claude deltas against actual
+code/docs, `dev/audits/architecture_alignment.md` is the shared audit ledger,
+and `dev/active/MASTER_PLAN.md` plus the scoped plans remain the execution
+owners. The same correction also de-scopes older bounded pass language:
+finding "no new issues" in a named four-area pass does not count as a
+whole-platform closure claim, and the review-channel plan now states the
+producer/consumer split between MP-355 typed `current_session` projection and
+MP-377 checkpoint/push decision authority more explicitly.
+
+This matters because the repo was at risk of teaching the wrong control
+contract back into future sessions. If the ledger itself implies that a
+bounded pass closed the whole platform, later agents will stop broad review
+too early or start treating the audit ledger as the execution owner. Making
+the finder/reviewer split and the plan-ownership split explicit keeps the
+live review loop honest without reintroducing Codex-side broad audit swarms.
+
+Evidence:
+
+- `dev/audits/architecture_alignment.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/review_channel.md`
+
+### 2026-03-26 - Review-channel now fails closed on no-op implementer polling and detached-daemon dual-agent drift
+
+Fact: the repo had already taught parts of the "don't park Claude on polling"
+contract, but that rule was fragmented across prompt surfaces and was not
+consistently enforced. A live regression exposed two specific holes: Claude
+could still satisfy the loop with low-information updates like `No change.
+Continuing.` while active work was assigned, and `review-channel --action
+status` could still present `active_dual_agent` as effectively live when only
+the detached publisher/supervisor heartbeats remained and no repo-owned
+conductors were present.
+
+This matters because partial prompt wording is not enough for a control-plane
+contract. If generated `CLAUDE.md`, bridge start rules, conductor prompts,
+runtime validators, and maintainer docs do not agree, the system drifts back
+to "looks fresh, does nothing" behavior. The fix is now layered in the repo:
+shared stall markers drive review-channel runtime plus tandem checks, bridge
+validation rejects no-op implementer parking under active work, `status`
+elevates detached-daemon/no-conductor dual-agent state to a bridge-contract
+error, and the maintainer docs now teach the same rule the runtime enforces.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/bridge_validation.py`
+- `dev/scripts/devctl/review_channel/state.py`
+- `dev/scripts/devctl/review_channel/status_projection_helpers.py`
+- `dev/config/templates/claude_instructions.template.md`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+
+### 2026-03-26 - The shared architecture ledger stopped hiding one integrations portability gap
+
+Fact: the shared architecture ledger was corrected after Codex found that the
+Pass 2 integrations section contradicted its own summary. It claimed "NO NEW
+ISSUES" while also recording a MEDIUM portability gap:
+`federation_policy.py` still falls back to
+`DEFAULT_ALLOWED_DESTINATION_ROOTS = ["dev/integrations/imports"]` when repo
+policy does not provide explicit destination roots. The ledger now records
+that issue as a real MP-376-owned finding and fixes the pass totals and
+clean-coverage counts so closure math matches the evidence.
+
+This matters because the value of `architecture_alignment.md` is that it is
+supposed to be stricter than chat memory. If the audit can hide a real medium
+finding inside a coverage note and still report clean convergence, the shared
+Codex/Claude closure bar stops being trustworthy.
+
+Evidence:
+
+- `dev/audits/architecture_alignment.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/portable_code_governance.md`
+
+### 2026-03-26 - Portability became an explicit maintainer rule instead of an implied architecture wish
+
+Fact: the repo now records the portability rule in the main active plans and
+maintainer docs instead of leaving it as something agents are expected to
+remember from chat. `AGENTS.md`, `DEVELOPMENT.md`, `dev/scripts/README.md`,
+`MASTER_PLAN`, `ai_governance_platform.md`, `platform_authority_loop.md`, and
+`portable_code_governance.md` now all say the same thing: VoiceTerm is the
+first client/integration layer over the governance platform, while portable
+runtime/tooling surfaces must resolve authority through
+`ProjectGovernance` / repo-pack state or fail closed rather than silently
+reusing VoiceTerm defaults.
+
+This matters because the architecture docs already said the product should
+work across arbitrary repos, but several runtime/check/generated-surface paths
+were still treating `dev/active/*`, `dev/reports/*`, `bridge.md`, and
+`VOICETERM_PATH_CONFIG` as hidden default truth. Making the portability rule
+explicit in the canonical maintainer surfaces turns that concern into a
+reviewable engineering contract and sets up the next prevention work:
+portability-drift guards, fixture-repo proofs, and repo-pack-driven AI
+bootstrap surfaces.
+
+Evidence:
+
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/portable_code_governance.md`
+
+### 2026-03-24 - External architecture-review intake was absorbed into the canonical plan chain
+
+Fact: the repo no longer leaves the 2026-03-24 external architecture-review
+intake as a sidecar roadmap. The aligned gaps are now routed to their existing
+owners in `MP-375`, `MP-376`, and `MP-377`, with explicit checklist items for
+deterministic prompt assembly, allowed transforms, signal/trust weighting,
+change-pressure gating, portable reproducibility proof, and the remaining
+authority-loop decision artifacts.
+
+This matters because the useful part of that review was not a new product
+direction; it was a sharper statement of the next closure work inside the
+architecture the repo already chose. The plan update also records two
+important contract-preservation rules: transformation-proof joins belong in
+`DecisionTrace` / `RunRecord` instead of a second proof-only packet family,
+and any AI decision-auditor remains advisory rather than replacing
+`approval_required` human/operator review.
+
+Evidence:
+
+- `dev/audits/2026-03-24-chatgpt-integration-intake.md`
+- `dev/active/review_probes.md`
+- `dev/active/portable_code_governance.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-24 - Startup and tandem consumers stopped hardcoding one review-state path
+
+Fact: the remaining typed startup/tandem consumers no longer each assume
+`dev/reports/review_channel/latest/review_state.json`. A shared
+repo-pack-aware review-state resolver now drives `startup-context`, startup
+`WorkIntakePacket` selection/warm refs, and `check_tandem_consistency`, while
+still preferring the governed review artifact root when it is declared.
+
+This matters because the previous cutover had already moved those flows onto
+typed `review_state.json` semantics, but the path lookup itself still leaked a
+VoiceTerm-default report location into multiple runtime/check consumers. The
+new resolver closes another portability seam without pretending the whole
+migration is done: raw git/pre-commit bypass and broader review-state/event
+consumer migration remain open work.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/review_state_locator.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/runtime/work_intake.py`
+- `dev/scripts/devctl/runtime/work_intake_selection.py`
+- `dev/scripts/devctl/runtime/work_intake_routing.py`
+- `dev/scripts/checks/tandem_consistency/report.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+- `dev/scripts/devctl/tests/runtime/test_work_intake.py`
+- `dev/scripts/devctl/tests/checks/test_check_tandem_consistency.py`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-23 - Startup context stopped treating plan continuity as a boolean
+
+Fact: the startup-authority path no longer reduces governed plan continuity to
+"this file has a `## Session Resume` section." `PlanRegistry` entries now
+carry parsed `SessionResumeState`, and `startup-context` now emits a bounded
+`WorkIntakePacket` that selects one `PlanTargetRef`, reconciles that plan
+resume against typed `review_state.json` when available, and carries startup
+warm refs plus live routing defaults derived from `startup_order`,
+`workflow_profiles`, and `command_routing_defaults`.
+
+This matters because the old startup packet had the right authority inputs but
+not the runtime closure: continuity stayed trapped in markdown prose, routing
+defaults stayed report-only, and the startup path still behaved like a cold
+start unless an agent manually reread the plan. The new intake packet makes
+the first typed startup continuity/routing proof real while keeping reviewed
+markdown as the canonical source and leaving the remaining closure honest:
+`CollaborationSession`, broader consumer adoption, and validation-freshness /
+raw-push enforcement are still open work.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/session_resume.py`
+- `dev/scripts/devctl/runtime/work_intake.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/governance/draft_governed_docs.py`
+- `dev/scripts/devctl/tests/runtime/test_session_resume.py`
+- `dev/scripts/devctl/tests/runtime/test_work_intake.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-23 - Temporal context-graph diff stopped trusting filesystem mtime
+
+Fact: the Part-53 temporal graph lane no longer picks `latest` / `previous`
+snapshots by filesystem `mtime`. `ContextGraphSnapshot` resolution now orders
+artifacts by embedded capture metadata, direct-path trend scans ignore sibling
+JSON that is not a real snapshot artifact, and `ContextGraphDelta` anchor /
+trend paths now normalize to portable snapshot-store-relative refs instead of
+machine-local absolute paths.
+
+This matters because the original happy-path slice worked on a clean local
+store, but a copied/touched snapshot file or a mixed directory with unrelated
+JSON could silently return the wrong baseline or crash trend building. The
+follow-up turns the temporal graph surface into a deterministic artifact
+contract instead of leaving it dependent on host filesystem behavior.
+
+Evidence:
+
+- `dev/scripts/devctl/context_graph/snapshot.py`
+- `dev/scripts/devctl/context_graph/snapshot_diff.py`
+- `dev/scripts/devctl/tests/context_graph/test_snapshot.py`
+- `dev/scripts/devctl/tests/context_graph/test_snapshot_diff.py`
+- `dev/active/platform_authority_loop.md`
+
+### 2026-03-23 - Generated bootstrap instructions started advertising governance capabilities
+
+Fact: the generated `CLAUDE.md` bootstrap surface no longer jumps from startup
+steps straight into mode-specific review flow. The repo-pack template now adds
+an explicit "Governance capabilities" section that tells the agent about
+`ai_instruction`, `decision_mode`, `governance-review --record`
+(`guidance_id` / `guidance_followed`), operational feedback carried by
+startup/context packets, saved `ContextGraphSnapshot` baselines, and the
+canonical `DEVELOPMENT.md` / `dev/scripts/README.md` places to answer "which
+tool should I run now?"
+
+This matters because the governance stack already existed, but the first-hop
+bootstrap surface did not advertise it. The detailed policy lived in
+`AGENTS.md`, `DEVELOPMENT.md`, and `README.md`, which made the capability set
+discoverable only after the agent already knew what to search for. Making the
+generated startup surface name those features closes the awareness gap without
+duplicating the full policy.
+
+Evidence:
+
+- `dev/config/templates/claude_instructions.template.md`
+- `dev/scripts/devctl/governance/bootstrap_surfaces.py`
+- `dev/scripts/devctl/tests/governance/test_render_surfaces.py`
+- `dev/active/platform_authority_loop.md`
+
+### 2026-03-23 - Bootstrap surfaces stopped being write-only governance
+
+Fact: the AI-facing bootstrap blocks are no longer a stale hand-maintained
+copy of the governance system. Repo-pack surface generation now derives the
+bootstrap steps, key command block, and mandatory post-edit checklist from
+typed router/guard authority, and the slim `context-graph --mode bootstrap`
+packet now reads bounded probe summary, governance-review stats, hotspot
+guidance, watchdog metrics, and command-reliability data from the existing
+artifacts.
+
+This matters because the platform was already producing governance evidence,
+but session-start surfaces were not consuming it. The result was a
+"write-only governance" failure mode: agents could be told to trust startup
+packets that did not actually carry the data, while concrete command syntax
+and live quality signals stayed buried in deeper docs or JSON reports.
+
+Evidence:
+
+- `dev/scripts/devctl/governance/surface_context.py`
+- `dev/scripts/devctl/governance/surfaces.py`
+- `dev/scripts/devctl/context_graph/startup_signals.py`
+- `dev/scripts/devctl/context_graph/query.py`
+- `dev/scripts/devctl/context_graph/render.py`
+- `dev/config/templates/claude_instructions.template.md`
+- `dev/scripts/devctl/tests/governance/test_render_surfaces.py`
+- `dev/scripts/devctl/tests/context_graph/test_context_graph.py`
+
+### 2026-03-22 - Architectural absorption became a required completion rule
+
+Fact: the maintainer process no longer treats "fix the bug" as sufficient
+closure for important findings. `AGENTS.md` now requires every non-trivial
+issue to be evaluated for architectural absorption, classified by failure
+type, and either routed into an approved prevention surface (guard, probe,
+contract, authority rule, parity check, regression test, docs update) or
+explicitly waived with recorded rationale. `DEVELOPMENT.md` now mirrors that
+operator rule so the handoff/process docs say the same thing.
+
+Inference: this pushes the repo closer to what the governance system claims to
+be: not just AI patching code, but AI and maintainers turning repeated failure
+classes into deterministic reusable controls instead of rediscovering them in
+later audits.
+
+### 2026-03-22 - Governed-markdown authority became a typed runtime baseline
+
+Fact: the startup-authority path no longer stops at repo-root/path literals
+when it discovers governed docs. `ProjectGovernance` now carries a typed
+`DocPolicy`, a typed `DocRegistry`, and parsed `PlanRegistry` entries built
+from governed markdown plus `INDEX.md`, and the repo scan / doc-authority /
+startup-authority helpers now prefer repo-policy `surface_generation.context`
+plus markdown-root policy for process doc, tracker, registry, bootstrap-link,
+and governed-doc discovery. Focused regressions now prove that baseline on a
+non-VoiceTerm layout instead of only on the legacy `AGENTS.md` +
+`dev/active/*` assumptions.
+
+This matters because it converts governed markdown from "files the runtime
+knows by path" into the first real typed startup-authority family the platform
+can reuse across repos. It also narrows the next missing slice honestly:
+`ProjectGovernance`, `DocPolicy`, `DocRegistry`, and parsed `PlanRegistry`
+are real runtime code now, but `PlanTargetRef`, `WorkIntakePacket`, and
+`CollaborationSession` are still not runtime implementations, and
+`## Session Resume` is still only detected as present/absent instead of being
+deserialized into typed continuity state.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/project_governance_contract.py`
+- `dev/scripts/devctl/governance/draft_governed_docs.py`
+- `dev/scripts/devctl/governance/doc_authority_layout.py`
+- `dev/scripts/checks/startup_authority_contract/command.py`
+- `dev/scripts/devctl/context_graph/query.py`
+- `dev/scripts/devctl/tests/governance/test_governance_draft.py`
+- `dev/scripts/devctl/tests/governance/test_doc_authority.py`
+- `dev/scripts/devctl/tests/runtime/test_project_governance.py`
+- `dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-22 - Reviewer checkpoints gained a typed shell-safe payload path
+
+Fact: the repo-owned reviewer write path no longer depends on inline shell
+markdown for the common AI-generated checkpoint case. `review-channel --action
+reviewer-checkpoint` now accepts one typed `--checkpoint-payload-file`
+containing `verdict`, `open_findings`, `instruction`, and
+`reviewed_scope_items`, while the maintainer/runbook docs now prefer that
+single file-backed path (or the existing per-section `--*-file` flags) over
+inline body flags for shell-sensitive content. The same docs cleanup also made
+the active-dual-agent stale-write precondition explicit in examples: reviewer
+checkpoints that mutate the live instruction must carry the current
+`--expected-instruction-revision`.
+
+This matters because the old failure was architectural, not just operator
+error: AI-produced reviewer markdown regularly contains backticks and other
+shell metacharacters, so inline `--instruction` / `--verdict` bodies were a
+predictable control-path hazard. The new typed payload keeps reviewer writes
+repo-owned, machine-readable, and aligned with the broader move from bridge
+prose handling toward typed current-session authority.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/parser_bridge_controls.py`
+- `dev/scripts/devctl/commands/review_channel/_reviewer.py`
+- `dev/scripts/devctl/commands/review_channel_command/reviewer_support.py`
+- `dev/scripts/devctl/tests/review_channel/test_reviewer_checkpoint_inputs.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/guides/DEVCTL_AUTOGUIDE.md`
+
+### 2026-03-22 - Checkpoint budget became an explicit fail-closed startup rule
+
+Fact: the authority-loop plan no longer treats checkpoint budget as advisory
+status only. After the live governance branch accumulated more than fifty
+dirty/untracked paths before the checkpoint was cut, the owning `MP-377`
+startup-authority checklist now explicitly requires the typed
+`startup-context` / `WorkIntakePacket` receipt to block the next
+implementation slice whenever `safe_to_continue_editing=false` or
+`checkpoint_required=true`, and `MASTER_PLAN` now mirrors that requirement as
+tracked execution scope.
+
+This matters because the repo already had the signal, but not the closing
+contract: `review-channel --action status` could derive the checkpoint budget
+correctly, yet the system still relied on the model to obey a warning. Moving
+that budget into fail-closed startup authority is the difference between
+"detected too late" and "cannot widen the slice until the checkpoint is cut."
+
+Evidence:
+
+- `dev/active/platform_authority_loop.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/scripts/README.md`
+- `dev/active/review_channel.md`
+
+### 2026-03-23 - Startup authority started rejecting over-budget slices and worktree-only module splits
+
+Fact: the startup-authority contract stopped acting like a schema-only
+inventory check. `check_startup_authority_contract.py` now fails when the
+typed `ProjectGovernance` packet is already over the checkpoint budget, and
+it also fails when repo-local Python imports only resolve because a newly
+split module exists on disk but not in the git index. The follow-up correction
+kept that working-tree-to-index proof but moved the committed-tree layer onto
+real `HEAD` importer content instead of re-reading staged files, so legitimate
+atomic staged refactors no longer false-positive while fresh repos still skip
+the committed-tree layer until the first commit exists. The next closure pass
+also made `startup-context` itself fail closed on that same typed checkpoint
+receipt: the packet is still emitted, but the command now exits non-zero when
+another implementation slice should not start yet. In the same slice,
+`review-channel --action launch|rollover` started treating
+`checkpoint_required` / `safe_to_continue_editing=false` as a hard launch
+blocker instead of advisory status.
+
+This matters because the repo had already documented the problem in `MP-377`:
+checkpoint budget detection existed, but launch paths still let another slice
+start, and module splits could validate locally while depending on files that
+only existed in one developer's worktree. The new contract turns both seams
+into fail-closed startup proof instead of relying on operator memory.
+
+Evidence:
+
+- `dev/scripts/checks/startup_authority_contract/command.py`
+- `dev/scripts/checks/startup_authority_contract/runtime_checks.py`
+- `dev/scripts/devctl/review_channel/peer_recovery.py`
+- `dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`
+- `dev/scripts/devctl/tests/test_review_channel.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-25 - Stale implementer recovery gained a single-side repo-owned path
+
+Fact: the live review loop no longer has to choose between “wait forever” and
+“restart everyone” when only the Claude side is stale. Review attention now
+distinguishes `implementer_relaunch_required`, `review-channel --action recover
+--recover-provider claude` launches only a fresh Claude conductor for that
+state, and `reviewer-heartbeat --follow` escalates repeated unchanged stale
+implementer progress through that narrower repo-owned recovery path instead of
+falling back to raw sleep loops or full rollover. The same slice also keeps
+startup recovery honest: `launch|rollover` still fail closed on checkpoint
+budget or real startup-authority errors, but they no longer fail solely
+because the reviewer loop is stale on the implementer side.
+
+This matters because the previous behavior encoded the wrong abstraction. The
+plans call for re-seeding the missing side from the last confirmed state, not
+for bouncing a healthy reviewer lane just because the implementer ACK is
+stale. Narrowing the first automated recovery primitive to the stale side
+keeps the repo-owned loop closer to the actual architecture while preserving
+fail-closed checkpoint and authority rules.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel/_recover.py`
+- `dev/scripts/devctl/commands/review_channel/__init__.py`
+- `dev/scripts/devctl/review_channel/attention.py`
+- `dev/scripts/devctl/review_channel/reviewer_follow.py`
+- `dev/scripts/devctl/runtime/startup_gate.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_gate.py`
+- `dev/scripts/devctl/tests/test_review_channel.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/review_channel.md`
+- `dev/active/continuous_swarm.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-22 - Autonomy loop packets started consuming canonical probe guidance
+
+Fact: the first probe-guidance route is no longer Ralph-only. `triage-loop`
+now carries a bounded structured backlog slice, `loop-packet` reads canonical
+`review_targets.json` guidance against that slice, and the autonomy terminal
+draft now renders matched `Finding.ai_instruction` text instead of generic
+unresolved-count prose alone. The same change widened
+`check_platform_contract_closure.py` so the repo now proves both the Ralph and
+autonomy field routes.
+
+This matters because it closes the next real produced-but-never-consumed gap
+without inventing another packet family. The probe contract already existed;
+the autonomy controller simply was not reading it. The route proof also keeps
+the closure honest: if future refactors drop matched guidance from the
+autonomy draft while probe artifacts still emit it, the platform contract
+guard now fails.
+
+Evidence:
+
+- `dev/scripts/checks/coderabbit_ralph_loop_core.py`
+- `dev/scripts/devctl/commands/loop_packet.py`
+- `dev/scripts/devctl/commands/loop_packet_helpers.py`
+- `dev/scripts/devctl/commands/packets/loop_packet_probe_guidance.py`
+- `dev/scripts/checks/platform_contract_closure/field_routes.py`
+- `dev/scripts/devctl/tests/test_loop_packet.py`
+- `dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py`
+
+### 2026-03-22 - Guidance transport tightened into an explicit adoption contract
+
+Fact: the `MP-377` feedback-loop tracker now distinguishes "guidance reached
+the prompt" from "AI is required to use it and the repo can measure whether it
+helped." The owning plan items now explicitly require three follow-ups inside
+the existing probe-routing tranche: prompts must tell AI to treat attached
+probe guidance as the default repair plan unless waived, matching must prefer
+structured file/symbol/span identity with prose parsing kept only as a
+compatibility fallback, and runtime telemetry must record whether guidance was
+attached, followed/waived, and whether the fix held. The same plan tightening
+also calls out the still-zero-consumer operational artifacts
+(`finding_reviews.jsonl`, watchdog episodes, quality-feedback outputs,
+data-science summaries, and decision/adoption metadata) so the next closure
+slice measures impact instead of only proving transport.
+
+This matters because the first two live routes proved infrastructure, not yet
+effect. Without an explicit adoption contract and outcome telemetry, the repo
+can say probe guidance reaches Ralph/autonomy but still cannot prove that the
+guidance changed the fix plan or reduced post-fix guard failures.
+
+Evidence:
+
+- `dev/active/review_probes.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-22 - Shared guidance packets now cover the remaining prompt surfaces
+
+Fact: the first probe-guidance route is no longer limited to Ralph and the
+autonomy loop. Escalation packets now render matched `## Probe Guidance`
+entries plus stable `guidance_refs`, review-channel instruction sources
+preserve those refs, conductor/swarm prompt surfaces inherit the same
+context-packet contract, and governance-review can record `guidance_id` /
+`guidance_followed` so adoption is measured in the same durable ledger as fix
+outcomes. Part 53 is also now explicitly mapped into the main graph tranche:
+once the direct closure slices settle, the same deterministic graph builder
+must support save/diff/trend temporal snapshots instead of a parallel audit
+stack.
+
+This matters because the system can now widen one canonical probe-guidance
+contract across more than two AI consumers without inventing route-local
+artifacts, and the governing plans now explicitly reserve the next graph
+tranche for time-series drift evidence instead of more one-off audit prose.
+
+Evidence:
+
+- `dev/scripts/coderabbit/ralph_prompt.py`
+- `dev/scripts/devctl/autonomy/run_helpers.py`
+- `dev/scripts/devctl/context_graph/escalation.py`
+- `dev/scripts/devctl/runtime/review_state_models.py`
+- `dev/scripts/devctl/governance_review_models.py`
+- `dev/scripts/devctl/tests/test_review_channel.py`
+- `dev/scripts/devctl/tests/runtime/test_review_state.py`
+
+### 2026-03-22 - Operational digests and first decision-mode gates are now live
+
+Fact: the next closure tranche stopped treating the remaining metadata as
+abstract backlog. Shared escalation/context packets now inject bounded
+watchdog episode digests and command-reliability lines from the existing
+data-science summary artifact, and matched probe guidance now merges the
+first live `DecisionPacket` behavior gate (`decision_mode`) from the
+existing probe-summary artifact. Ralph, autonomy, and `guard-run` now treat
+`approval_required` as real runtime behavior instead of report-only prose, and
+`platform_contract_closure` now proves that first
+`DecisionPacket.decision_mode` route family alongside the earlier
+`Finding.ai_instruction` family. In the startup lane, governance draft also
+stopped serializing empty `memory_roots` placeholders and now only emits
+configured roots when canonical repo directories actually exist.
+
+This matters because the system is no longer only transporting guidance text.
+It is starting to transport bounded operational history and typed decision
+authority into live consumers, while trimming a dead startup placeholder that
+was adding contract noise without providing continuity value.
+
+Evidence:
+
+- `dev/scripts/devctl/context_graph/operational_feedback.py`
+- `dev/scripts/devctl/context_graph/escalation.py`
+- `dev/scripts/coderabbit/probe_guidance_artifacts.py`
+- `dev/scripts/coderabbit/ralph_prompt.py`
+- `dev/scripts/devctl/commands/loop_packet.py`
+- `dev/scripts/checks/platform_contract_closure/field_routes.py`
+- `dev/scripts/devctl/governance/draft.py`
+- `dev/scripts/devctl/runtime/project_governance_contract.py`
+
+### 2026-03-22 - Platform contract closure now enforces the first full route family
+
+Fact: `check_platform_contract_closure.py` no longer stops at isolated
+point-route proofs for `Finding.ai_instruction`. The guard now proves the
+Ralph prompt, autonomy loop-packet, and `guard-run` follow-up packet routes
+individually, then checks the declared route family as a whole and fails with
+`field-route-family-incomplete` if any declared consumer disappears. The same
+slice added focused `guard-run` guidance tests and updated the active plan
+chain so the remaining backlog is widening this meta-guard to dual-authority
+consumers, prose-parsed routing seams, and the carried decision-semantic
+fields that still stop at human-facing packets.
+
+This matters because the repo now catches the next class of closure drift
+automatically: "one route still works" is no longer enough once the same typed
+field is supposed to reach multiple runtime consumers. That turns the first
+produced-but-never-consumed fix into a reusable family-level enforcement path
+instead of another route-local proof.
+
+Evidence:
+
+- `dev/scripts/checks/platform_contract_closure/field_routes.py`
+- `dev/scripts/checks/platform_contract_closure/support.py`
+- `dev/scripts/checks/platform_contract_closure/report.py`
+- `dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py`
+- `dev/scripts/devctl/tests/test_guard_run.py`
+- `dev/active/review_probes.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-22 - Shared context packets started consuming governance history and quality feedback
+
+The next quick closure pass reused the existing context-escalation packet
+instead of adding another artifact path. Shared prompt/context consumers now
+read bounded recent `finding_reviews` history and latest quality-feedback
+recommendations from the existing governance artifacts, so those two data
+families are no longer display-only.
+
+The same slice also tightened the startup guidance seam: generated bootstrap
+surfaces and review-channel conductor bootstrap text now tell agents when to
+escalate from the slim `context-graph --mode bootstrap` helper to typed
+`startup-context` for reviewer/checkpoint truth or richer continuity.
+
+Files:
+
+- `AGENTS.md`
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/devctl/context_graph/operational_feedback.py`
+- `dev/scripts/devctl/context_graph/escalation.py`
+- `dev/scripts/devctl/autonomy/run_helpers.py`
+- `dev/scripts/devctl/commands/packets/loop_packet_context.py`
+- `dev/scripts/devctl/review_channel/event_projection_context.py`
+- `dev/scripts/devctl/review_channel/prompt.py`
+
+### 2026-03-21 - Reviewer-wait wired to real review-channel status truth
+
+Fact: the symmetric Codex-side `review-channel --action reviewer-wait` path is
+now live and routed through the real review-channel status contract instead of
+through a test-only payload shape. The command surface accepts
+`reviewer-wait`, dispatches it through the review-channel namespace, and the
+wait loop now reads top-level `reviewer_worker` / `bridge_liveness` status
+truth plus projected typed `current_session` data from
+`dev/reports/review_channel/latest/review_state.json` (with `compact.json`
+fallback) rather than inventing top-level `bridge` / `current_session` blocks
+inside the status report. Focused tests now prove the CLI surface, the real
+status-shape reader, and the typed ACK/status wake path.
+
+This matters because the earlier slice only documented reviewer-wait. The live
+runtime now actually provides the bounded sleep/poll behavior the docs were
+claiming, while preserving the rule that passive freshness alone is not new
+review work.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel/_reviewer_wait.py`
+- `dev/scripts/devctl/commands/review_channel/_wait_actions.py`
+- `dev/scripts/devctl/commands/review_channel/__init__.py`
+- `dev/scripts/devctl/tests/review_channel/test_reviewer_wait.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-21 - MP-377 runtime-behind-docs baseline made explicit
+
+Fact: the active plan chain now records the first honest runtime-behind-docs
+baseline from the large architecture audit instead of leaving that gap in
+chat-only analysis. The accepted near-term closure order is now explicit:
+kill implicit VoiceTerm-default path/runtime authority first, then close
+fail-closed startup/review truth, then land executable plan-mutation handlers,
+then clean `ActionResult` back to contract-level outcomes plus real
+`RunRecord` receipts, then collapse provider-shaped review fields into the
+future agent-registry middle layer. The plans also now state the concrete
+false assumptions that remain open: `active_dual_agent` is not a safe runtime
+default, bridge/projection fallback is still not allowed to count as final
+authority, and packet `apply` is still a state transition rather than
+executed plan mutation.
+
+This matters because the repo already had the right architecture, but not an
+equally explicit statement of which runtime gaps were still blocking parity.
+The updated plan chain now treats those gaps as named closure items instead of
+background drift.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/review_channel.md`
+
+### 2026-03-21 - MP-377 context-graph plan tightened around deterministic routing
+
+Fact: the `MP-377` plan chain now records a stricter interpretation of the
+larger multi-agent context-graph audit. The broad finding still stands: the
+repo already has much richer review/governance/autonomy/workflow/test/
+platform data than the current graph consumes. But the accepted near-term
+execution scope is now sharper: `WorkIntakePacket` must become the first
+deterministic context-router contract for bounded cited read sets, the first
+richer typed relation families must explicitly include `guards`, `scoped_by`,
+and one operation-semantic producer/consumer path, the first routing proof
+must include staged filtering plus bounded multi-hop inference, a small
+bidirectional hot-query cache is now part of that same proof, and shared
+typed projections should replace parallel parsers where those projections
+already exist.
+
+This matters because it preserves the current architecture and ladder instead
+of spinning up a second "ZGraph roadmap" from research notes. The plan now
+separates what is committed next from what remains calibration material:
+deterministic routing, typed-relation closure, staged filtering, bounded
+inference, and the small hot cache are in scope now; heavier prediction and
+ROI features stay downstream until the simpler routing proof is live.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+
+### 2026-03-21 - Tandem-consistency guard migrated to typed review-state authority
+
+Fact: `check_tandem_consistency` now prefers typed `review_state.json`
+authority for 4 of 7 tandem checks (reviewer freshness, implementer ACK
+freshness, implementer completion stall, promotion state). The typed path
+reads `bridge.last_codex_poll_age_seconds`, `bridge.reviewer_freshness`,
+`bridge.claude_ack_current`, `bridge.implementer_completion_stall`,
+`bridge.review_accepted`, and `current_session.*` fields instead of parsing
+bridge prose with regex/marker heuristics. Bridge-text fallback is preserved
+for `reviewed_hash_honesty`, `plan_alignment`, and `launch_truth` where no
+typed equivalent exists yet. `startup-context` also reads the typed
+`review_accepted` field from the projection. 15 focused typed-path regression
+tests added.
+
+### 2026-03-21 - Context-graph plan state synchronized with the deeper ZGraph/runtime audit
+
+Fact: the canonical `MP-377` plan chain now records the immediate
+context-graph wiring gaps surfaced by the broader runtime audit instead of
+leaving them in chat-only analysis. `MASTER_PLAN.md`,
+`ai_governance_platform.md`, and `platform_authority_loop.md` now explicitly
+track shared scan hygiene for calibration/transient roots
+(`dev/repo_example_temp/**`, `.claude/worktrees/**`), artifact-backed routing
+from `dev/reports/probes/latest/file_topology.json` and `review_packet.json`,
+shared hotspot/severity-aware ranking, honest query confidence, and the rule
+that `startup-context` remains the single bounded startup packet while
+`context-graph --mode bootstrap` stays a reducer over the same cached
+authority.
+
+This matters because the graph architecture was already sound, but the repo's
+live plan state did not yet say which findings were immediate plumbing fixes
+versus later work-graph expansion. The updated plan chain now does that
+explicitly: fix the wiring first, then feed the typed startup/work-intake
+reducer, then widen into the already-planned review/governance/autonomy/
+workflow/config/test/platform graph coverage without regrowing a second
+bootstrap surface.
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+
+### 2026-03-21 - MP-355 current-session authority cutover started in the structured review state
+
+Fact: the review-channel runtime now exposes one typed live current-session
+surface instead of forcing current-status readers to reconstruct instruction
+and implementer ACK truth from append-only markdown bridge prose. The
+`ReviewState` runtime contract gained `current_session`, both bridge-backed
+and event-backed status projections now emit that block, `compact.json`
+mirrors it for lightweight readers, and `latest.md` renders its current
+session summary from the typed state. The legacy `bridge` fields still remain
+in the artifact for compatibility, but they are now populated from the same
+derived current-session source instead of acting as the preferred read path.
+
+This matters because the repo’s live review loop had a real dogfooding gap:
+current instruction and ACK state were visible, but the structured runtime
+artifact did not yet have a single typed authority block for them. Adding
+`current_session` is the first bounded cut toward the longer-term plan where
+`bridge.md` becomes a generated projection over typed state rather than a live
+authority surface.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/review_state_models.py`
+- `dev/scripts/devctl/runtime/review_state_parser.py`
+- `dev/scripts/devctl/review_channel/status_projection.py`
+- `dev/scripts/devctl/review_channel/event_projection.py`
+- `dev/scripts/devctl/review_channel/projection_bundle.py`
+- `dev/scripts/devctl/tests/runtime/test_review_state.py`
+- `dev/scripts/devctl/tests/test_review_channel.py`
+- `dev/scripts/checks/check_platform_contract_closure.py`
+
+### 2026-03-21 - Plan state synchronized with the remaining bridge-authority seam
+
+Fact: the active governance plans now distinguish between the part of the
+review-channel authority cutover that has landed and the part that is still
+open. `review_channel.md` now marks the typed `current_session` read-side
+authority cutover as complete, narrows Phase 1 queue generalization to
+compatibility-only work, and makes the remaining seam explicit:
+`startup-context`, `check_tandem_consistency`, and guarded push/preflight must
+stop reparsing live bridge prose for freshness/current-status truth.
+`platform_authority_loop.md` and `MASTER_PLAN.md` now mirror that same seam so
+the startup/push side of `MP-377` stays aligned with the review-channel side of
+`MP-355`. The same maintenance pass also promoted two later self-governance
+follow-ups into `MP-377`: one cross-guard exception-budget / expiry guard and
+one typed check-runner performance/cache contract.
+
+This matters because recent audits mixed real gaps with stale ones. The code
+already landed the first typed `current_session` cutover, and the bigger graph
+/ N-agent directions were already in plan; the real remaining gap is the
+consumer migration off live bridge freshness plus a small number of later
+self-governance items. The canonical plans now say that directly instead of
+leaving operators to infer it from chat history.
+
+### 2026-03-27 - VoiceTerm product docs split back out from AI-system authority docs
+
+Fact: the repo recorded a self-hosting docs-boundary failure explicitly after
+the consumer-refresh checkpoint. A follow-up attempt briefly taught
+review/startup/operator-control behavior through VoiceTerm end-user docs,
+which is the wrong product boundary for `MP-355` / `MP-377`. The active
+owner chain now says that fix belongs in the platform plans and audit ledger
+instead: VoiceTerm user docs stay product-facing, while AI-system self-hosting
+and operator authority lives in the `MP-377` plan stack plus maintainer or
+generated surfaces.
+
+This matters because packaging and cross-repo adoption will keep failing if
+the repo treats every governance/runtime explanation as VoiceTerm help text.
+The next organization tranche is now explicit in the plan state: classify docs
+by product, self-hosting/development, portable adopter, and generated/
+compatibility roles, then make docs policy enforce that split instead of
+driving churn across `README`, `QUICK_START`, `guides/USAGE.md`,
+`guides/CLI_FLAGS.md`, `guides/INSTALL.md`, and
+`guides/TROUBLESHOOTING.md`.
+
+Files changed:
+- `README.md`
+- `QUICK_START.md`
+- `guides/USAGE.md`
+- `guides/CLI_FLAGS.md`
+- `guides/INSTALL.md`
+- `guides/TROUBLESHOOTING.md`
+- `dev/CHANGELOG.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/review_channel.md`
+- `dev/audits/architecture_alignment.md`
+
+Evidence:
+
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/review_channel.md`
+- `dev/audits/architecture_alignment.md`
+
+### 2026-03-27 - Startup and tandem consumers refresh typed review-state truth
+
+Fact: the remaining read-side freshness seam narrowed again. The
+repo-pack-aware review-state locator now refreshes the bridge-backed typed
+`review_state.json` projection through the repo-owned review-channel status
+path before live consumers trust `current_session` / review freshness fields.
+`startup-context` and `check_tandem_consistency` now consume that refreshed
+typed projection instead of treating a stale saved snapshot as machine
+authority, while `bridge.md` remains compatibility-only prose.
+
+This matters because the earlier cutover moved consumers onto typed
+`review_state.json` semantics, but a stale on-disk projection could still lag
+behind the live status writer. Refreshing the typed snapshot at the consumer
+edge keeps startup/tandem/push truth aligned with the reviewer-owned status
+path without reintroducing bridge-text parsing as authority.
+
+Files changed:
+- `dev/scripts/devctl/runtime/review_state_locator.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/checks/tandem_consistency/report.py`
+- `dev/scripts/devctl/tests/runtime/test_review_state_locator.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+- `dev/scripts/devctl/tests/checks/test_check_tandem_consistency.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+
+Evidence:
+
+- `dev/active/review_channel.md`
+- `dev/active/platform_authority_loop.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-21 - MP-377 checkpoint budget surfaced in bridge-backed review status
+
+Fact: the bridge-backed `devctl review-channel` status path now carries the
+same repo-governance push/checkpoint budget truth that `startup-context`
+already exposed. `review-channel --action status` and the generated
+`dev/reports/review_channel/latest/full.json` projection now include
+`push_enforcement` fields such as `checkpoint_required`,
+`safe_to_continue_editing`, `recommended_action`, and
+`raw_git_push_guarded`, while the compact attention contract now escalates to
+`checkpoint_required` whenever the current worktree is over the continuation
+budget. The Claude-side `implementer-wait` failure set and stale-peer recovery
+contract now treat that condition as loop-blocking instead of letting a dirty
+slice keep widening silently.
+
+The same maintenance pass hardened `check_markdown_metadata_header.py` so the
+path collector ignores directories whose names end in `.md`. That keeps
+strict-tooling docs governance bounded to real markdown files even when local
+research or temporary comparison repos create placeholder directories such as
+`dev/repo_example_temp/.md`.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/attention.py`
+- `dev/scripts/devctl/review_channel/state.py`
+- `dev/scripts/devctl/review_channel/status_bundle.py`
+- `dev/scripts/devctl/review_channel/status_projection_helpers.py`
+- `dev/scripts/devctl/commands/review_channel/_wait.py`
+- `dev/scripts/devctl/tests/test_review_channel.py`
+- `dev/scripts/checks/check_markdown_metadata_header.py`
+- `dev/scripts/devctl/tests/test_check_markdown_metadata_header.py`
+
+### 2026-03-21 - MP-377 push governance moved from hardcoded helpers into repo policy
+
+The repo now has its first repo-pack-owned VCS command-routing contract
+instead of keeping push behavior split across hardcoded Python helpers.
+`dev/config/devctl_repo_policy.json` gained `repo_governance.push` for default
+remote, development/release branches, protected-branch rules, and the
+required preflight/post-push flow. `devctl push` now consumes that policy as
+the canonical short-lived branch push surface and emits the same typed receipt
+shape as the rest of the governance runtime
+(`TypedAction(action_id="vcs.push")` plus `ActionResult`). The same contract
+now feeds generated starter surfaces through a pre-push hook stub, while
+legacy `sync` and release helpers read the shared policy instead of embedding
+GitHub push defaults in code.
+
+This matters because the repo already treated check routing, docs governance,
+and surface generation as declarative policy. Push was the architectural
+outlier. Moving it behind the repo-pack policy closes that inconsistency and
+gives `MP-377` one real VCS-adapter proof point that matches the rest of the
+platform's policy -> engine -> surface pattern.
+
+### 2026-03-21 - MP-377 retrieval/control stack made explicit
+
+The active platform plans now spell out the retrieval/control stack instead of
+leaving it implicit in chat or one-off bridge instructions. The accepted
+ordering is: hard guards/probes first as the cheap deterministic classifier
+layer, `ConceptIndex` / ZGraph-compatible graph output second as a reversible
+search-space reducer over canonical refs, `HotIndex` / `startup-context` /
+`ContextPack` third as the minimum cited working slice for the current scope,
+and reviewer/autonomy/Ralph loops last as the expensive fallback/controller
+layer when cheaper paths cannot decide or recover safely. This closes a
+recurring ambiguity where graph packets, startup packets, and long-lived AI
+loops were drifting toward one blended authority blob instead of staying
+layered and fail-closed.
+
+The same 2026-03-21 planning pass also captured the next graph-hygiene follow-
+ups explicitly: one canonical `INDEX.md` parser for doc-authority/context-
+graph/review-channel consumers, a dedicated parity guard for
+`COMMAND_HANDLERS` versus the public `devctl list` inventory, temperature
+normalization against the shared hotspot scorer, a real file-pattern trigger
+table for context routing, a slim default bootstrap budget, and an explicit
+fresh-session round budget for the live dual-agent loop.
+
+### 2026-03-20 - MP-377 Phase 6 context-graph implementation
+
+Landed `devctl context-graph` command (7-file package under
+`dev/scripts/devctl/context_graph/`). The command builds a typed repo graph
+from existing artifacts (probe topology scan, script catalog, INDEX.md) and
+supports four output modes: `--mode bootstrap` (slim AI startup packet,
+~1.3K tokens), `--query '<term>'` (targeted subgraph), `--format mermaid`
+(concept-level subsystem diagram), and `--format dot` (graphviz). ZGraph
+concept layer derives subsystem nodes from directory structure with
+`contains`, `related_to`, and `documented_by` typed edges. All nodes carry
+`canonical_pointer_ref` and `provenance_ref` back to real repo artifacts.
+Startup-authority contract updated through the canonical policy chain
+(`devctl_repo_policy.json` → `render-surfaces` → `CLAUDE.md`, plus
+`AGENTS.md` step 1 and bridge start-of-conversation rule 3).
+
+### 2026-03-20 - MP-377 native context-graph direction and bridge reset
+
+Fact: the repo accepted the next `MP-377` context-retrieval direction as a
+native `devctl` path instead of an external semantic-store first step. The
+plan chain now states one explicit boundary: canonical pointer refs from
+plans, docs, repo-map/report artifacts, and later evidence rows remain the
+authority surface, while `ConceptIndex` and any ZGraph-compatible encoding are
+generated typed-edge layers above those pointers. The first implementation is
+intentionally bounded to a report-only `context-graph` query surface over
+existing artifacts rather than a new memory authority path.
+
+The live reviewer/coder bridge was also reset through the repo-owned
+`review-channel` checkpoint and ensure flows so the markdown contract now
+points Claude at that bounded Phase-6 slice instead of the stale MP-358 lane.
+That reset reactivated `active_dual_agent` mode, rotated the reviewer
+instruction revision, and brought the publisher plus reviewer-supervisor
+processes back up under the current bridge contract.
+
+Evidence:
+
+- `dev/active/platform_authority_loop.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+- `bridge.md`
+- `dev/scripts/devctl.py review-channel --action reviewer-checkpoint`
+- `dev/scripts/devctl.py review-channel --action ensure`
+
+### 2026-03-19 - MP-377 platform authority-loop lane made explicit
+
+Fact: the repo's current highest-priority standalone-governance work is now
+tracked as one explicit subordinate `MP-377` execution spec instead of being
+split across audit notes and chat synthesis. The new
+`dev/active/platform_authority_loop.md` plan closes the missing portable
+authority spine in a fixed order:
+`ProjectGovernance -> RepoPack -> PlanRegistry -> TypedAction -> ActionResult /
+RunRecord / Finding -> ContextPack`.
+
+The same docs-governance slice also made the missing execution details
+explicit, not implicit: full `active_path_config()` rewrite scope, startup
+authority via `governance-draft` and reviewed `project.governance`,
+structured plan-doc schema, bundle/check extensibility, platform-wide
+contract versioning, evidence provenance closure, proof-pack/evaluation
+schema, and the monorepo-first extraction rule. `MASTER_PLAN`, the active-doc
+index, and maintainer discovery docs now all point at the same lane so fresh
+AI sessions can start from repo-visible authority instead of reconstructing
+the priority from audit transcripts.
+
+Evidence:
+
+- `dev/active/platform_authority_loop.md`
+- `dev/active/INDEX.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `AGENTS.md`
+- `DEV_INDEX.md`
+- `dev/README.md`
+
+### 2026-03-17 - MP-355 daemon-event runtime truth landed
+
+Fact: the next bounded runtime-truth slice now exists in the repo-owned
+`devctl/review_channel` backend instead of only in bridge heartbeat files.
+`review-channel ensure --follow` and `reviewer-heartbeat --follow` now append
+`daemon_started`, `daemon_heartbeat`, and `daemon_stopped` rows into the
+structured event log through a dedicated daemon-events seam, the shared daemon
+reducer now consumes those rows into `runtime.daemons.publisher` and
+`runtime.daemons.reviewer_supervisor`, and bridge-backed `status` uses the same
+runtime shape from persisted lifecycle heartbeat truth instead of reporting an
+always-empty reviewer supervisor. Operator-facing `latest.md` now renders that
+runtime block directly, and auto event-backed status stays gated on
+materialized `state.json` so daemon-only event logs do not silently replace the
+bridge-backed authority path.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/daemon_events.py`
+- `dev/scripts/devctl/review_channel/daemon_reducer.py`
+
+### 2026-03-25 - Repo-owned reviewer writes now replace stale Poll Status prose
+
+Fact: the live markdown bridge had another self-hosting failure shape. Typed
+`current_session` state was advancing correctly through
+`reviewer-heartbeat` / `reviewer-checkpoint`, but the shared `bridge.md`
+projection could still leave old reviewer-owned revision/ACK bullets under
+`## Poll Status`, which made the bridge look half-stale even after a fresh
+repo-owned write. The writer contract is now explicit: repo-owned reviewer
+writes treat `Poll Status` as current-state-only reviewer authority and replace
+that section body instead of stacking fresh heartbeat/checkpoint notes on top
+of older reviewer prose.
+- `dev/scripts/devctl/review_channel/follow_controller.py`
+- `dev/scripts/devctl/review_channel/reviewer_follow.py`
+- `dev/scripts/devctl/review_channel/projection_bundle.py`
+- `dev/scripts/devctl/review_channel/state.py`
+- `dev/scripts/devctl/tests/test_review_channel.py`
+
+### 2026-03-16 - MP-377 M67 reviewer-worker state seam landed outside chat
+
+Fact: the first bounded reviewer-worker slice now exists in the repo-owned
+`devctl/review_channel` backend seam instead of only in chat habit. The new
+mode-aware reviewer-worker contract reports `bridge_missing`,
+`inactive_mode`, `hash_unavailable`, `review_needed`, or `up_to_date`
+without claiming that semantic review itself already happened. `review-channel
+--action status`, `--action ensure`, `--action reviewer-heartbeat`, and
+`--action reviewer-checkpoint` now emit that `reviewer_worker` payload, the
+bridge-backed `full.json` projection carries it for downstream consumers, and
+`review-channel --action ensure --follow` cadence frames now keep the same
+`review_needed` signal visible while the publisher loop is running.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/reviewer_state.py`
+- `dev/scripts/devctl/commands/review_channel.py`
+- `dev/scripts/devctl/review_channel/state.py`
+- `dev/scripts/devctl/tests/test_review_channel.py`
+- `dev/scripts/devctl/tests/runtime/test_review_state.py`
+
+### 2026-03-15 - Durable guide-contract sync added to docs governance
+
+Fact: `docs-check --strict-tooling` and the shared tooling/release governance
+lanes now enforce repo-policy-owned durable guide coverage through the new
+`check_guide_contract_sync.py` guard instead of relying only on touched-doc
+presence and generated-surface sync. `dev/config/devctl_repo_policy.json` now
+defines `guide_contract_rules` for `dev/guides/DEVCTL_AUTOGUIDE.md`, and the
+guide gained a `System Coverage Map` section that keeps
+policy/contract/governance, launcher, mutation/compatibility, and
+queue/device/recovery command surfaces visible in one operator playbook. A
+follow-up hardening pass moved the contract beyond whole-file substring checks:
+the rule now supports section-scoped coverage requirements so the `System
+Coverage Map` itself must keep the shared runtime/operator surfaces visible
+(`render-surfaces`, `review-channel`, `tandem-validate`,
+`reviewer-heartbeat`, `reviewer-checkpoint`, `swarm_run`, `mobile-status`,
+`phone-status`, `controller-action`, `orchestrate-*`, `integrations-*`,
+`mcp`) instead of letting those disappear while the same tokens survive
+elsewhere in the file.
+
+Evidence:
+
+- `dev/scripts/checks/check_guide_contract_sync.py`
+- `dev/config/devctl_repo_policy.json`
+- `dev/guides/DEVCTL_AUTOGUIDE.md`
+- `dev/scripts/devctl/commands/docs_check.py`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+
+### 2026-03-15 - MP-358 tandem-consistency guard and role-profile seam
+
+Fact: `runtime/role_profile.py` introduces `TandemRole`, `RoleProfile`,
+`TandemProfile`, and `role_for_provider()` as the provider-agnostic contract
+for the review/code tandem loop. Hardcoded provider-name checks in
+peer-liveness, event-reducer, status-projection, launch, prompt, and handoff
+modules now route through this shared role seam. A new
+`check_tandem_consistency.py` guard validates alignment across all six modules,
+wired into `bundle.tooling`, both CI workflows, and the quality-policy preset.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/role_profile.py`
+- `dev/scripts/checks/check_tandem_consistency.py`
+- `dev/scripts/checks/tandem_consistency/`
+- `dev/scripts/devctl/review_channel/peer_liveness.py`
+- `dev/scripts/devctl/review_channel/event_reducer.py`
+- `dev/scripts/devctl/review_channel/status_projection.py`
+- `dev/scripts/devctl/review_channel/launch.py`
+- `dev/scripts/devctl/review_channel/prompt.py`
+- `dev/scripts/devctl/review_channel/handoff.py`
+
+### 2026-03-15 - MP-358 tandem-loop promotion/sync/liveness contract hardened
+
+Fact: the continuous Codex/Claude review loop now has concrete tool-owned
+contracts instead of documented intent. `--scope` returns a real promotion
+payload (`86b902c`). `--auto-promote` promotes the next plan item
+automatically when the bridge is in a promotable state (`5239d88`).
+`reviewed_hash_current` flows through status, launch, attention, and
+handoff surfaces (`0935dc8`, `4ae9830`, `e76ddd2`). `REVIEWED_HASH_STALE`
+attention fires when review content is stale relative to the tree.
+`block_launch` peer-liveness guard enforces heartbeat freshness before
+opening sessions (`b2e2101`). 1335 tests pass across the combined slice.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel_bridge_support.py`
+- `dev/scripts/devctl/commands/review_channel_bridge_handler.py`
+- `dev/scripts/devctl/commands/review_channel_bridge_action_support.py`
+- `dev/scripts/devctl/review_channel/heartbeat.py`
+- `dev/scripts/devctl/review_channel/handoff.py`
+- `dev/scripts/devctl/review_channel/attention.py`
+- `dev/scripts/devctl/review_channel/peer_liveness.py`
+- `dev/scripts/devctl/review_channel/state.py`
+- `dev/scripts/devctl/review_channel/parser.py`
+
+### 2026-03-15 - Repo-pack extraction boundary widened across devctl runtime and commands
+
+Fact: the repo-pack extraction boundary now covers 35 `RepoPathConfig` fields,
+30+ migrated modules, 2 adapter helper modules (`review_helpers.py`,
+`process_helpers.py`), and runtime `voiceterm_repo_root()` fallback in
+governance ledger resolvers. Commands like `mobile_status.py` no longer
+import `review_channel` internals; 6 command files no longer reach into the
+checks layer for `resolve_repo`/`run_capture`; governance ledgers no longer
+stamp `repo_name`/`repo_path` from compile-time `REPO_ROOT`; and all
+autonomy/reporting parsers consume config-owned defaults. First bounded
+commit pushed to GitHub at `06fc4c9`.
+
+Evidence:
+
+- `dev/scripts/devctl/repo_packs/voiceterm.py` (35 fields, 322 lines)
+- `dev/scripts/devctl/repo_packs/review_helpers.py` (new)
+- `dev/scripts/devctl/repo_packs/process_helpers.py` (new)
+- `dev/scripts/devctl/commands/mobile_status.py`
+- `dev/scripts/devctl/commands/controller_action.py`
+- `dev/scripts/devctl/governance_review_log.py`
+- `dev/scripts/devctl/governance/external_findings_log.py`
+- `dev/scripts/devctl/autonomy/run_parser.py`
+- `dev/scripts/devctl/autonomy/benchmark_parser.py`
+- `dev/scripts/devctl/cli_parser/reporting.py`
+- `dev/scripts/devctl/data_science/metrics.py`
+- `dev/scripts/devctl/autonomy/report_helpers.py`
+- `dev/scripts/devctl/audit_events.py`
+- `dev/scripts/devctl/watchdog/episode.py`
+
+### 2026-03-15 - RepoPathConfig and repo-pack collector helpers replace frontend-owned coupling
+
+Fact: `repo_packs.voiceterm` now owns a `RepoPathConfig` frozen dataclass (13
+artifact-path fields) plus 5 read-only collector helpers. Eight Operator
+Console modules consume `VOICETERM_PATH_CONFIG` instead of defining their own
+`dev/reports/*`, `dev/active/*`, and `bridge.md` path literals.
+`analytics_snapshot.py` and `quality_snapshot.py` no longer import forbidden
+`dev.scripts.devctl.collect` or `dev.scripts.devctl.config` modules — they
+call repo-pack-owned helpers instead. Platform-layer-boundary guard confirms 0
+violations. 1328 tests pass.
+
+Evidence:
+
+- `dev/scripts/devctl/repo_packs/voiceterm.py` (RepoPathConfig + 5 helpers)
+- `app/operator_console/state/review/review_state.py`
+- `app/operator_console/state/review/artifact_locator.py`
+- `app/operator_console/state/bridge/bridge_sections.py`
+- `app/operator_console/state/sessions/session_trace_reader.py`
+- `app/operator_console/state/snapshots/watchdog_snapshot.py`
+- `app/operator_console/state/snapshots/ralph_guardrail_snapshot.py`
+- `app/operator_console/state/snapshots/analytics_snapshot.py`
+- `app/operator_console/state/snapshots/quality_snapshot.py`
+
+### 2026-03-14 - VoiceTerm repo-pack defaults started replacing frontend-owned metadata
+
+Fact: the first concrete `repo_packs.voiceterm` seam is now present in the
+tree. `dev/scripts/devctl/repo_packs/voiceterm.py` owns the Operator Console
+workflow preset definitions plus a narrow read-only helper that refreshes and
+loads review payloads from the live bridge. That matters because the Operator
+Console no longer has to import `dev.scripts.devctl.review_channel.*`
+internals just to project current state, and the frontend no longer owns
+several VoiceTerm-specific `dev/active/*` defaults directly. This is not the
+finished repo-pack contract yet, but it is a real boundary move instead of
+another architecture TODO.
+
+Evidence:
+
+- `dev/scripts/devctl/repo_packs/voiceterm.py`
+- `dev/scripts/devctl/repo_packs/__init__.py`
+- `dev/scripts/devctl/review_channel/core.py`
+- `dev/scripts/devctl/review_channel/state.py`
+- `app/operator_console/state/snapshots/phone_status_snapshot.py`
+- `app/operator_console/workflows/workflow_presets.py`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-14 - Routed bundle execution now reuses the active interpreter
+
+Fact: `devctl check-router --execute` no longer blindly shells the literal
+`python3 ...` bundle strings. The routed execution path now rewrites repo-owned
+Python commands to the interpreter that launched `dev/scripts/devctl.py`,
+including both direct script entrypoints and repo-owned `python3 -m pytest`
+style commands. That matters because the extraction/self-hosting plan had
+already identified a real reliability gap on machines where ambient `python3`
+still resolves to 3.10: routed governance lanes could fail even though direct
+`devctl check` / `guard-run` commands were already interpreter-stable. The
+bundle registry remains the human-readable command authority, but execution no
+longer depends on the wrong interpreter being first on `PATH`.
+
+Evidence:
+
+- `dev/scripts/devctl/common.py`
+- `dev/scripts/devctl/commands/check_router.py`
+- `dev/scripts/devctl/tests/test_common.py`
+- `dev/scripts/devctl/tests/test_check_router.py`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-14 - Extraction boundaries moved from plan prose into a hard guard
+
+Fact: the platform-extraction lane now has its first concrete self-hosting
+boundary guard. `check_platform_layer_boundaries.py` is registered as a
+repo-enabled AI guard, VoiceTerm policy now defines the first forbidden import
+seams, and the new rule blocks fresh Python code from reaching directly from
+Operator Console or shared runtime/platform files into repo-local devctl
+orchestration modules. That matters because the extraction plan is no longer
+only telling contributors to keep frontend/runtime seams clean; the repo now
+has executable enforcement that freezes new architectural debt while the larger
+package/repo-pack split continues.
+
+Evidence:
+
+- `dev/scripts/checks/check_platform_layer_boundaries.py`
+- `dev/scripts/checks/architecture_boundary/command.py`
+- `dev/config/quality_presets/voiceterm.json`
+- `dev/scripts/devctl/quality_policy_defaults.py`
+- `dev/scripts/devctl/script_catalog.py`
+- `dev/scripts/devctl/tests/checks/architecture_boundary/test_check_platform_layer_boundaries.py`
+- `dev/scripts/devctl/tests/test_check.py`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-13 - Repo-pack surface generation moved behind policy
+
+Fact: the first concrete repo-pack surface-generation slice is now real code
+instead of plan prose. `dev/config/devctl_repo_policy.json` owns a new
+`repo_governance.surface_generation` contract for repo-pack metadata, shared
+template context, and governed output surfaces; `devctl render-surfaces`
+renders or validates those surfaces; `check_instruction_surface_sync` plus
+`docs-check --strict-tooling` keep the template-backed outputs aligned; and
+portable starter policy/bootstrap flows now seed the same contract for adopter
+repos. That matters because local `CLAUDE.md`, slash/skill templates, and
+starter hook/workflow stubs are no longer independent manually edited surfaces
+with duplicated context. They now resolve from one repo-owned policy source,
+which is the first real proof that the platform can package repo-pack
+instruction surfaces as governed product behavior instead of chat-only
+convention.
+
+Evidence:
+
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/devctl/governance/surfaces.py`
+- `dev/scripts/devctl/governance/parser.py`
+- `dev/scripts/devctl/commands/governance/render_surfaces.py`
+- `dev/scripts/checks/package_layout/instruction_surface_sync.py`
+- `dev/scripts/devctl/commands/docs_check.py`
+- `dev/scripts/devctl/commands/docs/check_runtime.py`
+- `dev/scripts/devctl/governance/bootstrap_policy.py`
+- `dev/scripts/devctl/governance_bootstrap_support.py`
+- `dev/scripts/devctl/tests/governance/test_render_surfaces.py`
+- `dev/scripts/devctl/tests/governance/test_governance_bootstrap.py`
+- `dev/scripts/devctl/tests/test_docs_check.py`
+- `dev/scripts/README.md`
+- `dev/guides/DEVCTL_AUTOGUIDE.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+
+Follow-up note: the subsequent namespace split kept the same generated-surface
+design but changed the active helper path to
+`dev/scripts/devctl/governance/surface_runtime.py`. The focused regression path
+now relies on package-style `check_agents_bundle_render` imports, the public
+generated-surface runner lives at
+`dev/scripts/checks/package_layout/check_instruction_surface_sync.py`, and the
+strict-tooling docs-check fixture points at
+`dev/scripts/devctl/commands/governance/render_surfaces.py` instead of the old
+flat command location.
+
+### 2026-03-12 - Compatibility shims became a full guard-plus-probe contract
+
+Fact: compatibility wrappers are no longer governed only by one package-layout
+exception path. The same AST-first shim primitive now drives both the blocking
+layout guard and an advisory stale-shim probe. `check_package_layout.py`
+continues to enforce structural/layout policy and crowding baselines, while
+the new `probe_compatibility_shims.py` ranks missing canonical metadata,
+expired wrappers, broken shim targets, and shim-heavy roots/families. In the
+same cleanup slice, the fallback `run_probe_report.py` runner stopped carrying
+its own hard-coded probe filename list and now resolves registered probes from
+shared quality policy and script-catalog state. That matters because the repo
+is moving from one-off wrapper exceptions toward one reusable governance
+primitive with a single source of truth for both semantics and orchestration.
+
+Evidence:
+
+- `dev/scripts/checks/package_layout/rules.py`
+- `dev/scripts/checks/package_layout/bootstrap.py`
+- `dev/scripts/checks/check_package_layout.py`
+- `dev/scripts/checks/probe_compatibility_shims.py`
+- `dev/scripts/checks/run_probe_report.py`
+- `dev/config/quality_presets/portable_python.json`
+- `dev/config/quality_presets/voiceterm.json`
+- `dev/scripts/devctl/tests/checks/package_layout/test_support.py`
+- `dev/scripts/devctl/tests/checks/package_layout/test_probe_compatibility_shims.py`
+
+### 2026-03-12 - The first shared runtime contract moved from blueprint to code
+
+Fact: the reusable-platform work is no longer only architectural prose plus a
+read-only blueprint command. `dev/scripts/devctl/runtime/control_state.py`
+now defines a real typed `ControlState` contract, `devctl mobile-status`
+emits that contract alongside the existing compatibility payloads, and the
+PyQt6 Operator Console phone snapshot reader consumes the shared contract
+instead of independently re-deriving the same review/controller fields from
+raw nested JSON dicts. This matters because it proves the extraction strategy:
+frontends can migrate onto typed runtime objects while the outer artifact
+shape stays stable for existing readers, which is how the rest of the review,
+Ralph, mutation, and phone/desktop surfaces should move off repo-local
+ad-hoc payload parsing.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/control_state.py`
+- `dev/scripts/devctl/commands/mobile_status.py`
+- `dev/scripts/devctl/mobile_status_views.py`
+- `app/operator_console/state/snapshots/phone_status_snapshot.py`
+- `dev/active/ai_governance_platform.md`
+- `dev/guides/AI_GOVERNANCE_PLATFORM.md`
+
+### 2026-03-12 - The reusable AI governance platform target is now explicit
+
+Fact: the repo no longer treats "portable governance" and "the full reusable
+product" as the same problem. `dev/active/portable_code_governance.md`
+continues to own the reusable guard/probe/policy/bootstrap/export engine, but
+the broader extraction of Ralph-style loops, shared control-plane/runtime
+contracts, repo-pack packaging, and frontend convergence across CLI, PyQt6,
+overlay, and phone/mobile surfaces now has its own active architecture plan at
+`dev/active/ai_governance_platform.md`. That matters because the user goal is
+not just "run a few portable checks on another repo"; it is "install one
+coherent AI-governance system into another repo and have the same architecture
+work there too." The same doc split also makes organization requirements
+explicit: directory layout should mirror platform layers and public entrypoints,
+not accumulate flat roots full of mixed helper modules.
+
+Evidence:
+
+- `dev/active/ai_governance_platform.md`
+- `dev/active/portable_code_governance.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/INDEX.md`
+- `dev/guides/PORTABLE_CODE_GOVERNANCE.md`
+- `dev/README.md`
+- `DEV_INDEX.md`
+- `AGENTS.md`
+
+### 2026-03-12 - Script layout enforcement moved from cleanup advice into tooling policy
+
+Fact: `dev/scripts` package cleanup is no longer just "please keep this tidy."
+The repo now treats packaged Python entrypoints as the canonical shape: the
+old root-level wrappers for mutation, workflow bridges, badge renderers,
+artifact helpers, and CodeRabbit helpers were removed once repo-owned
+workflows/docs/tests/commands were migrated to their package paths. The
+important follow-up is that `devctl path-audit` and `path-rewrite` now carry
+that migration map directly, so stale references are detected and rewritten
+systematically instead of being cleaned up by hand each time the layout moves.
+The same slice also made the portability boundary explicit rather than implied:
+the guard/probe engine is policy-driven enough to reuse elsewhere, but the
+higher-level Ralph, mutation, process-hygiene, and some docs/router surfaces
+are still repo-local and need more extraction before the full control plane is
+truly repo-agnostic.
+The immediate next cleanup pass burned down part of that remaining router/docs
+debt too: `check-router` lane classification + risk add-ons and `docs-check`
+canonical-doc/deprecated-reference policy now resolve from
+`dev/config/devctl_repo_policy.json`, and both commands accept
+`--quality-policy` overrides so another repo can replace those repo-owned
+contracts without editing the command modules.
+
+Evidence:
+
+- `dev/scripts/devctl/script_catalog.py`
+- `dev/scripts/devctl/path_audit.py`
+- `dev/scripts/devctl/repo_policy.py`
+- `dev/scripts/devctl/commands/check_router_constants.py`
+- `dev/scripts/devctl/commands/docs_check_policy.py`
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/README.md`
+- `dev/scripts/checks/README.md`
+- `dev/scripts/coderabbit/README.md`
+- `dev/scripts/workflow_bridge/README.md`
+- `dev/active/pre_release_architecture_audit.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-12 - Router and docs governance moved behind repo policy
+
+Fact: the next portability pass took two more repo-shaped behaviors out of
+inline Python constants and put them into `dev/config/devctl_repo_policy.json`.
+`devctl check-router` now resolves lane mapping, path classification, and
+risk-add-on commands from repo governance policy, while `devctl docs-check`
+now resolves its canonical user-doc set, maintainer-doc requirements,
+evolution-trigger paths, and deprecated-reference patterns from the same
+policy file. Both commands also accept `--quality-policy`, so another codebase
+can reuse the engine by supplying a different repo policy instead of patching
+the command implementation. This does not make the whole control plane
+portable yet: Ralph, mutation, and process-hygiene workflow logic still carry
+VoiceTerm-specific assumptions, but the router/docs governance layer no longer
+needs to.
+
+Evidence:
+
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/devctl/repo_policy.py`
+- `dev/scripts/devctl/commands/check_router_constants.py`
+- `dev/scripts/devctl/commands/check_router.py`
+- `dev/scripts/devctl/commands/docs_check_policy.py`
+- `dev/scripts/devctl/commands/docs_check.py`
+- `dev/scripts/devctl/tests/test_check_router.py`
+- `dev/scripts/devctl/tests/test_check_router_support.py`
+- `dev/scripts/devctl/tests/test_docs_check.py`
+- `dev/scripts/devctl/tests/test_docs_check_constants.py`
+
+### 2026-03-12 - Governance bootstrap became a real repo-onboarding path
+
+Fact: portable-governance onboarding no longer stops at "repair the copied
+repo's `.git` pointer." `devctl governance-bootstrap` now also writes a
+starter `dev/config/devctl_repo_policy.json` into the target repo when one is
+missing, picking the nearest portable preset from detected Python/Rust
+capabilities and seeding conservative repo-governance defaults for
+`check-router` and `docs-check`. The exported template set now includes one
+AI-friendly onboarding guide and one starter repo-policy JSON so another repo
+has a real first-run setup path instead of reverse-engineering our policy from
+VoiceTerm-specific files.
+
+Evidence:
+
+- `dev/scripts/devctl/governance/bootstrap_policy.py`
+- `dev/scripts/devctl/governance_bootstrap_support.py`
+- `dev/scripts/devctl/governance_bootstrap_parser.py`
+- `dev/scripts/devctl/commands/governance/bootstrap.py`
+- `dev/scripts/devctl/tests/governance/test_governance_bootstrap.py`
+- `dev/config/templates/portable_governance_repo_setup.template.md`
+- `dev/config/templates/portable_devctl_repo_policy.template.json`
+- `dev/config/templates/README.md`
+- `dev/guides/PORTABLE_CODE_GOVERNANCE.md`
+- `dev/scripts/README.md`
+
+### 2026-03-12 - Bootstrap now leaves one obvious repo-local setup file
+
+Fact: exported template files were still one step too indirect for first-run
+repo adoption. `devctl governance-bootstrap` now also writes
+`dev/guides/PORTABLE_GOVERNANCE_SETUP.md` into the target repo, so an AI or
+maintainer has one obvious local file with run order, policy path, and
+customization guidance after bootstrap. In the same cleanup slice,
+`dev/scripts/checks` moved the `active_plan`, `python_analysis`, and
+`probe_report` helper families behind documented internal subpackages so the
+root of `checks/` stays closer to a list of runnable entrypoints.
+
+Evidence:
+
+- `dev/scripts/devctl/governance/bootstrap_guide.py`
+- `dev/scripts/devctl/governance_bootstrap_support.py`
+- `dev/scripts/devctl/commands/governance/bootstrap.py`
+- `dev/scripts/devctl/tests/governance/test_governance_bootstrap.py`
+- `dev/scripts/checks/active_plan/README.md`
+- `dev/scripts/checks/python_analysis/README.md`
+- `dev/scripts/checks/probe_report/README.md`
+- `dev/scripts/checks/README.md`
+
+### 2026-03-09 - Release governance now forces full maintainer and user doc coverage
+
+Fact: the release audit path now treats documentation drift the same way it
+already treats code-quality drift. `devctl docs-check --strict-tooling`
+remains the maintainer-doc gate for tooling/process/CI changes, and
+`docs-check --user-facing --strict` is now part of the practical release
+discipline for ranges that include shipped behavior changes. The immediate
+lesson from this release tranche is explicit: mobile/control-plane work is not
+release-ready until the canonical user docs (`QUICK_START.md`,
+`guides/TROUBLESHOOTING.md`, install/usage/flags docs) and maintainer docs
+(`AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/active/MASTER_PLAN.md`,
+`dev/history/ENGINEERING_EVOLUTION.md`) all reflect the shipped surface.
+The same release path also now depends on the mobile relay protocol guard so
+Rust emitters, Python tooling, and the iOS client stay aligned.
+
+Evidence:
+
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/scripts/checks/check_mobile_relay_protocol.py`
+- `dev/scripts/README.md`
+- `QUICK_START.md`
+- `guides/TROUBLESHOOTING.md`
+
+### 2026-03-11 - Portable governance export and evaluation boundary became explicit
+
+Fact: the portable guard/probe work is no longer only "whatever the current
+chat remembers." The repo now carries a durable portable-governance guide,
+portable measurement/evaluation schema templates, and a first-class
+`devctl governance-export` command that copies the governance stack outside the
+repo root and generates fresh `quality-policy`, `probe-report`, and
+`data-science` artifacts for external review or pilot-repo bootstrap.
+The strategic evaluation model is also now explicit: correctness stays a hard
+gate, objective structural/safety deltas are the primary score, and blind
+human/AI pairwise review is a secondary preference signal rather than proof by
+itself. The first broad pilot corpus source is now the maintainer GitHub repo
+inventory instead of whichever local sibling repos happen to be present.
+
+Evidence:
+
+- `dev/guides/PORTABLE_CODE_GOVERNANCE.md`
+- `dev/config/templates/portable_governance_episode.schema.json`
+- `dev/config/templates/portable_governance_eval_record.schema.json`
+- `dev/scripts/devctl/governance_export_parser.py`
+- `dev/scripts/devctl/governance_export_support.py`
+- `dev/scripts/devctl/commands/governance/export.py`
+- `dev/scripts/devctl/tests/governance/test_governance_export.py`
+- `dev/active/portable_code_governance.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-11 - Portable repo onboarding is now first-class, not manual glue
+
+Fact: the first external pilot against `ci-cd-hub` exposed the real missing
+portability steps instead of leaving them as chat-only advice. Copied
+submodule repos can carry broken `.git` indirection that makes git-backed
+guards fail in a new location, so `devctl governance-bootstrap` now repairs
+that state into a standalone local git worktree for disposable pilots.
+Separately, first-run adoption needs a full current-worktree scan rather than
+growth-only diff semantics, so `check`, `probe-report`, and
+`governance-export` now accept `--adoption-scan`. The same follow-up also
+added `probe_exception_quality.py`, an advisory Python probe for suppressive
+broad handlers and generic exception translation without runtime context.
+
+Evidence:
+
+- `dev/scripts/devctl/governance_bootstrap_parser.py`
+- `dev/scripts/devctl/governance_bootstrap_support.py`
+- `dev/scripts/devctl/commands/governance/bootstrap.py`
+- `dev/scripts/devctl/quality_scan_mode.py`
+- `dev/scripts/devctl/commands/check.py`
+- `dev/scripts/devctl/commands/probe_report.py`
+
+### 2026-03-11 - Portable governance now tracks adjudicated finding quality
+
+Fact: the portable-governance work now has a durable false-positive and cleanup
+ledger instead of relying on memory or ad hoc notes. `devctl governance-review`
+records adjudicated guard/probe findings into
+`dev/reports/governance/finding_reviews.jsonl`, writes rolled-up
+`review_summary.{md,json}` artifacts, and `devctl data-science` now ingests
+that ledger alongside watchdog episodes so maintainers can see whether the
+governance stack is producing real signal and whether cleanup is converging
+over time.
+
+Evidence:
+
+- `dev/scripts/devctl/governance_review_log.py`
+- `dev/scripts/devctl/governance_review_parser.py`
+- `dev/scripts/devctl/commands/governance/review.py`
+- `dev/scripts/devctl/data_science/metrics.py`
+- `dev/scripts/devctl/data_science/rendering.py`
+- `dev/config/templates/portable_governance_finding_review.schema.json`
+- `dev/scripts/devctl/tests/governance/test_governance_review.py`
+- `dev/scripts/devctl/tests/test_data_science.py`
+- `dev/active/portable_code_governance.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-11 - Governance-review moved from scaffolding into live cleanup
+
+Fact: the new adjudication ledger is already being used to burn down real probe
+debt instead of sitting as measurement-only infrastructure. The first live
+`probe_exception_quality` cleanup narrowed the fail-soft handlers in
+`dev/scripts/devctl/collect.py`, removed the context-free exception translation
+in `dev/scripts/devctl/commands/check_support.py`, and left the probe green for
+the full repo. That makes the governance-review loop concrete:
+findings -> adjudication -> fix -> recorded outcome -> refreshed metrics.
+
+Evidence:
+
+- `dev/scripts/devctl/collect.py`
+- `dev/scripts/devctl/commands/check_support.py`
+- `dev/scripts/devctl/tests/test_collect_ci_runs.py`
+- `dev/scripts/devctl/tests/test_check_support.py`
+- `dev/scripts/devctl/tests/test_probe_exception_quality.py`
+- `dev/active/portable_code_governance.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-03-11 - Single-use-helper probe debt is now part of the same cleanup loop
+
+Fact: the medium-severity `probe_single_use_helpers` debt is no longer just a
+ranked advisory list; it is feeding real structural cleanup work too.
+`dev/scripts/devctl/collect.py` no longer keeps three one-use file-local
+helpers, and the `data-science` source-row loaders now live in
+`dev/scripts/devctl/data_science/source_rows.py` instead of bloating
+`metrics.py` with one-use local helpers. The probe is now green for both of
+those files, and the outcomes can be tracked in the same governance-review
+ledger as the exception-quality fixes.
+
+Evidence:
+
+- `dev/scripts/devctl/collect.py`
+- `dev/scripts/devctl/data_science/metrics.py`
+- `dev/scripts/devctl/data_science/source_rows.py`
+- `dev/scripts/devctl/tests/test_collect_ci_runs.py`
+- `dev/scripts/devctl/tests/test_data_science.py`
+- `dev/active/portable_code_governance.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/scripts/devctl/commands/governance/export.py`
+- `dev/scripts/checks/probe_exception_quality.py`
+- `dev/scripts/devctl/tests/governance/test_governance_bootstrap.py`
+- `dev/scripts/devctl/tests/test_probe_exception_quality.py`
+- `dev/active/portable_code_governance.md`
 
 ### 2026-03-09 - devctl gained a real iPhone install path and app tutorial flow
 
@@ -110,8 +9209,8 @@ Evidence:
 
 - `dev/active/continuous_swarm.md`
 - `dev/active/MASTER_PLAN.md`
-- `dev/scripts/devctl/review_channel_launch.py`
-- `dev/scripts/devctl/review_channel_prompt.py`
+- `dev/scripts/devctl/review_channel/launch.py`
+- `dev/scripts/devctl/review_channel/prompt.py`
 - `dev/scripts/devctl/tests/test_review_channel.py`
 - `dev/scripts/README.md`
 - `dev/guides/DEVCTL_AUTOGUIDE.md`
@@ -439,8 +9538,8 @@ enforced directly.
 Evidence:
 
 - `dev/scripts/devctl/commands/audit_scaffold.py` +
-  `dev/scripts/devctl/cli_parser_reporting.py` +
-  `dev/scripts/devctl/cli_parser_builders_ops.py` +
+  `dev/scripts/devctl/cli_parser/reporting.py` +
+  `dev/scripts/devctl/cli_parser/builders_ops.py` +
   `dev/scripts/devctl/tests/test_audit_scaffold.py`
   (`audit-scaffold` now accepts only `dev/reports/audits/*` output roots)
 - `dev/scripts/devctl/commands/docs_check_policy.py` +
@@ -582,7 +9681,7 @@ inline shell patterns.
 
 Evidence:
 
-- `dev/scripts/workflow_shell_bridge.py` (deterministic commit-range/scope,
+- `dev/scripts/workflow_bridge/shell.py` (deterministic commit-range/scope,
   failure-artifact, and first-match path resolution for workflow lanes)
 - `.github/workflows/tooling_control_plane.yml` (range resolution + strict
   user-doc gate signal now use helper script, plus explicit workflow-shell
@@ -612,7 +9711,7 @@ realigned to the same-SHA preflight-first release-gate sequence.
 
 Evidence:
 
-- `dev/scripts/autonomy_workflow_bridge.py` +
+- `dev/scripts/workflow_bridge/autonomy.py` +
   `dev/scripts/workflow_bridge/*`
   (workflow bridge command router split from config/export helper logic)
 - `dev/scripts/devctl/commands/hygiene_audits.py` +
@@ -672,7 +9771,7 @@ Evidence:
   blocking)
 - `dev/scripts/devctl/commands/loop_packet_helpers.py`,
   `dev/scripts/devctl/commands/ship.py`,
-  `dev/scripts/mutation_ralph_workflow_bridge.py`
+  `dev/scripts/workflow_bridge/mutation_ralph.py`
   (temp artifact default paths now derive from `tempfile.gettempdir()`)
 - `dev/scripts/devctl/tests/test_mutation_ralph_workflow_bridge.py`,
   `dev/scripts/devctl/tests/test_loop_packet.py`,
@@ -841,7 +9940,7 @@ Evidence:
   `dev/scripts/devctl/tests/test_audit_scaffold.py`
   (`audit-scaffold` now aggregates/action-synthesizes findings for test-shape
   and runtime panic-policy guard failures)
-- `dev/scripts/collect_clippy_warnings.py` +
+- `dev/scripts/rust_tools/collect_clippy_warnings.py` +
   `dev/scripts/checks/check_clippy_high_signal.py` +
   `dev/config/clippy/high_signal_lints.json` +
   `.github/workflows/rust_ci.yml`
@@ -937,13 +10036,13 @@ comment path.
 
 Evidence:
 
-- `dev/scripts/devctl/triage_loop_policy.py` (policy evaluation for
+- `dev/scripts/devctl/triage/loop_policy.py` (policy evaluation for
   `AUTONOMY_MODE`, branch allowlist, and fix-command prefix allowlist with
   `TRIAGE_LOOP_ALLOWED_PREFIXES` override)
 - `dev/config/control_plane_policy.json` (`triage_loop.allowed_fix_command_prefixes`)
 - `dev/scripts/devctl/commands/triage_loop.py` (policy wiring +
   `fix_block_reason` propagation + escalation publish path)
-- `dev/scripts/devctl/triage_loop_support.py` (separate escalation marker and
+- `dev/scripts/devctl/triage/loop_support.py` (separate escalation marker and
   idempotent escalation upsert helper)
 - `dev/scripts/checks/coderabbit_ralph_loop_core.py` (`fix_command_policy_blocked`
   handling and `escalation_needed=true` on max-attempt exhaustion)
@@ -971,7 +10070,7 @@ Evidence:
   to `swarm_run`, with historical pre-rename evidence explicitly labeled)
 - `dev/scripts/devctl/loop_fix_policy.py` (shared fix-policy parser/allowlist
   engine)
-- `dev/scripts/devctl/triage_loop_policy.py`,
+- `dev/scripts/devctl/triage/loop_policy.py`,
   `dev/scripts/devctl/mutation_loop_policy.py` (thin wrappers over shared
   engine)
 - `dev/scripts/devctl/tests/test_triage_loop_policy.py`,
@@ -1183,7 +10282,7 @@ run contributes to measurable productivity and agent-sizing analytics.
 Evidence:
 
 - `data_science/README.md`
-- `dev/scripts/devctl/data_science_metrics.py`
+- `dev/scripts/devctl/data_science/metrics.py`
 - `dev/scripts/devctl/commands/data_science.py`
 - `dev/scripts/devctl/cli.py` (post-command auto-refresh hook)
 - `dev/scripts/devctl/tests/test_data_science.py`
@@ -1262,12 +10361,12 @@ manual agent-count tuning.
 
 Evidence:
 
-- `dev/scripts/devctl/autonomy_run_feedback.py` (cycle metrics extraction from
+- `dev/scripts/devctl/autonomy/run_feedback.py` (cycle metrics extraction from
   worker `autonomy-loop` reports, streak tracking, downshift/upshift decisions)
 - `dev/scripts/devctl/commands/autonomy_run.py` (feedback-state wiring, cycle
   agent override forwarding, report payload integration)
-- `dev/scripts/devctl/autonomy_run_parser.py` (`--feedback-*` control flags)
-- `dev/scripts/devctl/autonomy_run_helpers.py` (per-cycle `--agents` override
+- `dev/scripts/devctl/autonomy/run_parser.py` (`--feedback-*` control flags)
+- `dev/scripts/devctl/autonomy/run_helpers.py` (per-cycle `--agents` override
   support)
 - `dev/scripts/devctl/tests/test_autonomy_run_feedback.py`,
   `dev/scripts/devctl/tests/test_autonomy_run.py` (config + behavior coverage)
@@ -1383,11 +10482,11 @@ Evidence:
 
 - `.github/workflows/autonomy_run.yml`
 - `dev/scripts/devctl/commands/autonomy_run.py`
-- `dev/scripts/devctl/autonomy_run_parser.py`
-- `dev/scripts/devctl/autonomy_run_helpers.py`
-- `dev/scripts/devctl/autonomy_run_render.py`
+- `dev/scripts/devctl/autonomy/run_parser.py`
+- `dev/scripts/devctl/autonomy/run_helpers.py`
+- `dev/scripts/devctl/autonomy/run_render.py`
 - `dev/scripts/devctl/tests/test_autonomy_run.py`
-- `dev/scripts/mutants.py` (shape-budget compaction to restore local
+- `dev/scripts/mutation/cli.py` (shape-budget compaction to restore local
   `check_code_shape` pass state in dirty-tree sessions)
 - `AGENTS.md`, `dev/scripts/README.md`, `dev/DEVELOPMENT.md`,
   `dev/ARCHITECTURE.md` (command inventory/workflow contract updates)
@@ -1505,7 +10604,7 @@ Evidence:
 
 - `dev/scripts/devctl/commands/security.py`
 - `dev/scripts/devctl/cli.py`
-- `dev/scripts/devctl/security_parser.py`
+- `dev/scripts/devctl/security/parser.py`
 - `dev/scripts/devctl/commands/listing.py`
 - `dev/scripts/devctl/tests/test_security.py`
 - `dev/scripts/devctl/process_sweep.py` (plain-language process-sweep context
@@ -1800,10 +10899,10 @@ explicit infra warnings when the `cihub triage` command path fails.
 
 Evidence:
 
-- `dev/scripts/devctl/triage_enrich.py`
-- `dev/scripts/devctl/triage_parser.py` (`--owner-map-file`)
+- `dev/scripts/devctl/triage/enrich.py`
+- `dev/scripts/devctl/triage/parser.py` (`--owner-map-file`)
 - `dev/scripts/devctl/commands/triage.py`
-- `dev/scripts/devctl/triage_support.py` (rollup + owner-aware markdown output)
+- `dev/scripts/devctl/triage/support.py` (rollup + owner-aware markdown output)
 - `dev/scripts/devctl/tests/test_triage.py`
 - `dev/scripts/README.md`
 - `dev/active/MASTER_PLAN.md` (`MP-302`)
@@ -1841,10 +10940,10 @@ Evidence:
   bounded retries, backlog artifact ingestion, and new-run polling)
 - `dev/scripts/devctl/commands/ship_steps.py` (`ship --verify` now runs the
   CodeRabbit gate before release/governance checks)
-- `dev/scripts/devctl/triage_parser.py` (`--external-issues-file`)
+- `dev/scripts/devctl/triage/parser.py` (`--external-issues-file`)
 - `dev/scripts/devctl/commands/triage.py` (external issue-file ingestion path)
-- `dev/scripts/devctl/triage_enrich.py` (shared payload/file extraction helpers)
-- `dev/scripts/devctl/triage_support.py` (external-source markdown rendering)
+- `dev/scripts/devctl/triage/enrich.py` (shared payload/file extraction helpers)
+- `dev/scripts/devctl/triage/support.py` (external-source markdown rendering)
 - `dev/scripts/devctl/tests/test_triage.py` (parser and external-ingest coverage)
 - `dev/scripts/devctl/tests/test_ship.py` (release verify gate coverage)
 - `.github/workflows/failure_triage.yml` (includes `CodeRabbit Triage Bridge`
@@ -1864,7 +10963,7 @@ report-only default plus policy-gated fix mode.
 
 Evidence:
 
-- `dev/scripts/devctl/triage_loop_parser.py` (`--source-run-id`,
+- `dev/scripts/devctl/triage/loop_parser.py` (`--source-run-id`,
   `--source-run-sha`, `--source-event`, `--comment-target`,
   `--comment-pr-number`)
 - `dev/scripts/checks/coderabbit_ralph_loop_core.py` (authoritative source-run
@@ -1898,12 +10997,12 @@ handoff paths, including a continuously refreshed phone-ready status feed.
 
 Evidence:
 
-- `dev/scripts/devctl/autonomy_loop_parser.py`
+- `dev/scripts/devctl/autonomy/loop_parser.py`
 - `dev/scripts/devctl/commands/autonomy_loop.py` (round/hour/task caps,
   policy-aware mode gating via `AUTONOMY_MODE`, checkpoint packet schema with
   terminal/action trace payloads, queue inbox artifacts, phone-status snapshots
   at `dev/reports/autonomy/queue/phone/latest.{json,md}`)
-- `dev/scripts/devctl/autonomy_loop_helpers.py` (phone-status payload builder +
+- `dev/scripts/devctl/autonomy/loop_helpers.py` (phone-status payload builder +
   markdown renderer with run URL/SHA context and next-action summaries)
 - `dev/scripts/devctl/tests/test_autonomy_loop.py` (parser + controller command
   behavior coverage including phone-status artifact assertions)
@@ -1984,7 +11083,7 @@ and release publish workflows.
 
 Evidence:
 
-- `dev/scripts/devctl/triage_loop_parser.py` (parser wiring for `triage-loop`)
+- `dev/scripts/devctl/triage/loop_parser.py` (parser wiring for `triage-loop`)
 - `dev/scripts/devctl/commands/triage_loop.py` (loop execution, md/json output,
   bundle emission, optional MASTER_PLAN proposal artifact)
 - `dev/scripts/devctl/cli.py` /
@@ -2042,7 +11141,7 @@ scripts hygiene, and reports removed/skipped/failed cache paths explicitly.
 
 Evidence:
 
-- `dev/scripts/devctl/cli_parser_reporting.py` (new `hygiene --fix` flag)
+- `dev/scripts/devctl/cli_parser/reporting.py` (new `hygiene --fix` flag)
 - `dev/scripts/devctl/commands/hygiene.py` (safe cache-dir removal flow with
   repo-root guardrails and fix report output)
 - `dev/scripts/devctl/tests/test_hygiene.py` (parser + cleanup + end-to-end fix
@@ -2122,9 +11221,9 @@ bundle with markdown, JSON, copied source artifacts, and chart outputs.
 Evidence:
 
 - `dev/scripts/devctl/commands/autonomy_report.py`
-- `dev/scripts/devctl/autonomy_report_helpers.py`
-- `dev/scripts/devctl/autonomy_report_render.py`
-- `dev/scripts/devctl/cli_parser_reporting.py` and
+- `dev/scripts/devctl/autonomy/report_helpers.py`
+- `dev/scripts/devctl/autonomy/report_render.py`
+- `dev/scripts/devctl/cli_parser/reporting.py` and
   `dev/scripts/devctl/commands/listing.py` (command wiring + discovery)
 - `dev/scripts/devctl/tests/test_autonomy_report.py` (parser + bundle
   generation coverage)
@@ -2146,9 +11245,9 @@ Evidence:
 
 - `dev/scripts/devctl/commands/autonomy_swarm.py`
   (reviewer-lane reservation + post-audit bundling path)
-- `dev/scripts/devctl/cli_parser_reporting.py`
+- `dev/scripts/devctl/cli_parser/reporting.py`
   (`--reviewer-lane` and post-audit argument surface)
-- `dev/scripts/devctl/autonomy_swarm_helpers.py`
+- `dev/scripts/devctl/autonomy/swarm_helpers.py`
   (markdown output includes reviewer/post-audit summary fields)
 - `dev/scripts/devctl/tests/test_autonomy_swarm.py`
   (reviewer-lane reservation + post-audit behavior coverage)
@@ -2170,9 +11269,9 @@ runner that validates active-plan scope (`plan-doc`, `INDEX`, `MASTER_PLAN`,
 Evidence:
 
 - `dev/scripts/devctl/commands/autonomy_benchmark.py`
-- `dev/scripts/devctl/autonomy_benchmark_parser.py`
-- `dev/scripts/devctl/autonomy_benchmark_helpers.py`
-- `dev/scripts/devctl/autonomy_benchmark_render.py`
+- `dev/scripts/devctl/autonomy/benchmark_parser.py`
+- `dev/scripts/devctl/autonomy/benchmark_helpers.py`
+- `dev/scripts/devctl/autonomy/benchmark_render.py`
 - `dev/scripts/devctl/tests/test_autonomy_benchmark.py`
 - `dev/scripts/devctl/cli.py`,
   `dev/scripts/devctl/commands/listing.py` (command wiring + discovery)
@@ -2433,7 +11532,7 @@ Evidence:
 - `dev/scripts/devctl/commands/mutation_score.py`,
   `dev/scripts/devctl/cli.py`, `dev/scripts/devctl/commands/check.py`
   (`devctl mutation-score` + release-profile wiring for freshness flags)
-- `dev/scripts/mutants.py`, `dev/scripts/devctl/commands/status.py`,
+- `dev/scripts/mutation/cli.py`, `dev/scripts/devctl/commands/status.py`,
   `dev/scripts/devctl/commands/report.py` (status/report exposure of mutation
   outcomes path + age metadata)
 - `dev/active/MASTER_PLAN.md` (`MP-015` execution note)
@@ -2934,7 +12033,7 @@ Close release-loop ambiguity while validating process-lifecycle hardening and im
 - `dev/scripts/generate-release-notes.sh`
 - `dev/scripts/release.sh`
 - `.github/workflows/mutation-testing.yml`
-- `dev/scripts/render_mutation_badge.py`
+- `dev/scripts/badges/mutation.py`
 - `.github/badges/mutation-score.json`
 - `rust/src/pty_session/pty.rs` and `rust/src/pty_session/tests.rs`
 - `rust/src/pty_session/session_guard.rs`
@@ -3910,4 +13009,3255 @@ The full technical showcase is consolidated above in Appendix G of this document
   widened the narrow-phone control strip so import/reload/sample actions remain
   usable without horizontal crowding.
 
+### 2026-03-11 - Portable Quality Policy Presets
+
+- Split the quality-policy fallback boundary so engine-level defaults stay
+  portable while VoiceTerm-only matrix/isolation guards move behind a
+  repo-specific preset under `dev/config/quality_presets/`.
+- Added a dedicated `voiceterm.json` preset and corrected `portable_rust.json`
+  so other repos do not inherit VoiceTerm-only governance by accident.
+- Extended the probe-backed `status`, `report`, and `triage` surfaces with the
+  same `--quality-policy` override already used by `check` / `probe-report`,
+  while keeping `DEVCTL_QUALITY_POLICY` as the automation equivalent.
+- Logged the next portable-guard backlog explicitly in the active plan:
+  Python branch/return complexity, Python default-argument traps,
+  Python cyclic-import detection, and Rust `result_large_err` /
+  `large_enum_variant` evaluation.
+
+### 2026-03-13 - Simple Launcher Lane Aliases
+
+- Added a focused repo-local launcher policy at
+  `dev/config/devctl_policies/launcher.json` so the Python launcher surfaces
+  under `scripts/` and `pypi/src` can be scanned without dragging in the full
+  VoiceTerm repo policy.
+- Added three short `devctl` aliases for that lane:
+  `launcher-check`, `launcher-probes`, and `launcher-policy`.
+- Kept the implementation under `dev/scripts/devctl/commands/governance/`
+  instead of growing the crowded flat command root again, and added targeted
+  governance CLI tests for parser wiring plus delegated policy forwarding.
+- Followed immediately with the first launcher-only hard guard,
+  `check_command_source_validation.py`, so the new lane owns a real
+  repeatable security rule instead of only a wrapper shell. The pilot guard
+  catches free-form `shlex.split(...)` on CLI/env/config input, raw
+  `sys.argv` forwarding, and env-controlled command argv without validator
+  helpers.
+- Tightened the live launcher offenders in the same slice:
+  `scripts/python_fallback.py` now rejects deprecated `--codex-args`
+  free-form passthrough in favor of repeatable `--codex-arg`, and
+  `pypi/src/voiceterm/cli.py` now validates bootstrap repo URL/ref plus
+  forwarded argv before calling `git clone` or the native binary.
+
+### 2026-03-11 - CI Parity for Portable Governance
+
+- Fixed a real governance portability leak: `dev/config/devctl_repo_policy.json`
+  and `dev/config/quality_presets/*.json` had been left as ignored local JSON,
+  so local `devctl check` / `probe-report` runs used the VoiceTerm policy while
+  GitHub CI silently fell back to the portable default guard surface.
+- Un-ignored and committed those policy/preset files, then updated maintainer
+  docs (`AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`) so
+  policy changes are treated as versioned source-of-truth instead of local-only
+  machine state.
+- Narrowed the Pre-commit workflow to the changed-file diff instead of
+  `--all-files`, which had been surfacing unrelated repo-wide whitespace/ruff
+  backlog instead of PR-local regressions.
+- Fixed the Tooling Control Plane advisory mypy job so zero-match `grep -c`
+  output writes cleanly to `GITHUB_ENV` instead of emitting an invalid extra
+  `0` line.
+- Moved iOS CI to `macos-15`, aligning the workflow with Swift 6 package
+  requirements and the newer Xcode project format used by the iOS app.
+- Burned down the current maintainer-lint failures by removing two redundant
+  Rust closures in `command_state.rs` and `git_snapshot.rs`.
+- Refreshed the external `terminal-as-interface` paper repo from the committed
+  VoiceTerm branch head, switched the appendix snapshot prose to shared
+  `voiceterm_snapshot.json` data, and recorded the new
+  `publication_sync_registry.json` baseline
+  (`source_ref=4deb8ec8f8c3709f1fb35955f9763c6147df6a95`,
+  `external_ref=9cf965f`) so publication drift returned to zero.
+- Burned down the next GitHub-only PR blockers after the branch refresh:
+  `test_process_sweep.py` now derives repo-root fixture paths from the active
+  checkout, review-channel stale-poll tests pin freshness policy explicitly for
+  `GITHUB_ACTIONS`, the startup-banner fallback test clears leaked runtime
+  overrides before asserting its default mode, iOS `xcode-build` now uses the
+  generic simulator destination, and the changed-file `pre-commit` lane is back
+  to green after explicit re-export cleanup plus the associated Ruff/format
+  sweep across the touched PR file set.
+- Closed the follow-up local parity pass by keeping repo-owned Python
+  subprocesses on the invoking `devctl` interpreter, restoring split-module
+  compatibility exports for `quality_policy` / `collect` / `status_report` /
+  `triage.support` / `check_phases` / `check_python_global_mutable`, and
+  splitting phone-status plus Activity-tab helper support into dedicated
+  modules so the touched files returned under the code-shape and
+  function-duplication guards.
+- Closed the next working-tree review-probe pass by replacing anonymous Ralph
+  and mobile-status view dicts with typed projection boundaries, moving mobile
+  view parsing/render helpers into `mobile_status_projection.py` so
+  `mobile_status_views.py` stayed below its file-shape cap, and replacing the
+  remaining loop-packet auto-send string chain with a typed
+  `LoopPacketSourceCommand` parse path. The resulting `probe-report` packet is
+  clean and the governance ledger remains at `0` false positives.
+- Closed the immediate post-push repair GitHub exposed in the changed-file
+  `pre-commit` lane: Ruff had removed several compatibility export seams still
+  used by the repo, so `common.py`, `status_report.py`, `collect.py`,
+  `triage/support.py`, `commands/check_phases.py`, `process_sweep/core.py`,
+  `phone_status_view_support.py`, `quality_policy.py`,
+  `check_python_global_mutable.py`, and `probe_report_render.py` now keep
+  those names explicitly while `common.py` uses a compact export table to stay
+  under the code-shape cap. The branch-local `pre-commit` run, `check`
+  bundle, and full `dev/scripts/devctl/tests` suite are green again on the
+  repaired SHA.
+- Closed the last docs-governance drift on that repaired SHA by documenting a
+  maintainer rule in `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, and
+  `dev/scripts/README.md`: staged `dev/scripts/**` module splits must keep
+  compatibility re-exports until repo importers, tests, workflows, and
+  pre-commit entry points migrate together. With that contract explicit,
+  `docs-check --strict-tooling` returned to green and the full canonical
+  `bundle.tooling` replay stayed green under `python3.11`, including a clean
+  Operator Console suite and host process cleanup.
+- Closed the next GitHub-runner parity bugs from PR #16: review-channel
+  launch/rollover tests had become PATH-sensitive because script generation
+  tried to resolve `codex`/`claude` before a dry-run or simulated launch ever
+  started, so the bridge session builder now falls back to the provider
+  command name for the default resolver while preserving the explicit missing-
+  CLI failure test via patched resolvers. `triage-loop` now threads the
+  command module's CI/connectivity predicates into its preflight helper so the
+  existing non-blocking-local connectivity test remains valid in GitHub
+  Actions, and `JobRecord.duration_seconds` now clamps negative monotonic
+  deltas to zero so the Operator Console timing surface does not go negative on
+  runners with smaller monotonic counters. The full `dev/scripts/devctl/tests`
+  suite reran at `1184 passed, 4 subtests passed`, and
+  `app/operator_console/tests/` reran at `397 passed, 181 skipped`.
+- Closed the last review-channel CI heartbeat mismatch from the same PR rerun:
+  stale bridge auto-refresh had been keyed off bridge-guard metadata failures,
+  but the guard intentionally does not enforce live Codex heartbeat freshness
+  on `GITHUB_ACTIONS=true` runners. `devctl review-channel` now still uses the
+  guard for structural bridge validity but derives refreshability from direct
+  bridge snapshot/liveness state, and the stale-heartbeat tests now run under
+  an explicit GitHub Actions env shape so this regression stays reproducible
+  locally before the next push.
+- Closed the final workflow-only blocker from the same PR rerun: the
+  `tooling_control_plane.yml` docs/governance job was calling the compile-time
+  Rust warning guard without installing the Rust toolchain or Linux ALSA
+  headers, even though the dedicated Rust CI lanes already require both.
+  That workflow now provisions Rust plus `libasound2-dev` before the changed-
+  file compiler warning scan, and maintainer docs explicitly note that
+  tooling/docs jobs must provision compile-time Rust prerequisites themselves.
+- Added the missing raw external-evidence intake layer for the governance
+  stack. `devctl governance-import-findings` now imports JSON/JSONL
+  multi-repo findings into `dev/reports/governance/external_pilot_findings.jsonl`,
+  `governance-review` now accepts `audit` findings for adjudicated external
+  evidence, and `data-science` joins both ledgers so adjudication coverage by
+  repo/check becomes visible for the future database/ML path instead of
+  relying only on markdown notes or the reviewed subset. Maintainer docs now
+  describe the raw-vs-reviewed split explicitly across `AGENTS.md`,
+  `dev/guides/DEVELOPMENT.md`, `dev/guides/DEVCTL_AUTOGUIDE.md`,
+  `dev/guides/PORTABLE_CODE_GOVERNANCE.md`, `dev/scripts/README.md`, and
+  `data_science/README.md`.
+- Closed the next probe-governance drift inside the portable platform lane.
+  `devctl probe-report` now passes `repo_root` through its markdown/terminal
+  render path, so repo-root `.probe-allowlist.json` design-decision entries
+  shape the canonical operator packet instead of only the fallback
+  `run_probe_report.py` route. The same slice refactored
+  `commands/review_channel.py` into smaller typed validation/status/lifecycle/
+  dispatch helpers without changing the CLI contract, and maintainer docs now
+  describe the real allowlist schema (`entries`, `disposition`, file+symbol
+  matching with `probe` kept as audit intent). Focused evidence is green:
+  `python3.11 -m pytest dev/scripts/devctl/tests/test_review_channel.py -q --tb=short`
+  passed at `145` tests, and the filtered local probe backlog is now
+  medium-only (`0` active high, `14` active medium, `25` design decisions).
+- Tightened the repo-wide `MP-377` plan authority after another architecture
+  pass found one more missing process seam: contract closure itself needed to
+  become explicit tracked scope. `MASTER_PLAN` now keeps the current feature
+  branch visible alongside `develop`, and `ai_governance_platform.md` now
+  treats `FixPacket` / `DecisionPacket`, schema/version matrices, validation
+  routing, a `platform-contracts` authority upgrade, `devctl map`, repo-pack
+  resolution, and a contract-closure/meta-governance guard as blocking `P0`
+  items rather than implied future cleanup.
+- Landed the first executable contract-closure slice under that same `MP-377`
+  seam. `devctl probe-report` now enriches probe hints with stable
+  `finding_id` / `rule_id` / `rule_version` metadata before packet routing,
+  the emitted `summary`, `file_topology`, `review_packet`, and
+  `review_targets` JSON artifacts now carry explicit `schema_version` and
+  `contract_id` fields, and `.probe-allowlist.json` routing now keys on
+  `file` + `symbol` + `probe` when a probe id is declared. Maintainer docs and
+  the allowlist template were updated in the same slice so the repo-visible
+  contract matches the emitted packet/artifact behavior.
+- Landed the next bounded platform contract-closure guard for that same
+  `MP-377` seam. `platform-contracts` now carries runtime-model pointers plus
+  durable artifact-schema rows for the current implemented platform families,
+  and `check_platform_contract_closure.py` reconciles those rows against
+  runtime dataclass fields, emitted schema constants, and startup-surface
+  command tokens. Repo policy, shared governance bundles, and maintainer docs
+  were updated in the same slice so AI/dev operators know to run the guard
+  whenever shared platform/runtime contract surfaces change.
+- The first routed validation pass over that slice also flushed out a real
+  self-hosting bug in the execution path: `check-router` still executed
+  repo-owned bundle commands through literal `python3`, so systems where
+  `python3` pointed at 3.10 failed before the routed lane started. The router
+  now uses the same repo-owned shell-command normalization path as
+  `tandem-validate`, preserves the tandem-facing compatibility export, and the
+  platform catalog/tests were refactored in the same follow-up so code-shape
+  and duplication guards stayed green while the interpreter fix landed.
+
 </details>
+- 2026-03-21: Tightened active-plan self-hosting governance under the `MP-377`
+  authority-loop lane. Added a governed active-plan format reference, recorded
+  that graph/context compression stays advisory for checkpoint boundaries, and
+  extended the active-plan/docs-governance direction so execution-plan docs are
+  expected to carry parseable metadata plus `Session Resume` instead of relying
+  on inconsistent markdown conventions while the platform is designing
+  `PlanRegistry` / `PlanTargetRef`.
+- 2026-03-22: Tightened the `MP-377` closure contract after the first live
+  Ralph `ai_instruction` route landed. The canonical plan chain now records
+  that the remaining governance miss is not the old Ralph dual-authority bug
+  or a still-live junk-drawer module; those were already cleaned up. The real
+  follow-up is stronger detector coverage: the platform/meta-guard tranche and
+  probe lane now explicitly own single-authority AI-consumer enforcement and
+  prose-derived routing fallback detection so external review is not the first
+  place that architectural seam shows up.
+- 2026-03-22: Landed the first live `context-graph` relation-family slice
+  behind the `MP-377` graph-routing lane. `builder.py` now emits
+  `EDGE_KIND_GUARDS` from the active quality-policy guard registry plus
+  resolved scope roots, and it emits the first `EDGE_KIND_SCOPED_BY` edges
+  from docs-policy tooling prefixes bound to canonical plan docs. Targeted
+  `context-graph` tests now prove those edges exist in the live repo graph, so
+  file/path queries can answer guard-coverage and plan-ownership questions
+  from canonical policy/plan inputs instead of import adjacency alone.
+- 2026-03-22: Started the Part-53 temporal-graph tranche with the first saved
+  artifact slice instead of inventing a second graph-analysis path.
+  `devctl context-graph` now writes a typed `ContextGraphSnapshot` artifact
+  under `dev/reports/graph_snapshots/` at the end of bootstrap runs and when
+  `--save-snapshot` is requested on other modes, carrying commit/branch/time
+  metadata, full node/edge payloads, kind counts, and a bounded temperature
+  distribution summary. This leaves the next Part-53 steps focused on
+  snapshot diff/trend logic rather than basic capture plumbing.
+- 2026-03-23: Completed the next Part-53 slice on the same canonical graph
+  contract instead of creating a parallel temporal-analysis tool.
+  `devctl context-graph --mode diff --from ... --to ...` now reloads saved
+  `ContextGraphSnapshot` artifacts into typed state, emits a versioned
+  `ContextGraphDelta` payload with added/removed/changed node and edge
+  samples plus edge-kind/temperature changes, and reports a rolling trend
+  summary over recent snapshots. That turns saved graph baselines into live
+  drift answers without leaving the `context-graph` surface.
+- 2026-03-23: Closed the next startup-authority enforcement seam in the
+  `MP-377` authority loop after the live guard proved the problem but the
+  bootstrap path still treated it as optional. `startup-context` is now the
+  explicit Step 0 gate in `AGENTS.md`, generated bootstrap surfaces, and the
+  review-channel conductor prompt; it persists a managed `StartupReceipt`
+  under the repo-owned reports root derived from live governance/path-root
+  authority instead of a hardcoded `dev/reports/...` path; and scoped
+  repo-owned launcher/mutation `devctl` commands now fail closed when that
+  receipt is missing/stale or when live startup-authority truth is red.
+  Focused runtime/governance tests, active-plan sync, instruction-surface
+  sync, and platform-contract closure are green after the slice. The
+  remaining gap is now the separate raw git/pre-commit bypass plus broader
+  repo-pack activation, not the old optional-escalation loophole.
+### 2026-03-24 - MP-377 guarded push preflight now respects branch-local truth
+
+Fact: the next `MP-377` startup/push follow-up closed two governance-policy
+drifts that were still blocking normal feature-branch publication for the
+wrong reasons. `devctl push` had still been building `check-router` preflight
+against `origin/develop`, so a feature branch with older workflow history was
+misclassified as `bundle.release` and tripped master-only CodeRabbit gates.
+That diff base now resolves to the tracked upstream branch when it exists, and
+the same resolver is reused by startup work-intake routing so
+`startup-context` advertises the exact preflight command `devctl push` will
+run. Separately, the tooling lane no longer treats stale mutation-badge
+freshness as a blocking strict-warning failure even though the warning remains
+visible in hygiene output; release lanes and external publication drift policy
+stay unchanged. The practical result is that feature-branch guarded push now
+fails only on real current-lane blockers instead of unrelated release debt or
+repo-pre-existing mutation freshness drift.
+
+### 2026-03-24 - MP-377 governance-closure guard now proves real coverage
+
+Fact: the next guarded-push blocker after that routing/hygiene cleanup turned
+out to be a brittle self-governance heuristic, not new architectural debt.
+`check_governance_closure` had been treating test coverage as "filename starts
+with the guard/probe id" and CI coverage as "workflow YAML literally contains
+the guard id," which misclassified shared test modules and `devctl check
+--profile ci` workflow coverage as missing. The meta-guard now counts shared
+coverage by test-content reference, recognizes AI-guard CI coverage when a
+workflow invokes the CI profile, and the remaining truly-uncovered guard/probe
+scripts gained lightweight smoke tests. That keeps the self-hosting contract
+honest: guarded push now fails on real governance-closure debt instead of
+substring/filename false negatives, without weakening release-lane policy or
+teaching operators to bypass the gate.
+
+### 2026-03-25 - MP-377 docs now describe live `scoped_by` ownership honestly
+
+Fact: the next `context-graph` follow-up on this branch was a maintainer-doc
+drift fix, not a new runtime feature. The implementation currently suppresses
+generic guard-edge fan-out for non-guard queries, but `scoped_by` ownership is
+still derived from docs-policy prefixes only; the broader plan-registry /
+directory-ownership expansion remains open in the MP-377 graph lane. The repo
+docs were corrected to describe that current behavior precisely instead of
+claiming bounded derived plan-to-directory matching had already landed.
+
+### 2026-03-25 - MP-377 plan state now distinguishes repo-owned startup gates from raw provider entry
+
+Fact: a direct raw `claude` repro showed that the earlier `MP-377` wording had
+collapsed two different states into one claim. Repo-owned launcher/mutation
+flows are gated by `startup-context` plus `StartupReceipt`, but a fresh raw
+interactive provider session can still skip Step 0 until a supported
+hook/wrapper/launcher path exists. The active plan stack was corrected to say
+that precisely, and the two validated resweep deltas were promoted into actual
+tracked checklist state instead of staying only in intake/progress prose: raw
+interactive bootstrap enforcement for provider entry, and a generated-only
+graph normalization/compaction reducer after the first query-engine proof. The
+same follow-up also made the `system-picture` lane explicit about plan-status /
+progress percentages, promoted one cross-file reference prepass for
+context-blind probes such as `probe_single_use_helpers`, and named shared
+parser/AST reuse alongside the already-tracked guard-result caching
+performance-contract lane.
+
+### 2026-03-26 - MP-355 bridge repair is now repo-owned and the bridge guard fails on transcript drift
+
+Fact: the live markdown bridge had silently degraded into a 4164-line mixed
+transcript that included duplicate report headings plus raw terminal/test
+output, which made the compatibility surface unreliable as a current-state
+handoff. The immediate fix was not more manual bridge surgery; it was to make
+bridge repair repo-owned. `review-channel --action render-bridge` now rebuilds
+`bridge.md` from the bounded compatibility template plus sanitized live
+sections, and the bridge guard now fails closed on oversize bridges,
+duplicate/unsupported H2 headings, transcript/ANSI contamination, and
+overgrown live owned sections (`Claude Status`, `Claude Ack`). The broader
+typed writer/mutation cutover remains open, but the transitional bridge can no
+longer silently persist as a 4000-line mixed report blob.
+
+### 2026-03-26 - The bridge is de-authorized, not de-scoped
+
+Fact: the active architecture wording needed one explicit clarification after a
+portability review. The markdown bridge should not remain a VoiceTerm-only dead
+end or disappear just because typed runtime authority is taking over. If
+`bridge.md` survives, it survives as an optional repo-pack-owned portable
+frontend/projection over the same typed backend contracts (`review_state`,
+queue, registry, attention), not as the canonical source of truth. The
+de-authority rule is about state ownership, not about banning markdown as a
+frontend for other repos that want it.
+
+### 2026-03-26 - Architecture docs are part of the portability boundary too
+
+Fact: the portability review found the next failure mode was not only runtime
+code. Some review/runbook docs were still teaching fixed VoiceTerm review paths
+and speaking about `bridge.md` as if it were the live backend authority. The
+correction was to front-load the governed boundary in the docs themselves:
+typed `review_state` stays the canonical machine authority, while `bridge.md`
+is the temporary repo-owned compatibility projection for this repo's current
+loop and the documented path roots are examples resolved through
+`ProjectGovernance` / repo-pack state, not universal defaults.
+
+### 2026-03-27 - Governed push now follows the real parent command lifetime
+
+Fact: the next push failure shape on `feature/governance-quality-sweep` was
+not a git-policy miss. The branch did reach `origin`, but the local `devctl
+push --execute` session looked wedged because the shared live-output runner
+waited for stdout EOF even after the parent push/post-push process had
+already exited. A descendant inherited the pipe, so command completion was
+incorrectly tied to descendant stdout lifetime instead of the actual parent
+step. The fix keeps a short post-exit drain window for buffered lines, then
+ends the step based on parent-process completion; a regression test now
+proves the runner does not time out when a child inherits stdout after the
+parent command has finished.
+
+### 2026-03-28 - Persisted push truth now survives interrupted local sessions
+
+Fact: fixing the parent-lifetime bug was not enough. The repo could still end
+up in a misleading recovery state after a real remote publication because the
+typed push stages only existed in terminal output. `devctl push` now persists
+the latest typed push result at `dev/reports/push/latest.json`, and startup
+authority reads that managed artifact before recommending another push. The
+new recovery rule is explicit: `published_remote=true` is canonical remote
+publication truth even if the local command later exits non-zero because the
+post-push bundle failed or the terminal session was interrupted; the next
+step is post-push repair/status verification, not a second push attempt.
+
+### 2026-03-28 - Startup push recovery now trusts current-HEAD publication snapshots
+
+Fact: persisting the final push report was still too late for the live failure
+mode. A real `git push` could succeed, the post-push bundle could keep
+running, and recovery would still look at a stale local `ahead 1` upstream
+view and recommend pushing again. `devctl push --execute` now writes a
+`published_remote` snapshot immediately after `git push` succeeds, records the
+published branch/HEAD in that artifact, and startup recovery treats a matching
+current-HEAD artifact as canonical remote-publication truth even before the
+next fetch refreshes the tracking ref.
+
+### 2026-04-02 - Governed push now exposes publication-stage progress during long post-push audits
+
+Fact: the typed publication truth was right, but the live operator experience
+still looked wrong. Once `devctl push --execute` had pushed and persisted the
+`published_remote` snapshot, a long post-push bundle could leave the terminal
+quiet enough that humans or AI inferred "maybe it never pushed" until they
+checked GitHub or reran startup.
+
+Change: interactive governed pushes now emit explicit stderr progress when
+remote publication is recorded and before each post-push step. That keeps the
+existing typed truth model intact, but makes the live phase boundary obvious:
+"published, still auditing" instead of a silent window that looks like
+unresolved push state.
+
+### 2026-03-27 - Python architecture learning and AI explainability are now one tracked MP-377 concern
+
+Fact: the latest architecture discussion exposed a real usability gap in the
+governance stack. The repo already had strong typed-contract direction, but it
+still treated Python learning guidance and AI explanation quality as loosely
+related concerns. The correction is to keep them on one owner chain: runtime
+decisions should explain themselves through a small schema-validated
+decision-record vocabulary rendered into plain language, while the matching
+human-learning surface should teach the same contract-first modeling choices
+(`dict` vs `TypedDict` vs `dataclass` vs boundary-validation models,
+`Protocol`, composition, repository/service/unit-of-work, and dependency
+injection) instead of leaving that reasoning scattered across docs and chat.
+The active plan now records the recommended study spine explicitly too:
+Cosmic Python (Ch. 1-6, 8, 13), the official typing docs, Pydantic
+strict-mode/JSON Schema, and FastAPI boundary-model docs, with Pydantic kept
+focused on untrusted or serialized boundaries rather than promoted to every
+internal runtime contract.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
+### 2026-03-27 - Immediate explanation rollout now reuses existing packets and probe teaching content
+
+Fact: the follow-up review tightened the execution order for that same
+explainability slice. The full typed `DecisionTrace` family is still the
+Phase-5b provenance/evidence closure tracked under
+`platform_authority_loop.md`; it should not be pulled earlier just because the
+need is urgent. The correct near-term move is to improve the current operator
+surfaces with what already exists: extend `DecisionPacketRecord` and routed
+startup/task-router/workflow-profile receipts with `match_evidence` and
+rejected-rule traces, and render `practices.py` / `SIGNAL_TO_PRACTICE`
+teaching content plus plain-language hotspot metric explanations directly into
+canonical probe packets. That keeps the owner chain consistent while still
+delivering the low-effort/high-value clarity wins first. The same audit also
+confirmed one extra missing explanation surface worth tracking now instead of
+implicitly rolling into the router work later: context-graph/query results
+still need a short "why this matched/ranked" explanation rather than only
+lists, temperatures, and edge counts.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/review_probes.md`,
+`dev/active/platform_authority_loop.md`.
+
+### 2026-03-27 - Package-layout now reports baseline organization debt as first-class truth
+
+Fact: the self-hosting organization review exposed a narrower failure than "no
+guard exists." `check_package_layout.py` already detected overcrowded roots and
+families, but its top-line `ok` field only tracked blocking drift, so a
+freeze-mode repo could still look green in ordinary working-tree runs while
+carrying obvious structural debt. The fix keeps one `package_layout` system
+instead of inventing another checker: the report now emits explicit baseline
+organization-debt state (`status=baseline_debt_detected`,
+`layout_clean=false`) whenever crowded roots/families remain. That makes the
+repo's self-description honest now, while the later ratchet to hard-fail
+selected crowded namespaces stays coupled to actual decomposition work rather
+than silently deadlocking the whole tree overnight.
+
+Evidence: `dev/scripts/checks/package_layout/command.py`,
+`dev/scripts/devctl/tests/checks/package_layout/test_check_package_layout.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
+### 2026-03-27 - Shared backlog is now governed startup/work-intake intake instead of an orphaned side file
+
+Fact: the repo needed one shared backlog surface that humans and AI could both
+use without recreating the old hidden-backlog problem. The fix did not make
+backlog execution authority. Instead, repo policy now advertises `backlog.md`
+as a governed shared backlog doc, doc-authority classifies it as
+`shared_backlog`, and `startup-context` / `WorkIntakePacket` can surface it in
+warm refs plus writeback sinks. The fail-closed rule stays intact:
+`backlog.md` is shared intake only, and any item that becomes active work must
+still be promoted into `dev/active/MASTER_PLAN.md` plus the owning active
+plan.
+
+Evidence: `backlog.md`,
+`dev/config/devctl_repo_policy.json`,
+`dev/scripts/devctl/governance/draft_policy_scan.py`,
+`dev/scripts/devctl/runtime/work_intake_routing.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/platform_authority_loop.md`.
+
+### 2026-03-27 - Docs-check commit-range policy resolution is now bounded instead of rescanning governance per path
+
+Fact: a governed push replay exposed a real performance/pathology miss in the
+docs-governance lane. `docs-check --user-facing --since-ref origin/develop`
+was logically correct, but path-level helpers such as `is_tooling_change()`
+and `requires_evolution_update()` were rebuilding the same resolved
+docs/governance policy for each changed file. On a large commit range that
+turned the release lane into repeated repo-governance scans instead of one
+bounded evaluation pass. The fix is two-part: cache the resolved docs policy
+per repo/policy-path context inside `policy_runtime.py`, and keep a regression
+test proving repeated helper calls on the same repo/policy path reuse that
+single resolved contract. The active `MP-377` plan now records the broader
+closure rule too: governance scans may be expensive, but path predicates must
+consume one resolved authority contract instead of rescanning inside loops.
+
+Evidence: `dev/scripts/devctl/commands/docs/policy_runtime.py`,
+`dev/scripts/devctl/tests/test_docs_check_constants.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`.
+
+### 2026-04-15 - Shim public contracts are explicit, and review-state parsing no longer assumes bridge-shaped envelopes
+
+Fact: the shim/decomposition layer and the review-state convergence layer both
+had the same class of drift: maintainers had already documented the intended
+authority boundary, but the live policy/parser still only understood the older
+shape. That meant the system emitted misleading advice even though the code was
+nominally green.
+
+This mattered in two ways. First, full
+`probe_compatibility_shims.py --since-ref __DEVCTL_EMPTY_TREE_BASE__ --head-ref __DEVCTL_WORKTREE_HEAD__`
+still flagged documented `dev/scripts/checks` helper wrappers such as
+`code_shape_*.py`, `python_default_trap_core.py`, and
+`mobile_relay_rust_parser.py` as temporary remove-now debt because repo policy
+only allowlisted `check_*`, `probe_*`, and `run_*` root shims. Second,
+`dev/scripts/devctl/runtime/review_state_parser.py` still inferred "this is a
+canonical review-state payload" from bridge-shaped envelope keys
+(`review` / `queue` / `bridge` / `packets` / `agents`) even when the producer
+was already emitting flat typed runtime state through fields like
+`current_session`, `reviewer_runtime`, `coordination`, and `packet_inbox`.
+
+The closure made the authority explicit in both places. Repo policy now
+allowlists the documented long-lived helper shims under
+`probe_compatibility_shims.allowed_public_shims`, the dead
+`dev/scripts/devctl/quality_policy_values.py` wrapper was deleted instead of
+being preserved by lore, and the same full adoption scan dropped from 9 hints
+to 7 with the remaining backlog narrowed to the real `dev/scripts/devctl`
+root/command-family migration debt. On the runtime side,
+`review_state_parser.py` now recognizes flat typed review-state envelopes by a
+shared canonical key set, and the focused regression proves that a payload with
+`current_session` plus `reviewer_runtime` no longer needs bridge prose keys to
+parse as first-class review state.
+
+Evidence:
+`dev/config/quality_presets/voiceterm.json`,
+`dev/scripts/devctl/quality_policy_values.py`,
+`dev/scripts/devctl/runtime/review_state_parser.py`,
+`dev/scripts/devctl/tests/checks/package_layout/test_probe_compatibility_shims.py`,
+`dev/scripts/devctl/tests/runtime/test_review_state.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
+### 2026-04-15 - Dogfood campaign rows now carry cross-surface linkage, and `LIVE_RUN.md` imports collapse on repo-scoped Q-ids
+
+Fact: the repo had already decided that canonical findings belong in
+`FindingBacklog` / `governance-review` while `LIVE_RUN.md` stays compatibility
+evidence, but the live system-test loop still lacked the connective tissue to
+prove that contract end to end. Dogfood rows could say "this command/role
+passed" without identifying the campaign/scenario/topology they belonged to,
+and markdown finding mirrors still risked turning into a second backlog unless
+imports collapsed on a stable repo-scoped identity.
+
+The closure made both paths explicit. `devctl dogfood --record` now accepts
+campaign metadata (`campaign_id`, `scenario_id`, `repo_scope`, `repo_label`,
+`repo_path`, `topology`, `lane_role`) plus cross-surface linkage
+(`live_run_refs`, `governance_finding_ids`), persists that state in
+`dev/reports/dogfood/runs.jsonl`, renders it in the latest dogfood summary,
+and copies the same linkage into auto-recorded dogfood governance notes.
+`governance-import-findings` now also accepts `--input-format md` for
+`LIVE_RUN.md` compatibility intake, reuses the existing markdown section
+parser, and emits repo-scoped sync ids in the form `<repo_name>:Qnn` so
+repeated imports converge on one canonical finding identity instead of
+spawning per-run duplicates.
+
+This matters because the next proof target is no longer "one command works."
+It is "the live multi-agent system stays coherent under packets, remote
+control, dogfood receipts, and compatibility mirrors." The owner-doc chain now
+locks that execution order in repo state: VoiceTerm full live proof first,
+external repo matrix second, and no mutating fanout widening while startup
+still reports `safe_to_fanout=False` / `resync_required=True`.
+
+Evidence:
+`dev/scripts/devctl/runtime/dogfood_models.py`,
+`dev/scripts/devctl/runtime/dogfood_log.py`,
+`dev/scripts/devctl/runtime/dogfood_render.py`,
+`dev/scripts/devctl/runtime/dogfood_governance.py`,
+`dev/scripts/devctl/commands/reporting/dogfood.py`,
+`dev/scripts/devctl/governance/parser.py`,
+`dev/scripts/devctl/governance/live_run_import.py`,
+`dev/scripts/devctl/commands/governance/import_findings.py`,
+`dev/scripts/devctl/tests/commands/reporting/test_dogfood.py`,
+`dev/scripts/devctl/tests/governance/test_governance_import_findings.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/continuous_swarm.md`,
+`dev/active/remote_control_runtime.md`,
+`dev/active/portable_code_governance.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`.
+
+### 2026-04-15 - Startup authority no longer scans the whole committed Python tree on every bootstrap
+
+Fact: the next live blocker after the dogfood campaign slice was not a policy
+decision but a startup regression. `startup-context --format summary` had
+started appearing hung on the real repo even though the underlying startup
+reducer still built in a few seconds. The slow path was inside
+`build_startup_authority_report()`: the import-index atomicity check was
+reading committed importer source from `HEAD` across the full Python tree on
+every startup receipt.
+
+This mattered because startup authority is Step 0 for every implementation and
+reviewer-owned launcher session. A guard that quietly turns bootstrap into a
+full committed-tree audit defeats the whole bounded-startup contract and makes
+the honest checkpoint/resync diagnosis look like a deadlock.
+
+The fix kept the real protection and removed the pathological scope. The
+import-index atomicity scan now limits the committed-tree layer to the local
+package scope touched by current Python worktree paths, while the staged/index
+layer still checks the full staged tree. That means startup still catches the
+split/atomicity drift caused by local module moves or partial staging, but it
+no longer shells out through `git show HEAD:<path>` for every committed Python
+importer in the repo on each bootstrap. Focused atomicity regressions are
+green, and the live repo now returns the expected
+`checkpoint_before_continue` startup summary again.
+
+Evidence:
+`dev/scripts/checks/startup_authority_contract/runtime_import_git.py`,
+`dev/scripts/checks/startup_authority_contract/runtime_import_atomicity.py`,
+`dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
+### 2026-04-15 - Startup repair now surfaces coordination-resync blockers instead of falsely reporting healthy
+
+Fact: the startup bootstrap hang was fixed, but the next live contradiction
+showed the repair lane was still lying by omission. On the same clean repo
+state, `startup-context --format summary` correctly blocked with
+`blockers=coordination_resync_required` while `startup-context --repair`
+claimed "Startup state is healthy; no bounded repair action is required."
+
+That split mattered because `startup-context --repair` is supposed to be the
+repo-owned bounded recovery surface for exactly these "what should I do next?"
+states. A repair receipt that ignores `AuthoritySnapshot.safe_to_continue=false`
+teaches the wrong operator reflex: it says nothing is wrong even while the
+typed authority packet is telling the agent not to continue.
+
+The fix closed both halves of that mismatch. The repair runtime now reuses the
+same blocker-driven advisory coercion as normal startup output, so repair
+receipts no longer keep a stale green `push_allowed` action when blockers are
+present. The startup-repair classifier also now emits an explicit
+`coordination_resync_required` manual-follow-up issue whenever the
+`AuthoritySnapshot` / `CoordinationSnapshot` pair says resync is still
+required, even if review attention is otherwise `healthy`. After the patch,
+repair output points back at repo-owned `review-channel --action status`
+instead of falsely claiming the session is clear.
+
+Evidence:
+`dev/scripts/devctl/commands/governance/startup_repair_runtime.py`,
+`dev/scripts/devctl/runtime/startup_repair.py`,
+`dev/scripts/devctl/tests/governance/test_startup_repair.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
+### 2026-04-02 - Reviewer-follow guard stops fake heartbeats and fixes one-shot dedupe
+
+The ensure --follow daemon was unconditionally refreshing reviewer heartbeats
+even when no real reviewer was doing work, masking stale state. The
+`reviewer_follow_guard` now suppresses automation heartbeats when
+`review_needed` is True and queues typed `restore_reviewer_turn` packets
+through the existing `PacketPostRequest` pipeline. The in-process dedupe latch
+was removed because it prevented re-queuing after a dismissed packet — the
+disk-based `_existing_pending_trigger_packet_id` provides correct dedupe.
+
+Also fixes `remote-bridge-loop.sh` dry-run contract (skips auth and caffeinate)
+and version probe (uses semver comparison instead of `--help` exit code).
+
+Updated:
+`dev/scripts/devctl/review_channel/reviewer_follow_guard.py`,
+`dev/scripts/devctl/review_channel/reviewer_follow_packet_guard.py`,
+`dev/scripts/devctl/review_channel/reviewer_follow_heartbeat_guard.py`,
+`dev/scripts/devctl/review_channel/follow_controller.py`,
+`dev/scripts/devctl/review_channel/reviewer_follow.py`,
+`dev/scripts/devctl/commands/review_channel/_follow_runtime.py`,
+`dev/scripts/remote-bridge-loop.sh`.
+
+### 2026-04-01 - Crowded `devctl` command families now decompose through namespace packages plus alias shims
+
+Fact: the `dev/scripts/devctl/commands/` ratchet was correctly forcing crowded
+flat families into topical packages, but the first migration pass still left a
+real contract gap. Star-import wrappers kept some old imports alive, yet tests
+and runtime monkeypatch paths against flat modules such as `check_steps`,
+`process_cleanup`, and `ship_steps` were mutating facade copies instead of the
+real moved modules. The fix keeps the package extraction real instead of
+rolling it back: crowded command families now live under package roots such as
+`commands/check/`, `commands/autonomy/`, `commands/docs/`,
+`commands/process/`, `commands/release/`, and `commands/governance/`, while
+the surviving flat files are thin compatibility shims that alias the moved
+module rather than duplicating its symbols. Package-layout shim validation and
+crowded-directory accounting now accept that alias-wrapper shape as a valid
+shim, so density counts stay honest without breaking stable import/patch
+contracts during staged migration.
+
+Evidence: `dev/scripts/checks/package_layout/shim_validation.py`,
+`dev/scripts/checks/package_layout/directory_crowding.py`,
+`dev/scripts/devctl/commands/check_steps.py`,
+`dev/scripts/devctl/commands/process_cleanup.py`,
+`dev/scripts/devctl/commands/ship_steps.py`,
+`dev/scripts/devctl/tests/checks/package_layout/test_rules.py`,
+`dev/scripts/devctl/tests/checks/package_layout/test_support.py`,
+`dev/scripts/devctl/tests/test_check.py`,
+`dev/scripts/devctl/tests/test_ship.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/ai_governance_platform.md`.
+
+### 2026-03-29 - Baseline layout debt now hard-fails in tooling and release lanes for crowded commands/
+
+Fact: `check_package_layout.py` already detected crowded directories and
+namespace families as baseline debt, but in commit-range and working-tree modes
+the guard exited 0 whenever no individual changed files landed in the crowded
+root. This meant `dev/scripts/devctl/commands/` (92 files, max 48; 7 crowded
+families) silently passed every default CI run. Two new flags close the gap:
+`--fail-on-baseline-debt` promotes baseline debt to a hard failure, and
+`--baseline-debt-root` filters enforcement to specific directories so only
+targeted roots block. The tooling and release bundles now include
+`check_package_layout.py --fail-on-baseline-debt --baseline-debt-root
+dev/scripts/devctl/commands`, with matching steps in
+`tooling_control_plane.yml` and `release_preflight.yml`. Existing tests use
+`SimpleNamespace` args without the new flags, so `command.py` reads them via
+`getattr` with safe defaults instead of direct attribute access.
+
+Evidence: `dev/scripts/checks/package_layout/command.py`,
+`dev/scripts/devctl/bundles/registry.py`,
+`.github/workflows/tooling_control_plane.yml`,
+`.github/workflows/release_preflight.yml`,
+`dev/scripts/devctl/tests/checks/package_layout/test_check_package_layout.py`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`AGENTS.md`.
+
+### 2026-03-29 - Ensure-action probe-guided refactor splits orchestration from data mapping
+
+Fact: `dev/scripts/devctl/commands/review_channel/ensure.py` had three
+functions exceeding 50 unique identifiers (`run_ensure_action` at 69,
+`assess_publisher_lifecycle` at 62, `build_ensure_detail` at 56). The
+identifier-density probe correctly flagged these as hard to hold in working
+memory. The fix extracts heartbeat refresh, supervisor-restart detail,
+recommended-command selection, and report construction into
+`_ensure_helpers.py`, and splits publisher start-attempt and stop-reason
+mapping into focused helpers. Target function densities dropped 18-30%.
+Remaining HIGH findings come from two sources: typed field mapping in
+report/status constructors (20+ named fields each) and 4-param threading
+(`args, repo_root, paths, deps`) through every call site. Further
+reduction requires bundling those params into a context object (cascading
+into `_ensure_supervisor`) or accepting the structural minimum.
+
+Evidence: `dev/scripts/devctl/commands/review_channel/ensure.py`,
+`dev/scripts/devctl/commands/review_channel/_ensure_helpers.py`.
+- 2026-03-29: Refined the new package-layout baseline-debt ratchet after the
+  first live conductor pass showed it was too coarse for local tooling loops.
+  `check_package_layout.py --fail-on-baseline-debt --baseline-debt-root ...`
+  now preserves clean-worktree/adoption-scan enforcement, but dirty
+  working-tree and commit-range runs only hard-fail when the current diff
+  actually touches one of the selected roots. Added regression coverage for
+  unrelated dirty diffs vs targeted-root diffs, and updated maintainer docs so
+  the `dev/scripts/devctl/commands` ratchet is still explicit without making
+  every bridge-only tooling pass permanently red on unrelated baseline debt.
+
+### 2026-03-29 - Semantic Claude ACK wording now flows through typed review-state authority
+
+Fact: the review-channel runtime already had typed `current_session` fields for
+instruction revision, implementer ACK revision, and ACK state, but the live
+bridge-backed path still derived those machine decisions from one markdown-only
+`instruction-rev:` token. A real failure escaped through that gap: Claude wrote
+`Acknowledged instruction revision <rev>`, the bridge parser treated it as
+missing, and the reviewer loop incorrectly concluded that Claude had not ACKed
+the current instruction. The fix keeps the migration bounded but moves the
+decision point onto typed authority. A new shared review-channel ACK helper now
+accepts both semantic acknowledgements and the legacy `instruction-rev:` form;
+bridge-backed `current_session` computes instruction revision / ACK revision /
+ACK state from that shared parser; `review-channel --action bridge-poll`
+refreshes and prefers the typed `review_state` projection before deciding live
+ACK freshness; and compatibility bridge rerendering now prefers typed
+current-session fields for machine-deciding live sections instead of raw bridge
+prose. This closes the false-stale ACK bug without pretending the broader
+writer-authority cutover is finished: reviewer-authored prose (`Poll Status`,
+`Current Verdict`, `Claude Questions`) and richer wait/block reasons still need
+the planned `DecisionTrace` + typed writer-authority slice.
+
+Evidence: `dev/scripts/devctl/review_channel/ack_contract.py`,
+`dev/scripts/devctl/review_channel/current_session_projection.py`,
+`dev/scripts/devctl/review_channel/status_projection.py`,
+`dev/scripts/devctl/review_channel/bridge_projection_state.py`,
+`dev/scripts/devctl/commands/review_channel/_bridge_poll.py`,
+`dev/scripts/devctl/tests/review_channel/test_ack_contract.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
+### 2026-04-09 - Feature-branch release-lane preflight is branch-aware and review status hoists one next command
+
+Fact: the governed push path exposed a real self-hosting mismatch. A
+feature-branch diff that legitimately routed through `bundle.release` still
+reused CodeRabbit release-gate commands hardcoded to `master`, so
+`devctl push` could fail even when the current branch and SHA were otherwise
+the right preflight target. The release-lane `check --profile release` path
+now resolves the active branch, keeps the configured release branch strict,
+and enables commit fallback only off that branch. The same slice also closed
+an operator/automation discoverability gap: `review-channel --action status`
+and `review-channel --action doctor` now hoist one top-level typed
+`recommended_command`, preferring typed doctor/attention recovery commands and
+otherwise reusing `push_decision.next_step_command`, so hooks and
+remote-control launchers can consume one deterministic next step instead of
+spelunking nested projections.
+
+The same release-lane follow-up needed one more publish-path correction once
+the branch-aware gate hit a real local push attempt: an unpublished
+feature-branch SHA cannot possibly have a matching GitHub workflow run yet, so
+the shared CodeRabbit gate now treats "no matching runs for the current local
+SHA and no local remote-tracking ref contains it yet" as non-blocking until
+publish. That keeps local governed push honest without forcing operators to
+babysit an impossible preflight state, while published SHAs and release-branch
+checks still fail closed.
+
+Evidence: `dev/scripts/devctl/commands/check/__init__.py`,
+`dev/scripts/checks/coderabbit_gate_core.py`,
+`dev/scripts/devctl/commands/review_channel/doctor_support.py`,
+`dev/scripts/devctl/commands/review_channel/status.py`,
+`dev/scripts/devctl/tests/coderabbit/test_check_gate.py`,
+`dev/scripts/devctl/tests/commands/check/test_check.py`,
+`dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_doctor.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/platform_authority_loop.md`.
+
+### 2026-04-04 - Governed push receipts now project one current-target truth across startup and review surfaces
+
+Fact: the repo already had the right publication contract in spirit, but not
+in every projection. Startup recovery treated the managed latest-push artifact
+as current only when branch, HEAD, and reviewer-approved target matched,
+while review-channel doctor/readiness fallback and human-facing push sections
+could still treat stale raw `latest_push_report_*` booleans as live truth.
+The closure keeps one publication-target rule across the stack: a managed
+push receipt only counts for the active branch when it matches the current
+branch, current HEAD, current approved target identity when present, and the
+tracked upstream remote (or repo default remote when no upstream exists).
+Startup/status markdown now renders effective current-target truth instead of
+replaying stale raw artifact booleans, event-backed review-state enrichment
+now carries the same push-enforcement / push-decision parity as the
+bridge-backed path, and review-channel doctor fallback now reuses the same
+approved-target-aware receipt rule.
+
+Evidence: `dev/scripts/devctl/governance/push_state.py`,
+`dev/scripts/devctl/runtime/startup_push_recovery.py`,
+`dev/scripts/devctl/review_channel/reviewer_runtime_publication.py`,
+`dev/scripts/devctl/review_channel/event_projection.py`,
+`dev/scripts/devctl/review_channel/projection_markdown.py`,
+`dev/scripts/devctl/commands/governance/startup_context_render.py`,
+`dev/scripts/devctl/tests/vcs/test_push.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_doctor.py`,
+`dev/scripts/devctl/tests/review_channel/test_push_rendering.py`,
+`dev/scripts/devctl/tests/review_channel/test_event_projection_push.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
+### 2026-03-31 - Typed review-state now separates declared reviewer mode from live authority
+
+Fact: the bridge-backed review loop already exposed declared
+`reviewer_mode=active_dual_agent` plus typed `launch_truth`, but several
+startup/wait consumers were still reading the declared mode as if it proved
+the loop was live. A dead or detached dual-agent runtime could therefore keep
+advertising reviewer/implementer loop authority long after `launch_truth`
+showed `runtime_missing` or another degraded state. The fix keeps provenance
+and live authority separate in one typed contract: bridge-backed and
+event-backed `ReviewState.bridge` projections now carry
+`effective_reviewer_mode` beside the declared bridge `reviewer_mode`,
+downgrading the effective mode to an inactive read-only state whenever typed
+`launch_truth` proves the loop is not actually live. Startup reviewer-gate
+detection plus the bounded reviewer/implementer wait helpers now consume that
+effective mode first, while the declared mode remains intact for bridge
+provenance and review-gate semantics.
+
+Evidence: `dev/scripts/devctl/review_channel/launch_truth.py`,
+`dev/scripts/devctl/review_channel/status_projection_bridge_state.py`,
+`dev/scripts/devctl/review_channel/status_projection_helpers.py`,
+`dev/scripts/devctl/review_channel/event_projection.py`,
+`dev/scripts/devctl/runtime/review_state_models.py`,
+`dev/scripts/devctl/runtime/review_state_parser.py`,
+`dev/scripts/devctl/runtime/startup_context.py`,
+`dev/scripts/devctl/commands/review_channel/_wait.py`,
+`dev/scripts/devctl/commands/review_channel/_reviewer_wait.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`.
+
+### 2026-04-10 — Startup gate receipt type fix and repair bypass removal
+
+**What changed:** `_is_repair_launch` in `startup_gate.py` treated
+`StartupReceipt` as a dict (`.get("action", "")`), crashing every
+review-channel `launch` or `rollover` with `AttributeError`. The function
+also did not handle the `None` case from `load_startup_receipt`.
+
+**Root cause:** `_is_repair_launch` was written against the raw JSON mapping
+returned by `startup-context` summary output, not the typed `StartupReceipt`
+dataclass that `load_startup_receipt` returns. The function shipped without
+test coverage for the `StartupReceipt` path.
+
+**Fix (final):** Removed `_is_repair_launch` and `_is_repair_allowed`
+entirely from `startup_gate.py`. The reviewer-loop relaxation for
+`launch`/`rollover` is already handled by the `reviewer_bootstrap` intent
+in the authority system (`collect_reviewer_loop_block_errors` returns `[]`
+when `intent == _REVIEWER_BOOTSTRAP_INTENT`). No separate repair bypass
+is needed — receipt freshness, checkpoint, and all non-reviewer-loop
+authority checks always apply. Intermediate iterations that added
+narrower repair bypasses were superseded after tracing through the
+intent-based relaxation in `runtime_checks.py:341`. 12 regression tests
+pass including proof that unrelated authority errors, stale receipts,
+and checkpoint constraints all block even with a `repair_reviewer_loop`
+receipt.
+
+Evidence: `dev/scripts/devctl/runtime/startup_gate.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_gate.py`.
+
+### 2026-04-10 — Startup work intake now emits pacing guidance; governance-review accepts observer self-audits
+
+Q64 and Q54 both closed by extending existing typed surfaces instead of
+adding a second controller or a parallel audit ledger. `WorkIntakePacket`
+now carries bounded `session_pacing` state derived from the selected
+planning slice plus current context-graph dependency adjacency, so
+`startup-context` can emit authority refs, implementation refs, a
+research-to-first-patch budget, and a deterministic
+`patch_after_bounded_refs_or_raise_blocker` trigger before an agent widens
+into whole-repo reads. In the same pass, `governance-review` accepted
+`signal_type=observer` plus optional `finding_type`, letting observer/self-
+audit outcomes reuse the canonical adjudication JSONL and summary surfaces
+instead of living only in audit markdown.
+
+Evidence: `dev/scripts/devctl/runtime/work_intake_models.py`,
+`dev/scripts/devctl/runtime/work_intake.py`,
+`dev/scripts/devctl/runtime/work_intake_pacing.py`,
+`dev/scripts/devctl/commands/governance/startup_context.py`,
+`dev/scripts/devctl/commands/governance/startup_context_render.py`,
+`dev/scripts/devctl/governance_review_models.py`,
+`dev/scripts/devctl/governance_review_log.py`,
+`dev/scripts/devctl/governance_review_parser.py`,
+`dev/scripts/devctl/commands/governance/review.py`,
+`dev/config/templates/portable_governance_finding_review.schema.json`,
+`dev/scripts/devctl/tests/runtime/test_work_intake.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/governance/test_governance_review.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`.
+
+### 2026-04-10 — Startup context now exposes observed control topology
+
+Q38's first slice promoted observed reviewer/implementer topology into typed
+startup truth instead of relying on planned bridge topology. Startup now derives
+`observed_control_topology` from supervised conductor count, bridge liveness,
+and runtime counts, maps it to `implementation_permission`, and projects both
+through summary, markdown, and machine-summary output. This is intentionally
+bounded to projection and derivation proof; the remaining Q38 work is to make
+launch/edit gates and pack/worktree lane binding consume these fields.
+
+Evidence: `dev/scripts/devctl/runtime/control_topology.py`,
+`dev/scripts/devctl/review_channel/observed_topology.py`,
+`dev/scripts/devctl/runtime/startup_context.py`,
+`dev/scripts/devctl/commands/governance/startup_context.py`,
+`dev/scripts/devctl/commands/governance/startup_context_render.py`,
+`dev/scripts/devctl/tests/review_channel/test_observed_topology.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`.
+
+### 2026-04-10 — Contract-connectivity guard now catches semantic duplicates and internal-only contracts
+
+Q67 closed as a detector-strengthening follow-up on the existing
+contract-connectivity guard. The scanner now includes
+`app/operator_console/`, duplicate detection combines semantic field aliases
+with purpose/docstring tokens so parallel `SystemCatalog` contracts still
+match when their overlapping fields use generic names, and orphan reporting
+now surfaces contracts whose only consumers live inside the same package as a
+softer `internal_only` connectivity signal instead of treating any local
+import as healthy external adoption.
+
+Evidence: `dev/scripts/checks/contract_connectivity/inventory.py`,
+`dev/scripts/checks/contract_connectivity/findings.py`,
+`dev/scripts/checks/contract_connectivity/models.py`,
+`dev/scripts/checks/contract_connectivity/report.py`,
+`dev/scripts/devctl/tests/checks/contract_connectivity/test_check_contract_connectivity.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/platform_authority_loop.md`,
+`.github/workflows/tooling_control_plane.yml`,
+`.github/workflows/release_preflight.yml`.
+
+### 2026-04-10 — Loop v2 planning now routes through one composition-first execution spec
+
+The next autonomous-governance-loop slice stopped at design on purpose after
+the Q64-Q75 review: the repo already had most of the typed surfaces the loop
+needed, but they were still disconnected or advisory-only. Instead of adding a
+provider-specific verdict-file controller, the new bounded execution spec at
+`dev/active/autonomous_governance_loop_v2.md` now freezes the composition rule
+for loop v2: use `startup-context` / `WorkIntakePacket`,
+`PlanningIRSnapshot`, `findings-priority`, `ControlPlaneReadModel`,
+`AutoModeState`, `MonitorSnapshot`, `governance-review`,
+`GuardPromotionCandidate`, and governed commit/push as one pipeline.
+
+This matters because the failure mode was scatter, not missing raw signals.
+The live repo could already emit startup authority, pacing, review/runtime
+health, graph snapshots, and ranked findings, but the AI still had to know the
+right filenames and commands by hand. The new plan makes visibility closure
+the first implementation priority: stale graph truth, contract-name discovery,
+and finding-to-path grounding must close before the loop is allowed to widen
+into autonomous editing.
+
+Evidence: `dev/active/autonomous_governance_loop_v2.md`,
+`dev/active/INDEX.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`AGENTS.md`,
+`dev/README.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`.
+
+### 2026-04-11 - `bundle.tooling` hygiene gate now ignores long-standing `publications` drift alongside `mutation_badge`
+
+Fact: the `bundle.tooling` hygiene step was blocking unrelated pushes on a
+long-standing external-publication drift warning for `terminal-as-interface`
+(tracked at `369cb67b3c85`, ~380 impacted paths since). The `mutation_badge`
+warning was already excluded via `--ignore-warning-source mutation_badge`;
+extend the same pattern to `publications` so both known-stale warning
+families stay visible in the hygiene report but do not count against
+`--strict-warnings` failure budgets.
+
+Evidence: `dev/scripts/devctl/bundles/registry.py`,
+`dev/scripts/devctl/tests/governance/test_bundle_registry.py`,
+`.github/workflows/tooling_control_plane.yml`, `AGENTS.md` (rendered
+bundle block), `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`.
+
+### 2026-04-13 - Umbrella plan now owns typed phase/task routing and default guard enforcement
+
+The dogfood consolidation pass closed the plan-authority scatter instead of
+adding another controller. `dev/active/ai_governance_platform.md` now carries
+the typed `PlanPhase` / `PlanTask` / `PlanDependency` registry for `MP-377`,
+`startup-context` / `WorkIntakePacket` surface the active `plan_routing`
+phase/task projection, and `check_active_plan_sync.py` enforces that typed
+umbrella-plan contract directly. The same guard is now on the default AI
+guard lane by policy, so commit-bundle and `check --profile ci` runs fail on
+plan drift without waiting for docs-only checks. The closure also reduced the
+live owner-doc set: `portable_code_governance.md` remains the portable-proof
+owner reference, but live execution order now stays in the umbrella plan's
+typed phase/task registry.
+
+Evidence: `dev/active/INDEX.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/config/quality_presets/portable_python.json`,
+`dev/config/quality_presets/portable_rust.json`,
+`dev/scripts/checks/check_active_plan_sync.py`,
+`dev/scripts/checks/active_plan/typed_phase_contract.py`,
+`dev/scripts/devctl/platform/planning_ir_models.py`,
+`dev/scripts/devctl/platform/planning_ir_plan_content.py`,
+`dev/scripts/devctl/runtime/work_intake.py`,
+`dev/scripts/devctl/runtime/work_intake_models.py`,
+`dev/scripts/devctl/runtime/work_intake_phase_routing.py`,
+`dev/scripts/devctl/commands/governance/startup_context.py`,
+`dev/scripts/devctl/commands/governance/startup_context_render.py`,
+`dev/scripts/devctl/commands/governance/startup_context_summary.py`,
+`dev/scripts/devctl/quality_policy/defaults.py`,
+`dev/scripts/devctl/tests/platform/test_planning_ir_plan_content.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_signals.py`,
+`dev/scripts/devctl/tests/runtime/test_work_intake.py`,
+`dev/scripts/devctl/tests/test_active_plan_contract.py`,
+`dev/scripts/devctl/tests/commands/check/test_check.py`.
+
+### 2026-04-13 - Dogfooded findings now prove startup/triage flow, and closure guards catch dead typed contracts
+
+Fact: the repo had just landed the new findings backbone pieces, but that was
+still mostly a component claim. The live question was whether a real governed
+finding could move through the same typed architecture the agents are supposed
+to trust, and whether the internal planning/backlog dataclasses were now
+protected against "defined but never consumed" drift.
+
+This matters because the product direction under `MP-377` is not "more typed
+objects"; it is executable closed loops. A `FindingBacklog` reader, typed
+phase/task models, or a new internal contract do not count unless they affect
+startup, ranking, or another repo-owned consumer, and the self-governance
+lane must fail when a new dead type slips in.
+
+The dogfood pass used the live repo as the test. A new observer finding
+(`8865bf9544ddd82b` / `startup_active_target_stale_plan_route`) was recorded
+through `governance-review`, `startup-context --format json` immediately
+picked it up in `quality_signals.governance_review`
+(`total_findings=185`, `open_finding_count=100`, `open_by_severity.high=18`),
+and `findings-priority --format json` ranked that same governed row at `#14`,
+proving the canonical backlog path is real. The same proof also exposed the
+remaining loop gap: startup still projects
+`active_target=dev/active/review_channel.md` while `plan_routing` stays on
+`MP377-P0-T01`, so target selection is still following stale review-scope
+matching instead of findings/planning authority.
+
+The closure encoded that lesson into guards instead of leaving it as chat
+memory. `check_platform_contract_closure.py` now carries AST-backed
+field-route proofs for `PlanPhase.phase_id`, `PlanTask.task_id`, and
+`FindingBacklog.{latest_rows,open_findings,open_rows}` across startup
+plan-routing, findings-priority, planning-IR, and startup-quality-signal
+consumers. `check_governance_closure.py` now also consumes
+`check_contract_connectivity.py` and fails on newly orphaned typed contracts,
+using working-tree mode for dirty local slices and `HEAD^ -> HEAD`
+commit-range mode for clean CI-style checkouts so a new dead contract cannot
+hide behind the repo's baseline debt inventory.
+
+Evidence: `dev/scripts/checks/platform_contract_closure/field_routes.py`,
+`dev/scripts/checks/platform_contract_closure/field_routes_planning.py`,
+`dev/scripts/checks/governance_closure/command.py`,
+`dev/scripts/checks/check_platform_contract_closure.py`,
+`dev/scripts/checks/check_contract_connectivity.py`,
+`dev/scripts/checks/check_governance_closure.py`,
+`dev/scripts/devctl/commands/reporting/findings_priority.py`,
+`dev/scripts/devctl/runtime/startup_signals.py`,
+`dev/scripts/devctl/platform/planning_ir_sources.py`,
+`dev/scripts/devctl/runtime/work_intake_phase_routing.py`,
+`dev/scripts/devctl/runtime/work_intake_plan_routing.py`,
+`dev/scripts/devctl/commands/governance/startup_context_summary.py`,
+`dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py`,
+`dev/scripts/devctl/tests/checks/test_governance_closure.py`,
+`dev/active/platform_authority_loop.md`,
+`dev/active/MASTER_PLAN.md`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`.
+
+### 2026-04-15 - Commands-root package-layout publication gate now burns down real debt through loop-packet package shims
+
+Fact: governed push was no longer blocked on packet/review-channel logic. The
+remaining failure was the scoped package-layout publish gate for
+`dev/scripts/devctl/commands`: `check_package_layout.py --fail-on-baseline-debt
+--baseline-debt-root dev/scripts/devctl/commands` still saw the root at 50
+files against a max of 48. The honest fix was to reduce real implementation
+density in that root, not waive the debt. `loop-packet` and its helper now
+live under `dev/scripts/devctl/commands/packets/`, while the original flat
+paths remain thin alias shims with explicit `shim-target` metadata so stable
+imports and monkeypatch paths still resolve.
+
+This matters because the commands-root ratchet is doing exactly what it should:
+forcing touched crowded command families to migrate into topical packages while
+keeping old entrypoints stable. The push lane now clears the scoped commands
+gate without pretending the rest of the repo is layout-clean; the same package
+report still surfaces broader baseline debt in `dev/scripts/checks`,
+`dev/scripts/devctl`, and `dev/scripts/devctl/tests`.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/loop_packet.py`
+- `dev/scripts/devctl/commands/loop_packet_helpers.py`
+- `dev/scripts/devctl/commands/packets/loop_packet.py`
+- `dev/scripts/devctl/commands/packets/loop_packet_helpers.py`
+- `dev/scripts/devctl/tests/test_loop_packet.py`
+- `dev/scripts/devctl/tests/test_autonomy_loop.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-04-20 — Headless remote-control launches auto-elevate approval-mode and conductor stalls become typed
+
+Fact: every dashboard-mode session this hour silently wedged on a `ps` /
+`pgrep` sandbox-escalation prompt that headless `--terminal none` could not
+render. The codex binary sat waiting forever for an operator approval that
+never reached the local TTY, and operators saw a "wedged conductor" with no
+typed signal explaining the cause. Empirically reproduced via codex sessions
+`019dacd1` (`--approval-mode balanced` → wedge) versus `019dace3` /
+`019dad14` (`--approval-mode trusted` → productive review work). The wedge
+was indistinguishable from healthy idle from the dashboard's read-only view.
+
+Fix landed across the launcher entry points so the operator-visible behavior
+matches the typed launch posture:
+
+- `dev/scripts/devctl/approval_mode.py` introduces
+  `auto_elevated_approval_mode(explicit_mode, interaction_mode)`. When the
+  caller passes no explicit mode and `interaction_mode == "remote_control"`,
+  the helper returns `"trusted"` so the codex binary stops blocking on local
+  approval prompts. All other paths fall through to the explicit mode (or
+  `None` for `normalize_approval_mode` to default to `balanced`).
+- `dev/scripts/devctl/review_channel/parser.py` flips `--approval-mode`'s
+  default from the literal `"balanced"` string to `None` so the typed-state
+  branch in the launcher actually fires under the real argparse parser.
+  Operators retain explicit override by passing `--approval-mode <mode>`.
+- `dev/scripts/devctl/commands/review_channel/bridge_action_support.py`
+  routes the launch / rollover paths through the shared helper.
+- `dev/scripts/devctl/commands/review_channel/_recover.py` routes the
+  recover path through the same helper so headless recovery launches do
+  not silently wedge on the same escalation deadlock.
+- `dev/scripts/devctl/review_channel/prompt.py` renders an explicit
+  inbox-drain section after the bootstrap chain (preserving the canonical
+  Step 0 startup-context contract from `bridge.md`) but before the operating
+  contract, so codex sessions ack pending operator-authority packets before
+  reviewer-bootstrap or code reading.
+- `dev/scripts/devctl/review_channel/stall_diagnostics.py` provides a typed
+  `ConductorStallDiagnosis` dataclass that reads codex rollout JSONL and
+  surfaces both `task_complete + budget exceeded` and
+  `is_escalation: true + budget exceeded` as a `stalled` boolean with a
+  reason enum (`escalation_deadlock`, `stalled_beyond_budget`,
+  `new_session_spawned`, `within_budget`, `escalation_recent`,
+  `no_task_complete_yet`). Caller-supplied `replacement_session_ids` makes
+  the "newer session exists" signal explicit instead of guessing by mtime
+  in the shared `~/.codex/sessions/` root.
+
+This matters because the persistence-loop wedge was only diagnosable by
+manually correlating codex rollout JSONL events with `ps` output. The launcher
+now removes the deadlock for the common headless-remote-control case, the
+prompt template stops the inbox-blind investigation habit at its source, and
+the diagnostic helper gives the dashboard a typed read-out for any wedge that
+escapes the prevention. Wiring the diagnostic into a runtime consumer
+(dashboard, doctor, or a new `devctl stall-check` subcommand) is deliberate
+follow-up scope.
+
+Evidence:
+
+- `dev/scripts/devctl/approval_mode.py`
+- `dev/scripts/devctl/commands/review_channel/_recover.py`
+- `dev/scripts/devctl/commands/review_channel/bridge_action_support.py`
+- `dev/scripts/devctl/review_channel/parser.py`
+- `dev/scripts/devctl/review_channel/prompt.py`
+- `dev/scripts/devctl/review_channel/stall_diagnostics.py`
+- `dev/scripts/devctl/tests/review_channel/test_inbox_first_and_trusted_default.py`
+- `dev/scripts/devctl/tests/review_channel/test_stall_diagnostics.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-04-20 — Reviewer-wake auto-elevation closure plus payload-shape stall diagnostics
+
+Fact: the headless-remote-control auto-elevation landed at `16c6f9ad`
+covered launch / rollover / recover, but a third launch entry point —
+`launch_waiting_reviewer_conductor()` in
+`dev/scripts/devctl/review_channel/reviewer_follow_guard.py` — still coerced
+the unset parser default to an empty string and fed that straight into
+`LaunchSessionRequest`, where `normalize_approval_mode("")` collapsed back to
+`balanced`. So a remote-control reviewer relaunched by ensure-follow could
+still wedge on the same hidden sandbox-escalation prompt the rest of the
+launcher now avoids. At the same time, the typed `ConductorStallDiagnosis`
+helper was reading top-level `type` / `is_escalation` fields, but real codex
+rollout JSONL nests those signals under a `payload` envelope; and the
+`escalation_deadlock` reason was gated by `and not task_complete_iso`, so
+any long-lived conductor that completed earlier work and only later wedged
+on an escalation prompt was misclassified as `stalled_beyond_budget` instead
+of `escalation_deadlock`.
+
+This follow-up closes all three gaps:
+
+- `dev/scripts/devctl/review_channel/reviewer_follow_guard.py` adds an
+  internal `_resolved_wake_approval_mode()` helper that routes through the
+  shared `auto_elevated_approval_mode()` (`approval_mode.py`) so the
+  reviewer-wake `LaunchSessionRequest` matches the launch / rollover /
+  recover behavior. Empirically reproduced before the fix as
+  `{'approval_mode': '', 'interaction_mode': 'remote_control'}` reaching
+  `LaunchSessionRequest`; after the fix it resolves to `'trusted'`.
+- `dev/scripts/devctl/review_channel/stall_diagnostics.py::_read_rollout_signals`
+  now accepts both the top-level synthetic shape used by focused tests and
+  the `{"type": "event_msg" | "response_item", "payload": {...}}` envelope
+  used by real codex rollouts. `task_complete` is detected by either
+  top-level `type` or `payload.type`; `is_escalation` is detected by
+  either top-level or `payload`. The escalation summary is read from
+  whichever side actually carried it.
+- `dev/scripts/devctl/review_channel/stall_diagnostics.py::diagnose_conductor_stall`
+  drops the `and not task_complete_iso` gate on the escalation-deadlock
+  branch so any escalation that is the latest event in the rollout AND has
+  exceeded the budget surfaces as `escalation_deadlock` regardless of
+  prior task-complete events. Three new regression tests cover the
+  payload-nested task-complete shape, the payload-nested escalation shape,
+  and the prior-task-complete-then-later-escalation deadlock pattern.
+
+This matters because the persistence-loop closure was operationally
+incomplete without these three follow-ups. Reviewer-wake is the path
+ensure-follow uses to relaunch a stuck remote-control reviewer, so a
+gap there reproduced the very wedge the original fix was meant to
+eliminate. And the typed stall diagnostic was advertised as a dashboard
+read-out for residual wedges but was inert against real rollout data
+and silent on the most realistic deadlock pattern (long-lived session
+that completed earlier work and only later got stuck on an
+unanswerable approval prompt).
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/reviewer_follow_guard.py`
+- `dev/scripts/devctl/review_channel/stall_diagnostics.py`
+- `dev/scripts/devctl/tests/review_channel/test_inbox_first_and_trusted_default.py`
+- `dev/scripts/devctl/tests/review_channel/test_stall_diagnostics.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-04-22 — Worktree-orphan contracts and single-agent ownership repair
+
+The Phase 0 orphan-worktree incident exposed two separate architectural gaps:
+startup/launch authority was proving only the active checkout, and stale
+collaboration topology could still type Claude as implementer while Codex was
+the only live mutation owner. This slice repairs the immediate ownership
+reducer and lands the first durable contract layer for the longer-term orphan
+inventory plan.
+
+- `dev/scripts/devctl/review_channel/collaboration_session_coordination.py`
+  now treats planned delegated-worker receipts as planned topology only; they
+  no longer force `multi_agent_orchestrated` unless live delegated work or an
+  explicit requested worker budget exists.
+- `dev/scripts/devctl/review_channel/collaboration_session_roster.py` keeps
+  single-agent coding ownership on the reviewer provider when no active
+  remote implementer attachment exists, so stale Claude packet activity does
+  not steal mutation authority from Codex.
+- `dev/scripts/devctl/platform/coordination_snapshot_support.py` stops
+  reporting `attention:healthy` as a resync blocker.
+- The new worktree-orphan contract surface covers `OrphanSnapshot`,
+  `OrphanSource`, `OrphanReconciliationDecision`, `CheckoutInventory`,
+  `WorkPublicationLedger`, `SessionLease`, `WorktreeBaseline`, and accept-all
+  override receipts. Source variants include current checkout, registered
+  git worktrees, planned delegated worker worktrees, unregistered sibling
+  clones, deep-scan repos, prunable/missing worktrees, stash/worker-root/CI
+  roots, and latent state.
+- `dev/scripts/devctl/platform/worktree_orphan_contract_rows.py` registers
+  those runtime dataclasses with the platform `ContractSpec` registry so
+  contract connectivity, governance closure, and platform-contract closure
+  prove the schema surface is not orphaned before scanner/gate slices consume
+  it.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/worktree_orphan_contracts.py`
+- `dev/scripts/devctl/runtime/worktree_orphan_snapshot.py`
+- `dev/scripts/devctl/runtime/worktree_orphan_reconciliation.py`
+- `dev/scripts/devctl/runtime/checkout_inventory_contracts.py`
+- `dev/scripts/devctl/runtime/work_publication_ledger_contracts.py`
+- `dev/scripts/devctl/runtime/session_lease_contracts.py`
+- `dev/scripts/devctl/platform/worktree_orphan_contract_rows.py`
+- `dev/scripts/devctl/tests/runtime/test_worktree_orphan_contracts.py`
+- `dev/scripts/devctl/tests/review_channel/test_collaboration_session.py`
+- `dev/scripts/devctl/tests/platform/test_coordination_snapshot.py`
+
+### 2026-04-22 — Worktree-orphan inventory scan becomes report-only typed evidence
+
+The next MP-377 orphan-worktree slice adds the first executable inventory
+reader without yet turning it into a gate. `devctl orphan-inventory` now emits
+an `OrphanInventoryReport` that proves the bounded local surface: current
+checkout, registered/prunable git worktrees, planned delegated-worker lanes,
+same-parent same-origin sibling clones, and stash entries, including
+multi-parent stash sections that carry untracked files. The command is
+registered as read-only and reports `gates_evaluated=false`, so it can be used
+by dashboards, Claude/Codex typed packets, and operator triage before the later
+launch/push/fanout enforcement slice consumes the same contract.
+
+This closes the evidence gap exposed by the sibling `codex-voice 2` checkout:
+`git worktree list` alone is not sufficient, but an unbounded filesystem sweep
+is also too noisy for every startup. The new scan stays in the repo parent and
+governed runtime state by default, leaving deep scan as explicit follow-up
+scope.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/worktree_orphan_inventory.py`
+- `dev/scripts/devctl/runtime/worktree_orphan_inventory_git.py`
+- `dev/scripts/devctl/runtime/worktree_orphan_inventory_worktrees.py`
+- `dev/scripts/devctl/runtime/worktree_orphan_inventory_stashes.py`
+- `dev/scripts/devctl/commands/governance/orphan_inventory.py`
+- `dev/scripts/devctl/tests/runtime/test_worktree_orphan_inventory.py`
+- `dev/scripts/README.md`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+
+### 2026-05-04 - Packet attention status now carries live runtime identity
+
+Claude dogfood packet `rev_pkt_2941` found that status/develop work-board rows
+could still show a live provider session with blank worktree/branch identity
+even though conductor metadata and `CollaborationSession.participants` carried
+the session workspace root. That made runtime-presence views harder to trust
+and let preserved event-owned rows keep stale shape while status knew fresher
+participant identity.
+
+Change: conductor session records now capture the current git branch for their
+workspace, collaboration participants fall back from planned-lane worktree to
+session workspace root, work-board row building uses workspace root as the
+identity fallback, and status refresh/report paths repair preserved work-board
+rows from fresh collaboration participants. Stale work-board visibility rows
+without bound packet ids no longer create agent-loop decisions.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/session_probe.py`
+- `dev/scripts/devctl/review_channel/collaboration_session_roster_projection.py`
+- `dev/scripts/devctl/review_channel/agent_work_board_row_builder.py`
+- `dev/scripts/devctl/review_channel/status_bundle.py`
+- `dev/scripts/devctl/commands/review_channel/status_runtime_projection.py`
+- `dev/scripts/devctl/review_channel/agent_loop_decision_projection.py`
+- `dev/scripts/devctl/tests/review_channel/test_collaboration_session.py`
+- `dev/scripts/devctl/tests/review_channel/test_status_bundle_runtime_addenda.py`
+- `dev/scripts/devctl/tests/review_channel/test_sync_status_agent_loop.py`
+
+### 2026-05-04 - Semantic guard-promotion packet is now durable plan work
+
+Claude dogfood packet `rev_pkt_2942` captured the operator's requirement that
+the platform catch AI-generated vocabulary drift and duplicated semantic types
+deterministically instead of relying on ad hoc grep scans. The packet ties that
+need to the wake-to-attention rename, `/develop` next-command vocabulary drift,
+and Session*/Packet*/Receipt* dataclass proliferation.
+
+Change: `MP377-P0-T22AN-AH` now owns the deterministic semantic guard
+promotion slice. It will extend existing `probe_term_consistency` and
+`check_contract_connectivity` foundations with typed rename/vocabulary records,
+dataclass clustering exceptions, explicit soft/hard deadlines, and
+check-router coverage before promotion into the shared floor.
+
+Evidence:
+
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+- `rev_pkt_2942`
+
+### 2026-05-04 - Routing and expiry dogfood packets are now durable plan work
+
+Claude dogfood packets `rev_pkt_2943` and `rev_pkt_2944` captured the live
+operator concern that packet attention is still not enough when findings do not
+reach the AI working surface or expire before their body is converted into typed
+plan/finding state.
+
+Change: `MP377-P0-T22AN-AI` now owns the architectural-suggestion routing
+slice: aggregate existing governance/probe/guard findings, rank the bounded
+top-N for the current actor and slice, and surface them through `/develop`
+attention without launching agents. `MP377-P0-T22AN-G` now explicitly carries
+the packet-expiry closure from `rev_pkt_2944`: pre-expiry intent extraction,
+startup batch-ingest of recently archived unbound packets, and lifecycle
+vocabulary that distinguishes transport expiry from content disposition. Claude
+then measured the live backlog through typed state: 826 unbound substantive
+expired packets, including 24 operator-authored rows, so the drain path is not
+cosmetic backlog cleanup.
+
+Evidence:
+
+- `dev/active/ai_governance_platform.md`
+- `dev/active/MASTER_PLAN.md`
+- `rev_pkt_2943`
+- `rev_pkt_2944`
+
+### 2026-05-04 - Check-router now proves guard coverage before publication
+
+Live `rev_pkt_2929` publication dogfood showed two separate gaps in the
+handoff-to-push lane: the routed bundle could stop after the first failing
+guard, and several cross-cutting Python/source/registry/runtime-spine guards
+were not part of the shared bundle floor. That made it possible to publish a
+tooling commit with no typed evidence that all required guard families had
+actually run.
+
+Change: `bundle_registry.py` now promotes the missing cross-cutting guards
+into the shared non-bootstrap guard floor, including Python broad-except,
+command-source validation, registry path integrity, runtime-spine closure,
+provider-list parity, duplicate-type, structural-complexity, and AGENTS bundle
+render validation. `check-router` now emits a typed
+`CheckRouterGuardCoverageReceipt` plus `GuardRemediationAction` rows, threads
+its `--since-ref/--head-ref` into range-aware guard commands, and governed
+push preflight calls it with `--keep-going` so later guards still execute after
+an early docs or sync failure.
+
+Follow-up: Claude dogfood packet `rev_pkt_2946` exposed that the routed
+`--keep-going` proof still ran planned commands serially while `devctl check`
+already had an ordered parallel step runner. `check-router` now exposes
+`--parallel-workers` / `--no-parallel`, runs `--execute --keep-going` routed
+commands through the shared parallel runner by default, and reports the
+parallel settings in JSON/markdown output. The live governed-push retry then
+proved the safety boundary: review/status projection checks cannot race every
+independent guard, and the focused devctl pytest add-on should not compete
+with dozens of guard subprocesses under one fixed 300s timeout. The router now
+emits `execution_plan` metadata, keeps serial-required projection/status/test
+commands in ordered phases, parallelizes only parallel-safe guard rows, and
+keeps focused devctl Python-test proof out of parallel guard batches. The same
+follow-up made `check_multi_agent_sync.py` mirror `AgentLoopDecision`
+authority: stale read-only work-board visibility rows no longer require a
+matching loop decision unless a live packet or execution field gives them loop
+work.
+
+Second follow-up: the next dogfood run showed that `devctl commit` could still
+look hung even when work was progressing, because `run_git_capture()` captured
+the whole `git commit` subprocess and the managed post-commit receipt hook sent
+its `review-snapshot --write --receipt-commit` work to `/dev/null`. Governed
+commit now emits flushed `[devctl vcs] phase=...` progress lines, streams the
+git/post-commit-hook output for the irreversible commit subprocess, and the
+managed post-commit hook announces the trailing ReviewSnapshot receipt refresh
+before and after its quiet internal call.
+
+Evidence:
+
+- `dev/scripts/devctl/bundles/registry.py`
+- `dev/scripts/devctl/cli_parser/quality.py`
+- `dev/scripts/devctl/commands/check/router.py`
+- `dev/scripts/devctl/commands/check/router_execution.py`
+- `dev/scripts/devctl/commands/check/router_python_tests.py`
+- `dev/scripts/devctl/commands/check/router_render.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py`
+- `dev/scripts/devctl/commands/vcs/progress.py`
+- `dev/scripts/devctl/runtime/vcs.py`
+- `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop.py`
+- `dev/config/git_hooks/post-commit-review-snapshot.sh`
+- `dev/scripts/devctl/governance/push_routing.py`
+- `dev/scripts/checks/check_guard_enforcement_inventory.py`
+- `dev/scripts/devctl/tests/checks/test_check_multi_agent_sync_runtime_truth.py`
+- `dev/scripts/devctl/tests/commands/check/test_check_router.py`
+- `dev/scripts/devctl/tests/governance/test_bundle_registry.py`
+- `dev/scripts/devctl/tests/runtime/test_vcs.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+- `dev/scripts/README.md`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-04-22 — Worktree-orphan snapshots become startup and VCS preflight evidence
+
+The third MP-377 orphan-worktree slice promotes the report-only inventory into
+a reusable projection instead of adding another command. `compute_orphan_snapshot()`
+now derives a deterministic `OrphanSnapshot` from an `OrphanInventoryReport`,
+records ledger/lease provenance with empty leases explicitly marked
+`backfill_pending`, and produces a stable content hash so operator decisions
+can bind to one observed orphan surface.
+
+`startup-context` emits that snapshot as a typed `orphan_snapshot` field.
+Governed commit and push preflight now consult the same projection as
+advisory-only warning evidence; no launch/push/fanout hard gate is introduced
+in this slice. The reconciliation packet surface also accepts the
+`materialize_as_worker` action plus optional plan/finding scope hints so later
+executor slices can keep remediation decisions tied to MP/finding authority.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/worktree_orphan_snapshot_projection.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/commands/vcs/orphan_snapshot_advisory.py`
+- `dev/scripts/devctl/commands/vcs/commit_preflight_validators.py`
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/tests/runtime/test_worktree_orphan_snapshot_projection.py`
+
+### 2026-04-22 — Worktree-orphan inventory gains external repo-path proof
+
+The first portability rerun before advisory/blocking orphan gates exposed a
+real command-surface gap: `orphan-inventory` could only scan the engine
+checkout because it lacked `--repo-path`. The command now accepts an external
+repo root and passes that path into the report-only `OrphanInventoryReport`
+builder, keeping the scanner usable for MP-376 Wave 1 anchors before gate
+semantics depend on it.
+
+The dogfood proof used a fresh `/tmp/pre-commit-hooks-governance-proof` clone.
+`orphan-inventory --repo-path` returned `0` unresolved sources and `0`
+warnings. `probe-report --repo-path --adoption-scan` returned `71` adopter
+hints across `31` files. `check --profile quick --repo-path --adoption-scan`
+failed only on unbootstrapped starter authority plus target-repo adopter
+findings, so the remaining failures are not orphan-scanner engine blockers.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/governance/orphan_inventory_parser.py`
+- `dev/scripts/devctl/commands/governance/orphan_inventory_run.py`
+- `dev/scripts/devctl/tests/governance/test_governance_cli_dispatch.py`
+- `dev/active/portable_code_governance.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md`
+
+### 2026-04-22 — Pipeline auto-recover removes stale-pipeline manual selection
+
+The ADR-007 dogfood loop showed that stale governed commit pipelines still made
+the operator or Codex manually choose between `abandon`, `recover`, and
+`refresh-authorization` before the next follow-up commit could proceed. That
+manual selection was repeatable process debt even though the three explicit
+recovery primitives were already typed and auditable.
+
+`devctl pipeline --action auto-recover` now puts a typed classifier in front of
+those existing primitives. It reads the current pipeline artifact and HEAD,
+classifies the state as already clean, needs recover, needs refresh
+authorization, needs abandon, or ambiguous, and dispatches only the safe
+sub-action. Ambiguous states bail without mutating the artifact. Every run
+writes a `PipelineAutoRecoveryReceipt` that records the classification, chosen
+action, prior/new state, operator actor, and sub-receipt path.
+
+The same slice removed two stale code-shape path overrides for 7-line
+compatibility shims, so the default code-shape guard can stay honest without a
+waiver.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/pipeline/auto_recover_action.py`
+- `dev/scripts/devctl/commands/pipeline/auto_recover_result.py`
+- `dev/scripts/devctl/runtime/pipeline_auto_recovery_contracts.py`
+- `dev/scripts/devctl/tests/commands/test_pipeline_command.py`
+- `dev/scripts/devctl/tests/runtime/test_pipeline_auto_recovery_contracts.py`
+- `dev/scripts/checks/code_shape/code_shape_policy.py`
+
+### 2026-04-23 — Remote-control commit staging now hands sandbox prompts to Claude
+
+The live remote-control dogfood loop exposed the next missing execution
+adapter: after registering a Claude `remote_control_attachment`, `devctl
+commit` correctly resolved `interaction_mode=remote_control`, but a sandbox
+`.git/index.lock` denial before fresh pipeline creation still rendered local
+terminal retry guidance. That left phone/Claude operators dependent on a
+local approval prompt outside the typed packet lane.
+
+Governed commit preflight now converts that pre-pipeline
+`git_index_write_blocked` case into a typed `action_request` packet with
+`requested_action=stage_commit_pipeline`, target
+`devctl_commit:<head_sha>`, and the current commit-message draft. The stage
+handoff resolver prefers an active remote-control attachment provider for
+this prompt class, while the later already-approved pipeline execution
+handoff still uses the writable-lane resolver. Delegated remote-control
+approval receipts now also preserve the provider identity in the
+`commit_approval` request/decision packets instead of collapsing the visible
+receipt back to `operator`.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/packet_contract.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_packets.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_runtime.py`
+- `dev/scripts/devctl/commands/vcs/commit_preflight_validators.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+- `dev/scripts/devctl/tests/vcs/test_commit_gate.py`
+
+### 2026-04-23 — stage_commit_pipeline projection, role-aware stage handoff, and actor-matched polling
+
+The remote-control commit staging slice above introduced a new
+`requested_action="stage_commit_pipeline"` action_request kind, but the live
+dogfood loop showed two follow-up gaps that left the new packet stalling
+silently.
+
+First, `action_request.ActionKind` and the bridge projection only knew the
+legacy `commit | run_check | push | kill_process` set, so even valid
+`stage_commit_pipeline` packets were dropped from the projected `## Action
+Requests` surface. Reviewers/operators saw "no pending action requests" while
+the event store actually held a pending stage handoff. Adding
+`STAGE_COMMIT_PIPELINE` to the enum (and excluding it from the heavier
+`PIPELINE_ACTION_KINDS` runtime-binding gate, since stage handoffs precede
+the pipeline) restores projection visibility.
+
+Second, `resolve_commit_stage_target()` only inspected
+`remote_control_attachment.provider`. When the attached provider happened to
+be the reviewer-bound agent (e.g. an attached Codex operator session while
+Claude held the implementer role), the function self-targeted the blocked
+reviewer queue instead of routing to the writable implementer lane. The
+resolver now also reads `remote_control_attachment.role`: when role is
+`operator` and the attached provider equals the typed reviewer agent while a
+separate coding agent is bound, the stage handoff routes to the coding
+agent. Existing remote-control attachments that already point at the
+writable lane continue to resolve to the attachment provider unchanged.
+
+Third, the reviewer/operator polling prompt rendered by `prompt_guards.py`
+emitted `review-channel --action inbox --target <agent> --status pending`
+without `--actor`. The packet runtime only stamps
+`delivery_observed_at_utc` / `delivery_observed_by` when `--actor` matches
+the inbox target, so following the prompt left live `action_request` packets
+stuck as `unseen` and kept retriggering wake/attention state. The prompt now
+passes `--actor <provider_id>` and explains the receipt contract.
+
+Maintainer surfaces (`AGENTS.md`, `dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`) now also list `stage_commit_pipeline` alongside the
+other bridge-executable actions so generated guidance agrees with the typed
+contract.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/action_request.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_targets.py`
+- `dev/scripts/devctl/review_channel/prompt_guards.py`
+- `dev/scripts/devctl/tests/review_channel/test_action_request.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+
+### 2026-04-28 — DashboardSnapshot v3 and typed bridge freshness unblock push-v14 gates
+
+Plan 4.1 exposed the same prose-vs-typed-state split in several runtime
+readers: the bridge checker still parsed `Last Codex poll` / `Claude Ack`
+from `bridge.md`, commit-stage handoff packets were safe hints without a
+typed auto-apply lifecycle, and dashboard/mobile/operator surfaces each kept
+separate snapshot assembly paths.
+
+The bridge checker now consumes typed `ReviewState.bridge.last_codex_poll_*`
+freshness and the shared `ack_freshness_authority.is_implementer_ack_current`
+predicate for implementer ACK authority. The markdown bridge remains a
+compatibility projection for section hygiene and worktree hash display, not
+the freshness source.
+
+Pre-pipeline `stage_commit_pipeline` action requests now remain
+system-to-Claude allowlisted, require `safe_auto_apply`, runtime target
+binding, and full guard-bundle evidence, and can auto-ACK/apply through typed
+packet events. The governed commit handoff emitter also reuses existing live
+stage handoff packets for the same target agent and `devctl_commit:<HEAD>` so
+repeat sandbox retries do not flood the queue.
+
+Dashboard consumers now share `DashboardSnapshot` v3 through
+`dashboard_snapshot_authority`: CLI dashboard output normalizes to the v3
+contract, `dashboard --follow` emits repeated snapshots, `claude-loop`
+provides a read-only Claude loop view over the same payload, `mobile-status`
+exposes the shared snapshot, and the PyQt Operator Console attaches the same
+contract while keeping its lane-specific panels. Codex launch watchdog scripts
+also refresh `agent-mind --agent codex --project` when they observe new Codex
+rollout activity, keeping dashboard state tied to typed session traces.
+
+Evidence:
+
+- `dev/scripts/checks/review_channel_bridge/report.py`
+- `dev/scripts/devctl/review_channel/bridge_validation.py`
+- `dev/scripts/devctl/review_channel/events.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_packets.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_runtime.py`
+- `dev/scripts/devctl/runtime/dashboard_snapshot_authority.py`
+- `dev/scripts/devctl/commands/dashboard.py`
+- `dev/scripts/devctl/commands/reporting/claude_loop.py`
+- `dev/scripts/devctl/commands/mobile_status.py`
+- `app/operator_console/state/snapshots/snapshot_builder.py`
+- `dev/scripts/devctl/tests/checks/test_check_review_channel_bridge.py`
+- `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+
+### 2026-04-29 - Stale conductor retirement is a typed controller action
+
+Plan 4.1 push recovery exposed a host-process hygiene loop where a stale
+review-channel conductor could keep spawning fresh detached helper rows. The
+generic cleanup path correctly skipped recent detached rows, but the commit
+guard then had no typed way to retire the older spawner, so auto-retry could
+repeat without convergence.
+
+`controller-action` now includes `retire-stale-conductor`, a local typed action
+that requires a PID, validates that PID against the repo process-audit snapshot
+as a review-channel conductor, refuses too-recent targets, terminates the
+validated conductor tree with a structured report, and points operators back to
+`process-cleanup --verify` for proof. `process-cleanup` also emits bounded
+retirement commands when recent detached rows coexist with stale supervised
+conductor rows, so guard failures can route through typed recovery instead of
+manual process killing.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/controller_action.py`
+- `dev/scripts/devctl/control_plane/action_support.py`
+- `dev/scripts/devctl/cli_parser/controller_action.py`
+- `dev/scripts/devctl/commands/process/cleanup.py`
+- `dev/scripts/devctl/tests/test_controller_action.py`
+- `dev/scripts/devctl/tests/commands/process/test_process_cleanup.py`
+
+The same slice seeds the architecture-aware probe family with
+`probe_architecture_connectivity.py`. The probe consumes
+`ConnectivityRegistrySnapshot` and the registry reader-verification pass,
+then emits architecture-lens hints for typed contract-reader gaps or registry
+writer warnings. `probe-report` now runs that probe through the normal quality
+policy and script catalog path, making the connectivity registry load-bearing
+for code-smell review instead of only a system-map render source.
+
+Additional evidence:
+
+- `dev/scripts/checks/probe_architecture_connectivity.py`
+- `dev/scripts/devctl/governance/script_catalog_registry.py`
+- `dev/scripts/devctl/quality_policy/defaults.py`
+- `dev/scripts/devctl/tests/checks/test_probe_architecture_connectivity.py`
+
+### 2026-04-29 - Packet applies now require guard evidence and portable plan authority
+
+Finding LL exposed that packet lifecycle state alone still let an ACK or apply
+look like completed work without proving the guard/run/action evidence behind
+it. `packet_applied` transitions now validate a `PacketGuardAttestation`
+against the applied packet: runtime stage/commit/push requests require commit
+SHA, run records, action results, and evidence artifacts; commit approvals
+must match the pipeline generation and staged snapshot hash; plan patches must
+name before/after plan revisions plus the mutation op; findings and approvals
+carry their own action/operator evidence. Low-risk communication packets only
+get a minimal actor/timestamp attestation.
+
+The same slice makes the master plan portable typed state. `MasterPlan`,
+`PlanRow`, `LinkedDoc`, `PlanProposal`, `IngestionPolicy`, and
+`ExplainBackReceipt` live under `devctl.runtime`; `MarkdownChecklistAdapter`
+can ingest VoiceTerm's existing checklist projection without changing the
+human-facing file; and `PacketPlanIntegration` writes applied plan rows to the
+JSONL store resolved from `ProjectGovernance.master_plan` before optionally
+projecting the row back into markdown. Plan-review packets are proposal-class
+packets with live target/mutation contradiction detection; runtime action
+requests and other communication packets stay carrier-class and keep their
+typed runtime bindings.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/master_plan_contract.py`
+- `dev/scripts/devctl/runtime/master_plan_parse.py`
+- `dev/scripts/devctl/runtime/master_plan_store.py`
+- `dev/scripts/devctl/governance/master_plan_config.py`
+- `dev/scripts/devctl/governance/master_plan_ingestion.py`
+- `dev/scripts/devctl/review_channel/packet_attestation.py`
+- `dev/scripts/devctl/review_channel/contradiction_detector.py`
+- `dev/scripts/devctl/review_channel/packet_contract.py`
+- `dev/scripts/devctl/review_channel/packet_plan_proposal.py`
+- `dev/scripts/devctl/review_channel/packet_plan_integration.py`
+- `dev/scripts/devctl/review_channel/packet_target_validation.py`
+- `dev/scripts/devctl/review_channel/packet_transition_events.py`
+- `dev/scripts/devctl/tests/governance/test_master_plan_ingestion.py`
+- `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_lifecycle.py`
+
+### 2026-04-29 - SessionPosture becomes the Plan 4.1 runtime posture seam
+
+Plan 4.1 rescue Slice A collapsed the mode/role/lane vocabulary split onto a
+typed `SessionPosture` contract. Reviewer runtime now produces the posture,
+status/startup/dashboard/session-resume consume it, and event bridge projection
+prefers typed reviewer-runtime posture over bridge prose or stopped daemon
+fallbacks. `actors[].occupied_lane` is the current-seat field; `agent_lane.lane`
+remains a compatibility alias, and capability grants stay separate from lane
+occupancy. Fresh `agent-mind` rollout projection can mark an actor live without
+assigning a lane.
+
+The same slice adds remote-control bootstrap routing text gated by
+`SessionPosture.interaction_mode=remote_control`: no local GUI/process
+intervention, no ad hoc kill commands, no local commit/push authority, and
+privileged/commit/push work routes through typed `action_request` packets or
+bounded repo commands. Planning packets now also project MVP
+`PacketIntentAnchor` / `PlanIterationSession` continuity so pending or expired
+plan intent survives startup without becoming MasterPlan authority unless the
+planning packet is explicitly applied.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/session_posture.py`
+- `dev/scripts/devctl/runtime/packet_intent_anchor.py`
+- `dev/scripts/devctl/review_channel/reviewer_runtime_contract.py`
+- `dev/scripts/devctl/review_channel/event_projection_bridge.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/commands/governance/session_resume_render.py`
+- `dev/scripts/devctl/commands/governance/startup_context_render.py`
+- `dev/scripts/devctl/commands/vcs/push_receipt_failure.py`
+- `dev/scripts/devctl/tests/runtime/test_session_posture.py`
+- `dev/scripts/devctl/tests/runtime/test_packet_intent_anchor.py`
+
+### 2026-04-30 - Autonomy swarm mutation now requires typed fanout readiness
+
+`devctl autonomy-swarm` keeps `--plan-only` and `--mode report-only` as the
+safe read-only allocation/review paths, but mutating swarm modes now fail
+closed unless the typed coordination reducer reports
+`CoordinationSnapshot.safe_to_fanout=true`. This prevents an operator or agent
+from launching multi-worker `plan-then-fix` / `fix-only` lanes while the
+runtime still reports single-agent posture, stale review truth, unresolved
+packet debt, or missing future `RuntimeAgreementReport` /
+`WorkerPacket` / `GraphScopeProof` readiness.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/autonomy/swarm.py`
+- `dev/scripts/devctl/tests/test_autonomy_swarm.py`
+
+### 2026-05-01 - Plan 4.1 flow guards now cover command envelopes and attention parity
+
+Plan 4.1 hardening added `probe_command_result_contract` to the normal
+probe-report lane so read-only command JSON surfaces must keep the shared
+`command` / `ok` / `exit_ok` / `exit_code` / `status` / `errors` envelope.
+`sync-status`, `operator-inbox`, and `path-audit` now satisfy that envelope.
+
+The same slice fixed a projection-parity false positive in
+`check_multi_agent_sync`: `active_packet_id` is the current-instruction
+authority, while `attention_packet_id` remains packet-attention state validated
+by the dedicated attention checks. A blocked Claude session can therefore show
+pending attention without making queue/inbox current-instruction readers appear
+out of sync.
+
+Follow-up registry hardening added `check_registry_path_integrity` so script
+catalog entries, quality-policy defaults, and public top-level check/probe
+entrypoints cannot drift silently. `probe_event_field_naming_consistency` is
+now registered in the review-probe lane and its canonical review-probe module
+also supports direct script invocation.
+
+Provider-list hardening moved known provider ids and provider-id syntax into
+`runtime.provider_registry` and added `check_provider_list_parity_graph`.
+Agent-facing parser flags such as `--agent` now must use shared syntax
+validation instead of hardcoded provider `choices=[...]`, closing the live
+`agent-mind` vs `monitor` provider vocabulary split surfaced by Claude packet
+review.
+
+Inter-agent feedback hardening added `probe_inter_agent_communication_lag` and
+changed `AgentLoopDecision` ordering so peer packet attention is no longer
+computed and then hidden behind startup blockers. A blocked actor now reports
+`required_action=triage_pending_packet` with `loop_mode=pivot_to_packet` when
+fresh peer packets need attention, while `safe_to_continue=false` and
+`may_mutate=false` preserve the startup-authority block. This makes delayed
+Codex/Claude findings a visible runtime condition instead of a manual polling
+accident.
+
+Evidence:
+
+- `dev/scripts/checks/review_probes/probe_command_result_contract.py`
+- `dev/scripts/checks/review_probes/probe_inter_agent_communication_lag.py`
+- `dev/scripts/checks/check_registry_path_integrity.py`
+- `dev/scripts/checks/check_provider_list_parity_graph.py`
+
+### 2026-05-03 - Fresh sessions now use typed orientation packets
+
+Fresh "where are we / next steps / resume" requests no longer rely on
+manual git/doc reconstruction. `devctl session --role <role> --format md|json`
+now emits a bounded `SessionOrientationPacket` by running `startup-context`,
+`session-resume`, `review-channel --action status --terminal none`, and
+`context-graph --mode bootstrap` in order. Startup blockers remain typed data
+rather than aborting later status/graph reads, and the session command keeps
+context-graph bootstrap snapshot writes enabled so system-picture and graph
+freshness stay aligned.
+
+The same slice ingested the operator dogfood finding as
+`MP377-P0-T22AN-AC`, ingested Claude slash-domain packet `rev_pkt_2863` as
+`MP377-P0-T22AN-AD`, and dismissed no-work test packet `rev_pkt_2866` with a
+terminal rejected plan-ingestion receipt.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/governance/session.py`
+- `dev/scripts/devctl/commands/governance/session_orientation.py`
+- `dev/scripts/devctl/cli_parser/artifact_suppression.py`
+- `dev/scripts/devctl/platform/surface_state_contract_rows.py`
+- `dev/scripts/devctl/tests/governance/test_session_orientation.py`
+- `dev/scripts/devctl/tests/governance/test_read_only_commands.py`
+
+### 2026-05-03 - `/develop` packet-aware roles and packet-ingestion dogfood
+
+T22AN-X adds packet-aware `/develop` composition over the existing typed
+attention loop instead of introducing another scheduler. `/develop` now
+renders `CollaborationModeTopology`, role presets, packet pressure,
+selected `PacketIntentClassification` rows, and
+`PacketAttentionIngestionDecision`; `develop ingest-intent` is the smart
+packet/chat/file-to-state alias over `PlanIntentIngestionReceipt`.
+
+Claude dogfood packets drove three runtime closures in the same slice:
+dashboard role presets subscribe to `AgentAttentionLoop` events rather than
+polling independently, packet arrivals record `PacketWakeReceipt` rows even
+when no conductor process wake is possible, and startup-authority-blocked
+wakes now report `attention_decision_shape=startup_blocked` with blocker,
+`safe`, `may_mutate`, and the closure check command. Direct markdown plan
+sources can be ingested with `develop ingest-intent --source <file>`, which
+records `source_kind=markdown_plan_file` unless a narrower kind is supplied.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/development_collaboration_modes.py`
+- `dev/scripts/devctl/runtime/development_packet_pressure.py`
+- `dev/scripts/devctl/runtime/development_packet_pressure_classification.py`
+- `dev/scripts/devctl/runtime/development_packet_pressure_models.py`
+- `dev/scripts/devctl/commands/development/plan_intake.py`
+- `dev/scripts/devctl/commands/review_channel/event_post_wake.py`
+- `dev/scripts/devctl/tests/runtime/test_development_packet_pressure.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_post_wake.py`
+- `dev/scripts/checks/review_probes/probe_event_field_naming_consistency.py`
+- `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop_instruction.py`
+- `dev/scripts/devctl/runtime/provider_registry.py`
+- `dev/scripts/devctl/runtime/agent_loop_decision.py`
+- `dev/scripts/devctl/commands/review_channel/event_handler.py`
+- `dev/scripts/devctl/commands/review_channel/sync_status_action.py`
+- `dev/scripts/devctl/commands/path_audit.py`
+- `dev/scripts/devctl/tests/checks/test_probe_command_result_contract.py`
+- `dev/scripts/devctl/tests/checks/test_probe_inter_agent_communication_lag.py`
+- `dev/scripts/devctl/tests/checks/test_check_multi_agent_sync.py`
+- `dev/scripts/devctl/tests/checks/test_check_registry_path_integrity.py`
+- `dev/scripts/devctl/tests/checks/test_check_provider_list_parity_graph.py`
+
+### 2026-05-03 - Host-process audit now fails stale supervised conductors
+
+Live dogfood of the Codex/Claude loop exposed a stale headless Claude
+conductor that remained registered as supervised even though its embedded
+session-resume packet still targeted old `HEAD` `d66f61f2` while the repo had
+advanced to `0e6730e1`. `process-audit --strict` now compares conductor
+resume/review-state `head_sha` evidence against current `HEAD`; mismatched
+registered conductors move to `stale_supervised_conductors` and fail the guard
+instead of being protected as healthy supervised rows. The same strict audit
+now fails when `ps` is unavailable, so sandbox-skipped host sweeps cannot report
+false green. `process-cleanup --verify` includes stale supervised conductor
+roots in cleanup targets, expands them to their descendant trees, and verifies
+the host table afterward.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/process/audit.py`
+- `dev/scripts/devctl/commands/process/cleanup.py`
+- `dev/scripts/devctl/tests/commands/process/test_process_audit.py`
+- `dev/scripts/devctl/tests/commands/process/test_process_cleanup.py`
+
+### 2026-05-03 - Remote-control codex launch unblocked (Findings D + F + 1 + 2)
+
+Live role-flip dogfood (claude-as-coder, codex-as-reviewer) exposed three
+remote-control launch regressions that prevented headless codex spawn:
+
+- **Finding D**: the conductor-generated launch script invoked the
+  interactive `codex` CLI which gates on `isatty(0)`; in
+  `script -q -F` pty backgrounded from a non-tty parent the slave saw EOF
+  immediately so codex exited with `Error: stdin is not a terminal`.
+  `launch_script.py` now uses the non-interactive `codex exec` subcommand
+  for headless launches and filters the `--ask-for-approval` interactive-only
+  flag.
+- **Finding F**: the startup-authority gate ran on every `review-channel
+  --action launch`, including non-mutating reviewer-only spawns whose
+  worktree state cannot affect outcome. `startup_gate.py` now short-circuits
+  the gate when the launch is declared `--policy-hint review_only --remote-role
+  reviewer`, paired with the launch-roster restriction below.
+- **Finding W**: `review-channel --action post` triggered fresh codex
+  spawns as a side effect via the legacy reviewer-wake path even when the
+  operator could not authorize a TTY. `agent_wake_dispatch._wake_via_relaunch`
+  now returns attention-only in `remote_control` so packet posting records
+  attention without forcing a launch.
+- **rev_pkt_2892 Finding 1** (live codex review of Phase 1): the
+  `event_post_wake.py:164` legacy reviewer-wake branch still spawned codex
+  in `remote_control`. Routed through the gated agent-wake dispatcher
+  instead.
+- **rev_pkt_2892 Finding 2**: the `policy_hint=review_only` gate-skip
+  could be combined with a launch roster that still spawned implementer
+  lanes. Added `review_only_scope.is_reviewer_only_launch_scope` and
+  apply it in `bridge_action_support.py` to strip claude+cursor lanes
+  when the caller declared reviewer-only.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/agent_wake_dispatch.py`
+- `dev/scripts/devctl/review_channel/launch_script.py`
+- `dev/scripts/devctl/runtime/startup_gate.py`
+- `dev/scripts/devctl/commands/review_channel/event_post_wake.py`
+- `dev/scripts/devctl/commands/review_channel/bridge_action_support.py`
+- `dev/scripts/devctl/commands/review_channel/review_only_scope.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_post_wake.py`
+- `dev/scripts/devctl/tests/review_channel/test_follow_controller_reviewer_wake.py`
+- `dev/scripts/devctl/tests/review_channel/test_launch_script.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_gate.py`
+
+### 2026-05-03 - Operator launch notices no longer count as agent-loop wake debt
+
+Live single-agent verification exposed a false red `check_multi_agent_sync.py`
+state: the operator's read-only launch `system_notice` stayed pending in
+`operator-inbox`, while the agent-loop projection correctly had no operator
+runtime row to wake. The guard now distinguishes operator queue inventory from
+runtime-actionable packet pressure. Pending read-only operator `system_notice`
+rows remain visible for the operator without requiring synthetic
+`AgentLoopDecision` rows or actor-ambiguous global packet attention.
+
+Evidence:
+
+- `dev/scripts/checks/multi_agent_sync/runtime_truth.py`
+- `dev/scripts/checks/multi_agent_sync/runtime_truth_agent_loop.py`
+- `dev/scripts/devctl/tests/checks/test_check_multi_agent_sync_runtime_truth.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+
+### 2026-05-04 - Actor-authorized safe-auto-apply keeps stage handoff on typed authority
+
+Live `stage_commit_pipeline` dogfood exposed that safe auto-apply only accepted
+system-authored handoff packets, even when executable action-request posts
+already carried `ActionRequestRuntimeAuthorityEvidence`. That forced a manual
+ACK/apply step for actor-authored packets whose target actor and capability
+grants were already proven in typed state.
+
+Change: `safe_auto_apply` now accepts non-system handoff packets only when the
+metadata carries `ActionRequestRuntimeAuthorityEvidence`, the packet target
+matches the authority actor id or provider, and the authority grants either
+`repo.stage_handoff` or both `repo.stage` and `repo.commit`. Packets lacking
+those proofs still remain pending. This keeps auto-advance on typed runtime
+authority instead of sender names or packet prose.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/safe_auto_apply.py`
+- `dev/scripts/devctl/tests/review_channel/test_failure_packet_router.py`
+- `dev/scripts/README.md`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+
+### 2026-05-04 - Focused Python preflight now shards explicit devctl tests
+
+Governed push dogfood showed that `check-router --execute --keep-going` was
+parallelizing independent guards, but its focused devctl pytest risk add-on
+still ran one monolithic `devctl test-python` command. On a long-lived branch
+that selected many touched devctl test files, that final command passed 219
+tests and then hit the 600s session timeout with little actionable progress.
+
+Change: `devctl test-python` now exposes `--parallel-workers` / `--no-parallel`
+and shards explicit multi-path runs by pytest target while preserving ordered
+report output and failure excerpts. `check-router` uses that sharded path for
+focused devctl add-ons with a bounded per-test cap. The same dogfood run also
+exposed packet event projection rebuilding the canonical repo context graph
+from temp VCS test repos; work-intake pacing now returns typed
+`no_context_graph_snapshot` evidence for temp/external repos without saved graph
+snapshots instead of scanning the wrong tree.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/python_test_runner/command.py`
+- `dev/scripts/devctl/cli_parser/python_tests.py`
+- `dev/scripts/devctl/commands/check/router_python_tests.py`
+- `dev/scripts/devctl/runtime/work_intake_pacing.py`
+- `dev/scripts/devctl/tests/commands/test_python_tests.py`
+- `dev/scripts/devctl/tests/runtime/test_work_intake_pacing_snapshot_preference.py`
+
+### 2026-05-04 - Plan-bound expired packets stay visibly durable in history
+
+Live Claude-to-Codex dogfood showed a read-side contradiction: packets such as
+`rev_pkt_2961` and `rev_pkt_2958` had `PacketCreationBinding` plan rows, but
+`review-channel --action history --include-outcomes` still reported their
+outcome evidence as `clock_expired_without_disposition`. That made durable
+packet communication look like lost live attention even though the plan owner
+already existed.
+
+Change: synthetic stale-pending archive actions and explicit `packet_expired`
+anchors now derive their archive classification from packet creation or
+durable-ingestion receipts. `PacketOutcomeLedger` shares that same binding
+test, so plan-bound expired packets report
+`archive_classification:expired_after_durable_binding` in both disposition and
+outcome evidence.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/packet_lifecycle.py`
+- `dev/scripts/devctl/review_channel/packet_outcomes.py`
+- `dev/scripts/devctl/review_channel/packet_outcome_models.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_outcomes.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_lifecycle.py`
+
+### 2026-05-04 - Long-running devctl stages now emit typed progress heartbeats
+
+Remote-control dogfood around `rev_pkt_2961` showed a recurring operational
+failure: when commit/push preflights or routed guards went quiet, the operator
+and agents fell back to `ps` polling and Activity Monitor inference. The
+system had typed state for packets and plans, but not for a currently running
+child command that had not printed output recently.
+
+Change: the shared `run_cmd` live-output path now records
+`StageProgressEvent` rows for command start, no-output heartbeat, completion,
+failure, timeout, and interrupt. Governed VCS progress phases write into the
+same progress trail, and the new read-only `progress-status` command renders
+the latest event plus recent tail from `dev/reports/progress/`. These events
+are progress/status artifacts only; they do not wake packet handlers, launch
+conductors, or mutate packet queues.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/stage_progress.py`
+- `dev/scripts/devctl/command_runner.py`
+- `dev/scripts/devctl/command_runner_process.py`
+- `dev/scripts/devctl/runtime/command_progress.py`
+- `dev/scripts/devctl/commands/vcs/progress.py`
+- `dev/scripts/devctl/commands/reporting/progress_status.py`
+- `dev/scripts/devctl/tests/test_common.py`
+- `dev/scripts/devctl/tests/runtime/test_stage_progress.py`
+- `dev/scripts/devctl/tests/commands/reporting/test_progress_status.py`
+
+### 2026-05-04 - Routed guards now fail visibly on timeout instead of waiting silently
+
+Check-router dogfood on the progress slice showed the remaining half of the
+same automation bug class. The routed tooling bundle correctly selected phased
+parallel execution, but when the route reached a serial-required
+startup-authority guard, the operator still saw one Python process consuming
+CPU with no hard route-level outcome. Serial-required projection guards may
+run alone by design, but they still need a bounded execution policy.
+
+Change: `check-router` now exposes command and route timeout policy in its
+planned rows and markdown/JSON report. The shared `run_cmd` path accepts an
+explicit `timeout_seconds`, records timeout progress events, tears down the
+child process group, and returns `124` with `timed_out=true`. Router remediation
+classifies these failures as `guard_execution_timed_out`, so a timeout is a
+blocking guard result with exact command evidence, not a skipped guard or a
+green route.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/check/router_execution.py`
+- `dev/scripts/devctl/commands/check/router_render.py`
+- `dev/scripts/devctl/commands/check/router_coverage.py`
+- `dev/scripts/devctl/command_runner.py`
+- `dev/scripts/devctl/command_runner_process.py`
+- `dev/scripts/devctl/runtime/command_progress.py`
+- `dev/scripts/devctl/tests/commands/check/test_check_router.py`
+
+### 2026-05-06 - Role/session packet inbox accepted as governed-exception prerequisite
+
+Operator review of the governed-exception semantic-link plan found a broader
+runtime authority gap: packet inboxes cannot be owned by provider names if
+Codex and Claude can switch reviewer/implementer roles. A pending packet must
+remain visible through role/session state until lifecycle disposition or
+durable ingestion proves it was handled; switching providers must not hide or
+drop packet debt.
+
+Change: the finding is now typed plan state as `MP377-P0-T08F`, with
+`MP377-P0-EXC-S1D` recording the governed-exception acceptance dependency.
+`role_oriented_packet_inbox` is also recorded in governance-review as a
+confirmed authority-boundary issue. The implementation remains a future
+review-channel slice; current governed-exception Slice 1 stays limited to
+contracts, validation, registry visibility, plan-source retention, read-only
+exception commands, and semantic-link metadata.
+
+Evidence:
+
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/state/plan_source_snapshots.jsonl`
+- `dev/reports/governance/finding_reviews.jsonl`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/review_channel.md`
+
+### 2026-05-07 - Launch recovery now records typed spawn provenance
+
+Remote-control launch-lockup recovery around `rev_pkt_3136` through
+`rev_pkt_3139` showed three related failures: launch orchestration had grown
+past code-shape budgets, `--reviewer-mode single_agent` could leave typed
+state stuck there even when the next launch requested `active_dual_agent`, and
+the repo-owned publisher could auto-spawn a Codex conductor without durable
+evidence explaining which supervisor triggered it.
+
+Change: launch orchestration is decomposed into focused bridge action, scope,
+stale-heartbeat, launcher-discipline, and parser argument helpers; explicit
+`--reviewer-mode active_dual_agent` now restores stale single-agent metadata;
+and detached publisher / reviewer-supervisor heartbeat plus daemon event rows
+carry `invocation_provenance` fields for parent pid, process pid, launchd
+label, daemon supervisor, trigger reason, and command line. The launchd
+publisher wrapper now stamps the `com.voiceterm.review-channel.publisher`
+label into that provenance so operators can audit why a background spawn
+occurred.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel/bridge_action_prepare.py`
+- `dev/scripts/devctl/commands/review_channel/bridge_scope.py`
+- `dev/scripts/devctl/commands/review_channel/bridge_stale_refresh.py`
+- `dev/scripts/devctl/commands/review_channel/launcher_discipline_enforcement.py`
+- `dev/scripts/devctl/review_channel/parser_launch_arguments.py`
+- `dev/scripts/devctl/review_channel/parser_types.py`
+- `dev/scripts/devctl/review_channel/lifecycle_state.py`
+- `dev/scripts/devctl/review_channel/follow_loop_support.py`
+- `dev/config/launchd/review_channel_publisher_service.py`
+
+### 2026-05-07 - Develop next now routes blocker authority before packet salience
+
+Dogfood work on the Codex/Claude control loop showed that packet attention,
+typed plan authority, and selector output were still partially conflated.
+Packets are communication and intake evidence; after disposition or plan
+ingestion they should be provenance on typed state, not selectable work. The
+same session also exposed two checkpoint automation gaps: managed projection
+dirt could sit outside an explicit checkpoint path list, and `.git/index.lock`
+sandbox failures were retryable action results without a durable recovery
+decision.
+
+Change: `/develop next` now consumes orchestration blockers when selecting the
+next plan row, routing startup/checkpoint blockers to
+`MP377-P0-CHECKPOINT-AUTOMATION-S1` before ordinary runnable work and leaving
+packet ids as provenance unless unresolved intake blocks authority. Governed
+checkpoint staging now expands explicit path selections with managed projection
+dirt from startup authority, marks index-lock write blocks as retryable typed
+action results, avoids reusing receipt-only staged indexes when real source
+work remains dirty, and restages non-receipt unstaged source work after a
+guard-failure repair so a retry cannot commit a stale partial index. The broader
+follow-up architecture is preserved in typed plan rows for selector decision
+records, packet disposition receipts, command manifests, partial-index restage,
+and retryable action recovery.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/next_slice.py`
+- `dev/scripts/devctl/commands/development/report.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_managed_projection.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_phases.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_index_lock.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_git.py`
+- `dev/scripts/devctl/commands/vcs/commit_preflight_validators.py`
+- `dev/state/plan_index.jsonl`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `dev/scripts/devctl/tests/vcs/test_commit_gate.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+
+### 2026-05-07 - Dogfood trip-wires now feed guard smartness planning
+
+The checkpoint retry repair needed two commits against the same staged-index
+safety predicate: the first prevented receipt-only staged indexes, and the
+second added unstaged workdir detection after the guard-failure repair exposed
+a stale partial-index snapshot. Operator review correctly named the class as
+predicate fragmentation: focused tests proved the final behavior, but no guard
+noticed that repeated patches on one predicate family meant the typed primitive
+was incomplete.
+
+Change: the follow-up is now durable typed plan state instead of chat memory.
+`MP377-P0-CHECKPOINT-INDEX-REUSE-DECISION-S1` owns a fail-closed
+`IndexReuseDecision` for staged, dirty, unstaged, selected-path, grant, receipt,
+and observation-error inputs. `MP377-P0-GUARD-PREDICATE-TRIPWIRE-S1` owns the
+meta-guard / `GuardPromotionCandidate` path for repeated predicate repairs,
+disjunctive safety predicates, and failure-open observation fallbacks.
+`MP377-P0-COMMAND-RESULT-OBSERVABILITY-S1` owns the command-result output gap:
+commands should expose phase, terminal state, decisive artifacts, receipt SHAs,
+uncertainty, blocked/allowed actions, and recommended next commands so agents
+and operators do not infer completion state from raw logs.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/vcs/commit_preflight_validators.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_git.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_index_lock.py`
+- `dev/scripts/checks/review_probes/probe_command_result_contract.py`
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-05-08 - Review-channel liveness now prevents launcher recursion
+
+Dogfood on the remote-control review loop exposed a launcher recursion failure:
+stale prepared launch metadata could make a still-running conductor look
+reclaimable, so follow/recovery automation could spawn replacement conductors
+while the original process remained alive. That confused typed-state repair with
+process death and let one stale review-loop classification repeat across new
+sessions.
+
+Change: session liveness now treats the conductor script process probe as
+stronger evidence than stale prepared-launch authority. Stale authority can still
+reclaim sessions with no live process evidence, but it no longer hides a running
+conductor from duplicate-launch conflict detection. Maintainer docs now call out
+this ordering so launch/recovery repairs compose with the typed liveness reducer
+instead of adding a parallel launch policy.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/session_liveness.py`
+- `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
+- `dev/scripts/devctl/governance/instruction_boot_card.py`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+
+### 2026-05-09 - Provider-neutral verification-capability extraction in review-channel attention
+
+Dogfood on the dual-agent attention pipeline showed that bridge-attention
+classification still consulted role/capability lookups inline across multiple
+projection modules (`event_projection_assembly`, `status_projection_bridge_state`,
+`status_snapshot_authority`), each rebuilding the same actor-authority extraction
+pattern. The duplication risked drift between live mutation/verification authority
+checks and the recovery-decision routing, especially when reviewer-only roles needed
+to detect missing verification capability without blocking the implementer relaunch
+path.
+
+Change: extracted `collaboration_authority_liveness.py` (50 lines) as a single
+typed helper that consolidates `actor_authorities_from_value` + capability lookups
+behind one `apply_collaboration_authority_liveness()` overlay. The 3 prior
+projection callsites now consume this overlay; `attention_implementer_relaunch.py`
+no longer gates on `claude_conductor_active`; recovery_decision now maps
+`AttentionStatus.VERIFICATION_CAPABILITY_MISSING` → `rebind_verification_capability`
+instead of `relaunch_provider_pair_for_verification_gap`. Composes with
+`runtime/role_topology.py:resolve_role_topology()` and the existing actor-authority
+contract; no new typed-authority models added.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/collaboration_authority_liveness.py`
+- `dev/scripts/devctl/review_channel/event_projection_assembly.py`
+- `dev/scripts/devctl/review_channel/status_projection_bridge_state.py`
+- `dev/scripts/devctl/review_channel/status_snapshot_authority.py`
+- `dev/scripts/devctl/review_channel/attention_implementer_relaunch.py`
+- `dev/scripts/devctl/review_channel/conductor_authority.py`
+- `dev/scripts/devctl/review_channel/recovery_decision.py`
+- `dev/scripts/devctl/tests/review_channel/test_observed_topology.py`
+- `dev/scripts/devctl/tests/review_channel/test_recovery_assessment.py`
+
+### 2026-05-09 - Governed push validation now carries typed publication scope
+
+Dogfood on the governed push lane exposed a validation-scope leak: preflight
+had to validate the authorized commit range, but live projection guards could
+still hard-block publication because the working tree contained unrelated
+in-progress state. The fix is a typed `ValidationScope` / `ValidationContext`
+contract that defaults standalone checks to strict `live_worktree` and lets
+governed publication run under `pipeline_authorized_phase`.
+
+Change: `devctl push --execute` threads `pipeline_authorized_phase` into
+`check-router`, `docs-check`, and the live guard CLIs. Router plans keep
+docs-check and live projection guards visible instead of moving them into a
+skip list. In the publication phase, affected guards preserve original
+`live_worktree_ok`, errors, and advisory scope metadata while returning an
+allowed result for the already-authorized commit range. Standalone invocations
+remain fail-closed by default. Claude packet `rev_pkt_3357` approved this
+architecture as the validation-scope slice under
+`MP377-P0-PIPELINE-SCOPE-VALIDATION-S1`.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/validation_scope.py`
+- `dev/scripts/devctl/commands/check/router.py`
+- `dev/scripts/devctl/commands/check/router_range.py`
+- `dev/scripts/devctl/commands/check/router_plan.py`
+- `dev/scripts/devctl/commands/docs/check_runtime.py`
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/governance/push_routing.py`
+- `dev/scripts/checks/*/command.py`
+- `dev/scripts/devctl/tests/commands/check/test_check_router.py`
+- `dev/scripts/devctl/tests/commands/docs/test_check.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
+### 2026-05-11 - Reviewer-follow automation no longer dirties bridge projection
+
+Governed-push dogfood exposed that watcher/progress follow loops were still
+rewriting tracked `bridge.md` heartbeat projection rows while trying to keep
+Claude/Codex lanes observable. That made projection churn look like authored
+work and forced manual staging of compatibility surfaces.
+
+Change: `reviewer_follow_guard` now treats `reviewer-follow` and
+`ensure-follow` as automation-only evidence. Those paths can emit typed follow
+frames and restore-turn packets, but they no longer call the bridge heartbeat
+writer. Manual or semantic reviewer heartbeat/checkpoint/status/render actions
+remain the projection writers. The platform contract rows now include the
+runtime fields already emitted by develop/session termination models, and the
+bridge projection-only guard is registered in the canonical script catalog.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/reviewer_follow_heartbeat_guard.py`
+- `dev/scripts/devctl/tests/review_channel/test_reviewer_follow_heartbeat_guard.py`
+- `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
+- `dev/scripts/devctl/governance/script_catalog_registry.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_development.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_development_campaign.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_review.py`
+
+### 2026-05-11 - Governed push preflight fails fast and stops receipt stacking
+
+Governed-push dogfood exposed that the publication path was still using
+audit-style `--keep-going` router behavior. That made a publish attempt keep
+running checks after the first blocking preflight failure and left the
+operator-facing latest-push report saying "push running" before `git push`
+had actually started. The same loop could also stack
+`Refresh external review snapshot for ...` commits on top of prior external
+snapshot receipts.
+
+Change: repo push policy now carries semantic
+`preflight.fail_fast_on_blocker`, and this repo enables it by default. Routed
+publication preflight still uses `pipeline_authorized_phase`, but no longer
+adds `--keep-going` unless a repo policy explicitly opts into audit mode.
+Push progress heartbeats and the in-flight latest-push report now state that
+preflight validation is running and `git_push_started=false`. The managed
+ReviewSnapshot freshness receipt helper now no-ops when HEAD is already a
+managed receipt using the shared ReviewSnapshot receipt-prefix registry,
+including external-review snapshots and policy-owned generated-surface
+receipts, preventing receipt-of-receipt churn.
+
+Evidence:
+
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/devctl/governance/push_policy.py`
+- `dev/scripts/devctl/governance/push_policy_parse.py`
+- `dev/scripts/devctl/governance/push_routing.py`
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/commands/vcs/push_preflight_projection.py`
+- `dev/scripts/devctl/commands/vcs/push_review_snapshot_receipt_guard.py`
+- `dev/scripts/devctl/runtime/command_progress.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
+### 2026-05-11 - Bridge projection-only guard is now enforced, not catalog-only
+
+Governed-push dogfood exposed a real one-system drift: the bridge
+projection-only guard was registered in the script catalog, but not present
+in the resolved enforcement lanes. That meant `check_guard_enforcement_inventory`
+could block publication because a repaired bridge/status/current-session
+authority regression guard existed without bundle/workflow execution.
+
+Change: `check_bridge_projection_only.py` now runs through quality-policy
+defaults, `bundle.tooling`, `bundle.release`, `tooling_control_plane.yml`, and
+`release_preflight.yml`. The bundle registry tests assert the tooling and
+release bundle entries, and the docs now state that the guard is hard
+enforcement rather than advisory catalog state.
+
+Evidence:
+
+- `dev/scripts/devctl/quality_policy/defaults.py`
+- `dev/scripts/devctl/bundles/registry.py`
+- `.github/workflows/tooling_control_plane.yml`
+- `.github/workflows/release_preflight.yml`
+- `dev/scripts/devctl/tests/governance/test_bundle_registry.py`
+- `dev/scripts/devctl/tests/commands/check/test_check.py`
+
+### 2026-05-11 - Startup push preflight projections now share publication semantics
+
+Dogfood exposed a remaining split after governed push itself moved to
+fail-fast publication preflight: startup/work-intake still projected
+`check-router --execute --keep-going`. That told agents to rerun the old broad
+audit path and made publication look like another silent long-running
+validation loop.
+
+Change: `work_intake_routing` now treats broad `--keep-going` as explicit
+audit mode only (`audit_mode=true` or legacy
+`fail_fast_on_blocker=false`). The default projected push preflight omits
+`--keep-going`, matching governed push policy. Managed projection receipt
+cleanup also refuses to create another managed receipt commit when `HEAD` is
+already a ReviewSnapshot/generated-surface receipt, so generated-surface
+cleanup cannot form receipt-on-receipt chains.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/work_intake_routing.py`
+- `dev/scripts/devctl/commands/vcs/push_projection_receipt.py`
+- `dev/scripts/devctl/tests/runtime/test_work_intake.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
+### 2026-05-12 - Continuation override survives develop-next compaction handoff
+
+Remote-control dogfood exposed a continuation failure where direct
+`agent-loop --operator-override` activation was valid, but the next
+`/develop next` pass rebuilt fresh rows without the override fields. The final
+gate could then reissue the same activation command or drift into stale
+peer-lane packet body work, leaving the agent with no clear typed continuation
+after compaction.
+
+Change: `/develop next` now accepts and carries scoped edit-only override
+fields through parser, report, orchestration input, work-board decision
+projection, and final-gate rendering. The first gate emits a scoped
+`/develop next --operator-override --slice-id ...` command; the carried
+override reports `operator_override_edit`, proof satisfied, mutation allowed
+for edits only, no follow-up command, and VCS actions still blocked. The
+queue-target reducer also rejects session-scoped peer packets when the
+work-board has only stale route evidence, and the final gate reports the
+packet id from the concrete body-open command so `blocking_packet_id` cannot
+disagree with the command it emits. Codex-authored `task_produced` packets now
+require commit evidence or a clean worktree, preventing another dirty
+publish-line recurrence of smell #067.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/parser.py`
+- `dev/scripts/devctl/commands/development/report.py`
+- `dev/scripts/devctl/commands/development/final_response_gate.py`
+- `dev/scripts/devctl/commands/development/orchestration_inputs.py`
+- `dev/scripts/devctl/review_channel/agent_loop_decision_projection.py`
+- `dev/scripts/devctl/review_channel/agent_loop_decision_queue_targets.py`
+- `dev/scripts/devctl/commands/review_channel/event_post_action.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `dev/scripts/devctl/tests/review_channel/test_agent_loop_decision_queue_targets.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_post_action.py`
+
+### 2026-05-13 - P102 typestate result cases stay as projections
+
+The typestate-governance roadmap now has its first algebraic result slice over
+live reducers. Bypass activation uses `BypassActivated | BypassDenied`,
+governed push projection uses
+`PushSucceeded | PushPartialProgress | PushFailed`, and task-complete routing
+uses explicit `TaskComplete*` cases before the agent-loop reducer maps them to
+existing loop decisions.
+
+The implementation deliberately keeps authority in the current contracts:
+`BypassLifecycle`, `ActionResult`, and `TaskCompleteDecision`. The new cases
+are strict typed projections for branch exhaustiveness, backed by focused
+`mypy` / `pyright` coverage and the existing runtime test suite.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/bypass_activation_result.py`
+- `dev/scripts/devctl/runtime/task_complete_result.py`
+- `dev/scripts/devctl/commands/vcs/push_result_typestate.py`
+- `dev/scripts/devctl/tests/runtime/test_typestate_exhaustiveness.py`
+
+### 2026-05-13 - P102 nominal ID wrappers stay schema-compatible
+
+The P102 NewType slice now has a canonical runtime helper for governance
+identifiers. `PacketId`, `ReceiptId`, and `PlanRowId` live in
+`runtime/typed_ids.py` with normalizers and evidence-ref helpers, and the
+first adopters are low-risk command/evidence construction boundaries.
+
+This deliberately does not migrate persisted contracts. JSON-facing packet,
+receipt, and plan-row fields remain plain strings until a later typed-state
+slice has enough proof to tighten specific schemas.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/typed_ids.py`
+- `dev/scripts/devctl/commands/development/lifecycle_commands.py`
+- `dev/scripts/devctl/runtime/commit_receipt.py`
+- `dev/scripts/devctl/tests/runtime/test_typed_ids.py`
+
+### 2026-05-13 - P102 transition metadata gets a graph verifier
+
+The governed-transition decorator now has CI proof instead of relying on
+registration tests alone. `check_governed_transitions.py` imports the manifest
+modules, builds lifecycle graph edges from `TransitionContract` metadata, and
+uses `walk_context_graph` to verify required-to-produced state paths plus
+declared `graph_path` chains.
+
+The check is registered in the script catalog, included in the shared
+governance bundle, and wired into both tooling and release workflows.
+
+Evidence:
+
+- `dev/scripts/checks/check_governed_transitions.py`
+- `dev/scripts/checks/governed_transitions/command.py`
+- `dev/scripts/devctl/tests/checks/governed_transitions/test_check_governed_transitions.py`
+- `dev/scripts/devctl/bundles/registry.py`
+- `.github/workflows/tooling_control_plane.yml`
+- `.github/workflows/release_preflight.yml`
+
+### 2026-05-13 - P102 receipts carry validation and commit state evidence
+
+The Phase 8 enforcement slice followed `rev_pkt_3960` and stayed inside
+existing receipt boundaries instead of adding a parallel attestation-path
+checker. `ValidationReceipt` now records `validation_pending` pre-state,
+`validation_passed` or `validation_failed` post-state, plus pre/post state
+snapshots from the staged tree and guard result. The governed VCS executor
+checks the emitted post-state with `require_receipt_state()`.
+
+`CommitReceipt` now records the validation pre-state it builds on and the
+commit post-state it produces. When a commit SHA is present, receipt
+construction requires a `validation_passed` validation receipt, while still
+deriving that state from legacy `status == pass` receipts when additive
+fields are absent.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/validation_contracts.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_validation.py`
+- `dev/scripts/devctl/runtime/commit_receipt.py`
+- `dev/scripts/devctl/tests/runtime/test_commit_receipt.py`
+
+### 2026-05-13 - P102 transitions can enforce runtime state refs
+
+`@governed_transition` remains metadata-only by default, but transitions can
+now opt into runtime checks with `runtime_enforced=True` and state resolver
+functions. The wrapper compares resolved pre/post state refs against the
+declared `requires` and `produces` metadata and raises
+`TransitionStateViolation` on illegal transitions.
+
+The first enforced family is `BypassLifecycle`: request evaluation, lifetime
+bypass grant, and lifecycle expiry/revocation now reject state drift at the
+same surface that already declares transition metadata.
+
+The `rev_pkt_3973` pre-Phase-D correction keeps this enforcement honest:
+`BypassRequest` and `BypassReceipt` now carry explicit lifecycle state, their
+resolvers read object state instead of returning constants, and the decorator
+documents the signature split between pre-state resolvers (`*args`, `**kwargs`)
+and post-state resolvers (result only). Regression coverage now includes bad
+request/receipt states, revoked receipt state propagation, and multi-state
+`requires` / `produces` membership.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/governed_transitions.py`
+- `dev/scripts/devctl/runtime/bypass_lifecycle_evaluation.py`
+- `dev/scripts/devctl/runtime/bypass_lifecycle_models.py`
+- `dev/scripts/devctl/tests/runtime/test_governed_transitions.py`
+- `dev/scripts/devctl/tests/runtime/test_lifetime_bypass_mode.py`
+
+### 2026-05-13 - Stale pending-packet prose stops blocking agent loops
+
+Agent-loop blocker selection now treats typed pending-review packet count as
+authority over compatibility `open_findings` summaries. If the typed count is
+positive, old prose is rewritten to that count; if the typed count is zero,
+stale text such as `138 pending review packet(s)` is cleared before deriving
+`top_blocker`.
+
+This keeps `/develop next`, startup/runtime status, and agent-loop decisions
+aligned on the same typed packet truth: a session with no scoped active packet
+waits for new work instead of waking forever on legacy prose.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/startup_blocker_decision.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_blocker_decision.py`
+
+### 2026-05-13 - Delivery mode makes governance multi-modal
+
+`ProjectGovernance` now carries an explicit delivery mode through
+`BridgeConfig.delivery_mode`. The default remains `git_push_required`, while
+`local_edit_only` and `library_import_only` let startup and auto-mode reuse the
+same typed contracts without treating governed git publication as mandatory.
+
+The slice also adds an inline `ProjectGovernance.from_inline(...)` constructor
+for embedded/library callers and records the operating-mode framing in the
+active platform plan so CI/CD remains one supported mode, not the platform
+identity.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/project_governance_contract.py`
+- `dev/scripts/devctl/runtime/project_governance_parse.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/runtime/auto_mode.py`
+- `dev/scripts/devctl/tests/runtime/test_project_governance.py`
+- `dev/scripts/devctl/tests/runtime/test_auto_mode.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+
+### 2026-05-14 - Reviewer-mode authority stops inheriting provider roles
+
+Reviewer-mode normalization now fails closed to `tools_only` for missing or
+unknown values; call sites that need a non-closed fallback must pass an
+explicit `ReviewerMode` default. This removes the implicit active dual-agent
+fallback from ordinary authority checks.
+
+Status and event bridge-state projections now bind conductor capabilities with
+explicit reviewer/implementer roles after resolving providers from typed
+collaboration role assignments. A Claude reviewer plus Codex implementer no
+longer becomes editable/read-only based on fixed provider labels.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/reviewer_mode.py`
+- `dev/scripts/devctl/review_channel/status_projection_bridge_state.py`
+- `dev/scripts/devctl/review_channel/event_projection_bridge_state.py`
+- `dev/scripts/devctl/tests/review_channel/test_bridge_projection_mode_defaults.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+
+### 2026-05-14 - Boot cards expose valid role choices and help discovery
+
+Generated AGENTS/CLAUDE boot cards now enumerate the valid session roles
+(`reviewer`, `implementer`, `dashboard`, `observer`) and include first-hop help
+commands before the run-in-order sequence. The shared `AGENTS.md` projection no
+longer renders `--role <role>` / `--actor <actor>` placeholders; it uses the
+Codex reviewer lane by default and tells agents to switch only when typed
+startup authority, operator direction, or session assignment says to.
+
+The AGENTS contract guard now fails placeholder/invalid-role examples and
+requires all valid role choices and help-discovery commands, closing the
+recurrent fresh-session false-start where agents guessed `codex` or
+`coding-agent` as a role.
+
+Evidence:
+
+- `dev/scripts/devctl/governance/instruction_boot_card.py`
+- `dev/scripts/checks/check_agents_contract.py`
+- `AGENTS.md`
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/devctl/tests/checks/test_check_agents_contract.py`
+- `dev/scripts/devctl/tests/governance/test_render_surfaces.py`
+
+### 2026-05-14 - MP377 reviewer-mode slice closure is recorded in typed state
+
+The reviewer-mode role-binding symmetry slice now has typed closure evidence:
+`MP377-AUTHORITY-REVIEWER-MODE-SYMMETRY-S1` moved from `queued` to `applied`
+with commit and ReviewSnapshot receipt refs. The same plan-state update also
+records the latest packet binding row surfaced during controller polling.
+
+Evidence:
+
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_ingestion_receipts.jsonl`
+- `dev/state/plan_source_snapshots.jsonl`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-05-14 - Packet arrival invalidates existing derived state without wake authority
+
+Event-backed review-channel packet posts now add a
+`PacketArrivalDerivedStateInvalidation` block to the existing packet-attention
+receipt. The metadata names the current derived consumers that must reload
+event-backed review state, including projections, packet inbox, work-board,
+agent-loop decisions, `startup-context`, and `/develop next`.
+
+The no-wake boundary remains intact: packet delivery still does not launch,
+replace, or externally wake provider sessions; runtime controllers consume the
+typed invalidation at explicit task boundaries.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel/event_post_wake.py`
+- `dev/scripts/devctl/commands/review_channel/event_post_wake_reports.py`
+- `dev/scripts/devctl/review_channel/event_render.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_post_wake.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_render_typed_sections.py`
+
+### 2026-05-14 - Remote Evidence Queue path freshness
+
+Remote validation evidence can now be reconciled against the current tree
+without relying on agent memory. The new
+`dev/scripts/devctl/remote_evidence_queue/` package defines
+`RemoteValidationReceipt` plus path-freshness helpers that map a
+`FindingRecord.file_path` from `applies_to_tree` to `current_tree`, returning
+current, stale-but-relevant, or stale-and-superseded evidence. The helper
+reuses existing git changed-path utilities and treats renamed paths as still
+relevant.
+
+`CommitReceipt` and `RunRecord` gained additive `tree_content_hash` fields so
+remote artifacts can bind to the same tree identity as validation and commit
+receipts. This keeps remote proof on the existing evidence chain instead of
+creating a parallel receipt authority.
+
+Evidence:
+
+- `dev/scripts/devctl/remote_evidence_queue/models.py`
+- `dev/scripts/devctl/remote_evidence_queue/path_freshness.py`
+- `dev/scripts/devctl/runtime/commit_receipt.py`
+- `dev/scripts/devctl/runtime/action_contracts.py`
+- `dev/scripts/devctl/tests/remote_evidence_queue/test_path_freshness.py`
+
+### 2026-05-14 - AutoInval producer wiring uses existing evidence rows
+
+Derived-state invalidation metadata is now produced through existing
+review-channel events and plan-ingestion receipts instead of a new event bus.
+The shared runtime helper preserves the packet-arrival payload shape and is
+used by packet lifecycle transitions, packet debt repair ingestion, session
+liveness expiry events, and `PlanIntentIngestionReceipt`.
+
+Plan ingestion receipts now carry additive `derived_state_invalidated` and
+`derived_state_invalidation` fields so `/develop next`, startup context, packet
+inbox, work-board, and plan-index consumers can reload from typed evidence
+after plan authority changes.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/derived_state_invalidation.py`
+- `dev/scripts/devctl/runtime/plan_intent_ingestion.py`
+- `dev/scripts/devctl/commands/development/plan_intake_receipts.py`
+- `dev/scripts/devctl/review_channel/packet_transition_events.py`
+- `dev/scripts/devctl/review_channel/session_liveness_events.py`
+- `dev/scripts/devctl/tests/runtime/test_derived_state_invalidation.py`
+
+### 2026-05-14 - Bypass lifecycle bootstrap is a first-class devctl command
+
+`devctl bypass grant` now issues the active `BypassLifecycle` receipt that
+headless `review-channel launch|recover` already requires before trusted
+provider arguments are rendered. The command accepts bounded scopes, operator
+reason/evaluator evidence, optional receipt metadata, and a store path for
+dogfood tests, then calls the same `evaluate_bypass_request()` runtime contract
+used by the temporary bootstrap helper.
+
+This closes the fresh-repo bootstrap deadlock where launch hardening required
+an existing bypass receipt before the old inline launch path could create one.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/bypass/command.py`
+- `dev/scripts/devctl/tests/commands/test_bypass_command.py`
+- `dev/scripts/devctl/runtime/lifetime_bypass_mode.py`
+- `dev/state/plan_index.jsonl`
+
+### 2026-05-14 - SYSTEM_MAP covers the platform contract registry
+
+The generated SYSTEM_MAP block now includes a compact coverage index for every
+`dev/state/contract_registry.jsonl` `contract_id` while keeping the detailed
+connectivity table bounded. The new
+`check_systemmap_covers_contract_registry.py` guard compares the generated
+block against the live renderer and fails when a registry id is missing, so
+typed contract registration, architecture docs, and tooling/release bundles
+close through the same surface.
+
+Evidence:
+
+- `dev/scripts/devctl/platform/system_map.py`
+- `dev/scripts/checks/check_systemmap_covers_contract_registry.py`
+- `dev/scripts/devctl/tests/checks/test_check_systemmap_covers_contract_registry.py`
+- `.github/workflows/tooling_control_plane.yml`
+- `.github/workflows/release_preflight.yml`
+
+### 2026-05-14 - Session liveness reconciliation is a typed repair action
+
+`devctl session reconcile --kill-stale` now evaluates remote-control
+attachments against live process and heartbeat evidence before clearing stale
+session state. The reconciliation report is a registered
+`SessionLivenessReconciler` contract, and review-channel status includes the
+same report in dry-run mode so launch and dashboard paths can distinguish live
+agents from stale attachment artifacts without inventing a separate session
+surface. The existing downstream `SessionLivenessSignal` classifier is now
+back-registered as a platform contract, making the attachment cleanup layer and
+the liveness signal/count projections visible in the same contract registry.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/session_liveness_signal.py`
+- `dev/scripts/devctl/runtime/session_liveness_reconciler.py`
+- `dev/scripts/devctl/commands/governance/session_reconcile.py`
+- `dev/scripts/devctl/review_channel/status_projection_helpers.py`
+- `dev/scripts/devctl/tests/runtime/test_session_liveness_reconciler.py`
+
+### 2026-05-14 - Plan-row closure now has a commit-continuity guard
+
+The MP-378 guard-discovery mandate is now represented as typed plan state and
+the first guard, `check_plan_index_commit_continuity.py`, blocks governed
+post-mandate `PlanRow` entries, task-start bindings, and guard charters that
+lack a commit anchor, `PlanIntentReceipt`, or `TypedAction` evidence.
+Historical applied rows still report as legacy gaps, which keeps the old debt
+visible without letting new launch-bootstrap slices fall back to attention-only
+closure.
+
+Evidence:
+
+- `dev/scripts/checks/check_plan_index_commit_continuity.py`
+- `dev/scripts/devctl/tests/checks/test_check_plan_index_commit_continuity.py`
+- `dev/scripts/devctl/bundles/registry.py`
+- `.github/workflows/tooling_control_plane.yml`
+- `.github/workflows/release_preflight.yml`
+
+Follow-up closure on the same slice bound the guard charter, dedicated Guard P1
+row, and task-start packet rows to commit evidence through typed
+`PlanIntentReceipt` / `TypedAction` rows. The guard now catches the
+`task_started_packet_binding` and `guard_discovery_build_loop_charter` classes
+called out by `rev_pkt_4019`, while preserving legacy gaps as non-blocking
+debt.
+The follow-up review in `rev_pkt_4020` presented a status-gate alternative,
+but this slice kept the aggressive interpretation and backfilled the missing
+commit anchors instead, so the guard remains CI-gating for in-flight lifecycle
+rows that are part of the enforced mutation classes.
+
+Closure evidence:
+
+### 2026-05-15 - Guard-run classifies extension versus build work
+
+The R126 automation triplet now has a `guard-run --check extend-discipline`
+path for the duplicate-scope discipline that was previously manual. The check
+reads git status and numstat evidence, classifies dirty paths as tracked
+extension work or new build paths, and returns `extended`, `built`,
+`untracked_audit`, `diff_audit`, and a verdict. Manual mode is report-only;
+auto mode fails closed when new build paths appear.
+
+Evidence:
+
+- `dev/scripts/devctl/extend_discipline.py`
+- `dev/scripts/devctl/commands/guard_run.py`
+- `dev/scripts/devctl/tests/test_guard_run.py`
+
+- `MP-378-ARCH-SELF-IMPROVEMENT-LOOP-S1`
+- `MP-378-GUARD-P1-PLAN-INDEX-CONTINUITY`
+- `PKT-BIND-REV-PKT-4013`
+- `PKT-BIND-REV-PKT-4018`
+
+### 2026-05-15 - Status carries CLI recovery probe evidence
+
+The R126 automation triplet now has `review-channel --action status
+--recovery-probe`, which attaches `CLIHealthProbeAutomation` to the existing
+status payload. The probe supports scheduled, on-error, and disabled P152
+modes, and it derives recovery evidence from the typed doctor, recovery
+assessment, runtime-readiness, authority snapshot, and recommended-command
+fields instead of introducing a separate recovery authority path.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel/cli_health_probe.py`
+- `dev/scripts/devctl/commands/review_channel/status.py`
+- `dev/scripts/devctl/tests/review_channel/test_cli_health_probe.py`
+
+The same review window introduced `rev_pkt_4021`, which retires the earlier
+push-batching override and changes the active operator cadence to raw
+`git push` after each validated slice. The first application is the Guard P1
+slice: resolve the continuity guard, validate, then push the accumulated branch
+before starting S5.
+
+`rev_pkt_4022` immediately refines that push posture: raw git operations also
+need typed receipt integration so `--no-verify` commit/push paths do not become
+an untracked authority bypass. The arch-fix sidebar now starts that substrate
+with `RawGitBypassReceipt` and the `devctl raw-git commit|push` wrapper, which
+runs the requested git verb and appends typed evidence for the commit SHA or
+push range, skipped hooks, affected paths, operator/bypass authority, and a
+linked `GovernedExceptionLifecycle`. The wrapper rejects no-op raw-git
+executions and validates lifecycle-backed authority before receipt write. A
+later receipt-completeness guard still needs to enforce the contract over the
+commit range since the MP-378 mandate.
+
+### 2026-05-14 - Review-channel stop no longer self-signals the controller
+
+Governed push preflight exposed a review-channel regression: a focused
+`test_review_channel.py` run reached `reviewer-checkpoint`, then the detached
+runtime stop helper delivered `SIGINT` to the current pytest/devctl process
+because the test heartbeat fixture used the caller PID. The stop helper now
+detects that self-PID case and returns `current_process_not_detached` without
+calling `os.kill`, while canonical active-dual-agent test fixtures use
+`active_dual_agent` instead of the legacy `agents` label. The full
+review-channel target now completes under the same focused preflight command
+that governed push selected.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/review_channel/_stop.py`
+- `dev/scripts/devctl/tests/review_channel/test_stop.py`
+- `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
+- `dev/audits/r98_push_preflight_review_channel_timeout.md`
+
+### 2026-05-14 - Governed push reads canonical push authorization
+
+R98 dogfood reached the next publication blocker after routed preflight passed:
+`devctl push --execute` reported `push_authorization_missing` even though the
+active `PushAuthorizationRecord` existed in
+`dev/reports/review_channel/projections/latest/commit_pipeline.json`. The
+publication gate and startup push-state summaries were still reading the
+legacy `dev/reports/review_channel/latest/commit_pipeline.json` root, which was
+missing the event-backed commit pipeline.
+
+Change: commit-pipeline loading now checks the canonical event-backed
+projection first and falls back to the legacy review-status root only when the
+canonical artifact is absent. The focused regression test writes an empty
+legacy pipeline next to a valid `projections/latest` pipeline and verifies that
+`publication_authorization_decision()` authorizes the current HEAD.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/remote_commit_pipeline_artifact.py`
+- `dev/scripts/devctl/runtime/push_authorization.py`
+- `dev/scripts/devctl/governance/push_state_authorization.py`
+- `dev/scripts/devctl/tests/runtime/test_push_authorization.py`
+- `dev/audits/r98_push_authorization_projection_path.md`
+
+Follow-up dogfood on the same publication path showed a second timing wedge:
+executor-routed push persisted a valid pending pipeline, but a preflight
+projection refresh could briefly regenerate `commit_pipeline.json` without the
+local `PushAuthorizationRecord`; the final blocked report then restored the
+record, making manual inspection look healthy. `publication_authorization_decision`
+now accepts an optional in-process `RemoteCommitPipelineContract`, and
+`run_push_action` supplies it for executor-routed pushes so the publication
+gate validates the pipeline that owns the push attempt.
+
+Additional evidence:
+
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/commands/vcs/push_publication_gate.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
+### 2026-05-15 - Packet debt exposes decided backlog batches
+
+P203 turned the ACKed-but-unbuilt packet backlog into typed packet-debt
+summaries. `PacketDebtRemediationReport` now carries a
+`DecidedPacketDebtDetector` count for decided packets without terminal or
+durable ownership evidence, plus `PacketBatchTriage` rows that cluster debt by
+reason, target ref, and recommended ingestion action. The lifecycle clock also
+keeps transport expiry separate from durable-binding expiry so archived packets
+with no durable owner stay visible to the remediation report.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/packet_debt_remediation.py`
+- `dev/scripts/devctl/review_channel/packet_debt_triage.py`
+- `dev/scripts/devctl/review_channel/packet_debt_remediation_contracts.py`
+- `dev/scripts/devctl/review_channel/packet_lifecycle_clock.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_debt_remediation.py`
+
+### 2026-05-15 - Schema fixture handshake rejects untracked fixtures
+
+MP-378 follow-up dogfood found that new schema fixture JSON files could pass
+the local fixture handshake while remaining ignored by generic `*.json` rules.
+The handshake now detects git worktrees and fails valid or invalid fixture
+files that are not tracked, with coverage counters showing whether tracking
+was enforced and how many fixtures were checked.
+
+Evidence:
+
+- `dev/scripts/checks/schema_fixture_handshake/command.py`
+- `dev/scripts/checks/schema_fixture_handshake/git_tracking.py`
+- `dev/scripts/devctl/tests/checks/test_check_schema_fixture_handshake.py`
+
+### 2026-05-15 - Operator directive sources become typed role ids
+
+P200 started by aligning `OperatorRole` with the operator directive sources
+already exposed in caller authority: `human_operator`, `agent_runtime`,
+`automation_loop`, and `remote_operator`. Human and remote operator aliases now
+normalize into the tandem operator lane, so operator text can move toward
+first-class packet routing without relying on ad hoc chat labels.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/role_profile.py`
+- `dev/scripts/devctl/tests/runtime/test_role_profile.py`
+
+### 2026-05-15 - Raw-git path emits feature proof receipts
+
+R156 dogfood showed that governed commit emission was not enough: the
+operator-authorized raw-git loop bypassed the governed executor hook. The
+`devctl raw-git` wrapper now writes `FeatureProofReceipt` artifacts for raw
+commits and updates pushed commit ranges with the push bypass receipt. The new
+`check_feature_has_proof_receipt.py` guard fails when a commit in the selected
+range lacks a valid receipt for its SHA, and the guard is registered in the
+shared governance bundle.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/raw_git.py`
+- `dev/scripts/checks/check_feature_has_proof_receipt.py`
+- `dev/scripts/devctl/tests/commands/test_raw_git.py`
+- `dev/scripts/devctl/tests/checks/test_check_feature_has_proof_receipt.py`
+
+### 2026-05-15 - Packet plan range decomposition keeps title spans typed
+
+R166 dogfood reproduced a reducer bug in `develop ingest-plan`: expanded
+`MP-NEW-* S1..S5` ranges reused the raw source line for every generated row,
+so S1 rows could inherit `..S5` and later rows could inherit the whole literal
+range clause as their title. The packet-plan decomposer now keeps each range as
+typed `DecomposedRange` data with source spans, strips matched range tokens
+before title extraction, and has focused regression coverage for both suffix
+and literal-range leakage.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/plan_intake_decomposition.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+
+### 2026-05-15 - Commit messages must resolve to typed plan rows
+
+R171 dogfood found the next failure mode after packet range-title repair:
+feature commits could still cite row ids or packet ids whose durable plan
+authority was missing, only PKT-BIND-level, or title-corrupted. The new
+`CommitMessageRowIdResolvesGuard` closes that path with a repo-policy mandate
+window, a registered platform contract, schema fixtures, CI workflow wiring,
+and focused tests for missing rows, packet decomposition, legacy MP377 row ids,
+corrupted row titles, and applied-row commit-anchor requirements.
+
+Evidence:
+
+- `dev/scripts/checks/check_commit_message_row_id_resolves.py`
+- `dev/scripts/devctl/tests/checks/test_check_commit_message_row_id_resolves.py`
+- `dev/scripts/devctl/tests/checks/test_check_packet_decomposition_completeness.py`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows_plan_intake.py`
+- `dev/state/contract_registry.jsonl`
+
+### 2026-05-15 - Commit-message row authority guard reports its enforcement window
+
+R174 dogfood found that the first P40 guard version could miss active plan
+families and could skip packet-decomposition checks when a commit also cited an
+unenforced row prefix. The guard now widens the repo-policy prefixes for the
+active P207/P208/P218/P219/P220 families, evaluates packet refs independently
+from row-prefix enforcement, and emits its scanned range plus mandate metadata
+so review receipts can prove what was checked.
+
+R175 then found the remaining mirror bug: the packet-decomposition helper still
+accepted any hard-coded `MP-NEW-*` row as decomposed work. The helper now
+receives the active policy prefixes directly and counts only policy-enforced
+implementation rows as packet decomposition, with regressions covering both
+off-policy rows and the newly enforced P207 family.
+
+Evidence:
+
+- `dev/config/devctl_repo_policy.json`
+- `dev/scripts/checks/check_commit_message_row_id_resolves.py`
+- `dev/scripts/devctl/tests/checks/test_check_commit_message_row_id_resolves.py`
+- `dev/scripts/devctl/tests/checks/test_check_packet_decomposition_completeness.py`
+
+### 2026-05-15 - Plan-row closure gets typed commit anchors
+
+R177 dogfood found that code commits were landing faster than `PlanRow`
+closure state could prove them. Phase 0c adds `PlanRow.commit_anchor_ref` and
+`PlanRow.applied_at_utc`, bumps the additive plan-row schema to v2, parses and
+serializes the fields through plan-index authority, hydrates commit anchors
+from legacy `commit:` refs on applied/completed transitions, and exposes a
+typed validator consumed by the P40 commit-message guard. The same guard now
+switches to strict typed-field enforcement once `phase_0c_observed_at_utc` is
+present, accepts policy-owned terminal packet dispositions, and supports strict
+`--since-ref/--head-ref` scans for unpublished ranges.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/master_plan_contract.py`
+- `dev/scripts/devctl/runtime/master_plan_parse.py`
+- `dev/scripts/devctl/commands/development/plan_intake.py`
+- `dev/scripts/checks/check_commit_message_row_id_resolves.py`
+- `dev/scripts/devctl/tests/runtime/test_master_plan_contract_applied_commit_sha.py`
+
+### 2026-05-15 - Raw-git feature proofs now close plan rows
+
+R185 dogfood found the remaining closure reducer gap: raw-git commits could
+emit `FeatureProofReceipt` artifacts while the owning `PlanRow` stayed queued.
+The raw-git wrapper now calls a typed commit-to-plan-row reducer after feature
+proof emission. The reducer extracts row ids from the receipt and commit body,
+transitions queued/in-progress/open rows to `applied`, writes
+`commit_anchor_ref` and `applied_at_utc`, and appends
+`PlanRowClosureReceipt` evidence to the plan-state receipt store.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/commit_to_plan_row_reducer.py`
+- `dev/scripts/devctl/commands/raw_git.py`
+- `dev/scripts/devctl/platform/runtime_identity_contract_rows_commit.py`
+- `dev/scripts/devctl/tests/commands/test_raw_git.py`
+- `dev/test_data/schema_fixtures/PlanRowClosureReceipt/1`
+
+### 2026-05-16 - Output truth and packet TTL keystone guards
+
+The governance quality sweep adds three structural guardrails. First,
+`NonTrivialOutputProof` validates every proven `FeatureProofReceipt` across
+artifact resolution, real pytest-node evidence, and circular-reference checks;
+the guard writes remediation findings for existing legacy receipts instead of
+silently rewriting history. New commit receipt construction now rejects
+unresolved or circular output refs when repo-root proof is available.
+
+Second, packet transport expiry now has per-kind TTLs for the packet kinds that
+were accumulating without closure: `task_produced` uses 30 days, `decision`
+uses 14 days, and `question`/`finding` use 7 days. The resolver in
+`packet_kind_ttl.py` mirrors the peer-heartbeat pattern so packet pressure can
+differentiate alive, expired, missing, and unsupported packet kinds.
+
+Third, the contract registry now dedupes same-owner artifact/runtime
+re-emissions and checks composite `(contract_id, schema_version)` collisions.
+Known divergent owner forks for `RustAuditReport` and `SecurityReport` remain
+policy-decision TODOs until the operator chooses canonical owner paths.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/feature_proof_receipt.py`
+- `dev/scripts/checks/check_non_trivial_output_proof.py`
+- `dev/scripts/devctl/runtime/packet_transport_expiry.py`
+- `dev/scripts/devctl/runtime/packet_kind_ttl.py`
+- `dev/scripts/checks/check_contract_registry_composite_key_uniqueness.py`
+- `dev/state/non_trivial_output_proof_remediation_findings.jsonl`
+
+### 2026-05-16 - Raw-git governed exceptions get commit-anchor closure
+
+R287 closed the write-once raw-git governed-exception debt loop. The
+`exceptions close-raw-git` action reads `RawGitBypassReceipt` rows, builds a
+`CommitAnchorClosureProof` through the governed transition typechecker, and
+rewrites open raw-git `GovernedExceptionLifecycle` rows to
+`closed_via_commit_anchor` with `ResolutionReceipt` and `ClosureProof`
+evidence. The live backfill closed all 55 operator-approved rows with zero
+skips, so shared exception readers and the development campaign reducer now
+derive pending count from the same terminal-status helper.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/raw_git_bypass_lifecycle_closure.py`
+- `dev/scripts/devctl/commands/governance/close_raw_git_exceptions.py`
+- `dev/scripts/devctl/commands/development/campaign_exception_proof.py`
+- `dev/scripts/devctl/tests/runtime/test_raw_git_bypass_lifecycle_closure.py`
+- `dev/scripts/devctl/tests/commands/test_governance_exceptions_close_raw_git.py`
+- `dev/scripts/checks/check_schema_migration_spine.py`
+
+### 2026-05-17 - Raw-git exception closure keeps typed error codes
+
+R297 closed the CLI side of the governed transition proof chain. The raw-git
+exception closer no longer collapses transition failures into string-only
+markers; `exceptions close-raw-git --format json` now returns structured error
+payloads that preserve `GovernedTransitionErrorCode.code` plus the failing
+lifecycle and receipt ids. Invalid closure inputs such as missing commit
+anchors stay non-destructive: the command skips the row, reports the invalid
+input reason, and leaves the lifecycle store unchanged.
+
+The regression suite now covers both layers: runtime transition tests assert
+the closure typechecker emits the expected enum codes, while CLI tests
+monkeypatch each governed failure and assert the JSON command payload preserves
+the same code values for the seven R297 operator-relevant negative paths.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/governance/close_raw_git_exceptions.py`
+- `dev/scripts/devctl/runtime/raw_git_bypass_receipts.py`
+- `dev/scripts/devctl/tests/commands/test_governance_exceptions_close_raw_git.py`
+- `dev/scripts/devctl/tests/runtime/test_raw_git_bypass_lifecycle_closure.py`
+
+### 2026-05-17 - Packet pressure separates durable ownership from runtime lifecycle
+
+R309 refined the R301/R303 two-cursor packet model inside `/develop next`.
+Packets that already have durable non-command ownership, such as findings bound
+into plan rows, now leave live packet-pressure accounting and become provenance
+for the owner row. Runtime command packets still stay live until their lifecycle
+is explicitly resolved: `action_request`, `approval_request`, and
+`commit_approval` continue to require ack/apply/dismiss/expire handling, as do
+explicit-expiry anchors.
+
+The controller proof changed from hard-budget fail-closed on already-owned
+packet rows to below-budget pressure with `live_total=0`, while the focused
+development controller suite and packet-pressure suite cover the durable-owned
+finding and command-lane split.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/development/packet_attention_lifecycle.py`
+- `dev/scripts/devctl/runtime/development_packet_pressure.py`
+- `dev/scripts/devctl/tests/commands/test_development_command.py`
+- `dev/scripts/devctl/tests/runtime/test_development_packet_pressure.py`

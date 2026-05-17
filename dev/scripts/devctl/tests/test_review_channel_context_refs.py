@@ -15,6 +15,13 @@ from dev.scripts.devctl.review_channel.events import (
     resolve_artifact_paths,
     transition_packet,
 )
+from dev.scripts.devctl.review_channel.packet_contract import (
+    PacketPostRequest,
+    PacketTransitionRequest,
+)
+from dev.scripts.devctl.review_channel.packet_attestation import (
+    PacketGuardAttestation,
+)
 
 
 def _review_channel_text() -> str:
@@ -97,25 +104,35 @@ class ReviewChannelContextRefTests(unittest.TestCase):
                 repo_root=root,
                 review_channel_path=review_channel_path,
                 artifact_paths=artifact_paths,
-                from_agent="codex",
-                to_agent="operator",
-                kind="approval_request",
-                summary="Attach reviewed memory packs",
-                body="Use the exported task pack for approval context.",
-                evidence_refs=["code_audit.md#L1"],
-                context_pack_refs=context_pack_refs,
-                confidence=1.0,
-                requested_action="approve_memory_context",
-                policy_hint="operator_approval_required",
-                approval_required=True,
+                request=PacketPostRequest(
+                    from_agent="codex",
+                    to_agent="operator",
+                    kind="approval_request",
+                    summary="Attach reviewed memory packs",
+                    body="Use the exported task pack for approval context.",
+                    evidence_refs=("bridge.md#L1",),
+                    context_pack_refs=tuple(context_pack_refs),
+                    confidence=1.0,
+                    requested_action="approve_memory_context",
+                    policy_hint="operator_approval_required",
+                    approval_required=True,
+                ),
             )
             refreshed, apply_event = transition_packet(
                 repo_root=root,
                 review_channel_path=review_channel_path,
                 artifact_paths=artifact_paths,
-                action="apply",
-                packet_id=str(event["packet_id"]),
-                actor="operator",
+                request=PacketTransitionRequest(
+                    action="apply",
+                    packet_id=str(event["packet_id"]),
+                    actor="operator",
+                    guard_attestation=PacketGuardAttestation(
+                        packet_id=str(event["packet_id"]),
+                        attestation_kind="approval_request_signature",
+                        operator_signature="operator",
+                        attested_by="operator",
+                    ),
+                ),
             )
 
             packet = next(
@@ -132,7 +149,10 @@ class ReviewChannelContextRefTests(unittest.TestCase):
             context_pack_refs,
         )
         self.assertEqual(packet["context_pack_refs"], context_pack_refs)
+        self.assertEqual(packet["semantic_zref"], f"packet:{event['packet_id']}")
+        self.assertIsInstance(packet["source_identity"], dict)
         self.assertEqual(apply_event["context_pack_refs"], context_pack_refs)
+        self.assertEqual(apply_event["semantic_zref"], f"packet:{event['packet_id']}")
         self.assertEqual(
             actions_payload["actions"][0]["context_pack_refs"],
             context_pack_refs,

@@ -11,6 +11,7 @@ from pathlib import Path
 
 try:
     from check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -18,6 +19,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover - import fallback for package-style test loading
     from dev.scripts.checks.check_bootstrap import (
+    REPO_ROOT,
         build_since_ref_format_parser,
         emit_runtime_error,
         import_attr,
@@ -31,7 +33,6 @@ GuardContext = import_attr("rust_guard_common", "GuardContext")
 _is_test_path = import_attr("rust_guard_common", "is_test_path")
 strip_cfg_test_blocks = import_attr("rust_check_text_utils", "strip_cfg_test_blocks")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 guard = GuardContext(REPO_ROOT)
 
 ENUM_DECL_RE = re.compile(
@@ -50,7 +51,6 @@ SERDE_COMPAT_ALLOW_RE = re.compile(
     re.IGNORECASE,
 )
 
-
 def _collect_rust_paths(
     *,
     repo_root: Path,
@@ -67,7 +67,6 @@ def _collect_rust_paths(
             continue
         files.append(repo_root / relative)
     return sorted(files), skipped_tests
-
 
 def _find_matching_brace(text: str, open_index: int) -> int | None:
     depth = 0
@@ -128,13 +127,11 @@ def _find_matching_brace(text: str, open_index: int) -> int | None:
         index += 1
     return None
 
-
 def _enum_prelude(lines: list[str], enum_line_index: int) -> str:
     start = enum_line_index
     while start > 0 and lines[start - 1].strip():
         start -= 1
     return "\n".join(lines[start:enum_line_index])
-
 
 def _normalize_derive_member(token: str) -> str:
     """Strip optional path qualifiers so ``serde::Deserialize`` becomes ``Deserialize``."""
@@ -144,14 +141,12 @@ def _normalize_derive_member(token: str) -> str:
         name = name.rsplit("::", 1)[-1]
     return name
 
-
 def _has_deserialize_derive(prelude: str) -> bool:
     for match in DERIVE_DESERIALIZE_RE.finditer(prelude):
         members = {_normalize_derive_member(tok) for tok in match.group("body").split(",")}
         if "Deserialize" in members:
             return True
     return False
-
 
 def _tag_style(prelude: str) -> str | None:
     for match in SERDE_ATTR_RE.finditer(prelude):
@@ -160,7 +155,6 @@ def _tag_style(prelude: str) -> str | None:
             continue
         return "adjacent" if "content" in body else "internal"
     return None
-
 
 def _collect_tagged_deserialize_enums(text: str | None) -> list[dict]:
     if text is None:
@@ -195,7 +189,6 @@ def _collect_tagged_deserialize_enums(text: str | None) -> list[dict]:
             }
         )
     return findings
-
 
 def build_report(
     *,
@@ -266,7 +259,6 @@ def build_report(
         "violations": violations,
     }
 
-
 def _render_md(report: dict) -> str:
     lines = ["# check_serde_compatibility", ""]
     lines.append(f"- mode: {report['mode']}")
@@ -297,10 +289,8 @@ def _render_md(report: dict) -> str:
             )
     return "\n".join(lines)
 
-
 def _build_parser() -> argparse.ArgumentParser:
     return build_since_ref_format_parser(__doc__ or "")
-
 
 def main() -> int:
     args = _build_parser().parse_args()
@@ -339,7 +329,6 @@ def main() -> int:
     else:
         print(_render_md(report))
     return 0 if report["ok"] else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -1,0 +1,102 @@
+# Package Layout
+
+Helper logic for `check_package_layout.py`.
+
+- Keep the public guard entrypoint at `dev/scripts/checks/check_package_layout.py`.
+- Keep the implementation under `dev/scripts/checks/package_layout/command.py`
+  so the root entrypoint can stay a thin compatibility wrapper.
+- Keep the public shim-debt probe entrypoint at
+  `dev/scripts/checks/probe_compatibility_shims.py`, with implementation
+  under `dev/scripts/checks/package_layout/probe_compatibility_shims.py` so
+  crowded-root policy can treat both root files as thin wrappers over the same
+  package-owned shim-governance surface.
+- Keep the staged code-shape probe family under
+  `dev/scripts/checks/code_shape_probes/` while the public
+  `probe_{cognitive_complexity,identifier_density,fan_out,side_effect_mixing,match_arm_complexity,tuple_return_complexity,...}.py`
+  entrypoints stay as thin wrappers in the root.
+- Keep the code-shape guard family under `dev/scripts/checks/code_shape/`
+  while the public `check_{code_shape,function_duplication,god_class,nesting_depth,parameter_count,structural_complexity,structural_similarity}.py`
+  entrypoints and `code_shape_*.py` helper surfaces stay as thin wrappers in
+  the root.
+- Keep the Python-analysis guard family under
+  `dev/scripts/checks/python_analysis/` while the public
+  `check_python_{broad_except,cyclic_imports,design_complexity,dict_schema,global_mutable,subprocess_policy,suppression_debt}.py`
+  entrypoints plus `python_default_trap_core.py` stay as thin wrappers in the
+  root.
+- Keep the Rust-analysis guard family under
+  `dev/scripts/checks/rust_analysis/` while the public Rust guard entrypoints
+  and shared helper surfaces (`rust_guard_common.py`,
+  `rust_check_text_utils.py`, `mobile_relay_rust_parser.py`) stay as thin
+  wrappers in the root.
+- Keep compatibility-matrix implementation under
+  `dev/scripts/checks/compat_matrix/` while
+  `check_compat_matrix.py`, `compat_matrix_smoke.py`, and
+  `yaml_json_loader.py` stay as thin wrappers in the root.
+- Keep the remaining advisory review-probe family under
+  `dev/scripts/checks/review_probes/` while the public `probe_*.py` entrypoints
+  and `probe_path_filters.py` stay as thin wrappers in the root.
+- Keep the probe-report renderer implementation under
+  `dev/scripts/checks/probe_report/render.py` while
+  `dev/scripts/checks/probe_report_render.py` stays a thin wrapper in the
+  root.
+- Keep the term-consistency probe implementation under
+  `dev/scripts/checks/term_consistency/` while
+  `dev/scripts/checks/probe_term_consistency.py` stays a thin wrapper in the
+  root.
+- Keep the generated-surface sync entrypoint at
+  `dev/scripts/checks/package_layout/check_instruction_surface_sync.py`, with
+  implementation under
+  `dev/scripts/checks/package_layout/instruction_surface_sync.py` so the
+  crowded `checks/` root does not grow another flat runner.
+- Keep shared import/bootstrap behavior in
+  `dev/scripts/checks/package_layout/bootstrap.py` so package-layout modules do
+  not each grow their own repo-root/path-repair logic.
+- Keep `package_layout.rules` and `package_layout.probe_compatibility_shims`
+  as stable import surfaces even when internal helpers are split further.
+- Keep role-aware root-organization review under
+  `dev/scripts/checks/package_layout/root_role_review.py` so package-layout can
+  distinguish public entrypoints, compatibility shims, support-module helper
+  families, and uncategorized root implementation files without turning that
+  policy into another ad hoc repo script.
+- Current internal split keeps focused helpers in `rule_models.py`,
+  `rule_parsing.py`, `shim_validation.py`, `probe_compatibility_rules.py`,
+  `probe_compatibility_scan.py`, `probe_compatibility_hints.py`, and
+  `root_role_review.py`.
+- Keep repo-policy rule parsing and layout enforcement helpers here so the
+  `checks/` root stays reserved for runnable surfaces.
+- Current rule families cover flat-root placement, crowded-family namespace
+  moves plus crowded-family baseline/adoption blocking, docs sync for new
+  namespace roots, crowded-directory freeze/baseline reporting for self-hosting
+  organization governance, and role-aware root organization review so a root
+  can report helper-drawer debt even when it is technically within current
+  crowding thresholds.
+- Compatibility shims are now a first-class policy concept here: wrapper shape
+  is AST-validated, metadata fields can be required by repo policy, and
+  approved shims are tracked separately from real implementation density during
+  crowded-root/family baseline scans.
+- The shim probe now has two governance layers:
+  repo policy can declare explicit long-lived public shims, and every other
+  valid shim is treated as temporary. Temporary shims are scanned for
+  repo-visible callers (imports, docs/config/workflow references, script-path
+  mentions) so the probe can distinguish `migrate-callers` debt from
+  `remove-now` debt once a wrapper has gone unused.
+- Usage scanning should exclude generated artifact roots such as
+  `dev/reports/` through repo policy so probe output does not self-justify
+  wrappers by reading its own emitted reports.
+- The crowded `checks/` root now recognizes any thin wrapper that targets the
+  `package_layout` namespace; the policy no longer hard-codes one exact import
+  line such as `from package_layout.command import main`.
+- Canonical shim metadata keys are `owner`, `reason`, `expiry`, and `target`.
+- Valid shim example:
+  ```python
+  """Backward-compat shim -- use `package_layout.command`."""
+  # shim-owner: tooling/code-governance
+  # shim-reason: preserve the stable check entrypoint during package split
+  # shim-expiry: 2026-06-30
+  # shim-target: dev/scripts/checks/package_layout/command.py
+  from package_layout.command import main
+  ```
+- Invalid shim example:
+  a short wrapper that adds real logic or omits required metadata. Those files
+  stay counted as implementation debt instead of being treated as approved
+  shims.

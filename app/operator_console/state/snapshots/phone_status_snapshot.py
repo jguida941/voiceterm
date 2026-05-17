@@ -8,17 +8,22 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
 
-from dev.scripts.devctl.mobile_status_views import compact_view as mobile_compact_view
-from dev.scripts.devctl.phone_status_views import compact_view
-from dev.scripts.devctl.review_channel.core import DEFAULT_BRIDGE_REL, DEFAULT_REVIEW_CHANNEL_REL
-from dev.scripts.devctl.review_channel.state import (
+from dev.scripts.devctl.repo_packs import (
+    DEFAULT_BRIDGE_REL,
+    DEFAULT_MOBILE_STATUS_REL,
+    DEFAULT_PHONE_STATUS_REL,
+    DEFAULT_REVIEW_CHANNEL_REL,
     DEFAULT_REVIEW_STATUS_DIR_REL,
-    refresh_status_snapshot,
+    load_review_payload_from_bridge,
+)
+from dev.scripts.devctl.phone_status_views import compact_view
+from dev.scripts.devctl.runtime import (
+    ControlState,
+    ControlStateContext,
+    build_control_state,
+    control_state_from_payload,
 )
 from ..core.value_coercion import safe_int, safe_text
-
-DEFAULT_MOBILE_STATUS_REL = "dev/reports/mobile/latest/full.json"
-DEFAULT_PHONE_STATUS_REL = "dev/reports/autonomy/queue/phone/latest.json"
 _CACHE_LOCK = Lock()
 _CACHE: dict[
     str,
@@ -104,7 +109,7 @@ def load_phone_control_snapshot(repo_root: Path) -> PhoneControlSnapshot:
             _CACHE[cache_key] = (signature, snapshot)
         return snapshot
 
-    mobile_compact, mobile_note = _load_mobile_compact(repo_root, payload)
+    mobile_control_state, mobile_note = _load_mobile_control_state(repo_root, payload)
     combined_note = mobile_note or mobile_projection_note
     if mobile_note and mobile_projection_note and mobile_note != mobile_projection_note:
         combined_note = f"{mobile_projection_note} {mobile_note}"
@@ -121,7 +126,7 @@ def load_phone_control_snapshot(repo_root: Path) -> PhoneControlSnapshot:
 
     snapshot = _build_snapshot(
         compact=compact,
-        mobile_compact=mobile_compact,
+        control_state=mobile_control_state,
         age_minutes=age_minutes,
         note=combined_note,
     )
@@ -141,13 +146,14 @@ def _load_snapshot_from_mobile_projection(mobile_projection_path: Path) -> Phone
     if not isinstance(payload, dict):
         return _unavailable("mobile-status projection is not a JSON object")
 
+    control_state = control_state_from_payload(payload)
+    if control_state is None:
+        return _unavailable("mobile-status projection is missing control_state data")
     controller_payload = payload.get("controller_payload")
     if not isinstance(controller_payload, dict):
         return _unavailable("mobile-status projection is missing controller_payload")
-
     try:
         compact = compact_view(controller_payload)
-        mobile_compact = mobile_compact_view(payload)
     except Exception as exc:  # pragma: no cover - broad-except: allow reason=projection helper failures must surface as unavailable mobile status fallback=return unavailable mobile-status projection snapshot
         return _unavailable(f"mobile-status projection failed: {exc}")
 
@@ -159,7 +165,7 @@ def _load_snapshot_from_mobile_projection(mobile_projection_path: Path) -> Phone
 
     return _build_snapshot(
         compact=compact,
-        mobile_compact=mobile_compact,
+        control_state=control_state,
         age_minutes=age_minutes,
         note="Using repo-owned mobile-status projection bundle.",
     )
@@ -168,13 +174,15 @@ def _load_snapshot_from_mobile_projection(mobile_projection_path: Path) -> Phone
 def _build_snapshot(
     *,
     compact: dict[str, object],
-    mobile_compact: dict[str, object],
+    control_state: ControlState | None,
     age_minutes: float | None,
     note: str | None,
 ) -> PhoneControlSnapshot:
     next_actions = compact.get("next_actions")
     if not isinstance(next_actions, list):
         next_actions = []
+    active_run = control_state.primary_run() if control_state is not None else None
+    review_bridge = control_state.review_bridge if control_state is not None else None
     return PhoneControlSnapshot(
         available=True,
         phase=safe_text(compact.get("phase")) or "unknown",
@@ -190,9 +198,15 @@ def _build_snapshot(
         errors_count=safe_int(compact.get("errors_count")),
         age_minutes=age_minutes,
         source_run_url=safe_text(compact.get("source_run_url")),
-        review_bridge_state=safe_text(mobile_compact.get("review_bridge_state")),
-        current_instruction=safe_text(mobile_compact.get("current_instruction")),
-        last_worktree_hash=safe_text(mobile_compact.get("last_worktree_hash")),
+        review_bridge_state=(
+            review_bridge.overall_state if review_bridge is not None else None
+        ),
+        current_instruction=(
+            active_run.current_instruction if active_run is not None else None
+        ),
+        last_worktree_hash=(
+            review_bridge.last_worktree_hash if review_bridge is not None else None
+        ),
         note=note,
     )
 
@@ -218,37 +232,25 @@ def _unavailable(note: str) -> PhoneControlSnapshot:
     )
 
 
-def _load_mobile_compact(
+def _load_mobile_control_state(
     repo_root: Path,
     phone_payload: dict[str, object],
-) -> tuple[dict[str, object], str | None]:
-    review_channel_path = repo_root / DEFAULT_REVIEW_CHANNEL_REL
-    bridge_path = repo_root / DEFAULT_BRIDGE_REL
-    status_root = repo_root / DEFAULT_REVIEW_STATUS_DIR_REL
-    if not review_channel_path.exists() or not bridge_path.exists():
-        return {}, "Review bridge not available; showing phone-status fallback."
+) -> tuple[ControlState | None, str | None]:
+    if not (repo_root / DEFAULT_REVIEW_CHANNEL_REL).exists() or not (repo_root / DEFAULT_BRIDGE_REL).exists():
+        return None, "Review bridge not available; showing phone-status fallback."
     try:
-        status_snapshot = refresh_status_snapshot(
-            repo_root=repo_root,
-            bridge_path=bridge_path,
-            review_channel_path=review_channel_path,
-            output_root=status_root,
+        review_payload, warnings = load_review_payload_from_bridge(repo_root)
+        control_state = build_control_state(
+            controller_payload=phone_payload,
+            review_payload=review_payload if isinstance(review_payload, dict) else {},
+            context=ControlStateContext(),
         )
-        review_payload = json.loads(
-            Path(status_snapshot.projection_paths.full_path).read_text(encoding="utf-8")
-        )
-        compact_payload = mobile_compact_view(
-            {
-                "controller_payload": phone_payload,
-                "review_payload": review_payload,
-            }
-        )
-    except Exception as exc:  # pragma: no cover - broad-except: allow reason=relay fallback must return an explanatory warning instead of crashing UI fallback=emit warning note and continue with phone-only payload
-        return {}, f"Mobile relay fallback active: {exc}"
+    except (ValueError, OSError, json.JSONDecodeError) as exc:
+        return None, f"Mobile relay fallback active ({exc.__class__.__name__}): {exc}"
     warning_note = None
-    if status_snapshot.warnings:
-        warning_note = "; ".join(status_snapshot.warnings[:2])
-    return compact_payload, warning_note
+    if warnings:
+        warning_note = "; ".join(warnings[:2])
+    return control_state, warning_note
 
 
 def _signature(repo_root: Path) -> tuple[int | None, int | None, int | None, int | None]:

@@ -78,6 +78,24 @@ class AuditEventsPayloadTests(unittest.TestCase):
         self.assertEqual(payload["area"], "review_channel")
         self.assertEqual(payload["step"], "devctl:review-channel")
 
+    def test_build_payload_includes_machine_output_when_present(self) -> None:
+        args = SimpleNamespace(profile=None)
+        with patch.dict("os.environ", {}, clear=False):
+            payload = audit_events.build_audit_event_payload(
+                command="platform-contracts",
+                args=args,
+                returncode=0,
+                duration_seconds=0.4,
+                argv=["platform-contracts", "--format", "json"],
+                machine_output={
+                    "path": "dev/reports/platform.json",
+                    "size_bytes": 120,
+                    "estimated_tokens": 30,
+                },
+            )
+        self.assertEqual(payload["machine_output"]["size_bytes"], 120)
+        self.assertEqual(payload["machine_output"]["estimated_tokens"], 30)
+
     def test_mobile_status_has_explicit_area_mapping(self) -> None:
         args = SimpleNamespace(profile=None)
         with patch.dict("os.environ", {}, clear=False):

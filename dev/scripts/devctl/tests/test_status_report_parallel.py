@@ -13,9 +13,7 @@ from dev.scripts.devctl.status_report import (
 # Deterministic fake collectors for testing.
 FAKE_GIT = {"branch": "develop", "changes": [{"status": "M", "path": "a.rs"}]}
 FAKE_MUTANTS = {"results": {"score": 85.0}}
-FAKE_CI = {
-    "runs": [{"displayTitle": "ci_run", "status": "completed", "conclusion": "success"}]
-}
+FAKE_CI = {"runs": [{"displayTitle": "ci_run", "status": "completed", "conclusion": "success"}]}
 FAKE_DEV_LOGS = {
     "dev_root": "/tmp/dev",
     "sessions_scanned": 1,
@@ -41,6 +39,39 @@ FAKE_RUST_AUDITS = {
     "guards": [],
     "categories": [],
     "hotspots": [],
+}
+FAKE_PROBE_REPORT = {
+    "ok": True,
+    "mode": "working-tree",
+    "summary": {
+        "probe_count": 2,
+        "files_scanned": 7,
+        "files_with_hints": 1,
+        "risk_hints": 3,
+        "top_files": [
+            {
+                "file": "rust/src/bin/voiceterm/main.rs",
+                "hint_count": 2,
+            }
+        ],
+    },
+    "warnings": [],
+    "errors": [],
+}
+FAKE_FAILURE_PACKET = {
+    "source": "workspace",
+    "runner": "pytest",
+    "status": "failed",
+    "total_tests": 3,
+    "failed_tests": 1,
+    "error_tests": 0,
+    "skipped_tests": 0,
+    "passed_tests": 2,
+    "primary_test_id": "pkg.test_mod::test_fail",
+    "primary_message": "assert 1 == 2",
+    "cases": [],
+    "artifact_paths": ["devctl-tests.junit.xml"],
+    "warnings": [],
 }
 
 
@@ -68,6 +99,14 @@ def _fake_rust_audits(**_kwargs):
     return dict(FAKE_RUST_AUDITS)
 
 
+def _fake_probe_report(**_kwargs):
+    return dict(FAKE_PROBE_REPORT)
+
+
+def _fake_failure_packet():
+    return dict(FAKE_FAILURE_PACKET)
+
+
 class RunProbesSerialTests(unittest.TestCase):
     """Validate _run_probes_serial returns all results in order."""
 
@@ -78,9 +117,7 @@ class RunProbesSerialTests(unittest.TestCase):
             ("c", lambda: {"value": 3}),
         ]
         results = _run_probes_serial(probes)
-        self.assertEqual(
-            results, {"a": {"value": 1}, "b": {"value": 2}, "c": {"value": 3}}
-        )
+        self.assertEqual(results, {"a": {"value": 1}, "b": {"value": 2}, "c": {"value": 3}})
 
     def test_serial_empty_probes(self) -> None:
         self.assertEqual(_run_probes_serial([]), {})
@@ -96,9 +133,7 @@ class RunProbesParallelTests(unittest.TestCase):
             ("c", lambda: {"value": 3}),
         ]
         results = _run_probes_parallel(probes, max_workers=4)
-        self.assertEqual(
-            results, {"a": {"value": 1}, "b": {"value": 2}, "c": {"value": 3}}
-        )
+        self.assertEqual(results, {"a": {"value": 1}, "b": {"value": 2}, "c": {"value": 3}})
 
     def test_parallel_empty_probes(self) -> None:
         self.assertEqual(_run_probes_parallel([], max_workers=4), {})
@@ -132,6 +167,10 @@ class BuildProjectReportParallelTests(unittest.TestCase):
     """Validate build_project_report produces identical output in parallel vs sequential mode."""
 
     @patch(
+        "dev.scripts.devctl.status_report.collect_failure_packet",
+        side_effect=_fake_failure_packet,
+    )
+    @patch(
         "dev.scripts.devctl.status_report.collect_dev_log_summary",
         side_effect=_fake_dev_logs,
     )
@@ -147,6 +186,7 @@ class BuildProjectReportParallelTests(unittest.TestCase):
         _mock_mutants,
         _mock_ci,
         _mock_dev_logs,
+        _mock_failure_packet,
     ) -> None:
         """Both modes must produce reports with the same keys and probe data."""
         common_kwargs = dict(
@@ -161,7 +201,7 @@ class BuildProjectReportParallelTests(unittest.TestCase):
         report_serial = build_project_report(**common_kwargs, parallel=False)
 
         # Timestamps differ, so compare everything except timestamp.
-        for key in ("command", "git", "mutants", "ci", "dev_logs"):
+        for key in ("command", "git", "mutants", "ci", "dev_logs", "failure_packet"):
             self.assertEqual(
                 report_parallel[key],
                 report_serial[key],
@@ -254,6 +294,43 @@ class BuildProjectReportParallelTests(unittest.TestCase):
         self.assertIn("rust_audits", report)
         self.assertEqual(report["rust_audits"]["summary"]["total_active_findings"], 5)
 
+    @patch(
+        "dev.scripts.devctl.status_report.build_probe_report",
+        side_effect=_fake_probe_report,
+    )
+    @patch(
+        "dev.scripts.devctl.status_report.collect_mutation_summary",
+        side_effect=_fake_mutants,
+    )
+    @patch("dev.scripts.devctl.status_report.collect_git_status", side_effect=_fake_git)
+    def test_probe_report_can_be_enabled(
+        self,
+        _mock_git,
+        _mock_mutants,
+        _mock_probe_report,
+    ) -> None:
+        report = build_project_report(
+            command="report",
+            include_ci=False,
+            ci_limit=5,
+            include_dev_logs=False,
+            dev_root=None,
+            dev_sessions_limit=5,
+            include_probe_report=True,
+            probe_since_ref="origin/develop",
+            probe_head_ref="HEAD~1",
+            parallel=False,
+        )
+        self.assertIn("probe_report", report)
+        self.assertTrue(report["probe_report"]["ok"])
+        self.assertEqual(report["probe_report"]["summary"]["risk_hints"], 3)
+        _mock_probe_report.assert_called_once_with(
+            since_ref="origin/develop",
+            head_ref="HEAD~1",
+            policy_path=None,
+            emit_artifacts=False,
+        )
+
     @patch("dev.scripts.devctl.status_report.collect_ci_runs", side_effect=_fake_ci)
     @patch(
         "dev.scripts.devctl.status_report.collect_mutation_summary",
@@ -279,7 +356,7 @@ class BuildProjectReportParallelTests(unittest.TestCase):
         keys = list(report.keys())
         # command and timestamp come first, then probes in definition order.
         self.assertEqual(keys[:2], ["command", "timestamp"])
-        self.assertEqual(keys[2:], ["git", "mutants", "ci"])
+        self.assertEqual(keys[2:], ["git", "mutants", "ci", "failure_packet"])
 
     @patch(
         "dev.scripts.devctl.status_report.collect_dev_log_summary",
@@ -316,7 +393,10 @@ class BuildProjectReportParallelTests(unittest.TestCase):
         )
         keys = list(report.keys())
         self.assertEqual(keys[:2], ["command", "timestamp"])
-        self.assertEqual(keys[2:], ["git", "mutants", "ci", "dev_logs", "rust_audits"])
+        self.assertEqual(
+            keys[2:],
+            ["git", "mutants", "ci", "dev_logs", "rust_audits", "failure_packet"],
+        )
 
 
 class ProbeExceptionTests(unittest.TestCase):
@@ -373,6 +453,16 @@ class CliNoParallelFlagTests(unittest.TestCase):
         parser = build_parser()
         args = parser.parse_args(["report"])
         self.assertFalse(args.no_parallel)
+
+    def test_status_accepts_probe_report_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["status", "--probe-report"])
+        self.assertTrue(args.probe_report)
+
+    def test_report_accepts_probe_report_flag(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["report", "--probe-report"])
+        self.assertTrue(args.probe_report)
 
 
 if __name__ == "__main__":

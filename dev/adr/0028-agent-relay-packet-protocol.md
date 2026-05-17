@@ -6,7 +6,7 @@ Date: 2026-03-08
 ## Context
 
 MP-355 introduces a dedicated shared review channel for Codex, Claude, and the
-operator. The current `code_audit.md` loop works as a temporary bridge, but it
+operator. The current `bridge.md` loop works as a temporary bridge, but it
 does not provide durable replay, explicit ack/apply semantics, idempotency, or
 policy-aware action routing by itself.
 
@@ -37,7 +37,7 @@ Adopt this relay protocol:
   the same typed action catalog and approval/policy engine used by the Dev
   panel. The review channel does not authorize raw shell or API bypasses.
 - The markdown bridge remains a temporary projection only. Once structured
-  review artifacts land, `code_audit.md` stops being execution authority.
+  review artifacts land, `bridge.md` stops being execution authority.
 
 ## Consequences
 

@@ -156,28 +156,28 @@ prepush: ci test-perf test-mem-loop
 
 # Interactive module selection
 mutants:
-	python3 dev/scripts/mutants.py
+	python3 dev/scripts/mutation/cli.py
 
 # Test all modules (slow)
 mutants-all:
-	python3 dev/scripts/mutants.py --all
+	python3 dev/scripts/mutation/cli.py --all
 
 # Test specific modules
 mutants-audio:
-	python3 dev/scripts/mutants.py --module audio
+	python3 dev/scripts/mutation/cli.py --module audio
 
 mutants-config:
-	python3 dev/scripts/mutants.py --module config
+	python3 dev/scripts/mutation/cli.py --module config
 
 mutants-voice:
-	python3 dev/scripts/mutants.py --module voice
+	python3 dev/scripts/mutation/cli.py --module voice
 
 mutants-pty:
-	python3 dev/scripts/mutants.py --module pty
+	python3 dev/scripts/mutation/cli.py --module pty
 
 # Show last mutation test results
 mutants-results:
-	python3 dev/scripts/mutants.py --results-only
+	python3 dev/scripts/mutation/cli.py --results-only
 
 # Legacy: run cargo mutants directly
 mutants-raw:

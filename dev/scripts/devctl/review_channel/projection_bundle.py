@@ -3,78 +3,81 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+import os
+from collections.abc import Mapping
+from copy import deepcopy
 from pathlib import Path
 
-from .core import LaneAssignment
-from .context_refs import (
-    context_pack_ref_summary,
-    normalize_context_pack_refs,
+from ..runtime.authority_snapshot import project_authority_snapshot
+from .projection_bundle_compact import (
+    build_compact_projection,
+    projection_next_command,
+)
+from .projection_bundle_io import (
+    ReviewChannelProjectionBundleContents,
+    ReviewChannelProjectionPaths,
+    canonical_projection_root_for_status_root,
+    projection_bundle_lock,
+    projection_paths_for_root,
+    projection_paths_to_dict,
+    write_prepared_projection_bundle,
+)
+from .projection_bundle_parity import apply_phase_zero_parity_projection
+from .projection_bundle_markdown import render_latest_markdown
+from .projection_bundle_payloads import (
+    build_actions_projection,
+    build_full_projection,
+)
+from .projection_observation import build_observation_projection
+from .recovery_command_suppression import (
+    suppress_legacy_recovery_command_when_remote_only,
+)
+
+_TYPED_REVIEW_STATE_KEYS = (
+    "schema_version",
+    "contract_id",
+    "command",
+    "action",
+    "timestamp",
+    "ok",
+    "review",
+    "queue",
+    "current_session",
+    "packet_inbox",
+    "collaboration",
+    "bridge",
+    "attention",
+    "packets",
+    "registry",
+    "review_candidate",
+    "push_authorization",
+    "recovery_assessment",
+    "reviewer_runtime",
+    "commit_pipeline",
+    "coordination",
+    "authority_snapshot",
+    "round_proofs",
+    "agent_sync",
+    "agent_work_board",
+    "agent_loop_decisions",
+    "attention_windows",
+    "session_status_projection",
+    "coordination_state",
+    "warnings",
+    "errors",
+    "snapshot_id",
+    "zref",
 )
 
 
-@dataclass(frozen=True)
-class ReviewChannelProjectionPaths:
-    """Paths written for the latest review projections."""
-
-    root_dir: str
-    review_state_path: str
-    compact_path: str
-    full_path: str
-    actions_path: str
-    trace_path: str
-    latest_markdown_path: str
-    agent_registry_path: str
+def artifact_writes_suppressed() -> bool:
+    """Return whether read-side commands should avoid projection writes."""
+    return os.environ.get("DEVCTL_NO_ARTIFACT_WRITES", "") == "1"
 
 
-def projection_paths_to_dict(
-    paths: ReviewChannelProjectionPaths | None,
-) -> dict[str, str] | None:
-    """Convert projection paths into a report-friendly dict."""
-    if paths is None:
-        return None
-    return asdict(paths)
-
-
-def build_agent_registry_from_lanes(
-    lanes: list[LaneAssignment],
-    *,
-    timestamp: str,
-    provider_state: dict[str, dict[str, object]] | None = None,
-) -> dict[str, object]:
-    """Build the typed lane registry shared by review projections."""
-    provider_state = provider_state or {}
-    registry_agents: list[dict[str, object]] = []
-    for lane in lanes:
-        state = provider_state.get(lane.provider, {})
-        registry_agents.append(
-            {
-                "agent_id": lane.agent_id,
-                "provider": lane.provider,
-                "display_name": lane.agent_id,
-                "current_job": lane.lane,
-                "job_state": state.get("job_state", "assigned"),
-                "waiting_on": state.get("waiting_on"),
-                "last_packet_seen": state.get("last_packet_seen"),
-                "last_packet_applied": state.get("last_packet_applied"),
-                "script_profile": state.get(
-                    "script_profile",
-                    "markdown-bridge-conductor",
-                ),
-                "lane": lane.provider,
-                "lane_title": lane.lane,
-                "mp_scope": lane.mp_scope,
-                "worktree": lane.worktree,
-                "branch": lane.branch,
-                "updated_at": timestamp,
-            }
-        )
-    return {
-        "schema_version": 1,
-        "command": "review-channel",
-        "timestamp": timestamp,
-        "agents": registry_agents,
-    }
+def _json_artifact(payload: object) -> str:
+    """Return compact JSON for machine-read projection artifacts."""
+    return json.dumps(payload, separators=(",", ":"))
 
 
 def write_projection_bundle(
@@ -87,106 +90,77 @@ def write_projection_bundle(
     full_extras: dict[str, object] | None = None,
 ) -> ReviewChannelProjectionPaths:
     """Write a projection bundle from one reduced review-state snapshot."""
-    compact = _build_compact_projection(review_state)
-    actions = _build_actions_projection(review_state)
-    full = {
-        "schema_version": 1,
-        "command": "review-channel",
-        "action": action,
-        "timestamp": review_state.get("timestamp"),
-        "ok": review_state.get("ok"),
-        "review_state": review_state,
-        "agent_registry": agent_registry,
-        "warnings": review_state.get("warnings", []),
-        "errors": review_state.get("errors", []),
-    }
+    contents = prepare_projection_bundle_contents(
+        review_state=review_state,
+        agent_registry=agent_registry,
+        action=action,
+        trace_events=trace_events,
+        full_extras=full_extras,
+    )
+    with projection_bundle_lock(output_root):
+        return write_prepared_projection_bundle(
+            output_root=output_root,
+            contents=contents,
+        )
+
+
+def prepare_projection_bundle_contents(
+    *,
+    review_state: dict[str, object],
+    agent_registry: dict[str, object],
+    action: str,
+    trace_events: list[dict[str, object]] | None = None,
+    full_extras: dict[str, object] | None = None,
+) -> ReviewChannelProjectionBundleContents:
+    """Build all projection files from one canonicalized review-state snapshot."""
+    review_state_payload = canonicalize_projection_review_state(review_state)
+    suppress_legacy_recovery_command_when_remote_only(review_state_payload)
+    compact = build_compact_projection(review_state_payload)
+    actions = build_actions_projection(review_state_payload)
+    full = build_full_projection(
+        action=action,
+        review_state=review_state_payload,
+        agent_registry=agent_registry,
+    )
     if isinstance(full_extras, dict):
         full.update(full_extras)
-    latest_markdown = _render_latest_markdown(review_state, agent_registry)
+    latest_markdown = render_latest_markdown(review_state_payload, agent_registry)
 
-    registry_dir = output_root / "registry"
-    registry_dir.mkdir(parents=True, exist_ok=True)
-
-    review_state_path = output_root / "review_state.json"
-    compact_path = output_root / "compact.json"
-    full_path = output_root / "full.json"
-    actions_path = output_root / "actions.json"
-    trace_path = output_root / "trace.ndjson"
-    latest_markdown_path = output_root / "latest.md"
-    agent_registry_path = registry_dir / "agents.json"
-
-    review_state_path.write_text(json.dumps(review_state, indent=2), encoding="utf-8")
-    compact_path.write_text(json.dumps(compact, indent=2), encoding="utf-8")
-    full_path.write_text(json.dumps(full, indent=2), encoding="utf-8")
-    actions_path.write_text(json.dumps(actions, indent=2), encoding="utf-8")
-    trace_path.write_text(_render_trace_projection(trace_events or []), encoding="utf-8")
-    latest_markdown_path.write_text(latest_markdown, encoding="utf-8")
-    agent_registry_path.write_text(
-        json.dumps(agent_registry, indent=2),
-        encoding="utf-8",
-    )
-
-    return ReviewChannelProjectionPaths(
-        root_dir=str(output_root),
-        review_state_path=str(review_state_path),
-        compact_path=str(compact_path),
-        full_path=str(full_path),
-        actions_path=str(actions_path),
-        trace_path=str(trace_path),
-        latest_markdown_path=str(latest_markdown_path),
-        agent_registry_path=str(agent_registry_path),
+    return ReviewChannelProjectionBundleContents(
+        review_state_json=_json_artifact(review_state_payload),
+        compact_json=_json_artifact(compact),
+        full_json=_json_artifact(full),
+        actions_json=_json_artifact(actions),
+        trace_text=_render_trace_projection(trace_events or []),
+        latest_markdown=latest_markdown,
+        agent_registry_json=_json_artifact(agent_registry),
+        commit_pipeline_json=_json_artifact(
+            review_state_payload.get("commit_pipeline", {})
+        ),
     )
 
 
-def _build_compact_projection(review_state: dict[str, object]) -> dict[str, object]:
-    queue = review_state.get("queue", {})
-    bridge = review_state.get("bridge", {})
-    current_focus = bridge.get("current_instruction") or _current_focus_line(review_state)
-    return {
-        "schema_version": 1,
-        "command": "review-channel",
-        "timestamp": review_state.get("timestamp"),
-        "ok": review_state.get("ok"),
-        "review": review_state.get("review"),
-        "bridge": {
-            "last_codex_poll_utc": bridge.get("last_codex_poll_utc"),
-            "last_worktree_hash": bridge.get("last_worktree_hash"),
-            "current_instruction": current_focus,
-        },
-        "queue": {
-            **queue,
-            "current_focus": current_focus,
-        },
-        "warnings": review_state.get("warnings", []),
-        "errors": review_state.get("errors", []),
-    }
-
-
-def _build_actions_projection(review_state: dict[str, object]) -> dict[str, object]:
-    packets = review_state.get("packets")
-    action_rows: list[dict[str, object]] = []
-    if isinstance(packets, list):
-        for packet in packets:
-            if not isinstance(packet, dict):
-                continue
-            action_rows.append(
-                {
-                    "packet_id": packet.get("packet_id"),
-                    "requested_action": packet.get("requested_action"),
-                    "policy_hint": packet.get("policy_hint"),
-                    "approval_required": packet.get("approval_required"),
-                    "status": packet.get("status"),
-                    "context_pack_refs": normalize_context_pack_refs(
-                        packet.get("context_pack_refs")
-                    ),
-                }
-            )
-    return {
-        "schema_version": 1,
-        "command": "review-channel",
-        "timestamp": review_state.get("timestamp"),
-        "actions": action_rows,
-    }
+def canonicalize_projection_review_state(
+    review_state: Mapping[str, object],
+) -> dict[str, object]:
+    """Return the same canonical review-state payload that bundle writes persist."""
+    review_state_payload = _normalize_review_state_payload(review_state)
+    _apply_review_state_authority_context(review_state_payload)
+    obs_proj = build_observation_projection(review_state_payload)
+    if (
+        obs_proj is not None
+        and "reviewer_observation" not in review_state_payload
+    ):
+        review_state_payload["reviewer_observation"] = obs_proj
+    project_authority_snapshot(
+        review_state_payload,
+        caller_role="observer",
+        next_command=projection_next_command(review_state_payload),
+    )
+    apply_phase_zero_parity_projection(review_state_payload)
+    from .agent_work_board_posture import apply_work_board_session_posture
+    review_state_payload = apply_work_board_session_posture(review_state_payload)
+    return review_state_payload
 
 
 def _render_trace_projection(trace_events: list[dict[str, object]]) -> str:
@@ -196,99 +170,47 @@ def _render_trace_projection(trace_events: list[dict[str, object]]) -> str:
     return "\n".join(lines) + ("\n" if lines else "")
 
 
-def _render_latest_markdown(
-    review_state: dict[str, object],
-    agent_registry: dict[str, object],
-) -> str:
-    queue = review_state.get("queue", {})
-    bridge = review_state.get("bridge", {})
-    agents = agent_registry.get("agents", [])
-    packets = review_state.get("packets", [])
-    lines = ["# review-channel status", ""]
-    lines.append(f"- timestamp: {review_state.get('timestamp')}")
-    lines.append(f"- ok: {review_state.get('ok')}")
-    lines.append(f"- pending_total: {queue.get('pending_total')}")
-    lines.append(f"- stale_packet_count: {queue.get('stale_packet_count')}")
-    lines.append(
-        f"- last_codex_poll_utc: {bridge.get('last_codex_poll_utc') or 'n/a'}"
-    )
-    lines.append(
-        f"- last_worktree_hash: {bridge.get('last_worktree_hash') or 'n/a'}"
-    )
-    lines.append("")
-    lines.append("## Current Instruction")
-    lines.append(_current_focus_line(review_state))
-    derived_next_instruction = queue.get("derived_next_instruction")
-    derived_source = queue.get("derived_next_instruction_source")
-    if derived_next_instruction:
-        lines.append("")
-        lines.append("## Derived Next Instruction")
-        lines.append(str(derived_next_instruction))
-        if isinstance(derived_source, dict):
-            lines.append(
-                f"- source: {derived_source.get('source_path') or 'unknown'}"
-            )
-            if derived_source.get("phase_heading"):
-                lines.append(f"- phase: {derived_source['phase_heading']}")
-    lines.append("")
-    lines.append("## Agents")
-    if isinstance(agents, list):
-        for agent in agents:
-            if not isinstance(agent, dict):
-                continue
-            lines.append(
-                f"- {agent.get('agent_id')}: {agent.get('job_state')} | "
-                f"{agent.get('lane_title')} | {agent.get('branch')}"
-            )
-    if isinstance(packets, list) and packets:
-        lines.append("")
-        lines.append("## Packets")
-        for packet in packets[:5]:
-            if not isinstance(packet, dict):
-                continue
-            summary = (
-                f"- {packet.get('packet_id')}: {packet.get('status')} | "
-                f"{packet.get('from_agent')} -> {packet.get('to_agent')} | "
-                f"{packet.get('summary')}"
-            )
-            pack_kinds = context_pack_ref_summary(packet.get("context_pack_refs"))
-            if pack_kinds:
-                summary += f" | packs: {pack_kinds}"
-            lines.append(summary)
-    return "\n".join(lines)
+def _normalize_review_state_payload(
+    review_state: Mapping[str, object],
+) -> dict[str, object]:
+    """Project review_state artifacts through the typed contract before writing.
+
+    This keeps on-disk `review_state.json` aligned with the runtime dataclass
+    schema even when minimal/synthetic callers omit additive fields, while
+    preserving compatibility-only extras such as `_compat`.
+    """
+    from ..runtime.review_state_parser import review_state_from_payload
+
+    normalized = deepcopy(dict(review_state))
+    typed_state = review_state_from_payload(normalized)
+    if typed_state is None:
+        return normalized
+
+    typed_payload = typed_state.to_dict()
+    for key in _TYPED_REVIEW_STATE_KEYS:
+        normalized[key] = typed_payload.get(key)
+    return normalized
 
 
-def _current_focus_line(review_state: dict[str, object]) -> str:
-    bridge = review_state.get("bridge", {})
-    if isinstance(bridge, dict):
-        current_instruction = str(bridge.get("current_instruction") or "").strip()
-        if current_instruction:
-            return current_instruction
-    queue = review_state.get("queue", {})
-    if isinstance(queue, dict):
-        derived_next_instruction = str(
-            queue.get("derived_next_instruction") or ""
-        ).strip()
-        if derived_next_instruction:
-            return derived_next_instruction
-    packets = review_state.get("packets")
-    if not isinstance(packets, list):
-        return "(missing)"
-    pending_packet = next(
-        (
-            packet
-            for packet in packets
-            if isinstance(packet, dict) and packet.get("status") == "pending"
-        ),
-        None,
+def _apply_review_state_authority_context(
+    review_state_payload: dict[str, object],
+) -> None:
+    """Seed shared authority fields from the typed review-state contract.
+
+    Startup already projects observed topology and implementation permission
+    through the shared control-topology reducer. Mirror that same reducer here
+    before the compact `AuthoritySnapshot` is compiled so status, doctor,
+    session-resume, and startup can agree on the same runtime truth.
+    """
+    from ..runtime.control_topology import derive_startup_control_truth
+    from ..runtime.review_state_parser import review_state_from_payload
+
+    typed_state = review_state_from_payload(review_state_payload)
+    if typed_state is None:
+        return
+
+    observed_control_topology, implementation_permission = (
+        derive_startup_control_truth(typed_state)
     )
-    if isinstance(pending_packet, dict):
-        summary = str(pending_packet.get("summary") or "").strip()
-        if summary:
-            return summary
-    latest_packet = packets[0] if packets else None
-    if isinstance(latest_packet, dict):
-        summary = str(latest_packet.get("summary") or "").strip()
-        if summary:
-            return summary
-    return "(missing)"
+    review_state_payload["observed_control_topology"] = observed_control_topology
+    review_state_payload["implementation_permission"] = implementation_permission

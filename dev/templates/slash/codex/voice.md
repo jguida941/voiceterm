@@ -1,7 +1,7 @@
 # /voice
 
-Capture one prompt with VoiceTerm and use the transcript as the next Codex
-input draft.
+Capture one prompt with VoiceTerm and use the transcript as the next
+Codex input draft.
 
 ## Command
 

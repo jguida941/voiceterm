@@ -7,6 +7,7 @@ from ...workflows import (
     build_status_command,
     build_triage_command,
     render_command,
+    resolve_review_launch_target,
 )
 
 try:
@@ -134,6 +135,12 @@ class CommandActionsMixin:
                 exit_code=exit_code,
                 stdout=stdout,
                 stderr=stderr,
+                launch_target=resolve_review_launch_target(
+                    fallback_preset_id=self._workflow_preset_id,
+                    preset_id=str(active_context.get("preset_id") or ""),
+                    plan_doc=str(active_context.get("plan_doc") or ""),
+                    mp_scope=str(active_context.get("mp_scope") or ""),
+                ),
             )
         ):
             return True

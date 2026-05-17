@@ -1,30 +1,49 @@
 from __future__ import annotations
 
-from typing import Callable, Mapping
-
 from ...workflows import (
+    ReviewLaunchTarget,
     build_launch_command,
     build_rollover_command,
-    evaluate_review_channel_launch,
-    evaluate_review_channel_rollover,
     evaluate_start_swarm_launch,
     evaluate_start_swarm_preflight,
-    parse_review_channel_report,
     render_command,
+    resolve_review_launch_target,
+    resolve_review_channel_completion_message,
+    resolve_start_swarm_command_result,
 )
 
 
 class ReviewLaunchActionsMixin:
     """Review-channel actions, live gating, and chained launch orchestration."""
 
+    def _build_scoped_review_launch_command(
+        self, *, live: bool, launch_target: ReviewLaunchTarget
+    ) -> list[str]:
+        return build_launch_command(
+            live=live,
+            output_format="json",
+            refresh_bridge_heartbeat_if_stale=True,
+            scope=launch_target.plan_doc,
+            promotion_plan=launch_target.plan_doc,
+        )
+
+    def _current_review_launch_target(self) -> ReviewLaunchTarget:
+        return resolve_review_launch_target(
+            fallback_preset_id=self._workflow_preset_id,
+        )
+
     def launch_dry_run(self) -> None:
+        launch_target = self._current_review_launch_target()
         self._start_command(
-            build_launch_command(
+            self._build_scoped_review_launch_command(
                 live=False,
-                output_format="json",
-                refresh_bridge_heartbeat_if_stale=True,
+                launch_target=launch_target,
             ),
-            context={"flow": "review_channel", "action": "launch", "live": False},
+            context=launch_target.command_context(
+                flow="review_channel",
+                action="launch",
+                live=False,
+            ),
             busy_label="Dry Run...",
             busy_buttons=self._dry_run_action_buttons(),
         )
@@ -33,13 +52,17 @@ class ReviewLaunchActionsMixin:
         if not self._live_terminal_supported:
             self._reject_live_terminal_action("Launch Live")
             return
+        launch_target = self._current_review_launch_target()
         self._start_command(
-            build_launch_command(
+            self._build_scoped_review_launch_command(
                 live=True,
-                output_format="json",
-                refresh_bridge_heartbeat_if_stale=True,
+                launch_target=launch_target,
             ),
-            context={"flow": "review_channel", "action": "launch", "live": True},
+            context=launch_target.command_context(
+                flow="review_channel",
+                action="launch",
+                live=True,
+            ),
             busy_label="Launch...",
             busy_buttons=(self.launch_live_button,),
         )
@@ -51,14 +74,17 @@ class ReviewLaunchActionsMixin:
                 update_swarm_status=True,
             )
             return
-        preflight_command = build_launch_command(
+        launch_target = self._current_review_launch_target()
+        preflight_command = self._build_scoped_review_launch_command(
             live=False,
-            output_format="json",
-            refresh_bridge_heartbeat_if_stale=True,
+            launch_target=launch_target,
         )
         if not self._start_command(
             preflight_command,
-            context={"flow": "start_swarm", "step": "preflight"},
+            context=launch_target.command_context(
+                flow="start_swarm",
+                step="preflight",
+            ),
             busy_label="Swarm...",
             busy_buttons=self._review_action_buttons(),
         ):
@@ -80,7 +106,10 @@ class ReviewLaunchActionsMixin:
             "INFO",
             "start_swarm_requested",
             "Operator requested Launch Review chained launch",
-            details={"step": "preflight"},
+            details=launch_target.command_context(
+                flow="start_swarm",
+                step="preflight",
+            ),
         )
 
     def rollover_live(self) -> None:
@@ -100,31 +129,6 @@ class ReviewLaunchActionsMixin:
             busy_buttons=(self.rollover_button,),
         )
 
-    def _resolve_start_swarm_result(
-        self,
-        *,
-        exit_code: int,
-        stdout: str,
-        stderr: str,
-        evaluator: Callable[[Mapping[str, object]], tuple[bool, str]],
-        invalid_json_message: str,
-        empty_output_message: str,
-    ) -> tuple[bool, str]:
-        stripped_stdout = stdout.strip()
-        if stripped_stdout:
-            try:
-                report = parse_review_channel_report(stripped_stdout)
-            except ValueError:
-                detail = self._first_visible_line(stderr) or invalid_json_message
-                return False, detail
-            return evaluator(report)
-        detail = self._first_visible_line(stderr)
-        if detail:
-            return False, detail
-        if exit_code:
-            return False, empty_output_message
-        return False, invalid_json_message
-
     def _handle_start_swarm_completion(
         self,
         *,
@@ -132,18 +136,21 @@ class ReviewLaunchActionsMixin:
         exit_code: int,
         stdout: str,
         stderr: str,
+        launch_target: ReviewLaunchTarget | None = None,
     ) -> bool:
         if step == "preflight":
             return self._handle_swarm_preflight_result(
                 exit_code=exit_code,
                 stdout=stdout,
                 stderr=stderr,
+                launch_target=launch_target or self._current_review_launch_target(),
             )
         if step == "live":
             return self._handle_swarm_live_result(
                 exit_code=exit_code,
                 stdout=stdout,
                 stderr=stderr,
+                launch_target=launch_target,
             )
         return False
 
@@ -153,8 +160,9 @@ class ReviewLaunchActionsMixin:
         exit_code: int,
         stdout: str,
         stderr: str,
+        launch_target: ReviewLaunchTarget,
     ) -> bool:
-        ok, message = self._resolve_start_swarm_result(
+        ok, message = resolve_start_swarm_command_result(
             exit_code=exit_code,
             stdout=stdout,
             stderr=stderr,
@@ -174,10 +182,9 @@ class ReviewLaunchActionsMixin:
                 command_preview=(
                     "Last command: "
                     + render_command(
-                        build_launch_command(
+                        self._build_scoped_review_launch_command(
                             live=False,
-                            output_format="json",
-                            refresh_bridge_heartbeat_if_stale=True,
+                            launch_target=launch_target,
                         )
                     )
                 ),
@@ -192,10 +199,9 @@ class ReviewLaunchActionsMixin:
             return False
 
         launch_detail = f"{message} Launching live review-channel sessions."
-        live_command = build_launch_command(
+        live_command = self._build_scoped_review_launch_command(
             live=True,
-            output_format="json",
-            refresh_bridge_heartbeat_if_stale=True,
+            launch_target=launch_target,
         )
         if not self._live_terminal_supported:
             self._set_start_swarm_status(
@@ -232,7 +238,10 @@ class ReviewLaunchActionsMixin:
         )
         if not self._start_command(
             live_command,
-            context={"flow": "start_swarm", "step": "live"},
+            context=launch_target.command_context(
+                flow="start_swarm",
+                step="live",
+            ),
             busy_label="Swarm...",
             busy_buttons=self._review_action_buttons(),
         ):
@@ -261,8 +270,10 @@ class ReviewLaunchActionsMixin:
         exit_code: int,
         stdout: str,
         stderr: str,
+        launch_target: ReviewLaunchTarget | None = None,
     ) -> bool:
-        ok, message = self._resolve_start_swarm_result(
+        current_target = launch_target or self._current_review_launch_target()
+        ok, message = resolve_start_swarm_command_result(
             exit_code=exit_code,
             stdout=stdout,
             stderr=stderr,
@@ -277,10 +288,9 @@ class ReviewLaunchActionsMixin:
         live_command_preview = (
             "Last command: "
             + render_command(
-                build_launch_command(
+                self._build_scoped_review_launch_command(
                     live=True,
-                    output_format="json",
-                    refresh_bridge_heartbeat_if_stale=True,
+                    launch_target=current_target,
                 )
             )
         )
@@ -322,26 +332,10 @@ class ReviewLaunchActionsMixin:
         stdout: str,
         stderr: str,
     ) -> tuple[bool, str]:
-        stripped_stdout = stdout.strip()
-        if stripped_stdout:
-            try:
-                report = parse_review_channel_report(stripped_stdout)
-            except ValueError:
-                detail = self._first_visible_line(stderr)
-                if detail:
-                    return False, detail
-                command_name = "Live launch" if action == "launch" and live else action.title()
-                return False, f"{command_name} did not return a readable status report."
-            if action == "rollover":
-                return evaluate_review_channel_rollover(report)
-            return evaluate_review_channel_launch(report, live=live)
-        detail = self._first_visible_line(stderr)
-        if detail:
-            return False, detail
-        if action == "rollover":
-            fallback = "Rollover failed." if exit_code else "Rollover completed."
-        elif live:
-            fallback = "Live launch failed." if exit_code else "Live launch completed."
-        else:
-            fallback = "Dry run failed." if exit_code else "Dry run completed."
-        return exit_code == 0, fallback
+        return resolve_review_channel_completion_message(
+            action=action,
+            live=live,
+            exit_code=exit_code,
+            stdout=stdout,
+            stderr=stderr,
+        )

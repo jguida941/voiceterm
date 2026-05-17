@@ -2,67 +2,72 @@
 
 from __future__ import annotations
 
-import hashlib
-from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from ..common import display_path
-from .core import LaneAssignment, ensure_launcher_prereqs
-from .handoff import (
-    BridgeSnapshot,
-    bridge_liveness_to_dict,
-    extract_bridge_snapshot,
-    summarize_bridge_liveness,
+from ..runtime.review_state_locator import (
+    load_current_review_state_payload,
+    load_review_state_payload,
 )
-from .projection_bundle import (
-    ReviewChannelProjectionPaths,
-    build_agent_registry_from_lanes,
-    projection_paths_to_dict,
-    write_projection_bundle,
+from . import state_status_inputs as _state_status_inputs_mod
+from .attach_auth_policy import build_attach_auth_policy
+from .bridge_validation import validate_live_bridge_contract
+from .bridge_validation_acceptance import review_acceptance_projection
+from .collaboration_provider import reviewer_provider_from_review_state
+from .core import project_id_for_repo
+from .daemon_reducer import build_lifecycle_runtime_state
+from .handoff import extract_bridge_snapshot
+from .lifecycle_state import (
+    DEFAULT_REVIEW_STATUS_DIR_REL,
+    PublisherHeartbeat,
+    ReviewerSupervisorHeartbeat,
+    read_publisher_state,
+    read_reviewer_supervisor_state,
+    write_publisher_heartbeat,
+    write_reviewer_supervisor_heartbeat,
 )
-from .promotion import (
-    DEFAULT_PROMOTION_PLAN_REL,
-    PromotionCandidate,
-    derive_promotion_candidate,
-    promotion_candidate_to_dict,
+from .peer_liveness import (
+    OverallLivenessState,
+    reviewer_mode_is_active,
 )
-from ..time_utils import utc_timestamp
+from .pending_packets import load_pending_packet_queue
+from .projection_bundle import projection_paths_to_dict as projection_paths_to_dict
+from .projection_bundle import write_projection_bundle as write_projection_bundle
+from .service_identity import build_service_identity
+from .session_liveness_events import (
+    emit_status_tick_participant_liveness_events,
+    summarize_participant_liveness_events,
+)
+from .session_state_hints import detect_session_state_hints, session_state_hints_to_dict
+from .state_status_inputs import (
+    build_reviewer_worker_snapshot as _build_reviewer_worker_snapshot,
+)
+from .state_status_inputs import (
+    build_status_bridge_liveness as _build_status_bridge_liveness,
+)
+from .state_status_inputs import load_lifecycle_states as _load_lifecycle_states
+from .state_status_inputs import load_prior_review_state as _load_prior_review_state
+from .state_status_inputs import load_status_lanes as _load_status_lanes
+from .status_models import ReviewChannelStatusSnapshot
+from .status_projection_helpers import (
+    attach_conductor_session_state,
+    bridge_liveness_warnings,
+    build_bridge_push_enforcement_state,
+    hybrid_loop_errors,
+)
+from .status_push_decision import build_status_push_decision
+from .status_snapshot_bundle_writer import (
+    SnapshotBundleInputs,
+    write_snapshot_bundle,
+)
+from .status_snapshot_authority import (
+    StatusAuthorityInputs,
+    build_status_authority,
+)
 
-DEFAULT_REVIEW_STATUS_DIR_REL = "dev/reports/review_channel/latest"
 
-
-@dataclass(frozen=True)
-class ReviewStateSnapshot:
-    """Typed container for one bridge-backed review-state projection.
-
-    Replaces the raw dict previously built by ``_build_bridge_review_state``.
-    Convert to a plain dict via ``dataclasses.asdict`` when the downstream
-    consumer expects untyped mapping access.
-    """
-
-    schema_version: int
-    command: str
-    project_id: str
-    timestamp: str
-    ok: bool
-    review: dict[str, object]
-    agents: list[dict[str, object]]
-    packets: list[dict[str, object]]
-    queue: dict[str, object]
-    bridge: dict[str, object]
-    warnings: list[str]
-    errors: list[str]
-
-
-@dataclass(frozen=True)
-class ReviewChannelStatusSnapshot:
-    """Shared status-refresh result for read-only review consumers."""
-
-    lanes: list[LaneAssignment]
-    bridge_liveness: dict[str, object]
-    warnings: list[str]
-    errors: list[str]
-    projection_paths: ReviewChannelProjectionPaths
+compute_non_audit_worktree_hash = (
+    _state_status_inputs_mod.compute_non_audit_worktree_hash
+)
 
 
 def refresh_status_snapshot(
@@ -75,234 +80,216 @@ def refresh_status_snapshot(
     execution_mode: str = "markdown-bridge",
     warnings: list[str] | None = None,
     errors: list[str] | None = None,
+    reviewer_overdue_threshold_seconds: int | None = None,
+    reviewer_accepted_implementer_state_hash_override: str | None = None,
 ) -> ReviewChannelStatusSnapshot:
     """Refresh the latest review-channel projections for read-only consumers."""
-    _, lanes = ensure_launcher_prereqs(
+    _sync_status_input_hooks()
+    lanes = _load_status_lanes(
         review_channel_path=review_channel_path,
         bridge_path=bridge_path,
         execution_mode=execution_mode,
     )
-    snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
-    bridge_liveness = bridge_liveness_to_dict(summarize_bridge_liveness(snapshot))
+    bridge_text = bridge_path.read_text(encoding="utf-8")
+    bridge_snapshot = extract_bridge_snapshot(bridge_text)
+    bridge_liveness = _build_status_bridge_liveness(
+        bridge_snapshot=bridge_snapshot,
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+    )
+    bridge_liveness["push_enforcement"] = build_bridge_push_enforcement_state(repo_root)
     merged_warnings = list(warnings or [])
     merged_errors = list(errors or [])
-    codex_poll_state = str(bridge_liveness.get("codex_poll_state") or "unknown")
-    overall_state = str(bridge_liveness.get("overall_state") or "unknown")
-    if codex_poll_state == "missing":
-        merged_warnings.append(
-            "Bridge liveness is missing: the bridge header does not expose a "
-            "usable `Last Codex poll` timestamp yet."
+    reviewer_worker = _build_reviewer_worker_snapshot(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+        bridge_text=bridge_text,
+    )
+    bridge_liveness["review_needed"] = bool(reviewer_worker.get("review_needed"))
+    _verdict, _findings, bridge_verdict_accepted = review_acceptance_projection(
+        bridge_snapshot
+    )
+    bridge_liveness["bridge_verdict_accepted"] = bridge_verdict_accepted
+    merged_errors.extend(validate_live_bridge_contract(bridge_snapshot))
+    publisher_state, reviewer_supervisor_state = _load_lifecycle_states(output_root)
+    prior_review_state = _load_prior_review_state(
+        repo_root=repo_root,
+        output_root=output_root,
+    )
+    _apply_lifecycle_bridge_liveness(
+        bridge_liveness=bridge_liveness,
+        publisher_state=publisher_state,
+        reviewer_supervisor_state=reviewer_supervisor_state,
+        reviewer_overdue_threshold_seconds=reviewer_overdue_threshold_seconds,
+    )
+    attach_conductor_session_state(
+        bridge_liveness=bridge_liveness,
+        output_root=output_root,
+        reviewer_provider=reviewer_provider_from_review_state(prior_review_state),
+    )
+    emitted_liveness_events = emit_status_tick_participant_liveness_events(
+        repo_root=repo_root,
+        session_output_root=output_root,
+    )
+    if emitted_liveness_events:
+        bridge_liveness["participant_liveness_expired_events"] = (
+            summarize_participant_liveness_events(emitted_liveness_events)
         )
-    elif codex_poll_state == "stale":
-        merged_warnings.append(
-            "Bridge liveness is stale: the latest Codex poll timestamp is "
-            "older than the five-minute heartbeat contract."
+    _attach_session_state_hints(bridge_liveness, output_root)
+    merged_warnings.extend(bridge_liveness_warnings(bridge_liveness))
+    merged_errors.extend(hybrid_loop_errors(bridge_liveness))
+    pending_queue = load_pending_packet_queue(repo_root)
+    current_session, attention, recovery_assessment, reviewer_runtime = (
+        build_status_authority(
+            StatusAuthorityInputs(
+                repo_root=repo_root,
+                output_root=output_root,
+                bridge_snapshot=bridge_snapshot,
+                bridge_text=bridge_text,
+                bridge_liveness=bridge_liveness,
+                prior_review_state=prior_review_state,
+                merged_warnings=merged_warnings,
+                merged_errors=merged_errors,
+                pending_packets=pending_queue.control_packets,
+                stale_packet_count=pending_queue.stale_packet_count,
+                reviewer_accepted_implementer_state_hash_override=(
+                    reviewer_accepted_implementer_state_hash_override
+                ),
+            )
         )
-    elif codex_poll_state == "poll_due":
-        merged_warnings.append(
-            "Bridge liveness is due for refresh: the latest Codex poll "
-            "timestamp is older than the 2-3 minute reviewer cadence but "
-            "still within the five-minute heartbeat window."
-        )
-    elif overall_state == "waiting_on_peer":
-        merged_warnings.append(
-            "Bridge liveness is waiting_on_peer: the current bridge state "
-            "still needs a fresh reviewer poll or complete Claude status/ACK "
-            "state before the next cycle."
-        )
-    projection_paths = write_status_projection_bundle(
+    )
+    push_decision = _build_push_decision(
+        bridge_liveness=bridge_liveness,
+        reviewer_runtime=reviewer_runtime,
+    )
+    service_identity = build_service_identity(
         repo_root=repo_root,
         bridge_path=bridge_path,
         review_channel_path=review_channel_path,
         output_root=output_root,
-        promotion_plan_path=(
-            promotion_plan_path
-            if promotion_plan_path is not None
-            else repo_root / DEFAULT_PROMOTION_PLAN_REL
-        ),
-        lanes=lanes,
-        bridge_liveness=bridge_liveness,
-        warnings=merged_warnings,
-        errors=merged_errors,
     )
+    attach_auth_policy = build_attach_auth_policy(service_identity=service_identity)
+    reduced_runtime = _build_reduced_runtime(
+        publisher_state=publisher_state,
+        reviewer_supervisor_state=reviewer_supervisor_state,
+    )
+    bundle_result, review_state = write_snapshot_bundle(
+        SnapshotBundleInputs(
+            repo_root=repo_root,
+            bridge_path=bridge_path,
+            review_channel_path=review_channel_path,
+            output_root=output_root,
+            promotion_plan_path=promotion_plan_path,
+            lanes=lanes,
+            bridge_liveness=bridge_liveness,
+            attention=attention,
+            current_session=current_session,
+            recovery_assessment=recovery_assessment,
+            prior_review_state=prior_review_state,
+            reviewer_accepted_implementer_state_hash_override=(
+                reviewer_accepted_implementer_state_hash_override
+            ),
+            reviewer_worker=reviewer_worker,
+            push_decision=push_decision,
+            service_identity=service_identity,
+            attach_auth_policy=attach_auth_policy,
+            warnings=merged_warnings,
+            errors=merged_errors,
+            reduced_runtime=reduced_runtime,
+        )
+    )
+
     return ReviewChannelStatusSnapshot(
         lanes=lanes,
         bridge_liveness=bridge_liveness,
+        attention=attention,
         warnings=merged_warnings,
         errors=merged_errors,
-        projection_paths=projection_paths,
-    )
-
-
-def write_status_projection_bundle(
-    *,
-    repo_root: Path,
-    bridge_path: Path,
-    review_channel_path: Path,
-    output_root: Path,
-    promotion_plan_path: Path,
-    lanes: list[LaneAssignment],
-    bridge_liveness: dict[str, object],
-    warnings: list[str],
-    errors: list[str],
-) -> ReviewChannelProjectionPaths:
-    """Write bridge-backed status projections for operator/read-only consumers."""
-    snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
-    timestamp = utc_timestamp()
-    promotion_candidate = derive_promotion_candidate(
-        repo_root=repo_root,
-        promotion_plan_path=promotion_plan_path,
-        require_exists=False,
-    )
-    review_state = _build_bridge_review_state(
-        repo_root=repo_root,
-        bridge_path=bridge_path,
-        review_channel_path=review_channel_path,
-        snapshot=snapshot,
-        bridge_liveness=bridge_liveness,
-        promotion_candidate=promotion_candidate,
-        timestamp=timestamp,
-        project_id=project_id_for_repo(repo_root),
-        warnings=warnings,
-        errors=errors,
-    )
-    agent_registry = build_agent_registry_from_lanes(
-        lanes,
-        timestamp=timestamp,
-        provider_state={
-            "codex": {
-                "job_state": str(bridge_liveness.get("overall_state") or "unknown"),
-                "waiting_on": (
-                    "peer"
-                    if str(bridge_liveness.get("overall_state") or "unknown")
-                    == "waiting_on_peer"
-                    else None
-                ),
-            },
-            "claude": {"job_state": "assigned"},
-        },
-    )
-    return write_projection_bundle(
-        output_root=output_root,
+        projection_paths=bundle_result.projection_paths,
+        reviewer_worker=reviewer_worker,
+        push_decision=push_decision,
+        service_identity=service_identity,
+        attach_auth_policy=attach_auth_policy,
         review_state=review_state,
-        agent_registry=agent_registry,
-        action="status",
-        trace_events=[],
-        full_extras={"bridge_liveness": bridge_liveness},
     )
 
 
-def project_id_for_repo(repo_root: Path) -> str:
-    """Build the stable repo identity used across review-channel artifacts."""
-    digest = hashlib.sha256(str(repo_root.resolve()).encode("utf-8")).hexdigest()
-    return f"sha256:{digest}"
-
-
-def _build_bridge_review_state(
+def _build_push_decision(
     *,
-    repo_root: Path,
-    bridge_path: Path,
-    review_channel_path: Path,
-    snapshot: BridgeSnapshot,
     bridge_liveness: dict[str, object],
-    promotion_candidate: PromotionCandidate | None,
-    timestamp: str,
-    project_id: str,
-    warnings: list[str],
-    errors: list[str],
+    reviewer_runtime,
 ) -> dict[str, object]:
-    """Build a typed review-state snapshot and return it as a plain dict."""
-    overall_state = str(bridge_liveness.get("overall_state") or "unknown")
-    projection_ok = overall_state == "fresh" and not errors
-    claude_status_present = bool(bridge_liveness.get("claude_status_present"))
-    claude_status = _clean_section(snapshot.sections.get("Claude Status", ""))
-    claude_ack = _clean_section(snapshot.sections.get("Claude Ack", ""))
-    current_instruction = _clean_section(
-        snapshot.sections.get("Current Instruction For Claude", "")
+    push_bridge_liveness = dict(bridge_liveness)
+    push_bridge_liveness["review_accepted"] = (
+        reviewer_runtime.review_acceptance.review_accepted
     )
-    open_findings = _clean_section(snapshot.sections.get("Open Findings", ""))
-    operator_status = (
-        "waiting"
-        if overall_state == "waiting_on_peer"
-        else "warning"
-        if overall_state == "stale"
-        else "active"
+    push_bridge_liveness["publish_clear"] = reviewer_runtime.publish_clear
+    push_decision = build_status_push_decision(
+        bridge_liveness=push_bridge_liveness,
+        reviewer_runtime=reviewer_runtime,
     )
-    state = ReviewStateSnapshot(
-        schema_version=1,
-        command="review-channel",
-        project_id=project_id,
-        timestamp=timestamp,
-        ok=projection_ok,
-        review={
-            "plan_id": "MP-355",
-            "controller_run_id": None,
-            "session_id": "markdown-bridge",
-            "surface_mode": "markdown-bridge",
-            "active_lane": "review",
-            "refresh_seq": 1,
-            "bridge_path": display_path(bridge_path, repo_root=repo_root),
-            "review_channel_path": display_path(review_channel_path, repo_root=repo_root),
-        },
-        agents=[
-            {
-                "agent_id": "codex",
-                "display_name": "Codex",
-                "role": "reviewer",
-                "status": overall_state,
-                "capabilities": ["review", "planning", "coordination"],
-                "lane": "codex",
-            },
-            {
-                "agent_id": "claude",
-                "display_name": "Claude",
-                "role": "implementer",
-                "status": "active" if claude_status_present else "waiting",
-                "capabilities": ["implementation", "fixes", "handoff"],
-                "lane": "claude",
-            },
-            {
-                "agent_id": "operator",
-                "display_name": "Operator",
-                "role": "approver",
-                "status": operator_status,
-                "capabilities": ["approval", "launch", "rollover"],
-                "lane": "operator",
-            },
-        ],
-        packets=[],
-        queue={
-            "pending_total": 0,
-            "pending_codex": 0,
-            "pending_claude": 0,
-            "pending_operator": 0,
-            "stale_packet_count": 0,
-            "derived_next_instruction": (
-                promotion_candidate.instruction if promotion_candidate is not None else None
-            ),
-            "derived_next_instruction_source": promotion_candidate_to_dict(
-                promotion_candidate
-            ),
-        },
-        bridge={
-            "last_codex_poll_utc": snapshot.metadata.get("last_codex_poll_utc"),
-            "last_codex_poll_age_seconds": bridge_liveness.get(
-                "last_codex_poll_age_seconds"
-            ),
-            "last_worktree_hash": snapshot.metadata.get("last_non_audit_worktree_hash"),
-            "open_findings": open_findings,
-            "current_instruction": current_instruction,
-            "claude_status": claude_status,
-            "claude_ack": claude_ack,
-            "last_reviewed_scope": _clean_section(
-                snapshot.sections.get("Last Reviewed Scope", "")
-            ),
-        },
-        warnings=warnings,
-        errors=errors,
+    bridge_liveness["review_accepted"] = (
+        reviewer_runtime.review_acceptance.review_accepted
     )
-    return asdict(state)
+    bridge_liveness["publish_clear"] = reviewer_runtime.publish_clear
+    return push_decision
 
 
-def _clean_section(raw: str) -> str:
-    return raw.strip() or "(missing)"
+def _attach_session_state_hints(
+    bridge_liveness: dict[str, object],
+    output_root: Path,
+) -> None:
+    session_state_hints = detect_session_state_hints(session_output_root=output_root)
+    if session_state_hints:
+        bridge_liveness["session_state_hints"] = session_state_hints_to_dict(
+            session_state_hints
+        )
+
+
+def _apply_lifecycle_bridge_liveness(
+    *,
+    bridge_liveness: dict[str, object],
+    publisher_state: dict[str, object],
+    reviewer_supervisor_state: dict[str, object],
+    reviewer_overdue_threshold_seconds: int | None,
+) -> None:
+    bridge_liveness["publisher_running"] = bool(publisher_state.get("running"))
+    bridge_liveness["publisher_stop_reason"] = publisher_state.get("stop_reason", "")
+    bridge_liveness["reviewer_supervisor_running"] = bool(
+        reviewer_supervisor_state.get("running")
+    )
+    bridge_liveness["reviewer_supervisor_stop_reason"] = reviewer_supervisor_state.get(
+        "stop_reason", ""
+    )
+    if reviewer_overdue_threshold_seconds is not None:
+        bridge_liveness["reviewer_overdue_threshold_seconds"] = (
+            reviewer_overdue_threshold_seconds
+        )
+    reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
+    if (
+        reviewer_mode_is_active(reviewer_mode)
+        and not bridge_liveness["publisher_running"]
+        and not bridge_liveness["reviewer_supervisor_running"]
+    ):
+        bridge_liveness["overall_state"] = OverallLivenessState.RUNTIME_MISSING
+
+
+def _build_reduced_runtime(
+    *,
+    publisher_state: dict[str, object],
+    reviewer_supervisor_state: dict[str, object],
+) -> dict[str, object]:
+    return build_lifecycle_runtime_state(
+        publisher_state=publisher_state,
+        reviewer_supervisor_state=reviewer_supervisor_state,
+    )
+
+
+def _sync_status_input_hooks() -> None:
+    _state_status_inputs_mod.load_review_state_payload = load_review_state_payload
+    _state_status_inputs_mod.load_current_review_state_payload = (
+        load_current_review_state_payload
+    )
+    _state_status_inputs_mod.compute_non_audit_worktree_hash = (
+        compute_non_audit_worktree_hash
+    )

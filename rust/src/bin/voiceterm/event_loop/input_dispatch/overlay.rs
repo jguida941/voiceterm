@@ -4,10 +4,14 @@ use super::*;
 use crate::scrollable::Scrollable;
 use crate::transcript_history::transcript_history_visible_rows;
 
+mod memory_action_input;
 mod overlay_mouse;
 mod theme_studio_cycles;
 mod theme_studio_input;
 
+use self::memory_action_input::{
+    handle_action_center_overlay_event, handle_memory_browser_overlay_event,
+};
 use self::theme_studio_cycles::{
     cycle_runtime_banner_style_override, cycle_runtime_border_style_override,
     cycle_runtime_glyph_set_override, cycle_runtime_indicator_set_override,
@@ -144,6 +148,9 @@ fn handle_dev_panel_actions_bytes(
                     should_redraw |= select_dev_panel_command_by_index(state, index);
                 }
             }
+            b'a' | b'A' => {
+                open_action_center_overlay(state, deps);
+            }
             b'r' | b'R' => {
                 request_selected_dev_panel_command(state, timers, deps);
                 should_redraw = true;
@@ -195,6 +202,9 @@ fn handle_dev_panel_memory_bytes(
             super::super::dev_panel_commands::RefreshMode::Force,
         );
         return true;
+    }
+    if matches!(bytes, [b'b'] | [b'B']) {
+        open_memory_browser_overlay(state, deps);
     }
     false
 }
@@ -310,6 +320,12 @@ pub(super) fn handle_overlay_input_event(
                 }
                 OverlayMode::ToastHistory => {
                     render_toast_history_overlay_for_state(state, deps);
+                }
+                OverlayMode::MemoryBrowser => {
+                    render_memory_browser_overlay_for_state(state, deps);
+                }
+                OverlayMode::ActionCenter => {
+                    render_action_center_overlay_for_state(state, deps);
                 }
                 OverlayMode::None => {}
             }
@@ -532,6 +548,12 @@ pub(super) fn handle_overlay_input_event(
                 }
             }
             None
+        }
+        (OverlayMode::MemoryBrowser, evt) => {
+            handle_memory_browser_overlay_event(state, deps, running, evt)
+        }
+        (OverlayMode::ActionCenter, evt) => {
+            handle_action_center_overlay_event(state, timers, deps, evt)
         }
         // --- Transcript History overlay ---
         (OverlayMode::TranscriptHistory, InputEvent::TranscriptHistoryToggle) => {

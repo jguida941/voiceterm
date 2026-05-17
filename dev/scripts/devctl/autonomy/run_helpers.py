@@ -7,6 +7,12 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from ..context_graph.escalation import (
+    append_context_packet_markdown,
+    build_context_escalation_packet,
+    collect_query_terms,
+)
+from ..governance.script_catalog_registry import check_script_cmd
 from .swarm_helpers import fallback_repo_from_origin
 from ..common import display_path
 from ..config import REPO_ROOT
@@ -49,6 +55,13 @@ def derive_prompt(
     lines = [
         f"Execute the next tracked checklist items for `{plan_doc}` under `{mp_scope}`.",
         "",
+        "Probe guidance policy:",
+        (
+            "- If the appended context packet includes `## Probe Guidance`, treat "
+            "those hints as the default repair plan unless you can justify "
+            "waiving them."
+        ),
+        "",
         "Target steps:",
     ]
     if not next_steps:
@@ -58,7 +71,30 @@ def derive_prompt(
     else:
         for item in next_steps:
             lines.append(f"- {item}")
-    return "\n".join(lines)
+    prompt = "\n".join(lines)
+    context_packet = _build_swarm_prompt_context_packet(
+        plan_doc=plan_doc,
+        mp_scope=mp_scope,
+        next_steps=next_steps,
+    )
+    return append_context_packet_markdown(prompt, context_packet)
+
+
+def _build_swarm_prompt_context_packet(
+    *,
+    plan_doc: str,
+    mp_scope: str,
+    next_steps: list[str],
+) -> object | None:
+    query_terms = collect_query_terms(
+        [plan_doc, mp_scope, *next_steps[:3]],
+        max_terms=4,
+    )
+    return build_context_escalation_packet(
+        trigger="swarm-run",
+        query_terms=query_terms,
+        options={"max_chars": 1200},
+    )
 
 
 def run_command(command: list[str], *, timeout_seconds: int = 0) -> dict[str, Any]:
@@ -188,11 +224,11 @@ def governance_commands(args, *, run_dir: Path) -> list[tuple[str, list[str]]]:
     return [
         (
             "check_active_plan_sync",
-            ["python3", "dev/scripts/checks/check_active_plan_sync.py"],
+            check_script_cmd("active_plan_sync"),
         ),
         (
             "check_multi_agent_sync",
-            ["python3", "dev/scripts/checks/check_multi_agent_sync.py"],
+            check_script_cmd("multi_agent_sync"),
         ),
         (
             "docs_check_strict_tooling",

@@ -149,7 +149,7 @@ jobs:
           DEFAULT_COMMENT_TARGET: auto
         run: |
           set -euo pipefail
-          python3 dev/scripts/autonomy_workflow_bridge.py resolve-controller-config \
+          python3 dev/scripts/workflow_bridge/autonomy.py resolve-controller-config \
             --event-name "${EVENT_NAME}" \
             --github-output "${GITHUB_OUTPUT}"
 
@@ -214,7 +214,7 @@ jobs:
         if: always()
         run: |
           set -euo pipefail
-          python3 dev/scripts/autonomy_workflow_bridge.py export-controller \
+          python3 dev/scripts/workflow_bridge/autonomy.py export-controller \
             --input-file /tmp/autonomy-controller.json \
             --github-output "${GITHUB_OUTPUT}"
 

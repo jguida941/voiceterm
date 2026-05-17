@@ -1,4 +1,4 @@
-"""Unit tests for the Ralph AI fix wrapper (ralph_ai_fix.py)."""
+"""Unit tests for the Ralph AI fix wrapper (coderabbit/ralph_ai_fix.py)."""
 
 from __future__ import annotations
 
@@ -10,8 +10,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from dev.scripts.ralph_ai_fix import (
+from dev.scripts.coderabbit.ralph_ai_fix import (
     _FALLBACK_CATEGORY_TO_ARCH,
+    _build_fix_results,
+    _extract_guidance_summary,
+    build_backlog_context_packet,
     build_prompt,
     commit_and_push,
     detect_architectures,
@@ -31,6 +34,25 @@ def _sample_items() -> list[dict]:
     return [
         {"severity": "high", "category": "rust", "summary": "Unused import in auth.rs"},
         {"severity": "medium", "category": "python", "summary": "Broad except clause"},
+    ]
+
+
+def _coderabbit_path_items() -> list[dict]:
+    return [
+        {
+            "severity": "high",
+            "category": "rust",
+            "path": "rust/src/auth.rs",
+            "line": 12,
+            "summary": "rust/src/auth.rs:12 - Unused import in auth.rs",
+        },
+        {
+            "severity": "medium",
+            "category": "python",
+            "path": "dev/scripts/tool.py",
+            "line": 4,
+            "summary": "dev/scripts/tool.py:4 - Broad except clause",
+        },
     ]
 
 
@@ -141,6 +163,114 @@ class BuildPromptTests(unittest.TestCase):
         prompt = build_prompt(items, attempt=1)
         self.assertNotIn("Applicable Standards", prompt)
 
+    def test_prompt_includes_context_recovery_when_packet_present(self) -> None:
+        from dev.scripts.devctl.context_graph.escalation import ContextEscalationPacket
+
+        packet = ContextEscalationPacket(
+            trigger="ralph-backlog",
+            query_terms=("auth.rs",),
+            matched_nodes=1,
+            edge_count=0,
+            canonical_refs=("rust/src/auth.rs",),
+            evidence=("auth.rs: nodes=1, edges=0",),
+            markdown=(
+                "## Context Recovery Packet\n\n"
+                "- Trigger: `ralph-backlog`\n"
+                "- Query terms: `auth.rs`\n"
+                "- Graph matches: nodes=1, edges=0\n"
+                "- Canonical refs:\n"
+                "  - `rust/src/auth.rs`"
+            ),
+        )
+
+        prompt = build_prompt(_sample_items(), attempt=1, context_packet=packet)
+
+        self.assertIn("Preloaded Context Recovery", prompt)
+        self.assertIn("Context Recovery Packet", prompt)
+        self.assertIn("auth.rs", prompt)
+
+    def test_prompt_includes_probe_guidance_when_present(self) -> None:
+        prompt = build_prompt(
+            [
+                {
+                    "severity": "high",
+                    "category": "rust",
+                    "summary": "rust/src/auth.rs:12 - Unused import in auth.rs",
+                    "probe_guidance": [
+                        {
+                            "severity": "high",
+                            "probe": "probe_design_smells",
+                            "file_path": "rust/src/auth.rs",
+                            "ai_instruction": "Extract the auth validation helper before editing the caller.",
+                        }
+                    ],
+                }
+            ],
+            attempt=1,
+        )
+
+        self.assertIn("Probe guidance:", prompt)
+        self.assertIn("Extract the auth validation helper", prompt)
+        self.assertIn("probe_design_smells", prompt)
+
+    def test_prompt_surfaces_approval_required_decision_mode(self) -> None:
+        prompt = build_prompt(
+            [
+                {
+                    "severity": "high",
+                    "category": "rust",
+                    "summary": "rust/src/auth.rs:12 - Auth contract is too broad.",
+                    "probe_guidance": [
+                        {
+                            "severity": "high",
+                            "probe": "probe_design_smells",
+                            "file_path": "rust/src/auth.rs",
+                            "ai_instruction": "Extract the auth validation helper before editing the caller.",
+                            "decision_mode": "approval_required",
+                        }
+                    ],
+                }
+            ],
+            attempt=1,
+        )
+
+        self.assertIn("decision_mode=approval_required", prompt)
+        self.assertIn("do not", prompt.lower())
+        self.assertIn("request approval", prompt.lower())
+
+    def test_prompt_mandates_using_probe_guidance_and_output_contract(self) -> None:
+        prompt = build_prompt(_sample_items(), attempt=1)
+        self.assertIn("default repair plan", prompt)
+        self.assertIn("RALPH_GUIDANCE_SUMMARY_START", prompt)
+        self.assertIn("guidance_disposition", prompt)
+        self.assertLess(
+            prompt.index("## Probe Guidance Policy"),
+            prompt.index("## Findings to evaluate"),
+        )
+
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.build_context_escalation_packet")
+    def test_build_backlog_context_packet_uses_backlog_terms(self, escalation_mock) -> None:
+        from dev.scripts.devctl.context_graph.escalation import ContextEscalationPacket
+
+        packet = ContextEscalationPacket(
+            trigger="ralph-backlog",
+            query_terms=("auth.rs",),
+            matched_nodes=1,
+            edge_count=0,
+            canonical_refs=("rust/src/auth.rs",),
+            evidence=("auth.rs: nodes=1, edges=0",),
+            markdown="## Context Recovery Packet",
+        )
+        escalation_mock.return_value = packet
+
+        observed = build_backlog_context_packet(_sample_items())
+
+        self.assertIs(observed, packet)
+        self.assertEqual(
+            escalation_mock.call_args.kwargs["query_terms"],
+            ("auth.rs",),
+        )
+
 
 # -- detect_architectures ---------------------------------------------------
 
@@ -207,14 +337,14 @@ class DetectArchitecturesTests(unittest.TestCase):
 
 
 class HasChangesTests(unittest.TestCase):
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_returns_true_when_diff_exits_nonzero(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess(
             ["git", "diff", "--quiet"], returncode=1
         )
         self.assertTrue(has_changes())
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_returns_false_when_diff_exits_zero(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess(
             ["git", "diff", "--quiet"], returncode=0
@@ -226,7 +356,7 @@ class HasChangesTests(unittest.TestCase):
 
 
 class CommitAndPushTests(unittest.TestCase):
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_success_path(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess([], returncode=0)
         result = commit_and_push("develop", attempt=2, item_count=5)
@@ -234,7 +364,7 @@ class CommitAndPushTests(unittest.TestCase):
         # Should call: git add -u, git commit, git push
         self.assertEqual(run_mock.call_count, 3)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_commit_failure_returns_false(self, run_mock) -> None:
         def side_effect(cmd, **kwargs):
             if cmd[0] == "git" and cmd[1] == "commit":
@@ -245,7 +375,7 @@ class CommitAndPushTests(unittest.TestCase):
         result = commit_and_push("develop", attempt=1, item_count=3)
         self.assertFalse(result)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_push_failure_returns_false(self, run_mock) -> None:
         def side_effect(cmd, **kwargs):
             if cmd[0] == "git" and cmd[1] == "push":
@@ -256,7 +386,7 @@ class CommitAndPushTests(unittest.TestCase):
         result = commit_and_push("develop", attempt=1, item_count=2)
         self.assertFalse(result)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_commit_message_includes_attempt_and_count(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess([], returncode=0)
         commit_and_push("develop", attempt=4, item_count=7)
@@ -267,7 +397,7 @@ class CommitAndPushTests(unittest.TestCase):
         self.assertIn("attempt 4", msg)
         self.assertIn("7", msg)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_push_targets_correct_branch(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess([], returncode=0)
         commit_and_push("feature/ralph-fix", attempt=1, item_count=1)
@@ -280,7 +410,7 @@ class CommitAndPushTests(unittest.TestCase):
 
 
 class InvokeClaudeTests(unittest.TestCase):
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_trusted_mode_uses_skip_permissions(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess([], returncode=0)
         with patch.dict(os.environ, {"RALPH_APPROVAL_MODE": "trusted"}):
@@ -289,7 +419,7 @@ class InvokeClaudeTests(unittest.TestCase):
         self.assertIn("--dangerously-skip-permissions", cmd)
         self.assertNotIn("--permission-mode", cmd)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_balanced_mode_uses_auto_permissions(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess([], returncode=0)
         with patch.dict(os.environ, {"RALPH_APPROVAL_MODE": "balanced"}):
@@ -299,7 +429,7 @@ class InvokeClaudeTests(unittest.TestCase):
         self.assertIn("auto", cmd)
         self.assertNotIn("--dangerously-skip-permissions", cmd)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_strict_mode_uses_auto_permissions(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess([], returncode=0)
         with patch.dict(os.environ, {"RALPH_APPROVAL_MODE": "strict"}):
@@ -308,7 +438,7 @@ class InvokeClaudeTests(unittest.TestCase):
         self.assertIn("--permission-mode", cmd)
         self.assertNotIn("--dangerously-skip-permissions", cmd)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_default_mode_without_env_var(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess([], returncode=0)
         env = os.environ.copy()
@@ -319,20 +449,70 @@ class InvokeClaudeTests(unittest.TestCase):
         # Default is "balanced", which uses --permission-mode auto
         self.assertIn("--permission-mode", cmd)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_returns_subprocess_exit_code(self, run_mock) -> None:
-        run_mock.return_value = subprocess.CompletedProcess([], returncode=42)
+        run_mock.return_value = subprocess.CompletedProcess([], returncode=42, stdout="")
         with patch.dict(os.environ, {"RALPH_APPROVAL_MODE": "balanced"}):
-            rc = invoke_claude("fix stuff")
-        self.assertEqual(rc, 42)
+            result = invoke_claude("fix stuff")
+        self.assertEqual(result.returncode, 42)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
     def test_prompt_is_appended_to_command(self, run_mock) -> None:
-        run_mock.return_value = subprocess.CompletedProcess([], returncode=0)
+        run_mock.return_value = subprocess.CompletedProcess([], returncode=0, stdout="")
         with patch.dict(os.environ, {"RALPH_APPROVAL_MODE": "balanced"}):
             invoke_claude("please fix these findings")
         cmd = run_mock.call_args[0][0]
         self.assertEqual(cmd[-1], "please fix these findings")
+
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
+    def test_returns_output_text(self, run_mock) -> None:
+        run_mock.return_value = subprocess.CompletedProcess(
+            [],
+            returncode=0,
+            stdout="hello from claude\n",
+            stderr="",
+        )
+        with patch.dict(os.environ, {"RALPH_APPROVAL_MODE": "balanced"}):
+            result = invoke_claude("fix stuff")
+        self.assertEqual(result.output_text, "hello from claude\n")
+
+
+class GuidanceTelemetryTests(unittest.TestCase):
+    def test_extract_guidance_summary_reads_marked_json(self) -> None:
+        output = """
+normal output
+RALPH_GUIDANCE_SUMMARY_START
+[{"summary":"Issue A","guidance_disposition":"used","waiver_reason":""}]
+RALPH_GUIDANCE_SUMMARY_END
+"""
+        parsed = _extract_guidance_summary(output)
+        self.assertEqual(parsed["Issue A"]["guidance_disposition"], "used")
+
+    def test_build_fix_results_records_guidance_disposition(self) -> None:
+        items = [
+            {
+                "summary": "Issue A",
+                "probe_guidance": [{"ai_instruction": "Extract helper."}],
+            },
+            {"summary": "Issue B"},
+        ]
+        results = _build_fix_results(
+            items,
+            True,
+            True,
+            guidance_summary={
+                "Issue A": {
+                    "guidance_disposition": "waived",
+                    "waiver_reason": "Helper already exists.",
+                }
+            },
+        )
+
+        self.assertTrue(results[0]["probe_guidance_attached"])
+        self.assertEqual(results[0]["guidance_disposition"], "waived")
+        self.assertEqual(results[0]["guidance_waiver_reason"], "Helper already exists.")
+        self.assertTrue(results[0]["fix_accepted"])
+        self.assertEqual(results[1]["guidance_disposition"], "not_applicable")
 
 
 # -- main --------------------------------------------------------------------
@@ -359,17 +539,17 @@ class MainTests(unittest.TestCase):
             rc = main()
         self.assertEqual(rc, 2)
 
-    @patch("dev.scripts.ralph_ai_fix.load_backlog", return_value=[])
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_backlog", return_value=[])
     def test_empty_backlog_returns_0(self, _load_mock) -> None:
         with patch.dict(os.environ, self._env(), clear=True):
             rc = main()
         self.assertEqual(rc, 0)
 
-    @patch("dev.scripts.ralph_ai_fix.commit_and_push", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.run_arch_checks", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.has_changes", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.invoke_claude", return_value=0)
-    @patch("dev.scripts.ralph_ai_fix.load_backlog", return_value=_sample_items())
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.commit_and_push", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.run_arch_checks", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.has_changes", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.invoke_claude", return_value=0)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_backlog", return_value=_sample_items())
     def test_happy_path_returns_0(
         self, _load, _invoke, _changes, _checks, _commit
     ) -> None:
@@ -378,26 +558,62 @@ class MainTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         _commit.assert_called_once_with("develop", 1, 2)
 
-    @patch("dev.scripts.ralph_ai_fix.invoke_claude", return_value=1)
-    @patch("dev.scripts.ralph_ai_fix.load_backlog", return_value=_sample_items())
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.invoke_claude", return_value=1)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_backlog", return_value=_sample_items())
     def test_claude_failure_returns_1(self, _load, _invoke) -> None:
         with patch.dict(os.environ, self._env(), clear=True):
             rc = main()
         self.assertEqual(rc, 1)
 
-    @patch("dev.scripts.ralph_ai_fix.has_changes", return_value=False)
-    @patch("dev.scripts.ralph_ai_fix.invoke_claude", return_value=0)
-    @patch("dev.scripts.ralph_ai_fix.load_backlog", return_value=_sample_items())
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.has_changes", return_value=False)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.invoke_claude", return_value=0)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_backlog", return_value=_sample_items())
     def test_no_changes_returns_0(self, _load, _invoke, _changes) -> None:
         with patch.dict(os.environ, self._env(), clear=True):
             rc = main()
         self.assertEqual(rc, 0)
 
-    @patch("dev.scripts.ralph_ai_fix.subprocess.run")
-    @patch("dev.scripts.ralph_ai_fix.run_arch_checks", return_value=False)
-    @patch("dev.scripts.ralph_ai_fix.has_changes", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.invoke_claude", return_value=0)
-    @patch("dev.scripts.ralph_ai_fix.load_backlog", return_value=_sample_items())
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_guardrails_config", return_value={})
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.has_changes", return_value=False)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.invoke_claude", return_value=0)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_backlog", return_value=_coderabbit_path_items())
+    def test_main_routes_probe_ai_instruction_into_prompt(
+        self, _load, invoke_mock, _changes, _guardrails
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report_root = Path(tmp)
+            (report_root / "review_targets.json").write_text(
+                json.dumps(
+                    {
+                        "findings": [
+                            {
+                                "file_path": "rust/src/auth.rs",
+                                "check_id": "probe_design_smells",
+                                "severity": "high",
+                                "line": 10,
+                                "end_line": 14,
+                                "ai_instruction": "Extract the auth validator helper before editing the caller.",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            env = self._env(RALPH_PROBE_REPORT_ROOT=str(report_root))
+            with patch.dict(os.environ, env, clear=True):
+                rc = main()
+
+        self.assertEqual(rc, 0)
+        prompt = invoke_mock.call_args.args[0]
+        self.assertIn("Probe guidance:", prompt)
+        self.assertIn("Extract the auth validator helper", prompt)
+        self.assertIn("default repair plan", prompt)
+
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.subprocess.run")
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.run_arch_checks", return_value=False)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.has_changes", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.invoke_claude", return_value=0)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_backlog", return_value=_sample_items())
     def test_failed_arch_checks_reverts_and_returns_1(
         self, _load, _invoke, _changes, _checks, _subprocess_run
     ) -> None:
@@ -409,11 +625,11 @@ class MainTests(unittest.TestCase):
         revert_call = _subprocess_run.call_args[0][0]
         self.assertEqual(revert_call, ["git", "checkout", "."])
 
-    @patch("dev.scripts.ralph_ai_fix.commit_and_push", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.run_arch_checks", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.has_changes", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.invoke_claude", return_value=0)
-    @patch("dev.scripts.ralph_ai_fix.load_backlog", return_value=_sample_items())
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.commit_and_push", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.run_arch_checks", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.has_changes", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.invoke_claude", return_value=0)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_backlog", return_value=_sample_items())
     def test_missing_branch_returns_2(
         self, _load, _invoke, _changes, _checks, _commit
     ) -> None:
@@ -422,11 +638,11 @@ class MainTests(unittest.TestCase):
             rc = main()
         self.assertEqual(rc, 2)
 
-    @patch("dev.scripts.ralph_ai_fix.commit_and_push", return_value=False)
-    @patch("dev.scripts.ralph_ai_fix.run_arch_checks", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.has_changes", return_value=True)
-    @patch("dev.scripts.ralph_ai_fix.invoke_claude", return_value=0)
-    @patch("dev.scripts.ralph_ai_fix.load_backlog", return_value=_sample_items())
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.commit_and_push", return_value=False)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.run_arch_checks", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.has_changes", return_value=True)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.invoke_claude", return_value=0)
+    @patch("dev.scripts.coderabbit.ralph_ai_fix.load_backlog", return_value=_sample_items())
     def test_commit_push_failure_returns_1(
         self, _load, _invoke, _changes, _checks, _commit
     ) -> None:

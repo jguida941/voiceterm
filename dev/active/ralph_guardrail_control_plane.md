@@ -1,6 +1,6 @@
 # Ralph Guardrail Control Plane
 
-**Status**: active - Phase 1 scaffolding  |  **Last updated**: 2026-03-09 | **Owner:** Control-plane/guardrails
+**Status**: active - Phase 1 scaffolding  |  **Last updated**: 2026-03-26 | **Owner:** Control-plane/guardrails
 Execution plan contract: required
 This spec is execution mirrored in `dev/active/MASTER_PLAN.md` under `MP-360..MP-367`.
 
@@ -13,7 +13,9 @@ operator visibility into what the loop is doing. This plan delivers:
 
 1. **AI-driven remediation** — `ralph_ai_fix.py` reads CodeRabbit findings,
    invokes Claude Code with false-positive filtering, runs architecture-specific
-   validation, commits and pushes. The loop becomes genuinely autonomous.
+   validation, cuts a bounded commit/checkpoint, and only then runs the
+   governed push path when review/policy gates allow it. The loop becomes
+   genuinely autonomous.
 2. **Cross-architecture guard alignment** — every guard runs consistently across
    Rust, PyQt6 operator console, Python devctl, and iOS. No architecture gets a
    pass. Documented as a mandatory policy in `AGENTS.md`.
@@ -69,8 +71,10 @@ operator visibility into what the loop is doing. This plan delivers:
 
 ### Phase 1: AI fix wrapper and policy wiring (MP-360)
 
-- [x] Create `dev/scripts/ralph_ai_fix.py` — AI fix wrapper that reads backlog,
-      invokes Claude Code, validates per-architecture, commits and pushes
+- [x] Create `dev/scripts/coderabbit/ralph_ai_fix.py` — AI fix wrapper that
+      reads backlog, invokes Claude Code, validates per-architecture, cuts a
+      bounded commit/checkpoint, and then runs governed push when the repo is
+      actually push-ready
 - [x] Add `ralph_ai_fix.py` to `control_plane_policy.json` triage_loop allowlist
 - [x] Set `ralph_ai_fix.py` as default fix command in `coderabbit_ralph_loop.yml`
 - [x] Add approval-mode support (`strict|balanced|trusted`) via `RALPH_APPROVAL_MODE`
@@ -84,6 +88,10 @@ operator visibility into what the loop is doing. This plan delivers:
 
 - [ ] Create `dev/config/ralph_guardrails.json` — standards registry mapping
       finding categories to AGENTS.md sections, doc links, and fix skills
+- [ ] Externalize `ralph_ai_fix.py` architecture validation commands and
+      working-directory rules out of the hardcoded `ARCH_CHECKS` table so
+      repo policy / repo-pack state can declare build targets, test roots,
+      and per-architecture validation on non-VoiceTerm repos
 - [ ] Define fix skills enum: `code-shape-fix`, `dedup-extract`, `facade-inline`,
       `global-mutable-fix`, `naming-fix`, `security-fix`, `docs-fix`
 - [ ] Add standards refs per guard (e.g., facade-wrappers → AGENTS.md §Engineering
@@ -91,6 +99,10 @@ operator visibility into what the loop is doing. This plan delivers:
 - [ ] Wire guardrails config into `ralph_ai_fix.py` prompt builder so AI gets
       standards context with each finding
 - [ ] Add tests for guardrails config loading and validation
+- [ ] Close the Ralph config failure-handling backlog cluster from
+      `issues.md`: `ISS-076` stays owned here until guardrail-config JSON
+      loading returns structured parse failures or safe defaults instead of
+      crashing the fixer loop on malformed config.
 
 ### Phase 3: Structured guardrail report (MP-362)
 
@@ -157,6 +169,33 @@ operator visibility into what the loop is doing. This plan delivers:
 
 ## Progress Log
 
+- 2026-03-26: Corrected the Ralph plan/tracker teaching drift around VCS flow.
+  Ralph automation should treat commit/checkpoint and remote push as separate
+  governed actions: validate first, cut a bounded local slice, then run the
+  governed push path only when review/policy gates say the repo is actually
+  push-ready.
+- 2026-03-26: Promoted the architecture-alignment audit gap into this plan.
+  `ralph_ai_fix.py` still hardcodes architecture validation commands and
+  working directories (`ARCH_CHECKS`, `rust/`, repo-local test roots), which
+  blocks portable repo adoption even if the broader governance/runtime layers
+  become portable. Track the fix here under MP-361 so Ralph validation
+  commands come from repo policy / repo-pack authority instead of VoiceTerm
+  literals.
+- 2026-03-21: Accepted the next Ralph-specific measurement/backlog split for
+  context recovery. The current fixer injection is the first bounded proof,
+  but the next steps are now explicit: record whether a packet was used,
+  matched terms, and whether follow-up query/test selection improved, then
+  reuse the same packet shape for mutation/future fixers and guarded retry
+  loops only after the shared graph grows honest related-test /
+  related-guard edges.
+- 2026-03-21: Extended the Ralph AI fix path with bounded context recovery
+  instead of one giant cold bootstrap. `ralph_ai_fix.py` now builds a small
+  `context-graph` packet from backlog findings when file/MP/command scope is
+  detectable, injects it into the Claude fix prompt, and explicitly instructs
+  the fixer to query `context-graph --query '<term>'` before editing unread
+  files or subsystems. Next: reuse the same packet shape for mutation/future
+  fixers and measure whether it actually reduces false starts and wrong-file
+  edits.
 - 2026-03-09: Phase 1 scaffolding complete. Created `ralph_ai_fix.py` with
   architecture-specific validation (Rust/PyQt6/devctl/iOS), approval-mode
   support, and Claude Code integration. Updated `control_plane_policy.json`
@@ -165,13 +204,34 @@ operator visibility into what the loop is doing. This plan delivers:
   `tooling_control_plane.yml`. All guards passing green. Plan doc created and
   registered. Next: Phase 1 unit tests, then Phase 2 guardrails config.
 
+## Session Resume
+
+- Current status: this plan remains active; start from the highest-priority
+  open item in `## Execution Checklist` and the latest dated entry in
+  `## Progress Log`.
+- Remediation-memory follow-up: before widening Ralph autonomy, make the
+  fixer consume canonical `Finding` / `FindingReview` / quality-feedback
+  history plus bounded failed-fix memory from the shared governance artifacts
+  so repeated misses change the next attempt. Keep guard/probe promotion
+  reviewed: repeated Ralph failures may become candidates, but they should not
+  auto-promote straight from one incident into a permanent always-on guard.
+- Portability follow-up: before widening Ralph autonomy, replace the
+  hardcoded architecture validation map with repo-policy / repo-pack-driven
+  validation commands so non-VoiceTerm repos do not inherit `voiceterm`,
+  `rust/`, or repo-local test-root assumptions from this fixer.
+- Next action: keep current-slice decisions and blockers in this file instead
+  of chat-only notes, then update this section when the promoted slice
+  changes.
+- Context rule: treat `dev/active/MASTER_PLAN.md` as tracker authority and
+  load only the local sections needed for the active checklist item.
+
 ## Audit Evidence
 
 - `python3 dev/scripts/checks/check_facade_wrappers.py` → ok: True, 0 violations
 - `python3 dev/scripts/checks/check_structural_similarity.py` → ok: True, -5 pairs
 - `python3 dev/scripts/checks/check_python_global_mutable.py` → ok: True, 0 violations
 - `python3 dev/scripts/devctl.py hygiene` → Scripts section clean (26 top-level, 51 check scripts)
-- `python3 -c "import ast; ast.parse(open('dev/scripts/ralph_ai_fix.py').read())"` → syntax valid
+- `python3 -c "import ast; ast.parse(open('dev/scripts/coderabbit/ralph_ai_fix.py').read())"` → syntax valid
 - `python3 -c "import json; json.load(open('dev/config/control_plane_policy.json'))"` → valid
 - `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/coderabbit_ralph_loop.yml'))"` → valid
 - `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/tooling_control_plane.yml'))"` → valid

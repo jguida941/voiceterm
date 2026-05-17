@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 
 from ..common import build_env, emit_output, pipe_output, run_cmd, write_output
+from ..runtime.audit_report_contracts import SecurityReport
 from ..time_utils import utc_timestamp
 from ..config import REPO_ROOT, SRC_DIR
 from ..security.tiers import (
@@ -74,11 +75,15 @@ def _render_security_output(args, report: dict, *, success: bool, rustsec_output
         return json.dumps(report, indent=2)
     if args.format == "md":
         lines = ["# devctl security", ""]
-        lines.append(f"- ok: {success}")
-        lines.append(f"- rustsec_output: {rustsec_output}")
-        lines.append(f"- scanner_tier: {args.scanner_tier}")
-        lines.append(f"- python_scope: {getattr(args, 'python_scope', 'auto')}")
-        lines.append(f"- expensive_policy: {args.expensive_policy}")
+        lines.append(f"- contract_id: {report.get('contract_id')}")
+        lines.append(f"- schema_version: {report.get('schema_version')}")
+        lines.append(f"- command: {report.get('command')}")
+        lines.append(f"- timestamp: {report.get('timestamp')}")
+        lines.append(f"- ok: {report.get('ok')}")
+        lines.append(f"- rustsec_output: {report.get('rustsec_output')}")
+        lines.append(f"- scanner_tier: {report.get('scanner_tier')}")
+        lines.append(f"- python_scope: {report.get('python_scope')}")
+        lines.append(f"- expensive_policy: {report.get('expensive_policy')}")
         if warnings:
             lines.append("- warnings:")
             lines.extend(f"  - {warning}" for warning in warnings)
@@ -166,21 +171,20 @@ def run(args) -> int:
         steps.extend(expensive_steps)
         warnings.extend(expensive_warnings)
     success = not any(step_is_blocking_failure(step) for step in steps)
-    report = {
-        "command": "security",
-        "timestamp": utc_timestamp(),
-        "ok": success,
-        "rustsec_output": str(rustsec_output),
-        "scanner_tier": args.scanner_tier,
-        "python_scope": getattr(args, "python_scope", "auto"),
-        "since_ref": getattr(args, "since_ref", None),
-        "head_ref": getattr(args, "head_ref", "HEAD"),
-        "expensive_policy": args.expensive_policy,
-        "core_scanners": list(CORE_SCANNER_IDS),
-        "expensive_scanners": list(EXPENSIVE_SCANNER_IDS),
-        "warnings": warnings,
-        "steps": steps,
-    }
+    report = SecurityReport(
+        timestamp=utc_timestamp(),
+        ok=success,
+        rustsec_output=str(rustsec_output),
+        scanner_tier=args.scanner_tier,
+        python_scope=getattr(args, "python_scope", "auto"),
+        since_ref=getattr(args, "since_ref", None),
+        head_ref=getattr(args, "head_ref", "HEAD"),
+        expensive_policy=args.expensive_policy,
+        core_scanners=tuple(CORE_SCANNER_IDS),
+        expensive_scanners=tuple(EXPENSIVE_SCANNER_IDS),
+        warnings=tuple(warnings),
+        steps=tuple(steps),
+    ).to_dict()
     output = _render_security_output(
         args,
         report,

@@ -23,7 +23,10 @@ if str(CHECKS_DIR) not in sys.path:
 try:
     from code_shape_policy import policy_for_path
 except ModuleNotFoundError:  # pragma: no cover - package-style fallback
-    from dev.scripts.checks.code_shape_policy import policy_for_path
+    try:
+        from checks.code_shape.code_shape_policy import policy_for_path
+    except ModuleNotFoundError:  # pragma: no cover - repo-root package fallback
+        from dev.scripts.checks.code_shape.code_shape_policy import policy_for_path
 
 
 def _run_git_lines(args: list[str]) -> list[str]:

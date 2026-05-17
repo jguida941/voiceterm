@@ -23,8 +23,6 @@ use super::right_panel::{format_heartbeat_panel, format_pulse_dots, heartbeat_co
 use super::state::{RecordingState, StatusBanner, StatusLineState, VoiceMode};
 use super::text::{display_width, truncate_display, with_color};
 #[cfg(test)]
-use crate::config::HudRightPanel;
-#[cfg(test)]
 use compact::compact_hud_registry;
 use compact::{format_compact, format_left_compact, format_minimal, format_shortcuts_compact};
 #[cfg(test)]

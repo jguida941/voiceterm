@@ -1,7 +1,5 @@
 use super::*;
-
-#[path = "../../test_helpers.rs"]
-mod test_helpers;
+use crate::status_line::test_helpers;
 
 #[test]
 fn recording_indicator_color_pulses_with_theme_palette() {

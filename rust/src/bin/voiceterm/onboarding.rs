@@ -92,11 +92,12 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn unique_path() -> PathBuf {
-        let millis = SystemTime::now()
+        let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_millis())
+            .map(|d| d.as_nanos())
             .unwrap_or(0);
-        env::temp_dir().join(format!("voiceterm_onboarding_{millis}.toml"))
+        let pid = std::process::id();
+        env::temp_dir().join(format!("voiceterm_onboarding_{pid}_{nanos}.toml"))
     }
 
     #[test]

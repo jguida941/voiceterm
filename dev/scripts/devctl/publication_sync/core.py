@@ -8,6 +8,7 @@ from typing import Any
 
 from ..common import normalize_string_field, resolve_repo_path
 from ..config import REPO_ROOT
+from ..repo_packs import active_path_config
 from .git import (
     display_path,
     list_changed_paths,
@@ -18,7 +19,8 @@ from .git import (
 )
 from ..time_utils import utc_timestamp
 
-DEFAULT_PUBLICATION_SYNC_REGISTRY_REL = "dev/config/publication_sync_registry.json"
+# Backward-compat alias sourced from repo-pack config
+DEFAULT_PUBLICATION_SYNC_REGISTRY_REL = active_path_config().publication_sync_registry_rel
 DEFAULT_PUBLICATION_SYNC_REGISTRY = REPO_ROOT / DEFAULT_PUBLICATION_SYNC_REGISTRY_REL
 PUBLICATION_SYNC_SCHEMA_VERSION = 1
 

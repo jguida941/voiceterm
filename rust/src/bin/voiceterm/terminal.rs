@@ -7,10 +7,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use voiceterm::log_debug;
 use voiceterm::pty_session::PtyOverlaySession;
 
+use crate::action_center::render::action_center_overlay_height;
 use crate::config::HudStyle;
 use crate::dev_panel::dev_panel_height;
 use crate::help::help_overlay_height;
 use crate::hud_debug::claude_hud_debug_enabled;
+use crate::memory_browser::render::memory_browser_overlay_height;
 use crate::runtime_compat::{self, BackendFamily};
 use crate::settings::settings_overlay_height;
 use crate::status_line::status_banner_height_with_policy;
@@ -152,6 +154,8 @@ pub(crate) fn reserved_rows_for_mode(
         // Toast history uses a fixed default height estimate since the actual
         // height depends on runtime state; 10 rows is a safe conservative value.
         OverlayMode::ToastHistory => 10,
+        OverlayMode::MemoryBrowser => memory_browser_overlay_height(),
+        OverlayMode::ActionCenter => action_center_overlay_height(),
     }
 }
 

@@ -1,0 +1,329 @@
+"""Launch-time control helpers for bridge-backed review-channel actions."""
+
+from __future__ import annotations
+
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from .bridge_launch_headless import launch_sessions_headless as _launch_sessions_headless
+from .bridge_launch_observe import observe_launch_state as _observe_launch_state
+from .launcher_discipline import (
+    enforce_launch_request_discipline,
+)
+from .launcher_discipline_receipts import persist_launcher_discipline_bypass_receipt
+from ...review_channel.core import AUTO_DARK_TERMINAL_PROFILES, DEFAULT_TERMINAL_PROFILE
+from ...review_channel.handoff import (
+    extract_bridge_snapshot,
+    wait_for_codex_poll_refresh,
+    wait_for_rollover_ack,
+    write_handoff_bundle,
+)
+from ...review_channel.heartbeat import compute_non_audit_worktree_hash
+from ...review_channel.lifecycle_state import read_publisher_state, read_reviewer_supervisor_state
+from ...review_channel.launch import launch_terminal_sessions
+from ...review_channel.session_probe import active_conductor_providers
+from ...review_channel.terminal_app import cleanup_terminal_session
+
+if TYPE_CHECKING:
+    from ...review_channel.session_probe import ConductorSessionRecord
+
+_PUBLISHER_START_WAIT_POLLS = 10
+_PUBLISHER_START_WAIT_SECONDS = 0.1
+_LIVE_LAUNCH_POST_TIMEOUT_RECHECK_SECONDS = 60
+
+
+@dataclass(frozen=True)
+class LaunchSessionRequest:
+    """Typed launch inputs for the bridge-backed conductor start path."""
+
+    args: object
+    sessions: list[dict[str, object]]
+    bridge_path: Path
+    handoff_bundle: object
+    terminal_profile_applied: str | None
+    repo_root: Path | None = None
+    interaction_mode: str = ""
+    launch_terminal_sessions_fn: Callable[..., None] = launch_terminal_sessions
+    retired_sessions: tuple["ConductorSessionRecord", ...] = ()
+    cleanup_terminal_session_fn: Callable[..., list[str]] = cleanup_terminal_session
+    observe_launch_state_fn: Callable[[], dict[str, object]] | None = None
+    artifact_paths: object | None = None
+
+
+def prepare_rollover_bundle(
+    *,
+    args,
+    repo_root: Path,
+    bridge_path: Path,
+    review_channel_path: Path,
+    rollover_dir: Path,
+    lanes: list,
+) -> tuple[object | None, list[str]]:
+    """Write a rollover handoff bundle if the action is rollover."""
+    if args.action != "rollover":
+        return None, []
+    rollover_bridge_rel = str(bridge_path.relative_to(repo_root))
+    try:
+        rollover_hash = compute_non_audit_worktree_hash(
+            repo_root=repo_root,
+            excluded_rel_paths=(rollover_bridge_rel,),
+        )
+    except (ValueError, OSError):
+        rollover_hash = None
+    rollover_provider = str(getattr(args, "rollover_provider", "") or "")
+    handoff_bundle = write_handoff_bundle(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+        review_channel_path=review_channel_path,
+        output_root=rollover_dir,
+        trigger=args.rollover_trigger,
+        threshold_pct=args.rollover_threshold_pct,
+        lane_assignments=[_lane_assignment_dict(lane) for lane in lanes],
+        current_worktree_hash=rollover_hash,
+        rollover_provider=rollover_provider,
+    )
+    return handoff_bundle, [
+        "Planned rollover created a repo-visible handoff bundle. "
+        "Fresh sessions should acknowledge it before the old sessions exit."
+    ]
+
+
+def launch_sessions_if_requested(
+    request: LaunchSessionRequest,
+) -> tuple[bool, bool, dict[str, bool] | None, list[str]]:
+    """Launch conductor sessions via Terminal.app or headless subprocess."""
+    args = request.args
+    launched = False
+    handoff_ack_required = False
+    handoff_ack_observed = None
+    cleanup_warnings: list[str] = []
+    if args.action not in {"launch", "rollover"} or args.dry_run:
+        return launched, handoff_ack_required, handoff_ack_observed, cleanup_warnings
+    validate_launch_request_discipline(request)
+    prelaunch_snapshot = extract_bridge_snapshot(
+        request.bridge_path.read_text(encoding="utf-8")
+    )
+    prelaunch_poll_utc = prelaunch_snapshot.metadata.get("last_codex_poll_utc")
+    prelaunch_poll_status = prelaunch_snapshot.sections.get("Poll Status", "")
+    if args.terminal == "terminal-app":
+        request.launch_terminal_sessions_fn(
+            request.sessions,
+            terminal_profile=request.terminal_profile_applied,
+            default_terminal_profile=DEFAULT_TERMINAL_PROFILE,
+            auto_dark_terminal_profiles=AUTO_DARK_TERMINAL_PROFILES,
+        )
+        launched = True
+    elif args.terminal == "none":
+        launched = _launch_sessions_headless(request.sessions, cleanup_warnings)
+    if not launched:
+        return launched, handoff_ack_required, handoff_ack_observed, cleanup_warnings
+    if args.action == "launch" and args.await_ack_seconds > 0:
+        launch_poll = wait_for_codex_poll_refresh(
+            bridge_path=request.bridge_path,
+            previous_poll_utc=prelaunch_poll_utc,
+            previous_poll_status=prelaunch_poll_status,
+            timeout_seconds=args.await_ack_seconds,
+            observe_launch_state_fn=request.observe_launch_state_fn,
+        )
+        if (
+            args.terminal == "terminal-app"
+            and not bool(launch_poll.get("observed"))
+            and _should_recheck_live_launch_timeout(launch_poll)
+        ):
+            launch_poll = wait_for_codex_poll_refresh(
+                bridge_path=request.bridge_path,
+                previous_poll_utc=prelaunch_poll_utc,
+                previous_poll_status=prelaunch_poll_status,
+                timeout_seconds=_LIVE_LAUNCH_POST_TIMEOUT_RECHECK_SECONDS,
+                observe_launch_state_fn=request.observe_launch_state_fn,
+            )
+        if not bool(launch_poll.get("observed")):
+            detail = _render_launch_timeout_detail(
+                launch_poll=launch_poll,
+                previous_poll_utc=prelaunch_poll_utc,
+            )
+            if args.terminal == "none":
+                # Headless: fail closed — surface as warning + mark not launched
+                cleanup_warnings.append(
+                    "Headless launch did not produce reviewer proof-of-life "
+                    f"within {args.await_ack_seconds}s. PID may be alive but "
+                    f"parked on manual input or non-progressing. {detail}"
+                )
+                launched = False
+            else:
+                raise ValueError(
+                    "Live review-channel launch did not produce a fresh Codex "
+                    f"reviewer turn within {args.await_ack_seconds}s. "
+                    + detail
+                )
+    if args.action == "rollover" and request.handoff_bundle is not None and args.await_ack_seconds > 0:
+        handoff_ack_required = True
+        handoff_ack_observed = wait_for_rollover_ack(
+            bridge_path=request.bridge_path,
+            rollover_id=request.handoff_bundle.rollover_id,
+            timeout_seconds=args.await_ack_seconds,
+        )
+    cleanup_retired_sessions = (
+        args.action == "launch"
+        or (
+            args.action == "rollover"
+            and (
+                not handoff_ack_required
+                or (
+                    isinstance(handoff_ack_observed, dict)
+                    and bool(handoff_ack_observed)
+                    and all(bool(value) for value in handoff_ack_observed.values())
+                )
+            )
+        )
+    )
+    if cleanup_retired_sessions and request.retired_sessions:
+        for retired_session in request.retired_sessions:
+            cleanup_warnings.extend(
+                request.cleanup_terminal_session_fn(retired_session)
+            )
+    return launched, handoff_ack_required, handoff_ack_observed, cleanup_warnings
+
+
+def validate_launch_request_discipline(request: LaunchSessionRequest):
+    """Backward-compatible wrapper for the shared launch-discipline gate."""
+    receipt = enforce_launch_request_discipline(
+        repo_root=request.repo_root,
+        interaction_mode=request.interaction_mode,
+        terminal_arg=str(getattr(request.args, "terminal", "")),
+        bypass_reason=str(getattr(request.args, "bypass_reason", "") or ""),
+        bypass_receipt_id=str(getattr(request.args, "bypass_receipt_id", "") or ""),
+    )
+    return persist_launcher_discipline_bypass_receipt(
+        artifact_paths=request.artifact_paths,
+        receipt=receipt,
+    )
+
+
+def _lane_assignment_dict(lane) -> dict[str, object]:
+    return dict(
+        agent_id=lane.agent_id,
+        provider=lane.provider,
+        lane=lane.lane,
+        worktree=lane.worktree,
+        branch=lane.branch,
+        mp_scope=lane.mp_scope,
+    )
+
+
+def _render_launch_timeout_detail(
+    *,
+    launch_poll: dict[str, object],
+    previous_poll_utc: str | None,
+) -> str:
+    latest_poll_utc = str(launch_poll.get("last_codex_poll_utc") or "missing")
+    previous_poll_display = previous_poll_utc or "missing"
+    poll_status_detail: list[str] = []
+    if bool(launch_poll.get("poll_advanced")):
+        poll_status_detail.append(f"`Last Codex poll` advanced to {latest_poll_utc}")
+    else:
+        poll_status_detail.append(f"`Last Codex poll` stayed at {latest_poll_utc}")
+    if bool(launch_poll.get("poll_status_automation_only")):
+        poll_reason = str(launch_poll.get("poll_status_reason") or "unknown")
+        poll_status_detail.append(
+            "`Poll Status` only showed an automation heartbeat "
+            f"(reason: {poll_reason})"
+        )
+    elif not bool(launch_poll.get("poll_status_changed")):
+        poll_status_detail.append(
+            "`Poll Status` did not change from the pre-launch reviewer state"
+        )
+    launch_truth = str(launch_poll.get("launch_truth") or "").strip()
+    if launch_truth:
+        poll_status_detail.append(f"typed launch truth stayed `{launch_truth}`")
+    if not bool(launch_poll.get("codex_conductor_active")):
+        poll_status_detail.append(
+            "typed status did not show a live Codex conductor session"
+        )
+    if not bool(launch_poll.get("claude_conductor_active")):
+        poll_status_detail.append(
+            "typed status did not show a live Claude conductor session"
+        )
+    return "; ".join(poll_status_detail) + f" (pre-launch poll {previous_poll_display})."
+
+
+def _should_recheck_live_launch_timeout(launch_poll: dict[str, object]) -> bool:
+    """Retry once when launch-time typed state suggests the sessions are alive."""
+    if bool(launch_poll.get("poll_status_automation_only")):
+        return False
+    launch_truth = str(launch_poll.get("launch_truth") or "").strip()
+    return (
+        launch_truth in {"live", "detached_runtime_only"}
+        or bool(launch_poll.get("codex_conductor_active"))
+        or bool(launch_poll.get("claude_conductor_active"))
+    )
+
+
+def ensure_launch_runtime_daemons(
+    *,
+    args,
+    repo_root: Path,
+    review_channel_path: Path,
+    bridge_path: Path,
+    status_dir: Path,
+    reviewer_mode: str,
+) -> tuple[bool, list[str]]:
+    """Start the detached launch-time publisher if needed.
+
+    The persistent ensure-follow publisher owns long-lived daemon liveness for
+    the review channel. Once it is alive, its normal cadence reclaims the
+    detached reviewer-supervisor runtime when active review mode still requires
+    it, so live launch only needs to prove the publisher is up.
+    """
+    del reviewer_mode
+
+    from ._publisher import spawn_follow_publisher, verify_detached_start
+
+    runtime_paths = {
+        "review_channel_path": review_channel_path,
+        "bridge_path": bridge_path,
+        "status_dir": status_dir,
+    }
+    publisher_state = read_publisher_state(status_dir)
+    if not bool(publisher_state.get("running")):
+        started, pid, _log_path = spawn_follow_publisher(
+            args=args,
+            repo_root=repo_root,
+            paths=runtime_paths,
+        )
+        if not started:
+            return False, [
+                "Persistent publisher start failed before launch confirmation."
+            ]
+        for _ in range(_PUBLISHER_START_WAIT_POLLS):
+            time.sleep(_PUBLISHER_START_WAIT_SECONDS)
+            publisher_state = read_publisher_state(status_dir)
+            if bool(publisher_state.get("running")):
+                break
+        else:
+            start_status = verify_detached_start(pid=pid, paths=runtime_paths)
+            if start_status != "started":
+                return False, [
+                    "Persistent publisher failed to stay alive after launch."
+                ]
+    return True, []
+
+
+def observe_launch_state(
+    *,
+    args,
+    context,
+    warnings: list[str],
+    refresh_snapshot_fn: Callable[..., object],
+) -> dict[str, object]:
+    """Backward-compatible wrapper around the launch-observe helper."""
+    return _observe_launch_state(
+        args=args,
+        context=context,
+        warnings=warnings,
+        refresh_snapshot_fn=refresh_snapshot_fn,
+        active_conductor_providers_fn=active_conductor_providers,
+    )

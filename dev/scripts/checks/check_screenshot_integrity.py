@@ -10,11 +10,13 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+try:
+    from check_bootstrap import REPO_ROOT
+except ModuleNotFoundError:
+    from dev.scripts.checks.check_bootstrap import REPO_ROOT
 DEFAULT_DOC_GLOBS = (
     "README.md",
     "QUICK_START.md",
-    "DEV_INDEX.md",
     "guides/*.md",
     "dev/README.md",
     "scripts/README.md",

@@ -18,6 +18,7 @@ jobs:
   publish:
     name: publish-pypi
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: startsWith(github.event.release.tag_name, 'v')
     steps:
       - name: Checkout

@@ -13,10 +13,12 @@ from .report_render import build_charts
 from .report_summaries import summarize_source
 from ..config import REPO_ROOT
 from ..numeric import to_int, to_optional_float
+from ..repo_packs import active_path_config
 
-DEFAULT_SOURCE_ROOT = "dev/reports/autonomy"
-DEFAULT_LIBRARY_ROOT = "dev/reports/autonomy/library"
-DEFAULT_EVENT_LOG = "dev/reports/audits/devctl_events.jsonl"
+# Canonical defaults sourced from the repo-pack path config
+DEFAULT_SOURCE_ROOT = active_path_config().autonomy_source_root_rel
+DEFAULT_LIBRARY_ROOT = active_path_config().autonomy_library_root_rel
+DEFAULT_EVENT_LOG = active_path_config().audit_event_log_rel
 
 SOURCE_PATTERNS: dict[str, tuple[str, ...]] = {
     "triage_loop": ("triage-loop-live.json", "*triage-loop*.json"),

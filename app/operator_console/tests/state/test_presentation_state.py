@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import unittest
 
-from app.operator_console.state.snapshots.analytics_snapshot import RepoAnalyticsSnapshot
+from app.operator_console.state.snapshots.analytics_snapshot import (
+    RepoAnalyticsSnapshot,
+)
 from app.operator_console.state.core.models import (
     AgentLaneData,
     ApprovalRequest,
     OperatorConsoleSnapshot,
 )
-from app.operator_console.state.snapshots.phone_status_snapshot import PhoneControlSnapshot
+from app.operator_console.state.snapshots.phone_status_snapshot import (
+    PhoneControlSnapshot,
+)
 from app.operator_console.state.presentation.presentation_state import (
     build_activity_text,
     build_analytics_view_state,
@@ -16,6 +20,12 @@ from app.operator_console.state.presentation.presentation_state import (
     build_system_banner_state,
     classify_approval_risk,
     snapshot_digest,
+)
+from dev.scripts.devctl.watchdog import (
+    WatchdogGuardFamilyMetrics,
+    WatchdogMetrics,
+    WatchdogProviderMetrics,
+    WatchdogSummaryArtifact,
 )
 
 
@@ -53,7 +63,7 @@ def _approval(packet_id: str = "pkt-1") -> ApprovalRequest:
         policy_hint="operator_approval_required",
         requested_action="git_push",
         status="pending",
-        evidence_refs=("code_audit.md#L1",),
+        evidence_refs=("bridge.md#L1",),
     )
 
 
@@ -67,6 +77,7 @@ def _snapshot(
     review_state_path: str | None = "review_state.json",
     last_codex_poll: str | None = "2026-03-08T20:00:00Z",
     last_worktree_hash: str | None = "abc12345",
+    watchdog_snapshot: WatchdogSummaryArtifact | None = None,
 ) -> OperatorConsoleSnapshot:
     return OperatorConsoleSnapshot(
         codex_panel_text="codex panel",
@@ -74,7 +85,7 @@ def _snapshot(
         operator_panel_text="operator panel",
         codex_session_text="codex session",
         claude_session_text="claude session",
-        raw_bridge_text="# Code Audit Channel",
+        raw_bridge_text="# Review Bridge",
         review_mode="review",
         last_codex_poll=last_codex_poll,
         last_worktree_hash=last_worktree_hash,
@@ -84,6 +95,7 @@ def _snapshot(
         codex_lane=codex_lane,
         claude_lane=claude_lane,
         operator_lane=operator_lane,
+        watchdog_snapshot=watchdog_snapshot,
     )
 
 
@@ -198,6 +210,54 @@ class PresentationStateTests(unittest.TestCase):
         self.assertEqual(view_state.kpi_values["warnings"], "1")
         self.assertEqual(view_state.kpi_values["pending_approvals"], "1")
         self.assertEqual(view_state.kpi_values["phone_phase"], "Running")
+
+    def test_build_analytics_view_state_includes_watchdog_summary(self) -> None:
+        snapshot = _snapshot(
+            codex_lane=_lane(
+                provider_name="Codex",
+                role_label="Reviewer",
+                status_hint="active",
+                state_label="Reviewing",
+                rows=(("Poll", "active"),),
+            ),
+            watchdog_snapshot=WatchdogSummaryArtifact(
+                available=True,
+                generated_at_utc="2026-03-10T03:00:00Z",
+                trigger_command="devctl:data-science",
+                summary_path="dev/reports/data_science/latest/summary.json",
+                age_minutes=1.5,
+                metrics=WatchdogMetrics(
+                    total_episodes=4,
+                    success_rate_pct=75.0,
+                    avg_time_to_green_seconds=18.0,
+                    p50_time_to_green_seconds=15.0,
+                    avg_guard_runtime_seconds=6.0,
+                    avg_retry_count=1.25,
+                    avg_escaped_findings=0.5,
+                    false_positive_rate_pct=25.0,
+                    known_provider_pct=100.0,
+                    providers=(WatchdogProviderMetrics(provider="codex", episodes=3),),
+                    guard_families=(
+                        WatchdogGuardFamilyMetrics(
+                            guard_family="python",
+                            episodes=2,
+                            success_rate_pct=50.0,
+                            avg_time_to_green_seconds=20.0,
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        view_state = build_analytics_view_state(snapshot)
+
+        self.assertIn(
+            "Watchdog:     4 episodes | 75% accepted | 25% noisy/skipped",
+            view_state.text,
+        )
+        self.assertIn("WATCHDOG", view_state.quality_text)
+        self.assertIn("- Total episodes: 4", view_state.quality_text)
+        self.assertIn("- Known provider coverage: 100%", view_state.quality_text)
 
     def test_snapshot_digest_changes_when_structured_lane_state_changes(self) -> None:
         base_snapshot = _snapshot(

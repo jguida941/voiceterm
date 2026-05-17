@@ -7,6 +7,60 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### Fixed
+
+- `dev/scripts/devctl/commands/vcs/commit.py` +
+  `dev/scripts/checks/startup_authority_contract/runtime_checks.py` —
+  `devctl commit` self-block (LIVE_RUN.md Q1) cleared via narrow
+  `DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY` env var. The governed
+  commit path now works end-to-end instead of falling back to raw
+  `git commit`. Landed in commit `2bd24b1`.
+
+### Added
+
+- `dev/audits/LIVE_RUN.md` automation-gaps section (A1-A10):
+  enumerates every manual step Claude-Code took during the
+  remote_control beta test that the governance system should have
+  automated. A1 auto-commit on green; A2 auto-push when commits
+  accumulate; A3 auto-refresh projections before consistency checks;
+  A4 auto-log findings via governed channel; A5 auto-discover
+  capabilities; A6 distinguish live conductors from orphans; A7
+  governed scheduled-action registry; A8 auto-relaunch on conductor
+  death; A9 sync LIVE_RUN entries into reviewer inbox; A10 first-
+  class `enhancement` packet kind.
+- `dev/audits/LIVE_RUN.md` — running trial log of a remote-control
+  session documenting every finding, every confirmed-working surface,
+  and every unknown / suspected blind spot during the Q1-Q17 issue
+  sweep. Reviewer (Codex) reads from this file to understand session
+  context. Append-only by convention.
+
+### Fixed
+
+- `dev/scripts/devctl/runtime/review_state_models.py` — defensive
+  `_packet_requires_operator_approval` helper that tolerates dict-shaped
+  packets in `ReviewState.packets`, unblocking `review-channel status`,
+  `review-channel doctor`, and `devctl dashboard` when the packet queue
+  contains entries that upstream deserializers left un-hydrated. Hotfix
+  for the crash documented in `LIVE_RUN.md` Q11.
+- `dev/scripts/checks/code_shape/code_shape_policy.py` — removed two
+  stale `PATH_POLICY_OVERRIDES` entries (`commands/sync.py`,
+  `commands/check_phases.py`) that had stayed below the language default
+  soft limit for 30+ days. Both files now fall back to
+  `LANGUAGE_POLICIES[".py"]` via `policy_for_path`.
+- `dev/scripts/devctl/runtime/project_governance_contract.py` — flipped
+  `BridgeConfig.operator_interaction_mode` dataclass default from
+  `"local_terminal"` to `"remote_control"` as a tactical unblock for
+  headless launches in remote-operator mode (`LIVE_RUN.md` Q4).
+
+### Changed
+
+- Replace the temporary Elastic License 2.0 setup with a stricter proprietary
+  evaluation license: no third-party commercial use, production use, hosting,
+  redistribution, or derivative commercialization is allowed without written
+  permission, and package metadata now uses custom-license file references
+  instead of a standard SPDX license identifier.
+
+## [1.2.3] - 2026-04-01
 ### Runtime Hardening
 
 - Refactored Theme Studio input handling into page-scoped helpers so keyboard
@@ -36,6 +90,26 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ### Tooling
 
+- Refresh the bridge-backed typed `review_state.json` projection before
+  `startup-context`, tandem-consistency checks, and governed push/preflight
+  consumers trust live `current_session` freshness, so stale saved review
+  artifacts no longer outrank the repo-owned review status writer.
+- Add `runtime/role_profile.py` with `TandemRole`, `RoleProfile`,
+  `TandemProfile`, and `role_for_provider()` as the provider-agnostic contract
+  for the review/code tandem loop.
+- Add `check_tandem_consistency.py` guard validating role-profile seam
+  alignment across peer-liveness, event-reducer, status-projection, launch,
+  prompt, and handoff modules. Wired into `bundle.tooling`, CI workflows, and
+  quality-policy presets.
+- Wire cursor agent entry into event-reducer `_build_agents` and
+  status-projection bridge review-state so the 3-agent roster becomes 4.
+- Add `pending_cursor` field to `ReviewQueueState` and queue output.
+- Add `doc-authority` and `governance-draft` command surfaces plus the
+  `check_startup_authority_contract.py` and `check_governance_closure.py`
+  guards so the MP-377 startup/governance contract is enforced through the
+  normal tooling/release surfaces instead of hand-checked drift.
+- Add `check_daemon_state_parity.py` so the Rust daemon lifecycle/state seam
+  is checked against the Python runtime models instead of staying manual-only.
 - Modularize `mutants.py` (730-line monolith) into five focused modules:
   `mutants_config.py` (module registry, shard parsing), `mutants_git.py`
   (git-diff-based file targeting), `mutants_runner.py` (cargo-mutants
@@ -57,6 +131,10 @@ Note: Some historical entries reference internal documents that are not publishe
 - Add `check_bootstrap.py` guard verifying `CLAUDE.md` bootstrap instructions
   stay current.
 - Consolidate `time_utils.py` with canonical `utc_timestamp()` helper.
+- Render the bootstrap task-router quick map from typed governance authority,
+  derive `CLAUDE.md` guard-limit guidance from live code-shape policy, fix
+  Python 3.10 failure-packet timezone compatibility, and refresh the
+  troubleshooting guidance for stale bridge/live-bundle recovery.
 
 ### Operator Console
 
@@ -70,6 +148,9 @@ Note: Some historical entries reference internal documents that are not publishe
 - Add PyQt-free status-hint derivation across the Operator Console state layer
   (`AgentLaneData` plus lane builders) so each agent lane is classified as
   active/warning/stale/idle from parsed section keywords and timestamps.
+- Clarify the optional desktop companion around guarded `Dry Run` /
+  `Start Swarm` / `Launch Live` workflow expectations so the app stays an
+  honest repo-backed controller instead of a second runtime path.
 
 ### Mobile App
 
@@ -86,8 +167,19 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - Align active plan docs (`MASTER_PLAN.md`, `INDEX.md`) with current execution
   state, reconcile plan boundaries, and scope devctl reporting upgrade.
+- Pull AI-governance startup/review/operator instructions back out of the
+  VoiceTerm end-user guides so product docs stay VoiceTerm-specific while the
+  self-hosting/platform boundary is tracked in the `MP-377` owner docs and
+  audit surfaces.
 - Update `dev/scripts/README.md` and `dev/guides/DEVELOPMENT.md` with new
   mutation testing module structure and CLI flags.
+- Simplify the main onboarding docs (`README.md`, `QUICK_START.md`,
+  `guides/INSTALL.md`, `guides/USAGE.md`, `guides/CLI_FLAGS.md`) so the short
+  path stays beginner-friendly, advanced companion-app details live behind
+  links, and backend/IDE support wording stays consistent across docs.
+- Refresh the canonical user docs so the optional Operator Console and
+  iPhone/iPad companion surfaces, plus daemon-mode wording for those
+  integrations, are described consistently across install/usage/help paths.
 
 ## [1.1.1] - 2026-03-06
 ## [1.1.0] - 2026-03-05
@@ -696,7 +788,7 @@ Note: Some historical entries reference internal documents that are not publishe
 
 - Retire `.github/workflows/audit_traceability_guard.yml`, remove `dev/scripts/check_audit_traceability.py`, and remove the `make traceability-audit` helper target to simplify active CI/tooling flow around `MASTER_PLAN.md`.
 - Add `dev/scripts/generate-release-notes.sh` plus `devctl release-notes`/`make release-notes` wrappers, and wire `release.sh` to auto-generate `/tmp/voiceterm-release-vX.Y.Z.md` for `gh release create --notes-file`.
-- Add mutation-score badge generation (`dev/scripts/render_mutation_badge.py` + `.github/badges/mutation-score.json`) and switch README mutation badge to a percentage endpoint (red/orange/green by score, `failed` only when outcomes are unavailable or invalid).
+- Add mutation-score badge generation (`dev/scripts/badges/mutation.py` + `.github/badges/mutation-score.json`) and switch README mutation badge to a percentage endpoint (red/orange/green by score, `failed` only when outcomes are unavailable or invalid).
 
 ### Runtime Hardening
 
@@ -1356,7 +1448,7 @@ Note: Some historical entries reference internal documents that are not publishe
 - Major codebase reorganization: `rust_tui/` → `src/`, `docs/` → `guides/` + `dev/`
 - Rename Rust crate from `rust_tui` to `voiceterm` to match project name
 - Add Makefile for common developer commands
-- Add `dev/scripts/mutants.py` for interactive mutation testing
+- Add `dev/scripts/mutation/cli.py` for interactive mutation testing
 
 ### Bug Fixes
 

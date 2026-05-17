@@ -2,6 +2,11 @@
 
 This directory has one runnable app and one shared package.
 
+Use this page like this:
+
+- If you want the fastest hands-on proof, run [Fastest Simulator Demo](#fastest-simulator-demo).
+- If you want to understand the folder split, read [Directory Map](#directory-map).
+
 ## What Is Current
 
 - `VoiceTermMobileApp/` is the actual iPhone/iPad app target.
@@ -9,6 +14,11 @@ This directory has one runnable app and one shared package.
 
 If you want to run VoiceTerm on iPhone or in the simulator, start from
 `VoiceTermMobileApp/`.
+
+Short version:
+
+- `VoiceTermMobileApp/` is the actual app you run
+- `VoiceTermMobile/` is the shared Swift package behind it
 
 ## Fastest Simulator Demo
 

@@ -14,9 +14,11 @@ from ...collaboration.context_pack_refs import (
     context_pack_refs_payload,
     parse_context_pack_refs,
 )
+from dev.scripts.devctl.repo_packs import VOICETERM_PATH_CONFIG
+
 from ..core.models import ApprovalRequest, OperatorDecisionArtifact, utc_timestamp
 
-DEFAULT_OPERATOR_DECISION_ROOT = "dev/reports/review_channel/operator_decisions"
+DEFAULT_OPERATOR_DECISION_ROOT = VOICETERM_PATH_CONFIG.operator_decision_root_rel
 OPERATOR_DECISION_TYPED_MODE = "wrapper_artifact_command"
 OPERATOR_DECISION_REASON = "operator_decision_recorded"
 _DIRECT_DEVCTL_MESSAGE = (

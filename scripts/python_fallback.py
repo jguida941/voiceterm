@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Voice → Whisper → Codex pipeline with reusable building blocks.
+"""Voice -> Whisper -> Codex pipeline with reusable building blocks.
 
 The module intentionally keeps the workflow in three portable stages:
 
@@ -15,12 +15,12 @@ so frontends such as the Rust TUI or automated tests can run the pipeline
 non-interactively (`--auto-send --emit-json`) and treat this script as the
 canonical spec.
 """
-import argparse, errno, json, os, platform, pty, select, shlex, shutil, subprocess, sys, tempfile, time
+import argparse, errno, json, os, platform, pty, select, shutil, subprocess, sys, tempfile, time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
 
-# Extra Codex CLI flags injected via --codex-args/--codex-arg; stored globally for reuse.
+# Extra Codex CLI flags injected via --codex-arg; stored globally for reuse.
 _EXTRA_CODEX_ARGS: list[str] = []
 
 def _require(cmd: str):
@@ -147,6 +147,16 @@ def _is_tty_error(error: Exception) -> bool:
     msg = str(error).lower()
     return "stdout is not a terminal" in msg or "isatty" in msg or "not a tty" in msg
 
+
+def _validated_codex_args(values: list[str]) -> list[str]:
+    """Reject malformed extra argv entries before they reach the Codex subprocess."""
+    validated: list[str] = []
+    for value in values:
+        if "\x00" in value:
+            raise RuntimeError("Codex extra arguments must not contain NUL bytes.")
+        validated.append(value)
+    return validated
+
 def record_wav(path: str, seconds: int, ffmpeg_cmd: str, ffmpeg_device: str|None=None) -> None:
     """Capture microphone input to a mono, 16 kHz WAV file via ffmpeg.
 
@@ -224,7 +234,7 @@ def call_codex_auto(prompt: str, codex_cmd: str, *, timeout: int | None = None) 
     as a positional argument) and, if that fails, switches to piping the prompt
     via stdin. When Codex refuses to run without a TTY we emulate one using a
     pseudo-terminal so the same behavior works inside scripts and tests. Any
-    extra Codex flags supplied via `--codex-args` are threaded through every
+    extra Codex flags supplied via `--codex-arg` are threaded through every
     attempt.
 
     Returns:
@@ -458,7 +468,11 @@ def main():
     ap.add_argument("--codex-cmd", default="codex")
     ap.add_argument("--ffmpeg-cmd", default="ffmpeg")
     ap.add_argument("--ffmpeg-device", default=None, help="override input device string for ffmpeg")
-    ap.add_argument("--codex-args", default="", help="extra arguments appended when invoking Codex")
+    ap.add_argument(
+        "--codex-args",
+        default="",
+        help="deprecated free-form Codex arguments string; use repeatable --codex-arg instead",
+    )
     ap.add_argument(
         "--codex-arg",
         action="append",
@@ -477,9 +491,9 @@ def main():
     # Persist additional Codex flags so helper functions can reuse them.
     _EXTRA_CODEX_ARGS = []
     if getattr(args, "codex_args", None):
-        _EXTRA_CODEX_ARGS.extend(shlex.split(args.codex_args))
+        ap.error("--codex-args is no longer accepted; repeat --codex-arg for each extra Codex flag.")
     if getattr(args, "codex_arg", None):
-        _EXTRA_CODEX_ARGS.extend(args.codex_arg)
+        _EXTRA_CODEX_ARGS.extend(_validated_codex_args(args.codex_arg))
 
     config = PipelineConfig(
         seconds=args.seconds,

@@ -10,20 +10,20 @@ on:
     paths:
       - "rust/src/**"
       - ".github/workflows/rust_ci.yml"
-      - "dev/scripts/collect_clippy_warnings.py"
+      - "dev/scripts/rust_tools/collect_clippy_warnings.py"
       - "dev/scripts/checks/check_clippy_high_signal.py"
       - "dev/scripts/checks/check_rust_compiler_warnings.py"
       - "dev/config/clippy/high_signal_lints.json"
-      - "dev/scripts/render_clippy_badge.py"
+      - "dev/scripts/badges/clippy.py"
   pull_request:
     paths:
       - "rust/src/**"
       - ".github/workflows/rust_ci.yml"
-      - "dev/scripts/collect_clippy_warnings.py"
+      - "dev/scripts/rust_tools/collect_clippy_warnings.py"
       - "dev/scripts/checks/check_clippy_high_signal.py"
       - "dev/scripts/checks/check_rust_compiler_warnings.py"
       - "dev/config/clippy/high_signal_lints.json"
-      - "dev/scripts/render_clippy_badge.py"
+      - "dev/scripts/badges/clippy.py"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -32,6 +32,7 @@ concurrency:
 jobs:
   rust:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: write
     outputs:
@@ -64,7 +65,7 @@ jobs:
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          python3 dev/scripts/workflow_shell_bridge.py resolve-range \
+          python3 dev/scripts/workflow_bridge/shell.py resolve-range \
             --event-name "${EVENT_NAME}" \
             --push-before "${PUSH_BEFORE}" \
             --push-head "${PUSH_HEAD}" \
@@ -98,7 +99,7 @@ jobs:
         working-directory: .
         run: |
           set -euo pipefail
-          python3 dev/scripts/collect_clippy_warnings.py \
+          python3 dev/scripts/rust_tools/collect_clippy_warnings.py \
             --working-directory rust \
             --output-json "${RUNNER_TEMP}/clippy-summary.json" \
             --output-lints-json "${RUNNER_TEMP}/clippy-lints.json" \
@@ -268,12 +269,12 @@ jobs:
           echo "clippy_status=${CLIPPY_BADGE_STATUS}" >> "${GITHUB_OUTPUT}"
 
       - name: Render CI badge
-        run: python3 dev/scripts/render_ci_badge.py --status "${{ steps.aggregate.outputs.status }}" --output .github/badges/ci-status.json
+        run: python3 dev/scripts/badges/ci.py --status "${{ steps.aggregate.outputs.status }}" --output .github/badges/ci-status.json
 
       - name: Render clippy warnings badge
         run: |
           set -euo pipefail
-          python3 dev/scripts/render_clippy_badge.py \
+          python3 dev/scripts/badges/clippy.py \
             --status "${{ steps.aggregate.outputs.clippy_status }}" \
             --warnings "${{ steps.aggregate.outputs.clippy_warnings }}" \
             --output .github/badges/clippy-warnings.json

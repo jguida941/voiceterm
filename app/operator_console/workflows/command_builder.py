@@ -35,3 +35,8 @@ from .command_builder_reports import (
     parse_review_channel_report,
     parse_swarm_run_report,
 )
+from .review_command_results import (
+    first_visible_text_line,
+    resolve_review_channel_completion_message,
+    resolve_start_swarm_command_result,
+)

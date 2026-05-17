@@ -28,7 +28,7 @@ class CollectClippyWarningsTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.collector = load_module(
             "collect_clippy_warnings",
-            "dev/scripts/collect_clippy_warnings.py",
+            "dev/scripts/rust_tools/collect_clippy_warnings.py",
         )
 
     def test_count_warning_messages_ignores_non_warning_entries(self) -> None:

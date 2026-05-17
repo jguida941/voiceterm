@@ -41,12 +41,16 @@ SIM_DEVICE="${DEVICE_ID:-booted}"
 APP_DATA_DIR="$(xcrun simctl get_app_container "$SIM_DEVICE" "$APP_ID" data)"
 LIVE_BUNDLE_DIR="$APP_DATA_DIR/Documents/LiveBundle"
 
+# Canonical source: dev/scripts/devctl/repo_packs/voiceterm.py::RepoPathConfig
+PHONE_STATUS_REL="dev/reports/autonomy/queue/phone/latest.json"
+REVIEW_STATUS_DIR_REL="dev/reports/review_channel/latest"
+
 echo
 echo "Current live mobile action preview"
 echo "=================================="
 python3 "$ROOT_DIR/dev/scripts/devctl.py" mobile-status \
-  --phone-json dev/reports/autonomy/queue/phone/latest.json \
-  --review-status-dir dev/reports/review_channel/latest \
+  --phone-json "$PHONE_STATUS_REL" \
+  --review-status-dir "$REVIEW_STATUS_DIR_REL" \
   --view actions \
   --format md || true
 

@@ -13,8 +13,13 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from dev.scripts.devctl.config import REPO_ROOT
+from dev.scripts.devctl.tests.checks.compat_matrix_test_support import (
+    assert_load_matrix_accepts_yaml_map_syntax,
+    assert_missing_file_outside_repo_returns_error,
+    write_lines,
+)
 
-SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/compat_matrix_smoke.py"
+SCRIPT_PATH = REPO_ROOT / "dev/scripts/checks/compat_matrix/compat_matrix_smoke.py"
 
 
 def _load_script_module():
@@ -32,10 +37,6 @@ def _load_script_module():
     return module
 
 
-def _write_lines(path: Path, lines: list[str]) -> None:
-    path.write_text("\n".join(lines), encoding="utf-8")
-
-
 class CompatMatrixSmokeTests(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -51,28 +52,15 @@ class CompatMatrixSmokeTests(TestCase):
         return exit_code, json.loads(buffer.getvalue())
 
     def test_load_matrix_accepts_yaml_map_syntax(self) -> None:
-        with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
-            matrix_path = Path(temp_dir) / "matrix.yaml"
-            _write_lines(
-                matrix_path,
-                [
-                    "hosts:",
-                    "  - id: cursor",
-                    "providers: []",
-                    "matrix: []",
-                ],
-            )
-            with patch.object(self.script, "yaml", None):
-                payload, error = self.script._load_matrix(matrix_path)
-        self.assertIsNone(error)
-        self.assertIsInstance(payload, dict)
-        assert payload is not None
-        self.assertEqual(payload["hosts"][0]["id"], "cursor")
+        assert_load_matrix_accepts_yaml_map_syntax(
+            script=self.script,
+            repo_root=REPO_ROOT,
+        )
 
     def test_parse_backend_registry_names_reads_boxed_constructors(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
             registry_path = Path(temp_dir) / "backend_mod.rs"
-            _write_lines(
+            write_lines(
                 registry_path,
                 [
                     "mod codex;",
@@ -100,7 +88,7 @@ class CompatMatrixSmokeTests(TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
             registry_path = Path(temp_dir) / "backend_mod.rs"
-            _write_lines(
+            write_lines(
                 registry_path,
                 [
                     "impl BackendRegistry {",
@@ -116,19 +104,12 @@ class CompatMatrixSmokeTests(TestCase):
         self.assertEqual(names, ["claude", "codex", "gemini"])
 
     def test_load_matrix_missing_file_outside_repo_returns_error(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            missing_path = Path(temp_dir) / "missing_matrix.yaml"
-            payload, error = self.script._load_matrix(missing_path)
-        self.assertIsNone(payload)
-        self.assertIsNotNone(error)
-        assert error is not None
-        self.assertIn("missing matrix file", error)
-        self.assertIn(missing_path.as_posix(), error)
+        assert_missing_file_outside_repo_returns_error(script=self.script)
 
     def test_main_reports_schema_errors_for_non_list_sections(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
             matrix_path = Path(temp_dir) / "matrix.yaml"
-            _write_lines(
+            write_lines(
                 matrix_path,
                 [
                     "hosts: {}",
@@ -146,7 +127,7 @@ class CompatMatrixSmokeTests(TestCase):
     def test_main_enforces_new_runtime_host_variants_in_matrix(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
             matrix_path = Path(temp_dir) / "matrix.yaml"
-            _write_lines(
+            write_lines(
                 matrix_path,
                 [
                     "hosts:",
@@ -186,7 +167,7 @@ class CompatMatrixSmokeTests(TestCase):
     def test_main_fails_closed_when_runtime_discovery_is_empty(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
             matrix_path = Path(temp_dir) / "matrix.yaml"
-            _write_lines(
+            write_lines(
                 matrix_path,
                 [
                     "hosts:",

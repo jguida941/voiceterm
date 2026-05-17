@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from ..config import REPO_ROOT
+from ..runtime.audit_report_contracts import RustAuditReport
 from .catalog import RUST_AUDIT_CATEGORY_INFO, RUST_AUDIT_GUARDS
 from .render import build_rust_audit_charts, render_rust_audit_markdown
 
@@ -237,34 +238,34 @@ def collect_rust_audit_report(
     hotspots = _build_hotspots(guard_reports)
     total_violation_files = len(hotspots)
     total_active_findings = sum(int(row["count"]) for row in categories)
-    report = {
-        "mode": resolved_mode,
-        "since_ref": since_ref,
-        "head_ref": head_ref,
-        "ok": not errors and all(bool(row["ok"]) for row in guard_rows),
-        "collection_ok": not errors,
-        "warnings": warnings,
-        "errors": errors,
-        "summary": {
-            "guard_count": len(guard_rows),
-            "guard_failures": sum(1 for row in guard_rows if not bool(row["ok"])),
-            "active_categories": len(categories),
-            "total_active_findings": total_active_findings,
-            "total_violation_files": total_violation_files,
-            "top_risk_score": int(hotspots[0]["score"]) if hotspots else 0,
-        },
-        "guards": guard_rows,
-        "guard_reports": guard_reports,
-        "categories": categories,
-        "hotspots": hotspots,
-        "charts": [],
+    summary = {
+        "guard_count": len(guard_rows),
+        "guard_failures": sum(1 for row in guard_rows if not bool(row["ok"])),
+        "active_categories": len(categories),
+        "total_active_findings": total_active_findings,
+        "total_violation_files": total_violation_files,
+        "top_risk_score": int(hotspots[0]["score"]) if hotspots else 0,
     }
     lint_debt_report = guard_reports.get("lint_debt", {})
     if isinstance(lint_debt_report, dict):
-        report["summary"]["dead_code_instance_count"] = int(
+        summary["dead_code_instance_count"] = int(
             lint_debt_report.get("dead_code_instance_count", 0) or 0
         )
-        report["summary"]["dead_code_without_reason_count"] = int(
+        summary["dead_code_without_reason_count"] = int(
             lint_debt_report.get("dead_code_without_reason_count", 0) or 0
         )
-    return report
+    return RustAuditReport(
+        mode=resolved_mode,
+        since_ref=since_ref,
+        head_ref=head_ref,
+        ok=not errors and all(bool(row["ok"]) for row in guard_rows),
+        collection_ok=not errors,
+        warnings=tuple(warnings),
+        errors=tuple(errors),
+        summary=summary,
+        guards=tuple(guard_rows),
+        guard_reports=guard_reports,
+        categories=tuple(categories),
+        hotspots=tuple(hotspots),
+        charts=(),
+    ).to_dict()

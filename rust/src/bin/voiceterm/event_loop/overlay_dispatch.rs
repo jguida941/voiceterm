@@ -224,6 +224,52 @@ pub(super) fn render_toast_history_overlay_for_state(state: &EventLoopState, dep
     show_toast_history_overlay(&deps.writer_tx, &state.toast_center, state.theme, cols);
 }
 
+pub(super) fn memory_browser_events(
+    state: &EventLoopState,
+) -> Vec<&crate::memory::types::MemoryEvent> {
+    let Some(ingestor) = state.memory_ingestor.as_ref() else {
+        return Vec::new();
+    };
+    let query = state.memory_browser_state.search_query.trim();
+    let mut events = if query.is_empty() {
+        ingestor.index().all_eligible()
+    } else {
+        ingestor.index().search_text(query, 256)
+    };
+    events.retain(|event| state.memory_browser_state.filter.matches(event));
+    events
+}
+
+pub(super) fn render_memory_browser_overlay_for_state(
+    state: &mut EventLoopState,
+    deps: &EventLoopDeps,
+) {
+    let event_count = memory_browser_events(state).len();
+    state.memory_browser_state.set_filtered_count(event_count);
+    state
+        .memory_browser_state
+        .clamp_scroll(crate::memory_browser::BROWSER_VISIBLE_ROWS);
+    let events = memory_browser_events(state);
+    let cols = resolved_cols(state.ui.terminal_cols);
+    show_memory_browser_overlay(
+        &deps.writer_tx,
+        &state.memory_browser_state,
+        &events,
+        state.theme,
+        cols,
+    );
+}
+
+pub(super) fn render_action_center_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
+    let cols = resolved_cols(state.ui.terminal_cols);
+    show_action_center_overlay(
+        &deps.writer_tx,
+        &state.dev_panel_commands,
+        state.theme,
+        cols,
+    );
+}
+
 pub(super) fn render_settings_overlay_for_state(state: &EventLoopState, deps: &EventLoopDeps) {
     let cols = resolved_cols(state.ui.terminal_cols);
     show_settings_overlay(
@@ -310,4 +356,16 @@ pub(super) fn open_toast_history_overlay(state: &mut EventLoopState, deps: &mut 
     state.ui.overlay_mode = OverlayMode::ToastHistory;
     sync_overlay_winsize(state, deps);
     render_toast_history_overlay_for_state(state, deps);
+}
+
+pub(super) fn open_memory_browser_overlay(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
+    state.ui.overlay_mode = OverlayMode::MemoryBrowser;
+    sync_overlay_winsize(state, deps);
+    render_memory_browser_overlay_for_state(state, deps);
+}
+
+pub(super) fn open_action_center_overlay(state: &mut EventLoopState, deps: &mut EventLoopDeps) {
+    state.ui.overlay_mode = OverlayMode::ActionCenter;
+    sync_overlay_winsize(state, deps);
+    render_action_center_overlay_for_state(state, deps);
 }
