@@ -5,15 +5,15 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `6859108d3ee9` — Add publication scope integrity guard
-- Tree hash: `ae95efbd9f2c`
-- Generation stamp: `snap-d4271331c61f`
-- Generated at (UTC): 2026-05-17T17:42:14Z
+- HEAD: `479447762799` — Add semantic output consumption gates
+- Tree hash: `872f3fa4aab1`
+- Generation stamp: `snap-3a99240a4d50`
+- Generated at (UTC): 2026-05-17T23:39:36Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 170 files, +13360/-1258
-- Governance findings: 43 open / 0 fixed / 43 total
+- Delta since last snapshot: 24 commits, 221 files, +20146/-1287
+- Governance findings: 41 open / 0 fixed / 41 total
 - Probe hints: 0 total across 0 files scanned
 
 ## 1. Identity
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `6859108d3ee9157b7acc3b11d9385e7615d398a1`
+- HEAD SHA: `4794477627994e2804c70213b54c70f4144dbb6a`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-17T13:41:51-04:00
+- HEAD timestamp (UTC): 2026-05-17T19:39:12-04:00
 
 ## 2. Governance state
 
@@ -44,7 +44,7 @@ production client (VoiceTerm...
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `published_remote` (post_push_bundle_pending)
 - publication_backlog: urgent
-- publication_guidance: 11 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 13 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -64,43 +64,43 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `6859108d3ee9`
+Range: last 24 commits ending at `479447762799`
 
 - commits: 24
-- files changed: 170
-- insertions: +13360
-- deletions: -1258
+- files changed: 221
+- insertions: +20146
+- deletions: -1287
 - bundle classes touched: docs, tooling
-- authority surfaces touched: 4 file(s)
+- authority surfaces touched: 6 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `6859108d` | Add publication scope integrity guard | 7 | +395/-5 | tooling |  |
-| 2 | `4529338e` | Enforce successful closure proof for plan rows | 62 | +4313/-163 | tooling |  |
-| 3 | `a066d4c7` | Refresh external review snapshot for e5354d23 | 2 | +67/-65 | docs |  |
-| 4 | `e5354d23` | Backfill P13 applied plan row | 3 | +15/-0 | tooling |  |
-| 5 | `18273b32` | Add substrate commit plan-row guard | 8 | +716/-2 | tooling |  |
-| 6 | `a58de5fa` | Add git operation receipts | 17 | +584/-35 | tooling |  |
-| 7 | `c6c267ad` | Fix packet lifecycle and registry coverage | 30 | +492/-73 | tooling |  |
-| 8 | `87bd473d` | Refresh external review snapshot for c4612178 | 2 | +49/-49 | docs |  |
-| 9 | `c4612178` | Record artifact proof blockers | 4 | +288/-2 | tooling |  |
-| 10 | `5a14bc01` | Refresh external review snapshot for 24b2bc02 | 2 | +123/-119 | docs |  |
-| 11 | `24b2bc02` | Fix governance checkpoint gates | 43 | +3146/-111 | tooling |  |
-| 12 | `bd28e78b` | Record raw git closure receipt warnings | 1 | +3/-0 | tooling |  |
-| 13 | `18fae0b6` | Refresh bridge projection | 1 | +4/-4 | docs |  |
-| 14 | `6f17c007` | Preserve raw git closure error codes | 12 | +488/-18 | tooling |  |
-| 15 | `b1410fcc` | Fix typed peer collaboration and raw git closure gates | 29 | +1765/-83 | tooling |  |
-| 16 | `febe8986` | Refresh external review snapshot for 8bda213b | 2 | +59/-59 | docs |  |
-| 17 | `8bda213b` | Checkpoint R287 packet intake state | 4 | +74/-80 | tooling |  |
-| 18 | `91f2ed42` | Add governed transition schema fixtures | 16 | +402/-49 | tooling |  |
-| 19 | `477f01ae` | Refresh external review snapshot for 2a99a103 | 2 | +55/-55 | docs |  |
-| 20 | `2a99a103` | Repair packet plan continuity state | 6 | +97/-65 | tooling |  |
-| 21 | `685d0892` | Refresh external review snapshot for d7591b71 | 2 | +57/-57 | docs |  |
-| 22 | `d7591b71` | Bind task-started packets to plan rows | 4 | +55/-49 | tooling |  |
-| 23 | `bfd73b2f` | Refresh external review snapshot for 6f057634 | 2 | +63/-63 | docs |  |
-| 24 | `6f057634` | Record ground-truth receipt for governance push | 2 | +50/-52 | tooling |  |
+| 1 | `47944776` | Add semantic output consumption gates | 67 | +6820/-72 | tooling |  |
+| 2 | `85932c69` | Refresh external review snapshot for 6859108d | 2 | +79/-72 | docs |  |
+| 3 | `6859108d` | Add publication scope integrity guard | 7 | +395/-5 | tooling |  |
+| 4 | `4529338e` | Enforce successful closure proof for plan rows | 62 | +4313/-163 | tooling |  |
+| 5 | `a066d4c7` | Refresh external review snapshot for e5354d23 | 2 | +67/-65 | docs |  |
+| 6 | `e5354d23` | Backfill P13 applied plan row | 3 | +15/-0 | tooling |  |
+| 7 | `18273b32` | Add substrate commit plan-row guard | 8 | +716/-2 | tooling |  |
+| 8 | `a58de5fa` | Add git operation receipts | 17 | +584/-35 | tooling |  |
+| 9 | `c6c267ad` | Fix packet lifecycle and registry coverage | 30 | +492/-73 | tooling |  |
+| 10 | `87bd473d` | Refresh external review snapshot for c4612178 | 2 | +49/-49 | docs |  |
+| 11 | `c4612178` | Record artifact proof blockers | 4 | +288/-2 | tooling |  |
+| 12 | `5a14bc01` | Refresh external review snapshot for 24b2bc02 | 2 | +123/-119 | docs |  |
+| 13 | `24b2bc02` | Fix governance checkpoint gates | 43 | +3146/-111 | tooling |  |
+| 14 | `bd28e78b` | Record raw git closure receipt warnings | 1 | +3/-0 | tooling |  |
+| 15 | `18fae0b6` | Refresh bridge projection | 1 | +4/-4 | docs |  |
+| 16 | `6f17c007` | Preserve raw git closure error codes | 12 | +488/-18 | tooling |  |
+| 17 | `b1410fcc` | Fix typed peer collaboration and raw git closure gates | 29 | +1765/-83 | tooling |  |
+| 18 | `febe8986` | Refresh external review snapshot for 8bda213b | 2 | +59/-59 | docs |  |
+| 19 | `8bda213b` | Checkpoint R287 packet intake state | 4 | +74/-80 | tooling |  |
+| 20 | `91f2ed42` | Add governed transition schema fixtures | 16 | +402/-49 | tooling |  |
+| 21 | `477f01ae` | Refresh external review snapshot for 2a99a103 | 2 | +55/-55 | docs |  |
+| 22 | `2a99a103` | Repair packet plan continuity state | 6 | +97/-65 | tooling |  |
+| 23 | `685d0892` | Refresh external review snapshot for d7591b71 | 2 | +57/-57 | docs |  |
+| 24 | `d7591b71` | Bind task-started packets to plan rows | 4 | +55/-49 | tooling |  |
 
 ### Files
 
@@ -108,65 +108,65 @@ Range: last 24 commits ending at `6859108d3ee9`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +3/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +9/-0 |
-| `bridge.md` | docs | +105/-104 |
-| `dev/active/MASTER_PLAN.md` | tooling | +125/-0 |
+| `bridge.md` | docs | +108/-107 |
+| `dev/active/MASTER_PLAN.md` | tooling | +141/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +36/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +747/-749 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +716/-708 |
 | `dev/config/devctl_repo_policy.json` | tooling | +23/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +15/-1 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +115/-114 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +117/-116 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +64/-0 |
 | `dev/scripts/README.md` | tooling | +16/-5 |
+| `dev/scripts/checks/check_command_output_consumed.py` | tooling | +12/-0 |
+| `dev/scripts/checks/check_control_decision_consistency.py` | tooling | +12/-0 |
+| `dev/scripts/checks/check_control_decision_obeyed.py` | tooling | +12/-0 |
 | `dev/scripts/checks/check_feature_has_proof_receipt.py` | tooling | +65/-1 |
+| `dev/scripts/checks/check_packet_absorption_required.py` | tooling | +12/-0 |
 | `dev/scripts/checks/check_plan_gold_claims_resolve.py` | tooling | +15/-0 |
 | `dev/scripts/checks/check_plan_metric_freshness.py` | tooling | +12/-0 |
-| `dev/scripts/checks/check_publication_scope_integrity.py` | tooling | +271/-0 |
+| `dev/scripts/checks/check_publication_scope_integrity.py` | tooling | +477/-2 |
 | `dev/scripts/checks/check_substrate_commits_have_applied_plan_row.py` | tooling | +526/-7 |
+| `dev/scripts/checks/command_output_consumed/__init__.py` | tooling | +1/-0 |
+| `dev/scripts/checks/command_output_consumed/command.py` | tooling | +120/-0 |
+| `dev/scripts/checks/control_decision_consistency/__init__.py` | tooling | +1/-0 |
+| `dev/scripts/checks/control_decision_consistency/command.py` | tooling | +116/-0 |
+| `dev/scripts/checks/control_decision_obeyed/__init__.py` | tooling | +1/-0 |
+| `dev/scripts/checks/control_decision_obeyed/command.py` | tooling | +109/-0 |
+| `dev/scripts/checks/packet_absorption_required/__init__.py` | tooling | +1/-0 |
+| `dev/scripts/checks/packet_absorption_required/command.py` | tooling | +149/-0 |
 | `dev/scripts/checks/plan_gold_claims_resolve/__init__.py` | tooling | +1/-0 |
 | `dev/scripts/checks/plan_gold_claims_resolve/command.py` | tooling | +282/-0 |
 | `dev/scripts/checks/plan_gold_claims_resolve/symbol_index.py` | tooling | +170/-0 |
 | `dev/scripts/checks/plan_metric_freshness/__init__.py` | tooling | +1/-0 |
 | `dev/scripts/checks/plan_metric_freshness/command.py` | tooling | +253/-0 |
-| `dev/scripts/devctl/bundles/registry.py` | tooling | +4/-0 |
+| `dev/scripts/devctl/bundles/registry.py` | tooling | +5/-1 |
 | `dev/scripts/devctl/cli_parser/entrypoint.py` | tooling | +28/-2 |
 | `dev/scripts/devctl/cli_parser/exceptions.py` | tooling | +19/-4 |
 | `dev/scripts/devctl/command_runner.py` | tooling | +37/-1 |
 | `dev/scripts/devctl/commands/check/router.py` | tooling | +12/-0 |
 | `dev/scripts/devctl/commands/check/router_coverage.py` | tooling | +98/-0 |
 | `dev/scripts/devctl/commands/check/router_render.py` | tooling | +12/-0 |
-| `dev/scripts/devctl/commands/development/campaign.py` | tooling | +32/-2 |
-| `dev/scripts/devctl/commands/development/campaign_exception_proof.py` | tooling | +2/-1 |
-| `dev/scripts/devctl/commands/development/campaign_idris_gate.py` | tooling | +142/-0 |
-| `dev/scripts/devctl/commands/development/final_response_gate.py` | tooling | +209/-2 |
-| `dev/scripts/devctl/commands/development/next_slice_blockers.py` | tooling | +85/-1 |
-| `dev/scripts/devctl/commands/development/packet_attention_lifecycle.py` | tooling | +12/-16 |
-| `dev/scripts/devctl/commands/governance/close_raw_git_exceptions.py` | tooling | +198/-9 |
-| `dev/scripts/devctl/commands/governance/exceptions.py` | tooling | +4/-1 |
-| `dev/scripts/devctl/commands/governance/exceptions_pending.py` | tooling | +2/-1 |
-| `dev/scripts/devctl/commands/governance/exceptions_report.py` | tooling | +35/-0 |
-| `dev/scripts/devctl/commands/python_test_runner/command.py` | tooling | +40/-1 |
-| `dev/scripts/devctl/commands/raw_git.py` | tooling | +136/-24 |
-| _130 more files trimmed_ | | |
+| _181 more files trimmed_ | | |
 
 ## 4. Quality signals
 
 ### Governance review
-- total findings: 43
-- open: 43
+- total findings: 41
+- open: 41
 - fixed: 0
 - false positives: 0
 
 Recent findings:
-- `dogfood.command.pipeline` — `dev/scripts/devctl/commands/pipeline/command.py` (n/a, verdict=`confirmed_issue`)
-- `dogfood.command.process-audit` — `dev/scripts/devctl/commands/process/audit.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.check-router` — `dev/scripts/devctl/commands/check/router.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.push` — `dev/scripts/devctl/commands/vcs/push.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.reports-cleanup` — `dev/scripts/devctl/commands/reports_cleanup.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.test-python` — `dev/scripts/devctl/commands/python_tests.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.test-python` — `dev/scripts/devctl/commands/python_test_runner/command.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.process-cleanup` — `dev/scripts/devctl/commands/process/cleanup.py` (n/a, verdict=`confirmed_issue`)
+- `dogfood.command.install-git-hooks` — `dev/scripts/devctl/commands/governance/install_git_hooks.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.relaunch-loop` — `dev/scripts/devctl/commands/relaunch_loop.py` (n/a, verdict=`confirmed_issue`)
 - `dogfood.command.relaunch-loop` — `dev/scripts/devctl/commands/governance/relaunch_loop.py` (n/a, verdict=`confirmed_issue`)
+- `dogfood.command.remote-control` — `dev/scripts/devctl/commands/remote_control/command.py` (n/a, verdict=`confirmed_issue`)
 
 ### Probe report
 - run_state: `missing`
@@ -195,10 +195,16 @@ Recent findings:
 
 ### Targeted hints
 
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/reviewer_runtime_models.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/reviewer_runtime_parser.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_sync.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/commands/check/test_check_router.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/vcs/test_governed_executor.py`) — Review contract-level invariants for this file
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/review_channel/event_models.py`) — Commit 47944776 changed dev/scripts/devctl/review_channel/event_models.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/agent_loop_decision_models.py`) — Commit 47944776 changed dev/scripts/devctl/runtime/agent_loop_decision_models.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/review_state_packet_models.py`) — Commit 47944776 changed dev/scripts/devctl/runtime/review_state_packet_models.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/reviewer_runtime_models.py`) — Commit 47944776 changed dev/scripts/devctl/runtime/reviewer_runtime_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/python_test_contract.py`) — Commit 4529338e changed dev/scripts/devctl/runtime/python_test_contract.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/platform/test_platform_contracts.py`) — Commit a58de5fa changed dev/scripts/devctl/tests/platform/test_platform_contracts.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/runtime_state_contract_rows.py`) — Commit c6c267ad changed dev/scripts/devctl/platform/runtime_state_contract_rows.py
@@ -218,6 +224,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`47944776`** — Add semantic output consumption gates
+- **`85932c69`** — Refresh external review snapshot for 6859108d
 - **`6859108d`** — Add publication scope integrity guard
 - **`4529338e`** — Enforce successful closure proof for plan rows
 - **`a066d4c7`** — Refresh external review snapshot for e5354d23
@@ -243,8 +251,6 @@ Recent findings:
 - **`2a99a103`** — Repair packet plan continuity state
 - **`685d0892`** — Refresh external review snapshot for d7591b71
 - **`d7591b71`** — Bind task-started packets to plan rows
-- **`bfd73b2f`** — Refresh external review snapshot for 6f057634
-- **`6f057634`** — Record ground-truth receipt for governance push
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -260,7 +266,7 @@ Recent findings:
 
 ## 8. Known gaps and open items
 
-- open governance findings: 43
+- open governance findings: 41
 
 ### Startup advisories
 - push_allowed: worktree_clean_and_review_accepted
@@ -269,10 +275,6 @@ Recent findings:
 - Stop because nothing remains to push.
 
 ### Open gap rows
-- **governance_open** (`dev/scripts/devctl/commands/pipeline/command.py`): dogfood.command.pipeline: Auto-ingested devctl finalization failure rc=1.
-repo_path=/Users/jguida941/testing_upgrade/codex-voice
-- **governance_open** (`dev/scripts/devctl/commands/process/audit.py`): dogfood.command.process-audit: Auto-ingested devctl finalization failure rc=1.
-repo_path=/Users/jguida941/testing_upgrade/codex-voice
 - **governance_open** (`dev/scripts/devctl/commands/check/router.py`): dogfood.command.check-router: Auto-ingested devctl finalization failure rc=1.
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
 - **governance_open** (`dev/scripts/devctl/commands/vcs/push.py`): dogfood.command.push: Auto-ingested devctl finalization failure rc=1.
@@ -285,7 +287,11 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
 - **governance_open** (`dev/scripts/devctl/commands/process/cleanup.py`): dogfood.command.process-cleanup: Auto-ingested devctl finalization failure rc=1.
 repo_path=/Users/jguida941/testing_upgrade/codex-voice
+- **governance_open** (`dev/scripts/devctl/commands/governance/install_git_hooks.py`): dogfood.command.install-git-hooks: Auto-ingested devctl finalization failure rc=1.
+repo_path=/Users/jguida941/testing_upgrade/codex-voice
+- **governance_open** (`dev/scripts/devctl/commands/relaunch_loop.py`): dogfood.command.relaunch-loop: Auto-ingested devctl finalization failure rc=2.
+repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-d4271331c61f` binds this file to HEAD `6859108d3ee9`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-3a99240a4d50` binds this file to HEAD `479447762799`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
