@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 import fcntl
 import hashlib
 import json
-from collections.abc import Iterable
-from dataclasses import asdict, dataclass, field
+import os
+from collections.abc import Iterable, Iterator, Mapping
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -28,6 +30,8 @@ DEFAULT_REVIEW_PROJECTIONS_DIR_REL = active_path_config().review_projections_dir
 DEFAULT_REVIEW_CHANNEL_SESSION_ID = "local-review"
 DEFAULT_REVIEW_CHANNEL_PLAN_ID = "MP-355"
 DEFAULT_PACKET_TTL_MINUTES = 30
+PUSH_WINDOW_WRITE_SUSPENSION_FILENAME = "vcs_window_write_suspension.json"
+DEFAULT_PUSH_WINDOW_TTL_SECONDS = 900
 
 
 @dataclass
@@ -58,6 +62,25 @@ class ReviewChannelArtifactPaths:
     projections_root: str
 
 
+@dataclass(frozen=True, slots=True)
+class PushWindowWriteSuspension:
+    """One active or recently released publisher-write suspension window."""
+
+    window_id: str
+    window_kind: str
+    requested_by: str
+    reason: str
+    head_sha: str
+    branch: str
+    status: str
+    started_at_utc: str
+    expires_at_utc: str
+    pid: int
+    released_at_utc: str = ""
+    contract_id: str = "PushWindowWriteSuspension"
+    schema_version: int = 1
+
+
 def resolve_artifact_paths(
     *,
     repo_root: Path,
@@ -82,6 +105,96 @@ def resolve_artifact_paths(
 def event_state_exists(artifact_paths: ReviewChannelArtifactPaths) -> bool:
     """Return True when canonical event-backed state has been materialized."""
     return Path(artifact_paths.state_path).exists()
+
+
+@contextmanager
+def push_window_write_suspension(
+    *,
+    repo_root: Path,
+    window_kind: str,
+    requested_by: str,
+    reason: str,
+    head_sha: str = "",
+    branch: str = "",
+    ttl_seconds: int = DEFAULT_PUSH_WINDOW_TTL_SECONDS,
+) -> Iterator[PushWindowWriteSuspension]:
+    """Record a bounded VCS write window that publisher ticks must not refresh."""
+    started = _utc_now()
+    ttl = max(1, int(ttl_seconds or DEFAULT_PUSH_WINDOW_TTL_SECONDS))
+    record = PushWindowWriteSuspension(
+        window_id=f"{window_kind}:{started}:{os.getpid()}",
+        window_kind=window_kind,
+        requested_by=requested_by,
+        reason=reason,
+        head_sha=head_sha,
+        branch=branch,
+        status="active",
+        started_at_utc=started,
+        expires_at_utc=_format_utc(_parse_utc_required(started) + timedelta(seconds=ttl)),
+        pid=os.getpid(),
+    )
+    _write_push_window_write_suspension(repo_root=repo_root, record=record)
+    try:
+        yield record
+    finally:
+        _write_push_window_write_suspension(
+            repo_root=repo_root,
+            record=replace(record, status="released", released_at_utc=_utc_now()),
+        )
+
+
+def active_push_window_write_suspension(
+    *,
+    repo_root: Path,
+    now_utc: datetime | None = None,
+) -> dict[str, object] | None:
+    """Return the active suspension payload, if a live VCS window owns writes."""
+    record = load_push_window_write_suspension(repo_root=repo_root)
+    if record is None or record.status != "active":
+        return None
+    now = now_utc or datetime.now(timezone.utc)
+    if _parse_utc_required(record.expires_at_utc) <= now:
+        return None
+    if record.pid and not _pid_is_alive(record.pid):
+        return None
+    return asdict(record)
+
+
+def load_push_window_write_suspension(
+    *,
+    repo_root: Path,
+) -> PushWindowWriteSuspension | None:
+    """Load the latest publisher-write suspension record."""
+    path = push_window_write_suspension_path(repo_root=repo_root)
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, Mapping):
+        return None
+    return PushWindowWriteSuspension(
+        window_id=_string(payload.get("window_id")),
+        window_kind=_string(payload.get("window_kind")),
+        requested_by=_string(payload.get("requested_by")),
+        reason=_string(payload.get("reason")),
+        head_sha=_string(payload.get("head_sha")),
+        branch=_string(payload.get("branch")),
+        status=_string(payload.get("status")),
+        started_at_utc=_string(payload.get("started_at_utc")),
+        expires_at_utc=_string(payload.get("expires_at_utc")),
+        pid=_int(payload.get("pid")),
+        released_at_utc=_string(payload.get("released_at_utc")),
+        contract_id=_string(payload.get("contract_id")) or "PushWindowWriteSuspension",
+        schema_version=_int(payload.get("schema_version")) or 1,
+    )
+
+
+def push_window_write_suspension_path(*, repo_root: Path) -> Path:
+    """Return the state-side path for the publisher-write suspension record."""
+    state_path = Path(resolve_artifact_paths(repo_root=repo_root).state_path)
+    return state_path.parent / PUSH_WINDOW_WRITE_SUSPENSION_FILENAME
 
 
 def summarize_review_state_errors(review_state: dict[str, object]) -> str | None:
@@ -529,3 +642,57 @@ def parse_utc(raw: object) -> datetime | None:
         return datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def _write_push_window_write_suspension(
+    *,
+    repo_root: Path,
+    record: PushWindowWriteSuspension,
+) -> Path:
+    path = push_window_write_suspension_path(repo_root=repo_root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    tmp_path.write_text(
+        json.dumps(asdict(record), indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    os.replace(tmp_path, path)
+    return path
+
+
+def _pid_is_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _utc_now() -> str:
+    return _format_utc(datetime.now(timezone.utc))
+
+
+def _format_utc(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat(timespec="seconds").replace(
+        "+00:00", "Z"
+    )
+
+
+def _parse_utc_required(value: str) -> datetime:
+    parsed = parse_utc(value)
+    if parsed is None:
+        return datetime(1970, 1, 1, tzinfo=timezone.utc)
+    return parsed
+
+
+def _string(value: object) -> str:
+    return str(value or "").strip()
+
+
+def _int(value: object) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0

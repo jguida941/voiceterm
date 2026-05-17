@@ -16,6 +16,10 @@ from ...review_channel.remote_commit_pipeline_artifact import (
 )
 from ...review_channel.state import refresh_status_snapshot
 from ...runtime import review_state_from_payload
+from ...runtime.push_override_receipts import (
+    PushOverrideReceipt,
+    ensure_push_override_receipt,
+)
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
 from ...runtime.review_state_models import ReviewPacketState
 from .governed_executor_authorization import (
@@ -120,6 +124,7 @@ def sync_pipeline_push_authorization(
     *,
     approval_packet_kind: str,
     persist_fn: object,
+    repo_root: Path | None = None,
 ) -> RemoteCommitPipelineContract:
     """Re-check for override-push packets and update authorization."""
     if not pipeline.commit_sha:
@@ -142,6 +147,14 @@ def sync_pipeline_push_authorization(
         override_reason=string_value(override_packet.summary)
         or string_value(override_packet.body),
     )
+    if repo_root is not None:
+        receipt: PushOverrideReceipt | None = ensure_push_override_receipt(
+            repo_root=repo_root,
+            authorization=authorization,
+            override_summary=string_value(override_packet.summary),
+            override_body=string_value(override_packet.body),
+        )
+        del receipt
     if pipeline.push_authorization == authorization:
         return pipeline
     updated = replace(

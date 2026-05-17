@@ -39,6 +39,8 @@ from ..runtime.commit_to_plan_row_reducer import (
     PlanRowClosureReceipt,
     reduce_feature_proof_to_plan_rows,
 )
+from ..runtime.master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL
+from ..runtime.master_plan_store import read_plan_rows_jsonl
 
 DEFAULT_OPERATOR_EVIDENCE_REF = "packet:rev_pkt_4022"
 GitRunner = Callable[[tuple[str, ...], bool], "GitCommandResult"]
@@ -47,7 +49,17 @@ REAL_LIFE_TEST_STATUS_CHOICES = (
     "proven_failed",
     "not_tested_with_rationale",
 )
-_PLAN_ROW_RE = re.compile(r"\b(?:MP|MP-NEW|PKT-BIND)[A-Z0-9_.:-]*(?:-[A-Z0-9_.:-]+)*\b")
+BLOCKING_PLAN_ROW_CLOSURE_OUTCOMES = frozenset(
+    {
+        "plan_index_missing",
+        "plan_row_missing",
+        "role_review_receipt_required",
+        "status_not_transitionable",
+    }
+)
+_PLAN_ROW_CANDIDATE_RE = re.compile(
+    r"\b(?:MP-NEW|MP\d*|PKT-BIND)[A-Z0-9_.:-]*(?:-[A-Z0-9_.:-]+)*\b"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -410,6 +422,8 @@ def _record_feature_proof_receipts(
                 if relpath:
                     paths.append(relpath)
                 warnings.extend(closure_warnings)
+    except FeatureProofReceiptEmissionFailure:
+        raise
     except Exception as exc:
         raise FeatureProofReceiptEmissionFailure(
             f"feature_proof_receipt_write_failed:{exc}"
@@ -432,23 +446,32 @@ def _write_raw_git_feature_proof_receipt(
     feature_proof = _raw_git_feature_proof_receipt(
         args,
         runner=runner,
+        repo_root=repo_root,
         receipt=receipt,
         store_path=store_path,
         governed_exception_store_path=governed_exception_store_path,
         commit_sha=commit_sha,
     )
     relpath = write_feature_proof_receipt_artifact(repo_root, feature_proof, require_real_tests=True)
-    closure_results = reduce_feature_proof_to_plan_rows(
-        repo_root=repo_root,
-        feature_proof=feature_proof,
-        feature_ids=_feature_ids_for_commit(
+    try:
+        closure_feature_ids = _feature_ids_for_commit(
             args,
+            repo_root=repo_root,
             runner=runner,
             commit_sha=commit_sha,
             primary_feature_id=feature_proof.feature_id,
-        ),
-        feature_proof_receipt_path=relpath,
-    )
+        )
+        closure_results = reduce_feature_proof_to_plan_rows(
+            repo_root=repo_root,
+            feature_proof=feature_proof,
+            feature_ids=closure_feature_ids,
+            feature_proof_receipt_path=relpath,
+        ) if closure_feature_ids else ()
+        _raise_on_plan_row_closure_failures(closure_results)
+    except FeatureProofReceiptEmissionFailure as exc:
+        if _is_plan_row_closure_failure(exc):
+            _delete_feature_proof_receipt(repo_root / relpath)
+        raise
     return relpath, _plan_row_closure_warnings(closure_results)
 
 
@@ -491,19 +514,55 @@ def _upsert_pushed_feature_proof_receipt(
             )
         ),
     )
+    original_text = path.read_text(encoding="utf-8")
     relpath = write_feature_proof_receipt_artifact(repo_root, updated, receipt_path=path, require_real_tests=True)
-    closure_results = reduce_feature_proof_to_plan_rows(
-        repo_root=repo_root,
-        feature_proof=updated,
-        feature_ids=_feature_ids_for_commit(
+    try:
+        closure_feature_ids = _feature_ids_for_commit(
             args,
+            repo_root=repo_root,
             runner=runner,
             commit_sha=commit_sha,
             primary_feature_id=updated.feature_id,
-        ),
-        feature_proof_receipt_path=relpath,
-    )
+        )
+        closure_results = reduce_feature_proof_to_plan_rows(
+            repo_root=repo_root,
+            feature_proof=updated,
+            feature_ids=closure_feature_ids,
+            feature_proof_receipt_path=relpath,
+        ) if closure_feature_ids else ()
+        _raise_on_plan_row_closure_failures(closure_results)
+    except FeatureProofReceiptEmissionFailure as exc:
+        if _is_plan_row_closure_failure(exc):
+            path.write_text(original_text, encoding="utf-8")
+        raise
     return relpath, _plan_row_closure_warnings(closure_results)
+
+
+def _raise_on_plan_row_closure_failures(
+    results: tuple[CommitToPlanRowReductionResult, ...],
+) -> None:
+    blocking = tuple(
+        result
+        for result in results
+        if result.outcome in BLOCKING_PLAN_ROW_CLOSURE_OUTCOMES
+    )
+    if not blocking:
+        return
+    detail = ";".join(
+        f"{result.plan_row_id}:{result.outcome}" for result in blocking
+    )
+    raise FeatureProofReceiptEmissionFailure(f"plan_row_closure_failed:{detail}")
+
+
+def _is_plan_row_closure_failure(exc: FeatureProofReceiptEmissionFailure) -> bool:
+    return str(exc).startswith("plan_row_closure_failed:")
+
+
+def _delete_feature_proof_receipt(path: Path) -> None:
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
 
 
 def _plan_row_closure_warnings(
@@ -523,6 +582,7 @@ def _raw_git_feature_proof_receipt(
     args: Any,
     *,
     runner: GitRunner,
+    repo_root: Path,
     receipt: Any,
     store_path: Path,
     governed_exception_store_path: Path,
@@ -551,7 +611,12 @@ def _raw_git_feature_proof_receipt(
         )
     )
     return FeatureProofReceipt(
-        feature_id=_feature_id_for_commit(args, runner=runner, commit_sha=commit_sha),
+        feature_id=_feature_id_for_commit(
+            args,
+            repo_root=repo_root,
+            runner=runner,
+            commit_sha=commit_sha,
+        ),
         commit_sha=commit_sha,
         implementer_actor=str(getattr(args, "actor", "") or "codex").strip() or "codex",
         review_fleet_roles_ran=_string_items(
@@ -584,32 +649,74 @@ def _raw_git_feature_proof_receipt(
     )
 
 
-def _feature_id_for_commit(args: Any, *, runner: GitRunner, commit_sha: str) -> str:
+def _feature_id_for_commit(
+    args: Any,
+    *,
+    repo_root: Path,
+    runner: GitRunner,
+    commit_sha: str,
+) -> str:
     requested = str(getattr(args, "feature_id", "") or "").strip()
     if requested:
         return requested
     body = _git_stdout(runner, ("log", "-1", "--format=%B", commit_sha))
-    match = _PLAN_ROW_RE.search(body)
-    if match is not None:
-        return match.group(0)
+    plan_row_ids = _plan_row_id_set(repo_root=repo_root)
+    for candidate in _candidate_plan_row_refs(body):
+        if candidate in plan_row_ids:
+            return candidate
     return commit_sha
 
 
 def _feature_ids_for_commit(
     args: Any,
     *,
+    repo_root: Path,
     runner: GitRunner,
     commit_sha: str,
     primary_feature_id: str,
 ) -> tuple[str, ...]:
     body = _git_stdout(runner, ("log", "-1", "--format=%B", commit_sha))
+    requested = str(getattr(args, "feature_id", "") or "").strip()
+    plan_row_ids = _plan_row_id_set(repo_root=repo_root)
+    resolved_body_refs = tuple(
+        candidate
+        for candidate in _candidate_plan_row_refs(body)
+        if candidate in plan_row_ids
+    )
+    explicit_unresolved = tuple(
+        candidate
+        for candidate in (primary_feature_id, requested)
+        if candidate and candidate not in plan_row_ids and candidate != commit_sha
+    )
     return _unique_refs(
         (
-            primary_feature_id,
-            str(getattr(args, "feature_id", "") or "").strip(),
-            *tuple(match.group(0) for match in _PLAN_ROW_RE.finditer(body)),
+            *tuple(
+                candidate
+                for candidate in (primary_feature_id, requested)
+                if candidate in plan_row_ids
+            ),
+            *resolved_body_refs,
+            *explicit_unresolved,
         )
     )
+
+
+def _candidate_plan_row_refs(body: str) -> tuple[str, ...]:
+    return _unique_refs(
+        _strip_plan_row_ref_punctuation(match.group(0))
+        for match in _PLAN_ROW_CANDIDATE_RE.finditer(body)
+    )
+
+
+def _strip_plan_row_ref_punctuation(value: str) -> str:
+    return value.strip().strip(".,;:)]}'\"")
+
+
+def _plan_row_id_set(*, repo_root: Path) -> frozenset[str]:
+    path = repo_root / DEFAULT_MASTER_PLAN_STORE_REL
+    if not path.exists():
+        return frozenset()
+    return frozenset(row.row_id for row in read_plan_rows_jsonl(path))
 
 
 def _raw_git_audit_refs(receipt: Any) -> tuple[str, ...]:
@@ -727,11 +834,16 @@ def _feature_proof_failure_report(
 ) -> dict[str, object]:
     """Return a fail-closed report when required proof emission fails."""
     warning = error or "feature_proof_receipt_write_failed"
+    reason = (
+        "plan_row_closure_failed"
+        if warning.startswith("plan_row_closure_failed:")
+        else "feature_proof_receipt_write_failed"
+    )
     return {
         "command": "raw-git",
         "action": verb.value,
         "ok": False,
-        "reason": "feature_proof_receipt_write_failed",
+        "reason": reason,
         "error": warning,
         "receipt_id": getattr(receipt, "receipt_id", ""),
         "store_path": display_path(store_path),

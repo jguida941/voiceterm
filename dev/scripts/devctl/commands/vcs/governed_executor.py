@@ -26,6 +26,7 @@ from .governed_executor_actions import (
     _RECOVERABLE_PIPELINE_STATES,
     APPROVAL_PACKET_KIND,
     COMMIT_ACTION_ID,
+    PUSH_ACTION_ID,
     RECOVER_ACTION_ID,
     STAGE_ACTION_ID,
     build_commit_action,
@@ -90,7 +91,7 @@ class GovernedVcsExecutor:
             return self._execute_commit(action)
         if action.action_id == RECOVER_ACTION_ID:
             return self._execute_recover(action)
-        if action.action_id == "vcs.push":
+        if action.action_id == PUSH_ACTION_ID:
             return self._execute_push(action)
         return self._result(
             action_id=action.action_id,
@@ -188,6 +189,7 @@ class GovernedVcsExecutor:
             self._event_packets(),
             approval_packet_kind=APPROVAL_PACKET_KIND,
             persist_fn=self._persist_pipeline,
+            repo_root=self.repo_root,
         )
         if pipeline.state not in _PUSHABLE_PIPELINE_STATES or not pipeline.commit_sha:
             return self._result(

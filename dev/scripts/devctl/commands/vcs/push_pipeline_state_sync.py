@@ -23,6 +23,7 @@ from ...runtime.review_snapshot_refresh import (
     receipt_commit_parent_sha,
 )
 from ...runtime.surface_snapshot import build_surface_snapshot_id, build_surface_zref
+from .governed_executor_actions import PUSH_ACTION_ID
 from .governed_executor_push_result import project_push_report
 
 
@@ -34,7 +35,7 @@ def sync_commit_pipeline_with_push_report(
     current_head_commit: str,
     approved_target_identity: str,
     report: Mapping[str, object],
-    action_id: str = "vcs.push",
+    action_id: str = PUSH_ACTION_ID,
 ) -> bool:
     """Persist push-result truth onto the current matching pipeline artifact."""
     projections_root = Path(

@@ -22,6 +22,7 @@ if str(REPO_ROOT) not in sys.path:
 from dev.scripts.devctl.runtime.feature_proof_receipt import (  # noqa: E402
     feature_proof_receipt_artifact_relpath,
     feature_proof_receipt_from_mapping,
+    validate_non_trivial_output_proof,
 )
 
 COMMAND = "check_feature_has_proof_receipt"
@@ -47,6 +48,7 @@ class FeatureProofReceiptGuardReport:
     head_ref: str
     commit_count: int
     receipt_count: int
+    assertions_evaluated_count: int
     violation_count: int
     non_proven_count: int
     violations: tuple[dict[str, str], ...] = field(default_factory=tuple)
@@ -62,6 +64,8 @@ def evaluate_feature_has_proof_receipt(
     head_ref: str = "HEAD",
     commit_shas: tuple[str, ...] | None = None,
     require_proven_passed: bool = False,
+    require_non_empty_range: bool = False,
+    require_non_trivial_output_proof: bool = False,
 ) -> FeatureProofReceiptGuardReport:
     warnings: list[str] = []
     if commit_shas is None:
@@ -74,6 +78,20 @@ def evaluate_feature_has_proof_receipt(
     violations: list[FeatureProofReceiptViolation] = []
     receipt_count = 0
     non_proven_count = 0
+    assertions_evaluated_count = 0
+
+    if not commit_shas and require_non_empty_range:
+        violations.append(
+            FeatureProofReceiptViolation(
+                commit_sha="",
+                reason="empty_commit_range",
+                path="",
+                detail=(
+                    "Strict proof mode requires at least one commit to inspect; "
+                    "zero checked commits is not proof."
+                ),
+            )
+        )
 
     for commit_sha in commit_shas:
         relpath = feature_proof_receipt_artifact_relpath(commit_sha)
@@ -132,6 +150,22 @@ def evaluate_feature_has_proof_receipt(
                             "FeatureProofReceipt.real_life_test_status="
                             f"{receipt.real_life_test_status!r}"
                         ),
+                )
+            )
+        if require_non_trivial_output_proof:
+            proof = validate_non_trivial_output_proof(
+                receipt,
+                repo_root=repo_root,
+                receipt_path=path,
+            )
+            assertions_evaluated_count += 4
+            if not proof.ok:
+                violations.append(
+                    FeatureProofReceiptViolation(
+                        commit_sha=commit_sha,
+                        reason="non_trivial_output_proof_failed",
+                        path=relpath,
+                        detail=",".join(proof.failure_reasons),
                     )
                 )
 
@@ -142,6 +176,7 @@ def evaluate_feature_has_proof_receipt(
         head_ref=head_ref,
         commit_count=len(commit_shas),
         receipt_count=receipt_count,
+        assertions_evaluated_count=assertions_evaluated_count,
         violation_count=len(violations),
         non_proven_count=non_proven_count,
         violations=tuple(violation.to_dict() for violation in violations),
@@ -189,6 +224,7 @@ def _render_md(report: FeatureProofReceiptGuardReport) -> str:
     lines.append(f"- head_ref: `{report.head_ref}`")
     lines.append(f"- commit_count: {report.commit_count}")
     lines.append(f"- receipt_count: {report.receipt_count}")
+    lines.append(f"- assertions_evaluated_count: {report.assertions_evaluated_count}")
     lines.append(f"- violation_count: {report.violation_count}")
     lines.append(f"- non_proven_count: {report.non_proven_count}")
     if report.warnings:
@@ -214,6 +250,28 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--since-ref", default=DEFAULT_BASE_REF)
     parser.add_argument("--head-ref", default="HEAD")
     parser.add_argument("--require-proven-passed", action="store_true")
+    parser.add_argument(
+        "--require-non-empty-range",
+        action="store_true",
+        help="Fail when the selected commit range is empty.",
+    )
+    parser.add_argument(
+        "--require-non-trivial-output-proof",
+        action="store_true",
+        help=(
+            "Validate each receipt with NonTrivialOutputProof: resolved refs, "
+            "real pytest node evidence, non-circular evidence, and terminal "
+            "role-review refs."
+        ),
+    )
+    parser.add_argument(
+        "--strict-proof",
+        action="store_true",
+        help=(
+            "Publication/closure mode: require a non-empty range, "
+            "proven_passed receipts, and NonTrivialOutputProof."
+        ),
+    )
     parser.add_argument("--format", choices=("md", "json"), default="md")
     return parser
 
@@ -224,7 +282,13 @@ def main() -> int:
         report = evaluate_feature_has_proof_receipt(
             base_ref=args.since_ref,
             head_ref=args.head_ref,
-            require_proven_passed=args.require_proven_passed,
+            require_proven_passed=args.require_proven_passed or args.strict_proof,
+            require_non_empty_range=(
+                args.require_non_empty_range or args.strict_proof
+            ),
+            require_non_trivial_output_proof=(
+                args.require_non_trivial_output_proof or args.strict_proof
+            ),
         )
     except Exception as exc:  # pragma: no cover - top-level guard safety
         return emit_runtime_error(COMMAND, args.format, f"{exc.__class__.__name__}: {exc}")

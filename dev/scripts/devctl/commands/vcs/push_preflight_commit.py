@@ -13,6 +13,7 @@ from .push_projection_paths import managed_projection_receipt_paths
 from .push_worktree_changes import blocking_dirty_paths
 
 POST_VALIDATION_AUTO_COMMIT_REPAIR = "post_validation_auto_commit_repair"
+_PUSH_OVERRIDE_RECEIPT_PREFIX = "dev/audits/push_override_receipts/"
 
 
 def auto_commit_preflight_generated_changes(
@@ -125,7 +126,15 @@ def preflight_blocking_dirty_paths(
         *managed_projection_receipt_paths(policy, repo_root=repo_root),
         *policy.checkpoint.advisory_context_paths,
     )
-    return tuple(blocking_dirty_paths(changes, exclude_paths=exclusions))
+    return tuple(
+        path
+        for path in blocking_dirty_paths(changes, exclude_paths=exclusions)
+        if not _is_push_override_receipt_path(path)
+    )
+
+
+def _is_push_override_receipt_path(path: str) -> bool:
+    return path.startswith(_PUSH_OVERRIDE_RECEIPT_PREFIX)
 
 
 def _commit_preflight_paths(

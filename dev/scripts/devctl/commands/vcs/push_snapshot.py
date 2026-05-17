@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from ...runtime import ActionResult
+from .governed_executor_actions import PUSH_ACTION_ID
 from .push_artifact import persist_latest_push_report
 from .push_findings import append_finding
 from .push_flow import PushFlowOutcome
@@ -44,7 +45,7 @@ def build_push_report_payload(
     action_result = ActionResult(
         schema_version=1,
         contract_id="ActionResult",
-        action_id="vcs.push",
+        action_id=PUSH_ACTION_ID,
         ok=outcome.ok,
         status=outcome.status,
         reason=outcome.reason,

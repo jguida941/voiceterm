@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,7 +22,7 @@ from .master_plan_store import read_plan_rows_jsonl, upsert_plan_row_jsonl
 from .ref_collections import unique_refs as _unique_refs
 from .relaunch_loop_store import append_jsonl
 from .role_review_lifecycle import RoleReviewAssignmentLifecycle
-from .value_coercion import coerce_string
+from .value_coercion import coerce_bool, coerce_string, coerce_string_items
 
 PLAN_ROW_CLOSURE_RECEIPT_CONTRACT_ID = "PlanRowClosureReceipt"
 PLAN_ROW_CLOSURE_RECEIPT_SCHEMA_VERSION = 1
@@ -30,6 +32,13 @@ DEFAULT_PLAN_ROW_CLOSURE_RECEIPT_STORE_REL = (
 
 TRANSITIONABLE_PLAN_ROW_STATUSES = frozenset({"queued", "in_progress", "open"})
 APPLIED_PLAN_ROW_STATUSES = frozenset({"applied", "completed"})
+SUCCESSFUL_PLAN_ROW_CLOSURE_OUTCOMES = frozenset(
+    {
+        "transitioned_to_applied",
+        "already_applied",
+        "applied_metadata_hydrated",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +55,7 @@ class PlanRowClosureReceipt:
     previous_status: str
     next_status: str
     outcome: str
+    closure_succeeded: bool
     commit_anchor_ref: str
     applied_at_utc: str
     plan_index_path: str
@@ -108,7 +118,7 @@ def reduce_feature_proof_to_plan_rows(
     if not plan_index_path.exists():
         return tuple(
             CommitToPlanRowReductionResult(
-                ok=True,
+                ok=False,
                 plan_row_id=row_id,
                 commit_sha=commit_sha,
                 outcome="plan_index_missing",
@@ -132,13 +142,14 @@ def reduce_feature_proof_to_plan_rows(
                 previous_status="",
                 next_status="",
                 outcome="plan_row_missing",
+                closure_succeeded=False,
                 applied_at_utc=applied_at_utc,
                 plan_index_path=_display_path(plan_index_path, repo_root),
             )
             append_plan_row_closure_receipt(receipt_store_path, receipt)
             results.append(
                 CommitToPlanRowReductionResult(
-                    ok=True,
+                    ok=False,
                     plan_row_id=row_id,
                     commit_sha=commit_sha,
                     outcome=receipt.outcome,
@@ -164,6 +175,7 @@ def reduce_feature_proof_to_plan_rows(
                     previous_status=existing.status,
                     next_status=existing.status,
                     outcome="role_review_receipt_required",
+                    closure_succeeded=False,
                     applied_at_utc=applied_at_utc,
                     plan_index_path=_display_path(plan_index_path, repo_root),
                     composes_with=(),
@@ -211,6 +223,7 @@ def reduce_feature_proof_to_plan_rows(
             previous_status=existing.status,
             next_status=updated.status,
             outcome=outcome,
+            closure_succeeded=outcome in SUCCESSFUL_PLAN_ROW_CLOSURE_OUTCOMES,
             applied_at_utc=updated.applied_at_utc or applied_at_utc,
             plan_index_path=_display_path(plan_index_path, repo_root),
             composes_with=role_review_refs,
@@ -218,7 +231,7 @@ def reduce_feature_proof_to_plan_rows(
         append_plan_row_closure_receipt(receipt_store_path, receipt)
         results.append(
             CommitToPlanRowReductionResult(
-                ok=True,
+                ok=outcome in SUCCESSFUL_PLAN_ROW_CLOSURE_OUTCOMES,
                 plan_row_id=row_id,
                 commit_sha=commit_sha,
                 outcome=outcome,
@@ -255,6 +268,61 @@ def append_plan_row_closure_receipt(
 
     append_jsonl(path, receipt.to_dict())
     return str(path)
+
+
+def load_plan_row_closure_receipts(path: Path) -> tuple[PlanRowClosureReceipt, ...]:
+    receipts: list[PlanRowClosureReceipt] = []
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return ()
+    for line in lines:
+        if not line.strip():
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            receipts.append(plan_row_closure_receipt_from_mapping(payload))
+    return tuple(receipts)
+
+
+def plan_row_closure_receipt_from_mapping(
+    payload: Mapping[str, object],
+) -> PlanRowClosureReceipt:
+    return PlanRowClosureReceipt(
+        receipt_id=coerce_string(payload.get("receipt_id")),
+        plan_row_id=coerce_string(payload.get("plan_row_id")),
+        commit_sha=coerce_string(payload.get("commit_sha")),
+        feature_proof_receipt_path=coerce_string(
+            payload.get("feature_proof_receipt_path")
+        ),
+        previous_status=coerce_string(payload.get("previous_status")),
+        next_status=coerce_string(payload.get("next_status")),
+        outcome=coerce_string(payload.get("outcome")),
+        closure_succeeded=coerce_bool(payload.get("closure_succeeded")),
+        commit_anchor_ref=coerce_string(payload.get("commit_anchor_ref")),
+        applied_at_utc=coerce_string(payload.get("applied_at_utc")),
+        plan_index_path=coerce_string(payload.get("plan_index_path")),
+        reducer=coerce_string(payload.get("reducer")) or "commit_to_plan_row_reducer",
+        composes_with=coerce_string_items(payload.get("composes_with")),
+    )
+
+
+def plan_row_closure_receipt_succeeded(payload: Mapping[str, object]) -> bool:
+    """Return true only for current, explicit successful closure receipts."""
+
+    if (
+        coerce_string(payload.get("contract_id"))
+        != PLAN_ROW_CLOSURE_RECEIPT_CONTRACT_ID
+    ):
+        return False
+    if payload.get("closure_succeeded") is not True:
+        return False
+    if coerce_string(payload.get("outcome")) not in SUCCESSFUL_PLAN_ROW_CLOSURE_OUTCOMES:
+        return False
+    return coerce_string(payload.get("next_status")) in APPLIED_PLAN_ROW_STATUSES
 
 
 def _row_with_commit_closure(
@@ -320,6 +388,7 @@ def _closure_receipt(
     previous_status: str,
     next_status: str,
     outcome: str,
+    closure_succeeded: bool,
     applied_at_utc: str,
     plan_index_path: str,
     composes_with: tuple[str, ...] = (),
@@ -334,6 +403,7 @@ def _closure_receipt(
                 previous_status,
                 next_status,
                 outcome,
+                str(closure_succeeded),
                 applied_at_utc,
             )
         ).encode("utf-8")
@@ -346,6 +416,7 @@ def _closure_receipt(
         previous_status=previous_status,
         next_status=next_status,
         outcome=outcome,
+        closure_succeeded=closure_succeeded,
         commit_anchor_ref=commit_anchor_ref,
         applied_at_utc=applied_at_utc,
         plan_index_path=plan_index_path,
@@ -369,11 +440,15 @@ __all__ = [
     "DEFAULT_PLAN_ROW_CLOSURE_RECEIPT_STORE_REL",
     "PLAN_ROW_CLOSURE_RECEIPT_CONTRACT_ID",
     "PLAN_ROW_CLOSURE_RECEIPT_SCHEMA_VERSION",
+    "SUCCESSFUL_PLAN_ROW_CLOSURE_OUTCOMES",
     "TRANSITIONABLE_PLAN_ROW_STATUSES",
     "CommitToPlanRowReductionResult",
     "PlanRowClosureReceipt",
     "RoleReviewReceiptRequired",
     "append_plan_row_closure_receipt",
+    "load_plan_row_closure_receipts",
+    "plan_row_closure_receipt_from_mapping",
+    "plan_row_closure_receipt_succeeded",
     "reduce_feature_proof_to_plan_rows",
     "require_terminal_role_review_for_plan_row",
     "transition_plan_row_to_applied",

@@ -57,6 +57,8 @@ _CHECK_SCRIPT_ENTRIES = (
     ("package_layout", "check_package_layout.py"),
     ("packet_pkt_bind_completeness", "check_packet_pkt_bind_completeness.py"),
     ("plan_index_commit_continuity", "check_plan_index_commit_continuity.py"),
+    ("plan_gold_claims_resolve", "check_plan_gold_claims_resolve.py"),
+    ("plan_metric_freshness", "check_plan_metric_freshness.py"),
     ("plan_row_contract_refs_resolve", "check_plan_row_contract_refs_resolve.py"),
     (
         "task_started_adr_precedent_linking",

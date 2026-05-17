@@ -190,6 +190,8 @@ jobs:
           python3 dev/scripts/checks/check_commit_message_row_id_resolves.py
           python3 dev/scripts/checks/check_packet_pkt_bind_completeness.py
           python3 dev/scripts/checks/check_plan_index_commit_continuity.py
+          python3 dev/scripts/checks/check_plan_gold_claims_resolve.py
+          python3 dev/scripts/checks/check_plan_metric_freshness.py
           python3 dev/scripts/checks/check_feature_has_proof_receipt.py
           python3 dev/scripts/checks/check_non_trivial_output_proof.py
           python3 dev/scripts/checks/check_role_review_completed.py

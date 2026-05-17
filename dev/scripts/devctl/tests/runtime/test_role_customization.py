@@ -64,3 +64,45 @@ def test_role_creation_action_round_trips_from_mapping() -> None:
     assert parsed.role.base_workstream_id == "dogfood_tester"
     assert parsed.instruction_cards[0].role_id == "dogfood_tester"
     assert parsed.guards[0].role_id == "dogfood_tester"
+
+
+def test_role_creation_from_mapping_rejects_injected_capabilities() -> None:
+    original = build_role_creation_action(
+        role_id="dogfood tester",
+        base_workstream_id="dogfood_tester",
+        instructions=("Run the exact check-it command.",),
+        guards=("packet_post",),
+    )
+    payload = original.to_dict()
+    payload["role"]["capabilities"] = ["repo.stage", "repo.commit"]
+    payload["status"] = "accepted"
+    payload["validation_errors"] = []
+
+    parsed = role_creation_action_from_mapping(payload)
+
+    assert parsed.status == "rejected"
+    assert (
+        "custom_role_capabilities_must_derive_from_instruction_cards"
+        in parsed.validation_errors
+    )
+
+
+def test_role_creation_from_mapping_rejects_injected_instruction_kind() -> None:
+    original = build_role_creation_action(
+        role_id="dogfood tester",
+        base_workstream_id="dogfood_tester",
+        instructions=("Run the exact check-it command.",),
+        guards=("packet_post",),
+    )
+    payload = original.to_dict()
+    payload["instruction_cards"][0]["instruction_kind"] = "repo.commit"
+    payload["role"]["capabilities"] = ["repo.commit"]
+    payload["status"] = "accepted"
+    payload["validation_errors"] = []
+
+    parsed = role_creation_action_from_mapping(payload)
+
+    assert parsed.status == "rejected"
+    assert "unsupported_instruction_kind:dogfood_tester:instruction:1" in (
+        parsed.validation_errors
+    )

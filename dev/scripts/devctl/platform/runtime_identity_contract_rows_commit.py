@@ -134,6 +134,57 @@ COMMIT_RECEIPT_CONTRACTS: tuple[ContractSpec, ...] = (
         startup_surface_tokens=("tag_name", "operation", "target_sha"),
     ),
     ContractSpec(
+        contract_id="CommandOutputReceipt",
+        owner_layer="governance_runtime",
+        purpose=(
+            "Typed proof that a command's output stream was captured, hashed, "
+            "and checked against expected output patterns before the command "
+            "can be cited as validation evidence."
+        ),
+        required_fields=(
+            ContractField("receipt_id", "str", "Stable command-output receipt id."),
+            ContractField("command_name", "str", "Logical command surface name."),
+            ContractField("argv", "tuple[str, ...]", "Executed command argv."),
+            ContractField("cwd", "str", "Working directory for the command."),
+            ContractField("exit_code", "int", "Observed command exit code."),
+            ContractField(
+                "stdout_sha256",
+                "str",
+                "SHA-256 of captured stdout segment within capture_scope.",
+            ),
+            ContractField(
+                "stdout_byte_count",
+                "int",
+                "Captured stdout segment byte count within capture_scope.",
+            ),
+            ContractField(
+                "stderr_sha256",
+                "str",
+                "SHA-256 of captured stderr segment within capture_scope.",
+            ),
+            ContractField(
+                "stderr_byte_count",
+                "int",
+                "Captured stderr segment byte count within capture_scope.",
+            ),
+            ContractField("capture_scope", "str", "Capture scope, such as full or tail."),
+            ContractField("output_excerpt", "str", "Bounded output excerpt inspected by consumers."),
+            ContractField("expected_patterns", "tuple[str, ...]", "Patterns expected in command output."),
+            ContractField("matched_patterns", "tuple[str, ...]", "Expected patterns found in output."),
+            ContractField("missing_patterns", "tuple[str, ...]", "Expected patterns absent from output."),
+            ContractField("forbidden_patterns", "tuple[str, ...]", "Patterns forbidden in command output."),
+            ContractField("matched_forbidden_patterns", "tuple[str, ...]", "Forbidden patterns found in output."),
+            ContractField("artifact_refs", "tuple[str, ...]", "Durable artifacts carrying full output when present."),
+            ContractField("stream_mode", "str", "How stdout/stderr were captured."),
+            ContractField("captured_at_utc", "str", "UTC timestamp when output was captured."),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.runtime.command_output_receipt:"
+            "CommandOutputReceipt"
+        ),
+        startup_surface_tokens=("receipt_id", "command_name", "matched_patterns"),
+    ),
+    ContractSpec(
         contract_id="FeatureProofReceipt",
         owner_layer="governance_runtime",
         purpose=(
@@ -331,6 +382,11 @@ COMMIT_RECEIPT_CONTRACTS: tuple[ContractSpec, ...] = (
             ),
             ContractField("next_status", "str", "Plan row status after reduction."),
             ContractField("outcome", "str", "Bounded reducer outcome."),
+            ContractField(
+                "closure_succeeded",
+                "bool",
+                "True only when the reducer produced successful row closure.",
+            ),
             ContractField(
                 "commit_anchor_ref",
                 "str",

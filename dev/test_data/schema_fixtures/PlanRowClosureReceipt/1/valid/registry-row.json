@@ -7,7 +7,20 @@
   "parity_command": "python3 dev/scripts/checks/check_platform_contract_closure.py --format json",
   "payload": {
     "contract_id": "PlanRowClosureReceipt",
-    "schema_version": 1
+    "schema_version": 1,
+    "receipt_id": "plan-row-closure:MP-TEST-GUARD-S1:abcdef1234567890:test",
+    "plan_row_id": "MP-TEST-GUARD-S1",
+    "commit_sha": "abcdef1234567890",
+    "feature_proof_receipt_path": "dev/reports/feature_proof_receipts/abcdef1234567890.json",
+    "previous_status": "in_progress",
+    "next_status": "applied",
+    "outcome": "transitioned_to_applied",
+    "closure_succeeded": true,
+    "commit_anchor_ref": "commit:abcdef1234567890",
+    "applied_at_utc": "2026-05-17T06:01:00Z",
+    "plan_index_path": "dev/state/plan_index.jsonl",
+    "reducer": "commit_to_plan_row_reducer",
+    "composes_with": []
   },
   "python_owner_path": "dev/scripts/devctl/runtime/commit_to_plan_row_reducer.py",
   "registry_path": "dev/state/contract_registry.jsonl",

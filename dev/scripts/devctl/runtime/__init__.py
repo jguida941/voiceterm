@@ -32,6 +32,13 @@ from .check_result_models import (
     build_check_result,
 )
 from .check_result_render import render_check_result_md, render_check_result_text
+from .command_output_receipt import (
+    COMMAND_OUTPUT_RECEIPT_CONTRACT_ID,
+    COMMAND_OUTPUT_RECEIPT_SCHEMA_VERSION,
+    CommandOutputReceipt,
+    build_command_output_receipt,
+    command_output_receipt_from_mapping,
+)
 from .control_plane_read_model import (
     CONTROL_PLANE_READ_MODEL_CONTRACT_ID,
     CONTROL_PLANE_READ_MODEL_SCHEMA_VERSION,
@@ -257,6 +264,9 @@ __all__ = [
     "CHECK_RESULT_CONTRACT_ID",
     "CHECK_RESULT_SCHEMA_VERSION",
     "CheckResult",
+    "COMMAND_OUTPUT_RECEIPT_CONTRACT_ID",
+    "COMMAND_OUTPUT_RECEIPT_SCHEMA_VERSION",
+    "CommandOutputReceipt",
     "AgentRegistryEntryState",
     "AgentRegistryState",
     "AgentAttentionRecord",
@@ -399,6 +409,7 @@ __all__ = [
     "artifact_roots_from_mapping",
     "bridge_config_from_mapping",
     "build_check_result",
+    "build_command_output_receipt",
     "build_control_plane_read_model",
     "build_control_state",
     "causation_id_for_ref",
@@ -413,6 +424,7 @@ __all__ = [
     "consume_machine_output_metrics",
     "control_plane_read_model_from_mapping",
     "control_state_from_payload",
+    "command_output_receipt_from_mapping",
     "correlation_context_for_ref",
     "correlation_context_from_mapping",
     "correlation_id_for_ref",

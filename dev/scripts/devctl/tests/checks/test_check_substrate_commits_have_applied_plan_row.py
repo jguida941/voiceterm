@@ -54,6 +54,42 @@ def _write_plan_index(tmp_path: Path, rows: list[dict] | None = None) -> Path:
     return path
 
 
+def _write_closure_receipts(tmp_path: Path, rows: list[dict]) -> Path:
+    path = tmp_path / "dev/state/plan_row_closure_receipts.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = "\n".join(json.dumps(row, sort_keys=True) for row in rows)
+    path.write_text(f"{payload}\n" if payload else "", encoding="utf-8")
+    return path
+
+
+def _closure_receipt(
+    commit_sha: str,
+    *,
+    closure_succeeded: bool | None = True,
+    outcome: str = "transitioned_to_applied",
+) -> dict:
+    payload = {
+        "contract_id": "PlanRowClosureReceipt",
+        "schema_version": 1,
+        "receipt_id": f"plan-row-closure:MP-TEST-GUARD-S1:{commit_sha}:test",
+        "plan_row_id": "MP-TEST-GUARD-S1",
+        "commit_sha": commit_sha,
+        "feature_proof_receipt_path": (
+            f"dev/reports/feature_proof_receipts/{commit_sha}.json"
+        ),
+        "previous_status": "in_progress",
+        "next_status": "applied" if closure_succeeded else "",
+        "outcome": outcome,
+        "commit_anchor_ref": f"commit:{commit_sha}",
+        "applied_at_utc": "2026-05-17T06:01:00Z",
+        "plan_index_path": "dev/state/plan_index.jsonl",
+        "reducer": "commit_to_plan_row_reducer",
+    }
+    if closure_succeeded is not None:
+        payload["closure_succeeded"] = closure_succeeded
+    return payload
+
+
 def _row(
     row_id: str,
     *,
@@ -111,6 +147,7 @@ def test_applied_plan_row_commit_anchor_covers_substrate_commit(
         tmp_path,
         [_row("MP-TEST-GUARD-S1", commit_anchor_ref=f"commit:{commit_sha}")],
     )
+    _write_closure_receipts(tmp_path, [_closure_receipt(commit_sha)])
 
     report = evaluate_substrate_commits_have_applied_plan_row(
         repo_root=tmp_path,
@@ -127,6 +164,103 @@ def test_applied_plan_row_commit_anchor_covers_substrate_commit(
     assert report.violation_count == 0
 
 
+def test_post_mandate_applied_plan_row_requires_successful_closure_receipt(
+    tmp_path: Path,
+) -> None:
+    _write_policy(tmp_path)
+    commit_sha = "abcdef1234567890"
+    plan_index = _write_plan_index(
+        tmp_path,
+        [_row("MP-TEST-GUARD-S1", commit_anchor_ref=f"commit:{commit_sha}")],
+    )
+
+    report = evaluate_substrate_commits_have_applied_plan_row(
+        repo_root=tmp_path,
+        plan_index_path=plan_index,
+        commit_shas=(commit_sha,),
+        changed_paths_by_commit={
+            commit_sha: ("dev/scripts/checks/check_new_guard.py",),
+        },
+        committed_at_by_commit={commit_sha: "2026-05-17T06:01:00Z"},
+    )
+
+    assert report.ok is False
+    assert report.covered_commit_count == 0
+    assert report.violation_count == 1
+    assert (
+        report.violations[0]["reason"]
+        == "missing_successful_plan_row_closure_receipt"
+    )
+
+
+def test_legacy_closure_receipt_missing_success_bit_does_not_cover_commit(
+    tmp_path: Path,
+) -> None:
+    _write_policy(tmp_path)
+    commit_sha = "abcdef1234567890"
+    plan_index = _write_plan_index(
+        tmp_path,
+        [_row("MP-TEST-GUARD-S1", commit_anchor_ref=f"commit:{commit_sha}")],
+    )
+    _write_closure_receipts(
+        tmp_path,
+        [_closure_receipt(commit_sha, closure_succeeded=None)],
+    )
+
+    report = evaluate_substrate_commits_have_applied_plan_row(
+        repo_root=tmp_path,
+        plan_index_path=plan_index,
+        commit_shas=(commit_sha,),
+        changed_paths_by_commit={
+            commit_sha: ("dev/scripts/checks/check_new_guard.py",),
+        },
+        committed_at_by_commit={commit_sha: "2026-05-17T06:01:00Z"},
+    )
+
+    assert report.ok is False
+    assert report.violation_count == 1
+    assert (
+        report.violations[0]["reason"]
+        == "missing_successful_plan_row_closure_receipt"
+    )
+
+
+def test_failed_closure_receipt_does_not_cover_commit(tmp_path: Path) -> None:
+    _write_policy(tmp_path)
+    commit_sha = "abcdef1234567890"
+    plan_index = _write_plan_index(
+        tmp_path,
+        [_row("MP-TEST-GUARD-S1", commit_anchor_ref=f"commit:{commit_sha}")],
+    )
+    _write_closure_receipts(
+        tmp_path,
+        [
+            _closure_receipt(
+                commit_sha,
+                closure_succeeded=False,
+                outcome="plan_row_missing",
+            )
+        ],
+    )
+
+    report = evaluate_substrate_commits_have_applied_plan_row(
+        repo_root=tmp_path,
+        plan_index_path=plan_index,
+        commit_shas=(commit_sha,),
+        changed_paths_by_commit={
+            commit_sha: ("dev/scripts/checks/check_new_guard.py",),
+        },
+        committed_at_by_commit={commit_sha: "2026-05-17T06:01:00Z"},
+    )
+
+    assert report.ok is False
+    assert report.violation_count == 1
+    assert (
+        report.violations[0]["reason"]
+        == "missing_successful_plan_row_closure_receipt"
+    )
+
+
 def test_short_anchor_ref_covers_full_commit_sha(tmp_path: Path) -> None:
     _write_policy(tmp_path)
     commit_sha = "abcdef1234567890"
@@ -134,6 +268,7 @@ def test_short_anchor_ref_covers_full_commit_sha(tmp_path: Path) -> None:
         tmp_path,
         [_row("MP-TEST-GUARD-S1", anchor_refs=["commit:abcdef1"])],
     )
+    _write_closure_receipts(tmp_path, [_closure_receipt(commit_sha)])
 
     report = evaluate_substrate_commits_have_applied_plan_row(
         repo_root=tmp_path,

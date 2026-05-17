@@ -4,6 +4,8 @@ import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import python_tests
 from dev.scripts.devctl.runtime.python_test_contract import build_python_test_command
@@ -31,6 +33,43 @@ def test_build_python_test_command_allows_explicit_paths() -> None:
     assert "--repo-session-timeout-seconds=120" in resolved.command
     assert "-x" not in resolved.command
     assert "--maxfail=0" in resolved.command
+
+
+def test_build_python_test_command_preserves_valid_node_ids() -> None:
+    resolved = build_python_test_command(
+        suite_id="devctl",
+        explicit_targets=("./dev/scripts/devctl/tests/test_common.py::test_cmd_str",),
+    )
+
+    assert resolved.targets == ("dev/scripts/devctl/tests/test_common.py::test_cmd_str",)
+    assert "dev/scripts/devctl/tests/test_common.py::test_cmd_str" in resolved.command
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "/tmp/evil_test.py",
+        "../codex-voice/dev/scripts/devctl/tests/test_common.py",
+        "--collect-only",
+        "dev/scripts/devctl/tests/test_common.py::",
+        "dev/scripts/devctl/tests/test_common.py\n-k test",
+        "dev\\scripts\\devctl\\tests\\test_common.py",
+    ],
+)
+def test_build_python_test_command_rejects_unsafe_explicit_paths(target: str) -> None:
+    with pytest.raises(ValueError, match="unsafe_python_test_target"):
+        build_python_test_command(
+            suite_id="devctl",
+            explicit_targets=(target,),
+        )
+
+
+def test_build_python_test_command_rejects_paths_outside_suite_root() -> None:
+    with pytest.raises(ValueError, match="outside_python_test_suite"):
+        build_python_test_command(
+            suite_id="devctl",
+            explicit_targets=("app/operator_console/tests/test_app.py",),
+        )
 
 
 def test_build_python_test_command_applies_measured_target_timeout_floor() -> None:
@@ -80,10 +119,16 @@ def test_test_python_command_threads_timeout_to_runner_env() -> None:
 
     _name, command = run_mock.call_args.args[:2]
     env = run_mock.call_args.kwargs["env"]
+    policy = run_mock.call_args.kwargs["policy"]
     assert "dev/scripts/devctl.py" not in command
     assert "--repo-session-timeout-seconds=120" in command
     assert "--repo-test-timeout-seconds=15" in command
     assert env["VOICETERM_DEVCTL_LIVE_OUTPUT_TIMEOUT_SECONDS"] == "150"
+    assert policy.expected_output_patterns == (
+        python_tests.PYTEST_SUCCESS_OUTPUT_PATTERN,
+        python_tests.PYTEST_PASS_SUMMARY_PATTERN,
+    )
+    assert policy.forbidden_output_patterns == python_tests.PYTEST_FORBIDDEN_OUTPUT_PATTERNS
 
 
 def test_test_python_cli_accepts_parallel_flags() -> None:
@@ -129,8 +174,21 @@ def test_test_python_parallelizes_explicit_path_shards() -> None:
         assert python_tests.run(args) == 0
 
     commands = [call.args[1] for call in run_mock.call_args_list]
+    policies = [call.kwargs["policy"] for call in run_mock.call_args_list]
     assert len(commands) == 2
     assert all("-p" in command and "no:cacheprovider" in command for command in commands)
+    assert all(
+        policy.expected_output_patterns
+        == (
+            python_tests.PYTEST_SUCCESS_OUTPUT_PATTERN,
+            python_tests.PYTEST_PASS_SUMMARY_PATTERN,
+        )
+        for policy in policies
+    )
+    assert all(
+        policy.forbidden_output_patterns == python_tests.PYTEST_FORBIDDEN_OUTPUT_PATTERNS
+        for policy in policies
+    )
     assert any("dev/scripts/devctl/tests/runtime/test_vcs.py" in command for command in commands)
     assert any(
         "dev/scripts/devctl/tests/commands/test_python_tests.py" in command

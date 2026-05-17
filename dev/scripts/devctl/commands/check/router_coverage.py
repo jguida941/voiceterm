@@ -26,6 +26,26 @@ class CheckRouterGuardCoverageReceipt:
 
 
 @dataclass(frozen=True)
+class CheckRouterDogfoodExecution:
+    schema_version: int
+    contract_id: str
+    execution_state: str
+    lane: str
+    bundle: str
+    validation_scope: str
+    changed_path_count: int
+    risk_addon_count: int
+    planned_command_count: int
+    materialized_step_count: int
+    executed_command_count: int
+    failed_command_count: int
+    skipped_command_count: int
+    all_planned_commands_executed: bool
+    executed_router_commands: list[str]
+    unexecuted_router_commands: list[str]
+
+
+@dataclass(frozen=True)
 class GuardRemediationAction:
     schema_version: int
     contract_id: str
@@ -76,6 +96,66 @@ def build_guard_coverage_receipt(
     return asdict(receipt)
 
 
+def build_dogfood_execution_receipt(
+    *,
+    lane: str,
+    bundle_name: str,
+    changed_paths: list[str],
+    risk_addons: list[dict],
+    planned_rows: list[dict[str, str]],
+    steps: list[dict],
+    execute: bool,
+    dry_run: bool,
+    validation_scope: dict[str, object],
+) -> dict[str, object]:
+    skipped_steps = [step for step in steps if bool(step.get("skipped"))]
+    failed_steps = [step for step in steps if int(step.get("returncode") or 0) != 0]
+    executed_steps = [step for step in steps if not bool(step.get("skipped"))]
+    all_executed = (
+        bool(execute)
+        and not dry_run
+        and len(steps) == len(planned_rows)
+        and not skipped_steps
+    )
+    receipt = CheckRouterDogfoodExecution(
+        schema_version=1,
+        contract_id="CheckRouterDogfoodExecution",
+        execution_state=_dogfood_execution_state(
+            execute=execute,
+            dry_run=dry_run,
+            all_executed=all_executed,
+            failed_steps=failed_steps,
+        ),
+        lane=lane,
+        bundle=bundle_name,
+        validation_scope=_validation_scope_kind(validation_scope),
+        changed_path_count=len(changed_paths),
+        risk_addon_count=len(risk_addons),
+        planned_command_count=len(planned_rows),
+        materialized_step_count=len(steps),
+        executed_command_count=len(executed_steps),
+        failed_command_count=len(failed_steps),
+        skipped_command_count=len(skipped_steps),
+        all_planned_commands_executed=all_executed,
+        executed_router_commands=[
+            str(step.get("router_command") or "") for step in executed_steps
+        ],
+        unexecuted_router_commands=[
+            str(row.get("command") or "") for row in planned_rows[len(steps) :]
+        ],
+    )
+    return asdict(receipt)
+
+
+def _validation_scope_kind(validation_scope: dict[str, object]) -> str:
+    return str(
+        validation_scope.get("kind")
+        or validation_scope.get("scope")
+        or validation_scope.get("scope_id")
+        or ""
+    )
+
+
 def build_remediation_actions(steps: list[dict]) -> list[dict[str, object]]:
     actions: list[dict[str, object]] = []
     for step in steps:
@@ -119,6 +199,24 @@ def _source_counts(planned_rows: list[dict[str, str]]) -> dict[str, int]:
         source = str(row.get("source") or "unknown")
         counts[source] = counts.get(source, 0) + 1
     return counts
+
+
+def _dogfood_execution_state(
+    *,
+    execute: bool,
+    dry_run: bool,
+    all_executed: bool,
+    failed_steps: list[dict],
+) -> str:
+    if not execute:
+        return "planned_only"
+    if dry_run:
+        return "dry_run"
+    if failed_steps:
+        return "executed_failed"
+    if all_executed:
+        return "executed_passed"
+    return "executed_incomplete"
 
 
 def _classify_failure_reason(output: str) -> str:

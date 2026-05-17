@@ -27,6 +27,8 @@ from .config import REPO_ROOT
 class CommandRunPolicy:
     live_output: bool = True
     timeout_seconds: float | None = None
+    expected_output_patterns: tuple[str, ...] = ()
+    forbidden_output_patterns: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -172,7 +174,7 @@ def run_cmd(
             command=tuple(cmd),
         ),
     )
-    return CommandRunResult(
+    result = CommandRunResult(
         name=name,
         cmd=cmd,
         cwd=str(cwd or REPO_ROOT),
@@ -187,6 +189,40 @@ def run_cmd(
         ),
         timed_out=returncode == 124,
         failure_output=failure_output,
+    ).to_dict()
+    result["command_output_receipt"] = _build_command_output_receipt_payload(
+        name=name,
+        cmd=cmd,
+        cwd=str(cwd or REPO_ROOT),
+        returncode=returncode,
+        output_tail=output_tail,
+        expected_output_patterns=resolved_policy.expected_output_patterns,
+        forbidden_output_patterns=resolved_policy.forbidden_output_patterns,
+    )
+    return result
+
+
+def _build_command_output_receipt_payload(
+    *,
+    name: str,
+    cmd: list[str],
+    cwd: str,
+    returncode: int,
+    output_tail: str,
+    expected_output_patterns: tuple[str, ...],
+    forbidden_output_patterns: tuple[str, ...],
+) -> dict[str, object]:
+    from .runtime.command_output_receipt import build_command_output_receipt
+
+    return build_command_output_receipt(
+        command_name=name,
+        command=tuple(cmd),
+        cwd=cwd,
+        exit_code=returncode,
+        stdout=output_tail,
+        expected_patterns=expected_output_patterns,
+        forbidden_patterns=forbidden_output_patterns,
+        capture_scope="tail",
     ).to_dict()
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from types import SimpleNamespace
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -13,6 +14,10 @@ from dev.scripts.devctl.review_channel.follow_controller import (
     EnsureFollowDeps,
     _build_ensure_follow_tick,
 )
+from dev.scripts.devctl.review_channel.event_store import (
+    active_push_window_write_suspension,
+    push_window_write_suspension,
+)
 from dev.scripts.devctl.review_channel.reviewer_state_support import (
     EnsureHeartbeatResult,
 )
@@ -20,6 +25,100 @@ from dev.scripts.devctl.runtime.monitor_snapshot_contracts import MonitorSnapsho
 
 
 class FollowControllerTests(unittest.TestCase):
+    def test_vcs_window_suspension_round_trips_through_event_store(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            with push_window_write_suspension(
+                repo_root=repo_root,
+                window_kind="push_publication",
+                requested_by="test",
+                reason="unit test",
+                head_sha="abc123",
+                branch="feature/test",
+            ):
+                active = active_push_window_write_suspension(repo_root=repo_root)
+                self.assertIsNotNone(active)
+                assert active is not None
+                self.assertEqual(active["window_kind"], "push_publication")
+
+            self.assertIsNone(active_push_window_write_suspension(repo_root=repo_root))
+
+    def test_vcs_window_suspension_uses_existing_surfaces_only(self) -> None:
+        repo_root = Path.cwd()
+        self.assertFalse(
+            (
+                repo_root
+                / "dev/scripts/devctl/commands/vcs/push_window_suspension.py"
+            ).exists()
+        )
+        self.assertFalse(
+            (
+                repo_root
+                / "dev/scripts/devctl/review_channel/vcs_window_suspension.py"
+            ).exists()
+        )
+        for path in (
+            repo_root / "dev/scripts/devctl/commands/vcs/push.py",
+            repo_root / "dev/scripts/devctl/review_channel/follow_controller.py",
+        ):
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn("push_window_suspension", text)
+            self.assertNotIn("vcs_window_suspension", text)
+
+    def test_ensure_follow_tick_pauses_during_vcs_write_suspension(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            status_calls = 0
+
+            def _status_call(**_kwargs):
+                nonlocal status_calls
+                status_calls += 1
+                return {"bridge_liveness": {"reviewer_mode": "single_agent"}}, 0
+
+            deps = EnsureFollowDeps(
+                ensure_reviewer_heartbeat_fn=lambda **_kw: None,
+                reviewer_state_write_to_dict_fn=lambda _sw: None,
+                run_status_action_fn=_status_call,
+                attach_reviewer_worker_fn=lambda *_a, **_kw: None,
+                ensure_reviewer_supervisor_running_fn=None,
+                emit_follow_ndjson_frame_fn=lambda *_a, **_kw: 0,
+                reset_follow_output_fn=lambda _o: None,
+                build_follow_completion_report_fn=lambda **_kw: {},
+                build_follow_output_error_report_fn=lambda **_kw: {},
+                write_publisher_heartbeat_fn=lambda *_a, **_kw: Path("/tmp/publisher.json"),
+                read_publisher_state_fn=lambda _status_dir: {"running": True},
+                write_monitor_snapshot_fn=None,
+                utc_timestamp_fn=lambda: "2026-04-10T18:10:00Z",
+                sleep_fn=lambda _s: None,
+                operator_interaction_mode="remote_control",
+            )
+
+            with push_window_write_suspension(
+                repo_root=repo_root,
+                window_kind="push_preflight",
+                requested_by="test",
+                reason="unit test",
+                head_sha="abc123",
+                branch="feature/test",
+            ):
+                tick = _build_ensure_follow_tick(
+                    args=SimpleNamespace(),
+                    repo_root=repo_root,
+                    paths={
+                        "bridge_path": repo_root / "bridge.md",
+                        "status_dir": repo_root / "dev/review_status",
+                    },
+                    deps=deps,
+                )
+
+        self.assertEqual(status_calls, 0)
+        self.assertEqual(tick.exit_code, 0)
+        self.assertEqual(tick.report["status"], "paused_by_vcs_window")
+        self.assertEqual(
+            tick.report["vcs_window_write_suspension"]["window_kind"],
+            "push_preflight",
+        )
+
     def test_ensure_follow_tick_writes_monitor_snapshot_bundle(self) -> None:
         calls: list[tuple[Path, Path]] = []
         deps = EnsureFollowDeps(

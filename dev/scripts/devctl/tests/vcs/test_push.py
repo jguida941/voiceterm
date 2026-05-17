@@ -3386,6 +3386,36 @@ class PushBridgeSyncTests(unittest.TestCase):
         )
         self.assertEqual(state.post_validation_auto_commit_repair, result)
 
+    def test_preflight_repair_ignores_push_override_receipts(self) -> None:
+        policy = make_policy()
+        with patch.object(
+            push_preflight_commit,
+            "collect_git_status",
+            return_value={
+                "changes": [
+                    {
+                        "path": (
+                            "dev/audits/push_override_receipts/"
+                            "push-auth-test.md"
+                        ),
+                        "status": "??",
+                        "raw_status": "??",
+                    },
+                    {
+                        "path": "generated.txt",
+                        "status": "??",
+                        "raw_status": "??",
+                    },
+                ]
+            },
+        ):
+            dirty = push_preflight_commit.preflight_blocking_dirty_paths(
+                policy,
+                repo_root=Path("/tmp/repo"),
+            )
+
+        self.assertEqual(dirty, ("generated.txt",))
+
     def test_receipt_refresh_updates_event_bundle_before_system_picture(self) -> None:
         state = push.PushRunState(branch="feature/demo", remote="origin")
         calls: list[str] = []

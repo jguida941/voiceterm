@@ -4,6 +4,7 @@ from pathlib import Path
 
 from dev.scripts.devctl.commands.raw_git import (
     GitCommandResult,
+    _feature_ids_for_commit,
     run_raw_git_action,
 )
 from dev.scripts.devctl.runtime.governed_exception_store import (
@@ -16,6 +17,9 @@ from dev.scripts.devctl.runtime.feature_proof_receipt import (
 )
 from dev.scripts.devctl.runtime.commit_to_plan_row_reducer import (
     DEFAULT_PLAN_ROW_CLOSURE_RECEIPT_STORE_REL,
+    load_plan_row_closure_receipts,
+    plan_row_closure_receipt_from_mapping,
+    plan_row_closure_receipt_succeeded,
     reduce_feature_proof_to_plan_rows,
 )
 from dev.scripts.devctl.runtime.master_plan_contract import PlanRow
@@ -35,10 +39,47 @@ def _real_test_ref(repo_root: Path, test_name: str = "test_raw_git_real_proof") 
     return f"{path.relative_to(repo_root)}::{test_name}"
 
 
+def _feature_proof_for_plan_row(
+    row_id: str,
+    *,
+    commit_sha: str = "abc123",
+) -> FeatureProofReceipt:
+    return FeatureProofReceipt(
+        feature_id=row_id,
+        commit_sha=commit_sha,
+        implementer_actor="codex",
+        review_fleet_roles_ran=("FeatureLifecycleProof",),
+        review_fleet_actor="claude",
+        tests_run=("pytest",),
+        tests_passed_count=1,
+        tests_failed_count=0,
+        connectivity_guards_ran=("check_feature_has_proof_receipt",),
+        connectivity_guards_passed=True,
+        dogfood_invocation_evidence_ref="test:plan-row-closure",
+        real_life_test_status="proven_passed",
+        not_tested_rationale=None,
+        bypass_audit_trail_refs=("raw_git_bypass_receipt:receipt",),
+        proven_at_utc="2026-05-16T00:32:01Z",
+        evidence_artifacts=("dev/state/plan_index.jsonl",),
+    )
+
+
 def test_raw_git_commit_wrapper_emits_receipt(tmp_path: Path) -> None:
     calls: list[tuple[str, ...]] = []
     state = {"committed": False}
     real_test_ref = _real_test_ref(tmp_path, "test_raw_git_commit_wrapper_emits_receipt")
+    row_id = "MP-NEW-P207-FEATURE-PROOF-RECEIPT-EMISSION-S2"
+    write_plan_rows_jsonl(
+        tmp_path / "dev/state/plan_index.jsonl",
+        (
+            PlanRow(
+                row_id=row_id,
+                title="Feature proof receipt emission",
+                status="queued",
+                sdlc_stage="impl",
+            ),
+        ),
+    )
 
     def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
         calls.append(args)
@@ -60,7 +101,7 @@ def test_raw_git_commit_wrapper_emits_receipt(tmp_path: Path) -> None:
         authority="operator_witnessed",
         bypass_lifecycle_id="",
         operator_quote_evidence_ref=["packet:rev_pkt_4022"],
-        feature_id="MP-NEW-P207-FEATURE-PROOF-RECEIPT-EMISSION-S2",
+        feature_id=row_id,
         test_command=[real_test_ref],
         tests_passed_count=1,
         tests_failed_count=0,
@@ -98,7 +139,7 @@ def test_raw_git_commit_wrapper_emits_receipt(tmp_path: Path) -> None:
     proof = feature_proof_receipt_from_mapping(
         json.loads(proof_path.read_text(encoding="utf-8"))
     )
-    assert proof.feature_id == "MP-NEW-P207-FEATURE-PROOF-RECEIPT-EMISSION-S2"
+    assert proof.feature_id == row_id
     assert proof.commit_sha == "abc123"
     assert proof.real_life_test_status == "proven_passed"
     assert proof.connectivity_guards_passed is True
@@ -302,7 +343,10 @@ def test_raw_git_commit_wrapper_transitions_plan_rows_to_applied(
     receipt_store = tmp_path / DEFAULT_PLAN_ROW_CLOSURE_RECEIPT_STORE_REL
     receipt_lines = receipt_store.read_text(encoding="utf-8").splitlines()
     assert len(receipt_lines) == 2
-    assert all("transitioned_to_applied" in line for line in receipt_lines)
+    receipts = [json.loads(line) for line in receipt_lines]
+    assert all(receipt["outcome"] == "transitioned_to_applied" for receipt in receipts)
+    assert all(receipt["closure_succeeded"] is True for receipt in receipts)
+    assert all(plan_row_closure_receipt_succeeded(receipt) for receipt in receipts)
 
 
 def test_commit_to_plan_row_reducer_skips_noop_receipt_for_applied_row(
@@ -359,6 +403,262 @@ def test_commit_to_plan_row_reducer_skips_noop_receipt_for_applied_row(
     assert row.commit_anchor_ref == "commit:first"
     assert row.anchor_refs == ("commit:first",)
     assert row.work_evidence_ids == ("feature_proof_receipt:first.json",)
+
+
+def test_commit_to_plan_row_reducer_fails_when_plan_index_missing(
+    tmp_path: Path,
+) -> None:
+    row_id = "MP-NEW-P235-CLOSURE-RECEIPT-VALIDITY-S1"
+
+    results = reduce_feature_proof_to_plan_rows(
+        repo_root=tmp_path,
+        feature_proof=_feature_proof_for_plan_row(row_id),
+        feature_ids=(row_id,),
+        feature_proof_receipt_path="dev/reports/feature_proof_receipts/abc123.json",
+    )
+
+    assert len(results) == 1
+    assert results[0].ok is False
+    assert results[0].outcome == "plan_index_missing"
+    assert results[0].warning == "plan_index_missing"
+    assert not (tmp_path / DEFAULT_PLAN_ROW_CLOSURE_RECEIPT_STORE_REL).exists()
+
+
+def test_commit_to_plan_row_reducer_fails_when_plan_row_missing(
+    tmp_path: Path,
+) -> None:
+    row_id = "MP-NEW-P235-CLOSURE-RECEIPT-VALIDITY-S1"
+    plan_index_path = tmp_path / "dev/state/plan_index.jsonl"
+    write_plan_rows_jsonl(
+        plan_index_path,
+        (
+            PlanRow(
+                row_id="MP-NEW-P235-OTHER-ROW-S1",
+                title="Different row",
+                status="queued",
+                sdlc_stage="impl",
+            ),
+        ),
+    )
+
+    results = reduce_feature_proof_to_plan_rows(
+        repo_root=tmp_path,
+        feature_proof=_feature_proof_for_plan_row(row_id),
+        feature_ids=(row_id,),
+        feature_proof_receipt_path="dev/reports/feature_proof_receipts/abc123.json",
+    )
+
+    assert len(results) == 1
+    assert results[0].ok is False
+    assert results[0].outcome == "plan_row_missing"
+    assert results[0].warning == "plan_row_missing"
+    receipt_store = tmp_path / DEFAULT_PLAN_ROW_CLOSURE_RECEIPT_STORE_REL
+    receipt = json.loads(receipt_store.read_text(encoding="utf-8").splitlines()[0])
+    assert receipt["outcome"] == "plan_row_missing"
+    assert receipt["next_status"] == ""
+    assert receipt["closure_succeeded"] is False
+    assert plan_row_closure_receipt_succeeded(receipt) is False
+
+
+def test_plan_row_closure_receipt_missing_success_bit_does_not_satisfy_closure(
+    tmp_path: Path,
+) -> None:
+    row_id = "MP-NEW-P235-CLOSURE-RECEIPT-VALIDITY-S1"
+    plan_index_path = tmp_path / "dev/state/plan_index.jsonl"
+    write_plan_rows_jsonl(
+        plan_index_path,
+        (
+            PlanRow(
+                row_id=row_id,
+                title="Closure validity",
+                status="queued",
+                sdlc_stage="impl",
+            ),
+        ),
+    )
+
+    results = reduce_feature_proof_to_plan_rows(
+        repo_root=tmp_path,
+        feature_proof=_feature_proof_for_plan_row(row_id),
+        feature_ids=(row_id,),
+        feature_proof_receipt_path="dev/reports/feature_proof_receipts/abc123.json",
+    )
+
+    assert len(results) == 1
+    assert results[0].ok is True
+    receipt_store = tmp_path / DEFAULT_PLAN_ROW_CLOSURE_RECEIPT_STORE_REL
+    receipt = json.loads(receipt_store.read_text(encoding="utf-8").splitlines()[0])
+    assert plan_row_closure_receipt_succeeded(receipt) is True
+    legacy_receipt = dict(receipt)
+    legacy_receipt.pop("closure_succeeded")
+    assert plan_row_closure_receipt_succeeded(legacy_receipt) is False
+    blocked_receipt = dict(receipt)
+    blocked_receipt["next_status"] = "blocked"
+    assert plan_row_closure_receipt_succeeded(blocked_receipt) is False
+
+
+def test_plan_row_closure_receipt_mapping_and_loader_round_trip(
+    tmp_path: Path,
+) -> None:
+    row_id = "MP-NEW-P235-CLOSURE-RECEIPT-VALIDITY-S1"
+    plan_index_path = tmp_path / "dev/state/plan_index.jsonl"
+    write_plan_rows_jsonl(
+        plan_index_path,
+        (
+            PlanRow(
+                row_id=row_id,
+                title="Closure validity",
+                status="queued",
+                sdlc_stage="impl",
+            ),
+        ),
+    )
+
+    reduce_feature_proof_to_plan_rows(
+        repo_root=tmp_path,
+        feature_proof=_feature_proof_for_plan_row(row_id),
+        feature_ids=(row_id,),
+        feature_proof_receipt_path="dev/reports/feature_proof_receipts/abc123.json",
+    )
+
+    receipt_store = tmp_path / DEFAULT_PLAN_ROW_CLOSURE_RECEIPT_STORE_REL
+    payload = json.loads(receipt_store.read_text(encoding="utf-8").splitlines()[0])
+    parsed = plan_row_closure_receipt_from_mapping(payload)
+    assert parsed.closure_succeeded is True
+    assert parsed.composes_with == ()
+    loaded = load_plan_row_closure_receipts(receipt_store)
+    assert len(loaded) == 1
+    assert loaded[0].closure_succeeded is True
+
+
+def test_raw_git_commit_wrapper_fails_closed_on_plan_row_missing(
+    tmp_path: Path,
+) -> None:
+    row_id = "MP-NEW-P235-CLOSURE-RECEIPT-VALIDITY-S1"
+    state = {"committed": False}
+    real_test_ref = _real_test_ref(
+        tmp_path,
+        "test_raw_git_commit_wrapper_fails_closed_on_plan_row_missing",
+    )
+    write_plan_rows_jsonl(
+        tmp_path / "dev/state/plan_index.jsonl",
+        (
+            PlanRow(
+                row_id="MP-NEW-P235-OTHER-ROW-S1",
+                title="Different row",
+                status="queued",
+                sdlc_stage="impl",
+            ),
+        ),
+    )
+
+    def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
+        if args == ("rev-parse", "HEAD"):
+            return GitCommandResult(0, "abc123\n" if state["committed"] else "base\n", "")
+        if args == ("rev-parse", "--verify", "@{u}"):
+            return GitCommandResult(1, "", "no upstream")
+        if args == ("commit", "--no-verify", "-m", "slice"):
+            state["committed"] = True
+            return GitCommandResult(0, "committed\n", "")
+        if args == ("rev-list", "--reverse", "base..abc123"):
+            return GitCommandResult(0, "abc123\n", "")
+        if args == ("diff-tree", "--no-commit-id", "--name-only", "-r", "abc123"):
+            return GitCommandResult(0, "dev/scripts/devctl/commands/raw_git.py\n", "")
+        if args == ("log", "-1", "--format=%B", "abc123"):
+            return GitCommandResult(0, f"{row_id}: missing plan row\n", "")
+        return GitCommandResult(1, "", "not found")
+
+    args = Namespace(
+        raw_git_action="commit",
+        git_args=["--no-verify", "-m", "slice"],
+        actor="codex",
+        authority="operator_witnessed",
+        bypass_lifecycle_id="",
+        operator_quote_evidence_ref=["packet:rev_pkt_4147"],
+        feature_id=row_id,
+        test_command=[real_test_ref],
+        tests_passed_count=1,
+        tests_failed_count=0,
+        connectivity_guard=["check_feature_has_proof_receipt"],
+        connectivity_guards_passed="true",
+        dogfood_evidence_ref=real_test_ref,
+        review_fleet_role=["FeatureLifecycleProof"],
+        review_fleet_actor="claude",
+        real_life_test_status="proven_passed",
+        not_tested_rationale="",
+        evidence_artifact=[],
+        store_path="dev/state/raw_git_bypass_receipts.jsonl",
+        bypass_lifecycle_store_path="dev/state/bypass_lifecycles.jsonl",
+        governed_exception_store_path="dev/state/governed_exception_lifecycles.jsonl",
+    )
+
+    report, rc = run_raw_git_action(args, repo_root=tmp_path, git_runner=fake_git)
+
+    assert rc == 1
+    assert report["ok"] is False
+    assert report["reason"] == "plan_row_closure_failed"
+    assert "plan_row_closure_failed" in report["error"]
+    assert f"{row_id}:plan_row_missing" in report["error"]
+    assert not (tmp_path / feature_proof_receipt_artifact_relpath("abc123")).exists()
+
+
+def test_raw_git_commit_wrapper_fails_when_plan_index_missing(
+    tmp_path: Path,
+) -> None:
+    row_id = "MP-NEW-P235-CLOSURE-RECEIPT-VALIDITY-S1"
+    state = {"committed": False}
+    real_test_ref = _real_test_ref(
+        tmp_path,
+        "test_raw_git_commit_wrapper_fails_when_plan_index_missing",
+    )
+
+    def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
+        if args == ("rev-parse", "HEAD"):
+            return GitCommandResult(0, "abc123\n" if state["committed"] else "base\n", "")
+        if args == ("rev-parse", "--verify", "@{u}"):
+            return GitCommandResult(1, "", "no upstream")
+        if args == ("commit", "--no-verify", "-m", "slice"):
+            state["committed"] = True
+            return GitCommandResult(0, "committed\n", "")
+        if args == ("rev-list", "--reverse", "base..abc123"):
+            return GitCommandResult(0, "abc123\n", "")
+        if args == ("diff-tree", "--no-commit-id", "--name-only", "-r", "abc123"):
+            return GitCommandResult(0, "dev/scripts/devctl/commands/raw_git.py\n", "")
+        if args == ("log", "-1", "--format=%B", "abc123"):
+            return GitCommandResult(0, f"{row_id}: missing plan index\n", "")
+        return GitCommandResult(1, "", "not found")
+
+    args = Namespace(
+        raw_git_action="commit",
+        git_args=["--no-verify", "-m", "slice"],
+        actor="codex",
+        authority="operator_witnessed",
+        bypass_lifecycle_id="",
+        operator_quote_evidence_ref=["packet:rev_pkt_4147"],
+        feature_id=row_id,
+        test_command=[real_test_ref],
+        tests_passed_count=1,
+        tests_failed_count=0,
+        connectivity_guard=["check_feature_has_proof_receipt"],
+        connectivity_guards_passed="true",
+        dogfood_evidence_ref=real_test_ref,
+        review_fleet_role=["FeatureLifecycleProof"],
+        review_fleet_actor="claude",
+        real_life_test_status="proven_passed",
+        not_tested_rationale="",
+        evidence_artifact=[],
+        store_path="dev/state/raw_git_bypass_receipts.jsonl",
+        bypass_lifecycle_store_path="dev/state/bypass_lifecycles.jsonl",
+        governed_exception_store_path="dev/state/governed_exception_lifecycles.jsonl",
+    )
+
+    report, rc = run_raw_git_action(args, repo_root=tmp_path, git_runner=fake_git)
+
+    assert rc == 1
+    assert report["ok"] is False
+    assert report["reason"] == "plan_row_closure_failed"
+    assert "plan_index_missing" in report["error"]
+    assert not (tmp_path / feature_proof_receipt_artifact_relpath("abc123")).exists()
 
 
 def test_raw_git_commit_wrapper_fails_closed_on_trivial_feature_proof(
@@ -482,9 +782,95 @@ def test_raw_git_commit_wrapper_fails_closed_when_feature_proof_write_fails(
     assert not (tmp_path / feature_proof_receipt_artifact_relpath("abc123")).exists()
 
 
+def test_feature_ids_for_commit_ignores_mp_family_scope_labels(tmp_path: Path) -> None:
+    row_id = "MP-NEW-P235-CLOSURE-RECEIPT-VALIDITY-S1"
+    write_plan_rows_jsonl(
+        tmp_path / "dev/state/plan_index.jsonl",
+        (
+            PlanRow(
+                row_id=row_id,
+                title="Closure validity",
+                status="queued",
+                sdlc_stage="impl",
+            ),
+        ),
+    )
+
+    def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
+        if args == ("log", "-1", "--format=%B", "abc123"):
+            return GitCommandResult(
+                0,
+                (
+                    "MP-378 context only\n"
+                    "MP377 family context only\n"
+                    f"Plan: {row_id}\n"
+                    "bridge-projection-refresh\n"
+                ),
+                "",
+            )
+        return GitCommandResult(1, "", "not found")
+
+    args = Namespace(feature_id="")
+
+    feature_ids = _feature_ids_for_commit(
+        args,
+        repo_root=tmp_path,
+        runner=fake_git,
+        commit_sha="abc123",
+        primary_feature_id=row_id,
+    )
+
+    assert row_id in feature_ids
+    assert "MP-378" not in feature_ids
+    assert "MP377" not in feature_ids
+    assert "bridge-projection-refresh" not in feature_ids
+
+
+def test_feature_ids_for_commit_preserves_existing_mp377_rows(tmp_path: Path) -> None:
+    row_id = "MP377-P0-T22AN-AB"
+    write_plan_rows_jsonl(
+        tmp_path / "dev/state/plan_index.jsonl",
+        (
+            PlanRow(
+                row_id=row_id,
+                title="Existing style row",
+                status="queued",
+                sdlc_stage="impl",
+            ),
+        ),
+    )
+
+    def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
+        if args == ("log", "-1", "--format=%B", "abc123"):
+            return GitCommandResult(0, f"{row_id}: close existing row\n", "")
+        return GitCommandResult(1, "", "not found")
+
+    feature_ids = _feature_ids_for_commit(
+        Namespace(feature_id=""),
+        repo_root=tmp_path,
+        runner=fake_git,
+        commit_sha="abc123",
+        primary_feature_id=row_id,
+    )
+
+    assert row_id in feature_ids
+
+
 def test_raw_git_push_wrapper_records_push_range(tmp_path: Path) -> None:
     state = {"pushed": False}
     real_test_ref = _real_test_ref(tmp_path, "test_raw_git_push_wrapper_records_push_range")
+    row_id = "MP-NEW-P207-FEATURE-PROOF-RECEIPT-EMISSION-S2"
+    write_plan_rows_jsonl(
+        tmp_path / "dev/state/plan_index.jsonl",
+        (
+            PlanRow(
+                row_id=row_id,
+                title="Feature proof receipt emission",
+                status="queued",
+                sdlc_stage="impl",
+            ),
+        ),
+    )
 
     def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
         if args == ("rev-parse", "HEAD"):
@@ -507,7 +893,7 @@ def test_raw_git_push_wrapper_records_push_range(tmp_path: Path) -> None:
         authority="operator_witnessed",
         bypass_lifecycle_id="",
         operator_quote_evidence_ref=["packet:rev_pkt_4021", "packet:rev_pkt_4022"],
-        feature_id="MP-NEW-P207-FEATURE-PROOF-RECEIPT-EMISSION-S2",
+        feature_id=row_id,
         test_command=[real_test_ref],
         tests_passed_count=1,
         tests_failed_count=None,

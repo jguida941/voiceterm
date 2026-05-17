@@ -48,6 +48,9 @@ def render_markdown(report: dict) -> str:
             "- guard_coverage_all_executed: "
             f"{coverage.get('all_planned_commands_executed', False)}"
         )
+    dogfood_execution = report.get("dogfood_execution")
+    if isinstance(dogfood_execution, dict):
+        lines.extend(_dogfood_execution_lines(dogfood_execution))
     if report.get("error"):
         lines.append(f"- error: {report['error']}")
 
@@ -148,3 +151,12 @@ def render_markdown(report: dict) -> str:
             if remediation:
                 lines.append(f"  remediation: {remediation}")
     return "\n".join(lines)
+
+
+def _dogfood_execution_lines(receipt: dict) -> list[str]:
+    return [
+        "- dogfood_execution: "
+        f"{receipt.get('execution_state', '')} "
+        f"planned={receipt.get('planned_command_count', 0)} "
+        f"executed={receipt.get('executed_command_count', 0)}"
+    ]

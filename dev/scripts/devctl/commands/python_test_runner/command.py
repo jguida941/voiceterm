@@ -14,6 +14,16 @@ from ...config import REPO_ROOT
 from ...runtime.python_test_contract import build_python_test_command
 from ...time_utils import utc_timestamp
 
+PYTEST_SUCCESS_OUTPUT_PATTERN = "[100%]"
+PYTEST_PASS_SUMMARY_PATTERN = " passed"
+PYTEST_FORBIDDEN_OUTPUT_PATTERNS = (
+    " failed",
+    " error",
+    " errors",
+    "ERROR",
+    "Traceback",
+)
+
 
 @dataclass(frozen=True)
 class PytestShardAggregate:
@@ -62,6 +72,13 @@ def _run_python_tests(resolved, *, args, env: dict[str, str]) -> dict[str, objec
             cwd=REPO_ROOT,
             env=env,
             dry_run=args.dry_run,
+            policy=CommandRunPolicy(
+                expected_output_patterns=(
+                    PYTEST_SUCCESS_OUTPUT_PATTERN,
+                    PYTEST_PASS_SUMMARY_PATTERN,
+                ),
+                forbidden_output_patterns=PYTEST_FORBIDDEN_OUTPUT_PATTERNS,
+            ),
         )
     return _run_python_test_shards(
         resolved,
@@ -97,7 +114,14 @@ def _run_python_test_shards(
                 cwd=REPO_ROOT,
                 env=env,
                 dry_run=dry_run,
-                policy=CommandRunPolicy(live_output=False),
+                policy=CommandRunPolicy(
+                    live_output=False,
+                    expected_output_patterns=(
+                        PYTEST_SUCCESS_OUTPUT_PATTERN,
+                        PYTEST_PASS_SUMMARY_PATTERN,
+                    ),
+                    forbidden_output_patterns=PYTEST_FORBIDDEN_OUTPUT_PATTERNS,
+                ),
             ): index
             for index, spec in enumerate(shard_specs)
         }
@@ -222,6 +246,7 @@ def _build_report(resolved, result: dict, *, dry_run: bool) -> dict[str, object]
     report["pytest_command"] = list(resolved.command)
     report["dry_run"] = dry_run
     report["step"] = result
+    report["command_output_receipt"] = result.get("command_output_receipt")
     report["parallelized"] = bool(result.get("parallelized", False))
     report["parallel_workers"] = int(result.get("parallel_workers") or 1)
     report["shards"] = list(result.get("shards") or [])
@@ -247,6 +272,20 @@ def _render_md(report: dict[str, object]) -> str:
         "## Command",
         f"- `{' '.join(report['pytest_command'])}`",
     ]
+    receipt = report.get("command_output_receipt")
+    if isinstance(receipt, dict):
+        lines.extend(
+            [
+                "",
+                "## Command Output Receipt",
+                f"- receipt_id: `{receipt.get('receipt_id')}`",
+                f"- stdout_byte_count: {receipt.get('stdout_byte_count')}",
+                f"- capture_scope: {receipt.get('capture_scope')}",
+                f"- matched_patterns: {', '.join(receipt.get('matched_patterns') or [])}",
+                f"- missing_patterns: {', '.join(receipt.get('missing_patterns') or [])}",
+                f"- matched_forbidden_patterns: {', '.join(receipt.get('matched_forbidden_patterns') or [])}",
+            ]
+        )
     shards = report.get("shards")
     if isinstance(shards, list) and shards:
         lines.extend(["", "## Shards", "| Target | Exit | Duration (s) |", "|---|---:|---:|"])

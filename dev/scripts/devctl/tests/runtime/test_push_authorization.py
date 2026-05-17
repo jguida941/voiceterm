@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -14,6 +16,19 @@ from dev.scripts.devctl.runtime.action_contracts import ActionOutcome
 from dev.scripts.devctl.runtime.push_authorization import (
     _snapshot_only_receipt_parent_sha,
     publication_authorization_decision,
+)
+from dev.scripts.devctl.runtime.bypass_lifecycle_models import (
+    DEFAULT_BYPASS_LIFECYCLE_STORE_REL,
+    BypassAuthorityScope,
+    BypassEvaluation,
+    BypassEvaluationDecision,
+    BypassLifecycle,
+    BypassLifecycleState,
+    BypassReceipt,
+    BypassRequest,
+)
+from dev.scripts.devctl.runtime.push_override_receipts import (
+    ensure_push_override_receipt,
 )
 from dev.scripts.devctl.review_channel.remote_commit_pipeline_artifact import (
     persist_remote_commit_pipeline_contract,
@@ -103,6 +118,115 @@ def _pipeline(
     )
 
 
+def _override_pipeline(*, authorized_head_sha: str) -> RemoteCommitPipelineContract:
+    pipeline = _pipeline(authorized_head_sha=authorized_head_sha)
+    assert pipeline.push_authorization is not None
+    return replace(
+        pipeline,
+        push_authorization=replace(
+            pipeline.push_authorization,
+            approval_mode="override_push",
+            review_verdict="override_push_approved",
+            approved_by="operator",
+            override_reason="operator approved publication override",
+        ),
+    )
+
+
+def _write_push_override_receipt(
+    repo_root: Path,
+    *,
+    authorized_head_sha: str,
+    approval_mode: str = "override_push",
+    include_reason: bool = True,
+    authorization: PushAuthorizationRecord | None = None,
+) -> Path:
+    _write_active_push_bypass_lifecycle(repo_root)
+    if authorization is not None:
+        signed_authorization = replace(
+            authorization,
+            authorized_head_sha=authorized_head_sha,
+            approval_mode=approval_mode,
+        )
+        receipt = ensure_push_override_receipt(
+            repo_root=repo_root,
+            authorization=signed_authorization,
+            override_summary=(
+                "Operator approved exact-head publication."
+                if include_reason
+                else ""
+            ),
+        )
+        assert receipt is not None
+        return receipt.path
+
+    receipt_root = repo_root / "dev/audits/push_override_receipts"
+    receipt_root.mkdir(parents=True, exist_ok=True)
+    reason_section = (
+        "\n## Override reason\n\nOperator approved exact-head publication.\n"
+        if include_reason
+        else ""
+    )
+    receipt_path = receipt_root / "20260405T120000Z_test_override.md"
+    receipt_path.write_text(
+        "\n".join(
+            (
+                "# Push Override Receipt",
+                "",
+                "**Contract:** `PushOverrideReceipt`",
+                "**Override id:** `override-test-20260405T120000Z`",
+                "**Recorded by:** operator",
+                f"**Authorized HEAD SHA:** `{authorized_head_sha}`",
+                "",
+                "## Approval typing",
+                "",
+                f"- **approval_mode:** `{approval_mode}`",
+                "- **review_verdict:** `override_push_approved`",
+                reason_section,
+            )
+        ),
+        encoding="utf-8",
+    )
+    return receipt_path
+
+
+def _write_active_push_bypass_lifecycle(repo_root: Path) -> BypassLifecycle:
+    lifecycle = BypassLifecycle(
+        lifecycle_id="bypass-lifecycle-20260405T120000Z",
+        state=BypassLifecycleState.ACTIVE,
+        request=BypassRequest(
+            request_id="bypass-request-20260405T120000Z",
+            scope=BypassAuthorityScope.EDIT_COMMIT_AND_PUSH,
+            reason="operator approved exact-head publication",
+            actor="operator",
+            requested_at_utc="2026-04-05T11:59:00Z",
+        ),
+        evaluation=BypassEvaluation(
+            evaluation_id="bypass-eval-20260405T120000Z",
+            request_id="bypass-request-20260405T120000Z",
+            decision=BypassEvaluationDecision.APPROVED,
+            evaluated_at_utc="2026-04-05T11:59:30Z",
+            evaluator_actor_id="operator",
+            reason="operator approved exact-head publication",
+            approved_scope=BypassAuthorityScope.EDIT_COMMIT_AND_PUSH,
+        ),
+        receipt=BypassReceipt(
+            receipt_id="bypass-receipt-20260405T120000Z",
+            reason="operator approved exact-head publication",
+            operator_signature="operator-signature-20260405T120000Z",
+            ai_approval_evidence="packet:rev_pkt_override",
+            requested_authority_scope=BypassAuthorityScope.EDIT_COMMIT_AND_PUSH,
+            granted_at_utc="2026-04-05T12:00:00Z",
+            granted_by_operator_actor_id="operator",
+        ),
+        activation_evidence_refs=("packet:rev_pkt_override",),
+    )
+    store_path = repo_root / DEFAULT_BYPASS_LIFECYCLE_STORE_REL
+    store_path.parent.mkdir(parents=True, exist_ok=True)
+    store_path.write_text(json.dumps(lifecycle.to_dict()) + "\n", encoding="utf-8")
+    return lifecycle
+
+
 @patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
 @patch("dev.scripts.devctl.runtime.push_authorization.load_review_state")
 @patch("dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha")
@@ -173,6 +297,173 @@ def test_publication_authorization_reads_event_backed_pipeline_projection(
     assert decision.reason == "push_authorization_current"
     assert decision.push_authorization is not None
     assert decision.push_authorization.authorization_id == "push-auth-20260403T010000Z"
+
+
+@patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
+@patch("dev.scripts.devctl.runtime.push_authorization.load_review_state")
+@patch("dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha")
+@patch("dev.scripts.devctl.runtime.push_authorization._load_pipeline")
+def test_publication_authorization_blocks_override_push_without_matching_receipt(
+    load_pipeline_mock,
+    current_head_mock,
+    load_review_state_mock,
+    _scan_governance_mock,
+    tmp_path: Path,
+) -> None:
+    head = "abcdef1234567890abcdef1234567890abcdef12"
+    load_review_state_mock.return_value = _review_state()
+    current_head_mock.return_value = head
+    load_pipeline_mock.return_value = _override_pipeline(authorized_head_sha=head)
+
+    decision = publication_authorization_decision(repo_root=tmp_path)
+
+    assert decision.authorized is False
+    assert decision.reason == "push_override_receipt_missing"
+    assert decision.push_authorization is not None
+
+
+@patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
+@patch("dev.scripts.devctl.runtime.push_authorization.load_review_state")
+@patch("dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha")
+@patch("dev.scripts.devctl.runtime.push_authorization._load_pipeline")
+def test_publication_authorization_blocks_override_push_with_malformed_receipt(
+    load_pipeline_mock,
+    current_head_mock,
+    load_review_state_mock,
+    _scan_governance_mock,
+    tmp_path: Path,
+) -> None:
+    head = "abcdef1234567890abcdef1234567890abcdef12"
+    pipeline = _override_pipeline(authorized_head_sha=head)
+    load_review_state_mock.return_value = _review_state()
+    current_head_mock.return_value = head
+    load_pipeline_mock.return_value = pipeline
+    _write_push_override_receipt(
+        tmp_path,
+        authorized_head_sha=head,
+        include_reason=False,
+    )
+
+    decision = publication_authorization_decision(repo_root=tmp_path)
+
+    assert decision.authorized is False
+    assert decision.reason == "push_override_receipt_invalid"
+    assert decision.push_authorization is not None
+    assert "override_reason" in decision.summary
+
+
+@patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
+@patch("dev.scripts.devctl.runtime.push_authorization.load_review_state")
+@patch("dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha")
+@patch("dev.scripts.devctl.runtime.push_authorization._load_pipeline")
+def test_publication_authorization_allows_override_push_with_matching_receipt(
+    load_pipeline_mock,
+    current_head_mock,
+    load_review_state_mock,
+    _scan_governance_mock,
+    tmp_path: Path,
+) -> None:
+    head = "abcdef1234567890abcdef1234567890abcdef12"
+    pipeline = _override_pipeline(authorized_head_sha=head)
+    load_review_state_mock.return_value = _review_state()
+    current_head_mock.return_value = head
+    load_pipeline_mock.return_value = pipeline
+    assert pipeline.push_authorization is not None
+    _write_push_override_receipt(
+        tmp_path,
+        authorized_head_sha=head,
+        authorization=pipeline.push_authorization,
+    )
+
+    decision = publication_authorization_decision(repo_root=tmp_path)
+
+    assert decision.authorized is True
+    assert decision.reason == "push_authorization_current"
+    assert decision.push_authorization is not None
+
+
+@patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
+@patch("dev.scripts.devctl.runtime.push_authorization.load_review_state")
+@patch("dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha")
+@patch("dev.scripts.devctl.runtime.push_authorization._load_pipeline")
+def test_publication_authorization_blocks_signed_override_without_active_lifecycle(
+    load_pipeline_mock,
+    current_head_mock,
+    load_review_state_mock,
+    _scan_governance_mock,
+    tmp_path: Path,
+) -> None:
+    head = "abcdef1234567890abcdef1234567890abcdef12"
+    pipeline = _override_pipeline(authorized_head_sha=head)
+    load_review_state_mock.return_value = _review_state()
+    current_head_mock.return_value = head
+    load_pipeline_mock.return_value = pipeline
+    assert pipeline.push_authorization is not None
+    _write_push_override_receipt(
+        tmp_path,
+        authorized_head_sha=head,
+        authorization=pipeline.push_authorization,
+    )
+    (tmp_path / DEFAULT_BYPASS_LIFECYCLE_STORE_REL).unlink()
+
+    decision = publication_authorization_decision(repo_root=tmp_path)
+
+    assert decision.authorized is False
+    assert decision.reason == "push_override_receipt_invalid"
+    assert "active_bypass_lifecycle" in decision.summary
+
+
+@patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
+@patch("dev.scripts.devctl.runtime.push_authorization.load_review_state")
+@patch("dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha")
+@patch("dev.scripts.devctl.runtime.push_authorization._load_pipeline")
+def test_publication_authorization_blocks_override_push_with_unsigned_receipt(
+    load_pipeline_mock,
+    current_head_mock,
+    load_review_state_mock,
+    _scan_governance_mock,
+    tmp_path: Path,
+) -> None:
+    head = "abcdef1234567890abcdef1234567890abcdef12"
+    load_review_state_mock.return_value = _review_state()
+    current_head_mock.return_value = head
+    load_pipeline_mock.return_value = _override_pipeline(authorized_head_sha=head)
+    _write_push_override_receipt(tmp_path, authorized_head_sha=head)
+
+    decision = publication_authorization_decision(repo_root=tmp_path)
+
+    assert decision.authorized is False
+    assert decision.reason == "push_override_receipt_invalid"
+    assert "hmac_signature" in decision.summary
+
+
+@patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
+@patch("dev.scripts.devctl.runtime.push_authorization.load_review_state")
+@patch("dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha")
+@patch("dev.scripts.devctl.runtime.push_authorization._load_pipeline")
+def test_publication_authorization_blocks_override_push_with_short_receipt_sha(
+    load_pipeline_mock,
+    current_head_mock,
+    load_review_state_mock,
+    _scan_governance_mock,
+    tmp_path: Path,
+) -> None:
+    head = "abcdef1234567890abcdef1234567890abcdef12"
+    pipeline = _override_pipeline(authorized_head_sha=head)
+    load_review_state_mock.return_value = _review_state()
+    current_head_mock.return_value = head
+    load_pipeline_mock.return_value = pipeline
+    assert pipeline.push_authorization is not None
+    _write_push_override_receipt(
+        tmp_path,
+        authorized_head_sha=head[:12],
+        authorization=pipeline.push_authorization,
+    )
+
+    decision = publication_authorization_decision(repo_root=tmp_path)
+
+    assert decision.authorized is False
+    assert decision.reason == "push_override_receipt_missing"
 
 
 @patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")

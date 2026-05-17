@@ -1,7 +1,6 @@
 """Publication-authorization helpers for governed push execution."""
 
 from __future__ import annotations
-
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
@@ -18,6 +17,7 @@ from .remote_commit_pipeline_models import (
     PushAuthorizationRecord,
     RemoteCommitPipelineContract,
 )
+from .push_override_receipts import PushOverrideReceipt, push_override_receipt_violation
 from .role_topology import resolve_role_topology
 from .review_snapshot_refresh import (
     receipt_commit_ancestor_shas,
@@ -28,8 +28,6 @@ from .review_state_locator import load_review_state
 
 @dataclass(frozen=True, slots=True)
 class PublicationAuthorizationDecision:
-    """Resolved publication gate for one push attempt."""
-
     authorization_required: bool
     authorized: bool
     reason: str
@@ -82,9 +80,7 @@ def publication_authorization_decision(
             authorization_required=False,
             authorized=True,
             reason="authorization_not_required",
-            summary=(
-                "This push does not require a persisted publication authorization."
-            ),
+            summary="This push does not require a persisted publication authorization.",
         )
     if authorization is None:
         return PublicationAuthorizationDecision(
@@ -98,6 +94,7 @@ def publication_authorization_decision(
             ),
         )
     authorized_via_snapshot_receipt, blocked_decision = _validate_authorization_record(
+        repo_root=repo_root,
         authorization=authorization,
         pipeline=pipeline,
         current_head=current_head,
@@ -131,6 +128,7 @@ def publication_authorization_decision(
 
 def _validate_authorization_record(
     *,
+    repo_root: Path,
     authorization: PushAuthorizationRecord,
     pipeline: RemoteCommitPipelineContract,
     current_head: str,
@@ -173,6 +171,14 @@ def _validate_authorization_record(
                 "The publication authorization does not carry a passing guard "
                 "result for this commit."
             ),
+            authorization=authorization,
+        )
+    if violation := push_override_receipt_violation(
+        repo_root=repo_root, authorization=authorization
+    ):
+        return False, _blocked_authorization_decision(
+            reason=violation[0],
+            summary=violation[1],
             authorization=authorization,
         )
     if (
@@ -307,9 +313,7 @@ def _pipeline_targets_current_publication(
     snapshot_receipt_ancestors: tuple[str, ...],
 ) -> bool:
     authorization = pipeline.push_authorization
-    authorized_head = (
-        "" if authorization is None else str(authorization.authorized_head_sha or "")
-    )
+    authorized_head = "" if authorization is None else str(authorization.authorized_head_sha or "")
     return any(
         _same_commit(candidate, current)
         for candidate in (pipeline.commit_sha, authorized_head)
@@ -327,11 +331,8 @@ def _snapshot_only_receipt_parent_sha(
     current_head: str,
     governance: object,
 ) -> str:
-    """Return HEAD's parent when HEAD is a governed snapshot receipt commit."""
     return receipt_commit_parent_sha(
-        repo_root=repo_root,
-        current_head=current_head,
-        governance=governance,
+        repo_root=repo_root, current_head=current_head, governance=governance
     )
 
 
@@ -343,5 +344,6 @@ def _same_commit(left: str, right: str) -> bool:
 
 __all__ = [
     "PublicationAuthorizationDecision",
+    "PushOverrideReceipt",
     "publication_authorization_decision",
 ]

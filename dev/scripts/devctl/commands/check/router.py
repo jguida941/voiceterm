@@ -7,6 +7,7 @@ from ...collect import collect_git_status
 from ...time_utils import utc_timestamp
 from .router_constants import BUNDLE_BY_LANE, resolve_check_router_config
 from .router_coverage import (
+    build_dogfood_execution_receipt,
     build_guard_coverage_receipt,
     build_remediation_actions,
 )
@@ -218,6 +219,17 @@ def run(args) -> int:
         dry_run=bool(getattr(args, "dry_run", False)),
         bundle_name=bundle_name,
         risk_addons=risk_addons,
+    )
+    report["dogfood_execution"] = build_dogfood_execution_receipt(
+        lane=lane,
+        bundle_name=bundle_name,
+        changed_paths=changed_paths,
+        risk_addons=risk_addons,
+        planned_rows=planned_rows,
+        steps=steps,
+        execute=execute,
+        dry_run=bool(getattr(args, "dry_run", False)),
+        validation_scope=validation_scope.to_dict(),
     )
     report["remediation_actions"] = build_remediation_actions(steps)
 

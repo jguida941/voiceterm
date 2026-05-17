@@ -19,6 +19,7 @@ ROLE_CUSTOMIZATION_SCHEMA_VERSION = 1
 
 _ROLE_ID_RE = re.compile(r"[^a-z0-9_]+")
 _PROVIDER_SPECIFIC_COMMAND_MARKERS = ("claude-", "codex-", "cursor-")
+_ALLOWED_INSTRUCTION_KINDS = frozenset({"operator_rule"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -211,7 +212,7 @@ def role_creation_action_from_mapping(
         _role_guard_from_mapping(coerce_mapping(item))
         for item in _mapping_items(mapping.get("guards"))
     )
-    return RoleCreationAction(
+    action = RoleCreationAction(
         action_id=coerce_string(mapping.get("action_id")) or f"role_create:{role.role_id}",
         role=role,
         instruction_cards=cards,
@@ -222,6 +223,14 @@ def role_creation_action_from_mapping(
         schema_version=_int(mapping.get("schema_version")) or ROLE_CUSTOMIZATION_SCHEMA_VERSION,
         contract_id=coerce_string(mapping.get("contract_id")) or ROLE_CREATION_ACTION_CONTRACT_ID,
     )
+    errors = tuple(
+        dict.fromkeys(
+            (*action.validation_errors, *validate_role_creation_action(action))
+        )
+    )
+    if not errors:
+        return action
+    return replace(action, status="rejected", validation_errors=errors)
 
 
 def validate_role_creation_action(action: RoleCreationAction) -> tuple[str, ...]:
@@ -236,6 +245,13 @@ def validate_role_creation_action(action: RoleCreationAction) -> tuple[str, ...]
     for card in action.instruction_cards:
         if card.role_id != action.role.role_id:
             errors.append(f"instruction_card_role_mismatch:{card.card_id}")
+        if card.instruction_kind not in _ALLOWED_INSTRUCTION_KINDS:
+            errors.append(f"unsupported_instruction_kind:{card.card_id}")
+    expected_capabilities = tuple(
+        card.instruction_kind for card in action.instruction_cards if card.instruction_kind
+    )
+    if action.role.capabilities != expected_capabilities:
+        errors.append("custom_role_capabilities_must_derive_from_instruction_cards")
     for guard in action.guards:
         if guard.role_id != action.role.role_id:
             errors.append(f"role_guard_role_mismatch:{guard.guard_id}")

@@ -104,6 +104,12 @@ class CheckRouterTests(unittest.TestCase):
         self.assertTrue(payload["rule_summary"])
         self.assertTrue(payload["match_evidence"])
         self.assertTrue(payload["rejected_rule_traces"])
+        dogfood = payload["dogfood_execution"]
+        self.assertEqual(dogfood["contract_id"], "CheckRouterDogfoodExecution")
+        self.assertEqual(dogfood["execution_state"], "planned_only")
+        self.assertEqual(dogfood["validation_scope"], "live_worktree")
+        self.assertEqual(dogfood["planned_command_count"], 1)
+        self.assertEqual(dogfood["executed_command_count"], 0)
 
     @patch("dev.scripts.devctl.commands.check.router_execution.write_output")
     @patch("dev.scripts.devctl.commands.check_router._extract_bundle_commands")
@@ -697,6 +703,21 @@ class CheckRouterTests(unittest.TestCase):
         self.assertEqual(coverage["failed_command_count"], 1)
         self.assertEqual(coverage["unexecuted_command_count"], 0)
         self.assertTrue(coverage["all_planned_commands_executed"])
+        dogfood = payload["dogfood_execution"]
+        self.assertEqual(dogfood["contract_id"], "CheckRouterDogfoodExecution")
+        self.assertEqual(dogfood["execution_state"], "executed_failed")
+        self.assertEqual(dogfood["lane"], "tooling")
+        self.assertEqual(dogfood["validation_scope"], "live_worktree")
+        self.assertEqual(dogfood["planned_command_count"], 2)
+        self.assertEqual(dogfood["executed_command_count"], 2)
+        self.assertIn(
+            "dev/scripts/devctl.py docs-check --strict-tooling",
+            dogfood["executed_router_commands"][0],
+        )
+        self.assertIn(
+            "dev/scripts/checks/check_registry_path_integrity.py",
+            dogfood["executed_router_commands"][1],
+        )
         self.assertEqual(
             payload["remediation_actions"][0]["reason"],
             "strict_tooling_maintainer_docs_missing",

@@ -1,0 +1,1 @@
+"""Plan metric freshness guard."""

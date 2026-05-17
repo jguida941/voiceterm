@@ -24,6 +24,10 @@ from dev.scripts.devctl.governance.repo_policy import (  # noqa: E402
     load_repo_governance_section,
 )
 from dev.scripts.devctl.runtime.master_plan_parse import plan_row_from_mapping  # noqa: E402
+from dev.scripts.devctl.runtime.commit_to_plan_row_reducer import (  # noqa: E402
+    DEFAULT_PLAN_ROW_CLOSURE_RECEIPT_STORE_REL,
+    plan_row_closure_receipt_succeeded,
+)
 from dev.scripts.devctl.runtime.repo_portability import (  # noqa: E402
     GuardMandate,
     resolve_guard_mandate,
@@ -35,6 +39,9 @@ CONTRACT_ID = "SubstrateCommitAppliedPlanRowGuard"
 DEFAULT_BASE_REF = "@{u}"
 DEFAULT_HEAD_REF = "HEAD"
 DEFAULT_PLAN_INDEX_REL = Path("dev/state/plan_index.jsonl")
+DEFAULT_PLAN_ROW_CLOSURE_RECEIPT_REL = Path(
+    DEFAULT_PLAN_ROW_CLOSURE_RECEIPT_STORE_REL
+)
 DEFAULT_SUBSTRATE_PATHS = (
     "dev/scripts/checks/",
     "dev/scripts/devctl/",
@@ -118,7 +125,14 @@ def evaluate_substrate_commits_have_applied_plan_row(
     warnings.extend(policy_warnings)
     rows, row_warnings = _read_plan_rows(plan_index_path or repo_root / DEFAULT_PLAN_INDEX_REL)
     warnings.extend(row_warnings)
+    closure_receipts, closure_warnings = _read_jsonl_rows(
+        repo_root / DEFAULT_PLAN_ROW_CLOSURE_RECEIPT_REL,
+        missing_ok=True,
+        warning_prefix="plan_row_closure_receipt",
+    )
+    warnings.extend(closure_warnings)
     covered_commits = _covered_commit_shas(rows)
+    successful_closure_commits = _successful_closure_commit_shas(closure_receipts)
 
     substrate_commit_count = 0
     covered_commit_count = 0
@@ -147,9 +161,6 @@ def evaluate_substrate_commits_have_applied_plan_row(
         if not substrate_changed_paths:
             continue
         substrate_commit_count += 1
-        if _commit_covered(commit_sha, covered_commits):
-            covered_commit_count += 1
-            continue
         committed_at = committed_at_by_commit.get(commit_sha)
         if committed_at is None:
             committed_at, time_warning = _git_commit_timestamp(
@@ -159,6 +170,25 @@ def evaluate_substrate_commits_have_applied_plan_row(
             if time_warning:
                 warnings.append(time_warning)
         scope = "enforced" if _commit_is_enforced(committed_at, mandate=mandate) else "legacy"
+        if _commit_covered(commit_sha, covered_commits):
+            if scope != "enforced" or _commit_covered(
+                commit_sha,
+                successful_closure_commits,
+            ):
+                covered_commit_count += 1
+                continue
+            gap = SubstrateCommitPlanRowViolation(
+                commit_sha=commit_sha,
+                reason="missing_successful_plan_row_closure_receipt",
+                scope=scope,
+                changed_paths=substrate_changed_paths,
+                detail=(
+                    "Post-mandate substrate commits with applied PlanRows must also "
+                    "have a PlanRowClosureReceipt with closure_succeeded=true."
+                ),
+            )
+            violations.append(gap)
+            continue
         gap = SubstrateCommitPlanRowViolation(
             commit_sha=commit_sha,
             reason="missing_applied_plan_row",
@@ -175,7 +205,7 @@ def evaluate_substrate_commits_have_applied_plan_row(
             legacy_gaps.append(gap)
 
     return SubstrateCommitAppliedPlanRowGuard(
-        ok=not violations and not row_warnings,
+        ok=not violations and not row_warnings and not closure_warnings,
         scanned_commit_count=len(commit_shas),
         substrate_commit_count=substrate_commit_count,
         covered_commit_count=covered_commit_count,
@@ -214,22 +244,37 @@ def _load_path_policy(
 
 
 def _read_plan_rows(path: Path) -> tuple[tuple[dict[str, Any], ...], tuple[str, ...]]:
+    return _read_jsonl_rows(path, missing_ok=False, warning_prefix="plan_index")
+
+
+def _read_jsonl_rows(
+    path: Path,
+    *,
+    missing_ok: bool,
+    warning_prefix: str,
+) -> tuple[tuple[dict[str, Any], ...], tuple[str, ...]]:
     rows: list[dict[str, Any]] = []
     warnings: list[str] = []
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        if missing_ok:
+            return (), ()
+        return (), (f"{warning_prefix}_missing:{path}",)
     except OSError as exc:
-        return (), (f"plan_index_read_failed:{exc.__class__.__name__}:{path}",)
+        return (), (
+            f"{warning_prefix}_read_failed:{exc.__class__.__name__}:{path}",
+        )
     for line_number, line in enumerate(lines, start=1):
         if not line.strip():
             continue
         try:
             payload = json.loads(line)
         except json.JSONDecodeError as exc:
-            warnings.append(f"invalid_plan_index_json:{line_number}:{exc.msg}")
+            warnings.append(f"invalid_{warning_prefix}_json:{line_number}:{exc.msg}")
             continue
         if not isinstance(payload, dict):
-            warnings.append(f"non_object_plan_index_row:{line_number}")
+            warnings.append(f"non_object_{warning_prefix}_row:{line_number}")
             continue
         rows.append(payload)
     return tuple(rows), tuple(warnings)
@@ -246,6 +291,21 @@ def _covered_commit_shas(rows: tuple[dict[str, Any], ...]) -> tuple[str, ...]:
             commit_ref = _commit_ref_value(ref)
             if commit_ref:
                 covered.append(commit_ref)
+    return tuple(dict.fromkeys(covered))
+
+
+def _successful_closure_commit_shas(receipts: tuple[dict[str, Any], ...]) -> tuple[str, ...]:
+    covered: list[str] = []
+    for receipt in receipts:
+        if not plan_row_closure_receipt_succeeded(receipt):
+            continue
+        commit_sha = str(receipt.get("commit_sha") or "").strip()
+        if commit_sha:
+            covered.append(commit_sha)
+            continue
+        commit_ref = _commit_ref_value(receipt.get("commit_anchor_ref"))
+        if commit_ref:
+            covered.append(commit_ref)
     return tuple(dict.fromkeys(covered))
 
 

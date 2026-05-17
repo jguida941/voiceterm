@@ -23,6 +23,7 @@ from .reviewer_head_tracking import compute_review_range
 from .follow_controller_wake_target import (
     resolve_reviewer_wake_target as _resolve_reviewer_wake_target,
 )
+from .event_store import active_push_window_write_suspension
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,23 @@ def _build_ensure_follow_tick(
     bridge_path = paths.get("bridge_path")
     status_dir = paths.get("status_dir")
     assert isinstance(bridge_path, Path)
+    suspension = active_push_window_write_suspension(repo_root=repo_root)
+    if suspension is not None:
+        report: dict[str, object] = {
+            "command": "review-channel",
+            "action": "ensure",
+            "status": "paused_by_vcs_window",
+            "reason": "vcs_window_write_suspension_active",
+            "vcs_window_write_suspension": suspension,
+            "reviewer_heartbeat_suppressed": True,
+        }
+        if isinstance(status_dir, Path):
+            report["publisher"] = deps.read_publisher_state_fn(status_dir)
+        return FollowLoopTick(
+            report=report,
+            exit_code=0,
+            reviewer_mode="publisher_suspended",
+        )
     progress_token = build_claude_progress_token(
         repo_root=repo_root,
         bridge_path=bridge_path,

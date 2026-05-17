@@ -20,6 +20,7 @@ from ...governance.push_routing import (
     resolve_preflight_since_ref,
 )
 from ...governance.push_state import current_head_commit_sha, current_upstream_ref
+from ...review_channel.event_store import push_window_write_suspension
 from ...review_channel.service_identity import worktree_identity_for_repo
 from ...runtime import TypedAction
 from ...runtime.push_authorization import publication_authorization_decision
@@ -120,6 +121,51 @@ class PushRunState:
         default_factory=dict
     )
     post_validation_auto_commit_repair: dict[str, Any] = field(default_factory=dict)
+
+
+def execute_push_flow_under_publication_suspension(
+    *,
+    state: Any,
+    policy: Any,
+    args: Any,
+    repo_root: Path,
+    report_context: Any,
+    command_runner: Any,
+    post_push_commands: Any,
+    head_commit: str,
+    requested_by: str,
+    progress_notice_fn: Any,
+    published_remote_snapshot_fn: Any,
+) -> Any:
+    """Run the push publication phase while publisher projection writes pause."""
+    with push_window_write_suspension(
+        repo_root=repo_root,
+        window_kind="push_publication",
+        requested_by=requested_by,
+        reason="governed push publication owns projection writes",
+        head_sha=head_commit,
+        branch=state.branch,
+    ):
+        return execute_push_flow_with_dependencies(
+            state,
+            policy,
+            args,
+            PushFlowDependencies(
+                run_cmd_fn=bind_command_runner_to_repo(command_runner, repo_root),
+                build_post_push_commands_fn=post_push_commands,
+                current_head_sha_fn=push_flow.current_head_commit_sha,
+                remote_head_sha_fn=push_flow._remote_head_sha,
+                published_remote_snapshot_fn=lambda reason, operator_guidance, partial_progress: (
+                    published_remote_snapshot_fn(
+                        report_context,
+                        reason=reason,
+                        operator_guidance=operator_guidance,
+                        partial_progress=partial_progress,
+                    )
+                ),
+                progress_notice_fn=progress_notice_fn,
+            ),
+        )
 
 
 def _load_run_state(
@@ -295,46 +341,54 @@ def _run_fetch_and_preflight(
         )
         return
 
-    _sync_bridge_projection_before_preflight(state, repo_root=repo_root)
-    refresh_managed_projections_before_preflight(
-        state,
-        policy,
+    with push_window_write_suspension(
         repo_root=repo_root,
-        command_runner=command_runner,
-        quality_policy_path=getattr(args, "quality_policy", None),
-    )
-    if state.errors:
-        return
-    refresh_authorized_preflight_head_after_managed_receipts(
-        state,
-        commit_pipeline=commit_pipeline,
-        repo_root=repo_root,
-    )
-    preflight_command = build_preflight_shell_command(
-        policy,
-        remote=state.remote,
-        route_state=route_state,
-        quality_policy_path=getattr(args, "quality_policy", None),
-        validation_routing=PushValidationRouting(
-            head_ref=state.push_authorization_head_commit or "HEAD",
-            range_scope_only=bool(state.push_authorization_head_commit),
-            validation_scope="pipeline_authorized_phase",
-        ),
-        report_routing=PushPreflightReportRouting(
-            output_path=PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
-        ),
-    )
-    state.preflight_step = command_runner(
-        "push-preflight",
-        ["bash", "-lc", preflight_command],
-        **build_preflight_command_kwargs(command_runner, repo_root=repo_root),
-    )
-    annotate_preflight_step(
-        state.preflight_step,
-        report_path=repo_root / PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
-    )
-    if state.preflight_step["returncode"] != 0:
-        state.errors.append("Configured push preflight failed.")
+        window_kind="push_preflight",
+        requested_by=REQUESTED_BY,
+        reason="governed push preflight owns projection writes",
+        head_sha=current_head_commit_sha(repo_root=repo_root),
+        branch=state.branch,
+    ):
+        _sync_bridge_projection_before_preflight(state, repo_root=repo_root)
+        refresh_managed_projections_before_preflight(
+            state,
+            policy,
+            repo_root=repo_root,
+            command_runner=command_runner,
+            quality_policy_path=getattr(args, "quality_policy", None),
+        )
+        if state.errors:
+            return
+        refresh_authorized_preflight_head_after_managed_receipts(
+            state,
+            commit_pipeline=commit_pipeline,
+            repo_root=repo_root,
+        )
+        preflight_command = build_preflight_shell_command(
+            policy,
+            remote=state.remote,
+            route_state=route_state,
+            quality_policy_path=getattr(args, "quality_policy", None),
+            validation_routing=PushValidationRouting(
+                head_ref=state.push_authorization_head_commit or "HEAD",
+                range_scope_only=bool(state.push_authorization_head_commit),
+                validation_scope="pipeline_authorized_phase",
+            ),
+            report_routing=PushPreflightReportRouting(
+                output_path=PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
+            ),
+        )
+        state.preflight_step = command_runner(
+            "push-preflight",
+            ["bash", "-lc", preflight_command],
+            **build_preflight_command_kwargs(command_runner, repo_root=repo_root),
+        )
+        annotate_preflight_step(
+            state.preflight_step,
+            report_path=repo_root / PUSH_PREFLIGHT_CHECK_ROUTER_REPORT,
+        )
+        if state.preflight_step["returncode"] != 0:
+            state.errors.append("Configured push preflight failed.")
 
 
 def _record_divergence(
@@ -479,25 +533,18 @@ def run_push_action(
         else build_post_push_commands_fn
     )
 
-    outcome = execute_push_flow_with_dependencies(
-        state,
-        resolved_policy,
-        args,
-        PushFlowDependencies(
-            run_cmd_fn=bind_command_runner_to_repo(command_runner, repo_root),
-            build_post_push_commands_fn=post_push_commands,
-            current_head_sha_fn=push_flow.current_head_commit_sha,
-            remote_head_sha_fn=push_flow._remote_head_sha,
-            published_remote_snapshot_fn=lambda reason, operator_guidance, partial_progress: (
-                persist_published_remote_snapshot(
-                    report_context,
-                    reason=reason,
-                    operator_guidance=operator_guidance,
-                    partial_progress=partial_progress,
-                )
-            ),
-            progress_notice_fn=_emit_push_progress_notice,
-        ),
+    outcome = execute_push_flow_under_publication_suspension(
+        state=state,
+        policy=resolved_policy,
+        args=args,
+        repo_root=repo_root,
+        report_context=report_context,
+        command_runner=command_runner,
+        post_push_commands=post_push_commands,
+        head_commit=head_commit,
+        requested_by=REQUESTED_BY,
+        progress_notice_fn=_emit_push_progress_notice,
+        published_remote_snapshot_fn=persist_published_remote_snapshot,
     )
     report = build_push_report_payload(report_context, outcome=outcome)
     if bool(args.execute):

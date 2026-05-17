@@ -15,6 +15,9 @@ from dev.scripts.devctl.runtime.stage_progress import (
     PROGRESS_ROOT_ENV,
     read_progress_events,
 )
+from dev.scripts.devctl.runtime.command_output_receipt import (
+    build_command_output_receipt,
+)
 from dev.scripts.devctl.steps import format_steps_md
 
 
@@ -66,6 +69,121 @@ class RunCmdTests(TestCase):
         )
         self.assertEqual(result["returncode"], 0)
         run_mock.assert_called_once()
+        receipt = result["command_output_receipt"]
+        self.assertEqual(receipt["contract_id"], "CommandOutputReceipt")
+        self.assertEqual(receipt["stdout_byte_count"], 2)
+        self.assertEqual(receipt["capture_scope"], "tail")
+
+    @patch(
+        "dev.scripts.devctl.command_runner._run_without_live_output",
+        return_value=(0, "ok [100%]\n"),
+    )
+    def test_run_cmd_records_expected_output_patterns(self, _run_mock) -> None:
+        result = run_cmd(
+            "quiet",
+            [sys.executable, "-c", "print('ok [100%]')"],
+            policy=CommandRunPolicy(
+                live_output=False,
+                expected_output_patterns=("[100%]", "missing-pattern"),
+            ),
+        )
+
+        receipt = result["command_output_receipt"]
+        self.assertEqual(receipt["matched_patterns"], ["[100%]"])
+        self.assertEqual(receipt["missing_patterns"], ["missing-pattern"])
+        self.assertFalse(receipt["output_assertions_satisfied"])
+
+    def test_command_output_receipt_rejects_forbidden_patterns(self) -> None:
+        receipt = build_command_output_receipt(
+            command_name="test-python",
+            command=("pytest",),
+            cwd=".",
+            exit_code=1,
+            stdout="F [100%]\n1 failed in 0.01s\n",
+            expected_patterns=("[100%]", " passed"),
+            forbidden_patterns=(" failed",),
+            capture_scope="tail",
+        )
+
+        payload = receipt.to_dict()
+        self.assertEqual(payload["matched_patterns"], ["[100%]"])
+        self.assertEqual(payload["missing_patterns"], [" passed"])
+        self.assertEqual(payload["matched_forbidden_patterns"], [" failed"])
+        self.assertFalse(payload["output_assertions_satisfied"])
+
+    def test_command_output_receipt_id_binds_assertion_policy(self) -> None:
+        base = build_command_output_receipt(
+            command_name="test-python",
+            command=("pytest",),
+            cwd=".",
+            exit_code=0,
+            stdout="ok [100%]\n1 passed in 0.01s\n",
+            expected_patterns=("[100%]", " passed"),
+            forbidden_patterns=(" failed",),
+            capture_scope="tail",
+        )
+        weaker = build_command_output_receipt(
+            command_name="test-python",
+            command=("pytest",),
+            cwd=".",
+            exit_code=0,
+            stdout="ok [100%]\n1 passed in 0.01s\n",
+            expected_patterns=("[100%]",),
+            forbidden_patterns=(),
+            capture_scope="tail",
+        )
+
+        self.assertNotEqual(base.receipt_id, weaker.receipt_id)
+
+    def test_command_output_receipt_id_binds_capture_scope(self) -> None:
+        full = build_command_output_receipt(
+            command_name="test-python",
+            command=("pytest",),
+            cwd=".",
+            exit_code=0,
+            stdout="ok [100%]\n1 passed in 0.01s\n",
+            expected_patterns=("[100%]", " passed"),
+            forbidden_patterns=(" failed",),
+            capture_scope="full",
+        )
+        tail = build_command_output_receipt(
+            command_name="test-python",
+            command=("pytest",),
+            cwd=".",
+            exit_code=0,
+            stdout="ok [100%]\n1 passed in 0.01s\n",
+            expected_patterns=("[100%]", " passed"),
+            forbidden_patterns=(" failed",),
+            capture_scope="tail",
+        )
+
+        self.assertNotEqual(full.receipt_id, tail.receipt_id)
+
+    def test_command_output_receipt_rejects_forbidden_pattern_on_zero_exit(self) -> None:
+        receipt = build_command_output_receipt(
+            command_name="test-python",
+            command=("pytest",),
+            cwd=".",
+            exit_code=0,
+            stdout="ok [100%]\n1 passed in 0.01s\nTraceback hidden\n",
+            expected_patterns=("[100%]", " passed"),
+            forbidden_patterns=("Traceback",),
+        )
+
+        self.assertFalse(receipt.output_assertions_satisfied)
+
+    def test_command_output_receipt_rejects_nonzero_exit_with_patterns(self) -> None:
+        receipt = build_command_output_receipt(
+            command_name="test-python",
+            command=("pytest",),
+            cwd=".",
+            exit_code=1,
+            stdout="ok [100%]\n1 passed in 0.01s\n",
+            expected_patterns=("[100%]", " passed"),
+            forbidden_patterns=(" failed",),
+        )
+
+        self.assertFalse(receipt.output_assertions_satisfied)
 
     @patch("builtins.print")
     def test_run_cmd_records_progress_start_and_completion(self, _mock_print) -> None:

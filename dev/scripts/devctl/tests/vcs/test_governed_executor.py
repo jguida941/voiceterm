@@ -69,6 +69,16 @@ from dev.scripts.devctl.runtime.action_contracts import (
     ACTION_RESULT_SCHEMA_VERSION,
     ActionOutcome,
 )
+from dev.scripts.devctl.runtime.bypass_lifecycle_models import (
+    DEFAULT_BYPASS_LIFECYCLE_STORE_REL,
+    BypassAuthorityScope,
+    BypassEvaluation,
+    BypassEvaluationDecision,
+    BypassLifecycle,
+    BypassLifecycleState,
+    BypassReceipt,
+    BypassRequest,
+)
 from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
     CommitIntentState,
     RemoteCommitPipelineContract,
@@ -116,6 +126,42 @@ def _actor_authority(
             for capability in denied_capabilities
         ),
     )
+
+
+def _write_active_push_bypass_lifecycle(repo_root: Path) -> None:
+    lifecycle = BypassLifecycle(
+        lifecycle_id="bypass-lifecycle-push-override",
+        state=BypassLifecycleState.ACTIVE,
+        request=BypassRequest(
+            request_id="bypass-request-push-override",
+            scope=BypassAuthorityScope.EDIT_COMMIT_AND_PUSH,
+            reason="operator approved exact-head publication",
+            actor="operator",
+            requested_at_utc="2026-04-05T11:59:00Z",
+        ),
+        evaluation=BypassEvaluation(
+            evaluation_id="bypass-eval-push-override",
+            request_id="bypass-request-push-override",
+            decision=BypassEvaluationDecision.APPROVED,
+            evaluated_at_utc="2026-04-05T11:59:30Z",
+            evaluator_actor_id="operator",
+            reason="operator approved exact-head publication",
+            approved_scope=BypassAuthorityScope.EDIT_COMMIT_AND_PUSH,
+        ),
+        receipt=BypassReceipt(
+            receipt_id="bypass-receipt-push-override",
+            reason="operator approved exact-head publication",
+            operator_signature="operator-signature-push-override",
+            ai_approval_evidence="packet:override-push",
+            requested_authority_scope=BypassAuthorityScope.EDIT_COMMIT_AND_PUSH,
+            granted_at_utc="2026-04-05T12:00:00Z",
+            granted_by_operator_actor_id="operator",
+        ),
+        activation_evidence_refs=("packet:override-push",),
+    )
+    store_path = repo_root / DEFAULT_BYPASS_LIFECYCLE_STORE_REL
+    store_path.parent.mkdir(parents=True, exist_ok=True)
+    store_path.write_text(json.dumps(lifecycle.to_dict()) + "\n", encoding="utf-8")
 
 
 def _remote_control_attachment(
@@ -2467,6 +2513,10 @@ def test_push_override_reissues_publication_authorization_through_pipeline(
             push_authorization=expired_auth,
         )
     )
+    _write_active_push_bypass_lifecycle(repo_root)
+    scripts_dir = repo_root / "dev/scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    (scripts_dir / "devctl.py").write_text("", encoding="utf-8")
     _, override_event = post_packet(
         repo_root=repo_root,
         review_channel_path=repo_root / "dev/active/review_channel.md",
