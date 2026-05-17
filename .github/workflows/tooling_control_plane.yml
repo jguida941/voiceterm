@@ -424,6 +424,9 @@ jobs:
       - name: Run substrate repo-portability guard
         run: python3 dev/scripts/checks/check_substrate_is_repo_portable.py
 
+      - name: Run substrate commit applied-plan-row guard
+        run: python3 dev/scripts/checks/check_substrate_commits_have_applied_plan_row.py
+
       - name: Run architecture-surface sync guard
         run: |
           set -euo pipefail

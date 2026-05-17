@@ -236,13 +236,36 @@
       "check_runtime_state_ignore_posture": {
         "mandate_packet_id": "rev_pkt_4017",
         "observed_at_utc": "2026-05-14T15:37:25Z"
+      },
+      "check_substrate_commits_have_applied_plan_row": {
+        "mandate_packet_id": "rev_pkt_4293",
+        "observed_at_utc": "2026-05-17T06:02:38Z"
       }
+    },
+    "substrate_commit_plan_rows": {
+      "target_paths": [
+        "dev/scripts/checks/",
+        "dev/scripts/devctl/",
+        "dev/config/",
+        "dev/guides/",
+        "dev/state/contract_registry.jsonl",
+        "AGENTS.md",
+        "CLAUDE.md"
+      ],
+      "ignore_paths": [
+        "dev/scripts/devctl/tests/",
+        "dev/test_data/",
+        "dev/reports/",
+        "dev/audits/",
+        "bridge.md"
+      ]
     },
     "repo_portability": {
       "target_paths": [
         "dev/scripts/checks/check_commit_body_packet_anchors.py",
         "dev/scripts/checks/check_commit_message_row_id_resolves.py",
         "dev/scripts/checks/check_plan_index_commit_continuity.py",
+        "dev/scripts/checks/check_substrate_commits_have_applied_plan_row.py",
         "dev/scripts/checks/packet_pkt_bind_completeness",
         "dev/scripts/checks/check_task_started_adr_precedent_linking.py",
         "dev/scripts/checks/check_typed_namespace_composition.py",

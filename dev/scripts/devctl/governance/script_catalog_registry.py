@@ -104,6 +104,10 @@ _CHECK_SCRIPT_ENTRIES = (
     ("schema_version_monotonic", "check_schema_version_monotonic.py"),
     ("state_store_authority", "check_state_store_authority.py"),
     (
+        "substrate_commits_have_applied_plan_row",
+        "check_substrate_commits_have_applied_plan_row.py",
+    ),
+    (
         "systemmap_covers_contract_registry",
         "check_systemmap_covers_contract_registry.py",
     ),
