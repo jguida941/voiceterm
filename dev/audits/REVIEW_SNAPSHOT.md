@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `24b2bc02844f` — Fix governance checkpoint gates
-- Tree hash: `3bb8336f16c3`
-- Generation stamp: `snap-0931ca3cbe99`
-- Generated at (UTC): 2026-05-17T05:04:33Z
+- HEAD: `c4612178975c` — Record artifact proof blockers
+- Tree hash: `9fd8fd96bb32`
+- Generation stamp: `snap-27a8a733d708`
+- Generated at (UTC): 2026-05-17T05:10:22Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 92 files, +7287/-1310
+- Delta since last snapshot: 24 commits, 93 files, +7499/-1316
 - Governance findings: 44 open / 0 fixed / 44 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -28,9 +28,9 @@ production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `24b2bc02844f2208d17f31e9a0291f098414aa18`
+- HEAD SHA: `c4612178975cb4392ff21377046b9346f8951f2c`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-17T01:04:03-04:00
+- HEAD timestamp (UTC): 2026-05-17T01:09:52-04:00
 
 ## 2. Governance state
 
@@ -43,8 +43,8 @@ production client (VoiceTerm...
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report_state: `blocked` (validation_failed)
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_backlog: recommended
+- publication_guidance: 3 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -64,51 +64,51 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `24b2bc02844f`
+Range: last 24 commits ending at `c4612178975c`
 
 - commits: 24
-- files changed: 92
-- insertions: +7287
-- deletions: -1310
-- bundle classes touched: docs, tooling
+- files changed: 93
+- insertions: +7499
+- deletions: -1316
+- bundle classes touched: tooling, docs
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `24b2bc02` | Fix governance checkpoint gates | 43 | +3146/-111 | tooling |  |
-| 2 | `bd28e78b` | Record raw git closure receipt warnings | 1 | +3/-0 | tooling |  |
-| 3 | `18fae0b6` | Refresh bridge projection | 1 | +4/-4 | docs |  |
-| 4 | `6f17c007` | Preserve raw git closure error codes | 12 | +488/-18 | tooling |  |
-| 5 | `b1410fcc` | Fix typed peer collaboration and raw git closure gates | 29 | +1765/-83 | tooling |  |
-| 6 | `febe8986` | Refresh external review snapshot for 8bda213b | 2 | +59/-59 | docs |  |
-| 7 | `8bda213b` | Checkpoint R287 packet intake state | 4 | +74/-80 | tooling |  |
-| 8 | `91f2ed42` | Add governed transition schema fixtures | 16 | +402/-49 | tooling |  |
-| 9 | `477f01ae` | Refresh external review snapshot for 2a99a103 | 2 | +55/-55 | docs |  |
-| 10 | `2a99a103` | Repair packet plan continuity state | 6 | +97/-65 | tooling |  |
-| 11 | `685d0892` | Refresh external review snapshot for d7591b71 | 2 | +57/-57 | docs |  |
-| 12 | `d7591b71` | Bind task-started packets to plan rows | 4 | +55/-49 | tooling |  |
-| 13 | `bfd73b2f` | Refresh external review snapshot for 6f057634 | 2 | +63/-63 | docs |  |
-| 14 | `6f057634` | Record ground-truth receipt for governance push | 2 | +50/-52 | tooling |  |
-| 15 | `be28caed` | Refresh external review snapshot for 08895a8a | 2 | +58/-56 | docs |  |
-| 16 | `08895a8a` | Document role review completion guard | 3 | +84/-89 | tooling |  |
-| 17 | `f0577b3b` | Refresh policy-owned generated surfaces for 996c3335 | 1 | +1/-1 | docs |  |
-| 18 | `996c3335` | Refresh external review snapshot for c433c686 | 2 | +55/-61 | docs |  |
-| 19 | `c433c686` | MP-378 require resolvable pytest proof nodes | 5 | +247/-51 | tooling |  |
-| 20 | `b632df44` | Refresh external review snapshot for ad84e97b | 2 | +64/-70 | docs |  |
-| 21 | `ad84e97b` | MP-378 record pytest nodes in feature proof receipts | 4 | +196/-49 | tooling |  |
-| 22 | `00ab91b8` | Refresh external review snapshot for 494e0914 | 2 | +65/-73 | docs |  |
-| 23 | `494e0914` | MP-378 require role review timeout governance chain | 3 | +141/-53 | tooling |  |
-| 24 | `b707ad20` | Refresh external review snapshot for aa840939 | 2 | +58/-62 | docs |  |
+| 1 | `c4612178` | Record artifact proof blockers | 4 | +288/-2 | tooling |  |
+| 2 | `5a14bc01` | Refresh external review snapshot for 24b2bc02 | 2 | +123/-119 | docs |  |
+| 3 | `24b2bc02` | Fix governance checkpoint gates | 43 | +3146/-111 | tooling |  |
+| 4 | `bd28e78b` | Record raw git closure receipt warnings | 1 | +3/-0 | tooling |  |
+| 5 | `18fae0b6` | Refresh bridge projection | 1 | +4/-4 | docs |  |
+| 6 | `6f17c007` | Preserve raw git closure error codes | 12 | +488/-18 | tooling |  |
+| 7 | `b1410fcc` | Fix typed peer collaboration and raw git closure gates | 29 | +1765/-83 | tooling |  |
+| 8 | `febe8986` | Refresh external review snapshot for 8bda213b | 2 | +59/-59 | docs |  |
+| 9 | `8bda213b` | Checkpoint R287 packet intake state | 4 | +74/-80 | tooling |  |
+| 10 | `91f2ed42` | Add governed transition schema fixtures | 16 | +402/-49 | tooling |  |
+| 11 | `477f01ae` | Refresh external review snapshot for 2a99a103 | 2 | +55/-55 | docs |  |
+| 12 | `2a99a103` | Repair packet plan continuity state | 6 | +97/-65 | tooling |  |
+| 13 | `685d0892` | Refresh external review snapshot for d7591b71 | 2 | +57/-57 | docs |  |
+| 14 | `d7591b71` | Bind task-started packets to plan rows | 4 | +55/-49 | tooling |  |
+| 15 | `bfd73b2f` | Refresh external review snapshot for 6f057634 | 2 | +63/-63 | docs |  |
+| 16 | `6f057634` | Record ground-truth receipt for governance push | 2 | +50/-52 | tooling |  |
+| 17 | `be28caed` | Refresh external review snapshot for 08895a8a | 2 | +58/-56 | docs |  |
+| 18 | `08895a8a` | Document role review completion guard | 3 | +84/-89 | tooling |  |
+| 19 | `f0577b3b` | Refresh policy-owned generated surfaces for 996c3335 | 1 | +1/-1 | docs |  |
+| 20 | `996c3335` | Refresh external review snapshot for c433c686 | 2 | +55/-61 | docs |  |
+| 21 | `c433c686` | MP-378 require resolvable pytest proof nodes | 5 | +247/-51 | tooling |  |
+| 22 | `b632df44` | Refresh external review snapshot for ad84e97b | 2 | +64/-70 | docs |  |
+| 23 | `ad84e97b` | MP-378 record pytest nodes in feature proof receipts | 4 | +196/-49 | tooling |  |
+| 24 | `00ab91b8` | Refresh external review snapshot for 494e0914 | 2 | +65/-73 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `bridge.md` | docs | +76/-76 |
+| `bridge.md` | docs | +96/-95 |
 | `dev/active/MASTER_PLAN.md` | tooling | +33/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +36/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1054/-1083 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1048/-1072 |
 | `dev/guides/DEVELOPMENT.md` | docs | +15/-1 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +28/-28 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +64/-0 |
@@ -119,6 +119,7 @@ Range: last 24 commits ending at `24b2bc02844f`
 | `dev/scripts/devctl/commands/development/campaign_exception_proof.py` | tooling | +2/-1 |
 | `dev/scripts/devctl/commands/development/campaign_idris_gate.py` | tooling | +142/-0 |
 | `dev/scripts/devctl/commands/development/final_response_gate.py` | tooling | +209/-2 |
+| `dev/scripts/devctl/commands/development/next_slice_blockers.py` | tooling | +85/-1 |
 | `dev/scripts/devctl/commands/development/packet_attention_lifecycle.py` | tooling | +11/-2 |
 | `dev/scripts/devctl/commands/governance/close_raw_git_exceptions.py` | tooling | +198/-9 |
 | `dev/scripts/devctl/commands/governance/exceptions.py` | tooling | +4/-1 |
@@ -137,15 +138,14 @@ Range: last 24 commits ending at `24b2bc02844f`
 | `dev/scripts/devctl/review_channel/packet_plan_integration.py` | tooling | +2/-3 |
 | `dev/scripts/devctl/review_channel/packet_terminal_lifecycle_states.py` | tooling | +74/-0 |
 | `dev/scripts/devctl/runtime/agent_loop_peer_digest_sidecar.py` | tooling | +32/-10 |
-| `dev/scripts/devctl/runtime/artifact_receipt_ledger.py` | tooling | +248/-0 |
+| `dev/scripts/devctl/runtime/artifact_receipt_ledger.py` | tooling | +330/-1 |
 | `dev/scripts/devctl/runtime/bypass_receipt_active_lookup_gate.py` | tooling | +116/-0 |
 | `dev/scripts/devctl/runtime/commit_receipt.py` | tooling | +8/-0 |
 | `dev/scripts/devctl/runtime/commit_to_plan_row_reducer.py` | tooling | +57/-1 |
 | `dev/scripts/devctl/runtime/commit_to_plan_row_role_review_gate.py` | tooling | +159/-0 |
 | `dev/scripts/devctl/runtime/development_packet_pressure.py` | tooling | +52/-2 |
 | `dev/scripts/devctl/runtime/evidence_archive_ref_guard.py` | tooling | +125/-0 |
-| `dev/scripts/devctl/runtime/feature_proof_output_proof.py` | tooling | +12/-1 |
-| _52 more files trimmed_ | | |
+| _53 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -209,6 +209,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`c4612178`** — Record artifact proof blockers
+- **`5a14bc01`** — Refresh external review snapshot for 24b2bc02
 - **`24b2bc02`** — Fix governance checkpoint gates
 - **`bd28e78b`** — Record raw git closure receipt warnings
   - Seal PlanRowClosureReceipt rows emitted by the raw-git wrapper for the R297 checkpoint and projection refresh. The rows preserve plan_row_missing warnings for the ad-hoc feature ids used by the bypass receipts.
@@ -234,8 +236,6 @@ Recent findings:
 - **`b632df44`** — Refresh external review snapshot for ad84e97b
 - **`ad84e97b` | MPs: MP-378** — MP-378 record pytest nodes in feature proof receipts
 - **`00ab91b8`** — Refresh external review snapshot for 494e0914
-- **`494e0914` | MPs: MP-378** — MP-378 require role review timeout governance chain
-- **`b707ad20`** — Refresh external review snapshot for aa840939
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -279,4 +279,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-0931ca3cbe99` binds this file to HEAD `24b2bc02844f`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-27a8a733d708` binds this file to HEAD `c4612178975c`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
