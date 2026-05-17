@@ -28,6 +28,9 @@ _CHECK_SCRIPT_ENTRIES = (
     ("command_source_validation", "check_command_source_validation.py"),
     ("commit_body_packet_anchors", "check_commit_body_packet_anchors.py"),
     ("commit_message_row_id_resolves", "check_commit_message_row_id_resolves.py"),
+    ("command_output_consumed", "check_command_output_consumed.py"),
+    ("control_decision_consistency", "check_control_decision_consistency.py"),
+    ("control_decision_obeyed", "check_control_decision_obeyed.py"),
     ("contract_connectivity", "check_contract_connectivity.py"),
     (
         "contract_registry_composite_key_uniqueness",
@@ -55,6 +58,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("compat_matrix_smoke", "compat_matrix_smoke.py"),
     ("code_shape", "check_code_shape.py"),
     ("package_layout", "check_package_layout.py"),
+    ("packet_absorption_required", "check_packet_absorption_required.py"),
     ("packet_pkt_bind_completeness", "check_packet_pkt_bind_completeness.py"),
     ("plan_index_commit_continuity", "check_plan_index_commit_continuity.py"),
     ("plan_gold_claims_resolve", "check_plan_gold_claims_resolve.py"),

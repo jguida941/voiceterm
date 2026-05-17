@@ -48,6 +48,7 @@ from dev.scripts.devctl.commands.development.orchestration_inputs import (
 from dev.scripts.devctl.commands.development.packet_attention import (
     packet_attention_from_review_state,
 )
+from dev.scripts.devctl.review_channel.packet_body_observation import packet_body_digest
 from dev.scripts.devctl.commands.development.plan_intake_decomposition import (
     decomposed_packet_rows,
 )
@@ -4694,6 +4695,52 @@ def test_packet_attention_requires_body_open_for_peer_progress_packet() -> None:
     assert attention.wake_reason == "packet_body_open_required"
     assert attention.required_command == (
         "python3 dev/scripts/devctl.py review-channel --action show "
+        "--packet-id rev_pkt_3662 --actor codex --terminal none --format md"
+    )
+
+
+def test_packet_attention_requires_semantic_ingestion_after_body_observed() -> None:
+    packet_a = {
+        "packet_id": "rev_pkt_3662",
+        "from_agent": "claude",
+        "to_agent": "codex",
+        "kind": "finding",
+        "attention_urgency": "blocking",
+        "status": "pending",
+        "lifecycle_current_state": "pending",
+        "latest_event_id": "rev_evt_3662",
+        "body": "Current packet A must be ingested before packet B.",
+        "expires_at_utc": "2999-01-01T00:00:00Z",
+    }
+    packet_a["body_observation_events"] = [
+        {
+            "body_observed_by": "codex",
+            "body_digest": packet_body_digest(packet_a),
+        }
+    ]
+    packet_b = {
+        "packet_id": "rev_pkt_3663",
+        "from_agent": "claude",
+        "to_agent": "codex",
+        "kind": "finding",
+        "status": "pending",
+        "lifecycle_current_state": "pending",
+        "latest_event_id": "rev_evt_3663",
+        "body": "Packet B must not preempt packet A ingestion.",
+        "expires_at_utc": "2999-01-01T00:00:00Z",
+    }
+    review_state = {"packets": [packet_a, packet_b]}
+
+    attention = packet_attention_from_review_state(review_state, rows=())
+
+    assert attention.attention_required is True
+    assert attention.latest_attention_packet_id == "rev_pkt_3662"
+    assert attention.wake_reason == "packet_semantic_ingestion_required"
+    assert attention.summary == (
+        "Packet attention requires semantic ingestion for rev_pkt_3662."
+    )
+    assert attention.required_command == (
+        "python3 dev/scripts/devctl.py review-channel --action ingest "
         "--packet-id rev_pkt_3662 --actor codex --terminal none --format md"
     )
 

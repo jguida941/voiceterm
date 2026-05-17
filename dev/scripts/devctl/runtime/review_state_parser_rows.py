@@ -212,10 +212,31 @@ def packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
                 ),
                 body_observed_at_utc=_string(mapping.get("body_observed_at_utc")),
                 body_observed_by=_string(mapping.get("body_observed_by")),
+                body_observed_role=_string(mapping.get("body_observed_role")),
+                body_observed_session_id=_string(
+                    mapping.get("body_observed_session_id")
+                ),
                 body_observed_event_id=_string(mapping.get("body_observed_event_id")),
                 body_digest=_string(mapping.get("body_digest")),
                 body_observation_events=_mapping_rows(
                     mapping.get("body_observation_events")
+                ),
+                semantic_ingested_at_utc=_string(
+                    mapping.get("semantic_ingested_at_utc")
+                ),
+                semantic_ingested_by=_string(mapping.get("semantic_ingested_by")),
+                semantic_ingested_role=_string(mapping.get("semantic_ingested_role")),
+                semantic_ingested_session_id=_string(
+                    mapping.get("semantic_ingested_session_id")
+                ),
+                semantic_ingested_event_id=_string(
+                    mapping.get("semantic_ingested_event_id")
+                ),
+                packet_semantic_ingestion_receipt=_optional_mapping(
+                    mapping.get("packet_semantic_ingestion_receipt")
+                ),
+                semantic_ingestion_events=_mapping_rows(
+                    mapping.get("semantic_ingestion_events")
                 ),
                 expires_at_utc=_string(mapping.get("expires_at_utc")),
                 semantic_zref=_string(mapping.get("semantic_zref")),

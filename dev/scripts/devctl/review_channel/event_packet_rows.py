@@ -11,6 +11,10 @@ from .packet_body_observation import (
     PACKET_BODY_OBSERVATION_EVENT_TYPES,
     packet_body_observation_payload_for_packet,
 )
+from .packet_semantic_ingestion import (
+    PACKET_SEMANTIC_INGESTION_EVENT_TYPES,
+    packet_semantic_ingestion_payload_for_packet,
+)
 from .packet_debt_remediation_contracts import PACKET_DURABLE_INGESTION_EVENT_TYPES
 from .packet_lifecycle import apply_lifecycle_transition, project_packet_lifecycle
 from .packet_source_identity import source_identity
@@ -119,6 +123,13 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         body_observed_event_id="",
         body_digest="",
         body_observation_events=[],
+        semantic_ingested_at_utc="",
+        semantic_ingested_by="",
+        semantic_ingested_role="",
+        semantic_ingested_session_id="",
+        semantic_ingested_event_id="",
+        packet_semantic_ingestion_receipt={},
+        semantic_ingestion_events=[],
         execution_started_at_utc="",
         execution_started_by="",
         execution_failed_at_utc="",
@@ -166,6 +177,8 @@ def apply_packet_transition(
         return project_packet_lifecycle(next_packet)
     if event_type in PACKET_BODY_OBSERVATION_EVENT_TYPES:
         return _apply_packet_body_observation(next_packet, event)
+    if event_type in PACKET_SEMANTIC_INGESTION_EVENT_TYPES:
+        return _apply_packet_semantic_ingestion(next_packet, event)
     next_packet["status"] = event.get("status") or action_request_lifecycle_status(
         event_type
     )
@@ -286,6 +299,42 @@ def _apply_packet_body_observation(
         packet["body_observed_event_id"] = event_id
     if digest:
         packet["body_digest"] = digest
+    return project_packet_lifecycle(packet)
+
+
+def _apply_packet_semantic_ingestion(
+    packet: dict[str, object],
+    event: dict[str, object],
+) -> dict[str, object]:
+    payload = packet_semantic_ingestion_payload_for_packet(event, packet)
+    ingested_by = str(payload.get("ingested_by_actor") or "").strip()
+    ingested_at = str(payload.get("ingested_at_utc") or "").strip()
+    event_id = str(payload.get("event_id") or event.get("event_id") or "").strip()
+    events = list(packet.get("semantic_ingestion_events") or [])
+    if not any(
+        isinstance(row, dict)
+        and str(row.get("event_id") or "").strip() == event_id
+        and event_id
+        for row in events
+    ):
+        events.append(payload)
+    packet["semantic_ingestion_events"] = events
+    packet["packet_semantic_ingestion_receipt"] = payload
+    if ingested_by:
+        packet["semantic_ingested_by"] = ingested_by
+    ingested_role = str(payload.get("ingested_by_role") or "").strip()
+    ingested_session = str(payload.get("ingested_by_session_id") or "").strip()
+    if ingested_role:
+        packet["semantic_ingested_role"] = ingested_role
+    if ingested_session:
+        packet["semantic_ingested_session_id"] = ingested_session
+    if ingested_at:
+        packet["semantic_ingested_at_utc"] = ingested_at
+    if event_id:
+        packet["semantic_ingested_event_id"] = event_id
+    body_digest = str(payload.get("body_sha256") or "").strip()
+    if body_digest:
+        packet["body_digest"] = body_digest
     return project_packet_lifecycle(packet)
 
 

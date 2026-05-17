@@ -218,9 +218,18 @@ class ReviewPacketState:
     apply_pending_after_execution_reason: str = ""
     body_observed_at_utc: str = ""
     body_observed_by: str = ""
+    body_observed_role: str = ""
+    body_observed_session_id: str = ""
     body_observed_event_id: str = ""
     body_digest: str = ""
     body_observation_events: tuple[dict[str, object], ...] = ()
+    semantic_ingested_at_utc: str = ""
+    semantic_ingested_by: str = ""
+    semantic_ingested_role: str = ""
+    semantic_ingested_session_id: str = ""
+    semantic_ingested_event_id: str = ""
+    packet_semantic_ingestion_receipt: dict[str, object] | None = None
+    semantic_ingestion_events: tuple[dict[str, object], ...] = ()
     expires_at_utc: str = ""
     semantic_zref: str = ""
     source_identity: dict[str, str] = field(default_factory=dict)

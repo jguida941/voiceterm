@@ -71,6 +71,26 @@ def add_push_parser(subparsers: argparse._SubParsersAction) -> None:
         "--quality-policy",
         help="Override the repo governance policy path for this run",
     )
+    push_cmd.add_argument(
+        "--actor",
+        default="",
+        help="Actor executing the push; used to resolve live AgentLoopDecision.",
+    )
+    push_cmd.add_argument(
+        "--role",
+        default="",
+        help="Actor role used to resolve live AgentLoopDecision.",
+    )
+    push_cmd.add_argument(
+        "--session-id",
+        default="",
+        help="Actor session id used to resolve live AgentLoopDecision.",
+    )
+    push_cmd.add_argument(
+        "--control-decision-input",
+        default="",
+        help="AgentLoopDecision/control decision JSON path enforced before push.",
+    )
     add_standard_output_arguments(push_cmd)
 
 

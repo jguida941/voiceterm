@@ -8,6 +8,7 @@ from ..runtime.review_packet_inbox_actionable import (
     is_actionable,
     packet_is_communication_only,
 )
+from ..runtime.packet_absorption import packet_semantically_ingested_by
 from ..runtime.session_termination_policy import SESSION_TERMINATION_PACKET_KINDS
 from ..runtime.value_coercion import coerce_text
 from .packet_body_observation import packet_body_digest, packet_body_observed_by
@@ -75,6 +76,13 @@ def packet_body_attention_required(
         return False
     if not packet_body_digest(packet):
         return False
+    if packet_semantic_ingestion_required(
+        packet,
+        actor=actor_id,
+        role=role,
+        session=session,
+    ):
+        return True
     if packet_body_observed_by(packet, actor=actor_id, role=role, session=session):
         return False
     if packet_durable_ingestion_succeeded(
@@ -86,6 +94,36 @@ def packet_body_attention_required(
     ):
         return False
     return True
+
+
+def packet_semantic_ingestion_required(
+    packet: Mapping[str, object],
+    *,
+    actor: str,
+    role: str = "",
+    session: str = "",
+) -> bool:
+    """Return whether an observed actionable packet still needs semantic ingestion."""
+    actor_id = coerce_text(actor)
+    if not actor_id or not is_actionable(packet):
+        return False
+    digest = packet_body_digest(packet)
+    if not digest:
+        return False
+    if not packet_body_observed_by(
+        packet,
+        actor=actor_id,
+        role=role,
+        session=session,
+        body_digest=digest,
+    ):
+        return False
+    return not packet_semantically_ingested_by(
+        packet,
+        actor=actor_id,
+        role=role,
+        session=session,
+    )
 
 
 def _route_scoped_peer_review_observation_required(

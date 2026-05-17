@@ -66,6 +66,11 @@ class AgentLoopDecision:
     pending_packet_count: int = 0
     latest_inbox_event_id: str = ""
     last_observed_event_id: str = ""
+    body_open_required: bool = False
+    body_open_packet_id: str = ""
+    semantic_ingestion_required: bool = False
+    semantic_ingestion_packet_id: str = ""
+    semantic_ingestion_reason: str = ""
     allowed_actions: tuple[str, ...] = ()
     blocked_actions: tuple[str, ...] = ()
     granted_capabilities: tuple[str, ...] = ()
@@ -132,6 +137,11 @@ class AgentLoopDecision:
             "pending_packet_count": self.pending_packet_count,
             "latest_inbox_event_id": self.latest_inbox_event_id,
             "last_observed_event_id": self.last_observed_event_id,
+            "body_open_required": self.body_open_required,
+            "body_open_packet_id": self.body_open_packet_id,
+            "semantic_ingestion_required": self.semantic_ingestion_required,
+            "semantic_ingestion_packet_id": self.semantic_ingestion_packet_id,
+            "semantic_ingestion_reason": self.semantic_ingestion_reason,
             "allowed_actions": list(self.allowed_actions),
             "blocked_actions": list(self.blocked_actions),
             "granted_capabilities": list(self.granted_capabilities),

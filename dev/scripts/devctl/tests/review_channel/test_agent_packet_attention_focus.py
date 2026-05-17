@@ -344,9 +344,70 @@ def test_observed_actionable_packet_stays_runtime_attention() -> None:
     )
 
     assert attention.pending_packet_count == 1
-    assert attention.body_open_required is False
+    assert attention.body_open_required is True
+    assert attention.body_open_packet_id == "rev_pkt_action"
+    assert "--action ingest" in attention.body_open_command
     assert attention.latest_attention_packet_id == "rev_pkt_action"
     assert attention.wake_required is True
+
+
+def test_semantically_ingested_actionable_packet_leaves_body_gate() -> None:
+    packet = {
+        "packet_id": "rev_pkt_action",
+        "from_agent": "codex",
+        "to_agent": "claude",
+        "kind": "action_request",
+        "requested_action": "apply",
+        "body": "This remains actionable after body observation.",
+        "status": "pending",
+        "lifecycle_current_state": "delivery_pending",
+        "latest_event_id": "rev_evt_52",
+        "target_role": "implementer",
+        "target_session_id": "s1",
+    }
+    digest = packet_body_digest(packet)
+    packet["body_observation_events"] = [
+        {
+            "body_observed_by": "claude",
+            "body_observed_role": "implementer",
+            "body_observed_session_id": "s1",
+            "body_digest": digest,
+        }
+    ]
+    packet["packet_semantic_ingestion_receipt"] = {
+        "contract_id": "PacketSemanticIngestionReceipt",
+        "packet_id": "rev_pkt_action",
+        "body_sha256": digest,
+        "ingested_by_actor": "claude",
+        "ingested_by_role": "implementer",
+        "ingested_by_session_id": "s1",
+        "ingested_at_utc": "2026-05-17T18:46:00Z",
+        "resulting_decision": "continue_packet_review",
+        "decision_rationale": "packet body was parsed into typed action rows",
+        "action_item_rows": [
+            {
+                "action_item_id": "rev_pkt_action:apply",
+                "kind": "apply",
+                "disposition": "deferred",
+                "target_ref": "packet:rev_pkt_action",
+                "packet_ref": "packet:rev_pkt_action",
+                "reason": "apply decision remains pending",
+                "evidence_refs": ["packet:rev_pkt_action#body_observed"],
+                "next_slice_refs": ["packet:rev_pkt_action#absorption"],
+            }
+        ],
+    }
+
+    attention = packet_attention_for_agent(
+        {"packets": [packet]},
+        actor="claude",
+        role="implementer",
+        session="s1",
+    )
+
+    assert attention.pending_packet_count == 1
+    assert attention.body_open_required is False
+    assert attention.latest_attention_packet_id == "rev_pkt_action"
 
 
 def test_durably_ingested_finding_with_route_observation_does_not_remain_runtime_attention() -> None:
@@ -378,6 +439,28 @@ def test_durably_ingested_finding_with_route_observation_does_not_remain_runtime
             "body_digest": digest,
         }
     ]
+    packet["packet_semantic_ingestion_receipt"] = {
+        "contract_id": "PacketSemanticIngestionReceipt",
+        "packet_id": "rev_pkt_finding",
+        "body_sha256": digest,
+        "ingested_by_actor": "claude",
+        "ingested_by_role": "implementer",
+        "ingested_by_session_id": "s1",
+        "ingested_at_utc": "2026-05-17T18:46:00Z",
+        "resulting_decision": "durable_plan_ingestion_already_present",
+        "decision_rationale": "finding content has route observation and plan-row evidence",
+        "action_item_rows": [
+            {
+                "action_item_id": "rev_pkt_finding:durable_ingestion",
+                "kind": "finding",
+                "disposition": "already_shipped",
+                "target_ref": "plan://rev_pkt_finding",
+                "packet_ref": "packet:rev_pkt_finding",
+                "reason": "finding already folded into durable plan state",
+                "evidence_refs": ["plan-row:rev_pkt_finding"],
+            }
+        ],
+    }
 
     attention = packet_attention_for_agent(
         {"packets": [packet]},

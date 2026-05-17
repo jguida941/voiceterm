@@ -32,6 +32,13 @@ from dev.scripts.devctl.runtime.raw_git_bypass_receipts import (
 )
 
 
+def _namespace(**kwargs) -> Namespace:
+    args = Namespace(**kwargs)
+    if kwargs.get("raw_git_action"):
+        args.allow_missing_control_decision_for_test = True
+    return args
+
+
 def _real_test_ref(repo_root: Path, test_name: str = "test_raw_git_real_proof") -> str:
     path = repo_root / "dev/scripts/devctl/tests/commands/test_raw_git.py"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -94,7 +101,7 @@ def test_raw_git_commit_wrapper_emits_receipt(tmp_path: Path) -> None:
             return GitCommandResult(0, "dev/scripts/devctl.py\n", "")
         return GitCommandResult(1, "", "not found")
 
-    args = Namespace(
+    args = _namespace(
         raw_git_action="commit",
         git_args=["--no-verify", "-m", "slice"],
         actor="codex",
@@ -155,7 +162,7 @@ def test_raw_git_commit_wrapper_validates_lifecycle_before_git(
         calls.append(args)
         return GitCommandResult(0, "", "")
 
-    args = Namespace(
+    args = _namespace(
         raw_git_action="commit",
         git_args=["-m", "slice"],
         actor="codex",
@@ -187,6 +194,125 @@ def test_raw_git_commit_wrapper_validates_lifecycle_before_git(
     assert calls == []
 
 
+def test_raw_git_commit_wrapper_obeys_blocking_control_decision_before_git(
+    tmp_path: Path,
+) -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
+        calls.append(args)
+        return GitCommandResult(0, "", "")
+
+    args = _namespace(
+        raw_git_action="commit",
+        git_args=["-m", "slice"],
+        control_decision_payload={
+            "decision": "wait",
+            "required_action": "wait_for_scoped_packet",
+            "may_mutate": False,
+            "can_run_next_command": False,
+            "operator_override": {
+                "requested": True,
+                "active": False,
+                "state": "target_required",
+            },
+            "active_packet_id": "rev_pkt_4389",
+            "attention_packet_id": "rev_pkt_4389",
+            "body_open_required": True,
+        },
+    )
+
+    report, rc = run_raw_git_action(args, repo_root=tmp_path, git_runner=fake_git)
+
+    assert rc == 1
+    assert report["ok"] is False
+    assert report["reason"] == "control_decision_obedience_failed"
+    assert "mutation_attempt_after_may_mutate_false" in report["detail"]
+    assert calls == []
+
+
+def test_raw_git_commit_wrapper_requires_control_decision_before_git(
+    tmp_path: Path,
+) -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
+        calls.append(args)
+        return GitCommandResult(0, "", "")
+
+    args = Namespace(raw_git_action="commit", git_args=["-m", "slice"])
+
+    report, rc = run_raw_git_action(args, repo_root=tmp_path, git_runner=fake_git)
+
+    assert rc == 1
+    assert report["ok"] is False
+    assert report["reason"] == "control_decision_required"
+    assert calls == []
+
+
+def test_raw_git_commit_wrapper_loads_default_control_decision_before_git(
+    tmp_path: Path,
+) -> None:
+    calls: list[tuple[str, ...]] = []
+    decision_path = tmp_path / "dev/reports/review_channel/state/latest.json"
+    decision_path.parent.mkdir(parents=True, exist_ok=True)
+    decision_path.write_text(
+        json.dumps(
+            {
+                "contract_id": "ReviewState",
+                "agent_runtime_clock": {"source_latest_event_id": "rev_evt_1"},
+                "agent_loop_decisions": [
+                    {
+                        "contract_id": "AgentLoopDecision",
+                        "actor_id": "claude",
+                        "may_mutate": True,
+                        "source_latest_event_id": "rev_evt_1",
+                    },
+                    {
+                        "contract_id": "AgentLoopDecision",
+                        "actor_id": "codex",
+                        "actor_role": "reviewer",
+                        "session_id": "current",
+                        "decision": "wait",
+                        "required_action": "wait_for_scoped_packet",
+                        "may_mutate": False,
+                        "can_run_next_command": False,
+                        "operator_override": {
+                            "requested": True,
+                            "active": False,
+                            "state": "target_required",
+                        },
+                        "active_packet_id": "rev_pkt_4389",
+                        "attention_packet_id": "rev_pkt_4389",
+                        "body_open_required": True,
+                        "source_latest_event_id": "rev_evt_1",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_git(args: tuple[str, ...], capture: bool) -> GitCommandResult:
+        calls.append(args)
+        return GitCommandResult(0, "", "")
+
+    args = Namespace(
+        raw_git_action="commit",
+        git_args=["-m", "slice"],
+        actor="codex",
+        role="reviewer",
+        session_id="current",
+    )
+
+    report, rc = run_raw_git_action(args, repo_root=tmp_path, git_runner=fake_git)
+
+    assert rc == 1
+    assert report["reason"] == "control_decision_obedience_failed"
+    assert "mutation_attempt_after_may_mutate_false" in report["detail"]
+    assert calls == []
+
+
 def test_raw_git_commit_wrapper_records_raw_commit_when_hook_advances_head(
     tmp_path: Path,
 ) -> None:
@@ -210,7 +336,7 @@ def test_raw_git_commit_wrapper_records_raw_commit_when_hook_advances_head(
             return GitCommandResult(0, "dev/state/plan_index.jsonl\n", "")
         return GitCommandResult(1, "", "not found")
 
-    args = Namespace(
+    args = _namespace(
         raw_git_action="commit",
         git_args=["--no-verify", "-m", "slice"],
         actor="codex",
@@ -301,7 +427,7 @@ def test_raw_git_commit_wrapper_transitions_plan_rows_to_applied(
             )
         return GitCommandResult(1, "", "not found")
 
-    args = Namespace(
+    args = _namespace(
         raw_git_action="commit",
         git_args=["--no-verify", "-m", "slice"],
         actor="codex",
@@ -568,7 +694,7 @@ def test_raw_git_commit_wrapper_fails_closed_on_plan_row_missing(
             return GitCommandResult(0, f"{row_id}: missing plan row\n", "")
         return GitCommandResult(1, "", "not found")
 
-    args = Namespace(
+    args = _namespace(
         raw_git_action="commit",
         git_args=["--no-verify", "-m", "slice"],
         actor="codex",
@@ -628,7 +754,7 @@ def test_raw_git_commit_wrapper_fails_when_plan_index_missing(
             return GitCommandResult(0, f"{row_id}: missing plan index\n", "")
         return GitCommandResult(1, "", "not found")
 
-    args = Namespace(
+    args = _namespace(
         raw_git_action="commit",
         git_args=["--no-verify", "-m", "slice"],
         actor="codex",
@@ -680,7 +806,7 @@ def test_raw_git_commit_wrapper_fails_closed_on_trivial_feature_proof(
             return GitCommandResult(0, "dev/scripts/devctl.py\n", "")
         return GitCommandResult(1, "", "not found")
 
-    args = Namespace(
+    args = _namespace(
         raw_git_action="commit",
         git_args=["--no-verify", "-m", "slice"],
         actor="codex",
@@ -744,7 +870,7 @@ def test_raw_git_commit_wrapper_fails_closed_when_feature_proof_write_fails(
         "dev.scripts.devctl.commands.raw_git.write_feature_proof_receipt_artifact",
         fail_write,
     )
-    args = Namespace(
+    args = _namespace(
         raw_git_action="commit",
         git_args=["--no-verify", "-m", "slice"],
         actor="codex",
@@ -810,7 +936,7 @@ def test_feature_ids_for_commit_ignores_mp_family_scope_labels(tmp_path: Path) -
             )
         return GitCommandResult(1, "", "not found")
 
-    args = Namespace(feature_id="")
+    args = _namespace(feature_id="")
 
     feature_ids = _feature_ids_for_commit(
         args,
@@ -846,7 +972,7 @@ def test_feature_ids_for_commit_preserves_existing_mp377_rows(tmp_path: Path) ->
         return GitCommandResult(1, "", "not found")
 
     feature_ids = _feature_ids_for_commit(
-        Namespace(feature_id=""),
+        _namespace(feature_id=""),
         repo_root=tmp_path,
         runner=fake_git,
         commit_sha="abc123",
@@ -886,7 +1012,7 @@ def test_raw_git_push_wrapper_records_push_range(tmp_path: Path) -> None:
             return GitCommandResult(0, "dev/state/plan_index.jsonl\n", "")
         return GitCommandResult(1, "", "not found")
 
-    args = Namespace(
+    args = _namespace(
         raw_git_action="push",
         git_args=["--no-verify"],
         actor="codex",
@@ -935,7 +1061,7 @@ def test_raw_git_wrapper_does_not_emit_receipt_when_git_fails(tmp_path: Path) ->
             return GitCommandResult(1, "", "commit failed")
         return GitCommandResult(1, "", "not found")
 
-    args = Namespace(
+    args = _namespace(
         raw_git_action="commit",
         git_args=["--no-verify", "-m", "slice"],
         actor="codex",
@@ -973,7 +1099,7 @@ def test_raw_git_wrapper_does_not_emit_receipt_for_help_noop(tmp_path: Path) -> 
         calls.append(args)
         return GitCommandResult(0, "help\n", "")
 
-    args = Namespace(
+    args = _namespace(
         raw_git_action="commit",
         git_args=["--help"],
         actor="codex",

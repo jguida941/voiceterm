@@ -41,6 +41,11 @@ from ..runtime.commit_to_plan_row_reducer import (
 )
 from ..runtime.master_plan_contract import DEFAULT_MASTER_PLAN_STORE_REL
 from ..runtime.master_plan_store import read_plan_rows_jsonl
+from ..runtime.control_decision_obedience import (
+    build_attempted_action_receipt,
+    evaluate_control_decision_obedience,
+)
+from ..runtime.control_decision_artifacts import load_control_decision_payload
 
 DEFAULT_OPERATOR_EVIDENCE_REF = "packet:rev_pkt_4022"
 GitRunner = Callable[[tuple[str, ...], bool], "GitCommandResult"]
@@ -93,6 +98,16 @@ def add_parser(sub) -> None:
         "--actor",
         default="codex",
         help="Actor executing the raw git operation.",
+    )
+    parser.add_argument(
+        "--role",
+        default="",
+        help="Actor role used to resolve the live AgentLoopDecision.",
+    )
+    parser.add_argument(
+        "--session-id",
+        default="",
+        help="Actor session id used to resolve the live AgentLoopDecision.",
     )
     parser.add_argument(
         "--authority",
@@ -179,6 +194,11 @@ def add_parser(sub) -> None:
         default=None,
         help="Repeatable evidence artifact path recorded in the FeatureProofReceipt.",
     )
+    parser.add_argument(
+        "--control-decision-input",
+        default="",
+        help="AgentLoopDecision/control decision JSON path enforced before raw git executes.",
+    )
     add_standard_output_arguments(
         parser,
         format_choices=("json", "md"),
@@ -225,6 +245,28 @@ def run_raw_git_action(
     verb = RawGitVerb(action)
     if _is_git_help_request(git_args):
         return _git_noop_report(verb, git_args, "git_help_noop"), 0
+    obedience_report = _raw_git_control_decision_obedience_report(
+        args,
+        verb=verb,
+        git_args=git_args,
+        repo_root=repo_root,
+    )
+    if obedience_report and not bool(obedience_report.get("ok")):
+        return (
+            _error_report(
+                "control_decision_obedience_failed",
+                json.dumps(obedience_report, sort_keys=True),
+            ),
+            1,
+        )
+    if not obedience_report:
+        return (
+            _error_report(
+                "control_decision_required",
+                "raw-git requires a live AgentLoopDecision/control decision before git executes.",
+            ),
+            1,
+        )
     preflight = raw_git_authority_preflight(args, repo_root=repo_root, verb=verb)
     if not preflight.ok:
         return _error_report("bypass_authority_invalid", preflight.error), 1
@@ -378,6 +420,62 @@ def _affected_paths(
     else:
         output = ""
     return tuple(line.strip() for line in output.splitlines() if line.strip())
+
+
+def _raw_git_control_decision_obedience_report(
+    args: Any,
+    *,
+    verb: RawGitVerb,
+    git_args: tuple[str, ...],
+    repo_root: Path,
+) -> dict[str, object]:
+    decision = _control_decision_payload(args, repo_root=repo_root)
+    if not isinstance(decision, dict) or not decision:
+        if _allow_missing_control_decision(args):
+            return {
+                "ok": True,
+                "command": "raw-git.control_decision_obedience",
+                "contract_id": "ControlDecisionObeyedGuard",
+                "diagnostic_bypass": "allow_missing_control_decision",
+            }
+        return {}
+    report = evaluate_control_decision_obedience(
+        decision=decision,
+        attempted_actions=(
+            build_attempted_action_receipt(
+                action_kind=f"raw-git.{verb.value}",
+                command=" ".join(
+                    (
+                        "python3",
+                        "dev/scripts/devctl.py",
+                        "raw-git",
+                        verb.value,
+                        *git_args,
+                    )
+                ),
+                argv=("raw-git", verb.value, *git_args),
+                actor=str(getattr(args, "actor", "") or ""),
+                role=str(getattr(args, "role", "") or ""),
+                session_id=str(getattr(args, "session_id", "") or ""),
+                mutates=True,
+                writes_state=True,
+                executes_command=True,
+                source_decision_id=str(decision.get("receipt_id") or ""),
+                source_snapshot_id=str(decision.get("source_snapshot_id") or ""),
+                started_at_utc=_now_utc(),
+            ).to_dict(),
+        ),
+    ).to_dict()
+    report["command"] = "raw-git.control_decision_obedience"
+    return report
+
+
+def _allow_missing_control_decision(args: Any) -> bool:
+    return bool(getattr(args, "allow_missing_control_decision_for_test", False))
+
+
+def _control_decision_payload(args: Any, *, repo_root: Path) -> dict[str, object]:
+    return load_control_decision_payload(args, repo_root=repo_root)
 
 
 def _record_feature_proof_receipts(

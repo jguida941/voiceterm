@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from ..review_channel.agent_packet_focus import packet_by_id
-from ..review_channel.agent_packet_attention import packet_body_open_command
+from ..review_channel.agent_packet_attention import (
+    packet_body_open_command,
+    packet_semantic_ingestion_command,
+)
+from ..review_channel.packet_loop_attention import packet_semantic_ingestion_required
 from ..review_channel.packet_loop_attention import packet_body_attention_required
 from .agent_loop_blocker_actions import required_action_for_blocker
 from .agent_loop_decision_builder import (
@@ -206,11 +210,25 @@ def requested_packet_body_open_decision(
         packets,
         packet_id,
         packet,
-        next_command_override=packet_body_open_command(
-            packet_id=packet_id,
-            actor=ctx.actor,
-            role=ctx.role,
-            session=ctx.session,
+        next_command_override=(
+            packet_semantic_ingestion_command(
+                packet_id=packet_id,
+                actor=ctx.actor,
+                role=ctx.role,
+                session=ctx.session,
+            )
+            if packet_semantic_ingestion_required(
+                packet,
+                actor=ctx.actor,
+                role=ctx.role,
+                session=ctx.session,
+            )
+            else packet_body_open_command(
+                packet_id=packet_id,
+                actor=ctx.actor,
+                role=ctx.role,
+                session=ctx.session,
+            )
         ),
     )
 

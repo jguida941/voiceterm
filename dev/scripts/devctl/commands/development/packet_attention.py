@@ -95,6 +95,9 @@ def packet_attention_from_review_state(
     )
     body_attention = packet_attention_for_agent(review_state, actor=agent)
     body_open_required = bool(body_attention.body_open_required)
+    body_attention_reason = "packet_body_open_required"
+    if "review-channel --action ingest" in body_attention.body_open_command:
+        body_attention_reason = "packet_semantic_ingestion_required"
     if body_open_required and body_attention.body_open_packet_id:
         latest_packet_id = body_attention.body_open_packet_id
     attention_packet = packet_by_id(review_state, latest_packet_id)
@@ -135,7 +138,7 @@ def packet_attention_from_review_state(
         required_command = ""
     elif body_open_required and body_attention.body_open_command:
         status = "wake_required"
-        wake_reason = "packet_body_open_required"
+        wake_reason = body_attention_reason
         required_command = body_attention.body_open_command
     else:
         required_command = required_command_for_record(
@@ -164,15 +167,20 @@ def packet_attention_from_review_state(
             durable_row_id=durable_row_id,
             rows=rows,
         ),
-        summary=packet_attention_summary(
-            PacketAttentionSummaryInput(
-                record=record,
-                expired_unresolved_packet_ids=expired_unresolved_ids,
-                durable_row_id=durable_row_id,
-                latest_attention_packet_id=latest_packet_id,
-                latest_finding_packet_id=packet_id,
-                pending_delivery_packet_ids=delivery_packet_ids,
-                pending_actionable_packet_ids=pending_packet_ids,
+        summary=(
+            f"Packet attention requires semantic ingestion for {latest_packet_id}."
+            if body_open_required
+            and body_attention_reason == "packet_semantic_ingestion_required"
+            else packet_attention_summary(
+                PacketAttentionSummaryInput(
+                    record=record,
+                    expired_unresolved_packet_ids=expired_unresolved_ids,
+                    durable_row_id=durable_row_id,
+                    latest_attention_packet_id=latest_packet_id,
+                    latest_finding_packet_id=packet_id,
+                    pending_delivery_packet_ids=delivery_packet_ids,
+                    pending_actionable_packet_ids=pending_packet_ids,
+                )
             )
         ),
     )

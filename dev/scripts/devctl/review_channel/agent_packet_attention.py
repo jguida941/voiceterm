@@ -11,7 +11,10 @@ from ..runtime.reviewer_runtime_models import (
 )
 from ..runtime.value_coercion import coerce_text as _text
 from .active_packet_authority import current_active_packet_for_agent
-from .agent_packet_attention_body import packet_body_open_command
+from .agent_packet_attention_body import (
+    packet_body_open_command,
+    packet_semantic_ingestion_command,
+)
 from .agent_packet_attention_priority import (
     best_attention_packet,
     best_body_open_packet,
@@ -28,6 +31,7 @@ from .agent_sync_readers import (
     agent_sync_row_for_actor,
 )
 from .packet_contract import normalize_packet_route_role
+from .packet_loop_attention import packet_semantic_ingestion_required
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,15 +191,24 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
             for packet in body_open_packet_rows
         if _text(packet.get("packet_id"))
     )
-    body_open_command = (
-        packet_body_open_command(
-            packet_id=body_open_packet_id,
+    body_open_command = _packet_attention_command(
+        body_open_packet,
+        packet_id=body_open_packet_id,
+        actor=context.actor,
+        role=context.role,
+        session=context.session,
+    )
+    semantic_ingestion_required = bool(
+        body_open_packet_id
+        and packet_semantic_ingestion_required(
+            body_open_packet,
             actor=context.actor,
             role=context.role,
             session=context.session,
         )
-        if body_open_packet_id
-        else ""
+    )
+    semantic_ingestion_command = (
+        body_open_command if semantic_ingestion_required else ""
     )
     if (
         not context.packet_rows_authoritative
@@ -208,14 +221,13 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
             body_open_packet_id=body_open_packet_id,
         )
         body_open_command = _text(fallback.get("body_open_command")) or (
-            packet_body_open_command(
+            _packet_attention_command(
+                {},
                 packet_id=body_open_packet_id,
                 actor=context.actor,
                 role=context.role,
                 session=context.session,
             )
-            if body_open_packet_id
-            else ""
         )
     return build_packet_attention_state(
         observation_actor_id=context.actor,
@@ -233,6 +245,16 @@ def _build_attention(context: _AttentionBuildInput) -> PacketAttentionState:
         unopened_body_packet_ids=unopened_body_packet_ids,
         body_open_packet_id=body_open_packet_id,
         body_open_command=body_open_command,
+        semantic_ingestion_required=semantic_ingestion_required,
+        semantic_ingestion_packet_id=(
+            body_open_packet_id if semantic_ingestion_required else ""
+        ),
+        semantic_ingestion_command=semantic_ingestion_command,
+        semantic_ingestion_reason=(
+            "packet_body_observed_without_semantic_ingestion"
+            if semantic_ingestion_required
+            else ""
+        ),
         superseded_packet_id=superseded_packet_id,
     )
 
@@ -274,4 +296,38 @@ def _matching_fallback_attention(
     return fallback
 
 
-__all__ = ["packet_attention_for_agent", "packet_body_open_command"]
+def _packet_attention_command(
+    packet: Mapping[str, object],
+    *,
+    packet_id: str,
+    actor: str,
+    role: str,
+    session: str,
+) -> str:
+    if not packet_id:
+        return ""
+    if packet and packet_semantic_ingestion_required(
+        packet,
+        actor=actor,
+        role=role,
+        session=session,
+    ):
+        return packet_semantic_ingestion_command(
+            packet_id=packet_id,
+            actor=actor,
+            role=role,
+            session=session,
+        )
+    return packet_body_open_command(
+        packet_id=packet_id,
+        actor=actor,
+        role=role,
+        session=session,
+    )
+
+
+__all__ = [
+    "packet_attention_for_agent",
+    "packet_body_open_command",
+    "packet_semantic_ingestion_command",
+]

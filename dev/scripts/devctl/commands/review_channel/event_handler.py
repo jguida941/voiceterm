@@ -9,6 +9,7 @@ file-size soft limit.
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import time
 from types import SimpleNamespace
 
@@ -29,6 +30,7 @@ from ...review_channel.follow_stream import (
 )
 from ...review_channel.pending_packets import reconcile_review_state_packet_queue
 from ...review_channel.packet_body_observation import record_packet_body_observation
+from ...review_channel.packet_semantic_ingestion import record_packet_semantic_ingestion
 from ...review_channel.projection_bundle import artifact_writes_suppressed
 from ...review_channel.readable_packet_projection import (
     build_operational_summary_view,
@@ -237,6 +239,12 @@ def _run_loaded_bundle_action(
         return run_check_ack_freshness_action(context=context, bundle=bundle)
     if args.action == "expire-packets":
         return run_expire_packets_action(context=context)
+    if args.action == "ingest":
+        return _run_semantic_ingest_action(
+            args=args,
+            context=context,
+            bundle=bundle,
+        )
     if args.action == "watch":
         return run_inbox_like_action(
             context=context,
@@ -310,6 +318,136 @@ def _run_loaded_bundle_action(
             operational_summary_only=summary_requested,
         )
     raise ValueError(f"Unsupported event-backed review-channel action: {args.action}")
+
+
+def _run_semantic_ingest_action(
+    *,
+    args,
+    context: EventActionContext,
+    bundle,
+) -> tuple[dict, int]:
+    packet_id = str(getattr(args, "packet_id", "") or "").strip()
+    actor = str(getattr(args, "actor", "") or "").strip()
+    if not packet_id:
+        return _blocked_event_report(
+            context=context,
+            args=args,
+            bundle=bundle,
+            reason="packet_semantic_ingestion_requires_packet_id",
+            warning="review-channel ingest requires --packet-id",
+        )
+    if not actor:
+        return _blocked_event_report(
+            context=context,
+            args=args,
+            bundle=bundle,
+            reason="packet_semantic_ingestion_requires_actor",
+            warning="review-channel ingest requires --actor",
+        )
+    action_item_rows, parse_error = _semantic_action_item_rows_from_args(args)
+    if parse_error:
+        return _blocked_event_report(
+            context=context,
+            args=args,
+            bundle=bundle,
+            reason="packet_semantic_ingestion_invalid_action_item_rows",
+            warning=parse_error,
+        )
+    if not action_item_rows:
+        return _blocked_event_report(
+            context=context,
+            args=args,
+            bundle=bundle,
+            reason="packet_semantic_ingestion_requires_action_item_rows",
+            warning="review-channel ingest requires explicit --semantic-action-item rows",
+        )
+    packets = filter_history_packets(
+        bundle.review_state,
+        packet_id=packet_id,
+        limit=1,
+    )
+    if len(packets) != 1:
+        return _blocked_event_report(
+            context=context,
+            args=args,
+            bundle=bundle,
+            reason="packet_semantic_ingestion_packet_not_found",
+            warning=f"review-channel ingest could not resolve packet {packet_id}",
+        )
+    bundle, event = record_packet_semantic_ingestion(
+        repo_root=context.repo_root,
+        review_channel_path=context.review_channel_path,
+        artifact_paths=context.artifact_paths,
+        bundle=bundle,
+        packet=packets[0],
+        actor=actor,
+        role=str(getattr(args, "target_role", "") or ""),
+        session_id=str(getattr(args, "target_session_id", "") or ""),
+        action_item_rows=action_item_rows,
+    )
+    if event is None:
+        return _blocked_event_report(
+            context=context,
+            args=args,
+            bundle=bundle,
+            packet=packets[0],
+            packets=packets,
+            reason="matching_packet_body_observation_required",
+            warning=(
+                "review-channel ingest requires matching packet body observation "
+                "by actor/role/session"
+            ),
+        )
+    packets = filter_history_packets(
+        bundle.review_state,
+        packet_id=packet_id,
+        limit=1,
+    )
+    return context.build_event_report_fn(
+        args=args,
+        bundle=bundle,
+        packet=packets[0] if len(packets) == 1 else None,
+        packets=packets,
+        event=event,
+    )
+
+
+def _semantic_action_item_rows_from_args(args) -> tuple[list[dict[str, object]], str]:
+    rows: list[dict[str, object]] = []
+    for raw in getattr(args, "semantic_action_item", []) or []:
+        try:
+            parsed = json.loads(str(raw))
+        except json.JSONDecodeError as exc:
+            return [], f"invalid --semantic-action-item JSON: {exc}"
+        if not isinstance(parsed, dict):
+            return [], "--semantic-action-item must be a JSON object"
+        rows.append(parsed)
+    return rows, ""
+
+
+def _blocked_event_report(
+    *,
+    context: EventActionContext,
+    args,
+    bundle,
+    reason: str,
+    warning: str,
+    packet: dict[str, object] | None = None,
+    packets: list[dict[str, object]] | None = None,
+) -> tuple[dict, int]:
+    report, _exit_code = context.build_event_report_fn(
+        args=args,
+        bundle=bundle,
+        packet=packet,
+        packets=packets,
+        warnings=[warning],
+    )
+    report["ok"] = False
+    report["exit_ok"] = False
+    report["exit_code"] = 1
+    report["status"] = "blocked"
+    report.setdefault("errors", []).append(reason)
+    return report, 1
 
 
 def _render_event_md(report: dict) -> str:

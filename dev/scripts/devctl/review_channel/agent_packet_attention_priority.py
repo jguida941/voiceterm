@@ -7,7 +7,10 @@ from collections.abc import Mapping
 from ..runtime.review_packet_inbox_actionable import attention_urgency
 from ..runtime.value_coercion import coerce_text as _text
 from .event_models import event_id_rank
-from .packet_loop_attention import packet_body_attention_required
+from .packet_loop_attention import (
+    packet_body_attention_required,
+    packet_semantic_ingestion_required,
+)
 
 
 def best_attention_packet(
@@ -52,7 +55,17 @@ def body_open_packets(
     ]
     rows.sort(
         reverse=True,
-        key=lambda packet: attention_priority_key(packet, source_rank=0, index=0),
+        key=lambda packet: (
+            1
+            if packet_semantic_ingestion_required(
+                packet,
+                actor=actor,
+                role=role,
+                session=session,
+            )
+            else 0,
+            *attention_priority_key(packet, source_rank=0, index=0),
+        ),
     )
     return tuple(rows)
 

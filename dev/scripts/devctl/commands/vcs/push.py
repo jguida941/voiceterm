@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -9,7 +10,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from ...collect import collect_git_status
-from ...common import pipe_output, run_cmd, write_output
+from ...common import emit_output, pipe_output, run_cmd, write_output
 from ...config import REPO_ROOT
 from ...governance.push_policy import build_post_push_commands, load_push_policy
 from ...governance.push_routing import (
@@ -23,6 +24,11 @@ from ...governance.push_state import current_head_commit_sha, current_upstream_r
 from ...review_channel.event_store import push_window_write_suspension
 from ...review_channel.service_identity import worktree_identity_for_repo
 from ...runtime import TypedAction
+from ...runtime.control_decision_artifacts import load_control_decision_payload
+from ...runtime.control_decision_obedience import (
+    build_attempted_action_receipt,
+    evaluate_control_decision_obedience,
+)
 from ...runtime.push_authorization import publication_authorization_decision
 from ...runtime.vcs import (
     branch_divergence,
@@ -574,6 +580,25 @@ def run(args) -> int:
     """Validate and optionally execute a guarded push for the current branch."""
     from .governed_executor import GovernedVcsExecutor
 
+    if bool(getattr(args, "execute", False)):
+        obedience_report = _push_control_decision_obedience_report(
+            args,
+            repo_root=REPO_ROOT,
+        )
+        if not obedience_report or not bool(obedience_report.get("ok")):
+            report = {
+                "ok": False,
+                "command": "devctl.push",
+                "reason": "control_decision_obedience_failed",
+                "control_decision_obedience": obedience_report
+                or {
+                    "ok": False,
+                    "reason": "no_valid_control_decision",
+                },
+            }
+            _emit_push_control_decision_report(args, report)
+            return 1
+
     resolved_policy = load_push_policy(
         repo_root=REPO_ROOT,
         policy_path=getattr(args, "quality_policy", None),
@@ -602,6 +627,96 @@ def run(args) -> int:
     return exit_code
 
 
+def _push_control_decision_obedience_report(
+    args: Any,
+    *,
+    repo_root: Path,
+) -> dict[str, object]:
+    if bool(getattr(args, "allow_missing_control_decision_for_test", False)):
+        return {
+            "ok": True,
+            "command": "devctl.push.control_decision_obedience",
+            "contract_id": "ControlDecisionObeyedGuard",
+            "diagnostic_bypass": "allow_missing_control_decision_for_test",
+        }
+    decision = load_control_decision_payload(args, repo_root=repo_root)
+    if not decision:
+        return {}
+    attempted_action = build_attempted_action_receipt(
+        action_kind="devctl.push.execute",
+        command=_push_attempted_command(args),
+        argv=tuple(_push_attempted_argv(args)),
+        actor=str(getattr(args, "actor", "") or ""),
+        role=str(getattr(args, "role", "") or ""),
+        session_id=str(getattr(args, "session_id", "") or ""),
+        mutates=True,
+        writes_state=True,
+        executes_command=True,
+        source_decision_id=str(decision.get("receipt_id") or ""),
+        source_snapshot_id=str(decision.get("source_snapshot_id") or ""),
+        started_at_utc="",
+    ).to_dict()
+    report = evaluate_control_decision_obedience(
+        decision=decision,
+        attempted_actions=(attempted_action,),
+    ).to_dict()
+    report["command"] = "devctl.push.control_decision_obedience"
+    report["attempted_action"] = attempted_action
+    return report
+
+
+def _push_attempted_argv(args: Any) -> list[str]:
+    argv = ["push"]
+    if bool(getattr(args, "execute", False)):
+        argv.append("--execute")
+    remote = str(getattr(args, "remote", "") or "").strip()
+    if remote:
+        argv.extend(["--remote", remote])
+    quality_policy = str(getattr(args, "quality_policy", "") or "").strip()
+    if quality_policy:
+        argv.extend(["--quality-policy", quality_policy])
+    if bool(getattr(args, "skip_preflight", False)):
+        argv.append("--skip-preflight")
+    if bool(getattr(args, "skip_post_push", False)):
+        argv.append("--skip-post-push")
+    return argv
+
+
+def _push_attempted_command(args: Any) -> str:
+    return " ".join(("python3", "dev/scripts/devctl.py", *_push_attempted_argv(args)))
+
+
+def _emit_push_control_decision_report(args: Any, report: dict[str, object]) -> None:
+    output = json.dumps(report, indent=2, sort_keys=True)
+    if str(getattr(args, "format", "json") or "json") == "md":
+        output = _render_push_control_decision_report(report)
+    emit_output(
+        output,
+        output_path=getattr(args, "output", None),
+        pipe_command=getattr(args, "pipe_command", None),
+        pipe_args=getattr(args, "pipe_args", None),
+        writer=write_output,
+        piper=pipe_output,
+    )
+
+
+def _render_push_control_decision_report(report: dict[str, object]) -> str:
+    lines = ["# devctl push", ""]
+    lines.append(f"- ok: {report.get('ok')}")
+    lines.append(f"- reason: {report.get('reason')}")
+    obedience = report.get("control_decision_obedience")
+    if isinstance(obedience, dict):
+        lines.append(f"- obedience_ok: {obedience.get('ok')}")
+        lines.append(f"- violation_count: {obedience.get('violation_count')}")
+        violations = obedience.get("violations")
+        if isinstance(violations, list) and violations:
+            lines.extend(("", "## Violations", ""))
+            for violation in violations:
+                if isinstance(violation, dict):
+                    lines.append(f"- {violation.get('reason')}: {violation.get('detail')}")
+    return "\n".join(lines)
+
+
 def build_push_args(
     *,
     remote: str | None = None,
@@ -610,6 +725,10 @@ def build_push_args(
     skip_preflight: bool = False,
     skip_post_push: bool = False,
     approved_target_identity: str | None = None,
+    actor: str = "",
+    role: str = "",
+    session_id: str = "",
+    control_decision_input: str = "",
     format: str = "json",
     output: str | None = None,
     pipe_command: str | None = None,
@@ -623,6 +742,10 @@ def build_push_args(
         skip_preflight=skip_preflight,
         skip_post_push=skip_post_push,
         approved_target_identity=approved_target_identity,
+        actor=actor,
+        role=role,
+        session_id=session_id,
+        control_decision_input=control_decision_input,
         format=format,
         output=output,
         pipe_command=pipe_command,

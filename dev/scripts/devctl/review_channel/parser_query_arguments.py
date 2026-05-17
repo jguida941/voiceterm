@@ -42,6 +42,15 @@ def _packet_lookup_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
             "--notes",
             help="Optional notes for typed role actions such as `implementer-ack`.",
         ),
+        arg_builder(
+            "--semantic-action-item",
+            action="append",
+            default=[],
+            help=(
+                "Repeatable JSON object for `--action ingest` describing one "
+                "PacketSemanticActionItem extracted from the packet body."
+            ),
+        ),
     ]
 
 

@@ -133,6 +133,7 @@ _POST_PUSH_DIFF_GUARD_COMMANDS: Final[frozenset[str]] = frozenset(
 
 # Governance checks shared by tooling and release bundles.
 _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
+    check_script_shell_command("publication_scope_integrity"),
     check_script_shell_command("agents_contract"),
     check_script_shell_command("release_version_parity"),
     check_script_shell_command("repo_url_parity"),
@@ -145,7 +146,6 @@ _SHARED_GOVERNANCE_CHECKS: Final[tuple[str, ...]] = (
     check_script_shell_command("plan_index_commit_continuity"),
     check_script_shell_command("plan_gold_claims_resolve"),
     check_script_shell_command("plan_metric_freshness"),
-    check_script_shell_command("publication_scope_integrity"),
     check_script_shell_command("feature_has_proof_receipt"),
     check_script_shell_command("non_trivial_output_proof"),
     check_script_shell_command("role_review_completed"),

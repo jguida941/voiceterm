@@ -43,6 +43,7 @@ REVIEW_ACTION_CHOICES = (
     "apply",
     "history",
     "show",
+    "ingest",
     "check-ack-freshness",
     "bridge-poll",
     "render-bridge",

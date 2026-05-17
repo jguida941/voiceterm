@@ -70,6 +70,13 @@ class ReviewPacketRow(TypedDict):
     body_observed_event_id: object
     body_digest: object
     body_observation_events: list[dict[str, object]]
+    semantic_ingested_at_utc: object
+    semantic_ingested_by: object
+    semantic_ingested_role: object
+    semantic_ingested_session_id: object
+    semantic_ingested_event_id: object
+    packet_semantic_ingestion_receipt: dict[str, object]
+    semantic_ingestion_events: list[dict[str, object]]
     execution_started_at_utc: object
     execution_started_by: object
     execution_failed_at_utc: object

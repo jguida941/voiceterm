@@ -39,6 +39,46 @@ from .command_output_receipt import (
     build_command_output_receipt,
     command_output_receipt_from_mapping,
 )
+from .command_output_consumed import (
+    AUTHORITY_BEARING_COMMAND_NAMES,
+    COMMAND_OUTPUT_CONSUMED_GUARD_CONTRACT_ID,
+    COMMAND_OUTPUT_CONSUMED_SCHEMA_VERSION,
+    CommandOutputConsumedReport,
+    CommandOutputConsumedViolation,
+    evaluate_command_output_consumed,
+)
+from .command_output_consumption_receipt import (
+    COMMAND_OUTPUT_CONSUMPTION_RECEIPT_CONTRACT_ID,
+    COMMAND_OUTPUT_CONSUMPTION_RECEIPT_SCHEMA_VERSION,
+    CommandOutputConsumptionReceipt,
+    build_command_output_consumption_receipt,
+    command_output_consumption_receipt_from_mapping,
+)
+from .control_decision_consistency import (
+    CONTROL_DECISION_CONSISTENCY_CONTRACT_ID,
+    CONTROL_DECISION_CONSISTENCY_SCHEMA_VERSION,
+    CONTROL_DECISION_VIOLATION_CONTRACT_ID,
+    ControlDecisionConsistencyReport,
+    ControlDecisionViolation,
+    control_decision_violations,
+    evaluate_control_decision_consistency,
+    extract_control_decisions,
+)
+from .control_decision_artifacts import (
+    DEFAULT_CONTROL_DECISION_INPUT_CANDIDATES,
+    control_decision_payload_from_mapping,
+    control_decision_payload_from_path,
+    load_latest_agent_loop_decision,
+    load_control_decision_payload,
+)
+from .control_decision_obedience import (
+    CONTROL_DECISION_OBEYED_CONTRACT_ID,
+    CONTROL_DECISION_OBEYED_SCHEMA_VERSION,
+    ControlDecisionObedienceReport,
+    ControlDecisionObedienceViolation,
+    evaluate_control_decision_obedience,
+    extract_decision_and_attempted_actions,
+)
 from .control_plane_read_model import (
     CONTROL_PLANE_READ_MODEL_CONTRACT_ID,
     CONTROL_PLANE_READ_MODEL_SCHEMA_VERSION,
@@ -143,6 +183,27 @@ from .operator_context import (
     OperatorContext,
     OperatorInteractionMode,
     operator_context_from_mapping,
+)
+from .packet_absorption import (
+    ACTIONABLE_PACKET_KINDS,
+    PACKET_ABSORPTION_GUARD_CONTRACT_ID,
+    PACKET_ABSORPTION_RECEIPT_CONTRACT_ID,
+    PACKET_ABSORPTION_SCHEMA_VERSION,
+    PACKET_SEMANTIC_INGESTION_RECEIPT_CONTRACT_ID,
+    PacketAbsorptionReceipt,
+    PacketAbsorptionRequiredReport,
+    PacketAbsorptionViolation,
+    PacketSemanticActionItem,
+    PacketSemanticIngestionReceipt,
+    build_packet_absorption_receipt,
+    build_packet_semantic_ingestion_receipt,
+    evaluate_packet_absorption_required,
+    packet_absorbed,
+    packet_absorption_receipt_from_mapping,
+    packet_semantic_ingestion_receipt_from_mapping,
+    packet_semantically_ingested,
+    packet_semantically_ingested_by,
+    semantic_ingestion_missing_for_packet,
 )
 from .project_governance import (
     PROJECT_GOVERNANCE_CONTRACT_ID,
@@ -442,6 +503,7 @@ __all__ = [
     "failure_packet_from_mapping",
     "finding_from_guard_violation",
     "finding_from_probe_hint",
+    "load_latest_agent_loop_decision",
     "memory_roots_from_mapping",
     "path_roots_from_mapping",
     "plan_registry_entry_from_mapping",

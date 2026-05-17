@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 
 from ..runtime.packet_transport_expiry import packet_transport_expired
+from ..runtime.packet_absorption import packet_absorbed
 from .pending_packet_approval_resolution import (
     approval_resolution_key,
     is_applied_approval_decision,
@@ -12,6 +13,15 @@ from .pending_packet_approval_resolution import (
 )
 from .pending_packet_durable_resolution import has_durable_resolution
 from .pending_packet_models import PacketQueueReconciliation
+
+_ACK_ABSORPTION_REQUIRED_KINDS = {
+    "action_request",
+    "decision",
+    "finding",
+    "proposal",
+    "task_started",
+    "task_produced",
+}
 
 
 def partition_live_pending_packets(
@@ -34,7 +44,7 @@ def partition_live_pending_packets(
     }
     for packet in packet_list:
         status = _packet_value(packet, "status")
-        if str(status or "").strip() != "pending":
+        if not _live_queue_status(packet):
             continue
         if _is_resolved_lifecycle(packet):
             continue
@@ -52,6 +62,28 @@ def partition_live_pending_packets(
             continue
         live_packets.append(packet)
     return live_packets, stale_packets
+
+
+def _live_queue_status(packet: object) -> bool:
+    status = str(_packet_value(packet, "status") or "").strip()
+    if status == "pending":
+        return True
+    if status != "acked":
+        return False
+    kind = str(_packet_value(packet, "kind") or "").strip()
+    if kind not in _ACK_ABSORPTION_REQUIRED_KINDS:
+        return False
+    return not _has_absorption_receipt(packet)
+
+
+def _has_absorption_receipt(packet: object) -> bool:
+    if not isinstance(packet, Mapping):
+        return False
+    receipt = _packet_value(packet, "absorption_receipt")
+    return isinstance(receipt, Mapping) and packet_absorbed(
+        packet,
+        absorption_receipts=(receipt,),
+    )
 
 
 def live_pending_packets(

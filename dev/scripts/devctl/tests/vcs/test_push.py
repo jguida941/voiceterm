@@ -81,6 +81,11 @@ def make_args(**overrides) -> SimpleNamespace:
         "execute": False,
         "skip_preflight": False,
         "skip_post_push": False,
+        "actor": "codex",
+        "role": "reviewer",
+        "session_id": "test-session",
+        "control_decision_input": "",
+        "allow_missing_control_decision_for_test": True,
         "format": "json",
         "output": None,
         "pipe_command": None,
@@ -205,6 +210,69 @@ class PushParserTests(unittest.TestCase):
         self.assertEqual(args.remote, "upstream")
         self.assertTrue(args.execute)
         self.assertTrue(args.skip_post_push)
+
+    def test_cli_accepts_push_control_decision_scope(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "push",
+                "--execute",
+                "--actor",
+                "codex",
+                "--role",
+                "reviewer",
+                "--session-id",
+                "session-1",
+                "--control-decision-input",
+                "decision.json",
+            ]
+        )
+
+        self.assertEqual(args.actor, "codex")
+        self.assertEqual(args.role, "reviewer")
+        self.assertEqual(args.session_id, "session-1")
+        self.assertEqual(args.control_decision_input, "decision.json")
+
+    @patch("dev.scripts.devctl.commands.vcs.push.emit_output")
+    @patch("dev.scripts.devctl.commands.vcs.push.run_push_action")
+    @patch("dev.scripts.devctl.commands.vcs.push.load_control_decision_payload")
+    def test_run_blocks_execute_when_control_decision_forbids_push(
+        self,
+        load_decision_mock,
+        run_push_action_mock,
+        emit_output_mock,
+    ) -> None:
+        load_decision_mock.return_value = {
+            "contract_id": "AgentLoopDecision",
+            "decision": "wait",
+            "required_action": "wait_for_scoped_packet",
+            "may_mutate": False,
+            "can_run_next_command": False,
+            "operator_override": {
+                "requested": True,
+                "active": False,
+                "state": "target_required",
+            },
+            "active_packet_id": "rev_pkt_4389",
+            "attention_packet_id": "rev_pkt_4389",
+            "body_open_required": True,
+            "source_snapshot_id": "agent-runtime-clock:rev_evt_1",
+        }
+        args = make_args(
+            execute=True,
+            actor="codex",
+            role="reviewer",
+            session_id="session-1",
+            allow_missing_control_decision_for_test=False,
+        )
+
+        rc = push.run(args)
+
+        self.assertEqual(rc, 1)
+        run_push_action_mock.assert_not_called()
+        emitted = emit_output_mock.call_args.args[0]
+        self.assertIn("control_decision_obedience_failed", emitted)
+        self.assertIn("AttemptedActionReceipt", emitted)
 
     def test_repo_policy_disallows_skip_preflight_by_default(self) -> None:
         policy = load_push_policy()
@@ -5837,6 +5905,7 @@ class PushBridgeSyncTests(unittest.TestCase):
             ),
         )
 
+        self.assertIn("check_publication_scope_integrity.py --format md &&", command)
         self.assertIn("--since-ref origin/feature/demo", command)
 
     def test_build_preflight_shell_command_can_use_authorized_publication_scope(

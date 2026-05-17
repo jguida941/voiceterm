@@ -79,9 +79,20 @@ def build_preflight_shell_command(
         if not bool(getattr(policy.preflight, "fail_fast_on_blocker", True)):
             args.append("--keep-going")
     command = shlex.join(args)
-    return normalize_repo_python_shell_command(
+    check_router_command = normalize_repo_python_shell_command(
         inject_quality_policy_command(command, quality_policy_path)
     )
+    publication_scope_command = normalize_repo_python_shell_command(
+        shlex.join(
+            [
+                "python3",
+                "dev/scripts/checks/check_publication_scope_integrity.py",
+                "--format",
+                "md",
+            ]
+        )
+    )
+    return f"{publication_scope_command} && {check_router_command}"
 
 
 def resolve_preflight_since_ref(

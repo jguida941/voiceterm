@@ -100,6 +100,79 @@ def test_live_pending_packets_excludes_failed_action_request() -> None:
     assert [packet["packet_id"] for packet in live_packets] == ["live"]
 
 
+def test_live_pending_packets_keeps_acked_actionable_without_absorption() -> None:
+    packets = [
+        _packet(
+            packet_id="acked-finding",
+            status="acked",
+            kind="finding",
+            expires_at_utc="2999-01-01T00:00:00Z",
+        ),
+        _packet(
+            packet_id="acked-system-notice",
+            status="acked",
+            kind="system_notice",
+        ),
+    ]
+
+    live_packets = live_pending_packets(packets)
+
+    assert [packet["packet_id"] for packet in live_packets] == ["acked-finding"]
+
+
+def test_live_pending_packets_keeps_body_observed_without_absorption() -> None:
+    packets = [
+        _packet(
+            packet_id="observed-finding",
+            status="pending",
+            kind="finding",
+            expires_at_utc="2999-01-01T00:00:00Z",
+        )
+        | {
+            "body_observed_at_utc": "2026-05-17T18:45:00Z",
+            "body_observed_by": "codex",
+            "body_observed_role": "reviewer",
+            "body_observed_session_id": "session-1",
+            "body_observed_event_id": "rev_evt_observed",
+        }
+    ]
+
+    live_packets = live_pending_packets(packets)
+
+    assert [packet["packet_id"] for packet in live_packets] == ["observed-finding"]
+
+
+def test_live_pending_packets_excludes_acked_actionable_with_absorption() -> None:
+    packets = [
+        _packet(
+            packet_id="absorbed-finding",
+            status="acked",
+            kind="finding",
+            expires_at_utc="2999-01-01T00:00:00Z",
+        )
+        | {
+            "absorption_receipt": {
+                "contract_id": "PacketAbsorptionReceipt",
+                "packet_id": "absorbed-finding",
+                "body_sha256": "abc123",
+                "absorbed_by_actor": "codex",
+                "absorbed_by_role": "reviewer",
+                "absorbed_by_session_id": "session-1",
+                "absorbed_at_utc": "2026-05-17T18:45:00Z",
+                "action_item_dispositions": ["P235:deferred"],
+                "resulting_decision": "continue_output_consumption_slice",
+                "decision_rationale": "packet action items were classified",
+                "defer_reason": "current output-consumption slice is blocking",
+                "next_slice_refs": ["MP-378-ARCH-SELF-IMPROVEMENT-LOOP-S1"],
+            }
+        }
+    ]
+
+    live_packets = live_pending_packets(packets)
+
+    assert live_packets == ()
+
+
 def test_live_pending_packets_preserves_typed_packets() -> None:
     packet = ReviewPacketState(
         packet_id="typed-live",
@@ -255,7 +328,7 @@ def test_latest_markdown_separates_live_packets_from_history() -> None:
     markdown = render_latest_markdown(review_state, {"agents": []})
 
     assert "## Packet Queue Reconciliation" in markdown
-    assert "expired_pending_hidden_from_inbox_total: 1" in markdown
+    assert "expired_runtime_transport_hidden_from_inbox_total: 1" in markdown
     assert "## Live Packets" in markdown
     assert "## Packet History" in markdown
     assert "Live request should render in the actionable queue" in markdown
@@ -273,7 +346,23 @@ def test_event_markdown_separates_live_packets_from_history() -> None:
     def _append_common_report_sections(lines: list[str], report: dict) -> None:
         return None
 
+    def _append_top_level_error_lines(lines: list[str], report: dict) -> None:
+        return None
+
+    class _BridgeSuccessReportRequest:
+        pass
+
+    def _build_bridge_success_report(*args, **kwargs) -> dict:
+        return {}
+
+    def _render_bridge_md(report: dict) -> str:
+        return ""
+
     stub.append_common_report_sections = _append_common_report_sections
+    stub.append_top_level_error_lines = _append_top_level_error_lines
+    stub.BridgeSuccessReportRequest = _BridgeSuccessReportRequest
+    stub.build_bridge_success_report = _build_bridge_success_report
+    stub.render_bridge_md = _render_bridge_md
     sys.modules[stub_name] = stub
     sys.modules.pop(event_render_name, None)
     try:
@@ -319,7 +408,10 @@ def test_event_markdown_separates_live_packets_from_history() -> None:
         markdown = render_event_md(report)
 
         assert "## Packet Queue Reconciliation" in markdown
-        assert "expired pending packets are archived audit rows whose TTL elapsed" in markdown
+        assert (
+            "expired runtime transport packets are archived audit rows "
+            "whose TTL elapsed"
+        ) in markdown
         assert "## Live Packets" in markdown
         assert "## Packet History" in markdown
         assert "stale: pending (expired)" in markdown
@@ -398,6 +490,7 @@ def test_filter_history_packets_uses_reduced_packet_queue() -> None:
                 packet_id="acked",
                 status="acked",
                 summary="Acked request should remain in history",
+                kind="system_notice",
             ),
         ]
     }
@@ -435,12 +528,12 @@ def test_reconcile_review_state_packet_queue_surfaces_stale_history_split() -> N
         history_limit=5,
     )
 
-    assert reconciliation.live_pending_total == 1
+    assert reconciliation.live_pending_total == 7
     assert reconciliation.stale_pending_total == 1
-    assert reconciliation.history_total == 7
-    assert reconciliation.history_shown_total == 5
-    assert reconciliation.history_truncated is True
-    assert reconciliation.pending_total_matches_queue is True
+    assert reconciliation.history_total == 1
+    assert reconciliation.history_shown_total == 1
+    assert reconciliation.history_truncated is False
+    assert reconciliation.pending_total_matches_queue is False
     assert reconciliation.stale_total_matches_queue is True
     assert reconciliation.stale_pending_hidden_from_inbox_total == 1
 

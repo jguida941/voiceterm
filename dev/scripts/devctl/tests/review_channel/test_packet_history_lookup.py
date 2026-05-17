@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -24,6 +25,9 @@ from dev.scripts.devctl.review_channel.packet_body_observation import (
     PACKET_BODY_OBSERVATION_EVENT_TYPE,
     packet_body_observation_payload_for_packet,
     record_packet_body_observation,
+)
+from dev.scripts.devctl.review_channel.packet_semantic_ingestion import (
+    PACKET_SEMANTIC_INGESTION_EVENT_TYPE,
 )
 
 
@@ -238,6 +242,110 @@ def test_show_respects_external_artifact_write_suppression(
     assert len(events) == 1
 
 
+def test_ingest_requires_prior_matching_body_observation(tmp_path) -> None:
+    review_channel_path, artifact_paths = _seed_packet_event_state(tmp_path)
+    args = _show_args(
+        action="ingest",
+        actor="codex",
+        semantic_action_item=[_semantic_action_item_json("rev_pkt_100")],
+        target_role="reviewer",
+        target_session_id="session-b",
+    )
+
+    report, exit_code = _run_event_action(
+        args=args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 1
+    assert report["ok"] is False
+    assert "matching_packet_body_observation_required" in report["errors"]
+
+
+def test_ingest_records_semantic_receipt_after_matching_show(tmp_path) -> None:
+    review_channel_path, artifact_paths = _seed_packet_event_state(tmp_path)
+    show_args = _show_args(
+        action="show",
+        actor="codex",
+        target_role="reviewer",
+        target_session_id="session-a",
+    )
+    show_report, show_exit = _run_event_action(
+        args=show_args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+    assert show_exit == 0
+    assert show_report["event"]["event_type"] == PACKET_BODY_OBSERVATION_EVENT_TYPE
+    ingest_args = _show_args(
+        action="ingest",
+        actor="codex",
+        semantic_action_item=[_semantic_action_item_json("rev_pkt_100")],
+        target_role="reviewer",
+        target_session_id="session-a",
+    )
+
+    report, exit_code = _run_event_action(
+        args=ingest_args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 0
+    assert report["event"]["event_type"] == PACKET_SEMANTIC_INGESTION_EVENT_TYPE
+    receipt = report["packet"]["packet_semantic_ingestion_receipt"]
+    assert receipt["contract_id"] == "PacketSemanticIngestionReceipt"
+    assert receipt["action_item_rows"][0]["contract_id"] == "PacketSemanticActionItem"
+
+
+def test_ingest_requires_structured_action_item_rows(tmp_path) -> None:
+    review_channel_path, artifact_paths = _seed_packet_event_state(tmp_path)
+    show_args = _show_args(
+        action="show",
+        actor="codex",
+        target_role="reviewer",
+        target_session_id="session-a",
+    )
+    _run_event_action(
+        args=show_args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+    ingest_args = _show_args(
+        action="ingest",
+        actor="codex",
+        semantic_action_item=[],
+        target_role="reviewer",
+        target_session_id="session-a",
+    )
+
+    report, exit_code = _run_event_action(
+        args=ingest_args,
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": review_channel_path,
+            "artifact_paths": artifact_paths,
+        },
+    )
+
+    assert exit_code == 1
+    assert report["ok"] is False
+    assert "packet_semantic_ingestion_requires_action_item_rows" in report["errors"]
+
+
 def _show_args(**overrides: object) -> SimpleNamespace:
     args = {
         "action": "show",
@@ -253,10 +361,64 @@ def _show_args(**overrides: object) -> SimpleNamespace:
         "stale_minutes": 30,
         "start_publisher_if_missing": False,
         "stop_grace_seconds": 0.0,
+        "semantic_action_item": [],
+        "target_role": "",
+        "target_session_id": "",
         "to_agent": None,
     }
     args.update(overrides)
     return SimpleNamespace(**args)
+
+
+def _seed_packet_event_state(
+    tmp_path,
+) -> tuple[object, ReviewChannelArtifactPaths]:
+    review_channel_path = tmp_path / "review_channel.md"
+    review_channel_path.write_text("", encoding="utf-8")
+    artifact_root = tmp_path / "review_artifacts"
+    event_log_path = artifact_root / "events" / "trace.ndjson"
+    artifact_paths = ReviewChannelArtifactPaths(
+        artifact_root=str(artifact_root),
+        event_log_path=str(event_log_path),
+        state_path=str(tmp_path / "review_state.json"),
+        projections_root=str(tmp_path / "projections"),
+    )
+    append_event(
+        event_log_path,
+        {
+            "event_type": "packet_posted",
+            "timestamp_utc": "2026-05-11T01:00:00Z",
+            "project_id": "test-project",
+            "session_id": "test-session",
+            "trace_id": "trace-test",
+            "plan_id": "MP-377",
+            "packet_id": "rev_pkt_100",
+            "from_agent": "claude",
+            "to_agent": "codex",
+            "kind": "finding",
+            "summary": "Unread body",
+            "body": "Codex must open this body before continuing.",
+            "status": "pending",
+        },
+        existing_events=[],
+    )
+    return review_channel_path, artifact_paths
+
+
+def _semantic_action_item_json(packet_id: str) -> str:
+    return json.dumps(
+        {
+            "action_item_id": f"{packet_id}:finding",
+            "kind": "finding",
+            "disposition": "deferred",
+            "target_ref": f"packet:{packet_id}",
+            "packet_ref": f"packet:{packet_id}",
+            "reason": "packet finding requires follow-up after semantic ingestion",
+            "evidence_refs": [f"packet:{packet_id}#body_observed"],
+            "next_slice_refs": [f"packet:{packet_id}#absorption"],
+        },
+        sort_keys=True,
+    )
 
 
 def test_show_validation_requires_packet_id() -> None:

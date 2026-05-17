@@ -139,6 +139,15 @@ def decision(
         pending_packet_count=coerce_int(ctx.attention.get("pending_packet_count")),
         latest_inbox_event_id=_text(ctx.attention.get("latest_inbox_event_id")),
         last_observed_event_id=_text(ctx.attention.get("last_observed_event_id")),
+        body_open_required=coerce_bool(ctx.attention.get("body_open_required")),
+        body_open_packet_id=_text(ctx.attention.get("body_open_packet_id")),
+        semantic_ingestion_required=coerce_bool(
+            ctx.attention.get("semantic_ingestion_required")
+        ),
+        semantic_ingestion_packet_id=_text(
+            ctx.attention.get("semantic_ingestion_packet_id")
+        ),
+        semantic_ingestion_reason=_text(ctx.attention.get("semantic_ingestion_reason")),
         allowed_actions=ctx.allowed_actions,
         blocked_actions=ctx.blocked_actions,
         granted_capabilities=ctx.granted_capabilities,
@@ -301,6 +310,14 @@ def body_open_command(ctx: AgentLoopContext) -> str:
     return _text(value)
 
 
+def semantic_ingestion_required(ctx: AgentLoopContext) -> bool:
+    return coerce_bool(ctx.attention.get("semantic_ingestion_required"))
+
+
+def semantic_ingestion_command(ctx: AgentLoopContext) -> str:
+    return _text(ctx.attention.get("semantic_ingestion_command"))
+
+
 def body_open_decision(
     ctx: AgentLoopContext,
     packets: PacketState,
@@ -310,14 +327,23 @@ def body_open_decision(
     next_command_override: str = "",
 ) -> AgentLoopDecision:
     packet_id = _text(ctx.attention.get("body_open_packet_id")) or pivot_packet_id
+    semantic_required = semantic_ingestion_required(ctx)
+    required_action = (
+        "ingest_packet_semantics" if semantic_required else "open_packet_body"
+    )
+    reason_code = (
+        "packet_semantic_ingestion_required"
+        if semantic_required
+        else "packet_body_open_required"
+    )
     return decision(
         ctx,
         "blocked",
-        "open_packet_body",
-        attention_reason(ctx) or "packet_body_open_required",
+        required_action,
+        attention_reason(ctx) or reason_code,
         lifecycle_state="needs_attention",
         decision_code="run_next_command",
-        reason_code="packet_body_open_required",
+        reason_code=reason_code,
         should_continue_loop=True,
         safe_to_continue=False,
         may_mutate=False,
@@ -326,7 +352,11 @@ def body_open_decision(
         executing_packet_id=packets.executing_packet_id,
         legacy_unscoped_packet_id=packets.legacy_unscoped_packet_id,
         plan_target_ref=_text(pivot_packet.get("target_ref")),
-        next_command_override=next_command_override or body_open_command(ctx),
+        next_command_override=(
+            next_command_override
+            or semantic_ingestion_command(ctx)
+            or body_open_command(ctx)
+        ),
     )
 
 

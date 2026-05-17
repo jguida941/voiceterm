@@ -121,6 +121,10 @@ class PacketAttentionState:
     body_open_required: bool = False
     body_open_packet_id: str = ""
     body_open_command: str = ""
+    semantic_ingestion_required: bool = False
+    semantic_ingestion_packet_id: str = ""
+    semantic_ingestion_command: str = ""
+    semantic_ingestion_reason: str = ""
     superseded_packet_id: str = ""
     pivot_required: bool = False
     wake_required: bool = False
@@ -227,6 +231,10 @@ def build_packet_attention_state(
     unopened_body_packet_ids: tuple[str, ...] = (),
     body_open_packet_id: str = "",
     body_open_command: str = "",
+    semantic_ingestion_required: bool = False,
+    semantic_ingestion_packet_id: str = "",
+    semantic_ingestion_command: str = "",
+    semantic_ingestion_reason: str = "",
     superseded_packet_id: str = "",
 ) -> PacketAttentionState:
     """Derive typed per-actor_session attention state.
@@ -254,6 +262,9 @@ def build_packet_attention_state(
     if body_open_required:
         pivot_reasons.append("packet_bodies_unread")
         wake_required = True
+    if semantic_ingestion_required:
+        pivot_reasons.append("packet_semantic_ingestion_required")
+        wake_required = True
     if superseded_packet_id:
         pivot_reasons.append("active_packet_superseded")
         wake_required = True
@@ -264,7 +275,9 @@ def build_packet_attention_state(
         pivot_reasons.append("actor_identity_ambiguous")
     pivot_required = bool(pivot_reasons)
     stale_reason = ""
-    if body_open_required:
+    if semantic_ingestion_required:
+        stale_reason = "packet_semantic_ingestion_required"
+    elif body_open_required:
         stale_reason = "packet_body_open_required"
     elif wake_required and not observation_actor_id:
         stale_reason = "actor_identity_ambiguous_with_pending_wake"
@@ -286,6 +299,10 @@ def build_packet_attention_state(
         body_open_required=body_open_required,
         body_open_packet_id=body_open_packet_id or (unopened_ids[0] if unopened_ids else ""),
         body_open_command=body_open_command,
+        semantic_ingestion_required=semantic_ingestion_required,
+        semantic_ingestion_packet_id=semantic_ingestion_packet_id,
+        semantic_ingestion_command=semantic_ingestion_command,
+        semantic_ingestion_reason=semantic_ingestion_reason,
         superseded_packet_id=superseded_packet_id,
         pivot_required=pivot_required,
         wake_required=wake_required,
