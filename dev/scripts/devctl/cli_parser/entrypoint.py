@@ -485,7 +485,7 @@ def main() -> int:
                 argv=sys.argv[1:],
                 machine_output=machine_output_metrics,
             )
-            if machine_output_metrics is not None:
+            if machine_output_metrics is not None and not artifact_writes_suppressed():
                 try:
                     artifact_receipt_record: ArtifactReceiptRecord = (
                         build_artifact_receipt_record(

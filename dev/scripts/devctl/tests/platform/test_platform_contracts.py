@@ -37,6 +37,9 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "DevelopmentLoopReport" in contract_ids
     assert "BaselineAuthorityInventoryReceipt" in contract_ids
     assert "PlatformContractRegistryRow" in contract_ids
+    assert "DurableSchemaPolicy" in contract_ids
+    assert "SchemaMigrationSpine" in contract_ids
+    assert "SystemMapSnapshot" in contract_ids
     assert "PlanSourceSnapshot" in contract_ids
     assert "ReviewerRuntimeContract" in contract_ids
     assert "SessionPosture" in contract_ids
@@ -219,6 +222,12 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "entry_kind" in contract_map["PlatformContractRegistryRow"]
     assert "registered_schema_version" in contract_map["PlatformContractRegistryRow"]
     assert "ownership_mode" in contract_map["PlatformContractRegistryRow"]
+    assert "store_authority_status" in contract_map["DurableSchemaPolicy"]
+    assert "migration_path" in contract_map["DurableSchemaPolicy"]
+    assert "policy_count" in contract_map["SchemaMigrationSpine"]
+    assert "planned_policy_contract_ids" in contract_map["SchemaMigrationSpine"]
+    assert "contract_registry_contract_ids" in contract_map["SystemMapSnapshot"]
+    assert "connectivity_registry" in contract_map["SystemMapSnapshot"]
     assert "action_id" in contract_map["PlanIntentIngestionReceipt"]
     assert "source_snapshot_ids" in contract_map["PlanIntentIngestionReceipt"]
     assert "source_integrity_status" in contract_map["PlanIntentIngestionReceipt"]

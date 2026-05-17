@@ -8,6 +8,9 @@ from dev.scripts.devctl.runtime.development_packet_pressure import (
     packet_pressure_report,
 )
 from dev.scripts.devctl.runtime.master_plan_contract import PlanRow
+from dev.scripts.devctl.runtime.packet_runtime_lifecycle import (
+    packet_requires_runtime_lifecycle,
+)
 from dev.scripts.devctl.runtime.plan_intent_ingestion import (
     terminal_packet_receipt_by_packet,
 )
@@ -43,6 +46,21 @@ def test_workflow_receipts_are_lifecycle_only_even_with_plan_words() -> None:
     assert classifications[0]["action_required"] is False
     assert decision["decision"] == "continue_current_work"
     assert packet_ingest_decisions[0]["decision"] == "ack"
+
+
+def test_runtime_lifecycle_predicate_is_canonical_for_default_and_optional_ttl() -> None:
+    assert packet_requires_runtime_lifecycle(_packet("rev_pkt_action", kind="action_request"))
+    assert not packet_requires_runtime_lifecycle(_packet("rev_pkt_anchor", kind="stop_anchor"))
+    assert packet_requires_runtime_lifecycle(
+        {
+            **_packet("rev_pkt_anchor_explicit", kind="stop_anchor"),
+            "metadata": {"transport_expiry_explicit": True},
+        }
+    )
+
+
+def test_packet_kind_ttl_does_not_make_durable_finding_runtime_lifecycle() -> None:
+    assert not packet_requires_runtime_lifecycle(_packet("rev_pkt_finding", kind="finding"))
 
 
 def test_soft_budget_pivots_to_packet_review() -> None:

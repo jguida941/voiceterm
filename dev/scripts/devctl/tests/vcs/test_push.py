@@ -2857,10 +2857,12 @@ class PushBridgeSyncTests(unittest.TestCase):
         state = push.PushRunState(branch="feature/demo", remote="origin")
         policy = make_policy()
         calls: list[str] = []
+        envs: dict[str, dict[str, str] | None] = {}
 
         def _runner(name, cmd, cwd=None, env=None):
-            del cmd, cwd, env
+            del cmd, cwd
             calls.append(name)
+            envs[name] = env
             return {
                 "name": name,
                 "cmd": [],
@@ -2913,6 +2915,10 @@ class PushBridgeSyncTests(unittest.TestCase):
                 "push-refresh-startup-context",
                 "push-refresh-context-graph",
             ],
+        )
+        self.assertEqual(
+            envs["push-refresh-render-surfaces"],
+            {"DEVCTL_NO_ARTIFACT_WRITES": "1"},
         )
         self.assertTrue(result["render_surface_receipt_committed"])
         self.assertEqual(

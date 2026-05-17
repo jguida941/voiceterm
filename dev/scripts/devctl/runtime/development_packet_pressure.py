@@ -31,12 +31,8 @@ from .packet_carry_forward import (
     durable_packet_ids_from_plan_rows,
     packet_carry_forward_debts,
 )
-from .packet_transport_expiry import (
-    packet_has_explicit_transport_expiry,
-    packet_kind_allows_optional_transport_expiry,
-    packet_kind_uses_default_transport_expiry,
-    packet_uses_transport_expiry,
-)
+from .packet_runtime_lifecycle import packet_requires_runtime_lifecycle
+from .packet_transport_expiry import packet_uses_transport_expiry
 from .review_packet_inbox_liveness import (
     is_expired_unresolved,
     is_live_pending,
@@ -192,24 +188,21 @@ def _live_packet_requires_pressure(
     *,
     classifications_by_packet_id: Mapping[str, PacketIntentClassification],
 ) -> bool:
+    """Return False for durable-owned packets that no longer need live review.
+
+    R309/rev_pkt_4271 pressure repair keeps durable evidence visible through
+    plan ownership while removing non-runtime-lifecycle packets from the live
+    attention budget.
+    """
     packet_id = _text(packet.get("packet_id"))
     item = classifications_by_packet_id.get(packet_id)
     if item is None:
         return True
     if item.terminal_receipt:
         return False
-    if item.durable_owner and not _packet_requires_runtime_lifecycle(packet):
+    if item.durable_owner and not packet_requires_runtime_lifecycle(packet):
         return False
     return True
-
-
-def _packet_requires_runtime_lifecycle(packet: Mapping[str, object]) -> bool:
-    kind = _text(packet.get("kind"))
-    if packet_kind_uses_default_transport_expiry(kind):
-        return True
-    if packet_kind_allows_optional_transport_expiry(kind):
-        return packet_has_explicit_transport_expiry(packet)
-    return False
 
 
 def _pressure_state(

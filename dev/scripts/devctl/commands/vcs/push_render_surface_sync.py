@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from ...cli_parser.artifact_suppression import ARTIFACT_WRITES_ENV
 from ...governance.surfaces import load_surface_policy
 from .push_preflight_commit import (
     auto_commit_selected_preflight_generated_changes,
@@ -47,6 +48,7 @@ def refresh_policy_owned_render_surfaces_before_preflight(
         "push-refresh-render-surfaces",
         command,
         cwd=repo_root,
+        env={ARTIFACT_WRITES_ENV: "1"},
     )
     if step.get("returncode", 1) != 0:
         detail = str(step.get("failure_output") or step.get("error") or "").strip()

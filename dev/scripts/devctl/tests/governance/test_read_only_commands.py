@@ -281,6 +281,46 @@ class ArtifactWriteSuppressionTests(unittest.TestCase):
 
         self.assertNotEqual(captured_env.get("val"), "1")
 
+    def test_external_suppression_skips_machine_output_receipt_for_write_command(self) -> None:
+        """DEVCTL_NO_ARTIFACT_WRITES also suppresses dispatcher ledger receipts."""
+
+        def spy_handler(_args):
+            return 0
+
+        metrics = {
+            "command": "status",
+            "delivery": "stdout",
+            "format": "json",
+            "size_bytes": 10,
+            "estimated_tokens": 3,
+            "sha256": "a" * 64,
+            "path": "",
+            "summary_keys": [],
+        }
+        with patch.dict(
+            os.environ,
+            {
+                ARTIFACT_WRITES_ENV: "1",
+                "DEVCTL_DATA_SCIENCE_DISABLE": "1",
+            },
+            clear=False,
+        ):
+            with (
+                patch("dev.scripts.devctl.cli.enforce_startup_gate", return_value=None),
+                patch.dict(cli.COMMAND_HANDLERS, {"status": spy_handler}),
+                patch(
+                    "dev.scripts.devctl.cli.consume_machine_output_metrics",
+                    return_value=metrics,
+                ),
+                patch(
+                    "dev.scripts.devctl.cli.append_artifact_receipt_record"
+                ) as append_mock,
+                patch("sys.argv", ["devctl", "status", "--format", "json"]),
+            ):
+                cli.main()
+
+        append_mock.assert_not_called()
+
     def test_startup_context_writes_receipt_even_when_suppressed(self) -> None:
         """startup-context must still write the receipt under suppression.
 

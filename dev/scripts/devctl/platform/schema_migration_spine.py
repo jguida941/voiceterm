@@ -56,6 +56,28 @@ class DurableSchemaPolicy:
         return asdict(self)
 
 
+@dataclass(frozen=True, slots=True)
+class SchemaMigrationSpine:
+    """Reducer coverage report for durable schema-migration policy."""
+
+    durable_contract_count: int
+    policy_count: int
+    artifact_schema_count: int
+    planned_policy_count: int
+    planned_policy_contract_ids: tuple[str, ...]
+    ok: bool
+    command: str = "check_schema_migration_spine"
+    contract_id: str = SCHEMA_MIGRATION_SPINE_CONTRACT_ID
+    schema_version: int = SCHEMA_MIGRATION_SPINE_SCHEMA_VERSION
+
+    def to_dict(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["planned_policy_contract_ids"] = list(
+            self.planned_policy_contract_ids
+        )
+        return payload
+
+
 def durable_schema_policies() -> tuple[DurableSchemaPolicy, ...]:
     """Return repo-owned policy rows for durable state-like contracts."""
     return (
@@ -311,17 +333,14 @@ def evaluate_schema_migration_spine(
         for policy in policies
         if policy.store_authority_status in NON_BLOCKING_STORE_AUTHORITY_STATUSES
     )
-    coverage = {
-        "command": "check_schema_migration_spine",
-        "contract_id": SCHEMA_MIGRATION_SPINE_CONTRACT_ID,
-        "schema_version": SCHEMA_MIGRATION_SPINE_SCHEMA_VERSION,
-        "durable_contract_count": len(durable_contract_ids),
-        "policy_count": len(policies),
-        "artifact_schema_count": len(blueprint.artifact_schemas),
-        "planned_policy_count": len(planned),
-        "planned_policy_contract_ids": [policy.contract_id for policy in planned],
-        "ok": not violations,
-    }
+    coverage = SchemaMigrationSpine(
+        durable_contract_count=len(durable_contract_ids),
+        policy_count=len(policies),
+        artifact_schema_count=len(blueprint.artifact_schemas),
+        planned_policy_count=len(planned),
+        planned_policy_contract_ids=tuple(policy.contract_id for policy in planned),
+        ok=not violations,
+    ).to_dict()
     return coverage, tuple(violations)
 
 
@@ -385,6 +404,7 @@ __all__ = [
     "SCHEMA_MIGRATION_SPINE_CONTRACT_ID",
     "SCHEMA_MIGRATION_SPINE_SCHEMA_VERSION",
     "DurableSchemaPolicy",
+    "SchemaMigrationSpine",
     "SchemaMigrationViolation",
     "durable_schema_policies",
     "evaluate_schema_migration_spine",

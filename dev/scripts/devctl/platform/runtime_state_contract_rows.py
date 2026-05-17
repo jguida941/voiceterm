@@ -227,6 +227,73 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         ),
     ),
     ContractSpec(
+        contract_id="DurableSchemaPolicy",
+        owner_layer="governance_core",
+        purpose=(
+            "Per-contract durable-store migration policy tying state stores to "
+            "schema-version fields, compatibility windows, migration paths, "
+            "rollback paths, and store-authority posture."
+        ),
+        required_fields=(
+            ContractField("store_path", "str", "Repo-relative durable store path."),
+            ContractField("store_authority", "str", "Writer or authority that owns store mutation."),
+            ContractField("schema_version_field", "str", "Field that carries the persisted schema version."),
+            ContractField("compatibility_window", "str", "Allowed compatibility posture for schema evolution."),
+            ContractField("migration_path", "str", "Required forward migration path."),
+            ContractField("rollback_path", "str", "Required rollback or compatibility fallback path."),
+            ContractField("store_authority_status", "str", "planned, registered_advisory, registered_blocking, or retired."),
+            ContractField("owning_row", "str", "Plan row that owns this policy."),
+            ContractField("notes", "str", "Optional policy notes."),
+            ContractField("policy_contract_id", "str", "Stable policy contract id."),
+        ),
+        runtime_model="dev.scripts.devctl.platform.schema_migration_spine:DurableSchemaPolicy",
+        startup_surface_tokens=("contract_id", "store_path", "store_authority_status"),
+    ),
+    ContractSpec(
+        contract_id="SchemaMigrationSpine",
+        owner_layer="governance_core",
+        purpose=(
+            "Reducer report proving durable state-like platform contracts and "
+            "artifact schemas have migration, rollback, compatibility, and "
+            "store-authority policy coverage."
+        ),
+        required_fields=(
+            ContractField("durable_contract_count", "int", "Durable contract families discovered."),
+            ContractField("policy_count", "int", "DurableSchemaPolicy rows evaluated."),
+            ContractField("artifact_schema_count", "int", "Artifact schema specs evaluated."),
+            ContractField("planned_policy_count", "int", "Non-blocking planned or retired policies."),
+            ContractField("planned_policy_contract_ids", "list[str]", "Contracts with non-blocking policy posture."),
+            ContractField("ok", "bool", "Whether the migration-spine evaluation passed."),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.platform.schema_migration_spine:"
+            "SchemaMigrationSpine"
+        ),
+        startup_surface_tokens=("durable_contract_count", "policy_count", "ok"),
+    ),
+    ContractSpec(
+        contract_id="SystemMapSnapshot",
+        owner_layer="governance_core",
+        purpose=(
+            "Typed snapshot for the generated SYSTEM_MAP connectivity block, "
+            "including architecture roots, governed surfaces, registry coverage, "
+            "featured command entrypoints, and required commands."
+        ),
+        required_fields=(
+            ContractField("generated_section_id", "str", "Managed markdown section id."),
+            ContractField("tracked_roots", "tuple[SystemMapRootSummary, ...]", "Architecture roots summarized by the map."),
+            ContractField("governed_surfaces", "tuple[SystemMapSurfaceSummary, ...]", "Policy-owned generated surfaces."),
+            ContractField("connectivity_registry", "ConnectivityRegistrySnapshot", "Typed connectivity registry rendered into the map."),
+            ContractField("contract_registry_contract_ids", "tuple[str, ...]", "Contract ids rendered for registry coverage."),
+            ContractField("featured_command_entrypoints", "tuple[str, ...]", "Command entrypoints highlighted by the map."),
+            ContractField("required_commands", "tuple[str, ...]", "Guard and navigation commands required by the map."),
+            ContractField("source_policy_path", "str", "Repo policy that produced the snapshot."),
+            ContractField("warnings", "tuple[str, ...]", "Non-blocking snapshot warnings."),
+        ),
+        runtime_model="dev.scripts.devctl.platform.system_map_models:SystemMapSnapshot",
+        startup_surface_tokens=("generated_section_id", "tracked_roots", "contract_registry_contract_ids"),
+    ),
+    ContractSpec(
         contract_id="CheckResult",
         owner_layer="governance_runtime",
         purpose="Typed check-output envelope carrying step results, enriched status, and ViolationRecords for renderers and downstream consumers.",

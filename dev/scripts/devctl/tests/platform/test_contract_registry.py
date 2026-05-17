@@ -47,6 +47,21 @@ def test_build_contract_registry_rows_covers_blueprint_contracts_and_artifacts()
         and row.registered_contract_id == "SessionActivityLog"
         for row in rows
     )
+    assert any(
+        row.entry_kind == "shared_contract"
+        and row.registered_contract_id == "DurableSchemaPolicy"
+        for row in rows
+    )
+    assert any(
+        row.entry_kind == "shared_contract"
+        and row.registered_contract_id == "SchemaMigrationSpine"
+        for row in rows
+    )
+    assert any(
+        row.entry_kind == "shared_contract"
+        and row.registered_contract_id == "SystemMapSnapshot"
+        for row in rows
+    )
 
 
 def test_contract_registry_rows_round_trip_through_jsonl(tmp_path) -> None:
