@@ -337,6 +337,101 @@ This route is **allowed for bootstrap/review over uncommitted state only**. It i
 
 This phase is BEFORE Phase 0.5 because: if launch/coordination is structurally broken at the authority-ordering layer, no Phase 1+ work can ever be empirically proven to land — every "green" is potentially fake.
 
+### Phase 0.6 — Entry-Point Hardening + Bridge Retirement + Role-Based Topology (NEW per operator amendment 2026-05-18 ~17:00 EDT)
+
+**Rationale**: operator-flagged 2026-05-18 ~17:00 EDT — three architectural root-cause concerns already specified in cached-hammock plan but not yet threaded into canonical extraction plan as a coherent phase. Without these, every later phase inherits a broken substrate (bridge as authority, codex/claude hardcoded, fragmented entry surfaces). Lands BEFORE Phase 1 P0 proof-integrity because Phase 1 implementations themselves WILL use `/develop`, will be observed via projections, and will reference role-based actors. Fixing the substrate first prevents repeating the same architectural defect at every later phase.
+
+#### Phase 0.6.A — `/develop` Entry-Point Hardening (cached-hammock P58.1 lines 1147-1210)
+
+Cached-hammock canonical statement (line 1188): *"this IS one pipeline. `/develop` enters the full system; the 4 single-action slashes are shortcuts to specific subsystems WITHIN the system."*
+
+Current state: 21 `develop` subcommands exist (`status`, `next`, `show`, `start`, `watch`, `verify`, `submit`, `close`, `rollback`, `pause`, `resume`, `audit-guards`, `audit-packets`, `design-preflight`, `baseline-inventory`, `ingest-intent`, `ingest-plan`, `campaign`, `collaboration-profile`, `launch`). **4 collapsed flags MISSING** per cached-hammock migration plan:
+
+- `--post-continuation-anchor` (collapses `/goal`) — cached-hammock:1183
+- `--post-task-produced` (collapses `/check-it`) — cached-hammock:1184
+- `--post-evidence --target-kind artifact` (collapses `/archive-evidence`) — cached-hammock:1185
+- `--log-progress` (collapses `/session-log`) — cached-hammock:1186
+
+Plus `/bypass` slash currently routes through legacy `agent-loop --operator-override` path; per cached-hammock:2036, needs rename + route to `devctl exceptions {grant,verify,list,revoke}` typed surface.
+
+**Codex implementation order**:
+1. Add 4 action handlers to `dev/scripts/devctl/commands/development/parser.py` per cached-hammock:1205-1206
+2. Migrate `/goal`, `/check-it`, `/archive-evidence`, `/session-log` slash files to thin aliases pointing at the new `develop` flags
+3. Register `devctl bypass` subcommand family at `dev/scripts/devctl/commands/bypass/` (cached-hammock:1155 ground-truth probe gap)
+4. Reuse Phase 0.4-Bootstrap structured launch_report fields pattern for the new action handlers' typed report shapes
+
+#### Phase 0.6.B — Bridge.md Retirement → `peer_communication_state.md` Unified Projection (cached-hammock P188 lines 3470-3492)
+
+**This is operator's "FRUSTRATION mandate" — bridge.md is the 90% root cause per cached-hammock:3251.** P188 supersedes the older Phase 2 P52 `BridgeAuthorityRetirementContract` which never landed (7-month failure).
+
+Cached-hammock P188 verbatim (line 3474): *"If the Bridge Md didn't exist, the entire system would work the same. It's a projection that somehow still has logic on it... our projection should show the entire system for every mode."*
+
+Canonical replacement: **`peer_communication_state.md`** — single renderer producing ONE projection composing **7 typed mode axes** simultaneously:
+1. `ReviewState`
+2. `ImplementerAckEvents`
+3. `AgentSync`
+4. `LiveRoleTopology`
+5. `ToggleReceipt`
+6. `AgentMindSlice`
+7. `CollaborationSessionState`
+
+**Current state evidence** (audit-verified):
+- `check_bridge_projection_only.py` exists at `dev/scripts/checks/check_bridge_projection_only.py` (279 lines, May 10) but scoped to only 2 file groups + 1 bridge-poll group
+- **170 files still read `bridge.md` per `git ls-files | xargs grep -l bridge.md`** — the migration surface is large
+- 11 logic items found (not 52 fields — 52 was P1-P52 count); 1581 references categorized; 5 prior failed attempts archaeologized (cached-hammock:3480)
+
+**Codex implementation order**:
+1. Build `dev/scripts/devctl/runtime/peer_communication_state.py` — typed contract composing the 7 axes (compose with existing contracts; do NOT fork parallels)
+2. Build `dev/scripts/devctl/commands/peer_communication_state/` renderer producing the unified projection
+3. Extend `check_bridge_projection_only.py` scope from 2 file groups to ALL 170 bridge-reading files via `check_runtime_projection_authority.py` (cached-hammock:3490, ~150 LOC AST scanner)
+4. Add `RuntimeBridgeProjectionSeparation` guard from cached-hammock:3490
+5. Regression: bridge.md content must regenerate from typed state on every read; direct writes to bridge.md must fail
+
+#### Phase 0.6.C — Role-Based N-Agent Topology + De-Hardcode Provider Names (cached-hammock P58.5 lines 1323-1389)
+
+Cached-hammock canonical statement (line 2746): *"System should be N-actor × N-role graph, not binary enum"* and (line 1389): *"Typed governance system was ALREADY designed for N×M but accumulated 7 hardcoded shortcuts."*
+
+**Current state** (audit-verified):
+- `ReviewerMode` enum at `dev/scripts/devctl/runtime/reviewer_mode.py:10-31` has fixed `ACTIVE_DUAL_AGENT` / `SINGLE_AGENT` / `TOOLS_ONLY` / `PAUSED` / `OFFLINE` — count-coupled naming wrong
+- **28 files** in `dev/scripts/devctl/runtime/*.py` contain hardcoded `"codex"`/`"claude"`/`"cursor"` literals
+- `CollaborationModeTopology` contract at `development_collaboration_modes.py:321-341` is the typed surface
+
+**7 hardcoded sites to fix** (cached-hammock:1341-1358):
+1. `reviewer_runtime_duty_proof.py:108-109` — hardcoded "implementer==reviewer is bad" classification
+2. `collaboration_owner_selection.py:17` — hardcoded "different agent required"
+3. `collaboration_session_actor_roles.py:34-47` — returns single role string instead of tuple of all roles actor holds
+4. `peer_session_handshake.py:44-114` — hardcoded `actor != peer_actor` (should bind cognitive roles, not actors)
+5. `role_profile.py:33-39` — `DEFAULT_PROVIDER_ROLE_MAP` is 1:1 provider→role (should be provider→roles list, loaded from `cognitive_role_fleet.json`)
+6. `development_collaboration_modes.py:344-428` — `ROLE_PRESETS` is a fixed tuple constant (should load from operator-editable config)
+7. `role_profile.py:50-58` — `DEFAULT_PROVIDER_ROLE_MAP = {"codex": REVIEWER, "claude": IMPLEMENTER, "cursor": IMPLEMENTER}` — hardcoded provider literals (should load from policy)
+
+**Composes with**:
+- Existing `CognitiveRole` enum (P6) — 8 base cognitive roles
+- Existing `ROLE_PRESETS` tuple (`development_collaboration_modes.py:344-428`) — 9 work-lane roles
+- Existing `CognitiveRoleFleetAssignment` dataclass (P6)
+- Existing `RoleCustomization` contract (`role_customization.py:24-92`)
+- Existing `CollaborationSessionState.role_assignments` graph
+
+**Codex implementation order**:
+1. Rename `ReviewerMode` enum members away from count-coupled naming: `ACTIVE_DUAL_AGENT` → `ACTIVE_MULTI_ROLE`, `SINGLE_AGENT` → `SINGLE_ROLE_ACTOR` (or similar role-based naming); preserve backward-compatible aliases during migration
+2. Refactor `DEFAULT_PROVIDER_ROLE_MAP` to load from `dev/config/cognitive_role_fleet.json` (NOT hardcoded)
+3. Fix the 7 hardcoded sites above to route through typed `actor_authorities` graph
+4. `cognitive_role_fleet.json` becomes single source of truth (operator-editable; providers/roles loaded at runtime)
+5. Regression: assert no hardcoded `"codex"`/`"claude"`/`"cursor"` literal strings exist in `dev/scripts/devctl/runtime/` outside the adopter-pack registry
+
+#### Phase 0.6 green criteria (claude verifies, no chat-prose acceptance)
+
+- ✅ All 4 missing `develop` action handlers exist; `/goal`/`/check-it`/`/archive-evidence`/`/session-log` become thin aliases routing to `develop`
+- ✅ `devctl bypass` subcommand family registered (no more legacy `agent-loop --operator-override` slash routing)
+- ✅ `peer_communication_state.md` renderer + contract exist; produces unified projection composing 7 mode axes
+- ✅ `check_bridge_projection_only.py` extended scope covers all 170 bridge-reading files (or `check_runtime_projection_authority.py` lands as superset)
+- ✅ `cognitive_role_fleet.json` exists; `DEFAULT_PROVIDER_ROLE_MAP` loads from it (not hardcoded)
+- ✅ 7 hardcoded sites de-hardcoded
+- ✅ Regression tests: bridge.md regenerates from typed state on read; direct writes fail; no hardcoded provider literals in core engine
+- ✅ `check-router` includes the new guards in default bundle
+
+This phase is OPERATOR's three architectural root-cause concerns landed as one substrate-fix phase. Without Phase 0.6, Phase 1+ work will keep tripping over bridge-authority drift, hardcoded provider assumptions, and fragmented entry surfaces.
+
 ### Phase 0.5 — Repo identity safety + PII/local-path safety gates (NEW per ChatGPT #1 #8)
 
 Codex implements three new guards:
