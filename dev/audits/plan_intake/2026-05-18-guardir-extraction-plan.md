@@ -12,10 +12,40 @@ Operator strategic decision: VoiceTerm becomes an adopter/example shell; the por
 
 ## Role Split (load-bearing — do not collapse)
 
-- **Codex** = **implementer**. Writes the code for every phase. Owns red-then-green test cycles. Owns commit/push on `extraction/*` branches.
-- **Claude** = **architecture reviewer + cached-hammock plan worker + verification runner**. Reviews codex's design for typed-state-lies recurrence and fake-proof drift. Works the cached-hammock plan (`~/.claude/plans/do-that-and-in-cached-hammock.md` once migrated into the repo) as parallel substrate. Runs verification (`devctl test-python`, `pytest -x`, `check-router`, direct `git rev-parse / git ls-remote / git show / git cat-file`) after each codex slice. Surfaces issues before they become commits. Does NOT take the implementation lane.
+- **Codex** = **implementer**. Writes the code for every phase. Owns red-then-green test cycles. Owns commit/push on `extraction/*` branches. **MAY delegate dogfood/verification/architect-review/cached-hammock-audit tasks to claude via typed `review-channel post` packets** (kind=`task_started` or `action_request`, target_role=`dashboard` or `reviewer`).
+- **Claude** = **architect + tester + TDD + reviewer + verification runner + cached-hammock plan worker**. Reviews codex's design for typed-state-lies recurrence and fake-proof drift. Works the preserved cached-hammock plan at `dev/audits/plan_intake/2026-05-18-cached-hammock-role-audit.md` as parallel substrate. Runs verification (`devctl test-python`, `pytest -x`, `check-router`, direct `git rev-parse / git ls-remote / git show / git cat-file`) after each codex slice. Responds to codex's typed task packets with typed `finding` packets carrying dogfood evidence + receipt refs. May spawn multiple Explore/Plan agents in parallel for verification work. Surfaces issues before they become commits. Does NOT take the implementation lane.
 
-The reason: claude caught today's events.jsonl-lying failure because claude observed real git state while codex built on events-log narration. Codex codes; claude verifies; same-lane duplication = wasted work.
+**Bidirectional collaboration via typed system** (operator directive 2026-05-18 ~15:10 EDT — "you guys need to both start working together and you need to let Kodak know it's allowed to do out tasks to you"):
+- Codex implements feature X → posts typed packet to claude (kind=`task_started` with target_ref=feature commit/test path) → claude dogfoods + verifies → claude posts typed `finding` packet back with dogfood receipt
+- Every feature codex ships MUST be proved by claude's dogfood + receipt (no chat-prose acceptance, no events.jsonl narration as proof)
+- Receipts land in typed state (`dev/state/git_mutation_proof_receipts.jsonl` after Phase 1; closure-proof receipts in `dev/state/plan_row_closure_receipts.jsonl`)
+- If claude finds the feature broken on dogfood, claude posts `task_blocked` or `review_failed` packet back to codex with evidence_refs — system catches it before commit lands as "green"
+
+The reason: claude caught today's events.jsonl-lying failure because claude observed real git state while codex built on events-log narration. Codex codes; claude verifies via typed packets + receipts; same-lane duplication = wasted work.
+
+**Claude's explicit permission boundary** (per ChatGPT review 2026-05-18 ~15:25 EDT):
+
+Claude MAY:
+- run verification (devctl test-python, pytest -x, check-router)
+- inspect git state directly (git rev-parse / git ls-remote / git show / git cat-file)
+- spawn read-only Explore/Plan audit agents (multi-agent for verification work)
+- post typed `finding` / `review_accepted` / `review_failed` / `task_blocked` packets
+- dogfood codex's shipped features
+- check that receipts exist + bind correctly
+- verify no VoiceTerm/origin leakage
+- verify no memory/plan sprawl
+- preserve source files into `dev/audits/plan_intake/` with SHA256 manifest
+
+Claude MUST NOT:
+- create new plans (only edit the canonical extraction plan when operator explicitly requests amendment)
+- mutate implementation files (codex's lane)
+- create memory files (memory is pointer-only)
+- rewrite canonical plan docs unless operator explicitly requests
+- autonomously append addenda or "preservation context" markdown
+- treat transcript/memory/bridge/events narration as authority
+- take the implementation lane
+
+Claude outputs MUST be one of: typed `finding`, typed `review_failed`, typed `task_blocked`, typed `review_accepted`, or explicit verification receipt. No chat-prose acceptance, no new memory/plan documents, no narration-as-proof.
 
 ## Comprehensive plan inventory (audit-verified — what must not be lost)
 
@@ -90,30 +120,168 @@ It is NOT in any preservation snapshot, NOT in GuardIR, NOT in VoiceTerm. This i
 
 ### Phase 0 — Freeze / Preserve / Verify (no implementation edits)
 
-Step 0.1 — Preserve cached-hammock plan (URGENT, do before Phase 0.5):
+**Step 0.0 — Quarantine 228 orphan feedback_*.md files** (operator + ChatGPT directive 2026-05-18 ~15:10 EDT):
+
+The memory dir at `/Users/jguida941/.claude/projects/-Users-jguida941-testing-upgrade-codex-voice/memory/` has 228 `feedback_*.md` files orphaned from prior sessions. MEMORY.md (now gutted to 70-line pointer table) doesn't reference them. Do NOT delete — quarantine as evidence:
 
 ```bash
-mkdir -p dev/audits/plan_intake/
-cp ~/.claude/plans/do-that-and-in-cached-hammock.md dev/audits/plan_intake/2026-05-18-cached-hammock-role-audit.md
-cp may17th.md dev/audits/plan_intake/2026-05-18-may17-plan.md
-shasum -a 256 dev/audits/plan_intake/* > dev/audits/plan_intake/sha256-manifest.txt
+mkdir -p ~/.cache/guardir-memory-archive/2026-05-18-feedback-orphans
+mv ~/.claude/projects/-Users-jguida941-testing-upgrade-codex-voice/memory/feedback_*.md ~/.cache/guardir-memory-archive/2026-05-18-feedback-orphans/
+find ~/.cache/guardir-memory-archive/2026-05-18-feedback-orphans -type f -print0 | sort -z | xargs -0 shasum -a 256 > ~/.cache/guardir-memory-archive/2026-05-18-feedback-orphans.sha256
 ```
 
-Step 0.2 — Verify GuardIR state:
-- `git remote -v` (confirm `guardir` + `origin`)
-- `git ls-remote guardir refs/heads/preserve/guardir-extraction-unreviewed-2026-05-18` (confirm `d92dc2ff`)
-- `git rev-parse HEAD` on extraction branch
-- Confirm `~/.cache/guardir-preserve/2026-05-18T14-22-00Z/sha256-manifest.txt` integrity
+Add ONE pointer line to MEMORY.md (no content copied):
+> Archived orphan feedback files: `~/.cache/guardir-memory-archive/2026-05-18-feedback-orphans/` — evidence only, not active memory or planning authority.
 
-Step 0.3 — Create real GuardIR trunk branch (per ChatGPT amendment #1):
+**Step 0.1 — Preserve cached-hammock + may17 + approved plan** (DONE 2026-05-18T~14:50Z via commit `ccf6b4f5` + auto post-commit `bf21b66a`, pushed to guardir `extraction/guardir-core-p0-proof-integrity`):
 
 ```bash
-git checkout -b guardir-main d92dc2ff6bce9830450b3f530dac3797fff8b7ce
-git push --no-verify guardir guardir-main  # initial trunk seed; raw push for trunk creation only
-git checkout extraction/guardir-core-p0-proof-integrity  # back to working branch
+# Already executed — leave as evidence
+ls dev/audits/plan_intake/  # 2026-05-18-cached-hammock-role-audit.md, 2026-05-18-guardir-extraction-plan.md, 2026-05-18-may17-plan.md, sha256-manifest.txt
 ```
 
-After this: `preserve/*` becomes **immutable evidence-locker** (no normal commits ever); `guardir-main` is trunk baseline; `extraction/*` are real working branches.
+Typed PlanRow `GUARDIR-EXTRACTION-MASTER-PLAN-2026-05-18-S1` added to `dev/state/plan_index.jsonl` (1778 → 1779 rows).
+
+**Step 0.2 — Verify GuardIR state + SHA reconciliation** (operator-flagged via ChatGPT 2026-05-18 ~15:00 EDT):
+
+Two commits both reachable from preserve branch (verified inline 2026-05-18T~15:15):
+- `d92dc2ff6bce9830450b3f530dac3797fff8b7ce` — auto post-commit ReviewSnapshot ("Refresh external review snapshot for 92ef4032"); current preserve branch HEAD
+- `92ef403200300169fe3e43b966c9e8288354b340` — UNREVIEWED PRESERVATION SNAPSHOT (parent of `d92dc2ff`; the actual content commit with the 6246-line preservation payload)
+- Chain: `835060c2 (origin yesterday)` ← `92ef4032 (preservation content)` ← `d92dc2ff (auto-snapshot artifact)`
+
+Verification commands (run before any trunk creation):
+```bash
+git remote -v
+git ls-remote guardir refs/heads/preserve/guardir-extraction-unreviewed-2026-05-18    # expect d92dc2ff
+git ls-remote guardir refs/heads/extraction/guardir-core-p0-proof-integrity           # expect bf21b66a (will become ccf6b4f5-or-newer after Phase 0.4 sync)
+git rev-parse HEAD
+git status --short
+git show --no-patch --format="%H | %s | parent: %P" 92ef403200300169fe3e43b966c9e8288354b340  # expect parent 835060c2
+git show --no-patch --format="%H | %s | parent: %P" d92dc2ff6bce9830450b3f530dac3797fff8b7ce  # expect parent 92ef4032
+shasum -c ~/.cache/guardir-preserve/2026-05-18T14-22-00Z/sha256-manifest.txt  # bundle integrity
+wc -l dev/active/MASTER_PLAN.md                                               # ChatGPT-flagged anomaly: connector returned empty; verify locally that MASTER_PLAN is not actually empty
+sed -n '1,5p' dev/active/MASTER_PLAN.md                                       # confirm tracker is alive; if empty, that's a governance defect, NOT just a documentation quirk
+```
+
+**Step 0.3 — Create GuardIR trunk from content commit (NOT from auto-snapshot)**:
+
+Use `92ef4032` (the actual UNREVIEWED PRESERVATION SNAPSHOT content) as trunk root, NOT `d92dc2ff` (which is just the auto-snapshot refresh for `92ef4032`). Trunk should anchor on meaningful content, not generated-surface artifacts.
+
+**CRITICAL SEQUENCE (per ChatGPT review 2026-05-18 ~15:50 EDT — must REPLAY preservation commits, not drop them)**:
+
+The existing `extraction/guardir-core-p0-proof-integrity` already contains preservation commit `ccf6b4f5` (Phase 0.1: cached-hammock + may17 + plan-intake) + its auto-snapshot `bf21b66a`. A naive `git checkout -B extraction guardir-main` would DROP those preservation commits. Use cherry-pick replay:
+
+```bash
+# Step A — Create trunk from meaningful preservation content commit (NOT the auto-snapshot artifact)
+git checkout -B guardir-main 92ef403200300169fe3e43b966c9e8288354b340
+git push guardir guardir-main
+# If the governed push fails, inspect the hook output. Raw bypass is acceptable ONLY when blocked solely because Phase 1 P0 not yet implemented; label as bootstrap exception.
+# Then if and only if confirmed: git push --no-verify guardir guardir-main    # governed first; raw fallback only if hooks block
+git ls-remote guardir refs/heads/guardir-main                                  # verify remote SHA matches 92ef4032
+
+# Step B — Rebuild extraction off trunk, REPLAY preservation commits
+git checkout -B extraction/guardir-core-p0-proof-integrity guardir-main
+git cherry-pick ccf6b4f5f21cad5d290d90fe79d332178ceaded1                       # Phase 0.1 preservation (cached-hammock + may17 + plan-intake + plan_index.jsonl row)
+# Do NOT replay bf21b66a — it's only the auto ReviewSnapshot refresh for ccf6b4f5; the new HEAD's auto-snapshot will be regenerated
+
+# Step C — Phase 0.4 plan-sync (applied on top of replayed preservation)
+cp /Users/jguida941/.claude/plans/yes-now-that-the-synthetic-pinwheel.md dev/audits/plan_intake/2026-05-18-guardir-extraction-plan.md
+shasum -a 256 dev/audits/plan_intake/*.md > dev/audits/plan_intake/sha256-manifest.txt
+git add dev/audits/plan_intake/2026-05-18-guardir-extraction-plan.md dev/audits/plan_intake/sha256-manifest.txt
+git commit -m "Phase 0.4: Sync canonical GuardIR extraction plan — plan synchronization only; Phase 1 proof-integrity not yet implemented"
+
+# Step D — Push extraction with --force-with-lease (remote diverged due to rebuild)
+git push --force-with-lease guardir extraction/guardir-core-p0-proof-integrity
+# If hook blocks: inspect output, confirm cause is Phase 1 P0 not yet implemented, then explicitly:
+# git push --no-verify --force-with-lease guardir extraction/guardir-core-p0-proof-integrity
+
+# Step E — Verify
+git ls-remote guardir refs/heads/extraction/guardir-core-p0-proof-integrity     # should match new local HEAD
+git log --oneline guardir-main..extraction/guardir-core-p0-proof-integrity      # should show ccf6b4f5 + Phase 0.4 commit + auto-snapshot
+```
+
+After this:
+- `preserve/guardir-extraction-unreviewed-2026-05-18` = **immutable evidence locker** at `d92dc2ff` (no normal commits ever)
+- `guardir-main` = real trunk baseline, rooted at content commit `92ef4032`
+- `extraction/guardir-core-p0-proof-integrity` = real working branch rooted at `guardir-main`, with replayed preservation + plan-sync commits
+
+The identity check `check_guardir_remote_identity.py` (Phase 0.5.A) MUST fail if the current branch starts with `preserve/` or `feature/governance-quality-sweep`.
+
+**Step 0.4 — Canonical plan synchronization + drift guard** (per ChatGPT review 2026-05-18 ~15:40 EDT — **BLOCKING; do this BEFORE codex restart**):
+
+The latest operator-approved plan text (this file at `/Users/jguida941/.claude/plans/yes-now-that-the-synthetic-pinwheel.md`) is **materially newer** than the committed `dev/audits/plan_intake/2026-05-18-guardir-extraction-plan.md` (~558-line older version). Stale committed plan would cause codex to root trunk on `d92dc2ff` (generated artifact) instead of `92ef4032` (content commit), and would skip Phase 0.0 quarantine, Phase 0.4 drift guard, Phase 1.25, Phase 1.75 RED baseline, and the tightened Claude verification boundary.
+
+**Mandatory sync before any codex restart**:
+
+```bash
+git checkout extraction/guardir-core-p0-proof-integrity
+cp /Users/jguida941/.claude/plans/yes-now-that-the-synthetic-pinwheel.md dev/audits/plan_intake/2026-05-18-guardir-extraction-plan.md
+shasum -a 256 dev/audits/plan_intake/*.md > dev/audits/plan_intake/sha256-manifest.txt
+git diff -- dev/audits/plan_intake/2026-05-18-guardir-extraction-plan.md dev/audits/plan_intake/sha256-manifest.txt
+# Then governed-commit the plan-sync change (raw --no-verify if Phase 1 P0 not yet implemented).
+# Commit message: "Phase 0.4: Sync canonical GuardIR extraction plan — plan synchronization only; Phase 1 proof-integrity is not yet implemented."
+git push guardir extraction/guardir-core-p0-proof-integrity  # governed first; --no-verify only if hooks block
+```
+
+**Plan freshness guard family (6 checks, all wired into `check-router` default bundle)**:
+
+| Check | Blocks when |
+|---|---|
+| `check_guardir_extraction_plan_current.py` | Committed canonical plan differs from approved plan SHA / no typed PlanRow references it / competing plan-prose files exist / MEMORY/feedback files contain active-plan authority |
+| `check_plan_source_snapshot_freshness.py` | PlanRows point to old/missing source hashes; `PlanSourceSnapshot` SHA doesn't match current source file SHA |
+| `check_plan_row_source_refs.py` | PlanRows lack `source_doc_path` + `source_doc_sha256` + `source_section_id` + `plan_revision_id` |
+| `check_packet_plan_ref_integrity.py` | Packets reference plan rows without `plan_revision_id` + `source_snapshot_id` |
+| `check_plan_code_drift.py` | A commit changed files in a PlanRow's `target_ref` scope AND that PlanRow has no new `ValidationReceipt` after the commit AND no `PlanAmendmentReceipt` / `PlanRowClosureReceipt` / `NoPlanUpdateNeededReceipt` |
+| `check_no_unbound_plan_packet_clearance.py` | Plan-bearing packets clear via expiry/absorption/ack without durable binding (also Phase 1.5) |
+
+**SourceTruthRef format** (typed references that include identity + revision; invariant: "no packet, PlanRow, receipt, or closure can reference mutable authority without a revision/hash"):
+
+```
+plan-source://guardir/dev/audits/plan_intake/2026-05-18-guardir-extraction-plan.md@sha256:<hash>#section:phase-1
+plan-row://guardir/GUARDIR-EXTRACTION-MASTER-PLAN-2026-05-18-S1@revision:<rev>
+packet://review-channel/<packet_id>@projection:<snapshot_id>
+git://jguida941/guardir@<commit_sha>:dev/scripts/checks/check_commit_complete_proof.py
+receipt://git-mutation-proof/<receipt_id>@sha256:<hash>
+```
+
+Phase 0.4 lands the FIRST check (`check_guardir_extraction_plan_current.py`) as blocking; the remaining 5 land in Phase 1.5 alongside the typed contracts.
+
+**`check_guardir_extraction_plan_current.py` design constraints (per ChatGPT review 2026-05-18 ~15:50 EDT — no absolute local paths in default/CI mode)**:
+
+Default-mode authority sources (repo-local only, no `/Users/...`):
+- `dev/audits/plan_intake/2026-05-18-guardir-extraction-plan.md`
+- `dev/audits/plan_intake/sha256-manifest.txt`
+- `dev/state/plan_index.jsonl`
+- `dev/state/plan_source_snapshots.jsonl`
+- `dev/state/plan_amendment_receipts.jsonl` (after Phase 1.5)
+
+Optional operator-sync override via env var (NOT required for default/CI mode):
+```bash
+GUARDIR_APPROVED_PLAN_PATH=/Users/jguida941/.claude/plans/yes-now-that-the-synthetic-pinwheel.md \
+  python3 dev/scripts/checks/check_guardir_extraction_plan_current.py
+```
+
+**Phase 0.4 has TWO modes** (per ChatGPT review 2026-05-18 ~16:00 EDT — avoid circular dependency where Phase 0.4 requires Phase 1.5 contracts):
+
+**Minimal mode (lands NOW, before codex implements Phase 0.5/1)** — `python3 dev/scripts/checks/check_guardir_extraction_plan_current.py --mode minimal`:
+1. Canonical plan file `dev/audits/plan_intake/2026-05-18-guardir-extraction-plan.md` exists
+2. Its SHA matches `dev/audits/plan_intake/sha256-manifest.txt`
+3. `dev/state/plan_index.jsonl` has `GUARDIR-EXTRACTION-MASTER-PLAN-2026-05-18-S1`
+4. If a `PlanSourceSnapshot` row for the plan path already exists in `dev/state/plan_source_snapshots.jsonl`, it MUST NOT contradict the canonical plan path/hash. Full `source_snapshot_id` / `plan_revision_id` enforcement is deferred to strict mode.
+5. No competing plan/addendum files exist outside the canonical plan path (guard greps `dev/audits/plan_intake/` and `dev/active/` for stray `*extraction*plan*.md`)
+6. `MEMORY.md` and `feedback_*.md` files in memory dir are pointer-only (no active plan authority)
+7. Wired into `check-router` default bundle
+8. Default mode does NOT require absolute local operator paths (`/Users/`, `/home/`, `C:\Users\`); optional `GUARDIR_APPROVED_PLAN_PATH` env var supports the operator-sync workflow only
+
+**Strict mode (lands in Phase 1.5 after `PlanSourceSnapshot` extension + `PlanAmendmentReceipt` + PlanRow ref-binding fields exist)** — `python3 dev/scripts/checks/check_guardir_extraction_plan_current.py --mode strict`:
+1. All minimal-mode criteria PLUS:
+2. PlanRows for this extraction work have `source_doc_path` + `source_doc_sha256` + `source_snapshot_id` + `source_section_id` + `plan_revision_id` populated
+3. Packets referencing those PlanRows have `plan_row_id` + `plan_revision_id` + `source_snapshot_id` populated
+4. Current canonical plan file SHA matches the latest `PlanSourceSnapshot` row's `source_doc_sha256`
+5. Plan changes since the last `PlanSourceSnapshot` snapshot are accompanied by a `PlanAmendmentReceipt` linking old → new revision
+6. Stale packets referencing outdated `plan_revision_id` are surfaced as blockers (must revalidate or supersede)
+
+**Step 0.5-prep — Branch policy is permanent**: never make `preserve/*` the long-term default branch. After Phase 1 P0 lands and `guardir-main` exists, promote `guardir-main` to default on GitHub via repo settings (separate operator action). `preserve/*` stays as evidence locker only, forever. ChatGPT confirmed via GitHub connector at ~15:40 EDT that GuardIR's current default IS still `preserve/guardir-extraction-unreviewed-2026-05-18` — that's acceptable only until Phase 1 lands.
 
 ### Phase 0.5 — Repo identity safety + PII/local-path safety gates (NEW per ChatGPT #1 #8)
 
@@ -124,7 +292,7 @@ Codex implements three new guards:
 - Current branch starts with `preserve/` or `feature/governance-quality-sweep`
 - `repo_pack_id` resolves to `voiceterm` in publication-identity context (vs adopter-registration context)
 
-**0.5.B — `dev/scripts/checks/check_no_absolute_local_paths.py`** (per ChatGPT #8) — fails on any committed/generated state containing `/Users/`, `/home/`, `C:\Users\` except allowlisted fixtures. Critical because GuardIR is public-ish and local paths in state break CI/adopter portability.
+**0.5.B — `dev/scripts/checks/check_no_absolute_local_paths.py`** (per ChatGPT #8, refined #4) — fails on LIVE generated state, repo-pack config, generated surfaces, or proof receipts containing `/Users/`, `/home/`, `C:\Users\`. MUST distinguish live state from historical audit evidence: preserved files under `dev/audits/plan_intake/` or `dev/fixtures/proof_integrity/` are EVIDENCE and MUST be allowlisted (`allowed_in=historical_only` / `fixture_only`). The guard fails on **NEW** leakage, not on preserved historical leakage. Critical because GuardIR is public-ish and live local paths in state break CI/adopter portability.
 
 **0.5.C — Branch policy as repo checks** (per operator correction #9 from earlier round):
 - `preserve/*` branches: evidence-locker only, no normal commits ever
@@ -148,23 +316,32 @@ Dashboard/proof consumers ONLY accept `git.{commit,push}.proof_verified`. They N
 ```python
 @dataclass(frozen=True)
 class GitMutationProofReceipt:
-    receipt_id: str                  # unique
+    receipt_id: str                       # unique
     operation: Literal["commit", "push"]
     claimed_sha: str
-    verified_local_sha: str          # git rev-parse --verify <sha>^{commit}
-    verified_remote_sha: str         # git ls-remote <remote> <ref> (empty for commit op)
+    verified_local_sha: str               # git rev-parse --verify <sha>^{commit}
+    verified_remote_sha: str              # git ls-remote <remote> <ref> (empty for commit op)
     intended_ref: str
-    remote_name: str                 # empty for commit op
-    remote_url: str                  # empty for commit op
-    command_argv_digest: str         # sha256 of the argv list (per ChatGPT #4 — must match consumed event)
+    ref_before: str                       # ref state immediately before mutation (ChatGPT #5 binding)
+    ref_after: str                        # ref state immediately after mutation
+    remote_name: str                      # empty for commit op
+    remote_url: str                       # empty for commit op
+    repo_remote_resolved_url: str         # what git config resolved at receipt time (ChatGPT #5)
+    repo_worktree_root_digest: str        # sha256 of git rev-parse --show-toplevel + .git/HEAD (binds receipt to specific worktree)
+    command_argv_digest: str              # sha256 of the argv list (must match consumed event — ChatGPT #4)
     command_returncode: int
+    event_id: str                         # bound to the events.jsonl event_id that claimed this proof
+    event_path: str                       # bound to the events.jsonl path that contains the event
+    push_report_path: str                 # bound to dev/reports/push/latest_push_report.json (empty for commit op)
     verified_at_utc: str
     verifier_version: str
     result: Literal["verified", "failed_verification"]
-    failure_reason: str              # empty when verified
+    failure_reason: str                   # empty when verified
     contract_id: str = "GitMutationProofReceipt"
     schema_version: int = 1
 ```
+
+Receipt binds: WHO (repo worktree + remote), WHAT (operation + argv digest), WHERE (ref before/after + event_id + event_path + push_report_path), WHEN (verified_at_utc), and WITH-WHAT-PROOF (local/remote SHA + returncode). Faking proof requires forging ALL of these consistently — much harder than today's single-SHA-string fake.
 
 **1B — Receipt storage** (per ChatGPT #2 storage path):
 
@@ -263,6 +440,19 @@ Implementation files:
 - `startup-context` MUST summarize unbound plan pressure count + IDs in its blockers section
 - `dashboard/read-model` MUST expose live counts of: unbound plan-bearing packets, expired plan-bearing without ingestion, absorbed plan-bearing without durable binding
 - `develop campaign` MUST surface these in its blocker summary
+- **NEW (per ChatGPT review)**: if a packet was semantically ingested as `accepted` and no durable binding exists, absorption MUST either BLOCK or produce a typed `absorbed_unbound_plan_pressure` classification — NOT silently archive. This prevents `absorbed` from becoming the next fake-done state.
+
+**Minimal accountability dashboard (per ChatGPT review — moved earlier)**: Phase 1.5 ships a thin `devctl dashboard --mode accountability --format md|json` view, NOT the full Phase 6 dashboard. Minimum fields:
+- unbound plan-bearing packets (count + IDs)
+- expired plan-bearing packets (count + IDs)
+- absorbed-but-unbound packets (count + IDs, classified `absorbed_unbound_plan_pressure`)
+- queued PlanRows without closure receipt (count + IDs)
+- action_requests not consumed (count + IDs)
+- proof events without `GitMutationProofReceipt` (count — surfaces residual Phase 1 gaps)
+- current repo/remote/branch identity
+- current blocker reason (one sentence summary)
+
+This is a fast typed query against `dev/state/plan_index.jsonl` + `dev/reports/review_channel/*` + `dev/reports/progress/events.jsonl` + `dev/state/git_mutation_proof_receipts.jsonl`. No HTML, no rendering pipeline — just a typed read-model. Lets operator know what's broken WITHOUT reading transcripts.
 
 Codex implementation:
 - Extend `dev/scripts/devctl/runtime/packet_absorption_resolution.py` (preservation snapshot has the base) with strict durable-binding requirement
@@ -272,6 +462,106 @@ Codex implementation:
 - Expand `dev/scripts/devctl/tests/runtime/test_development_packet_pressure.py` with the 8 scenarios codex was working on (show→ingest→absorb without PlanRow stays live; expired plan-bearing surfaces as `stale_uningested_plan_pressure`; etc.)
 
 This also addresses cached-hammock P3 (Receipt Schema 4 missing fields), P57 (consolidation), P59 (referential integrity), P60 (state machine coverage), DogfoodRecord integration.
+
+**Plan/code drift contracts (per ChatGPT review 2026-05-18 ~15:50 EDT — EXTEND existing infrastructure, do NOT create parallel)**:
+
+**`PlanSourceSnapshot` already exists** at `dev/scripts/devctl/runtime/plan_source_retention_models.py:25` with 28 fields (`snapshot_id`, `plan_row_id`, `source_kind`, `source_ref`, `source_hash`, `body_hash`, `captured_at_utc`, retention/integrity/composition fields, etc.). Store constant `PLAN_SOURCE_SNAPSHOT_STORE_REL = "dev/state/plan_source_snapshots.jsonl"`.
+
+Phase 1.5 **EXTENDS** this existing model — does NOT create a parallel `PlanSourceSnapshot`. New fields added to the same dataclass:
+
+- `source_doc_path: str = ""` — canonical alias for `source_ref` when source is a file path (vs packet)
+- `source_doc_sha256: str = ""` — canonical alias for `source_hash` when content-hash is SHA256
+- `source_doc_git_blob_sha: str = ""` — `git hash-object` of the file (vs SHA256 of the text)
+- `source_doc_commit_sha: str = ""` — the commit that introduced this revision
+- `plan_revision_id: str = ""` — bumps on every operator-approved amendment
+- `manifest_path: str = ""` — pointer to `dev/audits/plan_intake/sha256-manifest.txt`
+
+Existing `source_ref` / `source_hash` / `body_hash` remain backward-compatible aliases during migration. No second lifecycle, no parallel storage path — same `plan_source_snapshots.jsonl`.
+
+**`PlanAmendmentReceipt` is genuinely new** (no existing contract with this name):
+
+```python
+@dataclass(frozen=True)
+class PlanAmendmentReceipt:
+    receipt_id: str
+    old_plan_revision_id: str
+    old_source_doc_sha256: str
+    new_plan_revision_id: str
+    new_source_doc_sha256: str
+    changed_sections: list[str]           # markdown section IDs
+    affected_plan_row_ids: list[str]
+    superseded_plan_row_ids: list[str]
+    new_plan_row_ids: list[str]
+    reason: str
+    operator_approval_ref: str            # SourceTruthRef to operator's approval packet
+    verified_at_utc: str
+    contract_id: str = "PlanAmendmentReceipt"
+    schema_version: int = 1
+```
+
+Storage: new `dev/state/plan_amendment_receipts.jsonl`.
+
+**PlanRow ref-binding fields** (extension to existing 21-field PlanRow):
+- `source_doc_path`, `source_doc_sha256` (binds row to specific source-doc revision)
+- `source_snapshot_id` (binds to `PlanSourceSnapshot`)
+- `source_section_id` / `source_span` (which markdown section the row was generated from)
+- `plan_revision_id` (current at row creation)
+
+**Packet ref-binding fields** (review-channel packet posts):
+- `plan_row_id`, `plan_revision_id` (binds packet to plan row at specific revision)
+- `source_snapshot_id` (binds to snapshot)
+- `target_kind`, `target_ref`, `target_revision` (already exist; enforce non-empty for plan-bearing packets)
+
+Lifecycle for plan changes (no silent drift):
+
+```
+Plan source-doc changes (operator amends extraction plan)
+  → new PlanSourceSnapshot created
+  → PlanAmendmentReceipt links old_revision → new_revision + lists affected/superseded/new PlanRow IDs
+  → packets referencing old plan_revision_id become stale (require revalidation)
+  → code work continues only against new revision
+  → closure receipt binds final code commit to final plan revision via SourceTruthRef
+```
+
+The system formalizes "plans are allowed to change; the dangerous thing is unrecorded change or unbound change". No more silent stale plans.
+
+### Phase 1.75 — Multi-Repo Harness + RED Baseline (NEW per ChatGPT review 2026-05-18 ~15:25 EDT)
+
+**Purpose**: prove WHERE GuardIR still leaks VoiceTerm assumptions BEFORE identity strip, so the identity strip work is targeted at real leaks (not hypothetical ones). Expected outcome of this phase: **engine RUNS but FAILS** on the fixture repos — that's the baseline. The failures map to PortabilityLeakInventory rows that Phase 2 identity strip resolves.
+
+ChatGPT's reasoning: "Otherwise Codex may waste time trying to make a pre-strip POC pass when the expected result is 'fail because VoiceTerm is still hardcoded.'"
+
+**1.75.A — Fixture adopter repos**:
+
+- `dev/fixtures/adopters/minimal_python_repo/` — smallest Python adopter (engine bootstrap + 1 probe + clean)
+- `dev/fixtures/adopters/minimal_mixed_repo/` — Python + non-Python file mix
+- `dev/fixtures/adopters/greenfield_python/` — already passes (per `MP377-ADOPTER-PILOT-GATE-S1`)
+- `dev/fixtures/adopters/existing_plan_python/` — already passes
+
+Local bare remotes (`git init --bare /tmp/guardir-adopter-<name>-remote-<uuid>.git`) for each fixture so push/ls-remote testing is deterministic.
+
+**1.75.B — Run engine against fixtures (expected RED)**:
+
+```bash
+pytest dev/scripts/devctl/tests/portability/ -x  # expected: some fail with VoiceTerm-leak errors
+```
+
+Each leak produces a typed `PortabilityLeakFinding` (new contract) with:
+- `leak_id`, `leak_classification` (hardcoded_path / hardcoded_repo_pack_id / shell_string / etc.)
+- `engine_file`, `engine_line`
+- `adopter_repo`, `adopter_test_path`
+- `failure_message`
+- `proposed_fix_target_phase` (which Phase 2 sub-step resolves this)
+
+**1.75.C — PortabilityLeakInventory typed rows**:
+
+Convert 22 prose-only blockers in `ai_governance_platform.md:1150-1155` to typed PlanRows `MP377-GUARDIR-V21-PORTABILITY-S<n>` in `dev/state/plan_index.jsonl`. Each row references the corresponding `PortabilityLeakFinding`. Total typed rows = 22 prose + N new from fixture failures.
+
+**1.75.D — RED baseline receipt**:
+
+Codex emits a typed `MultiRepoHarnessBaselineReceipt` at `dev/state/multi_repo_harness_baseline_receipts.jsonl` listing every fixture + pass/fail + leak findings. This is the **proof** that the leaks exist BEFORE Phase 2 starts. Phase 4 will produce the green counterpart.
+
+Claude verification: dogfood each fixture run, confirm RED matches `PortabilityLeakFinding` count, post typed `finding` packet back to codex.
 
 ### Phase 2 — GuardIR Identity Strip + categorical allowlist (REFINED per ChatGPT #12)
 
@@ -350,53 +640,51 @@ dev/audits/plan_intake/2026-05-18-cached-hammock-role-audit.md
 
 Each carries a SHA256 in `dev/audits/plan_intake/sha256-manifest.txt` so future state can verify the source file hasn't drifted. `dev/state/plan_index.jsonl` row sources update to point at `dev/audits/plan_intake/...` paths.
 
-**2.5.C — Charter ingestion** (cached-hammock P56):
+**2.5.C — Charter ingestion** (cached-hammock P56, refined per ChatGPT review #9):
 
-The 4,314-line cached-hammock plan exists in markdown only; NOT YET ingested into `dev/state/plan_index.jsonl`. Codex builds the markdown→plan_index ingestion pipeline. Each P-marked finding in the cached-hammock becomes a typed PlanRow with proper provenance.
+The 4,314-line cached-hammock plan exists in markdown only; NOT YET ingested into `dev/state/plan_index.jsonl`.
+
+**DO NOT explode into hundreds of PlanRows.** That recreates the current sprawl problem. Instead:
+- ONE source-snapshot row pointing at `dev/audits/plan_intake/2026-05-18-cached-hammock-role-audit.md` (already exists: `GUARDIR-EXTRACTION-MASTER-PLAN-2026-05-18-S1`)
+- ONE typed umbrella PlanRow: `MP377-CACHED-HAMMOCK-ROLE-AUDIT-INGESTION-S1` (status=in_progress)
+- **10-20 high-value child rows MAX**, one per cached-hammock finding listed in the table at the top of THIS plan (P1, P3, P6, P10, P53, P55, P56, P57, P59, P60, P62, P65-74 collapsed to 1 row, P75-82 collapsed to 1 row, Bridge Auth Retirement, P195-P198 collapsed to 1 row, Proof Index Caching, DogfoodRecord Integration, BypassReceipt CLI, Cognitive Role Fleet) = ~18 child rows
+- Everything ELSE in the 4,314-line cached-hammock plan stays searchable source evidence (via grep) until a specific Phase work-slice needs it
+
+This prevents the "1000 plan rows" failure mode. Codex builds the markdown→plan_index ingestion pipeline as a typed feature, but the FIRST ingestion run is bounded to these ~18 child rows.
 
 **2.5.D — finding_class backfill**:
 
 882 rows in `dev/reports/governance/external_pilot_findings.jsonl` have `finding_class:null`. Codex backfills classification per the 9-value enum (engine_bug / adopter_finding / architecture_gap / etc.) using the existing triage rules.
 
-### Phase 3 — Multi-Repo POC (operator's THESIS PRIORITY — bring forward in importance)
+### Phase 3 — Multi-Repo GREEN Proof + CI (re-run of Phase 1.75 after identity strip)
 
-This is where the operator's "this works on any repo, not hard-coded to VoiceTerm" thesis gets proved. Split into local-deterministic + GitHub-integration (per ChatGPT #8):
+After Phase 2 identity strip resolves the leaks Phase 1.75 surfaced, re-run the harness — must now go GREEN. This is the operator's thesis proof: "engine works on any repo, not hard-coded to VoiceTerm".
 
-**3A — Local deterministic CI** (no network dependency):
+**3A — Re-run local deterministic harness (expected GREEN)**:
 
-- Fixture adopter repos under `dev/fixtures/adopters/minimal_python_repo/`, `minimal_mixed_repo/`, `greenfield_python/`, `existing_plan_python/` (the last two already pass per `MP377-ADOPTER-PILOT-GATE-S1`)
-- Local bare remotes for push/ls-remote verification
-- `pytest dev/scripts/devctl/tests/portability/ -x`
-- Verifies the P0 proof-integrity invariant on each adopter
-- Verifies Phase 1.5 plan-packet-accountability invariant per adopter
+```bash
+pytest dev/scripts/devctl/tests/portability/ -x  # expected: all green now
+```
 
-**3B — PortabilityLeakInventory landing**:
+Each fixture from Phase 1.75 must now pass. Any remaining red is a Phase 2 gap requiring iteration.
 
-Create the 22 typed PlanRow entries (currently prose-only in `ai_governance_platform.md:1150-1155`):
-- Missing/partial `ServiceLifecycleConfig`, `BuildConfig`, `ProjectGovernance.workflow_adapters`
-- Remaining `MemoryRoots` callers
-- String-literal `INDEX.md` / `MASTER_PLAN.md` fallbacks
-- Direct `VOICETERM_PATH_CONFIG` imports
-- Hardcoded timezone/bridge formats
-- Portable-named guards with VoiceTerm-only behavior
-- VoiceTerm daemon/surface names
-- Direct `voiceterm_repo_root()` calls
-- `~/.voiceterm` metric paths
-- Cargo/Rust templates in portable review/check-router paths
+**3B — GitHub integration CI** (per `MP-GOVERNANCE-ECOSYSTEM-INTEGRATION-S1` / cached-hammock:1761):
 
-Each must resolve before extraction code moves are accepted.
+`.github/workflows/governance-freshness-check.yml` runs the engine against:
+- VoiceTerm as adopter-1 (via `jguida941/voiceterm` clone in CI)
+- Optional second real-world adopter (deferred per ChatGPT recommendation — fixtures first)
 
-**3C — GitHub integration CI**:
+Emits `RuntimeAgreementReport` per ADR-013 (`MP377-GUARDIR-V21-RUNTIME-AGREEMENT`) for each adopter. Verifies Second-Repo Proof Ladder 7 gates green (per `portable_code_governance.md:56-73`).
 
-`.github/workflows/governance-freshness-check.yml` in GuardIR per `MP-GOVERNANCE-ECOSYSTEM-INTEGRATION-S1` (may17th.md:67) — the cached-hammock CI hook. Runs the engine against:
-- VoiceTerm as adopter (via `jguida941/voiceterm` clone)
-- Optional second real-world adopter (TBD)
-- Emits `RuntimeAgreementReport` per ADR-013 per adopter
-- Verifies Second-Repo Proof Ladder 7 gates green
+**3C — Multi-repo GREEN proof receipt**:
 
-**3D — Cloud proof** (cached-hammock P195-P198):
+Codex emits a typed `MultiRepoHarnessGreenProofReceipt` at `dev/state/multi_repo_harness_green_proof_receipts.jsonl`. Each row references the corresponding `MultiRepoHarnessBaselineReceipt` from Phase 1.75 + the resolved `PortabilityLeakFinding` IDs + the new RuntimeAgreementReport ref. The closure pattern: every RED baseline finding has a GREEN counter-receipt with linkage.
 
-25 typed slices currently UNIMPLEMENTED. Phase 3 lands the foundation slices; full implementation extends into Phase 5.
+**3D — Cloud proof foundation** (cached-hammock P195-P198):
+
+25 typed slices currently UNIMPLEMENTED. Phase 3 lands the foundation slices (CI workflow + RuntimeAgreementReport + Second-Repo Proof Ladder); full cloud-proof implementation extends into Phase 5 with the rest of the dashboard work.
+
+Claude verification: dogfood each fixture + GitHub workflow result, confirm GREEN matches all Phase 1.75 RED findings closed, post typed `finding` packet (kind=`review_accepted` or `review_failed`) back to codex with receipt refs.
 
 ### Phase 4 — VoiceTerm shell quarantine/strip (only after Phases 1-3 green)
 
@@ -543,16 +831,49 @@ All pushes go to `guardir` remote. `origin` (voiceterm) stays frozen at `835060c
 - Cleanup of the 2 pending governed exceptions from yesterday (separate exception-debt slice)
 - Renaming GitHub repos (voiceterm and guardir stay separate repos)
 
-## Open operator decisions (claude flags for explicit answer before Phase 1 starts)
+## Open operator decisions (resolved + remaining)
 
-1. **Codex restart**: operator restarts codex with reconciliation-only opening prompt (drafted at `/tmp/operator_stop_instruction.md` from earlier turn), then codex implements Phase 0 + Phase 0.5 first. Claude verifies each slice. **Recommended**: operator restart codex into reconciliation mode; codex implements; claude verifies.
+**Resolved 2026-05-18T~14:55Z:**
 
-2. **GuardIR trunk branch**: Phase 0.3 creates `guardir-main` from preservation snapshot SHA `d92dc2ff` and pushes once (raw, for trunk creation only). After that: `preserve/*` immutable, `guardir-main` baseline, `extraction/*` working. **Recommended**: execute Phase 0.3 immediately at the start of Phase 0.
+1. ~~Cached-hammock plan preservation timing~~ — **DONE** via commit `ccf6b4f5` + auto post-commit `bf21b66a`. Files at `dev/audits/plan_intake/`. Typed PlanRow added.
 
-3. **Adopter-2 selection**: Phase 3A uses fixture repos (`greenfield_python` + `existing_plan_python` already pass; plus new `minimal_python_repo` + `minimal_mixed_repo`). Phase 3C uses VoiceTerm as adopter-1; second real-world adopter TBD. **Recommended**: prove POC on fixtures first, real-world adopter-2 after Phase 3C green.
+**Resolved 2026-05-18T~15:10 EDT (operator + ChatGPT directive):**
 
-4. **Cached-hammock plan preservation timing**: copy `~/.claude/plans/do-that-and-in-cached-hammock.md` into `dev/audits/plan_intake/` as Phase 0.1 step. **Recommended**: do this IMMEDIATELY before any other Phase 0 work — it's outside any current preservation snapshot, the literal "afraid losing" file.
+2. ~~228 orphan `feedback_*.md` files~~ — **QUARANTINE** (not delete) per Phase 0.0 above. Move to `~/.cache/guardir-memory-archive/2026-05-18-feedback-orphans/` with SHA256 manifest; add one pointer line to MEMORY.md.
 
-5. **finding_class backfill scope**: 882 rows in `external_pilot_findings.jsonl` need classification backfill. **Recommended**: Phase 2.5 task; codex applies classification batch using existing triage rules. Claude verifies sample correctness.
+3. ~~GuardIR trunk SHA selection~~ — **`92ef4032`** (the actual UNREVIEWED PRESERVATION SNAPSHOT content commit), NOT `d92dc2ff` (which is just the auto-snapshot artifact for `92ef4032`). Per Phase 0.3 above. Try governed push first; raw `--no-verify` only if Phase 1 P0 not yet implemented and hooks block.
 
-6. **PortabilityLeakInventory typing**: 22 blockers are prose-only in `ai_governance_platform.md:1150-1155`. **Recommended**: Phase 3B converts each to typed PlanRow with `MP377-GUARDIR-V21-PORTABILITY-S<n>` IDs.
+**Pending (operator action needed):**
+
+4. **Codex restart in strict Phase 0.5 + Phase 1 ONLY mode** (operator + ChatGPT directive 2026-05-18 ~15:10 EDT): operator launches codex CLI with this prompt — narrow scope, no Phase 2+ work yet:
+
+> Restart in reconciliation-only mode. Repo: jguida941/guardir. Do NOT work in or push to jguida941/voiceterm. Do NOT work on preserve/* except to verify evidence. Branch: `extraction/guardir-core-p0-proof-integrity` rooted at `guardir-main` (SHA `92ef4032`). Run `python3 dev/scripts/devctl.py session --role reviewer --include-review-status always --format json`, then `python3 dev/scripts/devctl.py develop next --actor codex --format md`. Read the plan it points at (`dev/audits/plan_intake/2026-05-18-guardir-extraction-plan.md`) + AGENTS.md + cached-hammock source.
+>
+> Scope for this restart: Phase 0.4 minimal + Phase 0.5 + Phase 1 ONLY.
+>
+> **First (BLOCKING — Phase 0.4 minimal mode)**: implement `check_guardir_extraction_plan_current.py --mode minimal` and wire into `check-router`. DO NOT proceed to Phase 0.5/1 work if the canonical plan file is stale, a competing plan exists, or memory files contain active plan authority.
+>
+> Then Phase 0.5 + Phase 1:
+> 0. `check_guardir_extraction_plan_current.py` minimal mode (Phase 0.4) — first
+> 1. `check_guardir_remote_identity.py` + `check_no_absolute_local_paths.py` (Phase 0.5)
+> 2. `GitMutationProofReceipt` typed contract at `dev/scripts/devctl/runtime/git_mutation_proof_receipt.py` (expanded 7+ binding fields per plan section 1A)
+> 3. Receipt store `dev/state/git_mutation_proof_receipts.jsonl`
+> 4. Emission-time verification at `governed_executor_commit_phase.py:222` + `push_flow.py:122`
+> 5. Writer-boundary check in `stage_progress.py`
+> 6. Consumption-time guards: `check_commit_complete_proof.py` + `check_push_complete_proof.py` + `check_no_projection_proof_misuse.py`
+> 7. Local bare-remote regression tests (`git init --bare /tmp/...`)
+> 8. Regression fixture at `dev/fixtures/proof_integrity/2026_05_18_false_commit_push/`
+>
+> DO NOT: create new plans/memory/active-docs, dashboard work, CI lane, VoiceTerm shell strip, cached-hammock role substrate. Those come AFTER Phase 1 + Phase 1.5 green.
+>
+> **You MAY delegate dogfood/verification/architect-review tasks to claude via typed `review-channel post` packet (kind=`task_started` or `action_request`, target_role=`dashboard` or `reviewer`). Claude responds via typed `finding` packet with dogfood evidence + receipt refs. Every feature you ship MUST be proved by claude's dogfood + receipt — no chat-prose acceptance, no events.jsonl narration as proof.**
+>
+> Respond to claude via typed `finding` packet with verdict (approve / amend / reject) + concrete commit shape before any code change.
+
+5. **Adopter-2 selection** (Phase 3A): use fixture repos first (`greenfield_python` + `existing_plan_python` already pass `MP377-ADOPTER-PILOT-GATE-S1`; add `minimal_python_repo` + `minimal_mixed_repo` per ChatGPT recommendation). VoiceTerm is adopter-1 in Phase 3C. Real-world adopter-2 deferred.
+
+6. **finding_class backfill scope**: 882 rows in `external_pilot_findings.jsonl` have `finding_class:null`. **Recommended**: Phase 2.5 task; codex applies classification batch using existing 9-value enum + triage rules. Claude verifies sample correctness via dogfood-receipt loop.
+
+7. **PortabilityLeakInventory typing**: 22 blockers are prose-only in `ai_governance_platform.md:1150-1155`. **Recommended**: Phase 3B converts each to typed PlanRow with `MP377-GUARDIR-V21-PORTABILITY-S<n>` IDs.
+
+**Anti-sprawl rule** (operator directive — applies to ALL phases): do NOT create new plans, memory files, active docs, strategy docs, or "preservation context" markdown unless typed state explicitly requires the file. Claude memory is short-term continuity only; durable rules live in typed contracts, repo policy, receipts, guards. One planning document = this file. Source files (cached-hammock, may17, ai_governance_platform, MASTER_PLAN, INDEX, SYSTEM_MAP, AGENTS, CLAUDE.md) are referenced, not duplicated.
