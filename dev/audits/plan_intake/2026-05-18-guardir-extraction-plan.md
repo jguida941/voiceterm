@@ -337,9 +337,11 @@ This route is **allowed for bootstrap/review over uncommitted state only**. It i
 
 This phase is BEFORE Phase 0.5 because: if launch/coordination is structurally broken at the authority-ordering layer, no Phase 1+ work can ever be empirically proven to land — every "green" is potentially fake.
 
-### Phase 0.6 — Entry-Point Hardening + Bridge Retirement + Role-Based Topology (NEW per operator amendment 2026-05-18 ~17:00 EDT)
+### Phase 0.6 — Entry-Point Parity + Bridge Containment + Topology-Hardcode Guard (NARROWED per operator amendment 2026-05-18 ~17:30 EDT)
 
-**Rationale**: operator-flagged 2026-05-18 ~17:00 EDT — three architectural root-cause concerns already specified in cached-hammock plan but not yet threaded into canonical extraction plan as a coherent phase. Without these, every later phase inherits a broken substrate (bridge as authority, codex/claude hardcoded, fragmented entry surfaces). Lands BEFORE Phase 1 P0 proof-integrity because Phase 1 implementations themselves WILL use `/develop`, will be observed via projections, and will reference role-based actors. Fixing the substrate first prevents repeating the same architectural defect at every later phase.
+**Operator scope-discipline correction**: original Phase 0.6 draft was too broad — would have turned one launch-authority bug into a 1000-line refactor before proof-integrity. Narrowed to **containment + inventory + guard only**, NOT full retirement/refactor. Full bridge retirement (170-reader migration) deferred to Phase 2. Full N-agent topology refactor (CognitiveRoleFleet) deferred to Phase 6. Phase 0.6 stops the bleeding without expanding scope.
+
+Lands BEFORE Phase 1 P0 proof-integrity because Phase 1 implementations themselves WILL use `/develop`, will be observed via projections, and will reference actors via the current hardcoded paths. Phase 0.6 prevents Phase 1 from adding NEW drift; it does not finish removing old drift.
 
 #### Phase 0.6.A — `/develop` Entry-Point Hardening (cached-hammock P58.1 lines 1147-1210)
 
@@ -360,77 +362,76 @@ Plus `/bypass` slash currently routes through legacy `agent-loop --operator-over
 3. Register `devctl bypass` subcommand family at `dev/scripts/devctl/commands/bypass/` (cached-hammock:1155 ground-truth probe gap)
 4. Reuse Phase 0.4-Bootstrap structured launch_report fields pattern for the new action handlers' typed report shapes
 
-#### Phase 0.6.B — Bridge.md Retirement → `peer_communication_state.md` Unified Projection (cached-hammock P188 lines 3470-3492)
+#### Phase 0.6.B — Bridge.md Containment + Inventory (NARROWED — full retirement deferred to Phase 2)
 
-**This is operator's "FRUSTRATION mandate" — bridge.md is the 90% root cause per cached-hammock:3251.** P188 supersedes the older Phase 2 P52 `BridgeAuthorityRetirementContract` which never landed (7-month failure).
+**Scope-discipline correction**: Phase 0.6.B is **CONTAINMENT only**, not retirement. Cached-hammock P188 `peer_communication_state.md` unified renderer + 170-reader migration is the right end-state but **too broad to ship before Phase 1 proof-integrity** — defer the full retirement to Phase 2 (post-proof-integrity).
 
-Cached-hammock P188 verbatim (line 3474): *"If the Bridge Md didn't exist, the entire system would work the same. It's a projection that somehow still has logic on it... our projection should show the entire system for every mode."*
+Cached-hammock P188 verbatim (line 3474): *"If the Bridge Md didn't exist, the entire system would work the same. It's a projection that somehow still has logic on it."* The operator's directive is right; Phase 0.6.B stops further damage without attempting full migration in one slice.
 
-Canonical replacement: **`peer_communication_state.md`** — single renderer producing ONE projection composing **7 typed mode axes** simultaneously:
-1. `ReviewState`
-2. `ImplementerAckEvents`
-3. `AgentSync`
-4. `LiveRoleTopology`
-5. `ToggleReceipt`
-6. `AgentMindSlice`
-7. `CollaborationSessionState`
+**Phase 0.6.B narrow scope (codex implements; claude verifies)**:
+1. **Inventory**: emit typed `BridgeReaderInventory` at `dev/state/bridge_reader_inventory.jsonl` — one row per file that reads `bridge.md`. Expected ~170 rows per audit. Inventory only — NO migration in this phase.
+2. **Guard — no new bridge authority consumers**: extend `dev/scripts/checks/check_bridge_projection_only.py` to detect NEW additions to the bridge-reader set (delta against inventory), failing CI if a commit adds a new bridge-as-authority consumer. Scope-widen only the delta-detection; do NOT migrate existing 170 readers.
+3. **Guard — direct write blocking**: any code path writing `bridge.md` outside `render-surfaces` regeneration must fail. Reuse existing render-surfaces machinery; do NOT build new renderer.
+4. **projection_stale classification**: stale/empty `bridge.md` returns a typed `projection_stale` marker, NOT `missing_backend_authority` (current behavior). Add `dev/scripts/devctl/runtime/bridge_projection_stale.py` (minimal) or extend existing bridge status helper.
+5. **No proof consumption**: extend `check_no_projection_proof_misuse.py` (Phase 1 work) to specifically reject `bridge.md` as a git-mutation-proof source.
 
-**Current state evidence** (audit-verified):
-- `check_bridge_projection_only.py` exists at `dev/scripts/checks/check_bridge_projection_only.py` (279 lines, May 10) but scoped to only 2 file groups + 1 bridge-poll group
-- **170 files still read `bridge.md` per `git ls-files | xargs grep -l bridge.md`** — the migration surface is large
-- 11 logic items found (not 52 fields — 52 was P1-P52 count); 1581 references categorized; 5 prior failed attempts archaeologized (cached-hammock:3480)
+**Out of scope for Phase 0.6.B** (deferred to Phase 2):
+- Building `peer_communication_state.py` + renderer
+- Composing the 7-axis unified projection
+- Migrating 170 bridge-readers
+- Adding `RuntimeBridgeProjectionSeparation` AST scanner
+- Full bridge retirement
 
-**Codex implementation order**:
-1. Build `dev/scripts/devctl/runtime/peer_communication_state.py` — typed contract composing the 7 axes (compose with existing contracts; do NOT fork parallels)
-2. Build `dev/scripts/devctl/commands/peer_communication_state/` renderer producing the unified projection
-3. Extend `check_bridge_projection_only.py` scope from 2 file groups to ALL 170 bridge-reading files via `check_runtime_projection_authority.py` (cached-hammock:3490, ~150 LOC AST scanner)
-4. Add `RuntimeBridgeProjectionSeparation` guard from cached-hammock:3490
-5. Regression: bridge.md content must regenerate from typed state on every read; direct writes to bridge.md must fail
+Phase 0.6.B prevents bleeding (no new authority consumers, no direct writes, projection_stale handling); Phase 2 finishes the migration.
 
-#### Phase 0.6.C — Role-Based N-Agent Topology + De-Hardcode Provider Names (cached-hammock P58.5 lines 1323-1389)
+#### Phase 0.6.C — Topology-Hardcode Guard + Inventory (NARROWED — full N-agent refactor deferred to Phase 6)
 
-Cached-hammock canonical statement (line 2746): *"System should be N-actor × N-role graph, not binary enum"* and (line 1389): *"Typed governance system was ALREADY designed for N×M but accumulated 7 hardcoded shortcuts."*
+**Scope-discipline correction**: Phase 0.6.C is **GUARD + INVENTORY only**, not full role refactor. Cached-hammock P58.5 `VariableMultiAgentMultiRoleGovernance` (N-actor × N-role graph, full CognitiveRoleFleet, refactor 7 hardcoded sites, rename ReviewerMode enum) is the right end-state but **too broad to ship before Phase 1 proof-integrity** — defer the full refactor to Phase 6 (cached-hammock role substrate).
 
-**Current state** (audit-verified):
-- `ReviewerMode` enum at `dev/scripts/devctl/runtime/reviewer_mode.py:10-31` has fixed `ACTIVE_DUAL_AGENT` / `SINGLE_AGENT` / `TOOLS_ONLY` / `PAUSED` / `OFFLINE` — count-coupled naming wrong
-- **28 files** in `dev/scripts/devctl/runtime/*.py` contain hardcoded `"codex"`/`"claude"`/`"cursor"` literals
-- `CollaborationModeTopology` contract at `development_collaboration_modes.py:321-341` is the typed surface
+**Phase 0.6.C narrow scope (codex implements; claude verifies)**:
+1. **Inventory**: emit typed `TopologyHardcodeInventory` at `dev/state/topology_hardcode_inventory.jsonl` — one row per location in `dev/scripts/devctl/runtime/*.py` that hardcodes `"codex"` / `"claude"` / `"cursor"` literals or count-based topology naming. Expected ~28 file rows per audit. Inventory only — NO refactor in this phase.
+2. **Guard — no new hardcoded provider literals**: add `dev/scripts/checks/check_no_new_hardcoded_provider_authority.py` that fails CI if a commit adds NEW `"codex"`/`"claude"`/`"cursor"` literal as topology authority outside the adopter-pack registry. Existing literals remain inventoried (no refactor in this phase).
+3. **Guard — no new ReviewerMode count-coupled members**: add check that fails if NEW `single_agent` / `dual_agent` / `triple_agent` style enum members are added. Existing `ACTIVE_DUAL_AGENT`/`SINGLE_AGENT`/`TOOLS_ONLY`/`PAUSED`/`OFFLINE` stay (no rename in this phase). Defer enum rename + alias-compatibility to Phase 6.
+4. **Minimal config scaffold**: create `dev/config/cognitive_role_fleet.json` skeleton (empty registry + schema) but do NOT migrate `DEFAULT_PROVIDER_ROLE_MAP` to load from it yet. Phase 6 lands the actual config-driven loader.
 
-**7 hardcoded sites to fix** (cached-hammock:1341-1358):
-1. `reviewer_runtime_duty_proof.py:108-109` — hardcoded "implementer==reviewer is bad" classification
-2. `collaboration_owner_selection.py:17` — hardcoded "different agent required"
-3. `collaboration_session_actor_roles.py:34-47` — returns single role string instead of tuple of all roles actor holds
-4. `peer_session_handshake.py:44-114` — hardcoded `actor != peer_actor` (should bind cognitive roles, not actors)
-5. `role_profile.py:33-39` — `DEFAULT_PROVIDER_ROLE_MAP` is 1:1 provider→role (should be provider→roles list, loaded from `cognitive_role_fleet.json`)
-6. `development_collaboration_modes.py:344-428` — `ROLE_PRESETS` is a fixed tuple constant (should load from operator-editable config)
-7. `role_profile.py:50-58` — `DEFAULT_PROVIDER_ROLE_MAP = {"codex": REVIEWER, "claude": IMPLEMENTER, "cursor": IMPLEMENTER}` — hardcoded provider literals (should load from policy)
+**Out of scope for Phase 0.6.C** (deferred to Phase 6):
+- Renaming `ReviewerMode` enum members
+- Refactoring `DEFAULT_PROVIDER_ROLE_MAP` to load from JSON
+- Fixing the 7 hardcoded sites (`reviewer_runtime_duty_proof.py:108-109`, `collaboration_owner_selection.py:17`, `collaboration_session_actor_roles.py:34-47`, `peer_session_handshake.py:44-114`, `role_profile.py:33-39 and :50-58`, `development_collaboration_modes.py:344-428`)
+- Building `CognitiveRoleFleetAssignment` invoke reducer
+- Loading `ROLE_PRESETS` from config
 
-**Composes with**:
-- Existing `CognitiveRole` enum (P6) — 8 base cognitive roles
-- Existing `ROLE_PRESETS` tuple (`development_collaboration_modes.py:344-428`) — 9 work-lane roles
-- Existing `CognitiveRoleFleetAssignment` dataclass (P6)
-- Existing `RoleCustomization` contract (`role_customization.py:24-92`)
-- Existing `CollaborationSessionState.role_assignments` graph
+Phase 0.6.C prevents bleeding (no new hardcoded provider literals, no new count-coupled enum members, config scaffold ready); Phase 6 finishes the refactor on the CognitiveRoleFleet substrate.
 
-**Codex implementation order**:
-1. Rename `ReviewerMode` enum members away from count-coupled naming: `ACTIVE_DUAL_AGENT` → `ACTIVE_MULTI_ROLE`, `SINGLE_AGENT` → `SINGLE_ROLE_ACTOR` (or similar role-based naming); preserve backward-compatible aliases during migration
-2. Refactor `DEFAULT_PROVIDER_ROLE_MAP` to load from `dev/config/cognitive_role_fleet.json` (NOT hardcoded)
-3. Fix the 7 hardcoded sites above to route through typed `actor_authorities` graph
-4. `cognitive_role_fleet.json` becomes single source of truth (operator-editable; providers/roles loaded at runtime)
-5. Regression: assert no hardcoded `"codex"`/`"claude"`/`"cursor"` literal strings exist in `dev/scripts/devctl/runtime/` outside the adopter-pack registry
+#### Phase 0.6 green criteria (NARROWED — containment/guard/inventory only)
 
-#### Phase 0.6 green criteria (claude verifies, no chat-prose acceptance)
+**0.6.A entry-point parity**:
+- ✅ All 4 missing `develop` action handlers exist (`--post-continuation-anchor`, `--post-task-produced`, `--post-evidence`, `--log-progress`)
+- ✅ `/goal`/`/check-it`/`/archive-evidence`/`/session-log` become thin aliases routing to `develop`
+- ✅ `devctl bypass` subcommand family registered; legacy `agent-loop --operator-override` no longer the canonical bypass route
 
-- ✅ All 4 missing `develop` action handlers exist; `/goal`/`/check-it`/`/archive-evidence`/`/session-log` become thin aliases routing to `develop`
-- ✅ `devctl bypass` subcommand family registered (no more legacy `agent-loop --operator-override` slash routing)
-- ✅ `peer_communication_state.md` renderer + contract exist; produces unified projection composing 7 mode axes
-- ✅ `check_bridge_projection_only.py` extended scope covers all 170 bridge-reading files (or `check_runtime_projection_authority.py` lands as superset)
-- ✅ `cognitive_role_fleet.json` exists; `DEFAULT_PROVIDER_ROLE_MAP` loads from it (not hardcoded)
-- ✅ 7 hardcoded sites de-hardcoded
-- ✅ Regression tests: bridge.md regenerates from typed state on read; direct writes fail; no hardcoded provider literals in core engine
-- ✅ `check-router` includes the new guards in default bundle
+**0.6.B bridge containment** (NOT retirement):
+- ✅ `BridgeReaderInventory` emitted at `dev/state/bridge_reader_inventory.jsonl` (~170 rows)
+- ✅ Guard rejects NEW bridge-as-authority consumers (delta-detection against inventory)
+- ✅ Direct writes to `bridge.md` outside `render-surfaces` fail
+- ✅ Stale/empty `bridge.md` returns `projection_stale`, not `missing_backend_authority`
+- ✅ `bridge.md` cannot be consumed as git-mutation-proof source
+- ⏳ Full `peer_communication_state.md` unified projection + 170-reader migration → **Phase 2**
 
-This phase is OPERATOR's three architectural root-cause concerns landed as one substrate-fix phase. Without Phase 0.6, Phase 1+ work will keep tripping over bridge-authority drift, hardcoded provider assumptions, and fragmented entry surfaces.
+**0.6.C topology-hardcode guard** (NOT refactor):
+- ✅ `TopologyHardcodeInventory` emitted at `dev/state/topology_hardcode_inventory.jsonl` (~28 rows)
+- ✅ Guard rejects NEW `"codex"`/`"claude"`/`"cursor"` literals as topology authority outside adopter-pack registry
+- ✅ Guard rejects NEW count-coupled `ReviewerMode` enum members
+- ✅ `dev/config/cognitive_role_fleet.json` skeleton exists (schema + empty registry; not yet loaded)
+- ⏳ Full N-agent topology refactor + ReviewerMode rename + 7 hardcoded site fixes → **Phase 6**
+
+**Cross-cutting**:
+- ✅ All new guards wired into `check-router` default bundle
+- ✅ Regression tests for the 5 containment behaviors (no new authority, no direct writes, projection_stale, no proof, no new literals)
+- ✅ Plan amendment commit (this narrowed version) lands as plan-only change before any 0.6 implementation begins
+- ✅ Phase 0.6 implementation lands on top of Phase 0.4 durable commit (b16d00a4) on extraction branch; pushed to GuardIR; SHA-verified
+
+Phase 0.6 stops the bleeding so Phase 1 P0 proof-integrity doesn't inherit broken substrate. Full bridge retirement (Phase 2) and full N-agent topology (Phase 6) remain deferred — DO NOT attempt them in this slice.
 
 ### Phase 0.5 — Repo identity safety + PII/local-path safety gates (NEW per ChatGPT #1 #8)
 
