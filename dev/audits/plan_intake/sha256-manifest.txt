@@ -1,0 +1,3 @@
+ac25face77dfce820171b93b8b56735bc215082cdc07e2fa1063e2f21ef9cb1f  dev/audits/plan_intake/2026-05-18-cached-hammock-role-audit.md
+22d81152ea9d81d1ef412f43baf644581efb6afcc1db95d37c491b75715482dd  dev/audits/plan_intake/2026-05-18-guardir-extraction-plan.md
+9166084ddc845658ddf7ca0d92a84e65b2d2349df1ed7f5b39f5bacd07c3e07b  dev/audits/plan_intake/2026-05-18-may17-plan.md
