@@ -283,6 +283,60 @@ GUARDIR_APPROVED_PLAN_PATH=/Users/jguida941/.claude/plans/yes-now-that-the-synth
 
 **Step 0.5-prep — Branch policy is permanent**: never make `preserve/*` the long-term default branch. After Phase 1 P0 lands and `guardir-main` exists, promote `guardir-main` to default on GitHub via repo settings (separate operator action). `preserve/*` stays as evidence locker only, forever. ChatGPT confirmed via GitHub connector at ~15:40 EDT that GuardIR's current default IS still `preserve/guardir-extraction-unreviewed-2026-05-18` — that's acceptable only until Phase 1 lands.
 
+### Phase 0.4-Bootstrap — Bootstrap / Launcher / Topology Reliability (NEW per operator amendment 2026-05-18 ~16:30 EDT)
+
+This phase exists because the system repeatedly misclassified launch/coordination failures as "path unavailable" instead of defects. **Empirical confirmation**: at 2026-05-18T~16:20Z, `review-channel --action launch --remote-provider codex --bypass-receipt-id bypass:grant-20260517T161231716807` rejected with "Last Codex poll stale + missing Implementer ACK" — the bridge-gated guard fired BEFORE the typed bypass receipt was evaluated. That contradicts AGENTS.md (typed authority outranks projections). At 2026-05-18T~16:25Z, the same operator-authored P0 finding-packet via `--from-agent operator` was blocked by `ControlDecisionObeyedGuard` BEFORE the operator-source was evaluated. Same authority-ordering defect at the post layer.
+
+**Direct Codex bootstrap route (known-good, verified 2026-05-18T~16:30Z)**:
+
+```bash
+codex --dangerously-bypass-approvals-and-sandbox review --uncommitted
+```
+
+This route is **allowed for bootstrap/review over uncommitted state only**. It is NOT proof-of-correctness, NOT commit authority, NOT push authority, NOT release authority. Verified working: PID 57880 spawned 2026-05-18T~16:17 EDT on `extraction/guardir-core-p0-proof-integrity` at HEAD `5bf86443`, model `gpt-5.5`, sandbox `workspace-write`, session id `019e3cbc-cf0d-7bd2-b375-f65ec04b7f7a`.
+
+**Required Phase 0.4-Bootstrap guarantees**:
+
+1. **Direct Codex bootstrap route is documented and tested** as a first-class recovery path. `review --uncommitted` over the current branch reads AGENTS.md/CLAUDE.md/typed boot card, verifies branch + remotes, NO inline prompt prose.
+2. **Launcher/router check** must distinguish:
+   - real direct Codex bootstrap (works as of 2026-05-18 ~16:30)
+   - remote-control adapter bootstrap (currently bridge-gated, broken)
+   - bridge projection (NOT authority)
+   - typed authority (AGENTS.md says BypassReceipt + operator-source + AgentLoopOperatorOverride)
+3. **Authority-ordering fix** (the actual bug — both launch and post layers):
+   - `BypassReceipt`, operator-source, `AgentLoopOperatorOverride` MUST be evaluated BEFORE projection/transient gates (bridge freshness, inbox unread, stale `AgentLoopDecision`, obedience debt)
+   - Currently inverted: `ControlDecisionObeyedGuard` and bridge-gate fire FIRST and short-circuit before receipt validation
+   - Fix scope: move/evaluate the typed receipt authority earlier in the guard pipeline; scope exactly what each receipt bypasses (launch precondition only, NOT staging/commit/push)
+4. **Topology/projection check**:
+   - `bridge.md` empty/stale = `projection_stale`, NOT missing backend authority
+   - `bridge.md` regenerated from typed state on demand OR marked `projection_stale`
+   - No agent treats `bridge.md` as source of truth
+5. **Anti-sprawl enforcement** (typed checks, not prose):
+   - no new plans / memories / active docs / extra strategy documents unless the current typed plan explicitly requires the file
+6. **Structured launch report fields** that every launcher MUST emit:
+   - `bypass_receipt_id`
+   - `bypass_receipt_validated: true/false`
+   - `bridge_gate_bypassed: true/false`
+   - `bypass_scope` (e.g., `launch_precondition_only`)
+   - `rejected_reason` if invalid/expired/out-of-scope
+
+**Required regression tests** (codex implements; claude verifies):
+- stale bridge + no receipt → rejects (preserve fail-closed)
+- stale bridge + invalid receipt → rejects (preserve fail-closed)
+- stale bridge + expired receipt → rejects (preserve fail-closed)
+- stale bridge + valid launch-scoped receipt → reaches launch path (CURRENTLY FAILS — receipt never evaluated)
+- valid receipt does NOT bypass staging/commit/push/raw-git authority (scope discipline)
+- stale `ControlDecisionObeyedGuard` + valid `--from-agent operator` → reaches post path (CURRENTLY FAILS — same defect at post layer)
+
+**Phase 0.4-Bootstrap implementation order**:
+1. Document direct route in `dev/active/ai_governance_platform.md` and AGENTS.md as the recovery bootstrap
+2. Add `dev/scripts/checks/check_launcher_authority_ordering.py` — fails if launcher guards run before receipt validation
+3. Add structured `launch_report` fields above to `review-channel --action launch` JSON output
+4. Add regression tests recreating today's failure modes (bridge-gated rejects with valid receipt; post rejects with valid operator source)
+5. Update launcher `retirement_note` only after behavior matches typed authority
+
+This phase is BEFORE Phase 0.5 because: if launch/coordination is structurally broken at the authority-ordering layer, no Phase 1+ work can ever be empirically proven to land — every "green" is potentially fake.
+
 ### Phase 0.5 — Repo identity safety + PII/local-path safety gates (NEW per ChatGPT #1 #8)
 
 Codex implements three new guards:
