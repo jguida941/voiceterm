@@ -82,7 +82,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll (Local America/New_York): `2026-05-18 10:01:39 EDT`
 - Reviewer mode: `active_dual_agent`
 - Effective reviewer mode: `tools_only`
-- Last non-audit worktree hash: `d7f1ab746a7f76f999f451416747aa23cd4519fd8025c5862182c564f9464f73`
+- Last non-audit worktree hash: `39413cf923faf3a9e7e1869af07bf8228c6c85cd7d36a84842ae4135fefa2fbf`
 - Current instruction revision: ``
 
 ## Protocol

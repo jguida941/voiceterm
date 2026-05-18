@@ -4,15 +4,15 @@
 
 ## Quick status
 
-- Branch: `preserve/guardir-extraction-unreviewed-2026-05-18`
-- HEAD: `92ef40320030` — UNREVIEWED PRESERVATION SNAPSHOT — voiceterm governance patch quarantine
-- Tree hash: `7f3b513bf7f5`
-- Generation stamp: `snap-1135aefe4549`
-- Generated at (UTC): 2026-05-18T14:54:28Z
+- Branch: `extraction/guardir-core-p0-proof-integrity`
+- HEAD: `ccf6b4f5f21c` — Phase 0.1: Preserve cached-hammock + may17 + approved extraction plan into typed state
+- Tree hash: `1f50f29ceff8`
+- Generation stamp: `snap-15125fa459fa`
+- Generated at (UTC): 2026-05-18T16:47:51Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 246 files, +28047/-1420
+- Delta since last snapshot: 24 commits, 247 files, +34214/-1365
 - Governance findings: 36 open / 0 fixed / 36 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -27,10 +27,10 @@ This repo builds a portable AI governance platform proven through one
 production client (VoiceTerm...
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
-- Current branch: `preserve/guardir-extraction-unreviewed-2026-05-18`
-- HEAD SHA: `92ef403200300169fe3e43b966c9e8288354b340`
+- Current branch: `extraction/guardir-core-p0-proof-integrity`
+- HEAD SHA: `ccf6b4f5f21cad5d290d90fe79d332178ceaded1`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-05-18T10:54:08-04:00
+- HEAD timestamp (UTC): 2026-05-18T12:47:30-04:00
 
 ## 2. Governance state
 
@@ -64,43 +64,43 @@ production client (VoiceTerm...
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `92ef40320030`
+Range: last 24 commits ending at `ccf6b4f5f21c`
 
 - commits: 24
-- files changed: 246
-- insertions: +28047
-- deletions: -1420
-- bundle classes touched: docs, tooling
+- files changed: 247
+- insertions: +34214
+- deletions: -1365
+- bundle classes touched: tooling, docs
 - authority surfaces touched: 8 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `92ef4032` | UNREVIEWED PRESERVATION SNAPSHOT — voiceterm governance pat… | 69 | +7933/-165 | tooling |  |
-| 2 | `835060c2` | Refresh external review snapshot for 47944776 | 2 | +80/-74 | docs |  |
-| 3 | `47944776` | Add semantic output consumption gates | 67 | +6820/-72 | tooling |  |
-| 4 | `85932c69` | Refresh external review snapshot for 6859108d | 2 | +79/-72 | docs |  |
-| 5 | `6859108d` | Add publication scope integrity guard | 7 | +395/-5 | tooling |  |
-| 6 | `4529338e` | Enforce successful closure proof for plan rows | 62 | +4313/-163 | tooling |  |
-| 7 | `a066d4c7` | Refresh external review snapshot for e5354d23 | 2 | +67/-65 | docs |  |
-| 8 | `e5354d23` | Backfill P13 applied plan row | 3 | +15/-0 | tooling |  |
-| 9 | `18273b32` | Add substrate commit plan-row guard | 8 | +716/-2 | tooling |  |
-| 10 | `a58de5fa` | Add git operation receipts | 17 | +584/-35 | tooling |  |
-| 11 | `c6c267ad` | Fix packet lifecycle and registry coverage | 30 | +492/-73 | tooling |  |
-| 12 | `87bd473d` | Refresh external review snapshot for c4612178 | 2 | +49/-49 | docs |  |
-| 13 | `c4612178` | Record artifact proof blockers | 4 | +288/-2 | tooling |  |
-| 14 | `5a14bc01` | Refresh external review snapshot for 24b2bc02 | 2 | +123/-119 | docs |  |
-| 15 | `24b2bc02` | Fix governance checkpoint gates | 43 | +3146/-111 | tooling |  |
-| 16 | `bd28e78b` | Record raw git closure receipt warnings | 1 | +3/-0 | tooling |  |
-| 17 | `18fae0b6` | Refresh bridge projection | 1 | +4/-4 | docs |  |
-| 18 | `6f17c007` | Preserve raw git closure error codes | 12 | +488/-18 | tooling |  |
-| 19 | `b1410fcc` | Fix typed peer collaboration and raw git closure gates | 29 | +1765/-83 | tooling |  |
-| 20 | `febe8986` | Refresh external review snapshot for 8bda213b | 2 | +59/-59 | docs |  |
-| 21 | `8bda213b` | Checkpoint R287 packet intake state | 4 | +74/-80 | tooling |  |
-| 22 | `91f2ed42` | Add governed transition schema fixtures | 16 | +402/-49 | tooling |  |
-| 23 | `477f01ae` | Refresh external review snapshot for 2a99a103 | 2 | +55/-55 | docs |  |
-| 24 | `2a99a103` | Repair packet plan continuity state | 6 | +97/-65 | tooling |  |
+| 1 | `ccf6b4f5` | Phase 0.1: Preserve cached-hammock + may17 + approved extra… | 4 | +6246/-0 | tooling |  |
+| 2 | `d92dc2ff` | Refresh external review snapshot for 92ef4032 | 2 | +73/-65 | docs |  |
+| 3 | `92ef4032` | UNREVIEWED PRESERVATION SNAPSHOT — voiceterm governance pat… | 69 | +7933/-165 | tooling |  |
+| 4 | `835060c2` | Refresh external review snapshot for 47944776 | 2 | +80/-74 | docs |  |
+| 5 | `47944776` | Add semantic output consumption gates | 67 | +6820/-72 | tooling |  |
+| 6 | `85932c69` | Refresh external review snapshot for 6859108d | 2 | +79/-72 | docs |  |
+| 7 | `6859108d` | Add publication scope integrity guard | 7 | +395/-5 | tooling |  |
+| 8 | `4529338e` | Enforce successful closure proof for plan rows | 62 | +4313/-163 | tooling |  |
+| 9 | `a066d4c7` | Refresh external review snapshot for e5354d23 | 2 | +67/-65 | docs |  |
+| 10 | `e5354d23` | Backfill P13 applied plan row | 3 | +15/-0 | tooling |  |
+| 11 | `18273b32` | Add substrate commit plan-row guard | 8 | +716/-2 | tooling |  |
+| 12 | `a58de5fa` | Add git operation receipts | 17 | +584/-35 | tooling |  |
+| 13 | `c6c267ad` | Fix packet lifecycle and registry coverage | 30 | +492/-73 | tooling |  |
+| 14 | `87bd473d` | Refresh external review snapshot for c4612178 | 2 | +49/-49 | docs |  |
+| 15 | `c4612178` | Record artifact proof blockers | 4 | +288/-2 | tooling |  |
+| 16 | `5a14bc01` | Refresh external review snapshot for 24b2bc02 | 2 | +123/-119 | docs |  |
+| 17 | `24b2bc02` | Fix governance checkpoint gates | 43 | +3146/-111 | tooling |  |
+| 18 | `bd28e78b` | Record raw git closure receipt warnings | 1 | +3/-0 | tooling |  |
+| 19 | `18fae0b6` | Refresh bridge projection | 1 | +4/-4 | docs |  |
+| 20 | `6f17c007` | Preserve raw git closure error codes | 12 | +488/-18 | tooling |  |
+| 21 | `b1410fcc` | Fix typed peer collaboration and raw git closure gates | 29 | +1765/-83 | tooling |  |
+| 22 | `febe8986` | Refresh external review snapshot for 8bda213b | 2 | +59/-59 | docs |  |
+| 23 | `8bda213b` | Checkpoint R287 packet intake state | 4 | +74/-80 | tooling |  |
+| 24 | `91f2ed42` | Add governed transition schema fixtures | 16 | +402/-49 | tooling |  |
 
 ### Files
 
@@ -108,10 +108,13 @@ Range: last 24 commits ending at `92ef40320030`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +3/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +9/-0 |
-| `bridge.md` | docs | +114/-113 |
+| `bridge.md` | docs | +115/-114 |
 | `dev/active/MASTER_PLAN.md` | tooling | +146/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +36/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +688/-674 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +654/-632 |
+| `dev/audits/plan_intake/2026-05-18-cached-hammock-role-audit.md` | tooling | +4314/-0 |
+| `dev/audits/plan_intake/2026-05-18-guardir-extraction-plan.md` | tooling | +558/-0 |
+| `dev/audits/plan_intake/2026-05-18-may17-plan.md` | tooling | +1373/-0 |
 | `dev/config/devctl_repo_policy.json` | tooling | +23/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +15/-1 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +117/-116 |
@@ -143,10 +146,7 @@ Range: last 24 commits ending at `92ef40320030`
 | `dev/scripts/devctl/cli_parser/entrypoint.py` | tooling | +28/-2 |
 | `dev/scripts/devctl/cli_parser/exceptions.py` | tooling | +19/-4 |
 | `dev/scripts/devctl/command_runner.py` | tooling | +37/-1 |
-| `dev/scripts/devctl/commands/check/router.py` | tooling | +12/-0 |
-| `dev/scripts/devctl/commands/check/router_coverage.py` | tooling | +98/-0 |
-| `dev/scripts/devctl/commands/check/router_render.py` | tooling | +12/-0 |
-| _206 more files trimmed_ | | |
+| _207 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -229,6 +229,9 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`ccf6b4f5`** — Phase 0.1: Preserve cached-hammock + may17 + approved extraction plan into typed state
+  - Operator-issued 2026-05-18T~14:50Z UTC. UNREVIEWED PRESERVATION COMMIT — emergency preservation mode (Phase 1 P0 proof-integrity not yet fixed; raw --no-verify per operator's pre-approved preservation pattern from today's R416 round).
+- **`d92dc2ff`** — Refresh external review snapshot for 92ef4032
 - **`92ef4032`** — UNREVIEWED PRESERVATION SNAPSHOT — voiceterm governance patch quarantine
   - Operator-issued 2026-05-18T~14:30Z UTC. This is an emergency preservation
   - snapshot, NOT a release commit. It captures the 69-path uncommitted
@@ -257,8 +260,6 @@ Recent findings:
 - **`febe8986`** — Refresh external review snapshot for 8bda213b
 - **`8bda213b`** — Checkpoint R287 packet intake state
 - **`91f2ed42`** — Add governed transition schema fixtures
-- **`477f01ae`** — Refresh external review snapshot for 2a99a103
-- **`2a99a103`** — Repair packet plan continuity state
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -302,4 +303,4 @@ repo_path=/Users/jguida941/testing_upgrade/codex-voice
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-1135aefe4549` binds this file to HEAD `92ef40320030`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-15125fa459fa` binds this file to HEAD `ccf6b4f5f21c`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
