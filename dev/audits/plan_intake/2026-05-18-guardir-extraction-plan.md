@@ -409,6 +409,7 @@ Phase 0.6.C prevents bleeding (no new hardcoded provider literals, no new count-
 - ✅ All 4 missing `develop` action handlers exist (`--post-continuation-anchor`, `--post-task-produced`, `--post-evidence`, `--log-progress`)
 - ✅ `/goal`/`/check-it`/`/archive-evidence`/`/session-log` become thin aliases routing to `develop`
 - ✅ `devctl bypass` subcommand family registered; legacy `agent-loop --operator-override` no longer the canonical bypass route
+- ✅ **ALIAS AUTHORITY PARITY (operator-mandated 2026-05-18 ~17:45 EDT)**: no command alias may parse into a different authority model than `/develop`. `/goal` cannot create one packet kind and `/develop --post-continuation-anchor` create another. Same for `/check-it`, `/archive-evidence`, `/session-log`. They MUST be adapters into the same typed path, NOT parallel command systems. Regression test: invoke each alias + the canonical `/develop` action, assert the resulting typed packet/event payload is IDENTICAL byte-for-byte (modulo timestamp/id).
 
 **0.6.B bridge containment** (NOT retirement):
 - ✅ `BridgeReaderInventory` emitted at `dev/state/bridge_reader_inventory.jsonl` (~170 rows)
