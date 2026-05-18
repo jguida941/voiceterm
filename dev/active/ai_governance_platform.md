@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-05-15 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-05-18 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -99,6 +99,16 @@ Current ingestion status:
   final-gate/operator-override decisions, launch scripts, and review-channel
   recovery all read the same typed state rather than raw provider flags or
   bridge prose.
+- 2026-05-18 Phase 0.4-Bootstrap recovery route: the direct Codex command
+  `codex --dangerously-bypass-approvals-and-sandbox review --uncommitted` is
+  a documented review-only bootstrap path for inspecting uncommitted state when
+  launch/coordination authority ordering is broken. It is not commit, push,
+  release, staging, or proof-of-correctness authority; durable mutation and
+  publication still require the typed receipt/guard chain. Remote-control
+  adapter bootstrap remains subject to the launcher authority-ordering guard,
+  where active `BypassReceipt`, operator-source packets, and scoped
+  `AgentLoopOperatorOverride` authority must be evaluated before bridge,
+  inbox, or stale control-decision projections.
 - 2026-05-14 agent-supervise execution bridge: MP-377 closes the report-only
   gap in `AgentSuperviseReport` without creating a second watchdog or launcher.
   `agent-supervise` remains read-only by default, and `--execute` runs the

@@ -17,6 +17,9 @@ from ...review_channel.launch import (
     list_terminal_profiles,
     resolve_cli_path,
 )
+from ...review_channel.launch_authority_ordering import (
+    require_valid_launch_bypass_if_requested,
+)
 from ...review_channel.session_probe import load_conductor_sessions
 from ...review_channel.state import refresh_status_snapshot
 from .bridge_action_support import (
@@ -314,6 +317,10 @@ def _run_bridge_action(
         args,
         launch_interaction_mode,
     )
+    launch_authority_report = require_valid_launch_bypass_if_requested(
+        args=args,
+        repo_root=repo_root,
+    )
     _apply_launch_visibility_defaults(
         args=args,
         status_dir=status_dir,
@@ -336,6 +343,7 @@ def _run_bridge_action(
             promotion_plan_path=promotion_plan_path,
             bridge_actions=LAUNCH_GUARDED_ACTIONS,
             extra_warnings=extra_warnings,
+            launch_authority_report=launch_authority_report,
         ),
         build_bridge_guard_report_fn=build_bridge_guard_report,
         list_terminal_profiles_fn=list_terminal_profiles,

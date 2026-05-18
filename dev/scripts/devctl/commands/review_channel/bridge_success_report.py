@@ -9,6 +9,7 @@ from ...approval_mode import normalize_approval_mode
 from ...review_channel.core import REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE
 from ...review_channel.handoff import handoff_bundle_to_dict
 from ...review_channel.heartbeat import bridge_heartbeat_refresh_to_dict
+from ...review_channel.launch_authority_ordering import launch_authority_report_fields
 from ...review_channel.peer_liveness import OverallLivenessState
 from ...review_channel.promotion import promotion_candidate_to_dict
 from ...review_channel.reviewer_state import reviewer_state_write_to_dict
@@ -157,6 +158,7 @@ def _base_success_report(
             reviewer_state_write_to_dict(request.reviewer_state_write),
         ),
     ))
+    report.update(launch_authority_report_fields(args))
     if isinstance(request.reviewer_worker, dict):
         report["review_needed"] = bool(request.reviewer_worker.get("review_needed"))
     return report

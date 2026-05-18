@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from ...approval_mode import normalize_approval_mode
+from ...review_channel.launch_authority_ordering import launch_authority_report_fields
 from ...review_channel.events import resolve_artifact_paths
 from .constants import CLI_RUNTIME_PATH_ARGS
 from .constants import EVENT_STATUS_FALLBACK_DETAIL
@@ -54,6 +55,7 @@ def _error_report(args, message: str, *, exit_code: int) -> tuple[dict[str, obje
         rollover_trigger=getattr(args, "rollover_trigger", None),
         await_ack_seconds=getattr(args, "await_ack_seconds", None),
         errors=[message],
+        **launch_authority_report_fields(args),
     )
     return payload.to_report(), exit_code
 

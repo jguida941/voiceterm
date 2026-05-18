@@ -672,6 +672,14 @@ def _review_channel_lifecycle_gate(
         source_latest_event_id=source_latest_event_id,
         started_at_utc=utc_timestamp(),
     ).to_dict()
+    if _operator_post_authority(args):
+        return {
+            "ok": True,
+            "contract_id": "ControlDecisionObeyedGuard",
+            "operator_source_authority": True,
+            "authority_ordering": "operator_source_before_control_decision_obedience",
+            "attempted_action_receipt": attempted,
+        }
     if not decision and _allow_missing_control_decision_for_test(
         args=args,
         repo_root=context.repo_root,
@@ -689,6 +697,14 @@ def _review_channel_lifecycle_gate(
     report["attempted_action_receipt"] = attempted
     report["command"] = "review-channel.control_decision_obedience"
     return report
+
+
+def _operator_post_authority(args) -> bool:
+    """Operator-authored packet posts outrank stale controller wait state."""
+    return (
+        coerce_string(getattr(args, "action", "")).strip() == "post"
+        and coerce_string(getattr(args, "from_agent", "")).strip() == "operator"
+    )
 
 
 def _control_decision_args(args) -> SimpleNamespace:

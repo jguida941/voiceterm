@@ -16,6 +16,7 @@ from ...review_channel.core import (
     summarize_bridge_guard_failures,
 )
 from ...review_channel.handoff import bridge_liveness_to_dict, extract_bridge_snapshot, summarize_bridge_liveness
+from ...review_channel.launch_authority_ordering import launch_bridge_gate_bypassed
 from ...review_channel.heartbeat import compute_non_audit_worktree_hash
 from ...review_channel.peer_liveness import (
     ReviewerMode,
@@ -39,6 +40,7 @@ def bridge_launch_state(
     args,
     context: BridgeStateContext,
     bridge_actions: set[str],
+    launch_authority_report: dict[str, object] | None = None,
     build_bridge_guard_report_fn: Callable[..., dict[str, object]] | None = None,
 ) -> BridgeStateResult:
     """Parse lanes + liveness and validate the bridge guard for launch actions."""
@@ -96,6 +98,21 @@ def bridge_launch_state(
                 current_worktree_hash=current_hash,
             )
     if args.action in bridge_actions and context.bridge_path.exists():
+        if launch_bridge_gate_bypassed(launch_authority_report):
+            bridge_liveness = bridge_liveness_to_dict(bridge_liveness_state)
+            codex_lanes = filter_provider_lanes(lanes, provider="codex")
+            claude_lanes = filter_provider_lanes(lanes, provider="claude")
+            cursor_lanes = filter_provider_lanes(lanes, provider="cursor")
+            return BridgeStateResult(
+                lanes=lanes,
+                bridge_liveness=bridge_liveness,
+                bridge_liveness_state=bridge_liveness_state,
+                codex_lanes=codex_lanes,
+                claude_lanes=claude_lanes,
+                cursor_lanes=cursor_lanes,
+                bridge_heartbeat_refresh=bridge_refresh,
+                reviewer_state_write=reviewer_state_write,
+            )
         dry_run = bool(getattr(args, "dry_run", False))
         bridge_guard_report = build_bridge_guard_report_fn(
             repo_root=context.repo_root,

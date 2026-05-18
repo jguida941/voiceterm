@@ -54,6 +54,11 @@ class ReviewChannelErrorReport:
     reviewer_supervisor: dict[str, object] | None = None
     service_identity: dict[str, object] | None = None
     attach_auth_policy: dict[str, object] | None = None
+    bypass_receipt_id: str = ""
+    bypass_receipt_validated: bool = False
+    bridge_gate_bypassed: bool = False
+    bypass_scope: str = ""
+    rejected_reason: str = ""
 
     def to_report(self) -> dict[str, object]:
         """Convert the payload into JSON/markdown renderer input."""

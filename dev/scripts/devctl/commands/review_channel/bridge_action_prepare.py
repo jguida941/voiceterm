@@ -10,6 +10,7 @@ from ...review_channel.bridge_runtime_state import BridgeStateContext
 from ...review_channel.bridge_promotion import maybe_auto_promote_next_task
 from ...review_channel.promotion import promote_bridge_instruction
 from ...review_channel.bridge_runtime_state import enforce_bridge_launch_attention
+from ...review_channel.launch_authority_ordering import launch_bridge_gate_bypassed
 from ...review_channel.launch import list_terminal_profiles
 from .bridge_action_support import BridgePromotionContext, resolve_promotion_and_terminal_state
 from .bridge_launch_control import prepare_rollover_bundle
@@ -41,6 +42,7 @@ class BridgeActionPreparationRequest:
     promotion_plan_path: Path | None
     bridge_actions: set[str]
     extra_warnings: list[str] | None
+    launch_authority_report: dict[str, object] | None = None
 
 
 def prepare_bridge_action(
@@ -71,14 +73,16 @@ def prepare_bridge_action(
             status_dir=request.status_dir,
         ),
         bridge_actions=request.bridge_actions,
+        launch_authority_report=request.launch_authority_report,
         build_bridge_guard_report_fn=build_bridge_guard_report_fn
         or build_bridge_guard_report,
     )
-    enforce_bridge_launch_attention(
-        action=request.args.action,
-        bridge_actions=request.bridge_actions,
-        bridge_liveness=bridge_state.bridge_liveness,
-    )
+    if not launch_bridge_gate_bypassed(request.launch_authority_report):
+        enforce_bridge_launch_attention(
+            action=request.args.action,
+            bridge_actions=request.bridge_actions,
+            bridge_liveness=bridge_state.bridge_liveness,
+        )
     promotion, terminal_profile_applied, warnings = resolve_promotion_and_terminal_state(
         args=request.args,
         context=BridgePromotionContext(
@@ -97,6 +101,14 @@ def prepare_bridge_action(
         *prelaunch_promotion_warnings,
         *warnings,
     ]
+    if (
+        request.launch_authority_report
+        and request.launch_authority_report.get("bridge_gate_bypassed")
+    ):
+        warnings.append(
+            "Bridge launch preconditions bypassed by active BypassReceipt; "
+            "scope=launch_precondition_only."
+        )
     if request.promotion_plan_path is None:
         warnings.append(
             "Scoped promotion plan unresolved; auto-promotion is disabled until bridge/tracker scope is set."

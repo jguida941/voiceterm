@@ -48,6 +48,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("role_review_completed", "check_role_review_completed.py"),
     ("guard_enforcement_inventory", "check_guard_enforcement_inventory.py"),
     ("ground_truth_probe_gate", "check_ground_truth_probe_gate.py"),
+    ("launcher_authority_ordering", "check_launcher_authority_ordering.py"),
     ("governed_transitions", "check_governed_transitions.py"),
     ("guide_contract_sync", "check_guide_contract_sync.py"),
     ("memory_not_authority", "check_memory_not_authority.py"),
